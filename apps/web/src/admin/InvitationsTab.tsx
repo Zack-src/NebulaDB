@@ -67,7 +67,7 @@ export function InvitationsTab() {
       <div className="mb-7 flex max-w-[420px] items-center gap-2">
         <input
           className={`${INPUT_CLASS} flex-1`}
-          placeholder="Email to invite"
+          placeholder="Email à inviter"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && create()}
@@ -82,12 +82,12 @@ export function InvitationsTab() {
           Admin
         </label>
         <Button variant="primary" onClick={create} disabled={busy || !email.trim()}>
-          <PlusIcon size={14} /> Invite
+          <PlusIcon size={14} /> Inviter
         </Button>
       </div>
       {error && <ErrorText>{error}</ErrorText>}
       {invitations.length === 0 ? (
-        <EmptyState>No invitations yet.</EmptyState>
+        <EmptyState>Aucune invitation pour le moment.</EmptyState>
       ) : (
         <List>
           {invitations.map((inv) => (
@@ -100,9 +100,9 @@ export function InvitationsTab() {
               {inv.status === "pending" && (
                 <>
                   <Button size="sm" onClick={() => copyLink(inv)}>
-                    <LinkIcon size={12} /> {copiedToken === inv.token ? "Copied" : "Copy link"}
+                    <LinkIcon size={12} /> {copiedToken === inv.token ? "Copié" : "Copier le lien"}
                   </Button>
-                  <Button variant="ghost" size="icon" data-tooltip="Revoke" onClick={() => revoke(inv.token)}>
+                  <Button variant="ghost" size="icon" data-tooltip="Révoquer" onClick={() => revoke(inv.token)}>
                     <TrashIcon size={13} />
                   </Button>
                 </>

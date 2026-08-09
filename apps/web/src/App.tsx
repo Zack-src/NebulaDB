@@ -3,6 +3,7 @@ import "@xyflow/react/dist/style.css";
 import { useAuthSession } from "./hooks/useAuthSession.js";
 import { useProjects } from "./hooks/useProjects.js";
 import { useProjectRouting } from "./hooks/useProjectRouting.js";
+import { ErrorBoundary } from "./ErrorBoundary.js";
 import { ProjectEditor } from "./ProjectEditor.js";
 import { ProjectListScreen } from "./ProjectListScreen.js";
 import { Login } from "./Login.js";
@@ -49,16 +50,29 @@ export function App() {
   if (routing.openProject && session) {
     return (
       <div className={APP_SHELL}>
-        <ProjectEditor
-          project={routing.openProject}
-          session={session}
-          onDisplayNameChange={updateDisplayName}
-          onLogout={() => {
-            logout();
-            setViewMode("landing");
-          }}
-          onBack={routing.closeProject}
-        />
+        {/* Inner boundary, keyed on the project: a crash inside one document
+            (a bad entity from a collaborator, a misbehaving plugin command)
+            shouldn't look like the whole app died, and "back to my projects"
+            recovers without a reload — the outer boundary in main.tsx can only
+            offer that reload. The key also clears a stuck error state when the
+            user opens a different project. */}
+        <ErrorBoundary
+          key={routing.openProject.id}
+          title="Ce projet n'a pas pu s'afficher"
+          onReset={routing.closeProject}
+          resetLabel="Retour à mes projets"
+        >
+          <ProjectEditor
+            project={routing.openProject}
+            session={session}
+            onDisplayNameChange={updateDisplayName}
+            onLogout={() => {
+              logout();
+              setViewMode("landing");
+            }}
+            onBack={routing.closeProject}
+          />
+        </ErrorBoundary>
       </div>
     );
   }
@@ -146,6 +160,7 @@ export function App() {
       session={session}
       serverStatus={serverStatus}
       projects={projectsHandle.projects}
+      projectsLoaded={projectsHandle.loaded}
       openLinkError={routing.openLinkError}
       onOpenProject={routing.openProjectAndNavigate}
       onOpenAdmin={() => setAdminOpen(true)}

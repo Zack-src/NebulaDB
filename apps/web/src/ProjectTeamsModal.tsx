@@ -65,14 +65,14 @@ function ProjectTeamsModal(props: { project: ProjectSummary; onClose: () => void
   const availableTeams = teams.filter((t) => !grants.some((g) => g.teamId === t.id));
 
   return (
-    <Modal title={`Teams — ${props.project.name}`} onClose={props.onClose}>
+    <Modal title={`Équipes — ${props.project.name}`} onClose={props.onClose}>
       <Hint>
-        A project with no team assigned is visible to everyone. Assigning a team restricts it to that team's members
-        (plus the creator and admins).
+        Un projet sans équipe assignée est visible par tout le monde. Assigner une équipe le restreint aux membres de
+        cette équipe (plus son créateur et les administrateurs).
       </Hint>
       <div className="mb-7 flex max-w-[420px] gap-2">
         <select className={SELECT_CLASS} value={pickTeamId} onChange={(e) => setPickTeamId(e.target.value)}>
-          <option value="">Assign a team…</option>
+          <option value="">Assigner une équipe…</option>
           {availableTeams.map((t) => (
             <option key={t.id} value={t.id}>
               {t.name}
@@ -87,12 +87,12 @@ function ProjectTeamsModal(props: { project: ProjectSummary; onClose: () => void
           ))}
         </select>
         <Button variant="primary" onClick={assign} disabled={!pickTeamId}>
-          <PlusIcon size={14} /> Assign
+          <PlusIcon size={14} /> Assigner
         </Button>
       </div>
       {error && <ErrorText>{error}</ErrorText>}
       {grants.length === 0 ? (
-        <EmptyState>No teams assigned — visible to everyone.</EmptyState>
+        <EmptyState>Aucune équipe assignée — visible par tout le monde.</EmptyState>
       ) : (
         <List>
           {grants.map((g) => (
@@ -111,7 +111,7 @@ function ProjectTeamsModal(props: { project: ProjectSummary; onClose: () => void
                   </option>
                 ))}
               </select>
-              <Button variant="ghost" size="icon" data-tooltip="Unassign" onClick={() => unassign(g.teamId)}>
+              <Button variant="ghost" size="icon" data-tooltip="Retirer l'assignation" onClick={() => unassign(g.teamId)}>
                 <TrashIcon size={13} />
               </Button>
             </ListRow>

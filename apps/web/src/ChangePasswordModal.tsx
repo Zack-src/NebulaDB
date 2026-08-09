@@ -15,11 +15,11 @@ function ChangePasswordModal(props: { onClose: () => void }) {
 
   const submit = async () => {
     if (newPassword.length < 8) {
-      setError("New password must be at least 8 characters.");
+      setError("Le nouveau mot de passe doit faire au moins 8 caractères.");
       return;
     }
     if (newPassword !== confirm) {
-      setError("Passwords don't match.");
+      setError("Les mots de passe ne correspondent pas.");
       return;
     }
     setBusy(true);
@@ -34,7 +34,7 @@ function ChangePasswordModal(props: { onClose: () => void }) {
         setDone(true);
       } else {
         const data = await res.json().catch(() => ({}));
-        setError(data.error ?? `Failed (${res.status})`);
+        setError(data.error ?? `Échec (${res.status})`);
       }
     } finally {
       setBusy(false);
@@ -42,13 +42,13 @@ function ChangePasswordModal(props: { onClose: () => void }) {
   };
 
   return (
-    <Modal title="Change password" onClose={props.onClose}>
+    <Modal title="Modifier le mot de passe" onClose={props.onClose}>
       {done ? (
-        <Hint>Password changed.</Hint>
+        <Hint>Mot de passe modifié.</Hint>
       ) : (
         <>
           <Field
-            label="Current password"
+            label="Mot de passe actuel"
             type="password"
             autoFocus
             value={currentPassword}
@@ -56,21 +56,21 @@ function ChangePasswordModal(props: { onClose: () => void }) {
             autoComplete="current-password"
           />
           <Field
-            label="New password"
+            label="Nouveau mot de passe"
             type="password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
             autoComplete="new-password"
           />
           <Field
-            label="Confirm new password"
+            label="Confirmer le nouveau mot de passe"
             type="password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             autoComplete="new-password"
           />
           <Button variant="primary" onClick={submit} disabled={busy || !currentPassword || !newPassword || !confirm}>
-            {busy ? "Changing…" : "Change password"}
+            {busy ? "Modification…" : "Modifier le mot de passe"}
           </Button>
           {error && <ErrorText>{error}</ErrorText>}
         </>

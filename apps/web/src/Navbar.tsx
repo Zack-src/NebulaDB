@@ -2,7 +2,7 @@ import { BrandMark } from "./ui/BrandMark.js";
 import { Button } from "./ui/Button.js";
 import { Badge } from "./ui/Badge.js";
 import { StatusPill } from "./ui/StatusPill.js";
-import { SettingsIcon, UsersIcon, SparklesIcon, LogOutIcon } from "./Icons.js";
+import { SettingsIcon, UsersIcon, LogOutIcon } from "./Icons.js";
 import type { Session } from "./types.js";
 
 export interface NavbarProps {
@@ -80,14 +80,17 @@ export function Navbar({
           <SettingsIcon size={13} className="text-text-muted" />
         </button>
 
+        {/* Was a "Cloud Pro" upsell button pointing at settings — an upsell for
+            a product that doesn't exist, on a page the user is already using.
+            It opens the settings panel, so it now says so. */}
         {onOpenSettings && (
           <Button
-            variant="primary"
+            variant="ghost"
             size="sm"
             onClick={onOpenSettings}
             className="hidden md:inline-flex gap-1.5 text-xs"
           >
-            <SparklesIcon size={13} /> Cloud Pro
+            <SettingsIcon size={13} /> Paramètres
           </Button>
         )}
 

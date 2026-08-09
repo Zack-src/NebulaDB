@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { auditUser } from "../audit.js";
 import { db } from "../db.js";
 import { normalizeEmail } from "../auth/email.js";
 import { checkPassword, hashPassword } from "../auth/password.js";
@@ -49,6 +50,7 @@ export function registerInvitationRoutes(app: FastifyInstance): void {
       "INSERT INTO invitations (token, email, is_admin, invited_by, expires_at) VALUES (?, ?, ?, ?, ?)",
     ).run(token, normalized, isAdmin ? 1 : 0, admin.id, expiresAt);
 
+    auditUser(admin, "invitation.create", { type: "invitation", id: token }, `${normalized}${isAdmin ? " (admin)" : ""}`, req);
     return reply.code(201).send({ token, inviteUrl: `/invite/${token}`, email: normalized, expiresAt });
   });
 
@@ -73,6 +75,7 @@ export function registerInvitationRoutes(app: FastifyInstance): void {
     if (!admin) return;
     const { token } = req.params as { token: string };
     db.prepare("DELETE FROM invitations WHERE token = ? AND accepted_at IS NULL").run(token);
+    auditUser(admin, "invitation.revoke", { type: "invitation", id: token }, undefined, req);
     return { revoked: true };
   });
 
@@ -132,7 +135,10 @@ export function registerInvitationRoutes(app: FastifyInstance): void {
       return { error: "this invitation has already been used" };
     }
 
-    createSession(id, reply);
+    createSession(id, reply, req);
+    // The actor here is the brand-new account itself, not an admin — this is
+    // the row that ties an account's existence to the invitation it came from.
+    auditUser({ id, email: invitation.email }, "invitation.accept", { type: "invitation", id: token }, undefined, req);
     return { id, email: invitation.email, isAdmin: invitation.is_admin === 1, displayName: invitation.email.split("@")[0] };
   });
 }

@@ -32,6 +32,32 @@ export interface UserSummary {
   isAdmin: boolean;
   displayName: string;
   createdAt: string;
+  /** ISO timestamp when the account was disabled; null/absent for an active one. */
+  disabledAt?: string | null;
+}
+
+/** One of the caller's own login sessions, as returned by `GET /api/auth/sessions`. */
+export interface SessionSummary {
+  id: string;
+  createdAt: string;
+  lastSeenAt: string;
+  expiresAt: string;
+  userAgent: string | null;
+  ip: string | null;
+  current: boolean;
+}
+
+/** One row of the admin audit trail (`GET /api/audit`). */
+export interface AuditEntry {
+  id: string;
+  createdAt: string;
+  actorId: string | null;
+  actorEmail: string | null;
+  action: string;
+  targetType: string | null;
+  targetId: string | null;
+  detail: string | null;
+  ip: string | null;
 }
 
 export interface InvitationSummary {

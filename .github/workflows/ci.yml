@@ -39,3 +39,14 @@ jobs:
 
       - name: Test
         run: npm test
+
+      # Catches a newly-published advisory in a dependency before it is found
+      # by hand months later. `--audit-level=high` deliberately: the repo
+      # currently carries one known moderate finding (esbuild's dev server,
+      # reachable only when running `npm run dev`, fixable only by a Vite major
+      # — tracked in docs/todo.md), and a gate that is red on day one gets
+      # ignored. `continue-on-error` keeps a fresh advisory from blocking an
+      # unrelated PR while still flagging it in the run summary.
+      - name: Audit dependencies
+        run: npm audit --audit-level=high
+        continue-on-error: true

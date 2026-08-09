@@ -5,6 +5,7 @@ import { Field } from "./ui/Field.js";
 import { ErrorText } from "./ui/Alert.js";
 import { Tabs } from "./ui/Tabs.js";
 import { Card, CardBody, CardHeader } from "./ui/Card.js";
+import { CHECKBOX_CLASS } from "./ui/inputStyles.js";
 import type { Session } from "./types.js";
 
 export interface LoginProps {
@@ -16,6 +17,9 @@ export function Login({ onLoggedIn, onBackToLanding }: LoginProps) {
   const [tab, setTab] = useState<"login" | "invite">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  // Defaults to the historical 30-day session. Unchecking gives a 12-hour one
+  // in a cookie the browser drops when it closes — for a shared machine.
+  const [remember, setRemember] = useState(true);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -28,7 +32,7 @@ export function Login({ onLoggedIn, onBackToLanding }: LoginProps) {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), password }),
+        body: JSON.stringify({ email: email.trim(), password, remember }),
       });
       const data = await res.json().catch(() => ({}));
       if (res.ok) {
@@ -105,6 +109,21 @@ export function Login({ onLoggedIn, onBackToLanding }: LoginProps) {
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
                 />
+
+                <label className="flex items-start gap-2 text-xs text-text-secondary cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    className={`${CHECKBOX_CLASS} mt-px`}
+                    checked={remember}
+                    onChange={(e) => setRemember(e.target.checked)}
+                  />
+                  <span>
+                    Rester connecté 30 jours
+                    <span className="block text-[11px] text-text-muted">
+                      Décochez sur un poste partagé : la session dure alors 12 h et se ferme avec le navigateur.
+                    </span>
+                  </span>
+                </label>
 
                 <Button
                   variant="primary"

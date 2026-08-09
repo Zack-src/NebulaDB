@@ -1,6 +1,8 @@
 import type { FastifyInstance } from "fastify";
 import { db } from "../db.js";
+import { auditUser } from "../audit.js";
 import { requireAdmin, requireUser } from "../auth/session.js";
+import { revalidateAllRooms } from "../yjs/room.js";
 
 interface TeamRow {
   id: string;
@@ -75,6 +77,7 @@ export function registerTeamRoutes(app: FastifyInstance): void {
     }
     const id = crypto.randomUUID();
     db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(id, trimmed);
+    auditUser(admin, "team.create", { type: "team", id }, trimmed, req);
     return reply.code(201).send({ id, name: trimmed, memberCount: 0 });
   });
 
@@ -112,6 +115,12 @@ export function registerTeamRoutes(app: FastifyInstance): void {
       db.prepare("DELETE FROM teams WHERE id = ?").run(teamId);
     });
     deleteTeam(id);
+    auditUser(admin, "team.delete", { type: "team", id }, undefined, req);
+    // Every project this team granted access to just lost that grant, and a
+    // project whose *only* team was this one flips back from restricted to
+    // open — both change what open sockets may do, on projects that aren't
+    // cheap to enumerate from here.
+    revalidateAllRooms();
     return { deleted: true };
   });
 
@@ -129,6 +138,8 @@ export function registerTeamRoutes(app: FastifyInstance): void {
       return { error: "a valid userId is required" };
     }
     db.prepare("INSERT OR IGNORE INTO team_members (team_id, user_id) VALUES (?, ?)").run(id, userId);
+    revalidateAllRooms();
+    auditUser(admin, "team.member.add", { type: "team", id }, `user ${userId}`, req);
     return { added: true };
   });
 
@@ -137,6 +148,11 @@ export function registerTeamRoutes(app: FastifyInstance): void {
     if (!admin) return;
     const { id, userId } = req.params as { id: string; userId: string };
     db.prepare("DELETE FROM team_members WHERE team_id = ? AND user_id = ?").run(id, userId);
+    auditUser(admin, "team.member.remove", { type: "team", id }, `user ${userId}`, req);
+    // The removed member may be connected right now to any project this team
+    // granted — those sockets get closed by the re-check rather than keeping
+    // the access they joined with.
+    revalidateAllRooms();
     return { removed: true };
   });
 }

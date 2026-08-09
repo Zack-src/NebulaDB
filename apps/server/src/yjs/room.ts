@@ -32,10 +32,38 @@ const COLLECTION_KEYS = [META_KEY, TABLES_KEY, REFS_KEY, ENUMS_KEY, ZONES_KEY, S
  */
 const LIMIT_ORIGIN = "system";
 
+/**
+ * How long a connection's resolved access is trusted before being looked up
+ * again. Bounds how long a revoked permission can stay effective when nothing
+ * calls `revalidate()` explicitly — the routes that change grants do call it,
+ * so this is the backstop for paths that don't (a direct SQL edit, the
+ * `bootstrap-admin` script, a future route that forgets).
+ *
+ * Not zero: `receive()` runs per WebSocket frame, and dragging a table emits
+ * dozens a second, each of which would otherwise cost a fresh permission
+ * lookup (up to four SQLite reads). Five seconds keeps that at negligible
+ * cost while being far below any human-meaningful window.
+ */
+const ACCESS_TTL_MS = 5000;
+
+/**
+ * Re-evaluates one connection's access on demand. Returns `null` when the user
+ * has lost access to the project entirely (removed from the only team that
+ * granted it, account disabled, project restricted since they connected), in
+ * which case the room closes the connection.
+ *
+ * A callback rather than an imported permission check so this file stays
+ * unaware of how permissions are modelled — the room only ever needed to know
+ * "may this socket write", and now also "may it still be here at all".
+ */
+export type AccessResolver = () => { canWrite: boolean } | null;
+
 interface ConnMeta {
   author: string;
   awarenessClientIds: Set<number>;
+  resolveAccess: AccessResolver;
   canWrite: boolean;
+  accessCheckedAt: number;
 }
 
 /**
@@ -49,6 +77,7 @@ export class Room {
   private readonly conns = new Map<WebSocket, ConnMeta>();
   private snapshotTimer: NodeJS.Timeout | null = null;
   private destroyed = false;
+  private disposed = false;
   /** Collection key -> entity ids written since the last `enforceLimits()` pass. */
   private readonly pendingChecks = new Map<string, Set<string>>();
 
@@ -127,8 +156,15 @@ export class Room {
     );
   }
 
-  join(conn: WebSocket, author: string, canWrite: boolean): void {
-    this.conns.set(conn, { author, awarenessClientIds: new Set(), canWrite });
+  join(conn: WebSocket, author: string, resolveAccess: AccessResolver): void {
+    const initial = resolveAccess();
+    this.conns.set(conn, {
+      author,
+      awarenessClientIds: new Set(),
+      resolveAccess,
+      canWrite: initial?.canWrite ?? false,
+      accessCheckedAt: Date.now(),
+    });
 
     const syncEncoder = encoding.createEncoder();
     encoding.writeVarUint(syncEncoder, MESSAGE_SYNC);
@@ -161,7 +197,7 @@ export class Room {
       // dropped for a read-only connection while syncStep1 (a state-vector
       // request — read-only by construction, just produces a reply) stays
       // allowed either way.
-      const canWrite = this.conns.get(conn)?.canWrite ?? false;
+      const canWrite = this.currentCanWrite(conn);
       const innerType = decoding.readVarUint(decoder);
       const encoder = encoding.createEncoder();
       encoding.writeVarUint(encoder, MESSAGE_SYNC);
@@ -208,11 +244,62 @@ export class Room {
       // entire lifetime. Safe: `getRoom` recreates it on demand from the
       // snapshot just saved above, same as a fresh server start would.
       this.onEmpty();
+      this.dispose();
     }
   }
 
   presence(): string[] {
     return Array.from(this.conns.values()).map((meta) => meta.author);
+  }
+
+  /**
+   * Re-checks every connection's access right now, ignoring the TTL. Called by
+   * the routes that change who can do what (team grants, team membership,
+   * account disable/delete) so a revocation takes effect on already-open
+   * sockets immediately rather than at the next TTL expiry.
+   */
+  revalidate(): void {
+    // Snapshot first: `refreshAccess` can close a connection, and a close
+    // handler running mid-iteration would mutate the map being iterated.
+    for (const [conn, meta] of Array.from(this.conns.entries())) {
+      this.refreshAccess(conn, meta);
+    }
+  }
+
+  /**
+   * Write access for one connection, re-resolved if the cached answer has gone
+   * stale. Previously this was decided once, at connect time, and stored: an
+   * admin downgrading someone from `edit` to `view` (or removing them from the
+   * team entirely) left that person writing until they happened to reconnect,
+   * which for a long-lived collaborative socket could be days.
+   */
+  private currentCanWrite(conn: WebSocket): boolean {
+    const meta = this.conns.get(conn);
+    if (!meta) return false;
+    if (Date.now() - meta.accessCheckedAt < ACCESS_TTL_MS) return meta.canWrite;
+    return this.refreshAccess(conn, meta);
+  }
+
+  private refreshAccess(conn: WebSocket, meta: ConnMeta): boolean {
+    let access: { canWrite: boolean } | null;
+    try {
+      access = meta.resolveAccess();
+    } catch (err) {
+      // Fail closed. A permission lookup that throws (database locked, row
+      // vanished mid-query) must not be read as "allowed" — and must not
+      // propagate, since this runs inside a WebSocket message handler.
+      console.error(`[room ${this.projectId}] permission re-check failed:`, err);
+      meta.canWrite = false;
+      return false;
+    }
+    meta.accessCheckedAt = Date.now();
+    meta.canWrite = access?.canWrite ?? false;
+    if (!access) {
+      console.warn(`[room ${this.projectId}] ${meta.author} lost access — closing connection`);
+      conn.close();
+      return false;
+    }
+    return meta.canWrite;
   }
 
   /**
@@ -229,6 +316,28 @@ export class Room {
       this.snapshotTimer = null;
     }
     this.conns.forEach((_meta, conn) => conn.close());
+    this.dispose();
+  }
+
+  /**
+   * Releases what the room holds outside its own object graph.
+   *
+   * `Awareness` starts a `setInterval` in its constructor to expire stale
+   * presence entries, and nothing was ever clearing it: dropping the room from
+   * the `rooms` map (the eviction in `leave()`) removed the only reference the
+   * server kept, but the live timer kept its own — so the Awareness, the
+   * Y.Doc, and the whole project's contents stayed resident for the life of
+   * the process, for every project ever opened. That is precisely the leak the
+   * eviction exists to prevent.
+   *
+   * Idempotent: `destroy()` closes the connections, whose own close handlers
+   * then call `leave()`, which reaches the eviction path again.
+   */
+  private dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.awareness.destroy();
+    this.doc.destroy();
   }
 
   /**
@@ -353,6 +462,31 @@ export function flushAllRooms(): number {
 export function closeAllRooms(): void {
   for (const room of rooms.values()) room.destroy();
   rooms.clear();
+}
+
+/** Number of projects currently resident in memory — reported by the health check. */
+export function liveRoomCount(): number {
+  return rooms.size;
+}
+
+/**
+ * Re-checks access for every connection of one project. Call after changing
+ * that project's team grants.
+ */
+export function revalidateRoom(projectId: string): void {
+  rooms.get(projectId)?.revalidate();
+}
+
+/**
+ * Re-checks access across every live room. Used when a change can affect
+ * projects that can't be enumerated cheaply from the change itself — team
+ * membership (a user may be in teams granted on many projects), or an account
+ * being disabled or deleted. Only live rooms are visited, and each connection
+ * costs one permission lookup, so this stays proportional to who is actually
+ * connected right now rather than to how much data exists.
+ */
+export function revalidateAllRooms(): void {
+  for (const room of rooms.values()) room.revalidate();
 }
 
 /** Tears down a project's in-memory room (if one is live) ahead of deleting its rows — see `Room.destroy`. */

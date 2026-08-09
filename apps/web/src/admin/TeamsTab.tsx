@@ -56,7 +56,7 @@ export function TeamsTab() {
       <div className="mb-7 flex max-w-[420px] gap-2">
         <input
           className={`${INPUT_CLASS} flex-1`}
-          placeholder="New team name"
+          placeholder="Nom de la nouvelle équipe"
           value={newName}
           onChange={(e) => setNewName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && create()}
@@ -67,7 +67,7 @@ export function TeamsTab() {
       </div>
       {error && <ErrorText>{error}</ErrorText>}
       {teams.length === 0 ? (
-        <EmptyState>No teams yet.</EmptyState>
+        <EmptyState>Aucune équipe pour le moment.</EmptyState>
       ) : (
         <List>
           {teams.map((t) => (
@@ -79,7 +79,7 @@ export function TeamsTab() {
                   {t.memberCount} member{t.memberCount === 1 ? "" : "s"}
                 </span>
               </ListMain>
-              <Button variant="ghost" size="icon" data-tooltip="Delete team" onClick={() => remove(t.id)}>
+              <Button variant="ghost" size="icon" data-tooltip="Supprimer l'équipe" onClick={() => remove(t.id)}>
                 <TrashIcon size={13} />
               </Button>
             </ListRow>

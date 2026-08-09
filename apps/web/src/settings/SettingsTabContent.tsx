@@ -5,6 +5,8 @@ import { Card } from "../ui/Card.js";
 import { Tabs } from "../ui/Tabs.js";
 import { KeyIcon, CheckIcon, SparklesIcon } from "../Icons.js";
 import type { Session } from "../types.js";
+import { ActiveSessions } from "./ActiveSessions.js";
+import { PersonalData } from "./PersonalData.js";
 import type { useSettingsPanelState, SettingsTab } from "./useSettingsPanelState.js";
 
 const THEME_PRESETS = [
@@ -66,6 +68,9 @@ export function SettingsTabContent({ tab, session, state }: SettingsTabContentPr
             <KeyIcon size={14} /> Modifier le mot de passe
           </Button>
         </div>
+
+        <ActiveSessions />
+        <PersonalData />
       </div>
     );
   }
@@ -210,18 +215,19 @@ export function SettingsTabContent({ tab, session, state }: SettingsTabContentPr
             <Badge tone="success">Gratuit à vie (MIT)</Badge>
           </div>
 
-          <p className="text-xs text-text-secondary leading-relaxed mb-4">
-            Vous utilisez la version open source auto-hébergée. Profitez des projets illimités et des exports SQL.
+          <p className="text-xs text-text-secondary leading-relaxed">
+            Vous utilisez la version open source auto-hébergée : projets illimités, exports SQL, collaboration temps
+            réel, sans licence ni abonnement. C'est aujourd'hui la seule façon d'exécuter AthanorDB — il n'existe pas
+            d'offre hébergée, pas de facturation, et rien à activer.
           </p>
-
-          <Button variant="gradient" className="w-full py-2 text-xs" disabled data-tooltip="Bientôt disponible">
-            Passer à Cloud Pro (12€ / mois)
-          </Button>
         </Card>
 
         <div className="space-y-2 pt-4 border-t border-border/60">
-          <h3 className="text-xs font-bold text-text">Clé API espace de travail</h3>
-          <Field label="Clé API utilisateur" type="text" value="Disponible avec l'offre Cloud Pro" disabled readOnly />
+          <h3 className="text-xs font-bold text-text">Clés API</h3>
+          <p className="text-xs text-text-muted leading-relaxed">
+            Il n'y a pas encore d'API publique ni de clés d'API. L'application parle à son propre serveur via une
+            session par cookie ; aucun jeton d'intégration n'est émis pour l'instant.
+          </p>
         </div>
       </div>
     );

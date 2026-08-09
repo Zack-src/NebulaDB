@@ -9,6 +9,8 @@ export interface ProjectListScreenProps {
   session: Session;
   serverStatus: "checking" | "ok" | "down";
   projects: ProjectSummary[];
+  /** False until the first project fetch settles — the list shows placeholders rather than an empty state. */
+  projectsLoaded: boolean;
   openLinkError: string | null;
   onOpenProject: (p: ProjectSummary) => void;
   onOpenAdmin: () => void;
@@ -44,6 +46,7 @@ export function ProjectListScreen(props: ProjectListScreenProps) {
       <div className="min-h-0 flex-1">
         <ProjectList
           projects={props.projects}
+          loaded={props.projectsLoaded}
           onCreateProject={props.onCreateProject}
           onOpen={props.onOpenProject}
           onRename={props.onRenameProject}

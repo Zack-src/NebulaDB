@@ -46,6 +46,74 @@ export const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 3,
+    name: "users.disabled_at column",
+    up: (db) => {
+      const columns = db.prepare("PRAGMA table_info(users)").all() as { name: string }[];
+      if (!columns.some((c) => c.name === "disabled_at")) {
+        db.exec("ALTER TABLE users ADD COLUMN disabled_at TEXT");
+      }
+    },
+  },
+  {
+    version: 4,
+    name: "sessions.user_agent and ip columns",
+    up: (db) => {
+      const columns = db.prepare("PRAGMA table_info(sessions)").all() as { name: string }[];
+      if (!columns.some((c) => c.name === "user_agent")) {
+        db.exec("ALTER TABLE sessions ADD COLUMN user_agent TEXT");
+      }
+      if (!columns.some((c) => c.name === "ip")) {
+        db.exec("ALTER TABLE sessions ADD COLUMN ip TEXT");
+      }
+    },
+  },
+  {
+    version: 5,
+    name: "login_attempts table",
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS login_attempts (
+          email TEXT PRIMARY KEY,
+          failures INTEGER NOT NULL DEFAULT 0,
+          locked_until TEXT,
+          last_failure_at TEXT
+        );
+      `);
+    },
+  },
+  {
+    version: 6,
+    name: "audit_log table",
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS audit_log (
+          id TEXT PRIMARY KEY,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          actor_id TEXT,
+          actor_email TEXT,
+          action TEXT NOT NULL,
+          target_type TEXT,
+          target_id TEXT,
+          detail TEXT,
+          ip TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_audit_log_created ON audit_log(created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_audit_log_target ON audit_log(target_type, target_id);
+      `);
+    },
+  },
+  {
+    version: 7,
+    name: "sessions.ttl_ms column",
+    up: (db) => {
+      const columns = db.prepare("PRAGMA table_info(sessions)").all() as { name: string }[];
+      if (!columns.some((c) => c.name === "ttl_ms")) {
+        db.exec("ALTER TABLE sessions ADD COLUMN ttl_ms INTEGER");
+      }
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */

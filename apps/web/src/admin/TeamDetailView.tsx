@@ -49,13 +49,13 @@ export function TeamDetailView(props: { teamId: string; onClose: () => void; onC
   const availableUsers = users.filter((u) => !team?.members.some((m) => m.id === u.id));
 
   return (
-    <Modal title={team ? `Team: ${team.name}` : "Team"} onClose={props.onClose}>
+    <Modal title={team ? `Équipe : ${team.name}` : "Équipe"} onClose={props.onClose}>
       {error && <ErrorText>{error}</ErrorText>}
       {team && (
         <>
           <div className="mb-7 flex max-w-[420px] gap-2">
             <select className={`${SELECT_CLASS} flex-1`} value={pickUserId} onChange={(e) => setPickUserId(e.target.value)}>
-              <option value="">Add a member…</option>
+              <option value="">Ajouter un membre…</option>
               {availableUsers.map((u) => (
                 <option key={u.id} value={u.id}>
                   {u.displayName} ({u.email})
@@ -63,11 +63,11 @@ export function TeamDetailView(props: { teamId: string; onClose: () => void; onC
               ))}
             </select>
             <Button variant="primary" onClick={addMember} disabled={!pickUserId}>
-              <PlusIcon size={14} /> Add
+              <PlusIcon size={14} /> Ajouter
             </Button>
           </div>
           {team.members.length === 0 ? (
-            <EmptyState>No members yet.</EmptyState>
+            <EmptyState>Aucun membre pour le moment.</EmptyState>
           ) : (
             <List>
               {team.members.map((m) => (
@@ -76,7 +76,7 @@ export function TeamDetailView(props: { teamId: string; onClose: () => void; onC
                     <span>{m.displayName}</span>
                     <span className="text-text-muted">{m.email}</span>
                   </ListMain>
-                  <Button variant="ghost" size="icon" data-tooltip="Remove from team" onClick={() => removeMember(m.id)}>
+                  <Button variant="ghost" size="icon" data-tooltip="Retirer de l'équipe" onClick={() => removeMember(m.id)}>
                     <TrashIcon size={13} />
                   </Button>
                 </ListRow>

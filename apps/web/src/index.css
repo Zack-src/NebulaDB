@@ -1,5 +1,5 @@
-/* AthanorDB design system. System font stack & modern Google font imports. Modern dark theme. */
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,300..800;1,300..800&family=JetBrains+Mono:wght@400;500;600&display=swap');
+/* AthanorDB design system. Self-hosted web fonts (see fonts.css). Modern dark theme. */
+@import "./fonts.css";
 
 @tailwind base;
 @tailwind components;

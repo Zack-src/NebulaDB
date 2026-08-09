@@ -16,6 +16,7 @@ import {
   UsersIcon,
   ZapIcon,
   CheckIcon,
+  ClockIcon,
   ChevronDownIcon,
   ExternalLinkIcon,
   ShieldCheckIcon,
@@ -44,7 +45,7 @@ const MARQUEE_ITEMS = [
   "SQL Server",
   "DBML",
   "Yjs CRDT",
-  "Local-First",
+  "Auto-hébergé",
   "Self-Hosted",
   "MIT Open Source",
 ];
@@ -128,6 +129,10 @@ const FAQ_ITEMS = [
   {
     q: "Comment fonctionne la collaboration en temps réel ?",
     a: "Chaque schéma est un document Yjs (CRDT) : les éditions simultanées fusionnent automatiquement, sans verrouillage ni perte de données, et se reconnectent seules après une coupure réseau.",
+  },
+  {
+    q: "Puis-je travailler hors-ligne ?",
+    a: "Pas aujourd'hui. L'application a besoin d'une connexion à votre serveur AthanorDB. Un onglet déjà ouvert encaisse une coupure réseau — vos modifications restent en mémoire et se resynchronisent à la reconnexion — mais il n'existe pas de mode hors-ligne persistant : fermer l'onglet pendant une coupure perd les modifications non synchronisées.",
   },
 ];
 
@@ -322,7 +327,7 @@ export function LandingPage({ onOpenApp, onOpenLogin, isLoggedIn = false }: Land
         <Reveal from="scale">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full glass-card border border-primary/40 text-xs font-semibold text-primary mb-6 shadow-sm">
             <ZapIcon size={13} />
-            <span>Local-first & synchronisation temps réel Yjs CRDT</span>
+            <span>Auto-hébergé & synchronisation temps réel Yjs CRDT</span>
           </div>
         </Reveal>
 
@@ -425,7 +430,7 @@ export function LandingPage({ onOpenApp, onOpenLogin, isLoggedIn = false }: Land
               Une expérience conçue pour les développeurs exigeants
             </h2>
             <p className="text-text-secondary max-w-xl mx-auto text-xs sm:text-sm">
-              Local-first, zéro latence perçue, génération de code instantanée et collaboration sans conflit.
+              Sur votre infrastructure, zéro latence perçue, génération de code instantanée et collaboration sans conflit.
             </p>
           </div>
         </Reveal>
@@ -477,63 +482,79 @@ export function LandingPage({ onOpenApp, onOpenLogin, isLoggedIn = false }: Land
           <div className="text-center mb-16">
             <Badge tone="admin" className="mb-3">Tarification transparente</Badge>
             <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight mb-4">
-              Gratuit en open source. Puissant dans le cloud.
+              Gratuit, open source, auto-hébergé.
             </h2>
             <p className="text-text-secondary max-w-lg mx-auto text-xs sm:text-sm">
-              Auto-hébergez le cœur gratuitement sous licence MIT ou choisissez la version Cloud gérée.
+              Tout ce qui est listé ci-dessous avec une coche existe aujourd'hui, dans la version que vous pouvez
+              installer maintenant. Ce qui est marqué d'une horloge est prévu et n'est pas encore disponible.
             </p>
           </div>
         </Reveal>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
           <Reveal delay={0}>
-            <Card variant="default" className="p-7 flex flex-col justify-between h-full">
+            <Card variant="glow" className="p-7 flex flex-col justify-between relative border-primary h-full">
+              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-primary text-[10px] font-extrabold uppercase text-white tracking-wider shadow-sm">
+                Disponible aujourd'hui
+              </div>
               <div>
-                <div className="text-xs font-bold uppercase tracking-wider text-text-muted mb-2">Community</div>
+                <div className="text-xs font-bold uppercase tracking-wider text-primary mb-2">Community</div>
                 <div className="text-3xl font-black mb-1">0 € <span className="text-xs text-text-muted font-normal">/ mois</span></div>
                 <p className="text-xs text-text-secondary mb-6">Auto-hébergement gratuit & open source sous licence MIT.</p>
-                <ul className="space-y-3 text-xs text-text-secondary mb-8">
-                  <li className="flex items-center gap-2"><CheckIcon size={14} className="text-success shrink-0" /> Tables & schémas illimités</li>
-                  <li className="flex items-center gap-2"><CheckIcon size={14} className="text-success shrink-0" /> Import / export DBML & SQL</li>
-                  <li className="flex items-center gap-2"><CheckIcon size={14} className="text-success shrink-0" /> Stockage local-first</li>
+                <ul className="space-y-3 text-xs text-text mb-8">
+                  <li className="flex items-center gap-2"><CheckIcon size={14} className="text-primary shrink-0" /> Tables & schémas illimités</li>
+                  <li className="flex items-center gap-2"><CheckIcon size={14} className="text-primary shrink-0" /> Import / export DBML & SQL</li>
+                  <li className="flex items-center gap-2"><CheckIcon size={14} className="text-primary shrink-0" /> Édition multi-utilisateur temps réel</li>
+                  <li className="flex items-center gap-2"><CheckIcon size={14} className="text-primary shrink-0" /> Équipes, permissions & historique</li>
+                  <li className="flex items-center gap-2"><CheckIcon size={14} className="text-primary shrink-0" /> Vos données sur votre serveur</li>
                 </ul>
               </div>
-              <Button variant="outline" onClick={onOpenApp} className="w-full text-xs">Utiliser gratuitement</Button>
+              <Button variant="primary" onClick={onOpenApp} className="w-full text-xs">Utiliser gratuitement</Button>
             </Card>
           </Reveal>
 
           <Reveal delay={100}>
-            <Card variant="glow" className="p-7 flex flex-col justify-between relative border-primary h-full">
-              <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-primary text-[10px] font-extrabold uppercase text-white tracking-wider shadow-sm">
-                Recommandé équipes
-              </div>
+            <Card variant="default" className="p-7 flex flex-col justify-between h-full">
               <div>
-                <div className="text-xs font-bold uppercase tracking-wider text-primary mb-2">Cloud Pro</div>
-                <div className="text-3xl font-black mb-1">12 € <span className="text-xs text-text-muted font-normal">/ utilisateur / mo</span></div>
-                <p className="text-xs text-text-secondary mb-6">Infrastructure cloud gérée avec collaboration temps réel.</p>
-                <ul className="space-y-3 text-xs text-text mb-8">
-                  <li className="flex items-center gap-2"><CheckIcon size={14} className="text-primary shrink-0" /> Serveur Yjs cloud géré & sauvegardes</li>
-                  <li className="flex items-center gap-2"><CheckIcon size={14} className="text-primary shrink-0" /> Espaces d'équipe & rôles de membres</li>
-                  <li className="flex items-center gap-2"><CheckIcon size={14} className="text-primary shrink-0" /> Exports HD SVG & PDF vectoriels</li>
+                <div className="text-xs font-bold uppercase tracking-wider text-text-muted mb-2">Cloud géré</div>
+                <div className="text-3xl font-black mb-1">En préparation</div>
+                <p className="text-xs text-text-secondary mb-6">
+                  Une offre hébergée par nos soins, pour les équipes qui ne veulent pas administrer de serveur.
+                </p>
+                <ul className="space-y-3 text-xs text-text-secondary mb-8">
+                  <li className="flex items-center gap-2"><ClockIcon size={14} className="text-text-muted shrink-0" /> Serveur géré & sauvegardes automatiques</li>
+                  <li className="flex items-center gap-2"><ClockIcon size={14} className="text-text-muted shrink-0" /> Facturation par utilisateur</li>
+                  <li className="flex items-center gap-2"><ClockIcon size={14} className="text-text-muted shrink-0" /> Mises à jour appliquées pour vous</li>
                 </ul>
               </div>
-              <Button variant="primary" onClick={onOpenApp} className="w-full text-xs">Essai gratuit Cloud Pro</Button>
+              <p className="text-[11px] text-text-muted leading-relaxed border-t border-border/60 pt-4">
+                Pas encore ouvert : aucune inscription, aucun essai, aucun paiement. L'auto-hébergement est
+                aujourd'hui le seul mode de déploiement.
+              </p>
             </Card>
           </Reveal>
 
           <Reveal delay={200}>
             <Card variant="default" className="p-7 flex flex-col justify-between h-full">
               <div>
-                <div className="text-xs font-bold uppercase tracking-wider text-accent-purple mb-2">Enterprise</div>
-                <div className="text-3xl font-black mb-1">Sur mesure</div>
-                <p className="text-xs text-text-secondary mb-6">Pour les organisations nécessitant sécurité et conformité renforcées.</p>
+                <div className="text-xs font-bold uppercase tracking-wider text-accent-purple mb-2">Entreprise</div>
+                <div className="text-3xl font-black mb-1">Sur demande</div>
+                <p className="text-xs text-text-secondary mb-6">Pour les organisations avec des exigences de sécurité et de conformité renforcées.</p>
                 <ul className="space-y-3 text-xs text-text-secondary mb-8">
-                  <li className="flex items-center gap-2"><CheckIcon size={14} className="text-accent-purple shrink-0" /> Authentification SSO (SAML / OIDC)</li>
-                  <li className="flex items-center gap-2"><CheckIcon size={14} className="text-accent-purple shrink-0" /> Instance cloud dédiée on-premise</li>
-                  <li className="flex items-center gap-2"><CheckIcon size={14} className="text-accent-purple shrink-0" /> Journaux d'audit & SLA 99.9%</li>
+                  <li className="flex items-center gap-2"><CheckIcon size={14} className="text-accent-purple shrink-0" /> Instance sur votre propre infrastructure</li>
+                  <li className="flex items-center gap-2"><CheckIcon size={14} className="text-accent-purple shrink-0" /> Journal d'audit des actions sensibles</li>
+                  <li className="flex items-center gap-2"><ClockIcon size={14} className="text-text-muted shrink-0" /> Authentification SSO (SAML / OIDC)</li>
+                  <li className="flex items-center gap-2"><ClockIcon size={14} className="text-text-muted shrink-0" /> Engagement de disponibilité contractuel</li>
                 </ul>
               </div>
-              <Button variant="outline" onClick={onOpenApp} className="w-full text-xs">Contacter l'équipe</Button>
+              <a
+                href="https://github.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full inline-flex items-center justify-center gap-1.5 text-xs font-semibold px-4 py-2 rounded-lg border border-border hover:border-accent-purple hover:text-text transition-colors"
+              >
+                Ouvrir une discussion <ExternalLinkIcon size={12} />
+              </a>
             </Card>
           </Reveal>
         </div>
@@ -600,7 +621,7 @@ export function LandingPage({ onOpenApp, onOpenLogin, isLoggedIn = false }: Land
           <div className="flex items-center gap-2.5">
             <BrandMark size={20} />
             <span className="font-bold text-text">AthanorDB</span>
-            <span>— Éditeur de schémas DBML open-source, local-first</span>
+            <span>— Éditeur de schémas DBML open-source, auto-hébergé</span>
           </div>
 
           <div className="flex items-center gap-6 text-xs">

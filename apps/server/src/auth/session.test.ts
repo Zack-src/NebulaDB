@@ -14,8 +14,17 @@ process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-${randomUUID()}.s
 process.env.ATHANORDB_COOKIE_SECURE = "false";
 
 const { db } = await import("../db.js");
-const { createSession, resolveSession, destroySession, purgeExpiredSessions, requireUser, requireAdmin } =
-  await import("./session.js");
+const {
+  createSession,
+  resolveSession,
+  destroySession,
+  purgeExpiredSessions,
+  requireUser,
+  requireAdmin,
+  listSessions,
+  revokeSession,
+  revokeAllSessions,
+} = await import("./session.js");
 
 function insertUser(overrides: { email?: string; isAdmin?: 0 | 1; displayName?: string | null } = {}): string {
   const id = randomUUID();
@@ -32,12 +41,15 @@ function insertUser(overrides: { email?: string; isAdmin?: 0 | 1; displayName?: 
 /** Records what the route handler would have sent, instead of a real Fastify reply. */
 function mockReply() {
   const cookiesSet: { name: string; value: string }[] = [];
+  /** The options each `setCookie` was called with — `maxAge` distinguishes a persistent cookie from a session one. */
+  const cookieOptionsUsed: { maxAge?: number }[] = [];
   const cookiesCleared: string[] = [];
   let statusCode: number | undefined;
   let body: unknown;
   const reply = {
-    setCookie(name: string, value: string) {
+    setCookie(name: string, value: string, options?: { maxAge?: number }) {
       cookiesSet.push({ name, value });
+      cookieOptionsUsed.push(options ?? {});
       return reply;
     },
     clearCookie(name: string) {
@@ -53,11 +65,16 @@ function mockReply() {
       return reply;
     },
   };
-  return { reply, cookiesSet, cookiesCleared, getStatus: () => statusCode, getBody: () => body };
+  return { reply, cookiesSet, cookieOptionsUsed, cookiesCleared, getStatus: () => statusCode, getBody: () => body };
 }
 
 function mockRequest(cookies: Record<string, string> = {}, user: unknown = undefined) {
   return { cookies, user } as unknown as FastifyRequest;
+}
+
+/** A request carrying the metadata `createSession` records so a user can recognise their own devices. */
+function mockRequestWithMeta(userAgent: string, ip: string) {
+  return { cookies: {}, headers: { "user-agent": userAgent }, ip } as unknown as FastifyRequest;
 }
 
 test("createSession -> resolveSession round-trips to the same user", () => {
@@ -201,4 +218,137 @@ test("requireAdmin 403s a non-admin user and passes through an admin", () => {
   assert.equal(requireAdmin(mockRequest({}, nonAdmin), reply as unknown as FastifyReply), null);
   assert.equal(getStatus(), 403);
   assert.deepEqual(getBody(), { error: "administrator access required" });
+});
+
+test("a disabled account's existing session stops resolving", () => {
+  // The offboarding path: disabling deletes the account's sessions, but this
+  // is the layer that has to hold if one is ever recreated or missed.
+  const userId = insertUser({ email: "leaver@example.com" });
+  const { reply, cookiesSet } = mockReply();
+  createSession(userId, reply as unknown as FastifyReply);
+  const cookie = { [cookiesSet[0].name]: cookiesSet[0].value };
+
+  assert.ok(resolveSession(mockRequest(cookie), mockReply().reply as unknown as FastifyReply), "valid before");
+  db.prepare("UPDATE users SET disabled_at = datetime('now') WHERE id = ?").run(userId);
+  assert.equal(
+    resolveSession(mockRequest(cookie), mockReply().reply as unknown as FastifyReply),
+    null,
+    "refused once the account is disabled",
+  );
+});
+
+test("listSessions returns a user's own sessions and flags the current one", () => {
+  const userId = insertUser({ email: "multi@example.com" });
+  const first = mockReply();
+  createSession(userId, first.reply as unknown as FastifyReply, mockRequestWithMeta("Firefox/1.0", "10.0.0.1"));
+  const second = mockReply();
+  createSession(userId, second.reply as unknown as FastifyReply, mockRequestWithMeta("Chrome/2.0", "10.0.0.2"));
+
+  const currentCookie = { [second.cookiesSet[0].name]: second.cookiesSet[0].value };
+  const sessions = listSessions(userId, mockRequest(currentCookie));
+  assert.equal(sessions.length, 2);
+  assert.equal(sessions.filter((s) => s.current).length, 1, "exactly one is the caller's own");
+  const current = sessions.find((s) => s.current)!;
+  assert.equal(current.userAgent, "Chrome/2.0");
+  assert.equal(current.ip, "10.0.0.2");
+  assert.ok(sessions.some((s) => s.userAgent === "Firefox/1.0"), "the other device is listed too");
+});
+
+test("listSessions never shows another user's sessions", () => {
+  const mine = insertUser({ email: "mine@example.com" });
+  const theirs = insertUser({ email: "theirs@example.com" });
+  createSession(theirs, mockReply().reply as unknown as FastifyReply);
+  assert.equal(listSessions(mine, mockRequest()).length, 0);
+});
+
+test("revokeSession only deletes a session the caller owns", () => {
+  const owner = insertUser({ email: "owner@example.com" });
+  const attacker = insertUser({ email: "attacker@example.com" });
+  const { reply, cookiesSet } = mockReply();
+  createSession(owner, reply as unknown as FastifyReply);
+  const sessionId = cookiesSet[0].value;
+
+  assert.equal(revokeSession(attacker, sessionId), false, "another user's id is not enough to revoke");
+  assert.equal(listSessions(owner, mockRequest()).length, 1, "still there");
+  assert.equal(revokeSession(owner, sessionId), true);
+  assert.equal(listSessions(owner, mockRequest()).length, 0);
+});
+
+test("revokeAllSessions can keep the caller's own session", () => {
+  const userId = insertUser({ email: "everywhere@example.com" });
+  createSession(userId, mockReply().reply as unknown as FastifyReply);
+  createSession(userId, mockReply().reply as unknown as FastifyReply);
+  const keep = mockReply();
+  createSession(userId, keep.reply as unknown as FastifyReply);
+  const keptId = keep.cookiesSet[0].value;
+
+  assert.equal(revokeAllSessions(userId, keptId), 2, "the other two are revoked");
+  const left = listSessions(userId, mockRequest());
+  assert.equal(left.length, 1);
+  assert.equal(left[0].id, keptId, "the caller isn't logged out of the tab they clicked in");
+
+  assert.equal(revokeAllSessions(userId), 1, "and with no exception, everything goes");
+  assert.equal(listSessions(userId, mockRequest()).length, 0);
+});
+
+test("an unremembered session is short and rides in a browser-session cookie", () => {
+  const userId = insertUser({ email: "shared-machine@example.com" });
+  const { reply, cookiesSet, cookieOptionsUsed } = mockReply();
+  createSession(userId, reply as unknown as FastifyReply, undefined, { remember: false });
+
+  // No Max-Age: the browser drops it when it closes, which is the point on a
+  // shared machine — the server-side expiry is the second layer, not the only.
+  assert.equal(cookieOptionsUsed[0].maxAge, undefined);
+
+  const row = db.prepare("SELECT ttl_ms, expires_at FROM sessions WHERE id = ?").get(cookiesSet[0].value) as {
+    ttl_ms: number;
+    expires_at: string;
+  };
+  assert.equal(row.ttl_ms, 12 * 60 * 60 * 1000);
+  const hoursOut = (new Date(row.expires_at).getTime() - Date.now()) / 3_600_000;
+  assert.ok(hoursOut > 11 && hoursOut <= 12, `expires in ~12h, got ${hoursOut}`);
+});
+
+test("the default session stays the 30-day one", () => {
+  const userId = insertUser({ email: "my-own-laptop@example.com" });
+  const { reply, cookiesSet, cookieOptionsUsed } = mockReply();
+  createSession(userId, reply as unknown as FastifyReply);
+  assert.equal(cookieOptionsUsed[0].maxAge, 30 * 24 * 60 * 60);
+  const row = db.prepare("SELECT ttl_ms FROM sessions WHERE id = ?").get(cookiesSet[0].value) as { ttl_ms: number };
+  assert.equal(row.ttl_ms, 30 * 24 * 60 * 60 * 1000);
+});
+
+test("using a short session rolls it forward by its own length, not the default", () => {
+  // The bug this guards: `resolveSession` used to roll every session forward by
+  // a single module constant, which would silently promote a 12-hour session to
+  // a 30-day one on its first request.
+  const userId = insertUser({ email: "rolling@example.com" });
+  const { reply, cookiesSet } = mockReply();
+  createSession(userId, reply as unknown as FastifyReply, undefined, { remember: false });
+  const sessionId = cookiesSet[0].value;
+
+  resolveSession(
+    mockRequest({ [cookiesSet[0].name]: sessionId }),
+    mockReply().reply as unknown as FastifyReply,
+  );
+
+  const row = db.prepare("SELECT expires_at FROM sessions WHERE id = ?").get(sessionId) as { expires_at: string };
+  const hoursOut = (new Date(row.expires_at).getTime() - Date.now()) / 3_600_000;
+  assert.ok(hoursOut <= 12, `still a short session after use, got ${hoursOut}h`);
+});
+
+test("a session predating ttl_ms keeps the long default", () => {
+  const userId = insertUser({ email: "legacy-session@example.com" });
+  const { reply, cookiesSet } = mockReply();
+  createSession(userId, reply as unknown as FastifyReply);
+  const sessionId = cookiesSet[0].value;
+  db.prepare("UPDATE sessions SET ttl_ms = NULL WHERE id = ?").run(sessionId);
+
+  assert.ok(
+    resolveSession(mockRequest({ [cookiesSet[0].name]: sessionId }), mockReply().reply as unknown as FastifyReply),
+    "an existing session from before the column existed still resolves",
+  );
+  const row = db.prepare("SELECT expires_at FROM sessions WHERE id = ?").get(sessionId) as { expires_at: string };
+  const daysOut = (new Date(row.expires_at).getTime() - Date.now()) / 86_400_000;
+  assert.ok(daysOut > 29, `rolled forward by the long default, got ${daysOut} days`);
 });

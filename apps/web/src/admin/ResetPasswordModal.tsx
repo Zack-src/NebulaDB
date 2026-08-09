@@ -14,11 +14,11 @@ export function ResetPasswordModal(props: { targetUser: UserSummary; onClose: ()
 
   const submit = async () => {
     if (newPassword.length < 8) {
-      setError("Password must be at least 8 characters.");
+      setError("Le mot de passe doit faire au moins 8 caractères.");
       return;
     }
     if (newPassword !== confirm) {
-      setError("Passwords don't match.");
+      setError("Les mots de passe ne correspondent pas.");
       return;
     }
     setBusy(true);
@@ -33,7 +33,7 @@ export function ResetPasswordModal(props: { targetUser: UserSummary; onClose: ()
         setDone(true);
       } else {
         const data = await res.json().catch(() => ({}));
-        setError(data.error ?? `Failed (${res.status})`);
+        setError(data.error ?? `Échec (${res.status})`);
       }
     } finally {
       setBusy(false);
@@ -41,7 +41,7 @@ export function ResetPasswordModal(props: { targetUser: UserSummary; onClose: ()
   };
 
   return (
-    <Modal title={`Reset password — ${props.targetUser.email}`} onClose={props.onClose}>
+    <Modal title={`Réinitialiser le mot de passe — ${props.targetUser.email}`} onClose={props.onClose}>
       {done ? (
         <Hint>
           Password reset — {props.targetUser.email} has been signed out everywhere and needs the new password to log
@@ -50,7 +50,7 @@ export function ResetPasswordModal(props: { targetUser: UserSummary; onClose: ()
       ) : (
         <>
           <Field
-            label="New password"
+            label="Nouveau mot de passe"
             type="password"
             autoFocus
             value={newPassword}
@@ -58,14 +58,14 @@ export function ResetPasswordModal(props: { targetUser: UserSummary; onClose: ()
             autoComplete="new-password"
           />
           <Field
-            label="Confirm new password"
+            label="Confirmer le nouveau mot de passe"
             type="password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             autoComplete="new-password"
           />
           <Button variant="primary" onClick={submit} disabled={busy || !newPassword || !confirm}>
-            {busy ? "Resetting…" : "Reset password"}
+            {busy ? "Réinitialisation…" : "Réinitialiser le mot de passe"}
           </Button>
           {error && <ErrorText>{error}</ErrorText>}
         </>

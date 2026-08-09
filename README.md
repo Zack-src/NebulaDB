@@ -1,6 +1,8 @@
 # AthanorDB
 
-Local-first, self-hosted, DBML-native database schema diagramming — think dbdiagram.io, but running entirely on your own machine or LAN, with real-time multi-user editing and full history built in.
+Self-hosted, DBML-native database schema diagramming — think dbdiagram.io, but running entirely on your own machine or LAN, with real-time multi-user editing and full history built in.
+
+Your data stays on your server; nothing is sent anywhere else. Note that this is *not* local-first in the technical sense: state lives on the server, and the browser needs a connection to it. An open tab survives a network blip and resyncs on reconnect (see the reconnect logic in `yjsClient.ts`), but there is no offline persistence — closing the tab mid-outage loses unsynced edits.
 
 ## Features
 
@@ -34,7 +36,7 @@ Local-first, self-hosted, DBML-native database schema diagramming — think dbdi
 | Canvas export       | `html-to-image` + `jsPDF`                  | PNG/SVG snapshot of the canvas, wrapped into a PDF                                     |
 | Backend             | Node + TypeScript + Fastify                | lightweight server, native WS plugin                                                   |
 | Realtime collab     | Yjs CRDT, hand-rolled WS protocol (`y-protocols` + `lib0`) | multi-user editing and undo/history almost for free, no `y-websocket` dependency |
-| Persistence         | SQLite (`better-sqlite3`)                  | zero-config, single file, fits "local first"                                          |
+| Persistence         | SQLite (`better-sqlite3`)                  | zero-config, single file, fits a single-server self-hosted deploy                      |
 | DBML parse/gen      | `@dbml/core`                                | official parser, handles DBML <-> SQL (Postgres/MySQL/MSSQL) both ways                |
 | Diagram state model | custom schema layered on the Yjs doc       | tables/fields/refs/notes/zones + visual metadata (position, color, detail level)      |
 | Packaging           | plain Node process, optional Docker        | `npm run dev` or `docker compose up`, no cloud dependency                              |
@@ -72,8 +74,17 @@ Every value is validated at startup — a malformed one exits immediately with a
 | `ATHANORDB_ALLOWED_ORIGINS` | unset | Comma-separated extra origins allowed to make state-changing requests. The app's own host is always allowed; this is only needed if the UI is served from a different origin than the API. |
 | `ATHANORDB_MAX_BODY_MB` | `4` | Max REST request body (DBML/SQL imports are the large ones). |
 | `ATHANORDB_MAX_WS_FRAME_MB` | `8` | Max size of a single WebSocket frame (one Yjs update). |
+| `ATHANORDB_LOG_LEVEL` | `info` | One of `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent`. Session cookies and `Authorization` headers are redacted from logs at every level. |
+| `ATHANORDB_BACKUP_INTERVAL_HOURS` | `0` (off) | Hours between automatic backups. Off by default so an operator with their own volume-snapshot strategy doesn't get a second, unasked-for one. |
+| `ATHANORDB_BACKUP_DIR` | `./backups` | Where scheduled backups are written, one timestamped directory per run. |
+| `ATHANORDB_BACKUP_KEEP` | `7` | How many backup directories to keep. Older ones are pruned after each run — unbounded backups fill the disk the database lives on. |
+| `ATHANORDB_AUDIT_RETENTION_DAYS` | `365` | How long audit entries are kept before the hourly sweep deletes them. `0` keeps them indefinitely. If you change this, update your privacy policy to match. |
 
 `SIGTERM`/`SIGINT` shut down gracefully: connections stop, every live document is snapshotted to SQLite, then the database is closed — so `docker stop` doesn't drop the last few seconds of edits.
+
+If you run an instance other people use, you are the service operator and the data controller — see [`docs/legal/`](docs/legal/README.md) for terms-of-service and privacy-policy templates written against what this software actually stores and for how long.
+
+None of these are secrets — there is no API key, no signing key, and no external service credential anywhere in the configuration, so plain environment variables are adequate and no secret-management integration is needed today. That changes the moment a live database connection is stored (see `docs/v1-roadmap.md` §7): connection strings must be encrypted at rest, and that work brings its own key-management decision with it.
 
 ### Docker
 
@@ -83,6 +94,31 @@ docker compose up --build
 
 Serves on `:3001`, with project data persisted in a named volume (`athanordb-data`) rather than the container's own filesystem.
 
+> **One process per database.** State lives in SQLite plus in-memory collaboration rooms held by the server process. Running two containers against the same volume will corrupt data — this does not scale horizontally by adding replicas. Scale up (a bigger box), not out.
+
+### Running behind a reverse proxy
+
+The single-process deployment serves the API, the WebSocket and the built web app on one port, so a proxy needs to do three things:
+
+1. **Terminate TLS and set `ATHANORDB_COOKIE_SECURE=true`.** Sessions are cookie-based; without this the cookie is not marked `Secure`.
+2. **Forward the WebSocket upgrade** on `/ws/`. A proxy that drops `Upgrade`/`Connection` headers leaves the app loading normally and then silently never syncing — the client will show `reconnecting…` forever.
+3. **Preserve `Host`, or set `ATHANORDB_ALLOWED_ORIGINS`.** State-changing requests are rejected when the browser's `Origin` doesn't match the request's `Host` (a CSRF defence). A proxy that rewrites `Host` to its upstream target breaks every login until the browser-facing origin is listed explicitly.
+
+nginx, for example:
+
+```nginx
+location / {
+    proxy_pass http://127.0.0.1:3001;
+    proxy_set_header Host $host;              # keeps the Origin check happy
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_http_version 1.1;                   # required for the WS upgrade
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_read_timeout 3600s;                 # idle editing sessions hold the socket open
+}
+```
+
 ### Backup
 
 Dump every project to a `.dbml` file (defaults to `./backups/<timestamp>/`):
@@ -90,6 +126,12 @@ Dump every project to a `.dbml` file (defaults to `./backups/<timestamp>/`):
 ```bash
 npm run backup [-- <outputDir>]
 ```
+
+Each project is replayed from its revision log rather than read from the periodic snapshot, so a backup taken mid-edit contains that edit.
+
+To have the server do this on a schedule instead, set `ATHANORDB_BACKUP_INTERVAL_HOURS` (see the configuration table). Runs are written to `ATHANORDB_BACKUP_DIR`, one timestamped directory each, and older ones beyond `ATHANORDB_BACKUP_KEEP` are pruned. Directories that don't look like a backup timestamp are never touched, so the folder is safe to share with your own files. Nothing runs at boot — a crash-looping container would otherwise produce a backup per restart and prune away the good ones.
+
+The backup → restore round trip (schema, primary keys and canvas positions) is covered by `backupRunner.test.ts`, so it is exercised on every CI run rather than only when someone tries it in an emergency.
 
 ### Restore
 

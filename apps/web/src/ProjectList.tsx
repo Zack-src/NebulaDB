@@ -8,12 +8,14 @@ import { EmptyTrashModal } from "./projectList/EmptyTrashModal.js";
 import { Button } from "./ui/Button.js";
 import { ErrorText } from "./ui/Alert.js";
 import { EmptyState } from "./ui/List.js";
+import { SkeletonCardGrid } from "./ui/Skeleton.js";
 import { Input } from "./ui/Input.js";
 import type { CreateProjectResult } from "./hooks/useProjects.js";
 import type { ProjectStatus, ProjectSummary } from "./types.js";
 
 export function ProjectList(props: {
   projects: ProjectSummary[];
+  loaded: boolean;
   onCreateProject: (name: string) => Promise<CreateProjectResult>;
   onOpen: (p: ProjectSummary) => void;
   onRename: (p: ProjectSummary, name: string) => void;
@@ -21,7 +23,7 @@ export function ProjectList(props: {
   onDeleteForever: (p: ProjectSummary) => Promise<string | null>;
   onEmptyTrash: (projects: ProjectSummary[]) => Promise<string | null>;
 }) {
-  const { projects, onCreateProject, onOpen, onRename, onSetStatus, onDeleteForever, onEmptyTrash } = props;
+  const { projects, loaded, onCreateProject, onOpen, onRename, onSetStatus, onDeleteForever, onEmptyTrash } = props;
   const [section, setSection] = useState<ProjectStatus>("active");
   const [searchQuery, setSearchQuery] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
@@ -156,7 +158,12 @@ export function ProjectList(props: {
               </Button>
             </div>
           )}
-          {visible.length === 0 ? (
+          {!loaded ? (
+            /* Placeholders, not the empty state: before the fetch settles an
+               empty array means "unknown", and claiming the user has no
+               projects is a wrong statement rather than a slow one. */
+            <SkeletonCardGrid count={4} />
+          ) : visible.length === 0 ? (
             <EmptyState>{searchQuery.trim() ? "Aucun projet ne correspond à votre recherche." : current.empty}</EmptyState>
           ) : (
             <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">

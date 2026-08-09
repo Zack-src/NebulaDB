@@ -14,11 +14,11 @@ function AcceptInvite(props: { token: string; onLoggedIn: (session: Session) => 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (password.length < 8) {
-      setError("Password must be at least 8 characters.");
+      setError("Le mot de passe doit faire au moins 8 caractères.");
       return;
     }
     if (password !== confirm) {
-      setError("Passwords don't match.");
+      setError("Les mots de passe ne correspondent pas.");
       return;
     }
     setBusy(true);
@@ -33,7 +33,7 @@ function AcceptInvite(props: { token: string; onLoggedIn: (session: Session) => 
       if (res.ok) {
         props.onLoggedIn(data as Session);
       } else {
-        setError(data.error ?? `Could not accept this invitation (${res.status})`);
+        setError(data.error ?? `Impossible d'accepter cette invitation (${res.status})`);
       }
     } catch (err) {
       setError((err as Error).message);
@@ -51,10 +51,10 @@ function AcceptInvite(props: { token: string; onLoggedIn: (session: Session) => 
         <span className="mx-auto mb-3 flex h-[26px] w-[26px] items-center justify-center rounded-sm bg-gradient-to-br from-primary to-[#7c3aed] text-white">
           <LogoMarkIcon size={16} style={{ color: "white" }} />
         </span>
-        <h1 className="mb-1 text-center text-lg font-bold">Set your password</h1>
-        <p className="mb-5 text-center text-[13px] text-text-muted">Finish creating your account to accept this invitation.</p>
+        <h1 className="mb-1 text-center text-lg font-bold">Définissez votre mot de passe</h1>
+        <p className="mb-5 text-center text-[13px] text-text-muted">Terminez la création de votre compte pour accepter cette invitation.</p>
         <Field
-          label="Password"
+          label="Mot de passe"
           type="password"
           autoFocus
           value={password}
@@ -62,14 +62,14 @@ function AcceptInvite(props: { token: string; onLoggedIn: (session: Session) => 
           autoComplete="new-password"
         />
         <Field
-          label="Confirm password"
+          label="Confirmer le mot de passe"
           type="password"
           value={confirm}
           onChange={(e) => setConfirm(e.target.value)}
           autoComplete="new-password"
         />
         <Button variant="primary" type="submit" disabled={busy || !password || !confirm}>
-          {busy ? "Creating account…" : "Create account"}
+          {busy ? "Création du compte…" : "Créer mon compte"}
         </Button>
         {error && <ErrorText>{error}</ErrorText>}
       </form>

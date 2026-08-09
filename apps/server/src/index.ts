@@ -17,13 +17,33 @@ import { getProjectRow, registerProjectRoutes } from "./routes/projects.js";
 import { registerTeamRoutes } from "./routes/teams.js";
 import { registerConvertRoutes } from "./routes/convert.js";
 import { registerUserRoutes } from "./routes/users.js";
-import { closeAllRooms, flushAllRooms, getRoom } from "./yjs/room.js";
+import { registerAuditRoutes } from "./routes/audit.js";
+import { purgeStaleAttempts } from "./auth/lockout.js";
+import { purgeOldAuditEntries } from "./audit.js";
+import { backupTimestamp, pruneOldBackups, runBackup } from "./backupRunner.js";
+import { closeAllRooms, flushAllRooms, getRoom, liveRoomCount } from "./yjs/room.js";
 
 // `bodyLimit` bounds REST payloads (the DBML/SQL import route is the big one);
 // `maxPayload` bounds a single WebSocket frame, which was previously unbounded
 // — a client could send an arbitrarily large Yjs update and the server would
 // buffer all of it.
-const app = Fastify({ logger: true, bodyLimit: config.bodyLimit });
+const app = Fastify({
+  logger: {
+    level: config.logLevel,
+    // Defence in depth, not a fix for a current leak: Fastify's default
+    // request serializer logs method/url/host/remoteAddress and no headers, so
+    // the session cookie doesn't reach the log today (verified against a
+    // running server — the issued session id appears zero times in its
+    // output). This makes that hold if anyone later logs a full `req`/`res`,
+    // where the cookie *is* the credential and a log line containing it is a
+    // log line someone can log in with.
+    redact: {
+      paths: ["req.headers.cookie", "req.headers.authorization", 'res.headers["set-cookie"]'],
+      censor: "[redacted]",
+    },
+  },
+  bodyLimit: config.bodyLimit,
+});
 await app.register(websocket, { options: { maxPayload: config.wsMaxPayload } });
 await app.register(fastifyCookie);
 // Global ceiling, deliberately loose — the collaborative UI is chatty. The
@@ -76,13 +96,39 @@ app.addHook("onRequest", async (req, reply) => {
   return reply;
 });
 
-app.get("/api/health", async () => ({ status: "ok" }));
+/**
+ * Health check with something to fail on. It used to return `{status:"ok"}`
+ * unconditionally, which meant the Dockerfile's HEALTHCHECK could only ever
+ * detect a dead process — a database locked, deleted out from under the
+ * process, or otherwise unreadable would still report healthy while every
+ * request failed.
+ *
+ * The query is intentionally trivial (a count against a table that always
+ * exists): this runs on an interval forever, and the point is to prove the
+ * connection still works, not to measure anything.
+ */
+app.get("/api/health", async (_req, reply) => {
+  try {
+    const row = db.prepare("SELECT COUNT(*) AS n FROM projects").get() as { n: number };
+    return {
+      status: "ok",
+      projects: row.n,
+      rooms: liveRoomCount(),
+      uptimeSeconds: Math.round(process.uptime()),
+    };
+  } catch (err) {
+    app.log.error({ err }, "health check failed");
+    reply.code(503);
+    return { status: "error", error: "database unavailable" };
+  }
+});
 registerAuthRoutes(app);
 registerInvitationRoutes(app);
 registerUserRoutes(app);
 registerTeamRoutes(app);
 registerProjectRoutes(app);
 registerConvertRoutes(app);
+registerAuditRoutes(app);
 
 // Single-process production deployment: serve the built web app once it
 // exists. In dev, apps/web runs its own Vite server and proxies /api and /ws
@@ -135,10 +181,17 @@ app.register(async (instance) => {
     (socket: WebSocket, req) => {
       const { projectId } = req.params as { projectId: string };
       const author = req.user!.displayName;
-      const canWrite = getEffectivePermission(req.user!.id, projectId) !== "view";
+      const userId = req.user!.id;
       const room = getRoom(projectId);
 
-      room.join(socket, author, canWrite);
+      // Resolved on every use rather than captured once — see `Room.join`.
+      // `null` (no permission at all) closes the socket instead of silently
+      // downgrading it to read-only, which is what a user removed from a
+      // project should experience.
+      room.join(socket, author, () => {
+        const level = getEffectivePermission(userId, projectId);
+        return level ? { canWrite: level !== "view" } : null;
+      });
       app.log.info(`${author} joined project ${projectId}`);
 
       socket.on("message", (data: Buffer) => {
@@ -160,6 +213,15 @@ const sweepSessions = () => {
   try {
     const removed = purgeExpiredSessions();
     if (removed > 0) app.log.info(`purged ${removed} expired session(s)`);
+    // Same schedule, same rationale: failed-login counters for accounts that
+    // are no longer locked and haven't failed in a day carry no information.
+    const attempts = purgeStaleAttempts();
+    if (attempts > 0) app.log.info(`purged ${attempts} stale login attempt row(s)`);
+    // Same schedule again: the audit trail is the one table with no natural
+    // ceiling, so its retention has to be enforced somewhere rather than left
+    // as a sentence in a policy document.
+    const audits = purgeOldAuditEntries(config.auditRetentionDays);
+    if (audits > 0) app.log.info(`purged ${audits} audit entry(ies) past the ${config.auditRetentionDays}-day retention`);
   } catch (err) {
     app.log.error({ err }, "session sweep failed");
   }
@@ -167,6 +229,40 @@ const sweepSessions = () => {
 sweepSessions();
 const sessionSweepTimer = setInterval(sweepSessions, SESSION_SWEEP_MS);
 sessionSweepTimer.unref();
+
+/**
+ * Scheduled backups, off unless `ATHANORDB_BACKUP_INTERVAL_HOURS` is set.
+ *
+ * `backup.ts` has always worked, but nothing in a running deployment ever
+ * called it — a backup that depends on someone remembering the command is a
+ * backup most instances don't actually have. Old directories are pruned so
+ * this doesn't slowly fill the volume the database itself lives on.
+ *
+ * Deliberately not run at boot: a restart loop would otherwise produce a
+ * backup per crash and prune away the older, *good* ones.
+ */
+let backupTimer: NodeJS.Timeout | null = null;
+if (config.backupIntervalHours > 0) {
+  const runScheduledBackup = () => {
+    try {
+      const result = runBackup(path.join(config.backupDir, backupTimestamp()));
+      const pruned = pruneOldBackups(config.backupDir, config.backupKeep);
+      app.log.info(
+        `backup: ${result.backedUp} project(s) written to ${result.dir}` +
+          `${result.skipped > 0 ? `, ${result.skipped} skipped` : ""}` +
+          `${pruned > 0 ? `, ${pruned} old backup(s) pruned` : ""}`,
+      );
+    } catch (err) {
+      // A failed backup must never take the server down with it.
+      app.log.error({ err }, "scheduled backup failed");
+    }
+  };
+  backupTimer = setInterval(runScheduledBackup, config.backupIntervalHours * 60 * 60 * 1000);
+  backupTimer.unref();
+  app.log.info(
+    `scheduled backups every ${config.backupIntervalHours}h into ${path.resolve(config.backupDir)} (keeping ${config.backupKeep})`,
+  );
+}
 
 /**
  * `docker stop` / `docker compose down` send SIGTERM with nothing listening,
@@ -191,6 +287,7 @@ async function shutdown(signal: string): Promise<void> {
   timer.unref();
 
   clearInterval(sessionSweepTimer);
+  if (backupTimer) clearInterval(backupTimer);
   try {
     const flushed = flushAllRooms();
     if (flushed > 0) app.log.info(`flushed ${flushed} room snapshot(s)`);
