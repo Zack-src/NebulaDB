@@ -2,7 +2,7 @@ import { PresenceList } from "../PresenceList.js";
 import type { AwarenessState, ConnectionStatus } from "../yjsClient.js";
 import { Button } from "../ui/Button.js";
 import { BrandMark } from "../ui/BrandMark.js";
-import { Badge, CountBadge } from "../ui/Badge.js";
+import { Badge } from "../ui/Badge.js";
 import {
   ChevronLeftIcon,
   ClockIcon,
@@ -11,7 +11,6 @@ import {
   PuzzleIcon,
   RedoIcon,
   SettingsIcon,
-  ShieldCheckIcon,
   UndoIcon,
   UploadIcon,
 } from "../Icons.js";
@@ -102,10 +101,6 @@ export function ProjectToolbar(props: ProjectToolbarProps) {
           <Button size="sm" variant="ghost" onClick={props.onShowPlugins} className="text-xs">
             <PuzzleIcon size={13} /> Plugins
           </Button>
-          <Button size="sm" variant="ghost" onClick={props.onShowValidation} className="text-xs gap-1.5" data-tooltip="Vérifier le schéma">
-            <ShieldCheckIcon size={13} /> Validation
-            {props.validationCount > 0 && <CountBadge count={props.validationCount} danger={props.hasValidationErrors} />}
-          </Button>
         </div>
 
         <span className="w-px h-4 bg-border/60 mx-1" />
@@ -115,11 +110,6 @@ export function ProjectToolbar(props: ProjectToolbarProps) {
         <PresenceList localName={props.localUser} localColor={props.localColor} remote={props.remoteAwareness} />
 
         <div className="flex items-center gap-2 pl-2">
-          <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-surface-raised border border-border/60 text-xs font-semibold">
-            <span className="w-2 h-2 rounded-full bg-success animate-pulse-subtle" />
-            <span className="text-text">{props.localUser}</span>
-          </div>
-
           {props.onOpenSettings && (
             <Button variant="ghost" size="icon" onClick={props.onOpenSettings} data-tooltip="Paramètres" data-tooltip-pos="bottom">
               <SettingsIcon size={15} />

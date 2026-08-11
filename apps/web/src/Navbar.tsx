@@ -1,7 +1,6 @@
 import { BrandMark } from "./ui/BrandMark.js";
 import { Button } from "./ui/Button.js";
 import { Badge } from "./ui/Badge.js";
-import { StatusPill } from "./ui/StatusPill.js";
 import { SettingsIcon, UsersIcon, LogOutIcon } from "./Icons.js";
 import type { Session } from "./types.js";
 
@@ -41,9 +40,6 @@ export function Navbar({
         )}
 
         <Badge tone="admin" className="hidden sm:inline-flex">v0.0.1 Open-Core</Badge>
-        <span className="hidden lg:inline-flex">
-          <StatusPill status={serverStatus} />
-        </span>
       </div>
 
       <div className="flex items-center gap-3">
@@ -70,7 +66,6 @@ export function Navbar({
           <div className="w-5 h-5 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-[10px]">
             {session.displayName.charAt(0).toUpperCase()}
           </div>
-          <span className="text-text max-w-[120px] truncate">{session.displayName}</span>
           <SettingsIcon size={13} className="text-text-muted" />
         </button>
 

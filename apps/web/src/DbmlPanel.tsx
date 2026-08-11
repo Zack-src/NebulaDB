@@ -12,23 +12,6 @@ import { ErrorText } from "./ui/Alert.js";
 
 type SyncStatus = "idle" | "typing" | "syncing" | "synced";
 
-const DOT_TONE: Record<Exclude<SyncStatus, "idle">, string> = {
-  typing: "bg-text-muted",
-  syncing: "animate-pulse bg-warning",
-  synced: "bg-success",
-};
-
-function SyncStatusPill({ status }: { status: SyncStatus }) {
-  if (status === "idle") return null;
-  const label = { typing: "Editing…", syncing: "Syncing…", synced: "Synced" }[status];
-  return (
-    <span className="inline-flex items-center gap-1 text-[11.5px] text-text-muted">
-      <span className={`h-1.5 w-1.5 rounded-full ${DOT_TONE[status]}`} />
-      {label}
-    </span>
-  );
-}
-
 const DBML_SYNC_DEBOUNCE_MS = 600;
 const DEFAULT_PANEL_WIDTH = 440;
 const MIN_PANEL_WIDTH = 280;
@@ -274,7 +257,6 @@ function DbmlPanel(props: {
       <div className="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2.5">
         <CodeIcon size={14} className="text-text-muted" />
         <span className="text-[13px] font-semibold text-text">DBML</span>
-        <SyncStatusPill status={status} />
         {pluginMessage && <span className="truncate text-[11.5px] text-text-muted">{pluginMessage}</span>}
         <span className="ml-auto" />
         <Button
