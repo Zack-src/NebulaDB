@@ -250,7 +250,6 @@ export const athanorEditorTheme = EditorView.theme(
   {
     "&": {
       height: "100%",
-      fontSize: "var(--dbml-font-size, 13px)",
       fontFamily: "'Fira Code', 'JetBrains Mono', 'Cascadia Code', Consolas, monospace",
       backgroundColor: "#17181B",
       color: "#E2E8F0",
