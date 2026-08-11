@@ -1,0 +1,9 @@
+/* Tailwind's own layers, isolated in a file so `index.css` can @import them at
+   a chosen position. `@import` is only legal before other rules, so the
+   directives cannot simply sit mid-file in the entry point — but the layers
+   that follow them (utilities.css, canvas.css) must still come after the
+   generated utilities to win the cascade. */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

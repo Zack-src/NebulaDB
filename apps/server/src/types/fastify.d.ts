@@ -1,4 +1,4 @@
-import type { SessionUser } from "../auth/session.js";
+import type { SessionUser } from "../modules/auth/session.js";
 
 declare module "fastify" {
   interface FastifyRequest {

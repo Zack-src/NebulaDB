@@ -10,8 +10,8 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "test": "node --test dist/**/*.test.js",
-    "backup": "tsx src/backup.ts",
-    "restore": "tsx src/restore.ts",
+    "backup": "tsx src/infrastructure/backup.ts",
+    "restore": "tsx src/infrastructure/restore.ts",
     "bootstrap-admin": "tsx src/bootstrap-admin.ts"
   },
   "dependencies": {

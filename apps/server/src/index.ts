@@ -7,21 +7,23 @@ import fastifyRateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
 import websocket from "@fastify/websocket";
 import type { WebSocket } from "ws";
-import { purgeExpiredSessions, resolveSession } from "./auth/session.js";
 import { config } from "./config.js";
-import { db } from "./db.js";
-import { getEffectivePermission } from "./permissions.js";
-import { registerAuthRoutes } from "./routes/auth.js";
-import { registerInvitationRoutes } from "./routes/invitations.js";
-import { getProjectRow, registerProjectRoutes } from "./routes/projects.js";
-import { registerTeamRoutes } from "./routes/teams.js";
-import { registerConvertRoutes } from "./routes/convert.js";
-import { registerUserRoutes } from "./routes/users.js";
-import { registerAuditRoutes } from "./routes/audit.js";
-import { purgeStaleAttempts } from "./auth/lockout.js";
-import { purgeOldAuditEntries } from "./audit.js";
-import { backupTimestamp, pruneOldBackups, runBackup } from "./backupRunner.js";
-import { closeAllRooms, flushAllRooms, getRoom, liveRoomCount } from "./yjs/room.js";
+import { db } from "./infrastructure/db.js";
+import { backupTimestamp, pruneOldBackups, runBackup } from "./infrastructure/backupRunner.js";
+import { registerAuditRoutes } from "./modules/audit/routes.js";
+import { purgeStaleAttempts } from "./modules/auth/lockout.js";
+import { registerAuthRoutes } from "./modules/auth/routes.js";
+import { purgeExpiredSessions, resolveSession } from "./modules/auth/session.js";
+import { registerConvertRoutes } from "./modules/convert/routes.js";
+import { registerInvitationRoutes } from "./modules/invitations/routes.js";
+import { registerProjectRoutes } from "./modules/projects/index.js";
+import { getProjectRow } from "./modules/projects/repository.js";
+import { registerTeamRoutes } from "./modules/teams/routes.js";
+import { registerUserRoutes } from "./modules/users/index.js";
+import { closeAllRooms, flushAllRooms, getRoom, liveRoomCount } from "./realtime/room.js";
+import { purgeOldAuditEntries } from "./shared/audit.js";
+import { ApiError, registerErrorHandler } from "./shared/errors.js";
+import { getEffectivePermission } from "./shared/permissions.js";
 
 // `bodyLimit` bounds REST payloads (the DBML/SQL import route is the big one);
 // `maxPayload` bounds a single WebSocket frame, which was previously unbounded
@@ -44,6 +46,7 @@ const app = Fastify({
   },
   bodyLimit: config.bodyLimit,
 });
+registerErrorHandler(app);
 await app.register(websocket, { options: { maxPayload: config.wsMaxPayload } });
 await app.register(fastifyCookie);
 // Global ceiling, deliberately loose — the collaborative UI is chatty. The
@@ -76,7 +79,7 @@ const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
  * the backup tooling) don't send one, and browsers always do for cross-origin
  * state-changing requests, which is the case that matters.
  */
-app.addHook("onRequest", async (req, reply) => {
+app.addHook("onRequest", async (req) => {
   if (SAFE_METHODS.has(req.method)) return;
   const origin = req.headers.origin;
   if (!origin || origin === "null") return;
@@ -85,15 +88,13 @@ app.addHook("onRequest", async (req, reply) => {
   try {
     originHost = new URL(origin).host;
   } catch {
-    reply.code(403).send({ error: "invalid origin" });
-    return reply;
+    throw new ApiError("ORIGIN_INVALID");
   }
   if (originHost === req.headers.host) return;
   if (config.allowedOrigins.includes(origin.replace(/\/$/, ""))) return;
 
   req.log.warn({ origin, host: req.headers.host }, "rejected cross-origin state-changing request");
-  reply.code(403).send({ error: "cross-origin request refused" });
-  return reply;
+  throw new ApiError("ORIGIN_MISMATCH");
 });
 
 /**
@@ -119,7 +120,7 @@ app.get("/api/health", async (_req, reply) => {
   } catch (err) {
     app.log.error({ err }, "health check failed");
     reply.code(503);
-    return { status: "error", error: "database unavailable" };
+    return { status: "error", ...new ApiError("DATABASE_UNAVAILABLE").toPayload() };
   }
 });
 registerAuthRoutes(app);
@@ -156,11 +157,8 @@ app.register(async (instance) => {
       // Runs before the HTTP upgrade completes, so a rejection here sends a
       // plain 401/404 instead of the connection ever becoming a WebSocket —
       // stricter and simpler than closing the socket post-upgrade.
-      preHandler: async (req, reply) => {
-        if (!req.user) {
-          reply.code(401).send({ error: "authentication required" });
-          return;
-        }
+      preHandler: async (req) => {
+        if (!req.user) throw new ApiError("AUTH_REQUIRED");
         const { projectId } = req.params as { projectId: string };
         // Every REST route checks the project exists before touching its room —
         // this was the one path that didn't. Skipping it let anyone crash the
@@ -168,14 +166,8 @@ app.register(async (instance) => {
         // room got created regardless, and `Room.leave()`'s snapshot insert
         // against a nonexistent `project_id` throws a foreign-key error that
         // was never caught, taking the entire server down for every project.
-        if (!getProjectRow(projectId)) {
-          reply.code(404).send({ error: "project not found" });
-          return;
-        }
-        if (!getEffectivePermission(req.user.id, projectId)) {
-          reply.code(403).send({ error: "forbidden" });
-          return;
-        }
+        if (!getProjectRow(projectId)) throw new ApiError("PROJECT_NOT_FOUND");
+        if (!getEffectivePermission(req.user.id, projectId)) throw new ApiError("FORBIDDEN");
       },
     },
     (socket: WebSocket, req) => {

@@ -36,5 +36,23 @@ export default tseslint.config(
       ...reactHooks.configs.recommended.rules,
     },
   },
+  {
+    // Guard against the UI drifting back to hard-coded copy. Every user-facing
+    // string goes through `t()` and lives in src/locales; a bare sentence in
+    // JSX is one that can never be translated. Four-letter minimum so
+    // separators, punctuation and short code identifiers don't trip it.
+    files: ["apps/web/src/**/*.tsx"],
+    ignores: ["apps/web/src/locales/**"],
+    rules: {
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector: "JSXText[value=/[A-Za-zÀ-ÿ]{4,}/]",
+          message:
+            "Hard-coded UI text. Add the string to src/locales/fr.json + en.json and render it with t('key').",
+        },
+      ],
+    },
+  },
   eslintConfigPrettier,
 );

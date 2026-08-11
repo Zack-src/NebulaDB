@@ -1,6 +1,6 @@
-import { db } from "./db.js";
-import { normalizeEmail } from "./auth/email.js";
-import { checkPassword, hashPassword } from "./auth/password.js";
+import { db } from "./infrastructure/db.js";
+import { normalizeEmail } from "./modules/auth/email.js";
+import { checkPassword, hashPassword } from "./modules/auth/password.js";
 
 /**
  * Creates the first global-admin account, bypassing invitations entirely —
