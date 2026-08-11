@@ -14,7 +14,6 @@ export interface ProjectListScreenProps {
   openLinkError: string | null;
   onOpenProject: (p: ProjectSummary) => void;
   onOpenAdmin: () => void;
-  onOpenLanding?: () => void;
   onOpenSettings?: () => void;
   onLogout: () => void;
   onDisplayNameChange: (name: string) => void;
@@ -31,7 +30,6 @@ export function ProjectListScreen(props: ProjectListScreenProps) {
       <Navbar
         session={props.session}
         serverStatus={props.serverStatus}
-        onOpenLanding={props.onOpenLanding}
         onOpenSettings={props.onOpenSettings}
         onOpenAdmin={props.onOpenAdmin}
         onLogout={props.onLogout}

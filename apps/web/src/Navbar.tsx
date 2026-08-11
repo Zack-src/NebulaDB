@@ -8,7 +8,6 @@ import type { Session } from "./types.js";
 export interface NavbarProps {
   session: Session;
   serverStatus: "checking" | "ok" | "down";
-  onOpenLanding?: () => void;
   onOpenSettings?: () => void;
   onOpenAdmin?: () => void;
   onLogout?: () => void;
@@ -21,7 +20,6 @@ export interface NavbarProps {
 export function Navbar({
   session,
   serverStatus,
-  onOpenLanding,
   onOpenSettings,
   onOpenAdmin,
   onLogout,
@@ -36,11 +34,7 @@ export function Navbar({
             ← Retour
           </Button>
         ) : (
-          <div
-            className="flex items-center gap-2.5 cursor-pointer select-none"
-            onClick={onOpenLanding}
-            title="Aller à la Landing Page"
-          >
+          <div className="flex items-center gap-2.5 select-none">
             <BrandMark size={24} />
             <span className="font-extrabold text-sm tracking-tight text-text">{title}</span>
           </div>

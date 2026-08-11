@@ -7,7 +7,6 @@ import { ErrorBoundary } from "./ErrorBoundary.js";
 import { ProjectEditor } from "./ProjectEditor.js";
 import { ProjectListScreen } from "./ProjectListScreen.js";
 import { Login } from "./Login.js";
-import { LandingPage } from "./LandingPage.js";
 import { SettingsPage } from "./SettingsPage.js";
 import { AcceptInvite } from "./AcceptInvite.js";
 import { AdminConsole } from "./AdminConsole.js";
@@ -15,13 +14,7 @@ import { APP_SHELL } from "./ui/layout.js";
 
 export function App() {
   const [adminOpen, setAdminOpen] = useState(false);
-  const [viewMode, setViewMode] = useState<"landing" | "app" | "login" | "settings">(() => {
-    // If opening a direct project URL or invite link, default to app view mode
-    if (location.pathname.startsWith("/project/") || location.pathname.startsWith("/invite/")) {
-      return "app";
-    }
-    return "landing";
-  });
+  const [viewMode, setViewMode] = useState<"app" | "settings">("app");
 
   const { session, setSession, serverStatus, logout, updateDisplayName } = useAuthSession(() => setAdminOpen(false));
   const projectsHandle = useProjects(Boolean(session && session !== "loading"));
@@ -68,7 +61,7 @@ export function App() {
             onDisplayNameChange={updateDisplayName}
             onLogout={() => {
               logout();
-              setViewMode("landing");
+              window.history.pushState(null, "", "/");
             }}
             onBack={routing.closeProject}
           />
@@ -77,24 +70,20 @@ export function App() {
     );
   }
 
-  // 2. Direct project URL accessed by non-authenticated user: prompt Login directly
-  if (location.pathname.startsWith("/project/") && !session) {
+  // 2. Not authenticated -> Login (direct project URL or otherwise)
+  if (!session) {
     return (
       <Login
         onLoggedIn={(s) => {
           setSession(s);
           setViewMode("app");
         }}
-        onBackToLanding={() => {
-          window.history.pushState(null, "", "/");
-          setViewMode("landing");
-        }}
       />
     );
   }
 
   // 3. Settings View
-  if (viewMode === "settings" && session) {
+  if (viewMode === "settings") {
     return (
       <SettingsPage
         session={session}
@@ -102,59 +91,18 @@ export function App() {
         onDisplayNameChange={updateDisplayName}
         onLogout={() => {
           logout();
-          setViewMode("landing");
+          window.history.pushState(null, "", "/");
         }}
       />
     );
   }
 
   // 4. Admin Console View
-  if (adminOpen && session) {
+  if (adminOpen) {
     return <AdminConsole onClose={() => setAdminOpen(false)} />;
   }
 
-  // 5. Explicit Login View
-  if (viewMode === "login" && !session) {
-    return (
-      <Login
-        onLoggedIn={(s) => {
-          setSession(s);
-          setViewMode("app");
-        }}
-        onBackToLanding={() => setViewMode("landing")}
-      />
-    );
-  }
-
-  // 6. Explicit Landing Page View (when on root / or requested)
-  if (viewMode === "landing" && !location.pathname.startsWith("/project/")) {
-    return (
-      <LandingPage
-        isLoggedIn={Boolean(session)}
-        onOpenApp={() => {
-          if (!session) {
-            setViewMode("login");
-          } else {
-            setViewMode("app");
-          }
-        }}
-        onOpenLogin={() => setViewMode("login")}
-      />
-    );
-  }
-
-  // 7. Non-authenticated fallback -> Landing Page
-  if (!session) {
-    return (
-      <LandingPage
-        isLoggedIn={false}
-        onOpenApp={() => setViewMode("login")}
-        onOpenLogin={() => setViewMode("login")}
-      />
-    );
-  }
-
-  // 8. Default Workspace Dashboard View
+  // 5. Default Workspace Dashboard View
   return (
     <ProjectListScreen
       session={session}
@@ -164,14 +112,10 @@ export function App() {
       openLinkError={routing.openLinkError}
       onOpenProject={routing.openProjectAndNavigate}
       onOpenAdmin={() => setAdminOpen(true)}
-      onOpenLanding={() => {
-        window.history.pushState(null, "", "/");
-        setViewMode("landing");
-      }}
       onOpenSettings={() => setViewMode("settings")}
       onLogout={() => {
         logout();
-        setViewMode("landing");
+        window.history.pushState(null, "", "/");
       }}
       onDisplayNameChange={updateDisplayName}
       onCreateProject={projectsHandle.createProject}

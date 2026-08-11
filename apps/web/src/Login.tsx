@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LogoMarkIcon, ChevronLeftIcon, KeyIcon } from "./Icons.js";
+import { LogoMarkIcon, KeyIcon } from "./Icons.js";
 import { Button } from "./ui/Button.js";
 import { Field } from "./ui/Field.js";
 import { ErrorText } from "./ui/Alert.js";
@@ -10,10 +10,9 @@ import type { Session } from "./types.js";
 
 export interface LoginProps {
   onLoggedIn: (session: Session) => void;
-  onBackToLanding?: () => void;
 }
 
-export function Login({ onLoggedIn, onBackToLanding }: LoginProps) {
+export function Login({ onLoggedIn }: LoginProps) {
   const [tab, setTab] = useState<"login" | "invite">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -54,15 +53,6 @@ export function Login({ onLoggedIn, onBackToLanding }: LoginProps) {
       <div className="absolute bottom-10 right-10 w-[300px] h-[300px] bg-accent-purple/15 blur-[100px] rounded-full pointer-events-none" />
 
       <div className="relative w-full max-w-[420px] flex flex-col gap-4">
-        {onBackToLanding && (
-          <button
-            onClick={onBackToLanding}
-            className="self-start inline-flex items-center gap-1.5 text-xs text-text-muted hover:text-text transition-colors mb-1"
-          >
-            <ChevronLeftIcon size={14} /> Retour à la Landing Page
-          </button>
-        )}
-
         <Card variant="glow" className="w-full shadow-2xl glass-panel">
           <CardHeader className="text-center pb-4 border-b border-border/40">
             <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent-purple text-white shadow-md glow-indigo">
