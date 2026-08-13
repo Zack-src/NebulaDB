@@ -1,9 +1,10 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { MAX_TEXT_LENGTH, type Comment } from "@athanordb/shared";
 import { CloseIcon, CommentIcon } from "@/components/icons/Icons";
 import { Button } from "@/components/ui/Button";
 import { TEXTAREA_SM_CLASS } from "@/components/ui/inputStyles";
+import { useDismissablePopover } from "@/hooks/useDismissablePopover";
 import { useTranslation } from "@/i18n/useTranslation";
 
 /** "2026-07-29T09:31:59.868Z" -> "2026-07-29 09:31:59" — matches the plain UTC-timestamp style the revision history list already uses. */
@@ -33,24 +34,7 @@ export function CommentThread(props: {
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!open) return;
-    // "click", not "mousedown": React Flow's pane stops mousedown
-    // propagation for its own pan/drag handling (same reason
-    // ColorSwatchPicker's outside-click detection uses "click" too).
-    const onOutsideClick = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (popoverRef.current?.contains(target) || triggerRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
-    window.addEventListener("click", onOutsideClick);
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("click", onOutsideClick);
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
+  useDismissablePopover(open, () => setOpen(false), [popoverRef, triggerRef]);
 
   const toggle = () => {
     if (!open && triggerRef.current) {

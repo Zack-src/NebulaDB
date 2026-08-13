@@ -1,7 +1,7 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { CONTEXT_MENU_CLASS } from "@/components/ui/contextMenuStyles";
-import { useEscapeKey } from "@/hooks/useEscapeKey";
+import { useDismissablePopover } from "@/hooks/useDismissablePopover";
 
 const DEFAULT_MENU_WIDTH = 180;
 const VIEWPORT_MARGIN = 8;
@@ -28,21 +28,11 @@ export function ToolbarMenu({ triggerClassName, triggerContent, tooltip, minWidt
   const menuRef = useRef<HTMLDivElement>(null);
   const width = minWidth ?? DEFAULT_MENU_WIDTH;
 
-  useEscapeKey(open, () => setOpen(false));
-
-  useEffect(() => {
-    if (!open) return;
-    // "click", not "mousedown" (so this can't use `useOutsideClick`): React
-    // Flow's pane stops mousedown propagation for its own pan/drag handling,
-    // so a mousedown listener never sees clicks on the canvas itself.
-    const handleOutsideClick = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (menuRef.current?.contains(target) || triggerRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    window.addEventListener("click", handleOutsideClick);
-    return () => window.removeEventListener("click", handleOutsideClick);
-  }, [open]);
+  // Popover behaviour, not `useOutsideClick`: React Flow's pane stops
+  // mousedown propagation for its own pan/drag handling, so a mousedown
+  // listener never sees clicks on the canvas itself — `useDismissablePopover`
+  // already accounts for this (listens for "click").
+  useDismissablePopover(open, () => setOpen(false), [menuRef, triggerRef]);
 
   const toggleOpen = () => {
     if (!open && triggerRef.current) {

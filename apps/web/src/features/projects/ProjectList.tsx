@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { PlusIcon, FolderIcon, TrashIcon } from "@/components/icons/Icons";
+import { useDraftValue } from "@/hooks/useDraftValue";
 import { ProjectTeamsModal } from "@/features/teams/ProjectTeamsModal";
 import { PROJECT_SECTIONS, ProjectTabs } from "@/features/projects/components/ProjectTabs";
 import { ProjectCard } from "@/features/projects/components/ProjectCard";
@@ -39,7 +40,10 @@ export function ProjectList({
   const [section, setSection] = useState<ProjectStatus>("active");
   const [searchQuery, setSearchQuery] = useState("");
   const [renamingId, setRenamingId] = useState<string | null>(null);
-  const [nameDraft, setNameDraft] = useState("");
+  const renamingProject = projects.find((p) => p.id === renamingId) ?? null;
+  const nameDraft = useDraftValue(renamingProject?.name ?? "", (next) => {
+    if (renamingProject) onRename(renamingProject, next ?? "");
+  });
   const [deleteTarget, setDeleteTarget] = useState<ProjectSummary | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deletePending, setDeletePending] = useState(false);
@@ -52,13 +56,11 @@ export function ProjectList({
 
   const startRename = (project: ProjectSummary) => {
     setRenamingId(project.id);
-    setNameDraft(project.name);
   };
 
-  const commitRename = (project: ProjectSummary) => {
+  const commitRename = () => {
+    nameDraft.commit();
     setRenamingId(null);
-    const trimmed = nameDraft.trim();
-    if (trimmed && trimmed !== project.name) onRename(project, trimmed);
   };
 
   const openDeleteConfirmation = (project: ProjectSummary) => {
@@ -114,7 +116,6 @@ export function ProjectList({
     }
     if (section !== "active") setSection("active");
     setRenamingId(result.id);
-    setNameDraft(name);
   };
 
   return (
@@ -194,11 +195,11 @@ export function ProjectList({
                   section={section}
                   openable={openable}
                   isRenaming={renamingId === project.id}
-                  nameDraft={nameDraft}
-                  onNameDraftChange={setNameDraft}
+                  nameDraft={nameDraft.value}
+                  onNameDraftChange={nameDraft.setValue}
                   onOpen={() => onOpen(project)}
                   onStartRename={() => startRename(project)}
-                  onCommitRename={() => commitRename(project)}
+                  onCommitRename={commitRename}
                   onCancelRename={() => setRenamingId(null)}
                   onSetStatus={(status) => onSetStatus(project, status)}
                   onDeleteForever={() => openDeleteConfirmation(project)}

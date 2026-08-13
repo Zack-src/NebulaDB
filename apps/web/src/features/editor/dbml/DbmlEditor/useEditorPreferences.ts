@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type WheelEvent } from "react";
 import { EditorView } from "@codemirror/view";
 import { fontCompartment, fontTheme, wrapCompartment } from "@/features/editor/dbml/setup";
-import { PREF_FONT, PREF_WRAP, readStoredFontSize, readStoredWrap } from "./prefs";
+import { readStoredFontSize, readStoredWrap, writeStoredFontSize, writeStoredWrap } from "./prefs";
 import type { ViewRef } from "./types";
 
 const MIN_FONT = 10;
@@ -16,14 +16,14 @@ export function useEditorPreferences(viewRef: ViewRef) {
     const view = viewRef.current;
     if (!view) return;
     view.dispatch({ effects: wrapCompartment.reconfigure(wrap ? EditorView.lineWrapping : []) });
-    localStorage.setItem(PREF_WRAP, wrap ? "on" : "off");
+    writeStoredWrap(wrap);
   }, [wrap, viewRef]);
 
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
     view.dispatch({ effects: fontCompartment.reconfigure(fontTheme(fontSize)) });
-    localStorage.setItem(PREF_FONT, String(fontSize));
+    writeStoredFontSize(fontSize);
   }, [fontSize, viewRef]);
 
   const increaseFont = useCallback(() => setFontSize((s) => Math.min(MAX_FONT, s + 1)), []);

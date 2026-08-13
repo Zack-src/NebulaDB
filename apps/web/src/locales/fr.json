@@ -185,9 +185,11 @@
   "export.title": "Exporter le schéma",
 
   "edge.deleteWaypoint": "Supprimer ce point",
+  "edge.insertWaypoint": "Insérer un point ici",
   "edge.resetPathShort": "Réinitialiser le tracé",
   "edge.resetColor": "Réinitialiser la couleur",
   "edge.deleteRelation": "Supprimer la relation",
+  "edge.settings": "Options du lien",
 
   "table.goToDbml": "Aller au DBML",
   "table.addColumn": "Ajouter une colonne",

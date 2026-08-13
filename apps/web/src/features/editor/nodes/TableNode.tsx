@@ -5,6 +5,7 @@ import { CommentThread } from "@/features/editor/comments/CommentThread";
 import { CodeIcon, PlusIcon } from "@/components/icons/Icons";
 import { DEFAULT_HEADER_COLOR, TableSettingsPopover } from "@/features/editor/nodes/table/TableSettingsPopover";
 import { TableNodeRow } from "@/features/editor/nodes/table/TableNodeRow";
+import { useDraftValue } from "@/hooks/useDraftValue";
 import { useTranslation } from "@/i18n/useTranslation";
 import {
   HEADER_ACTIONS_CLASS,
@@ -46,7 +47,7 @@ function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
   const { t } = useTranslation();
   const { table, refFieldIds } = data;
   const [renaming, setRenaming] = useState(false);
-  const [nameDraft, setNameDraft] = useState(table.name);
+  const nameDraft = useDraftValue(table.name, (next) => data.onRename(next ?? ""));
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const tableComments = table.comments?.filter((c) => !c.fieldId) ?? [];
 
@@ -85,13 +86,6 @@ function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
         ? table.fields
         : table.fields.filter((f) => isPkField(f) || refFieldIds.has(f.id));
 
-  const commitRename = () => {
-    setRenaming(false);
-    const trimmed = nameDraft.trim();
-    if (trimmed && trimmed !== table.name) data.onRename(trimmed);
-    else setNameDraft(table.name);
-  };
-
   return (
     <div
       className={`group table-node ${TABLE_NODE_CLASS} ${selected ? `is-selected ${TABLE_NODE_SELECTED_CLASS}` : ""}`}
@@ -110,14 +104,18 @@ function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
           <input
             autoFocus
             className={`nodrag ${TABLE_NAME_INPUT_CLASS}`}
-            value={nameDraft}
-            onChange={(event) => setNameDraft(event.target.value)}
-            onBlur={commitRename}
+            value={nameDraft.value}
+            onChange={(event) => nameDraft.setValue(event.target.value)}
+            onBlur={() => {
+              nameDraft.commit();
+              setRenaming(false);
+            }}
             maxLength={MAX_NAME_LENGTH}
             onKeyDown={(event) => {
-              if (event.key === "Enter") commitRename();
+              nameDraft.handleKeyDown(event);
+              if (event.key === "Enter") setRenaming(false);
               if (event.key === "Escape") {
-                setNameDraft(table.name);
+                nameDraft.setValue(table.name);
                 setRenaming(false);
               }
             }}

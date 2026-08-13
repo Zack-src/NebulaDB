@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
+import { useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { createPortal } from "react-dom";
 import { PlusIcon } from "@/components/icons/Icons";
 import { INPUT_XS_CLASS } from "@/components/ui/inputStyles";
+import { useDismissablePopover } from "@/hooks/useDismissablePopover";
 import { useTranslation } from "@/i18n/useTranslation";
 
 export const SWATCH_CELL_CLASS =
@@ -68,27 +69,7 @@ export function ColorSwatchPicker(props: {
     setHexDraft(props.value);
   }
 
-  useEffect(() => {
-    if (!open) return;
-    // "click", not "mousedown": React Flow's pane calls stopPropagation on
-    // mousedown for its own pan/drag handling, so a mousedown-based
-    // outside-click listener on window never fires for clicks landing on the
-    // canvas — only for clicks outside React Flow entirely. Plain "click"
-    // isn't intercepted the same way (same reason the canvas context menu's
-    // own outside-click handling already uses "click").
-    const handleOutsideClick = (event: MouseEvent) => {
-      const target = event.target as Node;
-      if (popoverRef.current?.contains(target) || triggerRef.current?.contains(target)) return;
-      setOpen(false);
-    };
-    const onKeyDown = (event: KeyboardEvent) => event.key === "Escape" && setOpen(false);
-    window.addEventListener("click", handleOutsideClick);
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      window.removeEventListener("click", handleOutsideClick);
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
+  useDismissablePopover(open, () => setOpen(false), [popoverRef, triggerRef]);
 
   const toggle = () => {
     if (!open && triggerRef.current) {

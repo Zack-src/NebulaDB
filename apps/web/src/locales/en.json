@@ -185,9 +185,11 @@
   "export.title": "Export schema",
 
   "edge.deleteWaypoint": "Delete this waypoint",
+  "edge.insertWaypoint": "Insert a point here",
   "edge.resetPathShort": "Reset the path",
   "edge.resetColor": "Reset the colour",
   "edge.deleteRelation": "Delete the relation",
+  "edge.settings": "Relation options",
 
   "table.goToDbml": "Go to DBML",
   "table.addColumn": "Add column",

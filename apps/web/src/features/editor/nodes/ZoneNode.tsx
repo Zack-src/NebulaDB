@@ -3,6 +3,7 @@ import { NodeResizer, type Node, type NodeProps } from "@xyflow/react";
 import { MAX_NAME_LENGTH, type Zone } from "@athanordb/shared";
 import { ColorSwatchPicker } from "@/components/inputs/ColorSwatchPicker";
 import { INPUT_XS_CLASS } from "@/components/ui/inputStyles";
+import { useDraftValue } from "@/hooks/useDraftValue";
 import { useTranslation } from "@/i18n/useTranslation";
 
 export interface ZoneNodeData {
@@ -23,15 +24,8 @@ function ZoneNodeImpl({ data, selected }: NodeProps<ZoneNodeType>) {
   const { t } = useTranslation();
   const { zone } = data;
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(zone.label);
+  const draft = useDraftValue(zone.label, (next) => data.onLabelChange(next ?? ""));
   const color = zone.style?.color ?? DEFAULT_COLOR;
-
-  const commit = () => {
-    setEditing(false);
-    const trimmed = draft.trim();
-    if (trimmed && trimmed !== zone.label) data.onLabelChange(trimmed);
-    else setDraft(zone.label);
-  };
 
   return (
     <>
@@ -56,14 +50,18 @@ function ZoneNodeImpl({ data, selected }: NodeProps<ZoneNodeType>) {
             <input
               autoFocus
               className={`nodrag ${INPUT_XS_CLASS} text-[calc(12.5px_*_var(--canvas-font-scale))] font-bold`}
-              value={draft}
-              onChange={(event) => setDraft(event.target.value)}
-              onBlur={commit}
+              value={draft.value}
+              onChange={(event) => draft.setValue(event.target.value)}
+              onBlur={() => {
+                draft.commit();
+                setEditing(false);
+              }}
               maxLength={MAX_NAME_LENGTH}
               onKeyDown={(event) => {
-                if (event.key === "Enter") commit();
+                draft.handleKeyDown(event);
+                if (event.key === "Enter") setEditing(false);
                 if (event.key === "Escape") {
-                  setDraft(zone.label);
+                  draft.setValue(zone.label);
                   setEditing(false);
                 }
               }}

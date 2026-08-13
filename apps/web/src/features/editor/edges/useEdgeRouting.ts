@@ -7,6 +7,8 @@ export interface EdgeContextMenuState {
   x: number;
   y: number;
   pointIndex?: number;
+  /** Flow-space position the menu was opened at — where "insert a point here" lands it. */
+  flowPosition: Point;
 }
 
 /**
@@ -84,31 +86,44 @@ export function useEdgeRouting(params: {
     setContextMenu(null);
   };
 
-  const handlePathDoubleClick = (event: ReactMouseEvent) => {
-    event.stopPropagation();
-    const flowPos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+  const insertPointAt = (flowPos: Point) => {
     const segIndex = closestSegmentIndex(allPoints, flowPos);
     const next = [...points.slice(0, segIndex), flowPos, ...points.slice(segIndex)];
     commitPoints(next);
   };
 
+  const handlePathDoubleClick = (event: ReactMouseEvent) => {
+    event.stopPropagation();
+    insertPointAt(screenToFlowPosition({ x: event.clientX, y: event.clientY }));
+  };
+
+  // dbdiagram-style: dragging a point carries the segment to the *next*
+  // point along with it (both translate together, rigidly), so only the
+  // joint with the *previous* point re-kinks. Dragging each point
+  // independently — the old behaviour — tended to open a kink on both
+  // sides at once, which is what produced the tangled overlapping lines
+  // this was built to fix.
   const startDrag = (index: number, e: ReactMouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
     draggingIndexRef.current = index;
     movedRef.current = false;
-    setDragPoints(points);
+    const startFlow = screenToFlowPosition({ x: e.clientX, y: e.clientY });
+    const initialPoints = points;
+    setDragPoints(initialPoints);
     setSelectedPointIndex(index);
 
     const onMove = (ev: MouseEvent) => {
       movedRef.current = true;
       const flowPos = screenToFlowPosition({ x: ev.clientX, y: ev.clientY });
-      setDragPoints((prev) => {
-        if (!prev || draggingIndexRef.current === null) return prev;
-        const next = [...prev];
-        next[draggingIndexRef.current] = flowPos;
-        return next;
-      });
+      const dx = flowPos.x - startFlow.x;
+      const dy = flowPos.y - startFlow.y;
+      const next = [...initialPoints];
+      next[index] = { x: initialPoints[index].x + dx, y: initialPoints[index].y + dy };
+      if (index + 1 < initialPoints.length) {
+        next[index + 1] = { x: initialPoints[index + 1].x + dx, y: initialPoints[index + 1].y + dy };
+      }
+      setDragPoints(next);
     };
     const onUp = () => {
       setDragPoints((prev) => {
@@ -126,7 +141,12 @@ export function useEdgeRouting(params: {
   const openContextMenu = (event: ReactMouseEvent, pointIndex?: number) => {
     event.preventDefault();
     event.stopPropagation();
-    setContextMenu({ x: event.clientX, y: event.clientY, pointIndex });
+    setContextMenu({
+      x: event.clientX,
+      y: event.clientY,
+      pointIndex,
+      flowPosition: screenToFlowPosition({ x: event.clientX, y: event.clientY }),
+    });
   };
 
   useEffect(() => {
@@ -185,6 +205,7 @@ export function useEdgeRouting(params: {
     closeContextMenu: () => setContextMenu(null),
     resetRouting,
     deletePointAt,
+    insertPointAt,
     handlePathDoubleClick,
     startDrag,
   };

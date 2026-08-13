@@ -3,6 +3,7 @@ import type { Node, NodeProps } from "@xyflow/react";
 import { MAX_NAME_LENGTH, type EnumDef, type EnumValue } from "@athanordb/shared";
 import { TagIcon, PlusIcon, TrashIcon } from "@/components/icons/Icons";
 import { INPUT_XS_CLASS } from "@/components/ui/inputStyles";
+import { useDraftValue } from "@/hooks/useDraftValue";
 import { useTranslation } from "@/i18n/useTranslation";
 
 export interface EnumNodeData {
@@ -29,14 +30,7 @@ function EnumValueRow(props: {
 }) {
   const { t } = useTranslation();
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(props.value.name);
-
-  const commit = () => {
-    setEditing(false);
-    const trimmed = draft.trim();
-    if (trimmed && trimmed !== props.value.name) props.onRename(trimmed);
-    else setDraft(props.value.name);
-  };
+  const draft = useDraftValue(props.value.name, (next) => props.onRename(next ?? ""));
 
   return (
     <div className="group/row flex items-center gap-1 px-2.5 py-1 hover:bg-surface-hover/60">
@@ -65,14 +59,18 @@ function EnumValueRow(props: {
         <input
           autoFocus
           className={`nodrag ${INPUT_XS_CLASS} flex-1 font-mono text-[calc(11.5px_*_var(--canvas-font-scale))]`}
-          value={draft}
+          value={draft.value}
           maxLength={MAX_NAME_LENGTH}
-          onChange={(event) => setDraft(event.target.value)}
-          onBlur={commit}
+          onChange={(event) => draft.setValue(event.target.value)}
+          onBlur={() => {
+            draft.commit();
+            setEditing(false);
+          }}
           onKeyDown={(event) => {
-            if (event.key === "Enter") commit();
+            draft.handleKeyDown(event);
+            if (event.key === "Enter") setEditing(false);
             if (event.key === "Escape") {
-              setDraft(props.value.name);
+              draft.setValue(props.value.name);
               setEditing(false);
             }
           }}
@@ -103,14 +101,7 @@ function EnumNodeImpl({ data, selected }: NodeProps<EnumNodeType>) {
   const { t } = useTranslation();
   const { enumDef } = data;
   const [editingName, setEditingName] = useState(false);
-  const [nameDraft, setNameDraft] = useState(enumDef.name);
-
-  const commitName = () => {
-    setEditingName(false);
-    const trimmed = nameDraft.trim();
-    if (trimmed && trimmed !== enumDef.name) data.onRename(trimmed);
-    else setNameDraft(enumDef.name);
-  };
+  const nameDraft = useDraftValue(enumDef.name, (next) => data.onRename(next ?? ""));
 
   return (
     <div
@@ -129,14 +120,18 @@ function EnumNodeImpl({ data, selected }: NodeProps<EnumNodeType>) {
           <input
             autoFocus
             className={`nodrag ${INPUT_XS_CLASS} flex-1 font-bold text-[calc(12px_*_var(--canvas-font-scale))]`}
-            value={nameDraft}
+            value={nameDraft.value}
             maxLength={MAX_NAME_LENGTH}
-            onChange={(event) => setNameDraft(event.target.value)}
-            onBlur={commitName}
+            onChange={(event) => nameDraft.setValue(event.target.value)}
+            onBlur={() => {
+              nameDraft.commit();
+              setEditingName(false);
+            }}
             onKeyDown={(event) => {
-              if (event.key === "Enter") commitName();
+              nameDraft.handleKeyDown(event);
+              if (event.key === "Enter") setEditingName(false);
               if (event.key === "Escape") {
-                setNameDraft(enumDef.name);
+                nameDraft.setValue(enumDef.name);
                 setEditingName(false);
               }
             }}

@@ -26,6 +26,7 @@ import { StickyNoteNode } from "@/features/editor/nodes/StickyNoteNode";
 import { EnumNode } from "@/features/editor/nodes/EnumNode";
 import { TableGroupNode } from "@/features/editor/nodes/TableGroupNode";
 import { CursorNode, type CursorNodeType } from "@/features/collaboration/CursorNode";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { loadShowMinimap, loadViewport, saveShowMinimap, saveViewport } from "@/utils/preferences";
 import type { CanvasCommandContribution, ResolvedContribution } from "@/features/plugins/types";
 import type { AllNodes, CanvasExportHandle, CanvasNode } from "@/types";
@@ -151,16 +152,15 @@ export function CanvasArea(props: CanvasAreaProps) {
     [screenToFlowPosition],
   );
 
+  useEscapeKey(Boolean(contextMenu), closeContextMenu);
+
   useEffect(() => {
     if (!contextMenu) return;
-    const handleKeyDown = (event: KeyboardEvent) => event.key === "Escape" && closeContextMenu();
     window.addEventListener("click", closeContextMenu);
     window.addEventListener("wheel", closeContextMenu);
-    window.addEventListener("keydown", handleKeyDown);
     return () => {
       window.removeEventListener("click", closeContextMenu);
       window.removeEventListener("wheel", closeContextMenu);
-      window.removeEventListener("keydown", handleKeyDown);
     };
   }, [contextMenu, closeContextMenu]);
 

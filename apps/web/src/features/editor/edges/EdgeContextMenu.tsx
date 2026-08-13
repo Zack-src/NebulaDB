@@ -3,9 +3,10 @@ import type { EdgeContextMenuState } from "@/features/editor/edges/useEdgeRoutin
 import { CONTEXT_MENU_ITEM_CLASS } from "@/components/ui/contextMenuStyles";
 import { useTranslation } from "@/i18n/useTranslation";
 
-/** Right-click menu on an edge's path or a specific waypoint. Portaled to document.body for precise positioning. */
+/** Right-click menu on an edge's path or a specific waypoint — also reachable from the gear button on the selected-edge toolbar. Portaled to document.body for precise positioning. */
 export function EdgeContextMenu(props: {
   menu: EdgeContextMenuState;
+  onInsertPoint: (position: EdgeContextMenuState["flowPosition"]) => void;
   onDeletePoint: (index: number) => void;
   onResetRouting: () => void;
   onResetColor?: () => void;
@@ -19,9 +20,13 @@ export function EdgeContextMenu(props: {
       style={{ left: props.menu.x, top: props.menu.y }}
       onClick={(event) => event.stopPropagation()}
     >
-      {props.menu.pointIndex !== undefined && (
+      {props.menu.pointIndex !== undefined ? (
         <button className={CONTEXT_MENU_ITEM_CLASS} onClick={() => props.onDeletePoint(props.menu.pointIndex!)}>
           {t("edge.deleteWaypoint")}
+        </button>
+      ) : (
+        <button className={CONTEXT_MENU_ITEM_CLASS} onClick={() => props.onInsertPoint(props.menu.flowPosition)}>
+          {t("edge.insertWaypoint")}
         </button>
       )}
       <button className={CONTEXT_MENU_ITEM_CLASS} onClick={props.onResetRouting}>

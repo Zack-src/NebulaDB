@@ -56,6 +56,14 @@ export function simplifyRoutingPoints(points: Point[], source: Point, target: Po
   return kept;
 }
 
+/** A point `distance` px from `from`, along the `from` -> `to` direction — used to plant a cardinality label just off an edge's endpoint. */
+export function offsetAlong(from: Point, to: Point, distance: number): Point {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const length = Math.hypot(dx, dy) || 1;
+  return { x: from.x + (dx / length) * distance, y: from.y + (dy / length) * distance };
+}
+
 /** Index of the segment (between `points[i]` and `points[i+1]`) closest to `p` — used to decide where a newly double-clicked waypoint gets inserted. */
 export function closestSegmentIndex(points: Point[], p: Point): number {
   let best = 0;

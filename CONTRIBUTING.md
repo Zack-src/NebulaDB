@@ -43,8 +43,36 @@ Two rules that are easy to break by accident:
   imports must not reach it, or the whole parser (~11 MB) lands in the browser
   bundle. `serialize.ts`, `diff.ts` and `validate.ts` exist for that reason.
 - **Permissions are enforced server-side.** The WebSocket sync path applies its
-  own permission check per frame (`apps/server/src/yjs/room.ts`); hiding a
+  own permission check per frame (`apps/server/src/realtime/room.ts`); hiding a
   control in the UI is not a permission.
+
+## Reach for this before writing that
+
+A primitive below already exists to solve the problem it names. Grep for a
+component that already uses it and copy its shape rather than writing a
+parallel version — this is the actual recurring source of duplication in this
+codebase: a hook built once, then hand-rolled again in the next component
+because nobody knew it was there.
+
+| Need                                              | Use                                          | Not                                          |
+| -------------------------------------------------- | --------------------------------------------- | --------------------------------------------- |
+| Inline rename / edit-in-place with Enter/Escape    | `hooks/useDraftValue.ts`                      | a component-local `onKeyDown` commit block    |
+| Close a popover on Escape or click outside it      | `hooks/useDismissablePopover.ts`              | separate `mousedown`/`keydown` listeners      |
+| Close *anything* on Escape only                    | `hooks/useEscapeKey.ts`                       | `window.addEventListener("keydown", ...)`     |
+| Close on click outside (non-canvas context)        | `hooks/useOutsideClick.ts`                    | a manual `mousedown` listener + ref check     |
+| A persisted user preference (`localStorage`)       | `utils/storage.ts`                            | raw `localStorage.getItem`/`setItem`          |
+| Any HTTP call to the API                           | `services/*Api.ts` (add a module if missing)  | a raw `fetch()` inside a component            |
+| An async action with loading/error state           | `hooks/useAsyncAction.ts` / `useAsyncResource.ts` | a bespoke `loading`/`error` `useState` pair |
+
+Popovers inside the React Flow canvas specifically need `click`, not
+`mousedown` — the pane calls `stopPropagation()` on `mousedown` for its own
+pan/drag handling, so a `mousedown` listener never sees a click on the canvas
+itself. `useDismissablePopover` and `useOutsideClick` already account for
+this; don't rediscover it by shipping a popover that stays open when the
+canvas is clicked.
+
+If you add a new cross-cutting primitive, add its row here in the same PR —
+an unlisted hook gets reimplemented by the next person who needs it.
 
 ## Tests
 

@@ -4,6 +4,7 @@ import { useEdgeRouting } from "@/features/editor/edges/useEdgeRouting";
 import { useEdgeSplitPath } from "@/features/editor/edges/useEdgeSplitPath";
 import { EdgeWaypoints } from "@/features/editor/edges/EdgeWaypoints";
 import { CardinalityBadge } from "@/features/editor/edges/CardinalityBadge";
+import { EdgeCardinalityLabels, ENDPOINT_CARDINALITY } from "@/features/editor/edges/EdgeCardinalityLabels";
 import { EdgeContextMenu } from "@/features/editor/edges/EdgeContextMenu";
 
 export interface RefEdgeData {
@@ -72,7 +73,11 @@ export function RefEdge({
   const strokeOpacity = selected ? 1 : isHighlighted ? 0.85 : 0.45;
   const dotAnimation = isHighlighted ? `ref-edge-flow ${selected ? 0.5 : 0.8}s linear infinite` : "none";
   const strokeDasharray = isHighlighted ? `${0.1 * zoomCompensation} ${9 * zoomCompensation}` : "none";
-  const showCardinalityBadge = isHighlighted;
+  // Waypoint dots and the action toolbar are editing chrome — dbdiagram only
+  // shows them once you've actually selected the line, so an unselected
+  // schema with lots of overlapping refs doesn't turn into a field of dots.
+  const showEditingControls = selected;
+  const [sourceCardinality, targetCardinality] = ENDPOINT_CARDINALITY[data?.cardinality ?? "one-to-many"];
 
   return (
     <>
@@ -112,15 +117,26 @@ export function RefEdge({
         onContextMenu={(event) => routing.openContextMenu(event)}
       />
       <EdgeLabelRenderer>
-        <EdgeWaypoints
-          points={routing.points}
-          selectedIndex={routing.selectedPointIndex}
-          strokeColor={strokeColor}
-          onStartDrag={routing.startDrag}
-          onSelect={routing.setSelectedPointIndex}
-          onContextMenu={routing.openContextMenu}
-        />
-        {showCardinalityBadge && data && (
+        {isHighlighted && (
+          <EdgeCardinalityLabels
+            allPoints={routing.allPoints}
+            sourceLabel={sourceCardinality}
+            targetLabel={targetCardinality}
+            color={strokeColor}
+            opacity={strokeOpacity}
+          />
+        )}
+        {showEditingControls && (
+          <EdgeWaypoints
+            points={routing.points}
+            selectedIndex={routing.selectedPointIndex}
+            strokeColor={strokeColor}
+            onStartDrag={routing.startDrag}
+            onSelect={routing.setSelectedPointIndex}
+            onContextMenu={routing.openContextMenu}
+          />
+        )}
+        {showEditingControls && data && (
           <CardinalityBadge
             x={labelX}
             y={labelY}
@@ -131,12 +147,14 @@ export function RefEdge({
             onColorChange={data.onColorChange}
             showReset={routing.hasCustomRouting || routing.points.length !== routing.defaultCorners.length}
             onReset={routing.resetRouting}
+            onOpenSettings={(event) => routing.openContextMenu(event)}
             onContextMenu={(event) => routing.openContextMenu(event)}
           />
         )}
         {routing.contextMenu && (
           <EdgeContextMenu
             menu={routing.contextMenu}
+            onInsertPoint={routing.insertPointAt}
             onDeletePoint={routing.deletePointAt}
             onResetRouting={routing.resetRouting}
             onResetColor={data?.color ? () => data.onColorChange(undefined) : undefined}

@@ -1,17 +1,14 @@
-import { useEffect, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { CloseIcon } from "@/components/icons/Icons";
 import { Button } from "@/components/ui/Button";
+import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { useTranslation } from "@/i18n/useTranslation";
 
 export function Modal(props: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
   const { t } = useTranslation();
   const { onClose } = props;
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => event.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [onClose]);
+  useEscapeKey(true, onClose);
 
   return (
     <div

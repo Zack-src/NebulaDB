@@ -1,4 +1,5 @@
 import { PluginHost } from "@/features/plugins/PluginHost";
+import { readJson, writeJson } from "@/utils/storage";
 import { normalizeShortcut } from "@/features/plugins/shortcuts";
 import { BUILTIN_PLUGINS, type BuiltinPlugin, type PluginRunContext } from "@/features/plugins/builtins";
 import type {
@@ -28,31 +29,20 @@ interface StoredPlugin {
 }
 
 function readStored(): StoredPlugin[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (p): p is StoredPlugin => Boolean(p) && typeof p.id === "string" && typeof p.code === "string",
-    );
-  } catch {
-    return [];
-  }
+  const parsed = readJson<unknown>(STORAGE_KEY);
+  if (!Array.isArray(parsed)) return [];
+  return parsed.filter(
+    (p): p is StoredPlugin => Boolean(p) && typeof p.id === "string" && typeof p.code === "string",
+  );
 }
 
 function writeStored(plugins: StoredPlugin[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(plugins));
+  writeJson(STORAGE_KEY, plugins);
 }
 
 function readAllSettings(): Record<string, PluginSettings> {
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    const parsed = raw ? JSON.parse(raw) : null;
-    return parsed && typeof parsed === "object" ? (parsed as Record<string, PluginSettings>) : {};
-  } catch {
-    return {};
-  }
+  const parsed = readJson<unknown>(SETTINGS_KEY);
+  return parsed && typeof parsed === "object" ? (parsed as Record<string, PluginSettings>) : {};
 }
 
 function defaultFor(type: "string" | "number" | "boolean" | "select"): PluginSettingValue {
@@ -126,7 +116,7 @@ class PluginRegistry {
   setSetting(pluginId: string, key: string, value: PluginSettingValue): void {
     const all = readAllSettings();
     all[pluginId] = { ...(all[pluginId] ?? {}), [key]: value };
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(all));
+    writeJson(SETTINGS_KEY, all);
     this.refreshSnapshot();
   }
 

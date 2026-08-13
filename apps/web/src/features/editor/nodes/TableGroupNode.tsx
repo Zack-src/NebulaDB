@@ -2,6 +2,7 @@ import { memo, useState } from "react";
 import type { Node, NodeProps } from "@xyflow/react";
 import { MAX_NAME_LENGTH, type TableGroup } from "@athanordb/shared";
 import { INPUT_XS_CLASS } from "@/components/ui/inputStyles";
+import { useDraftValue } from "@/hooks/useDraftValue";
 import { useTranslation } from "@/i18n/useTranslation";
 
 export interface TableGroupNodeData {
@@ -28,14 +29,7 @@ function TableGroupNodeImpl({ data }: NodeProps<TableGroupNodeType>) {
   const { t } = useTranslation();
   const { group } = data;
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft] = useState(group.name);
-
-  const commit = () => {
-    setEditing(false);
-    const trimmed = draft.trim();
-    if (trimmed && trimmed !== group.name) data.onRename(trimmed);
-    else setDraft(group.name);
-  };
+  const draft = useDraftValue(group.name, (next) => data.onRename(next ?? ""));
 
   return (
     <div className="pointer-events-none relative h-full w-full">
@@ -48,14 +42,18 @@ function TableGroupNodeImpl({ data }: NodeProps<TableGroupNodeType>) {
           <input
             autoFocus
             className={`nodrag ${INPUT_XS_CLASS} h-[20px] text-[11px] font-bold`}
-            value={draft}
+            value={draft.value}
             maxLength={MAX_NAME_LENGTH}
-            onChange={(event) => setDraft(event.target.value)}
-            onBlur={commit}
+            onChange={(event) => draft.setValue(event.target.value)}
+            onBlur={() => {
+              draft.commit();
+              setEditing(false);
+            }}
             onKeyDown={(event) => {
-              if (event.key === "Enter") commit();
+              draft.handleKeyDown(event);
+              if (event.key === "Enter") setEditing(false);
               if (event.key === "Escape") {
-                setDraft(group.name);
+                draft.setValue(group.name);
                 setEditing(false);
               }
             }}
