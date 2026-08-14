@@ -36,6 +36,44 @@ export function orthogonalPolylinePath(points: Point[]): string {
   return polylinePath(orthogonalPolylinePoints(points));
 }
 
+/**
+ * Cuts a polyline in two at the halfway point of its own length, returning the
+ * exact split point plus both halves as point lists.
+ *
+ * Computed from the geometry rather than by sampling the rendered
+ * `<path>` with `getPointAtLength`: sampling forced a synchronous layout on
+ * every edge on every path change, rounded off every corner of an orthogonal
+ * route into a 16-segment approximation, and produced the second half
+ * *backwards* (target → middle), which is why the many-to-many arrowhead used
+ * to sit at the midpoint pointing the wrong way.
+ */
+export function splitPolylineAtMidpoint(points: Point[]): { mid: Point; first: Point[]; second: Point[] } | null {
+  if (points.length < 2) return null;
+  const lengths: number[] = [];
+  let total = 0;
+  for (let i = 0; i < points.length - 1; i++) {
+    const d = Math.hypot(points[i + 1].x - points[i].x, points[i + 1].y - points[i].y);
+    lengths.push(d);
+    total += d;
+  }
+  if (total === 0) return null;
+
+  const half = total / 2;
+  let travelled = 0;
+  for (let i = 0; i < lengths.length; i++) {
+    if (travelled + lengths[i] >= half) {
+      const t = lengths[i] === 0 ? 0 : (half - travelled) / lengths[i];
+      const a = points[i];
+      const b = points[i + 1];
+      const mid = { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t };
+      return { mid, first: [...points.slice(0, i + 1), mid], second: [mid, ...points.slice(i + 1)] };
+    }
+    travelled += lengths[i];
+  }
+  const last = points[points.length - 1];
+  return { mid: last, first: points, second: [last] };
+}
+
 /** Total run of a polyline, used to decide whether a short edge has room for endpoint decorations at all. */
 export function polylineLength(points: Point[]): number {
   let total = 0;
@@ -83,15 +121,19 @@ export function endpointLabelAnchor(points: Point[], atEnd: boolean, along: numb
   return { x: base.x + normal.x * away, y: base.y + normal.y * away };
 }
 
-/** Squared distance from `p` to its nearest point on segment `a`-`b`, plus the segment-relative position of that projection (0..1). */
-function distToSegmentSq(p: Point, a: Point, b: Point): number {
+/** The point on segment `a`-`b` nearest to `p` — the click projected onto the line, so an inserted waypoint lands on the stroke rather than wherever the cursor happened to be. */
+export function closestPointOnSegment(p: Point, a: Point, b: Point): Point {
   const dx = b.x - a.x;
   const dy = b.y - a.y;
   const lengthSq = dx * dx + dy * dy;
   const t = lengthSq === 0 ? 0 : Math.max(0, Math.min(1, ((p.x - a.x) * dx + (p.y - a.y) * dy) / lengthSq));
-  const projX = a.x + t * dx;
-  const projY = a.y + t * dy;
-  return (p.x - projX) ** 2 + (p.y - projY) ** 2;
+  return { x: a.x + t * dx, y: a.y + t * dy };
+}
+
+/** Squared distance from `p` to its nearest point on segment `a`-`b`. */
+function distToSegmentSq(p: Point, a: Point, b: Point): number {
+  const proj = closestPointOnSegment(p, a, b);
+  return (p.x - proj.x) ** 2 + (p.y - proj.y) ** 2;
 }
 
 /**

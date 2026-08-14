@@ -30,6 +30,9 @@
    legible with the line, other refs and a table border passing behind it. */
 .ref-edge-cardinality {
   position: absolute;
+  /* Above every node (React Flow lifts a selected one to 1000) but below the
+     waypoint dots and the midpoint toolbar, which have to stay clickable. */
+  z-index: 1001;
   display: flex;
   align-items: center;
   justify-content: center;

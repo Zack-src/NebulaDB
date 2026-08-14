@@ -61,7 +61,7 @@ export const TABLE_NAME_INPUT_CLASS =
   "text-[calc(13px_*_var(--canvas-font-scale))] font-semibold text-white caret-white " +
   "shadow-[inset_0_1px_2px_rgba(0,0,0,0.25)] backdrop-blur-[2px] placeholder:text-white/50 " +
   "transition-[border-color,box-shadow] duration-150 ease-out " +
-  "focus:border-white/70 focus:outline-none focus:ring-[3px] focus:ring-white/20";
+  "focus:border-white/70 focus:outline-hidden focus:ring-[3px] focus:ring-white/20";
 
 export const HEADER_ACTIONS_CLASS =
   "ml-auto flex items-center gap-[3px] opacity-0 transition-opacity duration-100 " +

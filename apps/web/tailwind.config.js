@@ -43,6 +43,14 @@ export default {
           light: "var(--color-primary-light)",
           border: "var(--color-primary-border)",
         },
+        // `accent-purple`/`accent-cyan` were referenced on the login screen
+        // without ever being declared here, so `bg-accent-purple/15` and
+        // `to-accent-purple` compiled to nothing at all — the second glow blob
+        // never painted and the logo gradient faded to transparent.
+        accent: {
+          purple: "var(--color-accent-purple)",
+          cyan: "var(--color-accent-cyan)",
+        },
         danger: {
           DEFAULT: "var(--color-danger)",
           hover: "var(--color-danger-hover)",

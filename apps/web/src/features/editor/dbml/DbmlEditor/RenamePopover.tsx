@@ -38,7 +38,7 @@ export function RenamePopover(props: {
           }
         }}
         onBlur={onDismiss}
-        className="w-full rounded border border-border bg-bg px-2 py-1 text-[13px] text-text outline-none focus:border-primary"
+        className="w-full rounded border border-border bg-bg px-2 py-1 text-[13px] text-text outline-hidden focus:border-primary"
       />
     </div>
   );

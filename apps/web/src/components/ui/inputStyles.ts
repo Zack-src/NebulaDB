@@ -17,7 +17,7 @@ const INPUT_BASE =
   "placeholder:text-text-muted " +
   "transition-[border-color,box-shadow] duration-150 ease-out " +
   "enabled:hover:border-border-strong " +
-  "focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/25 " +
+  "focus:border-primary focus:outline-hidden focus:ring-2 focus:ring-primary/25 " +
   "disabled:cursor-not-allowed disabled:opacity-50";
 
 /** Default field — 32px tall. Forms, dialogs, page-level inputs. */

@@ -1,27 +1,31 @@
 /* Effects Tailwind can't express as utilities (backdrop filters, layered
    glows) plus the native `<select>` chevron, which has to be a background
-   image because the reset strips the UA arrow. */
+   image because the reset strips the UA arrow.
+
+   Every rule here sets *longhands* only. A shorthand resets the properties it
+   does not mention, and these classes always sit alongside Tailwind utilities:
+   `background` would wipe the `bg-*` colour it is layered over, and `border`
+   would paint all four sides of an element asking for `border-b` alone — which
+   is exactly what put a pale outline around all three app headers. */
 
 .glass-panel {
-  background: rgba(19, 21, 31, 0.75);
+  background-color: rgba(19, 21, 31, 0.75);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .glass-card {
-  background: rgba(26, 29, 43, 0.6);
+  background-color: rgba(26, 29, 43, 0.6);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
 }
 
 .gradient-bg-hero {
-  background: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.18) 0%, rgba(168, 85, 247, 0.08) 40%, rgba(9, 10, 15, 0) 70%);
+  background-image: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.18) 0%, rgba(168, 85, 247, 0.08) 40%, rgba(9, 10, 15, 0) 70%);
 }
 
 .glow-indigo {
-  box-shadow: 0 0 35px rgba(99, 102, 241, 0.3);
+  box-shadow: var(--shadow-glow);
 }
 
 .app-select {

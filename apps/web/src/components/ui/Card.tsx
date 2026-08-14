@@ -11,7 +11,10 @@ export function Card({ children, variant = "default", interactive = false, class
 
   const variantStyles = {
     default: "bg-surface border-border shadow-xs",
-    glass: "glass-card shadow-sm",
+    // Explicit border colour: `.glass-card` only owns the fill and the blur
+    // now, and preflight is disabled — a bare `border` with no colour utility
+    // would paint in `currentColor`.
+    glass: "glass-card border-white/[0.06] shadow-sm",
     glow: "bg-surface-raised border-primary-border shadow-lg",
     outline: "bg-transparent border-border hover:border-border-strong",
   }[variant];

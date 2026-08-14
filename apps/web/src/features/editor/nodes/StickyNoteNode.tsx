@@ -38,7 +38,7 @@ function StickyNoteNodeImpl({ data, selected }: NodeProps<StickyNoteNodeType>) {
         style={{ background: color, border: `1px solid ${note.style?.borderColor ?? "#ca8a04"}` }}
       >
         <textarea
-          className="nodrag flex-1 resize-none border-0 bg-transparent text-[calc(12.5px_*_var(--canvas-font-scale))] leading-[1.4] text-text-onlight outline-none placeholder:text-[rgba(35,37,42,0.45)]"
+          className="nodrag flex-1 resize-none border-0 bg-transparent text-[calc(12.5px_*_var(--canvas-font-scale))] leading-[1.4] text-text-onlight outline-hidden placeholder:text-[rgba(35,37,42,0.45)]"
           value={note.text}
           onChange={(event) => data.onTextChange(event.target.value)}
           placeholder={t("stickyNote.placeholder")}

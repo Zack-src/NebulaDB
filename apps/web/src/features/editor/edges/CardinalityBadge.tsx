@@ -1,6 +1,7 @@
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { RestoreIcon, SettingsIcon } from "@/components/icons/Icons";
 import { ColorSwatchPicker } from "@/components/inputs/ColorSwatchPicker";
+import { EDGE_CHROME_Z } from "@/features/editor/edges/canvasLayers";
 import { useTranslation } from "@/i18n/useTranslation";
 
 const ROUND_BTN_CLASS =
@@ -42,6 +43,10 @@ export function CardinalityBadge(props: {
       style={{
         transform: `translate(-50%, -50%) translate(${props.x}px, ${props.y}px) scale(${scale})`,
         pointerEvents: "auto",
+        // React Flow paints nodes after the edge-label layer and lifts the
+        // selected one to 1000, so without this the toolbar vanishes under any
+        // table the relation happens to cross.
+        zIndex: EDGE_CHROME_Z,
       }}
       onContextMenu={props.onContextMenu}
     >

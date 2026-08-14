@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEven
 import { getSmoothStepPath, useReactFlow, type Position } from "@xyflow/react";
 import type { RoutingPoint } from "@athanordb/shared";
 import {
+  closestPointOnSegment,
   closestSegmentIndex,
   getDefaultCornerPoints,
   orthogonalPolylinePoints,
@@ -9,6 +10,8 @@ import {
   simplifyRoutingPoints,
   type Point,
 } from "@/features/editor/edges/pathMath";
+import { clearSelectedWaypoint, setSelectedWaypoint } from "@/features/editor/edges/waypointSelection";
+import { isTypingTarget } from "@/utils/dom";
 
 export interface EdgeContextMenuState {
   x: number;
@@ -17,6 +20,9 @@ export interface EdgeContextMenuState {
   /** Flow-space position the menu was opened at — where "insert a point here" lands it. */
   flowPosition: Point;
 }
+
+/** Marks the menu's own DOM subtree so the capture-phase dismiss can tell a click inside it from one outside. */
+export const EDGE_MENU_ATTRIBUTE = "data-edge-context-menu";
 
 /**
  * Owns everything about a ref edge's routing: the default (auto) corner
@@ -27,6 +33,7 @@ export interface EdgeContextMenuState {
  * the menu in lockstep.
  */
 export function useEdgeRouting(params: {
+  edgeId: string;
   sourceX: number;
   sourceY: number;
   targetX: number;
@@ -36,13 +43,14 @@ export function useEdgeRouting(params: {
   routingPoints?: RoutingPoint[];
   onRoutingPointsChange: (points: RoutingPoint[] | undefined) => void;
 }) {
-  const { sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, routingPoints, onRoutingPointsChange } = params;
+  const { edgeId, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, routingPoints, onRoutingPointsChange } = params;
   const { screenToFlowPosition } = useReactFlow();
 
   const [dragPoints, setDragPoints] = useState<RoutingPoint[] | null>(null);
+  const dragPointsRef = useRef<RoutingPoint[] | null>(null);
   const draggingIndexRef = useRef<number | null>(null);
   const movedRef = useRef(false);
-  const [selectedPointIndex, setSelectedPointIndex] = useState<number | null>(null);
+  const [selectedPointIndex, setSelectedPointIndexState] = useState<number | null>(null);
   const [contextMenu, setContextMenu] = useState<EdgeContextMenuState | null>(null);
 
   const [stepPath, stepLabelX, stepLabelY] = getSmoothStepPath({
@@ -78,14 +86,32 @@ export function useEdgeRouting(params: {
   const drawnPoints = useMemo(() => orthogonalPolylinePoints(allPoints), [allPoints]);
   const fullPath = polylinePath(drawnPoints);
 
+  // Endpoints read through a ref rather than a closure, so a commit landing
+  // after the user dragged the table itself simplifies against where the table
+  // is *now* instead of where it was when the drag started.
+  const endpointsRef = useRef({ sourceX, sourceY, targetX, targetY });
+  useEffect(() => {
+    endpointsRef.current = { sourceX, sourceY, targetX, targetY };
+  }, [sourceX, sourceY, targetX, targetY]);
+
   const commitPoints = (next: RoutingPoint[]) => {
-    const simplified = simplifyRoutingPoints(next, { x: sourceX, y: sourceY }, { x: targetX, y: targetY });
+    const ends = endpointsRef.current;
+    const simplified = simplifyRoutingPoints(next, { x: ends.sourceX, y: ends.sourceY }, { x: ends.targetX, y: ends.targetY });
     onRoutingPointsChange(simplified.length > 0 ? simplified : undefined);
   };
+
+  const setSelectedPointIndex = (index: number | null) => {
+    setSelectedPointIndexState(index);
+    if (index === null) clearSelectedWaypoint(edgeId);
+    else setSelectedWaypoint({ edgeId, index });
+  };
+
+  const closeContextMenu = () => setContextMenu(null);
 
   const resetRouting = () => {
     onRoutingPointsChange(undefined);
     setDragPoints(null);
+    dragPointsRef.current = null;
     setSelectedPointIndex(null);
     setContextMenu(null);
   };
@@ -97,10 +123,26 @@ export function useEdgeRouting(params: {
     setContextMenu(null);
   };
 
+  /**
+   * Adds a corner where the user clicked.
+   *
+   * Both the hit-test and the resulting waypoint list are built from
+   * `drawnPoints`, not from the raw waypoints: the line on screen is the
+   * orthogonalised version, so measuring the click against the raw diagonal
+   * chain picked a different segment than the one under the cursor, and storing
+   * the raw click re-ran the dog-leg expansion and moved the corner somewhere
+   * else again. Working in the already-expanded chain makes the re-expansion a
+   * no-op, so the route keeps its exact shape and only gains the new corner.
+   */
   const insertPointAt = (flowPos: Point) => {
-    const segIndex = closestSegmentIndex(allPoints, flowPos);
-    const next = [...points.slice(0, segIndex), flowPos, ...points.slice(segIndex)];
+    const drawn = drawnPoints;
+    if (drawn.length < 2) return;
+    const segment = closestSegmentIndex(drawn, flowPos);
+    const projected = closestPointOnSegment(flowPos, drawn[segment], drawn[segment + 1]);
+    const interior = drawn.slice(1, drawn.length - 1);
+    const next = [...interior.slice(0, segment), projected, ...interior.slice(segment)];
     commitPoints(next);
+    setContextMenu(null);
   };
 
   const handlePathDoubleClick = (event: ReactMouseEvent) => {
@@ -121,7 +163,11 @@ export function useEdgeRouting(params: {
     movedRef.current = false;
     const startFlow = screenToFlowPosition({ x: e.clientX, y: e.clientY });
     const initialPoints = points;
-    setDragPoints(initialPoints);
+    const setDrag = (next: RoutingPoint[] | null) => {
+      dragPointsRef.current = next;
+      setDragPoints(next);
+    };
+    setDrag(initialPoints);
     setSelectedPointIndex(index);
 
     const onMove = (ev: MouseEvent) => {
@@ -134,16 +180,19 @@ export function useEdgeRouting(params: {
       if (index + 1 < initialPoints.length) {
         next[index + 1] = { x: initialPoints[index + 1].x + dx, y: initialPoints[index + 1].y + dy };
       }
-      setDragPoints(next);
+      setDrag(next);
     };
+    // The commit happens here rather than inside a `setDragPoints` updater:
+    // state updaters must be pure, and React deliberately runs them twice in
+    // StrictMode — which wrote every waypoint drag to the shared Yjs document
+    // twice, once per invocation.
     const onUp = () => {
-      setDragPoints((prev) => {
-        if (prev && movedRef.current) commitPoints(prev);
-        return null;
-      });
+      const finalPoints = dragPointsRef.current;
+      setDrag(null);
       draggingIndexRef.current = null;
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
+      if (finalPoints && movedRef.current) commitPoints(finalPoints);
     };
     window.addEventListener("mousemove", onMove);
     window.addEventListener("mouseup", onUp);
@@ -160,14 +209,30 @@ export function useEdgeRouting(params: {
     });
   };
 
+  // Capture phase, because the menu is portaled to document.body and stops
+  // propagation on its own clicks — a bubble-phase listener on `window` sat
+  // below the portal in the path and simply never ran. `contextmenu` is here
+  // too: right-clicking a second edge emits no `click`, so two menus used to
+  // end up open at once.
   useEffect(() => {
     if (!contextMenu) return;
-    const close = () => setContextMenu(null);
-    window.addEventListener("click", close);
-    window.addEventListener("wheel", close);
+    const close = (event: Event) => {
+      const target = event.target as HTMLElement | null;
+      if (target?.closest?.(`[${EDGE_MENU_ATTRIBUTE}]`)) return;
+      setContextMenu(null);
+    };
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setContextMenu(null);
+    };
+    window.addEventListener("click", close, true);
+    window.addEventListener("contextmenu", close, true);
+    window.addEventListener("wheel", close, true);
+    window.addEventListener("keydown", onKeyDown);
     return () => {
-      window.removeEventListener("click", close);
-      window.removeEventListener("wheel", close);
+      window.removeEventListener("click", close, true);
+      window.removeEventListener("contextmenu", close, true);
+      window.removeEventListener("wheel", close, true);
+      window.removeEventListener("keydown", onKeyDown);
     };
   }, [contextMenu]);
 
@@ -175,16 +240,7 @@ export function useEdgeRouting(params: {
     if (selectedPointIndex === null) return;
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Backspace" && event.key !== "Delete") return;
-      const target = event.target as HTMLElement | null;
-      if (
-        !target ||
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable ||
-        Boolean(target.closest(".cm-editor, .nokey, [contenteditable='true']"))
-      ) {
-        return;
-      }
+      if (isTypingTarget(event.target)) return;
       event.preventDefault();
       deletePointAt(selectedPointIndex);
     };
@@ -201,6 +257,10 @@ export function useEdgeRouting(params: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPointIndex, points]);
 
+  // Leaving the canvas (or deselecting the edge) must hand the Delete key back
+  // to the node/edge deletion handler.
+  useEffect(() => () => clearSelectedWaypoint(edgeId), [edgeId]);
+
   return {
     points,
     allPoints,
@@ -214,7 +274,7 @@ export function useEdgeRouting(params: {
     setSelectedPointIndex,
     contextMenu,
     openContextMenu,
-    closeContextMenu: () => setContextMenu(null),
+    closeContextMenu,
     resetRouting,
     deletePointAt,
     insertPointAt,

@@ -90,7 +90,7 @@ export function CommandPalette(props: {
             }
             event.stopPropagation();
           }}
-          className="w-full border-b border-border bg-transparent px-3 py-2.5 text-[13px] text-text outline-none placeholder:text-text-muted"
+          className="w-full border-b border-border bg-transparent px-3 py-2.5 text-[13px] text-text outline-hidden placeholder:text-text-muted"
         />
         <div ref={listRef} className="min-h-0 flex-1 overflow-y-auto py-1">
           {filtered.length === 0 && <div className="px-3 py-2 text-[12px] text-text-muted">{t("commandPalette.noMatch")}</div>}

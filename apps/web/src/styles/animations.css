@@ -1,13 +1,8 @@
-@keyframes modal-in {
-  from {
-    opacity: 0;
-    transform: translateY(10px) scale(0.97);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
+/* `modal-in` and `overlay-in` are NOT defined here: tailwind.config.js declares
+   them under `theme.extend.keyframes`, and Tailwind emits its copy after this
+   file. A duplicate here would look authoritative while never taking effect —
+   which is what happened, leaving two contradictory versions of the same
+   entrance animation in the codebase. */
 
 @keyframes pulse-subtle {
   0%, 100% { opacity: 1; }

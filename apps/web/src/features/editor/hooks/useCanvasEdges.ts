@@ -1,8 +1,7 @@
 import { useMemo } from "react";
 import * as Y from "yjs";
-import { MarkerType } from "@xyflow/react";
 import { getRefsMap, type Project, type RoutingPoint } from "@athanordb/shared";
-import { CARDINALITY_STYLE, type RefEdgeType } from "@/features/editor/edges/RefEdge";
+import type { RefEdgeType } from "@/features/editor/edges/RefEdge";
 import { DEFAULT_TABLE_HEIGHT, DEFAULT_TABLE_WIDTH, pickHandleSides, type TableBox } from "@/features/editor/edges/refGeometry";
 import type { CanvasNode } from "@/types/index";
 
@@ -112,7 +111,9 @@ export function useCanvasEdges(
             refs.delete(ref.id);
           },
         },
-        markerEnd: { type: MarkerType.ArrowClosed, color: ref.style?.color ?? CARDINALITY_STYLE[ref.cardinality].stroke },
+        // No `markerEnd`: the arrowhead is drawn inside `RefEdge` so it can
+        // follow the stroke's live colour and opacity, and hold a constant
+        // screen size instead of scaling with the (zoom-compensated) width.
       };
     });
   }, [liveProject, doc, nodes, highlightLinks, hoveredTableId, palette, onPaletteChange]);

@@ -26,6 +26,8 @@ import { StickyNoteNode } from "@/features/editor/nodes/StickyNoteNode";
 import { EnumNode } from "@/features/editor/nodes/EnumNode";
 import { TableGroupNode } from "@/features/editor/nodes/TableGroupNode";
 import { CursorNode, type CursorNodeType } from "@/features/collaboration/CursorNode";
+import { getSelectedWaypoint } from "@/features/editor/edges/waypointSelection";
+import { isTypingTarget } from "@/utils/dom";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { loadShowMinimap, loadViewport, saveShowMinimap, saveViewport } from "@/utils/preferences";
 import type { CanvasCommandContribution, ResolvedContribution } from "@/features/plugins/types";
@@ -100,7 +102,7 @@ export interface CanvasAreaProps {
  * viewer's own pan/zoom.
  */
 export function CanvasArea(props: CanvasAreaProps) {
-  const { screenToFlowPosition } = useReactFlow();
+  const { screenToFlowPosition, deleteElements, getNodes, getEdges } = useReactFlow();
   const [contextMenu, setContextMenu] = useState<CanvasContextMenuState | null>(null);
   const [minimapVisible, setMinimapVisible] = useState(loadShowMinimap);
   // Lazy initializer: read once at mount, not on every render — this decides
@@ -154,6 +156,32 @@ export function CanvasArea(props: CanvasAreaProps) {
 
   useEscapeKey(Boolean(contextMenu), closeContextMenu);
 
+  /**
+   * Delete/Backspace, owned here instead of by React Flow's `deleteKeyCode`.
+   *
+   * React Flow binds that key on `document` and deletes the whole selection
+   * without asking anyone else — so pressing Delete with an edge waypoint
+   * selected removed the entire relation from the schema, while the waypoint's
+   * own handler ran too. One handler with an explicit order of precedence is
+   * the only way to make "delete this corner" and "delete this table" the same
+   * key: the waypoint claims the keystroke first, and everything else falls
+   * through to the normal selection delete.
+   */
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key !== "Delete" && event.key !== "Backspace") return;
+      if (isTypingTarget(event.target)) return;
+      if (getSelectedWaypoint()) return;
+      const nodes = getNodes().filter((node) => node.selected && node.type !== "cursor");
+      const edges = getEdges().filter((edge) => edge.selected);
+      if (nodes.length === 0 && edges.length === 0) return;
+      event.preventDefault();
+      void deleteElements({ nodes, edges });
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [deleteElements, getNodes, getEdges]);
+
   useEffect(() => {
     if (!contextMenu) return;
     window.addEventListener("click", closeContextMenu);
@@ -201,7 +229,9 @@ export function CanvasArea(props: CanvasAreaProps) {
         onMoveEnd={(_event, viewport) => saveViewport(props.projectId, props.viewportUserId, viewport)}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
-        deleteKeyCode={["Backspace", "Delete"]}
+        // Deletion is handled by the effect above so a selected edge waypoint
+        // can take precedence over the relation it belongs to.
+        deleteKeyCode={null}
         snapToGrid
         snapGrid={[GRID_SIZE, GRID_SIZE]}
         fitView={!initialViewport}

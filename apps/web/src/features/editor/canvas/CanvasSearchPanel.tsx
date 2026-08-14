@@ -51,7 +51,7 @@ export function CanvasSearchPanel({
           }}
           placeholder={t("canvas.search.placeholder")}
           aria-label={t("canvas.search.placeholder")}
-          className="h-6 w-44 border-none bg-transparent px-1 text-[12.5px] text-text placeholder:text-text-muted focus:outline-none"
+          className="h-6 w-44 border-none bg-transparent px-1 text-[12.5px] text-text placeholder:text-text-muted focus:outline-hidden"
         />
         {hasQuery && (
           <span className="shrink-0 whitespace-nowrap px-0.5 text-[11px] tabular-nums text-text-muted">
