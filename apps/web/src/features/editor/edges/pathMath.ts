@@ -112,13 +112,29 @@ export function perpendicular(from: Point, to: Point): Point {
  */
 export function endpointLabelAnchor(points: Point[], atEnd: boolean, along: number, away: number): Point | null {
   if (points.length < 2) return null;
-  const from = atEnd ? points[points.length - 1] : points[0];
-  const to = atEnd ? points[points.length - 2] : points[1];
-  const segment = Math.hypot(to.x - from.x, to.y - from.y);
-  if (segment < 1) return null;
-  const base = offsetAlong(from, to, Math.min(along, segment * 0.6));
-  const normal = perpendicular(from, to);
-  return { x: base.x + normal.x * away, y: base.y + normal.y * away };
+  // Walk the polyline rather than the first segment alone: several refs sharing
+  // a column are spaced out *along* the line, and on a short first leg every
+  // one of them would otherwise be clamped back onto the same point — the exact
+  // pile-up the spacing exists to prevent.
+  const chain = atEnd ? [...points].reverse() : points;
+  const total = polylineLength(chain);
+  if (total < 1) return null;
+
+  let travelled = 0;
+  const target = Math.min(along, total * 0.45);
+  for (let i = 0; i < chain.length - 1; i++) {
+    const from = chain[i];
+    const to = chain[i + 1];
+    const segment = Math.hypot(to.x - from.x, to.y - from.y);
+    if (segment < 0.001) continue;
+    if (travelled + segment >= target) {
+      const base = offsetAlong(from, to, target - travelled);
+      const normal = perpendicular(from, to);
+      return { x: base.x + normal.x * away, y: base.y + normal.y * away };
+    }
+    travelled += segment;
+  }
+  return null;
 }
 
 /** The point on segment `a`-`b` nearest to `p` — the click projected onto the line, so an inserted waypoint lands on the stroke rather than wherever the cursor happened to be. */

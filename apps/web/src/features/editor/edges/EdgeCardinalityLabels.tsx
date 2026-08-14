@@ -3,7 +3,16 @@ import { endpointLabelAnchor, polylineLength, type Point } from "@/features/edit
 /** Screen-space geometry for the chips — converted to flow units at render time so zoom never changes what the user sees. */
 const ALONG = 18;
 const AWAY = 12;
-/** Stacking step for several refs landing on the same column handle. */
+/**
+ * Spacing for several refs landing on the same column handle, applied
+ * perpendicular to the line.
+ *
+ * Measured against the alternative on a 26-table schema: staggering *along* the
+ * segment instead slid each extra chip horizontally into the column band above
+ * or below it and nearly doubled the number of touching pairs, because table
+ * rows are only ~27px apart vertically. Pushing away from the line keeps each
+ * chip in its own row band.
+ */
 const SLOT_STEP = 15;
 /** Below this the two chips (plus the midpoint toolbar) would collide, so the edge goes unlabelled rather than unreadable. */
 const MIN_PATH = 56;
