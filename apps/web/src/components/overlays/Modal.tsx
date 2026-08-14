@@ -103,7 +103,7 @@ export function Modal(props: {
 
   return (
     <div
-      className="fixed inset-0 z-[1000] flex animate-overlay-in items-center justify-center bg-overlay p-4 backdrop-blur-[3px]"
+      className="fixed inset-0 z-[var(--z-modal)] flex animate-overlay-in items-center justify-center bg-overlay p-4 backdrop-blur-[3px]"
       onMouseDown={handleBackdropMouseDown}
       onClick={handleBackdropClick}
     >

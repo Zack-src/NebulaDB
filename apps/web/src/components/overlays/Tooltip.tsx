@@ -133,7 +133,7 @@ export function GlobalTooltip() {
       // tooltip can never flash at the previous one's coordinates.
       key={`${rect.top},${rect.left},${pos}`}
       ref={boxRef}
-      className={`pointer-events-none fixed left-0 top-0 z-[3000] w-max whitespace-pre-line rounded-sm border border-border-strong bg-surface-raised font-sans text-[11px] font-medium leading-[1.35] text-text shadow-md ${
+      className={`pointer-events-none fixed left-0 top-0 z-[var(--z-tooltip)] w-max whitespace-pre-line rounded-sm border border-border-strong bg-surface-raised font-sans text-[11px] font-medium leading-[1.35] text-text shadow-md ${
         note
           ? "max-h-[70vh] max-w-[340px] overflow-hidden rounded-md px-2.5 py-2 text-left"
           : "max-w-[240px] px-2 py-[5px] text-center"

@@ -7,7 +7,7 @@
  * different components for what is, to the user, the same gesture.
  */
 export const CONTEXT_MENU_CLASS =
-  "fixed z-[2000] min-w-[184px] max-w-[min(280px,calc(100vw-16px))] animate-modal-in overflow-hidden " +
+  "fixed z-[var(--z-context-menu)] min-w-[184px] max-w-[min(280px,calc(100vw-16px))] animate-modal-in overflow-hidden " +
   "rounded-md border border-border-strong bg-surface-raised p-1 shadow-lg";
 
 export const CONTEXT_MENU_ITEM_CLASS =

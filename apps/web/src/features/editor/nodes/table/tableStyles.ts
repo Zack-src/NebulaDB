@@ -50,9 +50,10 @@ export const TABLE_NODE_CLASS =
  */
 export const TABLE_NODE_SELECTED_CLASS = "shadow-md outline outline-2 outline-offset-2 outline-primary";
 
+/** Foreground is set per node from the actual header colour — a user who picks pale yellow gets dark text, not invisible white. */
 export const TABLE_HEADER_CLASS =
   "relative flex h-[calc(34px_*_var(--canvas-font-scale))] items-center gap-1.5 px-2 pl-2.5 " +
-  "text-[calc(13px_*_var(--canvas-font-scale))] font-semibold text-white";
+  "text-[calc(13px_*_var(--canvas-font-scale))] font-semibold";
 export const TABLE_NAME_CLASS = "overflow-hidden text-ellipsis whitespace-nowrap tracking-[-0.01em]";
 /** Inline rename, sitting on the table's coloured header — glassy fill + white ring rather than a
  *  light box punched into the header, so it reads as the same surface being edited. */
@@ -66,10 +67,11 @@ export const TABLE_NAME_INPUT_CLASS =
 export const HEADER_ACTIONS_CLASS =
   "ml-auto flex items-center gap-[3px] opacity-0 transition-opacity duration-100 " +
   "group-hover:opacity-100 group-[.is-selected]:opacity-100 has-[.has-comments]:opacity-100 has-[.has-open-popover]:opacity-100";
+/** Inherits the header's computed colour rather than pinning white, for the same reason. */
 export const HEADER_BTN_CLASS =
-  "flex h-5 shrink-0 items-center justify-center rounded-sm px-1 text-white/70 transition-colors duration-100 " +
-  "hover:bg-white/20 hover:text-white [&.has-comments]:bg-white/20 [&.has-comments]:text-white " +
-  "[&.has-open-popover]:bg-white/20 [&.has-open-popover]:text-white";
+  "flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-current opacity-70 transition-[opacity,background-color] duration-100 " +
+  "hover:bg-black/15 hover:opacity-100 [&.has-comments]:bg-black/15 [&.has-comments]:opacity-100 " +
+  "[&.has-open-popover]:bg-black/15 [&.has-open-popover]:opacity-100";
 
 export const TABLE_FOOTER_CLASS = "border-t border-border bg-black/[0.12] px-1.5 py-[3px]";
 export const TABLE_ADD_BTN_CLASS =

@@ -37,7 +37,7 @@ export interface CanvasToolbarProps {
   minimapVisible: boolean;
   onToggleMinimap: () => void;
   searchOpen: boolean;
-  onOpenSearch: () => void;
+  onToggleSearch: () => void;
   canvasCommands: ResolvedContribution<CanvasCommandContribution>[];
   onRunCanvasCommand: (command: ResolvedContribution<CanvasCommandContribution>) => void;
   onOpenPlugins: () => void;
@@ -83,9 +83,9 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
     {
       icon: <SearchIcon size={TOGGLE_ICON_SIZE} />,
       active: props.searchOpen,
-      tooltipKey: "canvas.findTable",
+      tooltipKey: props.searchOpen ? "canvas.closeSearch" : "canvas.findTable",
       labelKey: "canvas.findTable",
-      onClick: props.onOpenSearch,
+      onClick: props.onToggleSearch,
     },
   ];
 

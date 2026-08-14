@@ -65,6 +65,15 @@
   --shadow-xl: 0 24px 56px rgba(0, 0, 0, 0.55), 0 8px 20px rgba(0, 0, 0, 0.34);
   --shadow-glow: 0 0 25px rgba(99, 102, 241, 0.25);
 
+  /* Stacking order, declared once. The tooltip has to sit above every popover
+     it can be triggered from — the field and table popovers had picked z-9999
+     out of the air, which put them over the tooltip (z-3000) and over the
+     modal layer as well. */
+  --z-modal: 1000;
+  --z-popover: 2000;
+  --z-context-menu: 2500;
+  --z-tooltip: 3000;
+
   --canvas-font-scale: 1;
 
   color-scheme: dark;

@@ -74,7 +74,7 @@ export function CommentThread(props: {
         createPortal(
           <div
             ref={popoverRef}
-            className="fixed z-[2000] flex w-[260px] animate-modal-in flex-col rounded-md border border-border-strong bg-surface-raised shadow-lg nodrag"
+            className="fixed z-[var(--z-popover)] flex w-[260px] animate-modal-in flex-col rounded-md border border-border-strong bg-surface-raised shadow-lg nodrag"
             style={placement ?? { left: triggerRect.left, top: triggerRect.bottom + 6, visibility: "hidden" }}
           >
             <div className="flex max-h-[220px] flex-col gap-1.5 overflow-y-auto p-2">

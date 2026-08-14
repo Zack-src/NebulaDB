@@ -6,6 +6,7 @@ import { CodeIcon, PlusIcon } from "@/components/icons/Icons";
 import { DEFAULT_HEADER_COLOR, TableSettingsPopover } from "@/features/editor/nodes/table/TableSettingsPopover";
 import { TableNodeRow } from "@/features/editor/nodes/table/TableNodeRow";
 import { useDraftValue } from "@/hooks/useDraftValue";
+import { prefersDarkText } from "@/utils/color";
 import { useTranslation } from "@/i18n/useTranslation";
 import {
   HEADER_ACTIONS_CLASS,
@@ -55,7 +56,19 @@ function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
   const [renaming, setRenaming] = useState(false);
   const nameDraft = useDraftValue(table.name, (next) => data.onRename(next ?? ""));
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
+  // Clicking a column highlighted it forever, in every table at once, because
+  // nothing ever cleared it. React Flow selects a node on pointer-down, so
+  // losing that selection is exactly the moment the row highlight should go.
+  // Adjusted during render rather than from an effect (the same pattern as
+  // ColorSwatchPicker): React re-runs the component before touching the DOM,
+  // so there is no frame showing the stale highlight.
+  const [wasSelected, setWasSelected] = useState(selected);
+  if (wasSelected !== selected) {
+    setWasSelected(selected);
+    if (!selected) setSelectedFieldId(null);
+  }
   const tableComments = table.comments?.filter((c) => !c.fieldId) ?? [];
+  const headerColor = table.style?.color ?? DEFAULT_HEADER_COLOR;
 
   /**
    * Which of this table's columns sit on a highlighted relation.
@@ -111,7 +124,7 @@ function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
     >
       <div
         className={TABLE_HEADER_CLASS}
-        style={{ background: table.style?.color ?? DEFAULT_HEADER_COLOR }}
+        style={{ background: headerColor, color: prefersDarkText(headerColor) ? "var(--color-text-on-light)" : "#ffffff" }}
         onDoubleClick={() => {
           if (!data.readOnly) setRenaming(true);
         }}

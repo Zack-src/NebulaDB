@@ -114,7 +114,7 @@ export function ColorSwatchPicker(props: {
         createPortal(
           <div
             ref={popoverRef}
-            className="fixed z-[2000] animate-modal-in rounded-md border border-border-strong bg-surface-raised p-2.5 shadow-lg nodrag"
+            className="fixed z-[var(--z-popover)] animate-modal-in rounded-md border border-border-strong bg-surface-raised p-2.5 shadow-lg nodrag"
             style={placement ?? { left: triggerRect.left, top: triggerRect.bottom + 6, visibility: "hidden" }}
           >
             <div className={SWATCH_GRID_CLASS}>

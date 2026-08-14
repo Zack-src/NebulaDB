@@ -315,6 +315,7 @@
   "canvas.hideMinimap": "Hide minimap",
   "canvas.showMinimap": "Show minimap",
   "canvas.toggleMinimap": "Toggle minimap",
+  "canvas.closeSearch": "Close search",
   "canvas.findTable": "Find a table (Ctrl+F)",
 
   "canvas.selection.tablesSelected_one": "{{count}} table selected",

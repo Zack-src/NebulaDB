@@ -315,6 +315,7 @@
   "canvas.hideMinimap": "Masquer la minicarte",
   "canvas.showMinimap": "Afficher la minicarte",
   "canvas.toggleMinimap": "Basculer la minicarte",
+  "canvas.closeSearch": "Fermer la recherche",
   "canvas.findTable": "Rechercher une table (Ctrl+F)",
 
   "canvas.selection.tablesSelected_one": "{{count}} table sélectionnée",

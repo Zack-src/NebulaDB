@@ -127,6 +127,10 @@ export function CanvasArea(props: CanvasAreaProps) {
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);
 
+  const suppressNativeMenu = useCallback((event: ReactMouseEvent | MouseEvent) => {
+    event.preventDefault();
+  }, []);
+
   const toggleMinimap = useCallback(() => {
     setMinimapVisible((visible) => {
       saveShowMinimap(!visible);
@@ -277,6 +281,13 @@ export function CanvasArea(props: CanvasAreaProps) {
         onEdgesDelete={props.onEdgesDelete}
         onConnect={props.onConnect}
         onPaneContextMenu={handlePaneContextMenu}
+        // Without these two, right-clicking a table (or a multi-selection)
+        // fell through to the browser's own menu — "Save image as…", "Reload"
+        // — on top of the diagram. Suppressing the native menu is what the
+        // `preventDefault` does; the app's own menu stays pane-only, since
+        // there is no per-node menu to offer yet.
+        onNodeContextMenu={suppressNativeMenu}
+        onSelectionContextMenu={suppressNativeMenu}
         onNodeMouseEnter={handleNodeMouseEnter}
         onNodeMouseLeave={handleNodeMouseLeave}
         onMoveStart={closeContextMenu}
@@ -341,14 +352,23 @@ export function CanvasArea(props: CanvasAreaProps) {
             minimapVisible={minimapVisible}
             onToggleMinimap={toggleMinimap}
             searchOpen={search.open}
-            onOpenSearch={() => search.setOpen(true)}
+            onToggleSearch={() => (search.open ? search.close() : search.setOpen(true))}
             canvasCommands={props.canvasCommands}
             onRunCanvasCommand={props.onRunCanvasCommand}
             onOpenPlugins={props.onOpenPlugins}
           />
         </Panel>
         {minimapVisible && (
-          <MiniMap pannable zoomable bgColor="#1f2024" nodeColor="#4b4d8a" maskColor="rgba(23,24,27,0.75)" />
+          <MiniMap
+            pannable
+            zoomable
+            onContextMenu={suppressNativeMenu}
+            // Reads from the palette instead of three hand-picked hex values
+            // that drifted from every other surface on the canvas.
+            bgColor="var(--color-surface)"
+            nodeColor="var(--color-primary)"
+            maskColor="rgba(9, 10, 15, 0.7)"
+          />
         )}
         {selectedTableIds.length > 1 && props.canWrite && (
           <SelectionColorToolbar
