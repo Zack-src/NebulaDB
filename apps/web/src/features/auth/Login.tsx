@@ -44,16 +44,16 @@ export function Login({ onLoggedIn }: LoginProps) {
       <div className="absolute bottom-10 right-10 w-[300px] h-[300px] bg-accent-purple/15 blur-[100px] rounded-full pointer-events-none" />
 
       <div className="relative w-full max-w-[420px] flex flex-col gap-4">
-        <Card variant="glow" className="w-full shadow-2xl glass-panel">
-          <CardHeader className="text-center pb-4 border-b border-border/40">
-            <div className="mx-auto mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent-purple text-white shadow-md glow-indigo">
+        <Card variant="glow" className="w-full shadow-xl glass-panel">
+          <CardHeader className="border-b border-border/40 pb-4 text-center">
+            <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-primary to-accent-purple text-white shadow-md">
               <LogoMarkIcon size={20} style={{ color: "white" }} />
             </div>
             <h1 className="text-xl font-extrabold tracking-tight">{APP_NAME}</h1>
-            <p className="text-xs text-text-muted mt-1">{t("login.tagline")}</p>
+            <p className="mt-1 text-xs text-text-muted">{t("login.tagline")}</p>
           </CardHeader>
 
-          <CardBody className="p-6 space-y-5">
+          <CardBody className="space-y-5">
             <Tabs
               variant="boxed"
               tabs={[
@@ -102,9 +102,10 @@ export function Login({ onLoggedIn }: LoginProps) {
 
                 <Button
                   variant="primary"
+                  size="lg"
                   type="submit"
                   disabled={signIn.pending || !email.trim() || !password}
-                  className="w-full py-2.5"
+                  className="w-full"
                 >
                   {signIn.pending ? t("login.signingIn") : t("login.signIn")}
                 </Button>
@@ -116,8 +117,8 @@ export function Login({ onLoggedIn }: LoginProps) {
             {tab === "invite" && (
               <div className="space-y-4 text-xs text-text-secondary">
                 <p>{t("login.inviteOnly")}</p>
-                <div className="p-3.5 rounded-lg bg-surface-raised border border-border/60 space-y-2">
-                  <div className="font-semibold text-text flex items-center gap-1.5">
+                <div className="space-y-2 rounded-lg border border-border bg-surface-raised p-3.5">
+                  <div className="flex items-center gap-1.5 font-semibold text-text">
                     <KeyIcon size={14} className="text-warning" /> {t("login.haveInviteLink")}
                   </div>
                   <p className="text-[11px] text-text-muted">{t("login.haveInviteLinkHint")}</p>

@@ -2,7 +2,14 @@ import type { ReactNode } from "react";
 
 /** Inline error banner used under forms and in modals. */
 export function ErrorText(props: { children: ReactNode }) {
-  return <div className="mt-2.5 rounded-sm bg-danger-light px-2.5 py-2 text-[12.5px] text-danger">{props.children}</div>;
+  return (
+    <div
+      role="alert"
+      className="mt-2.5 rounded-md border border-danger/35 bg-danger-light px-2.5 py-2 text-[12.5px] leading-normal text-danger"
+    >
+      {props.children}
+    </div>
+  );
 }
 
 /** Muted explanatory paragraph used at the top of modal bodies. */

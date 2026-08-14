@@ -11,15 +11,15 @@ const SIZE_CLASS: Record<InputSize, string> = {
 
 /** Left padding when a leading icon is rendered, per size. */
 const ICON_PADDING: Record<InputSize, string> = {
-  md: "pl-9",
-  sm: "pl-8",
-  xs: "pl-7",
+  md: "pl-8",
+  sm: "pl-7",
+  xs: "pl-[26px]",
 };
 
 const ICON_OFFSET: Record<InputSize, string> = {
-  md: "left-3",
-  sm: "left-2.5",
-  xs: "left-2",
+  md: "left-2.5",
+  sm: "left-2",
+  xs: "left-1.5",
 };
 
 export interface InputProps extends Omit<InputHTMLAttributes<HTMLInputElement>, "size"> {
@@ -54,12 +54,12 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
       )}
       <input
         ref={ref}
-        className={`${base} w-full ${icon ? ICON_PADDING[inputSize] : ""} ${trailing ? "pr-9" : ""} ${className}`
+        className={`${base} w-full ${icon ? ICON_PADDING[inputSize] : ""} ${trailing ? "pr-8" : ""} ${className}`
           .replace(/\s+/g, " ")
           .trim()}
         {...rest}
       />
-      {trailing && <span className="absolute right-2.5 flex items-center text-text-muted">{trailing}</span>}
+      {trailing && <span className="absolute right-2 flex items-center text-text-muted">{trailing}</span>}
     </div>
   );
 });

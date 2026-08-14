@@ -20,6 +20,7 @@ export default {
           DEFAULT: "var(--color-bg)",
           canvas: "var(--color-bg-canvas)",
         },
+        overlay: "var(--color-overlay)",
         surface: {
           DEFAULT: "var(--color-surface)",
           raised: "var(--color-surface-raised)",
@@ -56,18 +57,30 @@ export default {
           light: "var(--color-success-light)",
         },
       },
+      // Every rung is listed, including the ones Tailwind ships itself: a gap
+      // in the map falls through to a stock value that has nothing to do with
+      // this scale, which is how `rounded-xl` (24px, from a token) ended up
+      // rounder than `rounded-2xl` (16px, Tailwind's own) — and how
+      // `rounded-xs`/`shadow-xl` silently rendered nothing at all.
       borderRadius: {
+        xs: "var(--radius-xs)",
         sm: "var(--radius-sm)",
         DEFAULT: "var(--radius-md)",
         md: "var(--radius-md)",
         lg: "var(--radius-lg)",
+        xl: "var(--radius-xl)",
+        "2xl": "var(--radius-2xl)",
         full: "var(--radius-full)",
       },
       boxShadow: {
         xs: "var(--shadow-xs)",
         sm: "var(--shadow-sm)",
+        DEFAULT: "var(--shadow-sm)",
         md: "var(--shadow-md)",
         lg: "var(--shadow-lg)",
+        xl: "var(--shadow-xl)",
+        "2xl": "var(--shadow-xl)",
+        glow: "var(--shadow-glow)",
       },
       fontFamily: {
         sans: "var(--font-sans)",

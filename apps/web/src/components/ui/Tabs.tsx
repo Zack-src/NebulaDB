@@ -15,6 +15,14 @@ export interface TabsProps<T extends string = string> {
   className?: string;
 }
 
+const FOCUS_RING =
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
+
+/**
+ * Three shapes for the same control. `line` heads a page, `boxed` is the
+ * segmented switch inside a card, `pill` is the standalone filter row — all on
+ * the 28px control height so a tab strip lines up with the buttons beside it.
+ */
 export function Tabs<T extends string = string>({
   tabs,
   activeTab,
@@ -24,23 +32,29 @@ export function Tabs<T extends string = string>({
 }: TabsProps<T>) {
   if (variant === "line") {
     return (
-      <div className={`flex border-b border-border gap-6 ${className}`.trim()}>
+      <div role="tablist" className={`flex gap-5 border-b border-border ${className}`.trim()}>
         {tabs.map((tab) => {
           const active = tab.id === activeTab;
           return (
             <button
               key={tab.id}
+              role="tab"
+              aria-selected={active}
               onClick={() => onChange(tab.id)}
-              className={`flex items-center gap-2 pb-2.5 text-xs font-semibold tracking-wide transition-all border-b-2 ${
+              className={`-mb-px flex items-center gap-2 border-b-2 pb-2.5 text-[12.5px] font-semibold transition-colors duration-150 ${FOCUS_RING} ${
                 active
-                  ? "border-primary text-text font-bold"
-                  : "border-transparent text-text-muted hover:text-text-secondary hover:border-border-strong"
+                  ? "border-primary text-text"
+                  : "border-transparent text-text-muted hover:border-border-strong hover:text-text-secondary"
               }`}
             >
               {tab.icon}
               {tab.label}
               {tab.badge !== undefined && (
-                <span className={`px-1.5 py-0.2 rounded-full text-[10px] ${active ? "bg-primary/20 text-primary" : "bg-surface-raised text-text-muted"}`}>
+                <span
+                  className={`rounded-full px-1.5 py-px text-[10px] font-bold tabular-nums ${
+                    active ? "bg-primary-light text-primary" : "bg-surface-hover text-text-muted"
+                  }`}
+                >
                   {tab.badge}
                 </span>
               )}
@@ -53,17 +67,19 @@ export function Tabs<T extends string = string>({
 
   if (variant === "boxed") {
     return (
-      <div className={`flex gap-1.5 p-1 bg-surface-raised/60 rounded-lg border border-border/50 ${className}`.trim()}>
+      <div role="tablist" className={`flex gap-1 rounded-lg border border-border bg-surface p-1 ${className}`.trim()}>
         {tabs.map((tab) => {
           const active = tab.id === activeTab;
           return (
             <button
               key={tab.id}
+              role="tab"
+              aria-selected={active}
               onClick={() => onChange(tab.id)}
-              className={`flex-1 flex items-center justify-center gap-2 py-1.5 px-3 rounded-md text-xs font-medium transition-all ${
+              className={`flex h-7 flex-1 items-center justify-center gap-1.5 rounded-md px-3 text-[12.5px] font-medium transition-colors duration-150 ${FOCUS_RING} ${
                 active
-                  ? "bg-surface text-text shadow-sm border border-border/80 font-semibold"
-                  : "text-text-muted hover:text-text hover:bg-surface-hover/50"
+                  ? "border border-border-strong bg-surface-raised font-semibold text-text shadow-xs"
+                  : "border border-transparent text-text-muted hover:bg-surface-hover hover:text-text"
               }`}
             >
               {tab.icon}
@@ -77,17 +93,19 @@ export function Tabs<T extends string = string>({
 
   // Default: pill
   return (
-    <div className={`flex gap-2 ${className}`.trim()}>
+    <div role="tablist" className={`flex flex-wrap gap-1.5 ${className}`.trim()}>
       {tabs.map((tab) => {
         const active = tab.id === activeTab;
         return (
           <button
             key={tab.id}
+            role="tab"
+            aria-selected={active}
             onClick={() => onChange(tab.id)}
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium transition-all ${
+            className={`flex h-7 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-medium transition-colors duration-150 ${FOCUS_RING} ${
               active
-                ? "bg-primary text-white shadow-sm glow-indigo font-semibold"
-                : "bg-surface-raised/50 text-text-secondary hover:bg-surface-hover hover:text-text border border-border/40"
+                ? "border border-primary bg-primary font-semibold text-white"
+                : "border border-border bg-surface-raised text-text-secondary hover:bg-surface-hover hover:text-text"
             }`}
           >
             {tab.icon}
