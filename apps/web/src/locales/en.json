@@ -210,6 +210,7 @@
   "edge.waypointHint": "Drag to move, Delete to remove, right-click for options",
   "palette.addColor": "Add the current colour to this project's palette",
   "commandPalette.noMatch": "No match",
+  "validation.ok": "OK",
   "validation.title": "Validation",
   "import.title": "Import schema",
   "comments.onField": "Comments on {{field}}",

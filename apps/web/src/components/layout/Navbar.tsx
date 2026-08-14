@@ -1,6 +1,6 @@
 import { BrandMark } from "@/components/ui/BrandMark";
 import { Button } from "@/components/ui/Button";
-import { SettingsIcon, UsersIcon, LogOutIcon } from "@/components/icons/Icons";
+import { ChevronLeftIcon, SettingsIcon, UsersIcon, LogOutIcon } from "@/components/icons/Icons";
 import { useTranslation } from "@/i18n/useTranslation";
 import type { Session } from "@/types";
 
@@ -15,63 +15,69 @@ export interface NavbarProps {
   onBack?: () => void;
 }
 
+/**
+ * App header. The account control is a single button — avatar, name and gear —
+ * rather than the avatar chip *and* a separate "Settings" button it used to
+ * carry side by side, both opening the same panel. The name is what makes it
+ * worth the width: on a shared or multi-account install it is the only place
+ * that says who you are signed in as.
+ */
 export function Navbar({ session, onOpenSettings, onOpenAdmin, onLogout, title = APP_NAME, onBack }: NavbarProps) {
   const { t } = useTranslation();
 
   return (
-    <header className="h-14 shrink-0 px-6 border-b border-border/80 bg-surface/90 glass-panel flex items-center justify-between z-30 select-none">
-      <div className="flex items-center gap-4">
+    <header className="z-30 flex h-14 shrink-0 select-none items-center justify-between gap-4 border-b border-border bg-surface/90 px-4 glass-panel sm:px-6">
+      <div className="flex min-w-0 items-center gap-3">
         {onBack ? (
-          <Button variant="ghost" size="sm" onClick={onBack} className="text-xs">
-            ← {t("common.back")}
+          <Button variant="ghost" size="sm" onClick={onBack}>
+            <ChevronLeftIcon size={14} /> {t("common.back")}
           </Button>
         ) : (
-          <div className="flex items-center gap-2.5 select-none">
+          <div className="flex select-none items-center gap-2.5">
             <BrandMark size={24} />
-            <span className="font-extrabold text-sm tracking-tight text-text">{title}</span>
+            <span className="truncate text-sm font-extrabold tracking-tight text-text">{title}</span>
           </div>
         )}
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex shrink-0 items-center gap-1.5">
         {session.isAdmin && onOpenAdmin && (
           <Button
-            variant="outline"
+            variant="ghost"
             size="sm"
             onClick={onOpenAdmin}
             data-tooltip={t("admin.title")}
             data-tooltip-pos="bottom"
-            className="gap-1.5 text-xs"
           >
-            <UsersIcon size={13} /> {t("common.admin")}
+            <UsersIcon size={14} /> <span className="hidden sm:inline">{t("common.admin")}</span>
           </Button>
         )}
 
-        <button
-          onClick={onOpenSettings}
-          className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-raised border border-border/60 text-xs font-semibold hover:bg-surface-hover transition-colors"
-          data-tooltip={t("navbar.accountSettings")}
-          data-tooltip-pos="bottom"
-        >
-          <div className="w-5 h-5 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-[10px]">
-            {session.displayName.charAt(0).toUpperCase()}
-          </div>
-          <SettingsIcon size={13} className="text-text-muted" />
-        </button>
-
         {onOpenSettings && (
-          <Button variant="ghost" size="sm" onClick={onOpenSettings} className="hidden md:inline-flex gap-1.5 text-xs">
-            <SettingsIcon size={13} /> {t("common.settings")}
+          <Button
+            variant="default"
+            size="sm"
+            onClick={onOpenSettings}
+            data-tooltip={t("navbar.accountSettings")}
+            data-tooltip-pos="bottom"
+            className="max-w-[220px] gap-2 pl-1.5"
+          >
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-light text-[10px] font-bold text-primary">
+              {session.displayName.charAt(0).toUpperCase()}
+            </span>
+            <span className="hidden truncate text-text sm:inline">{session.displayName}</span>
+            <SettingsIcon size={13} className="shrink-0 text-text-muted" />
           </Button>
         )}
 
         {onLogout && (
           <Button
             variant="ghost"
-            size="icon"
+            size="icon-sm"
             onClick={onLogout}
             data-tooltip={t("common.logout")}
             data-tooltip-pos="bottom"
+            aria-label={t("common.logout")}
           >
             <LogOutIcon size={14} />
           </Button>

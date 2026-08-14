@@ -10,26 +10,28 @@
  */
 
 export const CANVAS_TOOLBAR_CLASS =
-  "pointer-events-auto flex items-center gap-1 rounded-2xl border border-border-strong/60 bg-surface-raised p-1.5 shadow-[0_10px_32px_rgba(0,0,0,0.55)]";
+  "pointer-events-auto flex items-center gap-0.5 rounded-2xl border border-border-strong bg-surface-raised p-1.5 shadow-lg";
 
-export const CANVAS_TOOLBAR_DIVIDER_CLASS = "mx-1.5 h-6 w-px shrink-0 bg-border";
+export const CANVAS_TOOLBAR_DIVIDER_CLASS = "mx-1 h-5 w-px shrink-0 bg-border";
+
+const TOOLBAR_BTN_BASE =
+  "flex h-9 shrink-0 cursor-pointer items-center justify-center rounded-lg border-0 " +
+  "text-text-secondary transition-colors duration-100 hover:bg-surface-hover hover:text-text " +
+  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-primary " +
+  "disabled:pointer-events-none disabled:opacity-40";
 
 /**
- * Neither base class sets a background: the reset in `styles/base.css` already
- * gives every button `background: none`, and a `bg-transparent` here would
- * compete with the active-state background below. Two utilities from the same
- * Tailwind group resolve by stylesheet order, not by the order they appear in
- * the class attribute — so `bg-transparent` silently won and the "on" state
- * never painted.
+ * Neither base class sets a background. The "on" state below paints one, and
+ * two utilities from the same Tailwind group resolve by stylesheet order rather
+ * than by the order they appear in the class attribute — so a `bg-transparent`
+ * here would silently win and the toggle would never look enabled.
  */
 
 /** Square icon button — the toolbar's default control. */
-export const CANVAS_TOOLBAR_ICON_BTN_CLASS =
-  "flex h-9 w-9 shrink-0 cursor-pointer items-center justify-center rounded-xl border-0 p-0 text-text-secondary transition-colors duration-100 hover:bg-white/10 hover:text-text disabled:pointer-events-none disabled:opacity-40";
+export const CANVAS_TOOLBAR_ICON_BTN_CLASS = `${TOOLBAR_BTN_BASE} w-9 p-0`;
 
 /** Text/label control — detail level, zoom percentage, font-size steppers. */
-export const CANVAS_TOOLBAR_SEGMENT_CLASS =
-  "flex h-9 shrink-0 cursor-pointer items-center gap-1.5 rounded-xl border-0 px-2.5 text-[12.5px] font-medium text-text-secondary transition-colors duration-100 hover:bg-white/10 hover:text-text disabled:pointer-events-none disabled:opacity-40";
+export const CANVAS_TOOLBAR_SEGMENT_CLASS = `${TOOLBAR_BTN_BASE} gap-1.5 px-2.5 text-[12.5px] font-medium`;
 
 /**
  * A trigger whose popover is currently open. Deliberately *not* the same as the
@@ -37,8 +39,8 @@ export const CANVAS_TOOLBAR_SEGMENT_CLASS =
  * hover — reserving the solid fill for "this mode is on" keeps the two
  * distinguishable at a glance.
  */
-export const CANVAS_TOOLBAR_SEGMENT_ACTIVE_CLASS = "bg-white/10 text-text";
+export const CANVAS_TOOLBAR_SEGMENT_ACTIVE_CLASS = "bg-surface-hover text-text";
 
 /** Toggle in its "on" state (link highlight, minimap, search) — solid fill, the way Figma marks the active tool. */
 export const CANVAS_TOOLBAR_TOGGLE_ACTIVE_CLASS =
-  "bg-primary text-white shadow-sm hover:bg-primary-hover hover:text-white";
+  "bg-primary text-white hover:bg-primary-hover hover:text-white";

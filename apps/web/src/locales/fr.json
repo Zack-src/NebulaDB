@@ -210,6 +210,7 @@
   "edge.waypointHint": "Glisser pour déplacer, Suppr pour supprimer, clic droit pour les options",
   "palette.addColor": "Ajouter la couleur courante à la palette du projet",
   "commandPalette.noMatch": "Aucun résultat",
+  "validation.ok": "OK",
   "validation.title": "Validation",
   "import.title": "Importer un schéma",
   "comments.onField": "Commentaires sur {{field}}",
