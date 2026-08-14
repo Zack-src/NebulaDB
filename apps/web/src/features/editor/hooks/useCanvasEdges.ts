@@ -14,6 +14,8 @@ export function useCanvasEdges(
   hoveredTableId: string | null,
   palette: string[],
   onPaletteChange: (palette: string[]) => void,
+  /** False for a `view` grant — the relation keeps its colour picker and waypoints hidden rather than writing changes the server discards. */
+  canWrite = true,
 ): RefEdgeType[] {
   return useMemo(() => {
     if (!liveProject) return [];
@@ -94,18 +96,18 @@ export function useCanvasEdges(
           palette,
           onPaletteChange,
           onColorChange: (color: string | undefined) => {
-            if (!doc) return;
+            if (!doc || !canWrite) return;
             const refs = getRefsMap(doc);
             const current = refs.get(ref.id);
             if (current) refs.set(ref.id, { ...current, style: { ...current.style, color } });
           },
           onRoutingPointsChange: (routingPoints: RoutingPoint[] | undefined) => {
-            if (!doc) return;
+            if (!doc || !canWrite) return;
             const refs = getRefsMap(doc);
             const current = refs.get(ref.id);
             if (current) refs.set(ref.id, { ...current, routingPoints });
           },
-          onDeleteRef: () => {
+          onDeleteRef: !canWrite ? undefined : () => {
             if (!doc) return;
             const refs = getRefsMap(doc);
             refs.delete(ref.id);
@@ -116,5 +118,5 @@ export function useCanvasEdges(
         // screen size instead of scaling with the (zoom-compensated) width.
       };
     });
-  }, [liveProject, doc, nodes, highlightLinks, hoveredTableId, palette, onPaletteChange]);
+  }, [liveProject, doc, nodes, highlightLinks, hoveredTableId, palette, onPaletteChange, canWrite]);
 }

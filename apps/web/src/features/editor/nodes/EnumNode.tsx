@@ -8,6 +8,8 @@ import { useTranslation } from "@/i18n/useTranslation";
 
 export interface EnumNodeData {
   enumDef: EnumDef;
+  /** True for a `view` grant — every editing affordance on this node is withheld. */
+  readOnly?: boolean;
   onRename: (name: string) => void;
   onAddValue: () => void;
   onRenameValue: (valueId: string, name: string) => void;
@@ -24,6 +26,7 @@ function EnumValueRow(props: {
   value: EnumValue;
   isFirst: boolean;
   isLast: boolean;
+  readOnly: boolean;
   onRename: (name: string) => void;
   onDelete: () => void;
   onMove: (direction: "up" | "down") => void;
@@ -34,7 +37,7 @@ function EnumValueRow(props: {
 
   return (
     <div className="group/row flex items-center gap-1 px-2.5 py-1 hover:bg-surface-hover/60">
-      <div className="flex shrink-0 flex-col opacity-0 group-hover/row:opacity-100">
+      <div className={`flex shrink-0 flex-col opacity-0 ${props.readOnly ? "" : "group-hover/row:opacity-100"}`}>
         <button
           type="button"
           className="nodrag h-2.5 w-3.5 text-[9px] leading-none text-text-muted hover:text-text disabled:opacity-20"
@@ -78,21 +81,26 @@ function EnumValueRow(props: {
       ) : (
         <span
           className="flex-1 truncate font-mono text-[calc(11.5px_*_var(--canvas-font-scale))] text-text-secondary"
-          onDoubleClick={() => setEditing(true)}
-          data-tooltip={t("node.doubleClickToRename")}
+          onDoubleClick={() => {
+            if (!props.readOnly) setEditing(true);
+          }}
+          data-tooltip={props.readOnly ? undefined : t("node.doubleClickToRename")}
         >
           {props.value.name}
         </span>
       )}
 
-      <button
-        type="button"
-        className="nodrag shrink-0 text-text-muted opacity-0 hover:text-danger group-hover/row:opacity-100"
-        onClick={props.onDelete}
-        data-tooltip={t("enum.deleteValue")}
-      >
-        <TrashIcon size={11} />
-      </button>
+      {!props.readOnly && (
+        <button
+          type="button"
+          className="nodrag shrink-0 text-text-muted opacity-0 transition-colors hover:text-danger group-hover/row:opacity-100"
+          onClick={props.onDelete}
+          data-tooltip={t("enum.deleteValue")}
+          aria-label={t("enum.deleteValue")}
+        >
+          <TrashIcon size={11} />
+        </button>
+      )}
     </div>
   );
 }
@@ -100,6 +108,7 @@ function EnumValueRow(props: {
 function EnumNodeImpl({ data, selected }: NodeProps<EnumNodeType>) {
   const { t } = useTranslation();
   const { enumDef } = data;
+  const readOnly = Boolean(data.readOnly);
   const [editingName, setEditingName] = useState(false);
   const nameDraft = useDraftValue(enumDef.name, (next) => data.onRename(next ?? ""));
 
@@ -113,7 +122,9 @@ function EnumNodeImpl({ data, selected }: NodeProps<EnumNodeType>) {
       <div
         className="flex items-center gap-1.5 px-2.5 py-1.5"
         style={{ background: `${ACCENT}22`, borderBottom: `1px solid ${ACCENT}55` }}
-        onDoubleClick={() => setEditingName(true)}
+        onDoubleClick={() => {
+          if (!readOnly) setEditingName(true);
+        }}
       >
         <TagIcon size={12} style={{ color: ACCENT }} />
         {editingName ? (
@@ -140,7 +151,7 @@ function EnumNodeImpl({ data, selected }: NodeProps<EnumNodeType>) {
           <span
             className="flex-1 truncate font-bold text-[calc(12px_*_var(--canvas-font-scale))]"
             style={{ color: ACCENT }}
-            data-tooltip={t("node.doubleClickToRename")}
+            data-tooltip={readOnly ? undefined : t("node.doubleClickToRename")}
           >
             {enumDef.name}
           </span>
@@ -157,6 +168,7 @@ function EnumNodeImpl({ data, selected }: NodeProps<EnumNodeType>) {
             value={v}
             isFirst={i === 0}
             isLast={i === enumDef.values.length - 1}
+            readOnly={readOnly}
             onRename={(name) => data.onRenameValue(v.id, name)}
             onDelete={() => data.onDeleteValue(v.id)}
             onMove={(direction) => data.onReorderValue(v.id, direction)}
@@ -164,13 +176,15 @@ function EnumNodeImpl({ data, selected }: NodeProps<EnumNodeType>) {
         ))}
       </div>
 
-      <button
-        type="button"
-        className="nodrag flex w-full items-center gap-1.5 border-t border-border/60 px-2.5 py-1.5 text-[calc(11px_*_var(--canvas-font-scale))] text-text-muted hover:bg-surface-hover hover:text-text"
-        onClick={data.onAddValue}
-      >
-        <PlusIcon size={11} /> {t("enum.addValue")}
-      </button>
+      {!readOnly && (
+        <button
+          type="button"
+          className="nodrag flex w-full items-center gap-1.5 border-t border-border/60 px-2.5 py-1.5 text-[calc(11px_*_var(--canvas-font-scale))] text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
+          onClick={data.onAddValue}
+        >
+          <PlusIcon size={11} /> {t("enum.addValue")}
+        </button>
+      )}
     </div>
   );
 }

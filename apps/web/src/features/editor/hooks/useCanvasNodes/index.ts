@@ -27,6 +27,8 @@ export function useCanvasNodes(
   user: string,
   highlightLinks: boolean,
   onGoToDbml: (tableName: string) => void,
+  /** False for a `view` grant: nodes still render and select, but nothing they do reaches the document. */
+  canWrite = true,
 ) {
   const builtNodes: CanvasNode[] = useMemo(() => {
     if (!liveProject || !doc) return [];
@@ -37,16 +39,18 @@ export function useCanvasNodes(
     };
 
     return [
-      ...buildZoneNodes(liveProject.zones, doc, palette, onPaletteChange),
-      ...buildTableNodes(liveProject.tables, doc, refFieldIdsByTable, user, highlightLinks, palette, onPaletteChange, onGoToDbml),
-      ...buildStickyNodes(liveProject.stickyNotes, doc, palette, onPaletteChange),
-      ...buildEnumNodes(liveProject.enums, doc),
-      ...buildTableGroupNodes(liveProject.tableGroups, liveProject.tables, doc),
+      ...buildZoneNodes(liveProject.zones, doc, palette, onPaletteChange, canWrite),
+      ...buildTableNodes(liveProject.tables, doc, refFieldIdsByTable, user, highlightLinks, palette, onPaletteChange, onGoToDbml, canWrite),
+      ...buildStickyNodes(liveProject.stickyNotes, doc, palette, onPaletteChange, canWrite),
+      ...buildEnumNodes(liveProject.enums, doc, canWrite),
+      ...buildTableGroupNodes(liveProject.tableGroups, liveProject.tables, doc, canWrite),
     ];
-  }, [liveProject, doc, refFieldIdsByTable, user, highlightLinks, onGoToDbml]);
+  }, [liveProject, doc, refFieldIdsByTable, user, highlightLinks, onGoToDbml, canWrite]);
 
   const [nodes, setNodes] = useSelectionPreservingNodes(builtNodes);
-  const onNodesChange = useNodesChangeHandler(nodes, setNodes, doc);
+  // A null doc makes every persist branch in the handler a no-op, so drags and
+  // deletions stay local instead of being written and silently dropped.
+  const onNodesChange = useNodesChangeHandler(nodes, setNodes, canWrite ? doc : null);
 
   return { nodes, onNodesChange };
 }

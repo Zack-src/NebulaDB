@@ -7,6 +7,7 @@ export function buildZoneNodes(
   doc: Y.Doc,
   palette: string[],
   onPaletteChange: (next: string[]) => void,
+  canWrite = true,
 ): ZoneNodeType[] {
   return zones.map((zone) => ({
     id: zone.id,
@@ -17,6 +18,7 @@ export function buildZoneNodes(
     data: {
       zone,
       palette,
+      readOnly: !canWrite,
       onPaletteChange,
       onLabelChange: (label: string) => {
         const zonesMap = getZonesMap(doc);

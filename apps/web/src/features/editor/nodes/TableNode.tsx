@@ -26,6 +26,8 @@ export interface TableNodeData {
   highlightLinks?: boolean;
   currentUser: string;
   palette: string[];
+  /** True for a `view` grant — hides every editing affordance on the node. */
+  readOnly?: boolean;
   onPaletteChange: (palette: string[]) => void;
   onRename: (name: string) => void;
   onGoToDbml?: () => void;
@@ -94,7 +96,9 @@ function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
       <div
         className={TABLE_HEADER_CLASS}
         style={{ background: table.style?.color ?? DEFAULT_HEADER_COLOR }}
-        onDoubleClick={() => setRenaming(true)}
+        onDoubleClick={() => {
+          if (!data.readOnly) setRenaming(true);
+        }}
       >
         <Handle type="target" position={Position.Left} id="header-left-target" style={{ opacity: 0 }} />
         <Handle type="source" position={Position.Left} id="header-left-source" style={{ opacity: 0 }} />
@@ -123,7 +127,7 @@ function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
         ) : (
           <span
             className={TABLE_NAME_CLASS}
-            data-tooltip={table.note ? table.name : "Double-click to rename"}
+            data-tooltip={table.note ? table.name : data.readOnly ? table.name : t("table.doubleClickToRename")}
             {...(table.note ? { "data-tooltip-note": table.note } : {})}
           >
             {table.name}
@@ -144,24 +148,28 @@ function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
               <CodeIcon size={13} />
             </button>
           )}
-          <CommentThread
-            comments={tableComments}
-            currentUser={data.currentUser}
-            onAdd={(text) => data.onAddComment(text)}
-            onDelete={data.onDeleteComment}
-            triggerClassName={HEADER_BTN_CLASS}
-            tooltip="Table comments"
-          />
-          <TableSettingsPopover
-            table={table}
-            palette={data.palette}
-            onRename={data.onRename}
-            onStyleChange={data.onStyleChange}
-            onAddIndex={data.onAddIndex}
-            onUpdateIndex={data.onUpdateIndex}
-            onDeleteIndex={data.onDeleteIndex}
-            triggerClassName={HEADER_BTN_CLASS}
-          />
+          {!data.readOnly && (
+            <>
+              <CommentThread
+                comments={tableComments}
+                currentUser={data.currentUser}
+                onAdd={(text) => data.onAddComment(text)}
+                onDelete={data.onDeleteComment}
+                triggerClassName={HEADER_BTN_CLASS}
+                tooltip={t("table.comments")}
+              />
+              <TableSettingsPopover
+                table={table}
+                palette={data.palette}
+                onRename={data.onRename}
+                onStyleChange={data.onStyleChange}
+                onAddIndex={data.onAddIndex}
+                onUpdateIndex={data.onUpdateIndex}
+                onDeleteIndex={data.onDeleteIndex}
+                triggerClassName={HEADER_BTN_CLASS}
+              />
+            </>
+          )}
         </div>
       </div>
       {rows.map((field) => (

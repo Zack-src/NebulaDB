@@ -9,6 +9,8 @@ import { useTranslation } from "@/i18n/useTranslation";
 export interface ZoneNodeData {
   zone: Zone;
   palette: string[];
+  /** True for a `view` grant — every editing affordance on this node is withheld. */
+  readOnly?: boolean;
   onPaletteChange: (palette: string[]) => void;
   onLabelChange: (label: string) => void;
   onColorChange: (color: string) => void;
@@ -32,7 +34,7 @@ function ZoneNodeImpl({ data, selected }: NodeProps<ZoneNodeType>) {
       <NodeResizer
         minWidth={80}
         minHeight={80}
-        isVisible={selected}
+        isVisible={selected && !data.readOnly}
         onResizeEnd={(_, params) =>
           data.onResize({ x: params.x, y: params.y }, { width: params.width, height: params.height })
         }
@@ -43,7 +45,9 @@ function ZoneNodeImpl({ data, selected }: NodeProps<ZoneNodeType>) {
           background: `${color}1f`,
           border: `1.5px dashed ${zone.style?.borderColor ?? color}`,
         }}
-        onDoubleClick={() => setEditing(true)}
+        onDoubleClick={() => {
+          if (!data.readOnly) setEditing(true);
+        }}
       >
         <div className="absolute left-2.5 top-2 flex items-center gap-1.5">
           {editing ? (
@@ -70,19 +74,21 @@ function ZoneNodeImpl({ data, selected }: NodeProps<ZoneNodeType>) {
             <span
               className="text-[calc(12.5px_*_var(--canvas-font-scale))] font-bold tracking-[-0.01em]"
               style={{ color }}
-              data-tooltip={t("node.doubleClickToRename")}
+              data-tooltip={data.readOnly ? undefined : t("node.doubleClickToRename")}
             >
               {zone.label}
             </span>
           )}
-          <ColorSwatchPicker
-            value={color}
-            onChange={data.onColorChange}
-            palette={data.palette}
-            onPaletteChange={data.onPaletteChange}
-            triggerClassName="h-[15px] w-[15px] cursor-pointer rounded-full border-[1.5px] border-white/80 bg-none p-0 shadow-xs"
-            tooltip="Zone color"
-          />
+          {!data.readOnly && (
+            <ColorSwatchPicker
+              value={color}
+              onChange={data.onColorChange}
+              palette={data.palette}
+              onPaletteChange={data.onPaletteChange}
+              triggerClassName="h-[15px] w-[15px] cursor-pointer rounded-full border-[1.5px] border-white/80 bg-none p-0 shadow-xs"
+              tooltip={t("zone.color")}
+            />
+          )}
         </div>
       </div>
     </>

@@ -7,6 +7,7 @@ export function buildStickyNodes(
   doc: Y.Doc,
   palette: string[],
   onPaletteChange: (next: string[]) => void,
+  canWrite = true,
 ): StickyNoteNodeType[] {
   return stickyNotes.map((note) => ({
     id: note.id,
@@ -17,6 +18,7 @@ export function buildStickyNodes(
     data: {
       note,
       palette,
+      readOnly: !canWrite,
       onPaletteChange,
       onTextChange: (text: string) => {
         const notes = getStickyNotesMap(doc);

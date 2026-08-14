@@ -20,6 +20,8 @@ const INSERT_ICON_SIZE = 17;
 const TOGGLE_ICON_SIZE = 16;
 
 export interface CanvasToolbarProps {
+  /** False for a `view` grant — the insert group disappears; the display toggles stay, they only change what you see. */
+  canWrite: boolean;
   onAddTable: (position: CanvasPoint) => void;
   onAddZone: (position: CanvasPoint) => void;
   onAddNote: (position: CanvasPoint) => void;
@@ -89,21 +91,25 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
 
   return (
     <div className={CANVAS_TOOLBAR_CLASS}>
-      {insertButtons.map(({ icon, labelKey, add }) => (
-        <button
-          key={labelKey}
-          type="button"
-          className={CANVAS_TOOLBAR_ICON_BTN_CLASS}
-          onClick={() => add(props.insertPosition())}
-          data-tooltip={t(labelKey)}
-          data-tooltip-pos="bottom"
-          aria-label={t(labelKey)}
-        >
-          {icon}
-        </button>
-      ))}
+      {props.canWrite && (
+        <>
+          {insertButtons.map(({ icon, labelKey, add }) => (
+            <button
+              key={labelKey}
+              type="button"
+              className={CANVAS_TOOLBAR_ICON_BTN_CLASS}
+              onClick={() => add(props.insertPosition())}
+              data-tooltip={t(labelKey)}
+              data-tooltip-pos="bottom"
+              aria-label={t(labelKey)}
+            >
+              {icon}
+            </button>
+          ))}
+          <span className={CANVAS_TOOLBAR_DIVIDER_CLASS} />
+        </>
+      )}
 
-      <span className={CANVAS_TOOLBAR_DIVIDER_CLASS} />
       <DetailLevelDropdown value={props.activeDetailLevel} onChange={props.onSetDetailLevel} />
 
       <span className={CANVAS_TOOLBAR_DIVIDER_CLASS} />

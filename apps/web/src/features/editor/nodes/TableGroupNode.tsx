@@ -8,6 +8,8 @@ import { useTranslation } from "@/i18n/useTranslation";
 export interface TableGroupNodeData {
   group: TableGroup;
   memberCount: number;
+  /** True for a `view` grant — every editing affordance on this node is withheld. */
+  readOnly?: boolean;
   onRename: (name: string) => void;
   onUngroup: () => void;
   [key: string]: unknown;
@@ -29,6 +31,7 @@ function TableGroupNodeImpl({ data }: NodeProps<TableGroupNodeType>) {
   const { t } = useTranslation();
   const { group } = data;
   const [editing, setEditing] = useState(false);
+  const readOnly = Boolean(data.readOnly);
   const draft = useDraftValue(group.name, (next) => data.onRename(next ?? ""));
 
   return (
@@ -62,20 +65,25 @@ function TableGroupNodeImpl({ data }: NodeProps<TableGroupNodeType>) {
           <span
             className="text-[11px] font-bold"
             style={{ color: ACCENT }}
-            onDoubleClick={() => setEditing(true)}
-            data-tooltip={t("node.doubleClickToRename")}
+            onDoubleClick={() => {
+              if (!readOnly) setEditing(true);
+            }}
+            data-tooltip={readOnly ? undefined : t("node.doubleClickToRename")}
           >
             {group.name} · {data.memberCount}
           </span>
         )}
-        <button
-          type="button"
-          className="nodrag text-[13px] leading-none text-text-muted hover:text-danger"
-          onClick={data.onUngroup}
-          data-tooltip={t("tableGroup.ungroup")}
-        >
-          ×
-        </button>
+        {!readOnly && (
+          <button
+            type="button"
+            className="nodrag flex h-4 w-4 items-center justify-center rounded-full text-[13px] leading-none text-text-muted transition-colors hover:bg-danger-light hover:text-danger"
+            onClick={data.onUngroup}
+            data-tooltip={t("tableGroup.ungroup")}
+            aria-label={t("tableGroup.ungroup")}
+          >
+            ×
+          </button>
+        )}
       </div>
     </div>
   );

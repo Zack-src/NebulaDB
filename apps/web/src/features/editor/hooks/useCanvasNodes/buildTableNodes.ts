@@ -18,6 +18,7 @@ export function buildTableNodes(
   palette: string[],
   onPaletteChange: (next: string[]) => void,
   onGoToDbml: (tableName: string) => void,
+  canWrite = true,
 ): TableNodeType[] {
   return tables.map((table) => ({
     id: table.id,
@@ -29,6 +30,7 @@ export function buildTableNodes(
       highlightLinks,
       currentUser: user,
       palette,
+      readOnly: !canWrite,
       onPaletteChange,
       onGoToDbml: () => onGoToDbml(table.name),
       onRename: (name: string) => {
@@ -54,6 +56,11 @@ export function buildTableNodes(
         if (!current) return;
         tables_.set(table.id, { ...current, comments: (current.comments ?? []).filter((c) => c.id !== commentId) });
       },
+      // Every callback below is omitted outright for a read-only grant: the
+      // node components already treat an absent handler as "don't offer this",
+      // so the affordances disappear rather than becoming buttons whose writes
+      // the server throws away.
+      ...(!canWrite ? {} : {
       onUpdateField: (fieldId: string, updates: Partial<Field>) => {
         const tables_ = getTablesMap(doc);
         const current = tables_.get(table.id);
@@ -123,6 +130,7 @@ export function buildTableNodes(
         if (!current) return;
         tables_.set(table.id, { ...current, indexes: current.indexes.filter((idx) => idx.id !== indexId) });
       },
+      }),
     },
   }));
 }

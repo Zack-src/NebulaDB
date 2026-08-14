@@ -91,6 +91,8 @@ export interface CanvasAreaProps {
   onOpenPlugins: () => void;
   /** Transient feedback from the last plugin command, shown above the toolbar. */
   statusMessage: string | null;
+  /** False for a `view` grant — drops every editing affordance rather than offering ones whose writes the server discards. */
+  canWrite: boolean;
 }
 
 /**
@@ -179,16 +181,18 @@ export function CanvasArea(props: CanvasAreaProps) {
     [onTableHoverChange],
   );
 
+  const canAddNodes = props.canWrite;
   const handlePaneContextMenu = useCallback(
     (event: ReactMouseEvent | MouseEvent) => {
       event.preventDefault();
+      if (!canAddNodes) return;
       setContextMenu({
         screenX: event.clientX,
         screenY: event.clientY,
         flowPosition: screenToFlowPosition({ x: event.clientX, y: event.clientY }),
       });
     },
-    [screenToFlowPosition],
+    [screenToFlowPosition, canAddNodes],
   );
 
   useEscapeKey(Boolean(contextMenu), closeContextMenu);
@@ -204,10 +208,16 @@ export function CanvasArea(props: CanvasAreaProps) {
    * key: the waypoint claims the keystroke first, and everything else falls
    * through to the normal selection delete.
    */
+  const canWriteRef = useRef(props.canWrite);
+  useEffect(() => {
+    canWriteRef.current = props.canWrite;
+  }, [props.canWrite]);
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key !== "Delete" && event.key !== "Backspace") return;
       if (isTypingTarget(event.target)) return;
+      if (!canWriteRef.current) return;
       if (getSelectedWaypoint()) return;
       const nodes = getNodes().filter((node) => node.selected && node.type !== "cursor");
       const edges = getEdges().filter((edge) => edge.selected);
@@ -269,6 +279,8 @@ export function CanvasArea(props: CanvasAreaProps) {
         // Deletion is handled by the effect above so a selected edge waypoint
         // can take precedence over the relation it belongs to.
         deleteKeyCode={null}
+        nodesDraggable={props.canWrite}
+        nodesConnectable={props.canWrite}
         snapToGrid
         snapGrid={[GRID_SIZE, GRID_SIZE]}
         fitView={!initialViewport}
@@ -307,6 +319,7 @@ export function CanvasArea(props: CanvasAreaProps) {
             </span>
           )}
           <CanvasToolbar
+            canWrite={props.canWrite}
             onAddTable={props.onAddTable}
             onAddZone={props.onAddZone}
             onAddNote={props.onAddNote}
@@ -330,7 +343,7 @@ export function CanvasArea(props: CanvasAreaProps) {
         {minimapVisible && (
           <MiniMap pannable zoomable bgColor="#1f2024" nodeColor="#4b4d8a" maskColor="rgba(23,24,27,0.75)" />
         )}
-        {selectedTableIds.length > 1 && (
+        {selectedTableIds.length > 1 && props.canWrite && (
           <SelectionColorToolbar
             count={selectedTableIds.length}
             palette={props.palette}

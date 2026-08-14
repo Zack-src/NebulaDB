@@ -17,7 +17,7 @@ import type { CursorInfo, DbmlEditorProps, ViewRef } from "./types";
  * Editor *preferences* (wrap, font size) live in `useEditorPreferences`.
  */
 export function useEditorLifecycle(
-  props: Pick<DbmlEditorProps, "value" | "onChange" | "onSave" | "problem" | "scrollToTable">,
+  props: Pick<DbmlEditorProps, "value" | "readOnly" | "onChange" | "onSave" | "problem" | "scrollToTable">,
   containerRef: React.RefObject<HTMLDivElement | null>,
   viewRef: ViewRef,
   setCursor: (info: CursorInfo) => void,
@@ -26,6 +26,7 @@ export function useEditorLifecycle(
 ) {
   const onChangeRef = useRef(props.onChange);
   const onSaveRef = useRef(props.onSave);
+  const readOnlyRef = useRef(props.readOnly);
   // Latest-callback refs, refreshed after commit rather than during render:
   // CodeMirror only calls them from user events, which always come after paint,
   // so an effect is early enough — and writing a ref while rendering is exactly
@@ -47,6 +48,10 @@ export function useEditorLifecycle(
         onPalette: (mode) => setPalette(mode),
         onRename: openRename,
       }).concat(
+        // Both are needed: `readOnly` blocks programmatic edits through
+        // transactions, `editable` also removes the caret and the "you can type
+        // here" affordance.
+        readOnlyRef.current ? [EditorState.readOnly.of(true), EditorView.editable.of(false)] : [],
         EditorView.updateListener.of((update) => {
           if (update.docChanged || update.selectionSet || update.transactions.length > 0) {
             setCursor(readCursorInfo(update.view));

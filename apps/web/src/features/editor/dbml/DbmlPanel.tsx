@@ -38,11 +38,13 @@ const DBML_LABEL = "DBML";
 function DbmlPanel(props: {
   project: Project;
   projectId: string;
+  /** True for a `view` grant — the buffer still shows the live schema, but nothing typed into it is sent. */
+  readOnly?: boolean;
   onClose: () => void;
   scrollToTable?: { tableName: string; requestId: number } | null;
 }) {
   const { t } = useTranslation();
-  const { project, projectId } = props;
+  const { project, projectId, readOnly = false } = props;
   const editorCommands = useEditorCommands(projectId);
   const [pluginMessage, setPluginMessage] = useState<string | null>(null);
   const [text, setText] = useState("");
@@ -183,6 +185,7 @@ function DbmlPanel(props: {
 
   const applyNow = useCallback(
     (source: string) => {
+      if (readOnly) return;
       lastAppliedTextRef.current = source;
       importSource(projectId, source)
         .then(() => {
@@ -211,7 +214,7 @@ function DbmlPanel(props: {
           setProblem(null);
         });
     },
-    [projectId],
+    [projectId, readOnly],
   );
 
   useEffect(() => {
@@ -317,6 +320,7 @@ function DbmlPanel(props: {
         <DbmlEditor
           ref={editorRef}
           value={text}
+          readOnly={readOnly}
           onChange={handleChange}
           onSave={handleSave}
           problem={problem}

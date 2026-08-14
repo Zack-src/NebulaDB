@@ -45,6 +45,15 @@ export function ProjectEditor(props: {
   const { t } = useTranslation();
   const { project, session } = props;
   const user = session.displayName;
+  /**
+   * A `view` grant is enforced by the server, which simply drops the Yjs
+   * updates it receives from a read-only connection — silently, with no
+   * rejection frame. So without a client-side gate the whole editor stayed
+   * live: tables dragged, DBML typed, buttons worked, and every change
+   * vanished on reload with nothing ever having said no. Everything that can
+   * write to the document is gated on this.
+   */
+  const canWrite = project.permission !== "view";
   const {
     project: liveProject,
     doc,
@@ -52,6 +61,8 @@ export function ProjectEditor(props: {
     awareness,
     connection,
   } = useProjectDoc(project.id, project.name, user);
+  /** Handed to the write paths in place of `doc`: every mutator already early-returns on a null doc, so one substitution closes all of them at once. */
+  const writeDoc = canWrite ? doc : null;
   const remoteAwareness = useAwarenessStates(awareness);
   const [showImport, setShowImport] = useState(false);
   const [showExport, setShowExport] = useState(false);
@@ -87,7 +98,7 @@ export function ProjectEditor(props: {
    */
   const runCanvasCommand = useCallback(
     async (command: (typeof canvasCommands)[number]) => {
-      if (!liveProject || !doc) return;
+      if (!liveProject || !doc || !canWrite) return;
       const flash = (message: string) => {
         setPluginMessage(message);
         setTimeout(() => setPluginMessage(null), 4000);
@@ -101,7 +112,7 @@ export function ProjectEditor(props: {
         flash(`Plugin error: ${err instanceof Error ? err.message : String(err)}`);
       }
     },
-    [liveProject, doc],
+    [liveProject, doc, canWrite],
   );
 
   const handleHighlightLinksChange = (val: boolean) => {
@@ -146,7 +157,7 @@ export function ProjectEditor(props: {
     [doc],
   );
 
-  const { nodes, onNodesChange } = useCanvasNodes(liveProject, doc, refFieldIdsByTable, user, highlightLinks, goToDbml);
+  const { nodes, onNodesChange } = useCanvasNodes(liveProject, doc, refFieldIdsByTable, user, highlightLinks, goToDbml, canWrite);
 
   const selectedTableIds = useMemo(
     () => nodes.filter((n) => n.type === "table" && n.selected).map((n) => n.id),
@@ -180,7 +191,7 @@ export function ProjectEditor(props: {
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [canvasCommands, runCanvasCommand]);
-  const edges = useCanvasEdges(liveProject, doc, nodes, highlightLinks, hoveredTableId, palette, onPaletteChange);
+  const edges = useCanvasEdges(liveProject, doc, nodes, highlightLinks, hoveredTableId, palette, onPaletteChange, canWrite);
 
   const {
     addTable,
@@ -195,15 +206,15 @@ export function ProjectEditor(props: {
     duplicateSelected,
     onEdgesDelete,
     onConnect,
-  } = useProjectMutations(liveProject, doc, nodes);
+  } = useProjectMutations(liveProject, writeDoc, nodes);
 
-  useEditorKeyboardShortcuts(undoManager, duplicateSelected);
+  useEditorKeyboardShortcuts(canWrite ? undoManager : null, duplicateSelected, canWrite);
 
   return (
     <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
       <ProjectToolbar
         projectName={project.name}
-        viewOnly={project.permission === "view"}
+        viewOnly={!canWrite}
         connection={connection}
         synced={Boolean(liveProject)}
         onBack={props.onBack}
@@ -241,6 +252,7 @@ export function ProjectEditor(props: {
             <DbmlPanel
               project={liveProject}
               projectId={project.id}
+              readOnly={!canWrite}
               onClose={() => setDbmlOpen(false)}
               scrollToTable={dbmlScrollRequest}
             />
@@ -285,11 +297,12 @@ export function ProjectEditor(props: {
             onRunCanvasCommand={runCanvasCommand}
             onOpenPlugins={() => setShowPlugins(true)}
             statusMessage={pluginMessage}
+            canWrite={canWrite}
           />
         </ReactFlowProvider>
       </div>
       <Suspense fallback={null}>
-        {showImport && <ImportDialog projectId={project.id} onClose={() => setShowImport(false)} />}
+        {showImport && canWrite && <ImportDialog projectId={project.id} onClose={() => setShowImport(false)} />}
         {showExport && liveProject && (
           <ExportDialog
             projectId={project.id}

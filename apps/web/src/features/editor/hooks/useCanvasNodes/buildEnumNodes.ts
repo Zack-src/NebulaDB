@@ -2,13 +2,14 @@ import * as Y from "yjs";
 import { getEnumsMap, type EnumDef, type EnumValue } from "@athanordb/shared";
 import type { EnumNodeType } from "@/features/editor/nodes/EnumNode";
 
-export function buildEnumNodes(enums: EnumDef[], doc: Y.Doc): EnumNodeType[] {
+export function buildEnumNodes(enums: EnumDef[], doc: Y.Doc, canWrite = true): EnumNodeType[] {
   return enums.map((enumDef) => ({
     id: enumDef.id,
     position: enumDef.position,
     type: "enum",
     data: {
       enumDef,
+      readOnly: !canWrite,
       onRename: (name: string) => {
         const enumsMap = getEnumsMap(doc);
         const current = enumsMap.get(enumDef.id);

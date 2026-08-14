@@ -40,6 +40,8 @@ export interface CursorInfo {
 
 export interface DbmlEditorProps {
   value: string;
+  /** Renders the buffer but refuses edits — used for a `view` grant, where typed changes would be discarded by the server anyway. */
+  readOnly?: boolean;
   onChange: (value: string) => void;
   onSave: () => void;
   problem?: import("@/features/editor/dbml/lint").ServerProblem | null;

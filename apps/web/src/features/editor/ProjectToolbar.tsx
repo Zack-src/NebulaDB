@@ -93,18 +93,23 @@ function ValidationButton(props: { count: number; hasErrors: boolean; onClick: (
 export function ProjectToolbar(props: ProjectToolbarProps) {
   const { t } = useTranslation();
 
+  // Export, history, plugins and validation are reads — a viewer keeps them.
+  // Import writes, so it is dropped entirely rather than disabled: a viewer has
+  // no path to make it work.
   const panelActions = [
-    { icon: <UploadIcon size={14} />, labelKey: "editor.import", onClick: props.onShowImport },
+    ...(props.viewOnly ? [] : [{ icon: <UploadIcon size={14} />, labelKey: "editor.import", onClick: props.onShowImport } as const]),
     { icon: <DownloadIcon size={14} />, labelKey: "editor.export", onClick: props.onShowExport },
     { icon: <ClockIcon size={14} />, labelKey: "editor.history", onClick: props.onShowHistory },
     { icon: <PuzzleIcon size={14} />, labelKey: "editor.plugins", onClick: props.onShowPlugins },
   ] as const;
 
-  const historyActions = [
-    { icon: <UndoIcon size={14} />, labelKey: "editor.undo", onClick: props.onUndo },
-    { icon: <RedoIcon size={14} />, labelKey: "editor.redo", onClick: props.onRedo },
-    { icon: <LayoutGridIcon size={14} />, labelKey: "editor.autoLayout", onClick: props.onAutoLayout },
-  ] as const;
+  const historyActions = props.viewOnly
+    ? []
+    : ([
+        { icon: <UndoIcon size={14} />, labelKey: "editor.undo", onClick: props.onUndo },
+        { icon: <RedoIcon size={14} />, labelKey: "editor.redo", onClick: props.onRedo },
+        { icon: <LayoutGridIcon size={14} />, labelKey: "editor.autoLayout", onClick: props.onAutoLayout },
+      ] as const);
 
   return (
     <header className="z-30 flex h-14 shrink-0 select-none items-center justify-between gap-3 border-b border-border bg-surface/90 px-3 glass-panel">
@@ -122,10 +127,14 @@ export function ProjectToolbar(props: ProjectToolbarProps) {
         <div className="flex min-w-0 items-center gap-2 pl-1 pr-2">
           <BrandMark size={24} iconSize={13} />
           <span className="truncate text-sm font-bold tracking-tight text-text">{props.projectName}</span>
-          {props.viewOnly && <Badge tone="muted">{t("projects.card.readOnly")}</Badge>}
+          {props.viewOnly && (
+            <span className="shrink-0" data-tooltip={t("editor.viewOnlyHint")} data-tooltip-pos="bottom">
+              <Badge tone="muted">{t("projects.card.readOnly")}</Badge>
+            </span>
+          )}
         </div>
 
-        <span className={DIVIDER_CLASS} />
+        {historyActions.length > 0 && <span className={DIVIDER_CLASS} />}
 
         <div className="flex items-center gap-0.5">
           {historyActions.map((action) => (

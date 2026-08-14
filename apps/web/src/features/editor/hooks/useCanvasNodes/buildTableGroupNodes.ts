@@ -13,7 +13,7 @@ const GROUP_MEMBER_HEIGHT_ESTIMATE = 280;
 const GROUP_PADDING = 28;
 const GROUP_LABEL_MARGIN = 16;
 
-export function buildTableGroupNodes(tableGroups: TableGroup[], tables: Table[], doc: Y.Doc): TableGroupNodeType[] {
+export function buildTableGroupNodes(tableGroups: TableGroup[], tables: Table[], doc: Y.Doc, canWrite = true): TableGroupNodeType[] {
   const tableById = new Map(tables.map((t) => [t.id, t]));
   return tableGroups.map((group) => {
     const members = group.tableIds.map((id) => tableById.get(id)).filter((t): t is Table => Boolean(t));
@@ -37,6 +37,7 @@ export function buildTableGroupNodes(tableGroups: TableGroup[], tables: Table[],
       data: {
         group,
         memberCount: members.length,
+        readOnly: !canWrite,
         onRename: (name: string) => {
           const groups = getTableGroupsMap(doc);
           const current = groups.get(group.id);
