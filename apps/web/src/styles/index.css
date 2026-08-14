@@ -1,17 +1,27 @@
 /* AthanorDB stylesheet entry point.
+   Cascade layers are declared up front because layer order is fixed by first
+   appearance, and the reset must lose to the utilities even though it is
+   imported after them. Without the explicit declaration `base` would be
+   registered last (it is imported last of the two) and win — and because an
+   unlayered rule beats every layered one regardless of specificity, leaving
+   `base.css` outside a layer at all makes `button { padding: 0 }` override
+   every Tailwind padding/border/background utility in the app.
+
    Order is load-bearing and postcss-import inlines each file in place:
      fonts + tokens  → the custom properties every later layer reads
-     tailwind        → the generated utility classes
-     base            → the reset (Tailwind preflight is disabled)
+     tailwind        → theme (layer) + generated utilities (layer)
+     base            → the reset, in `layer(base)` so utilities beat it
      utilities       → hand-written effects that must beat a Tailwind utility
                        of equal specificity (`.glass-panel` over `bg-surface/90`)
      animations      → keyframes
      canvas          → React Flow overrides, last because they use !important */
 
+@layer theme, base, components, utilities;
+
 @import "./fonts.css";
 @import "./tokens.css";
 @import "./tailwind.css";
-@import "./base.css";
+@import "./base.css" layer(base);
 @import "./utilities.css";
 @import "./animations.css";
 @import "./canvas.css";
