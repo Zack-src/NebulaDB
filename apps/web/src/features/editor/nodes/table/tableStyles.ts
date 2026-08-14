@@ -33,7 +33,7 @@ export const ROW_ACTIONS_CLASS =
   "ml-auto flex items-center gap-[3px] opacity-0 transition-opacity duration-100 " +
   "group-hover:opacity-100 has-[.has-comments]:opacity-100 has-[.has-open-popover]:opacity-100";
 export const ROW_ACTION_BTN_CLASS =
-  "flex h-[18px] shrink-0 items-center justify-center rounded-sm px-[3px] text-text-muted transition-colors duration-100 " +
+  "flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm px-1 text-text-muted transition-colors duration-100 " +
   "hover:bg-surface-hover hover:text-text [&.has-comments]:bg-surface-hover [&.has-comments]:text-text " +
   "[&.has-open-popover]:bg-surface-hover [&.has-open-popover]:text-text";
 

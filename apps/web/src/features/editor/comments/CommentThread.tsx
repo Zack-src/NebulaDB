@@ -88,7 +88,7 @@ export function CommentThread(props: {
                     <span className="flex-1 text-[10.5px] text-text-muted">{formatTimestamp(c.createdAt)}</span>
                     {c.author === props.currentUser && (
                       <button
-                        className="shrink-0 p-0 text-text-muted hover:text-danger"
+                        className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-text-muted transition-colors hover:bg-danger-light hover:text-danger"
                         onClick={() => props.onDelete(c.id)}
                         data-tooltip={t("comments.delete")}
                       >

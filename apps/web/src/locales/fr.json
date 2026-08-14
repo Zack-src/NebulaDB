@@ -149,6 +149,7 @@
   "navbar.accountSettings": "Paramètres du compte",
 
   "dbml.problemAt": "Ligne {{line}}, col {{column}}",
+  "plugins.commandApplied": "{{command}} : appliqué",
   "plugins.errorPrefix": "Erreur de plugin : {{message}}",
   "dbml.loadFailed": "Impossible de charger le DBML. Réessayez ou rechargez la page.",
   "dbml.format": "Formater",
@@ -221,6 +222,7 @@
   "commandPalette.noMatch": "Aucun résultat",
   "validation.ok": "OK",
   "validation.title": "Validation",
+  "import.chooseFile": "Choisir un fichier…",
   "import.title": "Importer un schéma",
   "comments.onField": "Commentaires sur {{field}}",
   "comments.title": "Commentaires",

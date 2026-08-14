@@ -99,7 +99,7 @@ function ImportDialog(props: { projectId: string; onClose: () => void }) {
           }}
         />
         <Button onClick={() => fileInputRef.current?.click()}>
-          <UploadIcon size={13} /> {fileName ?? "Choose file…"}
+          <UploadIcon size={13} /> {fileName ?? t("import.chooseFile")}
         </Button>
         <span className="flex-1" />
         <Button variant="primary" onClick={submit} disabled={busy || !source.trim() || !importer}>

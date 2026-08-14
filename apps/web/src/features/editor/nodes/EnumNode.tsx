@@ -22,6 +22,17 @@ export type EnumNodeType = Node<EnumNodeData, "enum">;
 
 const ACCENT = "#06b6d4"; // accent-cyan — distinct from tables (primary) and zones (amber)
 
+/**
+ * The glyph stays tiny — two of these stack inside one 24px row — but the
+ * *target* is widened with a pseudo-element, so the pointer has something to
+ * hit. At `h-2.5 w-3.5` these were a 10x14px target, well under any usable
+ * minimum.
+ */
+const REORDER_BTN_CLASS =
+  "nodrag relative flex h-3 w-4 items-center justify-center text-[9px] leading-none text-text-muted " +
+  "transition-colors hover:text-text disabled:opacity-20 " +
+  "before:absolute before:left-1/2 before:top-1/2 before:h-5 before:w-6 before:-translate-x-1/2 before:-translate-y-1/2 before:content-['']";
+
 function EnumValueRow(props: {
   value: EnumValue;
   isFirst: boolean;
@@ -40,7 +51,7 @@ function EnumValueRow(props: {
       <div className={`flex shrink-0 flex-col opacity-0 ${props.readOnly ? "" : "group-hover/row:opacity-100"}`}>
         <button
           type="button"
-          className="nodrag h-2.5 w-3.5 text-[9px] leading-none text-text-muted hover:text-text disabled:opacity-20"
+          className={REORDER_BTN_CLASS}
           disabled={props.isFirst}
           onClick={() => props.onMove("up")}
           data-tooltip={t("enum.moveUp")}
@@ -49,7 +60,7 @@ function EnumValueRow(props: {
         </button>
         <button
           type="button"
-          className="nodrag h-2.5 w-3.5 text-[9px] leading-none text-text-muted hover:text-text disabled:opacity-20"
+          className={REORDER_BTN_CLASS}
           disabled={props.isLast}
           onClick={() => props.onMove("down")}
           data-tooltip={t("enum.moveDown")}

@@ -32,6 +32,9 @@ const HistoryPanel = lazy(() => import("@/features/editor/history/HistoryPanel")
 const ValidationPanel = lazy(() => import("@/features/editor/validation/ValidationPanel"));
 const PluginManagerDialog = lazy(() => import("@/features/plugins/PluginManagerDialog"));
 
+/** How long a plugin command's status line stays on the canvas. */
+const PLUGIN_MESSAGE_MS = 4000;
+
 import { SettingsModal } from "@/features/settings/SettingsModal";
 import type { Session } from "@/types/index";
 
@@ -90,6 +93,20 @@ export function ProjectEditor(props: {
    */
   const selectedTableIdsRef = useRef<string[]>([]);
 
+  /** Transient canvas status line. The timer is tracked so a second message replaces the first instead of being wiped by the first one's expiry. */
+  const pluginMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const flash = useCallback((message: string) => {
+    if (pluginMessageTimerRef.current) clearTimeout(pluginMessageTimerRef.current);
+    setPluginMessage(message);
+    pluginMessageTimerRef.current = setTimeout(() => setPluginMessage(null), PLUGIN_MESSAGE_MS);
+  }, []);
+  useEffect(
+    () => () => {
+      if (pluginMessageTimerRef.current) clearTimeout(pluginMessageTimerRef.current);
+    },
+    [],
+  );
+
   /**
    * Runs a plugin canvas command and writes back whatever project it returns.
    * `writeProjectToDoc` diffs entity by entity, so a command that only renames
@@ -99,20 +116,16 @@ export function ProjectEditor(props: {
   const runCanvasCommand = useCallback(
     async (command: (typeof canvasCommands)[number]) => {
       if (!liveProject || !doc || !canWrite) return;
-      const flash = (message: string) => {
-        setPluginMessage(message);
-        setTimeout(() => setPluginMessage(null), 4000);
-      };
       try {
         const selection = selectedTableIdsRef.current;
         const result = (await command.run(liveProject, { selection })) as CanvasCommandResult;
         if (result?.project) doc.transact(() => writeProjectToDoc(doc, result.project as Project));
-        flash(result?.message ?? `${command.contribution.label} applied`);
+        flash(result?.message ?? t("plugins.commandApplied", { command: command.contribution.label }));
       } catch (err) {
-        flash(`Plugin error: ${err instanceof Error ? err.message : String(err)}`);
+        flash(t("plugins.errorPrefix", { message: err instanceof Error ? err.message : String(err) }));
       }
     },
-    [liveProject, doc, canWrite],
+    [liveProject, doc, canWrite, flash, t],
   );
 
   const handleHighlightLinksChange = (val: boolean) => {

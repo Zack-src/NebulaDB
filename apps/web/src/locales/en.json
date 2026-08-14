@@ -149,6 +149,7 @@
   "navbar.accountSettings": "Account settings",
 
   "dbml.problemAt": "Line {{line}}, col {{column}}",
+  "plugins.commandApplied": "{{command}} applied",
   "plugins.errorPrefix": "Plugin error: {{message}}",
   "dbml.loadFailed": "The DBML could not be loaded. Try again or reload the page.",
   "dbml.format": "Format",
@@ -221,6 +222,7 @@
   "commandPalette.noMatch": "No match",
   "validation.ok": "OK",
   "validation.title": "Validation",
+  "import.chooseFile": "Choose file…",
   "import.title": "Import schema",
   "comments.onField": "Comments on {{field}}",
   "comments.title": "Comments",
