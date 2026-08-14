@@ -1,35 +1,31 @@
 import type { JSX } from "react";
 import type { DetailLevel } from "@athanordb/shared";
-import { FrameIcon, LinkIcon, MinimapIcon, NoteIcon, SearchIcon, TableIcon, TagIcon } from "@/components/icons/Icons";
+import { FrameIcon, LinkIcon, MinimapIcon, NoteIcon, RestoreIcon, SearchIcon, TableIcon, TagIcon } from "@/components/icons/Icons";
 import {
   CANVAS_TOOLBAR_CLASS,
   CANVAS_TOOLBAR_DIVIDER_CLASS,
   CANVAS_TOOLBAR_ICON_BTN_CLASS,
-  CANVAS_TOOLBAR_SEGMENT_CLASS,
   CANVAS_TOOLBAR_TOGGLE_ACTIVE_CLASS,
 } from "@/components/ui/canvasToolbarStyles";
 import { useTranslation } from "@/i18n/useTranslation";
-import { FONT_SCALE_MAX, FONT_SCALE_MIN, FONT_SCALE_STEP } from "@/utils/preferences";
 import type { CanvasCommandContribution, ResolvedContribution } from "@/features/plugins/types";
 import type { TranslationKeyOf } from "@/types";
 import { DetailLevelDropdown } from "./DetailLevelDropdown";
 import { PluginMenu } from "./PluginMenu";
-import type { CanvasPoint } from "./types";
+import type { CanvasInsertTool } from "./types";
 
 const INSERT_ICON_SIZE = 17;
 const TOGGLE_ICON_SIZE = 16;
 
+/** The one canvas command the app itself ships — kept out of the plugin menu, see `PluginMenu`. */
+const RESET_LINK_ROUTING_ID = "reset-link-routing";
+
 export interface CanvasToolbarProps {
   /** False for a `view` grant — the insert group disappears; the display toggles stay, they only change what you see. */
   canWrite: boolean;
-  onAddTable: (position: CanvasPoint) => void;
-  onAddZone: (position: CanvasPoint) => void;
-  onAddNote: (position: CanvasPoint) => void;
-  onAddEnum: (position: CanvasPoint) => void;
-  /** Resolves the flow-space point a toolbar insert should drop a node at. */
-  insertPosition: () => CanvasPoint;
-  fontScale: number;
-  onAdjustFontScale: (delta: number) => void;
+  /** The armed insert tool, or `null` in ordinary selection mode — see `CanvasArea`. */
+  activeTool: CanvasInsertTool | null;
+  onSelectTool: (tool: CanvasInsertTool) => void;
   activeDetailLevel: DetailLevel | null;
   onSetDetailLevel: (level: DetailLevel) => void;
   highlightLinks: boolean;
@@ -48,57 +44,44 @@ export interface CanvasToolbarProps {
  * lives in its own pill bottom-left (`CanvasZoomBar`), mirroring dbdiagram —
  * the two are used at different moments and were previously crowded into one
  * bar wide enough to reach the middle of the canvas.
+ *
+ * Insert buttons arm a tool rather than dropping a node immediately — pick
+ * "Table", then click the canvas as many times as there are tables to add,
+ * the way Figma's shape tools work. `CanvasArea` owns the actual placement
+ * (it has the flow-space click coordinate); this component only shows which
+ * tool, if any, is armed.
  */
 export function CanvasToolbar(props: CanvasToolbarProps) {
   const { t } = useTranslation();
 
-  const insertButtons: { icon: JSX.Element; labelKey: TranslationKeyOf; add: (position: CanvasPoint) => void }[] = [
-    { icon: <TableIcon size={INSERT_ICON_SIZE} />, labelKey: "canvas.addTable", add: props.onAddTable },
-    { icon: <FrameIcon size={INSERT_ICON_SIZE} />, labelKey: "canvas.addZone", add: props.onAddZone },
-    { icon: <NoteIcon size={INSERT_ICON_SIZE} />, labelKey: "canvas.addNote", add: props.onAddNote },
-    { icon: <TagIcon size={INSERT_ICON_SIZE} />, labelKey: "canvas.addEnum", add: props.onAddEnum },
+  const insertButtons: { icon: JSX.Element; labelKey: TranslationKeyOf; tool: CanvasInsertTool }[] = [
+    { icon: <TableIcon size={INSERT_ICON_SIZE} />, labelKey: "canvas.addTable", tool: "table" },
+    { icon: <FrameIcon size={INSERT_ICON_SIZE} />, labelKey: "canvas.addZone", tool: "zone" },
+    { icon: <NoteIcon size={INSERT_ICON_SIZE} />, labelKey: "canvas.addNote", tool: "note" },
+    { icon: <TagIcon size={INSERT_ICON_SIZE} />, labelKey: "canvas.addEnum", tool: "enum" },
   ];
 
-  const toggles: {
-    icon: JSX.Element;
-    active: boolean;
-    tooltipKey: TranslationKeyOf;
-    labelKey: TranslationKeyOf;
-    onClick: () => void;
-  }[] = [
-    {
-      icon: <LinkIcon size={TOGGLE_ICON_SIZE} />,
-      active: props.highlightLinks,
-      tooltipKey: props.highlightLinks ? "canvas.hideLinkHighlight" : "canvas.showLinkHighlight",
-      labelKey: "canvas.toggleLinkHighlight",
-      onClick: () => props.onHighlightLinksChange(!props.highlightLinks),
-    },
-    {
-      icon: <MinimapIcon size={TOGGLE_ICON_SIZE} />,
-      active: props.minimapVisible,
-      tooltipKey: props.minimapVisible ? "canvas.hideMinimap" : "canvas.showMinimap",
-      labelKey: "canvas.toggleMinimap",
-      onClick: props.onToggleMinimap,
-    },
-    {
-      icon: <SearchIcon size={TOGGLE_ICON_SIZE} />,
-      active: props.searchOpen,
-      tooltipKey: props.searchOpen ? "canvas.closeSearch" : "canvas.findTable",
-      labelKey: "canvas.findTable",
-      onClick: props.onToggleSearch,
-    },
-  ];
+  // The reset-link-routing command ships with the app (see builtins.ts) —
+  // it used to only be reachable through the plugin dropdown, which read as
+  // "this is some third-party plugin's action" for a core editing command.
+  // Surfaced here as its own button; `PluginMenu` keeps only what real
+  // plugins contribute.
+  const resetLinkRoutingCommand = props.canvasCommands.find(
+    (command) => command.source === "builtin" && command.contribution.id === RESET_LINK_ROUTING_ID,
+  );
+  const pluginCommands = props.canvasCommands.filter((command) => command.source === "user");
 
   return (
     <div className={CANVAS_TOOLBAR_CLASS}>
       {props.canWrite && (
         <>
-          {insertButtons.map(({ icon, labelKey, add }) => (
+          {insertButtons.map(({ icon, labelKey, tool }) => (
             <button
               key={labelKey}
               type="button"
-              className={CANVAS_TOOLBAR_ICON_BTN_CLASS}
-              onClick={() => add(props.insertPosition())}
+              className={`${CANVAS_TOOLBAR_ICON_BTN_CLASS} ${props.activeTool === tool ? CANVAS_TOOLBAR_TOGGLE_ACTIVE_CLASS : ""}`}
+              onClick={() => props.onSelectTool(tool)}
+              aria-pressed={props.activeTool === tool}
               data-tooltip={t(labelKey)}
               data-tooltip-pos="bottom"
               aria-label={t(labelKey)}
@@ -113,54 +96,56 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
       <DetailLevelDropdown value={props.activeDetailLevel} onChange={props.onSetDetailLevel} />
 
       <span className={CANVAS_TOOLBAR_DIVIDER_CLASS} />
-      <div className="flex items-center" data-tooltip={t("canvas.textSize")} data-tooltip-pos="bottom">
+      <button
+        type="button"
+        className={`${CANVAS_TOOLBAR_ICON_BTN_CLASS} ${props.highlightLinks ? CANVAS_TOOLBAR_TOGGLE_ACTIVE_CLASS : ""}`}
+        onClick={() => props.onHighlightLinksChange(!props.highlightLinks)}
+        aria-pressed={props.highlightLinks}
+        data-tooltip={t(props.highlightLinks ? "canvas.hideLinkHighlight" : "canvas.showLinkHighlight")}
+        data-tooltip-pos="bottom"
+        aria-label={t("canvas.toggleLinkHighlight")}
+      >
+        <LinkIcon size={TOGGLE_ICON_SIZE} />
+      </button>
+      {props.canWrite && resetLinkRoutingCommand && (
         <button
           type="button"
-          className={`${CANVAS_TOOLBAR_SEGMENT_CLASS} !px-2 hover:text-text`}
-          onClick={() => props.onAdjustFontScale(-FONT_SCALE_STEP)}
-          disabled={props.fontScale <= FONT_SCALE_MIN}
-          data-tooltip={t("canvas.textSizeDecrease")}
+          className={CANVAS_TOOLBAR_ICON_BTN_CLASS}
+          onClick={() => props.onRunCanvasCommand(resetLinkRoutingCommand)}
+          data-tooltip={t("canvas.resetLinkRouting")}
           data-tooltip-pos="bottom"
+          aria-label={t("canvas.resetLinkRouting")}
         >
-          <span className="text-[12px] font-bold leading-none">A⁻</span>
+          <RestoreIcon size={TOGGLE_ICON_SIZE} />
         </button>
-        <span className="min-w-[38px] text-center font-mono text-[12.5px] font-medium text-text-muted">
-          {Math.round(props.fontScale * 100)}%
-        </span>
-        <button
-          type="button"
-          className={`${CANVAS_TOOLBAR_SEGMENT_CLASS} !px-2 hover:text-text`}
-          onClick={() => props.onAdjustFontScale(FONT_SCALE_STEP)}
-          disabled={props.fontScale >= FONT_SCALE_MAX}
-          data-tooltip={t("canvas.textSizeIncrease")}
-          data-tooltip-pos="bottom"
-        >
-          <span className="text-[14px] font-bold leading-none">A⁺</span>
-        </button>
-      </div>
+      )}
 
       <span className={CANVAS_TOOLBAR_DIVIDER_CLASS} />
-      {toggles.map(({ icon, active, tooltipKey, labelKey, onClick }) => (
-        <button
-          key={labelKey}
-          type="button"
-          className={`${CANVAS_TOOLBAR_ICON_BTN_CLASS} ${active ? CANVAS_TOOLBAR_TOGGLE_ACTIVE_CLASS : ""}`}
-          onClick={onClick}
-          aria-pressed={active}
-          data-tooltip={t(tooltipKey)}
-          data-tooltip-pos="bottom"
-          aria-label={t(labelKey)}
-        >
-          {icon}
-        </button>
-      ))}
+      <button
+        type="button"
+        className={`${CANVAS_TOOLBAR_ICON_BTN_CLASS} ${props.minimapVisible ? CANVAS_TOOLBAR_TOGGLE_ACTIVE_CLASS : ""}`}
+        onClick={props.onToggleMinimap}
+        aria-pressed={props.minimapVisible}
+        data-tooltip={t(props.minimapVisible ? "canvas.hideMinimap" : "canvas.showMinimap")}
+        data-tooltip-pos="bottom"
+        aria-label={t("canvas.toggleMinimap")}
+      >
+        <MinimapIcon size={TOGGLE_ICON_SIZE} />
+      </button>
+      <button
+        type="button"
+        className={`${CANVAS_TOOLBAR_ICON_BTN_CLASS} ${props.searchOpen ? CANVAS_TOOLBAR_TOGGLE_ACTIVE_CLASS : ""}`}
+        onClick={props.onToggleSearch}
+        aria-pressed={props.searchOpen}
+        data-tooltip={t(props.searchOpen ? "canvas.closeSearch" : "canvas.findTable")}
+        data-tooltip-pos="bottom"
+        aria-label={t("canvas.findTable")}
+      >
+        <SearchIcon size={TOGGLE_ICON_SIZE} />
+      </button>
 
       <span className={CANVAS_TOOLBAR_DIVIDER_CLASS} />
-      <PluginMenu
-        commands={props.canvasCommands}
-        onRun={props.onRunCanvasCommand}
-        onOpenPlugins={props.onOpenPlugins}
-      />
+      <PluginMenu commands={pluginCommands} onRun={props.onRunCanvasCommand} onOpenPlugins={props.onOpenPlugins} />
     </div>
   );
 }

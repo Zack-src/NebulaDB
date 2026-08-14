@@ -14,7 +14,13 @@ export interface PluginMenuProps {
   onOpenPlugins: () => void;
 }
 
-/** Every canvas command contributed by a plugin, plus a way into the manager. */
+/**
+ * Every canvas command contributed by a *user* plugin, plus a way into the
+ * manager. Built-in commands (the app's own "Reset link routing") are kept
+ * out — `CanvasToolbar` filters `canvasCommands` down to `source === "user"`
+ * before handing them here, since a core editing action buried inside a menu
+ * named "Plugins" reads as third-party functionality it isn't.
+ */
 export function PluginMenu({ commands, onRun, onOpenPlugins }: PluginMenuProps) {
   const { t } = useTranslation();
 
@@ -43,7 +49,7 @@ export function PluginMenu({ commands, onRun, onOpenPlugins }: PluginMenuProps) 
             >
               {command.contribution.label}
               <span className="ml-2 shrink-0 text-[10px] text-text-muted">
-                {command.contribution.shortcut ?? (command.source === "user" ? command.plugin.name : "")}
+                {command.contribution.shortcut ?? command.plugin.name}
               </span>
             </button>
           ))}

@@ -41,7 +41,7 @@ import { CanvasZoomBar } from "./CanvasZoomBar";
 import { SelectionColorToolbar } from "./SelectionColorToolbar";
 import { useCanvasImageExport } from "./useCanvasImageExport";
 import { useCanvasSearch } from "./useCanvasSearch";
-import type { CanvasPoint } from "./types";
+import type { CanvasInsertTool, CanvasPoint } from "./types";
 
 const nodeTypes = {
   table: TableNode,
@@ -53,7 +53,6 @@ const nodeTypes = {
 };
 const edgeTypes = { ref: RefEdge };
 
-const PANE_SELECTOR = ".react-flow__pane";
 const GRID_SIZE = 10;
 const MIN_ZOOM = 0.05;
 
@@ -76,7 +75,6 @@ export interface CanvasAreaProps {
   onGroupTables: (tableIds: string[]) => void;
   palette: string[];
   fontScale: number;
-  onAdjustFontScale: (delta: number) => void;
   activeDetailLevel: DetailLevel | null;
   onSetDetailLevel: (level: DetailLevel) => void;
   highlightLinks: boolean;
@@ -109,6 +107,12 @@ export function CanvasArea(props: CanvasAreaProps) {
   const { screenToFlowPosition, deleteElements, getNodes, getEdges } = useReactFlow();
   const [contextMenu, setContextMenu] = useState<CanvasContextMenuState | null>(null);
   const [minimapVisible, setMinimapVisible] = useState(loadShowMinimap);
+  /**
+   * The Figma-style insert tool: pick one on the toolbar, then click anywhere
+   * on the canvas to drop it there — and click again, and again, without
+   * re-selecting the tool each time. `null` is the ordinary selection mode.
+   */
+  const [activeInsertTool, setActiveInsertTool] = useState<CanvasInsertTool | null>(null);
   // Lazy initializer: read once at mount, not on every render — this decides
   // whether the very first render asks React Flow to `fitView` or restores
   // exactly where this user left the canvas last time.
@@ -208,6 +212,28 @@ export function CanvasArea(props: CanvasAreaProps) {
 
   useEscapeKey(Boolean(contextMenu), closeContextMenu);
 
+  const handleSelectInsertTool = useCallback((tool: CanvasInsertTool) => {
+    // Clicking the active tool again is how you put the pointer back into
+    // ordinary selection mode — the second half of the toggle Figma uses.
+    setActiveInsertTool((current) => (current === tool ? null : tool));
+  }, []);
+  useEscapeKey(Boolean(activeInsertTool), () => setActiveInsertTool(null));
+
+  const { onAddTable, onAddZone, onAddNote, onAddEnum } = props;
+  const handlePaneClick = useCallback(
+    (event: ReactMouseEvent) => {
+      if (!activeInsertTool) return;
+      const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      if (activeInsertTool === "table") onAddTable(position);
+      else if (activeInsertTool === "zone") onAddZone(position);
+      else if (activeInsertTool === "note") onAddNote(position);
+      else onAddEnum(position);
+      // Deliberately left active: placing several tables in a row is the
+      // whole point, and Escape (or picking the tool again) is how you stop.
+    },
+    [activeInsertTool, screenToFlowPosition, onAddTable, onAddZone, onAddNote, onAddEnum],
+  );
+
   /**
    * Delete/Backspace, owned here instead of by React Flow's `deleteKeyCode`.
    *
@@ -250,26 +276,12 @@ export function CanvasArea(props: CanvasAreaProps) {
     };
   }, [contextMenu, closeContextMenu]);
 
-  /**
-   * Where the toolbar's insert buttons drop a new node: the centre of the
-   * visible pane, so it lands where the user is looking rather than at a fixed
-   * flow coordinate they may have panned away from.
-   */
-  const paneCenter = useCallback((): CanvasPoint => {
-    const pane = document.querySelector(PANE_SELECTOR) as HTMLElement | null;
-    const rect = pane?.getBoundingClientRect();
-    return screenToFlowPosition({
-      x: rect ? rect.left + rect.width / 2 : window.innerWidth / 2,
-      y: rect ? rect.top + rect.height / 2 : window.innerHeight / 2,
-    });
-  }, [screenToFlowPosition]);
-
   const allNodes: AllNodes[] = [...props.nodes, ...props.cursorNodes];
   const selectedTableIds = props.nodes.filter((node) => node.type === "table" && node.selected).map((node) => node.id);
 
   return (
     <div
-      className="min-w-0 flex-1 bg-bg-canvas"
+      className={`min-w-0 flex-1 bg-bg-canvas ${activeInsertTool ? "canvas-placing" : ""}`}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       style={{ "--canvas-font-scale": props.fontScale } as CSSProperties}
@@ -280,6 +292,7 @@ export function CanvasArea(props: CanvasAreaProps) {
         onNodesChange={onNodesChange}
         onEdgesDelete={props.onEdgesDelete}
         onConnect={props.onConnect}
+        onPaneClick={handlePaneClick}
         onPaneContextMenu={handlePaneContextMenu}
         // Without these two, right-clicking a table (or a multi-selection)
         // fell through to the browser's own menu — "Save image as…", "Reload"
@@ -338,13 +351,8 @@ export function CanvasArea(props: CanvasAreaProps) {
           )}
           <CanvasToolbar
             canWrite={props.canWrite}
-            onAddTable={props.onAddTable}
-            onAddZone={props.onAddZone}
-            onAddNote={props.onAddNote}
-            onAddEnum={props.onAddEnum}
-            insertPosition={paneCenter}
-            fontScale={props.fontScale}
-            onAdjustFontScale={props.onAdjustFontScale}
+            activeTool={activeInsertTool}
+            onSelectTool={handleSelectInsertTool}
             activeDetailLevel={props.activeDetailLevel}
             onSetDetailLevel={props.onSetDetailLevel}
             highlightLinks={props.highlightLinks}

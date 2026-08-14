@@ -56,6 +56,14 @@
   display: none;
 }
 
+/* While a toolbar insert tool is armed (`.canvas-placing` on the canvas
+   wrapper), the pane itself needs the crosshair — React Flow's own inline
+   cursor (grab/default, swapped per interaction) would otherwise win over a
+   plain class on an ancestor. */
+.canvas-placing .react-flow__pane {
+  cursor: crosshair !important;
+}
+
 .react-flow__controls .react-flow__controls-button {
   height: 28px !important;
   width: 28px !important;
