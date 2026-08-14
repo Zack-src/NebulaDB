@@ -1,7 +1,14 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { getSmoothStepPath, useReactFlow, type Position } from "@xyflow/react";
 import type { RoutingPoint } from "@athanordb/shared";
-import { closestSegmentIndex, getDefaultCornerPoints, orthogonalPolylinePath, simplifyRoutingPoints, type Point } from "@/features/editor/edges/pathMath";
+import {
+  closestSegmentIndex,
+  getDefaultCornerPoints,
+  orthogonalPolylinePoints,
+  polylinePath,
+  simplifyRoutingPoints,
+  type Point,
+} from "@/features/editor/edges/pathMath";
 
 export interface EdgeContextMenuState {
   x: number;
@@ -65,7 +72,11 @@ export function useEdgeRouting(params: {
     [sourceX, sourceY, points, targetX, targetY],
   );
 
-  const fullPath = orthogonalPolylinePath(allPoints);
+  // The corner-for-corner list the stroke actually follows — `allPoints` still
+  // holds diagonals that the renderer breaks into dog-legs, so anything keying
+  // off the line's real direction (the cardinality chips) needs this one.
+  const drawnPoints = useMemo(() => orthogonalPolylinePoints(allPoints), [allPoints]);
+  const fullPath = polylinePath(drawnPoints);
 
   const commitPoints = (next: RoutingPoint[]) => {
     const simplified = simplifyRoutingPoints(next, { x: sourceX, y: sourceY }, { x: targetX, y: targetY });
@@ -193,6 +204,7 @@ export function useEdgeRouting(params: {
   return {
     points,
     allPoints,
+    drawnPoints,
     fullPath,
     stepLabelX,
     stepLabelY,

@@ -190,6 +190,7 @@
   "edge.resetColor": "Réinitialiser la couleur",
   "edge.deleteRelation": "Supprimer la relation",
   "edge.settings": "Options du lien",
+  "edge.color": "Couleur du lien",
 
   "table.goToDbml": "Aller au DBML",
   "table.addColumn": "Ajouter une colonne",

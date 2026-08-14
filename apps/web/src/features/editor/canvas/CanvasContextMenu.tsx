@@ -1,5 +1,6 @@
 import { FrameIcon, NoteIcon, TableIcon, TagIcon } from "@/components/icons/Icons";
 import { CONTEXT_MENU_CLASS, CONTEXT_MENU_ITEM_CLASS } from "@/components/ui/contextMenuStyles";
+import { useMenuPlacement } from "@/hooks/useMenuPlacement";
 import { useTranslation } from "@/i18n/useTranslation";
 import type { CanvasPoint } from "./types";
 
@@ -28,6 +29,7 @@ export function CanvasContextMenu({
   onClose,
 }: CanvasContextMenuProps) {
   const { t } = useTranslation();
+  const { ref, style } = useMenuPlacement(menu.screenX, menu.screenY);
 
   const addAtCursor = (add: (position: CanvasPoint) => void) => {
     add(menu.flowPosition);
@@ -43,9 +45,11 @@ export function CanvasContextMenu({
 
   return (
     <div
+      ref={ref}
       className={CONTEXT_MENU_CLASS}
-      style={{ left: menu.screenX, top: menu.screenY }}
+      style={style}
       onClick={(event) => event.stopPropagation()}
+      onContextMenu={(event) => event.preventDefault()}
     >
       {items.map((item) => (
         <button key={item.labelKey} className={CONTEXT_MENU_ITEM_CLASS} onClick={() => addAtCursor(item.add)}>

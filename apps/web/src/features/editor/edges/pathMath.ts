@@ -7,8 +7,16 @@ export function polylinePath(points: Point[]): string {
   return points.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
 }
 
-export function orthogonalPolylinePath(points: Point[]): string {
-  if (points.length < 2) return "";
+/**
+ * Expands a chain of waypoints into the corner-for-corner polyline that
+ * actually gets drawn: any diagonal leg is replaced by a horizontal/vertical/
+ * horizontal dog-leg through the midpoint. Callers that need to know which way
+ * the line *leaves* an endpoint (cardinality chips, for one) have to read this
+ * expanded list — the raw waypoints are diagonal and would point the label off
+ * at an angle the drawn line never takes.
+ */
+export function orthogonalPolylinePoints(points: Point[]): Point[] {
+  if (points.length < 2) return points;
   const result: Point[] = [points[0]];
   for (let i = 0; i < points.length - 1; i++) {
     const curr = points[i];
@@ -20,7 +28,59 @@ export function orthogonalPolylinePath(points: Point[]): string {
     }
     result.push(next);
   }
-  return polylinePath(result);
+  return result;
+}
+
+export function orthogonalPolylinePath(points: Point[]): string {
+  if (points.length < 2) return "";
+  return polylinePath(orthogonalPolylinePoints(points));
+}
+
+/** Total run of a polyline, used to decide whether a short edge has room for endpoint decorations at all. */
+export function polylineLength(points: Point[]): number {
+  let total = 0;
+  for (let i = 0; i < points.length - 1; i++) {
+    total += Math.hypot(points[i + 1].x - points[i].x, points[i + 1].y - points[i].y);
+  }
+  return total;
+}
+
+/**
+ * Unit vector at right angles to `from`→`to`, with the sign pinned so the
+ * result is predictable rather than dependent on which way the segment happens
+ * to run: always *above* a horizontal leg, always to the *right* of a vertical
+ * one. Without pinning, two mirror-image edges would push their labels to
+ * opposite sides of the line and the diagram would read inconsistently.
+ */
+export function perpendicular(from: Point, to: Point): Point {
+  const dx = to.x - from.x;
+  const dy = to.y - from.y;
+  const length = Math.hypot(dx, dy) || 1;
+  let nx = -dy / length;
+  let ny = dx / length;
+  const horizontal = Math.abs(dx) >= Math.abs(dy);
+  if (horizontal ? ny > 0 : nx < 0) {
+    nx = -nx;
+    ny = -ny;
+  }
+  return { x: nx, y: ny };
+}
+
+/**
+ * Where a cardinality chip goes for one end of a drawn polyline: `along` px in
+ * from the endpoint, then `away` px clear of the line itself. Sitting the chip
+ * *beside* the stroke rather than on top of it is the whole point — a label
+ * centred on the line hides the very thing it annotates.
+ */
+export function endpointLabelAnchor(points: Point[], atEnd: boolean, along: number, away: number): Point | null {
+  if (points.length < 2) return null;
+  const from = atEnd ? points[points.length - 1] : points[0];
+  const to = atEnd ? points[points.length - 2] : points[1];
+  const segment = Math.hypot(to.x - from.x, to.y - from.y);
+  if (segment < 1) return null;
+  const base = offsetAlong(from, to, Math.min(along, segment * 0.6));
+  const normal = perpendicular(from, to);
+  return { x: base.x + normal.x * away, y: base.y + normal.y * away };
 }
 
 /** Squared distance from `p` to its nearest point on segment `a`-`b`, plus the segment-relative position of that projection (0..1). */

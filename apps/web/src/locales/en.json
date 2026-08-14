@@ -190,6 +190,7 @@
   "edge.resetColor": "Reset the colour",
   "edge.deleteRelation": "Delete the relation",
   "edge.settings": "Relation options",
+  "edge.color": "Relation colour",
 
   "table.goToDbml": "Go to DBML",
   "table.addColumn": "Add column",

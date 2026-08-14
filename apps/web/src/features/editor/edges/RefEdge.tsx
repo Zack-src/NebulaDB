@@ -9,6 +9,9 @@ import { EdgeContextMenu } from "@/features/editor/edges/EdgeContextMenu";
 
 export interface RefEdgeData {
   cardinality: RefCardinality;
+  /** Rank among the refs sharing this edge's source/target handle — shifts the cardinality chip so co-located refs don't stack on one spot. */
+  sourceSlot?: number;
+  targetSlot?: number;
   routingPoints?: RoutingPoint[];
   highlightLinks?: boolean;
   /** True when this edge touches the currently hovered or selected table — highlights it independently of the global `highlightLinks` toggle. */
@@ -84,18 +87,22 @@ export function RefEdge({
       <path ref={measureRef} d={routing.fullPath} fill="none" stroke="none" style={{ pointerEvents: "none" }} />
       {isManyToMany && split ? (
         <>
+          {/* No `vectorEffect: non-scaling-stroke` here: `strokeWidth` is
+              already divided by zoom, and stacking the two compensations made
+              many-to-many lines swell as the canvas zoomed out while every
+              other cardinality held its width. */}
           <path
             d={split.half1}
             fill="none"
             className="ref-edge-flow-path"
-            style={{ stroke: strokeColor, strokeWidth, opacity: strokeOpacity, animation: dotAnimation, strokeDasharray, vectorEffect: "non-scaling-stroke" }}
+            style={{ stroke: strokeColor, strokeWidth, opacity: strokeOpacity, animation: dotAnimation, strokeDasharray }}
           />
           <path
             d={split.half2}
             fill="none"
             markerEnd={markerEnd}
             className="ref-edge-flow-path"
-            style={{ stroke: strokeColor, strokeWidth, opacity: strokeOpacity, animation: dotAnimation, strokeDasharray, vectorEffect: "non-scaling-stroke" }}
+            style={{ stroke: strokeColor, strokeWidth, opacity: strokeOpacity, animation: dotAnimation, strokeDasharray }}
           />
         </>
       ) : (
@@ -107,11 +114,15 @@ export function RefEdge({
           style={{ stroke: strokeColor, strokeWidth, opacity: strokeOpacity, animation: dotAnimation, strokeDasharray }}
         />
       )}
+      {/* Invisible fat stroke carrying the pointer interactions. Its width is
+          zoom-compensated too, otherwise the grab area for double-click and
+          right-click narrows to nothing exactly when the line is hardest to
+          hit. */}
       <path
         d={routing.fullPath}
         fill="none"
         stroke="transparent"
-        strokeWidth={16}
+        strokeWidth={16 * zoomCompensation}
         style={{ cursor: "copy" }}
         onDoubleClick={routing.handlePathDoubleClick}
         onContextMenu={(event) => routing.openContextMenu(event)}
@@ -119,11 +130,14 @@ export function RefEdge({
       <EdgeLabelRenderer>
         {isHighlighted && (
           <EdgeCardinalityLabels
-            allPoints={routing.allPoints}
+            points={routing.drawnPoints}
             sourceLabel={sourceCardinality}
             targetLabel={targetCardinality}
+            sourceSlot={data?.sourceSlot ?? 0}
+            targetSlot={data?.targetSlot ?? 0}
             color={strokeColor}
-            opacity={strokeOpacity}
+            opacity={selected ? 1 : 0.95}
+            zoom={zoom}
           />
         )}
         {showEditingControls && (
@@ -131,6 +145,7 @@ export function RefEdge({
             points={routing.points}
             selectedIndex={routing.selectedPointIndex}
             strokeColor={strokeColor}
+            zoom={zoom}
             onStartDrag={routing.startDrag}
             onSelect={routing.setSelectedPointIndex}
             onContextMenu={routing.openContextMenu}
@@ -142,6 +157,7 @@ export function RefEdge({
             y={labelY}
             label={style.label}
             color={strokeColor}
+            zoom={zoom}
             palette={data.palette}
             onPaletteChange={data.onPaletteChange}
             onColorChange={data.onColorChange}

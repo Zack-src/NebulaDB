@@ -26,6 +26,29 @@
   stroke-dasharray: 0.1 9;
 }
 
+/* Cardinality chip on a relation endpoint. Opaque on purpose: it has to stay
+   legible with the line, other refs and a table border passing behind it. */
+.ref-edge-cardinality {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border: 1px solid currentcolor;
+  border-radius: var(--radius-full);
+  background: var(--color-bg-canvas);
+  box-shadow: var(--shadow-xs);
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.01em;
+  pointer-events: none;
+  user-select: none;
+}
+
 .react-flow__attribution {
   display: none;
 }

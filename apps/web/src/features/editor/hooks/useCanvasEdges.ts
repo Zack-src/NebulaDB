@@ -21,6 +21,19 @@ export function useCanvasEdges(
     const tablesById = new Map(liveProject.tables.map((t) => [t.id, t]));
     const nodesById = new Map(nodes.map((n) => [n.id, n]));
 
+    // Several refs can leave the same column (one field referenced by three
+    // tables, say), and React Flow anchors them all to the identical handle —
+    // so their cardinality chips would land pixel-for-pixel on top of each
+    // other. Numbering them per handle here, where every ref is visible at
+    // once, lets each edge offset its own chip by its slot.
+    const slotCounters = new Map<string, number>();
+    const takeSlot = (tableId: string, handle: string) => {
+      const key = `${tableId}|${handle}`;
+      const slot = slotCounters.get(key) ?? 0;
+      slotCounters.set(key, slot + 1);
+      return slot;
+    };
+
     return liveProject.refs.map((ref) => {
       const fromTable = tablesById.get(ref.from.tableId);
       const toTable = tablesById.get(ref.to.tableId);
@@ -73,6 +86,8 @@ export function useCanvasEdges(
         type: "ref",
         data: {
           cardinality: ref.cardinality,
+          sourceSlot: takeSlot(ref.from.tableId, sourceHandle),
+          targetSlot: takeSlot(ref.to.tableId, targetHandle),
           routingPoints: ref.routingPoints,
           highlightLinks,
           connectedHighlight,
