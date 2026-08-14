@@ -5,6 +5,7 @@ import { KeyIcon, PlusIcon, SettingsIcon, TrashIcon } from "@/components/icons/I
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { SWATCH_CELL_CLASS, SWATCH_CELL_ACTIVE_CLASS, SWATCH_GRID_CLASS } from "@/components/inputs/ColorSwatchPicker";
+import { useAnchoredPlacement } from "@/hooks/useMenuPlacement";
 import { useDismissablePopover } from "@/hooks/useDismissablePopover";
 import { useDraftValue } from "@/hooks/useDraftValue";
 import { useTranslation } from "@/i18n/useTranslation";
@@ -18,9 +19,6 @@ import {
 
 export const DEFAULT_HEADER_COLOR = "#334155";
 
-const POPOVER_WIDTH = 270;
-const POPOVER_HEIGHT = 280;
-const POPOVER_MARGIN = 10;
 
 export type IndexOptions = { unique?: boolean; pk?: boolean; name?: string };
 
@@ -182,7 +180,7 @@ export function TableSettingsPopover({
 }: TableSettingsPopoverProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
+  const [triggerRect, setTriggerRect] = useState<DOMRect | null>(null);
   const [addingIndex, setAddingIndex] = useState(false);
 
   const triggerRef = useRef<HTMLButtonElement>(null);
@@ -195,14 +193,14 @@ export function TableSettingsPopover({
     setAddingIndex(false);
   }, []);
   useDismissablePopover(open, dismiss, [popoverRef, triggerRef]);
+  // Placement (and, crucially, the height cap) is derived from the trigger's
+  // real rect. The old clamp measured against a guessed 280px while the panel
+  // was free to grow to 80vh, so a tall settings popover hung off the screen.
+  const placement = useAnchoredPlacement(open ? triggerRect : null, popoverRef);
 
   const toggleOpen = () => {
     if (!open && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      setPopoverPosition({
-        x: Math.min(Math.max(POPOVER_MARGIN, rect.left), window.innerWidth - POPOVER_WIDTH),
-        y: Math.min(rect.bottom + 6, window.innerHeight - POPOVER_HEIGHT),
-      });
+      setTriggerRect(triggerRef.current.getBoundingClientRect());
     } else {
       setAddingIndex(false);
     }
@@ -227,12 +225,12 @@ export function TableSettingsPopover({
         <SettingsIcon size={13} />
       </button>
       {open &&
-        popoverPosition &&
+        triggerRect &&
         createPortal(
           <div
             ref={popoverRef}
-            className="fixed z-[9999] flex max-h-[80vh] w-[300px] flex-col gap-3 overflow-y-auto rounded-lg border border-border-strong bg-surface-raised p-3.5 shadow-lg nodrag"
-            style={{ left: popoverPosition.x, top: popoverPosition.y }}
+            className="fixed z-[9999] flex w-[300px] flex-col gap-3 rounded-lg border border-border-strong bg-surface-raised p-3.5 shadow-lg nodrag"
+            style={placement ?? { left: triggerRect.left, top: triggerRect.bottom + 6, visibility: "hidden" }}
             onClick={(event) => event.stopPropagation()}
             onMouseDown={(event) => event.stopPropagation()}
           >

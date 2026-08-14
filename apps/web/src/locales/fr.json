@@ -223,6 +223,7 @@
   "validation.title": "Validation",
   "import.title": "Importer un schéma",
   "comments.onField": "Commentaires sur {{field}}",
+  "comments.title": "Commentaires",
   "comments.empty": "Aucun commentaire.",
   "comments.delete": "Supprimer le commentaire",
   "comments.placeholder": "Ajouter un commentaire…",

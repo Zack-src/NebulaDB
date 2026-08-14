@@ -62,8 +62,11 @@ export interface IconProps {
 type SvgComponent = FunctionComponent<SVGProps<SVGSVGElement>>;
 
 function wrapSvgAsIcon(Svg: SvgComponent, defaultSize: number) {
+  // `aria-hidden`: every icon here is decorative — the control around it
+  // carries the name. Without it a screen reader announces the raw SVG
+  // alongside whatever label the button already has.
   return function Icon({ size = defaultSize, style, className }: IconProps) {
-    return <Svg width={size} height={size} style={style} className={className} />;
+    return <Svg width={size} height={size} style={style} className={className} aria-hidden focusable={false} />;
   };
 }
 

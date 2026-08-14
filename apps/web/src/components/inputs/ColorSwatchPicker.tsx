@@ -2,6 +2,7 @@ import { useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
 import { createPortal } from "react-dom";
 import { PlusIcon } from "@/components/icons/Icons";
 import { INPUT_XS_CLASS } from "@/components/ui/inputStyles";
+import { useAnchoredPlacement } from "@/hooks/useMenuPlacement";
 import { useDismissablePopover } from "@/hooks/useDismissablePopover";
 import { useTranslation } from "@/i18n/useTranslation";
 
@@ -55,7 +56,7 @@ export function ColorSwatchPicker(props: {
   const [open, setOpen] = useState(false);
   const [hexDraft, setHexDraft] = useState(props.value);
   const [lastValue, setLastValue] = useState(props.value);
-  const [popoverPos, setPopoverPos] = useState<{ x: number; y: number } | null>(null);
+  const [triggerRect, setTriggerRect] = useState<DOMRect | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
@@ -71,11 +72,10 @@ export function ColorSwatchPicker(props: {
 
   useDismissablePopover(open, () => setOpen(false), [popoverRef, triggerRef]);
 
+  const placement = useAnchoredPlacement(open ? triggerRect : null, popoverRef);
+
   const toggle = () => {
-    if (!open && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      setPopoverPos({ x: rect.left, y: rect.bottom + 6 });
-    }
+    if (!open && triggerRef.current) setTriggerRect(triggerRef.current.getBoundingClientRect());
     setOpen((v) => !v);
   };
 
@@ -110,12 +110,12 @@ export function ColorSwatchPicker(props: {
         data-tooltip={props.tooltip ?? "Color"}
       />
       {open &&
-        popoverPos &&
+        triggerRect &&
         createPortal(
           <div
             ref={popoverRef}
-            className="fixed z-[2000] animate-modal-in rounded-md border border-border bg-surface-raised p-2.5 shadow-lg nodrag"
-            style={{ left: popoverPos.x, top: popoverPos.y }}
+            className="fixed z-[2000] animate-modal-in rounded-md border border-border-strong bg-surface-raised p-2.5 shadow-lg nodrag"
+            style={placement ?? { left: triggerRect.left, top: triggerRect.bottom + 6, visibility: "hidden" }}
           >
             <div className={SWATCH_GRID_CLASS}>
               {props.palette.map((c) => (

@@ -223,6 +223,7 @@
   "validation.title": "Validation",
   "import.title": "Import schema",
   "comments.onField": "Comments on {{field}}",
+  "comments.title": "Comments",
   "comments.empty": "No comments yet.",
   "comments.delete": "Delete comment",
   "comments.placeholder": "Add a comment…",

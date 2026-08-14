@@ -61,6 +61,17 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
   ref,
 ) {
   const activeCls = active ? "!border-primary-border !bg-primary-light !text-primary" : "";
+
+  // An icon-only button has no text node, so its only name was `data-tooltip` —
+  // a plain data attribute no screen reader ever reads. Every `icon*` size is
+  // icon-only by definition, so the tooltip doubles as the accessible name
+  // unless the call site gave a better one.
+  const tooltip = (rest as { "data-tooltip"?: unknown })["data-tooltip"];
+  const derivedLabel =
+    size.startsWith("icon") && !rest["aria-label"] && !rest["aria-labelledby"] && typeof tooltip === "string"
+      ? tooltip
+      : undefined;
+
   return (
     <button
       ref={ref}
@@ -68,6 +79,7 @@ export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button
       aria-pressed={active}
       className={`${BASE} ${VARIANT[variant]} ${SIZE[size]} ${activeCls} ${className}`.trim()}
       {...rest}
+      aria-label={rest["aria-label"] ?? derivedLabel}
     />
   );
 });

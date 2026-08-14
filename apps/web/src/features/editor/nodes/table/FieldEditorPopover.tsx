@@ -9,6 +9,7 @@ import {
 } from "@athanordb/shared";
 import { AsteriskIcon, DiamondIcon, IncrementIcon, KeyIcon, PencilIcon, TrashIcon } from "@/components/icons/Icons";
 import { Button } from "@/components/ui/Button";
+import { useAnchoredPlacement } from "@/hooks/useMenuPlacement";
 import { useDismissablePopover } from "@/hooks/useDismissablePopover";
 import { useDraftValue } from "@/hooks/useDraftValue";
 import { useTranslation } from "@/i18n/useTranslation";
@@ -27,9 +28,6 @@ import {
 
 const COMMON_TYPES = ["int", "varchar", "text", "boolean", "timestamp", "uuid", "json", "decimal", "bigint"];
 
-const POPOVER_WIDTH = 320;
-const POPOVER_HEIGHT = 380;
-const POPOVER_MARGIN = 10;
 
 export interface FieldEditorPopoverProps {
   field: Field;
@@ -47,7 +45,7 @@ export function FieldEditorPopover({
 }: FieldEditorPopoverProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
-  const [popoverPosition, setPopoverPosition] = useState<{ x: number; y: number } | null>(null);
+  const [triggerRect, setTriggerRect] = useState<DOMRect | null>(null);
 
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -60,14 +58,11 @@ export function FieldEditorPopover({
   const note = useDraftValue(field.note ?? "", (next) => update({ note: next }), { allowEmpty: true });
 
   useDismissablePopover(open, () => setOpen(false), [popoverRef, triggerRef]);
+  const placement = useAnchoredPlacement(open ? triggerRect : null, popoverRef);
 
   const toggleOpen = () => {
     if (!open && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      setPopoverPosition({
-        x: Math.min(Math.max(POPOVER_MARGIN, rect.left), window.innerWidth - POPOVER_WIDTH),
-        y: Math.min(rect.bottom + 6, window.innerHeight - POPOVER_HEIGHT),
-      });
+      setTriggerRect(triggerRef.current.getBoundingClientRect());
     }
     setOpen((current) => !current);
   };
@@ -95,12 +90,12 @@ export function FieldEditorPopover({
         <PencilIcon size={11} />
       </button>
       {open &&
-        popoverPosition &&
+        triggerRect &&
         createPortal(
           <div
             ref={popoverRef}
             className="fixed z-[9999] flex w-[296px] flex-col gap-3 rounded-lg border border-border-strong bg-surface-raised p-3.5 shadow-lg nodrag"
-            style={{ left: popoverPosition.x, top: popoverPosition.y }}
+            style={placement ?? { left: triggerRect.left, top: triggerRect.bottom + 6, visibility: "hidden" }}
             onClick={(event) => event.stopPropagation()}
             onMouseDown={(event) => event.stopPropagation()}
           >

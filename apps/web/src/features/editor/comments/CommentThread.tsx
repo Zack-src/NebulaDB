@@ -4,6 +4,7 @@ import { MAX_TEXT_LENGTH, type Comment } from "@athanordb/shared";
 import { CloseIcon, CommentIcon } from "@/components/icons/Icons";
 import { Button } from "@/components/ui/Button";
 import { TEXTAREA_SM_CLASS } from "@/components/ui/inputStyles";
+import { useAnchoredPlacement } from "@/hooks/useMenuPlacement";
 import { useDismissablePopover } from "@/hooks/useDismissablePopover";
 import { useTranslation } from "@/i18n/useTranslation";
 
@@ -30,17 +31,16 @@ export function CommentThread(props: {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState("");
-  const [popoverPos, setPopoverPos] = useState<{ x: number; y: number } | null>(null);
+  const [triggerRect, setTriggerRect] = useState<DOMRect | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
   useDismissablePopover(open, () => setOpen(false), [popoverRef, triggerRef]);
 
+  const placement = useAnchoredPlacement(open ? triggerRect : null, popoverRef);
+
   const toggle = () => {
-    if (!open && triggerRef.current) {
-      const rect = triggerRef.current.getBoundingClientRect();
-      setPopoverPos({ x: rect.left, y: rect.bottom + 6 });
-    }
+    if (!open && triggerRef.current) setTriggerRect(triggerRef.current.getBoundingClientRect());
     setOpen((v) => !v);
   };
 
@@ -62,7 +62,7 @@ export function CommentThread(props: {
           toggle();
         }}
         onDoubleClick={(event) => event.stopPropagation()}
-        data-tooltip={props.tooltip ?? "Comments"}
+        data-tooltip={props.tooltip ?? t("comments.title")}
       >
         <CommentIcon size={12} />
         {props.comments.length > 0 && (
@@ -70,12 +70,12 @@ export function CommentThread(props: {
         )}
       </button>
       {open &&
-        popoverPos &&
+        triggerRect &&
         createPortal(
           <div
             ref={popoverRef}
-            className="fixed z-[2000] flex w-[260px] animate-modal-in flex-col rounded-md border border-border bg-surface-raised shadow-lg nodrag"
-            style={{ left: popoverPos.x, top: popoverPos.y }}
+            className="fixed z-[2000] flex w-[260px] animate-modal-in flex-col rounded-md border border-border-strong bg-surface-raised shadow-lg nodrag"
+            style={placement ?? { left: triggerRect.left, top: triggerRect.bottom + 6, visibility: "hidden" }}
           >
             <div className="flex max-h-[220px] flex-col gap-1.5 overflow-y-auto p-2">
               {props.comments.length === 0 && (
