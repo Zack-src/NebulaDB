@@ -173,6 +173,8 @@
   "dbml.showProblems": "Show problems (Ctrl+Shift+M)",
   "dbml.toggleWrap": "Toggle line wrapping",
   "dbml.fontDecrease": "Decrease font size",
+  "dbml.palette.commandsPlaceholder": "Type a command…",
+  "dbml.palette.symbolsPlaceholder": "Go to table, column, enum or relationship…",
   "dbml.fontIncrease": "Increase font size",
   "dbml.indentation": "Indentation",
   "dbml.twoSpaces": "2 spaces",

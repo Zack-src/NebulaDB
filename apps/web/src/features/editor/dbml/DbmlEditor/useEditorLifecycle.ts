@@ -26,8 +26,14 @@ export function useEditorLifecycle(
 ) {
   const onChangeRef = useRef(props.onChange);
   const onSaveRef = useRef(props.onSave);
-  onChangeRef.current = props.onChange;
-  onSaveRef.current = props.onSave;
+  // Latest-callback refs, refreshed after commit rather than during render:
+  // CodeMirror only calls them from user events, which always come after paint,
+  // so an effect is early enough — and writing a ref while rendering is exactly
+  // the pattern React's own lint rules flag as unsafe under concurrent renders.
+  useEffect(() => {
+    onChangeRef.current = props.onChange;
+    onSaveRef.current = props.onSave;
+  }, [props.onChange, props.onSave]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -68,12 +74,12 @@ export function useEditorLifecycle(
       changes: { from: 0, to: current.length, insert: props.value },
       selection: { anchor: Math.min(view.state.selection.main.anchor, props.value.length) },
     });
-  }, [props.value]);
+  }, [props.value, viewRef]);
 
   useEffect(() => {
     const view = viewRef.current;
     if (view) applyServerProblem(view, props.problem ?? null);
-  }, [props.problem]);
+  }, [props.problem, viewRef]);
 
   const lastRequestRef = useRef<number | null>(null);
   useEffect(() => {
@@ -85,5 +91,5 @@ export function useEditorLifecycle(
       jumpTo(view, table.nameSpan.from, { select: table.nameSpan });
       lastRequestRef.current = request.requestId;
     }
-  }, [props.scrollToTable, props.value]);
+  }, [props.scrollToTable, props.value, viewRef]);
 }

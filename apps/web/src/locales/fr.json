@@ -173,6 +173,8 @@
   "dbml.showProblems": "Afficher les problèmes (Ctrl+Maj+M)",
   "dbml.toggleWrap": "Basculer le retour à la ligne",
   "dbml.fontDecrease": "Réduire la taille de police",
+  "dbml.palette.commandsPlaceholder": "Saisissez une commande…",
+  "dbml.palette.symbolsPlaceholder": "Aller à une table, colonne, énumération ou relation…",
   "dbml.fontIncrease": "Augmenter la taille de police",
   "dbml.indentation": "Indentation",
   "dbml.twoSpaces": "2 espaces",

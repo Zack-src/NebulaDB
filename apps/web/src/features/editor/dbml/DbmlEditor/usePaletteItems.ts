@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback } from "react";
 import type { EditorView } from "@codemirror/view";
 import { foldAll, unfoldAll } from "@codemirror/language";
 import { gotoLine, openSearchPanel, selectNextOccurrence } from "@codemirror/search";
@@ -10,14 +10,21 @@ import { startRename } from "@/features/editor/dbml/rename";
 import { duplicateSelection, sortTableColumns } from "@/features/editor/dbml/commands";
 import type { PaletteItem } from "@/features/editor/dbml/CommandPalette";
 import type { useTranslation } from "@/i18n/useTranslation";
-import type { PluginEditorCommand, ViewRef } from "./types";
+import type { PluginEditorCommand } from "./types";
 
 type Translate = ReturnType<typeof useTranslation>["t"];
 
-/** Builds the flat list of entries shown by the command palette, for both its "symbols" and "commands" modes. */
+/**
+ * Returns the builder for the command palette's entries, in both its "symbols"
+ * and "commands" modes.
+ *
+ * A builder rather than a memoised array: the symbol list is derived from the
+ * live CodeMirror state, which is not React state, so a `useMemo` keyed on
+ * unrelated values had no way of knowing the document had changed underneath
+ * it. Calling this the moment the palette opens — from the event handler that
+ * opens it — reads the document as it is right then, by construction.
+ */
 export function usePaletteItems(options: {
-  viewRef: ViewRef;
-  palette: "symbols" | "commands" | null;
   run: (fn: (view: EditorView) => unknown) => void;
   runInPanel: (fn: (view: EditorView) => unknown) => void;
   wrap: boolean;
@@ -27,13 +34,10 @@ export function usePaletteItems(options: {
   pluginCommands: PluginEditorCommand[] | undefined;
   runPluginCommand: (command: PluginEditorCommand) => void;
   t: Translate;
-}): PaletteItem[] {
-  const { viewRef, palette, run, runInPanel, wrap, setWrap, increaseFont, decreaseFont, pluginCommands, runPluginCommand, t } = options;
+}): (view: EditorView, palette: "symbols" | "commands") => PaletteItem[] {
+  const { run, runInPanel, wrap, setWrap, increaseFont, decreaseFont, pluginCommands, runPluginCommand, t } = options;
 
-  return useMemo((): PaletteItem[] => {
-    const view = viewRef.current;
-    if (!view || !palette) return [];
-
+  return useCallback((view: EditorView, palette: "symbols" | "commands"): PaletteItem[] => {
     if (palette === "commands") {
       const commands: Array<[string, string, (view: EditorView) => unknown, boolean?]> = [
         ["Format document", "Shift+Alt+F", formatDocument],
@@ -131,5 +135,5 @@ export function usePaletteItems(options: {
       });
     }
     return items;
-  }, [viewRef, palette, run, runInPanel, wrap, setWrap, increaseFont, decreaseFont, pluginCommands, runPluginCommand, t]);
+  }, [run, runInPanel, wrap, setWrap, increaseFont, decreaseFont, pluginCommands, runPluginCommand, t]);
 }

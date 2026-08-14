@@ -1,11 +1,11 @@
-import { forwardRef, useCallback, useImperativeHandle, useRef, useState } from "react";
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
 import type { EditorView } from "@codemirror/view";
 import { foldAll, unfoldAll } from "@codemirror/language";
 import { openSearchPanel } from "@codemirror/search";
 import { openLintPanel } from "@codemirror/lint";
 import { formatDocument } from "@/features/editor/dbml/format";
 import { applyRename, type RenameRequest } from "@/features/editor/dbml/rename";
-import { CommandPalette } from "@/features/editor/dbml/CommandPalette";
+import { CommandPalette, type PaletteItem } from "@/features/editor/dbml/CommandPalette";
 import { useTranslation } from "@/i18n/useTranslation";
 import { EMPTY_CURSOR } from "./cursorInfo";
 import { useEditorLifecycle } from "./useEditorLifecycle";
@@ -23,7 +23,11 @@ export const DbmlEditor = forwardRef<DbmlEditorHandle, DbmlEditorProps>(function
   const viewRef = useRef<EditorView | null>(null);
 
   const { t } = useTranslation();
-  const [palette, setPalette] = useState<"symbols" | "commands" | null>(null);
+  // The open palette carries the entries it was built with. Snapshotting at
+  // open time is what keeps the symbol list in step with the document: it is
+  // read straight out of CodeMirror's live state, which React has no way to
+  // invalidate a memo against.
+  const [palette, setPalette] = useState<{ mode: "symbols" | "commands"; items: PaletteItem[] } | null>(null);
   const [rename, setRename] = useState<RenameRequest | null>(null);
   const [renameValue, setRenameValue] = useState("");
   const [cursor, setCursor] = useState<CursorInfo>(EMPTY_CURSOR);
@@ -33,7 +37,21 @@ export const DbmlEditor = forwardRef<DbmlEditorHandle, DbmlEditorProps>(function
     setRenameValue(request.name);
   }, []);
 
-  useEditorLifecycle(props, containerRef, viewRef, setCursor, setPalette, openRename);
+  // Stable identity, because the editor's mount-only effect captures this once
+  // and would otherwise hold the very first closure forever; the builder it
+  // calls is kept fresh through a ref instead.
+  const buildPaletteItemsRef = useRef<((view: EditorView, mode: "symbols" | "commands") => PaletteItem[]) | null>(null);
+  const openPalette = useCallback((mode: "symbols" | "commands" | null) => {
+    const view = viewRef.current;
+    const build = buildPaletteItemsRef.current;
+    if (!mode || !view || !build) {
+      setPalette(null);
+      return;
+    }
+    setPalette({ mode, items: build(view, mode) });
+  }, []);
+
+  useEditorLifecycle(props, containerRef, viewRef, setCursor, openPalette, openRename);
   const { wrap, setWrap, fontSize, increaseFont, decreaseFont, onWheelZoom } = useEditorPreferences(viewRef);
 
   const run = useCallback((fn: (view: EditorView) => unknown) => {
@@ -53,21 +71,19 @@ export const DbmlEditor = forwardRef<DbmlEditorHandle, DbmlEditorProps>(function
     ref,
     () => ({
       format: () => run(formatDocument),
-      openPalette: (mode) => setPalette(mode),
+      openPalette: (mode) => openPalette(mode),
       search: () => runInPanel(openSearchPanel),
       foldAll: () => run(foldAll),
       unfoldAll: () => run(unfoldAll),
       focus: () => viewRef.current?.focus(),
     }),
-    [run, runInPanel],
+    [run, runInPanel, openPalette],
   );
 
   const { pluginCommands, onPluginMessage } = props;
   const runPluginCommand = usePluginShortcuts(containerRef, viewRef, pluginCommands, onPluginMessage);
 
-  const paletteItems = usePaletteItems({
-    viewRef,
-    palette,
+  const buildPaletteItems = usePaletteItems({
     run,
     runInPanel,
     wrap,
@@ -78,6 +94,9 @@ export const DbmlEditor = forwardRef<DbmlEditorHandle, DbmlEditorProps>(function
     runPluginCommand,
     t,
   });
+  useEffect(() => {
+    buildPaletteItemsRef.current = buildPaletteItems;
+  }, [buildPaletteItems]);
 
   const commitRename = () => {
     const view = viewRef.current;
@@ -108,8 +127,8 @@ export const DbmlEditor = forwardRef<DbmlEditorHandle, DbmlEditorProps>(function
 
       {palette && (
         <CommandPalette
-          items={paletteItems}
-          placeholder={palette === "commands" ? "Type a command…" : "Go to table, column, enum or relationship…"}
+          items={palette.items}
+          placeholder={palette.mode === "commands" ? t("dbml.palette.commandsPlaceholder") : t("dbml.palette.symbolsPlaceholder")}
           onClose={() => {
             setPalette(null);
             viewRef.current?.focus();
