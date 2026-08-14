@@ -5,13 +5,10 @@ import { APP_HEADER } from "@/components/ui/layout";
 import { BrandMark } from "@/components/ui/BrandMark";
 import { Badge } from "@/components/ui/Badge";
 import {
-  AlertTriangleIcon,
-  CheckCircleIcon,
   ChevronLeftIcon,
   ClockIcon,
   DownloadIcon,
   LayoutGridIcon,
-  PuzzleIcon,
   RedoIcon,
   SettingsIcon,
   UndoIcon,
@@ -32,11 +29,7 @@ export interface ProjectToolbarProps {
   onShowImport: () => void;
   onShowExport: () => void;
   onShowHistory: () => void;
-  onShowPlugins: () => void;
-  onShowValidation: () => void;
   onOpenSettings?: () => void;
-  validationCount: number;
-  hasValidationErrors: boolean;
   localUser: string;
   localColor: string;
   remoteAwareness: Map<number, AwarenessState>;
@@ -66,42 +59,17 @@ function ConnectionIndicator({ connection, synced }: { connection: ConnectionSta
   );
 }
 
-/**
- * Schema-check status. This used to be missing entirely: `ProjectEditor` passed
- * `onShowValidation`/`validationCount`/`hasValidationErrors` down and the
- * toolbar rendered none of them, which left the validation panel with no way to
- * be opened at all.
- */
-function ValidationButton(props: { count: number; hasErrors: boolean; onClick: () => void }) {
-  const { t } = useTranslation();
-  const clean = props.count === 0;
-
-  return (
-    <Button
-      size="sm"
-      variant={props.hasErrors ? "danger" : "ghost"}
-      onClick={props.onClick}
-      data-tooltip={t("validation.title")}
-      data-tooltip-pos="bottom"
-      className={!props.hasErrors && !clean ? "text-warning" : ""}
-    >
-      {clean ? <CheckCircleIcon size={14} /> : <AlertTriangleIcon size={14} />}
-      <span className="hidden tabular-nums lg:inline">{clean ? t("validation.ok") : props.count}</span>
-    </Button>
-  );
-}
-
 export function ProjectToolbar(props: ProjectToolbarProps) {
   const { t } = useTranslation();
 
-  // Export, history, plugins and validation are reads — a viewer keeps them.
-  // Import writes, so it is dropped entirely rather than disabled: a viewer has
-  // no path to make it work.
+  // Export and history are reads — a viewer keeps them. Import writes, so it
+  // is dropped entirely rather than disabled: a viewer has no path to make it
+  // work. Plugins now lives only in the canvas toolbar (it was duplicated
+  // here), and the validation check had no button left pointing at it.
   const panelActions = [
     ...(props.viewOnly ? [] : [{ icon: <UploadIcon size={14} />, labelKey: "editor.import", onClick: props.onShowImport } as const]),
     { icon: <DownloadIcon size={14} />, labelKey: "editor.export", onClick: props.onShowExport },
     { icon: <ClockIcon size={14} />, labelKey: "editor.history", onClick: props.onShowHistory },
-    { icon: <PuzzleIcon size={14} />, labelKey: "editor.plugins", onClick: props.onShowPlugins },
   ] as const;
 
   const historyActions = props.viewOnly
@@ -163,13 +131,7 @@ export function ProjectToolbar(props: ProjectToolbarProps) {
           ))}
         </div>
 
-        <ValidationButton
-          count={props.validationCount}
-          hasErrors={props.hasValidationErrors}
-          onClick={props.onShowValidation}
-        />
-
-        <span className={DIVIDER_CLASS} />
+        <span className={`${DIVIDER_CLASS} hidden md:block`} />
 
         <ConnectionIndicator connection={props.connection} synced={props.synced} />
 

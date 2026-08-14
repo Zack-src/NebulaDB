@@ -1,7 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { getMetaMap, writeProjectToDoc, type Project } from "@athanordb/shared";
-import { validateProject, type ValidationIssue } from "@athanordb/dbml-engine";
 import { useProjectDoc } from "@/features/collaboration/useProjectDoc";
 import { useAwarenessStates } from "@/features/collaboration/useAwarenessStates";
 import { hashColor } from "@/features/collaboration/awarenessColor";
@@ -29,7 +28,6 @@ const DbmlPanel = lazy(() => import("@/features/editor/dbml/DbmlPanel"));
 const ImportDialog = lazy(() => import("@/features/editor/io/ImportDialog"));
 const ExportDialog = lazy(() => import("@/features/editor/io/ExportDialog"));
 const HistoryPanel = lazy(() => import("@/features/editor/history/HistoryPanel"));
-const ValidationPanel = lazy(() => import("@/features/editor/validation/ValidationPanel"));
 const PluginManagerDialog = lazy(() => import("@/features/plugins/PluginManagerDialog"));
 
 /** How long a plugin command's status line stays on the canvas. */
@@ -71,13 +69,12 @@ export function ProjectEditor(props: {
   const [showExport, setShowExport] = useState(false);
   const [dbmlOpen, setDbmlOpen] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
-  const [showValidation, setShowValidation] = useState(false);
   const [showPlugins, setShowPlugins] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [pluginMessage, setPluginMessage] = useState<string | null>(null);
 
   const canvasCommands = useCanvasCommands(project.id);
-  const { fontScale, adjustFontScale } = useCanvasFontScale();
+  const { fontScale } = useCanvasFontScale();
   const [highlightLinks, setHighlightLinks] = useState(loadHighlightLinks);
   const [hoveredTableId, setHoveredTableId] = useState<string | null>(null);
   const [dbmlScrollRequest, setDbmlScrollRequest] = useState<{ tableName: string; requestId: number } | null>(null);
@@ -141,12 +138,6 @@ export function ProjectEditor(props: {
       canvasExportRef.current?.capture(format) ?? Promise.reject(new Error(t("editor.canvasNotReady"))),
     [t],
   );
-
-  const validationIssues: ValidationIssue[] = useMemo(
-    () => (liveProject ? validateProject(liveProject) : []),
-    [liveProject],
-  );
-  const hasValidationErrors = validationIssues.some((i) => i.severity === "error");
 
   const cursorNodes = useCursorNodes(remoteAwareness);
 
@@ -237,11 +228,7 @@ export function ProjectEditor(props: {
         onShowImport={() => setShowImport(true)}
         onShowExport={() => setShowExport(true)}
         onShowHistory={() => setShowHistory(true)}
-        onShowPlugins={() => setShowPlugins(true)}
-        onShowValidation={() => setShowValidation(true)}
         onOpenSettings={() => setShowSettings(true)}
-        validationCount={validationIssues.length}
-        hasValidationErrors={hasValidationErrors}
         localUser={user}
         localColor={hashColor(user)}
         remoteAwareness={remoteAwareness}
@@ -297,7 +284,6 @@ export function ProjectEditor(props: {
             onSetTablesColor={setTablesColor}
             palette={palette}
             fontScale={fontScale}
-            onAdjustFontScale={adjustFontScale}
             activeDetailLevel={activeDetailLevel}
             onSetDetailLevel={setAllDetailLevels}
             highlightLinks={highlightLinks}
@@ -328,7 +314,6 @@ export function ProjectEditor(props: {
         {showHistory && liveProject && (
           <HistoryPanel projectId={project.id} currentProject={liveProject} onClose={() => setShowHistory(false)} />
         )}
-        {showValidation && <ValidationPanel issues={validationIssues} onClose={() => setShowValidation(false)} />}
         {showPlugins && <PluginManagerDialog onClose={() => setShowPlugins(false)} />}
       </Suspense>
     </div>
