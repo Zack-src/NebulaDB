@@ -9,6 +9,7 @@ import { pluginRegistry } from "@/features/plugins/registry";
 import { usePlugins } from "@/features/plugins/usePlugins";
 import { EXAMPLE_PLUGIN_NAME, EXAMPLE_PLUGIN_SOURCE } from "@/features/plugins/examples";
 import { INPUT_SM_CLASS, SELECT_CLASS } from "@/components/ui/inputStyles";
+import { triggerDownload } from "@/utils/download";
 import { useTranslation } from "@/i18n/useTranslation";
 import type { TranslationKeyOf } from "@/types";
 import type { Contribution, PluginRecord, PluginSettingDef } from "@/features/plugins/types";
@@ -91,12 +92,7 @@ function SettingsForm({ pluginId, settings }: { pluginId: string; settings: Plug
 
 function downloadSource(record: PluginRecord): void {
   const blob = new Blob([record.code ?? ""], { type: "text/javascript" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = `${record.manifest.id}.js`;
-  a.click();
-  URL.revokeObjectURL(url);
+  triggerDownload(URL.createObjectURL(blob), `${record.manifest.id}.js`, true);
 }
 
 function PluginRow({ record }: { record: PluginRecord }) {

@@ -6,6 +6,8 @@ const PANE_SELECTOR = ".react-flow__pane";
 const EXPORT_BACKGROUND = "#17181b";
 const EXPORT_FIT_PADDING = 0.15;
 const PNG_PIXEL_RATIO = 2;
+/** Cap on how long the export waits for `fitView` to settle before capturing anyway. */
+const FIT_TIMEOUT_MS = 1000;
 
 /**
  * Publishes an imperative capture handle for the export dialog.
@@ -30,7 +32,19 @@ export function useCanvasImageExport(exportRef: MutableRefObject<CanvasExportHan
         // React Flow's own (already correct) fit logic instead of hand-rolling
         // bounds/zoom math, and means the export isn't just whatever happens
         // to be on-screen from the user's last pan/zoom.
-        fitView({ padding: EXPORT_FIT_PADDING, duration: 0 });
+        //
+        // `fitView` became async in @xyflow/react 12 and its promise only
+        // settles once the nodes report measured dimensions — on an empty
+        // diagram it never settles at all, so it is raced against a timeout
+        // rather than awaited outright, which would hang the dialog forever.
+        // The two animation frames afterwards still matter: they let the
+        // viewport store update reach the DOM, including any node that was
+        // culled by `onlyRenderVisibleElements` before the fit and would
+        // otherwise be missing from the capture.
+        await Promise.race([
+          fitView({ padding: EXPORT_FIT_PADDING, duration: 0 }),
+          new Promise<boolean>((resolve) => window.setTimeout(() => resolve(false), FIT_TIMEOUT_MS)),
+        ]);
         await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         const width = pane.clientWidth;
         const height = pane.clientHeight;
@@ -47,7 +61,7 @@ export function useCanvasImageExport(exportRef: MutableRefObject<CanvasExportHan
           const dataUrl = format === "png" ? await toPng(pane, options) : await toSvg(pane, options);
           return { dataUrl, width, height };
         } finally {
-          setViewport(previousViewport, { duration: 0 });
+          void setViewport(previousViewport, { duration: 0 });
         }
       },
     };

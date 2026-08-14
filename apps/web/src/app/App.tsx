@@ -61,10 +61,7 @@ export function App() {
             project={routing.openProject}
             session={session}
             onDisplayNameChange={updateDisplayName}
-            onLogout={() => {
-              logout();
-              window.history.pushState(null, "", "/");
-            }}
+            onLogout={logout}
             onBack={routing.closeProject}
           />
         </ErrorBoundary>
@@ -91,10 +88,7 @@ export function App() {
         session={session}
         onBack={() => setViewMode("app")}
         onDisplayNameChange={updateDisplayName}
-        onLogout={() => {
-          logout();
-          window.history.pushState(null, "", "/");
-        }}
+        onLogout={logout}
       />
     );
   }
@@ -114,10 +108,7 @@ export function App() {
       onOpenProject={routing.openProjectAndNavigate}
       onOpenAdmin={() => setAdminOpen(true)}
       onOpenSettings={() => setViewMode("settings")}
-      onLogout={() => {
-        logout();
-        window.history.pushState(null, "", "/");
-      }}
+      onLogout={logout}
       onDisplayNameChange={updateDisplayName}
       onCreateProject={projectsHandle.createProject}
       onRenameProject={projectsHandle.renameProject}

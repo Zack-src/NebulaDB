@@ -8,6 +8,8 @@ import { SELECT_CLASS, TEXTAREA_CODE_CLASS } from "@/components/ui/inputStyles";
 import { useExporters } from "@/features/plugins/usePlugins";
 import type { ExportResult } from "@/features/plugins/types";
 import type { CanvasImageCapture, ImageFormat } from "@/types/index";
+import { copyText } from "@/utils/clipboard";
+import { triggerDownload } from "@/utils/download";
 import { useTranslation } from "@/i18n/useTranslation";
 
 /** JPEG has no alpha channel, so the background must be painted in explicitly before drawing the (possibly-transparent) source image on top. */
@@ -77,10 +79,15 @@ function ExportDialog(props: {
     if (!imageFormat && !exporter && exporters.length > 0) setSelection(`plugin:${exporters[0].key}`);
   }, [imageFormat, exporter, exporters]);
 
+  // A value-stable projection of the exporter list. The effect below has to
+  // re-run when an exporter genuinely appears or disappears — user plugins boot
+  // asynchronously, so the one the dialog opened on may not exist yet — but
+  // *not* when the registry hands out a new array holding the same exporters.
+  // Depending on the array itself made a failing exporter self-perpetuating:
+  // run → registry snapshot churns → new identity → run again.
+  const exporterKeys = useMemo(() => exporters.map((event) => event.key).join("|"), [exporters]);
+
   useEffect(() => {
-    // Looked up here rather than taken from the memo above so this effect
-    // depends on the *list*, which only changes when a plugin is installed,
-    // toggled or removed — not on a per-render object identity.
     const target = exporters.find((event) => `plugin:${event.key}` === selection);
     if (!target) return;
     let cancelled = false;
@@ -104,7 +111,10 @@ function ExportDialog(props: {
     return () => {
       cancelled = true;
     };
-  }, [exporters, selection, props.project, props.projectId, props.projectName]);
+    // `exporters` is read but intentionally not a dependency — `exporterKeys`
+    // is its stable projection (see above).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [exporterKeys, selection, props.project, props.projectId, props.projectName]);
 
   useEffect(() => {
     if (!imageFormat) return;
@@ -135,21 +145,19 @@ function ExportDialog(props: {
   const text = result?.text ?? "";
 
   const copy = () => {
-    navigator.clipboard.writeText(text);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 1200);
-  };
-
-  const downloadDataUrl = (dataUrl: string, filename: string) => {
-    const a = document.createElement("a");
-    a.href = dataUrl;
-    a.download = filename;
-    a.click();
+    void copyText(text).then((ok) => {
+      if (!ok) {
+        setError(t("export.copyFailed"));
+        return;
+      }
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1200);
+    });
   };
 
   const download = async () => {
     if (imageFormat === "png" || imageFormat === "svg") {
-      if (image) downloadDataUrl(image.dataUrl, `${props.projectName}.${imageFormat}`);
+      if (image) triggerDownload(image.dataUrl, `${props.projectName}.${imageFormat}`);
       return;
     }
     if (imageFormat === "pdf") {
@@ -170,9 +178,7 @@ function ExportDialog(props: {
     }
     const ext = result?.extension ?? exporter?.contribution.extension ?? "txt";
     const blob = new Blob([text], { type: "text/plain" });
-    const url = URL.createObjectURL(blob);
-    downloadDataUrl(url, `${props.projectName}.${ext}`);
-    URL.revokeObjectURL(url);
+    triggerDownload(URL.createObjectURL(blob), `${props.projectName}.${ext}`, true);
   };
 
   return (

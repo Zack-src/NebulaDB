@@ -52,7 +52,7 @@ export const DbmlEditor = forwardRef<DbmlEditorHandle, DbmlEditorProps>(function
   }, []);
 
   useEditorLifecycle(props, containerRef, viewRef, setCursor, openPalette, openRename);
-  const { wrap, setWrap, fontSize, increaseFont, decreaseFont, onWheelZoom } = useEditorPreferences(viewRef);
+  const { wrap, setWrap, fontSize, increaseFont, decreaseFont } = useEditorPreferences(viewRef, containerRef);
 
   const run = useCallback((fn: (view: EditorView) => unknown) => {
     const view = viewRef.current;
@@ -109,7 +109,7 @@ export const DbmlEditor = forwardRef<DbmlEditorHandle, DbmlEditorProps>(function
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
-      <div ref={containerRef} className="min-h-0 flex-1 overflow-hidden" onKeyDown={(event) => event.stopPropagation()} onWheel={onWheelZoom} />
+      <div ref={containerRef} className="min-h-0 flex-1 overflow-hidden" onKeyDown={(event) => event.stopPropagation()} />
 
       {rename && (
         <RenamePopover

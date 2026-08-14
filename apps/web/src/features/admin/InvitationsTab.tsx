@@ -7,6 +7,7 @@ import { List, ListMain, ListRow, EmptyState } from "@/components/ui/List";
 import { CHECKBOX_CLASS, INPUT_CLASS } from "@/components/ui/inputStyles";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { useAsyncResource } from "@/hooks/useAsyncResource";
+import { copyText } from "@/utils/clipboard";
 import { useTranslation } from "@/i18n/useTranslation";
 import { createInvitation, fetchInvitations, revokeInvitation } from "@/services/invitationsApi";
 import type { InvitationSummary, TranslationKeyOf } from "@/types";
@@ -44,7 +45,8 @@ export function InvitationsTab() {
   };
 
   const copyInviteLink = (invitation: InvitationSummary) => {
-    void navigator.clipboard.writeText(`${location.origin}/invite/${invitation.token}`).then(() => {
+    void copyText(`${location.origin}/invite/${invitation.token}`).then((ok) => {
+      if (!ok) return;
       setCopiedToken(invitation.token);
       // Only clears its own feedback: copying a second link before the first
       // timer fires must not blank the newer confirmation.

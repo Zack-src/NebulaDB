@@ -11,13 +11,19 @@ import { Button } from "@/components/ui/Button";
 import { ErrorText } from "@/components/ui/Alert";
 import { useTranslation } from "@/i18n/useTranslation";
 import { ApiError } from "@/services/ApiError";
+import type { TranslationKeyOf } from "@/types";
 import { exportDbml, importSource } from "@/services/projectsApi";
-
+import {
+  DBML_PANEL_WIDTH_DEFAULT,
+  DBML_PANEL_WIDTH_MAX,
+  DBML_PANEL_WIDTH_MIN,
+  loadDbmlPanelWidth,
+  saveDbmlPanelWidth,
+} from "@/utils/preferences";
 
 const DBML_SYNC_DEBOUNCE_MS = 600;
-const DEFAULT_PANEL_WIDTH = 440;
-const MIN_PANEL_WIDTH = 280;
-const STORAGE_KEY_WIDTH = "athanordb_dbml_panel_width";
+/** How long a plugin's status line stays up before it clears itself. */
+const PLUGIN_MESSAGE_MS = 4000;
 
 export interface DbmlErrorPos {
   line: number;
@@ -41,16 +47,18 @@ function DbmlPanel(props: {
   const [pluginMessage, setPluginMessage] = useState<string | null>(null);
   const [text, setText] = useState("");
   const [dirty, setDirty] = useState(false);
+  /**
+   * Two kinds of error live side by side here, and they are stored differently
+   * on purpose. `error` holds a message the *server* wrote (a DBML diagnostic
+   * naming the offending token) which is passed through verbatim. `errorKey`
+   * holds one of ours, kept as a key so it re-renders in the user's language
+   * when they switch locale rather than freezing in whichever was active when
+   * it was raised.
+   */
   const [error, setError] = useState<string | null>(null);
+  const [errorKey, setErrorKey] = useState<TranslationKeyOf | null>(null);
   const [problem, setProblem] = useState<ServerProblem | null>(null);
-  const [panelWidth, setPanelWidth] = useState<number>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY_WIDTH);
-    if (saved) {
-      const parsed = parseInt(saved, 10);
-      if (!isNaN(parsed) && parsed >= MIN_PANEL_WIDTH) return parsed;
-    }
-    return DEFAULT_PANEL_WIDTH;
-  });
+  const [panelWidth, setPanelWidth] = useState<number>(loadDbmlPanelWidth);
   const [isResizing, setIsResizing] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirtyRef = useRef(dirty);
@@ -67,8 +75,8 @@ function DbmlPanel(props: {
       const startWidth = panelWidth;
 
       const clamp = (deltaX: number) => {
-        const maxWidth = Math.min(1200, window.innerWidth - 100);
-        return Math.max(MIN_PANEL_WIDTH, Math.min(maxWidth, startWidth + deltaX));
+        const maxWidth = Math.min(DBML_PANEL_WIDTH_MAX, window.innerWidth - 100);
+        return Math.max(DBML_PANEL_WIDTH_MIN, Math.min(maxWidth, startWidth + deltaX));
       };
 
       const onMouseMove = (moveEvent: MouseEvent) => setPanelWidth(clamp(moveEvent.clientX - startX));
@@ -76,7 +84,7 @@ function DbmlPanel(props: {
         window.removeEventListener("mousemove", onMouseMove);
         window.removeEventListener("mouseup", onMouseUp);
         setIsResizing(false);
-        localStorage.setItem(STORAGE_KEY_WIDTH, String(clamp(upEvent.clientX - startX)));
+        saveDbmlPanelWidth(clamp(upEvent.clientX - startX));
       };
 
       window.addEventListener("mousemove", onMouseMove);
@@ -86,8 +94,8 @@ function DbmlPanel(props: {
   );
 
   const handleDoubleClickResizer = useCallback(() => {
-    setPanelWidth(DEFAULT_PANEL_WIDTH);
-    localStorage.setItem(STORAGE_KEY_WIDTH, String(DEFAULT_PANEL_WIDTH));
+    setPanelWidth(DBML_PANEL_WIDTH_DEFAULT);
+    saveDbmlPanelWidth(DBML_PANEL_WIDTH_DEFAULT);
   }, []);
 
   /** Signature of the buffer, and a one-slot cache for the generated one — the
@@ -111,10 +119,22 @@ function DbmlPanel(props: {
     textRef.current = text;
   }, [text]);
 
-  // Fetch initial DBML content
+  /**
+   * Fetch the initial DBML content.
+   *
+   * Keyed on the project alone. It used to list `t` as well — and `t` is a new
+   * closure every time the UI language changes — so switching language re-ran
+   * this and overwrote the buffer with the server's copy, throwing away
+   * whatever the user had typed and not yet applied. The failure is stored as a
+   * key rather than a rendered string for the same reason, and gains: the
+   * message now re-localizes with the rest of the UI instead of staying frozen
+   * in whichever language it was raised in.
+   */
   useEffect(() => {
+    let active = true;
     exportDbml(projectId)
       .then((dbml) => {
+        if (!active || dirtyRef.current) return;
         setText(dbml);
         lastAppliedTextRef.current = dbml;
       })
@@ -123,9 +143,12 @@ function DbmlPanel(props: {
         // all, nothing to fall back to visually) still gets a message —
         // everything else in this file is transient and just logged.
         console.error("[dbml] failed to load initial DBML:", err);
-        setError(t("dbml.loadFailed"));
+        if (active) setErrorKey("dbml.loadFailed");
       });
-  }, [projectId, t]);
+    return () => {
+      active = false;
+    };
+  }, [projectId]);
 
   // Sync live project changes (e.g. node/ref deletions or modifications) into DBML text.
   // `projectToDbml` re-serializes the whole schema in its own canonical layout, so
@@ -165,6 +188,7 @@ function DbmlPanel(props: {
         .then(() => {
           setDirty(false);
           setError(null);
+          setErrorKey(null);
           setProblem(null);
         })
         .catch((err: unknown) => {
@@ -183,6 +207,7 @@ function DbmlPanel(props: {
           // it isn't shown as an editor error; logged for debugging instead.
           console.error("[dbml] sync rejected:", err);
           setError(null);
+          setErrorKey(null);
           setProblem(null);
         });
     },
@@ -200,6 +225,7 @@ function DbmlPanel(props: {
       setText(value);
       setDirty(true);
       setError(null);
+      setErrorKey(null);
       setProblem(null);
       if (debounceRef.current) clearTimeout(debounceRef.current);
       debounceRef.current = setTimeout(() => applyNow(value), DBML_SYNC_DEBOUNCE_MS);
@@ -226,10 +252,25 @@ function DbmlPanel(props: {
     [editorCommands],
   );
 
-  const handlePluginMessage = useCallback((message: string, isError?: boolean) => {
-    setPluginMessage(`${isError ? "Plugin error: " : ""}${message}`);
-    setTimeout(() => setPluginMessage(null), 4000);
-  }, []);
+  // The timer is tracked so a second message replaces the first rather than
+  // being wiped by the first one's expiry — two commands can legitimately emit
+  // the same text, so comparing the message itself would not be enough.
+  const messageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const handlePluginMessage = useCallback(
+    (message: string, isError?: boolean) => {
+      if (messageTimerRef.current) clearTimeout(messageTimerRef.current);
+      setPluginMessage(isError ? t("plugins.errorPrefix", { message }) : message);
+      messageTimerRef.current = setTimeout(() => setPluginMessage(null), PLUGIN_MESSAGE_MS);
+    },
+    [t],
+  );
+
+  useEffect(
+    () => () => {
+      if (messageTimerRef.current) clearTimeout(messageTimerRef.current);
+    },
+    [],
+  );
 
   return (
     <div className="relative flex shrink-0 flex-col border-r border-border bg-surface nokey" style={{ width: panelWidth }}>
@@ -284,10 +325,14 @@ function DbmlPanel(props: {
           onPluginMessage={handlePluginMessage}
         />
       </div>
-      {error && (
+      {(error || errorKey) && (
         <div className="m-2">
           <ErrorText>
-            {problem ? `Line ${problem.line}${problem.column ? `, col ${problem.column}` : ""} — ${error}` : error}
+            {errorKey
+              ? t(errorKey)
+              : problem
+                ? `${t("dbml.problemAt", { line: problem.line, column: problem.column ?? "" })} — ${error}`
+                : error}
           </ErrorText>
         </div>
       )}

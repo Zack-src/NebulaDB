@@ -28,6 +28,9 @@ const LOADERS: Record<NonDefaultLocale, () => Promise<Record<string, string>>> =
   en: () => import("@/locales/en.json").then((module) => module.default as unknown as Record<string, string>),
 };
 
+/** One delayed retry after a failed dictionary fetch — long enough to outlast a blip, short enough that the user is probably still on the page. */
+const LOCALE_RETRY_MS = 3_000;
+
 /** Falls back to the browser's preference the first time, before any choice is stored. */
 function detectInitialLocale(): Locale {
   const stored = loadLocale();
@@ -54,11 +57,31 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (locale === DEFAULT_LOCALE) return;
     let active = true;
-    void LOADERS[locale]().then((entries) => {
-      // Guards against a fast locale switch resolving out of order and
-      // installing the dictionary the user already moved away from.
-      if (active) setLoaded({ locale, entries });
-    });
+    LOADERS[locale]()
+      .then((entries) => {
+        // Guards against a fast locale switch resolving out of order and
+        // installing the dictionary the user already moved away from.
+        if (active) setLoaded({ locale, entries });
+      })
+      .catch(() => {
+        // A dropped connection or a stale chunk hash after a deploy. Without
+        // this the rejection was unhandled, `loaded` stayed null, and the app
+        // silently sat in French forever with nothing retrying and nothing
+        // said. Retry once on the next interaction rather than discarding the
+        // user's choice: the stored preference is deliberate, and a reload is
+        // what fixes the stale-chunk case.
+        if (!active) return;
+        window.setTimeout(() => {
+          if (!active) return;
+          LOADERS[locale]()
+            .then((entries) => {
+              if (active) setLoaded({ locale, entries });
+            })
+            .catch(() => {
+              /* Still unreachable — French remains the fallback, which is legible. */
+            });
+        }, LOCALE_RETRY_MS);
+      });
     return () => {
       active = false;
     };

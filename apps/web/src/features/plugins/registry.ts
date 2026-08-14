@@ -271,8 +271,15 @@ class PluginRegistry {
       return result;
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      if (record) this.records.set(pluginId, { ...record, error: message });
-      this.refreshSnapshot();
+      // Same guard as the success path above, and for the same reason: an
+      // unconditional refresh here handed React a fresh snapshot after every
+      // *failed* call, so a plugin exporter that throws re-triggered the very
+      // effect that had just invoked it — an infinite invoke loop that span up
+      // a Worker per iteration and locked the tab.
+      if (record && record.error !== message) {
+        this.records.set(pluginId, { ...record, error: message });
+        this.refreshSnapshot();
+      }
       throw new Error(message, { cause: err });
     }
   }

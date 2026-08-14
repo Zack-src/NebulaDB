@@ -148,6 +148,8 @@
 
   "navbar.accountSettings": "Paramètres du compte",
 
+  "dbml.problemAt": "Ligne {{line}}, col {{column}}",
+  "plugins.errorPrefix": "Erreur de plugin : {{message}}",
   "dbml.loadFailed": "Impossible de charger le DBML. Réessayez ou rechargez la page.",
   "dbml.format": "Formater",
   "dbml.wrapOn": "retour à la ligne : oui",
@@ -184,6 +186,7 @@
   "dbml.formatDocument": "Formater le document (Maj+Alt+F)",
   "dbml.collapse": "Replier l'éditeur",
 
+  "export.copyFailed": "Impossible de copier dans le presse-papiers.",
   "export.title": "Exporter le schéma",
 
   "edge.deleteWaypoint": "Supprimer ce point",

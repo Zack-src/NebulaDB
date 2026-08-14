@@ -23,10 +23,27 @@ export function useAuthSession(onLogout: () => void): AuthSessionHandle {
       .catch(() => setSession(null));
   }, []);
 
+  /**
+   * Signing out clears the local session whatever the server says, and owns the
+   * navigation back to the root.
+   *
+   * Both halves were bugs. The request's rejection used to propagate to three
+   * call sites that invoked this as a floating promise, so a failed revoke left
+   * the user sitting in an authenticated view with no error and no way to tell.
+   * And each of those call sites did its own `pushState` *beside* the call, so
+   * the URL changed even when the session did not.
+   */
   const logout = async () => {
-    await authApi.logout();
-    setSession(null);
-    onLogout();
+    try {
+      await authApi.logout();
+    } catch {
+      // A server-side revoke that fails must not strand the user in a signed-in
+      // view. The cookie may survive until it expires; the UI must not.
+    } finally {
+      setSession(null);
+      onLogout();
+      window.history.pushState(null, "", "/");
+    }
   };
 
   const updateDisplayName = async (name: string) => {

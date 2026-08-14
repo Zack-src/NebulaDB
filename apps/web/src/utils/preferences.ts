@@ -13,7 +13,24 @@ const KEY = {
   highlightLinks: "athanordb.highlightLinks",
   showMinimap: "athanordb.showMinimap",
   locale: "athanordb.locale",
+  dbmlPanelWidth: "athanordb.dbmlPanelWidth",
 } as const;
+
+// Width of the DBML side panel. Lives here rather than in the panel so the
+// reader and the drag clamp cannot disagree about the bounds — and so the read
+// goes through the guarded storage wrapper: a direct `localStorage` call throws
+// outright in a browser with site data blocked, and this one ran during render.
+export const DBML_PANEL_WIDTH_MIN = 280;
+export const DBML_PANEL_WIDTH_MAX = 1200;
+export const DBML_PANEL_WIDTH_DEFAULT = 440;
+
+export function loadDbmlPanelWidth(): number {
+  return readNumberInRange(KEY.dbmlPanelWidth, DBML_PANEL_WIDTH_MIN, DBML_PANEL_WIDTH_MAX, DBML_PANEL_WIDTH_DEFAULT);
+}
+
+export function saveDbmlPanelWidth(width: number): void {
+  writeString(KEY.dbmlPanelWidth, String(width));
+}
 
 // Canvas text size (accessibility).
 export const FONT_SCALE_MIN = 0.85;
