@@ -301,6 +301,7 @@
   "table.index.uniqueShort": "Uniq",
   "table.index.delete": "Delete index",
 
+  "canvas.insertTool.tooltip": "Insert an element",
   "canvas.addTable": "Add table",
   "canvas.addZone": "Add zone",
   "canvas.addNote": "Add sticky note",

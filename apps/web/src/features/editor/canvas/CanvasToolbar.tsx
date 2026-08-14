@@ -1,6 +1,4 @@
-import type { JSX } from "react";
-import type { DetailLevel } from "@athanordb/shared";
-import { FrameIcon, LinkIcon, MinimapIcon, NoteIcon, RestoreIcon, SearchIcon, TableIcon, TagIcon } from "@/components/icons/Icons";
+import { LinkIcon, MinimapIcon, RestoreIcon, SearchIcon } from "@/components/icons/Icons";
 import {
   CANVAS_TOOLBAR_CLASS,
   CANVAS_TOOLBAR_DIVIDER_CLASS,
@@ -9,12 +7,12 @@ import {
 } from "@/components/ui/canvasToolbarStyles";
 import { useTranslation } from "@/i18n/useTranslation";
 import type { CanvasCommandContribution, ResolvedContribution } from "@/features/plugins/types";
-import type { TranslationKeyOf } from "@/types";
+import type { DetailLevel } from "@athanordb/shared";
 import { DetailLevelDropdown } from "./DetailLevelDropdown";
+import { InsertToolDropdown } from "./InsertToolDropdown";
 import { PluginMenu } from "./PluginMenu";
 import type { CanvasInsertTool } from "./types";
 
-const INSERT_ICON_SIZE = 17;
 const TOGGLE_ICON_SIZE = 16;
 
 /** The one canvas command the app itself ships — kept out of the plugin menu, see `PluginMenu`. */
@@ -54,13 +52,6 @@ export interface CanvasToolbarProps {
 export function CanvasToolbar(props: CanvasToolbarProps) {
   const { t } = useTranslation();
 
-  const insertButtons: { icon: JSX.Element; labelKey: TranslationKeyOf; tool: CanvasInsertTool }[] = [
-    { icon: <TableIcon size={INSERT_ICON_SIZE} />, labelKey: "canvas.addTable", tool: "table" },
-    { icon: <FrameIcon size={INSERT_ICON_SIZE} />, labelKey: "canvas.addZone", tool: "zone" },
-    { icon: <NoteIcon size={INSERT_ICON_SIZE} />, labelKey: "canvas.addNote", tool: "note" },
-    { icon: <TagIcon size={INSERT_ICON_SIZE} />, labelKey: "canvas.addEnum", tool: "enum" },
-  ];
-
   // The reset-link-routing command ships with the app (see builtins.ts) —
   // it used to only be reachable through the plugin dropdown, which read as
   // "this is some third-party plugin's action" for a core editing command.
@@ -75,20 +66,7 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
     <div className={CANVAS_TOOLBAR_CLASS}>
       {props.canWrite && (
         <>
-          {insertButtons.map(({ icon, labelKey, tool }) => (
-            <button
-              key={labelKey}
-              type="button"
-              className={`${CANVAS_TOOLBAR_ICON_BTN_CLASS} ${props.activeTool === tool ? CANVAS_TOOLBAR_TOGGLE_ACTIVE_CLASS : ""}`}
-              onClick={() => props.onSelectTool(tool)}
-              aria-pressed={props.activeTool === tool}
-              data-tooltip={t(labelKey)}
-              data-tooltip-pos="bottom"
-              aria-label={t(labelKey)}
-            >
-              {icon}
-            </button>
-          ))}
+          <InsertToolDropdown activeTool={props.activeTool} onSelectTool={props.onSelectTool} />
           <span className={CANVAS_TOOLBAR_DIVIDER_CLASS} />
         </>
       )}
