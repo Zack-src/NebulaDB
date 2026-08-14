@@ -13,6 +13,7 @@ import {
   Background,
   MiniMap,
   Panel,
+  BackgroundVariant,
   PanOnScrollMode,
   SelectionMode,
   type Connection,
@@ -30,7 +31,7 @@ import { CursorNode, type CursorNodeType } from "@/features/collaboration/Cursor
 import { getSelectedWaypoint } from "@/features/editor/edges/waypointSelection";
 import { isTypingTarget } from "@/utils/dom";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
-import { loadShowMinimap, loadViewport, saveShowMinimap, saveViewport } from "@/utils/preferences";
+import { loadGridStyle, loadShowMinimap, loadSnapToGrid, loadViewport, saveShowMinimap, saveViewport } from "@/utils/preferences";
 import type { CanvasCommandContribution, ResolvedContribution } from "@/features/plugins/types";
 import type { AllNodes, CanvasExportHandle, CanvasNode } from "@/types";
 import { CanvasContextMenu, type CanvasContextMenuState } from "./CanvasContextMenu";
@@ -112,6 +113,12 @@ export function CanvasArea(props: CanvasAreaProps) {
   // whether the very first render asks React Flow to `fitView` or restores
   // exactly where this user left the canvas last time.
   const [initialViewport] = useState(() => loadViewport(props.projectId, props.viewportUserId));
+  // Read once per mount, matching how the settings panel presents them: these
+  // are "how the canvas behaves" preferences, not live controls. Before this
+  // they were read by nothing at all — the settings switches wrote to state
+  // that no component consumed.
+  const [gridStyle] = useState(loadGridStyle);
+  const [snapToGrid] = useState(loadSnapToGrid);
 
   const { onNodesChange, onTableHoverChange, awareness, exportRef } = props;
 
@@ -281,7 +288,7 @@ export function CanvasArea(props: CanvasAreaProps) {
         deleteKeyCode={null}
         nodesDraggable={props.canWrite}
         nodesConnectable={props.canWrite}
-        snapToGrid
+        snapToGrid={snapToGrid}
         snapGrid={[GRID_SIZE, GRID_SIZE]}
         fitView={!initialViewport}
         defaultViewport={initialViewport ?? undefined}
@@ -302,7 +309,7 @@ export function CanvasArea(props: CanvasAreaProps) {
         // geometry, not the DOM.
         onlyRenderVisibleElements
       >
-        <Background color="#33353c" gap={20} />
+        <Background color="#33353c" gap={20} variant={gridStyle as BackgroundVariant} />
         {/* Viewport control lives in its own corner pill: it is used at
             different moments from the editing tools, and pinning it left means
             it doesn't shift as the toolbar beside it grows. */}

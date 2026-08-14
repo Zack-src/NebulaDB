@@ -397,9 +397,6 @@
 
   "settings.editor.title": "Préférences de l'éditeur DBML",
   "settings.editor.subtitle": "Ajustez le comportement du canvas et de la réorganisation visuelle.",
-  "settings.editor.autoLayoutAlgorithm": "Algorithme de disposition automatique",
-  "settings.editor.algorithm.dagre": "Dagre (hiérarchique)",
-  "settings.editor.algorithm.force": "Forces dirigées",
   "settings.editor.gridSnapping": "Aimantage des tables sur la grille",
   "settings.editor.gridSnappingHint": "Aligne automatiquement les tables sur la grille lors des déplacements.",
   "settings.editor.foreignKeyHighlight": "Surlignage des clés étrangères",

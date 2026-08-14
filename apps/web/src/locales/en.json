@@ -397,9 +397,6 @@
 
   "settings.editor.title": "DBML editor preferences",
   "settings.editor.subtitle": "Tune how the canvas behaves and how it rearranges itself.",
-  "settings.editor.autoLayoutAlgorithm": "Auto-layout algorithm",
-  "settings.editor.algorithm.dagre": "Dagre (hierarchical)",
-  "settings.editor.algorithm.force": "Force-directed",
   "settings.editor.gridSnapping": "Snap tables to the grid",
   "settings.editor.gridSnappingHint": "Aligns tables to the grid automatically as you move them.",
   "settings.editor.foreignKeyHighlight": "Foreign-key highlighting",

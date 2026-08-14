@@ -14,7 +14,30 @@ const KEY = {
   showMinimap: "athanordb.showMinimap",
   locale: "athanordb.locale",
   dbmlPanelWidth: "athanordb.dbmlPanelWidth",
+  gridStyle: "athanordb.gridStyle",
+  snapToGrid: "athanordb.snapToGrid",
 } as const;
+
+/** The three backgrounds React Flow can draw. */
+export type GridStyle = "dots" | "lines" | "cross";
+const GRID_STYLES: GridStyle[] = ["dots", "lines", "cross"];
+
+export function loadGridStyle(): GridStyle {
+  const stored = readString(KEY.gridStyle);
+  return GRID_STYLES.includes(stored as GridStyle) ? (stored as GridStyle) : "dots";
+}
+
+export function saveGridStyle(style: GridStyle): void {
+  writeString(KEY.gridStyle, style);
+}
+
+export function loadSnapToGrid(): boolean {
+  return readBoolean(KEY.snapToGrid, true);
+}
+
+export function saveSnapToGrid(enabled: boolean): void {
+  writeBoolean(KEY.snapToGrid, enabled);
+}
 
 // Width of the DBML side panel. Lives here rather than in the panel so the
 // reader and the drag clamp cannot disagree about the bounds — and so the read

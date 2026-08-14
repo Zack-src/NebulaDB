@@ -3,6 +3,7 @@ import { Field } from "@/components/ui/Field";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
 import { Tabs } from "@/components/ui/Tabs";
+import { CHECKBOX_CLASS } from "@/components/ui/inputStyles";
 import { KeyIcon, CheckIcon, SparklesIcon } from "@/components/icons/Icons";
 import { SUPPORTED_LOCALES } from "@/i18n/translate";
 import { useTranslation } from "@/i18n/useTranslation";
@@ -19,6 +20,29 @@ const THEME_PRESETS = [
 ] as const satisfies readonly { id: string; nameKey: TranslationKeyOf; swatch: string; available: boolean }[];
 
 const LOCALE_LABEL_KEY = { fr: "language.fr", en: "language.en" } as const satisfies Record<string, TranslationKeyOf>;
+
+/**
+ * A labelled on/off row. Built as a real `<label>` wrapping the checkbox so the
+ * text names the control for assistive tech and clicking anywhere in the row
+ * toggles it — the hand-rolled rows this replaces were bare `<input>`s beside
+ * unassociated `<div>`s, with no accessible name at all.
+ */
+function SettingSwitch(props: { label: string; hint: string; checked: boolean; onChange: (next: boolean) => void }) {
+  return (
+    <label className="flex cursor-pointer items-center justify-between gap-4 rounded-lg border border-border bg-surface-raised p-3.5 transition-colors hover:border-border-strong">
+      <span className="min-w-0">
+        <span className="block text-xs font-bold text-text">{props.label}</span>
+        <span className="block text-[11px] leading-normal text-text-muted">{props.hint}</span>
+      </span>
+      <input
+        type="checkbox"
+        className={`${CHECKBOX_CLASS} h-4 w-4`}
+        checked={props.checked}
+        onChange={(event) => props.onChange(event.target.checked)}
+      />
+    </label>
+  );
+}
 
 const PRODUCT_VERSION = "v0.0.1-open-core";
 /** Licence identifier, not prose — never translated. */
@@ -159,35 +183,22 @@ export function SettingsTabContent({ tab, session, state }: SettingsTabContentPr
           <p className="text-xs text-text-muted">{t("settings.editor.subtitle")}</p>
         </div>
 
+        {/* The auto-layout "algorithm" choice that used to sit here offered
+            dagre and force; only dagre exists (`canvas/autoLayout.ts` has no
+            algorithm parameter at all), so the control could only ever mislead. */}
         <div className="space-y-3">
-          <label className="text-xs font-semibold text-text">{t("settings.editor.autoLayoutAlgorithm")}</label>
-          <Tabs
-            variant="boxed"
-            tabs={[
-              { id: "dagre", label: t("settings.editor.algorithm.dagre") },
-              { id: "force", label: t("settings.editor.algorithm.force") },
-            ]}
-            activeTab={state.autoLayoutAlgo}
-            onChange={state.setAutoLayoutAlgo}
+          <SettingSwitch
+            label={t("settings.editor.gridSnapping")}
+            hint={t("settings.editor.gridSnappingHint")}
+            checked={state.snapToGrid}
+            onChange={state.setSnapToGrid}
           />
-        </div>
-
-        <div className="space-y-3 pt-6 border-t border-border/60">
-          <div className="flex items-center justify-between p-3.5 rounded-xl bg-surface-raised border border-border/60">
-            <div>
-              <div className="font-bold text-xs text-text">{t("settings.editor.gridSnapping")}</div>
-              <div className="text-[11px] text-text-muted">{t("settings.editor.gridSnappingHint")}</div>
-            </div>
-            <input type="checkbox" defaultChecked className="w-4 h-4 accent-primary cursor-pointer" />
-          </div>
-
-          <div className="flex items-center justify-between p-3.5 rounded-xl bg-surface-raised border border-border/60">
-            <div>
-              <div className="font-bold text-xs text-text">{t("settings.editor.foreignKeyHighlight")}</div>
-              <div className="text-[11px] text-text-muted">{t("settings.editor.foreignKeyHighlightHint")}</div>
-            </div>
-            <input type="checkbox" defaultChecked className="w-4 h-4 accent-primary cursor-pointer" />
-          </div>
+          <SettingSwitch
+            label={t("settings.editor.foreignKeyHighlight")}
+            hint={t("settings.editor.foreignKeyHighlightHint")}
+            checked={state.highlightLinks}
+            onChange={state.setHighlightLinks}
+          />
         </div>
       </div>
     );

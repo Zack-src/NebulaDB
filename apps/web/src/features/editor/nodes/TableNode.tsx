@@ -1,5 +1,5 @@
-import { memo, useMemo, useState } from "react";
-import { Handle, Position, useEdges, type Node, type NodeProps } from "@xyflow/react";
+import { memo, useCallback, useMemo, useState } from "react";
+import { Handle, Position, useStore, type Node, type NodeProps, type ReactFlowState } from "@xyflow/react";
 import { MAX_NAME_LENGTH, type Field, type Table, type TableIndex } from "@athanordb/shared";
 import { CommentThread } from "@/features/editor/comments/CommentThread";
 import { CodeIcon, PlusIcon } from "@/components/icons/Icons";
@@ -45,6 +45,10 @@ export interface TableNodeData {
 
 export type TableNodeType = Node<TableNodeData, "table">;
 
+/** `fieldId-left-source` -> `fieldId`. Hoisted so the pattern is compiled once rather than per edge per node. */
+const HANDLE_SUFFIX = /-(left|right)-(source|target)$/;
+const stripHandleSuffix = (handle: string) => handle.replace(HANDLE_SUFFIX, "");
+
 function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
   const { t } = useTranslation();
   const { table, refFieldIds } = data;
@@ -53,21 +57,33 @@ function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
   const tableComments = table.comments?.filter((c) => !c.fieldId) ?? [];
 
-  const edges = useEdges();
-  const selectedEdgeFieldIds = useMemo(() => {
-    const set = new Set<string>();
-    for (const edge of edges) {
-      if ((edge.selected || edge.data?.connectedHighlight) && (edge.source === table.id || edge.target === table.id)) {
-        if (edge.source === table.id && edge.sourceHandle) {
-          set.add(edge.sourceHandle.replace(/-(left|right)-(source|target)$/, ""));
+  /**
+   * Which of this table's columns sit on a highlighted relation.
+   *
+   * Selected through the store into a *string*, not through `useEdges()`.
+   * Subscribing to the whole edge array re-rendered every table node on every
+   * edge change — including each frame of a drag — while the answer for this
+   * table almost never differs. A joined primitive compares with `===`, so a
+   * node only re-renders when its own set of linked columns actually changes.
+   */
+  const linkedFieldKey = useStore(
+    useCallback(
+      (state: ReactFlowState) => {
+        const ids: string[] = [];
+        for (const edge of state.edges) {
+          if (!edge.selected && !edge.data?.connectedHighlight) continue;
+          if (edge.source === table.id && edge.sourceHandle) ids.push(stripHandleSuffix(edge.sourceHandle));
+          if (edge.target === table.id && edge.targetHandle) ids.push(stripHandleSuffix(edge.targetHandle));
         }
-        if (edge.target === table.id && edge.targetHandle) {
-          set.add(edge.targetHandle.replace(/-(left|right)-(source|target)$/, ""));
-        }
-      }
-    }
-    return set;
-  }, [edges, table.id]);
+        return ids.sort().join("|");
+      },
+      [table.id],
+    ),
+  );
+  const selectedEdgeFieldIds = useMemo(
+    () => new Set(linkedFieldKey ? linkedFieldKey.split("|") : []),
+    [linkedFieldKey],
+  );
 
   // A 2+ column primary key is a composite index, not a per-field `pk` flag
   // (DBML/SQL have no other way to express it) — merge both so composite-key
