@@ -12,9 +12,10 @@
     "test": "node --test dist/**/*.test.js"
   },
   "dependencies": {
-    "yjs": "^13.6.19"
+    "yjs": "^13.6.32"
   },
   "devDependencies": {
-    "typescript": "^5.6.0"
+    "@types/node": "^26.2.0",
+    "typescript": "^7.0.2"
   }
 }

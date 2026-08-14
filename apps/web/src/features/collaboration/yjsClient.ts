@@ -84,7 +84,7 @@ export function connectProject(
     onStatus?.(next);
   };
 
-  const send = (bytes: Uint8Array) => {
+  const send = (bytes: Uint8Array<ArrayBuffer>) => {
     if (socket && socket.readyState === WebSocket.OPEN) socket.send(bytes);
   };
 

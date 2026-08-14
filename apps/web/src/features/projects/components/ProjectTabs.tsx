@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import { ArchiveIcon, FolderIcon, TrashIcon } from "@/components/icons/Icons";
 import type { IconProps } from "@/components/icons/Icons";
 import { useTranslation } from "@/i18n/useTranslation";

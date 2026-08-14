@@ -25,16 +25,21 @@
     "format:check": "prettier --check ."
   },
   "engines": {
-    "node": ">=20 <24"
+    "node": ">=22 <26"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "concurrently": "^10.0.4",
-    "eslint": "^10.8.0",
+    "eslint": "^10.8.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "globals": "^17.8.0",
+    "globals": "^17.11.0",
     "prettier": "^3.9.6",
-    "typescript-eslint": "^8.65.0"
+    "typescript-eslint": "^8.67.0"
+  },
+  "allowScripts": {
+    "better-sqlite3@13.0.3": true,
+    "core-js@3.50.0": true,
+    "esbuild@0.28.2": true
   }
 }

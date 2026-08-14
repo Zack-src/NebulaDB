@@ -6,7 +6,9 @@ export default {
     // `bg-surface/90` beat `.glass-panel`'s own background. Inlining the
     // imports in place keeps the authored cascade order.
     "postcss-import": {},
-    tailwindcss: {},
-    autoprefixer: {},
+    // Tailwind v4: the PostCSS plugin now lives in its own package, and it
+    // handles vendor prefixing itself (via Lightning CSS) — autoprefixer is
+    // no longer needed.
+    "@tailwindcss/postcss": {},
   },
 };

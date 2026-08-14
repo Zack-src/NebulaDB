@@ -1,3 +1,4 @@
+import type { JSX } from "react";
 import type { DetailLevel } from "@athanordb/shared";
 import { FrameIcon, LinkIcon, MinimapIcon, NoteIcon, SearchIcon, TableIcon, TagIcon } from "@/components/icons/Icons";
 import {

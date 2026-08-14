@@ -2,8 +2,19 @@
    a chosen position. `@import` is only legal before other rules, so the
    directives cannot simply sit mid-file in the entry point — but the layers
    that follow them (utilities.css, canvas.css) must still come after the
-   generated utilities to win the cascade. */
+   generated utilities to win the cascade.
 
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+   Tailwind v4: `@tailwind base/components/utilities` is gone in favour of
+   `@import "tailwindcss"`, but that bundle includes preflight (Tailwind's
+   reset) — deliberately skipped here (see tailwind.config.js) because the
+   app already has its own reset (index.css) tuned for the canvas/React-Flow
+   internals. Importing theme + utilities individually, without preflight,
+   keeps that behaviour under v4. */
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* Theme tokens: still authored as a JS config (colors/radius/shadow/font
+   bridge to the CSS custom properties in tokens.css) rather than ported to
+   an inline `@theme` block. */
+@config "../../tailwind.config.js";
