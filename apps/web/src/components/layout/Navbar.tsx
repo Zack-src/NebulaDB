@@ -1,5 +1,6 @@
 import { BrandMark } from "@/components/ui/BrandMark";
 import { Button } from "@/components/ui/Button";
+import { APP_HEADER } from "@/components/ui/layout";
 import { ChevronLeftIcon, SettingsIcon, UsersIcon, LogOutIcon } from "@/components/icons/Icons";
 import { useTranslation } from "@/i18n/useTranslation";
 import type { Session } from "@/types";
@@ -26,7 +27,7 @@ export function Navbar({ session, onOpenSettings, onOpenAdmin, onLogout, title =
   const { t } = useTranslation();
 
   return (
-    <header className="z-30 flex h-14 shrink-0 select-none items-center justify-between gap-4 border-b border-border bg-surface/90 px-4 glass-panel sm:px-6">
+    <header className={`${APP_HEADER} justify-between gap-4`}>
       <div className="flex min-w-0 items-center gap-3">
         {onBack ? (
           <Button variant="ghost" size="sm" onClick={onBack}>

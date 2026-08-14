@@ -23,7 +23,11 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
     setChanged(true);
   });
 
-  const handleSubmit = () => {
+  // A real <form> submit handler, so Enter in any of the three fields submits
+  // — the browser default every password dialog is expected to honour, and
+  // which a bare onClick on the button does not provide.
+  const handleSubmit = (event: React.FormEvent) => {
+    event.preventDefault();
     if (newPassword.length < MIN_PASSWORD_LENGTH) {
       setValidationError(t("changePassword.tooShort", { min: MIN_PASSWORD_LENGTH }));
       return;
@@ -41,7 +45,7 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
       {changed ? (
         <Hint>{t("changePassword.success")}</Hint>
       ) : (
-        <>
+        <form onSubmit={handleSubmit} noValidate>
           <Field
             label={t("changePassword.currentLabel")}
             type="password"
@@ -66,7 +70,7 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
           />
           <Button
             variant="primary"
-            onClick={handleSubmit}
+            type="submit"
             disabled={changePassword.pending || !currentPassword || !newPassword || !confirmation}
           >
             {changePassword.pending ? t("changePassword.submitting") : t("changePassword.title")}
@@ -74,7 +78,7 @@ function ChangePasswordModal({ onClose }: { onClose: () => void }) {
           {(validationError ?? changePassword.error) && (
             <ErrorText>{validationError ?? changePassword.error}</ErrorText>
           )}
-        </>
+        </form>
       )}
     </Modal>
   );

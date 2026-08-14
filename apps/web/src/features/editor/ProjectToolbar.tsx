@@ -1,6 +1,7 @@
 import { PresenceList } from "@/features/collaboration/PresenceList";
 import type { AwarenessState, ConnectionStatus } from "@/features/collaboration/yjsClient";
 import { Button } from "@/components/ui/Button";
+import { APP_HEADER } from "@/components/ui/layout";
 import { BrandMark } from "@/components/ui/BrandMark";
 import { Badge } from "@/components/ui/Badge";
 import {
@@ -112,7 +113,7 @@ export function ProjectToolbar(props: ProjectToolbarProps) {
       ] as const);
 
   return (
-    <header className="z-30 flex h-14 shrink-0 select-none items-center justify-between gap-3 border-b border-border bg-surface/90 px-3 glass-panel">
+    <header className={`${APP_HEADER} justify-between gap-3 !px-3`}>
       <div className="flex min-w-0 items-center gap-1">
         <Button
           variant="ghost"

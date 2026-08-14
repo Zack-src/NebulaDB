@@ -2,6 +2,7 @@ import { Button } from "@/components/ui/Button";
 import { Field } from "@/components/ui/Field";
 import { Badge } from "@/components/ui/Badge";
 import { Card } from "@/components/ui/Card";
+import { ErrorText } from "@/components/ui/Alert";
 import { Tabs } from "@/components/ui/Tabs";
 import { CHECKBOX_CLASS } from "@/components/ui/inputStyles";
 import { KeyIcon, CheckIcon, SparklesIcon } from "@/components/icons/Icons";
@@ -88,11 +89,12 @@ export function SettingsTabContent({ tab, session, state }: SettingsTabContentPr
               {state.savingName ? t("common.saving") : t("settings.profile.save")}
             </Button>
             {state.nameSavedSuccess && (
-              <span className="text-xs text-success font-semibold flex items-center gap-1">
+              <span className="flex items-center gap-1 text-xs font-semibold text-success">
                 <CheckIcon size={14} /> {t("common.updated")}
               </span>
             )}
           </div>
+          {state.nameSaveError && <ErrorText>{state.nameSaveError}</ErrorText>}
         </form>
 
         <div className="pt-6 border-t border-border/60">

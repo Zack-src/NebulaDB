@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useAsyncAction } from "@/hooks/useAsyncAction";
 import type { Session } from "@/types/index";
 import {
   loadGridStyle,
@@ -10,6 +11,9 @@ import {
   type GridStyle,
 } from "@/utils/preferences";
 
+/** How long the "Updated!" confirmation stays up. */
+const NAME_SAVED_FEEDBACK_MS = 3000;
+
 export type SettingsTab = "profile" | "appearance" | "editor" | "team" | "billing" | "about";
 export type ThemePreset = "obsidian" | "midnight" | "emerald" | "light";
 export type { GridStyle };
@@ -19,10 +23,9 @@ export type { GridStyle };
  * (`SettingsModal`) settings surfaces — same six tabs, same local
  * preferences, two different shells around them.
  */
-export function useSettingsPanelState(session: Session, onDisplayNameChange: (name: string) => void) {
+export function useSettingsPanelState(session: Session, onDisplayNameChange: (name: string) => Promise<void>) {
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const [displayName, setDisplayName] = useState(session.displayName);
-  const [savingName, setSavingName] = useState(false);
   const [nameSavedSuccess, setNameSavedSuccess] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
 
@@ -51,19 +54,21 @@ export function useSettingsPanelState(session: Session, onDisplayNameChange: (na
     setHighlightLinksState(enabled);
   };
 
+  // Through `useAsyncAction`, like every other mutation in the app. The
+  // hand-rolled version swallowed the failure in a `console.error`, so a
+  // rejected rename looked exactly like nothing having happened.
+  const saveName = useAsyncAction(async (name: string) => {
+    await onDisplayNameChange(name);
+  });
+
   const handleSaveDisplayName = async (event: React.FormEvent) => {
     event.preventDefault();
-    if (!displayName.trim() || displayName === session.displayName) return;
-    setSavingName(true);
+    const name = displayName.trim();
+    if (!name || name === session.displayName) return;
     setNameSavedSuccess(false);
-    try {
-      await onDisplayNameChange(displayName.trim());
+    if (await saveName.run(name)) {
       setNameSavedSuccess(true);
-      setTimeout(() => setNameSavedSuccess(false), 3000);
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setSavingName(false);
+      window.setTimeout(() => setNameSavedSuccess(false), NAME_SAVED_FEEDBACK_MS);
     }
   };
 
@@ -72,7 +77,8 @@ export function useSettingsPanelState(session: Session, onDisplayNameChange: (na
     setActiveTab,
     displayName,
     setDisplayName,
-    savingName,
+    savingName: saveName.pending,
+    nameSaveError: saveName.error,
     nameSavedSuccess,
     showChangePassword,
     setShowChangePassword,

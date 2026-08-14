@@ -15,7 +15,7 @@ export interface ProjectListScreenProps {
   onOpenAdmin: () => void;
   onOpenSettings?: () => void;
   onLogout: () => void;
-  onDisplayNameChange: (name: string) => void;
+  onDisplayNameChange: (name: string) => Promise<void>;
   onCreateProject: (name: string) => Promise<CreateProjectResult>;
   onRenameProject: (p: ProjectSummary, name: string) => Promise<void>;
   onSetProjectStatus: (p: ProjectSummary, status: ProjectStatus) => Promise<void>;

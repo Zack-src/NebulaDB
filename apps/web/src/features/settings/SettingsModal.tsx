@@ -11,7 +11,7 @@ import type { Session } from "@/types";
 export interface SettingsModalProps {
   session: Session;
   onClose: () => void;
-  onDisplayNameChange: (name: string) => void;
+  onDisplayNameChange: (name: string) => Promise<void>;
   onLogout?: () => void;
 }
 

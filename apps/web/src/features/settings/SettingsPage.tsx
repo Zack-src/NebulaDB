@@ -7,11 +7,12 @@ import { useSettingsPanelState } from "@/features/settings/useSettingsPanelState
 import { SettingsTabContent } from "@/features/settings/SettingsTabContent";
 import { useTranslation } from "@/i18n/useTranslation";
 import type { Session } from "@/types";
+import { APP_HEADER } from "@/components/ui/layout";
 
 export interface SettingsPageProps {
   session: Session;
   onBack: () => void;
-  onDisplayNameChange: (name: string) => void;
+  onDisplayNameChange: (name: string) => Promise<void>;
   onLogout?: () => void;
 }
 
@@ -21,7 +22,7 @@ export function SettingsPage({ session, onBack, onDisplayNameChange, onLogout }:
 
   return (
     <div className="min-h-screen bg-bg text-text flex flex-col font-sans select-none">
-      <header className="h-14 shrink-0 px-6 border-b border-border/80 bg-surface/90 glass-panel flex items-center justify-between z-30">
+      <header className={`${APP_HEADER} justify-between`}>
         <div className="flex items-center gap-3">
           <Button variant="ghost" size="sm" onClick={onBack} className="text-xs">
             <ChevronLeftIcon size={16} /> {t("common.back")}

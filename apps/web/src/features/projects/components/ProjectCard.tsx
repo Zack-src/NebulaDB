@@ -102,13 +102,19 @@ export function ProjectCard({
   return (
     <div
       className={`group block w-full overflow-hidden rounded-xl border border-border bg-surface text-left shadow-xs transition-[box-shadow,transform,border-color] duration-150 ${
-        openable ? "cursor-pointer hover:-translate-y-1 hover:border-primary/40 hover:shadow-lg" : "cursor-default"
+        openable ? "cursor-pointer hover:-translate-y-0.5 hover:border-border-strong hover:shadow-md" : "cursor-default"
       }`}
       role={openable ? "button" : undefined}
       tabIndex={openable ? 0 : undefined}
       onClick={() => openable && !isRenaming && onOpen()}
       onKeyDown={(event) => {
         if (!openable || isRenaming) return;
+        // The card holds buttons and a rename field inside it. Without this
+        // guard, Enter or Space on any of them bubbled up here and opened the
+        // project as well — so archiving a project from the keyboard also
+        // navigated into it. The check has to come before `preventDefault`,
+        // or Space on a nested button gets swallowed instead.
+        if (event.target !== event.currentTarget) return;
         if (event.key === "Enter" || event.key === " ") {
           event.preventDefault();
           onOpen();

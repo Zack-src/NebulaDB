@@ -38,7 +38,7 @@ import type { Session } from "@/types/index";
 export function ProjectEditor(props: {
   project: ProjectSummary;
   session: Session;
-  onDisplayNameChange: (name: string) => void;
+  onDisplayNameChange: (name: string) => Promise<void>;
   onLogout: () => void;
   onBack: () => void;
 }) {
