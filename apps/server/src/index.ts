@@ -15,6 +15,7 @@ import { purgeStaleAttempts } from "./modules/auth/lockout.js";
 import { registerAuthRoutes } from "./modules/auth/routes.js";
 import { purgeExpiredSessions, resolveSession } from "./modules/auth/session.js";
 import { registerConvertRoutes } from "./modules/convert/routes.js";
+import { registerConnectionRoutes } from "./modules/connections/routes.js";
 import { registerInvitationRoutes } from "./modules/invitations/routes.js";
 import { registerProjectRoutes } from "./modules/projects/index.js";
 import { getProjectRow } from "./modules/projects/repository.js";
@@ -129,6 +130,7 @@ registerUserRoutes(app);
 registerTeamRoutes(app);
 registerProjectRoutes(app);
 registerConvertRoutes(app);
+registerConnectionRoutes(app);
 registerAuditRoutes(app);
 
 // Single-process production deployment: serve the built web app once it

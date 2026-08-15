@@ -23,10 +23,11 @@ const ACTION_FILTERS: { value: string; labelKey: TranslationKeyOf }[] = [
   { value: "user.delete", labelKey: "admin.audit.filter.userDeleted" },
   { value: "user.password.reset", labelKey: "admin.audit.filter.passwordReset" },
   { value: "auth.login.locked", labelKey: "admin.audit.filter.loginLocked" },
+  { value: "connection.deploy", labelKey: "admin.audit.filter.connectionDeploy" },
 ];
 
 /** Actions worth spotting at a glance in a long list. */
-const SEVERE_ACTIONS = new Set(["project.delete", "user.delete", "user.disable", "auth.login.locked"]);
+const SEVERE_ACTIONS = new Set(["project.delete", "user.delete", "user.disable", "auth.login.locked", "connection.deploy"]);
 
 const EMPTY_CELL = "—";
 

@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
-import { getMetaMap, writeProjectToDoc, type Project } from "@athanordb/shared";
+import { getMetaMap, writeProjectToDoc, type DatabaseConnectionSummary, type Project } from "@athanordb/shared";
+import { listProjectConnections } from "@/services/connectionsApi";
 import { useProjectDoc } from "@/features/collaboration/useProjectDoc";
 import { useAwarenessStates } from "@/features/collaboration/useAwarenessStates";
 import { useRemoteSelections } from "@/features/collaboration/useRemoteSelections";
@@ -26,6 +27,12 @@ const ImportDialog = lazy(() => import("@/features/editor/io/ImportDialog"));
 const ExportDialog = lazy(() => import("@/features/editor/io/ExportDialog"));
 const HistoryPanel = lazy(() => import("@/features/editor/history/HistoryPanel"));
 const PluginManagerDialog = lazy(() => import("@/features/plugins/PluginManagerDialog"));
+const ConnectionManagerModal = lazy(() =>
+  import("@/features/connections/ConnectionManagerModal").then((m) => ({ default: m.ConnectionManagerModal })),
+);
+const DeploymentModal = lazy(() =>
+  import("@/features/connections/DeploymentModal").then((m) => ({ default: m.DeploymentModal })),
+);
 
 /** How long a plugin command's status line stays on the canvas. */
 const PLUGIN_MESSAGE_MS = 4000;
@@ -69,7 +76,18 @@ export function ProjectEditor(props: {
   const [showHistory, setShowHistory] = useState(false);
   const [showPlugins, setShowPlugins] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showConnections, setShowConnections] = useState(false);
+  const [showDeployment, setShowDeployment] = useState(false);
+  const [activeConnection, setActiveConnection] = useState<DatabaseConnectionSummary | null>(null);
   const [pluginMessage, setPluginMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    listProjectConnections(project.id)
+      .then((list) => {
+        if (list.length > 0) setActiveConnection(list[0]);
+      })
+      .catch(() => {});
+  }, [project.id]);
 
   const canvasCommands = useCanvasCommands(project.id);
   const { fontScale } = useCanvasFontScale();
@@ -252,6 +270,10 @@ export function ProjectEditor(props: {
         onShowImport={() => setShowImport(true)}
         onShowExport={() => setShowExport(true)}
         onShowHistory={() => setShowHistory(true)}
+        onShowConnections={() => setShowConnections(true)}
+        onShowDeploy={() => setShowDeployment(true)}
+        isProjectAdmin={project.permission === "administrator"}
+        connectedDbName={activeConnection?.name}
         onOpenSettings={() => setShowSettings(true)}
         localUser={user}
         localColor={hashColor(user)}
@@ -338,6 +360,25 @@ export function ProjectEditor(props: {
           <HistoryPanel projectId={project.id} currentProject={liveProject} onClose={() => setShowHistory(false)} />
         )}
         {showPlugins && <PluginManagerDialog onClose={() => setShowPlugins(false)} />}
+        {showConnections && (
+          <ConnectionManagerModal
+            projectId={project.id}
+            onClose={() => setShowConnections(false)}
+            activeConnectionId={activeConnection?.id}
+            onSelectActiveConnection={(conn) => setActiveConnection(conn)}
+          />
+        )}
+        {showDeployment && (
+          <DeploymentModal
+            projectId={project.id}
+            onClose={() => setShowDeployment(false)}
+            initialConnectionId={activeConnection?.id}
+            onOpenConnectionManager={() => {
+              setShowDeployment(false);
+              setShowConnections(true);
+            }}
+          />
+        )}
       </Suspense>
     </div>
   );

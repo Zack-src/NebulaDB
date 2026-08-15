@@ -35,6 +35,8 @@ export const ERROR_CATALOG = {
   LAST_ADMIN: { status: 400, message: "this is the last active administrator" },
   LAST_ADMIN_SELF: { status: 400, message: "you are the last active administrator — grant admin to someone else first" },
   INVITATION_INVALID: { status: 400, message: "this invitation is no longer valid" },
+  CONNECTION_ENGINE_INVALID: { status: 400, message: "engine must be one of postgres, mysql, sqlite" },
+  CONNECTION_TARGET_FORBIDDEN: { status: 400, message: "this connection target is not allowed" },
 
   // --- 401 ---
   AUTH_REQUIRED: { status: 401, message: "authentication required" },
@@ -55,6 +57,7 @@ export const ERROR_CATALOG = {
   TEAM_NOT_FOUND: { status: 404, message: "no such team" },
   REVISION_NOT_FOUND: { status: 404, message: "no such revision for this project" },
   SNAPSHOT_NOT_FOUND: { status: 404, message: "no snapshot saved yet" },
+  CONNECTION_NOT_FOUND: { status: 404, message: "connection not found" },
 
   // --- 409 ---
   EMAIL_ALREADY_EXISTS: { status: 409, message: "a user with this email already exists" },
@@ -68,6 +71,11 @@ export const ERROR_CATALOG = {
   INVITATION_FAILED: { status: 500, message: "could not complete the invitation" },
   INTERNAL_ERROR: { status: 500, message: "internal server error" },
   DATABASE_UNAVAILABLE: { status: 503, message: "database unavailable" },
+  CONNECTION_SECRET_MISSING: {
+    status: 503,
+    message: "ATHANORDB_SECRET must be configured before a database connection can be stored",
+  },
+  MIGRATION_FAILED: { status: 502, message: "the migration could not be applied to the target database" },
 } as const;
 
 export type ApiErrorCode = keyof typeof ERROR_CATALOG;

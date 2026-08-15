@@ -7,13 +7,16 @@ import { Badge } from "@/components/ui/Badge";
 import {
   ChevronLeftIcon,
   ClockIcon,
+  DatabaseIcon,
   DownloadIcon,
   LayoutGridIcon,
   RedoIcon,
   SettingsIcon,
+  SparklesIcon,
   UndoIcon,
   UploadIcon,
 } from "@/components/icons/Icons";
+
 import { useTranslation } from "@/i18n/useTranslation";
 
 export interface ProjectToolbarProps {
@@ -29,11 +32,26 @@ export interface ProjectToolbarProps {
   onShowImport: () => void;
   onShowExport: () => void;
   onShowHistory: () => void;
+  onShowConnections?: () => void;
+  onShowDeploy?: () => void;
+  /**
+   * `edit` is enough to change the schema, but a live database connection
+   * lets the server reach a network host or local file the caller supplies
+   * and, for a deployment, execute arbitrary generated SQL against it — a
+   * materially larger blast radius than a canvas edit. The connections
+   * routes already enforce project `administrator` server-side (see
+   * `apps/server/src/modules/connections/routes.ts`); this hides the two
+   * buttons for anyone who'd just get a 403 clicking them, rather than
+   * leaving that as the only signal they lack access.
+   */
+  isProjectAdmin: boolean;
+  connectedDbName?: string | null;
   onOpenSettings?: () => void;
   localUser: string;
   localColor: string;
   remoteAwareness: Map<number, AwarenessState>;
 }
+
 
 const DIVIDER_CLASS = "mx-1 h-5 w-px shrink-0 bg-border";
 
@@ -129,9 +147,26 @@ export function ProjectToolbar(props: ProjectToolbarProps) {
               {action.icon} <span className="hidden lg:inline">{t(action.labelKey)}</span>
             </Button>
           ))}
+
+
+          {props.onShowConnections && !props.viewOnly && props.isProjectAdmin && (
+            <Button size="sm" variant="ghost" onClick={props.onShowConnections}>
+              <DatabaseIcon size={14} />{" "}
+              <span className="hidden lg:inline">
+                {props.connectedDbName ? props.connectedDbName : t("connections.database")}
+              </span>
+            </Button>
+          )}
+
+          {props.onShowDeploy && !props.viewOnly && props.isProjectAdmin && (
+            <Button size="sm" variant="primary" onClick={props.onShowDeploy}>
+              <SparklesIcon size={13} /> <span className="hidden sm:inline">{t("deployment.deploy")}</span>
+            </Button>
+          )}
         </div>
 
         <span className={`${DIVIDER_CLASS} hidden md:block`} />
+
 
         <ConnectionIndicator connection={props.connection} synced={props.synced} />
 

@@ -42,7 +42,12 @@ export type AuditAction =
   | "invitation.create"
   | "invitation.revoke"
   | "invitation.accept"
-  | "auth.login.locked";
+  | "auth.login.locked"
+  | "connection.create"
+  | "connection.update"
+  | "connection.delete"
+  | "connection.pull"
+  | "connection.deploy";
 
 export interface AuditActor {
   id: string | null;

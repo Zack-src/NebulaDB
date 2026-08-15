@@ -138,3 +138,82 @@ export interface Project {
   /** Custom preset swatch grid for this project's color pickers. Unset -> caller falls back to a built-in default palette. */
   paletteColors?: string[];
 }
+
+export type DatabaseEngine = "postgres" | "mysql" | "sqlite";
+
+export interface DatabaseConnectionConfig {
+  id: string;
+  projectId: string;
+  name: string;
+  engine: DatabaseEngine;
+  host?: string;
+  port?: number;
+  database?: string;
+  user?: string;
+  password?: string;
+  ssl?: boolean;
+  connectionString?: string;
+  filePath?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export interface DatabaseConnectionSummary {
+  id: string;
+  projectId: string;
+  name: string;
+  engine: DatabaseEngine;
+  host?: string;
+  port?: number;
+  database?: string;
+  user?: string;
+  hasPassword?: boolean;
+  ssl?: boolean;
+  connectionString?: string;
+  filePath?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type SchemaDiffRiskType =
+  | "DROP_TABLE_WITH_DATA"
+  | "DROP_COLUMN_WITH_DATA"
+  | "ALTER_COLUMN_TYPE"
+  | "NULL_TO_NOT_NULL"
+  | "ADD_NOT_NULL_NO_DEFAULT"
+  | "FK_VIOLATION"
+  | "UNIQUE_VIOLATION";
+
+export type ConflictResolutionStrategy =
+  | "DROP_DATA_CONFIRMED"
+  | "KEEP_IN_DB"
+  | "FORCE_CAST"
+  | "CLEAR_COLUMN_DATA"
+  | "BACKFILL_DEFAULT"
+  | "DELETE_OFFENDING_ROWS"
+  | "CANCEL";
+
+export interface StrategyOption {
+  key: ConflictResolutionStrategy;
+  labelKey: string;
+  descriptionKey: string;
+  requiresInput?: "default_value";
+}
+
+export interface SchemaRisk {
+  id: string;
+  type: SchemaDiffRiskType;
+  severity: "critical" | "warning" | "info";
+  tableName: string;
+  columnName?: string;
+  refName?: string;
+  affectedRowCount: number;
+  sampleData?: Array<Record<string, unknown> | string | number | boolean | null>;
+  availableStrategies: StrategyOption[];
+  defaultStrategy: ConflictResolutionStrategy;
+  selectedStrategy: ConflictResolutionStrategy;
+  userProvidedValue?: string;
+}
+
+export type MigrationResolutionMap = Record<string, { strategy: ConflictResolutionStrategy; value?: string }>;
+
