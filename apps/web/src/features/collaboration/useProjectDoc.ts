@@ -4,7 +4,6 @@ import type { Awareness } from "y-protocols/awareness.js";
 import {
   type Project,
   getEnumsMap,
-  getMetaMap,
   getRefsMap,
   getStickyNotesMap,
   getTablesMap,
@@ -48,8 +47,6 @@ export function useProjectDoc(projectId: string, fallbackName: string, user: str
       getZonesMap(conn.doc),
       getStickyNotesMap(conn.doc),
     ];
-    const maps = [...editableMaps, getMetaMap(conn.doc)];
-    maps.forEach((m) => m.observe(refresh));
     conn.doc.on("update", refresh);
     refresh();
 
@@ -63,7 +60,6 @@ export function useProjectDoc(projectId: string, fallbackName: string, user: str
 
     return () => {
       conn.doc.off("update", refresh);
-      maps.forEach((m) => m.unobserve(refresh));
       manager.destroy();
       conn.disconnect();
     };

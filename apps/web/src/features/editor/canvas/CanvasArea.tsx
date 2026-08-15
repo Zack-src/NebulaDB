@@ -1,6 +1,7 @@
 import {
   useCallback,
   useEffect,
+  useMemo,
   useRef,
   useState,
   type CSSProperties,
@@ -28,12 +29,14 @@ import { StickyNoteNode } from "@/features/editor/nodes/StickyNoteNode";
 import { EnumNode } from "@/features/editor/nodes/EnumNode";
 import { TableGroupNode } from "@/features/editor/nodes/TableGroupNode";
 import { CursorNode, type CursorNodeType } from "@/features/collaboration/CursorNode";
+import type { RemoteSelector } from "@/features/collaboration/useRemoteSelections";
 import { getSelectedWaypoint } from "@/features/editor/edges/waypointSelection";
 import { isTypingTarget } from "@/utils/dom";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { loadGridStyle, loadShowMinimap, loadSnapToGrid, loadViewport, saveShowMinimap, saveViewport } from "@/utils/preferences";
 import type { CanvasCommandContribution, ResolvedContribution } from "@/features/plugins/types";
 import type { AllNodes, CanvasExportHandle, CanvasNode } from "@/types";
+import { DEFAULT_HEADER_COLOR } from "@/features/editor/nodes/table/TableSettingsPopover";
 import { CanvasContextMenu, type CanvasContextMenuState } from "./CanvasContextMenu";
 import { CanvasSearchPanel } from "./CanvasSearchPanel";
 import { CanvasToolbar } from "./CanvasToolbar";
@@ -59,6 +62,8 @@ const MIN_ZOOM = 0.05;
 export interface CanvasAreaProps {
   nodes: CanvasNode[];
   cursorNodes: CursorNodeType[];
+  /** tableId -> the remote collaborators who currently have that table selected — see `useRemoteSelections`. */
+  remoteSelections: Map<string, RemoteSelector[]>;
   edges: RefEdgeType[];
   onNodesChange: (changes: NodeChange<AllNodes>[]) => void;
   onEdgesDelete?: (edges: RefEdgeType[]) => void;
@@ -269,8 +274,34 @@ export function CanvasArea(props: CanvasAreaProps) {
     };
   }, [contextMenu, closeContextMenu]);
 
-  const allNodes: AllNodes[] = [...props.nodes, ...props.cursorNodes];
   const selectedTableIds = props.nodes.filter((node) => node.type === "table" && node.selected).map((node) => node.id);
+
+  /**
+   * Broadcast this user's table selection — the Figma-style outline other
+   * participants see on this project. Keyed on the joined id string rather
+   * than the array itself: `selectedTableIds` is a fresh array every render,
+   * which would otherwise fire this on every unrelated re-render (e.g. a
+   * remote cursor moving).
+   */
+  const selectedTableIdsKey = selectedTableIds.join(",");
+  useEffect(() => {
+    awareness?.setLocalStateField("selection", selectedTableIdsKey ? selectedTableIdsKey.split(",") : []);
+    // selectedTableIdsKey is the real dependency; selectedTableIds itself is a new array every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedTableIdsKey, awareness]);
+
+  const { remoteSelections } = props;
+  const nodesWithRemoteSelection = useMemo(() => {
+    if (remoteSelections.size === 0) return props.nodes;
+    return props.nodes.map((node) => {
+      if (node.type !== "table") return node;
+      const selectors = remoteSelections.get(node.id);
+      if (!selectors) return node;
+      return { ...node, data: { ...node.data, remoteSelectedBy: selectors } };
+    });
+  }, [props.nodes, remoteSelections]);
+
+  const allNodes: AllNodes[] = [...nodesWithRemoteSelection, ...props.cursorNodes];
 
   return (
     <div
@@ -364,10 +395,28 @@ export function CanvasArea(props: CanvasAreaProps) {
             pannable
             zoomable
             onContextMenu={suppressNativeMenu}
-            // Reads from the palette instead of three hand-picked hex values
-            // that drifted from every other surface on the canvas.
             bgColor="var(--color-surface)"
-            nodeColor="var(--color-primary)"
+            nodeColor={(node) => {
+              if (node.type === "table") {
+                const data = node.data as { table?: { style?: { color?: string } } } | undefined;
+                return data?.table?.style?.color || DEFAULT_HEADER_COLOR;
+              }
+              if (node.type === "zone") {
+                const data = node.data as { zone?: { style?: { color?: string } } } | undefined;
+                return data?.zone?.style?.color || "#f59e0b";
+              }
+              if (node.type === "sticky") {
+                const data = node.data as { note?: { style?: { color?: string } } } | undefined;
+                return data?.note?.style?.color || "#fef08a";
+              }
+              if (node.type === "enum") {
+                return "#06b6d4";
+              }
+              if (node.type === "tablegroup") {
+                return "#a855f7";
+              }
+              return "var(--color-primary)";
+            }}
             maskColor="rgba(9, 10, 15, 0.7)"
           />
         )}

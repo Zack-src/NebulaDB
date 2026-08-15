@@ -2,6 +2,7 @@ import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Handle, Position, useReactFlow, useStore, type Node, type NodeProps, type ReactFlowState } from "@xyflow/react";
 import { MAX_NAME_LENGTH, type Field, type Table, type TableIndex } from "@athanordb/shared";
 import { CommentThread } from "@/features/editor/comments/CommentThread";
+import type { RemoteSelector } from "@/features/collaboration/useRemoteSelections";
 import { CodeIcon, PlusIcon } from "@/components/icons/Icons";
 import { DEFAULT_HEADER_COLOR, TableSettingsPopover } from "@/features/editor/nodes/table/TableSettingsPopover";
 import { TableNodeRow } from "@/features/editor/nodes/table/TableNodeRow";
@@ -31,6 +32,8 @@ export interface TableNodeData {
   /** True for a `view` grant — hides every editing affordance on the node. */
   readOnly?: boolean;
   selectedFieldId?: string | null;
+  /** Remote collaborators who currently have this table selected — Figma-style outline, set by `CanvasArea`. */
+  remoteSelectedBy?: RemoteSelector[];
   onSelectField: (fieldId: string | null) => void;
   onPaletteChange: (palette: string[]) => void;
   onRename: (name: string) => void;
@@ -59,7 +62,7 @@ const stripHandleSuffix = (handle: string) => handle.replace(HANDLE_SUFFIX, "");
 
 function TableNodeImpl({ data, selected, id }: NodeProps<TableNodeType>) {
   const { t } = useTranslation();
-  const { table, refFieldIds, selectedFieldId, onSelectField, onTableHoverChange } = data;
+  const { table, refFieldIds, selectedFieldId, remoteSelectedBy, onSelectField, onTableHoverChange } = data;
   const { setNodes } = useReactFlow();
   const [renaming, setRenaming] = useState(false);
   const nameDraft = useDraftValue(table.name, (next) => data.onRename(next ?? ""));
@@ -144,25 +147,50 @@ function TableNodeImpl({ data, selected, id }: NodeProps<TableNodeType>) {
         ? table.fields
         : table.fields.filter((f) => isPkField(f) || refFieldIds.has(f.id));
 
+  // Figma shows one name per remote selector, not a pile of avatars — the
+  // first is enough to say who, "+N" covers the rest without crowding the
+  // canvas.
+  const primaryRemoteSelector = remoteSelectedBy?.[0];
+
   return (
-    <div
-      className={`group table-node ${TABLE_NODE_CLASS} ${selected ? `is-selected ${TABLE_NODE_SELECTED_CLASS}` : ""}`}
-      onMouseEnter={() => {
-        isTableHoveredRef.current = true;
-        onTableHoverChange?.(table.id);
-      }}
-      onMouseLeave={() => {
-        isTableHoveredRef.current = false;
-        onTableHoverChange?.(null);
-      }}
-      // Selected wins over a custom border colour rather than being fought by
-      // it — an inline style always beats a class for the same property, so
-      // without this a table with its own border colour would never visibly
-      // show as selected.
-      style={{ borderColor: selected ? "var(--color-primary)" : table.style?.borderColor }}
-    >
+    <>
+      {primaryRemoteSelector && (
+        // Rendered as a sibling of the table box, not a child of it: the box
+        // has `overflow-hidden` for its rows, which would clip a label
+        // positioned above it.
+        <div
+          className="pointer-events-none absolute -top-[19px] left-0 z-10 whitespace-nowrap rounded-full px-[7px] py-0.5 text-[10.5px] font-semibold text-white shadow-sm"
+          style={{ background: primaryRemoteSelector.color }}
+        >
+          {primaryRemoteSelector.name}
+          {remoteSelectedBy && remoteSelectedBy.length > 1 ? ` +${remoteSelectedBy.length - 1}` : ""}
+        </div>
+      )}
       <div
-        className={TABLE_HEADER_CLASS}
+        className={`group table-node ${TABLE_NODE_CLASS} ${selected ? `is-selected ${TABLE_NODE_SELECTED_CLASS}` : ""}`}
+        onMouseEnter={() => {
+          isTableHoveredRef.current = true;
+          onTableHoverChange?.(table.id);
+        }}
+        onMouseLeave={() => {
+          isTableHoveredRef.current = false;
+          onTableHoverChange?.(null);
+        }}
+        style={{
+          // Selected wins over a custom border colour rather than being
+          // fought by it — an inline style always beats a class for the same
+          // property, so without this a table with its own border colour
+          // would never visibly show as selected.
+          borderColor: selected ? "var(--color-primary)" : table.style?.borderColor,
+          // `outline` rather than a second border: it's drawn outside the box
+          // without affecting layout or fighting the border colour above, so
+          // a table can show as both locally *and* remotely selected at once.
+          outline: primaryRemoteSelector ? `2px solid ${primaryRemoteSelector.color}` : undefined,
+          outlineOffset: primaryRemoteSelector ? 2 : undefined,
+        }}
+      >
+        <div
+          className={TABLE_HEADER_CLASS}
         style={{ background: headerColor, color: prefersDarkText(headerColor) ? "var(--color-text-on-light)" : "#ffffff" }}
         onDoubleClick={() => {
           if (!data.readOnly) setRenaming(true);

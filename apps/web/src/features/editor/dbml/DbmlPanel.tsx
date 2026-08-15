@@ -47,7 +47,13 @@ function DbmlPanel(props: {
   const { project, projectId, readOnly = false } = props;
   const editorCommands = useEditorCommands(projectId);
   const [pluginMessage, setPluginMessage] = useState<string | null>(null);
-  const [text, setText] = useState("");
+  const [text, setText] = useState<string>(() => {
+    try {
+      return projectToDbml(project);
+    } catch {
+      return "";
+    }
+  });
   const [dirty, setDirty] = useState(false);
   /**
    * Two kinds of error live side by side here, and they are stored differently
@@ -64,7 +70,7 @@ function DbmlPanel(props: {
   const [isResizing, setIsResizing] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const dirtyRef = useRef(dirty);
-  const lastAppliedTextRef = useRef<string | null>(null);
+  const lastAppliedTextRef = useRef<string | null>(text);
   const editorRef = useRef<DbmlEditorHandle | null>(null);
   /** Mirror of `text` for Ctrl+S, which fires outside React's render cycle. */
   const textRef = useRef(text);
@@ -120,37 +126,6 @@ function DbmlPanel(props: {
   useEffect(() => {
     textRef.current = text;
   }, [text]);
-
-  /**
-   * Fetch the initial DBML content.
-   *
-   * Keyed on the project alone. It used to list `t` as well — and `t` is a new
-   * closure every time the UI language changes — so switching language re-ran
-   * this and overwrote the buffer with the server's copy, throwing away
-   * whatever the user had typed and not yet applied. The failure is stored as a
-   * key rather than a rendered string for the same reason, and gains: the
-   * message now re-localizes with the rest of the UI instead of staying frozen
-   * in whichever language it was raised in.
-   */
-  useEffect(() => {
-    let active = true;
-    exportDbml(projectId)
-      .then((dbml) => {
-        if (!active || dirtyRef.current) return;
-        setText(dbml);
-        lastAppliedTextRef.current = dbml;
-      })
-      .catch((err: unknown) => {
-        // The one sync failure that's actually blocking (nothing loaded at
-        // all, nothing to fall back to visually) still gets a message —
-        // everything else in this file is transient and just logged.
-        console.error("[dbml] failed to load initial DBML:", err);
-        if (active) setErrorKey("dbml.loadFailed");
-      });
-    return () => {
-      active = false;
-    };
-  }, [projectId]);
 
   // Sync live project changes (e.g. node/ref deletions or modifications) into DBML text.
   // `projectToDbml` re-serializes the whole schema in its own canonical layout, so

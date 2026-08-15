@@ -19,6 +19,8 @@ export interface CursorPosition {
 export interface AwarenessState {
   user: { name: string; color: string };
   cursor: CursorPosition | null;
+  /** Table ids this peer currently has selected on the canvas — Figma-style remote selection outline. Absent/empty means nothing selected. */
+  selection?: string[];
 }
 
 /**
@@ -88,7 +90,14 @@ export function connectProject(
     if (socket && socket.readyState === WebSocket.OPEN) socket.send(bytes);
   };
 
+  /**
+   * Spreads the *current* local state first so a reconnect only overrides
+   * `user`/`cursor` — any other field set via `setLocalStateField` (e.g. the
+   * canvas's current table selection) survives instead of silently vanishing
+   * from every peer's view until the user clicks something again.
+   */
   const localAwarenessState = (): AwarenessState => ({
+    ...(awareness.getLocalState() as AwarenessState | null),
     user: { name: user, color: hashColor(user) },
     cursor: null,
   });

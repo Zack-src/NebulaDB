@@ -12,6 +12,12 @@ export function useCursorNodes(remoteAwareness: Map<number, AwarenessState>): Cu
         id: `cursor-${clientId}`,
         position: state.cursor,
         type: "cursor",
+        // Declared up front rather than left to post-mount measurement: React Flow only lifts a node's
+        // `visibility: hidden` placeholder once it has *some* non-zero width/height, either from this or from a
+        // ResizeObserver pass over the rendered content (see CursorNode's comment) — without one of the two, a
+        // remote cursor stayed invisible forever.
+        width: 1,
+        height: 1,
         draggable: false,
         selectable: false,
         deletable: false,

@@ -21,10 +21,7 @@ import { useCanvasCommands } from "@/features/plugins/usePlugins";
 import { matchShortcut } from "@/features/plugins/shortcuts";
 import type { CanvasCommandResult } from "@/features/plugins/types";
 
-// Each of these is only needed once a specific panel/dialog is actually
-// opened — Monaco (DbmlPanel) especially, which used to load eagerly for
-// every visit including the project-list page that never touches it.
-const DbmlPanel = lazy(() => import("@/features/editor/dbml/DbmlPanel"));
+import DbmlPanel from "@/features/editor/dbml/DbmlPanel";
 const ImportDialog = lazy(() => import("@/features/editor/io/ImportDialog"));
 const ExportDialog = lazy(() => import("@/features/editor/io/ExportDialog"));
 const HistoryPanel = lazy(() => import("@/features/editor/history/HistoryPanel"));
@@ -272,19 +269,13 @@ export function ProjectEditor(props: {
 
       <div className="relative flex min-h-0 min-w-0 flex-1">
         {dbmlOpen && liveProject ? (
-          <Suspense
-            fallback={
-              <div className="relative flex shrink-0 flex-col border-r border-border bg-surface" style={{ width: 440 }} />
-            }
-          >
-            <DbmlPanel
-              project={liveProject}
-              projectId={project.id}
-              readOnly={!canWrite}
-              onClose={() => setDbmlOpen(false)}
-              scrollToTable={dbmlScrollRequest}
-            />
-          </Suspense>
+          <DbmlPanel
+            project={liveProject}
+            projectId={project.id}
+            readOnly={!canWrite}
+            onClose={() => setDbmlOpen(false)}
+            scrollToTable={dbmlScrollRequest}
+          />
         ) : (
           <button
             className="absolute left-2 top-2 z-[5] flex h-[26px] w-[26px] cursor-pointer items-center justify-center rounded-sm border border-border bg-surface-raised p-0 text-text-muted shadow-sm hover:bg-surface-hover hover:text-text"
