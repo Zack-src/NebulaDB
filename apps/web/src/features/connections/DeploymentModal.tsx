@@ -22,6 +22,7 @@ import type { TranslationKeyOf } from "@/types";
 import { applyDeployment, listProjectConnections, planDeployment, type PlanDeploymentResponse } from "@/services/connectionsApi";
 import { copyText } from "@/utils/clipboard";
 
+// eslint-disable-next-line complexity -- four-step wizard (diff/risks/sql/done) with per-step conditional JSX; splitting into sub-components would need to thread most of this state through as props with no behavior change, not a safe mechanical split without a test to catch a regression
 export function DeploymentModal(props: {
   projectId: string;
   onClose: () => void;

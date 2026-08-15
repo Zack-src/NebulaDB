@@ -74,6 +74,7 @@ function EdgeArrowhead(props: { points: { x: number; y: number }[]; color: strin
   );
 }
 
+// eslint-disable-next-line complexity -- edge rendering couples geometry (self-ref/many-to-many splitting), zoom-compensated styling and hover/selection state; a split would move shared derived values across files for no clarity gain
 export function RefEdge({
   id,
   sourceX,

@@ -30,6 +30,7 @@ export function useNodesChangeHandler(
   const zoneDragMembersRef = useRef<Map<string, Map<string, { x: number; y: number }>>>(new Map());
 
   return useCallback(
+    // eslint-disable-next-line complexity -- one React Flow change can fan out across five Yjs maps (tables/zones/stickies/enums/groups) and a synthesized zone-drag member move; the branching mirrors that map count, not incidental structure
     (changes: NodeChange<CanvasNode>[]) => {
       const memberChanges: NodeChange<CanvasNode>[] = [];
       for (const change of changes) {
