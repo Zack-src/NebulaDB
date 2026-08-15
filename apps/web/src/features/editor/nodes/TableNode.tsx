@@ -1,10 +1,11 @@
-import { memo, useCallback, useMemo, useState } from "react";
+import { memo, useCallback, useMemo, useRef, useState } from "react";
 import { Handle, Position, useStore, type Node, type NodeProps, type ReactFlowState } from "@xyflow/react";
 import { MAX_NAME_LENGTH, type Field, type Table, type TableIndex } from "@athanordb/shared";
 import { CommentThread } from "@/features/editor/comments/CommentThread";
 import { CodeIcon, PlusIcon } from "@/components/icons/Icons";
 import { DEFAULT_HEADER_COLOR, TableSettingsPopover } from "@/features/editor/nodes/table/TableSettingsPopover";
 import { TableNodeRow } from "@/features/editor/nodes/table/TableNodeRow";
+import { useDismissablePopover } from "@/hooks/useDismissablePopover";
 import { useDraftValue } from "@/hooks/useDraftValue";
 import { prefersDarkText } from "@/utils/color";
 import { useTranslation } from "@/i18n/useTranslation";
@@ -69,6 +70,13 @@ function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
     setWasSelected(selected);
     if (!selected) setSelectedFieldId(null);
   }
+  // Clicking outside the selected column deselects it too — not just clicking
+  // another column (each row's own click handler already reassigns selection
+  // directly) or losing the table's own selection above. This ref only ever
+  // points at whichever row is currently selected, so a click landing outside
+  // it — the table header, another table, empty canvas — clears it.
+  const selectedRowRef = useRef<HTMLDivElement | null>(null);
+  useDismissablePopover(selectedFieldId !== null, () => setSelectedFieldId(null), [selectedRowRef]);
   const tableComments = table.comments?.filter((c) => !c.fieldId) ?? [];
   const headerColor = table.style?.color ?? DEFAULT_HEADER_COLOR;
 
@@ -210,6 +218,7 @@ function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
       {rows.map((field) => (
         <TableNodeRow
           key={field.id}
+          ref={selectedFieldId === field.id ? selectedRowRef : undefined}
           field={field}
           comments={table.comments?.filter((c) => c.fieldId === field.id) ?? []}
           isPk={isPkField(field)}

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { forwardRef, useEffect, useRef } from "react";
 import { Handle, Position } from "@xyflow/react";
 import type { Comment, Field } from "@athanordb/shared";
 import { CommentThread } from "@/features/editor/comments/CommentThread";
@@ -35,23 +35,33 @@ export interface TableNodeRowProps {
   onDeleteField?: (fieldId: string) => void;
 }
 
-/** One field row: side handles, badge/name/type, PK/UQ/NN/AI/note badges, and the edit + comment popovers. */
-export function TableNodeRow({
-  field,
-  comments,
-  isPk,
-  isForeignKey,
-  isLinked,
-  isSelected,
-  currentUser,
-  onSelect,
-  onHoverStart,
-  onHoverEnd,
-  onAddComment,
-  onDeleteComment,
-  onUpdateField,
-  onDeleteField,
-}: TableNodeRowProps) {
+/**
+ * One field row: side handles, badge/name/type, PK/UQ/NN/AI/note badges, and
+ * the edit + comment popovers.
+ *
+ * Forwards its root ref — `TableNode` attaches it only to whichever row is
+ * currently selected, so it can tell a click on that row apart from a click
+ * anywhere else and clear the selection accordingly.
+ */
+export const TableNodeRow = forwardRef<HTMLDivElement, TableNodeRowProps>(function TableNodeRow(
+  {
+    field,
+    comments,
+    isPk,
+    isForeignKey,
+    isLinked,
+    isSelected,
+    currentUser,
+    onSelect,
+    onHoverStart,
+    onHoverEnd,
+    onAddComment,
+    onDeleteComment,
+    onUpdateField,
+    onDeleteField,
+  },
+  ref,
+) {
   const { t } = useTranslation();
 
   // Guards the unmount cleanup below: only a row that is itself the currently
@@ -69,6 +79,7 @@ export function TableNodeRow({
 
   return (
     <div
+      ref={ref}
       className={`table-node-row ${ROW_CLASS} ${rowStateClass(isLinked, isSelected)}`}
       // Whole row is the hover target for the column's note — the note icon is
       // a 16px hit area, far too small to be the only way to read it.
@@ -151,4 +162,4 @@ export function TableNodeRow({
       <Handle type="source" position={Position.Right} id={`${field.id}-right-source`} className="table-row-handle" />
     </div>
   );
-}
+});
