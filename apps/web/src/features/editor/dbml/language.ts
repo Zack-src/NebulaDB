@@ -189,22 +189,31 @@ export const dbmlLanguage = StreamLanguage.define<{ inCommentBlock: boolean; inN
   },
 });
 
+/**
+ * `var(--color-syntax-*)` rather than literal hex: CodeMirror's `HighlightStyle`
+ * just feeds these strings into generated CSS rules, so a CSS custom property
+ * works exactly like a literal colour would — and the browser re-evaluates it
+ * live when `tokens.css`'s `[data-theme="light"]` block takes over, with no
+ * CodeMirror reconfiguration needed. See that file for the light-mode values
+ * (deepened, not inverted — several of these read fine on near-black but fail
+ * contrast on white at the same lightness).
+ */
 export const dbmlHighlightStyle = HighlightStyle.define([
-  { tag: t.comment, color: "#5C6370", fontStyle: "italic" },
-  { tag: t.keyword, color: "#C678DD", fontWeight: "600" },
-  { tag: t.modifier, color: "#E5C07B" },
-  { tag: t.typeName, color: "#56B6C2" },
-  { tag: t.className, color: "#61AFEF" },
-  { tag: t.variableName, color: "#E2E8F0" },
-  { tag: t.string, color: "#98C379" },
-  { tag: t.special(t.string), color: "#98C379" },
-  { tag: t.number, color: "#D19A66" },
-  { tag: t.color, color: "#D19A66" },
-  { tag: t.operator, color: "#F472B6", fontWeight: "600" },
-  { tag: t.punctuation, color: "#7F848E" },
-  { tag: t.brace, color: "#ABB2BF" },
-  { tag: t.squareBracket, color: "#7F848E" },
-  { tag: t.paren, color: "#7F848E" },
+  { tag: t.comment, color: "var(--color-syntax-comment)", fontStyle: "italic" },
+  { tag: t.keyword, color: "var(--color-syntax-keyword)", fontWeight: "600" },
+  { tag: t.modifier, color: "var(--color-syntax-modifier)" },
+  { tag: t.typeName, color: "var(--color-syntax-type)" },
+  { tag: t.className, color: "var(--color-syntax-class)" },
+  { tag: t.variableName, color: "var(--color-syntax-variable)" },
+  { tag: t.string, color: "var(--color-syntax-string)" },
+  { tag: t.special(t.string), color: "var(--color-syntax-string)" },
+  { tag: t.number, color: "var(--color-syntax-number)" },
+  { tag: t.color, color: "var(--color-syntax-number)" },
+  { tag: t.operator, color: "var(--color-syntax-operator)", fontWeight: "600" },
+  { tag: t.punctuation, color: "var(--color-syntax-punctuation)" },
+  { tag: t.brace, color: "var(--color-syntax-brace)" },
+  { tag: t.squareBracket, color: "var(--color-syntax-punctuation)" },
+  { tag: t.paren, color: "var(--color-syntax-punctuation)" },
 ]);
 
 const INDENT_UNIT = 2;
@@ -246,108 +255,137 @@ const dbmlFold = foldService.of((state, lineStart, lineEnd) => {
   return null;
 });
 
+/**
+ * Structural editor chrome (background, gutters, tooltips, panels) — also
+ * `var(--color-editor-*)`-based for the same live-re-evaluation reason as
+ * `dbmlHighlightStyle` above. `{ dark: true }` is CodeMirror's own flag for a
+ * couple of internal default behaviours (e.g. how it picks a default
+ * selection tint before this theme's own override applies) and isn't
+ * reactive to a later attribute change — a very minor, accepted gap versus
+ * building a `Compartment`-based live reconfiguration for a flag whose
+ * visible effect this theme already overrides everywhere it matters.
+ */
 export const athanorEditorTheme = EditorView.theme(
   {
     "&": {
       height: "100%",
       fontFamily: "'Fira Code', 'JetBrains Mono', 'Cascadia Code', Consolas, monospace",
-      backgroundColor: "#17181B",
-      color: "#E2E8F0",
+      backgroundColor: "var(--color-editor-bg)",
+      color: "var(--color-syntax-variable)",
     },
     ".cm-scroller": { lineHeight: "1.6" },
     ".cm-content": {
-      caretColor: "#6366F1",
+      caretColor: "var(--color-primary)",
       paddingTop: "8px",
       paddingBottom: "40vh",
     },
     ".cm-cursor, .cm-dropCursor": {
-      borderLeftColor: "#6366F1",
+      borderLeftColor: "var(--color-primary)",
       borderLeftWidth: "2px",
     },
     "&.cm-focused .cm-selectionBackground, .cm-selectionBackground, .cm-content ::selection": {
-      backgroundColor: "#334155 !important",
+      backgroundColor: "var(--color-editor-selection) !important",
     },
-    ".cm-selectionMatch": { backgroundColor: "rgba(99, 102, 241, 0.22)" },
+    ".cm-selectionMatch": { backgroundColor: "var(--color-primary-light)" },
     ".cm-searchMatch": { backgroundColor: "rgba(234, 179, 8, 0.25)", outline: "1px solid rgba(234,179,8,0.45)" },
     ".cm-searchMatch.cm-searchMatch-selected": { backgroundColor: "rgba(234, 179, 8, 0.5)" },
     ".cm-gutters": {
-      backgroundColor: "#17181B",
-      color: "#475569",
-      borderRight: "1px solid #27272A",
+      backgroundColor: "var(--color-editor-gutter-bg)",
+      color: "var(--color-editor-gutter-text)",
+      borderRight: "1px solid var(--color-editor-border)",
     },
-    ".cm-foldGutter span": { color: "#64748B", cursor: "pointer" },
-    ".cm-activeLine": { backgroundColor: "#1E2024" },
-    ".cm-activeLineGutter": { backgroundColor: "#1E2024", color: "#94A3B8" },
+    ".cm-foldGutter span": { color: "var(--color-editor-muted)", cursor: "pointer" },
+    ".cm-activeLine": { backgroundColor: "var(--color-editor-active-line)" },
+    ".cm-activeLineGutter": {
+      backgroundColor: "var(--color-editor-active-line)",
+      color: "var(--color-editor-active-gutter-text)",
+    },
     ".cm-matchingBracket, &.cm-focused .cm-matchingBracket": {
-      backgroundColor: "rgba(99,102,241,0.28)",
-      outline: "1px solid rgba(129,140,248,0.6)",
+      backgroundColor: "var(--color-primary-light)",
+      outline: "1px solid var(--color-primary-hover)",
       color: "inherit",
     },
-    ".cm-nonmatchingBracket": { backgroundColor: "rgba(239,68,68,0.3)" },
+    ".cm-nonmatchingBracket": { backgroundColor: "var(--color-danger-light)" },
     ".cm-tooltip": {
-      backgroundColor: "#1E2024",
-      border: "1px solid #3F3F46",
+      backgroundColor: "var(--color-editor-tooltip-bg)",
+      border: "1px solid var(--color-editor-tooltip-border)",
       borderRadius: "6px",
-      boxShadow: "0 10px 15px -3px rgba(0, 0, 0, 0.5)",
-      color: "#E2E8F0",
+      boxShadow: "var(--shadow-lg)",
+      color: "var(--color-syntax-variable)",
     },
-    ".cm-tooltip-autocomplete > ul > li": { padding: "4px 8px", color: "#E2E8F0" },
-    ".cm-tooltip-autocomplete > ul > li[aria-selected]": { backgroundColor: "#6366F1", color: "#FFFFFF" },
+    ".cm-tooltip-autocomplete > ul > li": { padding: "4px 8px", color: "var(--color-syntax-variable)" },
+    ".cm-tooltip-autocomplete > ul > li[aria-selected]": {
+      backgroundColor: "var(--color-primary)",
+      color: "var(--color-text-on-accent)",
+    },
     ".cm-completionIcon": { opacity: 0.7, paddingRight: "12px" },
-    ".cm-completionDetail": { color: "#94A3B8", fontStyle: "normal", marginLeft: "1em", fontSize: "0.9em" },
+    ".cm-completionDetail": {
+      color: "var(--color-editor-muted)",
+      fontStyle: "normal",
+      marginLeft: "1em",
+      fontSize: "0.9em",
+    },
     ".cm-tooltip.cm-tooltip-hover": { padding: "8px 10px", maxWidth: "380px", fontSize: "12px" },
-    ".cm-panels": { backgroundColor: "#1E2024", color: "#E2E8F0", borderColor: "#27272A" },
+    ".cm-panels": {
+      backgroundColor: "var(--color-editor-tooltip-bg)",
+      color: "var(--color-syntax-variable)",
+      borderColor: "var(--color-editor-border)",
+    },
     ".cm-panel.cm-search input, .cm-panel.cm-gotoLine input": {
-      backgroundColor: "#17181B",
-      color: "#E2E8F0",
-      border: "1px solid #3F3F46",
+      backgroundColor: "var(--color-editor-bg)",
+      color: "var(--color-syntax-variable)",
+      border: "1px solid var(--color-editor-tooltip-border)",
       borderRadius: "4px",
       padding: "2px 6px",
     },
     ".cm-panel.cm-search button, .cm-panel.cm-gotoLine button": {
-      backgroundColor: "#27272A",
+      backgroundColor: "var(--color-editor-border)",
       backgroundImage: "none",
-      color: "#E2E8F0",
-      border: "1px solid #3F3F46",
+      color: "var(--color-syntax-variable)",
+      border: "1px solid var(--color-editor-tooltip-border)",
       borderRadius: "4px",
       padding: "2px 8px",
       cursor: "pointer",
     },
-    ".cm-panel.cm-search label": { color: "#94A3B8", fontSize: "11px" },
+    ".cm-panel.cm-search label": { color: "var(--color-editor-muted)", fontSize: "11px" },
     ".cm-dbml-error-mark": {
-      textDecoration: "underline wavy #EF4444",
+      textDecoration: "underline wavy var(--color-danger)",
       textDecorationSkipInk: "none",
-      backgroundColor: "rgba(239, 68, 68, 0.18)",
+      backgroundColor: "var(--color-danger-light)",
       borderRadius: "2px",
     },
     ".cm-dbml-link": {
       textDecoration: "underline",
-      textDecorationColor: "#818CF8",
+      textDecorationColor: "var(--color-primary-hover)",
       cursor: "pointer",
     },
-    ".cm-lintRange-error": { backgroundImage: "none", textDecoration: "underline wavy #EF4444" },
+    ".cm-lintRange-error": { backgroundImage: "none", textDecoration: "underline wavy var(--color-danger)" },
     ".cm-lintRange-warning": { backgroundImage: "none", textDecoration: "underline wavy #EAB308" },
     ".cm-dbml-hover": { display: "flex", flexDirection: "column", gap: "4px", minWidth: "180px" },
-    ".cm-dbml-hover-title": { fontWeight: "600", color: "#E2E8F0" },
+    ".cm-dbml-hover-title": { fontWeight: "600", color: "var(--color-syntax-variable)" },
     ".cm-dbml-hover-kind": {
-      color: "#818CF8",
+      color: "var(--color-primary-hover)",
       textTransform: "uppercase",
       fontSize: "10px",
       letterSpacing: "0.04em",
       marginRight: "2px",
     },
-    ".cm-dbml-hover-muted": { color: "#94A3B8", fontSize: "11px" },
-    ".cm-dbml-hover-note": { color: "#98C379", fontStyle: "italic", fontSize: "11.5px" },
+    ".cm-dbml-hover-muted": { color: "var(--color-editor-muted)", fontSize: "11px" },
+    ".cm-dbml-hover-note": { color: "var(--color-syntax-string)", fontStyle: "italic", fontSize: "11.5px" },
     ".cm-dbml-hover-fields": { display: "flex", flexDirection: "column", gap: "1px", maxHeight: "260px", overflowY: "auto" },
     ".cm-dbml-hover-row": { display: "flex", gap: "8px", alignItems: "baseline" },
-    ".cm-dbml-hover-row.is-current": { backgroundColor: "rgba(99,102,241,0.2)", borderRadius: "3px", padding: "0 3px" },
-    ".cm-dbml-hover-name": { color: "#E2E8F0", minWidth: "90px" },
-    ".cm-dbml-hover-type": { color: "#56B6C2" },
-    ".cm-dbml-hover-flag": { color: "#E5C07B", fontSize: "10.5px" },
+    ".cm-dbml-hover-row.is-current": {
+      backgroundColor: "var(--color-primary-light)",
+      borderRadius: "3px",
+      padding: "0 3px",
+    },
+    ".cm-dbml-hover-name": { color: "var(--color-syntax-variable)", minWidth: "90px" },
+    ".cm-dbml-hover-type": { color: "var(--color-syntax-type)" },
+    ".cm-dbml-hover-flag": { color: "var(--color-syntax-modifier)", fontSize: "10.5px" },
     ".cm-foldPlaceholder": {
-      backgroundColor: "#27272A",
-      border: "1px solid #3F3F46",
-      color: "#94A3B8",
+      backgroundColor: "var(--color-editor-border)",
+      border: "1px solid var(--color-editor-tooltip-border)",
+      color: "var(--color-editor-muted)",
       borderRadius: "4px",
       padding: "0 6px",
     },

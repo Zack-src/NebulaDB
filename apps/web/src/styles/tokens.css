@@ -1,6 +1,12 @@
-/* Design tokens — the single palette. Tailwind's theme (tailwind.config.js)
-   maps its utility names onto these same custom properties, so `bg-surface`
-   and `var(--color-surface)` can never drift apart. */
+/* Design tokens. Tailwind's theme (tailwind.config.js) maps its utility names
+   onto these same custom properties, so `bg-surface` and
+   `var(--color-surface)` can never drift apart — and a themed component never
+   needs a `dark:`/`light:` variant, since the variable it reads already
+   points at the right value for whichever theme is active.
+
+   Dark ("obsidian") is the unconditional `:root` default below; the light
+   theme is a `[data-theme="light"]` override further down. See
+   `utils/theme.ts` for how/when that attribute gets set. */
 
 :root {
   --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -38,6 +44,34 @@
   --color-danger: #ef4444;
   --color-danger-hover: #f87171;
   --color-danger-light: rgba(239, 68, 68, 0.14);
+
+  /* Canvas-only surfaces that aren't part of the chrome palette above but
+     still need to invert between themes: the React Flow grid dots and the
+     DBML editor (CodeMirror, `language.ts`) reference these rather than
+     hand-coding their own hex values, so a new theme only has to be declared
+     once, here. */
+  --color-canvas-grid: #33353c;
+  --color-editor-bg: #17181b;
+  --color-editor-gutter-bg: #17181b;
+  --color-editor-gutter-text: #475569;
+  --color-editor-border: #27272a;
+  --color-editor-active-line: #1e2024;
+  --color-editor-active-gutter-text: #94a3b8;
+  --color-editor-selection: #334155;
+  --color-editor-tooltip-bg: #1e2024;
+  --color-editor-tooltip-border: #3f3f46;
+  --color-editor-muted: #94a3b8;
+  --color-syntax-comment: #5c6370;
+  --color-syntax-keyword: #c678dd;
+  --color-syntax-modifier: #e5c07b;
+  --color-syntax-type: #56b6c2;
+  --color-syntax-class: #61afef;
+  --color-syntax-variable: #e2e8f0;
+  --color-syntax-string: #98c379;
+  --color-syntax-number: #d19a66;
+  --color-syntax-operator: #f472b6;
+  --color-syntax-punctuation: #7f848e;
+  --color-syntax-brace: #abb2bf;
 
   /* Radii. Deliberately tight — a Figma-style surface reads as a crisp panel,
      not a lozenge. The previous scale went to 16px for `rounded-lg` and 24px
@@ -77,4 +111,84 @@
   --canvas-font-scale: 1;
 
   color-scheme: dark;
+}
+
+/*
+ * Light theme — a real re-derivation, not an inversion. Every colour below
+ * was picked for its own contrast against a white/near-white surface rather
+ * than by flipping the dark value's lightness: several dark-theme colours
+ * (the syntax palette especially, chosen for a near-black editor background)
+ * fail WCAG AA as plain text on white, so the light variants are one or two
+ * steps darker/more saturated in the same hue family instead of identical
+ * hues at inverted lightness. Applied via `data-theme="light"` on `<html>`
+ * (see `utils/theme.ts`) — dark stays the unconditional `:root` default
+ * above, so a script failing to run (or a pre-JS paint) still renders dark,
+ * matching this app's default.
+ */
+:root[data-theme="light"] {
+  --color-bg: #f4f5f8;
+  --color-bg-canvas: #eef0f4;
+  --color-surface: #fbfcfe;
+  --color-surface-raised: #ffffff;
+  --color-surface-hover: #f1f3f8;
+  --color-border: #e2e5ec;
+  --color-border-strong: #c7cbd6;
+  --color-overlay: rgba(15, 23, 42, 0.45);
+
+  --color-text: #12141c;
+  --color-text-secondary: #4b5163;
+  --color-text-muted: #7d8296;
+  --color-text-on-accent: #ffffff;
+  --color-text-on-light: #13151f;
+
+  --color-primary: #4f46e5;
+  --color-primary-hover: #4338ca;
+  --color-primary-light: rgba(79, 70, 229, 0.12);
+  --color-primary-border: rgba(79, 70, 229, 0.35);
+
+  --color-accent-purple: #9333ea;
+  --color-accent-cyan: #0891b2;
+
+  --color-success: #059669;
+  --color-success-light: rgba(5, 150, 105, 0.12);
+  --color-warning: #b45309;
+  --color-warning-light: rgba(180, 83, 9, 0.12);
+  --color-danger: #dc2626;
+  --color-danger-hover: #b91c1c;
+  --color-danger-light: rgba(220, 38, 38, 0.12);
+
+  --color-canvas-grid: #d7dae2;
+  --color-editor-bg: #fbfcfe;
+  --color-editor-gutter-bg: #fbfcfe;
+  --color-editor-gutter-text: #94a3b8;
+  --color-editor-border: #e2e5ec;
+  --color-editor-active-line: #f1f3f8;
+  --color-editor-active-gutter-text: #475569;
+  --color-editor-selection: #c7d2fe;
+  --color-editor-tooltip-bg: #ffffff;
+  --color-editor-tooltip-border: #e2e5ec;
+  --color-editor-muted: #64748b;
+  --color-syntax-comment: #6b7280;
+  --color-syntax-keyword: #9333ea;
+  --color-syntax-modifier: #a16207;
+  --color-syntax-type: #0e7490;
+  --color-syntax-class: #2563eb;
+  --color-syntax-variable: #1e293b;
+  --color-syntax-string: #15803d;
+  --color-syntax-number: #c2410c;
+  --color-syntax-operator: #db2777;
+  --color-syntax-punctuation: #6b7280;
+  --color-syntax-brace: #475569;
+
+  /* Shadows read as heavy smudges on a white surface at the dark theme's
+     alpha — halved (roughly) so elevation still reads without the page
+     looking dirty. */
+  --shadow-xs: 0 1px 2px rgba(15, 23, 42, 0.08);
+  --shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.1), 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 4px 12px rgba(15, 23, 42, 0.12), 0 1px 3px rgba(15, 23, 42, 0.07);
+  --shadow-lg: 0 12px 30px rgba(15, 23, 42, 0.16), 0 4px 10px rgba(15, 23, 42, 0.08);
+  --shadow-xl: 0 24px 56px rgba(15, 23, 42, 0.2), 0 8px 20px rgba(15, 23, 42, 0.1);
+  --shadow-glow: 0 0 25px rgba(79, 70, 229, 0.18);
+
+  color-scheme: light;
 }

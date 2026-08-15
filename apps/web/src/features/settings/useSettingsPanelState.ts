@@ -10,13 +10,13 @@ import {
   saveSnapToGrid,
   type GridStyle,
 } from "@/utils/preferences";
+import { applyThemePreset, loadThemePreset, saveThemePreset, type ThemePreset } from "@/utils/theme";
 
 /** How long the "Updated!" confirmation stays up. */
 const NAME_SAVED_FEEDBACK_MS = 3000;
 
 export type SettingsTab = "profile" | "appearance" | "editor" | "team" | "billing" | "about";
-export type ThemePreset = "obsidian" | "midnight" | "emerald" | "light";
-export type { GridStyle };
+export type { GridStyle, ThemePreset };
 
 /**
  * State shared by the full-page (`SettingsPage`) and in-editor modal
@@ -29,10 +29,16 @@ export function useSettingsPanelState(session: Session, onDisplayNameChange: (na
   const [nameSavedSuccess, setNameSavedSuccess] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
 
-  // Theme is local-only for now (see docs/todo.md Phase 8: one dark theme
-  // ships today). Only "obsidian" applies; the rest are shown disabled rather
-  // than silently doing nothing when picked.
-  const [themePreset, setThemePreset] = useState<ThemePreset>("obsidian");
+  // Local-only preference (no server round-trip, same as the grid/snap/link
+  // switches below). "obsidian" (dark) is the shipped default; "light" is
+  // the other real option — "midnight"/"emerald" are still shown disabled in
+  // the picker (`SettingsTabContent.tsx`), so picking one can't reach here.
+  const [themePreset, setThemePresetState] = useState<ThemePreset>(loadThemePreset);
+  const setThemePreset = (preset: ThemePreset) => {
+    saveThemePreset(preset);
+    applyThemePreset(preset);
+    setThemePresetState(preset);
+  };
 
   // These three, by contrast, are real preferences the canvas reads. They used
   // to be plain `useState` with no persistence and no consumer anywhere, so

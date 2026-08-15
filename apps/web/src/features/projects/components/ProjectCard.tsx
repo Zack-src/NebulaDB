@@ -40,7 +40,7 @@ function ProjectThumbnail({ id, accent }: { id: string; accent: string }) {
   return (
     <div
       className="relative h-[104px] w-full overflow-hidden bg-bg-canvas"
-      style={{ backgroundImage: "radial-gradient(#292d3f 1px, transparent 1px)", backgroundSize: "12px 12px" }}
+      style={{ backgroundImage: "radial-gradient(var(--color-border) 1px, transparent 1px)", backgroundSize: "12px 12px" }}
     >
       <div
         className="absolute inset-0"

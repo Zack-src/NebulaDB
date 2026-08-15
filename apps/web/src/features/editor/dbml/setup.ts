@@ -55,7 +55,6 @@ import {
   selectSelectionMatches,
 } from "@codemirror/search";
 import { lintGutter, lintKeymap, nextDiagnostic, openLintPanel } from "@codemirror/lint";
-import { oneDark } from "@codemirror/theme-one-dark";
 import { athanorEditorTheme, dbmlLanguageSupport } from "@/features/editor/dbml/language";
 import { createSearchPanel, openReplacePanel, searchPanelTheme } from "@/features/editor/dbml/searchPanel";
 import { dbmlCompletion } from "@/features/editor/dbml/completion";
@@ -202,7 +201,6 @@ export function createDbmlExtensions(options: DbmlEditorOptions): Extension[] {
     saveHandler.of(options.onSave),
     paletteHandler.of(options.onPalette),
     renameHandler.of(options.onRename),
-    oneDark,
     athanorEditorTheme,
     wrapCompartment.of(options.lineWrap ? EditorView.lineWrapping : []),
     fontCompartment.of(fontTheme(options.fontSize)),

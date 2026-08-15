@@ -4,6 +4,26 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>AthanorDB</title>
+    <!--
+      Applies the saved theme before the first paint. Deliberately not a
+      module import (`utils/theme.ts`'s `loadThemePreset`/`applyThemePreset`
+      duplicated inline instead): a `<script type="module">` is deferred
+      until after the document is parsed, which is exactly late enough for
+      the browser to have already painted once with the CSS default (dark) —
+      a light-theme user would see one dark frame flash before switching,
+      every load. Sync + blocking + inline is what avoids it. Failures are
+      swallowed: a broken read must fall back to the CSS default, not blank
+      the page before React ever mounts.
+    -->
+    <script>
+      (function () {
+        try {
+          if (localStorage.getItem("athanordb.theme") === "light") {
+            document.documentElement.setAttribute("data-theme", "light");
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

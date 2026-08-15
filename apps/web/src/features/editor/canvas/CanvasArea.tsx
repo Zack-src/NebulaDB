@@ -367,7 +367,7 @@ export function CanvasArea(props: CanvasAreaProps) {
         // `RemoteCursorsLayer`), so this doesn't touch them either.
         onlyRenderVisibleElements
       >
-        <Background color="#33353c" gap={20} variant={gridStyle as BackgroundVariant} />
+        <Background color="var(--color-canvas-grid)" gap={20} variant={gridStyle as BackgroundVariant} />
         <RemoteCursorsLayer awareness={awareness} />
         {/* Viewport control lives in its own corner pill: it is used at
             different moments from the editing tools, and pinning it left means
@@ -428,7 +428,7 @@ export function CanvasArea(props: CanvasAreaProps) {
               }
               return "var(--color-primary)";
             }}
-            maskColor="rgba(9, 10, 15, 0.7)"
+            maskColor="var(--color-overlay)"
           />
         )}
         {selectedTableIds.length > 1 && props.canWrite && (
