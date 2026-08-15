@@ -3,13 +3,20 @@ import type { ZoneNodeType } from "@/features/editor/nodes/ZoneNode";
 import type { StickyNoteNodeType } from "@/features/editor/nodes/StickyNoteNode";
 import type { EnumNodeType } from "@/features/editor/nodes/EnumNode";
 import type { TableGroupNodeType } from "@/features/editor/nodes/TableGroupNode";
-import type { CursorNodeType } from "@/features/collaboration/CursorNode";
 
 /** Re-exported so components can type a lookup table of dictionary keys without reaching into i18n internals. */
 export type { TranslationKey as TranslationKeyOf } from "@/i18n/translate";
 
 export type CanvasNode = TableNodeType | ZoneNodeType | StickyNoteNodeType | EnumNodeType | TableGroupNodeType;
-export type AllNodes = CanvasNode | CursorNodeType;
+/**
+ * Historically `CanvasNode | CursorNodeType` — remote cursors moved out of
+ * React Flow's `nodes` array into a `ViewportPortal` overlay (see
+ * `RemoteCursorsLayer`) so a peer's mouse movement no longer forces React
+ * Flow to re-diff every node on the canvas. Kept as an alias, not inlined,
+ * so the node-change handler's intent ("this is React Flow's nodes-prop
+ * change type") still reads clearly at the call site.
+ */
+export type AllNodes = CanvasNode;
 
 export type ProjectStatus = "active" | "archived" | "trashed";
 export type PermissionLevel = "view" | "edit" | "administrator";

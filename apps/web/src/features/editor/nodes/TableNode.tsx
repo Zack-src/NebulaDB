@@ -1,5 +1,13 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Handle, Position, useReactFlow, useStore, type Node, type NodeProps, type ReactFlowState } from "@xyflow/react";
+import {
+  Handle,
+  Position,
+  useReactFlow,
+  useStore,
+  type Node,
+  type NodeProps,
+  type ReactFlowState,
+} from "@xyflow/react";
 import { MAX_NAME_LENGTH, type Field, type Table, type TableIndex } from "@athanordb/shared";
 import { CommentThread } from "@/features/editor/comments/CommentThread";
 import type { RemoteSelector } from "@/features/collaboration/useRemoteSelections";
@@ -79,9 +87,7 @@ function TableNodeImpl({ data, selected, id }: NodeProps<TableNodeType>) {
     (fieldId: string) => {
       onSelectField(fieldId);
       // Unselect the table node so the selection outline moves to the column itself
-      setNodes((nds) =>
-        nds.map((n) => (n.id === id || n.selected ? { ...n, selected: false } : n)),
-      );
+      setNodes((nds) => nds.map((n) => (n.id === id || n.selected ? { ...n, selected: false } : n)));
     },
     [id, onSelectField, setNodes],
   );
@@ -191,127 +197,131 @@ function TableNodeImpl({ data, selected, id }: NodeProps<TableNodeType>) {
       >
         <div
           className={TABLE_HEADER_CLASS}
-        style={{ background: headerColor, color: prefersDarkText(headerColor) ? "var(--color-text-on-light)" : "#ffffff" }}
-        onDoubleClick={() => {
-          if (!data.readOnly) setRenaming(true);
-        }}
-      >
-        <Handle type="target" position={Position.Left} id="header-left-target" style={{ opacity: 0 }} />
-        <Handle type="source" position={Position.Left} id="header-left-source" style={{ opacity: 0 }} />
-        <Handle type="target" position={Position.Right} id="header-right-target" style={{ opacity: 0 }} />
-        <Handle type="source" position={Position.Right} id="header-right-source" style={{ opacity: 0 }} />
-        {renaming ? (
-          <input
-            autoFocus
-            className={`nodrag ${TABLE_NAME_INPUT_CLASS}`}
-            value={nameDraft.value}
-            onChange={(event) => nameDraft.setValue(event.target.value)}
-            onBlur={() => {
-              nameDraft.commit();
-              setRenaming(false);
-            }}
-            maxLength={MAX_NAME_LENGTH}
-            onKeyDown={(event) => {
-              nameDraft.handleKeyDown(event);
-              if (event.key === "Enter") setRenaming(false);
-              if (event.key === "Escape") {
-                nameDraft.setValue(table.name);
+          style={{
+            background: headerColor,
+            color: prefersDarkText(headerColor) ? "var(--color-text-on-light)" : "#ffffff",
+          }}
+          onDoubleClick={() => {
+            if (!data.readOnly) setRenaming(true);
+          }}
+        >
+          <Handle type="target" position={Position.Left} id="header-left-target" style={{ opacity: 0 }} />
+          <Handle type="source" position={Position.Left} id="header-left-source" style={{ opacity: 0 }} />
+          <Handle type="target" position={Position.Right} id="header-right-target" style={{ opacity: 0 }} />
+          <Handle type="source" position={Position.Right} id="header-right-source" style={{ opacity: 0 }} />
+          {renaming ? (
+            <input
+              autoFocus
+              className={`nodrag ${TABLE_NAME_INPUT_CLASS}`}
+              value={nameDraft.value}
+              onChange={(event) => nameDraft.setValue(event.target.value)}
+              onBlur={() => {
+                nameDraft.commit();
                 setRenaming(false);
-              }
-            }}
-          />
-        ) : (
-          <span
-            className={TABLE_NAME_CLASS}
-            data-tooltip={table.note ? table.name : data.readOnly ? table.name : t("table.doubleClickToRename")}
-            {...(table.note ? { "data-tooltip-note": table.note } : {})}
-          >
-            {table.name}
-          </span>
-        )}
-
-        <div className={HEADER_ACTIONS_CLASS}>
-          {data.onGoToDbml && (
-            <button
-              type="button"
-              className={`${HEADER_BTN_CLASS} nodrag`}
-              onClick={(event) => {
-                event.stopPropagation();
-                data.onGoToDbml?.();
               }}
-              data-tooltip={t("table.goToDbml")}
+              maxLength={MAX_NAME_LENGTH}
+              onKeyDown={(event) => {
+                nameDraft.handleKeyDown(event);
+                if (event.key === "Enter") setRenaming(false);
+                if (event.key === "Escape") {
+                  nameDraft.setValue(table.name);
+                  setRenaming(false);
+                }
+              }}
+            />
+          ) : (
+            <span
+              className={TABLE_NAME_CLASS}
+              data-tooltip={table.note ? table.name : data.readOnly ? table.name : t("table.doubleClickToRename")}
+              {...(table.note ? { "data-tooltip-note": table.note } : {})}
             >
-              <CodeIcon size={13} />
-            </button>
+              {table.name}
+            </span>
           )}
-          {!data.readOnly && (
-            <>
-              <CommentThread
-                comments={tableComments}
-                currentUser={data.currentUser}
-                onAdd={(text) => data.onAddComment(text)}
-                onDelete={data.onDeleteComment}
-                triggerClassName={HEADER_BTN_CLASS}
-                tooltip={t("table.comments")}
-              />
-              <TableSettingsPopover
-                table={table}
-                palette={data.palette}
-                onRename={data.onRename}
-                onStyleChange={data.onStyleChange}
-                onAddIndex={data.onAddIndex}
-                onUpdateIndex={data.onUpdateIndex}
-                onDeleteIndex={data.onDeleteIndex}
-                triggerClassName={HEADER_BTN_CLASS}
-              />
-            </>
-          )}
+
+          <div className={HEADER_ACTIONS_CLASS}>
+            {data.onGoToDbml && (
+              <button
+                type="button"
+                className={`${HEADER_BTN_CLASS} nodrag`}
+                onClick={(event) => {
+                  event.stopPropagation();
+                  data.onGoToDbml?.();
+                }}
+                data-tooltip={t("table.goToDbml")}
+              >
+                <CodeIcon size={13} />
+              </button>
+            )}
+            {!data.readOnly && (
+              <>
+                <CommentThread
+                  comments={tableComments}
+                  currentUser={data.currentUser}
+                  onAdd={(text) => data.onAddComment(text)}
+                  onDelete={data.onDeleteComment}
+                  triggerClassName={HEADER_BTN_CLASS}
+                  tooltip={t("table.comments")}
+                />
+                <TableSettingsPopover
+                  table={table}
+                  palette={data.palette}
+                  onRename={data.onRename}
+                  onStyleChange={data.onStyleChange}
+                  onAddIndex={data.onAddIndex}
+                  onUpdateIndex={data.onUpdateIndex}
+                  onDeleteIndex={data.onDeleteIndex}
+                  triggerClassName={HEADER_BTN_CLASS}
+                />
+              </>
+            )}
+          </div>
         </div>
-      </div>
-      {rows.map((field) => (
-        <TableNodeRow
-          key={field.id}
-          ref={selectedFieldId === field.id ? selectedRowRef : undefined}
-          field={field}
-          comments={table.comments?.filter((c) => c.fieldId === field.id) ?? []}
-          isPk={isPkField(field)}
-          isForeignKey={refFieldIds.has(field.id)}
-          isLinked={Boolean(
-            (data.highlightLinks && refFieldIds.has(field.id)) ||
+        {rows.map((field) => (
+          <TableNodeRow
+            key={field.id}
+            ref={selectedFieldId === field.id ? selectedRowRef : undefined}
+            field={field}
+            comments={table.comments?.filter((c) => c.fieldId === field.id) ?? []}
+            isPk={isPkField(field)}
+            isForeignKey={refFieldIds.has(field.id)}
+            isLinked={Boolean(
+              (data.highlightLinks && refFieldIds.has(field.id)) ||
               selectedEdgeFieldIds.has(field.id) ||
               (selectedFieldId === field.id && refFieldIds.has(field.id)),
-          )}
-          isSelected={selectedFieldId === field.id}
-          currentUser={data.currentUser}
-          onSelect={() => handleSelectField(field.id)}
-          onHoverStart={() => data.onFieldHoverChange(field.id)}
-          onHoverEnd={() => data.onFieldHoverChange(null)}
-          onAddComment={(text) => data.onAddComment(text, field.id)}
-          onDeleteComment={data.onDeleteComment}
-          onUpdateField={data.onUpdateField}
-          onDeleteField={data.onDeleteField}
-        />
-      ))}
-      {data.onAddField && table.detailLevel !== "compact" && (
-        <div className={TABLE_FOOTER_CLASS}>
-          <button
-            type="button"
-            className={`${TABLE_ADD_BTN_CLASS} nodrag`}
-            onClick={(event) => {
-              event.stopPropagation();
-              const count = table.fields.length + 1;
-              data.onAddField?.({
-                name: `field_${count}`,
-                type: "varchar",
-              });
-            }}
-            data-tooltip={t("table.addColumnTooltip")}
-          >
-            <PlusIcon size={12} /> {t("table.addColumn")}
-          </button>
-        </div>
-      )}
-    </div>
+            )}
+            isSelected={selectedFieldId === field.id}
+            currentUser={data.currentUser}
+            onSelect={() => handleSelectField(field.id)}
+            onHoverStart={() => data.onFieldHoverChange(field.id)}
+            onHoverEnd={() => data.onFieldHoverChange(null)}
+            onAddComment={(text) => data.onAddComment(text, field.id)}
+            onDeleteComment={data.onDeleteComment}
+            onUpdateField={data.onUpdateField}
+            onDeleteField={data.onDeleteField}
+          />
+        ))}
+        {data.onAddField && table.detailLevel !== "compact" && (
+          <div className={TABLE_FOOTER_CLASS}>
+            <button
+              type="button"
+              className={`${TABLE_ADD_BTN_CLASS} nodrag`}
+              onClick={(event) => {
+                event.stopPropagation();
+                const count = table.fields.length + 1;
+                data.onAddField?.({
+                  name: `field_${count}`,
+                  type: "varchar",
+                });
+              }}
+              data-tooltip={t("table.addColumnTooltip")}
+            >
+              <PlusIcon size={12} /> {t("table.addColumn")}
+            </button>
+          </div>
+        )}
+      </div>
+    </>
   );
 }
 

@@ -28,12 +28,19 @@ import { ZoneNode } from "@/features/editor/nodes/ZoneNode";
 import { StickyNoteNode } from "@/features/editor/nodes/StickyNoteNode";
 import { EnumNode } from "@/features/editor/nodes/EnumNode";
 import { TableGroupNode } from "@/features/editor/nodes/TableGroupNode";
-import { CursorNode, type CursorNodeType } from "@/features/collaboration/CursorNode";
+import { RemoteCursorsLayer } from "@/features/collaboration/RemoteCursorsLayer";
 import type { RemoteSelector } from "@/features/collaboration/useRemoteSelections";
 import { getSelectedWaypoint } from "@/features/editor/edges/waypointSelection";
 import { isTypingTarget } from "@/utils/dom";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
-import { loadGridStyle, loadShowMinimap, loadSnapToGrid, loadViewport, saveShowMinimap, saveViewport } from "@/utils/preferences";
+import {
+  loadGridStyle,
+  loadShowMinimap,
+  loadSnapToGrid,
+  loadViewport,
+  saveShowMinimap,
+  saveViewport,
+} from "@/utils/preferences";
 import type { CanvasCommandContribution, ResolvedContribution } from "@/features/plugins/types";
 import type { AllNodes, CanvasExportHandle, CanvasNode } from "@/types";
 import { DEFAULT_HEADER_COLOR } from "@/features/editor/nodes/table/TableSettingsPopover";
@@ -52,7 +59,6 @@ const nodeTypes = {
   sticky: StickyNoteNode,
   enum: EnumNode,
   tablegroup: TableGroupNode,
-  cursor: CursorNode,
 };
 const edgeTypes = { ref: RefEdge };
 
@@ -61,7 +67,6 @@ const MIN_ZOOM = 0.05;
 
 export interface CanvasAreaProps {
   nodes: CanvasNode[];
-  cursorNodes: CursorNodeType[];
   /** tableId -> the remote collaborators who currently have that table selected — see `useRemoteSelections`. */
   remoteSelections: Map<string, RemoteSelector[]>;
   edges: RefEdgeType[];
@@ -109,8 +114,8 @@ export interface CanvasAreaProps {
  * Split out from `ProjectEditor` so it can call `useReactFlow()` — that hook
  * only works inside a `ReactFlowProvider`, and `screenToFlowPosition` is what
  * turns a mouse move into the flow-space coordinate broadcast as this user's
- * cursor, so peers' `CursorNode`s land in the right spot regardless of each
- * viewer's own pan/zoom.
+ * cursor, so peers' `RemoteCursorsLayer` renders it in the right spot
+ * regardless of each viewer's own pan/zoom.
  */
 export function CanvasArea(props: CanvasAreaProps) {
   const { screenToFlowPosition, deleteElements, getNodes, getEdges } = useReactFlow();
@@ -156,9 +161,9 @@ export function CanvasArea(props: CanvasAreaProps) {
    *
    * `mousemove` fires far faster than anything anyone can see — several times
    * per frame on a high-polling mouse — and every call put an awareness update
-   * on the WebSocket *and* re-rendered a `CursorNode` in every other
-   * participant's canvas. One position per frame is the most that can ever be
-   * displayed, so the rest was pure load on the socket and on every peer.
+   * on the WebSocket *and* re-rendered every peer's `RemoteCursorsLayer`. One
+   * position per frame is the most that can ever be displayed, so the rest
+   * was pure load on the socket and on every peer.
    */
   const pendingCursorRef = useRef<CanvasPoint | null>(null);
   const cursorFrameRef = useRef<number | null>(null);
@@ -229,7 +234,16 @@ export function CanvasArea(props: CanvasAreaProps) {
       // Deliberately left active: placing several tables in a row is the
       // whole point, and Escape (or picking the tool again) is how you stop.
     },
-    [activeInsertTool, screenToFlowPosition, onAddTable, onAddZone, onAddNote, onAddEnum, onClearFieldSelection, onSelectEdge],
+    [
+      activeInsertTool,
+      screenToFlowPosition,
+      onAddTable,
+      onAddZone,
+      onAddNote,
+      onAddEnum,
+      onClearFieldSelection,
+      onSelectEdge,
+    ],
   );
 
   /**
@@ -254,7 +268,7 @@ export function CanvasArea(props: CanvasAreaProps) {
       if (isTypingTarget(event.target)) return;
       if (!canWriteRef.current) return;
       if (getSelectedWaypoint()) return;
-      const nodes = getNodes().filter((node) => node.selected && node.type !== "cursor");
+      const nodes = getNodes().filter((node) => node.selected);
       const edges = getEdges().filter((edge) => edge.selected);
       if (nodes.length === 0 && edges.length === 0) return;
       event.preventDefault();
@@ -280,14 +294,11 @@ export function CanvasArea(props: CanvasAreaProps) {
    * Broadcast this user's table selection — the Figma-style outline other
    * participants see on this project. Keyed on the joined id string rather
    * than the array itself: `selectedTableIds` is a fresh array every render,
-   * which would otherwise fire this on every unrelated re-render (e.g. a
-   * remote cursor moving).
+   * which would otherwise fire this on every unrelated re-render of `CanvasArea`.
    */
   const selectedTableIdsKey = selectedTableIds.join(",");
   useEffect(() => {
     awareness?.setLocalStateField("selection", selectedTableIdsKey ? selectedTableIdsKey.split(",") : []);
-    // selectedTableIdsKey is the real dependency; selectedTableIds itself is a new array every render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedTableIdsKey, awareness]);
 
   const { remoteSelections } = props;
@@ -301,8 +312,6 @@ export function CanvasArea(props: CanvasAreaProps) {
     });
   }, [props.nodes, remoteSelections]);
 
-  const allNodes: AllNodes[] = [...nodesWithRemoteSelection, ...props.cursorNodes];
-
   return (
     <div
       className={`min-w-0 flex-1 bg-bg-canvas ${activeInsertTool ? "canvas-placing" : ""}`}
@@ -311,7 +320,7 @@ export function CanvasArea(props: CanvasAreaProps) {
       style={{ "--canvas-font-scale": props.fontScale } as CSSProperties}
     >
       <ReactFlow
-        nodes={allNodes}
+        nodes={nodesWithRemoteSelection}
         edges={props.edges}
         onNodesChange={onNodesChange}
         onEdgesDelete={props.onEdgesDelete}
@@ -353,11 +362,13 @@ export function CanvasArea(props: CanvasAreaProps) {
         // actually panned into view. React Flow already tracks each node's
         // position/size for its own viewport-culling math, so nothing outside
         // the visible area (plus a small margin) gets rendered at all.
-        // fitView/minimap/collaborator cursors are unaffected — they read node
-        // geometry, not the DOM.
+        // fitView/minimap are unaffected — they read node geometry, not the
+        // DOM. Collaborator cursors aren't nodes at all (see
+        // `RemoteCursorsLayer`), so this doesn't touch them either.
         onlyRenderVisibleElements
       >
         <Background color="#33353c" gap={20} variant={gridStyle as BackgroundVariant} />
+        <RemoteCursorsLayer awareness={awareness} />
         {/* Viewport control lives in its own corner pill: it is used at
             different moments from the editing tools, and pinning it left means
             it doesn't shift as the toolbar beside it grows. */}

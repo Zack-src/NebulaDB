@@ -1,8 +1,14 @@
 import { useCallback, useRef, type Dispatch, type SetStateAction } from "react";
 import * as Y from "yjs";
 import { applyNodeChanges, type NodeChange } from "@xyflow/react";
-import { getEnumsMap, getRefsMap, getStickyNotesMap, getTableGroupsMap, getTablesMap, getZonesMap } from "@athanordb/shared";
-import type { CursorNodeType } from "@/features/collaboration/CursorNode";
+import {
+  getEnumsMap,
+  getRefsMap,
+  getStickyNotesMap,
+  getTableGroupsMap,
+  getTablesMap,
+  getZonesMap,
+} from "@athanordb/shared";
 import type { CanvasNode } from "@/types/index";
 import { DEFAULT_TABLE_HEIGHT, DEFAULT_TABLE_WIDTH } from "@/features/editor/edges/refGeometry";
 
@@ -12,7 +18,11 @@ import { DEFAULT_TABLE_HEIGHT, DEFAULT_TABLE_WIDTH } from "@/features/editor/edg
  * a zone drag whatever table/sticky/enum was inside it along, by
  * synthesizing a "position" change for each member.
  */
-export function useNodesChangeHandler(nodes: CanvasNode[], setNodes: Dispatch<SetStateAction<CanvasNode[]>>, doc: Y.Doc | null) {
+export function useNodesChangeHandler(
+  nodes: CanvasNode[],
+  setNodes: Dispatch<SetStateAction<CanvasNode[]>>,
+  doc: Y.Doc | null,
+) {
   // Per zone currently being dragged: each contained table/sticky's offset
   // from the zone's position, snapshotted once at drag start (not
   // recomputed every frame) so the group moves rigidly together instead of
@@ -20,12 +30,7 @@ export function useNodesChangeHandler(nodes: CanvasNode[], setNodes: Dispatch<Se
   const zoneDragMembersRef = useRef<Map<string, Map<string, { x: number; y: number }>>>(new Map());
 
   return useCallback(
-    // Typed against AllNodes since this is React Flow's nodes-prop change
-    // handler and cursor nodes ride along in that same array — but cursor
-    // nodes are always non-interactive (draggable/selectable/deletable:
-    // false), so they never actually produce a change event; safe to narrow
-    // back to CanvasNode for the part of this function that persists to the doc.
-    (changes: NodeChange<CanvasNode | CursorNodeType>[]) => {
+    (changes: NodeChange<CanvasNode>[]) => {
       const memberChanges: NodeChange<CanvasNode>[] = [];
       for (const change of changes) {
         if (change.type !== "position" || !change.position) continue;
@@ -41,8 +46,10 @@ export function useNodesChangeHandler(nodes: CanvasNode[], setNodes: Dispatch<Se
           const zh = zoneNode.height ?? 0;
           for (const other of nodes) {
             if (other.type !== "table" && other.type !== "sticky" && other.type !== "enum") continue;
-            const w = other.measured?.width ?? (other.type === "sticky" ? other.width : undefined) ?? DEFAULT_TABLE_WIDTH;
-            const h = other.measured?.height ?? (other.type === "sticky" ? other.height : undefined) ?? DEFAULT_TABLE_HEIGHT;
+            const w =
+              other.measured?.width ?? (other.type === "sticky" ? other.width : undefined) ?? DEFAULT_TABLE_WIDTH;
+            const h =
+              other.measured?.height ?? (other.type === "sticky" ? other.height : undefined) ?? DEFAULT_TABLE_HEIGHT;
             const cx = other.position.x + w / 2;
             const cy = other.position.y + h / 2;
             if (cx >= zx && cx <= zx + zw && cy >= zy && cy <= zy + zh) {
@@ -64,7 +71,7 @@ export function useNodesChangeHandler(nodes: CanvasNode[], setNodes: Dispatch<Se
         if (change.dragging === false) zoneDragMembersRef.current.delete(zoneNode.id);
       }
 
-      const allChanges = [...(changes as NodeChange<CanvasNode>[]), ...memberChanges];
+      const allChanges = [...changes, ...memberChanges];
       setNodes((nds) => applyNodeChanges(allChanges, nds));
       if (!doc) return;
       const tables = getTablesMap(doc);

@@ -3,6 +3,7 @@ import { ReactFlowProvider } from "@xyflow/react";
 import { getMetaMap, writeProjectToDoc, type Project } from "@athanordb/shared";
 import { useProjectDoc } from "@/features/collaboration/useProjectDoc";
 import { useAwarenessStates } from "@/features/collaboration/useAwarenessStates";
+import { useRemoteSelections } from "@/features/collaboration/useRemoteSelections";
 import { hashColor } from "@/features/collaboration/awarenessColor";
 import { CanvasArea } from "@/features/editor/canvas/CanvasArea";
 import { ChevronRightIcon } from "@/components/icons/Icons";
@@ -11,7 +12,6 @@ import { loadHighlightLinks, saveHighlightLinks } from "@/utils/preferences";
 import type { CanvasExportHandle, ProjectSummary } from "@/types/index";
 import { useCanvasNodes } from "@/features/editor/hooks/useCanvasNodes";
 import { useCanvasEdges } from "@/features/editor/hooks/useCanvasEdges";
-import { useCursorNodes } from "@/features/editor/hooks/useCursorNodes";
 import { useCanvasFontScale } from "@/features/editor/hooks/useCanvasFontScale";
 import { useProjectMutations } from "@/features/editor/hooks/useProjectMutations";
 import { useEditorKeyboardShortcuts } from "@/features/editor/hooks/useEditorKeyboardShortcuts";
@@ -62,6 +62,7 @@ export function ProjectEditor(props: {
   /** Handed to the write paths in place of `doc`: every mutator already early-returns on a null doc, so one substitution closes all of them at once. */
   const writeDoc = canWrite ? doc : null;
   const remoteAwareness = useAwarenessStates(awareness);
+  const remoteSelections = useRemoteSelections(awareness);
   const [showImport, setShowImport] = useState(false);
   const [showExport, setShowExport] = useState(false);
   const [dbmlOpen, setDbmlOpen] = useState(true);
@@ -138,8 +139,6 @@ export function ProjectEditor(props: {
       canvasExportRef.current?.capture(format) ?? Promise.reject(new Error(t("editor.canvasNotReady"))),
     [t],
   );
-
-  const cursorNodes = useCursorNodes(remoteAwareness);
 
   // Fields that are some ref's endpoint for a given table — shown outside compact detail level even if not PK.
   const refFieldIdsByTable = useMemo(() => {
@@ -289,7 +288,7 @@ export function ProjectEditor(props: {
         <ReactFlowProvider>
           <CanvasArea
             nodes={nodes}
-            cursorNodes={cursorNodes}
+            remoteSelections={remoteSelections}
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesDelete={onEdgesDelete}
