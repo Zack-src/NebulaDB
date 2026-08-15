@@ -18,6 +18,7 @@ export function buildTableNodes(
   palette: string[],
   onPaletteChange: (next: string[]) => void,
   onGoToDbml: (tableName: string) => void,
+  onFieldHoverChange: (fieldId: string | null) => void,
   canWrite = true,
 ): TableNodeType[] {
   return tables.map((table) => ({
@@ -33,6 +34,10 @@ export function buildTableNodes(
       readOnly: !canWrite,
       onPaletteChange,
       onGoToDbml: () => onGoToDbml(table.name),
+      // Purely visual (no doc write), so unlike the mutators below it is never
+      // gated on `canWrite` — a view-only session still gets to see which
+      // relation a column belongs to.
+      onFieldHoverChange,
       onRename: (name: string) => {
         const tables_ = getTablesMap(doc);
         const current = tables_.get(table.id);

@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { Handle, Position } from "@xyflow/react";
 import type { Comment, Field } from "@athanordb/shared";
 import { CommentThread } from "@/features/editor/comments/CommentThread";
@@ -26,6 +27,8 @@ export interface TableNodeRowProps {
   isSelected: boolean;
   currentUser: string;
   onSelect: () => void;
+  onHoverStart: () => void;
+  onHoverEnd: () => void;
   onAddComment: (text: string) => void;
   onDeleteComment: (commentId: string) => void;
   onUpdateField?: (fieldId: string, updates: Partial<Field>) => void;
@@ -42,12 +45,27 @@ export function TableNodeRow({
   isSelected,
   currentUser,
   onSelect,
+  onHoverStart,
+  onHoverEnd,
   onAddComment,
   onDeleteComment,
   onUpdateField,
   onDeleteField,
 }: TableNodeRowProps) {
   const { t } = useTranslation();
+
+  // Guards the unmount cleanup below: only a row that is itself the currently
+  // hovered one should clear the shared hover state when it disappears (a
+  // field deleted, or panned out of view under `onlyRenderVisibleElements`
+  // mid-hover) — an unrelated row unmounting must not clear someone else's.
+  const isHoveredRef = useRef(false);
+  useEffect(
+    () => () => {
+      if (isHoveredRef.current) onHoverEnd();
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [],
+  );
 
   return (
     <div
@@ -59,6 +77,14 @@ export function TableNodeRow({
       onClick={(event) => {
         event.stopPropagation();
         onSelect();
+      }}
+      onMouseEnter={() => {
+        isHoveredRef.current = true;
+        onHoverStart();
+      }}
+      onMouseLeave={() => {
+        isHoveredRef.current = false;
+        onHoverEnd();
       }}
     >
       <Handle type="target" position={Position.Left} id={`${field.id}-left-target`} className="table-row-handle" />

@@ -32,6 +32,8 @@ export interface TableNodeData {
   onPaletteChange: (palette: string[]) => void;
   onRename: (name: string) => void;
   onGoToDbml?: () => void;
+  /** Fires when the pointer enters/leaves a specific column row (`null` on leave) — narrows link highlighting to that column. */
+  onFieldHoverChange: (fieldId: string | null) => void;
   onStyleChange: (color: string | undefined, borderColor: string | undefined) => void;
   onAddComment: (text: string, fieldId?: string) => void;
   onDeleteComment: (commentId: string) => void;
@@ -216,6 +218,8 @@ function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
           isSelected={selectedFieldId === field.id}
           currentUser={data.currentUser}
           onSelect={() => setSelectedFieldId(field.id)}
+          onHoverStart={() => data.onFieldHoverChange(field.id)}
+          onHoverEnd={() => data.onFieldHoverChange(null)}
           onAddComment={(text) => data.onAddComment(text, field.id)}
           onDeleteComment={data.onDeleteComment}
           onUpdateField={data.onUpdateField}

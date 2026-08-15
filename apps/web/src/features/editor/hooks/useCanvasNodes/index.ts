@@ -27,6 +27,8 @@ export function useCanvasNodes(
   user: string,
   highlightLinks: boolean,
   onGoToDbml: (tableName: string) => void,
+  /** Fires when the pointer enters/leaves a specific column row (`null` on leave) — narrows link highlighting to that column instead of the whole table. */
+  onFieldHoverChange: (fieldId: string | null) => void,
   /** False for a `view` grant: nodes still render and select, but nothing they do reaches the document. */
   canWrite = true,
 ) {
@@ -40,12 +42,12 @@ export function useCanvasNodes(
 
     return [
       ...buildZoneNodes(liveProject.zones, doc, palette, onPaletteChange, canWrite),
-      ...buildTableNodes(liveProject.tables, doc, refFieldIdsByTable, user, highlightLinks, palette, onPaletteChange, onGoToDbml, canWrite),
+      ...buildTableNodes(liveProject.tables, doc, refFieldIdsByTable, user, highlightLinks, palette, onPaletteChange, onGoToDbml, onFieldHoverChange, canWrite),
       ...buildStickyNodes(liveProject.stickyNotes, doc, palette, onPaletteChange, canWrite),
       ...buildEnumNodes(liveProject.enums, doc, canWrite),
       ...buildTableGroupNodes(liveProject.tableGroups, liveProject.tables, doc, canWrite),
     ];
-  }, [liveProject, doc, refFieldIdsByTable, user, highlightLinks, onGoToDbml, canWrite]);
+  }, [liveProject, doc, refFieldIdsByTable, user, highlightLinks, onGoToDbml, onFieldHoverChange, canWrite]);
 
   const [nodes, setNodes] = useSelectionPreservingNodes(builtNodes);
   // A null doc makes every persist branch in the handler a no-op, so drags and

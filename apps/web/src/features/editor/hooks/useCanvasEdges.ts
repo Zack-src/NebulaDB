@@ -11,7 +11,8 @@ export function useCanvasEdges(
   doc: Y.Doc | null,
   nodes: CanvasNode[],
   highlightLinks: boolean,
-  hoveredTableId: string | null,
+  /** The column currently under the pointer (`null` when hovering anything else) — highlighting is scoped to just that column's own relations, not the whole table's. */
+  hoveredFieldId: string | null,
   palette: string[],
   onPaletteChange: (palette: string[]) => void,
   /** False for a `view` grant — the relation keeps its colour picker and waypoints hidden rather than writing changes the server discards. */
@@ -42,9 +43,14 @@ export function useCanvasEdges(
       const fromNode = nodesById.get(ref.from.tableId);
       const toNode = nodesById.get(ref.to.tableId);
 
+      // Field ids are already globally unique (crypto.randomUUID()), so a
+      // match against either endpoint is enough — no need to also check which
+      // table the hovered column belongs to. A whole-table hover used to
+      // light up every relation the table had; this only lights up the one
+      // the pointer is actually over.
       const connectedHighlight =
-        hoveredTableId === ref.from.tableId ||
-        hoveredTableId === ref.to.tableId ||
+        hoveredFieldId === ref.from.fieldId ||
+        hoveredFieldId === ref.to.fieldId ||
         Boolean(fromNode?.selected) ||
         Boolean(toNode?.selected);
 
@@ -118,5 +124,5 @@ export function useCanvasEdges(
         // screen size instead of scaling with the (zoom-compensated) width.
       };
     });
-  }, [liveProject, doc, nodes, highlightLinks, hoveredTableId, palette, onPaletteChange, canWrite]);
+  }, [liveProject, doc, nodes, highlightLinks, hoveredFieldId, palette, onPaletteChange, canWrite]);
 }

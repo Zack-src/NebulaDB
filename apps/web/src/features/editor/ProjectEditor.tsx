@@ -76,7 +76,7 @@ export function ProjectEditor(props: {
   const canvasCommands = useCanvasCommands(project.id);
   const { fontScale } = useCanvasFontScale();
   const [highlightLinks, setHighlightLinks] = useState(loadHighlightLinks);
-  const [hoveredTableId, setHoveredTableId] = useState<string | null>(null);
+  const [hoveredFieldId, setHoveredFieldId] = useState<string | null>(null);
   const [dbmlScrollRequest, setDbmlScrollRequest] = useState<{ tableName: string; requestId: number } | null>(null);
   const goToDbml = useCallback((tableName: string) => {
     setDbmlOpen(true);
@@ -161,7 +161,16 @@ export function ProjectEditor(props: {
     [doc],
   );
 
-  const { nodes, onNodesChange } = useCanvasNodes(liveProject, doc, refFieldIdsByTable, user, highlightLinks, goToDbml, canWrite);
+  const { nodes, onNodesChange } = useCanvasNodes(
+    liveProject,
+    doc,
+    refFieldIdsByTable,
+    user,
+    highlightLinks,
+    goToDbml,
+    setHoveredFieldId,
+    canWrite,
+  );
 
   const selectedTableIds = useMemo(
     () => nodes.filter((n) => n.type === "table" && n.selected).map((n) => n.id),
@@ -195,7 +204,7 @@ export function ProjectEditor(props: {
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [canvasCommands, runCanvasCommand]);
-  const edges = useCanvasEdges(liveProject, doc, nodes, highlightLinks, hoveredTableId, palette, onPaletteChange, canWrite);
+  const edges = useCanvasEdges(liveProject, doc, nodes, highlightLinks, hoveredFieldId, palette, onPaletteChange, canWrite);
 
   const {
     addTable,
@@ -288,7 +297,6 @@ export function ProjectEditor(props: {
             onSetDetailLevel={setAllDetailLevels}
             highlightLinks={highlightLinks}
             onHighlightLinksChange={handleHighlightLinksChange}
-            onTableHoverChange={setHoveredTableId}
             projectId={project.id}
             viewportUserId={session.id}
             exportRef={canvasExportRef}

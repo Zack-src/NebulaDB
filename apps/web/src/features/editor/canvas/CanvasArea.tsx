@@ -79,8 +79,6 @@ export interface CanvasAreaProps {
   onSetDetailLevel: (level: DetailLevel) => void;
   highlightLinks: boolean;
   onHighlightLinksChange: (highlight: boolean) => void;
-  /** Fires on table hover start/end (null on leave) — lets the parent highlight that table's refs. */
-  onTableHoverChange: (tableId: string | null) => void;
   projectId: string;
   /** Session's stable user id — namespaces the saved-viewport key, not an identity field. */
   viewportUserId: string;
@@ -124,7 +122,7 @@ export function CanvasArea(props: CanvasAreaProps) {
   const [gridStyle] = useState(loadGridStyle);
   const [snapToGrid] = useState(loadSnapToGrid);
 
-  const { onNodesChange, onTableHoverChange, awareness, exportRef } = props;
+  const { onNodesChange, awareness, exportRef } = props;
 
   useCanvasImageExport(exportRef);
   const search = useCanvasSearch(props.nodes, onNodesChange);
@@ -181,19 +179,6 @@ export function CanvasArea(props: CanvasAreaProps) {
       if (cursorFrameRef.current !== null) cancelAnimationFrame(cursorFrameRef.current);
     },
     [],
-  );
-
-  const handleNodeMouseEnter = useCallback(
-    (_event: ReactMouseEvent, node: AllNodes) => {
-      if (node.type === "table") onTableHoverChange(node.id);
-    },
-    [onTableHoverChange],
-  );
-  const handleNodeMouseLeave = useCallback(
-    (_event: ReactMouseEvent, node: AllNodes) => {
-      if (node.type === "table") onTableHoverChange(null);
-    },
-    [onTableHoverChange],
   );
 
   const canAddNodes = props.canWrite;
@@ -301,8 +286,6 @@ export function CanvasArea(props: CanvasAreaProps) {
         // there is no per-node menu to offer yet.
         onNodeContextMenu={suppressNativeMenu}
         onSelectionContextMenu={suppressNativeMenu}
-        onNodeMouseEnter={handleNodeMouseEnter}
-        onNodeMouseLeave={handleNodeMouseLeave}
         onMoveStart={closeContextMenu}
         onMoveEnd={(_event, viewport) => saveViewport(props.projectId, props.viewportUserId, viewport)}
         nodeTypes={nodeTypes}

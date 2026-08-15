@@ -12,10 +12,10 @@
   transition: opacity 0.15s ease, transform 0.15s ease;
 }
 
-.table-node:hover .table-row-handle {
-  opacity: 0.8;
-}
-
+/* Only the hovered row's own handles appear — not a faint preview of every
+   row's handles the moment the pointer enters the table anywhere. That old
+   table-wide fade-in is also what let a connection start from a handle the
+   user hadn't actually singled out. */
 .table-node-row:hover .table-row-handle {
   opacity: 1;
   transform: scale(1.3);
