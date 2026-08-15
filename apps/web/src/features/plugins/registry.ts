@@ -11,6 +11,7 @@ import type {
   ImporterContribution,
   InvokeInput,
   InvokeResult,
+  PluginManifest,
   PluginRecord,
   PluginSettingValue,
   PluginSettings,
@@ -31,9 +32,7 @@ interface StoredPlugin {
 function readStored(): StoredPlugin[] {
   const parsed = readJson<unknown>(STORAGE_KEY);
   if (!Array.isArray(parsed)) return [];
-  return parsed.filter(
-    (p): p is StoredPlugin => Boolean(p) && typeof p.id === "string" && typeof p.code === "string",
-  );
+  return parsed.filter((p): p is StoredPlugin => Boolean(p) && typeof p.id === "string" && typeof p.code === "string");
 }
 
 function writeStored(plugins: StoredPlugin[]): void {
@@ -108,9 +107,21 @@ class PluginRegistry {
     const settings: PluginSettings = {};
     for (const def of record?.manifest.settings ?? []) {
       const value = saved[def.key];
-      settings[def.key] = value !== undefined ? value : (def.default as PluginSettingValue | undefined) ?? defaultFor(def.type);
+      settings[def.key] =
+        value !== undefined ? value : ((def.default as PluginSettingValue | undefined) ?? defaultFor(def.type));
     }
     return settings;
+  }
+
+  getSettings(pluginId: string): PluginSettings {
+    return this.settingsFor(pluginId);
+  }
+
+  setSettings(pluginId: string, settings: PluginSettings): void {
+    const all = readAllSettings();
+    all[pluginId] = { ...(all[pluginId] ?? {}), ...settings };
+    writeJson(SETTINGS_KEY, all);
+    this.refreshSnapshot();
   }
 
   setSetting(pluginId: string, key: string, value: PluginSettingValue): void {
@@ -137,6 +148,37 @@ class PluginRegistry {
       }
     }
     return map;
+  }
+
+  /**
+   * Dry-run boots a plugin in a temporary sandbox Worker to validate its syntax,
+   * manifest and registered contributions without installing or persisting it.
+   */
+  async validate(code: string): Promise<{ manifest: PluginManifest; contributions: Contribution[] }> {
+    const trimmed = code.trim();
+    if (!trimmed) throw new Error("Le code source du plugin est vide");
+    if (trimmed.length > MAX_PLUGIN_CODE_LENGTH) {
+      throw new Error(`Le code est trop volumineux (max ${Math.round(MAX_PLUGIN_CODE_LENGTH / 1024)}kB)`);
+    }
+    const host = new PluginHost(trimmed);
+    try {
+      const load = await host.load();
+      return load;
+    } finally {
+      host.dispose();
+    }
+  }
+
+  getAllLogs(): Array<{ pluginId: string; pluginName: string; line: string }> {
+    const all: Array<{ pluginId: string; pluginName: string; line: string }> = [];
+    for (const [pluginId, host] of this.hosts.entries()) {
+      const record = this.records.get(pluginId);
+      const pluginName = record?.manifest.name ?? pluginId;
+      for (const line of host.logs) {
+        all.push({ pluginId, pluginName, line });
+      }
+    }
+    return all;
   }
 
   /**

@@ -123,6 +123,11 @@ export const SANDBOX_PREFIX = `"use strict";
         version: typeof meta.version === "string" ? meta.version : undefined,
         description: typeof meta.description === "string" ? meta.description : undefined,
         author: typeof meta.author === "string" ? meta.author : undefined,
+        category: typeof meta.category === "string" ? meta.category : undefined,
+        icon: typeof meta.icon === "string" ? meta.icon : undefined,
+        tags: Array.isArray(meta.tags) ? meta.tags.filter(function (t) { return typeof t === "string"; }) : undefined,
+        homepage: typeof meta.homepage === "string" ? meta.homepage : undefined,
+        doc: typeof meta.doc === "string" ? meta.doc : undefined,
         settings: normalizeSettings(meta.settings),
       };
     },

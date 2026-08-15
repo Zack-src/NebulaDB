@@ -1,5 +1,5 @@
-import { memo, useCallback, useMemo, useRef, useState } from "react";
-import { Handle, Position, useStore, type Node, type NodeProps, type ReactFlowState } from "@xyflow/react";
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Handle, Position, useReactFlow, useStore, type Node, type NodeProps, type ReactFlowState } from "@xyflow/react";
 import { MAX_NAME_LENGTH, type Field, type Table, type TableIndex } from "@athanordb/shared";
 import { CommentThread } from "@/features/editor/comments/CommentThread";
 import { CodeIcon, PlusIcon } from "@/components/icons/Icons";
@@ -30,11 +30,15 @@ export interface TableNodeData {
   palette: string[];
   /** True for a `view` grant — hides every editing affordance on the node. */
   readOnly?: boolean;
+  selectedFieldId?: string | null;
+  onSelectField: (fieldId: string | null) => void;
   onPaletteChange: (palette: string[]) => void;
   onRename: (name: string) => void;
   onGoToDbml?: () => void;
   /** Fires when the pointer enters/leaves a specific column row (`null` on leave) — narrows link highlighting to that column. */
   onFieldHoverChange: (fieldId: string | null) => void;
+  /** Fires when the pointer enters/leaves a table (`null` on leave) — highlights all relations of the table. */
+  onTableHoverChange?: (tableId: string | null) => void;
   onStyleChange: (color: string | undefined, borderColor: string | undefined) => void;
   onAddComment: (text: string, fieldId?: string) => void;
   onDeleteComment: (commentId: string) => void;
@@ -53,32 +57,43 @@ export type TableNodeType = Node<TableNodeData, "table">;
 const HANDLE_SUFFIX = /-(left|right)-(source|target)$/;
 const stripHandleSuffix = (handle: string) => handle.replace(HANDLE_SUFFIX, "");
 
-function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
+function TableNodeImpl({ data, selected, id }: NodeProps<TableNodeType>) {
   const { t } = useTranslation();
-  const { table, refFieldIds } = data;
+  const { table, refFieldIds, selectedFieldId, onSelectField, onTableHoverChange } = data;
+  const { setNodes } = useReactFlow();
   const [renaming, setRenaming] = useState(false);
   const nameDraft = useDraftValue(table.name, (next) => data.onRename(next ?? ""));
-  const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
-  // A column click no longer selects the table itself (see `nodrag` on
-  // ROW_CLASS), but the table can still be deselected out from under a
-  // selected column some other way — clicking a different table, or empty
-  // canvas after selecting this one by its header. Either way the column
-  // selection should go with it. Adjusted during render rather than from an
-  // effect (the same pattern as ColorSwatchPicker): React re-runs the
-  // component before touching the DOM, so there is no frame showing the
-  // stale highlight.
+
+  const isTableHoveredRef = useRef(false);
+  useEffect(
+    () => () => {
+      if (isTableHoveredRef.current) onTableHoverChange?.(null);
+    },
+    [onTableHoverChange],
+  );
+
+  const handleSelectField = useCallback(
+    (fieldId: string) => {
+      onSelectField(fieldId);
+      // Unselect the table node so the selection outline moves to the column itself
+      setNodes((nds) =>
+        nds.map((n) => (n.id === id || n.selected ? { ...n, selected: false } : n)),
+      );
+    },
+    [id, onSelectField, setNodes],
+  );
+
+  // If table is selected by header, clear field selection
   const [wasSelected, setWasSelected] = useState(selected);
   if (wasSelected !== selected) {
     setWasSelected(selected);
-    if (!selected) setSelectedFieldId(null);
+    if (selected && selectedFieldId) {
+      onSelectField(null);
+    }
   }
-  // Clicking outside the selected column deselects it too — not just clicking
-  // another column (each row's own click handler already reassigns selection
-  // directly) or losing the table's own selection above. This ref only ever
-  // points at whichever row is currently selected, so a click landing outside
-  // it — the table header, another table, empty canvas — clears it.
+
   const selectedRowRef = useRef<HTMLDivElement | null>(null);
-  useDismissablePopover(selectedFieldId !== null, () => setSelectedFieldId(null), [selectedRowRef]);
+  useDismissablePopover(Boolean(selectedFieldId), () => onSelectField(null), [selectedRowRef]);
   const tableComments = table.comments?.filter((c) => !c.fieldId) ?? [];
   const headerColor = table.style?.color ?? DEFAULT_HEADER_COLOR;
 
@@ -132,6 +147,14 @@ function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
   return (
     <div
       className={`group table-node ${TABLE_NODE_CLASS} ${selected ? `is-selected ${TABLE_NODE_SELECTED_CLASS}` : ""}`}
+      onMouseEnter={() => {
+        isTableHoveredRef.current = true;
+        onTableHoverChange?.(table.id);
+      }}
+      onMouseLeave={() => {
+        isTableHoveredRef.current = false;
+        onTableHoverChange?.(null);
+      }}
       // Selected wins over a custom border colour rather than being fought by
       // it — an inline style always beats a class for the same property, so
       // without this a table with its own border colour would never visibly
@@ -225,10 +248,14 @@ function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
           comments={table.comments?.filter((c) => c.fieldId === field.id) ?? []}
           isPk={isPkField(field)}
           isForeignKey={refFieldIds.has(field.id)}
-          isLinked={Boolean((data.highlightLinks && refFieldIds.has(field.id)) || selectedEdgeFieldIds.has(field.id))}
+          isLinked={Boolean(
+            (data.highlightLinks && refFieldIds.has(field.id)) ||
+              selectedEdgeFieldIds.has(field.id) ||
+              (selectedFieldId === field.id && refFieldIds.has(field.id)),
+          )}
           isSelected={selectedFieldId === field.id}
           currentUser={data.currentUser}
-          onSelect={() => setSelectedFieldId(field.id)}
+          onSelect={() => handleSelectField(field.id)}
           onHoverStart={() => data.onFieldHoverChange(field.id)}
           onHoverEnd={() => data.onFieldHoverChange(null)}
           onAddComment={(text) => data.onAddComment(text, field.id)}

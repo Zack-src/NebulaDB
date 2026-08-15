@@ -103,7 +103,7 @@ function ImportDialog(props: { projectId: string; onClose: () => void }) {
         </Button>
         <span className="flex-1" />
         <Button variant="primary" onClick={submit} disabled={busy || !source.trim() || !importer}>
-          {busy ? "Importing…" : "Import"}
+          {busy ? t("common.loading") : t("editor.import")}
         </Button>
       </div>
       <textarea

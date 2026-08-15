@@ -1,259 +1,377 @@
-import { useRef, useState } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { Modal } from "@/components/overlays/Modal";
-import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
-import { ErrorText, Hint } from "@/components/ui/Alert";
-import { TEXTAREA_CODE_CLASS } from "@/components/ui/inputStyles";
-import { DownloadIcon, PlusIcon, TrashIcon, UploadIcon } from "@/components/icons/Icons";
+import { PuzzleIcon, SparklesIcon, CodeIcon, LayersIcon, SearchIcon, CloseIcon } from "@/components/icons/Icons";
 import { pluginRegistry } from "@/features/plugins/registry";
-import { usePlugins } from "@/features/plugins/usePlugins";
-import { EXAMPLE_PLUGIN_NAME, EXAMPLE_PLUGIN_SOURCE } from "@/features/plugins/examples";
-import { INPUT_SM_CLASS, SELECT_CLASS } from "@/components/ui/inputStyles";
-import { triggerDownload } from "@/utils/download";
+import { COMMUNITY_TEMPLATES } from "@/features/plugins/communityTemplates";
+import type {
+  PluginManifest,
+  Contribution,
+  PluginRecord,
+  PluginSettingDef,
+} from "@/features/plugins/types";
 import { useTranslation } from "@/i18n/useTranslation";
-import type { TranslationKeyOf } from "@/types";
-import type { Contribution, PluginRecord, PluginSettingDef } from "@/features/plugins/types";
+import type { TranslationKey } from "@/i18n/translate";
+import { triggerDownload } from "@/utils/download";
+import { MarketplaceTab, type MarketplaceItem, InstalledTab, StudioTab, LogsTab, PluginSettingsModal } from "./dialog";
 
-const KIND_LABEL_KEY = {
-  exporter: "plugins.kind.exporter",
-  importer: "plugins.kind.importer",
-  canvasCommand: "plugins.kind.canvasCommand",
-  editorCommand: "plugins.kind.editorCommand",
-} as const satisfies Record<Contribution["kind"], TranslationKeyOf>;
+type ManagerTab = "marketplace" | "installed" | "studio" | "logs";
+type CategoryFilter = "all" | "export" | "import" | "canvas" | "editor" | "tools" | "community";
 
-function ContributionList({ contributions }: { contributions: Contribution[] }) {
+const DEFAULT_STARTER_CODE = `athanor.plugin({
+  id: "me.custom-action",
+  name: "Action Personnalisée",
+  version: "1.0.0",
+  author: "Moi",
+  category: "canvas",
+  description: "Description de mon plugin",
+  contributions: [
+    {
+      kind: "canvasCommand",
+      id: "my-action",
+      label: "Exécuter mon action",
+      description: "Transformation personnalisée du schéma",
+    },
+  ],
+});
+
+athanor.on("canvasCommand:my-action", (project) => {
+  console.log("Exécution sur le projet :", project.name);
+  return { message: "Action exécutée avec succès !" };
+});
+`;
+
+export function PluginManagerDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
-  if (contributions.length === 0) return null;
-  return (
-    <div className="mt-1.5 flex flex-wrap gap-1">
-      {contributions.map((c) => (
-        <span
-          key={`${c.kind}:${c.id}`}
-          className="inline-flex items-center gap-1 rounded-sm border border-border bg-surface px-1.5 py-px text-[11px] text-text-muted"
-          data-tooltip={c.description}
-        >
-          <span className="uppercase tracking-wide text-[9.5px] text-primary">{t(KIND_LABEL_KEY[c.kind])}</span>
-          {c.label}
-          {c.shortcut && <span className="rounded-sm bg-surface-hover px-1 text-[10px]">{c.shortcut}</span>}
-        </span>
-      ))}
-    </div>
+  const records = useSyncExternalStore(
+    pluginRegistry.subscribe,
+    pluginRegistry.getSnapshot,
+    pluginRegistry.getSnapshot,
   );
-}
 
-/** Renders a plugin's declared settings as a form — the plugin supplies data, never markup. */
-function SettingsForm({ pluginId, settings }: { pluginId: string; settings: PluginSettingDef[] }) {
-  const values = pluginRegistry.settingsFor(pluginId);
-  return (
-    <div className="mt-1.5 flex flex-col gap-1.5 rounded-sm border border-border p-2">
-      {settings.map((setting) => (
-        <label key={setting.key} className="flex items-center gap-2 text-[11.5px] text-text-secondary" data-tooltip={setting.description}>
-          <span className="min-w-[220px]">{setting.label}</span>
-          {setting.type === "boolean" && (
-            <input
-              type="checkbox"
-              checked={Boolean(values[setting.key])}
-              onChange={(event) => pluginRegistry.setSetting(pluginId, setting.key, event.target.checked)}
-            />
-          )}
-          {setting.type === "select" && (
-            <select
-              className={SELECT_CLASS}
-              value={String(values[setting.key] ?? "")}
-              onChange={(event) => pluginRegistry.setSetting(pluginId, setting.key, event.target.value)}
-            >
-              {setting.options.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          )}
-          {setting.type === "string" && (
-            <input
-              className={INPUT_SM_CLASS}
-              value={String(values[setting.key] ?? "")}
-              onChange={(event) => pluginRegistry.setSetting(pluginId, setting.key, event.target.value)}
-            />
-          )}
-          {setting.type === "number" && (
-            <input
-              type="number"
-              className={INPUT_SM_CLASS}
-              value={Number(values[setting.key] ?? 0)}
-              onChange={(event) => pluginRegistry.setSetting(pluginId, setting.key, Number(event.target.value))}
-            />
-          )}
-        </label>
-      ))}
-    </div>
-  );
-}
+  const [activeTab, setActiveTab] = useState<ManagerTab>("marketplace");
+  const [selectedCategory, setSelectedCategory] = useState<CategoryFilter>("all");
+  const [searchQuery, setSearchQuery] = useState("");
 
-function downloadSource(record: PluginRecord): void {
-  const blob = new Blob([record.code ?? ""], { type: "text/javascript" });
-  triggerDownload(URL.createObjectURL(blob), `${record.manifest.id}.js`, true);
-}
+  // Studio state
+  const [studioCode, setStudioCode] = useState(DEFAULT_STARTER_CODE);
+  const [studioBusy, setStudioBusy] = useState(false);
+  const [studioError, setStudioError] = useState<string | null>(null);
+  const [studioSuccess, setStudioSuccess] = useState<{
+    manifest: PluginManifest;
+    contributions: Contribution[];
+  } | null>(null);
 
-function PluginRow({ record }: { record: PluginRecord }) {
-  const { t } = useTranslation();
-  const [showLogs, setShowLogs] = useState(false);
-  const logs = pluginRegistry.logsFor(record.manifest.id);
+  // Settings configuration modal state
+  const [configuringPlugin, setConfiguringPlugin] = useState<{
+    id: string;
+    name: string;
+    settings: PluginSettingDef[];
+  } | null>(null);
 
-  return (
-    <div className="flex flex-col gap-1 border-b border-border px-1 py-2.5 last:border-b-0">
-      <div className="flex items-center gap-2">
-        <span className="text-[13px] font-semibold text-text">{record.manifest.name}</span>
-        {record.manifest.version && <span className="text-[11px] text-text-muted">v{record.manifest.version}</span>}
-        <Badge tone="muted">{t(record.source === "builtin" ? "plugins.builtin" : "plugins.installed")}</Badge>
-        <span className="flex-1" />
-        <label className="flex cursor-pointer items-center gap-1.5 text-[11.5px] text-text-muted">
-          <input
-            type="checkbox"
-            checked={record.enabled}
-            onChange={(event) => pluginRegistry.setEnabled(record.manifest.id, event.target.checked)}
-          />
-          {t("plugins.enabled")}
-        </label>
-        {record.source === "user" && record.code && (
-          <Button variant="ghost" size="icon-sm" onClick={() => downloadSource(record)} data-tooltip={t("plugins.downloadSource")}>
-            <DownloadIcon size={13} />
-          </Button>
-        )}
-        {record.source === "user" && (
-          <Button
-            variant="danger-ghost"
-            size="icon-sm"
-            onClick={() => pluginRegistry.uninstall(record.manifest.id)}
-            data-tooltip={t("plugins.uninstall")}
-          >
-            <TrashIcon size={13} />
-          </Button>
-        )}
-      </div>
-      {record.manifest.description && <span className="text-[11.5px] text-text-muted">{record.manifest.description}</span>}
-      <ContributionList contributions={record.contributions} />
-      {record.enabled && record.manifest.settings && record.manifest.settings.length > 0 && (
-        <SettingsForm pluginId={record.manifest.id} settings={record.manifest.settings} />
-      )}
-      {record.error && <ErrorText>{record.error}</ErrorText>}
-      {logs.length > 0 && (
-        <div>
-          <button
-            type="button"
-            className="text-[11px] text-text-muted underline decoration-dotted"
-            onClick={() => setShowLogs((v) => !v)}
-          >
-            {t(showLogs ? "plugins.hideConsole" : "plugins.showConsole", { count: logs.length })}
-          </button>
-          {showLogs && (
-            <pre className="mt-1 max-h-32 overflow-auto rounded-sm border border-border bg-surface p-2 text-[11px] text-text-muted">
-              {logs.join("\n")}
-            </pre>
-          )}
-        </div>
-      )}
-    </div>
-  );
-}
+  const installedMap = useMemo(() => {
+    const map = new Map<string, PluginRecord>();
+    for (const r of records) map.set(r.manifest.id, r);
+    return map;
+  }, [records]);
 
-/**
- * Install/enable/remove plugins. Plugins are stored per browser, never sent to
- * the server — the dialog says so, because installing one means running that
- * author's code in your session.
- */
-function PluginManagerDialog({ onClose }: { onClose: () => void }) {
-  const { t } = useTranslation();
-  const records = usePlugins();
-  const [code, setCode] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [installing, setInstalling] = useState(false);
-  const [adding, setAdding] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  /**
-   * Failures here are the plugin author's own diagnostic (a syntax error, a
-   * rejected manifest), not an API error code — they are shown verbatim
-   * because that message is the only thing that identifies what's wrong with
-   * the source the user just pasted.
-   */
-  const install = async (source: string) => {
-    setInstalling(true);
-    setError(null);
+  // Install template / code handler
+  const handleInstall = async (code: string) => {
+    setStudioBusy(true);
+    setStudioError(null);
     try {
-      await pluginRegistry.install(source);
-      setCode("");
-      setAdding(false);
+      await pluginRegistry.install(code);
+      setActiveTab("installed");
     } catch (err) {
-      setError(err instanceof Error ? err.message : String(err));
+      setStudioError(err instanceof Error ? err.message : String(err));
+      setActiveTab("studio");
     } finally {
-      setInstalling(false);
+      setStudioBusy(false);
     }
   };
 
+  // Dry run test in Studio
+  const handleTestStudioCode = async () => {
+    setStudioBusy(true);
+    setStudioError(null);
+    setStudioSuccess(null);
+    try {
+      const validated = await pluginRegistry.validate(studioCode);
+      setStudioSuccess(validated);
+    } catch (err) {
+      setStudioError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setStudioBusy(false);
+    }
+  };
+
+  const handleSaveStudioPlugin = async () => {
+    setStudioBusy(true);
+    setStudioError(null);
+    try {
+      await pluginRegistry.install(studioCode);
+      setStudioSuccess(null);
+      setActiveTab("installed");
+    } catch (err) {
+      setStudioError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setStudioBusy(false);
+    }
+  };
+
+  const handleDownloadSource = (record: PluginRecord) => {
+    if (!record.code) return;
+    const blob = new Blob([record.code], { type: "text/javascript" });
+    const slug = record.manifest.name.toLowerCase().replace(/[^a-z0-9]+/g, "-");
+    triggerDownload(URL.createObjectURL(blob), `${slug}.js`, true);
+  };
+
+  // Filtered Marketplace items (Builtins + Community Templates)
+  const marketplaceItems: MarketplaceItem[] = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+
+    const builtins: MarketplaceItem[] = records
+      .filter((r) => r.source === "builtin")
+      .map((r) => ({
+        id: r.manifest.id,
+        name: r.manifest.name,
+        version: r.manifest.version ?? "1.0.0",
+        author: r.manifest.author ?? "AthanorDB",
+        category: r.manifest.category ?? "tools",
+        description: r.manifest.description ?? "",
+        tags: r.manifest.tags ?? [],
+        source: "builtin" as const,
+        record: r,
+        template: null,
+      }));
+
+    const community: MarketplaceItem[] = COMMUNITY_TEMPLATES.map((tmpl) => ({
+      id: tmpl.id,
+      name: tmpl.name,
+      version: tmpl.version,
+      author: tmpl.author,
+      category: tmpl.category,
+      description: tmpl.description,
+      tags: tmpl.tags,
+      source: "community" as const,
+      record: installedMap.get(tmpl.id) || null,
+      template: tmpl,
+    }));
+
+    const all = [...builtins, ...community];
+
+    return all.filter((item) => {
+      if (selectedCategory !== "all") {
+        if (selectedCategory === "community" && item.source !== "community") return false;
+        if (selectedCategory !== "community" && item.category !== selectedCategory) return false;
+      }
+      if (!q) return true;
+      const matchName = item.name.toLowerCase().includes(q);
+      const matchDesc = item.description.toLowerCase().includes(q);
+      const matchAuthor = item.author.toLowerCase().includes(q);
+      const matchTags = item.tags.some((t) => t.toLowerCase().includes(q));
+      return matchName || matchDesc || matchAuthor || matchTags;
+    });
+  }, [records, installedMap, searchQuery, selectedCategory]);
+
+  // Filtered Installed plugins
+  const filteredInstalled = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+    return records.filter((r) => {
+      if (selectedCategory !== "all") {
+        if (selectedCategory === "community" && r.source === "builtin") return false;
+        if (selectedCategory !== "community" && r.manifest.category && r.manifest.category !== selectedCategory) {
+          return false;
+        }
+      }
+      if (!q) return true;
+      return (
+        r.manifest.name.toLowerCase().includes(q) ||
+        (r.manifest.description && r.manifest.description.toLowerCase().includes(q))
+      );
+    });
+  }, [records, searchQuery, selectedCategory]);
+
+  // All logs across hosts
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const allLogs = useMemo(() => pluginRegistry.getAllLogs(), [records]);
+
   return (
     <Modal title={t("editor.plugins")} onClose={onClose} wide>
-      <Hint>{t("plugins.securityNote")}</Hint>
-
-      <div className="mb-2 mt-3 flex items-center gap-2">
-        <Button variant="primary" onClick={() => setAdding((v) => !v)}>
-          <PlusIcon size={13} /> {t("plugins.add")}
-        </Button>
-        <Button onClick={() => void install(EXAMPLE_PLUGIN_SOURCE)} disabled={installing}>
-          {t("plugins.installExample", { name: EXAMPLE_PLUGIN_NAME })}
-        </Button>
-      </div>
-
-      {adding && (
-        <div className="mb-3 flex flex-col gap-2 rounded-sm border border-border p-2">
-          <div className="flex items-center gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept=".js,.txt"
-              className="hidden"
-              onChange={async (event) => {
-                const file = event.target.files?.[0];
-                event.target.value = "";
-                if (file) setCode(await file.text());
-              }}
-            />
-            <Button onClick={() => fileInputRef.current?.click()}>
-              <UploadIcon size={13} /> {t("plugins.chooseFile")}
-            </Button>
-            <span className="flex-1" />
-            <Button variant="primary" onClick={() => void install(code)} disabled={installing || !code.trim()}>
-              {installing ? t("common.loading") : t("plugins.install")}
-            </Button>
+      <div className="flex flex-col gap-4">
+        {/* Navigation Tabs Header */}
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-3">
+          <div className="flex items-center gap-1.5 rounded-lg bg-surface-raised p-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab("marketplace")}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                activeTab === "marketplace"
+                  ? "bg-primary text-text-on-accent shadow-xs"
+                  : "text-text-muted hover:bg-surface-hover hover:text-text"
+              }`}
+            >
+              <SparklesIcon size={13} />
+              <span>{t("plugins.marketplace")}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("installed")}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                activeTab === "installed"
+                  ? "bg-primary text-text-on-accent shadow-xs"
+                  : "text-text-muted hover:bg-surface-hover hover:text-text"
+              }`}
+            >
+              <PuzzleIcon size={13} />
+              <span>{t("plugins.myPlugins")}</span>
+              <span className="rounded-full bg-surface px-1.5 py-0.2 text-[10px] text-text">{records.length}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("studio")}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                activeTab === "studio"
+                  ? "bg-primary text-text-on-accent shadow-xs"
+                  : "text-text-muted hover:bg-surface-hover hover:text-text"
+              }`}
+            >
+              <CodeIcon size={13} />
+              <span>{t("plugins.studio")}</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("logs")}
+              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors ${
+                activeTab === "logs"
+                  ? "bg-primary text-text-on-accent shadow-xs"
+                  : "text-text-muted hover:bg-surface-hover hover:text-text"
+              }`}
+            >
+              <LayersIcon size={13} />
+              <span>{t("plugins.logs")}</span>
+              {allLogs.length > 0 && (
+                <span className="rounded-full bg-primary-light px-1.5 py-0.2 text-[10px] font-bold text-primary">
+                  {allLogs.length}
+                </span>
+              )}
+            </button>
           </div>
-          <textarea
-            className={`${TEXTAREA_CODE_CLASS} h-56 w-full`}
-            value={code}
-            onChange={(event) => setCode(event.target.value)}
-            placeholder={'athanor.plugin({ id: "me.my-plugin", name: "My plugin" });\n\nathanor.registerExporter({\n  id: "json",\n  label: "JSON",\n  extension: "json",\n  run: function (project) {\n    return JSON.stringify(project, null, 2);\n  },\n});'}
-          />
-          {/* Identifiers from the plugin API, deliberately not translated. */}
-          {/* eslint-disable no-restricted-syntax */}
-          <span className="text-[11px] text-text-muted">
-            API: <code>athanor.plugin</code>, <code>registerExporter(project → text)</code>,{" "}
-            <code>registerImporter(text → DBML)</code>, <code>registerCanvasCommand(project → project)</code>,{" "}
-            <code>registerEditorCommand({"{ text, selection, selectedText }"} → text)</code>.{" "}
-            {t("plugins.callTimeout")}
-          </span>
-          {/* eslint-enable no-restricted-syntax */}
+
+          {/* Search bar on Explorer & Installed tabs */}
+          {(activeTab === "marketplace" || activeTab === "installed") && (
+            <div className="relative flex min-w-[220px] items-center">
+              <SearchIcon size={13} className="absolute left-2.5 text-text-muted" />
+              <input
+                type="text"
+                placeholder={t("plugins.searchPlaceholder")}
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full rounded-md border border-border bg-surface-raised py-1.5 pl-8 pr-3 text-xs text-text placeholder:text-text-muted focus:border-primary focus:outline-hidden"
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery("")}
+                  className="absolute right-2 text-text-muted hover:text-text"
+                >
+                  <CloseIcon size={12} />
+                </button>
+              )}
+            </div>
+          )}
         </div>
-      )}
 
-      {error && <ErrorText>{error}</ErrorText>}
+        {/* Category Filters (on marketplace & installed tabs) */}
+        {(activeTab === "marketplace" || activeTab === "installed") && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="mr-1 text-[11px] font-medium text-text-muted">{t("plugins.filters")}</span>
+            {(
+              [
+                { id: "all", labelKey: "plugins.filterAll" },
+                { id: "export", labelKey: "plugins.filterExport" },
+                { id: "import", labelKey: "plugins.filterImport" },
+                { id: "canvas", labelKey: "plugins.filterCanvas" },
+                { id: "editor", labelKey: "plugins.filterEditor" },
+                { id: "tools", labelKey: "plugins.filterTools" },
+                { id: "community", labelKey: "plugins.filterCommunity" },
+              ] as const
+            ).map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => setSelectedCategory(cat.id)}
+                className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                  selectedCategory === cat.id
+                    ? "bg-primary-light text-primary border border-primary/40 font-semibold"
+                    : "bg-surface-raised text-text-secondary border border-border hover:bg-surface-hover hover:text-text"
+                }`}
+              >
+                {t(cat.labelKey as TranslationKey)}
+              </button>
+            ))}
+          </div>
+        )}
 
-      <div className="mt-2 rounded-sm border border-border px-2">
-        {records.map((record) => (
-          <PluginRow key={record.manifest.id} record={record} />
-        ))}
+        {/* TAB 1: MARKETPLACE / EXPLORER */}
+        {activeTab === "marketplace" && (
+          <MarketplaceTab
+            items={marketplaceItems}
+            studioBusy={studioBusy}
+            onInstallTemplate={handleInstall}
+            onInspectCode={(code) => {
+              setStudioCode(code);
+              setActiveTab("studio");
+            }}
+            onOpenSettings={setConfiguringPlugin}
+          />
+        )}
+
+        {/* TAB 2: INSTALLED PLUGINS */}
+        {activeTab === "installed" && (
+          <InstalledTab
+            records={filteredInstalled}
+            onOpenStudioWithCode={(code) => {
+              setStudioCode(code);
+              setActiveTab("studio");
+            }}
+            onCreateNew={() => setActiveTab("studio")}
+            onDownloadSource={handleDownloadSource}
+            onOpenSettings={setConfiguringPlugin}
+          />
+        )}
+
+        {/* TAB 3: STUDIO & PLUGIN CREATOR */}
+        {activeTab === "studio" && (
+          <StudioTab
+            code={studioCode}
+            busy={studioBusy}
+            error={studioError}
+            validationSuccess={studioSuccess}
+            onChangeCode={(newCode) => {
+              setStudioCode(newCode);
+              setStudioError(null);
+              setStudioSuccess(null);
+            }}
+            onTestCode={handleTestStudioCode}
+            onSavePlugin={handleSaveStudioPlugin}
+          />
+        )}
+
+        {/* TAB 4: CONSOLE & LOGS */}
+        {activeTab === "logs" && <LogsTab logs={allLogs} />}
       </div>
+
+      {/* Settings Modal Popover */}
+      {configuringPlugin && (
+        <PluginSettingsModal
+          pluginId={configuringPlugin.id}
+          pluginName={configuringPlugin.name}
+          settings={configuringPlugin.settings}
+          onClose={() => setConfiguringPlugin(null)}
+        />
+      )}
     </Modal>
   );
 }
 
-export { PluginManagerDialog };
 export default PluginManagerDialog;

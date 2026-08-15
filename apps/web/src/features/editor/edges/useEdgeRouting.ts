@@ -5,6 +5,7 @@ import {
   closestPointOnSegment,
   closestSegmentIndex,
   getDefaultCornerPoints,
+  getWaypointOrientation,
   orthogonalPolylinePoints,
   polylinePath,
   simplifyRoutingPoints,
@@ -123,6 +124,8 @@ export function useEdgeRouting(params: {
     setContextMenu(null);
   };
 
+  const [candidatePoint, setCandidatePoint] = useState<Point | null>(null);
+
   /**
    * Adds a corner where the user clicked.
    *
@@ -142,7 +145,28 @@ export function useEdgeRouting(params: {
     const interior = drawn.slice(1, drawn.length - 1);
     const next = [...interior.slice(0, segment), projected, ...interior.slice(segment)];
     commitPoints(next);
+    setCandidatePoint(null);
     setContextMenu(null);
+  };
+
+  const handlePathMouseMove = (event: ReactMouseEvent) => {
+    const flowPos = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+    const drawn = drawnPoints;
+    if (drawn.length < 2) return;
+    const segment = closestSegmentIndex(drawn, flowPos);
+    const projected = closestPointOnSegment(flowPos, drawn[segment], drawn[segment + 1]);
+
+    const all = [{ x: sourceX, y: sourceY }, ...points, { x: targetX, y: targetY }];
+    const isNearExisting = all.some((pt) => Math.hypot(pt.x - projected.x, pt.y - projected.y) < 18);
+    if (!isNearExisting) {
+      setCandidatePoint(projected);
+    } else {
+      setCandidatePoint(null);
+    }
+  };
+
+  const handlePathMouseLeave = () => {
+    setCandidatePoint(null);
   };
 
   const handlePathDoubleClick = (event: ReactMouseEvent) => {
@@ -150,37 +174,63 @@ export function useEdgeRouting(params: {
     insertPointAt(screenToFlowPosition({ x: event.clientX, y: event.clientY }));
   };
 
-  // dbdiagram-style: dragging a point carries the segment to the *next*
-  // point along with it (both translate together, rigidly), so only the
-  // joint with the *previous* point re-kinks. Dragging each point
-  // independently — the old behaviour — tended to open a kink on both
-  // sides at once, which is what produced the tangled overlapping lines
-  // this was built to fix.
   const startDrag = (index: number, e: ReactMouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
     draggingIndexRef.current = index;
     movedRef.current = false;
     const startFlow = screenToFlowPosition({ x: e.clientX, y: e.clientY });
-    const initialPoints = points;
+    const initialPoints = points.map((p) => ({ ...p }));
     const setDrag = (next: RoutingPoint[] | null) => {
       dragPointsRef.current = next;
       setDragPoints(next);
     };
-    setDrag(initialPoints);
     setSelectedPointIndex(index);
 
+    const orientation = getWaypointOrientation(index, initialPoints, { x: sourceX, y: sourceY }, { x: targetX, y: targetY });
+
     const onMove = (ev: MouseEvent) => {
-      movedRef.current = true;
       const flowPos = screenToFlowPosition({ x: ev.clientX, y: ev.clientY });
       const dx = flowPos.x - startFlow.x;
       const dy = flowPos.y - startFlow.y;
-      const next = [...initialPoints];
-      next[index] = { x: initialPoints[index].x + dx, y: initialPoints[index].y + dy };
-      if (index + 1 < initialPoints.length) {
-        next[index + 1] = { x: initialPoints[index + 1].x + dx, y: initialPoints[index + 1].y + dy };
+      if (!movedRef.current && Math.hypot(dx, dy) < 3) return;
+      movedRef.current = true;
+
+      const all = [{ x: sourceX, y: sourceY }, ...initialPoints, { x: targetX, y: targetY }];
+      const prev = all[index];
+      const curr = all[index + 1];
+      const nextPt = all[index + 2];
+
+      const nextPoints = initialPoints.map((p) => ({ ...p }));
+
+      if (orientation === "ew-resize") {
+        const newX = curr.x + dx;
+        nextPoints[index].x = newX;
+        // If the segment between curr and nextPt is vertical (same X), move nextPt.x as well
+        if (nextPt && Math.abs(curr.x - nextPt.x) <= Math.abs(curr.y - nextPt.y) && index + 1 < nextPoints.length) {
+          nextPoints[index + 1].x = newX;
+        }
+        // If the segment between prev and curr is vertical (same X), move prev.x as well
+        if (prev && Math.abs(prev.x - curr.x) <= Math.abs(prev.y - curr.y) && index - 1 >= 0) {
+          nextPoints[index - 1].x = newX;
+        }
+      } else if (orientation === "ns-resize") {
+        const newY = curr.y + dy;
+        nextPoints[index].y = newY;
+        // If the segment between curr and nextPt is horizontal (same Y), move nextPt.y as well
+        if (nextPt && Math.abs(curr.y - nextPt.y) <= Math.abs(curr.x - nextPt.x) && index + 1 < nextPoints.length) {
+          nextPoints[index + 1].y = newY;
+        }
+        // If the segment between prev and curr is horizontal (same Y), move prev.y as well
+        if (prev && Math.abs(prev.y - curr.y) <= Math.abs(prev.x - curr.x) && index - 1 >= 0) {
+          nextPoints[index - 1].y = newY;
+        }
+      } else {
+        nextPoints[index].x = curr.x + dx;
+        nextPoints[index].y = curr.y + dy;
       }
-      setDrag(next);
+
+      setDrag(nextPoints);
     };
     // The commit happens here rather than inside a `setDragPoints` updater:
     // state updaters must be pure, and React deliberately runs them twice in
@@ -278,6 +328,9 @@ export function useEdgeRouting(params: {
     resetRouting,
     deletePointAt,
     insertPointAt,
+    candidatePoint,
+    handlePathMouseMove,
+    handlePathMouseLeave,
     handlePathDoubleClick,
     startDrag,
   };

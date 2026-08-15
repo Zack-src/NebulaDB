@@ -22,8 +22,7 @@
 }
 
 .ref-edge-flow-path {
-  stroke-linecap: round;
-  stroke-dasharray: 0.1 9;
+  stroke-linecap: butt;
 }
 
 /* Cardinality chip on a relation endpoint. Opaque on purpose: it has to stay

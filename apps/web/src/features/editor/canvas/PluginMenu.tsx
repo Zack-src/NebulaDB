@@ -1,11 +1,11 @@
 import { PuzzleIcon } from "@/components/icons/Icons";
-import { CONTEXT_MENU_ITEM_CLASS } from "@/components/ui/contextMenuStyles";
 import {
   CANVAS_TOOLBAR_ICON_BTN_CLASS,
   CANVAS_TOOLBAR_SEGMENT_ACTIVE_CLASS,
 } from "@/components/ui/canvasToolbarStyles";
 import { useTranslation } from "@/i18n/useTranslation";
 import type { CanvasCommandContribution, ResolvedContribution } from "@/features/plugins/types";
+import { PluginQuickPalette } from "@/features/plugins/PluginQuickPalette";
 import { ToolbarMenu } from "./ToolbarMenu";
 
 export interface PluginMenuProps {
@@ -14,57 +14,23 @@ export interface PluginMenuProps {
   onOpenPlugins: () => void;
 }
 
-/**
- * Every canvas command contributed by a *user* plugin, plus a way into the
- * manager. Built-in commands (the app's own "Reset link routing") are kept
- * out — `CanvasToolbar` filters `canvasCommands` down to `source === "user"`
- * before handing them here, since a core editing action buried inside a menu
- * named "Plugins" reads as third-party functionality it isn't.
- */
 export function PluginMenu({ commands, onRun, onOpenPlugins }: PluginMenuProps) {
   const { t } = useTranslation();
 
   return (
     <ToolbarMenu
       tooltip={t("canvas.plugins.tooltip")}
-      minWidth={240}
+      minWidth={300}
       triggerClassName={(open) => `${CANVAS_TOOLBAR_ICON_BTN_CLASS} ${open ? CANVAS_TOOLBAR_SEGMENT_ACTIVE_CLASS : ""}`}
       triggerContent={<PuzzleIcon size={16} />}
     >
       {(close) => (
-        <>
-          {commands.length === 0 && (
-            <span className="block px-2.5 py-1.5 text-[12px] text-text-muted">{t("canvas.plugins.none")}</span>
-          )}
-          {commands.map((command) => (
-            <button
-              key={command.key}
-              type="button"
-              className={`${CONTEXT_MENU_ITEM_CLASS} justify-between`}
-              onClick={() => {
-                onRun(command);
-                close();
-              }}
-              data-tooltip={command.contribution.description}
-            >
-              {command.contribution.label}
-              <span className="ml-2 shrink-0 text-[10px] text-text-muted">
-                {command.contribution.shortcut ?? command.plugin.name}
-              </span>
-            </button>
-          ))}
-          <span className="my-1 block h-px bg-border" />
-          <button
-            type="button"
-            className={CONTEXT_MENU_ITEM_CLASS}
-            onClick={() => {
-              onOpenPlugins();
-              close();
-            }}
-          >
-            {t("canvas.plugins.manage")}
-          </button>
-        </>
+        <PluginQuickPalette
+          commands={commands}
+          onRun={onRun}
+          onOpenPlugins={onOpenPlugins}
+          onClose={close}
+        />
       )}
     </ToolbarMenu>
   );

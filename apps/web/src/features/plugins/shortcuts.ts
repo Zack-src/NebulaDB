@@ -16,7 +16,9 @@ export function normalizeShortcut(shortcut: string): string | null {
     .filter(Boolean);
   const key = parts.pop();
   if (!key) return null;
-  const mods = new Set(parts.map((m) => (m === "control" ? "ctrl" : m === "option" ? "alt" : m === "cmd" ? "meta" : m)));
+  const mods = new Set(
+    parts.map((m) => (m === "control" ? "ctrl" : m === "option" ? "alt" : m === "cmd" ? "meta" : m)),
+  );
   // A bare letter would fight with typing, so at least one modifier is required.
   if (mods.size === 0) return null;
   return [...MODIFIER_ORDER.filter((m) => mods.has(m)), key].join("+");
@@ -34,7 +36,10 @@ export function shortcutFromEvent(event: KeyboardEvent): string {
 }
 
 /** First entry whose shortcut matches the event — `undefined` when none does. */
-export function matchShortcut<T extends { shortcut?: string }>(items: readonly T[], event: KeyboardEvent): T | undefined {
+export function matchShortcut<T extends { shortcut?: string }>(
+  items: readonly T[],
+  event: KeyboardEvent,
+): T | undefined {
   const pressed = shortcutFromEvent(event);
   return items.find((item) => item.shortcut && normalizeShortcut(item.shortcut) === pressed);
 }

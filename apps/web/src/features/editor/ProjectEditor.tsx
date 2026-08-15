@@ -77,6 +77,9 @@ export function ProjectEditor(props: {
   const { fontScale } = useCanvasFontScale();
   const [highlightLinks, setHighlightLinks] = useState(loadHighlightLinks);
   const [hoveredFieldId, setHoveredFieldId] = useState<string | null>(null);
+  const [hoveredTableId, setHoveredTableId] = useState<string | null>(null);
+  const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
+  const [selectedEdgeId, setSelectedEdgeId] = useState<string | null>(null);
   const [dbmlScrollRequest, setDbmlScrollRequest] = useState<{ tableName: string; requestId: number } | null>(null);
   const goToDbml = useCallback((tableName: string) => {
     setDbmlOpen(true);
@@ -169,6 +172,9 @@ export function ProjectEditor(props: {
     highlightLinks,
     goToDbml,
     setHoveredFieldId,
+    setHoveredTableId,
+    selectedFieldId,
+    setSelectedFieldId,
     canWrite,
   );
 
@@ -204,7 +210,20 @@ export function ProjectEditor(props: {
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
   }, [canvasCommands, runCanvasCommand]);
-  const edges = useCanvasEdges(liveProject, doc, nodes, highlightLinks, hoveredFieldId, palette, onPaletteChange, canWrite);
+  const edges = useCanvasEdges(
+    liveProject,
+    doc,
+    nodes,
+    highlightLinks,
+    hoveredFieldId,
+    hoveredTableId,
+    selectedFieldId,
+    selectedEdgeId,
+    setSelectedEdgeId,
+    palette,
+    onPaletteChange,
+    canWrite,
+  );
 
   const {
     addTable,
@@ -304,6 +323,12 @@ export function ProjectEditor(props: {
             onRunCanvasCommand={runCanvasCommand}
             onOpenPlugins={() => setShowPlugins(true)}
             statusMessage={pluginMessage}
+            selectedEdgeId={selectedEdgeId}
+            onSelectEdge={setSelectedEdgeId}
+            onClearFieldSelection={() => {
+              setSelectedFieldId(null);
+              setSelectedEdgeId(null);
+            }}
             canWrite={canWrite}
           />
         </ReactFlowProvider>

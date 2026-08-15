@@ -62,7 +62,10 @@ export function EdgeCardinalityLabels(props: {
       key={key}
       className="ref-edge-cardinality"
       style={{
-        transform: `translate(-50%, -50%) translate(${point.x}px, ${point.y}px) scale(${scale})`,
+        left: 0,
+        top: 0,
+        transform: `translate(${point.x}px, ${point.y}px) translate(-50%, -50%) scale(${scale})`,
+        transformOrigin: "center center",
         color,
         borderColor: color,
         opacity,

@@ -211,3 +211,23 @@ export function getDefaultCornerPoints(pathString: string, startX: number, start
   }
   return points;
 }
+
+export function getWaypointOrientation(
+  index: number,
+  points: Point[],
+  source: Point,
+  target: Point,
+): "ew-resize" | "ns-resize" | "move" {
+  const all = [source, ...points, target];
+  const prev = all[index];
+  const curr = all[index + 1];
+  const next = all[index + 2];
+  if (!curr) return "move";
+
+  const prevIsVert = prev ? Math.abs(prev.x - curr.x) <= Math.abs(prev.y - curr.y) : false;
+  const nextIsVert = next ? Math.abs(next.x - curr.x) <= Math.abs(next.y - curr.y) : false;
+
+  // A vertical segment moves horizontally (ew-resize). A horizontal segment moves vertically (ns-resize).
+  if (prevIsVert || nextIsVert) return "ew-resize";
+  return "ns-resize";
+}

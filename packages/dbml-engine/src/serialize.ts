@@ -1,4 +1,5 @@
 import type { DetailLevel, Position, Project, Ref, Size, StickyNote, Table, VisualStyle, Zone } from "@athanordb/shared";
+import { formatDbml } from "./format.js";
 
 // Own module with zero `@dbml/core` import, same reasoning as diff.ts/validate.ts:
 // `dbml.ts` instantiates a Parser at module scope, so importing *anything* from it
@@ -173,6 +174,9 @@ export function projectToDbml(project: Project, options?: { includeVisualMetadat
     parts.push(`${prefix} ${from.table}.${from.field} ${symbol} ${to.table}.${to.field}`);
   }
 
+  const raw = parts.join("\n\n");
+  const formatted = formatDbml(raw);
+
   if (options?.includeVisualMetadata) {
     const metadata: VisualMetadataV1 = {
       tables: Object.fromEntries(
@@ -184,8 +188,8 @@ export function projectToDbml(project: Project, options?: { includeVisualMetadat
       zones: project.zones,
       stickyNotes: project.stickyNotes,
     };
-    parts.push(`${VISUAL_METADATA_MARKER}${JSON.stringify(metadata)}`);
+    return `${formatted}\n${VISUAL_METADATA_MARKER}${JSON.stringify(metadata)}\n`;
   }
 
-  return parts.join("\n\n") + "\n";
+  return formatted;
 }

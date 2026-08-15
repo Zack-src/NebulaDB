@@ -60,7 +60,6 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
   const resetLinkRoutingCommand = props.canvasCommands.find(
     (command) => command.source === "builtin" && command.contribution.id === RESET_LINK_ROUTING_ID,
   );
-  const pluginCommands = props.canvasCommands.filter((command) => command.source === "user");
 
   return (
     <div className={CANVAS_TOOLBAR_CLASS}>
@@ -123,7 +122,7 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
       </button>
 
       <span className={CANVAS_TOOLBAR_DIVIDER_CLASS} />
-      <PluginMenu commands={pluginCommands} onRun={props.onRunCanvasCommand} onOpenPlugins={props.onOpenPlugins} />
+      <PluginMenu commands={props.canvasCommands} onRun={props.onRunCanvasCommand} onOpenPlugins={props.onOpenPlugins} />
     </div>
   );
 }

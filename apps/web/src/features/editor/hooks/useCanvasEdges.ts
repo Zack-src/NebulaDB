@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import * as Y from "yjs";
-import { getRefsMap, type Project, type RoutingPoint } from "@athanordb/shared";
+import { getRefsMap, type Project, type RefCardinality, type RoutingPoint } from "@athanordb/shared";
 import type { RefEdgeType } from "@/features/editor/edges/RefEdge";
 import { DEFAULT_TABLE_HEIGHT, DEFAULT_TABLE_WIDTH, pickHandleSides, type TableBox } from "@/features/editor/edges/refGeometry";
 import type { CanvasNode } from "@/types/index";
@@ -13,8 +13,15 @@ export function useCanvasEdges(
   highlightLinks: boolean,
   /** The column currently under the pointer (`null` when hovering anything else) — highlighting is scoped to just that column's own relations, not the whole table's. */
   hoveredFieldId: string | null,
-  palette: string[],
-  onPaletteChange: (palette: string[]) => void,
+  /** The table currently under the pointer (`null` when not hovering a table) — highlights all relations of the table unless a specific column is hovered/selected. */
+  hoveredTableId: string | null,
+  /** The column currently selected (`null` when no column is selected) — keeps its relations highlighted even after mouse leaves. */
+  selectedFieldId: string | null,
+  /** The edge currently selected (`null` when no edge is selected) — keeps its editing toolbar and waypoints visible. */
+  selectedEdgeId: string | null,
+  onSelectEdge?: (edgeId: string | null) => void,
+  palette: string[] = [],
+  onPaletteChange?: (palette: string[]) => void,
   /** False for a `view` grant — the relation keeps its colour picker and waypoints hidden rather than writing changes the server discards. */
   canWrite = true,
 ): RefEdgeType[] {
@@ -43,16 +50,20 @@ export function useCanvasEdges(
       const fromNode = nodesById.get(ref.from.tableId);
       const toNode = nodesById.get(ref.to.tableId);
 
-      // Field ids are already globally unique (crypto.randomUUID()), so a
-      // match against either endpoint is enough — no need to also check which
-      // table the hovered column belongs to. A whole-table hover used to
-      // light up every relation the table had; this only lights up the one
-      // the pointer is actually over.
-      const connectedHighlight =
-        hoveredFieldId === ref.from.fieldId ||
-        hoveredFieldId === ref.to.fieldId ||
-        Boolean(fromNode?.selected) ||
-        Boolean(toNode?.selected);
+      const isFieldHovered = Boolean(
+        hoveredFieldId && (hoveredFieldId === ref.from.fieldId || hoveredFieldId === ref.to.fieldId),
+      );
+      const isFieldSelected = Boolean(
+        selectedFieldId && (selectedFieldId === ref.from.fieldId || selectedFieldId === ref.to.fieldId),
+      );
+      const isTableHovered = Boolean(
+        !hoveredFieldId && !selectedFieldId && hoveredTableId && (hoveredTableId === ref.from.tableId || hoveredTableId === ref.to.tableId),
+      );
+      const isTableSelected =
+        !selectedFieldId && (Boolean(fromNode?.selected) || Boolean(toNode?.selected));
+
+      const isEdgeSelected = ref.id === selectedEdgeId;
+      const connectedHighlight = isFieldHovered || isFieldSelected || isTableHovered || isTableSelected || isEdgeSelected;
 
       const fromBox: TableBox = {
         x: fromNode?.position.x ?? fromTable?.position.x ?? 0,
@@ -91,6 +102,7 @@ export function useCanvasEdges(
         sourceHandle,
         targetHandle,
         type: "ref",
+        selected: isEdgeSelected,
         data: {
           cardinality: ref.cardinality,
           sourceSlot: takeSlot(ref.from.tableId, sourceHandle),
@@ -100,7 +112,8 @@ export function useCanvasEdges(
           connectedHighlight,
           color: ref.style?.color,
           palette,
-          onPaletteChange,
+          onPaletteChange: onPaletteChange ?? (() => {}),
+          onSelectEdge,
           onColorChange: (color: string | undefined) => {
             if (!doc || !canWrite) return;
             const refs = getRefsMap(doc);
@@ -113,10 +126,17 @@ export function useCanvasEdges(
             const current = refs.get(ref.id);
             if (current) refs.set(ref.id, { ...current, routingPoints });
           },
+          onCardinalityChange: (cardinality: RefCardinality) => {
+            if (!doc || !canWrite) return;
+            const refs = getRefsMap(doc);
+            const current = refs.get(ref.id);
+            if (current) refs.set(ref.id, { ...current, cardinality });
+          },
           onDeleteRef: !canWrite ? undefined : () => {
             if (!doc) return;
             const refs = getRefsMap(doc);
             refs.delete(ref.id);
+            if (selectedEdgeId === ref.id) onSelectEdge?.(null);
           },
         },
         // No `markerEnd`: the arrowhead is drawn inside `RefEdge` so it can
@@ -124,5 +144,5 @@ export function useCanvasEdges(
         // screen size instead of scaling with the (zoom-compensated) width.
       };
     });
-  }, [liveProject, doc, nodes, highlightLinks, hoveredFieldId, palette, onPaletteChange, canWrite]);
+  }, [liveProject, doc, nodes, highlightLinks, hoveredFieldId, hoveredTableId, selectedFieldId, selectedEdgeId, onSelectEdge, palette, onPaletteChange, canWrite]);
 }

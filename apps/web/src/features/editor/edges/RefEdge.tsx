@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { EdgeLabelRenderer, useViewport, type Edge, type EdgeProps } from "@xyflow/react";
 import type { RefCardinality, RoutingPoint } from "@athanordb/shared";
 import { useEdgeRouting } from "@/features/editor/edges/useEdgeRouting";
@@ -22,8 +22,10 @@ export interface RefEdgeData {
   palette: string[];
   onPaletteChange: (palette: string[]) => void;
   onColorChange: (color: string | undefined) => void;
+  onCardinalityChange?: (cardinality: RefCardinality) => void;
   onRoutingPointsChange: (points: RoutingPoint[] | undefined) => void;
   onDeleteRef?: () => void;
+  onSelectEdge?: (id: string | null) => void;
   [key: string]: unknown;
 }
 
@@ -83,6 +85,7 @@ export function RefEdge({
   data,
   selected,
 }: EdgeProps<RefEdgeType>) {
+  const [isHovered, setIsHovered] = useState(false);
   const style = CARDINALITY_STYLE[data?.cardinality ?? "one-to-many"];
   const isManyToMany = data?.cardinality === "many-to-many";
 
@@ -105,7 +108,7 @@ export function RefEdge({
   const labelX = split?.mid.x ?? routing.stepLabelX;
   const labelY = split?.mid.y ?? routing.stepLabelY;
 
-  const isHighlighted = Boolean(data?.highlightLinks || data?.connectedHighlight || selected);
+  const isHighlighted = Boolean(data?.highlightLinks || data?.connectedHighlight || selected || isHovered);
   const strokeColor = isHighlighted ? data?.color ?? style.stroke : DIMMED_STROKE;
   // Path coordinates live in flow space, which React Flow scales down via a
   // CSS transform as the user zooms out — so a fixed stroke-width/dasharray
@@ -114,15 +117,36 @@ export function RefEdge({
   // screen stays constant regardless of zoom level.
   const { zoom } = useViewport();
   const zoomCompensation = 1 / Math.max(zoom, 0.01);
-  const strokeWidth = (selected ? 3 : isHighlighted ? 2.25 : 1.5) * zoomCompensation;
-  const strokeOpacity = selected ? 1 : isHighlighted ? 0.85 : 0.45;
-  const dotAnimation = isHighlighted ? `ref-edge-flow ${selected ? 0.5 : 0.8}s linear infinite` : "none";
-  const strokeDasharray = isHighlighted ? `${0.1 * zoomCompensation} ${9 * zoomCompensation}` : "none";
-  const strokeStyle = { stroke: strokeColor, strokeWidth, opacity: strokeOpacity, animation: dotAnimation, strokeDasharray };
-  // Waypoint dots and the action toolbar are editing chrome — dbdiagram only
-  // shows them once you've actually selected the line, so an unselected
-  // schema with lots of overlapping refs doesn't turn into a field of dots.
-  const showEditingControls = selected;
+  const strokeWidth = (selected ? 2.5 : isHighlighted ? 2 : 1.5) * zoomCompensation;
+  const strokeOpacity = selected ? 1 : isHighlighted ? 0.95 : 0.45;
+
+  // Rectangular dashes (dbdiagram style) with clean, well-spaced flow:
+  // 8px dash, 10px gap in screen pixels (compensated for zoom)
+  const dash = 8 * zoomCompensation;
+  const gap = 10 * zoomCompensation;
+  const period = -(dash + gap);
+  const flowAnimation = isHighlighted ? `ref-edge-flow ${selected ? 0.6 : 0.9}s linear infinite` : "none";
+  const strokeDasharray = `${dash} ${gap}`;
+
+  const baseStrokeStyle = {
+    stroke: strokeColor,
+    strokeWidth: (isHighlighted ? 1.5 : 1.5) * zoomCompensation,
+    opacity: isHighlighted ? 0.3 : strokeOpacity,
+    strokeLinecap: "round" as const,
+  };
+
+  const animatedStrokeStyle = {
+    stroke: strokeColor,
+    strokeWidth,
+    opacity: strokeOpacity,
+    strokeDasharray,
+    strokeLinecap: "butt" as const,
+    animation: flowAnimation,
+    ["--dash-period" as string]: `${period}px`,
+  };
+
+  // Show editing controls when the edge is selected, or when hovering the edge
+  const showEditingControls = Boolean(selected || isHovered);
   const [sourceCardinality, targetCardinality] = ENDPOINT_CARDINALITY[data?.cardinality ?? "one-to-many"];
 
   return (
@@ -132,23 +156,47 @@ export function RefEdge({
         // source → target, which is what keeps the dash flow and the arrowhead
         // pointing the same way as every other cardinality.
         <>
-          <path d={polylinePath(split.first)} fill="none" className="ref-edge-flow-path" style={strokeStyle} />
-          <path d={polylinePath(split.second)} fill="none" className="ref-edge-flow-path" style={strokeStyle} />
+          <path d={polylinePath(split.first)} fill="none" style={baseStrokeStyle} onMouseEnter={() => setIsHovered(true)} />
+          <path d={polylinePath(split.second)} fill="none" style={baseStrokeStyle} onMouseEnter={() => setIsHovered(true)} />
+          {isHighlighted && (
+            <>
+              <path d={polylinePath(split.first)} fill="none" className="ref-edge-flow-path" style={animatedStrokeStyle} onMouseEnter={() => setIsHovered(true)} />
+              <path d={polylinePath(split.second)} fill="none" className="ref-edge-flow-path" style={animatedStrokeStyle} onMouseEnter={() => setIsHovered(true)} />
+            </>
+          )}
         </>
       ) : (
-        <path d={routing.fullPath} fill="none" className="ref-edge-flow-path" style={strokeStyle} />
+        <>
+          <path d={routing.fullPath} fill="none" style={baseStrokeStyle} onMouseEnter={() => setIsHovered(true)} />
+          {isHighlighted && (
+            <path d={routing.fullPath} fill="none" className="ref-edge-flow-path" style={animatedStrokeStyle} onMouseEnter={() => setIsHovered(true)} />
+          )}
+        </>
       )}
       <EdgeArrowhead points={routing.drawnPoints} color={strokeColor} opacity={strokeOpacity} scale={zoomCompensation} />
-      {/* Invisible fat stroke carrying the pointer interactions. Its width is
-          zoom-compensated too, otherwise the grab area for double-click and
-          right-click narrows to nothing exactly when the line is hardest to
-          hit. */}
+      {/* Generous invisible fat stroke (24px) carrying all pointer & hover interactions */}
       <path
         d={routing.fullPath}
         fill="none"
-        stroke="transparent"
-        strokeWidth={16 * zoomCompensation}
-        style={{ cursor: "copy" }}
+        stroke="rgba(0, 0, 0, 0.001)"
+        strokeWidth={24 * zoomCompensation}
+        strokeLinecap="round"
+        className="react-flow__edge-interaction"
+        style={{ pointerEvents: "stroke", cursor: "pointer" }}
+        onMouseEnter={() => setIsHovered(true)}
+        onMouseLeave={() => {
+          setIsHovered(false);
+          routing.handlePathMouseLeave();
+        }}
+        onMouseMove={routing.handlePathMouseMove}
+        onClick={(e) => {
+          if (routing.candidatePoint) {
+            e.stopPropagation();
+            routing.insertPointAt(routing.candidatePoint);
+          } else {
+            data?.onSelectEdge?.(id);
+          }
+        }}
         onDoubleClick={routing.handlePathDoubleClick}
         onContextMenu={(event) => routing.openContextMenu(event)}
       />
@@ -168,12 +216,16 @@ export function RefEdge({
         {showEditingControls && (
           <EdgeWaypoints
             points={routing.points}
+            source={{ x: sourceX, y: sourceY }}
+            target={{ x: targetX, y: targetY }}
             selectedIndex={routing.selectedPointIndex}
+            candidatePoint={routing.candidatePoint}
             strokeColor={strokeColor}
             zoom={zoom}
             onStartDrag={routing.startDrag}
             onSelect={routing.setSelectedPointIndex}
             onContextMenu={routing.openContextMenu}
+            onInsertCandidate={routing.insertPointAt}
           />
         )}
         {showEditingControls && data && (
@@ -181,6 +233,8 @@ export function RefEdge({
             x={labelX}
             y={labelY}
             label={style.label}
+            cardinality={data.cardinality}
+            onCardinalityChange={data.onCardinalityChange}
             color={strokeColor}
             zoom={zoom}
             palette={data.palette}
@@ -188,7 +242,7 @@ export function RefEdge({
             onColorChange={data.onColorChange}
             showReset={routing.hasCustomRouting || routing.points.length !== routing.defaultCorners.length}
             onReset={routing.resetRouting}
-            onOpenSettings={(event) => routing.openContextMenu(event)}
+            onDeleteRef={data.onDeleteRef}
             onContextMenu={(event) => routing.openContextMenu(event)}
           />
         )}
@@ -207,3 +261,4 @@ export function RefEdge({
     </>
   );
 }
+

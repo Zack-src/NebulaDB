@@ -1,5 +1,7 @@
 import type { Project } from "@athanordb/shared";
 
+export type PluginCategory = "export" | "import" | "canvas" | "editor" | "tools" | "community";
+
 /**
  * What a plugin declares about itself. Authored inside the plugin source via
  * `athanor.plugin({...})`; built-in plugins provide the same shape from code.
@@ -10,6 +12,11 @@ export interface PluginManifest {
   version?: string;
   description?: string;
   author?: string;
+  category?: PluginCategory;
+  icon?: string;
+  tags?: string[];
+  homepage?: string;
+  doc?: string;
   /** Settings the plugin declares; their values are edited in the manager and passed to every `run` call. */
   settings?: PluginSettingDef[];
 }
@@ -63,10 +70,7 @@ export interface EditorCommandContribution extends ContributionBase {
 }
 
 export type Contribution =
-  | ExporterContribution
-  | ImporterContribution
-  | CanvasCommandContribution
-  | EditorCommandContribution;
+  ExporterContribution | ImporterContribution | CanvasCommandContribution | EditorCommandContribution;
 
 /** What an exporter returns: the document text, plus an optional extension override. */
 export interface ExportResult {

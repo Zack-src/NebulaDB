@@ -10,8 +10,11 @@
 }
 
 @keyframes ref-edge-flow {
+  from {
+    stroke-dashoffset: 0;
+  }
   to {
-    stroke-dashoffset: -18;
+    stroke-dashoffset: var(--dash-period, -16px);
   }
 }
 

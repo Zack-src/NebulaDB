@@ -53,10 +53,13 @@ export function GlobalTooltip() {
     };
 
     const show = (el: Element) => {
+      if (!el || !el.isConnected || targetRef.current !== el) return;
       const text = el.getAttribute("data-tooltip");
       if (!text) return;
+      const rect = el.getBoundingClientRect();
+      if (rect.width === 0 && rect.height === 0 && rect.left === 0 && rect.top === 0) return;
       const pos = (el.getAttribute("data-tooltip-pos") as TooltipPos | null) ?? "top";
-      setState({ text, note: el.getAttribute("data-tooltip-note") || null, rect: el.getBoundingClientRect(), pos });
+      setState({ text, note: el.getAttribute("data-tooltip-note") || null, rect, pos });
     };
 
     const onOver = (event: Event) => {
@@ -75,8 +78,21 @@ export function GlobalTooltip() {
       hide();
     };
 
+    const onMove = (event: MouseEvent) => {
+      if (!targetRef.current) return;
+      if (!targetRef.current.isConnected) {
+        hide();
+        return;
+      }
+      const targetUnderCursor = document.elementFromPoint(event.clientX, event.clientY);
+      if (targetUnderCursor && !targetRef.current.contains(targetUnderCursor)) {
+        hide();
+      }
+    };
+
     document.addEventListener("mouseover", onOver, true);
     document.addEventListener("mouseout", onOut, true);
+    document.addEventListener("mousemove", onMove, { passive: true, capture: true });
     document.addEventListener("focusin", onOver, true);
     document.addEventListener("focusout", onOut, true);
     document.addEventListener("mousedown", hide, true);
@@ -87,6 +103,7 @@ export function GlobalTooltip() {
       clearTimer();
       document.removeEventListener("mouseover", onOver, true);
       document.removeEventListener("mouseout", onOut, true);
+      document.removeEventListener("mousemove", onMove, true);
       document.removeEventListener("focusin", onOver, true);
       document.removeEventListener("focusout", onOut, true);
       document.removeEventListener("mousedown", hide, true);

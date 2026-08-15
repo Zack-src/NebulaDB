@@ -88,6 +88,12 @@ export interface CanvasAreaProps {
   onOpenPlugins: () => void;
   /** Transient feedback from the last plugin command, shown above the toolbar. */
   statusMessage: string | null;
+  /** Currently selected edge ID */
+  selectedEdgeId?: string | null;
+  /** Select or unselect an edge */
+  onSelectEdge?: (edgeId: string | null) => void;
+  /** Clears any active column selection when clicking empty canvas space. */
+  onClearFieldSelection?: () => void;
   /** False for a `view` grant — drops every editing affordance rather than offering ones whose writes the server discards. */
   canWrite: boolean;
 }
@@ -204,9 +210,11 @@ export function CanvasArea(props: CanvasAreaProps) {
   }, []);
   useEscapeKey(Boolean(activeInsertTool), () => setActiveInsertTool(null));
 
-  const { onAddTable, onAddZone, onAddNote, onAddEnum } = props;
+  const { onAddTable, onAddZone, onAddNote, onAddEnum, onClearFieldSelection, onSelectEdge } = props;
   const handlePaneClick = useCallback(
     (event: ReactMouseEvent) => {
+      onClearFieldSelection?.();
+      onSelectEdge?.(null);
       if (!activeInsertTool) return;
       const position = screenToFlowPosition({ x: event.clientX, y: event.clientY });
       if (activeInsertTool === "table") onAddTable(position);
@@ -216,7 +224,7 @@ export function CanvasArea(props: CanvasAreaProps) {
       // Deliberately left active: placing several tables in a row is the
       // whole point, and Escape (or picking the tool again) is how you stop.
     },
-    [activeInsertTool, screenToFlowPosition, onAddTable, onAddZone, onAddNote, onAddEnum],
+    [activeInsertTool, screenToFlowPosition, onAddTable, onAddZone, onAddNote, onAddEnum, onClearFieldSelection, onSelectEdge],
   );
 
   /**
@@ -279,6 +287,8 @@ export function CanvasArea(props: CanvasAreaProps) {
         onConnect={props.onConnect}
         onPaneClick={handlePaneClick}
         onPaneContextMenu={handlePaneContextMenu}
+        onEdgeClick={(_event, edge) => onSelectEdge?.(edge.id)}
+        onNodeClick={() => onSelectEdge?.(null)}
         // Without these two, right-clicking a table (or a multi-selection)
         // fell through to the browser's own menu — "Save image as…", "Reload"
         // — on top of the diagram. Suppressing the native menu is what the
