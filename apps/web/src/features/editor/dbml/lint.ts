@@ -125,7 +125,11 @@ export const dbmlLinter = linter(
         }
       }
       if (ref.left.fields.length !== ref.right.fields.length) {
-        push(spanOfLine(view, ref.line), "warning", "Both sides of a composite relationship must list the same number of columns.");
+        push(
+          spanOfLine(view, ref.line),
+          "warning",
+          "Both sides of a composite relationship must list the same number of columns.",
+        );
       }
     }
 

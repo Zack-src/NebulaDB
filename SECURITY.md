@@ -3,7 +3,7 @@
 ## Reporting a vulnerability
 
 Report suspected vulnerabilities through GitHub's private vulnerability
-reporting (the **Security** tab → *Report a vulnerability*) rather than a
+reporting (the **Security** tab → _Report a vulnerability_) rather than a
 public issue, so the problem can be fixed before it is described publicly.
 
 Please include what you did, what happened, and what you expected — a request,
@@ -31,8 +31,8 @@ server and a set of accounts that are not all equally trusted.
 software:
 
 - Anyone with filesystem access to the SQLite database can read and alter
-  everything, including the audit log. The audit trail is append-only *through
-  the application*; it is not tamper-evident against server access.
+  everything, including the audit log. The audit trail is append-only _through
+  the application_; it is not tamper-evident against server access.
 - Running without TLS. Sessions are cookie-based; deploy behind HTTPS and set
   `ATHANORDB_COOKIE_SECURE=true` (the server warns at boot if you don't in
   production).

@@ -45,7 +45,7 @@ test("DBML -> Project round-trips table/field constraints", () => {
   assert.match(regenerated, /default: 'draft'/);
 });
 
-test("implicit \"public\" schema (the parser's silent default) is not carried through when re-exported", () => {
+test('implicit "public" schema (the parser\'s silent default) is not carried through when re-exported', () => {
   const source = `Table users {
   id int [pk]
 }`;
@@ -54,7 +54,7 @@ test("implicit \"public\" schema (the parser's silent default) is not carried th
   assert.doesNotMatch(projectToDbml(project), /public/i);
 });
 
-test("explicit \"public.\" schema in the source is preserved and re-exported", () => {
+test('explicit "public." schema in the source is preserved and re-exported', () => {
   const source = `Table public.users {
   id int [pk]
 }`;
@@ -196,7 +196,11 @@ Table posts {
   assert.deepEqual(users.position, { x: 777, y: 888 }, "existing position preserved");
   assert.equal(users.detailLevel, "full", "existing detail level preserved");
   assert.deepEqual(users.style, { color: "#123456" }, "existing style preserved");
-  assert.equal(users.comments?.length, 1, "existing comments preserved (dropped otherwise, since DBML has no equivalent)");
+  assert.equal(
+    users.comments?.length,
+    1,
+    "existing comments preserved (dropped otherwise, since DBML has no equivalent)",
+  );
   assert.equal(users.comments?.[0].text, "double-check this table");
 
   const idField = users.fields.find((f) => f.name === "id")!;
@@ -337,7 +341,16 @@ test("a table group whose TableGroup block is removed from the source disappears
   const existing: Project = {
     id: "p1",
     name: "Test",
-    tables: [{ id: "t1", name: "users", fields: [{ id: "f1", name: "id", type: "int", pk: true }], indexes: [], position: { x: 0, y: 0 }, detailLevel: "standard" }],
+    tables: [
+      {
+        id: "t1",
+        name: "users",
+        fields: [{ id: "f1", name: "id", type: "int", pk: true }],
+        indexes: [],
+        position: { x: 0, y: 0 },
+        detailLevel: "standard",
+      },
+    ],
     refs: [],
     enums: [],
     zones: [],
@@ -351,7 +364,11 @@ Table users {
 `;
   const incoming = toProject(parseDbml(source), "Test");
   const merged = mergeProjectIntoExisting(existing, incoming);
-  assert.equal(merged.tableGroups.length, 0, "no TableGroup block in the source -> no group survives, same as any other DBML-native entity");
+  assert.equal(
+    merged.tableGroups.length,
+    0,
+    "no TableGroup block in the source -> no group survives, same as any other DBML-native entity",
+  );
 });
 
 test("composite unique index round-trips", () => {
@@ -390,7 +407,10 @@ Table entreprise_admin {
   // index rather than leaving each field's own pk flag set — regression test
   // for the bug where that index's pk flag got dropped on import, silently
   // turning a composite primary key into an unmarked, invisible index.
-  assert.equal(table.fields.every((f) => !f.pk), true);
+  assert.equal(
+    table.fields.every((f) => !f.pk),
+    true,
+  );
   assert.equal(table.indexes.length, 1);
   assert.equal(table.indexes[0].pk, true);
   assert.equal(table.indexes[0].fieldIds.length, 2);
@@ -450,7 +470,9 @@ function projectWithVisuals(): Project {
     refs: [],
     enums: [],
     zones: [{ id: "z1", label: "Core", position: { x: 0, y: 0 }, size: { width: 400, height: 300 } }],
-    stickyNotes: [{ id: "s1", text: "remember to index this", position: { x: 10, y: 10 }, size: { width: 120, height: 80 } }],
+    stickyNotes: [
+      { id: "s1", text: "remember to index this", position: { x: 10, y: 10 }, size: { width: 120, height: 80 } },
+    ],
     tableGroups: [],
   };
 }
@@ -504,10 +526,23 @@ test("mergeProjectIntoExisting: sidecar-restored position/zones seed a brand-new
   const dbml = projectToDbml(original, { includeVisualMetadata: true });
   const incoming = applyVisualMetadata(toProject(parseDbml(dbml), "Test"), dbml);
 
-  const empty: Project = { id: "p1", name: "Test", tables: [], refs: [], enums: [], zones: [], stickyNotes: [], tableGroups: [] };
+  const empty: Project = {
+    id: "p1",
+    name: "Test",
+    tables: [],
+    refs: [],
+    enums: [],
+    zones: [],
+    stickyNotes: [],
+    tableGroups: [],
+  };
   const seeded = mergeProjectIntoExisting(empty, incoming);
   const seededUsers = seeded.tables.find((t) => t.name === "users")!;
-  assert.deepEqual(seededUsers.position, original.tables[0].position, "brand-new project picks up the sidecar position");
+  assert.deepEqual(
+    seededUsers.position,
+    original.tables[0].position,
+    "brand-new project picks up the sidecar position",
+  );
   assert.deepEqual(seeded.zones, original.zones, "brand-new project picks up sidecar zones");
   assert.deepEqual(seeded.stickyNotes, original.stickyNotes, "brand-new project picks up sidecar sticky notes");
 

@@ -52,7 +52,6 @@ export interface ProjectToolbarProps {
   remoteAwareness: Map<number, AwarenessState>;
 }
 
-
 const DIVIDER_CLASS = "mx-1 h-5 w-px shrink-0 bg-border";
 
 /**
@@ -85,7 +84,9 @@ export function ProjectToolbar(props: ProjectToolbarProps) {
   // work. Plugins now lives only in the canvas toolbar (it was duplicated
   // here), and the validation check had no button left pointing at it.
   const panelActions = [
-    ...(props.viewOnly ? [] : [{ icon: <UploadIcon size={14} />, labelKey: "editor.import", onClick: props.onShowImport } as const]),
+    ...(props.viewOnly
+      ? []
+      : [{ icon: <UploadIcon size={14} />, labelKey: "editor.import", onClick: props.onShowImport } as const]),
     { icon: <DownloadIcon size={14} />, labelKey: "editor.export", onClick: props.onShowExport },
     { icon: <ClockIcon size={14} />, labelKey: "editor.history", onClick: props.onShowHistory },
   ] as const;
@@ -148,7 +149,6 @@ export function ProjectToolbar(props: ProjectToolbarProps) {
             </Button>
           ))}
 
-
           {props.onShowConnections && !props.viewOnly && props.isProjectAdmin && (
             <Button size="sm" variant="ghost" onClick={props.onShowConnections}>
               <DatabaseIcon size={14} />{" "}
@@ -166,7 +166,6 @@ export function ProjectToolbar(props: ProjectToolbarProps) {
         </div>
 
         <span className={`${DIVIDER_CLASS} hidden md:block`} />
-
 
         <ConnectionIndicator connection={props.connection} synced={props.synced} />
 

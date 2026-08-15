@@ -250,7 +250,8 @@ export function createSearchPanel(view: EditorView): Panel {
       return;
     }
     const { index, total } = countMatches(view, query);
-    counter.textContent = total === 0 ? "no results" : `${index || 1}/${total}${total >= MAX_COUNTED_MATCHES ? "+" : ""}`;
+    counter.textContent =
+      total === 0 ? "no results" : `${index || 1}/${total}${total >= MAX_COUNTED_MATCHES ? "+" : ""}`;
     field.classList.toggle("is-empty", total === 0);
   }
 

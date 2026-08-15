@@ -171,7 +171,9 @@ function EnumNodeImpl({ data, selected }: NodeProps<EnumNodeType>) {
 
       <div className="divide-y divide-border/60 py-0.5">
         {enumDef.values.length === 0 && (
-          <div className="px-2.5 py-1.5 text-[calc(11px_*_var(--canvas-font-scale))] italic text-text-muted">{t("enum.empty")}</div>
+          <div className="px-2.5 py-1.5 text-[calc(11px_*_var(--canvas-font-scale))] italic text-text-muted">
+            {t("enum.empty")}
+          </div>
         )}
         {enumDef.values.map((v, i) => (
           <EnumValueRow

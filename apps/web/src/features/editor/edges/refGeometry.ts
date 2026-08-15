@@ -20,7 +20,10 @@ export interface TableBox {
  * reach the far side, an unnecessary detour for tables sitting one above
  * the other.
  */
-export function pickHandleSides(from: TableBox, to: TableBox): { fromSide: "left" | "right"; toSide: "left" | "right" } {
+export function pickHandleSides(
+  from: TableBox,
+  to: TableBox,
+): { fromSide: "left" | "right"; toSide: "left" | "right" } {
   const dx = to.x + to.width / 2 - (from.x + from.width / 2);
   const dy = to.y + to.height / 2 - (from.y + from.height / 2);
   const overlapX = (from.width + to.width) / 2 - Math.abs(dx);

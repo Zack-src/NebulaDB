@@ -25,12 +25,7 @@ export function PluginMenu({ commands, onRun, onOpenPlugins }: PluginMenuProps) 
       triggerContent={<PuzzleIcon size={16} />}
     >
       {(close) => (
-        <PluginQuickPalette
-          commands={commands}
-          onRun={onRun}
-          onOpenPlugins={onOpenPlugins}
-          onClose={close}
-        />
+        <PluginQuickPalette commands={commands} onRun={onRun} onOpenPlugins={onOpenPlugins} onClose={close} />
       )}
     </ToolbarMenu>
   );

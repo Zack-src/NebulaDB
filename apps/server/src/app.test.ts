@@ -281,11 +281,19 @@ test("GET /api/audit is admin-only", async () => {
     const plainLogin = await login(app, plain.email, plain.password);
     const adminLogin = await login(app, admin.email, admin.password);
 
-    const forbidden = await app.inject({ method: "GET", url: "/api/audit", headers: headers({ cookie: plainLogin.cookie! }) });
+    const forbidden = await app.inject({
+      method: "GET",
+      url: "/api/audit",
+      headers: headers({ cookie: plainLogin.cookie! }),
+    });
     assert.equal(forbidden.statusCode, 403);
     assert.equal(forbidden.json().code, "ADMIN_REQUIRED");
 
-    const allowed = await app.inject({ method: "GET", url: "/api/audit", headers: headers({ cookie: adminLogin.cookie! }) });
+    const allowed = await app.inject({
+      method: "GET",
+      url: "/api/audit",
+      headers: headers({ cookie: adminLogin.cookie! }),
+    });
     assert.equal(allowed.statusCode, 200);
     assert.ok(Array.isArray(allowed.json()));
   } finally {

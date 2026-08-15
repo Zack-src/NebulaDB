@@ -48,8 +48,7 @@ export default tseslint.config(
         "error",
         {
           selector: "JSXText[value=/[A-Za-zÀ-ÿ]{4,}/]",
-          message:
-            "Hard-coded UI text. Add the string to src/locales/fr.json + en.json and render it with t('key').",
+          message: "Hard-coded UI text. Add the string to src/locales/fr.json + en.json and render it with t('key').",
         },
       ],
     },

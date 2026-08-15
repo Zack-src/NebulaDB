@@ -136,7 +136,8 @@ export const coreExportPlugin: BuiltinPlugin = {
     version: "1.0.0",
     author: "AthanorDB",
     category: "export",
-    description: "Exportez vos schémas en DBML, SQL (Postgres, MySQL, SQL Server, SQLite), TypeScript, Prisma et Mermaid.",
+    description:
+      "Exportez vos schémas en DBML, SQL (Postgres, MySQL, SQL Server, SQLite), TypeScript, Prisma et Mermaid.",
     tags: ["export", "sql", "typescript", "prisma", "mermaid", "json-schema"],
     settings: [
       {

@@ -196,7 +196,13 @@ export function closestSegmentIndex(points: Point[], p: Point): number {
   return best;
 }
 
-export function getDefaultCornerPoints(pathString: string, startX: number, startY: number, endX: number, endY: number): Point[] {
+export function getDefaultCornerPoints(
+  pathString: string,
+  startX: number,
+  startY: number,
+  endX: number,
+  endY: number,
+): Point[] {
   const points: Point[] = [];
   const regex = /[L]\s*(-?\d+(?:\.\d+)?)\s*,?\s*(-?\d+(?:\.\d+)?)/gi;
   let match: RegExpExecArray | null;

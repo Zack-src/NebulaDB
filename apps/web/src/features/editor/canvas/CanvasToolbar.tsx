@@ -122,7 +122,11 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
       </button>
 
       <span className={CANVAS_TOOLBAR_DIVIDER_CLASS} />
-      <PluginMenu commands={props.canvasCommands} onRun={props.onRunCanvasCommand} onOpenPlugins={props.onOpenPlugins} />
+      <PluginMenu
+        commands={props.canvasCommands}
+        onRun={props.onRunCanvasCommand}
+        onOpenPlugins={props.onOpenPlugins}
+      />
     </div>
   );
 }

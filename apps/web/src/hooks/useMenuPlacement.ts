@@ -17,7 +17,10 @@ const MIN_PANEL_HEIGHT = 160;
  * Measurement happens in a layout effect, so the first painted frame is already
  * in the right place — no visible jump.
  */
-export function useMenuPlacement(x: number, y: number): {
+export function useMenuPlacement(
+  x: number,
+  y: number,
+): {
   ref: React.RefObject<HTMLDivElement | null>;
   style: CSSProperties;
 } {
@@ -74,7 +77,9 @@ export function useAnchoredPlacement(
 
     const left = Math.min(Math.max(MARGIN, rect.left), Math.max(MARGIN, window.innerWidth - width - MARGIN));
     const maxHeight = Math.max(MIN_PANEL_HEIGHT, flip ? above : below);
-    const top = flip ? Math.max(MARGIN, rect.top - ANCHOR_GAP - Math.min(element.scrollHeight, maxHeight)) : rect.bottom + ANCHOR_GAP;
+    const top = flip
+      ? Math.max(MARGIN, rect.top - ANCHOR_GAP - Math.min(element.scrollHeight, maxHeight))
+      : rect.bottom + ANCHOR_GAP;
 
     setStyle({ left, top, maxHeight, overflowY: "auto" });
   }, [rect, ref]);

@@ -107,7 +107,11 @@ test("paletteColors round-trips through meta, and stays unset (not defaulted) wh
   const doc = new Y.Doc();
   writeProjectToDoc(doc, sampleProject());
   const withoutPalette = readProjectFromDoc(doc, "fallback-id");
-  assert.equal(withoutPalette.paletteColors, undefined, "callers fall back to a default palette themselves, not this layer");
+  assert.equal(
+    withoutPalette.paletteColors,
+    undefined,
+    "callers fall back to a default palette themselves, not this layer",
+  );
 
   writeProjectToDoc(doc, { ...sampleProject(), paletteColors: ["#111111", "#222222"] });
   const withPalette = readProjectFromDoc(doc, "fallback-id");

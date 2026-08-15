@@ -32,8 +32,7 @@ export function getUserAccount(id: string): UserRow | undefined {
 
 export function getPasswordHash(userId: string): string | undefined {
   const row = db.prepare("SELECT password_hash FROM users WHERE id = ?").get(userId) as
-    | { password_hash: string }
-    | undefined;
+    { password_hash: string } | undefined;
   return row?.password_hash;
 }
 

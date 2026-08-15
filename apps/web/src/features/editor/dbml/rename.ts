@@ -77,7 +77,8 @@ export function renameChanges(state: EditorState, request: RenameRequest, newNam
     at(table.nameSpan);
     for (const ref of symbols.refs) {
       for (const endpoint of [ref.left, ref.right]) {
-        if (same(endpoint.table, table.name) || (table.alias && same(endpoint.table, table.alias))) at(endpoint.tableSpan);
+        if (same(endpoint.table, table.name) || (table.alias && same(endpoint.table, table.alias)))
+          at(endpoint.tableSpan);
       }
     }
     for (const group of symbols.groups) {
@@ -114,7 +115,11 @@ export function renameChanges(state: EditorState, request: RenameRequest, newNam
     for (const endpoint of [ref.left, ref.right]) {
       const endpointTable = symbols.tableByName.get(endpoint.table.toLowerCase());
       if (endpointTable !== owner) continue;
-      if (endpoint.fields.length === 1 && same(endpoint.fields[0], field.name) && endpoint.fieldSpan.to > endpoint.fieldSpan.from) {
+      if (
+        endpoint.fields.length === 1 &&
+        same(endpoint.fields[0], field.name) &&
+        endpoint.fieldSpan.to > endpoint.fieldSpan.from
+      ) {
         at(endpoint.fieldSpan);
       }
     }

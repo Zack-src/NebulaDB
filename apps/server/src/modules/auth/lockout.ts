@@ -53,8 +53,7 @@ export interface LockState {
  */
 export function checkLock(email: string): LockState {
   const row = db.prepare("SELECT failures, locked_until FROM login_attempts WHERE email = ?").get(email) as
-    | AttemptRow
-    | undefined;
+    AttemptRow | undefined;
   if (!row?.locked_until) return { locked: false };
   if (new Date(row.locked_until).getTime() > Date.now()) return { locked: true, until: row.locked_until };
   // Lock expired — reset rather than leaving the counter at the threshold,
@@ -70,8 +69,7 @@ export function checkLock(email: string): LockState {
  */
 export function recordFailure(email: string): LockState {
   const row = db.prepare("SELECT failures, locked_until FROM login_attempts WHERE email = ?").get(email) as
-    | AttemptRow
-    | undefined;
+    AttemptRow | undefined;
   const failures = (row?.failures ?? 0) + 1;
   const lockedUntil = failures >= MAX_FAILED_ATTEMPTS ? new Date(Date.now() + LOCKOUT_MS).toISOString() : null;
   db.prepare(

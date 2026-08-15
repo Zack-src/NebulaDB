@@ -15,7 +15,13 @@ const fakeRequest = (ip: string) => ({ ip }) as FastifyRequest;
 
 test("audit writes a row that comes back through listAuditLog", () => {
   const projectId = randomUUID();
-  auditUser({ id: "user-1", email: "someone@example.com" }, "project.delete", { type: "project", id: projectId }, "Ventes", fakeRequest("10.0.0.4"));
+  auditUser(
+    { id: "user-1", email: "someone@example.com" },
+    "project.delete",
+    { type: "project", id: projectId },
+    "Ventes",
+    fakeRequest("10.0.0.4"),
+  );
 
   const [entry] = listAuditLog({ targetId: projectId });
   assert.ok(entry, "the entry is readable back");

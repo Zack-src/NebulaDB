@@ -8,11 +8,7 @@ import { useEffect, type RefObject } from "react";
  * is released, so a press that starts inside a popover and drags out (selecting
  * text, dragging a colour slider) would otherwise dismiss it.
  */
-export function useOutsideClick(
-  ref: RefObject<HTMLElement | null>,
-  active: boolean,
-  onOutsideClick: () => void,
-): void {
+export function useOutsideClick(ref: RefObject<HTMLElement | null>, active: boolean, onOutsideClick: () => void): void {
   useEffect(() => {
     if (!active) return;
     const handlePointerDown = (event: MouseEvent) => {

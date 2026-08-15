@@ -10,16 +10,16 @@ import { Modal } from "@/components/overlays/Modal";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ErrorText } from "@/components/ui/Alert";
-import {
-  AlertTriangleIcon,
-  CheckCircleIcon,
-  CheckIcon,
-  DatabaseIcon,
-} from "@/components/icons/Icons";
+import { AlertTriangleIcon, CheckCircleIcon, CheckIcon, DatabaseIcon } from "@/components/icons/Icons";
 import { INPUT_CLASS, SELECT_CLASS, TEXTAREA_CODE_CLASS } from "@/components/ui/inputStyles";
 import { useTranslation } from "@/i18n/useTranslation";
 import type { TranslationKeyOf } from "@/types";
-import { applyDeployment, listProjectConnections, planDeployment, type PlanDeploymentResponse } from "@/services/connectionsApi";
+import {
+  applyDeployment,
+  listProjectConnections,
+  planDeployment,
+  type PlanDeploymentResponse,
+} from "@/services/connectionsApi";
 import { copyText } from "@/utils/clipboard";
 
 export function DeploymentModal(props: {
@@ -37,7 +37,11 @@ export function DeploymentModal(props: {
   const [resolutions, setResolutions] = useState<MigrationResolutionMap>({});
   const [activeStep, setActiveStep] = useState<"diff" | "risks" | "sql" | "done">("diff");
   const [deploying, setDeploying] = useState(false);
-  const [deployResult, setDeployResult] = useState<{ success: boolean; executedStatements: number; sql: string } | null>(null);
+  const [deployResult, setDeployResult] = useState<{
+    success: boolean;
+    executedStatements: number;
+    sql: string;
+  } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
@@ -153,9 +157,7 @@ export function DeploymentModal(props: {
   if (loading) {
     return (
       <Modal title={t("deployment.title")} onClose={props.onClose}>
-        <div className="flex h-48 items-center justify-center text-xs text-text-muted">
-          {t("common.loading")}
-        </div>
+        <div className="flex h-48 items-center justify-center text-xs text-text-muted">{t("common.loading")}</div>
       </Modal>
     );
   }
@@ -226,9 +228,7 @@ export function DeploymentModal(props: {
           <button
             type="button"
             className={`border-b-2 px-3 py-2 font-medium transition-colors ${
-              activeStep === "diff"
-                ? "border-accent text-accent"
-                : "border-transparent text-text-muted hover:text-text"
+              activeStep === "diff" ? "border-accent text-accent" : "border-transparent text-text-muted hover:text-text"
             }`}
             onClick={() => setActiveStep("diff")}
           >
@@ -249,9 +249,7 @@ export function DeploymentModal(props: {
           <button
             type="button"
             className={`border-b-2 px-3 py-2 font-medium transition-colors ${
-              activeStep === "sql"
-                ? "border-accent text-accent"
-                : "border-transparent text-text-muted hover:text-text"
+              activeStep === "sql" ? "border-accent text-accent" : "border-transparent text-text-muted hover:text-text"
             }`}
             onClick={() => setActiveStep("sql")}
           >
@@ -317,10 +315,7 @@ export function DeploymentModal(props: {
                                 </span>
                               )}
                               {f.notNullChanged && (
-                                <span className="text-amber-400">
-                                  {" "}
-                                  [{f.after?.notNull ? "NOT NULL" : "NULL"}]
-                                </span>
+                                <span className="text-amber-400"> [{f.after?.notNull ? "NOT NULL" : "NULL"}]</span>
                               )}
                             </div>
                             <span className="text-[10px] text-text-muted">{f.status}</span>
@@ -370,16 +365,28 @@ export function DeploymentModal(props: {
                           <div className="flex items-center justify-between">
                             <h4 className="font-bold text-text">
                               {risk.type === "DROP_COLUMN_WITH_DATA" && (
-                                <span>{t("deployment.riskDropColumn", { col: risk.columnName || "", table: risk.tableName })}</span>
+                                <span>
+                                  {t("deployment.riskDropColumn", {
+                                    col: risk.columnName || "",
+                                    table: risk.tableName,
+                                  })}
+                                </span>
                               )}
                               {risk.type === "DROP_TABLE_WITH_DATA" && (
                                 <span>{t("deployment.riskDropTable", { table: risk.tableName })}</span>
                               )}
                               {risk.type === "ALTER_COLUMN_TYPE" && (
-                                <span>{t("deployment.riskAlterType", { col: risk.columnName || "", table: risk.tableName })}</span>
+                                <span>
+                                  {t("deployment.riskAlterType", { col: risk.columnName || "", table: risk.tableName })}
+                                </span>
                               )}
                               {risk.type === "NULL_TO_NOT_NULL" && (
-                                <span>{t("deployment.riskNullViolation", { col: risk.columnName || "", table: risk.tableName })}</span>
+                                <span>
+                                  {t("deployment.riskNullViolation", {
+                                    col: risk.columnName || "",
+                                    table: risk.tableName,
+                                  })}
+                                </span>
                               )}
                             </h4>
                             <Badge tone={risk.severity === "critical" ? "danger" : "warning"}>
@@ -431,7 +438,9 @@ export function DeploymentModal(props: {
                                       />
                                       <span>{t(opt.labelKey as TranslationKeyOf)}</span>
                                     </div>
-                                    <span className="text-[10px] text-text-muted">{t(opt.descriptionKey as TranslationKeyOf)}</span>
+                                    <span className="text-[10px] text-text-muted">
+                                      {t(opt.descriptionKey as TranslationKeyOf)}
+                                    </span>
                                   </label>
                                 );
                               })}
@@ -485,7 +494,10 @@ export function DeploymentModal(props: {
             <CheckCircleIcon size={32} className="mx-auto mb-2 text-emerald-400" />
             <h3 className="text-base font-bold text-text">{t("deployment.deploySuccessTitle")}</h3>
             <p className="mt-1 text-text-muted">
-              {t("deployment.deploySuccessDesc", { count: deployResult.executedStatements, name: selectedConn?.name || "" })}
+              {t("deployment.deploySuccessDesc", {
+                count: deployResult.executedStatements,
+                name: selectedConn?.name || "",
+              })}
             </p>
           </div>
         )}
@@ -531,8 +543,7 @@ export function DeploymentModal(props: {
                 onClick={handleApplyDeployment}
                 disabled={deploying || !diff?.hasChanges}
               >
-                <CheckIcon size={13} />{" "}
-                {deploying ? t("deployment.deploying") : t("deployment.applyMigration")}
+                <CheckIcon size={13} /> {deploying ? t("deployment.deploying") : t("deployment.applyMigration")}
               </Button>
             )}
           </div>

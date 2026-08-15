@@ -96,9 +96,7 @@ export function EdgeSettingsPopover({
                 1 : *
               </span>
             </div>
-            <p className="text-[11px] leading-snug text-text-secondary">
-              {t("edge.cardinality.oneToManyDesc")}
-            </p>
+            <p className="text-[11px] leading-snug text-text-secondary">{t("edge.cardinality.oneToManyDesc")}</p>
           </button>
 
           {/* 1 - 1 */}
@@ -118,9 +116,7 @@ export function EdgeSettingsPopover({
                 1 : 1
               </span>
             </div>
-            <p className="text-[11px] leading-snug text-text-secondary">
-              {t("edge.cardinality.oneToOneDesc")}
-            </p>
+            <p className="text-[11px] leading-snug text-text-secondary">{t("edge.cardinality.oneToOneDesc")}</p>
           </button>
 
           {/* n - n */}
@@ -140,18 +136,14 @@ export function EdgeSettingsPopover({
                 * : *
               </span>
             </div>
-            <p className="text-[11px] leading-snug text-text-secondary">
-              {t("edge.cardinality.manyToManyDesc")}
-            </p>
+            <p className="text-[11px] leading-snug text-text-secondary">{t("edge.cardinality.manyToManyDesc")}</p>
           </button>
         </div>
       </div>
 
       {/* Section 2: Couleur de la relation */}
       <div className="flex flex-col gap-2 border-t border-border pt-2.5">
-        <label className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
-          {t("edge.color")}
-        </label>
+        <label className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">{t("edge.color")}</label>
         <div className="flex items-center gap-2">
           <ColorSwatchPicker
             value={color ?? "#818cf8"}
@@ -161,12 +153,7 @@ export function EdgeSettingsPopover({
             triggerClassName="h-6 w-6 shrink-0 cursor-pointer rounded-full border border-white/30"
           />
           {color && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => onColorChange(undefined)}
-              className="text-xs"
-            >
+            <Button variant="ghost" size="sm" onClick={() => onColorChange(undefined)} className="text-xs">
               {t("edge.resetColor")}
             </Button>
           )}

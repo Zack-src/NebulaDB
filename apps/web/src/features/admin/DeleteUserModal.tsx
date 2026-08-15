@@ -61,8 +61,7 @@ export function DeleteUserModal({ targetUser, users, onClose, onDeleted }: Delet
       </label>
 
       <label className="mt-4 block text-xs font-semibold text-text-secondary">
-        {t("admin.deleteUser.typeToConfirmPrefix")}{" "}
-        <span className="font-mono text-text">{targetUser.email}</span>{" "}
+        {t("admin.deleteUser.typeToConfirmPrefix")} <span className="font-mono text-text">{targetUser.email}</span>{" "}
         {t("admin.deleteUser.typeToConfirmSuffix")}
         <input
           className={`${INPUT_CLASS} mt-1 w-full`}
@@ -73,7 +72,12 @@ export function DeleteUserModal({ targetUser, users, onClose, onDeleted }: Delet
         />
       </label>
 
-      <Button variant="danger" className="mt-4" onClick={() => void remove.run()} disabled={remove.pending || !confirmed}>
+      <Button
+        variant="danger"
+        className="mt-4"
+        onClick={() => void remove.run()}
+        disabled={remove.pending || !confirmed}
+      >
         {remove.pending ? t("common.deleting") : t("admin.deleteUser.confirm")}
       </Button>
       {remove.error && <ErrorText>{remove.error}</ErrorText>}

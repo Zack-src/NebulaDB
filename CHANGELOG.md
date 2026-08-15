@@ -22,11 +22,11 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   access short of changing their password.
 - **Session management.** Users can see their own active sessions (device, IP,
   last activity) and revoke any of them individually, or log out everywhere
-  else, from *Settings → Profile*.
+  else, from _Settings → Profile_.
 - **Audit log.** Destructive and permission-shaped actions — project deletion,
   archiving, imports, exports, grant changes, team membership, password resets,
   account disable/delete, invitations, locked logins — are recorded and readable
-  by administrators under *Admin console → Audit log*. Schema edits are not
+  by administrators under _Admin console → Audit log_. Schema edits are not
   recorded here; they are already in each project's own revision history.
 - **Per-account login lockout.** Ten failed attempts against one account locks
   it for fifteen minutes, complementing the existing per-IP rate limit which a
@@ -41,8 +41,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `ATHANORDB_BACKUP_KEEP` runs and pruning the rest. The backup → restore round
   trip is now covered by tests, so it runs in CI rather than being first tried
   during an incident.
-- **Personal data export and self-service account deletion.** *Settings →
-  Profile* can download everything the instance holds about you as JSON, and
+- **Personal data export and self-service account deletion.** _Settings →
+  Profile_ can download everything the instance holds about you as JSON, and
   delete your account behind a password re-check. Projects you own are kept and
   left ownerless — they may be shared with a whole team.
 - **Choosable session length.** "Stay signed in for 30 days" is on by default;

@@ -28,13 +28,13 @@ belongs in the same change that reformats them.
 
 ## Layout
 
-| Path                    | What lives there                                                       |
-| ----------------------- | ---------------------------------------------------------------------- |
-| `packages/shared`       | The `Project` schema, the Yjs binding, and the shared entity limits     |
-| `packages/dbml-engine`  | DBML/SQL parsing, serialisation, diffing, validation                    |
-| `apps/server`           | Fastify REST + the WebSocket sync rooms + SQLite persistence            |
-| `apps/web`              | React canvas editor, DBML panel, dashboard, plugin host                 |
-| `docs/`                 | Implementation tracker, V1 roadmap, user guide                          |
+| Path                   | What lives there                                                    |
+| ---------------------- | ------------------------------------------------------------------- |
+| `packages/shared`      | The `Project` schema, the Yjs binding, and the shared entity limits |
+| `packages/dbml-engine` | DBML/SQL parsing, serialisation, diffing, validation                |
+| `apps/server`          | Fastify REST + the WebSocket sync rooms + SQLite persistence        |
+| `apps/web`             | React canvas editor, DBML panel, dashboard, plugin host             |
+| `docs/`                | Implementation tracker, V1 roadmap, user guide                      |
 
 Two rules that are easy to break by accident:
 
@@ -54,15 +54,15 @@ parallel version — this is the actual recurring source of duplication in this
 codebase: a hook built once, then hand-rolled again in the next component
 because nobody knew it was there.
 
-| Need                                              | Use                                          | Not                                          |
-| -------------------------------------------------- | --------------------------------------------- | --------------------------------------------- |
-| Inline rename / edit-in-place with Enter/Escape    | `hooks/useDraftValue.ts`                      | a component-local `onKeyDown` commit block    |
-| Close a popover on Escape or click outside it      | `hooks/useDismissablePopover.ts`              | separate `mousedown`/`keydown` listeners      |
-| Close *anything* on Escape only                    | `hooks/useEscapeKey.ts`                       | `window.addEventListener("keydown", ...)`     |
-| Close on click outside (non-canvas context)        | `hooks/useOutsideClick.ts`                    | a manual `mousedown` listener + ref check     |
-| A persisted user preference (`localStorage`)       | `utils/storage.ts`                            | raw `localStorage.getItem`/`setItem`          |
-| Any HTTP call to the API                           | `services/*Api.ts` (add a module if missing)  | a raw `fetch()` inside a component            |
-| An async action with loading/error state           | `hooks/useAsyncAction.ts` / `useAsyncResource.ts` | a bespoke `loading`/`error` `useState` pair |
+| Need                                            | Use                                               | Not                                         |
+| ----------------------------------------------- | ------------------------------------------------- | ------------------------------------------- |
+| Inline rename / edit-in-place with Enter/Escape | `hooks/useDraftValue.ts`                          | a component-local `onKeyDown` commit block  |
+| Close a popover on Escape or click outside it   | `hooks/useDismissablePopover.ts`                  | separate `mousedown`/`keydown` listeners    |
+| Close _anything_ on Escape only                 | `hooks/useEscapeKey.ts`                           | `window.addEventListener("keydown", ...)`   |
+| Close on click outside (non-canvas context)     | `hooks/useOutsideClick.ts`                        | a manual `mousedown` listener + ref check   |
+| A persisted user preference (`localStorage`)    | `utils/storage.ts`                                | raw `localStorage.getItem`/`setItem`        |
+| Any HTTP call to the API                        | `services/*Api.ts` (add a module if missing)      | a raw `fetch()` inside a component          |
+| An async action with loading/error state        | `hooks/useAsyncAction.ts` / `useAsyncResource.ts` | a bespoke `loading`/`error` `useState` pair |
 
 Popovers inside the React Flow canvas specifically need `click`, not
 `mousedown` — the pane calls `stopPropagation()` on `mousedown` for its own
@@ -96,7 +96,7 @@ another way is safe, and `PRAGMA user_version` tracks what has run.
 
 ## Commit and PR conventions
 
-Explain *why* in the commit body when the change isn't self-evident, and keep
+Explain _why_ in the commit body when the change isn't self-evident, and keep
 `docs/todo.md` honest: it records what was verified and how, including what was
 deliberately left undone. An entry claiming more than was actually checked is
 worse than no entry.

@@ -92,8 +92,7 @@ export function registerInvitationRoutes(app: FastifyInstance): void {
   app.post("/api/invitations/:token/accept", ACCEPT_RATE_LIMIT, async (req, reply) => {
     const { token } = req.params as { token: string };
     const invitation = db.prepare(`SELECT ${INVITATION_COLUMNS} FROM invitations WHERE token = ?`).get(token) as
-      | InvitationRow
-      | undefined;
+      InvitationRow | undefined;
     if (!invitation || getInvitationStatus(invitation) !== "pending") throw new ApiError("INVITATION_INVALID");
 
     const { password } = (req.body ?? {}) as { password?: string };

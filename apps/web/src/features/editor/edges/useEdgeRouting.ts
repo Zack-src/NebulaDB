@@ -44,7 +44,17 @@ export function useEdgeRouting(params: {
   routingPoints?: RoutingPoint[];
   onRoutingPointsChange: (points: RoutingPoint[] | undefined) => void;
 }) {
-  const { edgeId, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, routingPoints, onRoutingPointsChange } = params;
+  const {
+    edgeId,
+    sourceX,
+    sourceY,
+    targetX,
+    targetY,
+    sourcePosition,
+    targetPosition,
+    routingPoints,
+    onRoutingPointsChange,
+  } = params;
   const { screenToFlowPosition } = useReactFlow();
 
   const [dragPoints, setDragPoints] = useState<RoutingPoint[] | null>(null);
@@ -97,7 +107,11 @@ export function useEdgeRouting(params: {
 
   const commitPoints = (next: RoutingPoint[]) => {
     const ends = endpointsRef.current;
-    const simplified = simplifyRoutingPoints(next, { x: ends.sourceX, y: ends.sourceY }, { x: ends.targetX, y: ends.targetY });
+    const simplified = simplifyRoutingPoints(
+      next,
+      { x: ends.sourceX, y: ends.sourceY },
+      { x: ends.targetX, y: ends.targetY },
+    );
     onRoutingPointsChange(simplified.length > 0 ? simplified : undefined);
   };
 
@@ -187,7 +201,12 @@ export function useEdgeRouting(params: {
     };
     setSelectedPointIndex(index);
 
-    const orientation = getWaypointOrientation(index, initialPoints, { x: sourceX, y: sourceY }, { x: targetX, y: targetY });
+    const orientation = getWaypointOrientation(
+      index,
+      initialPoints,
+      { x: sourceX, y: sourceY },
+      { x: targetX, y: targetY },
+    );
 
     const onMove = (ev: MouseEvent) => {
       const flowPos = screenToFlowPosition({ x: ev.clientX, y: ev.clientY });

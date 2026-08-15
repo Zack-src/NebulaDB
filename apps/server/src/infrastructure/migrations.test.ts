@@ -96,5 +96,9 @@ test("migration versions are unique and strictly increasing", () => {
   // version, where whichever sorts second would silently never run.
   const versions = MIGRATIONS.map((m) => m.version);
   assert.deepEqual(versions, [...new Set(versions)], "no duplicate versions");
-  assert.deepEqual(versions, [...versions].sort((a, b) => a - b), "declared in ascending order");
+  assert.deepEqual(
+    versions,
+    [...versions].sort((a, b) => a - b),
+    "declared in ascending order",
+  );
 });

@@ -185,9 +185,21 @@ export class PostgresDriver implements DatabaseDriver {
               affectedRowCount: count,
               sampleData: sampleRes.rows,
               availableStrategies: [
-                { key: "DROP_DATA_CONFIRMED", labelKey: "connections.strategy.dropData", descriptionKey: "connections.strategy.dropDataDesc" },
-                { key: "KEEP_IN_DB", labelKey: "connections.strategy.keepInDb", descriptionKey: "connections.strategy.keepInDbDesc" },
-                { key: "CANCEL", labelKey: "connections.strategy.cancel", descriptionKey: "connections.strategy.cancelDesc" },
+                {
+                  key: "DROP_DATA_CONFIRMED",
+                  labelKey: "connections.strategy.dropData",
+                  descriptionKey: "connections.strategy.dropDataDesc",
+                },
+                {
+                  key: "KEEP_IN_DB",
+                  labelKey: "connections.strategy.keepInDb",
+                  descriptionKey: "connections.strategy.keepInDbDesc",
+                },
+                {
+                  key: "CANCEL",
+                  labelKey: "connections.strategy.cancel",
+                  descriptionKey: "connections.strategy.cancelDesc",
+                },
               ],
               defaultStrategy: "KEEP_IN_DB",
               selectedStrategy: "KEEP_IN_DB",
@@ -203,10 +215,14 @@ export class PostgresDriver implements DatabaseDriver {
         // Dropped columns
         for (const f of t.fields.filter((f) => f.status === "dropped")) {
           try {
-            const countRes = await client.query(`SELECT COUNT(*)::int AS count FROM "${t.name}" WHERE "${f.name}" IS NOT NULL`);
+            const countRes = await client.query(
+              `SELECT COUNT(*)::int AS count FROM "${t.name}" WHERE "${f.name}" IS NOT NULL`,
+            );
             const count = countRes.rows[0]?.count ?? 0;
             if (count > 0) {
-              const sampleRes = await client.query(`SELECT "${f.name}" AS val FROM "${t.name}" WHERE "${f.name}" IS NOT NULL LIMIT 5`);
+              const sampleRes = await client.query(
+                `SELECT "${f.name}" AS val FROM "${t.name}" WHERE "${f.name}" IS NOT NULL LIMIT 5`,
+              );
               risks.push({
                 id: `risk-col-drop-${t.name}-${f.name}`,
                 type: "DROP_COLUMN_WITH_DATA",
@@ -216,9 +232,21 @@ export class PostgresDriver implements DatabaseDriver {
                 affectedRowCount: count,
                 sampleData: sampleRes.rows.map((r) => r.val),
                 availableStrategies: [
-                  { key: "DROP_DATA_CONFIRMED", labelKey: "connections.strategy.dropData", descriptionKey: "connections.strategy.dropDataDesc" },
-                  { key: "KEEP_IN_DB", labelKey: "connections.strategy.keepColumn", descriptionKey: "connections.strategy.keepColumnDesc" },
-                  { key: "CANCEL", labelKey: "connections.strategy.cancel", descriptionKey: "connections.strategy.cancelDesc" },
+                  {
+                    key: "DROP_DATA_CONFIRMED",
+                    labelKey: "connections.strategy.dropData",
+                    descriptionKey: "connections.strategy.dropDataDesc",
+                  },
+                  {
+                    key: "KEEP_IN_DB",
+                    labelKey: "connections.strategy.keepColumn",
+                    descriptionKey: "connections.strategy.keepColumnDesc",
+                  },
+                  {
+                    key: "CANCEL",
+                    labelKey: "connections.strategy.cancel",
+                    descriptionKey: "connections.strategy.cancelDesc",
+                  },
                 ],
                 defaultStrategy: "KEEP_IN_DB",
                 selectedStrategy: "KEEP_IN_DB",
@@ -232,10 +260,14 @@ export class PostgresDriver implements DatabaseDriver {
         // Altered type
         for (const f of t.fields.filter((f) => f.status === "modified" && f.typeChanged)) {
           try {
-            const countRes = await client.query(`SELECT COUNT(*)::int AS count FROM "${t.name}" WHERE "${f.name}" IS NOT NULL`);
+            const countRes = await client.query(
+              `SELECT COUNT(*)::int AS count FROM "${t.name}" WHERE "${f.name}" IS NOT NULL`,
+            );
             const count = countRes.rows[0]?.count ?? 0;
             if (count > 0) {
-              const sampleRes = await client.query(`SELECT "${f.name}" AS val FROM "${t.name}" WHERE "${f.name}" IS NOT NULL LIMIT 5`);
+              const sampleRes = await client.query(
+                `SELECT "${f.name}" AS val FROM "${t.name}" WHERE "${f.name}" IS NOT NULL LIMIT 5`,
+              );
               risks.push({
                 id: `risk-col-type-${t.name}-${f.name}`,
                 type: "ALTER_COLUMN_TYPE",
@@ -245,9 +277,21 @@ export class PostgresDriver implements DatabaseDriver {
                 affectedRowCount: count,
                 sampleData: sampleRes.rows.map((r) => r.val),
                 availableStrategies: [
-                  { key: "FORCE_CAST", labelKey: "connections.strategy.forceCast", descriptionKey: "connections.strategy.forceCastDesc" },
-                  { key: "CLEAR_COLUMN_DATA", labelKey: "connections.strategy.clearData", descriptionKey: "connections.strategy.clearDataDesc" },
-                  { key: "CANCEL", labelKey: "connections.strategy.cancel", descriptionKey: "connections.strategy.cancelDesc" },
+                  {
+                    key: "FORCE_CAST",
+                    labelKey: "connections.strategy.forceCast",
+                    descriptionKey: "connections.strategy.forceCastDesc",
+                  },
+                  {
+                    key: "CLEAR_COLUMN_DATA",
+                    labelKey: "connections.strategy.clearData",
+                    descriptionKey: "connections.strategy.clearDataDesc",
+                  },
+                  {
+                    key: "CANCEL",
+                    labelKey: "connections.strategy.cancel",
+                    descriptionKey: "connections.strategy.cancelDesc",
+                  },
                 ],
                 defaultStrategy: "FORCE_CAST",
                 selectedStrategy: "FORCE_CAST",
@@ -261,7 +305,9 @@ export class PostgresDriver implements DatabaseDriver {
         // Nullable -> NOT NULL
         for (const f of t.fields.filter((f) => f.status === "modified" && f.notNullChanged && f.after?.notNull)) {
           try {
-            const countRes = await client.query(`SELECT COUNT(*)::int AS count FROM "${t.name}" WHERE "${f.name}" IS NULL`);
+            const countRes = await client.query(
+              `SELECT COUNT(*)::int AS count FROM "${t.name}" WHERE "${f.name}" IS NULL`,
+            );
             const count = countRes.rows[0]?.count ?? 0;
             if (count > 0) {
               risks.push({
@@ -278,8 +324,16 @@ export class PostgresDriver implements DatabaseDriver {
                     descriptionKey: "connections.strategy.backfillDefaultDesc",
                     requiresInput: "default_value",
                   },
-                  { key: "DELETE_OFFENDING_ROWS", labelKey: "connections.strategy.deleteRows", descriptionKey: "connections.strategy.deleteRowsDesc" },
-                  { key: "CANCEL", labelKey: "connections.strategy.cancel", descriptionKey: "connections.strategy.cancelDesc" },
+                  {
+                    key: "DELETE_OFFENDING_ROWS",
+                    labelKey: "connections.strategy.deleteRows",
+                    descriptionKey: "connections.strategy.deleteRowsDesc",
+                  },
+                  {
+                    key: "CANCEL",
+                    labelKey: "connections.strategy.cancel",
+                    descriptionKey: "connections.strategy.cancelDesc",
+                  },
                 ],
                 defaultStrategy: "BACKFILL_DEFAULT",
                 selectedStrategy: "BACKFILL_DEFAULT",

@@ -22,10 +22,12 @@ const BASE =
 const VARIANT: Record<Variant, string> = {
   default:
     "border border-border bg-surface-raised text-text-secondary enabled:hover:border-border-strong enabled:hover:bg-surface-hover enabled:hover:text-text",
-  primary: "border border-primary bg-primary text-white enabled:hover:border-primary-hover enabled:hover:bg-primary-hover shadow-xs",
+  primary:
+    "border border-primary bg-primary text-white enabled:hover:border-primary-hover enabled:hover:bg-primary-hover shadow-xs",
   gradient: "border border-indigo-400/30 bg-indigo-600 text-white enabled:hover:bg-indigo-500 shadow-xs",
   glow: "border border-indigo-400/40 bg-gradient-to-r from-indigo-600 to-violet-600 text-white enabled:hover:brightness-110 shadow-md",
-  outline: "border border-border-strong bg-transparent text-text enabled:hover:border-primary enabled:hover:bg-surface-hover",
+  outline:
+    "border border-border-strong bg-transparent text-text enabled:hover:border-primary enabled:hover:bg-surface-hover",
   ghost:
     "border border-transparent bg-transparent text-text-secondary enabled:hover:bg-surface-hover enabled:hover:text-text",
   danger: "border border-danger/45 bg-danger-light text-danger enabled:hover:border-danger enabled:hover:bg-danger/20",

@@ -35,7 +35,9 @@ function ImportDialog(props: { projectId: string; onClose: () => void }) {
 
   /** Extensions any installed importer claims, so the file picker offers them. */
   const accept = Array.from(
-    new Set(importers.flatMap((i) => i.contribution.fileExtensions ?? []).map((event) => `.${event.replace(/^\./, "")}`)),
+    new Set(
+      importers.flatMap((i) => i.contribution.fileExtensions ?? []).map((event) => `.${event.replace(/^\./, "")}`),
+    ),
   )
     .concat(".txt")
     .join(",");
@@ -75,9 +77,7 @@ function ImportDialog(props: { projectId: string; onClose: () => void }) {
 
   return (
     <Modal title={t("import.title")} onClose={props.onClose}>
-      <Hint>
-        {t("import.mergeHint")}
-      </Hint>
+      <Hint>{t("import.mergeHint")}</Hint>
       <div className="mb-2.5 flex items-center gap-2">
         <select className={SELECT_CLASS} value={selection} onChange={(event) => setSelection(event.target.value)}>
           {importers.map((i) => (

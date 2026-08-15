@@ -84,7 +84,9 @@ test("two projects with the same name don't overwrite each other", () => {
   seedProject("Duplicate", "alpha");
   seedProject("Duplicate", "beta");
   runBackup(dir);
-  const files = readdirSync(dir).filter((f) => f.startsWith("Duplicate")).sort();
+  const files = readdirSync(dir)
+    .filter((f) => f.startsWith("Duplicate"))
+    .sort();
   assert.deepEqual(files, ["Duplicate-1.dbml", "Duplicate.dbml"]);
 });
 

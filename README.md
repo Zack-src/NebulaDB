@@ -2,7 +2,7 @@
 
 Self-hosted, DBML-native database schema diagramming — think dbdiagram.io, but running entirely on your own machine or LAN, with real-time multi-user editing and full history built in.
 
-Your data stays on your server; nothing is sent anywhere else. Note that this is *not* local-first in the technical sense: state lives on the server, and the browser needs a connection to it. An open tab survives a network blip and resyncs on reconnect (see the reconnect logic in `yjsClient.ts`), but there is no offline persistence — closing the tab mid-outage loses unsynced edits.
+Your data stays on your server; nothing is sent anywhere else. Note that this is _not_ local-first in the technical sense: state lives on the server, and the browser needs a connection to it. An open tab survives a network blip and resyncs on reconnect (see the reconnect logic in `yjsClient.ts`), but there is no offline persistence — closing the tab mid-outage loses unsynced edits.
 
 ## Features
 
@@ -26,20 +26,20 @@ Your data stays on your server; nothing is sent anywhere else. Note that this is
 
 ## Stack
 
-| Layer               | Choice                                    | Why                                                                                    |
-| ------------------- | ------------------------------------------ | --------------------------------------------------------------------------------------- |
-| Monorepo            | npm workspaces                             | no extra global tool                                                                    |
-| Frontend            | React + TypeScript + Vite                  | fast dev loop, huge ecosystem                                                          |
-| Canvas              | React Flow (`@xyflow/react`)               | node/edge graph primitive, zoom/pan/minimap, custom node renderers per detail level    |
-| DBML editor         | Monaco (`@monaco-editor/react`), self-hosted | same editor as VS Code; self-hosted worker/assets, no CDN                            |
-| Auto-layout         | `@dagrejs/dagre`                           | directed-graph layout, used to lay tables out by FK direction                          |
-| Canvas export       | `html-to-image` + `jsPDF`                  | PNG/SVG snapshot of the canvas, wrapped into a PDF                                     |
-| Backend             | Node + TypeScript + Fastify                | lightweight server, native WS plugin                                                   |
-| Realtime collab     | Yjs CRDT, hand-rolled WS protocol (`y-protocols` + `lib0`) | multi-user editing and undo/history almost for free, no `y-websocket` dependency |
-| Persistence         | SQLite (`better-sqlite3`)                  | zero-config, single file, fits a single-server self-hosted deploy                      |
-| DBML parse/gen      | `@dbml/core`                                | official parser, handles DBML <-> SQL (Postgres/MySQL/MSSQL) both ways                |
-| Diagram state model | custom schema layered on the Yjs doc       | tables/fields/refs/notes/zones + visual metadata (position, color, detail level)      |
-| Packaging           | plain Node process, optional Docker        | `npm run dev` or `docker compose up`, no cloud dependency                              |
+| Layer               | Choice                                                     | Why                                                                                 |
+| ------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Monorepo            | npm workspaces                                             | no extra global tool                                                                |
+| Frontend            | React + TypeScript + Vite                                  | fast dev loop, huge ecosystem                                                       |
+| Canvas              | React Flow (`@xyflow/react`)                               | node/edge graph primitive, zoom/pan/minimap, custom node renderers per detail level |
+| DBML editor         | Monaco (`@monaco-editor/react`), self-hosted               | same editor as VS Code; self-hosted worker/assets, no CDN                           |
+| Auto-layout         | `@dagrejs/dagre`                                           | directed-graph layout, used to lay tables out by FK direction                       |
+| Canvas export       | `html-to-image` + `jsPDF`                                  | PNG/SVG snapshot of the canvas, wrapped into a PDF                                  |
+| Backend             | Node + TypeScript + Fastify                                | lightweight server, native WS plugin                                                |
+| Realtime collab     | Yjs CRDT, hand-rolled WS protocol (`y-protocols` + `lib0`) | multi-user editing and undo/history almost for free, no `y-websocket` dependency    |
+| Persistence         | SQLite (`better-sqlite3`)                                  | zero-config, single file, fits a single-server self-hosted deploy                   |
+| DBML parse/gen      | `@dbml/core`                                               | official parser, handles DBML <-> SQL (Postgres/MySQL/MSSQL) both ways              |
+| Diagram state model | custom schema layered on the Yjs doc                       | tables/fields/refs/notes/zones + visual metadata (position, color, detail level)    |
+| Packaging           | plain Node process, optional Docker                        | `npm run dev` or `docker compose up`, no cloud dependency                           |
 
 ## Running
 
@@ -66,19 +66,19 @@ npm start             # http://localhost:3001
 
 Every value is validated at startup — a malformed one exits immediately with a `[config]` message rather than silently falling back.
 
-| Variable | Default | Purpose |
-| --- | --- | --- |
-| `ATHANORDB_DB_PATH` | `./data/athanordb.sqlite` | SQLite file. Its directory is created if missing. |
-| `PORT` | `3001` | HTTP/WS port. |
-| `ATHANORDB_COOKIE_SECURE` | unset (= `false`) | Marks the session cookie `Secure`. **Set to `true` when running behind TLS** — with `NODE_ENV=production` and this unset, the server warns loudly at boot. |
-| `ATHANORDB_ALLOWED_ORIGINS` | unset | Comma-separated extra origins allowed to make state-changing requests. The app's own host is always allowed; this is only needed if the UI is served from a different origin than the API. |
-| `ATHANORDB_MAX_BODY_MB` | `4` | Max REST request body (DBML/SQL imports are the large ones). |
-| `ATHANORDB_MAX_WS_FRAME_MB` | `8` | Max size of a single WebSocket frame (one Yjs update). |
-| `ATHANORDB_LOG_LEVEL` | `info` | One of `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent`. Session cookies and `Authorization` headers are redacted from logs at every level. |
-| `ATHANORDB_BACKUP_INTERVAL_HOURS` | `0` (off) | Hours between automatic backups. Off by default so an operator with their own volume-snapshot strategy doesn't get a second, unasked-for one. |
-| `ATHANORDB_BACKUP_DIR` | `./backups` | Where scheduled backups are written, one timestamped directory per run. |
-| `ATHANORDB_BACKUP_KEEP` | `7` | How many backup directories to keep. Older ones are pruned after each run — unbounded backups fill the disk the database lives on. |
-| `ATHANORDB_AUDIT_RETENTION_DAYS` | `365` | How long audit entries are kept before the hourly sweep deletes them. `0` keeps them indefinitely. If you change this, update your privacy policy to match. |
+| Variable                          | Default                   | Purpose                                                                                                                                                                                    |
+| --------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `ATHANORDB_DB_PATH`               | `./data/athanordb.sqlite` | SQLite file. Its directory is created if missing.                                                                                                                                          |
+| `PORT`                            | `3001`                    | HTTP/WS port.                                                                                                                                                                              |
+| `ATHANORDB_COOKIE_SECURE`         | unset (= `false`)         | Marks the session cookie `Secure`. **Set to `true` when running behind TLS** — with `NODE_ENV=production` and this unset, the server warns loudly at boot.                                 |
+| `ATHANORDB_ALLOWED_ORIGINS`       | unset                     | Comma-separated extra origins allowed to make state-changing requests. The app's own host is always allowed; this is only needed if the UI is served from a different origin than the API. |
+| `ATHANORDB_MAX_BODY_MB`           | `4`                       | Max REST request body (DBML/SQL imports are the large ones).                                                                                                                               |
+| `ATHANORDB_MAX_WS_FRAME_MB`       | `8`                       | Max size of a single WebSocket frame (one Yjs update).                                                                                                                                     |
+| `ATHANORDB_LOG_LEVEL`             | `info`                    | One of `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent`. Session cookies and `Authorization` headers are redacted from logs at every level.                                    |
+| `ATHANORDB_BACKUP_INTERVAL_HOURS` | `0` (off)                 | Hours between automatic backups. Off by default so an operator with their own volume-snapshot strategy doesn't get a second, unasked-for one.                                              |
+| `ATHANORDB_BACKUP_DIR`            | `./backups`               | Where scheduled backups are written, one timestamped directory per run.                                                                                                                    |
+| `ATHANORDB_BACKUP_KEEP`           | `7`                       | How many backup directories to keep. Older ones are pruned after each run — unbounded backups fill the disk the database lives on.                                                         |
+| `ATHANORDB_AUDIT_RETENTION_DAYS`  | `365`                     | How long audit entries are kept before the hourly sweep deletes them. `0` keeps them indefinitely. If you change this, update your privacy policy to match.                                |
 
 `SIGTERM`/`SIGINT` shut down gracefully: connections stop, every live document is snapshotted to SQLite, then the database is closed — so `docker stop` doesn't drop the last few seconds of edits.
 
@@ -164,14 +164,14 @@ Password must be 8–128 characters. Respects `ATHANORDB_DB_PATH` same as the se
 
 The **Plugins** button in the project header opens the manager: install, enable/disable, remove, and read a plugin's console output. A one-click example plugin (a SQLite DDL exporter plus two commands) is included to copy from.
 
-**How it works.** Every export format, import format and command in the app is a *contribution*, and the built-in DBML/SQL formats are themselves plugins (`athanordb.core-export`, `athanordb.core-import`, `athanordb.core-canvas`) — so a plugin that adds SQLite sits next to Postgres with no special casing. Four kinds are supported:
+**How it works.** Every export format, import format and command in the app is a _contribution_, and the built-in DBML/SQL formats are themselves plugins (`athanordb.core-export`, `athanordb.core-import`, `athanordb.core-canvas`) — so a plugin that adds SQLite sits next to Postgres with no special casing. Four kinds are supported:
 
-| Contribution      | Input                                | Returns                            | Appears in                          |
-| ----------------- | ------------------------------------ | ---------------------------------- | ----------------------------------- |
-| `registerExporter`      | the `Project`                        | text (+ file extension)            | Export dialog                       |
-| `registerImporter`      | the pasted/uploaded text             | DBML source                        | Import dialog                       |
-| `registerCanvasCommand` | the `Project`                        | the modified `Project`             | Canvas toolbar → plugin menu        |
-| `registerEditorCommand` | `{ text, selection, selectedText }`  | the replacement buffer             | DBML editor palette (Ctrl+Shift+P)  |
+| Contribution            | Input                               | Returns                 | Appears in                         |
+| ----------------------- | ----------------------------------- | ----------------------- | ---------------------------------- |
+| `registerExporter`      | the `Project`                       | text (+ file extension) | Export dialog                      |
+| `registerImporter`      | the pasted/uploaded text            | DBML source             | Import dialog                      |
+| `registerCanvasCommand` | the `Project`                       | the modified `Project`  | Canvas toolbar → plugin menu       |
+| `registerEditorCommand` | `{ text, selection, selectedText }` | the replacement buffer  | DBML editor palette (Ctrl+Shift+P) |
 
 Every `run` also receives a second argument: `{ settings, selection: { tableIds } }` — the plugin's own configured settings, and which tables are selected on the canvas.
 

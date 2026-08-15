@@ -69,7 +69,10 @@ test("a writable connection's update is applied", (t) => {
   const { socket } = fakeSocket();
   room.join(socket, "alice", () => ({ canWrite: true }));
 
-  room.receive(socket, updateMessage((doc) => doc.getMap("tables").set("t1", "users")));
+  room.receive(
+    socket,
+    updateMessage((doc) => doc.getMap("tables").set("t1", "users")),
+  );
   assert.equal(room.doc.getMap("tables").get("t1"), "users");
 });
 
@@ -78,7 +81,10 @@ test("a read-only connection's update is dropped", (t) => {
   const { socket } = fakeSocket();
   room.join(socket, "bob", () => ({ canWrite: false }));
 
-  room.receive(socket, updateMessage((doc) => doc.getMap("tables").set("t1", "users")));
+  room.receive(
+    socket,
+    updateMessage((doc) => doc.getMap("tables").set("t1", "users")),
+  );
   assert.equal(room.doc.getMap("tables").has("t1"), false, "a view-only socket cannot mutate the document");
 });
 
@@ -91,13 +97,19 @@ test("revoking write access takes effect on an already-open connection", (t) => 
   let canWrite = true;
   room.join(socket, "carol", () => ({ canWrite }));
 
-  room.receive(socket, updateMessage((doc) => doc.getMap("tables").set("before", "ok")));
+  room.receive(
+    socket,
+    updateMessage((doc) => doc.getMap("tables").set("before", "ok")),
+  );
   assert.equal(room.doc.getMap("tables").get("before"), "ok");
 
   canWrite = false;
   room.revalidate(); // what the permission-changing routes call
 
-  room.receive(socket, updateMessage((doc) => doc.getMap("tables").set("after", "nope")));
+  room.receive(
+    socket,
+    updateMessage((doc) => doc.getMap("tables").set("after", "nope")),
+  );
   assert.equal(room.doc.getMap("tables").has("after"), false, "the edit made after revocation is refused");
   assert.equal(room.doc.getMap("tables").get("before"), "ok", "edits made while allowed are untouched");
 });
@@ -125,7 +137,10 @@ test("a resolver that throws fails closed", (t) => {
 
   broken = true;
   room.revalidate();
-  room.receive(socket, updateMessage((doc) => doc.getMap("tables").set("t1", "users")));
+  room.receive(
+    socket,
+    updateMessage((doc) => doc.getMap("tables").set("t1", "users")),
+  );
   assert.equal(room.doc.getMap("tables").has("t1"), false, "an unresolvable permission is not treated as granted");
 });
 
@@ -134,7 +149,10 @@ test("a connection that joins with no access starts read-only", (t) => {
   const { socket } = fakeSocket();
   room.join(socket, "frank", () => null);
 
-  room.receive(socket, updateMessage((doc) => doc.getMap("tables").set("t1", "users")));
+  room.receive(
+    socket,
+    updateMessage((doc) => doc.getMap("tables").set("t1", "users")),
+  );
   assert.equal(room.doc.getMap("tables").has("t1"), false);
 });
 

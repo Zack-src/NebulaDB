@@ -15,7 +15,11 @@ export function List(props: { children: ReactNode }) {
 }
 
 export function ListRow(props: { children: ReactNode }) {
-  return <div className="flex items-center gap-2.5 rounded-sm border border-border bg-surface px-3 py-2.5">{props.children}</div>;
+  return (
+    <div className="flex items-center gap-2.5 rounded-sm border border-border bg-surface px-3 py-2.5">
+      {props.children}
+    </div>
+  );
 }
 
 /** The row's primary label/content cluster — flexes to fill the row, leaving action buttons at fixed width. */
@@ -23,7 +27,10 @@ export function ListMain(props: { children: ReactNode; as?: "div" | "button"; on
   const className = "flex min-w-0 flex-1 items-center gap-2 text-[13px]";
   if (props.as === "button") {
     return (
-      <button className={`${className} cursor-pointer border-none bg-none p-0 text-left text-text`} onClick={props.onClick}>
+      <button
+        className={`${className} cursor-pointer border-none bg-none p-0 text-left text-text`}
+        onClick={props.onClick}
+      >
         {props.children}
       </button>
     );

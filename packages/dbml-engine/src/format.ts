@@ -43,11 +43,13 @@ function normalizeSpacing(text: string): string {
       out += " ";
     }
   }
-  return out
-    .replace(/\s*\{\s*$/, " {")
-    // keep numeric type arguments tight: `decimal(10, 2)` -> `decimal(10,2)`
-    .replace(/\((\d[\d,\s]*)\)/g, (_m, args: string) => `(${args.replace(/\s+/g, "")})`)
-    .replace(/\s+$/, "");
+  return (
+    out
+      .replace(/\s*\{\s*$/, " {")
+      // keep numeric type arguments tight: `decimal(10, 2)` -> `decimal(10,2)`
+      .replace(/\((\d[\d,\s]*)\)/g, (_m, args: string) => `(${args.replace(/\s+/g, "")})`)
+      .replace(/\s+$/, "")
+  );
 }
 
 /** Brace delta of a line, ignoring braces inside strings and `//` comments. */

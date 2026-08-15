@@ -184,7 +184,8 @@ const runners: Record<string, BuiltinRunner> = {
     const report = auditSchema(project);
     const parts: string[] = [];
     if (report.errors.length > 0) parts.push(`❌ ${report.errors.length} erreur(s) : ${report.errors.join(", ")}`);
-    if (report.warnings.length > 0) parts.push(`⚠️ ${report.warnings.length} avertissement(s) : ${report.warnings.join(", ")}`);
+    if (report.warnings.length > 0)
+      parts.push(`⚠️ ${report.warnings.length} avertissement(s) : ${report.warnings.join(", ")}`);
     if (parts.length === 0) parts.push("✅ Schéma sain, aucune anomalie détectée !");
     return { message: parts.join(" | ") };
   },
@@ -205,7 +206,8 @@ export const coreCanvasPlugin: BuiltinPlugin = {
     version: "1.0.0",
     author: "AthanorDB",
     category: "canvas",
-    description: "Outils d'édition de canvas : réinitialisation du routage, conversions de casse, timestamps, audit et statistiques.",
+    description:
+      "Outils d'édition de canvas : réinitialisation du routage, conversions de casse, timestamps, audit et statistiques.",
     tags: ["canvas", "format", "tools", "audit", "stats"],
   },
   contributions,

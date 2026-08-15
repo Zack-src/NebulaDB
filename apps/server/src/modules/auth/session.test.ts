@@ -147,7 +147,10 @@ test("resolveSession rolls the expiry forward and re-sets the cookie on every hi
   const after = (db.prepare("SELECT expires_at FROM sessions WHERE id = ?").get(value) as { expires_at: string })
     .expires_at;
 
-  assert.ok(new Date(after).getTime() > new Date(soon).getTime(), "rolled forward from the ~1-minute mark to ~30 days out");
+  assert.ok(
+    new Date(after).getTime() > new Date(soon).getTime(),
+    "rolled forward from the ~1-minute mark to ~30 days out",
+  );
   assert.equal(cookiesSet2.length, 1, "the session cookie is re-set on every resolve, not just on login");
   assert.equal(cookiesSet2[0].value, value, "same session id, just a later expiry");
 });
@@ -169,7 +172,11 @@ test("destroySession deletes the row and clears the cookie — resolveSession th
 test("destroySession with no cookie is a harmless no-op", () => {
   const { reply, cookiesCleared } = mockReply();
   destroySession(mockRequest(), reply as unknown as FastifyReply);
-  assert.deepEqual(cookiesCleared, ["athanordb_sid"], "still clears the cookie client-side even if there was nothing to delete server-side");
+  assert.deepEqual(
+    cookiesCleared,
+    ["athanordb_sid"],
+    "still clears the cookie client-side even if there was nothing to delete server-side",
+  );
 });
 
 test("purgeExpiredSessions deletes only sessions whose expiry has passed", () => {
@@ -193,9 +200,9 @@ test("purgeExpiredSessions deletes only sessions whose expiry has passed", () =>
   assert.equal(db.prepare("SELECT 1 FROM sessions WHERE id = ?").get(s1[0].value), undefined, "expired row gone");
   assert.ok(db.prepare("SELECT 1 FROM sessions WHERE id = ?").get(s2[0].value), "live row untouched");
 
-  const stillExpired = db.prepare("SELECT COUNT(*) AS n FROM sessions WHERE expires_at < ?").get(
-    new Date().toISOString(),
-  ) as { n: number };
+  const stillExpired = db
+    .prepare("SELECT COUNT(*) AS n FROM sessions WHERE expires_at < ?")
+    .get(new Date().toISOString()) as { n: number };
   assert.equal(stillExpired.n, 0, "nothing expired survives a purge, including rows other tests left behind");
 });
 
@@ -251,7 +258,10 @@ test("listSessions returns a user's own sessions and flags the current one", () 
   const current = sessions.find((s) => s.current)!;
   assert.equal(current.userAgent, "Chrome/2.0");
   assert.equal(current.ip, "10.0.0.2");
-  assert.ok(sessions.some((s) => s.userAgent === "Firefox/1.0"), "the other device is listed too");
+  assert.ok(
+    sessions.some((s) => s.userAgent === "Firefox/1.0"),
+    "the other device is listed too",
+  );
 });
 
 test("listSessions never shows another user's sessions", () => {
@@ -327,10 +337,7 @@ test("using a short session rolls it forward by its own length, not the default"
   createSession(userId, reply as unknown as FastifyReply, undefined, { remember: false });
   const sessionId = cookiesSet[0].value;
 
-  resolveSession(
-    mockRequest({ [cookiesSet[0].name]: sessionId }),
-    mockReply().reply as unknown as FastifyReply,
-  );
+  resolveSession(mockRequest({ [cookiesSet[0].name]: sessionId }), mockReply().reply as unknown as FastifyReply);
 
   const row = db.prepare("SELECT expires_at FROM sessions WHERE id = ?").get(sessionId) as { expires_at: string };
   const hoursOut = (new Date(row.expires_at).getTime() - Date.now()) / 3_600_000;

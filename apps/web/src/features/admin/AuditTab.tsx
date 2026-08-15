@@ -27,7 +27,13 @@ const ACTION_FILTERS: { value: string; labelKey: TranslationKeyOf }[] = [
 ];
 
 /** Actions worth spotting at a glance in a long list. */
-const SEVERE_ACTIONS = new Set(["project.delete", "user.delete", "user.disable", "auth.login.locked", "connection.deploy"]);
+const SEVERE_ACTIONS = new Set([
+  "project.delete",
+  "user.delete",
+  "user.disable",
+  "auth.login.locked",
+  "connection.deploy",
+]);
 
 const EMPTY_CELL = "—";
 

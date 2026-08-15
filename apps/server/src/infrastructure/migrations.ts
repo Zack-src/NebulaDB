@@ -134,7 +134,6 @@ export const MIGRATIONS: Migration[] = [
   },
 ];
 
-
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */
 export function runMigrations(db: Database.Database): void {
   const current = db.pragma("user_version", { simple: true }) as number;

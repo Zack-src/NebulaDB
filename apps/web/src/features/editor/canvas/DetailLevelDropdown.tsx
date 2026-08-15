@@ -1,10 +1,7 @@
 import type { DetailLevel } from "@athanordb/shared";
 import { ChevronRightIcon } from "@/components/icons/Icons";
 import { CONTEXT_MENU_ITEM_CLASS } from "@/components/ui/contextMenuStyles";
-import {
-  CANVAS_TOOLBAR_SEGMENT_ACTIVE_CLASS,
-  CANVAS_TOOLBAR_SEGMENT_CLASS,
-} from "@/components/ui/canvasToolbarStyles";
+import { CANVAS_TOOLBAR_SEGMENT_ACTIVE_CLASS, CANVAS_TOOLBAR_SEGMENT_CLASS } from "@/components/ui/canvasToolbarStyles";
 import { useTranslation } from "@/i18n/useTranslation";
 import type { TranslationKeyOf } from "@/types";
 import { ToolbarMenu } from "./ToolbarMenu";

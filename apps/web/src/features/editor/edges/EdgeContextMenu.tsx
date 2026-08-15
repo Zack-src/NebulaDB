@@ -47,15 +47,15 @@ export function EdgeContextMenu(props: {
       onContextMenu={(event) => event.preventDefault()}
     >
       {props.menu.pointIndex !== undefined ? (
-        <button
-          className={CONTEXT_MENU_ITEM_CLASS}
-          onClick={choose(() => props.onDeletePoint(props.menu.pointIndex!))}
-        >
+        <button className={CONTEXT_MENU_ITEM_CLASS} onClick={choose(() => props.onDeletePoint(props.menu.pointIndex!))}>
           <TrashIcon size={14} />
           {t("edge.deleteWaypoint")}
         </button>
       ) : (
-        <button className={CONTEXT_MENU_ITEM_CLASS} onClick={choose(() => props.onInsertPoint(props.menu.flowPosition))}>
+        <button
+          className={CONTEXT_MENU_ITEM_CLASS}
+          onClick={choose(() => props.onInsertPoint(props.menu.flowPosition))}
+        >
           <PlusIcon size={14} />
           {t("edge.insertWaypoint")}
         </button>

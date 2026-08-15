@@ -3,12 +3,7 @@ import { Modal } from "@/components/overlays/Modal";
 import { PuzzleIcon, SparklesIcon, CodeIcon, LayersIcon, SearchIcon, CloseIcon } from "@/components/icons/Icons";
 import { pluginRegistry } from "@/features/plugins/registry";
 import { COMMUNITY_TEMPLATES } from "@/features/plugins/communityTemplates";
-import type {
-  PluginManifest,
-  Contribution,
-  PluginRecord,
-  PluginSettingDef,
-} from "@/features/plugins/types";
+import type { PluginManifest, Contribution, PluginRecord, PluginSettingDef } from "@/features/plugins/types";
 import { useTranslation } from "@/i18n/useTranslation";
 import type { TranslationKey } from "@/i18n/translate";
 import { triggerDownload } from "@/utils/download";

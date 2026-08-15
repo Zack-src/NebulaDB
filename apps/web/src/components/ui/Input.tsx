@@ -44,7 +44,9 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   const base = `${SIZE_CLASS[inputSize]} ${invalid ? INPUT_INVALID_CLASS : ""}`;
 
   if (!icon && !trailing) {
-    return <input ref={ref} className={`${base} ${wrapperClassName} ${className}`.replace(/\s+/g, " ").trim()} {...rest} />;
+    return (
+      <input ref={ref} className={`${base} ${wrapperClassName} ${className}`.replace(/\s+/g, " ").trim()} {...rest} />
+    );
   }
 
   return (

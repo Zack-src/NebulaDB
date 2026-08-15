@@ -20,9 +20,9 @@ ne peuvent pas être remplis à votre place.
 
 ## Les documents
 
-| Fichier | Objet |
-| --- | --- |
-| [`cgu.md`](./cgu.md) | Conditions générales d'utilisation de votre instance |
+| Fichier                                      | Objet                                                  |
+| -------------------------------------------- | ------------------------------------------------------ |
+| [`cgu.md`](./cgu.md)                         | Conditions générales d'utilisation de votre instance   |
 | [`confidentialite.md`](./confidentialite.md) | Politique de confidentialité et durées de conservation |
 
 ## Ce qu'il faut remplacer

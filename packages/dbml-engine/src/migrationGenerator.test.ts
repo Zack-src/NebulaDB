@@ -84,10 +84,10 @@ test("generateMigrationSql generates PostgreSQL DDL with transactions and resolu
   });
 
   assert.ok(sql.startsWith("BEGIN;"));
-  assert.ok(sql.includes("CREATE TABLE \"posts\""));
-  assert.ok(sql.includes("ALTER TABLE \"users\" ADD COLUMN \"created_at\" timestamptz NOT NULL DEFAULT NOW();"));
-  assert.ok(sql.includes("ALTER TABLE \"users\" ALTER COLUMN \"count\" TYPE text USING \"count\"::text;"));
-  assert.ok(sql.includes("-- Kept column \"users\".\"old_column\""));
+  assert.ok(sql.includes('CREATE TABLE "posts"'));
+  assert.ok(sql.includes('ALTER TABLE "users" ADD COLUMN "created_at" timestamptz NOT NULL DEFAULT NOW();'));
+  assert.ok(sql.includes('ALTER TABLE "users" ALTER COLUMN "count" TYPE text USING "count"::text;'));
+  assert.ok(sql.includes('-- Kept column "users"."old_column"'));
   assert.ok(sql.endsWith("COMMIT;"));
 });
 
@@ -101,11 +101,11 @@ test("generateMigrationSql handles DROP TABLE confirmed vs kept", () => {
   const sqlDrop = generateMigrationSql(diff, "postgres", {
     "table:t1": { strategy: "DROP_DATA_CONFIRMED" },
   });
-  assert.ok(sqlDrop.includes("DROP TABLE IF EXISTS \"t1\" CASCADE;"));
+  assert.ok(sqlDrop.includes('DROP TABLE IF EXISTS "t1" CASCADE;'));
 
   // Kept drop
   const sqlKeep = generateMigrationSql(diff, "postgres", {
     "table:t1": { strategy: "KEEP_IN_DB" },
   });
-  assert.ok(sqlKeep.includes("-- Kept table \"t1\""));
+  assert.ok(sqlKeep.includes('-- Kept table "t1"'));
 });

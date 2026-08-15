@@ -8,7 +8,8 @@
  * with at least one dot and a 2+ character TLD. Anything stricter starts
  * rejecting addresses that really exist.
  */
-const EMAIL_RE = /^[^\s@,;:<>"()[\]\\]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}$/;
+const EMAIL_RE =
+  /^[^\s@,;:<>"()[\]\\]+@[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]*[A-Za-z0-9])?)*\.[A-Za-z]{2,}$/;
 
 export const MAX_EMAIL_LENGTH = 254; // RFC 5321 upper bound on a forward path
 

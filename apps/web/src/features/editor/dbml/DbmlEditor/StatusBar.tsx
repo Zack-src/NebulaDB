@@ -28,19 +28,39 @@ export function StatusBar(props: {
       )}
       <span className="ml-auto flex items-center gap-2">
         {(cursor.errors > 0 || cursor.warnings > 0) && (
-          <button type="button" onClick={onShowProblems} className="rounded px-1 hover:bg-surface-hover" title={t("dbml.showProblems")}>
+          <button
+            type="button"
+            onClick={onShowProblems}
+            className="rounded px-1 hover:bg-surface-hover"
+            title={t("dbml.showProblems")}
+          >
             <span className={cursor.errors ? "text-danger" : ""}>✕ {cursor.errors}</span>{" "}
             <span className={cursor.warnings ? "text-warning" : ""}>⚠ {cursor.warnings}</span>
           </button>
         )}
-        <button type="button" onClick={onToggleWrap} className="rounded px-1 hover:bg-surface-hover" title={t("dbml.toggleWrap")}>
+        <button
+          type="button"
+          onClick={onToggleWrap}
+          className="rounded px-1 hover:bg-surface-hover"
+          title={t("dbml.toggleWrap")}
+        >
           {t(wrap ? "dbml.wrapOn" : "dbml.wrapOff")}
         </button>
-        <button type="button" onClick={onDecreaseFont} className="rounded px-1 hover:bg-surface-hover" title={t("dbml.fontDecrease")}>
+        <button
+          type="button"
+          onClick={onDecreaseFont}
+          className="rounded px-1 hover:bg-surface-hover"
+          title={t("dbml.fontDecrease")}
+        >
           A−
         </button>
         <span>{fontSize}px</span>
-        <button type="button" onClick={onIncreaseFont} className="rounded px-1 hover:bg-surface-hover" title={t("dbml.fontIncrease")}>
+        <button
+          type="button"
+          onClick={onIncreaseFont}
+          className="rounded px-1 hover:bg-surface-hover"
+          title={t("dbml.fontIncrease")}
+        >
           A+
         </button>
         <span title={t("dbml.indentation")}>{t("dbml.twoSpaces")}</span>

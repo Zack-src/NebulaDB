@@ -61,7 +61,10 @@ test("round-trip fidelity: import SQL -> edit -> export SQL -> re-import -> merg
   const postsBefore = edited.tables.find((t) => t.name === "posts")!;
   const postsAfter = merged.tables.find((t) => t.name === "posts")!;
   assert.equal(postsAfter.id, postsBefore.id);
-  assert.equal(postsAfter.fields.find((f) => f.name === "title")!.id, postsBefore.fields.find((f) => f.name === "title")!.id);
+  assert.equal(
+    postsAfter.fields.find((f) => f.name === "title")!.id,
+    postsBefore.fields.find((f) => f.name === "title")!.id,
+  );
 
   // Structure — PK/FK/unique/not-null — survives intact.
   const usersAfter = merged.tables.find((t) => t.name === "users")!;
