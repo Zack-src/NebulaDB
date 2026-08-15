@@ -36,6 +36,63 @@ export default defineConfig({
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
+  build: {
+    rollupOptions: {
+      output: {
+        // React Flow and CodeMirror are both large, independently-cacheable
+        // dependencies that were otherwise landing in the main `index` chunk
+        // (they're imported statically by the canvas and DBML editor, which
+        // render as soon as a project opens, so route-level lazy() wouldn't
+        // help). Splitting them into their own vendor chunks doesn't shrink
+        // what a project view downloads overall, but it keeps the app-code
+        // chunk small and lets these rarely-changing dependency chunks be
+        // cached across deploys independently of app code and of each other.
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+
+          // @xyflow/react and its own dependency tree (the @xyflow/system
+          // helper package plus the d3-* modules it uses for zoom/drag/pan)
+          // and @dagrejs/dagre, which the canvas only imports for
+          // auto-layout alongside React Flow.
+          if (
+            id.includes("node_modules/@xyflow") ||
+            id.includes("node_modules/@dagrejs/dagre") ||
+            id.includes("/node_modules/d3-")
+          ) {
+            return "xyflow";
+          }
+
+          // The @codemirror/* family plus the @lezer/* parser packages and
+          // small helper libs (style-mod, crelt, w3c-keyname,
+          // @marijn/find-cluster-break) they pull in. Bundled together since
+          // they're only ever used together, by the DBML editor.
+          if (
+            id.includes("node_modules/@codemirror") ||
+            id.includes("node_modules/@lezer") ||
+            id.includes("node_modules/style-mod") ||
+            id.includes("node_modules/crelt") ||
+            id.includes("node_modules/w3c-keyname") ||
+            id.includes("node_modules/@marijn/find-cluster-break")
+          ) {
+            return "codemirror";
+          }
+
+          // Yjs plus its lib0 utility library and the y-protocols wire
+          // format: the realtime-sync stack, only needed once a project is
+          // open and independent of both the editor and the canvas above.
+          if (
+            id.includes("node_modules/yjs") ||
+            id.includes("node_modules/y-protocols") ||
+            id.includes("node_modules/lib0")
+          ) {
+            return "yjs";
+          }
+
+          return undefined;
+        },
+      },
+    },
+  },
   server: {
     port: WEB_PORT,
     proxy: {
