@@ -59,12 +59,14 @@ function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
   const [renaming, setRenaming] = useState(false);
   const nameDraft = useDraftValue(table.name, (next) => data.onRename(next ?? ""));
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
-  // Clicking a column highlighted it forever, in every table at once, because
-  // nothing ever cleared it. React Flow selects a node on pointer-down, so
-  // losing that selection is exactly the moment the row highlight should go.
-  // Adjusted during render rather than from an effect (the same pattern as
-  // ColorSwatchPicker): React re-runs the component before touching the DOM,
-  // so there is no frame showing the stale highlight.
+  // A column click no longer selects the table itself (see `nodrag` on
+  // ROW_CLASS), but the table can still be deselected out from under a
+  // selected column some other way — clicking a different table, or empty
+  // canvas after selecting this one by its header. Either way the column
+  // selection should go with it. Adjusted during render rather than from an
+  // effect (the same pattern as ColorSwatchPicker): React re-runs the
+  // component before touching the DOM, so there is no frame showing the
+  // stale highlight.
   const [wasSelected, setWasSelected] = useState(selected);
   if (wasSelected !== selected) {
     setWasSelected(selected);

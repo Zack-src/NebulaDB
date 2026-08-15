@@ -2,9 +2,21 @@
 
 import { INPUT_XS_CLASS, LABEL_XS_CLASS } from "@/components/ui/inputStyles";
 
+/**
+ * `nodrag`: React Flow's own node-selection gesture and its drag-the-node
+ * gesture are the same pointerdown-driven system, gated by this one class —
+ * without it, clicking a row to select *that column* also selected the whole
+ * table underneath it (React Flow resolves selection at the start of the
+ * gesture, before it can tell a click from a drag), which was why a link kept
+ * glowing long after the column stopped being hovered: the table stayed
+ * "selected" until something else was clicked. Dragging the table by grabbing
+ * a row is lost as a side effect, which is the right trade — a row is already
+ * busy with its own click-to-select and button interactions, and the header
+ * remains a clear, unambiguous drag handle.
+ */
 export const ROW_CLASS =
   "group relative flex h-[calc(27px_*_var(--canvas-font-scale))] cursor-pointer items-center gap-[7px] " +
-  "whitespace-nowrap border-t border-border px-2.5 transition-colors duration-100 hover:bg-surface-hover";
+  "whitespace-nowrap border-t border-border px-2.5 transition-colors duration-100 hover:bg-surface-hover nodrag";
 /** isLinked (important, overrides isSelected) > isSelected > neither. */
 export function rowStateClass(isLinked: boolean, isSelected: boolean): string {
   if (isLinked) return "bg-[rgba(99,102,241,0.15)] border-l-[2.5px] border-l-[#6366f1]";
