@@ -36,9 +36,8 @@ jobs:
       - name: Check for circular dependencies
         run: npm run check:circular
 
-      # `npm run format:check` is deliberately not a gate yet: the repo has
-      # never been run through Prettier, so it fails on ~100 pre-existing
-      # files. Turn it on in the same change that reformats them.
+      - name: Format check
+        run: npm run format:check
 
       - name: Build
         run: npm run build

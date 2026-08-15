@@ -175,9 +175,21 @@ export class MysqlDriver implements DatabaseDriver {
             affectedRowCount: count,
             sampleData: sampleRows,
             availableStrategies: [
-              { key: "DROP_DATA_CONFIRMED", labelKey: "connections.strategy.dropData", descriptionKey: "connections.strategy.dropDataDesc" },
-              { key: "KEEP_IN_DB", labelKey: "connections.strategy.keepInDb", descriptionKey: "connections.strategy.keepInDbDesc" },
-              { key: "CANCEL", labelKey: "connections.strategy.cancel", descriptionKey: "connections.strategy.cancelDesc" },
+              {
+                key: "DROP_DATA_CONFIRMED",
+                labelKey: "connections.strategy.dropData",
+                descriptionKey: "connections.strategy.dropDataDesc",
+              },
+              {
+                key: "KEEP_IN_DB",
+                labelKey: "connections.strategy.keepInDb",
+                descriptionKey: "connections.strategy.keepInDbDesc",
+              },
+              {
+                key: "CANCEL",
+                labelKey: "connections.strategy.cancel",
+                descriptionKey: "connections.strategy.cancelDesc",
+              },
             ],
             defaultStrategy: "KEEP_IN_DB",
             selectedStrategy: "KEEP_IN_DB",
@@ -208,11 +220,25 @@ export class MysqlDriver implements DatabaseDriver {
               tableName: t.name,
               columnName: f.name,
               affectedRowCount: count,
-              sampleData: sampleRows.map((r) => r.val) as (string | number | boolean | Record<string, unknown> | null)[],
+              sampleData: sampleRows.map((r) => r.val) as (
+                string | number | boolean | Record<string, unknown> | null
+              )[],
               availableStrategies: [
-                { key: "DROP_DATA_CONFIRMED", labelKey: "connections.strategy.dropData", descriptionKey: "connections.strategy.dropDataDesc" },
-                { key: "KEEP_IN_DB", labelKey: "connections.strategy.keepColumn", descriptionKey: "connections.strategy.keepColumnDesc" },
-                { key: "CANCEL", labelKey: "connections.strategy.cancel", descriptionKey: "connections.strategy.cancelDesc" },
+                {
+                  key: "DROP_DATA_CONFIRMED",
+                  labelKey: "connections.strategy.dropData",
+                  descriptionKey: "connections.strategy.dropDataDesc",
+                },
+                {
+                  key: "KEEP_IN_DB",
+                  labelKey: "connections.strategy.keepColumn",
+                  descriptionKey: "connections.strategy.keepColumnDesc",
+                },
+                {
+                  key: "CANCEL",
+                  labelKey: "connections.strategy.cancel",
+                  descriptionKey: "connections.strategy.cancelDesc",
+                },
               ],
               defaultStrategy: "KEEP_IN_DB",
               selectedStrategy: "KEEP_IN_DB",
@@ -241,11 +267,25 @@ export class MysqlDriver implements DatabaseDriver {
               tableName: t.name,
               columnName: f.name,
               affectedRowCount: count,
-              sampleData: sampleRows.map((r) => r.val) as (string | number | boolean | Record<string, unknown> | null)[],
+              sampleData: sampleRows.map((r) => r.val) as (
+                string | number | boolean | Record<string, unknown> | null
+              )[],
               availableStrategies: [
-                { key: "FORCE_CAST", labelKey: "connections.strategy.forceCast", descriptionKey: "connections.strategy.forceCastDesc" },
-                { key: "CLEAR_COLUMN_DATA", labelKey: "connections.strategy.clearData", descriptionKey: "connections.strategy.clearDataDesc" },
-                { key: "CANCEL", labelKey: "connections.strategy.cancel", descriptionKey: "connections.strategy.cancelDesc" },
+                {
+                  key: "FORCE_CAST",
+                  labelKey: "connections.strategy.forceCast",
+                  descriptionKey: "connections.strategy.forceCastDesc",
+                },
+                {
+                  key: "CLEAR_COLUMN_DATA",
+                  labelKey: "connections.strategy.clearData",
+                  descriptionKey: "connections.strategy.clearDataDesc",
+                },
+                {
+                  key: "CANCEL",
+                  labelKey: "connections.strategy.cancel",
+                  descriptionKey: "connections.strategy.cancelDesc",
+                },
               ],
               defaultStrategy: "FORCE_CAST",
               selectedStrategy: "FORCE_CAST",

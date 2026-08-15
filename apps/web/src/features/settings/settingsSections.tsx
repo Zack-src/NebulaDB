@@ -1,12 +1,5 @@
 import type { ReactNode } from "react";
-import {
-  CreditCardIcon,
-  InfoIcon,
-  PaletteIcon,
-  SlidersIcon,
-  UserIcon,
-  UsersIcon,
-} from "@/components/icons/Icons";
+import { CreditCardIcon, InfoIcon, PaletteIcon, SlidersIcon, UserIcon, UsersIcon } from "@/components/icons/Icons";
 import type { TranslationKeyOf } from "@/types";
 import type { SettingsTab } from "./useSettingsPanelState";
 

@@ -23,7 +23,11 @@ const COLUMN_SETTINGS: Completion[] = [
   { label: "null", type: "keyword", detail: "Allow NULL" },
   { label: "increment", type: "keyword", detail: "Auto-increment", boost: 70 },
   snippetCompletion("default: ${value}", { label: "default", type: "property", detail: "Default value" }),
-  snippetCompletion("default: `${now()}`", { label: "default: `now()`", type: "property", detail: "SQL expression default" }),
+  snippetCompletion("default: `${now()}`", {
+    label: "default: `now()`",
+    type: "property",
+    detail: "SQL expression default",
+  }),
   snippetCompletion("note: '${text}'", { label: "note", type: "property", detail: "Column note" }),
   snippetCompletion("ref: > ${Table}.${column}", { label: "ref", type: "property", detail: "Inline relationship" }),
 ];
@@ -44,7 +48,12 @@ const TOP_LEVEL: Completion[] = [
     detail: "relationship",
     boost: 98,
   }),
-  snippetCompletion("Enum ${name} {\n  ${value1}\n  ${value2}\n}", { label: "Enum", type: "keyword", detail: "enum block", boost: 97 }),
+  snippetCompletion("Enum ${name} {\n  ${value1}\n  ${value2}\n}", {
+    label: "Enum",
+    type: "keyword",
+    detail: "enum block",
+    boost: 97,
+  }),
   snippetCompletion("TableGroup ${name} {\n  ${Table1}\n  ${Table2}\n}", {
     label: "TableGroup",
     type: "keyword",
@@ -55,7 +64,11 @@ const TOP_LEVEL: Completion[] = [
     type: "keyword",
     detail: "project metadata",
   }),
-  snippetCompletion("Note ${name} {\n  '''\n  ${text}\n  '''\n}", { label: "Note", type: "keyword", detail: "note block" }),
+  snippetCompletion("Note ${name} {\n  '''\n  ${text}\n  '''\n}", {
+    label: "Note",
+    type: "keyword",
+    detail: "note block",
+  }),
   snippetCompletion("indexes {\n  (${col1}, ${col2}) [name: '${idx_name}']\n}", {
     label: "indexes",
     type: "keyword",
@@ -158,9 +171,7 @@ export function dbmlCompletion(context: CompletionContext): CompletionResult | n
   }
 
   // inside a TableGroup block -> table names only
-  const group = symbols.groups.find(
-    (g) => line.number > g.line && line.number <= g.endLine,
-  );
+  const group = symbols.groups.find((g) => line.number > g.line && line.number <= g.endLine);
   if (group) return { from, options: tableCompletions(symbols), validFor: /^\w*$/ };
 
   // inside a table block: first token = field name, second = type
@@ -170,7 +181,12 @@ export function dbmlCompletion(context: CompletionContext): CompletionResult | n
       return {
         from,
         options: [
-          snippetCompletion("id integer [pk, increment]", { label: "id", type: "property", detail: "pk column", boost: 60 }),
+          snippetCompletion("id integer [pk, increment]", {
+            label: "id",
+            type: "property",
+            detail: "pk column",
+            boost: 60,
+          }),
           snippetCompletion("created_at timestamp [default: `now()`]", {
             label: "created_at",
             type: "property",
@@ -182,7 +198,11 @@ export function dbmlCompletion(context: CompletionContext): CompletionResult | n
             detail: "timestamp column",
           }),
           snippetCompletion("Note: '${text}'", { label: "Note", type: "keyword", detail: "table note" }),
-          snippetCompletion("indexes {\n  (${col1}, ${col2})\n}", { label: "indexes", type: "keyword", detail: "index block" }),
+          snippetCompletion("indexes {\n  (${col1}, ${col2})\n}", {
+            label: "indexes",
+            type: "keyword",
+            detail: "index block",
+          }),
         ],
         validFor: /^\w*$/,
       };

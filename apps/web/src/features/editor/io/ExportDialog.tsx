@@ -95,7 +95,19 @@ function ExportDialog(props: {
     setBusy(true);
     setError(null);
     target
-      .run(props.project ?? ({ id: props.projectId, name: props.projectName, tables: [], refs: [], enums: [], zones: [], stickyNotes: [], tableGroups: [] } as Project))
+      .run(
+        props.project ??
+          ({
+            id: props.projectId,
+            name: props.projectName,
+            tables: [],
+            refs: [],
+            enums: [],
+            zones: [],
+            stickyNotes: [],
+            tableGroups: [],
+          } as Project),
+      )
       .then((value) => {
         if (!cancelled) setResult(value as ExportResult);
       })
@@ -209,7 +221,13 @@ function ExportDialog(props: {
       {imageFormat ? (
         <div className="flex min-h-80 flex-col items-center justify-center rounded-sm border border-border bg-[var(--color-bg-canvas)] p-3">
           {busy && <span className="text-text-muted">{t("export.rendering")}</span>}
-          {!busy && image && <img src={image.dataUrl} alt={t("export.previewAlt")} className="max-h-[296px] max-w-full rounded-sm shadow-sm" />}
+          {!busy && image && (
+            <img
+              src={image.dataUrl}
+              alt={t("export.previewAlt")}
+              className="max-h-[296px] max-w-full rounded-sm shadow-sm"
+            />
+          )}
           {imageFormat === "pdf" && !busy && image && <Hint>{t("export.pdfHint")}</Hint>}
         </div>
       ) : (

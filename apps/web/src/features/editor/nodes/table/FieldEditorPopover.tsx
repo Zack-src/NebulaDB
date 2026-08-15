@@ -9,7 +9,15 @@ import {
   type Comment,
   type Field,
 } from "@athanordb/shared";
-import { AsteriskIcon, CloseIcon, DiamondIcon, IncrementIcon, KeyIcon, PencilIcon, TrashIcon } from "@/components/icons/Icons";
+import {
+  AsteriskIcon,
+  CloseIcon,
+  DiamondIcon,
+  IncrementIcon,
+  KeyIcon,
+  PencilIcon,
+  TrashIcon,
+} from "@/components/icons/Icons";
 import { Button } from "@/components/ui/Button";
 import { TEXTAREA_SM_CLASS } from "@/components/ui/inputStyles";
 import { formatTimestamp } from "@/features/editor/comments/CommentThread";
@@ -31,7 +39,6 @@ import {
 } from "@/features/editor/nodes/table/tableStyles";
 
 const COMMON_TYPES = ["int", "varchar", "text", "boolean", "timestamp", "uuid", "json", "decimal", "bigint"];
-
 
 export interface FieldEditorPopoverProps {
   field: Field;
@@ -95,10 +102,38 @@ export function FieldEditorPopover({
   };
 
   const attributeToggles = [
-    { active: field.pk, activeClass: KW_TOGGLE_ACTIVE_CLASS.pk, icon: <KeyIcon size={12} />, labelKey: "field.primaryKey", tooltipKey: "field.primaryKeyTooltip", apply: () => update({ pk: !field.pk }) },
-    { active: field.unique, activeClass: KW_TOGGLE_ACTIVE_CLASS.unique, icon: <DiamondIcon size={10} />, labelKey: "field.unique", tooltipKey: "field.uniqueTooltip", apply: () => update({ unique: !field.unique }) },
-    { active: field.notNull, activeClass: KW_TOGGLE_ACTIVE_CLASS.notNull, icon: <AsteriskIcon size={11} />, labelKey: "field.notNull", tooltipKey: "field.notNullTooltip", apply: () => update({ notNull: !field.notNull }) },
-    { active: field.increment, activeClass: KW_TOGGLE_ACTIVE_CLASS.increment, icon: <IncrementIcon size={11} />, labelKey: "field.increment", tooltipKey: "field.incrementTooltip", apply: () => update({ increment: !field.increment }) },
+    {
+      active: field.pk,
+      activeClass: KW_TOGGLE_ACTIVE_CLASS.pk,
+      icon: <KeyIcon size={12} />,
+      labelKey: "field.primaryKey",
+      tooltipKey: "field.primaryKeyTooltip",
+      apply: () => update({ pk: !field.pk }),
+    },
+    {
+      active: field.unique,
+      activeClass: KW_TOGGLE_ACTIVE_CLASS.unique,
+      icon: <DiamondIcon size={10} />,
+      labelKey: "field.unique",
+      tooltipKey: "field.uniqueTooltip",
+      apply: () => update({ unique: !field.unique }),
+    },
+    {
+      active: field.notNull,
+      activeClass: KW_TOGGLE_ACTIVE_CLASS.notNull,
+      icon: <AsteriskIcon size={11} />,
+      labelKey: "field.notNull",
+      tooltipKey: "field.notNullTooltip",
+      apply: () => update({ notNull: !field.notNull }),
+    },
+    {
+      active: field.increment,
+      activeClass: KW_TOGGLE_ACTIVE_CLASS.increment,
+      icon: <IncrementIcon size={11} />,
+      labelKey: "field.increment",
+      tooltipKey: "field.incrementTooltip",
+      apply: () => update({ increment: !field.increment }),
+    },
   ] as const;
 
   return (
@@ -234,7 +269,9 @@ export function FieldEditorPopover({
                     <div key={comment.id} className="rounded-sm bg-surface p-1.5">
                       <div className="mb-0.5 flex items-baseline gap-1.5">
                         <span className="text-[11.5px] font-bold text-text">{comment.author}</span>
-                        <span className="flex-1 text-[10.5px] text-text-muted">{formatTimestamp(comment.createdAt)}</span>
+                        <span className="flex-1 text-[10.5px] text-text-muted">
+                          {formatTimestamp(comment.createdAt)}
+                        </span>
                         {comment.author === currentUser && (
                           <button
                             type="button"

@@ -39,7 +39,7 @@ aurait communiqué son lien.
 **2.3 Sécurité du compte.** L'utilisateur est responsable de la confidentialité
 de son mot de passe et des actions effectuées depuis son compte. Il informe
 [ENTITÉ] sans délai en cas d'usage non autorisé. Le Service met à disposition
-la liste des sessions actives et leur révocation (voir *Paramètres → Profil*).
+la liste des sessions actives et leur révocation (voir _Paramètres → Profil_).
 
 **2.4 Disponibilité.** Le Service est fourni **sans engagement de
 disponibilité**. [ENTITÉ] peut l'interrompre, notamment pour maintenance, sans
@@ -94,7 +94,7 @@ copie pendant la durée indiquée dans la
 ## 5. Comptes : suspension et suppression
 
 **5.1 Par l'utilisateur.** Un utilisateur peut supprimer son compte à tout
-moment depuis *Paramètres → Profil*. La suppression est définitive et retire le
+moment depuis _Paramètres → Profil_. La suppression est définitive et retire le
 compte, ses sessions et ses appartenances aux équipes. Les projets dont il était
 propriétaire ne sont pas détruits : ils peuvent être partagés avec une équipe et
 restent gérables par un administrateur. L'attribution de ses modifications

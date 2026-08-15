@@ -20,7 +20,9 @@ export function useSelectionPreservingNodes(builtNodes: CanvasNode[]) {
     setPrevBuiltNodes(builtNodes);
     setNodes((prevNodes) => {
       const selectedIds = new Set(prevNodes.filter((n) => n.selected).map((n) => n.id));
-      return selectedIds.size === 0 ? builtNodes : builtNodes.map((n) => (selectedIds.has(n.id) ? { ...n, selected: true } : n));
+      return selectedIds.size === 0
+        ? builtNodes
+        : builtNodes.map((n) => (selectedIds.has(n.id) ? { ...n, selected: true } : n));
     });
   }
   return [nodes, setNodes] as const;

@@ -40,10 +40,9 @@ function formatColumnDef(field: Field, dialect: MigrationDialect): string {
   return parts.join(" ");
 }
 
-
 function generateCreateTable(table: Table, dialect: MigrationDialect): string {
   const colDefs = table.fields.map((f) => `  ${formatColumnDef(f, dialect)}`);
-  
+
   // Composite PK
   const pkIndex = table.indexes.find((i) => i.pk && i.fieldIds.length > 1);
   if (pkIndex) {
@@ -107,8 +106,13 @@ function generateFieldAlterations(
     if (resolution?.strategy === "CLEAR_COLUMN_DATA") {
       stmts.push(`UPDATE ${q(tableName, dialect)} SET ${q(colName, dialect)} = NULL;`);
     } else if (resolution?.strategy === "BACKFILL_DEFAULT" && resolution.value) {
-      const val = resolution.value.startsWith("'") || !Number.isNaN(Number(resolution.value)) ? resolution.value : `'${resolution.value.replace(/'/g, "''")}'`;
-      stmts.push(`UPDATE ${q(tableName, dialect)} SET ${q(colName, dialect)} = ${val} WHERE ${q(colName, dialect)} IS NULL;`);
+      const val =
+        resolution.value.startsWith("'") || !Number.isNaN(Number(resolution.value))
+          ? resolution.value
+          : `'${resolution.value.replace(/'/g, "''")}'`;
+      stmts.push(
+        `UPDATE ${q(tableName, dialect)} SET ${q(colName, dialect)} = ${val} WHERE ${q(colName, dialect)} IS NULL;`,
+      );
     } else if (resolution?.strategy === "DELETE_OFFENDING_ROWS") {
       stmts.push(`DELETE FROM ${q(tableName, dialect)} WHERE ${q(colName, dialect)} IS NULL;`);
     }
@@ -142,7 +146,8 @@ function generateFieldAlterations(
       if (dialect === "postgres") {
         if (after.default !== undefined && after.default !== "") {
           const d = after.default.trim();
-          const defVal = d.startsWith("'") || d.startsWith("(") || !Number.isNaN(Number(d)) ? d : `'${d.replace(/'/g, "''")}'`;
+          const defVal =
+            d.startsWith("'") || d.startsWith("(") || !Number.isNaN(Number(d)) ? d : `'${d.replace(/'/g, "''")}'`;
           stmts.push(`ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} SET DEFAULT ${defVal};`);
         } else {
           stmts.push(`ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} DROP DEFAULT;`);
@@ -230,9 +235,13 @@ export function generateMigrationSql(
         .map((id) => targetTable.fields.find((f) => f.id === id)?.name ?? id)
         .map((n) => q(n, dialect))
         .join(", ");
-      const idxName = idx.name || `idx_${table.name}_${idx.fieldIds.map((id) => targetTable.fields.find((f) => f.id === id)?.name ?? id).join("_")}`;
+      const idxName =
+        idx.name ||
+        `idx_${table.name}_${idx.fieldIds.map((id) => targetTable.fields.find((f) => f.id === id)?.name ?? id).join("_")}`;
       const unique = idx.unique ? "UNIQUE " : "";
-      statements.push(`CREATE ${unique}INDEX IF NOT EXISTS ${q(idxName, dialect)} ON ${q(table.name, dialect)} (${colNames});`);
+      statements.push(
+        `CREATE ${unique}INDEX IF NOT EXISTS ${q(idxName, dialect)} ON ${q(table.name, dialect)} (${colNames});`,
+      );
     }
   }
 

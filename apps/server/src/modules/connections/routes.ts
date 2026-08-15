@@ -1,5 +1,10 @@
 import type { FastifyInstance } from "fastify";
-import { readProjectFromDoc, writeProjectToDoc, type DatabaseConnectionConfig, type MigrationResolutionMap } from "@athanordb/shared";
+import {
+  readProjectFromDoc,
+  writeProjectToDoc,
+  type DatabaseConnectionConfig,
+  type MigrationResolutionMap,
+} from "@athanordb/shared";
 import { diffTargetAgainstLive, generateMigrationSql } from "@athanordb/dbml-engine";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
@@ -188,7 +193,13 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
         });
       }
 
-      auditUser(user, "connection.deploy", { type: "project", id }, `${conn.engine}: executed ${result.executedStatements} statements`, req);
+      auditUser(
+        user,
+        "connection.deploy",
+        { type: "project", id },
+        `${conn.engine}: executed ${result.executedStatements} statements`,
+        req,
+      );
 
       return {
         success: true,

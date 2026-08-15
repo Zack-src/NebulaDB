@@ -2,7 +2,12 @@ import { useMemo } from "react";
 import * as Y from "yjs";
 import { getRefsMap, type Project, type RefCardinality, type RoutingPoint } from "@athanordb/shared";
 import type { RefEdgeType } from "@/features/editor/edges/RefEdge";
-import { DEFAULT_TABLE_HEIGHT, DEFAULT_TABLE_WIDTH, pickHandleSides, type TableBox } from "@/features/editor/edges/refGeometry";
+import {
+  DEFAULT_TABLE_HEIGHT,
+  DEFAULT_TABLE_WIDTH,
+  pickHandleSides,
+  type TableBox,
+} from "@/features/editor/edges/refGeometry";
 import type { CanvasNode } from "@/types/index";
 
 /** Builds the React Flow edge array from the live project's refs, resolving each edge's source/target handle side from the current table positions/sizes. */
@@ -57,13 +62,16 @@ export function useCanvasEdges(
         selectedFieldId && (selectedFieldId === ref.from.fieldId || selectedFieldId === ref.to.fieldId),
       );
       const isTableHovered = Boolean(
-        !hoveredFieldId && !selectedFieldId && hoveredTableId && (hoveredTableId === ref.from.tableId || hoveredTableId === ref.to.tableId),
+        !hoveredFieldId &&
+        !selectedFieldId &&
+        hoveredTableId &&
+        (hoveredTableId === ref.from.tableId || hoveredTableId === ref.to.tableId),
       );
-      const isTableSelected =
-        !selectedFieldId && (Boolean(fromNode?.selected) || Boolean(toNode?.selected));
+      const isTableSelected = !selectedFieldId && (Boolean(fromNode?.selected) || Boolean(toNode?.selected));
 
       const isEdgeSelected = ref.id === selectedEdgeId;
-      const connectedHighlight = isFieldHovered || isFieldSelected || isTableHovered || isTableSelected || isEdgeSelected;
+      const connectedHighlight =
+        isFieldHovered || isFieldSelected || isTableHovered || isTableSelected || isEdgeSelected;
 
       const fromBox: TableBox = {
         x: fromNode?.position.x ?? fromTable?.position.x ?? 0,
@@ -132,17 +140,32 @@ export function useCanvasEdges(
             const current = refs.get(ref.id);
             if (current) refs.set(ref.id, { ...current, cardinality });
           },
-          onDeleteRef: !canWrite ? undefined : () => {
-            if (!doc) return;
-            const refs = getRefsMap(doc);
-            refs.delete(ref.id);
-            if (selectedEdgeId === ref.id) onSelectEdge?.(null);
-          },
+          onDeleteRef: !canWrite
+            ? undefined
+            : () => {
+                if (!doc) return;
+                const refs = getRefsMap(doc);
+                refs.delete(ref.id);
+                if (selectedEdgeId === ref.id) onSelectEdge?.(null);
+              },
         },
         // No `markerEnd`: the arrowhead is drawn inside `RefEdge` so it can
         // follow the stroke's live colour and opacity, and hold a constant
         // screen size instead of scaling with the (zoom-compensated) width.
       };
     });
-  }, [liveProject, doc, nodes, highlightLinks, hoveredFieldId, hoveredTableId, selectedFieldId, selectedEdgeId, onSelectEdge, palette, onPaletteChange, canWrite]);
+  }, [
+    liveProject,
+    doc,
+    nodes,
+    highlightLinks,
+    hoveredFieldId,
+    hoveredTableId,
+    selectedFieldId,
+    selectedEdgeId,
+    onSelectEdge,
+    palette,
+    onPaletteChange,
+    canWrite,
+  ]);
 }

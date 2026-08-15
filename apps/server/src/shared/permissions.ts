@@ -37,8 +37,7 @@ export function getEffectivePermission(userId: string, projectId: string): Permi
   if (isGlobalAdmin(userId)) return "administrator";
 
   const project = db.prepare("SELECT owner_id FROM projects WHERE id = ?").get(projectId) as
-    | ProjectOwnerRow
-    | undefined;
+    ProjectOwnerRow | undefined;
   if (!project) return null;
   if (project.owner_id === userId) return "administrator";
 

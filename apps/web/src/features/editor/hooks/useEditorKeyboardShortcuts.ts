@@ -3,7 +3,11 @@ import type * as Y from "yjs";
 import { isTypingTarget } from "@/utils/dom";
 
 /** Ctrl/Cmd+Z (undo), +Shift+Z or +Y (redo), +D (duplicate selection) — ignored while typing in an input/editor, and entirely inert on a read-only project. */
-export function useEditorKeyboardShortcuts(undoManager: Y.UndoManager | null, duplicateSelected: () => void, canWrite = true) {
+export function useEditorKeyboardShortcuts(
+  undoManager: Y.UndoManager | null,
+  duplicateSelected: () => void,
+  canWrite = true,
+) {
   useEffect(() => {
     if (!canWrite) return;
     const handler = (event: KeyboardEvent) => {

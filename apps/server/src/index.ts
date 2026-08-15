@@ -25,7 +25,8 @@ const sweepSessions = () => {
     // ceiling, so its retention has to be enforced somewhere rather than left
     // as a sentence in a policy document.
     const audits = purgeOldAuditEntries(config.auditRetentionDays);
-    if (audits > 0) app.log.info(`purged ${audits} audit entry(ies) past the ${config.auditRetentionDays}-day retention`);
+    if (audits > 0)
+      app.log.info(`purged ${audits} audit entry(ies) past the ${config.auditRetentionDays}-day retention`);
   } catch (err) {
     app.log.error({ err }, "session sweep failed");
   }

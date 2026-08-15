@@ -21,7 +21,12 @@
 }
 
 .gradient-bg-hero {
-  background-image: radial-gradient(circle at 50% 0%, rgba(99, 102, 241, 0.18) 0%, rgba(168, 85, 247, 0.08) 40%, rgba(9, 10, 15, 0) 70%);
+  background-image: radial-gradient(
+    circle at 50% 0%,
+    rgba(99, 102, 241, 0.18) 0%,
+    rgba(168, 85, 247, 0.08) 40%,
+    rgba(9, 10, 15, 0) 70%
+  );
 }
 
 .glow-indigo {

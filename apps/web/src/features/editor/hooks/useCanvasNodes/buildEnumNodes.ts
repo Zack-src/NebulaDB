@@ -26,7 +26,10 @@ export function buildEnumNodes(enums: EnumDef[], doc: Y.Doc, canWrite = true): E
         const enumsMap = getEnumsMap(doc);
         const current = enumsMap.get(enumDef.id);
         if (!current) return;
-        enumsMap.set(enumDef.id, { ...current, values: current.values.map((v) => (v.id === valueId ? { ...v, name } : v)) });
+        enumsMap.set(enumDef.id, {
+          ...current,
+          values: current.values.map((v) => (v.id === valueId ? { ...v, name } : v)),
+        });
       },
       onDeleteValue: (valueId: string) => {
         const enumsMap = getEnumsMap(doc);

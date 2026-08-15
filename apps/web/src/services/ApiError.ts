@@ -22,7 +22,10 @@ export class ApiError extends Error {
 
 /** Network failure, or a response that wasn't JSON at all — no server code to speak of. */
 export class NetworkError extends Error {
-  constructor(message: string, readonly cause?: unknown) {
+  constructor(
+    message: string,
+    readonly cause?: unknown,
+  ) {
     super(message);
     this.name = "NetworkError";
   }

@@ -11,3 +11,4 @@ build/
 .turbo/
 coverage/
 backups/
+.claude/worktrees/

@@ -260,9 +260,7 @@ export function ConnectionManagerModal(props: {
                   type="button"
                   onClick={() => selectConnection(c)}
                   className={`flex w-full items-center justify-between rounded-sm px-2.5 py-2 text-left text-xs transition-colors ${
-                    active
-                      ? "bg-accent/15 font-semibold text-accent"
-                      : "text-text hover:bg-surface-hover"
+                    active ? "bg-accent/15 font-semibold text-accent" : "text-text hover:bg-surface-hover"
                   }`}
                 >
                   <div className="flex min-w-0 items-center gap-2">
@@ -349,13 +347,19 @@ export function ConnectionManagerModal(props: {
 
               {useUri ? (
                 <div>
-                  <label className="mb-1 block text-xs font-medium text-text-muted">{t("connections.connectionUri")}</label>
+                  <label className="mb-1 block text-xs font-medium text-text-muted">
+                    {t("connections.connectionUri")}
+                  </label>
                   <input
                     className={INPUT_CLASS}
                     type="password"
                     value={connectionString}
                     onChange={(e) => setConnectionString(e.target.value)}
-                    placeholder={engine === "postgres" ? "postgres://user:pass@host:5432/dbname" : "mysql://user:pass@host:3306/dbname"}
+                    placeholder={
+                      engine === "postgres"
+                        ? "postgres://user:pass@host:5432/dbname"
+                        : "mysql://user:pass@host:3306/dbname"
+                    }
                   />
                 </div>
               ) : (
@@ -378,7 +382,9 @@ export function ConnectionManagerModal(props: {
 
                   <div className="grid grid-cols-3 gap-2">
                     <div className="col-span-1">
-                      <label className="mb-1 block text-xs font-medium text-text-muted">{t("connections.database")}</label>
+                      <label className="mb-1 block text-xs font-medium text-text-muted">
+                        {t("connections.database")}
+                      </label>
                       <input className={INPUT_CLASS} value={database} onChange={(e) => setDatabase(e.target.value)} />
                     </div>
                     <div className="col-span-1">
@@ -386,7 +392,9 @@ export function ConnectionManagerModal(props: {
                       <input className={INPUT_CLASS} value={user} onChange={(e) => setUser(e.target.value)} />
                     </div>
                     <div className="col-span-1">
-                      <label className="mb-1 block text-xs font-medium text-text-muted">{t("connections.password")}</label>
+                      <label className="mb-1 block text-xs font-medium text-text-muted">
+                        {t("connections.password")}
+                      </label>
                       <input
                         className={INPUT_CLASS}
                         type="password"

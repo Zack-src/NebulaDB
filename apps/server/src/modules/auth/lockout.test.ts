@@ -10,9 +10,8 @@ process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-lockout-test-${randomU
 process.env.ATHANORDB_COOKIE_SECURE = "false";
 
 const { db } = await import("../../infrastructure/db.js");
-const { checkLock, clearFailures, purgeStaleAttempts, recordFailure, MAX_FAILED_ATTEMPTS } = await import(
-  "./lockout.js"
-);
+const { checkLock, clearFailures, purgeStaleAttempts, recordFailure, MAX_FAILED_ATTEMPTS } =
+  await import("./lockout.js");
 
 function freshEmail(): string {
   return `${randomUUID()}@example.com`;

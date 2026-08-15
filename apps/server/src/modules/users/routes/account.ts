@@ -11,7 +11,11 @@ import { buildPersonalDataExport, deleteUserAccount, wouldRemoveLastAdmin } from
 const MAX_DISPLAY_NAME_LENGTH = 64;
 
 /** Confirms the caller really is who the session says — required before anything irreversible. */
-async function verifyOwnPassword(userId: string, password: string, failure: "PASSWORD_INCORRECT" | "CURRENT_PASSWORD_INCORRECT") {
+async function verifyOwnPassword(
+  userId: string,
+  password: string,
+  failure: "PASSWORD_INCORRECT" | "CURRENT_PASSWORD_INCORRECT",
+) {
   const hash = getPasswordHash(userId);
   if (!hash || !(await verifyPassword(password, hash))) throw new ApiError(failure);
 }

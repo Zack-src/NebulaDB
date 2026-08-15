@@ -31,7 +31,7 @@ function readCookieSecure(): boolean {
     if (isProduction) {
       console.warn(
         "[config] ATHANORDB_COOKIE_SECURE is not set — session cookies will NOT be marked Secure. " +
-          'Set ATHANORDB_COOKIE_SECURE=true when running behind TLS, or =false to silence this warning.',
+          "Set ATHANORDB_COOKIE_SECURE=true when running behind TLS, or =false to silence this warning.",
       );
     }
     return false;

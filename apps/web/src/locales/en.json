@@ -28,8 +28,6 @@
   "common.saving": "Saving…",
   "common.deleting": "Deleting…",
 
-
-
   "errors.network": "The server could not be reached. Check your connection.",
   "errors.unexpected": "Something unexpected went wrong.",
   "errors.internal": "Internal server error.",
@@ -637,4 +635,3 @@
   "deployment.noConnectionTitle": "No Database Connected",
   "deployment.noConnectionDesc": "Configure a database connection first to deploy your diagram changes directly to a live database."
 }
-

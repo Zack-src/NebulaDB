@@ -1,4 +1,15 @@
-import type { Comment, EnumDef, EnumValue, Field, Ref, StickyNote, Table, TableGroup, TableIndex, Zone } from "./schema.js";
+import type {
+  Comment,
+  EnumDef,
+  EnumValue,
+  Field,
+  Ref,
+  StickyNote,
+  Table,
+  TableGroup,
+  TableIndex,
+  Zone,
+} from "./schema.js";
 import { ENUMS_KEY, REFS_KEY, STICKY_NOTES_KEY, TABLE_GROUPS_KEY, TABLES_KEY, ZONES_KEY } from "./yjsBinding.js";
 
 /**

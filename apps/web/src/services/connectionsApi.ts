@@ -28,9 +28,7 @@ export interface ApplyDeploymentResponse {
 }
 
 export async function listProjectConnections(projectId: string): Promise<DatabaseConnectionSummary[]> {
-  const res = await request<{ connections: DatabaseConnectionSummary[] }>(
-    `/api/projects/${projectId}/connections`,
-  );
+  const res = await request<{ connections: DatabaseConnectionSummary[] }>(`/api/projects/${projectId}/connections`);
   return res.connections;
 }
 
@@ -38,10 +36,10 @@ export async function createProjectConnection(
   projectId: string,
   config: Omit<DatabaseConnectionConfig, "id">,
 ): Promise<DatabaseConnectionSummary> {
-  const res = await request<{ connection: DatabaseConnectionSummary }>(
-    `/api/projects/${projectId}/connections`,
-    { method: "POST", body: config },
-  );
+  const res = await request<{ connection: DatabaseConnectionSummary }>(`/api/projects/${projectId}/connections`, {
+    method: "POST",
+    body: config,
+  });
   return res.connection;
 }
 
@@ -71,18 +69,21 @@ export async function testConnectionConfig(
   });
 }
 
-export async function pullDatabaseSchema(projectId: string, connId: string): Promise<{ pulled: boolean; tablesCount: number }> {
-  return request<{ pulled: boolean; tablesCount: number }>(
-    `/api/projects/${projectId}/connections/${connId}/pull`,
-    { method: "POST", body: {} },
-  );
+export async function pullDatabaseSchema(
+  projectId: string,
+  connId: string,
+): Promise<{ pulled: boolean; tablesCount: number }> {
+  return request<{ pulled: boolean; tablesCount: number }>(`/api/projects/${projectId}/connections/${connId}/pull`, {
+    method: "POST",
+    body: {},
+  });
 }
 
 export async function planDeployment(projectId: string, connId: string): Promise<PlanDeploymentResponse> {
-  return request<PlanDeploymentResponse>(
-    `/api/projects/${projectId}/connections/${connId}/plan-deployment`,
-    { method: "POST", body: {} },
-  );
+  return request<PlanDeploymentResponse>(`/api/projects/${projectId}/connections/${connId}/plan-deployment`, {
+    method: "POST",
+    body: {},
+  });
 }
 
 export async function applyDeployment(
@@ -90,8 +91,8 @@ export async function applyDeployment(
   connId: string,
   resolutions: MigrationResolutionMap,
 ): Promise<ApplyDeploymentResponse> {
-  return request<ApplyDeploymentResponse>(
-    `/api/projects/${projectId}/connections/${connId}/apply-deployment`,
-    { method: "POST", body: { resolutions } },
-  );
+  return request<ApplyDeploymentResponse>(`/api/projects/${projectId}/connections/${connId}/apply-deployment`, {
+    method: "POST",
+    body: { resolutions },
+  });
 }

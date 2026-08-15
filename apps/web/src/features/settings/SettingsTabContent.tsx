@@ -14,10 +14,30 @@ import { PersonalData } from "@/features/settings/PersonalData";
 import type { useSettingsPanelState, SettingsTab } from "@/features/settings/useSettingsPanelState";
 
 const THEME_PRESETS = [
-  { id: "obsidian", nameKey: "settings.appearance.theme.obsidian", swatch: "bg-[#090a0f] border-primary", available: true },
-  { id: "midnight", nameKey: "settings.appearance.theme.midnight", swatch: "bg-[#0f172a] border-blue-500", available: false },
-  { id: "emerald", nameKey: "settings.appearance.theme.emerald", swatch: "bg-[#064e3b] border-emerald-500", available: false },
-  { id: "light", nameKey: "settings.appearance.theme.light", swatch: "bg-[#f8fafc] border-slate-400", available: true },
+  {
+    id: "obsidian",
+    nameKey: "settings.appearance.theme.obsidian",
+    swatch: "bg-[#090a0f] border-primary",
+    available: true,
+  },
+  {
+    id: "midnight",
+    nameKey: "settings.appearance.theme.midnight",
+    swatch: "bg-[#0f172a] border-blue-500",
+    available: false,
+  },
+  {
+    id: "emerald",
+    nameKey: "settings.appearance.theme.emerald",
+    swatch: "bg-[#064e3b] border-emerald-500",
+    available: false,
+  },
+  {
+    id: "light",
+    nameKey: "settings.appearance.theme.light",
+    swatch: "bg-[#f8fafc] border-slate-400",
+    available: true,
+  },
 ] as const satisfies readonly { id: string; nameKey: TranslationKeyOf; swatch: string; available: boolean }[];
 
 const LOCALE_LABEL_KEY = { fr: "language.fr", en: "language.en" } as const satisfies Record<string, TranslationKeyOf>;

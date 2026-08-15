@@ -66,14 +66,14 @@ relations. Ces réglages sont visuels et partagés par le projet.
 
 ### Raccourcis clavier
 
-| Raccourci                | Effet                                          |
-| ------------------------ | ---------------------------------------------- |
-| `Ctrl`/`Cmd` + `Z`       | Annuler                                        |
-| `Ctrl`/`Cmd` + `Maj` + `Z` ou `Ctrl` + `Y` | Rétablir                     |
-| `Ctrl`/`Cmd` + `D`       | Dupliquer la sélection                         |
-| `Ctrl`/`Cmd` + `F`       | Rechercher une table sur le canvas             |
-| `Entrée` / `Maj`+`Entrée` | Résultat suivant / précédent (dans la recherche) |
-| `Échap`                  | Fermer la recherche ou le panneau ouvert       |
+| Raccourci                                  | Effet                                            |
+| ------------------------------------------ | ------------------------------------------------ |
+| `Ctrl`/`Cmd` + `Z`                         | Annuler                                          |
+| `Ctrl`/`Cmd` + `Maj` + `Z` ou `Ctrl` + `Y` | Rétablir                                         |
+| `Ctrl`/`Cmd` + `D`                         | Dupliquer la sélection                           |
+| `Ctrl`/`Cmd` + `F`                         | Rechercher une table sur le canvas               |
+| `Entrée` / `Maj`+`Entrée`                  | Résultat suivant / précédent (dans la recherche) |
+| `Échap`                                    | Fermer la recherche ou le panneau ouvert         |
 
 Les raccourcis du canvas sont ignorés pendant que vous tapez dans un champ ou
 dans l'éditeur DBML. Les plugins peuvent en déclarer d'autres (voir §6).
@@ -123,21 +123,21 @@ pouvez :
 
 ## 5. Import et export
 
-**Importer** (bouton *Importer*) : collez du DBML ou du SQL, ou choisissez un
+**Importer** (bouton _Importer_) : collez du DBML ou du SQL, ou choisissez un
 fichier `.dbml` / `.sql`. Le dialecte SQL est déduit de l'extension et
 modifiable. L'import **fusionne** par nom : les tables existantes gardent leur
 position et leurs réglages visuels au lieu d'être réinitialisées.
 
-**Exporter** (bouton *Exporter*) :
+**Exporter** (bouton _Exporter_) :
 
-| Format                        | Remarque                                                     |
-| ----------------------------- | ------------------------------------------------------------ |
-| DBML                          | avec ou sans les métadonnées visuelles (positions, couleurs)  |
-| SQL PostgreSQL / MySQL / SQL Server | via `@dbml/core`                                       |
-| PNG                           | capture du canvas                                             |
-| SVG                           | vectoriel                                                     |
-| PDF                           | une page contenant une capture **matricielle** du canvas      |
-| SQLite                        | fourni par le plugin d'exemple, pas en natif (voir §6)        |
+| Format                              | Remarque                                                     |
+| ----------------------------------- | ------------------------------------------------------------ |
+| DBML                                | avec ou sans les métadonnées visuelles (positions, couleurs) |
+| SQL PostgreSQL / MySQL / SQL Server | via `@dbml/core`                                             |
+| PNG                                 | capture du canvas                                            |
+| SVG                                 | vectoriel                                                    |
+| PDF                                 | une page contenant une capture **matricielle** du canvas     |
+| SQLite                              | fourni par le plugin d'exemple, pas en natif (voir §6)       |
 
 Les exports sont enregistrés dans le journal d'audit de l'instance.
 
@@ -145,7 +145,7 @@ Les exports sont enregistrés dans le journal d'audit de l'instance.
 
 ## 6. Plugins
 
-*Menu plugins* (barre d'outils du canvas) → **Gérer les plugins**. Un plugin
+_Menu plugins_ (barre d'outils du canvas) → **Gérer les plugins**. Un plugin
 est un fichier JavaScript qui peut ajouter des formats d'export, des formats
 d'import, des commandes de canvas et des commandes d'éditeur DBML.
 
@@ -167,7 +167,7 @@ commande de renommage en `snake_case` et un tri des tables dans l'éditeur DBML.
 
 ## 7. Votre compte
 
-*Paramètres → Profil* :
+_Paramètres → Profil_ :
 
 - changer votre nom d'affichage (celui vu par vos collègues et enregistré dans
   l'historique) ;
@@ -186,7 +186,7 @@ administrateur de réinitialiser votre mot de passe.
 
 ### Vos données
 
-Toujours dans *Paramètres → Profil*, section **Vos données** :
+Toujours dans _Paramètres → Profil_, section **Vos données** :
 
 - **Exporter mes données** télécharge un JSON contenant votre compte, vos
   sessions actives, vos équipes, les projets dont vous êtes propriétaire et les

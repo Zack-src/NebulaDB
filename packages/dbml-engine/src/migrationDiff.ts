@@ -137,7 +137,9 @@ function diffFieldsByName(beforeFields: Field[], afterFields: Field[]): Migratio
 }
 
 function getIndexSignature(table: Table, idx: TableIndex): string {
-  const fieldNames = idx.fieldIds.map((id) => table.fields.find((f) => f.id === id)?.name.toLowerCase() ?? id.toLowerCase());
+  const fieldNames = idx.fieldIds.map(
+    (id) => table.fields.find((f) => f.id === id)?.name.toLowerCase() ?? id.toLowerCase(),
+  );
   return `${fieldNames.sort().join(",")}:${idx.unique ? "u" : "nu"}:${idx.pk ? "pk" : "npk"}`;
 }
 
@@ -158,7 +160,10 @@ function diffIndexes(beforeTable: Table, afterTable: Table): { added: TableIndex
   return { added, dropped };
 }
 
-function getRefSignature(project: Project, ref: Ref): { key: string; fromTable: string; fromField: string; toTable: string; toField: string } | null {
+function getRefSignature(
+  project: Project,
+  ref: Ref,
+): { key: string; fromTable: string; fromField: string; toTable: string; toField: string } | null {
   const fromTable = project.tables.find((t) => t.id === ref.from.tableId);
   const toTable = project.tables.find((t) => t.id === ref.to.tableId);
   if (!fromTable || !toTable) return null;
@@ -227,13 +232,19 @@ export function diffTargetAgainstLive(liveDbProject: Project, targetProject: Pro
   }
 
   // Ref diffing
-  const liveRefMap = new Map<string, { ref: Ref; fromTable: string; fromField: string; toTable: string; toField: string }>();
+  const liveRefMap = new Map<
+    string,
+    { ref: Ref; fromTable: string; fromField: string; toTable: string; toField: string }
+  >();
   for (const r of liveDbProject.refs) {
     const sig = getRefSignature(liveDbProject, r);
     if (sig) liveRefMap.set(sig.key, { ref: r, ...sig });
   }
 
-  const targetRefMap = new Map<string, { ref: Ref; fromTable: string; fromField: string; toTable: string; toField: string }>();
+  const targetRefMap = new Map<
+    string,
+    { ref: Ref; fromTable: string; fromField: string; toTable: string; toField: string }
+  >();
   for (const r of targetProject.refs) {
     const sig = getRefSignature(targetProject, r);
     if (sig) targetRefMap.set(sig.key, { ref: r, ...sig });

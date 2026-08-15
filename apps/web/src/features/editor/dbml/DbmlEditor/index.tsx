@@ -109,7 +109,11 @@ export const DbmlEditor = forwardRef<DbmlEditorHandle, DbmlEditorProps>(function
 
   return (
     <div className="relative flex h-full min-h-0 flex-col">
-      <div ref={containerRef} className="min-h-0 flex-1 overflow-hidden" onKeyDown={(event) => event.stopPropagation()} />
+      <div
+        ref={containerRef}
+        className="min-h-0 flex-1 overflow-hidden"
+        onKeyDown={(event) => event.stopPropagation()}
+      />
 
       {rename && (
         <RenamePopover
@@ -128,7 +132,9 @@ export const DbmlEditor = forwardRef<DbmlEditorHandle, DbmlEditorProps>(function
       {palette && (
         <CommandPalette
           items={palette.items}
-          placeholder={palette.mode === "commands" ? t("dbml.palette.commandsPlaceholder") : t("dbml.palette.symbolsPlaceholder")}
+          placeholder={
+            palette.mode === "commands" ? t("dbml.palette.commandsPlaceholder") : t("dbml.palette.symbolsPlaceholder")
+          }
           onClose={() => {
             setPalette(null);
             viewRef.current?.focus();

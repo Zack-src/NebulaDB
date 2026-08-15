@@ -151,9 +151,21 @@ export class SqliteDriver implements DatabaseDriver {
             affectedRowCount: count,
             sampleData: sampleRows,
             availableStrategies: [
-              { key: "DROP_DATA_CONFIRMED", labelKey: "connections.strategy.dropData", descriptionKey: "connections.strategy.dropDataDesc" },
-              { key: "KEEP_IN_DB", labelKey: "connections.strategy.keepInDb", descriptionKey: "connections.strategy.keepInDbDesc" },
-              { key: "CANCEL", labelKey: "connections.strategy.cancel", descriptionKey: "connections.strategy.cancelDesc" },
+              {
+                key: "DROP_DATA_CONFIRMED",
+                labelKey: "connections.strategy.dropData",
+                descriptionKey: "connections.strategy.dropDataDesc",
+              },
+              {
+                key: "KEEP_IN_DB",
+                labelKey: "connections.strategy.keepInDb",
+                descriptionKey: "connections.strategy.keepInDbDesc",
+              },
+              {
+                key: "CANCEL",
+                labelKey: "connections.strategy.cancel",
+                descriptionKey: "connections.strategy.cancelDesc",
+              },
             ],
             defaultStrategy: "KEEP_IN_DB",
             selectedStrategy: "KEEP_IN_DB",
@@ -169,10 +181,14 @@ export class SqliteDriver implements DatabaseDriver {
       // Dropped columns
       for (const f of t.fields.filter((f) => f.status === "dropped")) {
         try {
-          const row = this.db.prepare(`SELECT COUNT(*) AS c FROM "${t.name}" WHERE "${f.name}" IS NOT NULL`).get() as { c: number };
+          const row = this.db.prepare(`SELECT COUNT(*) AS c FROM "${t.name}" WHERE "${f.name}" IS NOT NULL`).get() as {
+            c: number;
+          };
           const count = row?.c ?? 0;
           if (count > 0) {
-            const sampleRows = this.db.prepare(`SELECT "${f.name}" AS val FROM "${t.name}" WHERE "${f.name}" IS NOT NULL LIMIT 5`).all() as { val: unknown }[];
+            const sampleRows = this.db
+              .prepare(`SELECT "${f.name}" AS val FROM "${t.name}" WHERE "${f.name}" IS NOT NULL LIMIT 5`)
+              .all() as { val: unknown }[];
             risks.push({
               id: `risk-col-drop-${t.name}-${f.name}`,
               type: "DROP_COLUMN_WITH_DATA",
@@ -180,11 +196,25 @@ export class SqliteDriver implements DatabaseDriver {
               tableName: t.name,
               columnName: f.name,
               affectedRowCount: count,
-              sampleData: sampleRows.map((r) => r.val) as (string | number | boolean | Record<string, unknown> | null)[],
+              sampleData: sampleRows.map((r) => r.val) as (
+                string | number | boolean | Record<string, unknown> | null
+              )[],
               availableStrategies: [
-                { key: "DROP_DATA_CONFIRMED", labelKey: "connections.strategy.dropData", descriptionKey: "connections.strategy.dropDataDesc" },
-                { key: "KEEP_IN_DB", labelKey: "connections.strategy.keepColumn", descriptionKey: "connections.strategy.keepColumnDesc" },
-                { key: "CANCEL", labelKey: "connections.strategy.cancel", descriptionKey: "connections.strategy.cancelDesc" },
+                {
+                  key: "DROP_DATA_CONFIRMED",
+                  labelKey: "connections.strategy.dropData",
+                  descriptionKey: "connections.strategy.dropDataDesc",
+                },
+                {
+                  key: "KEEP_IN_DB",
+                  labelKey: "connections.strategy.keepColumn",
+                  descriptionKey: "connections.strategy.keepColumnDesc",
+                },
+                {
+                  key: "CANCEL",
+                  labelKey: "connections.strategy.cancel",
+                  descriptionKey: "connections.strategy.cancelDesc",
+                },
               ],
               defaultStrategy: "KEEP_IN_DB",
               selectedStrategy: "KEEP_IN_DB",
@@ -198,10 +228,14 @@ export class SqliteDriver implements DatabaseDriver {
       // Altered type
       for (const f of t.fields.filter((f) => f.status === "modified" && f.typeChanged)) {
         try {
-          const row = this.db.prepare(`SELECT COUNT(*) AS c FROM "${t.name}" WHERE "${f.name}" IS NOT NULL`).get() as { c: number };
+          const row = this.db.prepare(`SELECT COUNT(*) AS c FROM "${t.name}" WHERE "${f.name}" IS NOT NULL`).get() as {
+            c: number;
+          };
           const count = row?.c ?? 0;
           if (count > 0) {
-            const sampleRows = this.db.prepare(`SELECT "${f.name}" AS val FROM "${t.name}" WHERE "${f.name}" IS NOT NULL LIMIT 5`).all() as { val: unknown }[];
+            const sampleRows = this.db
+              .prepare(`SELECT "${f.name}" AS val FROM "${t.name}" WHERE "${f.name}" IS NOT NULL LIMIT 5`)
+              .all() as { val: unknown }[];
             risks.push({
               id: `risk-col-type-${t.name}-${f.name}`,
               type: "ALTER_COLUMN_TYPE",
@@ -209,11 +243,25 @@ export class SqliteDriver implements DatabaseDriver {
               tableName: t.name,
               columnName: f.name,
               affectedRowCount: count,
-              sampleData: sampleRows.map((r) => r.val) as (string | number | boolean | Record<string, unknown> | null)[],
+              sampleData: sampleRows.map((r) => r.val) as (
+                string | number | boolean | Record<string, unknown> | null
+              )[],
               availableStrategies: [
-                { key: "FORCE_CAST", labelKey: "connections.strategy.forceCast", descriptionKey: "connections.strategy.forceCastDesc" },
-                { key: "CLEAR_COLUMN_DATA", labelKey: "connections.strategy.clearData", descriptionKey: "connections.strategy.clearDataDesc" },
-                { key: "CANCEL", labelKey: "connections.strategy.cancel", descriptionKey: "connections.strategy.cancelDesc" },
+                {
+                  key: "FORCE_CAST",
+                  labelKey: "connections.strategy.forceCast",
+                  descriptionKey: "connections.strategy.forceCastDesc",
+                },
+                {
+                  key: "CLEAR_COLUMN_DATA",
+                  labelKey: "connections.strategy.clearData",
+                  descriptionKey: "connections.strategy.clearDataDesc",
+                },
+                {
+                  key: "CANCEL",
+                  labelKey: "connections.strategy.cancel",
+                  descriptionKey: "connections.strategy.cancelDesc",
+                },
               ],
               defaultStrategy: "FORCE_CAST",
               selectedStrategy: "FORCE_CAST",

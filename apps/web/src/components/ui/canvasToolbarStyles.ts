@@ -42,5 +42,4 @@ export const CANVAS_TOOLBAR_SEGMENT_CLASS = `${TOOLBAR_BTN_BASE} gap-1.5 px-2.5 
 export const CANVAS_TOOLBAR_SEGMENT_ACTIVE_CLASS = "bg-surface-hover text-text";
 
 /** Toggle in its "on" state (link highlight, minimap, search) — solid fill, the way Figma marks the active tool. */
-export const CANVAS_TOOLBAR_TOGGLE_ACTIVE_CLASS =
-  "bg-primary text-white hover:bg-primary-hover hover:text-white";
+export const CANVAS_TOOLBAR_TOGGLE_ACTIVE_CLASS = "bg-primary text-white hover:bg-primary-hover hover:text-white";

@@ -109,7 +109,7 @@ export function RefEdge({
   const labelY = split?.mid.y ?? routing.stepLabelY;
 
   const isHighlighted = Boolean(data?.highlightLinks || data?.connectedHighlight || selected || isHovered);
-  const strokeColor = isHighlighted ? data?.color ?? style.stroke : DIMMED_STROKE;
+  const strokeColor = isHighlighted ? (data?.color ?? style.stroke) : DIMMED_STROKE;
   // Path coordinates live in flow space, which React Flow scales down via a
   // CSS transform as the user zooms out — so a fixed stroke-width/dasharray
   // shrinks to sub-pixel and disappears at low zoom. Dividing by zoom here
@@ -156,12 +156,34 @@ export function RefEdge({
         // source → target, which is what keeps the dash flow and the arrowhead
         // pointing the same way as every other cardinality.
         <>
-          <path d={polylinePath(split.first)} fill="none" style={baseStrokeStyle} onMouseEnter={() => setIsHovered(true)} />
-          <path d={polylinePath(split.second)} fill="none" style={baseStrokeStyle} onMouseEnter={() => setIsHovered(true)} />
+          <path
+            d={polylinePath(split.first)}
+            fill="none"
+            style={baseStrokeStyle}
+            onMouseEnter={() => setIsHovered(true)}
+          />
+          <path
+            d={polylinePath(split.second)}
+            fill="none"
+            style={baseStrokeStyle}
+            onMouseEnter={() => setIsHovered(true)}
+          />
           {isHighlighted && (
             <>
-              <path d={polylinePath(split.first)} fill="none" className="ref-edge-flow-path" style={animatedStrokeStyle} onMouseEnter={() => setIsHovered(true)} />
-              <path d={polylinePath(split.second)} fill="none" className="ref-edge-flow-path" style={animatedStrokeStyle} onMouseEnter={() => setIsHovered(true)} />
+              <path
+                d={polylinePath(split.first)}
+                fill="none"
+                className="ref-edge-flow-path"
+                style={animatedStrokeStyle}
+                onMouseEnter={() => setIsHovered(true)}
+              />
+              <path
+                d={polylinePath(split.second)}
+                fill="none"
+                className="ref-edge-flow-path"
+                style={animatedStrokeStyle}
+                onMouseEnter={() => setIsHovered(true)}
+              />
             </>
           )}
         </>
@@ -169,11 +191,22 @@ export function RefEdge({
         <>
           <path d={routing.fullPath} fill="none" style={baseStrokeStyle} onMouseEnter={() => setIsHovered(true)} />
           {isHighlighted && (
-            <path d={routing.fullPath} fill="none" className="ref-edge-flow-path" style={animatedStrokeStyle} onMouseEnter={() => setIsHovered(true)} />
+            <path
+              d={routing.fullPath}
+              fill="none"
+              className="ref-edge-flow-path"
+              style={animatedStrokeStyle}
+              onMouseEnter={() => setIsHovered(true)}
+            />
           )}
         </>
       )}
-      <EdgeArrowhead points={routing.drawnPoints} color={strokeColor} opacity={strokeOpacity} scale={zoomCompensation} />
+      <EdgeArrowhead
+        points={routing.drawnPoints}
+        color={strokeColor}
+        opacity={strokeOpacity}
+        scale={zoomCompensation}
+      />
       {/* Generous invisible fat stroke (24px) carrying all pointer & hover interactions */}
       <path
         d={routing.fullPath}
@@ -261,4 +294,3 @@ export function RefEdge({
     </>
   );
 }
-

@@ -13,7 +13,9 @@ const TONE: Record<Tone, string> = {
 /** Small uppercase pill — admin/view-only/invitation-status labels. */
 export function Badge(props: { tone: Tone; children: ReactNode; className?: string }) {
   return (
-    <span className={`rounded-full px-1.5 py-px text-[10px] font-bold uppercase ${TONE[props.tone]} ${props.className ?? ""}`.trim()}>
+    <span
+      className={`rounded-full px-1.5 py-px text-[10px] font-bold uppercase ${TONE[props.tone]} ${props.className ?? ""}`.trim()}
+    >
       {props.children}
     </span>
   );

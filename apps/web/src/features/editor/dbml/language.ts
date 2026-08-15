@@ -1,10 +1,4 @@
-import {
-  HighlightStyle,
-  StreamLanguage,
-  foldService,
-  indentService,
-  syntaxHighlighting,
-} from "@codemirror/language";
+import { HighlightStyle, StreamLanguage, foldService, indentService, syntaxHighlighting } from "@codemirror/language";
 import { EditorView } from "@codemirror/view";
 import { Prec } from "@codemirror/state";
 import { tags as t } from "@lezer/highlight";
@@ -372,7 +366,13 @@ export const athanorEditorTheme = EditorView.theme(
     },
     ".cm-dbml-hover-muted": { color: "var(--color-editor-muted)", fontSize: "11px" },
     ".cm-dbml-hover-note": { color: "var(--color-syntax-string)", fontStyle: "italic", fontSize: "11.5px" },
-    ".cm-dbml-hover-fields": { display: "flex", flexDirection: "column", gap: "1px", maxHeight: "260px", overflowY: "auto" },
+    ".cm-dbml-hover-fields": {
+      display: "flex",
+      flexDirection: "column",
+      gap: "1px",
+      maxHeight: "260px",
+      overflowY: "auto",
+    },
     ".cm-dbml-hover-row": { display: "flex", gap: "8px", alignItems: "baseline" },
     ".cm-dbml-hover-row.is-current": {
       backgroundColor: "var(--color-primary-light)",

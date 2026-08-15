@@ -98,7 +98,12 @@ export function ActiveSessions() {
       </ul>
 
       {otherSessionCount > 0 && (
-        <Button variant="outline" className="mt-3 text-xs" disabled={pending} onClick={() => void revokeAllOthers.run()}>
+        <Button
+          variant="outline"
+          className="mt-3 text-xs"
+          disabled={pending}
+          onClick={() => void revokeAllOthers.run()}
+        >
           {t("settings.sessions.revokeOthers", { count: otherSessionCount })}
         </Button>
       )}

@@ -28,8 +28,6 @@
   "common.saving": "Enregistrement…",
   "common.deleting": "Suppression…",
 
-
-
   "errors.network": "Le serveur est injoignable. Vérifiez votre connexion.",
   "errors.unexpected": "Une erreur inattendue est survenue.",
   "errors.internal": "Erreur interne du serveur.",
@@ -637,4 +635,3 @@
   "deployment.noConnectionTitle": "Aucune base de données connectée",
   "deployment.noConnectionDesc": "Configurez d'abord une connexion à une base de données pour déployer vos modifications directement."
 }
-

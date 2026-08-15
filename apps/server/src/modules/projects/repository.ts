@@ -33,8 +33,7 @@ export function getProjectRow(id: string): ProjectRow | undefined {
 
 export function getProjectSummary(id: string): ProjectSummaryRow | undefined {
   return db.prepare("SELECT id, name, status, created_at FROM projects WHERE id = ?").get(id) as
-    | ProjectSummaryRow
-    | undefined;
+    ProjectSummaryRow | undefined;
 }
 
 export function listProjectSummaries(): ProjectSummaryRow[] {

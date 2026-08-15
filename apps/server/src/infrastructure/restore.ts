@@ -59,7 +59,9 @@ function main(): void {
   if (ownerEmail) {
     const owner = db.prepare("SELECT id FROM users WHERE email = ?").get(ownerEmail) as { id: string } | undefined;
     if (!owner) {
-      console.error(`No user with email ${ownerEmail} — aborting rather than restoring ownerless projects by accident.`);
+      console.error(
+        `No user with email ${ownerEmail} — aborting rather than restoring ownerless projects by accident.`,
+      );
       process.exit(1);
     }
     ownerId = owner.id;

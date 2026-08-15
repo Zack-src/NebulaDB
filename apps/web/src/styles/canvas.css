@@ -9,7 +9,9 @@
   border: 1px solid #1e2024 !important;
   border-radius: 50% !important;
   opacity: 0;
-  transition: opacity 0.15s ease, transform 0.15s ease;
+  transition:
+    opacity 0.15s ease,
+    transform 0.15s ease;
 }
 
 /* Only the hovered row's own handles appear — not a faint preview of every

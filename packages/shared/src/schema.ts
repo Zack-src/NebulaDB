@@ -216,4 +216,3 @@ export interface SchemaRisk {
 }
 
 export type MigrationResolutionMap = Record<string, { strategy: ConflictResolutionStrategy; value?: string }>;
-

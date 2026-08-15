@@ -9,7 +9,13 @@ import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { formatDateTime } from "@/i18n/formatters";
 import { describeApiError } from "@/i18n/serverErrorMessages";
 import { useTranslation } from "@/i18n/useTranslation";
-import { exportRevisionDbml, fetchRevisionProject, fetchRevisions, labelRevision, restoreRevision } from "@/services/projectsApi";
+import {
+  exportRevisionDbml,
+  fetchRevisionProject,
+  fetchRevisions,
+  labelRevision,
+  restoreRevision,
+} from "@/services/projectsApi";
 
 const DIFF_ROW_CLASS: Record<ChangeStatus, string> = {
   added: "text-success",
@@ -173,10 +179,16 @@ function HistoryPanel({ projectId, currentProject, onClose }: HistoryPanelProps)
               diff && <DiffSummary diff={diff} />
             )}
           </div>
-          <textarea readOnly className={`${TEXTAREA_CODE_CLASS} flex-1`} value={loadingPreview ? loadingLabel : preview} />
+          <textarea
+            readOnly
+            className={`${TEXTAREA_CODE_CLASS} flex-1`}
+            value={loadingPreview ? loadingLabel : preview}
+          />
         </div>
       </div>
-      {(error ?? saveLabel.error ?? restore.error) && <ErrorText>{error ?? saveLabel.error ?? restore.error}</ErrorText>}
+      {(error ?? saveLabel.error ?? restore.error) && (
+        <ErrorText>{error ?? saveLabel.error ?? restore.error}</ErrorText>
+      )}
     </Modal>
   );
 }

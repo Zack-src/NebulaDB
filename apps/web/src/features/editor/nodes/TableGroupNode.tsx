@@ -40,7 +40,10 @@ function TableGroupNodeImpl({ data }: NodeProps<TableGroupNodeType>) {
         className="absolute inset-0 rounded-xl"
         style={{ border: `1.5px dashed ${ACCENT}70`, background: `${ACCENT}0a` }}
       />
-      <div className="pointer-events-auto absolute -top-3 left-3 flex items-center gap-1.5 rounded-full border px-2 py-0.5 shadow-sm" style={{ background: "var(--color-surface)", borderColor: `${ACCENT}80` }}>
+      <div
+        className="pointer-events-auto absolute -top-3 left-3 flex items-center gap-1.5 rounded-full border px-2 py-0.5 shadow-sm"
+        style={{ background: "var(--color-surface)", borderColor: `${ACCENT}80` }}
+      >
         {editing ? (
           <input
             autoFocus

@@ -57,7 +57,10 @@ export function ToolbarMenu({ triggerClassName, triggerContent, tooltip, minWidt
     // Toolbars sit at the bottom of the canvas, so above is the natural side —
     // flip only when it genuinely cannot fit and below is roomier.
     const openDown = menuHeight > above && below > above;
-    const left = Math.min(Math.max(VIEWPORT_MARGIN, rect.left), Math.max(VIEWPORT_MARGIN, window.innerWidth - width - VIEWPORT_MARGIN));
+    const left = Math.min(
+      Math.max(VIEWPORT_MARGIN, rect.left),
+      Math.max(VIEWPORT_MARGIN, window.innerWidth - width - VIEWPORT_MARGIN),
+    );
 
     setMenuStyle({
       left,

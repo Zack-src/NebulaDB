@@ -103,7 +103,10 @@ const RE_FIELD = new RegExp(
 );
 const RE_ENDPOINT = `(?:(${IDENT})\\s*\\.\\s*)?(${IDENT})\\s*\\.\\s*(?:\\(([^)]*)\\)|(${IDENT}))`;
 const RE_REF_BODY = new RegExp(`${RE_ENDPOINT}\\s*(<>|[<>-])\\s*${RE_ENDPOINT}`);
-const RE_INLINE_REF = new RegExp(`\\bref\\s*:\\s*(<>|[<>-])\\s*(?:${IDENT}\\s*\\.\\s*)?(${IDENT})\\s*\\.\\s*(${IDENT})`, "gi");
+const RE_INLINE_REF = new RegExp(
+  `\\bref\\s*:\\s*(<>|[<>-])\\s*(?:${IDENT}\\s*\\.\\s*)?(${IDENT})\\s*\\.\\s*(${IDENT})`,
+  "gi",
+);
 
 export function unquoteIdent(raw: string): string {
   return raw.replace(/^["'`]/, "").replace(/["'`]$/, "");

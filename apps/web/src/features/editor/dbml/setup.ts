@@ -82,7 +82,11 @@ export const paletteHandler = Facet.define<(mode: "symbols" | "commands") => voi
 export const wrapCompartment = new Compartment();
 export const fontCompartment = new Compartment();
 
-function callFacet<T extends (...args: never[]) => void>(view: EditorView, facet: Facet<T, readonly T[]>, ...args: Parameters<T>) {
+function callFacet<T extends (...args: never[]) => void>(
+  view: EditorView,
+  facet: Facet<T, readonly T[]>,
+  ...args: Parameters<T>
+) {
   const handler = view.state.facet(facet)[0];
   if (!handler) return false;
   handler(...(args as never[]));

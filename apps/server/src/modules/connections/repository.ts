@@ -62,10 +62,12 @@ export function saveConnection(
   const id = crypto.randomUUID();
   const encrypted = encryptPayload(config);
 
-  db.prepare(`
+  db.prepare(
+    `
     INSERT INTO project_connections (id, project_id, name, engine, config_encrypted, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
-  `).run(id, projectId, config.name, config.engine, encrypted);
+  `,
+  ).run(id, projectId, config.name, config.engine, encrypted);
 
   const row = db.prepare("SELECT * FROM project_connections WHERE id = ?").get(id) as ConnectionRow;
   return rowToSummary(row);
@@ -87,11 +89,13 @@ export function updateConnection(
 
   const encrypted = encryptPayload(merged);
 
-  db.prepare(`
+  db.prepare(
+    `
     UPDATE project_connections
     SET name = ?, engine = ?, config_encrypted = ?, updated_at = datetime('now')
     WHERE id = ?
-  `).run(merged.name, merged.engine, encrypted, id);
+  `,
+  ).run(merged.name, merged.engine, encrypted, id);
 
   const row = db.prepare("SELECT * FROM project_connections WHERE id = ?").get(id) as ConnectionRow;
   return rowToSummary(row);

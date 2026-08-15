@@ -39,9 +39,7 @@ export type TranslateOptions = InterpolationValues & { count?: number };
 const PLACEHOLDER = /\{\{(\w+)\}\}/g;
 
 function interpolate(template: string, values: InterpolationValues): string {
-  return template.replace(PLACEHOLDER, (whole, name: string) =>
-    name in values ? String(values[name]) : whole,
-  );
+  return template.replace(PLACEHOLDER, (whole, name: string) => (name in values ? String(values[name]) : whole));
 }
 
 /**

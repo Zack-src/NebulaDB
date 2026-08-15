@@ -177,7 +177,10 @@ export const navigateBack: Command = (view) => {
   const current = view.state.selection.main.head;
   view.dispatch({
     selection: { anchor: Math.min(target, view.state.doc.length) },
-    effects: [navBackEffect.of(current), EditorView.scrollIntoView(Math.min(target, view.state.doc.length), { y: "center" })],
+    effects: [
+      navBackEffect.of(current),
+      EditorView.scrollIntoView(Math.min(target, view.state.doc.length), { y: "center" }),
+    ],
   });
   return true;
 };
@@ -189,7 +192,10 @@ export const navigateForward: Command = (view) => {
   const current = view.state.selection.main.head;
   view.dispatch({
     selection: { anchor: Math.min(target, view.state.doc.length) },
-    effects: [navForwardEffect.of(current), EditorView.scrollIntoView(Math.min(target, view.state.doc.length), { y: "center" })],
+    effects: [
+      navForwardEffect.of(current),
+      EditorView.scrollIntoView(Math.min(target, view.state.doc.length), { y: "center" }),
+    ],
   });
   return true;
 };

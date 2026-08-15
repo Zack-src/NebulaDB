@@ -44,7 +44,10 @@ export function TeamDetailView({ teamId, onClose, onChanged }: TeamDetailViewPro
   const error = team.error ?? addMember.error ?? removeMember.error;
 
   return (
-    <Modal title={team.data ? t("admin.teams.detailTitle", { name: team.data.name }) : t("admin.teams.one")} onClose={onClose}>
+    <Modal
+      title={team.data ? t("admin.teams.detailTitle", { name: team.data.name }) : t("admin.teams.one")}
+      onClose={onClose}
+    >
       {error && <ErrorText>{error}</ErrorText>}
       {team.data && (
         <>

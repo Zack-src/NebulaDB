@@ -33,9 +33,7 @@ function toRequestInit(options: RequestOptions): RequestInit {
   return {
     method: options.method ?? "GET",
     signal: options.signal,
-    ...(options.body === undefined
-      ? {}
-      : { headers: JSON_HEADERS, body: JSON.stringify(options.body) }),
+    ...(options.body === undefined ? {} : { headers: JSON_HEADERS, body: JSON.stringify(options.body) }),
   };
 }
 

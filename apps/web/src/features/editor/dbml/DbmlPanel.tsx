@@ -251,7 +251,10 @@ function DbmlPanel(props: {
   );
 
   return (
-    <div className="relative flex shrink-0 flex-col border-r border-border bg-surface nokey" style={{ width: panelWidth }}>
+    <div
+      className="relative flex shrink-0 flex-col border-r border-border bg-surface nokey"
+      style={{ width: panelWidth }}
+    >
       <div
         className={`absolute bottom-0 right-[-4px] top-0 z-20 w-2 cursor-col-resize transition-colors duration-150 ${isResizing ? "bg-primary" : "hover:bg-primary"}`}
         onMouseDown={startResizing}

@@ -110,9 +110,14 @@ export function createSession(
   // `ttl_ms` is stored per session, not derived from a constant at read time:
   // `resolveSession` rolls the expiry forward on every request, and without it
   // a short session would silently be promoted to a long one on its first use.
-  db.prepare(
-    "INSERT INTO sessions (id, user_id, expires_at, user_agent, ip, ttl_ms) VALUES (?, ?, ?, ?, ?, ?)",
-  ).run(id, userId, expiresAt, userAgent, ip, ttlMs);
+  db.prepare("INSERT INTO sessions (id, user_id, expires_at, user_agent, ip, ttl_ms) VALUES (?, ?, ?, ?, ?, ?)").run(
+    id,
+    userId,
+    expiresAt,
+    userAgent,
+    ip,
+    ttlMs,
+  );
   reply.setCookie(SESSION_COOKIE, id, cookieOptions(remember ? ttlMs : null));
 }
 
@@ -190,8 +195,7 @@ export function resolveSession(req: FastifyRequest, reply: FastifyReply): Sessio
   if (!sessionId) return null;
 
   const session = db.prepare("SELECT id, user_id, expires_at, ttl_ms FROM sessions WHERE id = ?").get(sessionId) as
-    | SessionRow
-    | undefined;
+    SessionRow | undefined;
   if (!session || new Date(session.expires_at).getTime() < Date.now()) return null;
 
   const user = db

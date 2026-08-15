@@ -22,7 +22,11 @@ export function usePluginShortcuts(
       const selection = { from: state.selection.main.from, to: state.selection.main.to };
       const text = state.doc.toString();
       try {
-        const result = await command.run({ text, selection, selectedText: state.sliceDoc(selection.from, selection.to) });
+        const result = await command.run({
+          text,
+          selection,
+          selectedText: state.sliceDoc(selection.from, selection.to),
+        });
         const next = result?.text;
         if (typeof next === "string" && next !== view.state.doc.toString()) {
           const current = view.state.doc.length;

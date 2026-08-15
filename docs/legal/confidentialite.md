@@ -33,12 +33,12 @@ n'a aucun accès à cette instance.
 
 ### 2.1 Compte
 
-| Donnée | Finalité | Base légale |
-| --- | --- | --- |
-| Adresse email | Identifiant de connexion, envoi de l'invitation | Exécution du contrat / intérêt légitime |
-| Empreinte du mot de passe | Authentification. Le mot de passe **n'est jamais stocké en clair** : seule une empreinte scrypt salée est conservée | Exécution du contrat |
-| Nom d'affichage | Identification auprès des collaborateurs, attribution des modifications | Exécution du contrat |
-| Statut administrateur, date de création, date de désactivation | Gestion des droits | Intérêt légitime |
+| Donnée                                                         | Finalité                                                                                                            | Base légale                             |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
+| Adresse email                                                  | Identifiant de connexion, envoi de l'invitation                                                                     | Exécution du contrat / intérêt légitime |
+| Empreinte du mot de passe                                      | Authentification. Le mot de passe **n'est jamais stocké en clair** : seule une empreinte scrypt salée est conservée | Exécution du contrat                    |
+| Nom d'affichage                                                | Identification auprès des collaborateurs, attribution des modifications                                             | Exécution du contrat                    |
+| Statut administrateur, date de création, date de désactivation | Gestion des droits                                                                                                  | Intérêt légitime                        |
 
 ### 2.2 Sessions
 
@@ -91,16 +91,16 @@ particulière au sens de l'article 9 du RGPD.
 Ces durées correspondent à la **configuration par défaut** du logiciel.
 Vérifiez-les contre la vôtre avant publication.
 
-| Donnée | Conservation | Réglage |
-| --- | --- | --- |
-| Compte | Jusqu'à sa suppression par l'utilisateur ou un administrateur | — |
-| Session | 30 jours glissants, ou 12 h si « rester connecté » a été décoché. Les sessions expirées sont purgées automatiquement toutes les heures | — |
-| Tentatives de connexion échouées | Blocage 15 minutes ; les compteurs sans échec récent sont purgés au bout de 24 h | — |
-| Journal d'audit | **365 jours**, purge automatique toutes les heures | `ATHANORDB_AUDIT_RETENTION_DAYS` |
-| Contenus et historique des projets | Jusqu'à suppression définitive du projet | — |
-| Invitations | Lien valable 7 jours ; l'enregistrement (email, date) subsiste jusqu'à révocation ou remplacement par une nouvelle invitation pour la même adresse | — |
-| Sauvegardes | Si activées : les **7** dernières exécutions sont conservées, les plus anciennes sont supprimées | `ATHANORDB_BACKUP_KEEP` |
-| Journaux techniques | Selon la politique de journalisation de [ENTITÉ] — à compléter | — |
+| Donnée                             | Conservation                                                                                                                                       | Réglage                          |
+| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------- |
+| Compte                             | Jusqu'à sa suppression par l'utilisateur ou un administrateur                                                                                      | —                                |
+| Session                            | 30 jours glissants, ou 12 h si « rester connecté » a été décoché. Les sessions expirées sont purgées automatiquement toutes les heures             | —                                |
+| Tentatives de connexion échouées   | Blocage 15 minutes ; les compteurs sans échec récent sont purgés au bout de 24 h                                                                   | —                                |
+| Journal d'audit                    | **365 jours**, purge automatique toutes les heures                                                                                                 | `ATHANORDB_AUDIT_RETENTION_DAYS` |
+| Contenus et historique des projets | Jusqu'à suppression définitive du projet                                                                                                           | —                                |
+| Invitations                        | Lien valable 7 jours ; l'enregistrement (email, date) subsiste jusqu'à révocation ou remplacement par une nouvelle invitation pour la même adresse | —                                |
+| Sauvegardes                        | Si activées : les **7** dernières exécutions sont conservées, les plus anciennes sont supprimées                                                   | `ATHANORDB_BACKUP_KEEP`          |
+| Journaux techniques                | Selon la politique de journalisation de [ENTITÉ] — à compléter                                                                                     | —                                |
 
 **Conséquence à connaître :** un compte supprimé peut subsister dans les
 sauvegardes jusqu'à ce que celles-ci soient renouvelées. C'est une limite
@@ -119,7 +119,7 @@ Ce cookie est **strictement nécessaire** au fonctionnement du service : il ne
 sert qu'à l'authentification, et son dépôt ne requiert donc pas de consentement
 préalable. Aucun autre cookie, aucun stockage à des fins de mesure d'audience.
 
-*Note technique :* les préférences d'affichage et les extensions installées sont
+_Note technique :_ les préférences d'affichage et les extensions installées sont
 conservées dans le `localStorage` du navigateur de l'utilisateur. Elles ne sont
 pas transmises au serveur et ne constituent pas un traitement par [ENTITÉ].
 
@@ -143,7 +143,7 @@ Conformément au RGPD, vous disposez d'un droit d'accès, de rectification,
 d'effacement, de limitation, d'opposition et de portabilité.
 
 Deux d'entre eux s'exercent directement dans l'application, sans démarche
-(*Paramètres → Profil*) :
+(_Paramètres → Profil_) :
 
 - **Accès et portabilité** — « Exporter mes données » télécharge, au format
   JSON, votre compte, vos sessions, vos équipes, les projets dont vous êtes

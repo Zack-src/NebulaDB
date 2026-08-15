@@ -1,4 +1,14 @@
-import type { DetailLevel, Position, Project, Ref, Size, StickyNote, Table, VisualStyle, Zone } from "@athanordb/shared";
+import type {
+  DetailLevel,
+  Position,
+  Project,
+  Ref,
+  Size,
+  StickyNote,
+  Table,
+  VisualStyle,
+  Zone,
+} from "@athanordb/shared";
 import { formatDbml } from "./format.js";
 
 // Own module with zero `@dbml/core` import, same reasoning as diff.ts/validate.ts:

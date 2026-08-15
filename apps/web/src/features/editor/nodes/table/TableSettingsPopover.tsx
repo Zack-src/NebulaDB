@@ -19,7 +19,6 @@ import {
 
 export const DEFAULT_HEADER_COLOR = "#334155";
 
-
 export type IndexOptions = { unique?: boolean; pk?: boolean; name?: string };
 
 /**
@@ -122,9 +121,7 @@ function IndexRow({
   onDelete?: (indexId: string) => void;
 }) {
   const { t } = useTranslation();
-  const columnNames = index.fieldIds
-    .map((id) => table.fields.find((field) => field.id === id)?.name ?? "?")
-    .join(", ");
+  const columnNames = index.fieldIds.map((id) => table.fields.find((field) => field.id === id)?.name ?? "?").join(", ");
 
   return (
     <div className="flex items-center gap-1.5 rounded-md border border-border/70 bg-surface px-2 py-1.5">
@@ -146,7 +143,12 @@ function IndexRow({
       >
         {t("table.index.uniqueShort")}
       </button>
-      <Button variant="danger-ghost" size="icon" onClick={() => onDelete?.(index.id)} data-tooltip={t("table.index.delete")}>
+      <Button
+        variant="danger-ghost"
+        size="icon"
+        onClick={() => onDelete?.(index.id)}
+        data-tooltip={t("table.index.delete")}
+      >
         <TrashIcon size={12} />
       </Button>
     </div>
@@ -290,7 +292,13 @@ export function TableSettingsPopover({
 
                 <div className="flex flex-col gap-1.5">
                   {table.indexes.map((index) => (
-                    <IndexRow key={index.id} index={index} table={table} onUpdate={onUpdateIndex} onDelete={onDeleteIndex} />
+                    <IndexRow
+                      key={index.id}
+                      index={index}
+                      table={table}
+                      onUpdate={onUpdateIndex}
+                      onDelete={onDeleteIndex}
+                    />
                   ))}
                 </div>
 

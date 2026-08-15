@@ -33,7 +33,10 @@ export const ERROR_CATALOG = {
   CANNOT_DELETE_SELF: { status: 400, message: "you cannot delete your own account" },
   CANNOT_DISABLE_SELF: { status: 400, message: "you cannot disable your own account" },
   LAST_ADMIN: { status: 400, message: "this is the last active administrator" },
-  LAST_ADMIN_SELF: { status: 400, message: "you are the last active administrator — grant admin to someone else first" },
+  LAST_ADMIN_SELF: {
+    status: 400,
+    message: "you are the last active administrator — grant admin to someone else first",
+  },
   INVITATION_INVALID: { status: 400, message: "this invitation is no longer valid" },
   CONNECTION_ENGINE_INVALID: { status: 400, message: "engine must be one of postgres, mysql, sqlite" },
   CONNECTION_TARGET_FORBIDDEN: { status: 400, message: "this connection target is not allowed" },

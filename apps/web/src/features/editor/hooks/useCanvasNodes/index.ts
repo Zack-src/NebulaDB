@@ -46,12 +46,38 @@ export function useCanvasNodes(
 
     return [
       ...buildZoneNodes(liveProject.zones, doc, palette, onPaletteChange, canWrite),
-      ...buildTableNodes(liveProject.tables, doc, refFieldIdsByTable, user, highlightLinks, palette, onPaletteChange, onGoToDbml, onFieldHoverChange, onTableHoverChange, selectedFieldId, onSelectField, canWrite),
+      ...buildTableNodes(
+        liveProject.tables,
+        doc,
+        refFieldIdsByTable,
+        user,
+        highlightLinks,
+        palette,
+        onPaletteChange,
+        onGoToDbml,
+        onFieldHoverChange,
+        onTableHoverChange,
+        selectedFieldId,
+        onSelectField,
+        canWrite,
+      ),
       ...buildStickyNodes(liveProject.stickyNotes, doc, palette, onPaletteChange, canWrite),
       ...buildEnumNodes(liveProject.enums, doc, canWrite),
       ...buildTableGroupNodes(liveProject.tableGroups, liveProject.tables, doc, canWrite),
     ];
-  }, [liveProject, doc, refFieldIdsByTable, user, highlightLinks, onGoToDbml, onFieldHoverChange, onTableHoverChange, selectedFieldId, onSelectField, canWrite]);
+  }, [
+    liveProject,
+    doc,
+    refFieldIdsByTable,
+    user,
+    highlightLinks,
+    onGoToDbml,
+    onFieldHoverChange,
+    onTableHoverChange,
+    selectedFieldId,
+    onSelectField,
+    canWrite,
+  ]);
 
   const [nodes, setNodes] = useSelectionPreservingNodes(builtNodes);
   // A null doc makes every persist branch in the handler a no-op, so drags and
