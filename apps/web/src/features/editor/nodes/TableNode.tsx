@@ -120,7 +120,11 @@ function TableNodeImpl({ data, selected }: NodeProps<TableNodeType>) {
   return (
     <div
       className={`group table-node ${TABLE_NODE_CLASS} ${selected ? `is-selected ${TABLE_NODE_SELECTED_CLASS}` : ""}`}
-      style={{ borderColor: table.style?.borderColor }}
+      // Selected wins over a custom border colour rather than being fought by
+      // it — an inline style always beats a class for the same property, so
+      // without this a table with its own border colour would never visibly
+      // show as selected.
+      style={{ borderColor: selected ? "var(--color-primary)" : table.style?.borderColor }}
     >
       <div
         className={TABLE_HEADER_CLASS}

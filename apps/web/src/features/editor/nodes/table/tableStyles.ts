@@ -38,17 +38,18 @@ export const ROW_ACTION_BTN_CLASS =
   "[&.has-open-popover]:bg-surface-hover [&.has-open-popover]:text-text";
 
 export const TABLE_NODE_CLASS =
-  "min-w-[190px] overflow-hidden rounded-sm [transition:box-shadow_0.12s_ease,outline-color_0.12s_ease] " +
+  "min-w-[190px] overflow-hidden rounded-sm [transition:box-shadow_0.12s_ease,border-color_0.12s_ease] " +
   "border border-border bg-surface text-[calc(12.5px_*_var(--canvas-font-scale))] shadow-sm";
 /**
- * Selection is a real `outline`, not a box-shadow ring: an outline is drawn
- * outside the border box without taking part in layout, so it can't be clipped
- * by the node's own `overflow-hidden`, and the offset leaves a visible gap
- * between the table's border and the marker — the way Figma shows a selected
- * frame. It also survives the node's own shadow instead of fighting it for the
- * same `box-shadow` property.
+ * Selection recolours the table's own 1px border to primary instead of adding
+ * a second, thicker ring around it — an `outline` used to do that job, but at
+ * `outline-2 outline-offset-2` it read as a chunky extra frame rather than
+ * "this border is now selected". The border colour is set inline (`TableNode`)
+ * rather than as a class here, so it composes with a user-chosen custom border
+ * colour: selected wins while selected, the custom colour is what's underneath
+ * once it isn't.
  */
-export const TABLE_NODE_SELECTED_CLASS = "shadow-md outline outline-2 outline-offset-2 outline-primary";
+export const TABLE_NODE_SELECTED_CLASS = "shadow-md";
 
 /** Foreground is set per node from the actual header colour — a user who picks pale yellow gets dark text, not invisible white. */
 export const TABLE_HEADER_CLASS =
