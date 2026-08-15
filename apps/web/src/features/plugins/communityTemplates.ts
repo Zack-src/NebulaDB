@@ -441,7 +441,136 @@ athanor.registerExporter({
       out.push("        db_table = '" + t.name + "'\\n");
     });
 
-    return out.join("\\n");
+    return out.join("\n");
+  }
+});
+`,
+  },
+
+  {
+    id: "template.sql-importer",
+    name: "SQL DDL Importer & Converter",
+    version: "1.0.0",
+    author: "Communauté AthanorDB",
+    category: "import",
+    icon: "database",
+    tags: ["sql", "ddl", "create table", "importer", "converter", "editor"],
+    description:
+      "Permet d'utiliser directement du code SQL : importe des fichiers SQL ou convertit du SQL collé dans l'éditeur pour générer les tables et relations visuelles sur le canvas.",
+    sourceCode: `athanor.plugin({
+  id: "community.sql-importer",
+  name: "SQL DDL Importer & Converter",
+  version: "1.0.0",
+  author: "Communauté AthanorDB",
+  description: "Génère les tables et relations visuelles à partir de code SQL (CREATE TABLE, FOREIGN KEY)."
+});
+
+function convertSqlToDbml(source) {
+  var lines = ["// Généré depuis SQL DDL\\n"];
+  var tableRegex = /CREATE\\s+TABLE(?:\\s+IF\\s+NOT\\s+EXISTS)?\\s+["\`']?(?:([a-zA-Z0-9_]+)\\.)?([a-zA-Z0-9_]+)["\`']?\\s*\\(([\\s\\S]*?)\\);/gi;
+  var match;
+  var tableCount = 0;
+  var allFks = [];
+
+  while ((match = tableRegex.exec(source)) !== null) {
+    tableCount++;
+    var schemaName = match[1];
+    var tableName = match[2];
+    var body = match[3];
+
+    var fullName = schemaName ? schemaName + "." + tableName : tableName;
+    lines.push("Table " + fullName + " {");
+
+    var colLines = body.split(/,(?![^(]*\\))/);
+
+    for (var i = 0; i < colLines.length; i++) {
+      var col = colLines[i].trim();
+      if (!col) continue;
+
+      // Table-level FOREIGN KEY (col) REFERENCES target (targetCol)
+      var fkMatch = /FOREIGN\\s+KEY\\s*\\(["\`']?([a-zA-Z0-9_]+)["\`']?\\)\\s*REFERENCES\\s*["\`']?([a-zA-Z0-9_]+)["\`']?\\s*\\(["\`']?([a-zA-Z0-9_]+)["\`']?\\)/i.exec(col);
+      if (fkMatch) {
+        allFks.push({ fromTable: fullName, fromCol: fkMatch[1], toTable: fkMatch[2], toCol: fkMatch[3] });
+        continue;
+      }
+
+      // Table-level PRIMARY KEY (col1, col2)
+      if (/^PRIMARY\\s+KEY/i.test(col)) {
+        continue;
+      }
+
+      // Table-level UNIQUE/CHECK/CONSTRAINT
+      if (/^(?:UNIQUE|CHECK|CONSTRAINT)/i.test(col)) {
+        continue;
+      }
+
+      // Column definition
+      var parts = col.split(/\\s+/);
+      var colName = parts[0].replace(/["\`']/g, "");
+      var colType = parts[1] ? parts[1].replace(/,/g, "") : "varchar";
+
+      var isPk = /PRIMARY\\s+KEY/i.test(col);
+      var isAuto = /AUTO_INCREMENT|AUTOINCREMENT|SERIAL/i.test(col);
+      var isNotNull = /NOT\\s+NULL/i.test(col);
+      var isUnique = /UNIQUE/i.test(col);
+      var defMatch = /DEFAULT\\s+([^,\\s]+)/i.exec(col);
+
+      // Inline REFERENCES target(col)
+      var inlineFk = /REFERENCES\\s+["\`']?([a-zA-Z0-9_]+)["\`']?\\s*\\(["\`']?([a-zA-Z0-9_]+)["\`']?\\)/i.exec(col);
+      if (inlineFk) {
+        allFks.push({ fromTable: fullName, fromCol: colName, toTable: inlineFk[1], toCol: inlineFk[2] });
+      }
+
+      var settings = [];
+      if (isPk) settings.push("pk");
+      if (isAuto) settings.push("increment");
+      if (isNotNull && !isPk) settings.push("not null");
+      if (isUnique && !isPk) settings.push("unique");
+      if (defMatch) settings.push("default: " + defMatch[1]);
+
+      var settingsStr = settings.length > 0 ? " [" + settings.join(", ") + "]" : "";
+      lines.push("  " + colName + " " + colType + settingsStr);
+    }
+
+    lines.push("}\\n");
+  }
+
+  for (var k = 0; k < allFks.length; k++) {
+    var fk = allFks[k];
+    lines.push("Ref: " + fk.fromTable + "." + fk.fromCol + " > " + fk.toTable + "." + fk.toCol);
+  }
+
+  if (tableCount === 0) {
+    throw new Error("Aucune instruction CREATE TABLE valide trouvée dans le code SQL.");
+  }
+
+  return lines.join("\\n");
+}
+
+// 1. Importer : disponible dans le dialogue d'Importation
+athanor.registerImporter({
+  id: "sql-ddl",
+  label: "SQL — DDL (CREATE TABLE)",
+  fileExtensions: ["sql", "ddl"],
+  description: "Parse du code SQL pour générer automatiquement les tables et relations visuelles sur le canvas.",
+  run: function (source) {
+    return { dbml: convertSqlToDbml(source) };
+  }
+});
+
+// 2. Commande Éditeur : convertir du SQL collé directement dans l'éditeur
+athanor.registerEditorCommand({
+  id: "convert-sql-to-dbml",
+  label: "Convertir le code SQL en DBML",
+  shortcut: "Ctrl+Alt+S",
+  description: "Transforme du code SQL en DBML pour actualiser instantanément le schéma visuel.",
+  run: function (input) {
+    var raw = input.selectedText || input.text;
+    var converted = convertSqlToDbml(raw);
+    return {
+      text: input.selectedText ? input.text.replace(input.selectedText, converted) : converted,
+      message: "SQL converti en DBML avec succès !"
+    };
   }
 });
 `,
