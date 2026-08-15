@@ -20,6 +20,7 @@
     "restore": "npm run restore -w apps/server --",
     "bootstrap-admin": "npm run bootstrap-admin -w apps/server --",
     "test": "npm run test --workspaces --if-present",
+    "check:circular": "npm run check:circular --workspaces --if-present",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
@@ -34,6 +35,7 @@
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.11.0",
+    "madge": "^8.0.0",
     "prettier": "^3.9.6",
     "typescript-eslint": "^8.67.0"
   },

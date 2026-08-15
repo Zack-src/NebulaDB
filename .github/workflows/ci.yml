@@ -30,6 +30,12 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      # Blocking, not `continue-on-error`: unlike the audit step below, this
+      # starts clean (0 cycles across all four workspaces) rather than with a
+      # pre-existing finding to grandfather in, so there's nothing to ignore.
+      - name: Check for circular dependencies
+        run: npm run check:circular
+
       # `npm run format:check` is deliberately not a gate yet: the repo has
       # never been run through Prettier, so it fails on ~100 pre-existing
       # files. Turn it on in the same change that reformats them.
