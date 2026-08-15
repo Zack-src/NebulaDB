@@ -122,18 +122,27 @@ export function TableNodeRow({
       <div className={ROW_ACTIONS_CLASS}>
         <FieldEditorPopover
           field={field}
-          onUpdateField={onUpdateField}
-          onDeleteField={onDeleteField}
-          triggerClassName={ROW_ACTION_BTN_CLASS}
-        />
-        <CommentThread
           comments={comments}
           currentUser={currentUser}
-          onAdd={onAddComment}
-          onDelete={onDeleteComment}
+          onUpdateField={onUpdateField}
+          onDeleteField={onDeleteField}
+          onAddComment={onAddComment}
+          onDeleteComment={onDeleteComment}
           triggerClassName={ROW_ACTION_BTN_CLASS}
-          tooltip={t("comments.onField", { field: field.name })}
         />
+        {/* Only an indicator once a comment actually exists — not a standing
+            invitation to add one on every column. Adding the first comment
+            happens from the field's own properties (above) instead. */}
+        {comments.length > 0 && (
+          <CommentThread
+            comments={comments}
+            currentUser={currentUser}
+            onAdd={onAddComment}
+            onDelete={onDeleteComment}
+            triggerClassName={ROW_ACTION_BTN_CLASS}
+            tooltip={t("comments.onField", { field: field.name })}
+          />
+        )}
       </div>
 
       <span className={ROW_TYPE_CLASS}>{field.type}</span>

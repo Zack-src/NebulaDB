@@ -4,11 +4,15 @@ import {
   MAX_DEFAULT_LENGTH,
   MAX_NAME_LENGTH,
   MAX_NOTE_LENGTH,
+  MAX_TEXT_LENGTH,
   MAX_TYPE_LENGTH,
+  type Comment,
   type Field,
 } from "@athanordb/shared";
-import { AsteriskIcon, DiamondIcon, IncrementIcon, KeyIcon, PencilIcon, TrashIcon } from "@/components/icons/Icons";
+import { AsteriskIcon, CloseIcon, DiamondIcon, IncrementIcon, KeyIcon, PencilIcon, TrashIcon } from "@/components/icons/Icons";
 import { Button } from "@/components/ui/Button";
+import { TEXTAREA_SM_CLASS } from "@/components/ui/inputStyles";
+import { formatTimestamp } from "@/features/editor/comments/CommentThread";
 import { useAnchoredPlacement } from "@/hooks/useMenuPlacement";
 import { useDismissablePopover } from "@/hooks/useDismissablePopover";
 import { useDraftValue } from "@/hooks/useDraftValue";
@@ -31,21 +35,37 @@ const COMMON_TYPES = ["int", "varchar", "text", "boolean", "timestamp", "uuid", 
 
 export interface FieldEditorPopoverProps {
   field: Field;
+  comments: Comment[];
+  currentUser: string;
   onUpdateField?: (fieldId: string, updates: Partial<Field>) => void;
   onDeleteField?: (fieldId: string) => void;
+  onAddComment: (text: string) => void;
+  onDeleteComment: (commentId: string) => void;
   triggerClassName: string;
 }
 
-/** Column's pencil button — popover to edit name/type/default/note and toggle pk/unique/notNull/increment. */
+/**
+ * Column's pencil button — popover to edit name/type/default/note, toggle
+ * pk/unique/notNull/increment, and manage the column's comment thread.
+ *
+ * Comments live here too (not just behind their own indicator icon) because
+ * that icon only appears once a comment already exists — this is the one
+ * place a column with no comments yet can still get its first one.
+ */
 export function FieldEditorPopover({
   field,
+  comments,
+  currentUser,
   onUpdateField,
   onDeleteField,
+  onAddComment,
+  onDeleteComment,
   triggerClassName,
 }: FieldEditorPopoverProps) {
   const { t } = useTranslation();
   const [open, setOpen] = useState(false);
   const [triggerRect, setTriggerRect] = useState<DOMRect | null>(null);
+  const [commentDraft, setCommentDraft] = useState("");
 
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
@@ -56,6 +76,13 @@ export function FieldEditorPopover({
   const type = useDraftValue(field.type, (next) => update({ type: next }));
   const defaultValue = useDraftValue(field.default ?? "", (next) => update({ default: next }), { allowEmpty: true });
   const note = useDraftValue(field.note ?? "", (next) => update({ note: next }), { allowEmpty: true });
+
+  const submitComment = () => {
+    const text = commentDraft.trim();
+    if (!text) return;
+    onAddComment(text);
+    setCommentDraft("");
+  };
 
   useDismissablePopover(open, () => setOpen(false), [popoverRef, triggerRef]);
   const placement = useAnchoredPlacement(open ? triggerRect : null, popoverRef);
@@ -197,6 +224,50 @@ export function FieldEditorPopover({
                 onKeyDown={note.handleKeyDown}
                 placeholder={t("field.notePlaceholder")}
               />
+            </div>
+
+            <div className={`${POPOVER_GROUP_CLASS} border-t border-border pt-3`}>
+              <label className={POPOVER_LABEL_CLASS}>{t("comments.title")}</label>
+              {comments.length > 0 && (
+                <div className="flex max-h-[160px] flex-col gap-1.5 overflow-y-auto">
+                  {comments.map((comment) => (
+                    <div key={comment.id} className="rounded-sm bg-surface p-1.5">
+                      <div className="mb-0.5 flex items-baseline gap-1.5">
+                        <span className="text-[11.5px] font-bold text-text">{comment.author}</span>
+                        <span className="flex-1 text-[10.5px] text-text-muted">{formatTimestamp(comment.createdAt)}</span>
+                        {comment.author === currentUser && (
+                          <button
+                            type="button"
+                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-text-muted transition-colors hover:bg-danger-light hover:text-danger"
+                            onClick={() => onDeleteComment(comment.id)}
+                            data-tooltip={t("comments.delete")}
+                          >
+                            <CloseIcon size={11} />
+                          </button>
+                        )}
+                      </div>
+                      <div className="whitespace-pre-wrap break-words text-[12.5px] leading-[1.4] text-text-secondary">
+                        {comment.text}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-1.5">
+                <textarea
+                  className={`${TEXTAREA_SM_CLASS} flex-1`}
+                  value={commentDraft}
+                  onChange={(event) => setCommentDraft(event.target.value)}
+                  placeholder={t("comments.placeholder")}
+                  maxLength={MAX_TEXT_LENGTH}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) submitComment();
+                  }}
+                />
+                <Button variant="primary" size="sm" onClick={submitComment} disabled={!commentDraft.trim()}>
+                  {t("comments.post")}
+                </Button>
+              </div>
             </div>
           </div>,
           document.body,

@@ -9,7 +9,7 @@ import { useDismissablePopover } from "@/hooks/useDismissablePopover";
 import { useTranslation } from "@/i18n/useTranslation";
 
 /** "2026-07-29T09:31:59.868Z" -> "2026-07-29 09:31:59" — matches the plain UTC-timestamp style the revision history list already uses. */
-function formatTimestamp(iso: string): string {
+export function formatTimestamp(iso: string): string {
   return iso.slice(0, 19).replace("T", " ");
 }
 
