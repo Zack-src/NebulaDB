@@ -48,6 +48,7 @@ export function useCanvasEdges(
       return slot;
     };
 
+    // eslint-disable-next-line complexity -- resolves each ref's hover/selection highlight, handle sides and per-slot offset from live table/node state in one pass; splitting the per-edge derivation into helpers would scatter the Yjs-backed callbacks it closes over without a test in place to catch a regression
     return liveProject.refs.map((ref) => {
       const fromTable = tablesById.get(ref.from.tableId);
       const toTable = tablesById.get(ref.to.tableId);

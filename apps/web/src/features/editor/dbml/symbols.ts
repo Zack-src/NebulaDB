@@ -241,6 +241,7 @@ function parseEndpoint(
 }
 
 /** Parses the whole document into a symbol table used by completion, go-to-definition, hover, lint, outline and rename. */
+// eslint-disable-next-line complexity -- a single-pass line-based DBML state machine (table/enum/group/ref/note contexts); the branching is the grammar, not incidental structure
 export function parseDbmlSymbols(doc: Text): DbmlSymbols {
   const tables: TableSymbol[] = [];
   const enums: EnumSymbol[] = [];
