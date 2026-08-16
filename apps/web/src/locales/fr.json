@@ -381,6 +381,18 @@
   "canvas.detail.standardHint": "Afficher les clés primaires et étrangères",
   "canvas.detail.fullHint": "Afficher tous les champs",
 
+  "canvas.view.tooltip": "Vue du diagramme",
+  "canvas.view.mld": "MLD",
+  "canvas.view.mldHint": "Tables, colonnes et clés — le schéma éditable",
+  "canvas.view.mcd": "MCD",
+  "canvas.view.mcdHint": "Entités et associations, dérivées en lecture seule du MLD",
+
+  "mcd.readOnlyNotice": "Vue dérivée — déplacez les éléments pour aérer la vue, mais rien n'est sauvegardé ici. Modifiez le canvas MLD ou le DBML pour changer le schéma.",
+  "mcd.resetPositions": "Réinitialiser sur l'agencement MLD",
+  "mcd.warning.title": "Certaines tables n'ont pas pu être converties en association",
+  "mcd.warning.ternary": "3 clés étrangères ou plus composent sa clé primaire — ressemble à une association ternaire, non reconstruite automatiquement",
+  "mcd.warning.ambiguousJunction": "a 2 clés étrangères ou plus mais sa clé primaire ne les recouvre pas exactement, elle a donc été gardée comme entité simple",
+
   "canvas.zoom.label": "Zoom",
   "canvas.zoom.in": "Zoom avant",
   "canvas.zoom.out": "Zoom arrière",

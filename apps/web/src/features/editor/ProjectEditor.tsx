@@ -21,6 +21,8 @@ import { useTranslation } from "@/i18n/useTranslation";
 import { useCanvasCommands } from "@/features/plugins/usePlugins";
 import { matchShortcut } from "@/features/plugins/shortcuts";
 import type { CanvasCommandResult } from "@/features/plugins/types";
+import { McdCanvas } from "@/features/editor/mcd/McdCanvas";
+import type { EditorViewMode } from "@/features/editor/mcd/ViewModeToggle";
 
 import DbmlPanel from "@/features/editor/dbml/DbmlPanel";
 const ImportDialog = lazy(() => import("@/features/editor/io/ImportDialog"));
@@ -78,6 +80,7 @@ export function ProjectEditor(props: {
   const [showSettings, setShowSettings] = useState(false);
   const [showConnections, setShowConnections] = useState(false);
   const [showDeployment, setShowDeployment] = useState(false);
+  const [viewMode, setViewMode] = useState<EditorViewMode>("mld");
   const [activeConnection, setActiveConnection] = useState<DatabaseConnectionSummary | null>(null);
   const [pluginMessage, setPluginMessage] = useState<string | null>(null);
 
@@ -254,7 +257,15 @@ export function ProjectEditor(props: {
     onConnect,
   } = useProjectMutations(liveProject, writeDoc, nodes);
 
-  useEditorKeyboardShortcuts(canWrite ? undoManager : null, duplicateSelected, canWrite);
+  // Inert while viewing the MCD: nothing dragged there is ever written to
+  // the project, so routing Ctrl+Z through the real Yjs history would either
+  // no-op confusingly or undo an unrelated MLD edit. `McdCanvas` owns its
+  // own local undo/redo for node dragging instead.
+  useEditorKeyboardShortcuts(
+    canWrite && viewMode === "mld" ? undoManager : null,
+    duplicateSelected,
+    canWrite && viewMode === "mld",
+  );
 
   return (
     <div style={{ width: "100%", height: "100%", display: "flex", flexDirection: "column" }}>
@@ -308,41 +319,62 @@ export function ProjectEditor(props: {
           </button>
         )}
         <ReactFlowProvider>
-          <CanvasArea
-            nodes={nodes}
-            remoteSelections={remoteSelections}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesDelete={onEdgesDelete}
-            onConnect={onConnect}
-            awareness={awareness}
-            onAddTable={addTable}
-            onAddZone={addZone}
-            onAddNote={addStickyNote}
-            onAddEnum={addEnum}
-            onGroupTables={groupSelectedTables}
-            onSetTablesColor={setTablesColor}
-            palette={palette}
-            fontScale={fontScale}
-            activeDetailLevel={activeDetailLevel}
-            onSetDetailLevel={setAllDetailLevels}
-            highlightLinks={highlightLinks}
-            onHighlightLinksChange={handleHighlightLinksChange}
-            projectId={project.id}
-            viewportUserId={session.id}
-            exportRef={canvasExportRef}
-            canvasCommands={canvasCommands}
-            onRunCanvasCommand={runCanvasCommand}
-            onOpenPlugins={() => setShowPlugins(true)}
-            statusMessage={pluginMessage}
-            selectedEdgeId={selectedEdgeId}
-            onSelectEdge={setSelectedEdgeId}
-            onClearFieldSelection={() => {
-              setSelectedFieldId(null);
-              setSelectedEdgeId(null);
-            }}
-            canWrite={canWrite}
-          />
+          {/* `key={viewMode}` both drives the remount the ternary already
+              causes (a fresh mount each switch, never a diff) and re-triggers
+              this entrance animation every time — Figma's dev-mode toggle is
+              the reference: a quick fade+scale so the switch reads as a mode
+              change instead of a jump cut. */}
+          <div key={viewMode} className="flex min-h-0 min-w-0 flex-1 animate-view-switch-in">
+            {viewMode === "mld" ? (
+              <CanvasArea
+                nodes={nodes}
+                remoteSelections={remoteSelections}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesDelete={onEdgesDelete}
+                onConnect={onConnect}
+                awareness={awareness}
+                onAddTable={addTable}
+                onAddZone={addZone}
+                onAddNote={addStickyNote}
+                onAddEnum={addEnum}
+                onGroupTables={groupSelectedTables}
+                onSetTablesColor={setTablesColor}
+                palette={palette}
+                fontScale={fontScale}
+                activeDetailLevel={activeDetailLevel}
+                onSetDetailLevel={setAllDetailLevels}
+                highlightLinks={highlightLinks}
+                onHighlightLinksChange={handleHighlightLinksChange}
+                projectId={project.id}
+                viewportUserId={session.id}
+                exportRef={canvasExportRef}
+                canvasCommands={canvasCommands}
+                onRunCanvasCommand={runCanvasCommand}
+                onOpenPlugins={() => setShowPlugins(true)}
+                statusMessage={pluginMessage}
+                selectedEdgeId={selectedEdgeId}
+                onSelectEdge={setSelectedEdgeId}
+                onClearFieldSelection={() => {
+                  setSelectedFieldId(null);
+                  setSelectedEdgeId(null);
+                }}
+                canWrite={canWrite}
+                viewMode={viewMode}
+                onSetViewMode={setViewMode}
+              />
+            ) : (
+              liveProject && (
+                <McdCanvas
+                  project={liveProject}
+                  projectId={project.id}
+                  viewportUserId={session.id}
+                  viewMode={viewMode}
+                  onSetViewMode={setViewMode}
+                />
+              )
+            )}
+          </div>
         </ReactFlowProvider>
       </div>
       <Suspense fallback={null}>

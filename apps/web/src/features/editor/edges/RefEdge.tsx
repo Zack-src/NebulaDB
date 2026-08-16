@@ -208,7 +208,13 @@ export function RefEdge({
         opacity={strokeOpacity}
         scale={zoomCompensation}
       />
-      {/* Generous invisible fat stroke (24px) carrying all pointer & hover interactions */}
+      {/* Generous invisible fat stroke (24px) carrying all pointer & hover interactions.
+          No `cursor: pointer` here on purpose: at 24px wide, this hit area crosses large
+          swaths of empty-looking canvas on any schema with more than a handful of refs —
+          the cursor would flip to "clickable" constantly while just moving the mouse
+          around, with nothing to click there most of the time (a waypoint insert is an
+          edit-mode edge case, not the default expectation). Hover/select still work
+          exactly as before; only the misleading cursor swap is gone. */}
       <path
         d={routing.fullPath}
         fill="none"
@@ -216,7 +222,7 @@ export function RefEdge({
         strokeWidth={24 * zoomCompensation}
         strokeLinecap="round"
         className="react-flow__edge-interaction"
-        style={{ pointerEvents: "stroke", cursor: "pointer" }}
+        style={{ pointerEvents: "stroke" }}
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => {
           setIsHovered(false);

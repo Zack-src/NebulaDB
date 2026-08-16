@@ -381,6 +381,18 @@
   "canvas.detail.standardHint": "Show primary and foreign keys",
   "canvas.detail.fullHint": "Show all fields",
 
+  "canvas.view.tooltip": "Diagram view",
+  "canvas.view.mld": "MLD",
+  "canvas.view.mldHint": "Tables, columns and keys — the editable schema",
+  "canvas.view.mcd": "MCD",
+  "canvas.view.mcdHint": "Entities and associations, derived read-only from the MLD",
+
+  "mcd.readOnlyNotice": "Derived view — drag nodes to declutter, but changes here aren't saved. Edit the MLD canvas or the DBML to change the schema.",
+  "mcd.resetPositions": "Reset to MLD layout",
+  "mcd.warning.title": "Some tables could not be converted to an association",
+  "mcd.warning.ternary": "3+ foreign keys make up its primary key — looks like a ternary association, which isn't reconstructed automatically",
+  "mcd.warning.ambiguousJunction": "has 2+ foreign keys but its primary key doesn't match them exactly, so it was kept as a plain entity",
+
   "canvas.zoom.label": "Zoom",
   "canvas.zoom.in": "Zoom in",
   "canvas.zoom.out": "Zoom out",

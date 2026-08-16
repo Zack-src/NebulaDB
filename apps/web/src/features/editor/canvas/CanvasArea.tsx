@@ -15,7 +15,6 @@ import {
   MiniMap,
   Panel,
   BackgroundVariant,
-  PanOnScrollMode,
   SelectionMode,
   type Connection,
   type NodeChange,
@@ -33,20 +32,20 @@ import type { RemoteSelector } from "@/features/collaboration/useRemoteSelection
 import { getSelectedWaypoint } from "@/features/editor/edges/waypointSelection";
 import { isTypingTarget } from "@/utils/dom";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
-import {
-  loadGridStyle,
-  loadShowMinimap,
-  loadSnapToGrid,
-  loadViewport,
-  saveShowMinimap,
-  saveViewport,
-} from "@/utils/preferences";
+import { loadGridStyle, loadSnapToGrid } from "@/utils/preferences";
 import type { CanvasCommandContribution, ResolvedContribution } from "@/features/plugins/types";
 import type { AllNodes, CanvasExportHandle, CanvasNode } from "@/types";
 import { DEFAULT_HEADER_COLOR } from "@/features/editor/nodes/table/TableSettingsPopover";
 import { CanvasContextMenu, type CanvasContextMenuState } from "./CanvasContextMenu";
 import { CanvasSearchPanel } from "./CanvasSearchPanel";
 import { CanvasToolbar } from "./CanvasToolbar";
+import type { EditorViewMode } from "@/features/editor/mcd/ViewModeToggle";
+import {
+  CANVAS_VIEWPORT_PROPS,
+  useMinimapPanProps,
+  useSharedMinimapVisible,
+  useSharedViewport,
+} from "./canvasViewport";
 import { CanvasZoomBar } from "./CanvasZoomBar";
 import { SelectionColorToolbar } from "./SelectionColorToolbar";
 import { useCanvasImageExport } from "./useCanvasImageExport";
@@ -63,7 +62,6 @@ const nodeTypes = {
 const edgeTypes = { ref: RefEdge };
 
 const GRID_SIZE = 10;
-const MIN_ZOOM = 0.05;
 
 export interface CanvasAreaProps {
   nodes: CanvasNode[];
@@ -106,6 +104,8 @@ export interface CanvasAreaProps {
   onClearFieldSelection?: () => void;
   /** False for a `view` grant — drops every editing affordance rather than offering ones whose writes the server discards. */
   canWrite: boolean;
+  viewMode: EditorViewMode;
+  onSetViewMode: (mode: EditorViewMode) => void;
 }
 
 /**
@@ -120,17 +120,15 @@ export interface CanvasAreaProps {
 export function CanvasArea(props: CanvasAreaProps) {
   const { screenToFlowPosition, deleteElements, getNodes, getEdges } = useReactFlow();
   const [contextMenu, setContextMenu] = useState<CanvasContextMenuState | null>(null);
-  const [minimapVisible, setMinimapVisible] = useState(loadShowMinimap);
+  const { visible: minimapVisible, toggle: toggleMinimap } = useSharedMinimapVisible();
   /**
    * The Figma-style insert tool: pick one on the toolbar, then click anywhere
    * on the canvas to drop it there — and click again, and again, without
    * re-selecting the tool each time. `null` is the ordinary selection mode.
    */
   const [activeInsertTool, setActiveInsertTool] = useState<CanvasInsertTool | null>(null);
-  // Lazy initializer: read once at mount, not on every render — this decides
-  // whether the very first render asks React Flow to `fitView` or restores
-  // exactly where this user left the canvas last time.
-  const [initialViewport] = useState(() => loadViewport(props.projectId, props.viewportUserId));
+  const { initialViewport, onMoveEnd } = useSharedViewport(props.projectId, props.viewportUserId);
+  const minimapPanProps = useMinimapPanProps();
   // Read once per mount, matching how the settings panel presents them: these
   // are "how the canvas behaves" preferences, not live controls. Before this
   // they were read by nothing at all — the settings switches wrote to state
@@ -147,13 +145,6 @@ export function CanvasArea(props: CanvasAreaProps) {
 
   const suppressNativeMenu = useCallback((event: ReactMouseEvent | MouseEvent) => {
     event.preventDefault();
-  }, []);
-
-  const toggleMinimap = useCallback(() => {
-    setMinimapVisible((visible) => {
-      saveShowMinimap(!visible);
-      return !visible;
-    });
   }, []);
 
   /**
@@ -337,7 +328,7 @@ export function CanvasArea(props: CanvasAreaProps) {
         onNodeContextMenu={suppressNativeMenu}
         onSelectionContextMenu={suppressNativeMenu}
         onMoveStart={closeContextMenu}
-        onMoveEnd={(_event, viewport) => saveViewport(props.projectId, props.viewportUserId, viewport)}
+        onMoveEnd={onMoveEnd}
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         // Deletion is handled by the effect above so a selected edge waypoint
@@ -352,11 +343,7 @@ export function CanvasArea(props: CanvasAreaProps) {
         selectionOnDrag
         selectionMode={SelectionMode.Partial}
         panOnDrag={[1, 2]}
-        panOnScroll
-        panOnScrollMode={PanOnScrollMode.Free}
-        zoomOnScroll={false}
-        zoomActivationKeyCode="Control"
-        minZoom={MIN_ZOOM}
+        {...CANVAS_VIEWPORT_PROPS}
         // A schema with hundreds of tables otherwise mounts every TableNode's
         // full DOM (every field row, every handle) regardless of what's
         // actually panned into view. React Flow already tracks each node's
@@ -367,7 +354,12 @@ export function CanvasArea(props: CanvasAreaProps) {
         // `RemoteCursorsLayer`), so this doesn't touch them either.
         onlyRenderVisibleElements
       >
-        <Background color="var(--color-canvas-grid)" gap={20} variant={gridStyle as BackgroundVariant} />
+        <Background
+          color="var(--color-canvas-grid)"
+          bgColor="var(--color-bg-canvas)"
+          gap={20}
+          variant={gridStyle as BackgroundVariant}
+        />
         <RemoteCursorsLayer awareness={awareness} />
         {/* Viewport control lives in its own corner pill: it is used at
             different moments from the editing tools, and pinning it left means
@@ -399,14 +391,14 @@ export function CanvasArea(props: CanvasAreaProps) {
             canvasCommands={props.canvasCommands}
             onRunCanvasCommand={props.onRunCanvasCommand}
             onOpenPlugins={props.onOpenPlugins}
+            viewMode={props.viewMode}
+            onSetViewMode={props.onSetViewMode}
           />
         </Panel>
         {minimapVisible && (
           <MiniMap
-            pannable
-            zoomable
+            {...minimapPanProps}
             onContextMenu={suppressNativeMenu}
-            bgColor="var(--color-surface)"
             nodeColor={(node) => {
               if (node.type === "table") {
                 const data = node.data as { table?: { style?: { color?: string } } } | undefined;
@@ -428,7 +420,6 @@ export function CanvasArea(props: CanvasAreaProps) {
               }
               return "var(--color-primary)";
             }}
-            maskColor="var(--color-overlay)"
           />
         )}
         {selectedTableIds.length > 1 && props.canWrite && (

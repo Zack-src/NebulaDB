@@ -9,8 +9,15 @@
  * short of.
  */
 
+/**
+ * `animate-view-switch-in`: replays only on (re)mount, never on an ordinary
+ * click — these pills are stable DOM nodes across normal interaction, they
+ * only remount when the whole canvas does (an MLD/MCD switch), which is
+ * exactly when a fresh entrance reads as "the toolbar changed with the
+ * view" instead of snapping in.
+ */
 export const CANVAS_TOOLBAR_CLASS =
-  "pointer-events-auto flex items-center gap-0.5 rounded-2xl border border-border-strong bg-surface-raised p-1.5 shadow-lg";
+  "pointer-events-auto flex items-center gap-0.5 rounded-2xl border border-border-strong bg-surface-raised p-1.5 shadow-lg animate-view-switch-in";
 
 export const CANVAS_TOOLBAR_DIVIDER_CLASS = "mx-1 h-5 w-px shrink-0 bg-border";
 

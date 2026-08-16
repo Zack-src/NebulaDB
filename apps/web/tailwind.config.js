@@ -100,10 +100,16 @@ export default {
           from: { opacity: "0", transform: "translateY(6px) scale(0.98)" },
           to: { opacity: "1", transform: "none" },
         },
+        /** MLD/MCD switch — fade+scale, no vertical offset (unlike `modal-in`): the canvas already fills the pane, so a slide would read as content shoving rather than a mode change. */
+        "view-switch-in": {
+          from: { opacity: "0", transform: "scale(0.98)" },
+          to: { opacity: "1", transform: "none" },
+        },
       },
       animation: {
         "overlay-in": "overlay-in 0.12s ease",
         "modal-in": "modal-in 0.14s cubic-bezier(0.16, 1, 0.3, 1)",
+        "view-switch-in": "view-switch-in 0.16s cubic-bezier(0.16, 1, 0.3, 1)",
       },
     },
   },

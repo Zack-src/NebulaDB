@@ -1,10 +1,10 @@
 import { LinkIcon, MinimapIcon, RestoreIcon, SearchIcon } from "@/components/icons/Icons";
 import {
-  CANVAS_TOOLBAR_CLASS,
   CANVAS_TOOLBAR_DIVIDER_CLASS,
   CANVAS_TOOLBAR_ICON_BTN_CLASS,
   CANVAS_TOOLBAR_TOGGLE_ACTIVE_CLASS,
 } from "@/components/ui/canvasToolbarStyles";
+import { AnimatedToolbarPill } from "@/components/ui/AnimatedToolbarPill";
 import { useTranslation } from "@/i18n/useTranslation";
 import type { CanvasCommandContribution, ResolvedContribution } from "@/features/plugins/types";
 import type { DetailLevel } from "@athanordb/shared";
@@ -12,6 +12,7 @@ import { DetailLevelDropdown } from "./DetailLevelDropdown";
 import { InsertToolDropdown } from "./InsertToolDropdown";
 import { PluginMenu } from "./PluginMenu";
 import type { CanvasInsertTool } from "./types";
+import { ViewModeToggle, type EditorViewMode } from "@/features/editor/mcd/ViewModeToggle";
 
 const TOGGLE_ICON_SIZE = 16;
 
@@ -35,6 +36,8 @@ export interface CanvasToolbarProps {
   canvasCommands: ResolvedContribution<CanvasCommandContribution>[];
   onRunCanvasCommand: (command: ResolvedContribution<CanvasCommandContribution>) => void;
   onOpenPlugins: () => void;
+  viewMode: EditorViewMode;
+  onSetViewMode: (mode: EditorViewMode) => void;
 }
 
 /**
@@ -62,7 +65,10 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
   );
 
   return (
-    <div className={CANVAS_TOOLBAR_CLASS}>
+    <AnimatedToolbarPill pillId="editing-toolbar">
+      <ViewModeToggle value={props.viewMode} onChange={props.onSetViewMode} />
+      <span className={CANVAS_TOOLBAR_DIVIDER_CLASS} />
+
       {props.canWrite && (
         <>
           <InsertToolDropdown activeTool={props.activeTool} onSelectTool={props.onSelectTool} />
@@ -127,6 +133,6 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
         onRun={props.onRunCanvasCommand}
         onOpenPlugins={props.onOpenPlugins}
       />
-    </div>
+    </AnimatedToolbarPill>
   );
 }
