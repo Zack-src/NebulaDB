@@ -21,6 +21,7 @@ import {
   type PlanDeploymentResponse,
 } from "@/services/connectionsApi";
 import { copyText } from "@/utils/clipboard";
+import { DeploymentHistoryPanel } from "./DeploymentHistoryPanel";
 
 // eslint-disable-next-line complexity -- four-step wizard (diff/risks/sql/done) with per-step conditional JSX; splitting into sub-components would need to thread most of this state through as props with no behavior change, not a safe mechanical split without a test to catch a regression
 export function DeploymentModal(props: {
@@ -36,12 +37,14 @@ export function DeploymentModal(props: {
   const [analyzing, setAnalyzing] = useState(false);
   const [plan, setPlan] = useState<PlanDeploymentResponse | null>(null);
   const [resolutions, setResolutions] = useState<MigrationResolutionMap>({});
-  const [activeStep, setActiveStep] = useState<"diff" | "risks" | "sql" | "done">("diff");
+  const [activeStep, setActiveStep] = useState<"diff" | "risks" | "sql" | "done" | "history">("diff");
   const [deploying, setDeploying] = useState(false);
   const [deployResult, setDeployResult] = useState<{
     success: boolean;
     executedStatements: number;
     sql: string;
+    rollbackAvailable: boolean;
+    irreversibleWarnings: string[];
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -255,6 +258,17 @@ export function DeploymentModal(props: {
             onClick={() => setActiveStep("sql")}
           >
             {t("deployment.stepSql")}
+          </button>
+          <button
+            type="button"
+            className={`border-b-2 px-3 py-2 font-medium transition-colors ${
+              activeStep === "history"
+                ? "border-accent text-accent"
+                : "border-transparent text-text-muted hover:text-text"
+            }`}
+            onClick={() => setActiveStep("history")}
+          >
+            {t("deployment.stepHistory")}
           </button>
           {deployResult && (
             <button
@@ -500,7 +514,22 @@ export function DeploymentModal(props: {
                 name: selectedConn?.name || "",
               })}
             </p>
+            {deployResult.irreversibleWarnings.length > 0 && (
+              <div className="mt-3 space-y-1 rounded-sm border border-amber-500/40 bg-amber-500/5 p-2.5 text-left text-[11px] text-amber-300">
+                <p className="font-semibold">{t("deployment.rollbackIrreversibleTitle")}</p>
+                <ul className="list-disc space-y-0.5 pl-4">
+                  {deployResult.irreversibleWarnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
+        )}
+
+        {/* Step 5: Deployment history for this connection, with rollback */}
+        {activeStep === "history" && selectedConnId && (
+          <DeploymentHistoryPanel projectId={props.projectId} connId={selectedConnId} engine={selectedConn?.engine} />
         )}
 
         {error && <ErrorText>{error}</ErrorText>}

@@ -45,12 +45,17 @@ export class MysqlDriver implements DatabaseDriver {
 
   constructor(config: DatabaseConnectionConfig) {
     this.databaseName = config.database || "mysql";
+    // `multipleStatements` used to be needed here so `executeMigration` could
+    // hand the whole generated script to the driver in one `query()` call —
+    // it now runs each statement individually instead (see that method's own
+    // comment for why), so this stays off: one less way a future change to
+    // this driver could accidentally let a single call execute more than the
+    // one statement it was given.
     if (config.connectionString) {
       this.pool = mysql.createPool({
         uri: config.connectionString,
         waitForConnections: true,
         connectionLimit: 5,
-        multipleStatements: true,
       });
     } else {
       this.pool = mysql.createPool({
@@ -61,7 +66,6 @@ export class MysqlDriver implements DatabaseDriver {
         password: config.password,
         waitForConnections: true,
         connectionLimit: 5,
-        multipleStatements: true,
       });
     }
   }
@@ -307,24 +311,45 @@ export class MysqlDriver implements DatabaseDriver {
    * them in (see `migrationGenerator.ts`), so a failure partway through has
    * already permanently applied everything before it — a ROLLBACK at that
    * point would roll back nothing and imply a safety this call can't
-   * actually provide. `executedStatements: 0` on failure is honest about the
-   * *reported* count, not the *applied* one; there is currently no way to
-   * tell the caller how many of the batch actually landed before the error.
+   * actually provide.
+   *
+   * Executed **statement by statement** rather than as one multi-statement
+   * blob (the previous shape, which needed `multipleStatements: true` on the
+   * pool — removed above). That change is what makes `executedStatements`
+   * honest on failure: this used to always report 0 regardless of how much
+   * of the batch actually landed, which was flagged in this same comment as
+   * a real, unresolved gap. Now it's an exact count, and `error` names which
+   * statement (1-indexed, matching what a human counting semicolons in the
+   * SQL preview would call it) failed.
+   *
+   * The split itself is the same naive `split(";")` every driver already
+   * uses just to *count* statements for the success path — extending it to
+   * also *execute* individually inherits the same known limitation: SQL
+   * containing a semicolon inside a string literal (a table/column default
+   * value, say) would be split incorrectly. `migrationGenerator.ts` doesn't
+   * currently produce such a default, so this isn't a change in what's
+   * supported today, only a documented edge this driver doesn't yet handle.
    */
   async executeMigration(sql: string): Promise<MigrationExecutionResult> {
-    try {
-      await this.pool.query(sql);
-      return {
-        success: true,
-        executedStatements: sql.split(";").filter((s) => s.trim().length > 0).length,
-      };
-    } catch (err) {
-      return {
-        success: false,
-        executedStatements: 0,
-        error: err instanceof Error ? err.message : String(err),
-      };
+    const statements = sql
+      .split(";")
+      .map((s) => s.trim())
+      .filter((s) => s.length > 0);
+
+    let executed = 0;
+    for (const statement of statements) {
+      try {
+        await this.pool.query(statement);
+        executed++;
+      } catch (err) {
+        return {
+          success: false,
+          executedStatements: executed,
+          error: `statement ${executed + 1} of ${statements.length} failed: ${err instanceof Error ? err.message : String(err)}`,
+        };
+      }
     }
+    return { success: true, executedStatements: executed };
   }
 
   async close(): Promise<void> {

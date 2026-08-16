@@ -3,7 +3,7 @@ import type { MigrationDiff, MigrationFieldChange, MigrationTableChange } from "
 
 export type MigrationDialect = "postgres" | "mysql" | "sqlite";
 
-function q(ident: string, dialect: MigrationDialect): string {
+export function q(ident: string, dialect: MigrationDialect): string {
   if (dialect === "mysql") return `\`${ident.replace(/`/g, "``")}\``;
   return `"${ident.replace(/"/g, '""')}"`;
 }
@@ -24,7 +24,7 @@ function isSqlExpression(val: string): boolean {
   );
 }
 
-function formatColumnDef(field: Field, dialect: MigrationDialect): string {
+export function formatColumnDef(field: Field, dialect: MigrationDialect): string {
   const parts = [q(field.name, dialect), field.type || "text"];
   if (field.pk) parts.push("PRIMARY KEY");
   if (field.notNull && !field.pk) parts.push("NOT NULL");
@@ -40,7 +40,7 @@ function formatColumnDef(field: Field, dialect: MigrationDialect): string {
   return parts.join(" ");
 }
 
-function generateCreateTable(table: Table, dialect: MigrationDialect): string {
+export function generateCreateTable(table: Table, dialect: MigrationDialect): string {
   const colDefs = table.fields.map((f) => `  ${formatColumnDef(f, dialect)}`);
 
   // Composite PK
@@ -56,7 +56,7 @@ function generateCreateTable(table: Table, dialect: MigrationDialect): string {
   return `CREATE TABLE ${q(table.name, dialect)} (\n${colDefs.join(",\n")}\n);`;
 }
 
-function generateDropTable(tableName: string, dialect: MigrationDialect): string {
+export function generateDropTable(tableName: string, dialect: MigrationDialect): string {
   if (dialect === "postgres") return `DROP TABLE IF EXISTS ${q(tableName, dialect)} CASCADE;`;
   return `DROP TABLE IF EXISTS ${q(tableName, dialect)};`;
 }

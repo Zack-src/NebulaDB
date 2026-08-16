@@ -132,6 +132,107 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 9,
+    name: "users.totp columns",
+    up: (db) => {
+      const columns = db.prepare("PRAGMA table_info(users)").all() as { name: string }[];
+      // Encrypted with the same `ATHANORDB_SECRET`-derived key as a live
+      // connection's credentials (`shared/crypto.ts`) — a TOTP secret is
+      // exactly as sensitive as a database password (whoever has it can log
+      // in as this user), so it gets the same at-rest treatment rather than
+      // sitting in the users table in the clear.
+      if (!columns.some((c) => c.name === "totp_secret_encrypted")) {
+        db.exec("ALTER TABLE users ADD COLUMN totp_secret_encrypted TEXT");
+      }
+      // Null while a setup is pending confirmation (a scanned-but-not-yet-
+      // verified secret must not gate login), set once the enrolling user
+      // proves they can produce a real code.
+      if (!columns.some((c) => c.name === "totp_enabled_at")) {
+        db.exec("ALTER TABLE users ADD COLUMN totp_enabled_at TEXT");
+      }
+    },
+  },
+  {
+    version: 10,
+    name: "totp_backup_codes table",
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS totp_backup_codes (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          code_hash TEXT NOT NULL,
+          used_at TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_totp_backup_codes_user ON totp_backup_codes(user_id);
+      `);
+    },
+  },
+  {
+    version: 11,
+    name: "mfa_challenges table",
+    up: (db) => {
+      // A password has already been verified by the time one of these rows
+      // exists — it holds just enough to finish the second factor (which
+      // user, how many wrong codes so far) without granting any access
+      // itself. Deliberately not a `sessions` row: an MFA-pending login isn't
+      // a session, and giving it one shape would mean every session reader
+      // in the app (WS auth included) would need to know to check for it.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS mfa_challenges (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          remember INTEGER NOT NULL DEFAULT 1,
+          attempts INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          expires_at TEXT NOT NULL
+        );
+      `);
+    },
+  },
+  {
+    version: 12,
+    name: "project_connections.environment column",
+    up: (db) => {
+      const columns = db.prepare("PRAGMA table_info(project_connections)").all() as { name: string }[];
+      // Free-text label ("production", "staging", a client name — whatever
+      // the operator calls it), not an enum: `deployment_history` copies it
+      // at deployment time precisely so a later rename of the connection
+      // doesn't rewrite what past history says it was deployed to.
+      if (!columns.some((c) => c.name === "environment")) {
+        db.exec("ALTER TABLE project_connections ADD COLUMN environment TEXT");
+      }
+    },
+  },
+  {
+    version: 13,
+    name: "deployment_history table",
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS deployment_history (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+          connection_id TEXT REFERENCES project_connections(id) ON DELETE SET NULL,
+          connection_name TEXT NOT NULL,
+          environment TEXT,
+          engine TEXT NOT NULL,
+          sql TEXT NOT NULL,
+          rollback_sql TEXT,
+          rollback_of TEXT REFERENCES deployment_history(id),
+          success INTEGER NOT NULL,
+          executed_statements INTEGER NOT NULL DEFAULT 0,
+          total_statements INTEGER NOT NULL DEFAULT 0,
+          error TEXT,
+          executed_by TEXT,
+          executed_by_email TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_deployment_history_conn ON deployment_history(connection_id, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_deployment_history_project ON deployment_history(project_id);
+      `);
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */

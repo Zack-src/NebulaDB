@@ -57,6 +57,16 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   INVITATION_FAILED: "errors.invitationFailed",
   INTERNAL_ERROR: "errors.internal",
   DATABASE_UNAVAILABLE: "errors.databaseUnavailable",
+  TOTP_ALREADY_ENABLED: "errors.totpAlreadyEnabled",
+  TOTP_NOT_ENABLED: "errors.totpNotEnabled",
+  TOTP_SETUP_NOT_STARTED: "errors.totpSetupNotStarted",
+  TOTP_CODE_REQUIRED: "errors.totpCodeRequired",
+  TOTP_CODE_INCORRECT: "errors.totpCodeIncorrect",
+  MFA_TOKEN_REQUIRED: "errors.mfaTokenRequired",
+  MFA_CHALLENGE_INVALID: "errors.mfaChallengeInvalid",
+  DEPLOYMENT_HISTORY_NOT_FOUND: "errors.deploymentHistoryNotFound",
+  ROLLBACK_NOT_AVAILABLE: "errors.rollbackNotAvailable",
+  ROLLBACK_ALREADY_ATTEMPTED: "errors.rollbackAlreadyAttempted",
 };
 
 /**

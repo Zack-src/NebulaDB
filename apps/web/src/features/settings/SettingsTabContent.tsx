@@ -11,6 +11,7 @@ import { useTranslation } from "@/i18n/useTranslation";
 import type { Session, TranslationKeyOf } from "@/types";
 import { ActiveSessions } from "@/features/settings/ActiveSessions";
 import { PersonalData } from "@/features/settings/PersonalData";
+import { TwoFactorAuth } from "@/features/settings/TwoFactorAuth";
 import type { useSettingsPanelState, SettingsTab } from "@/features/settings/useSettingsPanelState";
 
 const THEME_PRESETS = [
@@ -125,6 +126,7 @@ export function SettingsTabContent({ tab, session, state }: SettingsTabContentPr
           </Button>
         </div>
 
+        <TwoFactorAuth />
         <ActiveSessions />
         <PersonalData />
       </div>

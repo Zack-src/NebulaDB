@@ -5,12 +5,13 @@ import {
   type DatabaseConnectionConfig,
   type MigrationResolutionMap,
 } from "@athanordb/shared";
-import { diffTargetAgainstLive, generateMigrationSql } from "@athanordb/dbml-engine";
+import { diffTargetAgainstLive, generateMigrationSql, generateRollbackSql } from "@athanordb/dbml-engine";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireProjectAccess, requireProjectAdmin } from "../../shared/guards.js";
 import { getRoom } from "../../realtime/room.js";
 import { createDatabaseDriver } from "./drivers/index.js";
+import { getDeploymentHistoryEntry, listDeploymentHistory, recordDeployment } from "./deploymentHistory.js";
 import {
   deleteConnection,
   getConnectionById,
@@ -18,6 +19,11 @@ import {
   saveConnection,
   updateConnection,
 } from "./repository.js";
+
+/** Same naive split every driver already uses to *count* statements — kept here too so a history row's `totalStatements` matches what each driver itself reports. */
+function countStatements(sql: string): number {
+  return sql.split(";").filter((s) => s.trim().length > 0).length;
+}
 
 const VALID_ENGINES = new Set(["postgres", "mysql", "sqlite"]);
 
@@ -184,12 +190,39 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
       const liveProject = await driver.introspectSchema();
       const diff = diffTargetAgainstLive(liveProject, canvasProject);
       const sql = generateMigrationSql(diff, conn.engine, body.resolutions || {});
+      const { sql: rollbackSqlRaw, irreversible } = generateRollbackSql(diff, conn.engine, body.resolutions || {});
+      // The warnings are prepended as SQL comments rather than kept in a
+      // separate column: whoever reads `rollbackSql` later (the history
+      // list, a manual copy-paste into a client) sees them right next to the
+      // statements they qualify, not only if they also thought to check
+      // another field.
+      const rollbackSql = diff.hasChanges
+        ? irreversible.length > 0
+          ? `${irreversible.map((w) => `-- WARNING: ${w}`).join("\n")}\n\n${rollbackSqlRaw}`
+          : rollbackSqlRaw
+        : null;
 
       const result = await driver.executeMigration(sql);
+
+      recordDeployment({
+        projectId: id,
+        connectionId: conn.id,
+        connectionName: conn.name,
+        environment: conn.environment ?? null,
+        engine: conn.engine,
+        sql,
+        rollbackSql: result.executedStatements > 0 ? rollbackSql : null,
+        success: result.success,
+        executedStatements: result.executedStatements,
+        totalStatements: countStatements(sql),
+        error: result.error,
+        executedByEmail: user.email,
+      });
+
       if (!result.success) {
         throw new ApiError("MIGRATION_FAILED", {
           message: `migration failed: ${result.error}`,
-          details: { error: result.error, sql },
+          details: { error: result.error, sql, executedStatements: result.executedStatements },
         });
       }
 
@@ -205,7 +238,79 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
         success: true,
         executedStatements: result.executedStatements,
         sql,
+        rollbackAvailable: Boolean(rollbackSql),
+        irreversibleWarnings: irreversible,
       };
+    } finally {
+      await driver.close().catch(() => {});
+    }
+  });
+
+  // 9. Deployment history for a connection — what actually ran, and when.
+  app.get("/api/projects/:id/connections/:connId/history", async (req) => {
+    const { id, connId } = req.params as { id: string; connId: string };
+    requireProjectAdmin(req, id);
+    return { history: listDeploymentHistory(connId) };
+  });
+
+  /**
+   * 10. Rollback a past deployment: re-runs the best-effort inverse SQL
+   * generated (and stored) at the time that deployment was applied, against
+   * whatever connection it originally targeted. Not offered a second time
+   * once a rollback has actually succeeded — see
+   * `deploymentHistory.ts`'s `rolledBack` for why that's derived, not a flag
+   * that could drift.
+   */
+  app.post("/api/projects/:id/connections/:connId/history/:historyId/rollback", async (req) => {
+    const { id, connId, historyId } = req.params as { id: string; connId: string; historyId: string };
+    const { user } = requireProjectAdmin(req, id);
+
+    const entry = getDeploymentHistoryEntry(historyId);
+    if (!entry || entry.connectionId !== connId || entry.projectId !== id) {
+      throw new ApiError("DEPLOYMENT_HISTORY_NOT_FOUND");
+    }
+    if (!entry.rollbackSql) throw new ApiError("ROLLBACK_NOT_AVAILABLE");
+    if (entry.rolledBack) throw new ApiError("ROLLBACK_ALREADY_ATTEMPTED");
+
+    const conn = getConnectionById(connId);
+    if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
+
+    const driver = await createDatabaseDriver(conn);
+    try {
+      const result = await driver.executeMigration(entry.rollbackSql);
+
+      recordDeployment({
+        projectId: id,
+        connectionId: conn.id,
+        connectionName: conn.name,
+        environment: conn.environment ?? null,
+        engine: conn.engine,
+        sql: entry.rollbackSql,
+        rollbackSql: null, // rolling back a rollback isn't offered
+        rollbackOf: entry.id,
+        success: result.success,
+        executedStatements: result.executedStatements,
+        totalStatements: countStatements(entry.rollbackSql),
+        error: result.error,
+        executedByEmail: user.email,
+      });
+
+      if (!result.success) {
+        throw new ApiError("ROLLBACK_FAILED", {
+          message: `rollback failed: ${result.error}`,
+          details: { error: result.error, executedStatements: result.executedStatements },
+        });
+      }
+
+      auditUser(
+        user,
+        "connection.rollback",
+        { type: "project", id },
+        `${conn.engine}: rolled back deployment ${entry.id}`,
+        req,
+      );
+
+      return { success: true, executedStatements: result.executedStatements };
     } finally {
       await driver.close().catch(() => {});
     }

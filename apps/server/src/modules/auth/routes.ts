@@ -13,6 +13,17 @@ import {
   revokeAllSessions,
   revokeSession,
 } from "./session.js";
+import { verifyTotp } from "./totp.js";
+import {
+  consumeBackupCode,
+  createMfaChallenge,
+  deleteMfaChallenge,
+  getDecryptedSecret,
+  getMfaChallenge,
+  isTotpEnabled,
+  MAX_MFA_ATTEMPTS,
+  recordMfaFailure,
+} from "./totpRepository.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireUser } from "../../shared/guards.js";
 
@@ -81,9 +92,63 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     if (row.disabled_at) throw new ApiError("ACCOUNT_DISABLED");
 
     clearFailures(normalized);
+
+    // The password alone doesn't finish login for a 2FA-enabled account — a
+    // real session cookie is exactly what a second factor exists to gate, so
+    // it must not be issued before one is proven. `mfaToken` identifies the
+    // pending challenge; it authenticates nothing by itself (see
+    // `totpRepository.ts`'s `mfa_challenges` table).
+    if (isTotpEnabled(row.id)) {
+      const mfaToken = createMfaChallenge(row.id, remember !== false);
+      return { mfaRequired: true, mfaToken };
+    }
+
     // Absent means "yes" — the historical 30-day behaviour, so an older client
     // (or a script) that doesn't send the field is unaffected.
     createSession(row.id, reply, req, { remember: remember !== false });
+    return toSessionResponse(row);
+  });
+
+  /**
+   * Second step of a 2FA login: the password has already been verified (that's
+   * what produced `mfaToken`), so this checks only the code — either a live
+   * TOTP code or, as a lost-device fallback, a backup code. Rate limited the
+   * same as the password step, plus a per-challenge attempt cap
+   * (`MAX_MFA_ATTEMPTS`) so guessing can't grind against one indefinitely —
+   * exhausting it discards the challenge outright and the caller has to log
+   * in again from the password step.
+   */
+  app.post("/api/auth/login/totp", LOGIN_RATE_LIMIT, async (req, reply) => {
+    const { mfaToken, code } = (req.body ?? {}) as { mfaToken?: string; code?: string };
+    if (!mfaToken || !code) throw new ApiError("MFA_TOKEN_REQUIRED");
+
+    const challenge = getMfaChallenge(mfaToken);
+    if (!challenge) throw new ApiError("MFA_CHALLENGE_INVALID");
+
+    const secret = getDecryptedSecret(challenge.userId);
+    const ok = Boolean(secret) && (verifyTotp(secret!, code) || consumeBackupCode(challenge.userId, code));
+    if (!ok) {
+      const attempts = recordMfaFailure(challenge.id);
+      if (attempts >= MAX_MFA_ATTEMPTS) {
+        auditUser(null, "auth.login.mfa_locked", { type: "user", id: challenge.userId }, undefined, req);
+        throw new ApiError("MFA_CHALLENGE_INVALID");
+      }
+      throw new ApiError("TOTP_CODE_INCORRECT");
+    }
+
+    const row = db
+      .prepare("SELECT id, email, password_hash, is_admin, display_name, disabled_at FROM users WHERE id = ?")
+      .get(challenge.userId) as UserRow | undefined;
+    // The account could in principle have been disabled in the few minutes
+    // between the password step and this one — re-check rather than trust
+    // the challenge alone.
+    if (!row || row.disabled_at) {
+      deleteMfaChallenge(challenge.id);
+      throw new ApiError("ACCOUNT_DISABLED");
+    }
+
+    deleteMfaChallenge(challenge.id);
+    createSession(row.id, reply, req, { remember: challenge.remember });
     return toSessionResponse(row);
   });
 

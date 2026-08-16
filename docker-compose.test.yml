@@ -1,0 +1,44 @@
+# Throwaway Postgres/MySQL instances for the connections/deployment driver
+# tests (apps/server/src/modules/connections/drivers/*.test.ts). Not part of
+# the app's own stack (see docker-compose.yml) and never referenced by it —
+# separate ports, separate volumes, safe to run alongside a real deployment.
+#
+# Usage:
+#   docker compose -f docker-compose.test.yml up -d
+#   npm run build -w apps/server && npm run test -w apps/server
+#   docker compose -f docker-compose.test.yml down -v
+#
+# The postgres/mysql driver tests skip themselves with an explanatory message
+# if these aren't running — only the sqlite driver test (in-memory, no Docker
+# needed) always runs.
+services:
+  athanordb-test-postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: athanordb_test
+      POSTGRES_PASSWORD: athanordb_test
+      POSTGRES_DB: athanordb_test
+    ports:
+      - "55432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data # scratch data — never needs to survive a restart
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U athanordb_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  athanordb-test-mysql:
+    image: mysql:8.4
+    environment:
+      MYSQL_ROOT_PASSWORD: athanordb_test
+      MYSQL_DATABASE: athanordb_test
+    ports:
+      - "53306:3306"
+    tmpfs:
+      - /var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pathanordb_test"]
+      interval: 2s
+      timeout: 3s
+      retries: 30

@@ -37,6 +37,7 @@ export function ConnectionManagerModal(props: {
 
   // Form state
   const [name, setName] = useState("");
+  const [environment, setEnvironment] = useState("");
   const [engine, setEngine] = useState<DatabaseEngine>("postgres");
   const [host, setHost] = useState("localhost");
   const [port, setPort] = useState(5432);
@@ -56,6 +57,7 @@ export function ConnectionManagerModal(props: {
   const selectConnection = (conn: DatabaseConnectionSummary) => {
     setSelectedId(conn.id);
     setName(conn.name);
+    setEnvironment(conn.environment || "");
     setEngine(conn.engine);
     setHost(conn.host || "localhost");
     setPort(conn.port || DEFAULT_PORTS[conn.engine] || 5432);
@@ -116,6 +118,7 @@ export function ConnectionManagerModal(props: {
   const handleNew = () => {
     setSelectedId("new");
     setName("Dev Database");
+    setEnvironment("");
     setEngine("postgres");
     setHost("localhost");
     setPort(5432);
@@ -143,6 +146,7 @@ export function ConnectionManagerModal(props: {
     id: selectedId === "new" ? "" : selectedId,
     projectId: props.projectId,
     name: name.trim() || "Database",
+    environment: environment.trim() || undefined,
     engine,
     host: useUri || engine === "sqlite" ? undefined : host,
     port: useUri || engine === "sqlite" ? undefined : Number(port),
@@ -266,6 +270,9 @@ export function ConnectionManagerModal(props: {
                   <div className="flex min-w-0 items-center gap-2">
                     <DatabaseIcon size={13} className="shrink-0 text-text-muted" />
                     <span className="truncate">{c.name}</span>
+                    {c.environment && (
+                      <span className="shrink-0 truncate text-[10px] text-text-muted">({c.environment})</span>
+                    )}
                   </div>
                   <Badge tone={c.engine === "postgres" ? "admin" : c.engine === "mysql" ? "warning" : "muted"}>
                     {c.engine}
@@ -317,6 +324,17 @@ export function ConnectionManagerModal(props: {
                 <option value="mysql">{t("connections.engine.mysql")}</option>
                 <option value="sqlite">{t("connections.engine.sqlite")}</option>
               </select>
+            </div>
+
+            <div className="col-span-2">
+              <label className="mb-1 block text-xs font-medium text-text-muted">{t("connections.environment")}</label>
+              <input
+                className={INPUT_CLASS}
+                value={environment}
+                onChange={(e) => setEnvironment(e.target.value)}
+                placeholder={t("connections.environmentPlaceholder")}
+              />
+              <Hint>{t("connections.environmentHint")}</Hint>
             </div>
           </div>
 

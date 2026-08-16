@@ -1,13 +1,14 @@
 import crypto from "node:crypto";
 import type { DatabaseConnectionConfig, DatabaseConnectionSummary, DatabaseEngine } from "@athanordb/shared";
 import { db } from "../../infrastructure/db.js";
-import { decryptPayload, encryptPayload } from "./crypto.js";
+import { decryptPayload, encryptPayload } from "../../shared/crypto.js";
 
 interface ConnectionRow {
   id: string;
   project_id: string;
   name: string;
   engine: string;
+  environment: string | null;
   config_encrypted: string;
   created_at: string;
   updated_at: string;
@@ -20,6 +21,7 @@ function rowToSummary(row: ConnectionRow): DatabaseConnectionSummary {
     projectId: row.project_id,
     name: row.name,
     engine: row.engine as DatabaseEngine,
+    environment: row.environment ?? undefined,
     host: config.host,
     port: config.port,
     database: config.database,
@@ -50,6 +52,7 @@ export function getConnectionById(id: string): DatabaseConnectionConfig | null {
     projectId: row.project_id,
     name: row.name,
     engine: row.engine as DatabaseEngine,
+    environment: row.environment ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -64,10 +67,10 @@ export function saveConnection(
 
   db.prepare(
     `
-    INSERT INTO project_connections (id, project_id, name, engine, config_encrypted, created_at, updated_at)
-    VALUES (?, ?, ?, ?, ?, datetime('now'), datetime('now'))
+    INSERT INTO project_connections (id, project_id, name, engine, environment, config_encrypted, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, ?, datetime('now'), datetime('now'))
   `,
-  ).run(id, projectId, config.name, config.engine, encrypted);
+  ).run(id, projectId, config.name, config.engine, config.environment?.trim() || null, encrypted);
 
   const row = db.prepare("SELECT * FROM project_connections WHERE id = ?").get(id) as ConnectionRow;
   return rowToSummary(row);
@@ -88,14 +91,20 @@ export function updateConnection(
   };
 
   const encrypted = encryptPayload(merged);
+  // `environment` is stored in its own plain column (not part of the
+  // encrypted blob) purely so `deploymentHistory.ts` can read it with a
+  // simple join-free query when stamping a history row — it's an operator
+  // label, not a secret, so there's no reason to pay the decrypt cost to
+  // read it back.
+  const environment = (updates.environment !== undefined ? updates.environment : existing.environment)?.trim() || null;
 
   db.prepare(
     `
     UPDATE project_connections
-    SET name = ?, engine = ?, config_encrypted = ?, updated_at = datetime('now')
+    SET name = ?, engine = ?, environment = ?, config_encrypted = ?, updated_at = datetime('now')
     WHERE id = ?
   `,
-  ).run(merged.name, merged.engine, encrypted, id);
+  ).run(merged.name, merged.engine, environment, encrypted, id);
 
   const row = db.prepare("SELECT * FROM project_connections WHERE id = ?").get(id) as ConnectionRow;
   return rowToSummary(row);

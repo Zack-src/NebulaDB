@@ -87,6 +87,14 @@ Every workspace uses plain `node:test` — no vitest, no jest, no jsdom.
 Write tests for logic that can be exercised without a browser; say so in the PR
 when something could only be checked manually, and say what you actually ran.
 
+**Live database drivers** (`apps/server/src/modules/connections/drivers/`):
+the Postgres and MySQL driver tests need real throwaway instances — spin them
+up with `docker compose -f docker-compose.test.yml up -d` before running
+`npm test`. Without that running, those two test files skip themselves with
+an explanatory message rather than failing; CI always runs them for real (see
+the `services:` block in `.github/workflows/ci.yml`). The SQLite driver test
+needs no setup — it runs against `:memory:`.
+
 ## Database changes
 
 Schema changes go in `apps/server/src/migrations.ts` as a new entry in

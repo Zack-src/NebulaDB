@@ -13,6 +13,37 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Throwaway Postgres/MySQL for the connections/deployment driver tests
+    # (apps/server/src/modules/connections/drivers/{postgres,mysql}.test.ts).
+    # Same ports/credentials as docker-compose.test.yml, which contributors
+    # use to run the same tests locally — see that file for details. Without
+    # these, those two test files skip themselves rather than fail.
+    services:
+      athanordb-test-postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: athanordb_test
+          POSTGRES_PASSWORD: athanordb_test
+          POSTGRES_DB: athanordb_test
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U athanordb_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+      athanordb-test-mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: athanordb_test
+          MYSQL_DATABASE: athanordb_test
+        ports:
+          - 53306:3306
+        options: >-
+          --health-cmd "mysqladmin ping -h localhost -uroot -pathanordb_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
     steps:
       - uses: actions/checkout@v4
 

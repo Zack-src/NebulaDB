@@ -146,6 +146,8 @@ export interface DatabaseConnectionConfig {
   projectId: string;
   name: string;
   engine: DatabaseEngine;
+  /** Free-text operator label ("production", "staging", a client name) — never interpreted by the app, only shown and recorded on `DeploymentHistoryEntry` so history still reads correctly after the connection is later renamed or deleted. */
+  environment?: string;
   host?: string;
   port?: number;
   database?: string;
@@ -163,6 +165,7 @@ export interface DatabaseConnectionSummary {
   projectId: string;
   name: string;
   engine: DatabaseEngine;
+  environment?: string;
   host?: string;
   port?: number;
   database?: string;
@@ -173,6 +176,35 @@ export interface DatabaseConnectionSummary {
   filePath?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * One past deployment (or rollback of one) against a connection — the record
+ * `apply-deployment` and `rollback` leave behind so "what actually ran
+ * against production, and when" survives the connection being renamed or
+ * even deleted (`connectionName`/`environment` are a snapshot at the time,
+ * not a live join).
+ */
+export interface DeploymentHistoryEntry {
+  id: string;
+  projectId: string;
+  connectionId: string | null;
+  connectionName: string;
+  environment?: string;
+  engine: DatabaseEngine;
+  sql: string;
+  /** Best-effort inverse SQL generated at deployment time, or null if this entry is itself a rollback (rolling back a rollback isn't offered). */
+  rollbackSql: string | null;
+  /** Set when this entry *is* a rollback — the id of the deployment it reversed. */
+  rollbackOf: string | null;
+  success: boolean;
+  executedStatements: number;
+  totalStatements: number;
+  error?: string;
+  executedByEmail: string | null;
+  createdAt: string;
+  /** True once a successful rollback of this entry exists — the rollback action is offered at most once. */
+  rolledBack: boolean;
 }
 
 export type SchemaDiffRiskType =

@@ -1,6 +1,7 @@
 import type {
   DatabaseConnectionConfig,
   DatabaseConnectionSummary,
+  DeploymentHistoryEntry,
   MigrationResolutionMap,
   SchemaRisk,
 } from "@athanordb/shared";
@@ -25,6 +26,13 @@ export interface ApplyDeploymentResponse {
   success: boolean;
   executedStatements: number;
   sql: string;
+  rollbackAvailable: boolean;
+  irreversibleWarnings: string[];
+}
+
+export interface RollbackResponse {
+  success: boolean;
+  executedStatements: number;
 }
 
 export async function listProjectConnections(projectId: string): Promise<DatabaseConnectionSummary[]> {
@@ -94,5 +102,23 @@ export async function applyDeployment(
   return request<ApplyDeploymentResponse>(`/api/projects/${projectId}/connections/${connId}/apply-deployment`, {
     method: "POST",
     body: { resolutions },
+  });
+}
+
+export async function listDeploymentHistory(projectId: string, connId: string): Promise<DeploymentHistoryEntry[]> {
+  const res = await request<{ history: DeploymentHistoryEntry[] }>(
+    `/api/projects/${projectId}/connections/${connId}/history`,
+  );
+  return res.history;
+}
+
+export async function rollbackDeployment(
+  projectId: string,
+  connId: string,
+  historyId: string,
+): Promise<RollbackResponse> {
+  return request<RollbackResponse>(`/api/projects/${projectId}/connections/${connId}/history/${historyId}/rollback`, {
+    method: "POST",
+    body: {},
   });
 }

@@ -5,6 +5,7 @@ import { db } from "./infrastructure/db.js";
 import { backupTimestamp, pruneOldBackups, runBackup } from "./infrastructure/backupRunner.js";
 import { purgeStaleAttempts } from "./modules/auth/lockout.js";
 import { purgeExpiredSessions } from "./modules/auth/session.js";
+import { purgeExpiredMfaChallenges } from "./modules/auth/totpRepository.js";
 import { closeAllRooms, flushAllRooms } from "./realtime/room.js";
 import { purgeOldAuditEntries } from "./shared/audit.js";
 
@@ -27,6 +28,12 @@ const sweepSessions = () => {
     const audits = purgeOldAuditEntries(config.auditRetentionDays);
     if (audits > 0)
       app.log.info(`purged ${audits} audit entry(ies) past the ${config.auditRetentionDays}-day retention`);
+    // MFA challenges are already short-lived (5 minutes) and `getMfaChallenge`
+    // refuses an expired one on its own, but an abandoned login (password
+    // step completed, second factor never entered) otherwise leaves a dead
+    // row behind forever.
+    const challenges = purgeExpiredMfaChallenges();
+    if (challenges > 0) app.log.info(`purged ${challenges} expired MFA challenge(s)`);
   } catch (err) {
     app.log.error({ err }, "session sweep failed");
   }

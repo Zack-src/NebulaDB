@@ -1,24 +1,29 @@
 import crypto from "node:crypto";
-import { ApiError } from "../../shared/errors.js";
+import { ApiError } from "./errors.js";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;
 
 /**
- * A live database connection's credentials are the first thing this app has
- * ever encrypted at rest — everything else in `docs/todo.md`'s security pass
- * (Phase 13/19) is about the app's *own* auth, not a secret handed to it for
- * someone else's database.
+ * Generic at-rest encryption keyed by `ATHANORDB_SECRET`, shared by every
+ * caller that needs to store something more sensitive than a hash: a live
+ * database connection's credentials (`modules/connections`, the first thing
+ * this app ever encrypted at rest — see `docs/todo.md` Phase 27) and a TOTP
+ * secret (`modules/auth/totp.ts`) both go through this one file rather than
+ * each rolling their own AES call. Originally lived under
+ * `modules/connections/` and moved here once a second, unrelated caller
+ * needed the same primitive — a module named after one feature is the wrong
+ * home for a cross-cutting one.
  *
  * There is deliberately no fallback key derived from something already on
  * disk (the DB path, a hardcoded string): this file is public — MIT-licensed,
  * on GitHub — so any fallback baked into it is not a secret, and encrypting
  * with it would be worse than not encrypting at all (it *looks* protected).
- * Failing loudly here, at the point the feature is actually used, matches
+ * Failing loudly here, at the point a feature actually needs it, matches
  * `config.ts`'s "fail fast on a missing secret" policy for the cookie
  * signing key — just scoped to the one request path that needs it, so a
- * fresh install that never configures a live DB connection isn't refused a
- * boot over an unrelated env var.
+ * fresh install that never configures a live DB connection or 2FA isn't
+ * refused a boot over an unrelated env var.
  */
 function encryptionKey(): Buffer {
   const secret = process.env.ATHANORDB_SECRET;
@@ -31,8 +36,9 @@ function encryptionKey(): Buffer {
     // end that only shows up in the server's own log.
     throw new ApiError("CONNECTION_SECRET_MISSING", {
       message:
-        "ATHANORDB_SECRET must be set to store a database connection — it is the encryption key for connection " +
-        "credentials at rest. Generate one with `openssl rand -hex 32` and set it before creating a connection.",
+        "ATHANORDB_SECRET must be set before this can be stored — it is the encryption key for sensitive data at " +
+        "rest (database connection credentials, two-factor secrets). Generate one with `openssl rand -hex 32` and " +
+        "set it before using either feature.",
     });
   }
   return crypto.createHash("sha256").update(secret).digest();

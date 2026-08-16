@@ -43,11 +43,16 @@ export type AuditAction =
   | "invitation.revoke"
   | "invitation.accept"
   | "auth.login.locked"
+  | "auth.login.mfa_locked"
+  | "user.totp.enable"
+  | "user.totp.disable"
+  | "user.totp.backup_codes_regenerate"
   | "connection.create"
   | "connection.update"
   | "connection.delete"
   | "connection.pull"
-  | "connection.deploy";
+  | "connection.deploy"
+  | "connection.rollback";
 
 export interface AuditActor {
   id: string | null;

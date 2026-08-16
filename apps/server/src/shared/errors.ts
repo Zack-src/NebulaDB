@@ -40,12 +40,22 @@ export const ERROR_CATALOG = {
   INVITATION_INVALID: { status: 400, message: "this invitation is no longer valid" },
   CONNECTION_ENGINE_INVALID: { status: 400, message: "engine must be one of postgres, mysql, sqlite" },
   CONNECTION_TARGET_FORBIDDEN: { status: 400, message: "this connection target is not allowed" },
+  TOTP_ALREADY_ENABLED: { status: 400, message: "two-factor authentication is already enabled" },
+  TOTP_NOT_ENABLED: { status: 400, message: "two-factor authentication is not enabled" },
+  TOTP_SETUP_NOT_STARTED: { status: 400, message: "start two-factor setup before confirming it" },
+  TOTP_CODE_REQUIRED: { status: 400, message: "a verification code is required" },
+  MFA_TOKEN_REQUIRED: { status: 400, message: "mfaToken and a code are required" },
+  DEPLOYMENT_HISTORY_NOT_FOUND: { status: 400, message: "no such deployment history entry" },
+  ROLLBACK_NOT_AVAILABLE: { status: 400, message: "no rollback SQL is available for this deployment" },
+  ROLLBACK_ALREADY_ATTEMPTED: { status: 400, message: "this deployment has already been rolled back" },
 
   // --- 401 ---
   AUTH_REQUIRED: { status: 401, message: "authentication required" },
   INVALID_CREDENTIALS: { status: 401, message: "invalid email or password" },
   CURRENT_PASSWORD_INCORRECT: { status: 401, message: "current password is incorrect" },
   PASSWORD_INCORRECT: { status: 401, message: "password is incorrect" },
+  TOTP_CODE_INCORRECT: { status: 401, message: "incorrect verification code" },
+  MFA_CHALLENGE_INVALID: { status: 401, message: "this login challenge has expired — sign in again" },
 
   // --- 403 ---
   ADMIN_REQUIRED: { status: 403, message: "administrator access required" },
@@ -79,6 +89,7 @@ export const ERROR_CATALOG = {
     message: "ATHANORDB_SECRET must be configured before a database connection can be stored",
   },
   MIGRATION_FAILED: { status: 502, message: "the migration could not be applied to the target database" },
+  ROLLBACK_FAILED: { status: 502, message: "the rollback could not be applied to the target database" },
 } as const;
 
 export type ApiErrorCode = keyof typeof ERROR_CATALOG;
