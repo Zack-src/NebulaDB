@@ -31,7 +31,7 @@ export interface TableNodeRowProps {
   onHoverEnd: () => void;
   onAddComment: (text: string) => void;
   onDeleteComment: (commentId: string) => void;
-  onUpdateField?: (fieldId: string, updates: Partial<Field>) => void;
+  onUpdateField?: (fieldId: string, updates: Partial<Field> | ((current: Field) => Partial<Field>)) => void;
   onDeleteField?: (fieldId: string) => void;
 }
 
@@ -101,9 +101,9 @@ export const TableNodeRow = forwardRef<HTMLDivElement, TableNodeRowProps>(functi
       <Handle type="target" position={Position.Left} id={`${field.id}-left-target`} className="table-row-handle" />
       <Handle type="source" position={Position.Left} id={`${field.id}-left-source`} className="table-row-handle" />
       <span className={rowNameClass(isLinked)}>{field.name}</span>
-      <FieldBadge isForeignKey={isForeignKey} isPk={isPk} />
 
       <div className={ROW_BADGES_CLASS}>
+        <FieldBadge isForeignKey={isForeignKey} isPk={isPk} />
         {field.unique && (
           <span className={`${KW_BADGE_CLASS} ${KW_BADGE_COLOR.unique}`} data-tooltip={t("field.unique")}>
             <DiamondIcon size={16} />

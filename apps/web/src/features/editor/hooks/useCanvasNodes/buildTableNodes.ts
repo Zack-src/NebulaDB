@@ -73,11 +73,22 @@ export function buildTableNodes(
       ...(!canWrite
         ? {}
         : {
-            onUpdateField: (fieldId: string, updates: Partial<Field>) => {
+            // `updates` may be an updater function so a toggle (`pk: !field.pk`)
+            // is computed from the field as it is in the doc *right now*, not
+            // from whatever value was current when the popover last rendered.
+            // Spam-clicking a toggle fires several of these synchronously
+            // before React/Yjs can re-render the popover in between, so a
+            // plain `!field.pk` closed over stale props would flip back and
+            // forth off the same stale value instead of advancing each click.
+            onUpdateField: (fieldId: string, updates: Partial<Field> | ((current: Field) => Partial<Field>)) => {
               const tables_ = getTablesMap(doc);
               const current = tables_.get(table.id);
               if (!current) return;
-              const updatedFields = current.fields.map((f) => (f.id === fieldId ? { ...f, ...updates } : f));
+              const updatedFields = current.fields.map((f) => {
+                if (f.id !== fieldId) return f;
+                const patch = typeof updates === "function" ? updates(f) : updates;
+                return { ...f, ...patch };
+              });
               tables_.set(table.id, { ...current, fields: updatedFields });
             },
             onAddField: (fieldData: Omit<Field, "id">) => {

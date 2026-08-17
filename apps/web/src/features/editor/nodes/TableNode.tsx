@@ -53,7 +53,7 @@ export interface TableNodeData {
   onStyleChange: (color: string | undefined, borderColor: string | undefined) => void;
   onAddComment: (text: string, fieldId?: string) => void;
   onDeleteComment: (commentId: string) => void;
-  onUpdateField?: (fieldId: string, updates: Partial<Field>) => void;
+  onUpdateField?: (fieldId: string, updates: Partial<Field> | ((current: Field) => Partial<Field>)) => void;
   onAddField?: (field: Omit<Field, "id">) => void;
   onDeleteField?: (fieldId: string) => void;
   onAddIndex?: (fieldIds: string[], opts: { unique?: boolean; pk?: boolean; name?: string }) => void;

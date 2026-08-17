@@ -74,10 +74,34 @@ export function useEditorLifecycle(
     const view = viewRef.current;
     if (!view) return;
     const current = view.state.doc.toString();
-    if (props.value === current) return;
+    const next = props.value;
+    if (next === current) return;
+
+    // A schema resync (e.g. one attribute toggled on one column) used to
+    // replace the *whole* buffer (`from: 0, to: current.length`) even though
+    // only a few characters actually differ — CodeMirror then re-tokenizes
+    // and re-highlights the entire document on every sync, which is why the
+    // DBML pane visibly lagged behind the toggle button (an isolated,
+    // constant-cost DOM update) on anything but a tiny schema. Trimming to
+    // the smallest changed range keeps the edit — and the resulting
+    // re-render — proportional to what actually changed.
+    let start = 0;
+    const maxStart = Math.min(current.length, next.length);
+    while (start < maxStart && current.charCodeAt(start) === next.charCodeAt(start)) start++;
+    let endCurrent = current.length;
+    let endNext = next.length;
+    while (
+      endCurrent > start &&
+      endNext > start &&
+      current.charCodeAt(endCurrent - 1) === next.charCodeAt(endNext - 1)
+    ) {
+      endCurrent--;
+      endNext--;
+    }
+
     view.dispatch({
-      changes: { from: 0, to: current.length, insert: props.value },
-      selection: { anchor: Math.min(view.state.selection.main.anchor, props.value.length) },
+      changes: { from: start, to: endCurrent, insert: next.slice(start, endNext) },
+      selection: { anchor: Math.min(view.state.selection.main.anchor, next.length) },
     });
   }, [props.value, viewRef]);
 

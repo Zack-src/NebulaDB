@@ -44,7 +44,7 @@ export interface FieldEditorPopoverProps {
   field: Field;
   comments: Comment[];
   currentUser: string;
-  onUpdateField?: (fieldId: string, updates: Partial<Field>) => void;
+  onUpdateField?: (fieldId: string, updates: Partial<Field> | ((current: Field) => Partial<Field>)) => void;
   onDeleteField?: (fieldId: string) => void;
   onAddComment: (text: string) => void;
   onDeleteComment: (commentId: string) => void;
@@ -77,7 +77,8 @@ export function FieldEditorPopover({
   const triggerRef = useRef<HTMLButtonElement>(null);
   const popoverRef = useRef<HTMLDivElement>(null);
 
-  const update = (updates: Partial<Field>) => onUpdateField?.(field.id, updates);
+  const update = (updates: Partial<Field> | ((current: Field) => Partial<Field>)) =>
+    onUpdateField?.(field.id, updates);
 
   const name = useDraftValue(field.name, (next) => update({ name: next }));
   const type = useDraftValue(field.type, (next) => update({ type: next }));
@@ -108,7 +109,7 @@ export function FieldEditorPopover({
       icon: <KeyIcon size={12} />,
       labelKey: "field.primaryKey",
       tooltipKey: "field.primaryKeyTooltip",
-      apply: () => update({ pk: !field.pk }),
+      apply: () => update((f) => ({ pk: !f.pk })),
     },
     {
       active: field.unique,
@@ -116,7 +117,7 @@ export function FieldEditorPopover({
       icon: <DiamondIcon size={10} />,
       labelKey: "field.unique",
       tooltipKey: "field.uniqueTooltip",
-      apply: () => update({ unique: !field.unique }),
+      apply: () => update((f) => ({ unique: !f.unique })),
     },
     {
       active: field.notNull,
@@ -124,7 +125,7 @@ export function FieldEditorPopover({
       icon: <AsteriskIcon size={11} />,
       labelKey: "field.notNull",
       tooltipKey: "field.notNullTooltip",
-      apply: () => update({ notNull: !field.notNull }),
+      apply: () => update((f) => ({ notNull: !f.notNull })),
     },
     {
       active: field.increment,
@@ -132,7 +133,7 @@ export function FieldEditorPopover({
       icon: <IncrementIcon size={11} />,
       labelKey: "field.increment",
       tooltipKey: "field.incrementTooltip",
-      apply: () => update({ increment: !field.increment }),
+      apply: () => update((f) => ({ increment: !f.increment })),
     },
   ] as const;
 
