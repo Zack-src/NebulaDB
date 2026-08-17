@@ -65,6 +65,14 @@
   cursor: crosshair !important;
 }
 
+/* React Flow puts the pane in "selection" mode (box-select armed) whenever
+   panOnDrag is off, and its own stylesheet flips the cursor to pointer for
+   that whole state — even during a plain hover, not just while a box-select
+   drag is in progress. Nothing under a bare hover is actually clickable. */
+.react-flow__pane.selection {
+  cursor: default !important;
+}
+
 .react-flow__controls .react-flow__controls-button {
   height: 28px !important;
   width: 28px !important;
