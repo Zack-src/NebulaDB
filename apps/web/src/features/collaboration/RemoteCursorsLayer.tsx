@@ -38,6 +38,7 @@ export function RemoteCursorsLayer({ awareness }: { awareness: Awareness | null 
             style={{
               position: "absolute",
               transform: `translate(${state.cursor.x}px, ${state.cursor.y}px)`,
+              transition: "transform 100ms linear",
               pointerEvents: "none",
               zIndex: 1000,
             }}
