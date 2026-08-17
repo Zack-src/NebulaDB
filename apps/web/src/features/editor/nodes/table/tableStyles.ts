@@ -36,8 +36,8 @@ export const ROW_BADGES_CLASS = "ml-0.5 flex items-center gap-[3px]";
 export const KW_BADGE_CLASS = "flex h-4 w-4 shrink-0 items-center justify-center leading-none";
 export const KW_BADGE_COLOR: Record<"unique" | "notNull" | "increment" | "note", string> = {
   unique: "text-primary-hover",
-  notNull: "text-[#38bdf8]",
-  increment: "text-success",
+  notNull: "text-info-hover",
+  increment: "text-success-hover",
   note: "cursor-help text-text-secondary",
 };
 
@@ -106,12 +106,29 @@ export const FIELD_TYPE_CHIP_CLASS =
   "transition-all duration-100 hover:border-primary-border hover:text-text";
 export const FIELD_TYPE_CHIP_ACTIVE_CLASS = "border-primary-border bg-primary-light font-semibold text-primary-hover";
 
+/**
+ * `select-none`: without it, clicking one of these fast enough for the
+ * browser to read it as a double-click selects the button's label text
+ * instead of firing a second discrete click — the selection drag eats the
+ * click that was supposed to toggle the attribute again, which is why
+ * spam-clicking used to intermittently "lose" a click. The shared `Button`
+ * component already carries this in its base class; these are hand-rolled
+ * `<button>`s that had fallen out of that convention.
+ */
 export const KW_TOGGLE_BASE_CLASS =
-  "flex items-center justify-center gap-[5px] rounded-sm border border-border bg-bg px-2 py-[5px] text-[11px] " +
+  "flex select-none items-center justify-center gap-[5px] rounded-sm border border-border bg-bg px-2 py-[5px] text-[11px] " +
   "font-medium text-text-secondary transition-all duration-100 hover:bg-surface-hover hover:text-text";
+/**
+ * All four attribute toggles share one visual pattern — `text-{c}-hover
+ * bg-{c}-light border-{c}-border` — so an active toggle always reads as
+ * "tinted text + tinted fill + tinted border", never just one of the three.
+ * Kept as literal strings (not built from a token name at runtime) because
+ * Tailwind's JIT scanner only picks up class names it can see verbatim in
+ * source.
+ */
 export const KW_TOGGLE_ACTIVE_CLASS: Record<"pk" | "unique" | "notNull" | "increment", string> = {
-  pk: "font-semibold text-warning bg-[rgba(251,191,36,0.16)] border-[rgba(251,191,36,0.45)]",
+  pk: "font-semibold text-warning-hover bg-warning-light border-warning-border",
   unique: "font-semibold text-primary-hover bg-primary-light border-primary-border",
-  notNull: "font-semibold text-[#38bdf8] bg-[rgba(56,189,248,0.16)] border-[rgba(56,189,248,0.45)]",
-  increment: "font-semibold text-success bg-[rgba(52,211,153,0.16)] border-[rgba(52,211,153,0.45)]",
+  notNull: "font-semibold text-info-hover bg-info-light border-info-border",
+  increment: "font-semibold text-success-hover bg-success-light border-success-border",
 };

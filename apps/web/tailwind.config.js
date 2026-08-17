@@ -55,14 +55,26 @@ export default {
           DEFAULT: "var(--color-danger)",
           hover: "var(--color-danger-hover)",
           light: "var(--color-danger-light)",
+          border: "var(--color-danger-border)",
         },
         warning: {
           DEFAULT: "var(--color-warning)",
+          hover: "var(--color-warning-hover)",
           light: "var(--color-warning-light)",
+          border: "var(--color-warning-border)",
         },
         success: {
           DEFAULT: "var(--color-success)",
+          hover: "var(--color-success-hover)",
           light: "var(--color-success-light)",
+          border: "var(--color-success-border)",
+        },
+        // NOT NULL toggle's colour — previously a raw `#38bdf8` with no token.
+        info: {
+          DEFAULT: "var(--color-info)",
+          hover: "var(--color-info-hover)",
+          light: "var(--color-info-light)",
+          border: "var(--color-info-border)",
         },
       },
       // Every rung is listed, including the ones Tailwind ships itself: a gap

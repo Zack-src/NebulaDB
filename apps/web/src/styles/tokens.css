@@ -38,12 +38,22 @@
   --color-accent-cyan: #06b6d4;
 
   --color-success: #10b981;
+  --color-success-hover: #34d399;
   --color-success-light: rgba(16, 185, 129, 0.14);
+  --color-success-border: rgba(16, 185, 129, 0.45);
   --color-warning: #f59e0b;
+  --color-warning-hover: #fbbf24;
   --color-warning-light: rgba(245, 158, 11, 0.14);
+  --color-warning-border: rgba(245, 158, 11, 0.45);
   --color-danger: #ef4444;
   --color-danger-hover: #f87171;
   --color-danger-light: rgba(239, 68, 68, 0.14);
+  --color-danger-border: rgba(239, 68, 68, 0.45);
+  /* "Info" — column NOT NULL toggle's colour, previously a raw hex with no token. */
+  --color-info: #38bdf8;
+  --color-info-hover: #7dd3fc;
+  --color-info-light: rgba(56, 189, 248, 0.16);
+  --color-info-border: rgba(56, 189, 248, 0.45);
 
   /* Canvas-only surfaces that aren't part of the chrome palette above but
      still need to invert between themes: the React Flow grid dots and the
@@ -150,12 +160,21 @@
   --color-accent-cyan: #0891b2;
 
   --color-success: #059669;
+  --color-success-hover: #047857;
   --color-success-light: rgba(5, 150, 105, 0.12);
+  --color-success-border: rgba(5, 150, 105, 0.35);
   --color-warning: #b45309;
+  --color-warning-hover: #92400e;
   --color-warning-light: rgba(180, 83, 9, 0.12);
+  --color-warning-border: rgba(180, 83, 9, 0.35);
   --color-danger: #dc2626;
   --color-danger-hover: #b91c1c;
   --color-danger-light: rgba(220, 38, 38, 0.12);
+  --color-danger-border: rgba(220, 38, 38, 0.35);
+  --color-info: #0284c7;
+  --color-info-hover: #0369a1;
+  --color-info-light: rgba(2, 132, 199, 0.12);
+  --color-info-border: rgba(2, 132, 199, 0.35);
 
   --color-canvas-grid: #d7dae2;
   --color-editor-bg: #fbfcfe;
