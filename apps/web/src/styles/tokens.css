@@ -55,7 +55,7 @@
   --color-editor-gutter-bg: #17181b;
   --color-editor-gutter-text: #475569;
   --color-editor-border: #27272a;
-  --color-editor-active-line: #1e2024;
+  --color-editor-active-line: rgba(255, 255, 255, 0.04);
   --color-editor-active-gutter-text: #94a3b8;
   --color-editor-selection: #334155;
   --color-editor-tooltip-bg: #1e2024;
@@ -162,7 +162,7 @@
   --color-editor-gutter-bg: #fbfcfe;
   --color-editor-gutter-text: #94a3b8;
   --color-editor-border: #e2e5ec;
-  --color-editor-active-line: #f1f3f8;
+  --color-editor-active-line: rgba(15, 23, 42, 0.035);
   --color-editor-active-gutter-text: #475569;
   --color-editor-selection: #c7d2fe;
   --color-editor-tooltip-bg: #ffffff;
