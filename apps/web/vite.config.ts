@@ -95,6 +95,8 @@ export default defineConfig({
   },
   server: {
     port: WEB_PORT,
+    // Bind all interfaces so other machines on LAN reach dev server, not just localhost.
+    host: true,
     proxy: {
       "/api": {
         target: `http://localhost:${API_PORT}`,

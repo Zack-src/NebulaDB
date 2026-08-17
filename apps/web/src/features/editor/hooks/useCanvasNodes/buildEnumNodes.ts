@@ -1,6 +1,7 @@
 import * as Y from "yjs";
 import { getEnumsMap, type EnumDef, type EnumValue } from "@athanordb/shared";
 import type { EnumNodeType } from "@/features/editor/nodes/EnumNode";
+import { generateId } from "@/utils/id";
 
 export function buildEnumNodes(enums: EnumDef[], doc: Y.Doc, canWrite = true): EnumNodeType[] {
   return enums.map((enumDef) => ({
@@ -19,7 +20,7 @@ export function buildEnumNodes(enums: EnumDef[], doc: Y.Doc, canWrite = true): E
         const enumsMap = getEnumsMap(doc);
         const current = enumsMap.get(enumDef.id);
         if (!current) return;
-        const value: EnumValue = { id: crypto.randomUUID(), name: `value_${current.values.length + 1}` };
+        const value: EnumValue = { id: generateId(), name: `value_${current.values.length + 1}` };
         enumsMap.set(enumDef.id, { ...current, values: [...current.values, value] });
       },
       onRenameValue: (valueId: string, name: string) => {

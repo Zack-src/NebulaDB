@@ -14,13 +14,14 @@ import {
 import { computeAutoLayout } from "@/features/editor/canvas/autoLayout";
 import type { RefEdgeType } from "@/features/editor/edges/RefEdge";
 import type { CanvasNode } from "@/types/index";
+import { generateId } from "@/utils/id";
 
 /** Every doc-mutating action the project toolbar/canvas can trigger — add/duplicate elements, connect/delete refs, bulk detail-level and layout changes. */
 export function useProjectMutations(liveProject: Project | null, doc: Y.Doc | null, nodes: CanvasNode[]) {
   const addTable = (position?: { x: number; y: number }) => {
     if (!doc) return;
     const tables = getTablesMap(doc);
-    const id = crypto.randomUUID();
+    const id = generateId();
     const index = tables.size;
     tables.set(id, {
       id,
@@ -31,7 +32,7 @@ export function useProjectMutations(liveProject: Project | null, doc: Y.Doc | nu
       // the user edits any other table before giving this one a column).
       // Seeding an id column sidesteps that entirely, and matches how every
       // other schema tool (dbdiagram included) seeds a new table.
-      fields: [{ id: crypto.randomUUID(), name: "id", type: "int", pk: true, increment: true }],
+      fields: [{ id: generateId(), name: "id", type: "int", pk: true, increment: true }],
       indexes: [],
       position: position ?? { x: (index % 6) * 260, y: Math.floor(index / 6) * 200 },
       detailLevel: "standard",
@@ -41,7 +42,7 @@ export function useProjectMutations(liveProject: Project | null, doc: Y.Doc | nu
   const addZone = (position?: { x: number; y: number }) => {
     if (!doc) return;
     const zones = getZonesMap(doc);
-    const id = crypto.randomUUID();
+    const id = generateId();
     zones.set(id, {
       id,
       label: "Zone",
@@ -54,7 +55,7 @@ export function useProjectMutations(liveProject: Project | null, doc: Y.Doc | nu
   const addStickyNote = (position?: { x: number; y: number }) => {
     if (!doc) return;
     const stickyNotes = getStickyNotesMap(doc);
-    const id = crypto.randomUUID();
+    const id = generateId();
     stickyNotes.set(id, {
       id,
       text: "",
@@ -67,12 +68,12 @@ export function useProjectMutations(liveProject: Project | null, doc: Y.Doc | nu
   const addEnum = (position?: { x: number; y: number }) => {
     if (!doc) return;
     const enums = getEnumsMap(doc);
-    const id = crypto.randomUUID();
+    const id = generateId();
     const index = enums.size;
     enums.set(id, {
       id,
       name: `enum_${index + 1}`,
-      values: [{ id: crypto.randomUUID(), name: "value_1" }],
+      values: [{ id: generateId(), name: "value_1" }],
       position: position ?? { x: 40, y: 40 },
     });
   };
@@ -81,7 +82,7 @@ export function useProjectMutations(liveProject: Project | null, doc: Y.Doc | nu
   const groupSelectedTables = (tableIds: string[]) => {
     if (!doc || tableIds.length < 2) return;
     const groups = getTableGroupsMap(doc);
-    const id = crypto.randomUUID();
+    const id = generateId();
     groups.set(id, { id, name: `group_${groups.size + 1}`, tableIds });
   };
 
@@ -137,8 +138,8 @@ export function useProjectMutations(liveProject: Project | null, doc: Y.Doc | nu
         if (node.type === "table") {
           const tables = getTablesMap(doc);
           const src = node.data.table;
-          const fieldIdMap = new Map(src.fields.map((f) => [f.id, crypto.randomUUID()]));
-          const id = crypto.randomUUID();
+          const fieldIdMap = new Map(src.fields.map((f) => [f.id, generateId()]));
+          const id = generateId();
           tables.set(id, {
             ...src,
             id,
@@ -147,30 +148,30 @@ export function useProjectMutations(liveProject: Project | null, doc: Y.Doc | nu
             fields: src.fields.map((f) => ({ ...f, id: fieldIdMap.get(f.id)! })),
             indexes: src.indexes.map((idx) => ({
               ...idx,
-              id: crypto.randomUUID(),
+              id: generateId(),
               fieldIds: idx.fieldIds.map((fid) => fieldIdMap.get(fid) ?? fid),
             })),
           });
         } else if (node.type === "zone") {
           const zones = getZonesMap(doc);
           const src = node.data.zone;
-          const id = crypto.randomUUID();
+          const id = generateId();
           zones.set(id, { ...src, id, position: { x: src.position.x + OFFSET, y: src.position.y + OFFSET } });
         } else if (node.type === "sticky") {
           const stickyNotes = getStickyNotesMap(doc);
           const src = node.data.note;
-          const id = crypto.randomUUID();
+          const id = generateId();
           stickyNotes.set(id, { ...src, id, position: { x: src.position.x + OFFSET, y: src.position.y + OFFSET } });
         } else if (node.type === "enum") {
           const enums = getEnumsMap(doc);
           const src = node.data.enumDef;
-          const id = crypto.randomUUID();
+          const id = generateId();
           enums.set(id, {
             ...src,
             id,
             name: `${src.name}_copy`,
             position: { x: src.position.x + OFFSET, y: src.position.y + OFFSET },
-            values: src.values.map((v) => ({ ...v, id: crypto.randomUUID() })),
+            values: src.values.map((v) => ({ ...v, id: generateId() })),
           });
         }
       }
@@ -221,7 +222,7 @@ export function useProjectMutations(liveProject: Project | null, doc: Y.Doc | nu
       if (connection.source === connection.target && fromFieldId === toFieldId) return;
 
       const refs = getRefsMap(doc);
-      const id = crypto.randomUUID();
+      const id = generateId();
       refs.set(id, {
         id,
         from: { tableId: connection.source, fieldId: fromFieldId },

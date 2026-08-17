@@ -1,6 +1,7 @@
 import * as Y from "yjs";
 import { getRefsMap, getTablesMap, type Comment, type Field, type Table, type TableIndex } from "@athanordb/shared";
 import type { TableNodeType } from "@/features/editor/nodes/TableNode";
+import { generateId } from "@/utils/id";
 
 export function buildTableNodes(
   tables: Table[],
@@ -52,7 +53,7 @@ export function buildTableNodes(
         const current = tables_.get(table.id);
         if (!current) return;
         const comment: Comment = {
-          id: crypto.randomUUID(),
+          id: generateId(),
           author: user,
           text,
           createdAt: new Date().toISOString(),
@@ -95,7 +96,7 @@ export function buildTableNodes(
               const tables_ = getTablesMap(doc);
               const current = tables_.get(table.id);
               if (!current) return;
-              const newField: Field = { id: crypto.randomUUID(), ...fieldData };
+              const newField: Field = { id: generateId(), ...fieldData };
               tables_.set(table.id, { ...current, fields: [...current.fields, newField] });
             },
             onDeleteField: (fieldId: string) => {
@@ -128,7 +129,7 @@ export function buildTableNodes(
               const current = tables_.get(table.id);
               if (!current) return;
               const newIndex: TableIndex = {
-                id: crypto.randomUUID(),
+                id: generateId(),
                 fieldIds,
                 unique: opts.unique,
                 pk: opts.pk,
