@@ -54,6 +54,8 @@ export interface TableNodeData {
   onAddComment: (text: string, fieldId?: string) => void;
   onDeleteComment: (commentId: string) => void;
   onUpdateField?: (fieldId: string, updates: Partial<Field> | ((current: Field) => Partial<Field>)) => void;
+  /** Drag-reorder a column: move `draggedFieldId` right before/after `targetFieldId`. */
+  onReorderField?: (draggedFieldId: string, targetFieldId: string, before: boolean) => void;
   onAddField?: (field: Omit<Field, "id">) => void;
   onDeleteField?: (fieldId: string) => void;
   onAddIndex?: (fieldIds: string[], opts: { unique?: boolean; pk?: boolean; name?: string }) => void;
@@ -299,6 +301,7 @@ function TableNodeImpl({ data, selected, id }: NodeProps<TableNodeType>) {
             onDeleteComment={data.onDeleteComment}
             onUpdateField={data.onUpdateField}
             onDeleteField={data.onDeleteField}
+            onReorderField={data.onReorderField}
           />
         ))}
         {data.onAddField && table.detailLevel !== "compact" && (
@@ -311,7 +314,7 @@ function TableNodeImpl({ data, selected, id }: NodeProps<TableNodeType>) {
                 const count = table.fields.length + 1;
                 data.onAddField?.({
                   name: `field_${count}`,
-                  type: "varchar",
+                  type: "int",
                 });
               }}
               data-tooltip={t("table.addColumnTooltip")}

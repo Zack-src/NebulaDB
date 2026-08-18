@@ -7,7 +7,12 @@ import { getSymbols } from "@/features/editor/dbml/symbols";
 import { jumpTo, jumpToLine, goToDefinition, navigateBack, navigateForward } from "@/features/editor/dbml/navigation";
 import { formatDocument } from "@/features/editor/dbml/format";
 import { startRename } from "@/features/editor/dbml/rename";
-import { duplicateSelection, sortTableColumns } from "@/features/editor/dbml/commands";
+import {
+  duplicateSelection,
+  sortTableColumns,
+  toLowerCaseSelection,
+  toUpperCaseSelection,
+} from "@/features/editor/dbml/commands";
 import type { PaletteItem } from "@/features/editor/dbml/CommandPalette";
 import type { useTranslation } from "@/i18n/useTranslation";
 import type { PluginEditorCommand } from "./types";
@@ -47,6 +52,8 @@ export function usePaletteItems(options: {
           ["Rename symbol", "F2", startRename],
           ["Select next occurrence", "Ctrl+D", selectNextOccurrence],
           ["Duplicate selection", "Ctrl+Shift+D", duplicateSelection],
+          ["Uppercase selection", "Ctrl+K Ctrl+U", toUpperCaseSelection],
+          ["Lowercase selection", "Ctrl+K Ctrl+L", toLowerCaseSelection],
           ["Find / replace", "Ctrl+F", openSearchPanel, true],
           ["Go to line", "Ctrl+G", gotoLine, true],
           ["Next problem", "F8", nextDiagnostic],

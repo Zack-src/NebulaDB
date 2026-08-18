@@ -99,6 +99,25 @@ export function buildTableNodes(
               const newField: Field = { id: generateId(), ...fieldData };
               tables_.set(table.id, { ...current, fields: [...current.fields, newField] });
             },
+            // Drag-reorder: `before` says which side of `targetFieldId` the
+            // dragged field lands on. Removing first and re-finding the
+            // target's index in the shortened array (rather than doing the
+            // math against the original index) keeps this correct whether
+            // the field moves up or down the list.
+            onReorderField: (draggedFieldId: string, targetFieldId: string, before: boolean) => {
+              if (draggedFieldId === targetFieldId) return;
+              const tables_ = getTablesMap(doc);
+              const current = tables_.get(table.id);
+              if (!current) return;
+              const fields = [...current.fields];
+              const fromIndex = fields.findIndex((f) => f.id === draggedFieldId);
+              if (fromIndex === -1) return;
+              const [moved] = fields.splice(fromIndex, 1);
+              const targetIndex = fields.findIndex((f) => f.id === targetFieldId);
+              if (targetIndex === -1) return;
+              fields.splice(before ? targetIndex : targetIndex + 1, 0, moved);
+              tables_.set(table.id, { ...current, fields });
+            },
             onDeleteField: (fieldId: string) => {
               const tables_ = getTablesMap(doc);
               const current = tables_.get(table.id);

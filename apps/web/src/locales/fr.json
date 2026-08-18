@@ -313,6 +313,7 @@
   "history.restoring": "Restauration…",
   "history.changesSince": "Modifications depuis cette version",
 
+  "field.dragToReorder": "Glisser pour réordonner la colonne",
   "field.editTooltip": "Modifier les propriétés de la colonne",
   "field.propertiesTitle": "Propriétés de la colonne",
   "field.delete": "Supprimer la colonne",

@@ -98,6 +98,20 @@ export const sortTableColumns: Command = (view) => {
   return true;
 };
 
+/** Ctrl+Shift+U / Ctrl+Shift+Alt+U — upper/lowercase every non-empty selection in place, cursors untouched. Empty selections (nothing to transform) are left alone rather than falling back to "the whole line", so the shortcut can't surprise-rewrite text the user never selected. */
+function transformSelectionCase(view: EditorView, transform: (text: string) => string): boolean {
+  const { state } = view;
+  if (state.selection.ranges.every((r) => r.empty)) return false;
+  const changes: ChangeSpec[] = state.selection.ranges
+    .filter((r) => !r.empty)
+    .map((r) => ({ from: r.from, to: r.to, insert: transform(state.sliceDoc(r.from, r.to)) }));
+  view.dispatch({ changes, scrollIntoView: true });
+  return true;
+}
+
+export const toUpperCaseSelection: Command = (view) => transformSelectionCase(view, (text) => text.toUpperCase());
+export const toLowerCaseSelection: Command = (view) => transformSelectionCase(view, (text) => text.toLowerCase());
+
 /** Tab: accept completion, else indent a multi-line selection, else insert two spaces. */
 export const smartTab = {
   key: "Tab",

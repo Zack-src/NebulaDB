@@ -72,6 +72,8 @@ import {
   smartTab,
   sortTableColumns,
   splitSelectionIntoLines,
+  toLowerCaseSelection,
+  toUpperCaseSelection,
 } from "@/features/editor/dbml/commands";
 
 /** Ctrl+S — ask the panel to push the document to the backend right away. */
@@ -124,6 +126,9 @@ export const dbmlKeymap = keymap.of([
   { key: "F2", run: startRename, preventDefault: true },
   { key: "Shift-Alt-f", run: formatDocument, preventDefault: true },
   { key: "Mod-Alt-o", run: sortTableColumns, preventDefault: true },
+  // VS Code's own bindings for the same transforms, kept for muscle memory.
+  { key: "Mod-k Mod-u", run: toUpperCaseSelection, preventDefault: true },
+  { key: "Mod-k Mod-l", run: toLowerCaseSelection, preventDefault: true },
   // folding
   { key: "Mod-k Mod-0", run: foldAll, preventDefault: true },
   { key: "Mod-k Mod-j", run: unfoldAll, preventDefault: true },

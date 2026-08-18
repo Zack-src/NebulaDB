@@ -2,7 +2,7 @@ import { forwardRef, useEffect, useRef, useState } from "react";
 import { Handle, Position } from "@xyflow/react";
 import { MAX_NAME_LENGTH, type Comment, type Field } from "@athanordb/shared";
 import { CommentThread } from "@/features/editor/comments/CommentThread";
-import { AsteriskIcon, DiamondIcon, IncrementIcon, NoteIcon } from "@/components/icons/Icons";
+import { AsteriskIcon, DiamondIcon, GripVerticalIcon, IncrementIcon, NoteIcon } from "@/components/icons/Icons";
 import { FieldBadge } from "@/features/editor/nodes/table/FieldBadge";
 import { FieldEditorPopover } from "@/features/editor/nodes/table/FieldEditorPopover";
 import { useDraftValue } from "@/hooks/useDraftValue";
@@ -14,11 +14,16 @@ import {
   ROW_ACTION_BTN_CLASS,
   ROW_BADGES_CLASS,
   ROW_CLASS,
+  ROW_DRAG_HANDLE_CLASS,
   ROW_NAME_INPUT_CLASS,
   ROW_TYPE_CLASS,
+  rowDropIndicatorClass,
   rowNameClass,
   rowStateClass,
 } from "@/features/editor/nodes/table/tableStyles";
+
+/** Custom drag MIME so a column drag is never mistaken for some other drag-and-drop the browser/OS might offer over the canvas (e.g. dropping a file). */
+const FIELD_DRAG_MIME = "application/x-athanordb-field";
 
 export interface TableNodeRowProps {
   field: Field;
@@ -35,6 +40,7 @@ export interface TableNodeRowProps {
   onDeleteComment: (commentId: string) => void;
   onUpdateField?: (fieldId: string, updates: Partial<Field> | ((current: Field) => Partial<Field>)) => void;
   onDeleteField?: (fieldId: string) => void;
+  onReorderField?: (draggedFieldId: string, targetFieldId: string, before: boolean) => void;
 }
 
 /**
@@ -61,12 +67,17 @@ export const TableNodeRow = forwardRef<HTMLDivElement, TableNodeRowProps>(functi
     onDeleteComment,
     onUpdateField,
     onDeleteField,
+    onReorderField,
   },
   ref,
 ) {
   const { t } = useTranslation();
   const [renaming, setRenaming] = useState(false);
   const nameDraft = useDraftValue(field.name, (next) => onUpdateField?.(field.id, { name: next ?? "" }));
+  // Which side of this row a dragged-over column would land on — null when
+  // nothing's being dragged over it right now. Local, not lifted: only the
+  // row currently under the pointer needs to know.
+  const [dropSide, setDropSide] = useState<"before" | "after" | null>(null);
 
   // Guards the unmount cleanup below: only a row that is itself the currently
   // hovered one should clear the shared hover state when it disappears (a
@@ -84,7 +95,7 @@ export const TableNodeRow = forwardRef<HTMLDivElement, TableNodeRowProps>(functi
   return (
     <div
       ref={ref}
-      className={`table-node-row ${ROW_CLASS} ${rowStateClass(isLinked, isSelected)}`}
+      className={`table-node-row ${ROW_CLASS} ${rowStateClass(isLinked, isSelected)} ${rowDropIndicatorClass(dropSide)}`}
       // Whole row is the hover target for the column's note — the note icon is
       // a 16px hit area, far too small to be the only way to read it.
       data-tooltip={`${field.name} (${field.type})`}
@@ -101,9 +112,40 @@ export const TableNodeRow = forwardRef<HTMLDivElement, TableNodeRowProps>(functi
         isHoveredRef.current = false;
         onHoverEnd();
       }}
+      onDragOver={(event) => {
+        if (!onReorderField || !event.dataTransfer.types.includes(FIELD_DRAG_MIME)) return;
+        event.preventDefault();
+        event.dataTransfer.dropEffect = "move";
+        const rect = event.currentTarget.getBoundingClientRect();
+        setDropSide(event.clientY < rect.top + rect.height / 2 ? "before" : "after");
+      }}
+      onDragLeave={() => setDropSide(null)}
+      onDrop={(event) => {
+        if (!onReorderField || !event.dataTransfer.types.includes(FIELD_DRAG_MIME)) return;
+        event.preventDefault();
+        const draggedFieldId = event.dataTransfer.getData(FIELD_DRAG_MIME);
+        if (draggedFieldId && draggedFieldId !== field.id) {
+          onReorderField(draggedFieldId, field.id, dropSide !== "after");
+        }
+        setDropSide(null);
+      }}
     >
       <Handle type="target" position={Position.Left} id={`${field.id}-left-target`} className="table-row-handle" />
       <Handle type="source" position={Position.Left} id={`${field.id}-left-source`} className="table-row-handle" />
+      {onReorderField && (
+        <span
+          className={`nodrag ${ROW_DRAG_HANDLE_CLASS}`}
+          draggable
+          onDragStart={(event) => {
+            event.dataTransfer.setData(FIELD_DRAG_MIME, field.id);
+            event.dataTransfer.effectAllowed = "move";
+          }}
+          onClick={(event) => event.stopPropagation()}
+          data-tooltip={t("field.dragToReorder")}
+        >
+          <GripVerticalIcon size={12} />
+        </span>
+      )}
       {renaming ? (
         <input
           autoFocus

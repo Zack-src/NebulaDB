@@ -37,6 +37,17 @@ export const ROW_TYPE_CLASS =
   "ml-1 shrink-0 whitespace-nowrap rounded-full border border-border bg-bg px-1.5 py-px font-mono " +
   "text-[calc(10.5px_*_var(--canvas-font-scale))] text-text-muted";
 
+/** Drag handle for column reordering — hidden until the row is hovered, same as the edit/comment buttons on the other end of the row. */
+export const ROW_DRAG_HANDLE_CLASS =
+  "flex h-5 w-3.5 shrink-0 cursor-grab items-center justify-center rounded-sm text-text-muted opacity-0 " +
+  "transition-opacity duration-100 hover:text-text group-hover:opacity-100 active:cursor-grabbing";
+/** Drop-position indicator while another column is dragged over this row — an inset line so it doesn't shift row height/layout. */
+export function rowDropIndicatorClass(side: "before" | "after" | null): string {
+  if (side === "before") return "shadow-[inset_0_2px_0_0_var(--color-primary)]";
+  if (side === "after") return "shadow-[inset_0_-2px_0_0_var(--color-primary)]";
+  return "";
+}
+
 export const ROW_BADGES_CLASS = "ml-0.5 flex items-center gap-[3px]";
 export const KW_BADGE_CLASS = "flex h-4 w-4 shrink-0 items-center justify-center leading-none";
 export const KW_BADGE_COLOR: Record<"unique" | "notNull" | "increment" | "note", string> = {
