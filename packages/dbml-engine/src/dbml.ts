@@ -1,6 +1,6 @@
 import { Parser, ModelExporter } from "@dbml/core";
 import { defaultDetailLevelForNewTable, type Position, type Project, type Ref, type Table } from "@athanordb/shared";
-import { projectToDbml } from "./serialize.js";
+import { projectToDbml, refSignature } from "./serialize.js";
 
 export type SqlDialect = "postgres" | "mysql" | "mssql";
 
@@ -228,8 +228,11 @@ export function projectToSql(project: Project, dialect: SqlDialect): string {
  * DBML-native) only seed a project that doesn't have any yet. Enums are
  * matched by name like tables (a field's `type` names an enum by string,
  * never by id, so there's no cross-reference to remap) and keep the same
- * existing-position-wins/reserve-a-free-slot treatment. Refs carry no visual
- * metadata and are taken wholesale from `incoming`, remapped onto the merged ids.
+ * existing-position-wins/reserve-a-free-slot treatment. Refs are matched by
+ * `refSignature` (their endpoint table/field names — a ref's `id` is never
+ * DBML-native): a match keeps `existing`'s id/style/routingPoints, same
+ * existing-wins pattern as everything else here; a genuinely new ref is
+ * taken wholesale from `incoming`.
  */
 const GRID_COL_WIDTH = 320;
 const GRID_ROW_HEIGHT = 400;
@@ -315,17 +318,36 @@ export function mergeProjectIntoExisting(existing: Project, incoming: Project): 
     };
   });
 
-  const refs: Ref[] = incoming.refs.map((ref) => ({
-    ...ref,
-    from: {
-      tableId: tableIdRemap.get(ref.from.tableId) ?? ref.from.tableId,
-      fieldId: fieldIdRemap.get(ref.from.fieldId) ?? ref.from.fieldId,
-    },
-    to: {
-      tableId: tableIdRemap.get(ref.to.tableId) ?? ref.to.tableId,
-      fieldId: fieldIdRemap.get(ref.to.fieldId) ?? ref.to.fieldId,
-    },
-  }));
+  const existingRefsBySignature = new Map<string, Ref>();
+  for (const r of existing.refs) {
+    const key = refSignature(existing.tables, r);
+    if (key) existingRefsBySignature.set(key, r);
+  }
+
+  const refs: Ref[] = incoming.refs.map((ref) => {
+    const remapped = {
+      ...ref,
+      from: {
+        tableId: tableIdRemap.get(ref.from.tableId) ?? ref.from.tableId,
+        fieldId: fieldIdRemap.get(ref.from.fieldId) ?? ref.from.fieldId,
+      },
+      to: {
+        tableId: tableIdRemap.get(ref.to.tableId) ?? ref.to.tableId,
+        fieldId: fieldIdRemap.get(ref.to.fieldId) ?? ref.to.fieldId,
+      },
+    };
+    // `tables` (not `existing.tables`) — a previously-existing table's id was
+    // preserved above, so this resolves to the same names `existingRefsBySignature` used.
+    const key = refSignature(tables, remapped);
+    const prev = key ? existingRefsBySignature.get(key) : undefined;
+    if (!prev) return remapped;
+    return {
+      ...remapped,
+      id: prev.id,
+      style: prev.style ?? remapped.style,
+      routingPoints: prev.routingPoints ?? remapped.routingPoints,
+    };
+  });
 
   // Enums round-trip the same way tables do now that they carry a canvas
   // position: matched by name (no cross-references to remap — a field's
@@ -350,11 +372,15 @@ export function mergeProjectIntoExisting(existing: Project, incoming: Project): 
   // group that no longer exists — renamed out from under it or deleted — is
   // dropped from the membership rather than left dangling).
   const existingGroupsByName = new Map(existing.tableGroups.map((g) => [g.name, g]));
-  const tableGroups = incoming.tableGroups.map((group) => ({
-    ...group,
-    id: existingGroupsByName.get(group.name)?.id ?? crypto.randomUUID(),
-    tableIds: group.tableIds.map((tid) => tableIdRemap.get(tid)).filter((tid): tid is string => Boolean(tid)),
-  }));
+  const tableGroups = incoming.tableGroups.map((group) => {
+    const prev = existingGroupsByName.get(group.name);
+    return {
+      ...group,
+      id: prev?.id ?? crypto.randomUUID(),
+      tableIds: group.tableIds.map((tid) => tableIdRemap.get(tid)).filter((tid): tid is string => Boolean(tid)),
+      note: group.note ?? prev?.note,
+    };
+  });
 
   return {
     id: existing.id,
@@ -365,5 +391,6 @@ export function mergeProjectIntoExisting(existing: Project, incoming: Project): 
     zones: existing.zones.length > 0 ? existing.zones : incoming.zones,
     stickyNotes: existing.stickyNotes.length > 0 ? existing.stickyNotes : incoming.stickyNotes,
     tableGroups,
+    paletteColors: existing.paletteColors ?? incoming.paletteColors,
   };
 }

@@ -42,6 +42,7 @@ function DbmlPanel(props: {
   readOnly?: boolean;
   onClose: () => void;
   scrollToTable?: { tableName: string; requestId: number } | null;
+  onNavigateToCanvas?: (target: { tableName: string; fieldName?: string }) => void;
 }) {
   const { t } = useTranslation();
   const { project, projectId, readOnly = false } = props;
@@ -303,6 +304,7 @@ function DbmlPanel(props: {
           onSave={handleSave}
           problem={problem}
           scrollToTable={props.scrollToTable}
+          onNavigateToCanvas={props.onNavigateToCanvas}
           pluginCommands={pluginCommands}
           onPluginMessage={handlePluginMessage}
         />

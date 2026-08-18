@@ -10,7 +10,7 @@ import { CanvasArea } from "@/features/editor/canvas/CanvasArea";
 import { ChevronRightIcon } from "@/components/icons/Icons";
 import { DEFAULT_PALETTE } from "@/components/inputs/ColorSwatchPicker";
 import { loadHighlightLinks, saveHighlightLinks } from "@/utils/preferences";
-import type { CanvasExportHandle, ProjectSummary } from "@/types/index";
+import type { CanvasExportHandle, CanvasNavigateHandle, ProjectSummary } from "@/types/index";
 import { useCanvasNodes } from "@/features/editor/hooks/useCanvasNodes";
 import { useCanvasEdges } from "@/features/editor/hooks/useCanvasEdges";
 import { useCanvasFontScale } from "@/features/editor/hooks/useCanvasFontScale";
@@ -21,6 +21,7 @@ import { useTranslation } from "@/i18n/useTranslation";
 import { useCanvasCommands } from "@/features/plugins/usePlugins";
 import { matchShortcut } from "@/features/plugins/shortcuts";
 import type { CanvasCommandResult } from "@/features/plugins/types";
+import { AUTO_LAYOUT_ID, GROUP_TABLES_ID } from "@/features/plugins/builtins/coreCanvas";
 import { McdCanvas } from "@/features/editor/mcd/McdCanvas";
 import type { EditorViewMode } from "@/features/editor/mcd/ViewModeToggle";
 
@@ -161,6 +162,23 @@ export function ProjectEditor(props: {
     [t],
   );
 
+  // Same "populated by CanvasArea, called from outside its ReactFlowProvider"
+  // shape as the export handle above — this one drives the DBML editor's
+  // double-click-to-canvas navigation instead of a screenshot.
+  const canvasNavigateRef = useRef<CanvasNavigateHandle | null>(null);
+  const onNavigateToCanvas = useCallback(
+    (target: { tableName: string; fieldName?: string }) => {
+      const table = liveProject?.tables.find((t) => t.name.toLowerCase() === target.tableName.toLowerCase());
+      if (!table) return;
+      canvasNavigateRef.current?.goToTable(table.id);
+      const field = target.fieldName
+        ? table.fields.find((f) => f.name.toLowerCase() === target.fieldName!.toLowerCase())
+        : undefined;
+      setSelectedFieldId(field?.id ?? null);
+    },
+    [liveProject],
+  );
+
   // Fields that are some ref's endpoint for a given table — shown outside compact detail level even if not PK.
   const refFieldIdsByTable = useMemo(() => {
     const map = new Map<string, Set<string>>();
@@ -247,15 +265,29 @@ export function ProjectEditor(props: {
     addZone,
     addStickyNote,
     addEnum,
-    groupSelectedTables,
     setAllDetailLevels,
     activeDetailLevel,
-    autoLayout,
     setTablesColor,
     duplicateSelected,
     onEdgesDelete,
     onConnect,
   } = useProjectMutations(liveProject, writeDoc, nodes);
+
+  // Auto-layout and table-grouping are now the `athanordb.core-canvas`
+  // plugin's `auto-layout`/`group-tables` canvasCommands (see coreCanvas.ts)
+  // — these buttons just run them through the same `runCanvasCommand` path
+  // every other canvas command uses, rather than calling a bespoke doc
+  // mutation. If the plugin providing one is disabled, its button quietly
+  // does nothing, same as any other canvas command would.
+  const runCanvasCommandById = useCallback(
+    (id: string) => {
+      const command = canvasCommands.find((c) => c.contribution.id === id);
+      if (command) void runCanvasCommand(command);
+    },
+    [canvasCommands, runCanvasCommand],
+  );
+  const onAutoLayout = useCallback(() => runCanvasCommandById(AUTO_LAYOUT_ID), [runCanvasCommandById]);
+  const onGroupTables = useCallback(() => runCanvasCommandById(GROUP_TABLES_ID), [runCanvasCommandById]);
 
   // Inert while viewing the MCD: nothing dragged there is ever written to
   // the project, so routing Ctrl+Z through the real Yjs history would either
@@ -277,7 +309,7 @@ export function ProjectEditor(props: {
         onBack={props.onBack}
         onUndo={() => undoManager?.undo()}
         onRedo={() => undoManager?.redo()}
-        onAutoLayout={autoLayout}
+        onAutoLayout={onAutoLayout}
         onShowImport={() => setShowImport(true)}
         onShowExport={() => setShowExport(true)}
         onShowHistory={() => setShowHistory(true)}
@@ -307,6 +339,7 @@ export function ProjectEditor(props: {
             readOnly={!canWrite}
             onClose={() => setDbmlOpen(false)}
             scrollToTable={dbmlScrollRequest}
+            onNavigateToCanvas={onNavigateToCanvas}
           />
         ) : (
           <button
@@ -338,7 +371,7 @@ export function ProjectEditor(props: {
                 onAddZone={addZone}
                 onAddNote={addStickyNote}
                 onAddEnum={addEnum}
-                onGroupTables={groupSelectedTables}
+                onGroupTables={onGroupTables}
                 onSetTablesColor={setTablesColor}
                 palette={palette}
                 fontScale={fontScale}
@@ -349,6 +382,7 @@ export function ProjectEditor(props: {
                 projectId={project.id}
                 viewportUserId={session.id}
                 exportRef={canvasExportRef}
+                navigateRef={canvasNavigateRef}
                 canvasCommands={canvasCommands}
                 onRunCanvasCommand={runCanvasCommand}
                 onOpenPlugins={() => setShowPlugins(true)}

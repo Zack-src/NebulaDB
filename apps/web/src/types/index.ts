@@ -99,13 +99,6 @@ export interface ProjectTeamGrant {
   permission: PermissionLevel;
 }
 
-/**
- * Canvas snapshot formats. Text formats (DBML, SQL dialects, anything a plugin
- * adds) are no longer an enum here — they come from exporter contributions at
- * runtime; see `plugins/types.ts`.
- */
-export type ImageFormat = "png" | "svg" | "pdf";
-
 export interface CanvasImageCapture {
   dataUrl: string;
   width: number;
@@ -114,4 +107,9 @@ export interface CanvasImageCapture {
 
 export interface CanvasExportHandle {
   capture: (format: "png" | "svg") => Promise<CanvasImageCapture>;
+}
+
+export interface CanvasNavigateHandle {
+  /** Pans/zooms to the given table (by id) and selects it, same as clicking it directly. */
+  goToTable: (tableId: string) => void;
 }

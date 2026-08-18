@@ -34,7 +34,7 @@ import { isTypingTarget } from "@/utils/dom";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { loadGridStyle, loadSnapToGrid } from "@/utils/preferences";
 import type { CanvasCommandContribution, ResolvedContribution } from "@/features/plugins/types";
-import type { AllNodes, CanvasExportHandle, CanvasNode } from "@/types";
+import type { AllNodes, CanvasExportHandle, CanvasNavigateHandle, CanvasNode } from "@/types";
 import { DEFAULT_HEADER_COLOR } from "@/features/editor/nodes/table/TableSettingsPopover";
 import { CanvasContextMenu, type CanvasContextMenuState } from "./CanvasContextMenu";
 import { CanvasSearchPanel } from "./CanvasSearchPanel";
@@ -42,6 +42,7 @@ import { CanvasToolbar } from "./CanvasToolbar";
 import type { EditorViewMode } from "@/features/editor/mcd/ViewModeToggle";
 import {
   CANVAS_VIEWPORT_PROPS,
+  useCanvasNavigate,
   useMinimapPanProps,
   useSharedMinimapVisible,
   useSharedViewport,
@@ -91,6 +92,7 @@ export interface CanvasAreaProps {
   /** Session's stable user id — namespaces the saved-viewport key, not an identity field. */
   viewportUserId: string;
   exportRef: MutableRefObject<CanvasExportHandle | null>;
+  navigateRef: MutableRefObject<CanvasNavigateHandle | null>;
   canvasCommands: ResolvedContribution<CanvasCommandContribution>[];
   onRunCanvasCommand: (command: ResolvedContribution<CanvasCommandContribution>) => void;
   onOpenPlugins: () => void;
@@ -136,9 +138,10 @@ export function CanvasArea(props: CanvasAreaProps) {
   const [gridStyle] = useState(loadGridStyle);
   const [snapToGrid] = useState(loadSnapToGrid);
 
-  const { onNodesChange, awareness, exportRef } = props;
+  const { onNodesChange, awareness, exportRef, navigateRef } = props;
 
   useCanvasImageExport(exportRef);
+  useCanvasNavigate(navigateRef, props.nodes, onNodesChange);
   const search = useCanvasSearch(props.nodes, onNodesChange);
 
   const closeContextMenu = useCallback(() => setContextMenu(null), []);

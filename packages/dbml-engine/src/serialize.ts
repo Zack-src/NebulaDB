@@ -3,6 +3,7 @@ import type {
   Position,
   Project,
   Ref,
+  RoutingPoint,
   Size,
   StickyNote,
   Table,
@@ -51,6 +52,19 @@ function fieldNameById(tables: Table[], tableId: string, fieldId: string): { tab
 }
 
 /**
+ * A ref's stable identity across a reparse: table/field names on both ends,
+ * same as `fieldNameById` resolves for the native `Ref:` line above it — a
+ * ref's own `id` is never DBML-native, so it can't be used to match a ref
+ * back up after a round trip the way `fieldNameById`'s result can.
+ */
+export function refSignature(tables: Table[], ref: Ref): string | null {
+  const from = fieldNameById(tables, ref.from.tableId, ref.from.fieldId);
+  const to = fieldNameById(tables, ref.to.tableId, ref.to.fieldId);
+  if (!from || !to) return null;
+  return `${from.table}.${from.field}->${to.table}.${to.field}`;
+}
+
+/**
  * DBML has no native field for position/color/detail-level/zones/sticky
  * notes, so a plain `.dbml` export/reimport round trip used to drop all of
  * it. `mergeProjectIntoExisting` already covers the common case (reimporting
@@ -72,6 +86,14 @@ export interface VisualMetadataV1 {
   tables?: Record<string, { position?: Position; size?: Size; style?: VisualStyle; detailLevel?: DetailLevel }>;
   zones?: Zone[];
   stickyNotes?: StickyNote[];
+  /** Keyed by name, same reasoning as `tables` — DBML has no notion of enum position either. */
+  enums?: Record<string, { position?: Position }>;
+  /** Keyed by `refSignature` — a ref's `id` isn't DBML-native, so its endpoint names are the only stable handle across a reparse. Only refs actually carrying a style/routing get an entry. */
+  refs?: Record<string, { style?: VisualStyle; routingPoints?: RoutingPoint[] }>;
+  /** Keyed by name, same as `tables`. Only groups with a note get an entry — membership itself is already DBML-native (`TableGroup` blocks). */
+  tableGroups?: Record<string, { note?: string }>;
+  /** The project's own custom palette swatches, if it has one — has no per-element anchor to key by. */
+  paletteColors?: string[];
 }
 
 /** Reads the sidecar visual-metadata blob out of raw DBML source, if present. Never throws — a missing or malformed marker just yields no metadata. */
@@ -85,7 +107,7 @@ export function extractVisualMetadata(source: string): VisualMetadataV1 | null {
   }
 }
 
-/** Overlays sidecar visual metadata (if any) from raw DBML source onto an already-parsed `Project`, matching tables by name. */
+/** Overlays sidecar visual metadata (if any) from raw DBML source onto an already-parsed `Project`, matching tables/enums/groups by name and refs by `refSignature`. */
 export function applyVisualMetadata(project: Project, source: string): Project {
   const meta = extractVisualMetadata(source);
   if (!meta) return project;
@@ -100,11 +122,29 @@ export function applyVisualMetadata(project: Project, source: string): Project {
       detailLevel: m.detailLevel ?? table.detailLevel,
     };
   });
+  const enums = project.enums.map((enumDef) => {
+    const m = meta.enums?.[enumDef.name];
+    return m?.position ? { ...enumDef, position: m.position } : enumDef;
+  });
+  const refs = project.refs.map((ref) => {
+    const key = refSignature(project.tables, ref);
+    const m = key ? meta.refs?.[key] : undefined;
+    if (!m) return ref;
+    return { ...ref, style: m.style ?? ref.style, routingPoints: m.routingPoints ?? ref.routingPoints };
+  });
+  const tableGroups = project.tableGroups.map((group) => {
+    const m = meta.tableGroups?.[group.name];
+    return m?.note ? { ...group, note: m.note } : group;
+  });
   return {
     ...project,
     tables,
+    enums,
+    refs,
+    tableGroups,
     zones: meta.zones ?? project.zones,
     stickyNotes: meta.stickyNotes ?? project.stickyNotes,
+    paletteColors: meta.paletteColors ?? project.paletteColors,
   };
 }
 
@@ -188,6 +228,16 @@ export function projectToDbml(project: Project, options?: { includeVisualMetadat
   const formatted = formatDbml(raw);
 
   if (options?.includeVisualMetadata) {
+    const refEntries: [string, { style?: VisualStyle; routingPoints?: RoutingPoint[] }][] = [];
+    for (const ref of project.refs) {
+      if (!ref.style && !(ref.routingPoints && ref.routingPoints.length > 0)) continue;
+      const key = refSignature(project.tables, ref);
+      if (key) refEntries.push([key, { style: ref.style, routingPoints: ref.routingPoints }]);
+    }
+    const groupEntries = project.tableGroups
+      .filter((group) => group.note)
+      .map((group) => [group.name, { note: group.note }] as const);
+
     const metadata: VisualMetadataV1 = {
       tables: Object.fromEntries(
         project.tables.map((table) => [
@@ -197,6 +247,10 @@ export function projectToDbml(project: Project, options?: { includeVisualMetadat
       ),
       zones: project.zones,
       stickyNotes: project.stickyNotes,
+      enums: Object.fromEntries(project.enums.map((e) => [e.name, { position: e.position }])),
+      ...(refEntries.length > 0 ? { refs: Object.fromEntries(refEntries) } : {}),
+      ...(groupEntries.length > 0 ? { tableGroups: Object.fromEntries(groupEntries) } : {}),
+      ...(project.paletteColors ? { paletteColors: project.paletteColors } : {}),
     };
     return `${formatted}\n${VISUAL_METADATA_MARKER}${JSON.stringify(metadata)}\n`;
   }

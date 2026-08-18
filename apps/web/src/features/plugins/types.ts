@@ -53,6 +53,14 @@ export interface ExporterContribution extends ContributionBase {
   kind: "exporter";
   /** File extension for the download, without the dot. Defaults to `txt`. */
   extension?: string;
+  /**
+   * Set only by an exporter that returns `ExportResult.image` rather than
+   * `.text` (the built-in canvas-snapshot ones). Declared on the
+   * contribution itself, not just inferred from a run's result, so the
+   * dialog knows to render the image-preview layout the instant it's
+   * selected — before the (async) capture has actually resolved.
+   */
+  imageKind?: "png" | "svg";
 }
 
 export interface ImporterContribution extends ContributionBase {
@@ -72,10 +80,16 @@ export interface EditorCommandContribution extends ContributionBase {
 export type Contribution =
   ExporterContribution | ImporterContribution | CanvasCommandContribution | EditorCommandContribution;
 
-/** What an exporter returns: the document text, plus an optional extension override. */
+/**
+ * What an exporter returns: either generated document text (plus an optional
+ * extension override), or — for the built-in canvas-snapshot exporters,
+ * which capture the live rendered canvas rather than generating text from
+ * the project data — a captured image. Exactly one of the two is set.
+ */
 export interface ExportResult {
-  text: string;
+  text?: string;
   extension?: string;
+  image?: { dataUrl: string; width: number; height: number; format: "png" | "svg" };
 }
 
 /**

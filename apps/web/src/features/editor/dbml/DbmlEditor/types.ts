@@ -46,6 +46,8 @@ export interface DbmlEditorProps {
   onSave: () => void;
   problem?: import("@/features/editor/dbml/lint").ServerProblem | null;
   scrollToTable?: { tableName: string; requestId: number } | null;
+  /** Double-click on a table/column in the buffer -> jump to it on the canvas. */
+  onNavigateToCanvas?: (target: import("@/features/editor/dbml/canvasLink").CanvasNavigateTarget) => void;
   pluginCommands?: PluginEditorCommand[];
   onPluginMessage?: (message: string, isError?: boolean) => void;
 }

@@ -560,3 +560,91 @@ test("mergeProjectIntoExisting: sidecar-restored position/zones seed a brand-new
   assert.deepEqual(mergedUsers.position, { x: 999, y: 999 }, "existing project's own position wins over the sidecar's");
   assert.deepEqual(merged.zones, existingWithOwnState.zones, "existing project's own zones win over the sidecar's");
 });
+
+function projectWithFullVisuals(): Project {
+  const base = projectWithVisuals();
+  return {
+    ...base,
+    tables: [
+      ...base.tables,
+      {
+        id: "t2",
+        name: "posts",
+        fields: [
+          { id: "f2", name: "id", type: "int", pk: true },
+          { id: "f3", name: "author_id", type: "int" },
+        ],
+        indexes: [],
+        position: { x: 600, y: 60 },
+        detailLevel: "standard",
+      },
+    ],
+    refs: [
+      {
+        id: "r1",
+        from: { tableId: "t2", fieldId: "f3" },
+        to: { tableId: "t1", fieldId: "f1" },
+        cardinality: "one-to-many",
+        style: { color: "#ff0000" },
+        routingPoints: [{ x: 400, y: 100 }],
+      },
+    ],
+    enums: [{ id: "e1", name: "status", values: [{ id: "v1", name: "active" }], position: { x: 700, y: 700 } }],
+    tableGroups: [{ id: "g1", name: "core", tableIds: ["t1", "t2"], note: "the important ones" }],
+    paletteColors: ["#111111", "#222222"],
+  };
+}
+
+test("projectToDbml's sidecar carries ref style/routingPoints, enum position, group note, and paletteColors", () => {
+  const project = projectWithFullVisuals();
+  const dbml = projectToDbml(project, { includeVisualMetadata: true });
+  const meta = extractVisualMetadata(dbml)!;
+
+  assert.deepEqual(meta.refs?.["posts.author_id->users.id"], {
+    style: { color: "#ff0000" },
+    routingPoints: [{ x: 400, y: 100 }],
+  });
+  assert.deepEqual(meta.enums?.status?.position, { x: 700, y: 700 });
+  assert.deepEqual(meta.tableGroups?.core, { note: "the important ones" });
+  assert.deepEqual(meta.paletteColors, ["#111111", "#222222"]);
+});
+
+test("applyVisualMetadata restores ref style/routingPoints, enum position, group note, and paletteColors onto a freshly re-parsed project", () => {
+  const original = projectWithFullVisuals();
+  const dbml = projectToDbml(original, { includeVisualMetadata: true });
+
+  const reparsed = toProject(parseDbml(dbml), "Test");
+  const restored = applyVisualMetadata(reparsed, dbml);
+
+  const ref = restored.refs[0];
+  assert.deepEqual(ref.style, { color: "#ff0000" });
+  assert.deepEqual(ref.routingPoints, [{ x: 400, y: 100 }]);
+  assert.deepEqual(restored.enums.find((e) => e.name === "status")!.position, { x: 700, y: 700 });
+  assert.equal(restored.tableGroups.find((g) => g.name === "core")!.note, "the important ones");
+  assert.deepEqual(restored.paletteColors, ["#111111", "#222222"]);
+});
+
+test("mergeProjectIntoExisting matches refs by endpoint signature: existing style/routingPoints/id survive a reimport that carries none", () => {
+  const existing: Project = {
+    ...projectWithFullVisuals(),
+    refs: [
+      {
+        id: "existing-ref-id",
+        from: { tableId: "t2", fieldId: "f3" },
+        to: { tableId: "t1", fieldId: "f1" },
+        cardinality: "one-to-many",
+        style: { color: "#00ff00" },
+        routingPoints: [{ x: 1, y: 1 }],
+      },
+    ],
+  };
+  // Simulates a plain (no-sidecar) DBML resync: the incoming ref carries no visual metadata of its own.
+  const incoming = toProject(parseDbml(projectToDbml(existing)), "Test");
+  const merged = mergeProjectIntoExisting(existing, incoming);
+
+  assert.equal(merged.refs.length, 1);
+  const ref = merged.refs[0];
+  assert.equal(ref.id, "existing-ref-id", "existing ref's id survives the reimport");
+  assert.deepEqual(ref.style, { color: "#00ff00" }, "existing ref's style survives a resync with no sidecar");
+  assert.deepEqual(ref.routingPoints, [{ x: 1, y: 1 }], "existing ref's routing points survive too");
+});

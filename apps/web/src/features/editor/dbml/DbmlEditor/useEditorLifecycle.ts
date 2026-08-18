@@ -17,7 +17,10 @@ import type { CursorInfo, DbmlEditorProps, ViewRef } from "./types";
  * Editor *preferences* (wrap, font size) live in `useEditorPreferences`.
  */
 export function useEditorLifecycle(
-  props: Pick<DbmlEditorProps, "value" | "readOnly" | "onChange" | "onSave" | "problem" | "scrollToTable">,
+  props: Pick<
+    DbmlEditorProps,
+    "value" | "readOnly" | "onChange" | "onSave" | "problem" | "scrollToTable" | "onNavigateToCanvas"
+  >,
   containerRef: React.RefObject<HTMLDivElement | null>,
   viewRef: ViewRef,
   setCursor: (info: CursorInfo) => void,
@@ -27,6 +30,7 @@ export function useEditorLifecycle(
   const onChangeRef = useRef(props.onChange);
   const onSaveRef = useRef(props.onSave);
   const readOnlyRef = useRef(props.readOnly);
+  const onNavigateToCanvasRef = useRef(props.onNavigateToCanvas);
   // Latest-callback refs, refreshed after commit rather than during render:
   // CodeMirror only calls them from user events, which always come after paint,
   // so an effect is early enough — and writing a ref while rendering is exactly
@@ -34,7 +38,8 @@ export function useEditorLifecycle(
   useEffect(() => {
     onChangeRef.current = props.onChange;
     onSaveRef.current = props.onSave;
-  }, [props.onChange, props.onSave]);
+    onNavigateToCanvasRef.current = props.onNavigateToCanvas;
+  }, [props.onChange, props.onSave, props.onNavigateToCanvas]);
 
   useEffect(() => {
     if (!containerRef.current) return;
@@ -47,6 +52,7 @@ export function useEditorLifecycle(
         onSave: () => onSaveRef.current(),
         onPalette: (mode) => setPalette(mode),
         onRename: openRename,
+        onNavigateToCanvas: (target) => onNavigateToCanvasRef.current?.(target),
       }).concat(
         // Both are needed: `readOnly` blocks programmatic edits through
         // transactions, `editable` also removes the caret and the "you can type

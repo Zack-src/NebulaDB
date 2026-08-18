@@ -6,12 +6,30 @@ import {
   auditSchema,
   calculateSchemaStats,
 } from "@/features/plugins/generators";
+import { computeAutoLayout } from "@/features/editor/canvas/autoLayout";
+import { generateId } from "@/utils/id";
 import type { Contribution, InvokeResult } from "@/features/plugins/types";
 import type { BuiltinPlugin, BuiltinRunner } from "./types";
 
 export const RESET_LINK_ROUTING_ID = "reset-link-routing";
+export const AUTO_LAYOUT_ID = "auto-layout";
+export const GROUP_TABLES_ID = "group-tables";
 
 const contributions: Contribution[] = [
+  {
+    kind: "canvasCommand",
+    id: AUTO_LAYOUT_ID,
+    label: "Réorganiser automatiquement",
+    shortcut: "Ctrl+Alt+G",
+    description:
+      "Repositionne les tables par disposition automatique, en gardant groupes et zones bien séparés les uns des autres.",
+  },
+  {
+    kind: "canvasCommand",
+    id: GROUP_TABLES_ID,
+    label: "Grouper les tables sélectionnées",
+    description: "Crée un TableGroup à partir des tables actuellement sélectionnées sur le canvas (2 minimum).",
+  },
   {
     kind: "canvasCommand",
     id: RESET_LINK_ROUTING_ID,
@@ -66,6 +84,38 @@ const contributions: Contribution[] = [
 ];
 
 const runners: Record<string, BuiltinRunner> = {
+  [`canvasCommand:${AUTO_LAYOUT_ID}`]: (input) => {
+    const project = input as Project;
+    const { tables: positions, zones: zoneUpdates } = computeAutoLayout(
+      project.tables,
+      project.refs,
+      project.zones,
+      project.tableGroups,
+    );
+    const tables = project.tables.map((table) => {
+      const position = positions.get(table.id);
+      return position ? { ...table, position } : table;
+    });
+    const zones = project.zones.map((zone) => {
+      const update = zoneUpdates.get(zone.id);
+      return update ? { ...zone, position: update.position, size: update.size } : zone;
+    });
+    return { project: { ...project, tables, zones } };
+  },
+
+  [`canvasCommand:${GROUP_TABLES_ID}`]: (input, ctx) => {
+    const project = input as Project;
+    const tableIds = ctx.selection?.tableIds ?? [];
+    if (tableIds.length < 2) {
+      return { message: "Sélectionnez au moins 2 tables pour créer un groupe." };
+    }
+    const group = { id: generateId(), name: `group_${project.tableGroups.length + 1}`, tableIds };
+    return {
+      project: { ...project, tableGroups: [...project.tableGroups, group] },
+      message: `Groupe "${group.name}" créé avec ${tableIds.length} tables.`,
+    };
+  },
+
   [`canvasCommand:${RESET_LINK_ROUTING_ID}`]: (input) => {
     const project = input as Project;
     const stripped = project.refs.map((r) => {

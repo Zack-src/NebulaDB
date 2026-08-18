@@ -7,7 +7,7 @@ import { ErrorText, Hint } from "@/components/ui/Alert";
 import { SELECT_CLASS, TEXTAREA_CODE_CLASS } from "@/components/ui/inputStyles";
 import { useExporters } from "@/features/plugins/usePlugins";
 import type { ExportResult } from "@/features/plugins/types";
-import type { CanvasImageCapture, ImageFormat } from "@/types/index";
+import type { CanvasImageCapture } from "@/types/index";
 import { copyText } from "@/utils/clipboard";
 import { triggerDownload } from "@/utils/download";
 import { useTranslation } from "@/i18n/useTranslation";
@@ -35,20 +35,19 @@ function pngDataUrlToJpeg(pngDataUrl: string, width: number, height: number): Pr
   });
 }
 
-const IMAGE_OPTIONS: { value: ImageFormat; label: string }[] = [
-  { value: "png", label: "Image — PNG" },
-  { value: "svg", label: "Image — SVG" },
-  { value: "pdf", label: "PDF" },
-];
+const PDF_EXPORTER_ID = "pdf";
 
 /**
- * Every text format in this dialog comes from an exporter *contribution* —
- * DBML and the three SQL dialects included, which are now supplied by the
- * built-in `athandordb.core-export` plugin. A user plugin adding SQLite (or
- * anything else) shows up here with no change to this file.
- *
- * Image/PDF export stays native: it snapshots the live React Flow canvas,
- * which is not something the plugin API exposes.
+ * Every format in this dialog — text and image/PDF alike — comes from an
+ * exporter *contribution*, supplied by the built-in `athanordb.core-export`
+ * plugin (a user plugin adding one more shows up here with no change to this
+ * file). The image/PDF ones still capture the live React Flow canvas rather
+ * than generating anything from project data: `useExporters`'s second
+ * argument threads `captureCanvasImage` through to `PluginRunContext`
+ * (builtins only — a sandboxed user plugin never gets a function reference
+ * across its worker boundary, see `builtins/types.ts`), so those three
+ * runners can call it. PDF packaging itself (jsPDF) stays here at download
+ * time — it's presentation, not export logic.
  */
 function ExportDialog(props: {
   projectId: string;
@@ -58,26 +57,25 @@ function ExportDialog(props: {
   onClose: () => void;
 }) {
   const { t } = useTranslation();
-  const exporters = useExporters(props.projectId);
-  const [selection, setSelection] = useState<string>(() => `plugin:athanordb.core-export:dbml`);
+  const exporters = useExporters(props.projectId, { captureCanvasImage: props.captureCanvasImage });
+  const [selection, setSelection] = useState<string>(() => `athanordb.core-export:dbml`);
   const [result, setResult] = useState<ExportResult | null>(null);
-  const [image, setImage] = useState<CanvasImageCapture | null>(null);
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const imageFormat = selection.startsWith("image:") ? (selection.slice("image:".length) as ImageFormat) : null;
-  const exporter = useMemo(
-    () => exporters.find((event) => `plugin:${event.key}` === selection) ?? null,
-    [exporters, selection],
-  );
+  const exporter = useMemo(() => exporters.find((e) => e.key === selection) ?? null, [exporters, selection]);
+  // Known synchronously from the contribution itself, not from `result` — so
+  // the dialog switches to the image-preview layout the instant an image
+  // exporter is picked, rather than waiting on its (async) capture to resolve.
+  const isImage = Boolean(exporter?.contribution.imageKind);
 
   // Falling back keeps the dialog usable if the selected exporter's plugin is
   // disabled or uninstalled while the dialog is open.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- recovering from an exporter that disappeared mid-dialog, not derived state
-    if (!imageFormat && !exporter && exporters.length > 0) setSelection(`plugin:${exporters[0].key}`);
-  }, [imageFormat, exporter, exporters]);
+    if (!exporter && exporters.length > 0) setSelection(exporters[0].key);
+  }, [exporter, exporters]);
 
   // A value-stable projection of the exporter list. The effect below has to
   // re-run when an exporter genuinely appears or disappears — user plugins boot
@@ -85,10 +83,10 @@ function ExportDialog(props: {
   // *not* when the registry hands out a new array holding the same exporters.
   // Depending on the array itself made a failing exporter self-perpetuating:
   // run → registry snapshot churns → new identity → run again.
-  const exporterKeys = useMemo(() => exporters.map((event) => event.key).join("|"), [exporters]);
+  const exporterKeys = useMemo(() => exporters.map((e) => e.key).join("|"), [exporters]);
 
   useEffect(() => {
-    const target = exporters.find((event) => `plugin:${event.key}` === selection);
+    const target = exporters.find((e) => e.key === selection);
     if (!target) return;
     let cancelled = false;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- loading flag for the export this same effect kicks off
@@ -128,33 +126,8 @@ function ExportDialog(props: {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [exporterKeys, selection, props.project, props.projectId, props.projectName]);
 
-  useEffect(() => {
-    if (!imageFormat) return;
-    let cancelled = false;
-    // eslint-disable-next-line react-hooks/set-state-in-effect -- loading flag for the capture this same effect kicks off
-    setBusy(true);
-    setError(null);
-    props
-      .captureCanvasImage(imageFormat === "svg" ? "svg" : "png")
-      .then((value) => {
-        if (!cancelled) setImage(value);
-      })
-      .catch((err) => {
-        if (!cancelled) setError((err as Error).message);
-      })
-      .finally(() => {
-        if (!cancelled) setBusy(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-    // props.captureCanvasImage is a useCallback with an empty dep array in the
-    // parent, so it's stable — omitting it avoids re-capturing on unrelated
-    // parent re-renders.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [imageFormat]);
-
   const text = result?.text ?? "";
+  const image = result?.image ?? null;
 
   const copy = () => {
     void copyText(text).then((ok) => {
@@ -168,24 +141,24 @@ function ExportDialog(props: {
   };
 
   const download = async () => {
-    if (imageFormat === "png" || imageFormat === "svg") {
-      if (image) triggerDownload(image.dataUrl, `${props.projectName}.${imageFormat}`);
-      return;
-    }
-    if (imageFormat === "pdf") {
+    if (isImage) {
       if (!image) return;
-      // jsPDF is only needed for this one branch — dynamic import keeps it
-      // out of the bundle everyone else loads.
-      const { jsPDF } = await import("jspdf");
-      // jsPDF's addImage embeds a PNG essentially uncompressed — a two-table
-      // diagram came out over 10MB. Re-encoding to JPEG first (this is a
-      // decorative snapshot, not something needing lossless fidelity) brings
-      // that down by roughly two orders of magnitude.
-      const jpeg = await pngDataUrlToJpeg(image.dataUrl, image.width, image.height);
-      const orientation = image.width >= image.height ? "landscape" : "portrait";
-      const pdf = new jsPDF({ orientation, unit: "px", format: [image.width, image.height] });
-      pdf.addImage(jpeg, "JPEG", 0, 0, image.width, image.height);
-      pdf.save(`${props.projectName}.pdf`);
+      if (exporter?.contribution.id === PDF_EXPORTER_ID) {
+        // jsPDF is only needed for this one branch — dynamic import keeps it
+        // out of the bundle everyone else loads.
+        const { jsPDF } = await import("jspdf");
+        // jsPDF's addImage embeds a PNG essentially uncompressed — a two-table
+        // diagram came out over 10MB. Re-encoding to JPEG first (this is a
+        // decorative snapshot, not something needing lossless fidelity) brings
+        // that down by roughly two orders of magnitude.
+        const jpeg = await pngDataUrlToJpeg(image.dataUrl, image.width, image.height);
+        const orientation = image.width >= image.height ? "landscape" : "portrait";
+        const pdf = new jsPDF({ orientation, unit: "px", format: [image.width, image.height] });
+        pdf.addImage(jpeg, "JPEG", 0, 0, image.width, image.height);
+        pdf.save(`${props.projectName}.pdf`);
+        return;
+      }
+      triggerDownload(image.dataUrl, `${props.projectName}.${image.format}`);
       return;
     }
     const ext = result?.extension ?? exporter?.contribution.extension ?? "txt";
@@ -198,27 +171,22 @@ function ExportDialog(props: {
       <div className="mb-2.5 flex items-center gap-2">
         <select className={SELECT_CLASS} value={selection} onChange={(event) => setSelection(event.target.value)}>
           {exporters.map((e) => (
-            <option key={e.key} value={`plugin:${e.key}`}>
+            <option key={e.key} value={e.key}>
               {e.contribution.label}
               {e.source === "user" ? ` — ${e.plugin.name}` : ""}
             </option>
           ))}
-          {IMAGE_OPTIONS.map((o) => (
-            <option key={o.value} value={`image:${o.value}`}>
-              {o.label}
-            </option>
-          ))}
         </select>
-        {!imageFormat && (
+        {!isImage && (
           <Button onClick={copy} disabled={busy || !text}>
             {copied ? "Copied" : "Copy"}
           </Button>
         )}
-        <Button variant="primary" onClick={download} disabled={busy || (imageFormat ? !image : !text)}>
+        <Button variant="primary" onClick={download} disabled={busy || (isImage ? !image : !text)}>
           <DownloadIcon size={13} /> {t("export.download")}
         </Button>
       </div>
-      {imageFormat ? (
+      {isImage ? (
         <div className="flex min-h-80 flex-col items-center justify-center rounded-sm border border-border bg-[var(--color-bg-canvas)] p-3">
           {busy && <span className="text-text-muted">{t("export.rendering")}</span>}
           {!busy && image && (
@@ -228,7 +196,7 @@ function ExportDialog(props: {
               className="max-h-[296px] max-w-full rounded-sm shadow-sm"
             />
           )}
-          {imageFormat === "pdf" && !busy && image && <Hint>{t("export.pdfHint")}</Hint>}
+          {exporter?.contribution.id === PDF_EXPORTER_ID && !busy && image && <Hint>{t("export.pdfHint")}</Hint>}
         </div>
       ) : (
         <textarea readOnly className={`${TEXTAREA_CODE_CLASS} h-80 w-full`} value={busy ? t("common.loading") : text} />

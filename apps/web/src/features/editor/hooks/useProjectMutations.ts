@@ -6,13 +6,11 @@ import {
   getEnumsMap,
   getRefsMap,
   getStickyNotesMap,
-  getTableGroupsMap,
   getTablesMap,
   getZonesMap,
   type DetailLevel,
   type Project,
 } from "@athanordb/shared";
-import { computeAutoLayout } from "@/features/editor/canvas/autoLayout";
 import type { RefEdgeType } from "@/features/editor/edges/RefEdge";
 import type { CanvasNode } from "@/types/index";
 import { generateId } from "@/utils/id";
@@ -79,13 +77,10 @@ export function useProjectMutations(liveProject: Project | null, doc: Y.Doc | nu
     });
   };
 
-  /** Figma-style grouping: select 2+ tables, group them — the group is purely a named membership list, no position of its own (see TableGroupNode.tsx). */
-  const groupSelectedTables = (tableIds: string[]) => {
-    if (!doc || tableIds.length < 2) return;
-    const groups = getTableGroupsMap(doc);
-    const id = generateId();
-    groups.set(id, { id, name: `group_${groups.size + 1}`, tableIds });
-  };
+  // Figma-style grouping (select 2+ tables, group them — the group is purely
+  // a named membership list, no position of its own, see TableGroupNode.tsx)
+  // used to be a plain doc mutation here; it's now the `athanordb.core-canvas`
+  // plugin's `group-tables` canvasCommand, same reasoning as auto-layout above.
 
   const setAllDetailLevels = (level: DetailLevel) => {
     if (!doc) return;
@@ -102,17 +97,12 @@ export function useProjectMutations(liveProject: Project | null, doc: Y.Doc | nu
     return rest.every((t) => t.detailLevel === first.detailLevel) ? first.detailLevel : null;
   }, [liveProject]);
 
-  const autoLayout = () => {
-    if (!doc || !liveProject) return;
-    const positions = computeAutoLayout(liveProject.tables, liveProject.refs);
-    const tables = getTablesMap(doc);
-    doc.transact(() => {
-      for (const [id, position] of positions) {
-        const current = tables.get(id);
-        if (current) tables.set(id, { ...current, position });
-      }
-    });
-  };
+  // Auto-layout used to live here as a plain doc mutation; it's now the
+  // built-in `athanordb.core-canvas` plugin's `auto-layout` canvasCommand
+  // (see coreCanvas.ts), applied through `writeProjectToDoc` like
+  // `reset-link-routing` and the rest of that plugin's commands — consistent
+  // with how every other schema-transform command in the app is wired,
+  // instead of being the one bulk-layout action bypassing the command system.
 
   const setTablesColor = (tableIds: string[], color: string) => {
     if (!doc || tableIds.length === 0) return;
@@ -239,10 +229,8 @@ export function useProjectMutations(liveProject: Project | null, doc: Y.Doc | nu
     addZone,
     addStickyNote,
     addEnum,
-    groupSelectedTables,
     setAllDetailLevels,
     activeDetailLevel,
-    autoLayout,
     setTablesColor,
     duplicateSelected,
     onEdgesDelete,

@@ -60,6 +60,7 @@ import { createSearchPanel, openReplacePanel, searchPanelTheme } from "@/feature
 import { dbmlCompletion } from "@/features/editor/dbml/completion";
 import { dbmlSymbolsField } from "@/features/editor/dbml/symbols";
 import { dbmlNavigation, goToDefinition, navigateBack, navigateForward } from "@/features/editor/dbml/navigation";
+import { canvasNavigateHandler, dbmlCanvasLink } from "@/features/editor/dbml/canvasLink";
 import { dbmlHover } from "@/features/editor/dbml/hover";
 import { dbmlLint } from "@/features/editor/dbml/lint";
 import { formatDocument } from "@/features/editor/dbml/format";
@@ -152,6 +153,7 @@ export interface DbmlEditorOptions {
   onSave: () => void;
   onPalette: (mode: "symbols" | "commands") => void;
   onRename: (request: import("./rename.js").RenameRequest) => void;
+  onNavigateToCanvas: (target: import("./canvasLink.js").CanvasNavigateTarget) => void;
 }
 
 export function fontTheme(size: number) {
@@ -187,6 +189,7 @@ export function createDbmlExtensions(options: DbmlEditorOptions): Extension[] {
     dbmlSymbolsField,
     dbmlLanguageSupport,
     dbmlNavigation,
+    dbmlCanvasLink,
     dbmlHover,
     dbmlLint,
     autocompletion({
@@ -210,6 +213,7 @@ export function createDbmlExtensions(options: DbmlEditorOptions): Extension[] {
     saveHandler.of(options.onSave),
     paletteHandler.of(options.onPalette),
     renameHandler.of(options.onRename),
+    canvasNavigateHandler.of(options.onNavigateToCanvas),
     athanorEditorTheme,
     wrapCompartment.of(options.lineWrap ? EditorView.lineWrapping : []),
     fontCompartment.of(fontTheme(options.fontSize)),

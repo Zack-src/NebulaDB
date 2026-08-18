@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { EdgeLabelRenderer, useViewport, type Edge, type EdgeProps } from "@xyflow/react";
+import { memo, useMemo, useState } from "react";
+import { EdgeLabelRenderer, useStore, type Edge, type EdgeProps, type ReactFlowState } from "@xyflow/react";
 import type { RefCardinality, RoutingPoint } from "@athanordb/shared";
 import { useEdgeRouting } from "@/features/editor/edges/useEdgeRouting";
 import { polylinePath, splitPolylineAtMidpoint } from "@/features/editor/edges/pathMath";
@@ -42,6 +42,16 @@ const DIMMED_STROKE = "#475569";
 /** Arrowhead size in screen pixels, before the zoom counter-scale. */
 const ARROW_LENGTH = 9;
 const ARROW_HALF_WIDTH = 5;
+/**
+ * How finely the zoom-compensation re-renders track the actual zoom level —
+ * 5% steps are visually indistinguishable in stroke width/arrow size, but
+ * turn "re-render on every one of ~60 viewport frames/second" into
+ * "re-render on the handful of frames that actually cross a step". See the
+ * `useStore` call below for why this matters at all (a wide schema has a lot
+ * of edges, and each one used to pay this on every pan and zoom tick).
+ */
+const ZOOM_STEP = 0.05;
+const zoomSelector = (state: ReactFlowState) => Math.round(state.transform[2] / ZOOM_STEP) * ZOOM_STEP;
 
 /**
  * Arrowhead drawn as part of the edge instead of an SVG `marker-end`.
@@ -75,7 +85,7 @@ function EdgeArrowhead(props: { points: { x: number; y: number }[]; color: strin
 }
 
 // eslint-disable-next-line complexity -- edge rendering couples geometry (self-ref/many-to-many splitting), zoom-compensated styling and hover/selection state; a split would move shared derived values across files for no clarity gain
-export function RefEdge({
+function RefEdgeImpl({
   id,
   sourceX,
   sourceY,
@@ -116,7 +126,15 @@ export function RefEdge({
   // shrinks to sub-pixel and disappears at low zoom. Dividing by zoom here
   // pre-compensates in flow units so the *rendered* (post-transform) size on
   // screen stays constant regardless of zoom level.
-  const { zoom } = useViewport();
+  //
+  // Scoped to just the (step-quantized) zoom factor, not `useViewport()`'s
+  // full `{x, y, zoom}` — x/y change on every single pan frame and this
+  // component never reads them, so subscribing to the whole viewport used to
+  // re-render every edge on every pan tick too, not just every zoom tick.
+  // With a few hundred edges on screen, that's the difference between a
+  // handful of re-renders across a whole zoom gesture and one per edge per
+  // frame for the entire pan.
+  const zoom = useStore(zoomSelector);
   const zoomCompensation = 1 / Math.max(zoom, 0.01);
   const strokeWidth = (selected ? 2.5 : isHighlighted ? 2 : 1.5) * zoomCompensation;
   const strokeOpacity = selected ? 1 : isHighlighted ? 0.95 : 0.45;
@@ -301,3 +319,11 @@ export function RefEdge({
     </>
   );
 }
+
+/**
+ * A schema can have a few hundred of these on screen — without `memo`,
+ * `useCanvasEdges` rebuilding its array (any hover, any selection change,
+ * any drag frame) re-rendered every edge, not just the ones whose own props
+ * actually changed.
+ */
+export const RefEdge = memo(RefEdgeImpl);

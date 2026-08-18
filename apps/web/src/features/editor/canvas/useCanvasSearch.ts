@@ -1,10 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useReactFlow, type NodeChange } from "@xyflow/react";
-import { DEFAULT_TABLE_HEIGHT, DEFAULT_TABLE_WIDTH } from "@/features/editor/edges/refGeometry";
+import { jumpToTableNode } from "@/features/editor/canvas/canvasViewport";
 import type { CanvasNode } from "@/types";
-
-const JUMP_ZOOM = 1;
-const JUMP_DURATION_MS = 300;
 
 export interface CanvasSearchHandle {
   open: boolean;
@@ -53,22 +50,7 @@ export function useCanvasSearch(
 
   const jumpToTable = useCallback(
     (id: string) => {
-      const node = nodesRef.current.find((candidate) => candidate.id === id);
-      if (!node) return;
-      const width = node.measured?.width ?? DEFAULT_TABLE_WIDTH;
-      const height = node.measured?.height ?? DEFAULT_TABLE_HEIGHT;
-      setCenter(node.position.x + width / 2, node.position.y + height / 2, {
-        zoom: JUMP_ZOOM,
-        duration: JUMP_DURATION_MS,
-      });
-      // Reuses the same select-change path a real click goes through, so the
-      // match gets the ordinary selection outline instead of a bespoke "found"
-      // style — one less visual language for a table to be in.
-      onNodesChange(
-        nodesRef.current
-          .filter((candidate) => candidate.type === "table")
-          .map((candidate) => ({ id: candidate.id, type: "select" as const, selected: candidate.id === id })),
-      );
+      jumpToTableNode(nodesRef.current, id, setCenter, onNodesChange);
     },
     [setCenter, onNodesChange],
   );

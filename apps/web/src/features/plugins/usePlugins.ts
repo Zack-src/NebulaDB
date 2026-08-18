@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useSyncExternalStore } from "react";
 import { pluginRegistry } from "@/features/plugins/registry";
+import type { PluginRunContext } from "@/features/plugins/builtins";
 import type {
   CanvasCommandContribution,
   EditorCommandContribution,
@@ -28,16 +29,21 @@ export function usePlugins(): PluginRecord[] {
 function useResolved<T extends ResolvedContribution>(
   kind: "exporter" | "importer" | "canvasCommand" | "editorCommand",
   projectId: string,
+  extraCtx?: Omit<PluginRunContext, "projectId">,
 ): T[] {
   const records = usePlugins();
   return useMemo(() => {
     void records;
-    return pluginRegistry.resolve(kind as "exporter", { projectId }) as unknown as T[];
-  }, [records, kind, projectId]);
+    return pluginRegistry.resolve(kind as "exporter", { projectId, ...extraCtx }) as unknown as T[];
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- extraCtx is a plain object literal at most call sites, so it's a fresh identity every render; only its own captureCanvasImage function (itself already stable where it matters — see ExportDialog) is what should trigger a recompute.
+  }, [records, kind, projectId, extraCtx?.captureCanvasImage]);
 }
 
-export function useExporters(projectId: string): ResolvedContribution<ExporterContribution>[] {
-  return useResolved<ResolvedContribution<ExporterContribution>>("exporter", projectId);
+export function useExporters(
+  projectId: string,
+  extraCtx?: Omit<PluginRunContext, "projectId">,
+): ResolvedContribution<ExporterContribution>[] {
+  return useResolved<ResolvedContribution<ExporterContribution>>("exporter", projectId, extraCtx);
 }
 
 export function useImporters(projectId: string): ResolvedContribution<ImporterContribution>[] {

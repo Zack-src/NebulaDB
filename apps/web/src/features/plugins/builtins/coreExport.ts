@@ -16,7 +16,8 @@ const contributions: Contribution[] = [
     id: "dbml",
     label: "DBML",
     extension: "dbml",
-    description: "Format natif DBML",
+    description:
+      "Format natif DBML — inclut aussi la mise en page complète (position/taille/couleur des tables, zones, notes, groupes, style des liens) pour une réimportation fidèle",
   },
   {
     kind: "exporter",
@@ -74,7 +75,35 @@ const contributions: Contribution[] = [
     extension: "json",
     description: "Schémas de validation JSON Schema standard",
   },
+  {
+    kind: "exporter",
+    id: "image-png",
+    label: "Image — PNG",
+    extension: "png",
+    imageKind: "png",
+    description: "Capture du canvas au format PNG",
+  },
+  {
+    kind: "exporter",
+    id: "image-svg",
+    label: "Image — SVG",
+    extension: "svg",
+    imageKind: "svg",
+    description: "Capture du canvas au format SVG vectoriel",
+  },
+  {
+    kind: "exporter",
+    id: "pdf",
+    label: "PDF",
+    extension: "pdf",
+    // The preview/capture itself is a PNG — jsPDF just wraps it. See the
+    // `exporter:pdf` runner below and ExportDialog's download handling.
+    imageKind: "png",
+    description: "Capture du canvas encapsulée dans un document PDF",
+  },
 ];
+
+const CANVAS_CAPTURE_UNAVAILABLE = "La capture du canvas n'est pas disponible dans ce contexte.";
 
 const runners: Record<string, BuiltinRunner> = {
   "exporter:dbml": async (_input, ctx) => {
@@ -127,6 +156,25 @@ const runners: Record<string, BuiltinRunner> = {
     const text = generateJsonSchema(project);
     return { text, extension: "json" };
   },
+  "exporter:image-png": async (_input, ctx) => {
+    if (!ctx.captureCanvasImage) throw new Error(CANVAS_CAPTURE_UNAVAILABLE);
+    const image = await ctx.captureCanvasImage("png");
+    return { image: { ...image, format: "png" as const } };
+  },
+  "exporter:image-svg": async (_input, ctx) => {
+    if (!ctx.captureCanvasImage) throw new Error(CANVAS_CAPTURE_UNAVAILABLE);
+    const image = await ctx.captureCanvasImage("svg");
+    return { image: { ...image, format: "svg" as const } };
+  },
+  // The PDF itself is packaged client-side in ExportDialog (jsPDF, dynamically
+  // imported so it doesn't bloat everyone else's bundle) — this just supplies
+  // the same PNG capture the pdf contribution's preview and download both
+  // build on, same as the raw `image-png` exporter above.
+  "exporter:pdf": async (_input, ctx) => {
+    if (!ctx.captureCanvasImage) throw new Error(CANVAS_CAPTURE_UNAVAILABLE);
+    const image = await ctx.captureCanvasImage("png");
+    return { image: { ...image, format: "png" as const } };
+  },
 };
 
 export const coreExportPlugin: BuiltinPlugin = {
@@ -137,8 +185,8 @@ export const coreExportPlugin: BuiltinPlugin = {
     author: "AthanorDB",
     category: "export",
     description:
-      "Exportez vos schémas en DBML, SQL (Postgres, MySQL, SQL Server, SQLite), TypeScript, Prisma et Mermaid.",
-    tags: ["export", "sql", "typescript", "prisma", "mermaid", "json-schema"],
+      "Exportez vos schémas en DBML, SQL (Postgres, MySQL, SQL Server, SQLite), TypeScript, Prisma, Mermaid, ainsi qu'en image PNG/SVG ou PDF.",
+    tags: ["export", "sql", "typescript", "prisma", "mermaid", "json-schema", "image", "pdf"],
     settings: [
       {
         key: "tsExportType",
