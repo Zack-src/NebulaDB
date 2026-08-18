@@ -210,7 +210,11 @@ Table posts {
 
   const posts = merged.tables.find((t) => t.name === "posts")!;
   assert.notDeepEqual(posts.position, { x: 777, y: 888 }, "new table gets its own position, not the existing table's");
-  assert.equal(posts.detailLevel, "standard", "new table gets incoming's default detail level");
+  assert.equal(
+    posts.detailLevel,
+    "full",
+    "new table matches the project's existing uniform detail level, not a hardcoded default",
+  );
 
   assert.deepEqual(merged.zones, existing.zones, "zones pass through untouched (no DBML equivalent)");
   assert.deepEqual(merged.stickyNotes, existing.stickyNotes, "sticky notes pass through untouched");

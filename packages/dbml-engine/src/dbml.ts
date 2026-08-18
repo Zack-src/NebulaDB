@@ -1,5 +1,5 @@
 import { Parser, ModelExporter } from "@dbml/core";
-import type { Position, Project, Ref, Table } from "@athanordb/shared";
+import { defaultDetailLevelForNewTable, type Position, type Project, type Ref, type Table } from "@athanordb/shared";
 import { projectToDbml } from "./serialize.js";
 
 export type SqlDialect = "postgres" | "mysql" | "mssql";
@@ -301,7 +301,12 @@ export function mergeProjectIntoExisting(existing: Project, incoming: Project): 
       position: prev?.position ?? reservePosition(table.position),
       size: prev?.size ?? table.size,
       style: prev?.style ?? table.style,
-      detailLevel: prev?.detailLevel ?? table.detailLevel,
+      // A genuinely new table (`prev` undefined — declared straight in the
+      // DBML buffer) has no detail level of its own to inherit; `toProject`
+      // always stamps it "standard", which breaks the project's uniform
+      // level the instant it's set to "compact"/"full". Match the rest of
+      // the project instead, same as the canvas toolbar's add-table.
+      detailLevel: prev?.detailLevel ?? defaultDetailLevelForNewTable(existing.tables),
       // Comments have no DBML equivalent (like zones/sticky notes) — without
       // this, every DBML-driven resync (which happens on nearly every canvas
       // edit, via the live auto-sync loop) would silently wipe them, since

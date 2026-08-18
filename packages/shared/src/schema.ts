@@ -52,6 +52,21 @@ export interface Table {
   comments?: Comment[];
 }
 
+/**
+ * Detail level a genuinely new table should start at: whatever level every
+ * existing table currently shares, or "standard" for the first table / once
+ * tables have already diverged. A hardcoded "standard" here breaks that
+ * uniformity the moment the project is set to "compact" or "full" — the
+ * toolbar's active-level check (every table must share one level to light up
+ * a button) then has no majority to report and falls back to a "no level
+ * selected" placeholder state instead of showing a real level.
+ */
+export function defaultDetailLevelForNewTable(existingTables: Table[]): DetailLevel {
+  const [first, ...rest] = existingTables;
+  if (!first) return "standard";
+  return rest.every((t) => t.detailLevel === first.detailLevel) ? first.detailLevel : "standard";
+}
+
 export interface Comment {
   id: Id;
   author: string;

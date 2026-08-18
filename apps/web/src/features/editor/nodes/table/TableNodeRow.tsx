@@ -1,10 +1,11 @@
-import { forwardRef, useEffect, useRef } from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import { Handle, Position } from "@xyflow/react";
-import type { Comment, Field } from "@athanordb/shared";
+import { MAX_NAME_LENGTH, type Comment, type Field } from "@athanordb/shared";
 import { CommentThread } from "@/features/editor/comments/CommentThread";
 import { AsteriskIcon, DiamondIcon, IncrementIcon, NoteIcon } from "@/components/icons/Icons";
 import { FieldBadge } from "@/features/editor/nodes/table/FieldBadge";
 import { FieldEditorPopover } from "@/features/editor/nodes/table/FieldEditorPopover";
+import { useDraftValue } from "@/hooks/useDraftValue";
 import { useTranslation } from "@/i18n/useTranslation";
 import {
   KW_BADGE_CLASS,
@@ -13,6 +14,7 @@ import {
   ROW_ACTION_BTN_CLASS,
   ROW_BADGES_CLASS,
   ROW_CLASS,
+  ROW_NAME_INPUT_CLASS,
   ROW_TYPE_CLASS,
   rowNameClass,
   rowStateClass,
@@ -63,6 +65,8 @@ export const TableNodeRow = forwardRef<HTMLDivElement, TableNodeRowProps>(functi
   ref,
 ) {
   const { t } = useTranslation();
+  const [renaming, setRenaming] = useState(false);
+  const nameDraft = useDraftValue(field.name, (next) => onUpdateField?.(field.id, { name: next ?? "" }));
 
   // Guards the unmount cleanup below: only a row that is itself the currently
   // hovered one should clear the shared hover state when it disappears (a
@@ -100,7 +104,40 @@ export const TableNodeRow = forwardRef<HTMLDivElement, TableNodeRowProps>(functi
     >
       <Handle type="target" position={Position.Left} id={`${field.id}-left-target`} className="table-row-handle" />
       <Handle type="source" position={Position.Left} id={`${field.id}-left-source`} className="table-row-handle" />
-      <span className={rowNameClass(isLinked)}>{field.name}</span>
+      {renaming ? (
+        <input
+          autoFocus
+          className={`nodrag ${ROW_NAME_INPUT_CLASS}`}
+          value={nameDraft.value}
+          onChange={(event) => nameDraft.setValue(event.target.value)}
+          onClick={(event) => event.stopPropagation()}
+          onBlur={() => {
+            nameDraft.commit();
+            setRenaming(false);
+          }}
+          maxLength={MAX_NAME_LENGTH}
+          onKeyDown={(event) => {
+            event.stopPropagation();
+            nameDraft.handleKeyDown(event);
+            if (event.key === "Enter") setRenaming(false);
+            if (event.key === "Escape") {
+              nameDraft.setValue(field.name);
+              setRenaming(false);
+            }
+          }}
+        />
+      ) : (
+        <span
+          className={rowNameClass(isLinked)}
+          onDoubleClick={(event) => {
+            if (!onUpdateField) return;
+            event.stopPropagation();
+            setRenaming(true);
+          }}
+        >
+          {field.name}
+        </span>
+      )}
 
       <div className={ROW_BADGES_CLASS}>
         <FieldBadge isForeignKey={isForeignKey} isPk={isPk} />

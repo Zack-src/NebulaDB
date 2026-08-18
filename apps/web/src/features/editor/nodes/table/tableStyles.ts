@@ -28,6 +28,11 @@ export function rowNameClass(isLinked: boolean): string {
     ? "overflow-hidden text-ellipsis font-semibold text-[#a5b4fc]"
     : "overflow-hidden text-ellipsis font-medium text-text";
 }
+/** Inline column rename — same glassy-fill idea as `TABLE_NAME_INPUT_CLASS`, just sized to sit inline in a row instead of the header. */
+export const ROW_NAME_INPUT_CLASS =
+  "min-w-0 flex-1 rounded-sm border border-primary-border bg-bg px-1 py-px font-medium text-text caret-text " +
+  "shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)] focus:outline-hidden focus:ring-2 focus:ring-primary/30";
+
 export const ROW_TYPE_CLASS =
   "ml-1 shrink-0 whitespace-nowrap rounded-full border border-border bg-bg px-1.5 py-px font-mono " +
   "text-[calc(10.5px_*_var(--canvas-font-scale))] text-text-muted";

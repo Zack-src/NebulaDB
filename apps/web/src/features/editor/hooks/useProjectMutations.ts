@@ -2,6 +2,7 @@ import { useCallback, useMemo } from "react";
 import * as Y from "yjs";
 import type { Connection } from "@xyflow/react";
 import {
+  defaultDetailLevelForNewTable,
   getEnumsMap,
   getRefsMap,
   getStickyNotesMap,
@@ -35,7 +36,7 @@ export function useProjectMutations(liveProject: Project | null, doc: Y.Doc | nu
       fields: [{ id: generateId(), name: "id", type: "int", pk: true, increment: true }],
       indexes: [],
       position: position ?? { x: (index % 6) * 260, y: Math.floor(index / 6) * 200 },
-      detailLevel: "standard",
+      detailLevel: defaultDetailLevelForNewTable(liveProject?.tables ?? []),
     });
   };
 

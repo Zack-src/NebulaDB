@@ -115,7 +115,13 @@ export function readProjectFromDoc(doc: Y.Doc, fallbackId: string, fallbackName 
     id: (meta.get("id") as string | undefined) ?? fallbackId,
     name: (meta.get("name") as string | undefined) ?? fallbackName,
     paletteColors: meta.get("paletteColors") as string[] | undefined,
-    tables: Array.from(getTablesMap(doc).values()),
+    // Legacy tables predate the `detailLevel` field (added after this doc
+    // shape shipped) and have it `undefined` in the Yjs map. Left as-is, one
+    // stray legacy table makes every "every table shares a level" check
+    // (e.g. the toolbar's active-level highlight) go null the moment a
+    // freshly-added table (which does set "standard") is compared against
+    // it — surfacing as a bogus "Détail" placeholder state in the UI.
+    tables: Array.from(getTablesMap(doc).values()).map((t) => (t.detailLevel ? t : { ...t, detailLevel: "standard" })),
     refs: Array.from(getRefsMap(doc).values()),
     enums: Array.from(getEnumsMap(doc).values()),
     zones: Array.from(getZonesMap(doc).values()),
