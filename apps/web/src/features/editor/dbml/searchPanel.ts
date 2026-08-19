@@ -267,6 +267,8 @@ export function createSearchPanel(view: EditorView): Panel {
         },
       };
       render();
+      searchInput.focus();
+      searchInput.select();
     },
     destroy() {
       activePanel = null;
