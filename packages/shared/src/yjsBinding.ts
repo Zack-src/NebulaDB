@@ -9,6 +9,18 @@ import type { EnumDef, Id, Project, Ref, StickyNote, Table, TableGroup, Zone } f
  * per-field, until Phase 5/6 needs finer-grained collaborative editing.
  */
 export const META_KEY = "meta";
+/**
+ * `getTablesMap`'s keys are a `Y.Map`, whose iteration order is fixed the
+ * first time each key is ever set and never moves on a later `.set()` of the
+ * same key (verified against Yjs directly, not assumed) — so re-declaring an
+ * existing table earlier in the DBML buffer updates its *content* in place
+ * but never its position in `readProjectFromDoc`'s output. Without this, that
+ * reordering looks like it took, right up until the next real schema edit
+ * forces a full-buffer resync, which replays the frozen original order over
+ * everything and silently undoes it. This meta entry is the desired table
+ * order as of the last write, read back to reorder `getTablesMap`'s contents.
+ */
+export const TABLE_ORDER_KEY = "tableOrder";
 export const TABLES_KEY = "tables";
 export const REFS_KEY = "refs";
 export const ENUMS_KEY = "enums";
@@ -85,6 +97,11 @@ export function writeProjectToDoc(doc: Y.Doc, project: Project): void {
       getTablesMap(doc),
       project.tables.map((t) => [t.id, t]),
     );
+    setIfChanged(
+      meta,
+      TABLE_ORDER_KEY,
+      project.tables.map((t) => t.id),
+    );
     replaceMapContents(
       getRefsMap(doc),
       project.refs.map((r) => [r.id, r]),
@@ -108,9 +125,33 @@ export function writeProjectToDoc(doc: Y.Doc, project: Project): void {
   });
 }
 
+/**
+ * Reorders `Y.Map`-sourced tables to match a stored id order, appending any
+ * table not named in it (a legacy doc predating `TABLE_ORDER_KEY`, or one
+ * concurrently added by a peer whose write hasn't set it yet) in the map's
+ * own — otherwise frozen — iteration order, so nothing is ever dropped.
+ */
+function orderTables(tables: Table[], order: string[] | undefined): Table[] {
+  if (!order || order.length === 0) return tables;
+  const byId = new Map(tables.map((t) => [t.id, t]));
+  const ordered: Table[] = [];
+  for (const id of order) {
+    const table = byId.get(id);
+    if (table) {
+      ordered.push(table);
+      byId.delete(id);
+    }
+  }
+  ordered.push(...byId.values());
+  return ordered;
+}
+
 /** Read the doc's current content back into a plain `Project`. */
 export function readProjectFromDoc(doc: Y.Doc, fallbackId: string, fallbackName = "Untitled"): Project {
   const meta = getMetaMap(doc);
+  const tables: Table[] = Array.from(getTablesMap(doc).values()).map((t) =>
+    t.detailLevel ? t : { ...t, detailLevel: "standard" as const },
+  );
   return {
     id: (meta.get("id") as string | undefined) ?? fallbackId,
     name: (meta.get("name") as string | undefined) ?? fallbackName,
@@ -121,7 +162,7 @@ export function readProjectFromDoc(doc: Y.Doc, fallbackId: string, fallbackName 
     // (e.g. the toolbar's active-level highlight) go null the moment a
     // freshly-added table (which does set "standard") is compared against
     // it — surfacing as a bogus "Détail" placeholder state in the UI.
-    tables: Array.from(getTablesMap(doc).values()).map((t) => (t.detailLevel ? t : { ...t, detailLevel: "standard" })),
+    tables: orderTables(tables, meta.get(TABLE_ORDER_KEY) as string[] | undefined),
     refs: Array.from(getRefsMap(doc).values()),
     enums: Array.from(getEnumsMap(doc).values()),
     zones: Array.from(getZonesMap(doc).values()),

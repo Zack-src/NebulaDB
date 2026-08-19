@@ -130,3 +130,40 @@ test("readProjectFromDoc uses fallback id/name only when meta hasn't been set", 
   assert.equal(populated.id, "p1", "meta id wins over fallback once set");
   assert.equal(populated.name, "Sample");
 });
+
+test("reordering existing tables in a later write is reflected on read (Y.Map iteration order is otherwise frozen at first insert)", () => {
+  const doc = new Y.Doc();
+  const project = sampleProject();
+  writeProjectToDoc(doc, project); // t1 (users), t2 (posts)
+  assert.deepEqual(
+    readProjectFromDoc(doc, "fallback-id").tables.map((t) => t.id),
+    ["t1", "t2"],
+  );
+
+  // Same two tables, same content, just declared in the opposite order —
+  // the DBML-editor equivalent of moving a table's block above another's.
+  const reordered: Project = { ...project, tables: [project.tables[1], project.tables[0]] };
+  writeProjectToDoc(doc, reordered);
+
+  assert.deepEqual(
+    readProjectFromDoc(doc, "fallback-id").tables.map((t) => t.id),
+    ["t2", "t1"],
+    "read-back order follows the last write, not first-insertion order",
+  );
+});
+
+test("a table added by a doc written before TABLE_ORDER_KEY existed still appears (falls back to Map order)", () => {
+  const doc = new Y.Doc();
+  const project = sampleProject();
+  // Simulates a pre-existing doc: write the tables map directly, skipping
+  // writeProjectToDoc's now-current TABLE_ORDER_KEY write entirely.
+  const tablesMap = doc.getMap("tables");
+  for (const t of project.tables) tablesMap.set(t.id, t);
+
+  const result = readProjectFromDoc(doc, "fallback-id");
+  assert.equal(result.tables.length, 2, "no table dropped just because tableOrder was never written");
+  assert.deepEqual(
+    result.tables.map((t) => t.id).sort(),
+    ["t1", "t2"],
+  );
+});
