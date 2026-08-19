@@ -27,7 +27,8 @@
   stroke-linecap: butt;
 }
 
-/* Cardinality chip on a relation endpoint. Opaque on purpose: it has to stay
+/* Cardinality marker on a relation endpoint: a bare bold glyph, no pill/circle
+   around it. Opaque background on purpose (no border) — it has to stay
    legible with the line, other refs and a table border passing behind it. */
 .ref-edge-cardinality {
   position: absolute;
@@ -37,16 +38,13 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  min-width: 16px;
-  height: 16px;
-  padding: 0 4px;
-  border: 1px solid currentcolor;
-  border-radius: var(--radius-full);
+  min-width: 14px;
+  height: 14px;
+  padding: 0 2px;
   background: var(--color-bg-canvas);
-  box-shadow: var(--shadow-xs);
   font-family: var(--font-sans);
-  font-size: 10px;
-  font-weight: 700;
+  font-size: 11px;
+  font-weight: 800;
   line-height: 1;
   letter-spacing: 0.01em;
   pointer-events: none;

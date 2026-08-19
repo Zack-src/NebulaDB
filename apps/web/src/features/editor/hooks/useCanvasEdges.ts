@@ -141,6 +141,20 @@ export function useCanvasEdges(
             const current = refs.get(ref.id);
             if (current) refs.set(ref.id, { ...current, cardinality });
           },
+          // Swaps which table/field is "from" and which is "to" — the arrow
+          // (and, for one-to-many, which end reads "1" vs "n") flips to match,
+          // with no change to `cardinality` itself: one-to-one and many-to-many
+          // read the same from either direction, and one-to-many's "1"/"n"
+          // labels are derived from from/to position already, so swapping the
+          // endpoints is the whole fix.
+          onReverseDirection: !canWrite
+            ? undefined
+            : () => {
+                if (!doc) return;
+                const refs = getRefsMap(doc);
+                const current = refs.get(ref.id);
+                if (current) refs.set(ref.id, { ...current, from: current.to, to: current.from });
+              },
           onDeleteRef: !canWrite
             ? undefined
             : () => {

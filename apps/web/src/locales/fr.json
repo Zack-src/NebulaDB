@@ -196,6 +196,8 @@
   "edge.insertWaypoint": "Insérer un point ici",
   "edge.resetPathShort": "Réinitialiser le tracé",
   "edge.resetColor": "Réinitialiser la couleur",
+  "edge.reverseDirection": "Inverser le sens",
+  "edge.reverseDirectionHint": "Inverse quelle table est le point de départ — les côtés 1/n suivent",
   "edge.deleteRelation": "Supprimer la relation",
   "edge.settings": "Options du lien",
   "edge.settingsTitle": "Paramètres de la relation",
