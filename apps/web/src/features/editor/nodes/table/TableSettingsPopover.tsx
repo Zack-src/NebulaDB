@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { SWATCH_CELL_CLASS, SWATCH_CELL_ACTIVE_CLASS, SWATCH_GRID_CLASS } from "@/components/inputs/ColorSwatchPicker";
 import { useAnchoredPlacement } from "@/hooks/useMenuPlacement";
+import { useCloseOnViewportChange } from "@/hooks/useCloseOnViewportChange";
 import { useDismissablePopover } from "@/hooks/useDismissablePopover";
 import { useDraftValue } from "@/hooks/useDraftValue";
 import { useTranslation } from "@/i18n/useTranslation";
@@ -195,14 +196,18 @@ export function TableSettingsPopover({
     setAddingIndex(false);
   }, []);
   useDismissablePopover(open, dismiss, [popoverRef, triggerRef]);
-  // Placement (and, crucially, the height cap) is derived from the trigger's
-  // real rect. The old clamp measured against a guessed 280px while the panel
-  // was free to grow to 80vh, so a tall settings popover hung off the screen.
-  const placement = useAnchoredPlacement(open ? triggerRect : null, popoverRef);
+  useCloseOnViewportChange(open, dismiss);
+  // Placement (and, crucially, the height cap) is derived from the *table's*
+  // rect, not just the trigger button's — anchoring to the right of the whole
+  // table so the popover sits beside it instead of dropping down over it. The
+  // old clamp measured against a guessed 280px while the panel was free to
+  // grow to 80vh, so a tall settings popover hung off the screen.
+  const placement = useAnchoredPlacement(open ? triggerRect : null, popoverRef, "right");
 
   const toggleOpen = () => {
     if (!open && triggerRef.current) {
-      setTriggerRect(triggerRef.current.getBoundingClientRect());
+      const tableRect = triggerRef.current.closest(".table-node")?.getBoundingClientRect();
+      setTriggerRect(tableRect ?? triggerRef.current.getBoundingClientRect());
     } else {
       setAddingIndex(false);
     }
