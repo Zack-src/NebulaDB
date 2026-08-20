@@ -163,8 +163,12 @@ function DbmlPanel(props: {
   const applyNow = useCallback(
     (source: string) => {
       if (readOnly) return;
+      // The document-derived text this buffer was edited on top of — the
+      // server needs it to tell a deletion apart from a table it simply
+      // never had (a collaborator's, added while this buffer was open).
+      const baseline = lastAppliedTextRef.current ?? undefined;
       lastAppliedTextRef.current = source;
-      importSource(projectId, source)
+      importSource(projectId, source, undefined, baseline)
         .then(() => {
           setDirty(false);
           setError(null);

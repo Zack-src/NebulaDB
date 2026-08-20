@@ -5,6 +5,7 @@ import {
   describeDbmlParseError,
   mergeProjectIntoExisting,
   parseDbml,
+  preserveConcurrentAdditions,
   parseSql,
   projectToDbml,
   projectToSql,
@@ -42,6 +43,20 @@ function parseSource(source: string, dialect: SqlDialect | null) {
   }
 }
 
+/**
+ * Parses the baseline the client says its buffer came from. A baseline that
+ * no longer parses (hand-edited, or from a version that wrote something this
+ * parser rejects) is treated as "no baseline": the import still applies, it
+ * just loses the concurrent-edit protection rather than failing outright.
+ */
+function parseBaselineProject(baseline: string, projectName: string): Project {
+  try {
+    return applyVisualMetadata(toProject(parseDbml(baseline), projectName, baseline), baseline);
+  } catch {
+    return { id: "", name: projectName, tables: [], refs: [], enums: [], zones: [], stickyNotes: [], tableGroups: [] };
+  }
+}
+
 function sendSql(reply: FastifyReply, project: Project, dialect: SqlDialect) {
   try {
     return reply.type("text/plain").send(projectToSql(project, dialect));
@@ -60,7 +75,7 @@ export function registerProjectImportExportRoutes(app: FastifyInstance): void {
   app.post("/api/projects/:id/import", async (req) => {
     const { id } = req.params as { id: string };
     const { user, project } = requireProjectAccess(req, id, "edit");
-    const body = (req.body ?? {}) as { source?: string; dialect?: string };
+    const body = (req.body ?? {}) as { source?: string; dialect?: string; baseline?: string };
     if (!body.source?.trim()) throw new ApiError("SOURCE_REQUIRED");
 
     const dialect = body.dialect ? requireSqlDialect(body.dialect) : null;
@@ -70,15 +85,25 @@ export function registerProjectImportExportRoutes(app: FastifyInstance): void {
       : applyVisualMetadata(toProject(database, project.name, body.source), body.source);
 
     const room = getRoom(id);
+    const current = readProjectFromDoc(room.doc, project.id, project.name);
     // Merge by table/field name rather than a blind overwrite, so reimporting
     // an updated schema keeps existing tables' positions/detail level instead
     // of resetting the whole layout every time.
-    const merged = mergeProjectIntoExisting(readProjectFromDoc(room.doc, project.id, project.name), parsed);
-    room.doc.transact(() => writeProjectToDoc(room.doc, merged), user.displayName);
+    const merged = mergeProjectIntoExisting(current, parsed);
+    // `baseline` — the text this buffer was generated from — turns the merge
+    // above from "the buffer is the whole truth" into a three-way one:
+    // anything missing from the buffer *and* from its baseline was added by
+    // somebody else while this buffer was open, and must not be deleted by
+    // it. Optional: an import with no baseline (the import dialog, a script,
+    // an older client) keeps the previous replace-everything behaviour.
+    const reconciled = body.baseline?.trim()
+      ? preserveConcurrentAdditions(current, merged, parseBaselineProject(body.baseline, project.name))
+      : merged;
+    room.doc.transact(() => writeProjectToDoc(room.doc, reconciled), user.displayName);
     // An import can restructure an entire schema in one call, which is the
     // kind of change someone later asks "who did that, and when?" about.
-    auditUser(user, "project.import", { type: "project", id }, `${merged.tables.length} table(s)`, req);
-    return { imported: true, tables: merged.tables.length };
+    auditUser(user, "project.import", { type: "project", id }, `${reconciled.tables.length} table(s)`, req);
+    return { imported: true, tables: reconciled.tables.length };
   });
 
   app.get("/api/projects/:id/export/dbml", async (req, reply) => {

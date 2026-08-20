@@ -1,4 +1,4 @@
-import { Compartment, EditorState, Facet, Prec, type Extension } from "@codemirror/state";
+import { Annotation, Compartment, EditorState, Facet, Prec, type Extension } from "@codemirror/state";
 import {
   EditorView,
   crosshairCursor,
@@ -146,6 +146,12 @@ export const dbmlKeymap = keymap.of([
   { key: "Mod-Shift-z", run: redo, preventDefault: true },
 ]);
 
+/**
+ * Marks a transaction as "this text came from the project document, not from
+ * the user" — see the `updateListener` in `createDbmlExtensions`.
+ */
+export const documentSync = Annotation.define<boolean>();
+
 export interface DbmlEditorOptions {
   lineWrap: boolean;
   fontSize: number;
@@ -225,7 +231,17 @@ export function createDbmlExtensions(options: DbmlEditorOptions): Extension[] {
       },
     }),
     EditorView.updateListener.of((update) => {
-      if (update.docChanged) options.onChange(update.state.doc.toString());
+      // A buffer rewrite that came *from* the document (see `documentSync`)
+      // is not a user edit. Without this distinction every canvas change —
+      // anyone's, including a collaborator's — arrived here as "the user just
+      // typed", which marked the buffer dirty and pushed the whole schema
+      // back to the server through `/import` 600ms later. With two people
+      // connected, each client kept re-importing its own copy of the schema,
+      // and whichever stale buffer landed last deleted whatever the other had
+      // just added.
+      if (!update.docChanged) return;
+      if (update.transactions.some((transaction) => transaction.annotation(documentSync))) return;
+      options.onChange(update.state.doc.toString());
     }),
   ];
 }

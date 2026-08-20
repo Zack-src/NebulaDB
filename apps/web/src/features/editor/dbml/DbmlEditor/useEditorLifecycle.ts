@@ -2,7 +2,7 @@ import { useEffect, useRef } from "react";
 import { EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { applyServerProblem } from "@/features/editor/dbml/lint";
-import { createDbmlExtensions } from "@/features/editor/dbml/setup";
+import { createDbmlExtensions, documentSync } from "@/features/editor/dbml/setup";
 import { getSymbols } from "@/features/editor/dbml/symbols";
 import { jumpTo } from "@/features/editor/dbml/navigation";
 import type { RenameRequest } from "@/features/editor/dbml/rename";
@@ -108,6 +108,11 @@ export function useEditorLifecycle(
     view.dispatch({
       changes: { from: start, to: endCurrent, insert: next.slice(start, endNext) },
       selection: { anchor: Math.min(view.state.selection.main.anchor, next.length) },
+      // Tagged so the change listener can tell this apart from typing: this is
+      // the document being mirrored into the buffer, and echoing it back to
+      // the server as an import is what made two connected clients fight over
+      // the schema (see `documentSync` in ../setup.ts).
+      annotations: documentSync.of(true),
     });
   }, [props.value, viewRef]);
 

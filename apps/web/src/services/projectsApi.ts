@@ -79,10 +79,26 @@ export function restoreRevision(projectId: string, revisionId: string): Promise<
 
 // --- import / export ---
 
-export function importSource(projectId: string, source: string, dialect?: SqlDialect): Promise<{ tables: number }> {
+/**
+ * `baseline` is the text `source` was derived from — sent by the DBML panel's
+ * auto-sync so the server can tell "the user deleted this" from "the user
+ * never saw this" and keep whatever a collaborator added while this buffer
+ * was open (see `preserveConcurrentAdditions` server-side). Omitted by
+ * one-shot imports, where replacing everything is the point.
+ */
+export function importSource(
+  projectId: string,
+  source: string,
+  dialect?: SqlDialect,
+  baseline?: string,
+): Promise<{ tables: number }> {
   return request<{ tables: number }>(`${projectPath(projectId)}/import`, {
     method: "POST",
-    body: dialect ? { source, dialect } : { source },
+    body: {
+      source,
+      ...(dialect ? { dialect } : {}),
+      ...(baseline ? { baseline } : {}),
+    },
   });
 }
 
