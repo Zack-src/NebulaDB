@@ -220,6 +220,104 @@ Table posts {
   assert.deepEqual(merged.stickyNotes, existing.stickyNotes, "sticky notes pass through untouched");
 });
 
+test("mergeProjectIntoExisting recognizes a plain rename (same fields, new name) and keeps id/position/style", () => {
+  const existing: Project = {
+    id: "p1",
+    name: "Test",
+    tables: [
+      {
+        id: "old-id",
+        name: "orders",
+        fields: [
+          { id: "f-id", name: "id", type: "int", pk: true },
+          { id: "f-total", name: "total", type: "int" },
+        ],
+        indexes: [],
+        position: { x: 777, y: 888 },
+        detailLevel: "full",
+        style: { color: "#123456" },
+      },
+    ],
+    refs: [],
+    enums: [],
+    zones: [],
+    stickyNotes: [],
+    tableGroups: [],
+  };
+
+  // "orders" renamed to "commandes" — the only edit, fields untouched. This
+  // is what Ctrl+H replace, F2 rename and hand-typing all produce: a table
+  // whose name has no match in `existing`, sitting next to one in `existing`
+  // whose name has no match in `incoming`.
+  const incoming = toProject(
+    parseDbml(`
+Table commandes {
+  id int [pk]
+  total int
+}
+`),
+    "Test",
+  );
+
+  const merged = mergeProjectIntoExisting(existing, incoming);
+
+  assert.equal(merged.tables.length, 1);
+  const renamed = merged.tables[0];
+  assert.equal(renamed.name, "commandes");
+  assert.equal(renamed.id, "old-id", "renamed table keeps its old id, not a fresh one");
+  assert.deepEqual(renamed.position, { x: 777, y: 888 }, "renamed table keeps its saved position");
+  assert.deepEqual(renamed.style, { color: "#123456" }, "renamed table keeps its saved color/style");
+  assert.equal(renamed.detailLevel, "full", "renamed table keeps its detail level");
+  assert.equal(
+    renamed.fields.find((f) => f.name === "id")?.id,
+    "f-id",
+    "field ids also carry over on a rename",
+  );
+});
+
+test("mergeProjectIntoExisting does not guess a rename when field overlap is weak (treated as delete+create instead)", () => {
+  const existing: Project = {
+    id: "p1",
+    name: "Test",
+    tables: [
+      {
+        id: "old-id",
+        name: "legacy_customers",
+        fields: [{ id: "f1", name: "id", type: "int", pk: true }],
+        indexes: [],
+        position: { x: 777, y: 888 },
+        detailLevel: "full",
+        style: { color: "#123456" },
+      },
+    ],
+    refs: [],
+    enums: [],
+    zones: [],
+    stickyNotes: [],
+    tableGroups: [],
+  };
+
+  // An unrelated new table, not a rename — field sets don't overlap enough
+  // to justify treating this as the same identity.
+  const incoming = toProject(
+    parseDbml(`
+Table invoices {
+  invoice_number varchar [pk]
+  amount int
+  due_date varchar
+}
+`),
+    "Test",
+  );
+
+  const merged = mergeProjectIntoExisting(existing, incoming);
+  assert.equal(merged.tables.length, 1);
+  const invoices = merged.tables[0];
+  assert.equal(invoices.name, "invoices");
+  assert.notEqual(invoices.id, "old-id", "unrelated table gets a fresh id, old table's identity is not reused");
+  assert.notDeepEqual(invoices.position, { x: 777, y: 888 }, "unrelated table does not inherit the old position");
+});
+
 test("mergeProjectIntoExisting drops tables no longer present in incoming, and remaps ref endpoints onto merged ids", () => {
   const existing: Project = {
     id: "p1",

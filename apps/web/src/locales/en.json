@@ -182,6 +182,8 @@
   "dbml.lineColumn": "Line, column",
   "dbml.currentTable": "Current table",
   "dbml.showProblems": "Show problems (Ctrl+Shift+M)",
+  "dbml.showParseError": "Show problem",
+  "dbml.hideParseError": "Hide problem",
   "dbml.toggleWrap": "Toggle line wrapping",
   "dbml.fontDecrease": "Decrease font size",
   "dbml.palette.commandsPlaceholder": "Type a command…",

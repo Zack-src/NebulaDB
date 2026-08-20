@@ -17,6 +17,8 @@ export interface RequestOptions {
   body?: unknown;
   query?: Record<string, string | number | boolean | undefined>;
   signal?: AbortSignal;
+  /** Lets the request outlive a `beforeunload` (page close/reload) instead of being aborted with the document. */
+  keepalive?: boolean;
 }
 
 function buildUrl(path: string, query?: RequestOptions["query"]): string {
@@ -33,6 +35,7 @@ function toRequestInit(options: RequestOptions): RequestInit {
   return {
     method: options.method ?? "GET",
     signal: options.signal,
+    keepalive: options.keepalive,
     ...(options.body === undefined ? {} : { headers: JSON_HEADERS, body: JSON.stringify(options.body) }),
   };
 }

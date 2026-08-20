@@ -182,6 +182,8 @@
   "dbml.lineColumn": "Ligne, colonne",
   "dbml.currentTable": "Table courante",
   "dbml.showProblems": "Afficher les problèmes (Ctrl+Maj+M)",
+  "dbml.showParseError": "Afficher le problème",
+  "dbml.hideParseError": "Masquer le problème",
   "dbml.toggleWrap": "Basculer le retour à la ligne",
   "dbml.fontDecrease": "Réduire la taille de police",
   "dbml.palette.commandsPlaceholder": "Saisissez une commande…",

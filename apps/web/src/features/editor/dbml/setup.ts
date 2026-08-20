@@ -63,6 +63,7 @@ import { dbmlNavigation, goToDefinition, navigateBack, navigateForward } from "@
 import { canvasNavigateHandler, dbmlCanvasLink } from "@/features/editor/dbml/canvasLink";
 import { dbmlHover } from "@/features/editor/dbml/hover";
 import { dbmlLint } from "@/features/editor/dbml/lint";
+import { errorRuler } from "@/features/editor/dbml/errorRuler";
 import { formatDocument } from "@/features/editor/dbml/format";
 import { renameHandler, startRename } from "@/features/editor/dbml/rename";
 import {
@@ -198,6 +199,7 @@ export function createDbmlExtensions(options: DbmlEditorOptions): Extension[] {
     dbmlCanvasLink,
     dbmlHover,
     dbmlLint,
+    errorRuler,
     autocompletion({
       override: [dbmlCompletion],
       selectOnOpen: true,

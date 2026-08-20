@@ -68,6 +68,10 @@ function DbmlPanel(props: {
   const [error, setError] = useState<string | null>(null);
   const [errorKey, setErrorKey] = useState<TranslationKeyOf | null>(null);
   const [problem, setProblem] = useState<ServerProblem | null>(null);
+  // Whether the red message itself is collapsed — the toggle button that
+  // controls it stays visible either way, so there's still a way to bring it
+  // back once hidden.
+  const [errorHidden, setErrorHidden] = useState(false);
   const [panelWidth, setPanelWidth] = useState<number>(loadDbmlPanelWidth);
   const [isResizing, setIsResizing] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -125,6 +129,13 @@ function DbmlPanel(props: {
     dirtyRef.current = dirty;
   }, [dirty]);
 
+  // A newly-reported problem should surface even if the user hid a previous
+  // one — only the deliberate "hide" toggle on an *unchanged* problem should
+  // keep it collapsed.
+  useEffect(() => {
+    if (error || errorKey) setErrorHidden(false);
+  }, [error, errorKey]);
+
   useEffect(() => {
     textRef.current = text;
   }, [text]);
@@ -161,14 +172,14 @@ function DbmlPanel(props: {
   }, [project, projectId, text, textSignature, signatureOf]);
 
   const applyNow = useCallback(
-    (source: string) => {
+    (source: string, options?: { keepalive?: boolean }) => {
       if (readOnly) return;
       // The document-derived text this buffer was edited on top of — the
       // server needs it to tell a deletion apart from a table it simply
       // never had (a collaborator's, added while this buffer was open).
       const baseline = lastAppliedTextRef.current ?? undefined;
       lastAppliedTextRef.current = source;
-      importSource(projectId, source, undefined, baseline)
+      importSource(projectId, source, undefined, baseline, options)
         .then(() => {
           setDirty(false);
           setError(null);
@@ -198,11 +209,27 @@ function DbmlPanel(props: {
     [projectId, readOnly],
   );
 
+  // A rename (or any edit) sits in the browser for up to DBML_SYNC_DEBOUNCE_MS
+  // before it's actually POSTed — closing the panel, navigating away, or
+  // reloading inside that window used to just clear the pending timer and
+  // drop the edit on the floor, so the reload showed the pre-edit schema.
+  // Flush whatever's still pending instead of discarding it.
   useEffect(() => {
-    return () => {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
+    const flushPending = () => {
+      if (!debounceRef.current) return;
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+      // `keepalive` lets this survive the tab actually closing/reloading
+      // (a plain fetch gets aborted with the document); a same-tab route
+      // change or panel close doesn't need it but it's harmless either way.
+      if (dirtyRef.current) applyNow(textRef.current, { keepalive: true });
     };
-  }, []);
+    window.addEventListener("beforeunload", flushPending);
+    return () => {
+      window.removeEventListener("beforeunload", flushPending);
+      flushPending();
+    };
+  }, [applyNow]);
 
   const handleChange = useCallback(
     (value: string) => {
@@ -316,13 +343,22 @@ function DbmlPanel(props: {
       </div>
       {(error || errorKey) && (
         <div className="m-2">
-          <ErrorText>
-            {errorKey
-              ? t(errorKey)
-              : problem
-                ? `${t("dbml.problemAt", { line: problem.line, column: problem.column ?? "" })} — ${error}`
-                : error}
-          </ErrorText>
+          <button
+            type="button"
+            onClick={() => setErrorHidden((hidden) => !hidden)}
+            className="text-[11px] font-medium text-text-muted underline decoration-dotted hover:text-text"
+          >
+            {t(errorHidden ? "dbml.showParseError" : "dbml.hideParseError")}
+          </button>
+          {!errorHidden && (
+            <ErrorText>
+              {errorKey
+                ? t(errorKey)
+                : problem
+                  ? `${t("dbml.problemAt", { line: problem.line, column: problem.column ?? "" })} — ${error}`
+                  : error}
+            </ErrorText>
+          )}
         </div>
       )}
     </div>

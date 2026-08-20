@@ -91,9 +91,11 @@ export function importSource(
   source: string,
   dialect?: SqlDialect,
   baseline?: string,
+  options?: { keepalive?: boolean },
 ): Promise<{ tables: number }> {
   return request<{ tables: number }>(`${projectPath(projectId)}/import`, {
     method: "POST",
+    keepalive: options?.keepalive,
     body: {
       source,
       ...(dialect ? { dialect } : {}),

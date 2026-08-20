@@ -247,6 +247,46 @@ export function mergeProjectIntoExisting(existing: Project, incoming: Project): 
   const tableIdRemap = new Map<string, string>();
   const fieldIdRemap = new Map<string, string>();
 
+  // A table whose name changed (typed by hand, Ctrl+H replace, or F2 rename —
+  // all three land here as plain text) doesn't match anything in
+  // `existingTablesByName` by construction, so without this it looks
+  // identical to "the old table got deleted and an unrelated new one got
+  // created": fresh id, default grid position, default style/color. Recover
+  // the identity for the common case — one table's name changed and nothing
+  // else lines up — by pairing the tables left over on each side once field
+  // names are set aside. Ambiguous cases (several unmatched tables with
+  // similar fields) are left alone rather than guessed at.
+  const matchedIncomingNames = new Set(incoming.tables.map((t) => t.name.toLowerCase()));
+  const unmatchedExisting = existing.tables.filter((t) => !matchedIncomingNames.has(t.name.toLowerCase()));
+  const unmatchedIncoming = incoming.tables.filter((t) => !existingTablesByName.has(t.name.toLowerCase()));
+  const renamedFrom = new Map<string, Table>(); // incoming table id -> its likely previous identity
+  if (unmatchedExisting.length > 0 && unmatchedIncoming.length > 0) {
+    const fieldNames = (t: Table) => new Set(t.fields.map((f) => f.name.toLowerCase()));
+    const candidates: { score: number; existing: Table; incoming: Table }[] = [];
+    for (const inc of unmatchedIncoming) {
+      const incFields = fieldNames(inc);
+      for (const ex of unmatchedExisting) {
+        const exFields = fieldNames(ex);
+        const shared = [...incFields].filter((f) => exFields.has(f)).length;
+        const union = new Set([...incFields, ...exFields]).size;
+        if (shared === 0 || union === 0) continue;
+        const score = shared / union;
+        // Require most of the field set to survive the rename, not just a
+        // couple of coincidentally-named columns (`id`, `created_at`, ...).
+        if (score >= 0.6) candidates.push({ score, existing: ex, incoming: inc });
+      }
+    }
+    candidates.sort((a, b) => b.score - a.score);
+    const claimedExisting = new Set<string>();
+    const claimedIncoming = new Set<string>();
+    for (const candidate of candidates) {
+      if (claimedExisting.has(candidate.existing.id) || claimedIncoming.has(candidate.incoming.id)) continue;
+      claimedExisting.add(candidate.existing.id);
+      claimedIncoming.add(candidate.incoming.id);
+      renamedFrom.set(candidate.incoming.id, candidate.existing);
+    }
+  }
+
   // Grid slot for a genuinely new table, skipping whatever's already occupied
   // by an existing table's saved position — otherwise a new table dropped
   // between two others reuses the same declaration-order index one of those
@@ -277,7 +317,7 @@ export function mergeProjectIntoExisting(existing: Project, incoming: Project): 
   };
 
   const tables: Table[] = incoming.tables.map((table) => {
-    const prev = existingTablesByName.get(table.name.toLowerCase());
+    const prev = existingTablesByName.get(table.name.toLowerCase()) ?? renamedFrom.get(table.id);
     // @dbml/core's `table.id` is just this parse's declaration-order position
     // (1, 2, 3...), not a stable identity — reusing it for a genuinely new
     // table risks colliding with an unrelated existing table's already-
