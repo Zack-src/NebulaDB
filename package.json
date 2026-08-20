@@ -16,6 +16,7 @@
     "dev:server": "npm run dev -w apps/server",
     "build": "npm run build -w packages/shared && npm run build -w packages/dbml-engine && npm run build -w apps/server && npm run build -w apps/web",
     "start": "node apps/server/dist/index.js",
+    "bench:server": "npm run bench -w apps/server --",
     "backup": "npm run backup -w apps/server --",
     "restore": "npm run restore -w apps/server --",
     "bootstrap-admin": "npm run bootstrap-admin -w apps/server --",

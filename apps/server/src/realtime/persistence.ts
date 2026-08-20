@@ -1,6 +1,7 @@
 import * as Y from "yjs";
 import type { RevisionMeta } from "@athanordb/shared";
 import { db } from "../infrastructure/db.js";
+import { timeSync } from "../infrastructure/perf.js";
 
 export function loadSnapshot(projectId: string): Uint8Array | undefined {
   const row = db.prepare("SELECT yjs_state FROM snapshots WHERE project_id = ?").get(projectId) as
@@ -9,17 +10,29 @@ export function loadSnapshot(projectId: string): Uint8Array | undefined {
 }
 
 export function saveSnapshot(projectId: string, doc: Y.Doc): void {
-  const state = Buffer.from(Y.encodeStateAsUpdate(doc));
-  db.prepare(
-    `INSERT INTO snapshots (project_id, yjs_state, updated_at) VALUES (?, ?, datetime('now'))
-     ON CONFLICT(project_id) DO UPDATE SET yjs_state = excluded.yjs_state, updated_at = excluded.updated_at`,
-  ).run(projectId, state);
+  // On a large schema, `encodeStateAsUpdate` serializes the *entire* doc, and
+  // the write is a synchronous `better-sqlite3` call — both run on the event
+  // loop, so a slow one here stalls every connected client's WS frame until
+  // it returns, not just this project's.
+  timeSync("persistence.saveSnapshot", () => {
+    const state = Buffer.from(Y.encodeStateAsUpdate(doc));
+    db.prepare(
+      `INSERT INTO snapshots (project_id, yjs_state, updated_at) VALUES (?, ?, datetime('now'))
+       ON CONFLICT(project_id) DO UPDATE SET yjs_state = excluded.yjs_state, updated_at = excluded.updated_at`,
+    ).run(projectId, state);
+  });
 }
 
 export function appendRevision(projectId: string, author: string, update: Uint8Array): void {
-  db.prepare(
-    `INSERT INTO revisions (id, project_id, author, yjs_update, created_at) VALUES (?, ?, ?, ?, datetime('now'))`,
-  ).run(crypto.randomUUID(), projectId, author, Buffer.from(update));
+  // Runs on *every* Yjs update from *every* connected client — dragging a
+  // table alone commits one on mouse-up, but a big multi-user session can
+  // still fire this several times a second. Synchronous like `saveSnapshot`
+  // above, for the same reason.
+  timeSync("persistence.appendRevision", () => {
+    db.prepare(
+      `INSERT INTO revisions (id, project_id, author, yjs_update, created_at) VALUES (?, ?, ?, ?, datetime('now'))`,
+    ).run(crypto.randomUUID(), projectId, author, Buffer.from(update));
+  });
 }
 
 /** Names a revision as a checkpoint (e.g. "v1.0"), or clears the label with `null`. Returns false if no such revision exists for the project. */

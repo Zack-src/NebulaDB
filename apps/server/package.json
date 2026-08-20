@@ -10,6 +10,7 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "test": "node --test dist/**/*.test.js",
+    "bench": "tsx scripts/bench.ts",
     "check:circular": "madge --circular --extensions ts src/index.ts",
     "backup": "tsx src/infrastructure/backup.ts",
     "restore": "tsx src/infrastructure/restore.ts",

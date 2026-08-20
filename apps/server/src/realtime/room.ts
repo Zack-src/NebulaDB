@@ -17,6 +17,7 @@ import {
   clampMetaValue,
 } from "@athanordb/shared";
 import { appendRevision, saveSnapshot, loadSnapshot } from "./persistence.js";
+import { timeSync } from "../infrastructure/perf.js";
 
 const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
@@ -108,34 +109,7 @@ export class Room {
     }
 
     this.doc.on("update", (update: Uint8Array, origin: unknown) => {
-      // A project deleted out from under a still-open room (e.g. someone has
-      // it open in another tab while it's deleted from the list) must not
-      // resurrect rows for an id that no longer exists in `projects` —
-      // `destroy()` flips this before closing every connection.
-      if (this.destroyed) return;
-      // Two kinds of origin reach here: a WebSocket (a live, connected edit —
-      // resolve through `conns`) or a plain string (a REST-triggered write
-      // like import/restore, which has no connection — the route already
-      // resolved the acting username and passed it straight through as the
-      // transaction's origin).
-      const author = typeof origin === "string" ? origin : (this.conns.get(origin as WebSocket)?.author ?? "system");
-      // A DB write failing here (constraint violation, disk full, whatever)
-      // must not crash the process — this runs inside a Yjs event handler,
-      // so an uncaught throw takes down every other project's connections
-      // along with this one. Log and keep going: the in-memory doc (and the
-      // broadcast below) stay correct even if this particular write didn't
-      // land.
-      try {
-        appendRevision(this.projectId, author, update);
-      } catch (err) {
-        console.error(`[room ${this.projectId}] failed to append revision:`, err);
-      }
-      this.scheduleSnapshot();
-
-      const encoder = encoding.createEncoder();
-      encoding.writeVarUint(encoder, MESSAGE_SYNC);
-      syncProtocol.writeUpdate(encoder, update);
-      this.broadcast(encoding.toUint8Array(encoder), origin as WebSocket | undefined);
+      timeSync("room.docUpdate", () => this.handleDocUpdate(update, origin));
     });
 
     this.awareness.on(
@@ -154,6 +128,38 @@ export class Room {
         this.broadcast(encoding.toUint8Array(encoder), origin as WebSocket | undefined);
       },
     );
+  }
+
+  /** Body of the `doc.on("update")` handler above — split out only so `timeSync` can wrap it. */
+  private handleDocUpdate(update: Uint8Array, origin: unknown): void {
+    // A project deleted out from under a still-open room (e.g. someone has
+    // it open in another tab while it's deleted from the list) must not
+    // resurrect rows for an id that no longer exists in `projects` —
+    // `destroy()` flips this before closing every connection.
+    if (this.destroyed) return;
+    // Two kinds of origin reach here: a WebSocket (a live, connected edit —
+    // resolve through `conns`) or a plain string (a REST-triggered write
+    // like import/restore, which has no connection — the route already
+    // resolved the acting username and passed it straight through as the
+    // transaction's origin).
+    const author = typeof origin === "string" ? origin : (this.conns.get(origin as WebSocket)?.author ?? "system");
+    // A DB write failing here (constraint violation, disk full, whatever)
+    // must not crash the process — this runs inside a Yjs event handler, so
+    // an uncaught throw takes down every other project's connections along
+    // with this one. Log and keep going: the in-memory doc (and the
+    // broadcast below) stay correct even if this particular write didn't
+    // land.
+    try {
+      appendRevision(this.projectId, author, update);
+    } catch (err) {
+      console.error(`[room ${this.projectId}] failed to append revision:`, err);
+    }
+    this.scheduleSnapshot();
+
+    const encoder = encoding.createEncoder();
+    encoding.writeVarUint(encoder, MESSAGE_SYNC);
+    syncProtocol.writeUpdate(encoder, update);
+    this.broadcast(encoding.toUint8Array(encoder), origin as WebSocket | undefined);
   }
 
   join(conn: WebSocket, author: string, resolveAccess: AccessResolver): void {
@@ -184,6 +190,14 @@ export class Room {
   }
 
   receive(conn: WebSocket, data: Uint8Array): void {
+    // One aggregate label across every project/room rather than one per
+    // project id — this fires on every WS frame from every client, so a
+    // per-project label would leave `stats` growing without bound over the
+    // life of the process.
+    timeSync("room.receive", () => this.receiveInternal(conn, data));
+  }
+
+  private receiveInternal(conn: WebSocket, data: Uint8Array): void {
     const decoder = decoding.createDecoder(data);
     const messageType = decoding.readVarUint(decoder);
 
