@@ -11,6 +11,7 @@ import {
   readProjectFromDoc,
 } from "@athanordb/shared";
 import { connectProject, type ConnectionStatus } from "@/features/collaboration/yjsClient";
+import { time } from "@/utils/perfMonitor";
 
 export interface ProjectDocHandle {
   project: Project | null;
@@ -39,7 +40,14 @@ export function useProjectDoc(projectId: string, fallbackName: string, user: str
     setConnection("connecting");
 
     const conn = connectProject(projectId, user, setConnection);
-    const refresh = () => setProject(readProjectFromDoc(conn.doc, projectId, fallbackName));
+    // Rebuilds the *whole* project (every table/field/ref/zone) from the Yjs
+    // maps on every single doc update, local or remote — the classic
+    // "recompute everything on every tiny change" hot path for a big schema
+    // with several people editing at once. Measured here rather than left to
+    // a longtask observer alone because a longtask only tells you *something*
+    // blocked, not *this specific spot* did.
+    const refresh = () =>
+      time("doc.readProjectFromDoc", () => setProject(readProjectFromDoc(conn.doc, projectId, fallbackName)));
     const editableMaps = [
       getTablesMap(conn.doc),
       getRefsMap(conn.doc),

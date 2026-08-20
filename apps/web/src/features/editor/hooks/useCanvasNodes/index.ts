@@ -10,6 +10,7 @@ import { buildEnumNodes } from "./buildEnumNodes";
 import { buildTableGroupNodes } from "./buildTableGroupNodes";
 import { useSelectionPreservingNodes } from "./useSelectionPreservingNodes";
 import { useNodesChangeHandler } from "./useNodesChangeHandler";
+import { time } from "@/utils/perfMonitor";
 
 /**
  * Builds the React Flow node array (zones, tables, sticky notes — in that
@@ -19,6 +20,16 @@ import { useNodesChangeHandler } from "./useNodesChangeHandler";
  * drag position: `builtNodes` (source of truth from the doc) only updates
  * once a drag commits, so without a local copy the node would visually snap
  * around mid-drag.
+ *
+ * Rebuilds every table's `data` object (and its callback closures) from
+ * scratch on any project/doc/selection change — including one editing a
+ * single unrelated table, since `liveProject` is a fresh object on every doc
+ * update. That's deliberately not fought here with a cross-render cache:
+ * `TableNode`'s own `memo` comparator (see `TableNode.tsx`) is what actually
+ * absorbs this — it compares the *meaningful* parts of `data` (the `table`
+ * object, which the Yjs layer already keeps reference-stable per id; and
+ * `refFieldIds`, compared by content) rather than the wrapping `data` object
+ * itself, so a fresh object per rebuild doesn't defeat it.
  */
 export function useCanvasNodes(
   liveProject: Project | null,
@@ -44,7 +55,7 @@ export function useCanvasNodes(
       getMetaMap(doc).set("paletteColors", next);
     };
 
-    return [
+    return time("canvas.buildNodes", () => [
       ...buildZoneNodes(liveProject.zones, doc, palette, onPaletteChange, canWrite),
       ...buildTableNodes(
         liveProject.tables,
@@ -64,7 +75,7 @@ export function useCanvasNodes(
       ...buildStickyNodes(liveProject.stickyNotes, doc, palette, onPaletteChange, canWrite),
       ...buildEnumNodes(liveProject.enums, doc, canWrite),
       ...buildTableGroupNodes(liveProject.tableGroups, liveProject.tables, doc, canWrite),
-    ];
+    ]);
   }, [
     liveProject,
     doc,

@@ -13,6 +13,7 @@ import { useTranslation } from "@/i18n/useTranslation";
 import { ApiError } from "@/services/ApiError";
 import type { TranslationKeyOf } from "@/types";
 import { exportDbml, importSource } from "@/services/projectsApi";
+import { time } from "@/utils/perfMonitor";
 import {
   DBML_PANEL_WIDTH_DEFAULT,
   DBML_PANEL_WIDTH_MAX,
@@ -50,7 +51,7 @@ function DbmlPanel(props: {
   const [pluginMessage, setPluginMessage] = useState<string | null>(null);
   const [text, setText] = useState<string>(() => {
     try {
-      return projectToDbml(project);
+      return time("dbml.serialize", () => projectToDbml(project));
     } catch {
       return "";
     }
@@ -148,7 +149,7 @@ function DbmlPanel(props: {
     };
 
     try {
-      adopt(projectToDbml(project));
+      adopt(time("dbml.serialize", () => projectToDbml(project)));
     } catch (err) {
       // Background reconciliation, not a user action — log it and retry via
       // the server's own serializer rather than surfacing it as an error.
