@@ -36,6 +36,7 @@ const ConnectionManagerModal = lazy(() =>
 const DeploymentModal = lazy(() =>
   import("@/features/connections/DeploymentModal").then((m) => ({ default: m.DeploymentModal })),
 );
+const PerfHud = lazy(() => import("@/components/dev/PerfHud").then((m) => ({ default: m.PerfHud })));
 
 /** How long a plugin command's status line stays on the canvas. */
 const PLUGIN_MESSAGE_MS = 4000;
@@ -180,6 +181,14 @@ export function ProjectEditor(props: {
   );
 
   // Fields that are some ref's endpoint for a given table — shown outside compact detail level even if not PK.
+  //
+  // A fresh `Map`/`Set`s every time `liveProject` changes (which is every doc
+  // update, even one editing a single unrelated table — `readProjectFromDoc`
+  // rebuilds the whole `Project`). That's fine here: `TableNode`'s custom
+  // `memo` comparator (see `TableNode.tsx`) compares `refFieldIds` by
+  // *content*, not by reference, specifically so this can stay a plain,
+  // unstabilized `useMemo` instead of needing cross-render Set-reuse
+  // bookkeeping of its own.
   const refFieldIdsByTable = useMemo(() => {
     const map = new Map<string, Set<string>>();
     if (!liveProject) return map;
@@ -445,6 +454,8 @@ export function ProjectEditor(props: {
             }}
           />
         )}
+        {/* Diagnostics overlay for editor stutter/freezes — hidden until Ctrl+Shift+P, see PerfHud. */}
+        <PerfHud />
       </Suspense>
     </div>
   );
