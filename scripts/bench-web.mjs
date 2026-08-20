@@ -40,6 +40,18 @@ const TAG = flag("tag", "run");
 const SKIP_BUILD = args.includes("--skip-build");
 const HEADED = args.includes("--headed");
 const MATRIX = flag("matrix", "full");
+/** Optional comma-separated scenario allowlist, e.g. `--only select-multi,drag-multi`. */
+const ONLY = flag("only", null);
+const wanted = ONLY ? new Set(String(ONLY).split(",")) : null;
+const isWanted = (label) => !wanted || wanted.has(label);
+
+/**
+ * How this canvas actually multi-selects: a left-drag over empty space
+ * (`selectionOnDrag`, with panning moved to the middle/right button). Probed
+ * rather than assumed — modifier-clicking does *not* extend the selection
+ * here, so a bench built on ctrl/shift-click was measuring eight independent
+ * single selections instead of one growing multi-selection.
+ */
 
 /** Fixed viewport so every config starts framed identically (~20 tables on screen). */
 const VIEWPORT = { x: 100, y: 100, zoom: 0.6 };
@@ -53,6 +65,14 @@ function buildMatrix() {
   if (MATRIX === "quick") {
     for (const tables of [100, 500]) configs.push({ tables, columns: 8, detail: "standard" });
     return configs;
+  }
+  if (MATRIX === "multi") {
+    // The configs where multi-selection actually hurt, per the full matrix.
+    return [
+      { tables: 200, columns: 8, detail: "full" },
+      { tables: 500, columns: 8, detail: "standard" },
+      { tables: 500, columns: 8, detail: "full" },
+    ];
   }
   for (const tables of TABLE_COUNTS) {
     for (const detail of DETAIL_LEVELS) configs.push({ tables, columns: 8, detail });
@@ -163,7 +183,7 @@ async function nodeCenter(page, tableId) {
   return { x: box.x + box.width / 2, y: box.y + 12 };
 }
 
-async function runScenarios(page, config) {
+async function runScenarios(page) {
   const results = [];
   const pane = await page.locator(".react-flow__pane").boundingBox();
   const center = { x: pane.x + pane.width / 2, y: pane.y + pane.height / 2 };
@@ -185,21 +205,28 @@ async function runScenarios(page, config) {
 
   await assertInputReaches(page, center);
 
+  /** Runs and records a scenario unless `--only` filtered it out. */
+  const record = async (label, action) => {
+    if (!isWanted(label)) return;
+    results.push(await measure(page, label, action));
+  };
+
   // 1. Zoom out then back in (ctrl+wheel — the canvas maps plain wheel to pan).
-  results.push(await measure(page, "zoom", zoomGesture));
+  await record("zoom", zoomGesture);
 
   // 1b. The same gesture with every relation highlighted and animated, which
   //     is how a user reading a schema actually leaves the canvas.
-  await linkToggle.click();
-  await sleep(1500);
-  results.push(await measure(page, "zoom-links-on", zoomGesture));
-  await linkToggle.click();
-  await sleep(1500);
+  if (isWanted("zoom-links-on")) {
+    await linkToggle.click();
+    await sleep(1500);
+    await record("zoom-links-on", zoomGesture);
+    await linkToggle.click();
+    await sleep(1500);
+  }
 
   // 2. Drag one table.
   const first = await nodeCenter(page, "t0");
-  results.push(
-    await measure(page, "drag-single", async () => {
+  await record("drag-single", async () => {
       await page.mouse.move(first.x, first.y);
       await page.mouse.down();
       for (let i = 1; i <= 30; i++) {
@@ -207,78 +234,66 @@ async function runScenarios(page, config) {
         await sleep(12);
       }
       await page.mouse.up();
-    }),
-  );
+  });
 
-  // 3. Multi-select: 8 tables, shift-clicked one by one (React Flow's additive
-  //    selection) — the gesture before every bulk action below.
-  const selectableIds = [];
-  for (let i = 1; i < 40 && selectableIds.length < 8; i++) {
-    const visible = await page.locator(`.react-flow__node[data-id="t${i}"]`).isVisible().catch(() => false);
-    if (visible) selectableIds.push(`t${i}`);
-  }
-  results.push(
-    await measure(page, "select-multi", async () => {
-      for (const id of selectableIds) {
-        const point = await nodeCenter(page, id);
-        await page.mouse.click(point.x, point.y, { modifiers: ["Shift"] });
-        await sleep(60);
-      }
-    }),
+  // 3. Multi-select: rubber-band over most of the visible canvas — the
+  //    gesture before every bulk action below.
+  await record("select-multi", async () => {
+    await page.mouse.move(pane.x + 30, pane.y + 30);
+    await page.mouse.down();
+    for (let step = 1; step <= 12; step++) {
+      await page.mouse.move(pane.x + 30 + (pane.width * 0.8 * step) / 12, pane.y + 30 + (pane.height * 0.8 * step) / 12);
+      await sleep(20);
+    }
+    await page.mouse.up();
+  });
+  const selectableIds = await page.$$eval(".react-flow__node.selected", (nodes) =>
+    nodes.map((node) => node.getAttribute("data-id")).filter((id) => id?.startsWith("t")),
   );
+  if (isWanted("select-multi") && selectableIds.length < 2) {
+    throw new Error(`bench: rubber-band selected ${selectableIds.length} nodes, expected several`);
+  }
 
   // 4. Drag the whole selection.
   if (selectableIds.length > 0) {
     const anchor = await nodeCenter(page, selectableIds[0]);
-    results.push(
-      await measure(page, "drag-multi", async () => {
-        await page.mouse.move(anchor.x, anchor.y);
-        await page.mouse.down();
-        for (let i = 1; i <= 30; i++) {
-          await page.mouse.move(anchor.x + i * 4, anchor.y + i * 2);
-          await sleep(12);
-        }
-        await page.mouse.up();
-      }),
-    );
+    await record("drag-multi", async () => {
+      await page.mouse.move(anchor.x, anchor.y);
+      await page.mouse.down();
+      for (let i = 1; i <= 30; i++) {
+        await page.mouse.move(anchor.x + i * 4, anchor.y + i * 2);
+        await sleep(12);
+      }
+      await page.mouse.up();
+    });
   }
 
   // 5/6. Recolour — the exact doc write the colour pickers perform, for the
   //      whole selection and then for a single table.
   const selectedIndexes = selectableIds.map((id) => Number(id.slice(1)));
-  results.push(
-    await measure(page, "recolor-multi", async () => {
-      await page.evaluate((indexes) => window.__athanorBench.setTablesColor(indexes, "#ef4444"), selectedIndexes);
-    }),
-  );
-  results.push(
-    await measure(page, "recolor-single", async () => {
-      await page.evaluate(() => window.__athanorBench.setTablesColor([0], "#22c55e"));
-    }),
-  );
+  await record("recolor-multi", async () => {
+    await page.evaluate((indexes) => window.__athanorBench.setTablesColor(indexes, "#ef4444"), selectedIndexes);
+  });
+  await record("recolor-single", async () => {
+    await page.evaluate(() => window.__athanorBench.setTablesColor([0], "#22c55e"));
+  });
 
   // 7. Column property flip (pk), the popover's own write.
-  results.push(
-    await measure(page, "column-flag", async () => {
-      await page.evaluate(() => window.__athanorBench.toggleFieldFlag(0, 2, "pk"));
-    }),
-  );
+  await record("column-flag", async () => {
+    await page.evaluate(() => window.__athanorBench.toggleFieldFlag(0, 2, "pk"));
+  });
 
   // 8. Link/cardinality highlight toggle — the real toolbar button.
-  results.push(
-    await measure(page, "highlight-toggle", async () => {
-      await linkToggle.click();
-      await sleep(500);
-      await linkToggle.click();
-    }),
-  );
+  await record("highlight-toggle", async () => {
+    await linkToggle.click();
+    await sleep(500);
+    await linkToggle.click();
+  });
 
   // 9. Column deletion (3 columns off one table, each removing its refs).
-  results.push(
-    await measure(page, "delete-columns", async () => {
-      await page.evaluate(() => window.__athanorBench.deleteColumns(1, 3));
-    }),
-  );
+  await record("delete-columns", async () => {
+    await page.evaluate(() => window.__athanorBench.deleteColumns(1, 3));
+  });
 
   return results;
 }
@@ -304,7 +319,7 @@ async function benchConfig(browser, config) {
   // the first measured gesture.
   await sleep(2000);
 
-  const scenarios = await runScenarios(page, config);
+  const scenarios = await runScenarios(page);
   await context.close();
   return { config, loadMs, ready, scenarios };
 }

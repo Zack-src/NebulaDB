@@ -51,6 +51,7 @@ import {
 } from "./canvasViewport";
 import { CanvasZoomBar } from "./CanvasZoomBar";
 import { useStoreChurnProbe } from "./useStoreChurnProbe";
+import { useHighlightedFieldsPublisher } from "./highlightedFields";
 import { recordDuration } from "@/utils/perfMonitor";
 import { SelectionColorToolbar } from "./SelectionColorToolbar";
 import { useCanvasImageExport } from "./useCanvasImageExport";
@@ -145,6 +146,9 @@ export function CanvasArea(props: CanvasAreaProps) {
   const { onNodesChange, awareness, exportRef, navigateRef } = props;
 
   useStoreChurnProbe();
+  // One O(edges) pass for the whole canvas, replacing the per-table store
+  // selector each `TableNode` used to run — see `highlightedFields.ts`.
+  useHighlightedFieldsPublisher();
   useCanvasImageExport(exportRef);
   useCanvasNavigate(navigateRef, props.nodes, onNodesChange);
   const search = useCanvasSearch(props.nodes, onNodesChange);
@@ -321,7 +325,14 @@ export function CanvasArea(props: CanvasAreaProps) {
 
   return (
     <div
-      className={`min-w-0 flex-1 bg-bg-canvas ${activeInsertTool ? "canvas-placing" : ""}`}
+      // `canvas-links-highlighted` is the whole implementation of the
+      // "highlight every relation" toggle on the table side: one class here,
+      // combined in CSS with each row's own `is-fk` marker, instead of a
+      // `highlightLinks` prop threaded into every table node's data (which
+      // rebuilt and re-rendered the entire canvas on each flip).
+      className={`min-w-0 flex-1 bg-bg-canvas ${activeInsertTool ? "canvas-placing" : ""} ${
+        props.highlightLinks ? "canvas-links-highlighted" : ""
+      }`}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
       style={{ "--canvas-font-scale": props.fontScale } as CSSProperties}

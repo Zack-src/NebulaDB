@@ -208,12 +208,11 @@ export function ProjectEditor(props: {
     [doc],
   );
 
-  const { nodes, onNodesChange } = useCanvasNodes(
+  const { nodes, onNodesChange, dragging } = useCanvasNodes(
     liveProject,
     doc,
     refFieldIdsByTable,
     user,
-    highlightLinks,
     goToDbml,
     setHoveredFieldId,
     setHoveredTableId,
@@ -267,6 +266,7 @@ export function ProjectEditor(props: {
     palette,
     onPaletteChange,
     canWrite,
+    dragging,
   );
 
   const {

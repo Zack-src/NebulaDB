@@ -1,0 +1,473 @@
+{
+  "tag": "before-multi",
+  "window": {
+    "width": 1600,
+    "height": 900
+  },
+  "viewport": {
+    "x": 100,
+    "y": 100,
+    "zoom": 0.6
+  },
+  "results": [
+    {
+      "config": {
+        "tables": 200,
+        "columns": 8,
+        "detail": "full"
+      },
+      "loadMs": 4915,
+      "ready": {
+        "nodes": 200,
+        "edges": 199,
+        "waitedMs": 4808.8
+      },
+      "scenarios": [
+        {
+          "label": "select-multi",
+          "durationMs": 1985.7,
+          "frames": {
+            "count": 98,
+            "avgMs": 20.2,
+            "p95Ms": 26.7,
+            "maxMs": 213.7,
+            "droppedFrames": 5,
+            "fps": 49.6
+          },
+          "longTasks": {
+            "count": 5,
+            "totalMs": 721,
+            "maxMs": 211
+          },
+          "totalBlockingMs": 471,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 5,
+              "totalMs": 721,
+              "avgMs": 144.2,
+              "maxMs": 211,
+              "p95Ms": 183,
+              "lastMs": 183
+            },
+            {
+              "label": "tableNode.linkedFieldSelector",
+              "count": 52000,
+              "totalMs": 24,
+              "avgMs": 0,
+              "maxMs": 0.1,
+              "p95Ms": 0,
+              "lastMs": 0
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 3498.5,
+          "frames": {
+            "count": 200,
+            "avgMs": 17.4,
+            "p95Ms": 26.7,
+            "maxMs": 427.2,
+            "droppedFrames": 2,
+            "fps": 57.4
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 416,
+            "maxMs": 416
+          },
+          "totalBlockingMs": 366,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 416,
+              "avgMs": 416,
+              "maxMs": 416,
+              "p95Ms": 416,
+              "lastMs": 416
+            },
+            {
+              "label": "tableNode.linkedFieldSelector",
+              "count": 46200,
+              "totalMs": 25,
+              "avgMs": 0,
+              "maxMs": 0.2,
+              "p95Ms": 0,
+              "lastMs": 0
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 2.7,
+              "maxMs": 2.7,
+              "p95Ms": 2.7,
+              "lastMs": 2.7
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 816.4,
+          "frames": {
+            "count": 33,
+            "avgMs": 24.3,
+            "p95Ms": 13.5,
+            "maxMs": 373.7,
+            "droppedFrames": 1,
+            "fps": 41.2
+          },
+          "longTasks": {
+            "count": 2,
+            "totalMs": 385,
+            "maxMs": 265
+          },
+          "totalBlockingMs": 285,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 2,
+              "totalMs": 385,
+              "avgMs": 192.5,
+              "maxMs": 265,
+              "p95Ms": 120,
+              "lastMs": 265
+            },
+            {
+              "label": "tableNode.linkedFieldSelector",
+              "count": 16800,
+              "totalMs": 8,
+              "avgMs": 0,
+              "maxMs": 0.1,
+              "p95Ms": 0,
+              "lastMs": 0
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 2.1,
+              "maxMs": 2.1,
+              "p95Ms": 2.1,
+              "lastMs": 2.1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 500,
+        "columns": 8,
+        "detail": "standard"
+      },
+      "loadMs": 5587,
+      "ready": {
+        "nodes": 500,
+        "edges": 499,
+        "waitedMs": 5501.4
+      },
+      "scenarios": [
+        {
+          "label": "select-multi",
+          "durationMs": 2479,
+          "frames": {
+            "count": 78,
+            "avgMs": 31.7,
+            "p95Ms": 213.6,
+            "maxMs": 320.4,
+            "droppedFrames": 7,
+            "fps": 31.5
+          },
+          "longTasks": {
+            "count": 5,
+            "totalMs": 1257,
+            "maxMs": 311
+          },
+          "totalBlockingMs": 1007,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 5,
+              "totalMs": 1257,
+              "avgMs": 251.4,
+              "maxMs": 311,
+              "p95Ms": 272,
+              "lastMs": 272
+            },
+            {
+              "label": "tableNode.linkedFieldSelector",
+              "count": 72500,
+              "totalMs": 68,
+              "avgMs": 0,
+              "maxMs": 0.1,
+              "p95Ms": 0,
+              "lastMs": 0
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 4768.8,
+          "frames": {
+            "count": 213,
+            "avgMs": 22.3,
+            "p95Ms": 66.8,
+            "maxMs": 534,
+            "droppedFrames": 29,
+            "fps": 44.8
+          },
+          "longTasks": {
+            "count": 21,
+            "totalMs": 1606,
+            "maxMs": 491
+          },
+          "totalBlockingMs": 556,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 21,
+              "totalMs": 1606,
+              "avgMs": 76.5,
+              "maxMs": 491,
+              "p95Ms": 68,
+              "lastMs": 491
+            },
+            {
+              "label": "tableNode.linkedFieldSelector",
+              "count": 91000,
+              "totalMs": 96,
+              "avgMs": 0,
+              "maxMs": 0.1,
+              "p95Ms": 0,
+              "lastMs": 0
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 10,
+              "avgMs": 10.4,
+              "maxMs": 10.4,
+              "p95Ms": 10.4,
+              "lastMs": 10.4
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 8,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.3,
+              "p95Ms": 0.2,
+              "lastMs": 0.3
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 863.9,
+          "frames": {
+            "count": 34,
+            "avgMs": 25.1,
+            "p95Ms": 13.4,
+            "maxMs": 413.8,
+            "droppedFrames": 1,
+            "fps": 39.8
+          },
+          "longTasks": {
+            "count": 2,
+            "totalMs": 431,
+            "maxMs": 294
+          },
+          "totalBlockingMs": 331,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 2,
+              "totalMs": 431,
+              "avgMs": 215.5,
+              "maxMs": 294,
+              "p95Ms": 137,
+              "lastMs": 294
+            },
+            {
+              "label": "tableNode.linkedFieldSelector",
+              "count": 17500,
+              "totalMs": 22,
+              "avgMs": 0,
+              "maxMs": 0.1,
+              "p95Ms": 0,
+              "lastMs": 0
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 6,
+              "avgMs": 5.8,
+              "maxMs": 5.8,
+              "p95Ms": 5.8,
+              "lastMs": 5.8
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 500,
+        "columns": 8,
+        "detail": "full"
+      },
+      "loadMs": 40313,
+      "ready": {
+        "nodes": 500,
+        "edges": 499,
+        "waitedMs": 40244.6
+      },
+      "scenarios": [
+        {
+          "label": "select-multi",
+          "durationMs": 4901.9,
+          "frames": {
+            "count": 66,
+            "avgMs": 74,
+            "p95Ms": 440.6,
+            "maxMs": 988,
+            "droppedFrames": 25,
+            "fps": 13.5
+          },
+          "longTasks": {
+            "count": 7,
+            "totalMs": 3372,
+            "maxMs": 992
+          },
+          "totalBlockingMs": 3022,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 7,
+              "totalMs": 3372,
+              "avgMs": 481.7,
+              "maxMs": 992,
+              "p95Ms": 823,
+              "lastMs": 823
+            },
+            {
+              "label": "tableNode.linkedFieldSelector",
+              "count": 130000,
+              "totalMs": 132,
+              "avgMs": 0,
+              "maxMs": 0.2,
+              "p95Ms": 0,
+              "lastMs": 0
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 7980.3,
+          "frames": {
+            "count": 124,
+            "avgMs": 64.2,
+            "p95Ms": 160.2,
+            "maxMs": 1321.7,
+            "droppedFrames": 52,
+            "fps": 15.6
+          },
+          "longTasks": {
+            "count": 57,
+            "totalMs": 5372,
+            "maxMs": 862
+          },
+          "totalBlockingMs": 2522,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 57,
+              "totalMs": 5372,
+              "avgMs": 94.2,
+              "maxMs": 862,
+              "p95Ms": 92,
+              "lastMs": 471
+            },
+            {
+              "label": "tableNode.linkedFieldSelector",
+              "count": 115000,
+              "totalMs": 117,
+              "avgMs": 0,
+              "maxMs": 0.3,
+              "p95Ms": 0,
+              "lastMs": 0
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 8,
+              "avgMs": 7.8,
+              "maxMs": 7.8,
+              "p95Ms": 7.8,
+              "lastMs": 7.8
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 8,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.2,
+              "p95Ms": 0.2,
+              "lastMs": 0.1
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 1778.5,
+          "frames": {
+            "count": 25,
+            "avgMs": 70,
+            "p95Ms": 26.8,
+            "maxMs": 1241.7,
+            "droppedFrames": 2,
+            "fps": 14.3
+          },
+          "longTasks": {
+            "count": 2,
+            "totalMs": 1255,
+            "maxMs": 709
+          },
+          "totalBlockingMs": 1155,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 2,
+              "totalMs": 1255,
+              "avgMs": 627.5,
+              "maxMs": 709,
+              "p95Ms": 546,
+              "lastMs": 709
+            },
+            {
+              "label": "tableNode.linkedFieldSelector",
+              "count": 42000,
+              "totalMs": 45,
+              "avgMs": 0,
+              "maxMs": 0.3,
+              "p95Ms": 0,
+              "lastMs": 0
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 7,
+              "avgMs": 6.6,
+              "maxMs": 6.6,
+              "p95Ms": 6.6,
+              "lastMs": 6.6
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import * as Y from "yjs";
 import { getMetaMap, type Project } from "@athanordb/shared";
 import { DEFAULT_PALETTE } from "@/components/inputs/ColorSwatchPicker";
@@ -10,6 +10,7 @@ import { buildEnumNodes } from "./buildEnumNodes";
 import { buildTableGroupNodes } from "./buildTableGroupNodes";
 import { useSelectionPreservingNodes } from "./useSelectionPreservingNodes";
 import { useNodesChangeHandler } from "./useNodesChangeHandler";
+import type { TableNodeCache } from "./tableNodeCache";
 import { time } from "@/utils/perfMonitor";
 
 /**
@@ -36,7 +37,6 @@ export function useCanvasNodes(
   doc: Y.Doc | null,
   refFieldIdsByTable: Map<string, Set<string>>,
   user: string,
-  highlightLinks: boolean,
   onGoToDbml: (tableName: string) => void,
   /** Fires when the pointer enters/leaves a specific column row (`null` on leave) — narrows link highlighting to that column instead of the whole table. */
   onFieldHoverChange: (fieldId: string | null) => void,
@@ -47,13 +47,23 @@ export function useCanvasNodes(
   /** False for a `view` grant: nodes still render and select, but nothing they do reaches the document. */
   canWrite = true,
 ) {
+  // Survives every rebuild: it is the thing that makes a rebuild cheap. Held
+  // in state (never set again) rather than a ref, so nothing reads a ref
+  // during render.
+  const [tableNodeCache] = useState<TableNodeCache>(() => new Map());
+  // Stable identity, so it can be part of the cache key rather than
+  // invalidating every table on every rebuild.
+  const onPaletteChange = useCallback(
+    (next: string[]) => {
+      if (doc) getMetaMap(doc).set("paletteColors", next);
+    },
+    [doc],
+  );
+
   const builtNodes: CanvasNode[] = useMemo(() => {
     if (!liveProject || !doc) return [];
 
     const palette = liveProject.paletteColors ?? DEFAULT_PALETTE;
-    const onPaletteChange = (next: string[]) => {
-      getMetaMap(doc).set("paletteColors", next);
-    };
 
     return time("canvas.buildNodes", () => [
       ...buildZoneNodes(liveProject.zones, doc, palette, onPaletteChange, canWrite),
@@ -62,7 +72,6 @@ export function useCanvasNodes(
         doc,
         refFieldIdsByTable,
         user,
-        highlightLinks,
         palette,
         onPaletteChange,
         onGoToDbml,
@@ -71,6 +80,7 @@ export function useCanvasNodes(
         selectedFieldId,
         onSelectField,
         canWrite,
+        tableNodeCache,
       ),
       ...buildStickyNodes(liveProject.stickyNotes, doc, palette, onPaletteChange, canWrite),
       ...buildEnumNodes(liveProject.enums, doc, canWrite),
@@ -81,19 +91,20 @@ export function useCanvasNodes(
     doc,
     refFieldIdsByTable,
     user,
-    highlightLinks,
     onGoToDbml,
     onFieldHoverChange,
     onTableHoverChange,
     selectedFieldId,
     onSelectField,
     canWrite,
+    onPaletteChange,
+    tableNodeCache,
   ]);
 
   const [nodes, setNodes] = useSelectionPreservingNodes(builtNodes);
   // A null doc makes every persist branch in the handler a no-op, so drags and
   // deletions stay local instead of being written and silently dropped.
-  const onNodesChange = useNodesChangeHandler(nodes, setNodes, canWrite ? doc : null);
+  const { onNodesChange, dragging } = useNodesChangeHandler(nodes, setNodes, canWrite ? doc : null);
 
-  return { nodes, onNodesChange };
+  return { nodes, onNodesChange, dragging };
 }

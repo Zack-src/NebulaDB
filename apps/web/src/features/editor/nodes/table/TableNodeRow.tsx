@@ -15,10 +15,10 @@ import {
   ROW_BADGES_CLASS,
   ROW_CLASS,
   ROW_DRAG_HANDLE_CLASS,
+  ROW_NAME_CLASS,
   ROW_NAME_INPUT_CLASS,
   ROW_TYPE_CLASS,
   rowDropIndicatorClass,
-  rowNameClass,
   rowStateClass,
 } from "@/features/editor/nodes/table/tableStyles";
 
@@ -95,7 +95,7 @@ export const TableNodeRow = forwardRef<HTMLDivElement, TableNodeRowProps>(functi
   return (
     <div
       ref={ref}
-      className={`table-node-row ${ROW_CLASS} ${rowStateClass(isLinked, isSelected)} ${rowDropIndicatorClass(dropSide)}`}
+      className={`table-node-row ${ROW_CLASS} ${rowStateClass(isLinked, isForeignKey, isSelected)} ${rowDropIndicatorClass(dropSide)}`}
       // Whole row is the hover target for the column's note — the note icon is
       // a 16px hit area, far too small to be the only way to read it.
       data-tooltip={`${field.name} (${field.type})`}
@@ -170,7 +170,7 @@ export const TableNodeRow = forwardRef<HTMLDivElement, TableNodeRowProps>(functi
         />
       ) : (
         <span
-          className={rowNameClass(isLinked)}
+          className={ROW_NAME_CLASS}
           onDoubleClick={(event) => {
             if (!onUpdateField) return;
             event.stopPropagation();

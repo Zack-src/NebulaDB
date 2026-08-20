@@ -17,17 +17,29 @@ import { INPUT_XS_CLASS, LABEL_XS_CLASS } from "@/components/ui/inputStyles";
 export const ROW_CLASS =
   "group relative flex h-[calc(27px_*_var(--canvas-font-scale))] cursor-pointer items-center gap-[7px] " +
   "whitespace-nowrap border-t border-border px-2.5 transition-colors duration-100 hover:bg-surface-hover nodrag";
-/** isLinked (important, overrides isSelected) > isSelected > neither. */
-export function rowStateClass(isLinked: boolean, isSelected: boolean): string {
-  if (isLinked) return "bg-[rgba(99,102,241,0.15)] border-l-[2.5px] border-l-[#6366f1]";
-  if (isSelected) return "bg-[rgba(99,102,241,0.15)] border-l-2 border-l-primary";
-  return "";
+/**
+ * Row state markers, styled in `styles/canvas.css` rather than returned as
+ * utility classes here.
+ *
+ * The "highlight every relation" toggle used to reach each row as a React
+ * prop (`highlightLinks` on every table node's data), so flipping it rebuilt
+ * every node's data and re-rendered every table and every column on the
+ * canvas — 53s of blocking time on a 500-table schema at full detail, for
+ * what is a pure change of colour. It is now a single class on the canvas
+ * root (`canvas-links-highlighted`, see `CanvasArea`) that CSS combines with
+ * each row's own `is-fk` marker, so the toggle costs one class mutation and
+ * no React work at all.
+ *
+ * `is-linked` stays a React-side state: unlike the global toggle it is per
+ * row (this column is on the selected/hovered relation) and changes with the
+ * data the row already re-renders for.
+ */
+export function rowStateClass(isLinked: boolean, isForeignKey: boolean, isSelected: boolean): string {
+  return [isLinked ? "is-linked" : "", isForeignKey ? "is-fk" : "", isSelected ? "is-selected" : ""]
+    .filter(Boolean)
+    .join(" ");
 }
-export function rowNameClass(isLinked: boolean): string {
-  return isLinked
-    ? "overflow-hidden text-ellipsis font-semibold text-[#a5b4fc]"
-    : "overflow-hidden text-ellipsis font-medium text-text";
-}
+export const ROW_NAME_CLASS = "table-row-name overflow-hidden text-ellipsis font-medium text-text";
 /** Inline column rename — same glassy-fill idea as `TABLE_NAME_INPUT_CLASS`, just sized to sit inline in a row instead of the header. */
 export const ROW_NAME_INPUT_CLASS =
   "min-w-0 flex-1 rounded-sm border border-primary-border bg-bg px-1 py-px font-medium text-text caret-text " +

@@ -1,5 +1,5 @@
 import { memo, useMemo, useState } from "react";
-import { EdgeLabelRenderer, useStore, type Edge, type EdgeProps, type ReactFlowState } from "@xyflow/react";
+import { useStore, type Edge, type EdgeProps, type ReactFlowState } from "@xyflow/react";
 import type { RefCardinality, RoutingPoint } from "@athanordb/shared";
 import { useEdgeRouting } from "@/features/editor/edges/useEdgeRouting";
 import { polylinePath, splitPolylineAtMidpoint } from "@/features/editor/edges/pathMath";
@@ -7,6 +7,7 @@ import { EdgeWaypoints } from "@/features/editor/edges/EdgeWaypoints";
 import { CardinalityBadge } from "@/features/editor/edges/CardinalityBadge";
 import { EdgeCardinalityLabels, ENDPOINT_CARDINALITY } from "@/features/editor/edges/EdgeCardinalityLabels";
 import { EdgeContextMenu } from "@/features/editor/edges/EdgeContextMenu";
+import { EdgeLabelPortal } from "@/features/editor/edges/EdgeLabelPortal";
 
 export interface RefEdgeData {
   cardinality: RefCardinality;
@@ -259,66 +260,72 @@ function RefEdgeImpl({
         onDoubleClick={routing.handlePathDoubleClick}
         onContextMenu={(event) => routing.openContextMenu(event)}
       />
-      <EdgeLabelRenderer>
-        {isHighlighted && (
-          <EdgeCardinalityLabels
-            points={routing.drawnPoints}
-            sourceLabel={sourceCardinality}
-            targetLabel={targetCardinality}
-            sourceSlot={data?.sourceSlot ?? 0}
-            targetSlot={data?.targetSlot ?? 0}
-            color={strokeColor}
-            opacity={selected ? 1 : 0.95}
-            zoom={zoom}
-          />
-        )}
-        {showEditingControls && (
-          <EdgeWaypoints
-            points={routing.points}
-            source={{ x: sourceX, y: sourceY }}
-            target={{ x: targetX, y: targetY }}
-            selectedIndex={routing.selectedPointIndex}
-            candidatePoint={routing.candidatePoint}
-            strokeColor={strokeColor}
-            zoom={zoom}
-            onStartDrag={routing.startDrag}
-            onSelect={routing.setSelectedPointIndex}
-            onContextMenu={routing.openContextMenu}
-            onInsertCandidate={routing.insertPointAt}
-          />
-        )}
-        {showEditingControls && data && (
-          <CardinalityBadge
-            x={labelX}
-            y={labelY}
-            label={style.label}
-            cardinality={data.cardinality}
-            onCardinalityChange={data.onCardinalityChange}
-            onReverseDirection={data.onReverseDirection}
-            color={strokeColor}
-            zoom={zoom}
-            palette={data.palette}
-            onPaletteChange={data.onPaletteChange}
-            onColorChange={data.onColorChange}
-            showReset={routing.hasCustomRouting || routing.points.length !== routing.defaultCorners.length}
-            onReset={routing.resetRouting}
-            onDeleteRef={data.onDeleteRef}
-            onContextMenu={(event) => routing.openContextMenu(event)}
-          />
-        )}
-        {routing.contextMenu && (
-          <EdgeContextMenu
-            menu={routing.contextMenu}
-            onClose={routing.closeContextMenu}
-            onInsertPoint={routing.insertPointAt}
-            onDeletePoint={routing.deletePointAt}
-            onResetRouting={routing.resetRouting}
-            onResetColor={data?.color ? () => data.onColorChange(undefined) : undefined}
-            onReverseDirection={data?.onReverseDirection}
-            onDeleteRef={data?.onDeleteRef}
-          />
-        )}
-      </EdgeLabelRenderer>
+      {/* Mounted only when it would hold something: an idle relation used to
+          keep a portal (and, with React Flow's own `EdgeLabelRenderer`, a
+          store subscription) alive for an empty subtree, several hundred
+          times over on a large schema. */}
+      {(isHighlighted || showEditingControls || routing.contextMenu) && (
+        <EdgeLabelPortal>
+          {isHighlighted && (
+            <EdgeCardinalityLabels
+              points={routing.drawnPoints}
+              sourceLabel={sourceCardinality}
+              targetLabel={targetCardinality}
+              sourceSlot={data?.sourceSlot ?? 0}
+              targetSlot={data?.targetSlot ?? 0}
+              color={strokeColor}
+              opacity={selected ? 1 : 0.95}
+              zoom={zoom}
+            />
+          )}
+          {showEditingControls && (
+            <EdgeWaypoints
+              points={routing.points}
+              source={{ x: sourceX, y: sourceY }}
+              target={{ x: targetX, y: targetY }}
+              selectedIndex={routing.selectedPointIndex}
+              candidatePoint={routing.candidatePoint}
+              strokeColor={strokeColor}
+              zoom={zoom}
+              onStartDrag={routing.startDrag}
+              onSelect={routing.setSelectedPointIndex}
+              onContextMenu={routing.openContextMenu}
+              onInsertCandidate={routing.insertPointAt}
+            />
+          )}
+          {showEditingControls && data && (
+            <CardinalityBadge
+              x={labelX}
+              y={labelY}
+              label={style.label}
+              cardinality={data.cardinality}
+              onCardinalityChange={data.onCardinalityChange}
+              onReverseDirection={data.onReverseDirection}
+              color={strokeColor}
+              zoom={zoom}
+              palette={data.palette}
+              onPaletteChange={data.onPaletteChange}
+              onColorChange={data.onColorChange}
+              showReset={routing.hasCustomRouting || routing.points.length !== routing.defaultCorners.length}
+              onReset={routing.resetRouting}
+              onDeleteRef={data.onDeleteRef}
+              onContextMenu={(event) => routing.openContextMenu(event)}
+            />
+          )}
+          {routing.contextMenu && (
+            <EdgeContextMenu
+              menu={routing.contextMenu}
+              onClose={routing.closeContextMenu}
+              onInsertPoint={routing.insertPointAt}
+              onDeletePoint={routing.deletePointAt}
+              onResetRouting={routing.resetRouting}
+              onResetColor={data?.color ? () => data.onColorChange(undefined) : undefined}
+              onReverseDirection={data?.onReverseDirection}
+              onDeleteRef={data?.onDeleteRef}
+            />
+          )}
+        </EdgeLabelPortal>
+      )}
     </>
   );
 }

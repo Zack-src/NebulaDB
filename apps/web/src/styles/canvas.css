@@ -23,6 +23,32 @@
   transform: scale(1.3);
 }
 
+/* Row state: "this column is on a highlighted relation".
+   Two independent sources, deliberately expressed in CSS rather than in each
+   row's props — see `rowStateClass` in table/tableStyles.ts:
+     - `.is-linked`: this specific column is on the hovered/selected relation;
+     - `.canvas-links-highlighted .is-fk`: the canvas-wide "show all links"
+       toggle, which would otherwise re-render every table on the canvas just
+       to repaint a few hundred rows. */
+.table-node-row.is-linked,
+.canvas-links-highlighted .table-node-row.is-fk {
+  background: rgba(99, 102, 241, 0.15);
+  border-left: 2.5px solid #6366f1;
+}
+
+.table-node-row.is-selected {
+  background: rgba(99, 102, 241, 0.15);
+  border-left: 2px solid var(--color-primary);
+}
+
+/* A column that is both selected and linked reads as linked — the relation
+   colour is the stronger signal, matching the old precedence. */
+.table-node-row.is-linked .table-row-name,
+.canvas-links-highlighted .table-node-row.is-fk .table-row-name {
+  font-weight: 600;
+  color: #a5b4fc;
+}
+
 .ref-edge-flow-path {
   stroke-linecap: butt;
 }

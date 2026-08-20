@@ -42,6 +42,14 @@ export function RemoteCursorsLayer({ awareness }: { awareness: Awareness | null 
   const zoom = useStore(selectZoom);
   const counterScale = 1 / zoom;
 
+  // Nobody else on the canvas: mount nothing. `ViewportPortal` resolves its
+  // target with a zustand selector that runs `domNode.querySelector(...)` on
+  // *every* store mutation — measured at 270ms of `querySelector` across one
+  // drag on a 500-table schema, paid by every solo session for a layer that
+  // had nothing to draw.
+  const hasRemoteCursors = Array.from(remoteAwareness.values()).some((state) => state.cursor);
+  if (!hasRemoteCursors) return null;
+
   return (
     <ViewportPortal>
       {Array.from(remoteAwareness.entries()).map(([clientId, state]) => {

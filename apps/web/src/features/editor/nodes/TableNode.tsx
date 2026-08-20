@@ -1,13 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import {
-  Handle,
-  Position,
-  useReactFlow,
-  useStore,
-  type Node,
-  type NodeProps,
-  type ReactFlowState,
-} from "@xyflow/react";
+import { Handle, Position, useReactFlow, type Node, type NodeProps } from "@xyflow/react";
 import { MAX_NAME_LENGTH, type Field, type Table, type TableIndex } from "@athanordb/shared";
 import { CommentThread } from "@/features/editor/comments/CommentThread";
 import type { RemoteSelector } from "@/features/collaboration/useRemoteSelections";
@@ -16,8 +8,8 @@ import { DEFAULT_HEADER_COLOR, TableSettingsPopover } from "@/features/editor/no
 import { TableNodeRow } from "@/features/editor/nodes/table/TableNodeRow";
 import { useDismissablePopover } from "@/hooks/useDismissablePopover";
 import { useDraftValue } from "@/hooks/useDraftValue";
-import { time } from "@/utils/perfMonitor";
 import { setsEqual } from "@/utils/setsEqual";
+import { useHighlightedFieldKey } from "@/features/editor/canvas/highlightedFields";
 import { prefersDarkText } from "@/utils/color";
 import { useTranslation } from "@/i18n/useTranslation";
 import {
@@ -36,7 +28,6 @@ export interface TableNodeData {
   table: Table;
   /** Field ids that are either endpoint of some ref touching this table — always shown outside compact, even if not PK. */
   refFieldIds: Set<string>;
-  highlightLinks?: boolean;
   currentUser: string;
   palette: string[];
   /** True for a `view` grant — hides every editing affordance on the node. */
@@ -67,10 +58,6 @@ export interface TableNodeData {
 }
 
 export type TableNodeType = Node<TableNodeData, "table">;
-
-/** `fieldId-left-source` -> `fieldId`. Hoisted so the pattern is compiled once rather than per edge per node. */
-const HANDLE_SUFFIX = /-(left|right)-(source|target)$/;
-const stripHandleSuffix = (handle: string) => handle.replace(HANDLE_SUFFIX, "");
 
 function TableNodeImpl({ data, selected, id }: NodeProps<TableNodeType>) {
   const { t } = useTranslation();
@@ -113,35 +100,14 @@ function TableNodeImpl({ data, selected, id }: NodeProps<TableNodeType>) {
   /**
    * Which of this table's columns sit on a highlighted relation.
    *
-   * Selected through the store into a *string*, not through `useEdges()`.
-   * Subscribing to the whole edge array re-rendered every table node on every
-   * edge change — including each frame of a drag — while the answer for this
-   * table almost never differs. A joined primitive compares with `===`, so a
-   * node only re-renders when its own set of linked columns actually changes.
+   * An O(1) map lookup, not a store selector: this used to be a `useStore`
+   * subscription walking the whole edge array per table, which zustand re-ran
+   * for *every* table on *every* store mutation — pan/zoom transform ticks
+   * included — for O(tables × edges) per store update. See
+   * `canvas/highlightedFields.ts`, which now does that walk once for the
+   * whole canvas and publishes a per-table key.
    */
-  const linkedFieldKey = useStore(
-    useCallback(
-      (state: ReactFlowState) =>
-        // O(edges) per table node per store update — suspected hot spot behind
-        // the pan/zoom freeze at high table counts: `onlyRenderVisibleElements`
-        // (CanvasArea) hands out a *new* `state.edges` array reference on every
-        // viewport change, which re-runs this selector for all ~N table nodes,
-        // each walking all ~E edges — O(N*E) per animation frame while panning.
-        // Timed here (not just left to the aggregate canvas.render Profiler)
-        // because this runs in zustand's subscription path, outside React's
-        // own render/commit — the Profiler never sees it at all.
-        time("tableNode.linkedFieldSelector", () => {
-          const ids: string[] = [];
-          for (const edge of state.edges) {
-            if (!edge.selected && !edge.data?.connectedHighlight) continue;
-            if (edge.source === table.id && edge.sourceHandle) ids.push(stripHandleSuffix(edge.sourceHandle));
-            if (edge.target === table.id && edge.targetHandle) ids.push(stripHandleSuffix(edge.targetHandle));
-          }
-          return ids.sort().join("|");
-        }),
-      [table.id],
-    ),
-  );
+  const linkedFieldKey = useHighlightedFieldKey(table.id);
   const selectedEdgeFieldIds = useMemo(
     () => new Set(linkedFieldKey ? linkedFieldKey.split("|") : []),
     [linkedFieldKey],
@@ -307,10 +273,12 @@ function TableNodeImpl({ data, selected, id }: NodeProps<TableNodeType>) {
             comments={table.comments?.filter((c) => c.fieldId === field.id) ?? []}
             isPk={isPkField(field)}
             isForeignKey={refFieldIds.has(field.id)}
+            // The canvas-wide "highlight every link" toggle is deliberately
+            // not part of this: it is a CSS class on the canvas root combined
+            // with the row's own `is-fk` marker (see `rowStateClass`), so
+            // flipping it repaints without re-rendering a single node.
             isLinked={Boolean(
-              (data.highlightLinks && refFieldIds.has(field.id)) ||
-              selectedEdgeFieldIds.has(field.id) ||
-              (selectedFieldId === field.id && refFieldIds.has(field.id)),
+              selectedEdgeFieldIds.has(field.id) || (selectedFieldId === field.id && refFieldIds.has(field.id)),
             )}
             isSelected={selectedFieldId === field.id}
             currentUser={data.currentUser}
@@ -386,7 +354,6 @@ function tableNodePropsAreEqual(prev: NodeProps<TableNodeType>, next: NodeProps<
   if (a === b) return true;
   return (
     a.table === b.table &&
-    a.highlightLinks === b.highlightLinks &&
     a.currentUser === b.currentUser &&
     a.palette === b.palette &&
     a.readOnly === b.readOnly &&

@@ -1,4 +1,4 @@
-import { useCallback, useRef, type Dispatch, type SetStateAction } from "react";
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import * as Y from "yjs";
 import { applyNodeChanges, type NodeChange } from "@xyflow/react";
 import {
@@ -17,21 +17,51 @@ import { DEFAULT_TABLE_HEIGHT, DEFAULT_TABLE_WIDTH } from "@/features/editor/edg
  * and commits position/removal changes back to the doc. Also makes dragging
  * a zone drag whatever table/sticky/enum was inside it along, by
  * synthesizing a "position" change for each member.
+ *
+ * Returns the handler alongside a `dragging` flag (true between a drag's
+ * first `dragging: true` change and its `dragging: false` commit), which the
+ * edge layer uses to stop re-deriving every relation's geometry sixty times a
+ * second while a table is in flight.
+ *
+ * The current nodes are read through a ref rather than closed over: the array
+ * is replaced on every drag frame, and a handler identity that changed with
+ * it handed `<ReactFlow>` a new `onNodesChange` prop on every one of those
+ * frames.
  */
 export function useNodesChangeHandler(
   nodes: CanvasNode[],
   setNodes: Dispatch<SetStateAction<CanvasNode[]>>,
   doc: Y.Doc | null,
-) {
+): { onNodesChange: (changes: NodeChange<CanvasNode>[]) => void; dragging: boolean } {
+  // Mirrored after commit rather than during render: the handler only ever
+  // runs from a React Flow event, which is always after the commit that
+  // produced the nodes it is about.
+  const nodesRef = useRef(nodes);
+  useEffect(() => {
+    nodesRef.current = nodes;
+  }, [nodes]);
+
+  const [dragging, setDragging] = useState(false);
+  const draggingRef = useRef(false);
+  const setDraggingIfChanged = useCallback((next: boolean) => {
+    if (draggingRef.current === next) return;
+    draggingRef.current = next;
+    setDragging(next);
+  }, []);
+
   // Per zone currently being dragged: each contained table/sticky's offset
   // from the zone's position, snapshotted once at drag start (not
   // recomputed every frame) so the group moves rigidly together instead of
   // members joining/leaving as the zone sweeps over them mid-drag.
   const zoneDragMembersRef = useRef<Map<string, Map<string, { x: number; y: number }>>>(new Map());
 
-  return useCallback(
+  const onNodesChange = useCallback(
     // eslint-disable-next-line complexity -- one React Flow change can fan out across five Yjs maps (tables/zones/stickies/enums/groups) and a synthesized zone-drag member move; the branching mirrors that map count, not incidental structure
     (changes: NodeChange<CanvasNode>[]) => {
+      const nodes = nodesRef.current;
+      for (const change of changes) {
+        if (change.type === "position" && typeof change.dragging === "boolean") setDraggingIfChanged(change.dragging);
+      }
       const memberChanges: NodeChange<CanvasNode>[] = [];
       for (const change of changes) {
         if (change.type !== "position" || !change.position) continue;
@@ -115,6 +145,8 @@ export function useNodesChangeHandler(
         }
       }
     },
-    [doc, nodes, setNodes],
+    [doc, setNodes, setDraggingIfChanged],
   );
+
+  return { onNodesChange, dragging };
 }

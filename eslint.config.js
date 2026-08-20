@@ -28,6 +28,15 @@ export default tseslint.config(
     },
   },
   {
+    // Benchmark/automation drivers: Node scripts whose `page.evaluate`
+    // callbacks are serialized and run inside the browser, so they legitimately
+    // reference `window`/`document` from a Node file.
+    files: ["scripts/**/*.mjs"],
+    languageOptions: {
+      globals: { ...globals.node, ...globals.browser },
+    },
+  },
+  {
     files: ["apps/web/**/*.{ts,tsx}"],
     languageOptions: {
       globals: { ...globals.browser },
