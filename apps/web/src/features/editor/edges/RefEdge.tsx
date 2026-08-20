@@ -324,9 +324,54 @@ function RefEdgeImpl({
 }
 
 /**
- * A schema can have a few hundred of these on screen — without `memo`,
- * `useCanvasEdges` rebuilding its array (any hover, any selection change,
- * any drag frame) re-rendered every edge, not just the ones whose own props
- * actually changed.
+ * A schema can have a few hundred of these on screen. Plain `memo()` doesn't
+ * actually help here: `useCanvasEdges` takes the *whole* `nodes` array as a
+ * dependency (it needs each endpoint's position/size/selection for the
+ * edge's geometry and highlight state) and rebuilds every ref's `data`
+ * object from scratch whenever that array changes reference — which is
+ * whenever *any* node is dragged, (de)selected, or hovered, not just this
+ * edge's own endpoints. A fresh `data` object every time defeats a plain
+ * shallow-prop `memo` exactly the way a fresh `data` object defeated
+ * `TableNode`'s (see that file's comparator) — so every edge re-rendered on
+ * every unrelated selection/hover/drag, the same "N things re-render for a
+ * change to 1" pattern behind the "select all"/"toggle cardinality
+ * links"/zoom freezes measured at 100-500 tables.
+ *
+ * This comparator looks past `data`'s identity to the fields that actually
+ * drive this component's output — geometry props by value (cheap
+ * primitives), and `data`'s own fields individually. Every callback
+ * (`onColorChange`, `onDeleteRef`, ...) is deliberately *not* compared: each
+ * is a fresh closure every rebuild by construction, but a pure function of
+ * this ref's id/`doc`, which don't change without something else here also
+ * changing.
  */
-export const RefEdge = memo(RefEdgeImpl);
+function refEdgePropsAreEqual(prev: EdgeProps<RefEdgeType>, next: EdgeProps<RefEdgeType>): boolean {
+  if (
+    prev.id !== next.id ||
+    prev.selected !== next.selected ||
+    prev.sourceX !== next.sourceX ||
+    prev.sourceY !== next.sourceY ||
+    prev.targetX !== next.targetX ||
+    prev.targetY !== next.targetY ||
+    prev.sourcePosition !== next.sourcePosition ||
+    prev.targetPosition !== next.targetPosition
+  ) {
+    return false;
+  }
+  const a = prev.data;
+  const b = next.data;
+  if (a === b) return true;
+  if (!a || !b) return false;
+  return (
+    a.cardinality === b.cardinality &&
+    a.sourceSlot === b.sourceSlot &&
+    a.targetSlot === b.targetSlot &&
+    a.routingPoints === b.routingPoints &&
+    a.highlightLinks === b.highlightLinks &&
+    a.connectedHighlight === b.connectedHighlight &&
+    a.color === b.color &&
+    a.palette === b.palette
+  );
+}
+
+export const RefEdge = memo(RefEdgeImpl, refEdgePropsAreEqual);
