@@ -1,4 +1,5 @@
 import {
+  Profiler,
   useCallback,
   useEffect,
   useMemo,
@@ -7,6 +8,7 @@ import {
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
   type MutableRefObject,
+  type ProfilerOnRenderCallback,
 } from "react";
 import {
   ReactFlow,
@@ -48,6 +50,8 @@ import {
   useSharedViewport,
 } from "./canvasViewport";
 import { CanvasZoomBar } from "./CanvasZoomBar";
+import { useStoreChurnProbe } from "./useStoreChurnProbe";
+import { recordDuration } from "@/utils/perfMonitor";
 import { SelectionColorToolbar } from "./SelectionColorToolbar";
 import { useCanvasImageExport } from "./useCanvasImageExport";
 import { useCanvasSearch } from "./useCanvasSearch";
@@ -140,6 +144,7 @@ export function CanvasArea(props: CanvasAreaProps) {
 
   const { onNodesChange, awareness, exportRef, navigateRef } = props;
 
+  useStoreChurnProbe();
   useCanvasImageExport(exportRef);
   useCanvasNavigate(navigateRef, props.nodes, onNodesChange);
   const search = useCanvasSearch(props.nodes, onNodesChange);
@@ -306,6 +311,14 @@ export function CanvasArea(props: CanvasAreaProps) {
     });
   }, [props.nodes, remoteSelections]);
 
+  // React's own render/commit cost for the whole node tree (every table,
+  // edge, zone...) — the piece a `time()` span around a data-building
+  // function above can't see, since it only covers building props, not
+  // React reconciling and painting them.
+  const onRenderCanvas: ProfilerOnRenderCallback = useCallback((_id, phase, actualDuration) => {
+    recordDuration(`canvas.render.${phase}`, actualDuration);
+  }, []);
+
   return (
     <div
       className={`min-w-0 flex-1 bg-bg-canvas ${activeInsertTool ? "canvas-placing" : ""}`}
@@ -313,138 +326,144 @@ export function CanvasArea(props: CanvasAreaProps) {
       onMouseLeave={handleMouseLeave}
       style={{ "--canvas-font-scale": props.fontScale } as CSSProperties}
     >
-      <ReactFlow
-        nodes={nodesWithRemoteSelection}
-        edges={props.edges}
-        onNodesChange={onNodesChange}
-        onEdgesDelete={props.onEdgesDelete}
-        onConnect={props.onConnect}
-        onPaneClick={handlePaneClick}
-        onPaneContextMenu={handlePaneContextMenu}
-        onEdgeClick={(_event, edge) => onSelectEdge?.(edge.id)}
-        onNodeClick={() => onSelectEdge?.(null)}
-        // Without these two, right-clicking a table (or a multi-selection)
-        // fell through to the browser's own menu — "Save image as…", "Reload"
-        // — on top of the diagram. Suppressing the native menu is what the
-        // `preventDefault` does; the app's own menu stays pane-only, since
-        // there is no per-node menu to offer yet.
-        onNodeContextMenu={suppressNativeMenu}
-        onSelectionContextMenu={suppressNativeMenu}
-        onMoveStart={closeContextMenu}
-        onMoveEnd={onMoveEnd}
-        nodeTypes={nodeTypes}
-        edgeTypes={edgeTypes}
-        // Deletion is handled by the effect above so a selected edge waypoint
-        // can take precedence over the relation it belongs to.
-        deleteKeyCode={null}
-        nodesDraggable={props.canWrite}
-        nodesConnectable={props.canWrite}
-        snapToGrid={snapToGrid}
-        snapGrid={[GRID_SIZE, GRID_SIZE]}
-        fitView={!initialViewport}
-        defaultViewport={initialViewport ?? undefined}
-        selectionOnDrag
-        selectionMode={SelectionMode.Partial}
-        panOnDrag={[1, 2]}
-        {...CANVAS_VIEWPORT_PROPS}
-        // A schema with hundreds of tables otherwise mounts every TableNode's
-        // full DOM (every field row, every handle) regardless of what's
-        // actually panned into view. React Flow already tracks each node's
-        // position/size for its own viewport-culling math, so nothing outside
-        // the visible area (plus a small margin) gets rendered at all.
-        // fitView/minimap are unaffected — they read node geometry, not the
-        // DOM. Collaborator cursors aren't nodes at all (see
-        // `RemoteCursorsLayer`), so this doesn't touch them either.
-        onlyRenderVisibleElements
-      >
-        <Background
-          color="var(--color-canvas-grid)"
-          bgColor="var(--color-bg-canvas)"
-          gap={20}
-          variant={gridStyle as BackgroundVariant}
-        />
-        <RemoteCursorsLayer awareness={awareness} />
-        {/* Viewport control lives in its own corner pill: it is used at
+      <Profiler id="canvas" onRender={onRenderCanvas}>
+        <ReactFlow
+          nodes={nodesWithRemoteSelection}
+          edges={props.edges}
+          onNodesChange={onNodesChange}
+          onEdgesDelete={props.onEdgesDelete}
+          onConnect={props.onConnect}
+          onPaneClick={handlePaneClick}
+          onPaneContextMenu={handlePaneContextMenu}
+          onEdgeClick={(_event, edge) => onSelectEdge?.(edge.id)}
+          onNodeClick={() => onSelectEdge?.(null)}
+          // Without these two, right-clicking a table (or a multi-selection)
+          // fell through to the browser's own menu — "Save image as…", "Reload"
+          // — on top of the diagram. Suppressing the native menu is what the
+          // `preventDefault` does; the app's own menu stays pane-only, since
+          // there is no per-node menu to offer yet.
+          onNodeContextMenu={suppressNativeMenu}
+          onSelectionContextMenu={suppressNativeMenu}
+          onMoveStart={closeContextMenu}
+          onMoveEnd={onMoveEnd}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          // Deletion is handled by the effect above so a selected edge waypoint
+          // can take precedence over the relation it belongs to.
+          deleteKeyCode={null}
+          nodesDraggable={props.canWrite}
+          nodesConnectable={props.canWrite}
+          snapToGrid={snapToGrid}
+          snapGrid={[GRID_SIZE, GRID_SIZE]}
+          fitView={!initialViewport}
+          defaultViewport={initialViewport ?? undefined}
+          selectionOnDrag
+          selectionMode={SelectionMode.Partial}
+          panOnDrag={[1, 2]}
+          {...CANVAS_VIEWPORT_PROPS}
+          // Deliberately OFF, despite the obvious appeal for "hundreds of
+          // tables" — measured to be the wrong trade at that scale, not just
+          // untested. Turning it on culls DOM nodes outside the viewport, but
+          // that culling is exactly what was mounting/unmounting `TableNode`
+          // instances on every pan/zoom tick; profiling a 200-table schema
+          // (`apps/server/scripts/bench.ts`-adjacent browser scenario, see
+          // the perf investigation in git history) showed ~9.5s of main-thread
+          // longtasks across a pan/zoom/drag sequence with it on, vs ~2.4s
+          // with it off — the mount/unmount churn cost far more than the
+          // saved paint work bought back, at this table count. Revisit if a
+          // schema large enough to make *initial* mount the bottleneck instead
+          // becomes a real usage pattern (untested past ~200 tables).
+          onlyRenderVisibleElements={false}
+        >
+          <Background
+            color="var(--color-canvas-grid)"
+            bgColor="var(--color-bg-canvas)"
+            gap={20}
+            variant={gridStyle as BackgroundVariant}
+          />
+          <RemoteCursorsLayer awareness={awareness} />
+          {/* Viewport control lives in its own corner pill: it is used at
             different moments from the editing tools, and pinning it left means
             it doesn't shift as the toolbar beside it grows. */}
-        <Panel position="bottom-left" className="nodrag nopan !bottom-4 !left-4">
-          <CanvasZoomBar selectedIds={selectedTableIds} />
-        </Panel>
-        <Panel
-          position="bottom-center"
-          className="nodrag nopan pointer-events-none !bottom-4 flex flex-col items-center gap-2"
-        >
-          {props.statusMessage && (
-            <span className="pointer-events-auto rounded-full border border-border bg-surface-raised/95 px-3 py-1 text-[11.5px] text-text-secondary shadow-lg backdrop-blur-md">
-              {props.statusMessage}
-            </span>
+          <Panel position="bottom-left" className="nodrag nopan !bottom-4 !left-4">
+            <CanvasZoomBar selectedIds={selectedTableIds} />
+          </Panel>
+          <Panel
+            position="bottom-center"
+            className="nodrag nopan pointer-events-none !bottom-4 flex flex-col items-center gap-2"
+          >
+            {props.statusMessage && (
+              <span className="pointer-events-auto rounded-full border border-border bg-surface-raised/95 px-3 py-1 text-[11.5px] text-text-secondary shadow-lg backdrop-blur-md">
+                {props.statusMessage}
+              </span>
+            )}
+            <CanvasToolbar
+              canWrite={props.canWrite}
+              activeTool={activeInsertTool}
+              onSelectTool={handleSelectInsertTool}
+              activeDetailLevel={props.activeDetailLevel}
+              onSetDetailLevel={props.onSetDetailLevel}
+              highlightLinks={props.highlightLinks}
+              onHighlightLinksChange={props.onHighlightLinksChange}
+              minimapVisible={minimapVisible}
+              onToggleMinimap={toggleMinimap}
+              searchOpen={search.open}
+              onToggleSearch={() => (search.open ? search.close() : search.setOpen(true))}
+              canvasCommands={props.canvasCommands}
+              onRunCanvasCommand={props.onRunCanvasCommand}
+              onOpenPlugins={props.onOpenPlugins}
+              viewMode={props.viewMode}
+              onSetViewMode={props.onSetViewMode}
+            />
+          </Panel>
+          {minimapVisible && (
+            <MiniMap
+              {...minimapPanProps}
+              onContextMenu={suppressNativeMenu}
+              nodeColor={(node) => {
+                if (node.type === "table") {
+                  const data = node.data as { table?: { style?: { color?: string } } } | undefined;
+                  return data?.table?.style?.color || DEFAULT_HEADER_COLOR;
+                }
+                if (node.type === "zone") {
+                  const data = node.data as { zone?: { style?: { color?: string } } } | undefined;
+                  return data?.zone?.style?.color || "#f59e0b";
+                }
+                if (node.type === "sticky") {
+                  const data = node.data as { note?: { style?: { color?: string } } } | undefined;
+                  return data?.note?.style?.color || "#fef08a";
+                }
+                if (node.type === "enum") {
+                  return "#06b6d4";
+                }
+                if (node.type === "tablegroup") {
+                  return "#a855f7";
+                }
+                return "var(--color-primary)";
+              }}
+            />
           )}
-          <CanvasToolbar
-            canWrite={props.canWrite}
-            activeTool={activeInsertTool}
-            onSelectTool={handleSelectInsertTool}
-            activeDetailLevel={props.activeDetailLevel}
-            onSetDetailLevel={props.onSetDetailLevel}
-            highlightLinks={props.highlightLinks}
-            onHighlightLinksChange={props.onHighlightLinksChange}
-            minimapVisible={minimapVisible}
-            onToggleMinimap={toggleMinimap}
-            searchOpen={search.open}
-            onToggleSearch={() => (search.open ? search.close() : search.setOpen(true))}
-            canvasCommands={props.canvasCommands}
-            onRunCanvasCommand={props.onRunCanvasCommand}
-            onOpenPlugins={props.onOpenPlugins}
-            viewMode={props.viewMode}
-            onSetViewMode={props.onSetViewMode}
-          />
-        </Panel>
-        {minimapVisible && (
-          <MiniMap
-            {...minimapPanProps}
-            onContextMenu={suppressNativeMenu}
-            nodeColor={(node) => {
-              if (node.type === "table") {
-                const data = node.data as { table?: { style?: { color?: string } } } | undefined;
-                return data?.table?.style?.color || DEFAULT_HEADER_COLOR;
-              }
-              if (node.type === "zone") {
-                const data = node.data as { zone?: { style?: { color?: string } } } | undefined;
-                return data?.zone?.style?.color || "#f59e0b";
-              }
-              if (node.type === "sticky") {
-                const data = node.data as { note?: { style?: { color?: string } } } | undefined;
-                return data?.note?.style?.color || "#fef08a";
-              }
-              if (node.type === "enum") {
-                return "#06b6d4";
-              }
-              if (node.type === "tablegroup") {
-                return "#a855f7";
-              }
-              return "var(--color-primary)";
-            }}
-          />
-        )}
-        {selectedTableIds.length > 1 && props.canWrite && (
-          <SelectionColorToolbar
-            count={selectedTableIds.length}
-            palette={props.palette}
-            onPick={(color) => props.onSetTablesColor(selectedTableIds, color)}
-            onGroup={() => props.onGroupTables(selectedTableIds)}
-          />
-        )}
-        {search.open && (
-          <CanvasSearchPanel
-            query={search.query}
-            onQueryChange={search.changeQuery}
-            matchCount={search.matchIds.length}
-            activeIndex={search.activeIndex}
-            onNext={() => search.step(1)}
-            onPrevious={() => search.step(-1)}
-            onClose={search.close}
-          />
-        )}
-      </ReactFlow>
+          {selectedTableIds.length > 1 && props.canWrite && (
+            <SelectionColorToolbar
+              count={selectedTableIds.length}
+              palette={props.palette}
+              onPick={(color) => props.onSetTablesColor(selectedTableIds, color)}
+              onGroup={() => props.onGroupTables(selectedTableIds)}
+            />
+          )}
+          {search.open && (
+            <CanvasSearchPanel
+              query={search.query}
+              onQueryChange={search.changeQuery}
+              matchCount={search.matchIds.length}
+              activeIndex={search.activeIndex}
+              onNext={() => search.step(1)}
+              onPrevious={() => search.step(-1)}
+              onClose={search.close}
+            />
+          )}
+        </ReactFlow>
+      </Profiler>
       {contextMenu && (
         <CanvasContextMenu
           menu={contextMenu}
