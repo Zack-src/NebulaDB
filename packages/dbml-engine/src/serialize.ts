@@ -61,7 +61,10 @@ export function refSignature(tables: Table[], ref: Ref): string | null {
   const from = fieldNameById(tables, ref.from.tableId, ref.from.fieldId);
   const to = fieldNameById(tables, ref.to.tableId, ref.to.fieldId);
   if (!from || !to) return null;
-  return `${from.table}.${from.field}->${to.table}.${to.field}`;
+  // Lowercased so a plain-casing rename (e.g. Ctrl+K+U/L on the DBML text)
+  // still matches its old ref and keeps its style/routingPoints, same
+  // case-insensitive identity as the table/field name matching above it.
+  return `${from.table}.${from.field}->${to.table}.${to.field}`.toLowerCase();
 }
 
 /**

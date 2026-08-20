@@ -239,7 +239,11 @@ const GRID_ROW_HEIGHT = 400;
 const positionKey = (p: Position) => `${Math.round(p.x)},${Math.round(p.y)}`;
 
 export function mergeProjectIntoExisting(existing: Project, incoming: Project): Project {
-  const existingTablesByName = new Map(existing.tables.map((t) => [t.name, t]));
+  // Case-insensitive: a plain-casing edit (Ctrl+K+U/L uppercasing/lowercasing
+  // the DBML text) must still match its old table/field so position, style,
+  // size, comments etc. carry over — same identity convention `tableByName`
+  // and the migration/diff helpers already use elsewhere (name.toLowerCase()).
+  const existingTablesByName = new Map(existing.tables.map((t) => [t.name.toLowerCase(), t]));
   const tableIdRemap = new Map<string, string>();
   const fieldIdRemap = new Map<string, string>();
 
@@ -273,7 +277,7 @@ export function mergeProjectIntoExisting(existing: Project, incoming: Project): 
   };
 
   const tables: Table[] = incoming.tables.map((table) => {
-    const prev = existingTablesByName.get(table.name);
+    const prev = existingTablesByName.get(table.name.toLowerCase());
     // @dbml/core's `table.id` is just this parse's declaration-order position
     // (1, 2, 3...), not a stable identity — reusing it for a genuinely new
     // table risks colliding with an unrelated existing table's already-
@@ -283,11 +287,13 @@ export function mergeProjectIntoExisting(existing: Project, incoming: Project): 
     const finalId = prev?.id ?? crypto.randomUUID();
     tableIdRemap.set(table.id, finalId);
 
-    const prevFieldsByName = new Map((prev?.fields ?? []).map((f) => [f.name, f]));
+    const prevFieldsByName = new Map((prev?.fields ?? []).map((f) => [f.name.toLowerCase(), f]));
     const fields = table.fields.map((field) => {
       // Same reasoning as `finalId` above, one level down: @dbml/core's
       // `field.id` is also just a positional counter, not a stable identity.
-      const finalFieldId = prevFieldsByName.get(field.name)?.id ?? crypto.randomUUID();
+      // Matched case-insensitively too, so uppercasing/lowercasing selected
+      // DBML text keeps each field's id (and anything keyed off it).
+      const finalFieldId = prevFieldsByName.get(field.name.toLowerCase())?.id ?? crypto.randomUUID();
       fieldIdRemap.set(field.id, finalFieldId);
       return { ...field, id: finalFieldId };
     });
