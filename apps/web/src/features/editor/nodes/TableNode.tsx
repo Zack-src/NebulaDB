@@ -16,6 +16,8 @@ import { DEFAULT_HEADER_COLOR, TableSettingsPopover } from "@/features/editor/no
 import { TableNodeRow } from "@/features/editor/nodes/table/TableNodeRow";
 import { useDismissablePopover } from "@/hooks/useDismissablePopover";
 import { useDraftValue } from "@/hooks/useDraftValue";
+import { time } from "@/utils/perfMonitor";
+import { setsEqual } from "@/utils/setsEqual";
 import { prefersDarkText } from "@/utils/color";
 import { useTranslation } from "@/i18n/useTranslation";
 import {
@@ -119,15 +121,24 @@ function TableNodeImpl({ data, selected, id }: NodeProps<TableNodeType>) {
    */
   const linkedFieldKey = useStore(
     useCallback(
-      (state: ReactFlowState) => {
-        const ids: string[] = [];
-        for (const edge of state.edges) {
-          if (!edge.selected && !edge.data?.connectedHighlight) continue;
-          if (edge.source === table.id && edge.sourceHandle) ids.push(stripHandleSuffix(edge.sourceHandle));
-          if (edge.target === table.id && edge.targetHandle) ids.push(stripHandleSuffix(edge.targetHandle));
-        }
-        return ids.sort().join("|");
-      },
+      (state: ReactFlowState) =>
+        // O(edges) per table node per store update — suspected hot spot behind
+        // the pan/zoom freeze at high table counts: `onlyRenderVisibleElements`
+        // (CanvasArea) hands out a *new* `state.edges` array reference on every
+        // viewport change, which re-runs this selector for all ~N table nodes,
+        // each walking all ~E edges — O(N*E) per animation frame while panning.
+        // Timed here (not just left to the aggregate canvas.render Profiler)
+        // because this runs in zustand's subscription path, outside React's
+        // own render/commit — the Profiler never sees it at all.
+        time("tableNode.linkedFieldSelector", () => {
+          const ids: string[] = [];
+          for (const edge of state.edges) {
+            if (!edge.selected && !edge.data?.connectedHighlight) continue;
+            if (edge.source === table.id && edge.sourceHandle) ids.push(stripHandleSuffix(edge.sourceHandle));
+            if (edge.target === table.id && edge.targetHandle) ids.push(stripHandleSuffix(edge.targetHandle));
+          }
+          return ids.sort().join("|");
+        }),
       [table.id],
     ),
   );
@@ -146,14 +157,23 @@ function TableNodeImpl({ data, selected, id }: NodeProps<TableNodeType>) {
     }
     return set;
   }, [table.indexes]);
-  const isPkField = (field: Field) => field.pk || pkIndexFieldIds.has(field.id);
+  const isPkField = useCallback((field: Field) => field.pk || pkIndexFieldIds.has(field.id), [pkIndexFieldIds]);
 
-  const rows =
-    table.detailLevel === "compact"
-      ? []
-      : table.detailLevel === "full"
-        ? table.fields
-        : table.fields.filter((f) => isPkField(f) || refFieldIds.has(f.id));
+  // Now that the table-node cache in `useCanvasNodes` lets `memo()` actually
+  // skip unrelated tables, a re-render that *does* reach this table should
+  // stay cheap too — memoized so a re-render caused by something this table
+  // doesn't otherwise depend on (e.g. `selectedFieldId` moving to a different
+  // table, which still changes this component's props) doesn't refilter
+  // every field.
+  const rows = useMemo(
+    () =>
+      table.detailLevel === "compact"
+        ? []
+        : table.detailLevel === "full"
+          ? table.fields
+          : table.fields.filter((f) => isPkField(f) || refFieldIds.has(f.id)),
+    [table.detailLevel, table.fields, isPkField, refFieldIds],
+  );
 
   // Figma shows one name per remote selector, not a pile of avatars — the
   // first is enough to say who, "+N" covers the rest without crowding the
@@ -328,4 +348,52 @@ function TableNodeImpl({ data, selected, id }: NodeProps<TableNodeType>) {
   );
 }
 
-export const TableNode = memo(TableNodeImpl);
+/**
+ * `data` (and every callback closure inside it) is rebuilt from scratch by
+ * `useCanvasNodes` on *any* project change — including one editing a
+ * different table entirely, since the Yjs project is reconstructed wholesale
+ * on every doc update — so `data` is never referentially stable across
+ * renders even when nothing about *this* table changed. A plain `memo()`
+ * (shallow prop comparison) is therefore defeated on every single edit
+ * anywhere in the schema: with `onlyRenderVisibleElements` on the canvas
+ * (`CanvasArea.tsx`), that meant every table crossing the viewport during a
+ * pan/zoom/drag re-rendered and remounted, the dominant cost behind the
+ * freezes measured at 100-200 tables.
+ *
+ * This comparator looks past the wrapping `data` object to the fields that
+ * actually drive this component's output:
+ *  - `table` — reference equality. Already stable per id at the Yjs layer
+ *    (`readProjectFromDoc` only constructs a new object for a table Yjs
+ *    actually re-`set()`), so this alone is what lets an edit to table B
+ *    skip re-rendering table A.
+ *  - `refFieldIds` — content equality (`setsEqual`), not reference: the Map
+ *    it comes from (`ProjectEditor`'s `refFieldIdsByTable`) is a plain,
+ *    unstabilized `useMemo` recomputed on every project change, so a fresh
+ *    `Set` per table is expected; comparing membership rather than identity
+ *    is what makes that harmless instead of another memo-defeater. Cheap:
+ *    bounded by this one table's own field count, not the whole schema.
+ *  - Every callback (`onRename`, `onStyleChange`, `onSelectField`, ...) is
+ *    deliberately *not* compared: they're fresh closures every rebuild by
+ *    construction, but each is a pure function of `table.id`/`doc`, which
+ *    the checks above already establish are unchanged — a different
+ *    function reference doing the exact same thing isn't a reason to
+ *    re-render.
+ */
+function tableNodePropsAreEqual(prev: NodeProps<TableNodeType>, next: NodeProps<TableNodeType>): boolean {
+  if (prev.id !== next.id || prev.selected !== next.selected) return false;
+  const a = prev.data;
+  const b = next.data;
+  if (a === b) return true;
+  return (
+    a.table === b.table &&
+    a.highlightLinks === b.highlightLinks &&
+    a.currentUser === b.currentUser &&
+    a.palette === b.palette &&
+    a.readOnly === b.readOnly &&
+    a.selectedFieldId === b.selectedFieldId &&
+    a.remoteSelectedBy === b.remoteSelectedBy &&
+    setsEqual(a.refFieldIds, b.refFieldIds)
+  );
+}
+
+export const TableNode = memo(TableNodeImpl, tableNodePropsAreEqual);
