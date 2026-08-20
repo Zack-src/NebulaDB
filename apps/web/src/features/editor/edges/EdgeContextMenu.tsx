@@ -1,6 +1,6 @@
 import { createPortal } from "react-dom";
 import type { EdgeContextMenuState } from "@/features/editor/edges/useEdgeRouting";
-import { PlusIcon, RestoreIcon, PaletteIcon, TrashIcon } from "@/components/icons/Icons";
+import { PlusIcon, RestoreIcon, PaletteIcon, SwapHorizontalIcon, TrashIcon } from "@/components/icons/Icons";
 import {
   CONTEXT_MENU_CLASS,
   CONTEXT_MENU_DANGER_ITEM_CLASS,
@@ -28,6 +28,7 @@ export function EdgeContextMenu(props: {
   onDeletePoint: (index: number) => void;
   onResetRouting: () => void;
   onResetColor?: () => void;
+  onReverseDirection?: () => void;
   onDeleteRef?: () => void;
 }) {
   const { t } = useTranslation();
@@ -68,6 +69,12 @@ export function EdgeContextMenu(props: {
         <button className={CONTEXT_MENU_ITEM_CLASS} onClick={choose(props.onResetColor)}>
           <PaletteIcon size={14} />
           {t("edge.resetColor")}
+        </button>
+      )}
+      {props.onReverseDirection && (
+        <button className={CONTEXT_MENU_ITEM_CLASS} onClick={choose(props.onReverseDirection)}>
+          <SwapHorizontalIcon size={14} />
+          {t("edge.reverseDirection")}
         </button>
       )}
       {props.onDeleteRef && (

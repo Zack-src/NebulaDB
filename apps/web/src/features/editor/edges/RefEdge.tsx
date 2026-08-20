@@ -23,6 +23,7 @@ export interface RefEdgeData {
   onPaletteChange: (palette: string[]) => void;
   onColorChange: (color: string | undefined) => void;
   onCardinalityChange?: (cardinality: RefCardinality) => void;
+  onReverseDirection?: () => void;
   onRoutingPointsChange: (points: RoutingPoint[] | undefined) => void;
   onDeleteRef?: () => void;
   onSelectEdge?: (id: string | null) => void;
@@ -293,6 +294,7 @@ function RefEdgeImpl({
             label={style.label}
             cardinality={data.cardinality}
             onCardinalityChange={data.onCardinalityChange}
+            onReverseDirection={data.onReverseDirection}
             color={strokeColor}
             zoom={zoom}
             palette={data.palette}
@@ -312,6 +314,7 @@ function RefEdgeImpl({
             onDeletePoint={routing.deletePointAt}
             onResetRouting={routing.resetRouting}
             onResetColor={data?.color ? () => data.onColorChange(undefined) : undefined}
+            onReverseDirection={data?.onReverseDirection}
             onDeleteRef={data?.onDeleteRef}
           />
         )}

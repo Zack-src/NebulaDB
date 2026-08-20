@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   MAX_DEFAULT_LENGTH,
@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/Button";
 import { TEXTAREA_SM_CLASS } from "@/components/ui/inputStyles";
 import { formatTimestamp } from "@/features/editor/comments/CommentThread";
 import { useAnchoredPlacement } from "@/hooks/useMenuPlacement";
+import { useCloseOnViewportChange } from "@/hooks/useCloseOnViewportChange";
 import { useDismissablePopover } from "@/hooks/useDismissablePopover";
 import { useDraftValue } from "@/hooks/useDraftValue";
 import { useTranslation } from "@/i18n/useTranslation";
@@ -92,12 +93,18 @@ export function FieldEditorPopover({
     setCommentDraft("");
   };
 
-  useDismissablePopover(open, () => setOpen(false), [popoverRef, triggerRef]);
-  const placement = useAnchoredPlacement(open ? triggerRect : null, popoverRef);
+  const dismiss = useCallback(() => setOpen(false), []);
+  useDismissablePopover(open, dismiss, [popoverRef, triggerRef]);
+  useCloseOnViewportChange(open, dismiss);
+  // Anchored to the right of the whole table (not just this row's trigger)
+  // so the popover sits beside the table instead of dropping down over it —
+  // matches TableSettingsPopover.
+  const placement = useAnchoredPlacement(open ? triggerRect : null, popoverRef, "right");
 
   const toggleOpen = () => {
     if (!open && triggerRef.current) {
-      setTriggerRect(triggerRef.current.getBoundingClientRect());
+      const tableRect = triggerRef.current.closest(".table-node")?.getBoundingClientRect();
+      setTriggerRect(tableRect ?? triggerRef.current.getBoundingClientRect());
     }
     setOpen((current) => !current);
   };

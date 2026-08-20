@@ -52,6 +52,10 @@ export function useMenuPlacement(
  * inside the window, and always with a `maxHeight` so a long list scrolls
  * inside itself instead of running off the screen.
  *
+ * `side: "right"` anchors instead to the right of `rect` (flipping to the
+ * left when there isn't room), top-aligned with `rect` — used for popovers
+ * that should sit beside the thing they edit rather than drop down over it.
+ *
  * The height cap is the part the hand-rolled versions all got wrong — each
  * clamped its position against a *guessed* height constant while the element
  * itself was free to grow to `80vh`, so tall popovers hung off the bottom
@@ -63,12 +67,28 @@ export function useMenuPlacement(
 export function useAnchoredPlacement(
   rect: DOMRect | null,
   ref: RefObject<HTMLElement | null>,
+  side: "bottom" | "right" = "bottom",
 ): CSSProperties | undefined {
   const [style, setStyle] = useState<CSSProperties | undefined>(undefined);
 
   useLayoutEffect(() => {
     const element = ref.current;
     if (!rect || !element) return;
+
+    if (side === "right") {
+      const width = element.offsetWidth;
+      const right = rect.right + ANCHOR_GAP;
+      const fitsRight = right + width <= window.innerWidth - MARGIN;
+      const left = fitsRight
+        ? right
+        : Math.max(MARGIN, rect.left - ANCHOR_GAP - width);
+
+      const top = Math.max(MARGIN, Math.min(rect.top, window.innerHeight - MIN_PANEL_HEIGHT - MARGIN));
+      const maxHeight = Math.max(MIN_PANEL_HEIGHT, window.innerHeight - top - MARGIN);
+
+      setStyle({ left, top, maxHeight, overflowY: "auto" });
+      return;
+    }
 
     const width = element.offsetWidth;
     const below = window.innerHeight - rect.bottom - ANCHOR_GAP - MARGIN;
@@ -82,7 +102,7 @@ export function useAnchoredPlacement(
       : rect.bottom + ANCHOR_GAP;
 
     setStyle({ left, top, maxHeight, overflowY: "auto" });
-  }, [rect, ref]);
+  }, [rect, ref, side]);
 
   return style;
 }

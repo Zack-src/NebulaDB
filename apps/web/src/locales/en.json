@@ -196,6 +196,8 @@
   "edge.insertWaypoint": "Insert a point here",
   "edge.resetPathShort": "Reset the path",
   "edge.resetColor": "Reset the colour",
+  "edge.reverseDirection": "Reverse direction",
+  "edge.reverseDirectionHint": "Swaps which table is the starting point — the 1/n sides follow",
   "edge.deleteRelation": "Delete the relation",
   "edge.settings": "Relation options",
   "edge.settingsTitle": "Relationship Settings",

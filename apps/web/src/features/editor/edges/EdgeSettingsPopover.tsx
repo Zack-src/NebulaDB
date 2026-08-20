@@ -1,7 +1,7 @@
 import { useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { RefCardinality } from "@athanordb/shared";
-import { CloseIcon, RestoreIcon, TrashIcon } from "@/components/icons/Icons";
+import { CloseIcon, RestoreIcon, SwapHorizontalIcon, TrashIcon } from "@/components/icons/Icons";
 import { Button } from "@/components/ui/Button";
 import { ColorSwatchPicker } from "@/components/inputs/ColorSwatchPicker";
 import { useAnchoredPlacement } from "@/hooks/useMenuPlacement";
@@ -17,6 +17,7 @@ export interface EdgeSettingsPopoverProps {
   palette: string[];
   onPaletteChange: (palette: string[]) => void;
   onResetRouting: () => void;
+  onReverseDirection?: () => void;
   onDeleteRef?: () => void;
   triggerRect: DOMRect | null;
   onClose: () => void;
@@ -30,6 +31,7 @@ export function EdgeSettingsPopover({
   palette,
   onPaletteChange,
   onResetRouting,
+  onReverseDirection,
   onDeleteRef,
   triggerRect,
   onClose,
@@ -161,19 +163,36 @@ export function EdgeSettingsPopover({
       </div>
 
       {/* Section 3: Actions */}
-      <div className="flex items-center justify-between border-t border-border pt-2.5">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            onResetRouting();
-            onClose();
-          }}
-          className="text-xs text-text-secondary hover:text-text"
-        >
-          <RestoreIcon size={12} />
-          <span>{t("edge.resetPathShort")}</span>
-        </Button>
+      <div className="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-2.5">
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              onResetRouting();
+              onClose();
+            }}
+            className="text-xs text-text-secondary hover:text-text"
+          >
+            <RestoreIcon size={12} />
+            <span>{t("edge.resetPathShort")}</span>
+          </Button>
+          {onReverseDirection && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                onReverseDirection();
+                onClose();
+              }}
+              className="text-xs text-text-secondary hover:text-text"
+              data-tooltip={t("edge.reverseDirectionHint")}
+            >
+              <SwapHorizontalIcon size={12} />
+              <span>{t("edge.reverseDirection")}</span>
+            </Button>
+          )}
+        </div>
         {onDeleteRef && (
           <Button
             variant="danger"

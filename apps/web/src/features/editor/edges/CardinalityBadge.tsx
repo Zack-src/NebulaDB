@@ -15,6 +15,7 @@ export function CardinalityBadge(props: {
   label: string;
   cardinality: RefCardinality;
   onCardinalityChange?: (cardinality: RefCardinality) => void;
+  onReverseDirection?: () => void;
   color: string;
   zoom: number;
   palette: string[];
@@ -94,6 +95,7 @@ export function CardinalityBadge(props: {
         <EdgeSettingsPopover
           cardinality={props.cardinality}
           onCardinalityChange={props.onCardinalityChange}
+          onReverseDirection={props.onReverseDirection}
           color={props.color}
           onColorChange={props.onColorChange}
           palette={props.palette}
