@@ -27,6 +27,17 @@ function readEnabledFlag(): boolean {
 }
 
 let enabled = readEnabledFlag();
+/**
+ * Records spans but says nothing. The perf harness (`features/editor/bench`)
+ * needs every `time()` span in a production build, and a `console.warn` per
+ * span past 16ms would be thousands of console round-trips inside the very
+ * window being measured — enough to change the number it is measuring.
+ */
+let quiet = false;
+
+export function setPerfQuiet(next: boolean): void {
+  quiet = next;
+}
 
 interface Stat {
   count: number;
@@ -53,7 +64,7 @@ function record(label: string, durationMs: number): void {
   stat.samples.push(durationMs);
   if (stat.samples.length > SAMPLE_CAP) stat.samples.shift();
 
-  if (enabled && durationMs > PERF_LOG_THRESHOLD_MS) {
+  if (enabled && !quiet && durationMs > PERF_LOG_THRESHOLD_MS) {
     console.warn(`[perf] ${label} took ${durationMs.toFixed(1)}ms`);
   }
 }
@@ -144,7 +155,7 @@ if (typeof PerformanceObserver !== "undefined") {
     const observer = new PerformanceObserver((list) => {
       for (const entry of list.getEntries()) {
         record("longtask", entry.duration);
-        if (enabled) {
+        if (enabled && !quiet) {
           console.warn(`[perf] long task blocked the main thread for ${entry.duration.toFixed(1)}ms`, entry);
         }
       }

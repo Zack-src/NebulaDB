@@ -84,6 +84,10 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
         className={`${CANVAS_TOOLBAR_ICON_BTN_CLASS} ${props.highlightLinks ? CANVAS_TOOLBAR_TOGGLE_ACTIVE_CLASS : ""}`}
         onClick={() => props.onHighlightLinksChange(!props.highlightLinks)}
         aria-pressed={props.highlightLinks}
+        // Locale-independent handle for the perf harness (scripts/bench-web.mjs),
+        // which drives this exact button — every other selector here is a
+        // translated string.
+        data-testid="toggle-link-highlight"
         data-tooltip={t(props.highlightLinks ? "canvas.hideLinkHighlight" : "canvas.showLinkHighlight")}
         data-tooltip-pos="bottom"
         aria-label={t("canvas.toggleLinkHighlight")}

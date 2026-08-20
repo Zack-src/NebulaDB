@@ -139,7 +139,7 @@ function DbmlPanel(props: {
 
     const adopt = (dbml: string) => {
       if (dirtyRef.current || lastAppliedTextRef.current === dbml || text === dbml) return;
-      if (signatureOf(dbml) === textSignature) {
+      if (time("dbml.signature", () => signatureOf(dbml)) === textSignature) {
         // same schema, different layout — keep what the user is looking at
         lastAppliedTextRef.current = dbml;
         return;

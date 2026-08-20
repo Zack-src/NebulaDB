@@ -48,6 +48,23 @@ export interface ProjectConnection {
 const REMOTE_ORIGIN = Symbol("athanordb-remote");
 
 /**
+ * Swaps the WebSocket transport for a caller-supplied, purely local
+ * connection. Only the perf harness (`features/editor/bench`, reachable at
+ * `#bench` and code-split away from every normal route) ever installs one: it
+ * needs the *real* editor — same `useProjectDoc`, same node/edge pipeline —
+ * over a pre-seeded doc, with no server, no auth and no network jitter in the
+ * numbers. Returns `null` for any project id it doesn't own, so nothing else
+ * is affected.
+ */
+export type OfflineConnectionFactory = (projectId: string) => ProjectConnection | null;
+
+let offlineConnectionFactory: OfflineConnectionFactory | null = null;
+
+export function setOfflineConnectionFactory(factory: OfflineConnectionFactory | null): void {
+  offlineConnectionFactory = factory;
+}
+
+/**
  * Client-side half of the raw sync/awareness protocol implemented by the
  * server's `Room` (apps/server/src/yjs/room.ts) — mirrors its message
  * framing since we hand-roll the WS transport instead of using `y-websocket`.
@@ -68,6 +85,12 @@ export function connectProject(
   user: string,
   onStatus?: (status: ConnectionStatus) => void,
 ): ProjectConnection {
+  const offline = offlineConnectionFactory?.(projectId);
+  if (offline) {
+    onStatus?.("connected");
+    return offline;
+  }
+
   const doc = new Y.Doc();
   const awareness = new awarenessProtocol.Awareness(doc);
 
