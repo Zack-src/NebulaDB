@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
-import { getMetaMap, writeProjectToDoc, type DatabaseConnectionSummary, type Project } from "@athanordb/shared";
+import { getMetaMap, type DatabaseConnectionSummary } from "@athanordb/shared";
 import { listProjectConnections } from "@/services/connectionsApi";
 import { useProjectDoc } from "@/features/collaboration/useProjectDoc";
 import { useAwarenessStates } from "@/features/collaboration/useAwarenessStates";
@@ -16,12 +16,10 @@ import { useCanvasEdges } from "@/features/editor/hooks/useCanvasEdges";
 import { useCanvasFontScale } from "@/features/editor/hooks/useCanvasFontScale";
 import { useProjectMutations } from "@/features/editor/hooks/useProjectMutations";
 import { useEditorKeyboardShortcuts } from "@/features/editor/hooks/useEditorKeyboardShortcuts";
+import { useCanvasCommandRunner } from "@/features/editor/hooks/useCanvasCommandRunner";
 import { ProjectToolbar } from "@/features/editor/ProjectToolbar";
 import { useTranslation } from "@/i18n/useTranslation";
 import { useCanvasCommands } from "@/features/plugins/usePlugins";
-import { matchShortcut } from "@/features/plugins/shortcuts";
-import type { CanvasCommandResult } from "@/features/plugins/types";
-import { AUTO_LAYOUT_ID, GROUP_TABLES_ID } from "@/features/plugins/builtins/coreCanvas";
 import { McdCanvas } from "@/features/editor/mcd/McdCanvas";
 import type { EditorViewMode } from "@/features/editor/mcd/ViewModeToggle";
 
@@ -37,9 +35,6 @@ const DeploymentModal = lazy(() =>
   import("@/features/connections/DeploymentModal").then((m) => ({ default: m.DeploymentModal })),
 );
 const PerfHud = lazy(() => import("@/components/dev/PerfHud").then((m) => ({ default: m.PerfHud })));
-
-/** How long a plugin command's status line stays on the canvas. */
-const PLUGIN_MESSAGE_MS = 4000;
 
 import { SettingsModal } from "@/features/settings/SettingsModal";
 import type { Session } from "@/types/index";
@@ -84,7 +79,6 @@ export function ProjectEditor(props: {
   const [showDeployment, setShowDeployment] = useState(false);
   const [viewMode, setViewMode] = useState<EditorViewMode>("mld");
   const [activeConnection, setActiveConnection] = useState<DatabaseConnectionSummary | null>(null);
-  const [pluginMessage, setPluginMessage] = useState<string | null>(null);
 
   useEffect(() => {
     listProjectConnections(project.id)
@@ -106,48 +100,6 @@ export function ProjectEditor(props: {
     setDbmlOpen(true);
     setDbmlScrollRequest((prev) => ({ tableName, requestId: (prev?.requestId ?? 0) + 1 }));
   }, []);
-
-  /**
-   * The canvas selection, held in a ref rather than passed as a dependency:
-   * commands read it at the moment they run, and re-creating `runCanvasCommand`
-   * on every selection change would re-render the whole canvas toolbar.
-   */
-  const selectedTableIdsRef = useRef<string[]>([]);
-
-  /** Transient canvas status line. The timer is tracked so a second message replaces the first instead of being wiped by the first one's expiry. */
-  const pluginMessageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const flash = useCallback((message: string) => {
-    if (pluginMessageTimerRef.current) clearTimeout(pluginMessageTimerRef.current);
-    setPluginMessage(message);
-    pluginMessageTimerRef.current = setTimeout(() => setPluginMessage(null), PLUGIN_MESSAGE_MS);
-  }, []);
-  useEffect(
-    () => () => {
-      if (pluginMessageTimerRef.current) clearTimeout(pluginMessageTimerRef.current);
-    },
-    [],
-  );
-
-  /**
-   * Runs a plugin canvas command and writes back whatever project it returns.
-   * `writeProjectToDoc` diffs entity by entity, so a command that only renames
-   * one table produces exactly one Yjs update — and the change lands in every
-   * collaborator's canvas through the normal sync path.
-   */
-  const runCanvasCommand = useCallback(
-    async (command: (typeof canvasCommands)[number]) => {
-      if (!liveProject || !doc || !canWrite) return;
-      try {
-        const selection = selectedTableIdsRef.current;
-        const result = (await command.run(liveProject, { selection })) as CanvasCommandResult;
-        if (result?.project) doc.transact(() => writeProjectToDoc(doc, result.project as Project));
-        flash(result?.message ?? t("plugins.commandApplied", { command: command.contribution.label }));
-      } catch (err) {
-        flash(t("plugins.errorPrefix", { message: err instanceof Error ? err.message : String(err) }));
-      }
-    },
-    [liveProject, doc, canWrite, flash, t],
-  );
 
   const handleHighlightLinksChange = (val: boolean) => {
     setHighlightLinks(val);
@@ -225,34 +177,15 @@ export function ProjectEditor(props: {
     () => nodes.filter((n) => n.type === "table" && n.selected).map((n) => n.id),
     [nodes],
   );
-  useEffect(() => {
-    selectedTableIdsRef.current = selectedTableIds;
-  }, [selectedTableIds]);
 
-  /**
-   * Global bindings for plugin canvas commands. The app's own shortcuts are
-   * bound elsewhere and run first; anything typed into a field or the DBML
-   * editor is left alone.
-   */
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      const target = event.target as HTMLElement | null;
-      if (target?.closest("input, textarea, select, .cm-editor, [contenteditable='true']")) return;
-      const command = matchShortcut(
-        canvasCommands.map((c) => ({ command: c, shortcut: c.contribution.shortcut })),
-        event,
-      )?.command;
-      if (!command) return;
-      event.preventDefault();
-      void runCanvasCommand(command);
-    };
-    // Capture phase: a focused React Flow node stops keydown from bubbling to
-    // the window (it handles arrows/delete itself), so a bubble-phase listener
-    // never fires for the exact case these shortcuts are most useful in —
-    // right after clicking a table.
-    window.addEventListener("keydown", onKeyDown, true);
-    return () => window.removeEventListener("keydown", onKeyDown, true);
-  }, [canvasCommands, runCanvasCommand]);
+  const { pluginMessage, runCanvasCommand, onAutoLayout, onGroupTables } = useCanvasCommandRunner({
+    liveProject,
+    doc,
+    canWrite,
+    canvasCommands,
+    selectedTableIds,
+  });
+
   const edges = useCanvasEdges(
     liveProject,
     doc,
@@ -281,22 +214,6 @@ export function ProjectEditor(props: {
     onEdgesDelete,
     onConnect,
   } = useProjectMutations(liveProject, writeDoc, nodes);
-
-  // Auto-layout and table-grouping are now the `athanordb.core-canvas`
-  // plugin's `auto-layout`/`group-tables` canvasCommands (see coreCanvas.ts)
-  // — these buttons just run them through the same `runCanvasCommand` path
-  // every other canvas command uses, rather than calling a bespoke doc
-  // mutation. If the plugin providing one is disabled, its button quietly
-  // does nothing, same as any other canvas command would.
-  const runCanvasCommandById = useCallback(
-    (id: string) => {
-      const command = canvasCommands.find((c) => c.contribution.id === id);
-      if (command) void runCanvasCommand(command);
-    },
-    [canvasCommands, runCanvasCommand],
-  );
-  const onAutoLayout = useCallback(() => runCanvasCommandById(AUTO_LAYOUT_ID), [runCanvasCommandById]);
-  const onGroupTables = useCallback(() => runCanvasCommandById(GROUP_TABLES_ID), [runCanvasCommandById]);
 
   // Inert while viewing the MCD: nothing dragged there is ever written to
   // the project, so routing Ctrl+Z through the real Yjs history would either

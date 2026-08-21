@@ -14,6 +14,7 @@ import { ApiError } from "@/services/ApiError";
 import type { TranslationKeyOf } from "@/types";
 import { exportDbml, importSource } from "@/services/projectsApi";
 import { time } from "@/utils/perfMonitor";
+import { useFlashMessage } from "@/hooks/useFlashMessage";
 import {
   DBML_PANEL_WIDTH_DEFAULT,
   DBML_PANEL_WIDTH_MAX,
@@ -48,7 +49,7 @@ function DbmlPanel(props: {
   const { t } = useTranslation();
   const { project, projectId, readOnly = false } = props;
   const editorCommands = useEditorCommands(projectId);
-  const [pluginMessage, setPluginMessage] = useState<string | null>(null);
+  const { message: pluginMessage, flash } = useFlashMessage(PLUGIN_MESSAGE_MS);
   const [text, setText] = useState<string>(() => {
     try {
       return time("dbml.serialize", () => projectToDbml(project));
@@ -131,10 +132,16 @@ function DbmlPanel(props: {
 
   // A newly-reported problem should surface even if the user hid a previous
   // one — only the deliberate "hide" toggle on an *unchanged* problem should
-  // keep it collapsed.
-  useEffect(() => {
-    if (error || errorKey) setErrorHidden(false);
-  }, [error, errorKey]);
+  // keep it collapsed. Adjusted during render rather than in an effect (React's
+  // own recommended pattern for "reset this state when that one changes"): an
+  // effect here would apply the reset one render late, so a problem that
+  // arrives already hidden would flash hidden before un-hiding.
+  const problemIdentity = error ?? errorKey ?? null;
+  const lastProblemIdentityRef = useRef<string | null>(null);
+  if (problemIdentity !== lastProblemIdentityRef.current) {
+    lastProblemIdentityRef.current = problemIdentity;
+    if (problemIdentity && errorHidden) setErrorHidden(false);
+  }
 
   useEffect(() => {
     textRef.current = text;
@@ -263,24 +270,9 @@ function DbmlPanel(props: {
     [editorCommands],
   );
 
-  // The timer is tracked so a second message replaces the first rather than
-  // being wiped by the first one's expiry — two commands can legitimately emit
-  // the same text, so comparing the message itself would not be enough.
-  const messageTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handlePluginMessage = useCallback(
-    (message: string, isError?: boolean) => {
-      if (messageTimerRef.current) clearTimeout(messageTimerRef.current);
-      setPluginMessage(isError ? t("plugins.errorPrefix", { message }) : message);
-      messageTimerRef.current = setTimeout(() => setPluginMessage(null), PLUGIN_MESSAGE_MS);
-    },
-    [t],
-  );
-
-  useEffect(
-    () => () => {
-      if (messageTimerRef.current) clearTimeout(messageTimerRef.current);
-    },
-    [],
+    (message: string, isError?: boolean) => flash(isError ? t("plugins.errorPrefix", { message }) : message),
+    [flash, t],
   );
 
   return (

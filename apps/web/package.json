@@ -9,6 +9,7 @@
     "build": "tsc -p tsconfig.json --noEmit && vite build",
     "preview": "vite preview",
     "test": "tsx --test src/**/*.test.ts",
+    "test:e2e": "tsx --test e2e/**/*.e2e.ts",
     "check:circular": "madge --circular --extensions ts,tsx --ts-config tsconfig.json src/main.tsx"
   },
   "dependencies": {

@@ -2,7 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireAdmin, requireUser } from "../../shared/guards.js";
-import { revalidateAllRooms } from "../../realtime/room.js";
+import { revalidateAllRooms } from "../../realtime/roomRegistry.js";
 import {
   addTeamMember,
   deleteTeamCascade,

@@ -6,6 +6,17 @@ services:
     volumes:
       - athanordb-data:/data
     restart: unless-stopped
+    # The app logs structured JSON to stdout and never rotates or deletes
+    # anything itself — that's the container runtime's job, and Docker's own
+    # default (the json-file driver with no size cap) grows unbounded on the
+    # host disk otherwise. Rotated here so a fresh install is safe by
+    # default; see the README's "Logs" section for the bare-process
+    # (non-Docker) equivalent.
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
 
 volumes:
   athanordb-data:

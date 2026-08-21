@@ -3,7 +3,7 @@ import { auditUser } from "../../../shared/audit.js";
 import { getEffectivePermission } from "../../../shared/permissions.js";
 import { ApiError } from "../../../shared/errors.js";
 import { requireProjectAccess, requireProjectAdmin, requireUser } from "../../../shared/guards.js";
-import { closeRoom } from "../../../realtime/room.js";
+import { closeRoom } from "../../../realtime/roomRegistry.js";
 import {
   countProjectsOwnedBy,
   deleteProjectCascade,

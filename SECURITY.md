@@ -38,18 +38,39 @@ software:
   production).
 - Users you gave administrator to. Global admins can read every project by
   design.
-- The `esbuild` development-server advisory reported by `npm audit`: it affects
-  `npm run dev` only, never a built deployment.
+
+A live database connection (below) is the one feature area where a mistake can
+destroy a client's data, not just leak it — treat findings there as higher
+severity by default.
+
+**Also in scope, for a project's live database connection**
+(`apps/server/src/modules/connections/`) — a project can be linked to a real
+Postgres/MySQL/SQLite database for introspection and schema deployment:
+
+- SSRF against the server's own network via a crafted connection host, beyond
+  what `hostGuard.ts` already blocks (loopback/link-local/metadata addresses
+  and unresolvable hosts). **Known gap, not yet closed:** `hostGuard.ts`
+  resolves-then-checks a hostname — a name that resolves safely at save time
+  and points elsewhere at actual connect time (DNS rebinding) still gets
+  through. Tracked in `docs/todo.md` Phase 27.
+- Reading or exfiltrating another project's stored connection credentials, or
+  the `ATHANORDB_SECRET` encryption key.
+- Getting the deployment wizard to execute SQL beyond what it showed in the
+  preview, or bypassing its explicit-confirmation step.
 
 ## Known limitations worth stating plainly
 
 - **No transactional email.** Invitations are relayed by hand, so an invite
   link is a live account-creation credential — send it over a trusted channel.
   There is no self-service password reset for the same reason.
-- **No 2FA and no SSO.** Password plus session cookie is the only
-  authentication method.
-- **No encryption at rest.** Passwords are hashed (scrypt, N=65536); schema
-  contents are not encrypted in the database file.
+- **No SSO, no passkeys.** TOTP two-factor authentication exists (per-account,
+  optional, _Settings → Profile_); password plus an optional TOTP code plus a
+  session cookie is the full authentication surface.
+- **Partial encryption at rest.** Passwords are hashed (scrypt, N=65536).
+  Live-database-connection credentials and TOTP secrets are encrypted
+  (AES-256-GCM, keyed by `ATHANORDB_SECRET` — see the README's Configuration
+  section) — but schema contents themselves are not encrypted in the database
+  file, and there is no general at-rest encryption of the SQLite file.
 - **Single instance.** SQLite plus in-process room state means one server
   process per database file. Two containers on the same volume will corrupt
   state.

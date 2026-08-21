@@ -14,7 +14,7 @@ process.env.ATHANORDB_LOG_LEVEL = "silent";
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
 const { hashPassword } = await import("../auth/password.js");
-const { closeAllRooms, getRoom } = await import("../../realtime/room.js");
+const { closeAllRooms, getRoom } = await import("../../realtime/roomRegistry.js");
 const { writeProjectToDoc } = await import("@athanordb/shared");
 
 const HOST = "localhost:3001";

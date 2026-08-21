@@ -17,7 +17,7 @@ import { ApiError } from "../../../shared/errors.js";
 import { requireProjectAccess } from "../../../shared/guards.js";
 import { isSqlDialect, SQL_DIALECTS } from "../../../shared/sqlDialect.js";
 import { reconstructDocAtRevision } from "../../../realtime/persistence.js";
-import { getRoom } from "../../../realtime/room.js";
+import { getRoom } from "../../../realtime/roomRegistry.js";
 
 function requireSqlDialect(value: unknown): SqlDialect {
   if (!isSqlDialect(value)) {

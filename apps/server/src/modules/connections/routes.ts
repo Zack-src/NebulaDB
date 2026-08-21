@@ -9,7 +9,7 @@ import { diffTargetAgainstLive, generateMigrationSql, generateRollbackSql } from
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireProjectAccess, requireProjectAdmin } from "../../shared/guards.js";
-import { getRoom } from "../../realtime/room.js";
+import { getRoom } from "../../realtime/roomRegistry.js";
 import { createDatabaseDriver } from "./drivers/index.js";
 import { getDeploymentHistoryEntry, listDeploymentHistory, recordDeployment } from "./deploymentHistory.js";
 import {

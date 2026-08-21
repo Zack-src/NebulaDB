@@ -3,7 +3,7 @@ import { auditUser } from "../../../shared/audit.js";
 import { isPermissionLevel } from "../../../shared/permissions.js";
 import { ApiError } from "../../../shared/errors.js";
 import { requireProjectAccess, requireProjectAdmin } from "../../../shared/guards.js";
-import { revalidateRoom } from "../../../realtime/room.js";
+import { revalidateRoom } from "../../../realtime/roomRegistry.js";
 import { grantTeamPermission, listProjectTeams, revokeTeamPermission, teamExists } from "../repository.js";
 
 export function registerProjectTeamRoutes(app: FastifyInstance): void {

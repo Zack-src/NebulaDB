@@ -1,4 +1,5 @@
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
+import { recordError, tallyErrorForMetrics } from "./errorLog.js";
 
 /**
  * Every error the API can return, in one place.
@@ -45,6 +46,8 @@ export const ERROR_CATALOG = {
   TOTP_SETUP_NOT_STARTED: { status: 400, message: "start two-factor setup before confirming it" },
   TOTP_CODE_REQUIRED: { status: 400, message: "a verification code is required" },
   MFA_TOKEN_REQUIRED: { status: 400, message: "mfaToken and a code are required" },
+  CLIENT_ERROR_MESSAGE_REQUIRED: { status: 400, message: "message is required" },
+  ERROR_LOG_SOURCE_INVALID: { status: 400, message: "source must be one of server, client" },
   DEPLOYMENT_HISTORY_NOT_FOUND: { status: 400, message: "no such deployment history entry" },
   ROLLBACK_NOT_AVAILABLE: { status: 400, message: "no rollback SQL is available for this deployment" },
   ROLLBACK_ALREADY_ATTEMPTED: { status: 400, message: "this deployment has already been rolled back" },
@@ -138,6 +141,12 @@ export function registerErrorHandler(app: FastifyInstance): void {
       return reply.code(status).send({ error: err.message, code: err.code ?? "BAD_REQUEST" });
     }
     req.log.error({ err }, "unhandled error");
+    tallyErrorForMetrics("server");
+    recordError("server", err.message, {
+      stack: err.stack,
+      context: `${req.method} ${req.url}`,
+      user: req.user ? { id: req.user.id, email: req.user.email } : null,
+    });
     return reply.code(500).send(new ApiError("INTERNAL_ERROR").toPayload());
   });
 }

@@ -1,5 +1,6 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 import { I18nContext, type I18nContextValue } from "@/i18n/I18nProvider";
+import { reportClientError } from "@/services/errorsApi";
 import fr from "@/locales/fr.json";
 
 interface ErrorBoundaryProps {
@@ -50,10 +51,21 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   }
 
   componentDidCatch(error: Error, info: ErrorInfo): void {
-    // No error-reporting service is wired up (tracked in todo.md Phase 24), so
-    // the console is the only sink. Log the component stack too — for a crash
-    // inside the canvas the stack trace alone rarely identifies which node.
+    // Log the component stack too — for a crash inside the canvas the stack
+    // trace alone rarely identifies which node.
     console.error("[athanordb] render error:", error, info.componentStack);
+    // Best-effort report to the server-side error log (`docs/todo.md` Phase
+    // 24 — there was previously nowhere for this to go). Never awaited and
+    // never lets a reporting failure surface here: this handler is already
+    // deep in "something went wrong", and a rejected fetch (offline, logged
+    // out, server down) must not compound it. A pre-login crash reports
+    // nothing — the endpoint requires a session — which is fine: nobody is
+    // signed in yet to have caused a schema-shaped bug.
+    reportClientError({
+      message: error.message || String(error),
+      stack: error.stack,
+      context: `${window.location.pathname}${window.location.hash} :: ${info.componentStack?.trim().split("\n")[0] ?? ""}`,
+    }).catch(() => {});
   }
 
   private reset = (): void => {

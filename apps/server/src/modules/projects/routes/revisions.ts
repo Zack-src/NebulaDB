@@ -10,7 +10,7 @@ import {
   reconstructDocAtRevision,
   setRevisionLabel,
 } from "../../../realtime/persistence.js";
-import { getRoom } from "../../../realtime/room.js";
+import { getRoom } from "../../../realtime/roomRegistry.js";
 
 /** Rebuilds the document as it stood at a revision, or refuses with the right 404. */
 function loadRevisionDoc(projectId: string, revisionId: string): Y.Doc {

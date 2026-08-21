@@ -4,34 +4,17 @@ import * as awarenessProtocol from "y-protocols/awareness.js";
 import * as encoding from "lib0/encoding.js";
 import * as decoding from "lib0/decoding.js";
 import type { WebSocket } from "ws";
-import {
-  COLLECTION_COUNT_LIMITS,
-  ENUMS_KEY,
-  META_KEY,
-  REFS_KEY,
-  STICKY_NOTES_KEY,
-  TABLE_GROUPS_KEY,
-  TABLES_KEY,
-  ZONES_KEY,
-  clampCollectionValue,
-  clampMetaValue,
-} from "@athanordb/shared";
+import { ENUMS_KEY, META_KEY, REFS_KEY, STICKY_NOTES_KEY, TABLE_GROUPS_KEY, TABLES_KEY, ZONES_KEY } from "@athanordb/shared";
 import { appendRevision, saveSnapshot, loadSnapshot } from "./persistence.js";
 import { timeSync } from "../infrastructure/perf.js";
+import { LIMIT_ORIGIN, enforceLimits } from "./room/limits.js";
+import type { RoomLogger } from "./room/logger.js";
 
 const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
 const SNAPSHOT_DEBOUNCE_MS = 2000;
 
 const COLLECTION_KEYS = [META_KEY, TABLES_KEY, REFS_KEY, ENUMS_KEY, ZONES_KEY, STICKY_NOTES_KEY, TABLE_GROUPS_KEY];
-
-/**
- * Transaction origin for the server's own clamping writes. A plain string
- * (never a WebSocket) so the correction broadcasts to *every* client
- * including the one that sent the over-long value — otherwise that client
- * would keep its own longer version and the docs would diverge.
- */
-const LIMIT_ORIGIN = "system";
 
 /**
  * How long a connection's resolved access is trusted before being looked up
@@ -59,6 +42,8 @@ const ACCESS_TTL_MS = 5000;
  */
 export type AccessResolver = () => { canWrite: boolean } | null;
 
+export type { RoomLogger };
+
 interface ConnMeta {
   author: string;
   awarenessClientIds: Set<number>;
@@ -85,6 +70,7 @@ export class Room {
   constructor(
     private readonly projectId: string,
     private readonly onEmpty: () => void,
+    private readonly log: RoomLogger = console,
   ) {
     const snapshot = loadSnapshot(projectId);
     if (snapshot) Y.applyUpdate(this.doc, snapshot);
@@ -152,7 +138,7 @@ export class Room {
     try {
       appendRevision(this.projectId, author, update);
     } catch (err) {
-      console.error(`[room ${this.projectId}] failed to append revision:`, err);
+      this.log.error({ err, room: this.projectId }, "failed to append revision");
     }
     this.scheduleSnapshot();
 
@@ -227,7 +213,7 @@ export class Room {
         // Yjs observers run synchronously during transaction cleanup, so by
         // the time the read above returns, `pendingChecks` holds everything
         // this frame touched.
-        this.enforceLimits();
+        this.applyPendingLimits();
       }
     } else if (messageType === MESSAGE_AWARENESS) {
       // Cursor/presence stays allowed regardless of write access — cosmetic, not a schema mutation.
@@ -250,7 +236,7 @@ export class Room {
         try {
           saveSnapshot(this.projectId, this.doc);
         } catch (err) {
-          console.error(`[room ${this.projectId}] failed to save snapshot:`, err);
+          this.log.error({ err, room: this.projectId }, "failed to save snapshot on last client leaving");
         }
       }
       // Evict once nobody's connected — every project ever opened otherwise
@@ -264,6 +250,11 @@ export class Room {
 
   presence(): string[] {
     return Array.from(this.conns.values()).map((meta) => meta.author);
+  }
+
+  /** Live WebSocket connection count for this room — for `/api/metrics`, see `roomRegistry.ts`. */
+  connectionCount(): number {
+    return this.conns.size;
   }
 
   /**
@@ -302,14 +293,14 @@ export class Room {
       // Fail closed. A permission lookup that throws (database locked, row
       // vanished mid-query) must not be read as "allowed" — and must not
       // propagate, since this runs inside a WebSocket message handler.
-      console.error(`[room ${this.projectId}] permission re-check failed:`, err);
+      this.log.error({ err, room: this.projectId, author: meta.author }, "permission re-check failed");
       meta.canWrite = false;
       return false;
     }
     meta.accessCheckedAt = Date.now();
     meta.canWrite = access?.canWrite ?? false;
     if (!access) {
-      console.warn(`[room ${this.projectId}] ${meta.author} lost access — closing connection`);
+      this.log.warn({ room: this.projectId, author: meta.author }, "lost access — closing connection");
       conn.close();
       return false;
     }
@@ -368,67 +359,23 @@ export class Room {
     try {
       saveSnapshot(this.projectId, this.doc);
     } catch (err) {
-      console.error(`[room ${this.projectId}] failed to save snapshot:`, err);
+      this.log.error({ err, room: this.projectId }, "failed to save snapshot on flush");
     }
   }
 
   /**
    * Re-applies the shared per-field length/array-length limits to everything
-   * the last update touched, truncating anything over its cap, then — for
-   * collections with a top-level count limit — deletes back down to it.
-   *
-   * The client's `maxLength` attributes (and the fact the UI has no "add
-   * table #2001" button) are UX only: a WS frame is raw Yjs ops, so a
-   * non-browser client (or a patched one) can put a megabyte in a table name,
-   * or just keep inserting tables forever, and `receive()` above would
-   * happily apply either — the permission check is the only thing that ever
-   * looked at these frames. Clamping/deleting here rather than rejecting the
-   * frame keeps the CRDT convergent: the offender's ops stay in the log, and
-   * the correction is just another edit everyone (including the offender)
-   * receives.
-   *
-   * The count cap only ever removes entities from *this transaction's own*
-   * newly-touched set, never pre-existing ones — a burst that pushes a
-   * project over the limit loses its own excess, a legitimate project that
-   * happens to already be large is never touched by a later unrelated edit.
+   * the last update touched — see `room/limits.ts` for what and why. Reads
+   * and clears `pendingChecks` itself so this stays the only place that
+   * touches it. Named differently from the imported `enforceLimits` on
+   * purpose — a same-named private method shadowing an imported function is
+   * exactly the kind of thing worth a second glance in a diff.
    */
-  private enforceLimits(): void {
+  private applyPendingLimits(): void {
     if (this.pendingChecks.size === 0) return;
-    const pending = Array.from(this.pendingChecks.entries());
+    const pending = new Map(this.pendingChecks);
     this.pendingChecks.clear();
-
-    this.doc.transact(() => {
-      for (const [collection, ids] of pending) {
-        const map = this.doc.getMap(collection);
-        for (const id of ids) {
-          const current = map.get(id);
-          const clamped =
-            collection === META_KEY ? clampMetaValue(id, current) : clampCollectionValue(collection, current);
-          if (clamped !== null) {
-            console.warn(`[room ${this.projectId}] clamped over-length input in ${collection}/${id}`);
-            map.set(id, clamped);
-          }
-        }
-
-        const limit = COLLECTION_COUNT_LIMITS[collection];
-        if (limit === undefined) continue;
-        let over = map.size - limit;
-        if (over <= 0) continue;
-        let dropped = 0;
-        for (const id of ids) {
-          if (over <= 0) break;
-          if (!map.has(id)) continue;
-          map.delete(id);
-          over--;
-          dropped++;
-        }
-        if (dropped > 0) {
-          console.warn(
-            `[room ${this.projectId}] ${collection} exceeded its ${limit}-entry cap — dropped ${dropped} entity(ies) added by this update`,
-          );
-        }
-      }
-    }, LIMIT_ORIGIN);
+    enforceLimits(this.doc, this.projectId, pending, this.log);
   }
 
   private broadcast(message: Uint8Array, exclude?: WebSocket): void {
@@ -444,69 +391,12 @@ export class Room {
       try {
         saveSnapshot(this.projectId, this.doc);
       } catch (err) {
-        console.error(`[room ${this.projectId}] failed to save snapshot:`, err);
+        this.log.error({ err, room: this.projectId }, "failed to save debounced snapshot");
       }
     }, SNAPSHOT_DEBOUNCE_MS);
   }
 }
 
-const rooms = new Map<string, Room>();
-
-export function getRoom(projectId: string): Room {
-  let room = rooms.get(projectId);
-  if (!room) {
-    room = new Room(projectId, () => rooms.delete(projectId));
-    rooms.set(projectId, room);
-  }
-  return room;
-}
-
-/**
- * Snapshots every live room immediately. Called on SIGTERM/SIGINT: without it,
- * anything edited inside the last `SNAPSHOT_DEBOUNCE_MS` is only in the
- * revision log and the in-memory doc, and dies with the process. Returns how
- * many rooms were flushed.
- */
-export function flushAllRooms(): number {
-  for (const room of rooms.values()) room.flush();
-  return rooms.size;
-}
-
-/** Disconnects every client and drops every room — shutdown, after `flushAllRooms`. */
-export function closeAllRooms(): void {
-  for (const room of rooms.values()) room.destroy();
-  rooms.clear();
-}
-
-/** Number of projects currently resident in memory — reported by the health check. */
-export function liveRoomCount(): number {
-  return rooms.size;
-}
-
-/**
- * Re-checks access for every connection of one project. Call after changing
- * that project's team grants.
- */
-export function revalidateRoom(projectId: string): void {
-  rooms.get(projectId)?.revalidate();
-}
-
-/**
- * Re-checks access across every live room. Used when a change can affect
- * projects that can't be enumerated cheaply from the change itself — team
- * membership (a user may be in teams granted on many projects), or an account
- * being disabled or deleted. Only live rooms are visited, and each connection
- * costs one permission lookup, so this stays proportional to who is actually
- * connected right now rather than to how much data exists.
- */
-export function revalidateAllRooms(): void {
-  for (const room of rooms.values()) room.revalidate();
-}
-
-/** Tears down a project's in-memory room (if one is live) ahead of deleting its rows — see `Room.destroy`. */
-export function closeRoom(projectId: string): void {
-  const room = rooms.get(projectId);
-  if (!room) return;
-  room.destroy();
-  rooms.delete(projectId);
-}
+// The room registry (the `Map` of live rooms, and the free functions that
+// operate over all of them — `getRoom`, `closeAllRooms`, etc.) lives in
+// `./roomRegistry.js`. This file is deliberately just the `Room` class.

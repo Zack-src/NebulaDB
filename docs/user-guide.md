@@ -64,6 +64,17 @@ La barre d'outils règle le **niveau de détail** (compact / standard / complet)
 la **taille du texte**, l'affichage de la minimap et la mise en évidence des
 relations. Ces réglages sont visuels et partagés par le projet.
 
+### Vue conceptuelle (MCD)
+
+Le bouton **MLD / MCD** de la barre d'outils bascule vers une vue en notation
+Merise : chaque table devient une entité, chaque relation une association,
+dérivées automatiquement du schéma. C'est une vue de **lecture seule** — on
+peut y déplacer les éléments pour aérer l'affichage (bouton de réinitialisation
+inclus), mais toute modification du schéma se fait toujours depuis le MLD ou
+le DBML. Une table dont la clé ne se laisse pas reconstruire proprement en
+association (association ternaire probable, table de jonction ambiguë) est
+signalée plutôt que silencieusement mal convertie.
+
 ### Raccourcis clavier
 
 | Raccourci                                  | Effet                                            |
@@ -76,7 +87,7 @@ relations. Ces réglages sont visuels et partagés par le projet.
 | `Échap`                                    | Fermer la recherche ou le panneau ouvert         |
 
 Les raccourcis du canvas sont ignorés pendant que vous tapez dans un champ ou
-dans l'éditeur DBML. Les plugins peuvent en déclarer d'autres (voir §6).
+dans l'éditeur DBML. Les plugins peuvent en déclarer d'autres (voir §7).
 
 > À savoir : `Ctrl+Z` annule vos modifications faites **sur le canvas**. Les
 > modifications faites dans le panneau DBML reviennent par le serveur comme
@@ -121,7 +132,35 @@ pouvez :
 
 ---
 
-## 5. Import et export
+## 5. Connecter une vraie base de données
+
+_Gérer les connexions_ (barre d'outils du canvas) relie un projet à une base
+**PostgreSQL, MySQL/MariaDB ou SQLite** réelle : hôte/port ou URI de connexion,
+avec test avant enregistrement. Deux usages :
+
+- **Importer le schéma de la base** — lit le schéma réel et remplace le vôtre
+  sur le canvas (utile pour démarrer depuis une base existante plutôt que de
+  la modéliser à la main).
+- **Déployer** — compare le schéma du canvas à la base cible et propose un
+  assistant en quatre étapes : les changements détectés, la résolution des
+  conflits dangereux (une colonne supprimée qui contient des données peut être
+  conservée en base plutôt que droppée, un changement de type peut forcer un
+  `CAST`, remplir les `NULL` par une valeur par défaut, etc. — à choisir
+  changement par changement), un aperçu du SQL exact avant toute exécution,
+  puis le résultat.
+
+Chaque déploiement est gardé dans l'**historique de la connexion**, avec qui
+l'a lancé et combien d'instructions ont été exécutées, et peut être **annulé**
+(retour en arrière au mieux — pas une restauration depuis une sauvegarde : les
+données réellement supprimées ne reviennent pas, et c'est signalé comme tel
+plutôt que promis). Sur MySQL, un DDL ne peut pas être groupé dans une
+transaction : un retour en arrière qui échoue en cours de route peut avoir
+appliqué une partie des instructions — vérifiez la base cible dans ce cas.
+
+Aucune exécution n'est automatique : l'assistant demande toujours une
+confirmation explicite après avoir montré le SQL qui va tourner.
+
+## 6. Import et export
 
 **Importer** (bouton _Importer_) : collez du DBML ou du SQL, ou choisissez un
 fichier `.dbml` / `.sql`. Le dialecte SQL est déduit de l'extension et
@@ -137,13 +176,13 @@ position et leurs réglages visuels au lieu d'être réinitialisées.
 | PNG                                 | capture du canvas                                            |
 | SVG                                 | vectoriel                                                    |
 | PDF                                 | une page contenant une capture **matricielle** du canvas     |
-| SQLite                              | fourni par le plugin d'exemple, pas en natif (voir §6)       |
+| SQLite                              | fourni par le plugin d'exemple, pas en natif (voir §7)       |
 
 Les exports sont enregistrés dans le journal d'audit de l'instance.
 
 ---
 
-## 6. Plugins
+## 7. Plugins
 
 _Menu plugins_ (barre d'outils du canvas) → **Gérer les plugins**. Un plugin
 est un fichier JavaScript qui peut ajouter des formats d'export, des formats
@@ -165,16 +204,27 @@ commande de renommage en `snake_case` et un tri des tables dans l'éditeur DBML.
 
 ---
 
-## 7. Votre compte
+## 8. Votre compte
 
 _Paramètres → Profil_ :
 
 - changer votre nom d'affichage (celui vu par vos collègues et enregistré dans
   l'historique) ;
 - changer votre mot de passe ;
+- activer la **double authentification** (TOTP, la même application que pour
+  n'importe quel autre service — Google Authenticator, Aegis, etc.) : un code
+  à six chiffres est alors exigé en plus du mot de passe à la connexion, et
+  des codes de secours à usage unique sont fournis une seule fois à
+  l'activation, à conserver en lieu sûr ;
 - consulter vos **sessions actives** (appareil, IP, dernière activité) et en
   révoquer une, ou vous déconnecter de tous les autres appareils. À faire si
   vous perdez une machine ou si vous vous êtes connecté sur un poste partagé.
+
+_Paramètres → Apparence_ propose un thème sombre (Obsidienne, par défaut) et
+un thème clair (Clair moderne). Deux autres presets sombres (Ardoise nuit,
+Émeraude cyber) apparaissent dans le sélecteur mais sont désactivés
+(« bientôt disponible ») — rien ne les distingue encore visuellement du thème
+par défaut.
 
 À la connexion, la case **« Rester connecté 30 jours »** est cochée par défaut.
 Décochez-la sur un poste partagé : la session ne dure alors que 12 h et
@@ -211,17 +261,19 @@ détail figure dans la politique de confidentialité de votre instance — voir
 
 ---
 
-## 8. Ce que l'application ne fait pas (encore)
+## 9. Ce que l'application ne fait pas (encore)
 
 Dit explicitement pour éviter de le chercher :
 
-- pas de mot de passe oublié en libre-service, pas d'envoi d'email ;
-- pas de 2FA, pas de SSO ;
-- pas de thème clair — l'interface est en thème sombre uniquement ;
-- pas de mode hors-ligne ;
+- pas de mot de passe oublié en libre-service, pas d'envoi d'email (la 2FA et
+  les sessions existent, mais un compte bloqué reste dépendant d'un admin) ;
+- pas de SSO ni de passkeys ;
+- pas de mode hors-ligne — un onglet fermé pendant une coupure perd les
+  modifications non synchronisées ;
 - pas d'API publique ni de clés d'API ;
-- pas de connexion à une vraie base de données (introspection, migrations) :
-  l'export SQL s'arrête au fichier ;
 - interface pensée pour un écran large, non adaptée au tactile.
 
-La feuille de route de ces points est dans [`v1-roadmap.md`](./v1-roadmap.md).
+La double authentification (§8), le thème clair (§8) et la connexion à une
+vraie base de données (§5 — introspection, déploiement, retour en arrière)
+étaient sur cette liste avant : ils existent désormais et n'y figurent plus.
+La feuille de route de ce qui reste est dans [`v1-roadmap.md`](./v1-roadmap.md).

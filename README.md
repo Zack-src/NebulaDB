@@ -4,46 +4,14 @@ Self-hosted, DBML-native database schema diagramming — think dbdiagram.io, but
 
 Your data stays on your server; nothing is sent anywhere else. Note that this is _not_ local-first in the technical sense: state lives on the server, and the browser needs a connection to it. An open tab survives a network blip and resyncs on reconnect (see the reconnect logic in `yjsClient.ts`), but there is no offline persistence — closing the tab mid-outage loses unsynced edits.
 
-## Features
+## Installation
 
-- **DBML-native**: the schema's source of truth is DBML text. A live Monaco editor panel sits next to the canvas and syncs both ways — edit the diagram visually, or edit the DBML directly, changes apply to the other side automatically (~600ms debounce).
-- **Visual canvas editor** (React Flow): drag tables/zones/sticky notes around, resize zones and notes, pan/zoom, minimap. No "Add Table" toolbar button — right-click empty canvas to add a table, zone, or sticky note.
-- **Detail levels per table**: `compact` (key fields only), `standard` (PK/FK), `full` (every field) — switch one table or all of them at once.
-- **Auto-layout**: one-click layout of the whole diagram (dagre), following FK direction.
-- **Styling**: color picker (preset swatches + custom hex) for table headers, zones, and sticky notes.
-- **Comments**: attach threaded comments to a table or a specific field.
-- **Real-time collaboration**: multiple people can open the same project at once (Yjs CRDT sync over WebSocket) — live cursors, colored presence list, no lock-step required.
-- **Undo/redo** (Ctrl+Z / Ctrl+Shift+Z) and **duplicate** (Ctrl+D) for canvas edits.
-- **Manual reference routing**: double-click a ref line to add a waypoint and route it around tables; lines animate in the direction of cardinality (both directions for many-to-many).
-- **Import**: DBML or raw SQL DDL (Postgres/MySQL/MSSQL), via paste or file upload. Re-importing merges by name, so existing positions/styling/detail levels are preserved rather than reset.
-- **Export**: DBML, SQL (Postgres/MySQL/MSSQL), or a canvas snapshot as PNG/SVG/PDF.
-- **Plugins**: add your own export dialects, import parsers, canvas commands and DBML-editor commands without touching the app. Plugin code runs in a sandboxed Web Worker — see [Plugins](#plugins).
-- **Validation panel**: flags circular references, missing FK targets, and duplicate table/field names (informational — never blocks editing).
-- **History**: every change is a revision. Browse the timeline, label checkpoints (e.g. `v1.0`), preview a past revision's DBML, see a schema-level diff against the current state, and restore non-destructively (restoring creates a new revision, it never rewrites history).
-- **Per-user preferences**: canvas text size and last pan/zoom position are remembered per person, not shared.
-- **Backup & restore scripts**: dump every project to a `.dbml` file on disk (`npm run backup`), and bulk-import a backup directory back in as new projects (`npm run restore`).
-- **Dark theme**, single unified header, no cloud dependency — everything (fonts, editor, icons) is bundled, nothing loads from a CDN.
-
-## Stack
-
-| Layer               | Choice                                                     | Why                                                                                 |
-| ------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Monorepo            | npm workspaces                                             | no extra global tool                                                                |
-| Frontend            | React + TypeScript + Vite                                  | fast dev loop, huge ecosystem                                                       |
-| Canvas              | React Flow (`@xyflow/react`)                               | node/edge graph primitive, zoom/pan/minimap, custom node renderers per detail level |
-| DBML editor         | Monaco (`@monaco-editor/react`), self-hosted               | same editor as VS Code; self-hosted worker/assets, no CDN                           |
-| Auto-layout         | `@dagrejs/dagre`                                           | directed-graph layout, used to lay tables out by FK direction                       |
-| Canvas export       | `html-to-image` + `jsPDF`                                  | PNG/SVG snapshot of the canvas, wrapped into a PDF                                  |
-| Backend             | Node + TypeScript + Fastify                                | lightweight server, native WS plugin                                                |
-| Realtime collab     | Yjs CRDT, hand-rolled WS protocol (`y-protocols` + `lib0`) | multi-user editing and undo/history almost for free, no `y-websocket` dependency    |
-| Persistence         | SQLite (`better-sqlite3`)                                  | zero-config, single file, fits a single-server self-hosted deploy                   |
-| DBML parse/gen      | `@dbml/core`                                               | official parser, handles DBML <-> SQL (Postgres/MySQL/MSSQL) both ways              |
-| Diagram state model | custom schema layered on the Yjs doc                       | tables/fields/refs/notes/zones + visual metadata (position, color, detail level)    |
-| Packaging           | plain Node process, optional Docker                        | `npm run dev` or `docker compose up`, no cloud dependency                           |
-
-## Running
-
-Requires Node 20-23 (`.nvmrc`/`.node-version` pin 22). **Node 24 is not supported yet**: the server's SQLite driver (`better-sqlite3`) is a native addon and has no precompiled binary for Node 24 on any platform as of this writing, so `npm install` will fail to produce a working build unless you have C++ build tools (Visual Studio Build Tools + Python) installed to compile it from source. If you're on a locked-down corporate machine without those, install Node 22 instead — no admin rights needed:
+Requires Node 22-25 (`engines` in `package.json`; `.nvmrc`/`.node-version` pin **22**, the
+version this project is developed and tested against — also verified working on Node 24).
+The server's SQLite driver (`better-sqlite3`) is a native addon; recent 13.x releases ship
+prebuilt binaries for these Node versions, so a plain `npm install` works without a C++
+toolchain. If you need to match the pinned version exactly (e.g. to rule out a
+version-specific issue) and don't have admin rights to install Node normally:
 
 1. Download the "Windows Binary (.zip)" for Node 22 LTS from [nodejs.org](https://nodejs.org/en/download).
 2. Unzip it anywhere in your user profile (e.g. `C:\Users\<you>\node22`).
@@ -67,9 +35,10 @@ npm start             # http://localhost:3001
 Every value is validated at startup — a malformed one exits immediately with a `[config]` message rather than silently falling back.
 
 | Variable                          | Default                   | Purpose                                                                                                                                                                                    |
-| --------------------------------- | ------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| ---------------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `ATHANORDB_DB_PATH`               | `./data/athanordb.sqlite` | SQLite file. Its directory is created if missing.                                                                                                                                          |
 | `PORT`                            | `3001`                    | HTTP/WS port.                                                                                                                                                                              |
+| `ATHANORDB_SECRET`                | unset                     | Encryption key (AES-256-GCM) for sensitive data at rest: live database connection credentials and TOTP secrets. Not required to boot — only enforced the moment either feature is actually used, so a fresh install that uses neither isn't refused a start over an unrelated env var. Generate one with `openssl rand -hex 32` before setting up a database connection or turning on 2FA. |
 | `ATHANORDB_COOKIE_SECURE`         | unset (= `false`)         | Marks the session cookie `Secure`. **Set to `true` when running behind TLS** — with `NODE_ENV=production` and this unset, the server warns loudly at boot.                                 |
 | `ATHANORDB_ALLOWED_ORIGINS`       | unset                     | Comma-separated extra origins allowed to make state-changing requests. The app's own host is always allowed; this is only needed if the UI is served from a different origin than the API. |
 | `ATHANORDB_MAX_BODY_MB`           | `4`                       | Max REST request body (DBML/SQL imports are the large ones).                                                                                                                               |
@@ -82,9 +51,24 @@ Every value is validated at startup — a malformed one exits immediately with a
 
 `SIGTERM`/`SIGINT` shut down gracefully: connections stop, every live document is snapshotted to SQLite, then the database is closed — so `docker stop` doesn't drop the last few seconds of edits.
 
+### Observability
+
+- `GET /api/health` — `{status, projects, rooms, uptimeSeconds}`; `503` if the database is unreachable. Point a container healthcheck or uptime monitor at this.
+- `GET /api/metrics` — Prometheus text format: room/connection counts, hot-path timing (snapshot-write latency included), error counts since boot. No auth, same reasoning as `/api/health` — put it behind the reverse proxy if that's wrong for your deployment.
+- `GET /api/errors` (admin-only, also in _Admin console → Errors_) and `POST /api/errors/client` — unhandled server errors and reported client-side render crashes, capped at the most recent 2000 rows. A debugging aid, not a compliance trail like the audit log below.
+
+### Logs
+
+Structured JSON to stdout (Pino, via Fastify's built-in logger), level set by `ATHANORDB_LOG_LEVEL`; session cookies and `Authorization` headers are redacted at every level. Every `Room`'s own logs (revision/snapshot write failures, over-length input clamped, a connection losing access) go through the same logger, tagged with a `room` field — see `realtime/room/logger.ts` for why that's a room id, not a per-request id, on those specific lines.
+
+The app never rotates or deletes its own log output — that's the container runtime's or process manager's job:
+
+- **Docker**: `docker-compose.yml` sets the `json-file` driver with `max-size: 10m` / `max-file: 5` (50 MB max, oldest dropped first). Docker's own default has no cap and grows the host disk unbounded, so this isn't optional if you edited the driver away.
+- **Bare process / systemd**: stdout under a systemd unit already goes through journald, which has its own rotation (`journald.conf`'s `SystemMaxUse`, etc.) — nothing extra needed. Redirecting to a file yourself (`> athanordb.log`) means you own rotation too; `logrotate` is the standard tool.
+
 If you run an instance other people use, you are the service operator and the data controller — see [`docs/legal/`](docs/legal/README.md) for terms-of-service and privacy-policy templates written against what this software actually stores and for how long.
 
-None of these are secrets — there is no API key, no signing key, and no external service credential anywhere in the configuration, so plain environment variables are adequate and no secret-management integration is needed today. That changes the moment a live database connection is stored (see `docs/v1-roadmap.md` §7): connection strings must be encrypted at rest, and that work brings its own key-management decision with it.
+Most configuration is plain environment variables, no secret-management integration needed — with one exception: `ATHANORDB_SECRET` above, required the moment you connect a project to a live database or turn on two-factor authentication. Set it before either feature is used; nothing here needs it before that.
 
 ### Docker
 
@@ -155,10 +139,51 @@ Password must be 8–128 characters. Respects `ATHANORDB_DB_PATH` same as the se
 
 ### Accounts, teams and invitations
 
-- **Login** is email + password, with a server-side session cookie (`httpOnly`, `SameSite=Lax`, 30-day rolling expiry). Passwords are scrypt-hashed; login is rate limited to 10 attempts/minute per IP.
+- **Login** is email + password, with a server-side session cookie (`httpOnly`, `SameSite=Lax`, 30-day rolling expiry). Passwords are scrypt-hashed; login is rate limited to 10 attempts/minute per IP, plus a per-account lockout after 10 failed attempts.
+- **Two-factor authentication** (TOTP) is optional, per account, from _Settings → Profile_ — any authenticator app, with one-time backup codes issued at enrollment.
 - **Invitations** are the only way to create further accounts: an admin issues one from the admin console and gets back an `/invite/<token>` URL, valid 7 days. **There is no email delivery** — the admin relays that link themselves, so treat it as a live credential and send it over a channel you trust.
 - **Teams** scope project visibility. A project with no team assigned is visible to everyone; assigning a team restricts it to that team's members plus the creator and admins, at `view` / `edit` / `administrator` level.
 - **Admins** manage users, teams and invitations, and can reset any password (which also kills that user's sessions).
+
+## Features
+
+- **DBML-native**: the schema's source of truth is DBML text. A live Monaco editor panel sits next to the canvas and syncs both ways — edit the diagram visually, or edit the DBML directly, changes apply to the other side automatically (~600ms debounce).
+- **Visual canvas editor** (React Flow): drag tables/zones/sticky notes around, resize zones and notes, pan/zoom, minimap. No "Add Table" toolbar button — right-click empty canvas to add a table, zone, or sticky note.
+- **Conceptual view (MCD)**: a one-click, read-only Merise-notation view derived automatically from the schema — tables become entities, refs become associations, with junction tables collapsed into n,n associations where the shape allows it (and flagged, not silently mis-converted, when it doesn't).
+- **Detail levels per table**: `compact` (key fields only), `standard` (PK/FK), `full` (every field) — switch one table or all of them at once.
+- **Auto-layout**: one-click layout of the whole diagram (dagre), following FK direction.
+- **Styling**: color picker (preset swatches + custom hex) for table headers, zones, and sticky notes.
+- **Comments**: attach threaded comments to a table or a specific field.
+- **Real-time collaboration**: multiple people can open the same project at once (Yjs CRDT sync over WebSocket) — live cursors, colored presence list, no lock-step required.
+- **Undo/redo** (Ctrl+Z / Ctrl+Shift+Z) and **duplicate** (Ctrl+D) for canvas edits.
+- **Manual reference routing**: double-click a ref line to add a waypoint and route it around tables; lines animate in the direction of cardinality (both directions for many-to-many).
+- **Import**: DBML or raw SQL DDL (Postgres/MySQL/MSSQL), via paste or file upload. Re-importing merges by name, so existing positions/styling/detail levels are preserved rather than reset.
+- **Export**: DBML, SQL (Postgres/MySQL/MSSQL), or a canvas snapshot as PNG/SVG/PDF.
+- **Live database connection**: connect a project to a real PostgreSQL, MySQL/MariaDB or SQLite database — pull its schema in, or deploy the modeled schema to it through a diff → conflict-resolution → SQL-preview → apply wizard, with per-connection deployment history and best-effort rollback. See [`docs/user-guide.md`](docs/user-guide.md) for the full flow.
+- **Plugins**: add your own export dialects, import parsers, canvas commands and DBML-editor commands without touching the app. Plugin code runs in a sandboxed Web Worker — see [Plugins](#plugins).
+- **Validation panel**: flags circular references, missing FK targets, and duplicate table/field names (informational — never blocks editing).
+- **History**: every change is a revision. Browse the timeline, label checkpoints (e.g. `v1.0`), preview a past revision's DBML, see a schema-level diff against the current state, and restore non-destructively (restoring creates a new revision, it never rewrites history).
+- **Per-user preferences**: canvas text size and last pan/zoom position are remembered per person, not shared.
+- **Backup & restore scripts**: dump every project to a `.dbml` file on disk (`npm run backup`), and bulk-import a backup directory back in as new projects (`npm run restore`).
+- **Theming**: dark (default) and light, switchable in Settings; single unified header, no cloud dependency — everything (fonts, editor, icons) is bundled, nothing loads from a CDN. Two further dark presets are visible in the picker but disabled ("coming soon") — no CSS backs them yet.
+
+## Stack
+
+| Layer               | Choice                                                     | Why                                                                                 |
+| ------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------- |
+| Monorepo            | npm workspaces                                             | no extra global tool                                                                |
+| Frontend            | React + TypeScript + Vite                                  | fast dev loop, huge ecosystem                                                       |
+| Canvas              | React Flow (`@xyflow/react`)                               | node/edge graph primitive, zoom/pan/minimap, custom node renderers per detail level |
+| DBML editor         | Monaco (`@monaco-editor/react`), self-hosted               | same editor as VS Code; self-hosted worker/assets, no CDN                           |
+| Auto-layout         | `@dagrejs/dagre`                                           | directed-graph layout, used to lay tables out by FK direction                       |
+| Canvas export       | `html-to-image` + `jsPDF`                                  | PNG/SVG snapshot of the canvas, wrapped into a PDF                                  |
+| Backend             | Node + TypeScript + Fastify                                | lightweight server, native WS plugin                                                |
+| Realtime collab     | Yjs CRDT, hand-rolled WS protocol (`y-protocols` + `lib0`) | multi-user editing and undo/history almost for free, no `y-websocket` dependency    |
+| Persistence         | SQLite (`better-sqlite3`)                                  | zero-config, single file, fits a single-server self-hosted deploy                   |
+| Live DB connections | `pg` / `mysql2` / `node:sqlite` drivers behind a common interface | introspection, drift detection, diff-based migration and rollback (§ Features)      |
+| DBML parse/gen      | `@dbml/core`                                               | official parser, handles DBML <-> SQL (Postgres/MySQL/MSSQL) both ways              |
+| Diagram state model | custom schema layered on the Yjs doc                       | tables/fields/refs/notes/zones + visual metadata (position, color, detail level)    |
+| Packaging           | plain Node process, optional Docker                        | `npm run dev` or `docker compose up`, no cloud dependency                           |
 
 ## Plugins
 
@@ -167,7 +192,7 @@ The **Plugins** button in the project header opens the manager: install, enable/
 **How it works.** Every export format, import format and command in the app is a _contribution_, and the built-in DBML/SQL formats are themselves plugins (`athanordb.core-export`, `athanordb.core-import`, `athanordb.core-canvas`) — so a plugin that adds SQLite sits next to Postgres with no special casing. Four kinds are supported:
 
 | Contribution            | Input                               | Returns                 | Appears in                         |
-| ----------------------- | ----------------------------------- | ----------------------- | ---------------------------------- |
+| ----------------------- | ------------------------------------ | ------------------------ | ----------------------------------- |
 | `registerExporter`      | the `Project`                       | text (+ file extension) | Export dialog                      |
 | `registerImporter`      | the pasted/uploaded text            | DBML source             | Import dialog                      |
 | `registerCanvasCommand` | the `Project`                       | the modified `Project`  | Canvas toolbar → plugin menu       |
@@ -222,14 +247,18 @@ An importer returns DBML because the server's existing merge-by-name import rout
 
 ```
 apps/
-  web/      React app (canvas editor, DBML/SQL panels)
+  web/      React app (canvas editor, DBML/SQL panels, MCD view)
     src/plugins/   plugin registry, Worker sandbox host, built-in plugins, example plugin
-  server/   Fastify + WS server, SQLite storage, Yjs doc host
+  server/   Fastify + WS server, SQLite storage, Yjs doc host, live DB connections/drivers
 packages/
   dbml-engine/  DBML <-> SQL <-> internal-model conversion, diff, validation
   shared/       shared TS types (schema model, DTOs, protocol messages), Yjs doc <-> Project binding, input length limits
 docs/
-  todo.md       full project plan and progress log
+  todo.md          line-item project plan and progress log — the most current source for "what's left"
+  v1-roadmap.md    dated product/strategic audit — priorities, sequencing, what a professional deployment needs
+  user-guide.md    end-user guide (not this file, which is for operators/contributors)
+  perf/            performance and concurrency investigation write-ups, with the benchmark data behind them
+  legal/           terms-of-service and privacy-policy templates for self-hosted operators
 ```
 
 ## Status

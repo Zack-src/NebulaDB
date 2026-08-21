@@ -5,11 +5,22 @@ exists so an operator upgrading an instance can tell, before pulling, whether a
 release changes the database, the configuration, or anything they have to do by
 hand.
 
-Database migrations run automatically at boot (`apps/server/src/migrations.ts`,
+Database migrations run automatically at boot (`apps/server/src/infrastructure/migrations.ts`,
 tracked with `PRAGMA user_version`) and are one-way — take a backup before
 upgrading (`npm run backup -- <dir>`).
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
+
+## Versioning
+
+[Semantic Versioning](https://semver.org/), staying on `0.y.z` — every workspace
+`package.json` shares one version number — until the "V1" checklist in
+[`docs/v1-roadmap.md`](docs/v1-roadmap.md) clears, at which point the next
+release is tagged `1.0.0`. Chosen over calendar versioning: this project ships
+when something is ready, not on a schedule, and `0.x` already signals
+"pre-1.0, breaking changes possible between minors" without needing a second
+convention layered on top. Releases are tagged (`vX.Y.Z`) on `main` at points
+this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 

@@ -6,8 +6,9 @@ import { backupTimestamp, pruneOldBackups, runBackup } from "./infrastructure/ba
 import { purgeStaleAttempts } from "./modules/auth/lockout.js";
 import { purgeExpiredSessions } from "./modules/auth/session.js";
 import { purgeExpiredMfaChallenges } from "./modules/auth/totpRepository.js";
-import { closeAllRooms, flushAllRooms } from "./realtime/room.js";
+import { closeAllRooms, flushAllRooms } from "./realtime/roomRegistry.js";
 import { purgeOldAuditEntries } from "./shared/audit.js";
+import { recordError, tallyErrorForMetrics } from "./shared/errorLog.js";
 
 const app = await buildApp();
 
@@ -130,6 +131,8 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
  */
 process.on("uncaughtException", (err) => {
   app.log.error({ err }, "uncaught exception — server kept alive, state flushed");
+  tallyErrorForMetrics("server");
+  recordError("server", err.message, { stack: err.stack, context: "uncaughtException" });
   try {
     flushAllRooms();
   } catch (flushErr) {
@@ -139,6 +142,11 @@ process.on("uncaughtException", (err) => {
 
 process.on("unhandledRejection", (reason) => {
   app.log.error({ err: reason }, "unhandled promise rejection");
+  tallyErrorForMetrics("server");
+  recordError("server", reason instanceof Error ? reason.message : String(reason), {
+    stack: reason instanceof Error ? reason.stack : undefined,
+    context: "unhandledRejection",
+  });
 });
 
 app.listen({ port: config.port, host: "0.0.0.0" }).catch((err) => {

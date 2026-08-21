@@ -70,6 +70,18 @@ export interface AuditEntry {
   ip: string | null;
 }
 
+/** One row of the admin error log (`GET /api/errors`). */
+export interface ErrorLogEntry {
+  id: string;
+  createdAt: string;
+  source: "server" | "client";
+  message: string;
+  stack: string | null;
+  context: string | null;
+  userId: string | null;
+  userEmail: string | null;
+}
+
 export interface InvitationSummary {
   token: string;
   email: string;

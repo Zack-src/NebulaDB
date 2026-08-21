@@ -3,7 +3,6 @@ import {
   useCallback,
   useEffect,
   useMemo,
-  useRef,
   useState,
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
@@ -31,13 +30,10 @@ import { EnumNode } from "@/features/editor/nodes/EnumNode";
 import { TableGroupNode } from "@/features/editor/nodes/TableGroupNode";
 import { RemoteCursorsLayer } from "@/features/collaboration/RemoteCursorsLayer";
 import type { RemoteSelector } from "@/features/collaboration/useRemoteSelections";
-import { getSelectedWaypoint } from "@/features/editor/edges/waypointSelection";
-import { isTypingTarget } from "@/utils/dom";
 import { useEscapeKey } from "@/hooks/useEscapeKey";
 import { loadGridStyle, loadSnapToGrid } from "@/utils/preferences";
 import type { CanvasCommandContribution, ResolvedContribution } from "@/features/plugins/types";
 import type { AllNodes, CanvasExportHandle, CanvasNavigateHandle, CanvasNode } from "@/types";
-import { DEFAULT_HEADER_COLOR } from "@/features/editor/nodes/table/TableSettingsPopover";
 import { CanvasContextMenu, type CanvasContextMenuState } from "./CanvasContextMenu";
 import { CanvasSearchPanel } from "./CanvasSearchPanel";
 import { CanvasToolbar } from "./CanvasToolbar";
@@ -56,6 +52,9 @@ import { recordDuration } from "@/utils/perfMonitor";
 import { SelectionColorToolbar } from "./SelectionColorToolbar";
 import { useCanvasImageExport } from "./useCanvasImageExport";
 import { useCanvasSearch } from "./useCanvasSearch";
+import { useCollaboratorCursor } from "./useCollaboratorCursor";
+import { useCanvasDeleteKey } from "./useCanvasDeleteKey";
+import { canvasMinimapNodeColor } from "./canvasMinimapColor";
 import type { CanvasInsertTool, CanvasPoint } from "./types";
 
 const nodeTypes = {
@@ -125,7 +124,7 @@ export interface CanvasAreaProps {
  * regardless of each viewer's own pan/zoom.
  */
 export function CanvasArea(props: CanvasAreaProps) {
-  const { screenToFlowPosition, deleteElements, getNodes, getEdges } = useReactFlow();
+  const { screenToFlowPosition } = useReactFlow();
   const [contextMenu, setContextMenu] = useState<CanvasContextMenuState | null>(null);
   const { visible: minimapVisible, toggle: toggleMinimap } = useSharedMinimapVisible();
   /**
@@ -159,46 +158,7 @@ export function CanvasArea(props: CanvasAreaProps) {
     event.preventDefault();
   }, []);
 
-  /**
-   * Collaborator cursor broadcast, throttled to one animation frame.
-   *
-   * `mousemove` fires far faster than anything anyone can see — several times
-   * per frame on a high-polling mouse — and every call put an awareness update
-   * on the WebSocket *and* re-rendered every peer's `RemoteCursorsLayer`. One
-   * position per frame is the most that can ever be displayed, so the rest
-   * was pure load on the socket and on every peer.
-   */
-  const pendingCursorRef = useRef<CanvasPoint | null>(null);
-  const cursorFrameRef = useRef<number | null>(null);
-
-  const handleMouseMove = useCallback(
-    (event: ReactMouseEvent) => {
-      if (!awareness) return;
-      pendingCursorRef.current = screenToFlowPosition({ x: event.clientX, y: event.clientY });
-      if (cursorFrameRef.current !== null) return;
-      cursorFrameRef.current = requestAnimationFrame(() => {
-        cursorFrameRef.current = null;
-        if (pendingCursorRef.current) awareness.setLocalStateField("cursor", pendingCursorRef.current);
-      });
-    },
-    [awareness, screenToFlowPosition],
-  );
-
-  const handleMouseLeave = useCallback(() => {
-    pendingCursorRef.current = null;
-    if (cursorFrameRef.current !== null) {
-      cancelAnimationFrame(cursorFrameRef.current);
-      cursorFrameRef.current = null;
-    }
-    awareness?.setLocalStateField("cursor", null);
-  }, [awareness]);
-
-  useEffect(
-    () => () => {
-      if (cursorFrameRef.current !== null) cancelAnimationFrame(cursorFrameRef.current);
-    },
-    [],
-  );
+  const { onMouseMove: handleCursorMove, onMouseLeave: handleCursorLeave } = useCollaboratorCursor(awareness);
 
   const canAddNodes = props.canWrite;
   const handlePaneContextMenu = useCallback(
@@ -249,37 +209,7 @@ export function CanvasArea(props: CanvasAreaProps) {
     ],
   );
 
-  /**
-   * Delete/Backspace, owned here instead of by React Flow's `deleteKeyCode`.
-   *
-   * React Flow binds that key on `document` and deletes the whole selection
-   * without asking anyone else — so pressing Delete with an edge waypoint
-   * selected removed the entire relation from the schema, while the waypoint's
-   * own handler ran too. One handler with an explicit order of precedence is
-   * the only way to make "delete this corner" and "delete this table" the same
-   * key: the waypoint claims the keystroke first, and everything else falls
-   * through to the normal selection delete.
-   */
-  const canWriteRef = useRef(props.canWrite);
-  useEffect(() => {
-    canWriteRef.current = props.canWrite;
-  }, [props.canWrite]);
-
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key !== "Delete" && event.key !== "Backspace") return;
-      if (isTypingTarget(event.target)) return;
-      if (!canWriteRef.current) return;
-      if (getSelectedWaypoint()) return;
-      const nodes = getNodes().filter((node) => node.selected);
-      const edges = getEdges().filter((edge) => edge.selected);
-      if (nodes.length === 0 && edges.length === 0) return;
-      event.preventDefault();
-      void deleteElements({ nodes, edges });
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [deleteElements, getNodes, getEdges]);
+  useCanvasDeleteKey(props.canWrite);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -333,8 +263,8 @@ export function CanvasArea(props: CanvasAreaProps) {
       className={`min-w-0 flex-1 bg-bg-canvas ${activeInsertTool ? "canvas-placing" : ""} ${
         props.highlightLinks ? "canvas-links-highlighted" : ""
       }`}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
+      onMouseMove={handleCursorMove}
+      onMouseLeave={handleCursorLeave}
       style={{ "--canvas-font-scale": props.fontScale } as CSSProperties}
     >
       <Profiler id="canvas" onRender={onRenderCanvas}>
@@ -428,31 +358,7 @@ export function CanvasArea(props: CanvasAreaProps) {
             />
           </Panel>
           {minimapVisible && (
-            <MiniMap
-              {...minimapPanProps}
-              onContextMenu={suppressNativeMenu}
-              nodeColor={(node) => {
-                if (node.type === "table") {
-                  const data = node.data as { table?: { style?: { color?: string } } } | undefined;
-                  return data?.table?.style?.color || DEFAULT_HEADER_COLOR;
-                }
-                if (node.type === "zone") {
-                  const data = node.data as { zone?: { style?: { color?: string } } } | undefined;
-                  return data?.zone?.style?.color || "#f59e0b";
-                }
-                if (node.type === "sticky") {
-                  const data = node.data as { note?: { style?: { color?: string } } } | undefined;
-                  return data?.note?.style?.color || "#fef08a";
-                }
-                if (node.type === "enum") {
-                  return "#06b6d4";
-                }
-                if (node.type === "tablegroup") {
-                  return "#a855f7";
-                }
-                return "var(--color-primary)";
-              }}
-            />
+            <MiniMap {...minimapPanProps} onContextMenu={suppressNativeMenu} nodeColor={canvasMinimapNodeColor} />
           )}
           {selectedTableIds.length > 1 && props.canWrite && (
             <SelectionColorToolbar

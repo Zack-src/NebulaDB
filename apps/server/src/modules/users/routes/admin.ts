@@ -3,7 +3,7 @@ import { auditUser } from "../../../shared/audit.js";
 import { checkPassword, hashPassword } from "../../auth/password.js";
 import { ApiError } from "../../../shared/errors.js";
 import { requireAdmin } from "../../../shared/guards.js";
-import { revalidateAllRooms } from "../../../realtime/room.js";
+import { revalidateAllRooms } from "../../../realtime/roomRegistry.js";
 import {
   deleteUserSessions,
   disableUser,

@@ -300,3 +300,91 @@ test("GET /api/audit is admin-only", async () => {
     await app.close();
   }
 });
+
+test("GET /api/metrics returns Prometheus text with the expected gauges, no auth required", async () => {
+  const app = await buildApp();
+  try {
+    const res = await app.inject({ method: "GET", url: "/api/metrics" });
+    assert.equal(res.statusCode, 200);
+    assert.match(res.headers["content-type"] as string, /^text\/plain/);
+    assert.match(res.body, /^# HELP athanordb_uptime_seconds/m);
+    assert.match(res.body, /^athanordb_rooms_active \d+$/m);
+    assert.match(res.body, /^athanordb_ws_connections_active \d+$/m);
+    assert.match(res.body, /^athanordb_errors_total\{source="server"\} \d+$/m);
+    assert.match(res.body, /^athanordb_errors_total\{source="client"\} \d+$/m);
+  } finally {
+    await app.close();
+  }
+});
+
+test("POST /api/errors/client records a client-reported error, then GET /api/errors (admin-only) lists it", async () => {
+  const app = await buildApp();
+  try {
+    const plain = await makeUser();
+    const admin = await makeUser({ isAdmin: 1 });
+    const plainLogin = await login(app, plain.email, plain.password);
+    const adminLogin = await login(app, admin.email, admin.password);
+
+    const unauth = await app.inject({
+      method: "POST",
+      url: "/api/errors/client",
+      headers: headers(),
+      payload: { message: "boom" },
+    });
+    assert.equal(unauth.statusCode, 401);
+
+    const missingMessage = await app.inject({
+      method: "POST",
+      url: "/api/errors/client",
+      headers: headers({ cookie: plainLogin.cookie! }),
+      payload: {},
+    });
+    assert.equal(missingMessage.statusCode, 400);
+    assert.equal(missingMessage.json().code, "CLIENT_ERROR_MESSAGE_REQUIRED");
+
+    const reported = await app.inject({
+      method: "POST",
+      url: "/api/errors/client",
+      headers: headers({ cookie: plainLogin.cookie! }),
+      payload: { message: "canvas crashed", stack: "at Foo.render", context: "route:/project/abc" },
+    });
+    assert.equal(reported.statusCode, 204);
+
+    const forbidden = await app.inject({
+      method: "GET",
+      url: "/api/errors",
+      headers: headers({ cookie: plainLogin.cookie! }),
+    });
+    assert.equal(forbidden.statusCode, 403);
+
+    const listed = await app.inject({
+      method: "GET",
+      url: "/api/errors",
+      headers: headers({ cookie: adminLogin.cookie! }),
+    });
+    assert.equal(listed.statusCode, 200);
+    const entries = listed.json() as { source: string; message: string; userEmail: string | null }[];
+    const mine = entries.find((e) => e.message === "canvas crashed");
+    assert.ok(mine, "the reported error should be listed");
+    assert.equal(mine!.source, "client");
+    assert.equal(mine!.userEmail, plain.email);
+
+    const filtered = await app.inject({
+      method: "GET",
+      url: "/api/errors?source=server",
+      headers: headers({ cookie: adminLogin.cookie! }),
+    });
+    assert.equal(filtered.statusCode, 200);
+    assert.ok((filtered.json() as { source: string }[]).every((e) => e.source === "server"));
+
+    const invalidSource = await app.inject({
+      method: "GET",
+      url: "/api/errors?source=bogus",
+      headers: headers({ cookie: adminLogin.cookie! }),
+    });
+    assert.equal(invalidSource.statusCode, 400);
+    assert.equal(invalidSource.json().code, "ERROR_LOG_SOURCE_INVALID");
+  } finally {
+    await app.close();
+  }
+});

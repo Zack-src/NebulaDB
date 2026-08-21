@@ -18,6 +18,10 @@ import { I18nProvider } from "@/i18n/I18nProvider";
 const BenchHarness = lazy(() => import("@/features/editor/bench/BenchHarness"));
 const isBenchRoute = window.location.hash.startsWith("#bench");
 
+/** `components/dev/ComponentCatalogue` at `/#components` — same shape as `/#bench` above, for the same reason: no auth, no project, lazy-loaded so a normal session never fetches it. */
+const ComponentCatalogue = lazy(() => import("@/components/dev/ComponentCatalogue"));
+const isComponentsRoute = window.location.hash.startsWith("#components");
+
 const root = createRoot(document.getElementById("root")!);
 
 root.render(
@@ -25,6 +29,13 @@ root.render(
     <I18nProvider>
       <Suspense fallback={null}>
         <BenchHarness />
+      </Suspense>
+      <GlobalTooltip />
+    </I18nProvider>
+  ) : isComponentsRoute ? (
+    <I18nProvider>
+      <Suspense fallback={null}>
+        <ComponentCatalogue />
       </Suspense>
       <GlobalTooltip />
     </I18nProvider>

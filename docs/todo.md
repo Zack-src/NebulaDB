@@ -18,6 +18,22 @@ later work were dropped. **Phase numbers are kept stable even for fully-closed p
 `ErrorBoundary.tsx`, `yjsBinding.ts`) point at specific phase numbers, and renumbering
 would make those stale.
 
+**Revisited 2026-08-21** against the running codebase (full test suite, a full build, git
+log, `npm audit`) rather than re-reading only: closed two items that had already landed
+but weren't marked here (the DBML-panel data-loss fix, the `@dbml/core` upgrade),
+corrected file-size references that had drifted since the last measurement, and folded in
+the 2026-08-20 perf/concurrency docs. `docs/refactor-plan.md` was deleted — every item in
+it was done (§5 said so already); recover it with `git log --follow -p -- docs/refactor-plan.md`
+if needed. `docs/v1-roadmap.md` and `docs/user-guide.md` got the same pass.
+
+**Same session, second pass:** the whole Phase 23 "Code health & tooling" set plus Phase
+24's metrics/error-tracking/logging items and Phase 25's versioning item were actually
+built (not just re-audited) — `room.ts` split, the file-size watchlist's two closest
+entries split, an in-app component catalogue, `/api/metrics`, an aggregated error log
+(server + client, with an admin UI), request-id-aware logging, log rotation, and a
+documented versioning decision. Verified end to end after: full build, full lint, full
+test suite (275 tests, 0 failures) and `check:circular`, all green.
+
 Phases 0–1, 3–5, 7 were closed and pruned before this file's history starts. Phases 2, 8,
 9, 12, 18, 26 are fully closed as of this cleanup and pruned the same way (none of them
 are pointed at by number from outside this file): Phase 2's DBML/SQL import is done for
@@ -32,41 +48,85 @@ exists to restore.
 
 ## Phase 6 — Multi-user editing
 
+- [x] **DBML-panel resync was silently deleting concurrent edits** — found and fixed
+  2026-08-20, verified with two real browser sessions on one project. Two distinct bugs:
+  the panel treated the app's own document→buffer mirroring as a user keystroke, so any
+  canvas edit by anyone made *every* connected client's panel re-POST the whole schema
+  600ms later; and `/import` replaced the document from a buffer that could be seconds
+  stale, deleting anything another user had added meanwhile (reproduced: a column added on
+  the canvas vanished while another user typed DBML). Fixed with a `documentSync`
+  transaction annotation the change listener ignores, plus a three-way merge
+  (`preserveConcurrentAdditions`, new in `packages/dbml-engine`) that keeps entities absent
+  from *both* the buffer and its baseline instead of treating "absent" as "deleted". 5 new
+  tests (`concurrentEdits.test.ts`). Detail in `docs/perf/multiuser-concurrency-2026-08-20.md`.
 - [~] **Field-level CRDT merge within one table** — **S-M**, low priority. **What:** two
-  users editing different fields of the *same* table at the same time currently
-  last-write-wins instead of merging per field (edits to different tables already merge
-  cleanly today). **How:** split each table's fields into individual Yjs sub-entries (e.g.
-  one `Y.Map` per table instead of one opaque JSON blob) — touches
+  users editing different fields of the *same* table (or the same field via DBML vs.
+  canvas) at the same time still last-write-wins instead of merging per field — confirmed
+  by the 2026-08-20 verification above as the one known remaining gap, not just a
+  theoretical concern anymore. **How:** split each table's fields into individual Yjs
+  sub-entries (e.g. one `Y.Map` per table instead of one opaque JSON blob) — touches
   `packages/shared/src/yjsBinding.ts`, `Room`'s watched-collection logic in
   `apps/server/src/realtime/room.ts`, and every web mutation that currently does
-  `tablesMap.set(id, {...current, ...patch})`. Revisit only if real concurrent-edit
-  conflicts get reported — nobody has hit this in practice yet.
+  `tablesMap.set(id, {...current, ...patch})`. Revisit if this specific collision (not the
+  resync bug above, which is fixed) gets reported in practice.
+- [x] **Committed multi-user regression test** — done 2026-08-21:
+  `apps/server/src/modules/projects/routes/importExport.concurrency.test.ts`, four tests
+  hitting the real `POST /api/projects/:id/import` route against a real `Room`'s live doc
+  (a concurrent canvas edit written straight to `room.doc`, the same way an incoming
+  WebSocket update would apply). Covers the exact 2026-08-20 scenario in both directions
+  (a canvas addition surviving a stale DBML resync, and vice versa), confirms a real
+  deletion still applies, and confirms a baseline-less import still replaces everything.
+  This is the route-level integration test the original throwaway Playwright verification
+  never left behind — `preserveConcurrentAdditions` itself already had unit tests
+  (`concurrentEdits.test.ts`), but nothing exercised the actual route before this.
 
 ## Phase 10 — Packaging & deployment
 
-- [~] **Verify the Docker build on a real Docker daemon** — **S**. The Dockerfile/compose
-  build fix (non-root user, healthcheck, `postinstall`-skip for native deps) has never been
-  run through an actual `docker compose up --build` — it was fixed and reasoned through on
-  a dev machine with no Docker daemon. **How:** run it on any machine with Docker, confirm
-  the container boots, passes `/api/health`, and the named volume persists across a restart.
+- [x] **Verify the Docker build on a real Docker daemon** — done 2026-08-21, and it found a
+  real bug the first time it ran: Docker Desktop came up on the same machine mid-session,
+  so `docker compose up --build` finally ran against a live daemon instead of failing to
+  connect. The container built, then **crash-looped with SIGSEGV** (exit 139) on every
+  start — the `Dockerfile` pinned `node:20-bookworm-slim` while `better-sqlite3@13` (and
+  `package.json`'s own `engines`) require Node ≥22; `npm ci` even printed the `EBADENGINE`
+  warnings for it, easy to miss in a wall of apt output. Fixed: `FROM node:22-bookworm-slim`.
+  Re-verified after the fix, end to end: container starts `(healthy)`, `/api/health` returns
+  `200`, an import made <200ms before a real `docker compose stop` (genuine `SIGTERM`, not
+  simulated) survived — logs show `SIGTERM received` → `flushed 1 room snapshot(s)` →
+  `shutdown complete` — and the data was still there after a full `docker compose down` +
+  `up` (new container, same named volume). Also closes the SIGTERM item below — same test.
 
 ## Phase 11 — Testing & docs
 
 - [x] Unit tests for `dbml-engine`/`shared` — done, `npm test`.
-- [~] **Server integration tests (REST + WS)** — **S**, mostly done. `Room`/WS is fully
+- [x] **Server integration tests (REST + WS)** — done 2026-08-21. `Room`/WS is fully
   covered (`yjs/room.test.ts`); `app.test.ts` covers the highest-risk REST surface (auth,
-  CSRF, rate limiting, permission gating) via `buildApp()` + `.inject()`. **What's left:**
-  the same `app.inject()` pattern extended to `routes/{teams,invitations,users,convert}.ts`
-  and `routes/projects.ts` — mechanical now that the pattern and harness exist.
-- [ ] **Browser-based test coverage (canvas, DBML sync, components, E2E)** — **L**. What:
-  three related gaps that are really one missing piece of tooling — no E2E flow
-  (create project → edit schema → reload → verify persistence) is committed as a real
-  test (only ever run as throwaway Playwright scripts in a session); the canvas (React
-  Flow nodes, drag/selection/Yjs-binding hooks) and every React component have zero test
-  coverage; and Phase 17's plugin registry/sandbox-Worker path is untested for the same
-  reason. How: pick a DOM story first — jsdom + a component-testing library, or Playwright
-  against the built app — then land the one E2E flow as a committed regression test before
-  spreading into component coverage. Decide this once, not three separate times.
+  CSRF, rate limiting, permission gating, `/api/metrics`, `/api/errors`) via `buildApp()` +
+  `.inject()`. The remaining route modules now each have their own `routes.test.ts`,
+  same pattern: `modules/invitations/`, `modules/teams/`, `modules/convert/`,
+  `modules/users/` (both `account.ts` and `admin.ts`), and `modules/projects/routes.test.ts`
+  for the three project route files `app.test.ts` didn't already cover
+  (`importExport.ts`, `revisions.ts`, `teams.ts` — `crud.ts` was already there). 22 new
+  tests; server suite is now 150 (was 128), all green. One real gotcha hit and fixed along
+  the way: any test that touches a `Room` (via `getRoom`, directly or through a route) has
+  to call `closeAllRooms()` in its `finally` alongside `app.close()`, or the room's
+  `Awareness` timer keeps that test file's process alive — it doesn't fail, it just never
+  exits, so a missing cleanup shows up as the *whole test run* hanging, not a red test.
+- [~] **Browser-based test coverage (canvas, DBML sync, components, E2E)** — **L**, one of
+  the three gaps closed 2026-08-21. **The decision**: Playwright (`playwright-core`,
+  already a dependency for `scripts/bench-web.mjs`), against the real built app — not
+  jsdom + a component-testing library. **Done**: the one E2E flow this item asked for
+  (create project → add a table on the canvas → reload → verify persistence) is now a
+  committed, passing test — `apps/web/e2e/project-lifecycle.e2e.ts`, run with
+  `npm run test:e2e`, deliberately outside `npm test` (needs a build and a browser first).
+  Getting it green surfaced and fixed two real, separate bugs on the way: `fetch()` refuses
+  to connect to port 4190 (it's on the Fetch spec's forbidden-ports list — ManageSieve,
+  RFC 5804) and the project list's own search `<input>` isn't the same input as a
+  freshly-created card's rename field, so a naive "the first input on the page" selector
+  silently targets the wrong element. Both are noted in the test file's own comments.
+  **Still open**: the canvas (React Flow nodes, drag/selection/Yjs-binding hooks), every
+  other React component, and Phase 17's plugin registry/sandbox-Worker path all still have
+  zero test coverage — this closed the E2E piece specifically, not component coverage in
+  general. Spread into that from here rather than re-deciding the tooling.
 - [x] User docs (`docs/user-guide.md`) — done.
 - [x] Contributing guide (`CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md`) — done.
 
@@ -91,11 +151,12 @@ this phase by number.
   backup/restore, request/frame size limits, startup config validation, non-root Docker
   user, the room-eviction Awareness-timer memory leak — all done 2026-07-31 through
   2026-08-09.
-- [~] **Verify graceful shutdown against a real SIGTERM** — **S**. The flush-before-exit
-  path is verified directly (an edit made <2s before flush survives a reload), but signal
-  *delivery* was never exercised — the dev machine is Windows, where Node doesn't receive a
-  real SIGTERM. **How:** `docker stop` (or `kill -TERM`) a running instance on Linux and
-  confirm every room's state flushed to SQLite before the process exits.
+- [x] **Verify graceful shutdown against a real SIGTERM** — done 2026-08-21, as part of the
+  Docker verification above: `docker compose stop` against the real container sends a
+  genuine `SIGTERM` (unlike the Windows dev machine, where Node never receives one), and
+  the logs confirm the exact sequence — `SIGTERM received` → `flushed N room snapshot(s)`
+  → `shutdown complete` — for a room edited under 200ms earlier, well inside the 2s
+  debounce window this item was worried wouldn't flush in time. It did.
 
 ## Phase 16 — Testing, docs & dev experience
 
@@ -109,14 +170,14 @@ this phase by number.
   DBML symbols, awareness colour) are covered; the canvas/components/DBML-sync-end-to-end
   gap is the same one tracked under Phase 11's browser-test-tooling item — not repeated
   here.
-- [ ] **Upgrade `@dbml/core`** — **L**. 5 major versions behind (3.14.1 installed, 8.3.1
-  latest). **Why it's not routine:** `dbml.ts`'s `toProject` reads a fair amount of raw,
-  untyped structure straight off `@dbml/core`'s parse output (`schema?.tableGroups`,
-  `table.id`, `idx.columns[].value`, etc.) — a 5-major jump can plausibly change any of
-  those shapes, and a silent shape change would corrupt imports for every user rather than
-  fail loudly. **How:** its own focused pass, gated on all 36 `dbml.test.ts`/
-  `roundtrip.test.ts` cases (plus whatever's been added since) passing unchanged before and
-  after.
+- [x] **Upgrade `@dbml/core`** — done 2026-08-14 (`ee496aa`, part of a full dependency
+  refresh): 3.x → 10.1.0, seven major versions, all `dbml.test.ts`/`roundtrip.test.ts`
+  cases passing unchanged. `toProject`'s raw/untyped reads off `@dbml/core`'s parse output
+  are still there (that's inherent to the approach, not a leftover of the old version) —
+  fine as long as the roundtrip suite keeps gating any future bump. Vite was bumped to 8
+  (rolldown-vite) in the same pass, which also closed the `esbuild`/`vite` dev-server
+  advisory `v1-roadmap.md` §1 used to flag — `npm audit` reports 0 vulnerabilities as of
+  2026-08-21.
 
 ## Phase 17 — Plugin system
 
@@ -173,8 +234,9 @@ this phase by number.
   Phase E) and the mentions/notifications item below. The REST routes exist and are stable
   in practice, but are cookie-authenticated, undocumented and unversioned. **How:** API
   keys (hashed at rest, scoped, rotatable, revocable — design *with* the API, not after), a
-  `/api/v1` surface, per-key rate limits. The "API key" field in
-  `settings/SettingsTabContent.tsx` is a visual placeholder wired to nothing today.
+  `/api/v1` surface, per-key rate limits. `settings/SettingsTabContent.tsx`'s billing tab
+  today just says plainly that no public API or API key exists yet (the old fake input
+  field was removed) — building this means adding a real one, not wiring up a placeholder.
 - [ ] **OpenAPI schema** — **M**. Pairs with the item above — Fastify's route schemas plus
   `@fastify/swagger` would generate it from the definitions instead of a hand-maintained doc.
 - [ ] **Webhooks** — **M**. "Schema changed" → Slack/Discord/custom endpoint. **Blocked by:**
@@ -220,45 +282,78 @@ this phase by number.
   (`useDraftValue`/`useDismissablePopover`/`useEscapeKey`/typed `localStorage` helpers), a
   "reach for this before writing that" table in `CONTRIBUTING.md` — done 2026-08-08 through
   2026-08-15.
-- [ ] **Component catalogue** — **M**, low priority. `ui/` primitives have no isolated
-  visual documentation (Storybook or equivalent). Worth it once more than one person works
-  on the UI.
+- [x] **Component catalogue** — done 2026-08-21, as an in-app page rather than Storybook
+  (`components/dev/ComponentCatalogue.tsx`, routed at `/#components`, same
+  lazy-loaded-outside-auth shape as the `#bench` perf harness) — every `ui/` primitive,
+  every variant, both themes, on one screen. Documented in `CONTRIBUTING.md`'s new
+  "Dev-only routes" section.
 - [~] Web test coverage beyond pure logic — same gap as Phase 11's browser-test-tooling
   item, not repeated here.
-- [ ] **Split `room.ts`** (498 lines: connection handling, persistence, awareness and sync
-  in one file) — **M**. **How:** `realtime/room/Room.ts` (orchestration only) +
-  `persistence.ts` + `awareness.ts` + `connection.ts`, with the already-free functions
-  (`getRoom`/`closeAllRooms`/etc.) moving to `realtime/roomRegistry.ts`. Higher risk than
-  most items here — it's the live WS/Yjs sync path with only `yjs/room.test.ts`'s 7 cases
-  as a safety net; re-run those plus a manual two-tab concurrent-edit check after.
-- [ ] **File-size watchlist** — **S** each, do opportunistically when next touching a file:
-  `dbml/searchPanel.ts` (369 l.), `dbml.ts` (364 l.), `dbmlEditor/language.ts` (363 l., theme
-  + language + hover mixed), `plugins/registry.ts` (350 l.), `ProjectEditor.tsx` (310 l.),
-  `TableSettingsPopover.tsx` (309 l.). Not yet over the repo's 500-line norm, worth
-  splitting before they get there.
+- [x] **Split `room.ts`** — done 2026-08-21: 512 → 402 lines. Two genuinely separable
+  pieces came out clean — `realtime/roomRegistry.ts` (the room `Map` + free functions:
+  `getRoom`/`closeAllRooms`/etc., zero coupling to `Room` internals) and
+  `realtime/room/limits.ts` (`enforceLimits`, a near-pure function over `doc` +
+  `pendingChecks`). Deviated from the plan's `awareness.ts`/`connection.ts` split on
+  purpose: on inspection those two are the *same* concern here (the awareness listener
+  mutates the same `conns` map `receive()` reads), and forcing them apart would have added
+  cross-file indirection instead of removing coupling. `yjs/room.test.ts` and the full
+  server suite (128 tests) pass unchanged.
+- [x] **File-size watchlist, first pass** — done 2026-08-21: `CanvasArea.tsx` 490 → 396
+  lines (`useCollaboratorCursor.ts`, `useCanvasDeleteKey.ts`, `canvasMinimapColor.ts`
+  extracted — each a real, bounded concern, not an arbitrary split) and `ProjectEditor.tsx`
+  462 → 379 lines (`useCanvasCommandRunner.ts` — status line, command execution, the
+  auto-layout/group-tables buttons, and the global plugin-shortcut binding, all one
+  concern that component only ever *triggered*). Found and fixed a real duplication in the
+  process: `DbmlPanel.tsx` and `ProjectEditor.tsx` each hand-rolled the same "transient
+  status line with its own timer" state — now `hooks/useFlashMessage.ts`, added to
+  `CONTRIBUTING.md`'s reach-for-this table. Still open, unchanged by this pass:
+  `editor/dbml/language.ts` (401 l.), `dbml-engine/src/dbml.ts` (442 l.),
+  `plugins/registry.ts` (389 l.), `editor/dbml/searchPanel.ts` (372 l.),
+  `editor/nodes/table/TableSettingsPopover.tsx` (320 l.) — none over 500, do
+  opportunistically.
 
 ## Phase 24 — Observability & operations
 
 - [x] Real `/api/health` (DB check, room count, uptime, 503 on failure), scheduled backups
   with retention, single-instance Docker Compose documented — done 2026-08-09.
-- [~] **Logging: request-id correlation + rotation guidance** — **S**. `ATHANORDB_LOG_LEVEL`
-  and secret redaction are done; still open: the WS/`Room` code paths log through
-  `console`, not the Fastify logger, so a request id doesn't correlate across them, and
-  there's no written rotation/retention guidance for operators.
-- [ ] **Metrics endpoint** — **M**. Nothing exposes connection counts, room counts,
-  snapshot-write latency or error rates. For a service whose failure mode is "sync silently
-  stopped", this is the difference between noticing and not.
-- [ ] **Error tracking** — **S-M**. `uncaughtException` is caught, logged and survived, but
-  nothing aggregates errors anywhere an operator would look. The client side has nothing at
-  all.
+- [x] **Logging: request-id correlation + rotation guidance** — done 2026-08-21, with an
+  honest limit stated rather than overclaimed. `Room`'s `console.*` calls now go through a
+  `RoomLogger` interface (`realtime/room/logger.ts`) set to `app.log` at boot —
+  structured/JSON, a `room` field on every line, respects `ATHANORDB_LOG_LEVEL`. **Not** a
+  per-request id though: a `Room` outlives any single request (many connections and REST
+  calls touch the same one over its lifetime), so there's no one request to tag those
+  lines with — said explicitly in the code rather than pretended otherwise. Where a line
+  *does* map to exactly one request (the WS route's join/leave in `app.ts`), it now uses
+  that connection's own `req.log`, which does carry a real `reqId`. Rotation:
+  `docker-compose.yml` now sets the `json-file` driver with a cap (Docker's own default is
+  uncapped and grows the host disk forever); bare-process/systemd guidance is in the
+  README's new "Logs" section.
+- [x] **Metrics endpoint** — done 2026-08-21: `GET /api/metrics`, Prometheus text format —
+  room/connection counts (new `Room.connectionCount()` + `roomRegistry.totalConnectionCount()`),
+  hot-path timing from the existing `infrastructure/perf.ts` (`persistence.saveSnapshot`'s
+  stats *are* the snapshot-write latency this item asked for — it was already
+  instrumented, just never exposed), error counts since boot. No auth, same reasoning as
+  `/api/health`. See `infrastructure/metrics.ts`.
+- [x] **Error tracking** — done 2026-08-21. New `error_log` SQLite table (migration 14,
+  row-capped at 2000 rather than date-retained — a debugging aid, not a compliance trail
+  like `audit_log`), written to by the Fastify error handler, `uncaughtException`/
+  `unhandledRejection`, and a new `POST /api/errors/client` that `ErrorBoundary.tsx` now
+  calls on every caught render crash (best-effort, never throws back into the boundary
+  that's already handling one, never awaited). Read via `GET /api/errors` (admin-only) and
+  a new _Admin console → Errors_ tab, sibling to the audit log tab. The client side had
+  nothing at all before this. 2 new tests in `app.test.ts`.
 
 ## Phase 25 — Documentation, compliance & release process
 
 - [x] GDPR export/deletion/retention, self-hosted Google Fonts, `SECURITY.md`, reverse-proxy
   deployment guidance — done 2026-08-09.
-- [ ] **Versioning scheme / git tags** — **S**, decision + follow-through. `CHANGELOG.md`
-  exists (Keep a Changelog format) but there's nothing to *point* an entry at yet — decide
-  calendar versioning vs. staying 0.x until the V1 checklist clears, then start tagging.
+- [~] **Versioning scheme / git tags** — decided 2026-08-21, documented in `CHANGELOG.md`'s
+  new "Versioning" section: SemVer, staying `0.y.z` until the V1 checklist in
+  `v1-roadmap.md` clears, then `1.0.0`. **Follow-through not done**: no version bump, no
+  tag yet — cutting the actual first tagged release (moving `CHANGELOG.md`'s `[Unreleased]`
+  entries under a dated heading, `npm version` across every workspace, `git tag`) is a
+  deliberate release action for whoever decides the current state is release-worthy, not
+  something to do unilaterally mid-cleanup.
 
 ## Phase 27 — Live database link & deployment
 
@@ -303,12 +398,14 @@ Added 2026-08-19 from a direct user feedback session, not a code audit.
 - [x] Relation UX: cardinality glyphs no longer sit in a circle, duplicate "1"/"n" labels on
   a shared column collapse to one, and relations can be reversed (settings popover +
   right-click menu) — done 2026-08-19.
-- [~] **Canvas not always instant after a DBML edit** — **S**, needs a browser to finish.
-  What: one real cause was found and fixed (the table-order bug above); WebSocket
-  propagation itself was measured at 35ms end-to-end and the client-side render chain reads
-  correctly on code review, so no second cause is confirmed. **How:** watch the actual
-  canvas in a browser (Claude-in-Chrome wasn't connected when this was investigated) while
-  reproducing the report to confirm whether a second bug exists.
+- [x] **Canvas not always instant after a DBML edit** — the "second cause" this item was
+  waiting on turned out to be two real ones, both found and fixed 2026-08-20 with an
+  actual browser/bench harness instead of code review: the DBML-panel resync data-loss bug
+  (Phase 6 above) and, at larger schemas, measured rendering bottlenecks (React Flow
+  re-measuring the whole canvas per edit, an O(edges) store selector re-run per table on
+  every store mutation, etc.) — worst-case blocking time cut 10-240x at 100-500 tables.
+  Detail in `docs/perf/multiuser-concurrency-2026-08-20.md` and
+  `docs/perf/canvas-perf-2026-08-20.md`.
 - [ ] **Simplify waypoint create/move/delete on a relation line** — **M**. What: the
   existing machinery (`useEdgeRouting.ts`/`EdgeWaypoints.tsx`/`EdgeContextMenu.tsx`) is
   already fairly capable, but a plain click on the edge does either "select" or "insert a

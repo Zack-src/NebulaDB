@@ -15,12 +15,14 @@ import { registerTotpRoutes } from "./modules/auth/totpRoutes.js";
 import { resolveSession } from "./modules/auth/session.js";
 import { registerConvertRoutes } from "./modules/convert/routes.js";
 import { registerConnectionRoutes } from "./modules/connections/routes.js";
+import { registerErrorRoutes } from "./modules/errors/routes.js";
 import { registerInvitationRoutes } from "./modules/invitations/routes.js";
 import { registerProjectRoutes } from "./modules/projects/index.js";
 import { getProjectRow } from "./modules/projects/repository.js";
 import { registerTeamRoutes } from "./modules/teams/routes.js";
 import { registerUserRoutes } from "./modules/users/index.js";
-import { getRoom, liveRoomCount } from "./realtime/room.js";
+import { getRoom, liveRoomCount, setRoomLogger } from "./realtime/roomRegistry.js";
+import { renderPrometheusMetrics } from "./infrastructure/metrics.js";
 import { ApiError, registerErrorHandler } from "./shared/errors.js";
 import { getEffectivePermission } from "./shared/permissions.js";
 
@@ -57,6 +59,11 @@ export async function buildApp(): Promise<FastifyInstance> {
     bodyLimit: config.bodyLimit,
   });
   registerErrorHandler(app);
+  // Every `Room` logs through this from here on instead of bare `console` —
+  // set before the WS route below can create the first one. See
+  // `realtime/room/logger.ts` for what this does (and doesn't) buy in terms
+  // of correlation.
+  setRoomLogger(app.log);
   await app.register(websocket, { options: { maxPayload: config.wsMaxPayload } });
   await app.register(fastifyCookie);
   // Global ceiling, deliberately loose — the collaborative UI is chatty. The
@@ -133,6 +140,17 @@ export async function buildApp(): Promise<FastifyInstance> {
       return { status: "error", ...new ApiError("DATABASE_UNAVAILABLE").toPayload() };
     }
   });
+  /**
+   * Prometheus-format metrics — connection/room counts, hot-path timing
+   * (snapshot-write latency included), error counts since boot. See
+   * `infrastructure/metrics.ts`. Same "no auth, same as /api/health" reasoning
+   * documented there.
+   */
+  app.get("/api/metrics", async (_req, reply) => {
+    reply.type("text/plain; version=0.0.4");
+    return renderPrometheusMetrics();
+  });
+
   registerAuthRoutes(app);
   registerTotpRoutes(app);
   registerInvitationRoutes(app);
@@ -142,6 +160,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerConvertRoutes(app);
   registerConnectionRoutes(app);
   registerAuditRoutes(app);
+  registerErrorRoutes(app);
 
   // Single-process production deployment: serve the built web app once it
   // exists. In dev, apps/web runs its own Vite server and proxies /api and /ws
@@ -196,7 +215,12 @@ export async function buildApp(): Promise<FastifyInstance> {
           const level = getEffectivePermission(userId, projectId);
           return level ? { canWrite: level !== "view" } : null;
         });
-        app.log.info(`${author} joined project ${projectId}`);
+        // `req.log` rather than `app.log`: this is the one point in a
+        // connection's life that maps to a single request (the WS upgrade),
+        // so it's the one place a `reqId` can actually correlate — unlike
+        // `Room`'s own logs, which span every connection over its lifetime
+        // (see `realtime/room/logger.ts`).
+        req.log.info({ room: projectId, author }, "joined project");
 
         socket.on("message", (data: Buffer) => {
           room.receive(socket, new Uint8Array(data));
@@ -204,7 +228,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
         socket.on("close", () => {
           room.leave(socket);
-          app.log.info(`${author} left project ${projectId}`);
+          req.log.info({ room: projectId, author }, "left project");
         });
       },
     );

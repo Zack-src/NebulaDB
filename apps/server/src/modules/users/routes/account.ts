@@ -4,7 +4,7 @@ import { checkPassword, hashPassword, verifyPassword } from "../../auth/password
 import { clearSessionCookie } from "../../auth/session.js";
 import { ApiError } from "../../../shared/errors.js";
 import { requireUser } from "../../../shared/guards.js";
-import { revalidateAllRooms } from "../../../realtime/room.js";
+import { revalidateAllRooms } from "../../../realtime/roomRegistry.js";
 import { getPasswordHash, updateDisplayName, updatePasswordHash } from "../repository.js";
 import { buildPersonalDataExport, deleteUserAccount, wouldRemoveLastAdmin } from "../service.js";
 

@@ -4,7 +4,7 @@
 
 ```bash
 npm install
-npm run bootstrap-admin -- --email you@example.com --password 'something long'
+npm run bootstrap-admin -- you@example.com 'something long'
 npm run dev
 ```
 
@@ -13,8 +13,9 @@ root `postinstall` — everything else depends on those, so a build error there
 is the first thing to check when an import looks broken.
 
 `npm run dev` starts the API on `:3001` and Vite on `:5173`; the web app proxies
-`/api` and `/ws` to the server. Node 20–23 (see `engines`); `better-sqlite3`
-compiles natively, so a toolchain is required on first install.
+`/api` and `/ws` to the server. Node 22–25 (see `engines`); `better-sqlite3`
+ships prebuilt binaries for those versions, so a toolchain is only needed if
+`npm install` falls back to building it from source.
 
 ## Before you push
 
@@ -63,6 +64,7 @@ because nobody knew it was there.
 | A persisted user preference (`localStorage`)    | `utils/storage.ts`                                | raw `localStorage.getItem`/`setItem`        |
 | Any HTTP call to the API                        | `services/*Api.ts` (add a module if missing)      | a raw `fetch()` inside a component          |
 | An async action with loading/error state        | `hooks/useAsyncAction.ts` / `useAsyncResource.ts` | a bespoke `loading`/`error` `useState` pair |
+| A transient status line that clears itself      | `hooks/useFlashMessage.ts`                        | a message `useState` + its own timer ref    |
 
 Popovers inside the React Flow canvas specifically need `click`, not
 `mousedown` — the pane calls `stopPropagation()` on `mousedown` for its own
@@ -74,6 +76,27 @@ canvas is clicked.
 If you add a new cross-cutting primitive, add its row here in the same PR —
 an unlisted hook gets reimplemented by the next person who needs it.
 
+## Dev-only routes
+
+Two pages are `lazy()`-loaded and hash-routed straight from `main.tsx`,
+bypassing auth and project loading entirely — a normal session never fetches
+either chunk:
+
+- `/#bench?tables=500&columns=8&detail=full` — the real editor over a
+  synthetic schema, WebSocket swapped for a local pre-seeded doc. Use this to
+  check whether a canvas change regresses performance; see
+  `docs/perf/canvas-perf-2026-08-20.md` for how to read the numbers and
+  `scripts/bench-web.mjs` to run the comparative driver against it.
+- `/#components` — every `components/ui/` primitive, every variant, on one
+  page, with a dark/light toggle. Check it after touching a shared primitive
+  (`Button`, `Card`, `Tabs`, …) instead of hunting down every screen that uses
+  it. Deliberately not Storybook — same reasoning as `/#bench` not being a
+  separate visual-testing tool: one more page in the existing stack, not a
+  second build toolchain.
+
+Both are real UI, so both are still bound by "Reach for this before writing
+that" and the i18n lint rule above — dev-only doesn't mean exempt.
+
 ## Tests
 
 Every workspace uses plain `node:test` — no vitest, no jest, no jsdom.
@@ -81,8 +104,21 @@ Every workspace uses plain `node:test` — no vitest, no jest, no jsdom.
 - `packages/*` and `apps/server` compile with `tsc` and run `node --test` over
   `dist`.
 - `apps/web` runs `tsx --test` directly over `src`, and covers **pure logic
-  only** (layout maths, DBML symbol parsing, shortcut matching). Anything
-  needing a DOM is currently verified by hand.
+  only** (layout maths, DBML symbol parsing, shortcut matching). The canvas,
+  individual components, and the plugin sandbox are still verified by hand —
+  no jsdom or component-testing library is in yet; see `docs/todo.md`'s
+  browser-test-tooling item before adding one, so this doesn't get decided
+  three separate times.
+- `apps/web/e2e/*.e2e.ts` is the one exception: a real end-to-end flow (create
+  project → edit schema on the canvas → reload → verify persistence), driven
+  with `playwright-core` against the actual built app in a real browser —
+  not pure logic, and deliberately not part of `npm test` (needs
+  `npm run build` first, and a Chrome/Edge install). Run it with
+  `npm run test:e2e`. Read the file's own header comment before adding a
+  second one — the selectors it had to work around (an always-present search
+  `<input>` before the one you actually want, a forbidden `fetch()` port) are
+  exactly the kind of thing that's cheap to avoid once and easy to rediscover
+  the hard way otherwise.
 
 Write tests for logic that can be exercised without a browser; say so in the PR
 when something could only be checked manually, and say what you actually ran.
@@ -97,7 +133,7 @@ needs no setup — it runs against `:memory:`.
 
 ## Database changes
 
-Schema changes go in `apps/server/src/migrations.ts` as a new entry in
+Schema changes go in `apps/server/src/infrastructure/migrations.ts` as a new entry in
 `MIGRATIONS` — never as an ad-hoc `ALTER` elsewhere. Each `up()` guards itself
 (check the column/table before adding it) so a database that reached the shape
 another way is safe, and `PRAGMA user_version` tracks what has run.

@@ -233,6 +233,29 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 14,
+    name: "error_log table",
+    up: (db) => {
+      // Aggregated errors an operator can actually look at — see
+      // `shared/errorLog.ts`. Row-count-capped rather than date-retained like
+      // `audit_log`: this isn't a compliance trail, just a debugging aid, so a
+      // fixed cap (trimmed on write) is enough and needs no new configuration.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS error_log (
+          id TEXT PRIMARY KEY,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          source TEXT NOT NULL,
+          message TEXT NOT NULL,
+          stack TEXT,
+          context TEXT,
+          user_id TEXT,
+          user_email TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_error_log_created ON error_log(created_at DESC);
+      `);
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */
