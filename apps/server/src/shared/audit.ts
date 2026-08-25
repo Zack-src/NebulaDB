@@ -52,7 +52,9 @@ export type AuditAction =
   | "connection.delete"
   | "connection.pull"
   | "connection.deploy"
-  | "connection.rollback";
+  | "connection.rollback"
+  | "apikey.create"
+  | "apikey.revoke";
 
 export interface AuditActor {
   id: string | null;

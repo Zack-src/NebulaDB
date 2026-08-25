@@ -51,9 +51,15 @@ export const ERROR_CATALOG = {
   DEPLOYMENT_HISTORY_NOT_FOUND: { status: 400, message: "no such deployment history entry" },
   ROLLBACK_NOT_AVAILABLE: { status: 400, message: "no rollback SQL is available for this deployment" },
   ROLLBACK_ALREADY_ATTEMPTED: { status: 400, message: "this deployment has already been rolled back" },
+  API_KEY_NAME_REQUIRED: { status: 400, message: "name is required" },
+  API_KEY_SCOPES_INVALID: {
+    status: 400,
+    message: "scopes must be a non-empty array of projects:read, projects:write, deployments:trigger",
+  },
 
   // --- 401 ---
   AUTH_REQUIRED: { status: 401, message: "authentication required" },
+  API_KEY_INVALID: { status: 401, message: "invalid or revoked API key" },
   INVALID_CREDENTIALS: { status: 401, message: "invalid email or password" },
   CURRENT_PASSWORD_INCORRECT: { status: 401, message: "current password is incorrect" },
   PASSWORD_INCORRECT: { status: 401, message: "password is incorrect" },
@@ -63,6 +69,8 @@ export const ERROR_CATALOG = {
   // --- 403 ---
   ADMIN_REQUIRED: { status: 403, message: "administrator access required" },
   FORBIDDEN: { status: 403, message: "forbidden" },
+  API_SCOPE_INSUFFICIENT: { status: 403, message: "this API key does not have the required scope" },
+  API_KEY_PROJECT_RESTRICTED: { status: 403, message: "this API key is restricted to a different project" },
   ACCOUNT_DISABLED: { status: 403, message: "this account has been disabled" },
   ORIGIN_INVALID: { status: 403, message: "invalid origin" },
   ORIGIN_MISMATCH: { status: 403, message: "cross-origin request refused" },
@@ -74,6 +82,7 @@ export const ERROR_CATALOG = {
   REVISION_NOT_FOUND: { status: 404, message: "no such revision for this project" },
   SNAPSHOT_NOT_FOUND: { status: 404, message: "no snapshot saved yet" },
   CONNECTION_NOT_FOUND: { status: 404, message: "connection not found" },
+  API_KEY_NOT_FOUND: { status: 404, message: "no such API key" },
 
   // --- 409 ---
   EMAIL_ALREADY_EXISTS: { status: 409, message: "a user with this email already exists" },

@@ -111,22 +111,33 @@ exists to restore.
   to call `closeAllRooms()` in its `finally` alongside `app.close()`, or the room's
   `Awareness` timer keeps that test file's process alive — it doesn't fail, it just never
   exits, so a missing cleanup shows up as the *whole test run* hanging, not a red test.
-- [~] **Browser-based test coverage (canvas, DBML sync, components, E2E)** — **L**, one of
-  the three gaps closed 2026-08-21. **The decision**: Playwright (`playwright-core`,
-  already a dependency for `scripts/bench-web.mjs`), against the real built app — not
-  jsdom + a component-testing library. **Done**: the one E2E flow this item asked for
-  (create project → add a table on the canvas → reload → verify persistence) is now a
-  committed, passing test — `apps/web/e2e/project-lifecycle.e2e.ts`, run with
-  `npm run test:e2e`, deliberately outside `npm test` (needs a build and a browser first).
-  Getting it green surfaced and fixed two real, separate bugs on the way: `fetch()` refuses
-  to connect to port 4190 (it's on the Fetch spec's forbidden-ports list — ManageSieve,
-  RFC 5804) and the project list's own search `<input>` isn't the same input as a
-  freshly-created card's rename field, so a naive "the first input on the page" selector
-  silently targets the wrong element. Both are noted in the test file's own comments.
-  **Still open**: the canvas (React Flow nodes, drag/selection/Yjs-binding hooks), every
-  other React component, and Phase 17's plugin registry/sandbox-Worker path all still have
-  zero test coverage — this closed the E2E piece specifically, not component coverage in
-  general. Spread into that from here rather than re-deciding the tooling.
+- [x] **Browser-based test coverage (canvas, DBML sync, components, E2E)** — **L**, closed
+  2026-08-25. **The decision** (2026-08-21): Playwright (`playwright-core`, already a
+  dependency for `scripts/bench-web.mjs`), against the real built app — not jsdom + a
+  component-testing library. Three more `apps/web/e2e/*.e2e.ts` files added on top of the
+  original persistence flow, all run with `npm run test:e2e` (still deliberately outside
+  `npm test` — needs a build and a browser first): `canvas-interactions.e2e.ts` (select,
+  keyboard delete, undo, Ctrl-click multi-select surfacing the group toolbar — real React
+  Flow interactions, not a mock), `component-catalogue.e2e.ts` (loads `#components`,
+  asserts every primitive renders with no console errors, in both themes — the cheapest
+  test in the suite, no server/login needed), `plugin-sandbox.e2e.ts` (installs the
+  community "SQLite & Naming Toolkit" template through the real Plugin Manager UI, then
+  runs its exporter through the real Export dialog — proves `PluginHost.ts` actually
+  spins up a `Worker` and runs untrusted code in it, not a same-thread shortcut). Common
+  server/browser boot-and-teardown factored into `apps/web/e2e/harness.ts` once a second
+  file needed it; each file uses its own literal port since `node --test` runs files in
+  parallel by default. **Found and fixed a real bug getting the plugin-sandbox test
+  green**: `PluginManagerDialog.tsx` passed `pluginRegistry.subscribe`/`.getSnapshot` as
+  bare method references to `useSyncExternalStore`, which calls them unbound — `this` was
+  `undefined` inside, crashing the whole editor (`Cannot read properties of undefined
+  (reading 'snapshot')`) the moment the dialog opened. `usePlugins.ts` already had the
+  correct arrow-wrapped pattern; this file just hadn't matched it. Also found while writing
+  the canvas test (not a bug, a fact about the framework): Yjs's `UndoManager` merges
+  same-origin transactions within its default 500ms `captureTimeout` into one undo step —
+  Playwright's actions land faster than a real user's, so distinct logical actions need an
+  explicit pause between them or a single undo unwinds more than intended; and React Flow's
+  default `multiSelectionKeyCode` is `Control`/`Meta`, not `Shift` (`Shift` is the
+  rubber-band-select key here, via `selectionOnDrag`).
 - [x] User docs (`docs/user-guide.md`) — done.
 - [x] Contributing guide (`CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md`) — done.
 
@@ -166,10 +177,10 @@ this phase by number.
   sessions and permission checks are covered; `routes/{auth,invitations,teams,users}.ts`
   themselves (the HTTP layer, not the logic they call) are not. Same merge as Phase 11 —
   extend `app.test.ts`'s pattern.
-- [~] **`apps/web` test coverage** — pure-logic modules (autoLayout, refGeometry,
-  DBML symbols, awareness colour) are covered; the canvas/components/DBML-sync-end-to-end
-  gap is the same one tracked under Phase 11's browser-test-tooling item — not repeated
-  here.
+- [x] **`apps/web` test coverage** — pure-logic modules (autoLayout, refGeometry,
+  DBML symbols, awareness colour) covered by unit tests; canvas/components/plugin-sandbox
+  covered by Playwright E2E — same closure as Phase 11's browser-test-tooling item, not
+  repeated here.
 - [x] **Upgrade `@dbml/core`** — done 2026-08-14 (`ee496aa`, part of a full dependency
   refresh): 3.x → 10.1.0, seven major versions, all `dbml.test.ts`/`roundtrip.test.ts`
   cases passing unchanged. `toProject`'s raw/untyped reads off `@dbml/core`'s parse output
@@ -195,8 +206,8 @@ this phase by number.
   add. Revisit if a team actually asks for this.
 - [ ] **Plugin publishing/discovery** — **M**. Blocked by the item above — no manifest URL,
   registry, or update check exists; sharing a plugin today means sending a `.js` file.
-- [~] Plugin testing gap folds into Phase 11's browser-test-tooling item (the registry is
-  `localStorage`-backed, the sandbox host needs a real Worker) — not a separate item.
+- [x] Plugin testing gap — closed with Phase 11's browser-test-tooling item
+  (`apps/web/e2e/plugin-sandbox.e2e.ts` drives the real Worker sandbox end to end).
 
 ## Phase 19 — Security hardening for professional use
 
@@ -230,17 +241,33 @@ this phase by number.
 
 ## Phase 21 — Product features & integrations
 
-- [ ] **Public API** — **L**. Hard prerequisite for webhooks, CI integration (Phase 27's
-  Phase E) and the mentions/notifications item below. The REST routes exist and are stable
-  in practice, but are cookie-authenticated, undocumented and unversioned. **How:** API
-  keys (hashed at rest, scoped, rotatable, revocable — design *with* the API, not after), a
-  `/api/v1` surface, per-key rate limits. `settings/SettingsTabContent.tsx`'s billing tab
-  today just says plainly that no public API or API key exists yet (the old fake input
-  field was removed) — building this means adding a real one, not wiring up a placeholder.
+- [x] **Public API** — done 2026-08-25, extended same day twice: `/api/v1`, API keys
+  (SHA-256 hashed at rest, scoped to `projects:read`/`projects:write`/`deployments:trigger`/
+  `connections:manage`/`teams:manage`, optionally locked to one project, revocable — never
+  reachable from another key, only a session), route-level rate limits. Full
+  CRUD+IAM+ops surface: list/create/get/rename or archive/permanently-delete a project,
+  export DBML/SQL/SVG/PNG, schema revision history, IAM (list/grant/revoke a team's project
+  access), import (same three-way merge as the DBML panel — canvas-only edits like table
+  position/color go through the same route via the DBML visual-metadata sidecar),
+  deploy-trigger and rollback-trigger (both factored out of the existing
+  `apply-deployment`/rollback routes into shared `connections/deploy.ts` functions so every
+  path — session or key — runs the identical pipeline), deployment history, full connection
+  CRUD + test + pull (factored into `connections/pull.ts`), and team CRUD + membership
+  (instance-wide, global-admin-only — a project-restricted key is refused outright here,
+  not just unscoped-checked, via a new `requireGlobalScope`). SVG export is a deterministic
+  server-side renderer (`dbml-engine/src/svg.ts`, from stored layout data — no headless
+  browser); PNG rasterises that SVG with `sharp` (new native dependency, server-only — kept
+  out of `dbml-engine` deliberately so the web bundle never sees it). Key management
+  (`/api/keys`) lives in the Settings billing tab, replacing the old placeholder. `/api/v1`
+  itself split across `publicApi/{index,iamRoutes,connectionRoutes,teamRoutes}.ts` once it
+  grew past one file. Documented in `docs/public-api.md`. **Not done**: OpenAPI schema
+  (below), per-key usage quotas, multi-project key scoping (one project or unrestricted,
+  not a list), structured field-level canvas-style edits.
 - [ ] **OpenAPI schema** — **M**. Pairs with the item above — Fastify's route schemas plus
-  `@fastify/swagger` would generate it from the definitions instead of a hand-maintained doc.
-- [ ] **Webhooks** — **M**. "Schema changed" → Slack/Discord/custom endpoint. **Blocked by:**
-  the API's auth model. Needs delivery retries and a signed payload.
+  `@fastify/swagger` would generate it from the definitions instead of the hand-maintained
+  `docs/public-api.md` table.
+- [ ] **Webhooks** — **M**. "Schema changed" → Slack/Discord/custom endpoint. Auth model is
+  no longer the blocker (API keys exist) — still needs delivery retries and a signed payload.
 - [ ] **Project templates** — **M**. Every new project starts empty. **How:** cheap on top
   of the existing DBML import path — a template is just a `.dbml` string plus a small
   gallery UI (e-commerce, multi-tenant SaaS, auth/RBAC).
@@ -287,7 +314,7 @@ this phase by number.
   lazy-loaded-outside-auth shape as the `#bench` perf harness) — every `ui/` primitive,
   every variant, both themes, on one screen. Documented in `CONTRIBUTING.md`'s new
   "Dev-only routes" section.
-- [~] Web test coverage beyond pure logic — same gap as Phase 11's browser-test-tooling
+- [x] Web test coverage beyond pure logic — closed with Phase 11's browser-test-tooling
   item, not repeated here.
 - [x] **Split `room.ts`** — done 2026-08-21: 512 → 402 lines. Two genuinely separable
   pieces came out clean — `realtime/roomRegistry.ts` (the room `Map` + free functions:
@@ -381,8 +408,9 @@ feature area where a mistake can destroy a client's data rather than just annoy 
   - Multi-target promotion (dev → staging → prod) — a connection's `environment` is a
     display/history label today, not a pipeline the app understands.
 - [ ] **Phase E — CI/CD automation** — **L**. "On merge to main, apply pending migrations to
-  staging" via API/CLI/webhook. **Blocked by:** Phase 21's public API + scoped keys — not
-  started, and Phases A–D's early arrival doesn't change that.
+  staging" via API/CLI/webhook. No longer blocked — Phase 21's `/api/v1` deploy-trigger
+  endpoint (`deployments:trigger` scope) is exactly the primitive this needs — but the
+  CI-side wiring (a GitHub Action, a CLI wrapper, docs for a typical pipeline) isn't built.
 
 ## Phase 28 — User-reported feedback (canvas popovers, DBML sync, relation UX)
 

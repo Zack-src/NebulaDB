@@ -10,6 +10,7 @@ import { SUPPORTED_LOCALES } from "@/i18n/translate";
 import { useTranslation } from "@/i18n/useTranslation";
 import type { Session, TranslationKeyOf } from "@/types";
 import { ActiveSessions } from "@/features/settings/ActiveSessions";
+import { ApiKeys } from "@/features/settings/ApiKeys";
 import { PersonalData } from "@/features/settings/PersonalData";
 import { TwoFactorAuth } from "@/features/settings/TwoFactorAuth";
 import type { useSettingsPanelState, SettingsTab } from "@/features/settings/useSettingsPanelState";
@@ -276,10 +277,7 @@ export function SettingsTabContent({ tab, session, state }: SettingsTabContentPr
           <p className="text-xs text-text-secondary leading-relaxed">{t("settings.billing.description")}</p>
         </Card>
 
-        <div className="space-y-2 pt-4 border-t border-border/60">
-          <h3 className="text-xs font-bold text-text">{t("settings.billing.apiKeysTitle")}</h3>
-          <p className="text-xs text-text-muted leading-relaxed">{t("settings.billing.apiKeysDescription")}</p>
-        </div>
+        <ApiKeys />
       </div>
     );
   }

@@ -1,6 +1,7 @@
 export * from "./dbml.js";
 export * from "./concurrentEdits.js";
 export * from "./serialize.js";
+export * from "./svg.js";
 export * from "./format.js";
 export * from "./diff.js";
 export * from "./validate.js";
