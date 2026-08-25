@@ -12,6 +12,7 @@ const KEY = {
   fontScale: "athanordb.canvasFontScale",
   highlightLinks: "athanordb.highlightLinks",
   showMinimap: "athanordb.showMinimap",
+  showValidationIssues: "athanordb.showValidationIssues",
   locale: "athanordb.locale",
   dbmlPanelWidth: "athanordb.dbmlPanelWidth",
   gridStyle: "athanordb.gridStyle",
@@ -102,6 +103,20 @@ export function loadShowMinimap(): boolean {
 
 export function saveShowMinimap(visible: boolean): void {
   writeBoolean(KEY.showMinimap, visible);
+}
+
+/**
+ * The schema-issues overlay (table warning badges + issue-coloured refs) —
+ * on by default, matching "présent par défaut" for the built-in schema lint:
+ * it should be something people notice and turn off, not something they have
+ * to discover and turn on.
+ */
+export function loadShowValidationIssues(): boolean {
+  return readBoolean(KEY.showValidationIssues, true);
+}
+
+export function saveShowValidationIssues(visible: boolean): void {
+  writeBoolean(KEY.showValidationIssues, visible);
 }
 
 /** `null` means "never chosen" — the provider then follows the browser's own preference. */

@@ -1,6 +1,7 @@
 import { useMemo, useRef } from "react";
 import * as Y from "yjs";
 import { getRefsMap, type Project, type RefCardinality, type RoutingPoint } from "@athanordb/shared";
+import type { ValidationIssue } from "@athanordb/dbml-engine";
 import type { RefEdgeType } from "@/features/editor/edges/RefEdge";
 import {
   DEFAULT_TABLE_HEIGHT,
@@ -10,6 +11,8 @@ import {
 } from "@/features/editor/edges/refGeometry";
 import type { CanvasNode } from "@/types/index";
 import { time } from "@/utils/perfMonitor";
+
+const EMPTY_ISSUES_BY_REF: Map<string, ValidationIssue[]> = new Map();
 
 /** Builds the React Flow edge array from the live project's refs, resolving each edge's source/target handle side from the current table positions/sizes. */
 export function useCanvasEdges(
@@ -42,6 +45,10 @@ export function useCanvasEdges(
    * drop.
    */
   dragging = false,
+  /** Per-ref validation issues, from `ProjectEditor`'s `useMemo(() => validateProject(liveProject), ...)`. */
+  issuesByRef: Map<string, ValidationIssue[]> = EMPTY_ISSUES_BY_REF,
+  /** The canvas-wide "show validation issues" toggle — see `CanvasToolbar`. */
+  showValidationIssues = true,
 ): RefEdgeType[] {
   // Written during render on purpose, and the one place in this file that
   // does: the frozen array has to be in place for the very first drag frame
@@ -101,6 +108,8 @@ export function useCanvasEdges(
         const connectedHighlight =
           isFieldHovered || isFieldSelected || isTableHovered || isTableSelected || isEdgeSelected;
 
+        const refIssues = showValidationIssues ? issuesByRef.get(ref.id) : undefined;
+
         const fromBox: TableBox = {
           x: fromNode?.position.x ?? fromTable?.position.x ?? 0,
           y: fromNode?.position.y ?? fromTable?.position.y ?? 0,
@@ -146,6 +155,8 @@ export function useCanvasEdges(
             routingPoints: ref.routingPoints,
             highlightLinks,
             connectedHighlight,
+            hasIssue: Boolean(refIssues?.length),
+            issueMessages: refIssues?.map((issue) => issue.message),
             color: ref.style?.color,
             palette,
             onPaletteChange: onPaletteChange ?? (() => {}),
@@ -210,5 +221,7 @@ export function useCanvasEdges(
     palette,
     onPaletteChange,
     canWrite,
+    issuesByRef,
+    showValidationIssues,
   ]);
 }

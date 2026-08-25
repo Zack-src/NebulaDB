@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from "react";
 import * as Y from "yjs";
 import { getMetaMap, type Project } from "@athanordb/shared";
+import type { ValidationIssue } from "@athanordb/dbml-engine";
 import { DEFAULT_PALETTE } from "@/components/inputs/ColorSwatchPicker";
 import type { CanvasNode } from "@/types/index";
 import { buildZoneNodes } from "./buildZoneNodes";
@@ -12,6 +13,8 @@ import { useSelectionPreservingNodes } from "./useSelectionPreservingNodes";
 import { useNodesChangeHandler } from "./useNodesChangeHandler";
 import type { TableNodeCache } from "./tableNodeCache";
 import { time } from "@/utils/perfMonitor";
+
+const EMPTY_ISSUES_BY_TABLE: Map<string, ValidationIssue[]> = new Map();
 
 /**
  * Builds the React Flow node array (zones, tables, sticky notes — in that
@@ -46,6 +49,10 @@ export function useCanvasNodes(
   onSelectField: (fieldId: string | null) => void,
   /** False for a `view` grant: nodes still render and select, but nothing they do reaches the document. */
   canWrite = true,
+  /** Per-table validation issues, from `ProjectEditor`'s `useMemo(() => validateProject(liveProject), ...)`. */
+  issuesByTable: Map<string, ValidationIssue[]> = EMPTY_ISSUES_BY_TABLE,
+  /** The canvas-wide "show validation issues" toggle — see `CanvasToolbar`. */
+  showValidationIssues = true,
 ) {
   // Survives every rebuild: it is the thing that makes a rebuild cheap. Held
   // in state (never set again) rather than a ref, so nothing reads a ref
@@ -80,6 +87,8 @@ export function useCanvasNodes(
         selectedFieldId,
         onSelectField,
         canWrite,
+        issuesByTable,
+        showValidationIssues,
         tableNodeCache,
       ),
       ...buildStickyNodes(liveProject.stickyNotes, doc, palette, onPaletteChange, canWrite),
@@ -99,6 +108,8 @@ export function useCanvasNodes(
     canWrite,
     onPaletteChange,
     tableNodeCache,
+    issuesByTable,
+    showValidationIssues,
   ]);
 
   const [nodes, setNodes] = useSelectionPreservingNodes(builtNodes);

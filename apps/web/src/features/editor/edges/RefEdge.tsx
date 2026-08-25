@@ -20,6 +20,10 @@ export interface RefEdgeData {
   connectedHighlight?: boolean;
   /** Custom highlight color override — falls back to the cardinality's default color when unset. */
   color?: string;
+  /** True when this ref has a validation issue (see `packages/dbml-engine/src/validate.ts`) and the canvas-wide "show schema issues" toggle is on — draws the line in the issue colour regardless of hover/selection. */
+  hasIssue?: boolean;
+  /** This ref's own issue messages — shown on hover via the edge's tooltip-less label; kept on `data` for the context menu / future surfacing. */
+  issueMessages?: string[];
   palette: string[];
   onPaletteChange: (palette: string[]) => void;
   onColorChange: (color: string | undefined) => void;
@@ -41,6 +45,8 @@ export const CARDINALITY_STYLE: Record<RefCardinality, { stroke: string; label: 
 
 /** Colour of a relation nobody is looking at — deliberately low-contrast so a dense schema reads as structure rather than spaghetti. */
 const DIMMED_STROKE = "#475569";
+/** A ref with a validation issue draws in this colour at all times (not just on hover/selection) — it's the one thing on the canvas that should stay visible even in a dense, otherwise-dimmed schema. */
+const ISSUE_STROKE = "#f59e0b";
 /** Arrowhead size in screen pixels, before the zoom counter-scale. */
 const ARROW_LENGTH = 9;
 const ARROW_HALF_WIDTH = 5;
@@ -122,7 +128,8 @@ function RefEdgeImpl({
   const labelY = split?.mid.y ?? routing.stepLabelY;
 
   const isHighlighted = Boolean(data?.highlightLinks || data?.connectedHighlight || selected || isHovered);
-  const strokeColor = isHighlighted ? (data?.color ?? style.stroke) : DIMMED_STROKE;
+  const hasIssue = Boolean(data?.hasIssue);
+  const strokeColor = hasIssue ? ISSUE_STROKE : isHighlighted ? (data?.color ?? style.stroke) : DIMMED_STROKE;
   // Path coordinates live in flow space, which React Flow scales down via a
   // CSS transform as the user zooms out — so a fixed stroke-width/dasharray
   // shrinks to sub-pixel and disappears at low zoom. Dividing by zoom here
@@ -139,7 +146,7 @@ function RefEdgeImpl({
   const zoom = useStore(zoomSelector);
   const zoomCompensation = 1 / Math.max(zoom, 0.01);
   const strokeWidth = (selected ? 2.5 : isHighlighted ? 2 : 1.5) * zoomCompensation;
-  const strokeOpacity = selected ? 1 : isHighlighted ? 0.95 : 0.45;
+  const strokeOpacity = selected ? 1 : isHighlighted ? 0.95 : hasIssue ? 0.85 : 0.45;
 
   // Rectangular dashes (dbdiagram style) with clean, well-spaced flow:
   // 8px dash, 10px gap in screen pixels (compensated for zoom)
@@ -259,7 +266,9 @@ function RefEdgeImpl({
         }}
         onDoubleClick={routing.handlePathDoubleClick}
         onContextMenu={(event) => routing.openContextMenu(event)}
-      />
+      >
+        {hasIssue && data?.issueMessages && <title>{data.issueMessages.join("\n")}</title>}
+      </path>
       {/* Mounted only when it would hold something: an idle relation used to
           keep a portal (and, with React Flow's own `EdgeLabelRenderer`, a
           store subscription) alive for an empty subtree, several hundred
@@ -377,7 +386,9 @@ function refEdgePropsAreEqual(prev: EdgeProps<RefEdgeType>, next: EdgeProps<RefE
     a.highlightLinks === b.highlightLinks &&
     a.connectedHighlight === b.connectedHighlight &&
     a.color === b.color &&
-    a.palette === b.palette
+    a.palette === b.palette &&
+    a.hasIssue === b.hasIssue &&
+    a.issueMessages === b.issueMessages
   );
 }
 

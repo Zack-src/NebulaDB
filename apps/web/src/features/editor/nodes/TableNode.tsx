@@ -1,9 +1,10 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Handle, Position, useReactFlow, type Node, type NodeProps } from "@xyflow/react";
+import { Handle, Position, useReactFlow, useUpdateNodeInternals, type Node, type NodeProps } from "@xyflow/react";
 import { MAX_NAME_LENGTH, type Field, type Table, type TableIndex } from "@athanordb/shared";
+import type { ValidationIssue } from "@athanordb/dbml-engine";
 import { CommentThread } from "@/features/editor/comments/CommentThread";
 import type { RemoteSelector } from "@/features/collaboration/useRemoteSelections";
-import { CodeIcon, PlusIcon } from "@/components/icons/Icons";
+import { AlertTriangleIcon, CodeIcon, PlusIcon } from "@/components/icons/Icons";
 import { DEFAULT_HEADER_COLOR, TableSettingsPopover } from "@/features/editor/nodes/table/TableSettingsPopover";
 import { TableNodeRow } from "@/features/editor/nodes/table/TableNodeRow";
 import { useDismissablePopover } from "@/hooks/useDismissablePopover";
@@ -33,6 +34,8 @@ export interface TableNodeData {
   /** True for a `view` grant — hides every editing affordance on the node. */
   readOnly?: boolean;
   selectedFieldId?: string | null;
+  /** This table's validation issues (see `packages/dbml-engine/src/validate.ts`) — empty when the canvas-wide toggle is off. */
+  issues?: ValidationIssue[];
   /** Remote collaborators who currently have this table selected — Figma-style outline, set by `CanvasArea`. */
   remoteSelectedBy?: RemoteSelector[];
   onSelectField: (fieldId: string | null) => void;
@@ -96,6 +99,8 @@ function TableNodeImpl({ data, selected, id }: NodeProps<TableNodeType>) {
   useDismissablePopover(Boolean(selectedFieldId), () => onSelectField(null), [selectedRowRef]);
   const tableComments = table.comments?.filter((c) => !c.fieldId) ?? [];
   const headerColor = table.style?.color ?? DEFAULT_HEADER_COLOR;
+  const issues = data.issues ?? [];
+  const hasErrorIssue = issues.some((issue) => issue.severity === "error");
 
   /**
    * Which of this table's columns sit on a highlighted relation.
@@ -140,6 +145,20 @@ function TableNodeImpl({ data, selected, id }: NodeProps<TableNodeType>) {
           : table.fields.filter((f) => isPkField(f) || refFieldIds.has(f.id)),
     [table.detailLevel, table.fields, isPkField, refFieldIds],
   );
+
+  // Each column row carries its own left/right Handle, keyed by field id, so
+  // reordering columns moves a handle's on-screen position without changing
+  // the node's outer size — React Flow only re-measures handle bounds on
+  // resize, so a reorder alone leaves every edge anchored to the row's *old*
+  // position until something tells it to look again. `updateNodeInternals`
+  // is that "look again"; the field-id order joined into one string is the
+  // dependency so this only fires on an actual reorder (or add/remove),
+  // not on every unrelated field edit (name, type, ...).
+  const updateNodeInternals = useUpdateNodeInternals();
+  const fieldOrderKey = rows.map((f) => f.id).join("|");
+  useEffect(() => {
+    updateNodeInternals(id);
+  }, [fieldOrderKey, id, updateNodeInternals]);
 
   // Figma shows one name per remote selector, not a pile of avatars — the
   // first is enough to say who, "+N" covers the rest without crowding the
@@ -228,6 +247,15 @@ function TableNodeImpl({ data, selected, id }: NodeProps<TableNodeType>) {
           )}
 
           <div className={HEADER_ACTIONS_CLASS}>
+            {issues.length > 0 && (
+              <span
+                className={`nodrag flex items-center ${hasErrorIssue ? "text-danger" : "text-warning"}`}
+                data-tooltip={t("table.validationIssueCount", { count: issues.length })}
+                data-tooltip-note={issues.map((issue) => issue.message).join("\n")}
+              >
+                <AlertTriangleIcon size={13} />
+              </span>
+            )}
             {data.onGoToDbml && (
               <button
                 type="button"

@@ -1,4 +1,4 @@
-import { LinkIcon, MinimapIcon, RestoreIcon, SearchIcon } from "@/components/icons/Icons";
+import { AlertTriangleIcon, LinkIcon, MinimapIcon, RestoreIcon, SearchIcon } from "@/components/icons/Icons";
 import {
   CANVAS_TOOLBAR_DIVIDER_CLASS,
   CANVAS_TOOLBAR_ICON_BTN_CLASS,
@@ -29,6 +29,8 @@ export interface CanvasToolbarProps {
   onSetDetailLevel: (level: DetailLevel) => void;
   highlightLinks: boolean;
   onHighlightLinksChange: (highlight: boolean) => void;
+  showValidationIssues: boolean;
+  onShowValidationIssuesChange: (visible: boolean) => void;
   minimapVisible: boolean;
   onToggleMinimap: () => void;
   searchOpen: boolean;
@@ -93,6 +95,18 @@ export function CanvasToolbar(props: CanvasToolbarProps) {
         aria-label={t("canvas.toggleLinkHighlight")}
       >
         <LinkIcon size={TOGGLE_ICON_SIZE} />
+      </button>
+      <button
+        type="button"
+        className={`${CANVAS_TOOLBAR_ICON_BTN_CLASS} ${props.showValidationIssues ? CANVAS_TOOLBAR_TOGGLE_ACTIVE_CLASS : ""}`}
+        onClick={() => props.onShowValidationIssuesChange(!props.showValidationIssues)}
+        aria-pressed={props.showValidationIssues}
+        data-testid="toggle-validation-issues"
+        data-tooltip={t(props.showValidationIssues ? "canvas.hideValidationIssues" : "canvas.showValidationIssues")}
+        data-tooltip-pos="bottom"
+        aria-label={t("canvas.toggleValidationIssues")}
+      >
+        <AlertTriangleIcon size={TOGGLE_ICON_SIZE} />
       </button>
       {props.canWrite && resetLinkRoutingCommand && (
         <button

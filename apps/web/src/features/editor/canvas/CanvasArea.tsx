@@ -92,6 +92,8 @@ export interface CanvasAreaProps {
   onSetDetailLevel: (level: DetailLevel) => void;
   highlightLinks: boolean;
   onHighlightLinksChange: (highlight: boolean) => void;
+  showValidationIssues: boolean;
+  onShowValidationIssuesChange: (visible: boolean) => void;
   projectId: string;
   /** Session's stable user id — namespaces the saved-viewport key, not an identity field. */
   viewportUserId: string;
@@ -346,6 +348,8 @@ export function CanvasArea(props: CanvasAreaProps) {
               onSetDetailLevel={props.onSetDetailLevel}
               highlightLinks={props.highlightLinks}
               onHighlightLinksChange={props.onHighlightLinksChange}
+              showValidationIssues={props.showValidationIssues}
+              onShowValidationIssuesChange={props.onShowValidationIssuesChange}
               minimapVisible={minimapVisible}
               onToggleMinimap={toggleMinimap}
               searchOpen={search.open}

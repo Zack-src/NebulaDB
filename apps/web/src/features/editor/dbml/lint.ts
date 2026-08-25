@@ -2,7 +2,7 @@ import { StateEffect, StateField } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { forceLinting, linter, type Diagnostic } from "@codemirror/lint";
 import { DBML_TYPES } from "@/features/editor/dbml/language";
-import { getSymbols, type Span } from "@/features/editor/dbml/symbols";
+import { getSymbols, type FieldSymbol, type Span } from "@/features/editor/dbml/symbols";
 
 export interface ServerProblem {
   message: string;
@@ -29,6 +29,9 @@ export function applyServerProblem(view: EditorView, problem: ServerProblem | nu
 }
 
 const KNOWN_TYPES = new Set(DBML_TYPES.map((t) => t.toLowerCase()));
+
+/** `decimal(10,2)` -> `decimal`, `varchar[]` -> `varchar`. */
+const baseType = (type: string) => type.replace(/\(.*$/, "").replace(/\[\]$/, "").toLowerCase();
 
 function spanOfLine(view: EditorView, lineNumber: number): Span {
   const line = view.state.doc.line(Math.min(Math.max(1, lineNumber), view.state.doc.lines));
@@ -73,11 +76,11 @@ export const dbmlLinter = linter(
           seenFields.set(fkey, field.line);
         }
 
-        const baseType = field.type.replace(/\(.*$/, "").replace(/\[\]$/, "").toLowerCase();
+        const fieldBaseType = baseType(field.type);
         if (
-          baseType &&
-          !KNOWN_TYPES.has(baseType) &&
-          !symbols.enumByName.has(baseType) &&
+          fieldBaseType &&
+          !KNOWN_TYPES.has(fieldBaseType) &&
+          !symbols.enumByName.has(fieldBaseType) &&
           !field.type.startsWith('"')
         ) {
           push(field.typeSpan, "warning", `Unknown type "${field.type}". Not a built-in type nor a declared Enum.`);
@@ -96,6 +99,13 @@ export const dbmlLinter = linter(
       if (table.fields.length === 0) {
         push(table.nameSpan, "warning", `Table "${table.name}" has no columns.`);
       }
+
+      // A composite PK is an `indexes { (a, b) [pk] }` entry, not a per-field
+      // flag — either counts.
+      const hasPk = table.fields.some((f) => f.pk) || table.indexes.some((line) => /\[[^\]]*\bpk\b/i.test(line));
+      if (table.fields.length > 0 && !hasPk) {
+        push(table.nameSpan, "warning", `Table "${table.name}" has no primary key.`);
+      }
     }
 
     // duplicate enums
@@ -108,21 +118,29 @@ export const dbmlLinter = linter(
 
     // relationship endpoints
     for (const ref of symbols.refs) {
+      // Resolved per side below (`undefined` if the table/column doesn't
+      // exist) so a type-mismatch check further down can compare them
+      // without re-walking `endpoint.fields` a second time.
+      const resolvedFields: (FieldSymbol | undefined)[][] = [];
       for (const endpoint of [ref.left, ref.right]) {
         const table = symbols.tableByName.get(endpoint.table.toLowerCase());
         if (!table) {
           push(endpoint.tableSpan, "error", `Unknown table "${endpoint.table}".`);
+          resolvedFields.push([]);
           continue;
         }
-        for (const fieldName of endpoint.fields) {
-          if (!table.fields.some((f) => f.name.toLowerCase() === fieldName.toLowerCase())) {
+        const fields = endpoint.fields.map((fieldName) => {
+          const field = table.fields.find((f) => f.name.toLowerCase() === fieldName.toLowerCase());
+          if (!field) {
             push(
               endpoint.fieldSpan.to > endpoint.fieldSpan.from ? endpoint.fieldSpan : endpoint.tableSpan,
               "error",
               `Table "${table.name}" has no column "${fieldName}".`,
             );
           }
-        }
+          return field;
+        });
+        resolvedFields.push(fields);
       }
       if (ref.left.fields.length !== ref.right.fields.length) {
         push(
@@ -130,6 +148,19 @@ export const dbmlLinter = linter(
           "warning",
           "Both sides of a composite relationship must list the same number of columns.",
         );
+      } else {
+        const [leftFields, rightFields] = resolvedFields;
+        for (let i = 0; i < leftFields.length; i++) {
+          const left = leftFields[i];
+          const right = rightFields[i];
+          if (left && right && baseType(left.type) !== baseType(right.type)) {
+            push(
+              spanOfLine(view, ref.line),
+              "warning",
+              `Type mismatch: "${ref.left.table}.${left.name}" is ${left.type}, "${ref.right.table}.${right.name}" is ${right.type}.`,
+            );
+          }
+        }
       }
     }
 

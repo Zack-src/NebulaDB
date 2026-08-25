@@ -1,8 +1,11 @@
 import * as Y from "yjs";
 import { getRefsMap, getTablesMap, type Comment, type Field, type Table, type TableIndex } from "@athanordb/shared";
+import type { ValidationIssue } from "@athanordb/dbml-engine";
 import type { TableNodeType } from "@/features/editor/nodes/TableNode";
 import { generateId } from "@/utils/id";
 import { readCachedTableNode, type TableNodeCache } from "./tableNodeCache";
+
+const EMPTY_ISSUES: ValidationIssue[] = [];
 
 export function buildTableNodes(
   tables: Table[],
@@ -17,6 +20,10 @@ export function buildTableNodes(
   selectedFieldId: string | null,
   onSelectField: (fieldId: string | null) => void,
   canWrite = true,
+  /** This table's own validation issues (see `packages/dbml-engine/src/validate.ts`), from `ProjectEditor`'s `issuesByTable`. */
+  issuesByTable: Map<string, ValidationIssue[]> = new Map(),
+  /** The canvas-wide "show validation issues" toggle — see `CanvasToolbar`. */
+  showValidationIssues = true,
   /**
    * Per-table memo of the last node built for each id — see
    * `tableNodeCache.ts`. Rebuilding every table's data (and its fifteen
@@ -34,6 +41,11 @@ export function buildTableNodes(
     // *other* table must not invalidate this one.
     const selectedFieldIdForTable =
       selectedFieldId && table.fields.some((field) => field.id === selectedFieldId) ? selectedFieldId : null;
+    const issues = issuesByTable.get(table.id) ?? EMPTY_ISSUES;
+    // `issuesByTable` is rebuilt (fresh array per table) on every project
+    // change like `refFieldIdsByTable` above — a joined string, not the array
+    // itself, is what the cache can actually compare with `===`.
+    const issuesKey = issues.map((issue) => `${issue.severity}:${issue.message}`).join("|");
     const cacheKey = {
       table,
       refFieldIds,
@@ -42,11 +54,13 @@ export function buildTableNodes(
       canWrite,
       user,
       callbacks,
+      issuesKey,
+      showValidationIssues,
     };
     const cached = readCachedTableNode(cache, cacheKey, table.id);
     if (cached) return cached;
 
-    const node = buildTableNode(table, refFieldIds, selectedFieldIdForTable);
+    const node = buildTableNode(table, refFieldIds, selectedFieldIdForTable, issues);
     cache.set(table.id, { ...cacheKey, node });
     return node;
   });
@@ -61,7 +75,12 @@ export function buildTableNodes(
   }
   return nodes;
 
-  function buildTableNode(table: Table, refFieldIds: Set<string>, selectedFieldId: string | null): TableNodeType {
+  function buildTableNode(
+    table: Table,
+    refFieldIds: Set<string>,
+    selectedFieldId: string | null,
+    issues: ValidationIssue[],
+  ): TableNodeType {
     return {
       id: table.id,
       position: table.position,
@@ -73,6 +92,7 @@ export function buildTableNodes(
         palette,
         readOnly: !canWrite,
         selectedFieldId,
+        issues: showValidationIssues ? issues : EMPTY_ISSUES,
         onSelectField,
         onPaletteChange,
         onGoToDbml: () => onGoToDbml(table.name),

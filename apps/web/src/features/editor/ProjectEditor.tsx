@@ -1,6 +1,7 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
 import { getMetaMap, type DatabaseConnectionSummary } from "@athanordb/shared";
+import { validateProject, type ValidationIssue } from "@athanordb/dbml-engine";
 import { listProjectConnections } from "@/services/connectionsApi";
 import { useProjectDoc } from "@/features/collaboration/useProjectDoc";
 import { useAwarenessStates } from "@/features/collaboration/useAwarenessStates";
@@ -9,7 +10,7 @@ import { hashColor } from "@/features/collaboration/awarenessColor";
 import { CanvasArea } from "@/features/editor/canvas/CanvasArea";
 import { ChevronRightIcon } from "@/components/icons/Icons";
 import { DEFAULT_PALETTE } from "@/components/inputs/ColorSwatchPicker";
-import { loadHighlightLinks, saveHighlightLinks } from "@/utils/preferences";
+import { loadHighlightLinks, loadShowValidationIssues, saveHighlightLinks, saveShowValidationIssues } from "@/utils/preferences";
 import type { CanvasExportHandle, CanvasNavigateHandle, ProjectSummary } from "@/types/index";
 import { useCanvasNodes } from "@/features/editor/hooks/useCanvasNodes";
 import { useCanvasEdges } from "@/features/editor/hooks/useCanvasEdges";
@@ -91,6 +92,7 @@ export function ProjectEditor(props: {
   const canvasCommands = useCanvasCommands(project.id);
   const { fontScale } = useCanvasFontScale();
   const [highlightLinks, setHighlightLinks] = useState(loadHighlightLinks);
+  const [showValidationIssues, setShowValidationIssues] = useState(loadShowValidationIssues);
   const [hoveredFieldId, setHoveredFieldId] = useState<string | null>(null);
   const [hoveredTableId, setHoveredTableId] = useState<string | null>(null);
   const [selectedFieldId, setSelectedFieldId] = useState<string | null>(null);
@@ -105,6 +107,36 @@ export function ProjectEditor(props: {
     setHighlightLinks(val);
     saveHighlightLinks(val);
   };
+
+  const handleShowValidationIssuesChange = (val: boolean) => {
+    setShowValidationIssues(val);
+    saveShowValidationIssues(val);
+  };
+
+  // Recomputed on every doc update, like `refFieldIdsByTable` below — cheap
+  // (a handful of O(tables+refs) passes) next to the Yjs->Project rebuild
+  // that already happens on every change.
+  const validationIssues = useMemo(() => (liveProject ? validateProject(liveProject) : []), [liveProject]);
+  const issuesByTable = useMemo(() => {
+    const map = new Map<string, ValidationIssue[]>();
+    for (const issue of validationIssues) {
+      if (!issue.tableId) continue;
+      const list = map.get(issue.tableId);
+      if (list) list.push(issue);
+      else map.set(issue.tableId, [issue]);
+    }
+    return map;
+  }, [validationIssues]);
+  const issuesByRef = useMemo(() => {
+    const map = new Map<string, ValidationIssue[]>();
+    for (const issue of validationIssues) {
+      if (!issue.refId) continue;
+      const list = map.get(issue.refId);
+      if (list) list.push(issue);
+      else map.set(issue.refId, [issue]);
+    }
+    return map;
+  }, [validationIssues]);
 
   // Populated by CanvasArea (inside the ReactFlowProvider) so ExportDialog
   // (outside it) can still trigger a canvas screenshot.
@@ -171,6 +203,8 @@ export function ProjectEditor(props: {
     selectedFieldId,
     setSelectedFieldId,
     canWrite,
+    issuesByTable,
+    showValidationIssues,
   );
 
   const selectedTableIds = useMemo(
@@ -200,6 +234,8 @@ export function ProjectEditor(props: {
     onPaletteChange,
     canWrite,
     dragging,
+    issuesByRef,
+    showValidationIssues,
   );
 
   const {
@@ -305,6 +341,8 @@ export function ProjectEditor(props: {
                 onSetDetailLevel={setAllDetailLevels}
                 highlightLinks={highlightLinks}
                 onHighlightLinksChange={handleHighlightLinksChange}
+                showValidationIssues={showValidationIssues}
+                onShowValidationIssuesChange={handleShowValidationIssuesChange}
                 projectId={project.id}
                 viewportUserId={session.id}
                 exportRef={canvasExportRef}

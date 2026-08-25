@@ -7,7 +7,12 @@ function table(id: string, name: string, fieldNames: string[] = ["id"]): Table {
   return {
     id,
     name,
-    fields: fieldNames.map((n, i) => ({ id: `${id}-f${i}`, name: n, type: "int" })),
+    // The `id` field is the PK by convention in every fixture below — tests
+    // that actually care about the missing-PK/type-mismatch checks build
+    // their own table literal instead of going through this helper, so the
+    // rest of the suite (duplicates, dangling refs, cycles) isn't drowned in
+    // an incidental "no primary key" warning it isn't testing for.
+    fields: fieldNames.map((n, i) => ({ id: `${id}-f${i}`, name: n, type: "int", pk: n === "id" })),
     indexes: [],
     position: { x: 0, y: 0 },
     detailLevel: "standard",
@@ -97,4 +102,60 @@ test("two-table mutual cycle flagged as warning", () => {
   const issues = validateProject(project([a, b], refs));
   assert.equal(issues.length, 1);
   assert.equal(issues[0].severity, "warning");
+});
+
+test("table with no field marked pk and no pk index is flagged as a warning", () => {
+  // A pure junction/join table — two FK columns, neither is `pk` — is the
+  // most common real-world case of this (see DeepDetect's ~24 join tables).
+  const t: Table = {
+    id: "t1",
+    name: "criteria_theme_list",
+    fields: [
+      { id: "t1-f0", name: "id_theme", type: "int" },
+      { id: "t1-f1", name: "id_criteria", type: "int" },
+    ],
+    indexes: [],
+    position: { x: 0, y: 0 },
+    detailLevel: "standard",
+  };
+  const issues = validateProject(project([t]));
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].severity, "warning");
+  assert.equal(issues[0].tableId, "t1");
+  assert.match(issues[0].message, /has no primary key/);
+});
+
+test("a composite pk declared as a table index counts as having a pk", () => {
+  const t: Table = {
+    id: "t1",
+    name: "criteria_theme_list",
+    fields: [
+      { id: "t1-f0", name: "id_theme", type: "int" },
+      { id: "t1-f1", name: "id_criteria", type: "int" },
+    ],
+    indexes: [{ id: "idx1", fieldIds: ["t1-f0", "t1-f1"], pk: true }],
+    position: { x: 0, y: 0 },
+    detailLevel: "standard",
+  };
+  assert.deepEqual(validateProject(project([t])), []);
+});
+
+test("ref whose two sides have different base column types is flagged as a warning", () => {
+  const kci = table("t1", "kci", ["id", "id_kci_type"]);
+  kci.fields[1].type = "decimal";
+  const kciType = table("t2", "kci_type", ["id"]);
+  const issues = validateProject(project([kci, kciType], [ref("r1", ["t1", "t1-f1"], ["t2", "t2-f0"])]));
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].severity, "warning");
+  assert.equal(issues[0].refId, "r1");
+  assert.match(issues[0].message, /type mismatch/i);
+});
+
+test("ref sides differing only in precision/args (decimal(10,2) vs decimal) are not flagged", () => {
+  const a = table("t1", "a", ["id", "amount"]);
+  a.fields[1].type = "decimal(10,2)";
+  const b = table("t2", "b", ["id"]);
+  b.fields[0].type = "decimal";
+  const issues = validateProject(project([a, b], [ref("r1", ["t1", "t1-f1"], ["t2", "t2-f0"])]));
+  assert.deepEqual(issues, []);
 });

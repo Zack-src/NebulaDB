@@ -30,6 +30,9 @@ export interface TableNodeCacheEntry {
   user: string;
   /** Identity of the callback bundle the node's data closes over. */
   callbacks: unknown;
+  /** This table's validation issues, joined into one comparable string — see `buildTableNodes`. */
+  issuesKey: string;
+  showValidationIssues: boolean;
 }
 
 export type TableNodeCache = Map<string, TableNodeCacheEntry>;
@@ -48,6 +51,8 @@ export function readCachedTableNode(
     cached.canWrite === key.canWrite &&
     cached.user === key.user &&
     cached.callbacks === key.callbacks &&
+    cached.issuesKey === key.issuesKey &&
+    cached.showValidationIssues === key.showValidationIssues &&
     setsEqual(cached.refFieldIds, key.refFieldIds);
   return unchanged ? cached.node : null;
 }

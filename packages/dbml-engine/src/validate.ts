@@ -12,6 +12,15 @@ export interface ValidationIssue {
   refId?: string;
 }
 
+/** `decimal(10,2)` -> `decimal`, `varchar[]` -> `varchar` — settings/precision differing across a ref's two sides isn't a modeling mistake, an outright different base type usually is. */
+function baseType(type: string): string {
+  return type
+    .replace(/\(.*$/, "")
+    .replace(/\[\]$/, "")
+    .trim()
+    .toLowerCase();
+}
+
 function findDuplicateNames<T>(items: T[], nameOf: (item: T) => string): string[] {
   const counts = new Map<string, number>();
   for (const item of items) {
@@ -54,9 +63,11 @@ function findCycles(adjacency: Map<string, string[]>): string[][] {
 }
 
 /**
- * Structural validation of a `Project`: duplicate table/field names, ref
- * endpoints that don't resolve to a real table+field ("missing FK target"),
- * and circular ref chains among 2+ distinct tables. Informational only —
+ * Structural validation of a `Project`: duplicate table/field names, tables
+ * with no primary key, ref endpoints that don't resolve to a real
+ * table+field ("missing FK target"), a ref whose two sides have different
+ * base column types, and circular ref chains among 2+ distinct tables.
+ * Informational only —
  * nothing here blocks import or editing, since a schema mid-edit or one with
  * an intentional circular dependency (e.g. a bidirectional hub) is still a
  * valid thing to have open; SQL export already emits FKs as separate `ALTER
@@ -78,6 +89,13 @@ export function validateProject(project: Project): ValidationIssue[] {
         message: `Duplicate field name "${name}" in table "${table.name}"`,
         tableId: table.id,
       });
+    }
+
+    // A composite PK is expressed as an `indexes { (a, b) [pk] }` entry, not a
+    // per-field flag (DBML/SQL have no other way to say it) — either counts.
+    const hasPk = table.fields.some((f) => f.pk) || table.indexes.some((idx) => idx.pk);
+    if (!hasPk) {
+      issues.push({ severity: "warning", message: `Table "${table.name}" has no primary key`, tableId: table.id });
     }
   }
 
@@ -111,6 +129,16 @@ export function validateProject(project: Project): ValidationIssue[] {
 
     if (fromTable && toTable && ref.from.tableId !== ref.to.tableId) {
       adjacency.get(ref.from.tableId)?.push(ref.to.tableId);
+    }
+
+    const fromField = fromTable?.fields.find((f) => f.id === ref.from.fieldId);
+    const toField = toTable?.fields.find((f) => f.id === ref.to.fieldId);
+    if (fromField && toField && baseType(fromField.type) !== baseType(toField.type)) {
+      issues.push({
+        severity: "warning",
+        message: `Ref ${label}: type mismatch — "${fromTable!.name}.${fromField.name}" is ${fromField.type}, "${toTable!.name}.${toField.name}" is ${toField.type}`,
+        refId: ref.id,
+      });
     }
   }
 
