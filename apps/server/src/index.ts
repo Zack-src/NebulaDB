@@ -1,3 +1,4 @@
+import "./loadEnv.js";
 import path from "node:path";
 import { buildApp } from "./app.js";
 import { config } from "./config.js";
