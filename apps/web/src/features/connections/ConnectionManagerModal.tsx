@@ -20,6 +20,12 @@ const DEFAULT_PORTS: Record<DatabaseEngine, number> = {
   postgres: 5432,
   mysql: 3306,
   sqlite: 0,
+  // Not yet offered in this modal's engine picker below (postgres/mysql/sqlite only) —
+  // the backend supports these two (`apps/server/.../drivers/{mssql,oracle}.ts`), but
+  // wiring them into this UI (dropdown option, badge tone, host/port field visibility)
+  // is a separate piece of work from what added these constants.
+  mssql: 1433,
+  oracle: 1521,
 };
 
 export function ConnectionManagerModal(props: {

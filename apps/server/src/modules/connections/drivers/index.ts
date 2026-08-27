@@ -5,11 +5,15 @@ import type { DatabaseDriver } from "./interface.js";
 import { PostgresDriver } from "./postgres.js";
 import { MysqlDriver } from "./mysql.js";
 import { SqliteDriver } from "./sqlite.js";
+import { MssqlDriver } from "./mssql.js";
+import { OracleDriver } from "./oracle.js";
 
 export * from "./interface.js";
 export * from "./postgres.js";
 export * from "./mysql.js";
 export * from "./sqlite.js";
+export * from "./mssql.js";
+export * from "./oracle.js";
 
 /**
  * The single place every route creates a driver from — `assertHostAllowed`
@@ -22,11 +26,24 @@ export async function createDatabaseDriver(config: DatabaseConnectionConfig): Pr
   switch (config.engine) {
     case "postgres":
     case "mysql":
+    case "mssql":
+    case "oracle":
       await assertHostAllowed(config.host);
-      return config.engine === "postgres" ? new PostgresDriver(config) : new MysqlDriver(config);
+      switch (config.engine) {
+        case "postgres":
+          return new PostgresDriver(config);
+        case "mysql":
+          return new MysqlDriver(config);
+        case "mssql":
+          return new MssqlDriver(config);
+        case "oracle":
+          return new OracleDriver(config);
+      }
+      break;
     case "sqlite":
       return new SqliteDriver(config);
     default:
       throw new ApiError("CONNECTION_ENGINE_INVALID");
   }
+  throw new ApiError("CONNECTION_ENGINE_INVALID");
 }

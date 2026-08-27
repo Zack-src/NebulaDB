@@ -88,6 +88,9 @@ export interface RoutingPoint {
   y: number;
 }
 
+/** Standard SQL/DBML referential actions — `[delete: cascade]`/`[update: cascade]` and siblings. */
+export type RefAction = "cascade" | "restrict" | "set null" | "set default" | "no action";
+
 export interface Ref {
   id: Id;
   name?: string;
@@ -96,6 +99,9 @@ export interface Ref {
   cardinality: RefCardinality;
   routingPoints?: RoutingPoint[];
   style?: VisualStyle;
+  /** `ON DELETE`/`ON UPDATE` behavior for this FK — unset means the database's own default (typically `NO ACTION`). */
+  onDelete?: RefAction;
+  onUpdate?: RefAction;
 }
 
 export interface EnumValue {
@@ -154,7 +160,7 @@ export interface Project {
   paletteColors?: string[];
 }
 
-export type DatabaseEngine = "postgres" | "mysql" | "sqlite";
+export type DatabaseEngine = "postgres" | "mysql" | "sqlite" | "mssql" | "oracle";
 
 export interface DatabaseConnectionConfig {
   id: string;

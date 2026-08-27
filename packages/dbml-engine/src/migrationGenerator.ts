@@ -1,11 +1,82 @@
-import type { Field, MigrationResolutionMap, Table } from "@athanordb/shared";
+import type { Field, MigrationResolutionMap, Ref, RefAction, Table } from "@athanordb/shared";
 import type { MigrationDiff, MigrationFieldChange, MigrationTableChange } from "./migrationDiff.js";
 
-export type MigrationDialect = "postgres" | "mysql" | "sqlite";
+export type MigrationDialect = "postgres" | "mysql" | "sqlite" | "mssql" | "oracle";
 
 export function q(ident: string, dialect: MigrationDialect): string {
   if (dialect === "mysql") return `\`${ident.replace(/`/g, "``")}\``;
+  if (dialect === "mssql") return `[${ident.replace(/]/g, "]]")}]`;
   return `"${ident.replace(/"/g, '""')}"`;
+}
+
+/**
+ * Deterministic, dependency-free string hash (FNV-1a) — this file is bundled
+ * for the browser too (the web app's local DBML export), so `node:crypto`
+ * isn't an option here.
+ */
+function fnv1aHex(str: string): string {
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < str.length; i++) {
+    hash ^= str.charCodeAt(i);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+/** Safely under every dialect's identifier limit this generator targets (MySQL/Postgres: 63-64, Oracle 12.2+: 128) — 60 leaves room for the hash suffix below. */
+const MAX_FK_NAME_LENGTH = 60;
+
+/**
+ * Fallback constraint name for an unnamed ref. Includes `toTable` — without
+ * it, one column fanning out to several FKs (a PK referenced by more than one
+ * child table) would generate the same name twice. Long table/field names can
+ * still overflow a dialect's identifier limit, so anything past
+ * `MAX_FK_NAME_LENGTH` gets truncated and given a short content hash instead
+ * of silently colliding after truncation.
+ */
+export function fkFallbackName(fromTable: string, fromField: string, toTable: string): string {
+  const full = `fk_${fromTable}_${fromField}_${toTable}`;
+  if (full.length <= MAX_FK_NAME_LENGTH) return full;
+  const suffix = fnv1aHex(full);
+  return `${full.slice(0, MAX_FK_NAME_LENGTH - suffix.length - 1)}_${suffix}`;
+}
+
+const SQL_REF_ACTION: Record<RefAction, string> = {
+  cascade: "CASCADE",
+  restrict: "RESTRICT",
+  "set null": "SET NULL",
+  "set default": "SET DEFAULT",
+  "no action": "NO ACTION",
+};
+
+/** Oracle only recognizes `ON DELETE CASCADE`/`ON DELETE SET NULL` on a FK — no `ON UPDATE` action at all, and no `RESTRICT`/`SET DEFAULT`/`NO ACTION` keyword (that's already how an Oracle FK behaves by default). */
+const ORACLE_ON_DELETE: Partial<Record<RefAction, string>> = {
+  cascade: "CASCADE",
+  "set null": "SET NULL",
+};
+
+/**
+ * `ON DELETE`/`ON UPDATE` clause for a `FOREIGN KEY` statement, empty string if
+ * neither action is set. Dialect-aware because the DBML-level action vocabulary
+ * (shared with Postgres/MySQL/SQL Server) isn't uniformly supported: see
+ * `ORACLE_ON_DELETE` above, and T-SQL has no `RESTRICT` keyword (mapped to its
+ * closest equivalent, `NO ACTION`, instead of emitting invalid SQL).
+ */
+export function refActionClause(ref: Ref | undefined, dialect: MigrationDialect): string {
+  if (!ref) return "";
+
+  if (dialect === "oracle") {
+    const action = ref.onDelete && ORACLE_ON_DELETE[ref.onDelete];
+    return action ? ` ON DELETE ${action}` : "";
+  }
+
+  const mapAction = (action: RefAction): string =>
+    dialect === "mssql" && action === "restrict" ? "NO ACTION" : SQL_REF_ACTION[action];
+
+  const parts: string[] = [];
+  if (ref.onDelete) parts.push(`ON DELETE ${mapAction(ref.onDelete)}`);
+  if (ref.onUpdate) parts.push(`ON UPDATE ${mapAction(ref.onUpdate)}`);
+  return parts.length > 0 ? ` ${parts.join(" ")}` : "";
 }
 
 function isSqlExpression(val: string): boolean {
@@ -58,6 +129,7 @@ export function generateCreateTable(table: Table, dialect: MigrationDialect): st
 
 export function generateDropTable(tableName: string, dialect: MigrationDialect): string {
   if (dialect === "postgres") return `DROP TABLE IF EXISTS ${q(tableName, dialect)} CASCADE;`;
+  if (dialect === "oracle") return `DROP TABLE ${q(tableName, dialect)} CASCADE CONSTRAINTS;`;
   return `DROP TABLE IF EXISTS ${q(tableName, dialect)};`;
 }
 
@@ -77,7 +149,7 @@ function generateFieldAlterations(
     if (resolution?.strategy === "KEEP_IN_DB") {
       return [`-- Kept column ${q(tableName, dialect)}.${q(colName, dialect)} per resolution choice`];
     }
-    if (dialect === "postgres") {
+    if (dialect === "postgres" || dialect === "mssql") {
       stmts.push(`ALTER TABLE ${q(tableName, dialect)} DROP COLUMN IF EXISTS ${q(colName, dialect)};`);
     } else {
       stmts.push(`ALTER TABLE ${q(tableName, dialect)} DROP COLUMN ${q(colName, dialect)};`);
@@ -95,7 +167,13 @@ function generateFieldAlterations(
     if (resolution?.value) {
       fieldToAdd.default = resolution.value;
     }
-    stmts.push(`ALTER TABLE ${q(tableName, dialect)} ADD COLUMN ${formatColumnDef(fieldToAdd, dialect)};`);
+    if (dialect === "mssql") {
+      stmts.push(`ALTER TABLE ${q(tableName, dialect)} ADD ${formatColumnDef(fieldToAdd, dialect)};`);
+    } else if (dialect === "oracle") {
+      stmts.push(`ALTER TABLE ${q(tableName, dialect)} ADD (${formatColumnDef(fieldToAdd, dialect)});`);
+    } else {
+      stmts.push(`ALTER TABLE ${q(tableName, dialect)} ADD COLUMN ${formatColumnDef(fieldToAdd, dialect)};`);
+    }
     return stmts;
   }
 
@@ -125,19 +203,35 @@ function generateFieldAlterations(
         );
       } else if (dialect === "mysql") {
         stmts.push(`ALTER TABLE ${q(tableName, dialect)} MODIFY COLUMN ${formatColumnDef(after, dialect)};`);
+      } else if (dialect === "mssql") {
+        stmts.push(
+          `ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} ${after.type}${after.notNull ? " NOT NULL" : ""};`,
+        );
+      } else if (dialect === "oracle") {
+        stmts.push(`ALTER TABLE ${q(tableName, dialect)} MODIFY (${q(colName, dialect)} ${after.type});`);
       } else {
         stmts.push(`-- SQLite type altered for ${q(tableName, dialect)}.${q(colName, dialect)} -> ${after.type}`);
       }
     }
 
     // Nullability change
-    if (fieldChange.notNullChanged && dialect !== "mysql") {
+    if (fieldChange.notNullChanged && dialect !== "mysql" && !fieldChange.typeChanged) {
       if (dialect === "postgres") {
         if (after.notNull) {
           stmts.push(`ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} SET NOT NULL;`);
         } else {
           stmts.push(`ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} DROP NOT NULL;`);
         }
+      } else if (dialect === "mssql") {
+        // mssql folds nullability into the same ALTER COLUMN as a type change — repeat the
+        // full column def so a nullability-only change still specifies a type.
+        stmts.push(
+          `ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} ${after.type}${after.notNull ? " NOT NULL" : " NULL"};`,
+        );
+      } else if (dialect === "oracle") {
+        stmts.push(
+          `ALTER TABLE ${q(tableName, dialect)} MODIFY (${q(colName, dialect)} ${after.notNull ? "NOT NULL" : "NULL"});`,
+        );
       }
     }
 
@@ -152,6 +246,11 @@ function generateFieldAlterations(
         } else {
           stmts.push(`ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} DROP DEFAULT;`);
         }
+      } else if (dialect === "oracle" && after.default !== undefined && after.default !== "") {
+        const d = after.default.trim();
+        const defVal =
+          d.startsWith("'") || d.startsWith("(") || !Number.isNaN(Number(d)) ? d : `'${d.replace(/'/g, "''")}'`;
+        stmts.push(`ALTER TABLE ${q(tableName, dialect)} MODIFY (${q(colName, dialect)} DEFAULT ${defVal});`);
       }
     }
   }
@@ -192,9 +291,10 @@ export function generateMigrationSql(
     statements.push("BEGIN;");
   } else if (dialect === "mysql") {
     statements.push("START TRANSACTION;");
-  } else if (dialect === "sqlite") {
+  } else if (dialect === "sqlite" || dialect === "mssql") {
     statements.push("BEGIN TRANSACTION;");
   }
+  // Oracle DDL autocommits and has no explicit transaction-start statement.
 
   // 1. Dropped Tables
   for (const table of diff.tables.filter((t) => t.status === "dropped")) {
@@ -221,8 +321,10 @@ export function generateMigrationSql(
     // Dropped Indexes
     for (const idx of table.droppedIndexes) {
       const idxName = idx.name || `idx_${table.name}_${idx.fieldIds.join("_")}`;
-      if (dialect === "mysql") {
+      if (dialect === "mysql" || dialect === "mssql") {
         statements.push(`DROP INDEX ${q(idxName, dialect)} ON ${q(table.name, dialect)};`);
+      } else if (dialect === "oracle") {
+        statements.push(`DROP INDEX ${q(idxName, dialect)};`);
       } else {
         statements.push(`DROP INDEX IF EXISTS ${q(idxName, dialect)};`);
       }
@@ -239,32 +341,35 @@ export function generateMigrationSql(
         idx.name ||
         `idx_${table.name}_${idx.fieldIds.map((id) => targetTable.fields.find((f) => f.id === id)?.name ?? id).join("_")}`;
       const unique = idx.unique ? "UNIQUE " : "";
-      statements.push(
-        `CREATE ${unique}INDEX IF NOT EXISTS ${q(idxName, dialect)} ON ${q(table.name, dialect)} (${colNames});`,
-      );
+      if (dialect === "mssql" || dialect === "oracle") {
+        // Neither supports "IF NOT EXISTS" on CREATE INDEX.
+        statements.push(`CREATE ${unique}INDEX ${q(idxName, dialect)} ON ${q(table.name, dialect)} (${colNames});`);
+      } else {
+        statements.push(
+          `CREATE ${unique}INDEX IF NOT EXISTS ${q(idxName, dialect)} ON ${q(table.name, dialect)} (${colNames});`,
+        );
+      }
     }
   }
 
-  // 4. Dropped Refs (Foreign Keys)
+  // 4. Dropped Refs (Foreign Keys) — see `fkFallbackName` for why the fallback isn't just `fk_<fromTable>_<fromField>`.
   for (const ref of diff.refs.filter((r) => r.status === "dropped")) {
-    const fkName = ref.name || `fk_${ref.fromTable}_${ref.fromField}`;
-    if (dialect === "postgres") {
+    const fkName = ref.name || fkFallbackName(ref.fromTable, ref.fromField, ref.toTable);
+    if (dialect === "postgres" || dialect === "mssql") {
       statements.push(`ALTER TABLE ${q(ref.fromTable, dialect)} DROP CONSTRAINT IF EXISTS ${q(fkName, dialect)};`);
     } else if (dialect === "mysql") {
       statements.push(`ALTER TABLE ${q(ref.fromTable, dialect)} DROP FOREIGN KEY ${q(fkName, dialect)};`);
+    } else if (dialect === "oracle") {
+      statements.push(`ALTER TABLE ${q(ref.fromTable, dialect)} DROP CONSTRAINT ${q(fkName, dialect)};`);
     }
   }
 
   // 5. Added Refs (Foreign Keys)
   for (const ref of diff.refs.filter((r) => r.status === "added")) {
-    const fkName = ref.name || `fk_${ref.fromTable}_${ref.fromField}`;
-    if (dialect === "postgres") {
+    const fkName = ref.name || fkFallbackName(ref.fromTable, ref.fromField, ref.toTable);
+    if (dialect !== "sqlite") {
       statements.push(
-        `ALTER TABLE ${q(ref.fromTable, dialect)} ADD CONSTRAINT ${q(fkName, dialect)} FOREIGN KEY (${q(ref.fromField, dialect)}) REFERENCES ${q(ref.toTable, dialect)} (${q(ref.toField, dialect)});`,
-      );
-    } else if (dialect === "mysql") {
-      statements.push(
-        `ALTER TABLE ${q(ref.fromTable, dialect)} ADD CONSTRAINT ${q(fkName, dialect)} FOREIGN KEY (${q(ref.fromField, dialect)}) REFERENCES ${q(ref.toTable, dialect)} (${q(ref.toField, dialect)});`,
+        `ALTER TABLE ${q(ref.fromTable, dialect)} ADD CONSTRAINT ${q(fkName, dialect)} FOREIGN KEY (${q(ref.fromField, dialect)}) REFERENCES ${q(ref.toTable, dialect)} (${q(ref.toField, dialect)})${refActionClause(ref.after, dialect)};`,
       );
     }
   }

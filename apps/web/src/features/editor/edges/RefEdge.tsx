@@ -1,6 +1,6 @@
 import { memo, useMemo, useState } from "react";
 import { useStore, type Edge, type EdgeProps, type ReactFlowState } from "@xyflow/react";
-import type { RefCardinality, RoutingPoint } from "@athanordb/shared";
+import type { RefAction, RefCardinality, RoutingPoint } from "@athanordb/shared";
 import { useEdgeRouting } from "@/features/editor/edges/useEdgeRouting";
 import { polylinePath, splitPolylineAtMidpoint } from "@/features/editor/edges/pathMath";
 import { EdgeWaypoints } from "@/features/editor/edges/EdgeWaypoints";
@@ -28,6 +28,10 @@ export interface RefEdgeData {
   onPaletteChange: (palette: string[]) => void;
   onColorChange: (color: string | undefined) => void;
   onCardinalityChange?: (cardinality: RefCardinality) => void;
+  onDelete?: RefAction;
+  onUpdate?: RefAction;
+  onDeleteActionChange?: (action: RefAction | undefined) => void;
+  onUpdateActionChange?: (action: RefAction | undefined) => void;
   onReverseDirection?: () => void;
   onRoutingPointsChange: (points: RoutingPoint[] | undefined) => void;
   onDeleteRef?: () => void;
@@ -309,6 +313,10 @@ function RefEdgeImpl({
               label={style.label}
               cardinality={data.cardinality}
               onCardinalityChange={data.onCardinalityChange}
+              onDelete={data.onDelete}
+              onUpdate={data.onUpdate}
+              onDeleteActionChange={data.onDeleteActionChange}
+              onUpdateActionChange={data.onUpdateActionChange}
               onReverseDirection={data.onReverseDirection}
               color={strokeColor}
               zoom={zoom}
@@ -380,6 +388,8 @@ function refEdgePropsAreEqual(prev: EdgeProps<RefEdgeType>, next: EdgeProps<RefE
   if (!a || !b) return false;
   return (
     a.cardinality === b.cardinality &&
+    a.onDelete === b.onDelete &&
+    a.onUpdate === b.onUpdate &&
     a.sourceSlot === b.sourceSlot &&
     a.targetSlot === b.targetSlot &&
     a.routingPoints === b.routingPoints &&

@@ -16,7 +16,7 @@ import {
 } from "../connections/repository.js";
 import { API_RATE_LIMIT, DEPLOY_RATE_LIMIT } from "./rateLimits.js";
 
-const VALID_ENGINES = new Set(["postgres", "mysql", "sqlite"]);
+const VALID_ENGINES = new Set(["postgres", "mysql", "sqlite", "mssql", "oracle"]);
 
 function requireValidEngine(engine: unknown): void {
   if (typeof engine !== "string" || !VALID_ENGINES.has(engine)) throw new ApiError("CONNECTION_ENGINE_INVALID");

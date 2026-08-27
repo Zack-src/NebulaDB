@@ -17,7 +17,7 @@ import {
   updateConnection,
 } from "./repository.js";
 
-const VALID_ENGINES = new Set(["postgres", "mysql", "sqlite"]);
+const VALID_ENGINES = new Set(["postgres", "mysql", "sqlite", "mssql", "oracle"]);
 
 /**
  * Everything here but the list route requires project `administrator`, not

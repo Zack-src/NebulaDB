@@ -1,6 +1,6 @@
 import { useMemo, useRef } from "react";
 import * as Y from "yjs";
-import { getRefsMap, type Project, type RefCardinality, type RoutingPoint } from "@athanordb/shared";
+import { getRefsMap, type Project, type RefAction, type RefCardinality, type RoutingPoint } from "@athanordb/shared";
 import type { ValidationIssue } from "@athanordb/dbml-engine";
 import type { RefEdgeType } from "@/features/editor/edges/RefEdge";
 import {
@@ -150,6 +150,8 @@ export function useCanvasEdges(
           selected: isEdgeSelected,
           data: {
             cardinality: ref.cardinality,
+            onDelete: ref.onDelete,
+            onUpdate: ref.onUpdate,
             sourceSlot: takeSlot(ref.from.tableId, sourceHandle),
             targetSlot: takeSlot(ref.to.tableId, targetHandle),
             routingPoints: ref.routingPoints,
@@ -179,6 +181,22 @@ export function useCanvasEdges(
               const current = refs.get(ref.id);
               if (current) refs.set(ref.id, { ...current, cardinality });
             },
+            onDeleteActionChange: !canWrite
+              ? undefined
+              : (onDelete: RefAction | undefined) => {
+                  if (!doc) return;
+                  const refs = getRefsMap(doc);
+                  const current = refs.get(ref.id);
+                  if (current) refs.set(ref.id, { ...current, onDelete });
+                },
+            onUpdateActionChange: !canWrite
+              ? undefined
+              : (onUpdate: RefAction | undefined) => {
+                  if (!doc) return;
+                  const refs = getRefsMap(doc);
+                  const current = refs.get(ref.id);
+                  if (current) refs.set(ref.id, { ...current, onUpdate });
+                },
             // Swaps which table/field is "from" and which is "to" — the arrow
             // (and, for one-to-many, which end reads "1" vs "n") flips to match,
             // with no change to `cardinality` itself: one-to-one and many-to-many

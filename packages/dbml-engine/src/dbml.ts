@@ -1,5 +1,12 @@
 import { Parser, ModelExporter } from "@dbml/core";
-import { defaultDetailLevelForNewTable, type Position, type Project, type Ref, type Table } from "@athanordb/shared";
+import {
+  defaultDetailLevelForNewTable,
+  type Position,
+  type Project,
+  type Ref,
+  type RefAction,
+  type Table,
+} from "@athanordb/shared";
 import { projectToDbml, refSignature } from "./serialize.js";
 
 export type SqlDialect = "postgres" | "mysql" | "mssql";
@@ -159,6 +166,8 @@ export function toProject(database: any, projectName = "Untitled", source?: stri
         fieldId: String(toField?.id ?? to.fieldId ?? to.fieldNames?.[0]),
       },
       cardinality: mapCardinality(ref.endpoints),
+      onDelete: normalizeRefAction(ref.onDelete),
+      onUpdate: normalizeRefAction(ref.onUpdate),
     };
   });
 
@@ -198,6 +207,15 @@ export function toProject(database: any, projectName = "Untitled", source?: stri
     stickyNotes: [],
     tableGroups,
   };
+}
+
+const VALID_REF_ACTIONS: ReadonlySet<string> = new Set(["cascade", "restrict", "set null", "set default", "no action"]);
+
+/** @dbml/core gives back `undefined`/`null` when a ref has no `[delete: ...]`/`[update: ...]`, and lowercases whatever action it did parse — narrow to our own `RefAction` union, dropping anything unrecognized rather than carrying through a raw string. */
+function normalizeRefAction(action: unknown): RefAction | undefined {
+  if (typeof action !== "string") return undefined;
+  const normalized = action.toLowerCase().trim();
+  return VALID_REF_ACTIONS.has(normalized) ? (normalized as RefAction) : undefined;
 }
 
 function mapCardinality(endpoints: any[]): "one-to-one" | "one-to-many" | "many-to-many" {

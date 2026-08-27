@@ -1,5 +1,5 @@
 import { useRef, useState, type MouseEvent as ReactMouseEvent } from "react";
-import type { RefCardinality } from "@athanordb/shared";
+import type { RefAction, RefCardinality } from "@athanordb/shared";
 import { RestoreIcon, SettingsIcon } from "@/components/icons/Icons";
 import { EDGE_CHROME_Z } from "@/features/editor/edges/canvasLayers";
 import { useTranslation } from "@/i18n/useTranslation";
@@ -15,6 +15,10 @@ export function CardinalityBadge(props: {
   label: string;
   cardinality: RefCardinality;
   onCardinalityChange?: (cardinality: RefCardinality) => void;
+  onDelete?: RefAction;
+  onUpdate?: RefAction;
+  onDeleteActionChange?: (action: RefAction | undefined) => void;
+  onUpdateActionChange?: (action: RefAction | undefined) => void;
   onReverseDirection?: () => void;
   color: string;
   zoom: number;
@@ -95,6 +99,10 @@ export function CardinalityBadge(props: {
         <EdgeSettingsPopover
           cardinality={props.cardinality}
           onCardinalityChange={props.onCardinalityChange}
+          onDelete={props.onDelete}
+          onUpdate={props.onUpdate}
+          onDeleteActionChange={props.onDeleteActionChange}
+          onUpdateActionChange={props.onUpdateActionChange}
           onReverseDirection={props.onReverseDirection}
           color={props.color}
           onColorChange={props.onColorChange}

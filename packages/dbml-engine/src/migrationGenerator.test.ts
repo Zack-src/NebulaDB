@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { diffTargetAgainstLive } from "./migrationDiff.js";
 import { generateMigrationSql } from "./migrationGenerator.js";
-import type { Project } from "@athanordb/shared";
+import type { Project, Ref } from "@athanordb/shared";
 
 interface ShorthandField {
   name: string;
@@ -108,4 +108,57 @@ test("generateMigrationSql handles DROP TABLE confirmed vs kept", () => {
     "table:t1": { strategy: "KEEP_IN_DB" },
   });
   assert.ok(sqlKeep.includes('-- Kept table "t1"'));
+});
+
+/** A brand-new FK from `posts.author_id` -> `users.id`, target project only (empty live) so the ref diffs as "added". */
+function makeProjectWithRef(onDelete?: Ref["onDelete"], onUpdate?: Ref["onUpdate"]): Project {
+  const project = makeSimpleProject([
+    { name: "users", fields: [{ name: "id", type: "int", pk: true }] },
+    { name: "posts", fields: [{ name: "id", type: "int", pk: true }, { name: "author_id", type: "int" }] },
+  ]);
+  project.refs = [
+    {
+      id: "ref-1",
+      from: { tableId: "posts", fieldId: "posts.author_id" },
+      to: { tableId: "users", fieldId: "users.id" },
+      cardinality: "one-to-many",
+      onDelete,
+      onUpdate,
+    },
+  ];
+  return project;
+}
+
+test("generateMigrationSql emits ON DELETE/ON UPDATE for postgres/mysql when the ref sets them", () => {
+  const empty = makeSimpleProject([]);
+  const target = makeProjectWithRef("cascade", "set null");
+  const diff = diffTargetAgainstLive(empty, target);
+
+  const pgSql = generateMigrationSql(diff, "postgres");
+  assert.ok(pgSql.includes("FOREIGN KEY (\"author_id\") REFERENCES \"users\" (\"id\") ON DELETE CASCADE ON UPDATE SET NULL;"));
+
+  const mysqlSql = generateMigrationSql(diff, "mysql");
+  assert.ok(mysqlSql.includes("FOREIGN KEY (`author_id`) REFERENCES `users` (`id`) ON DELETE CASCADE ON UPDATE SET NULL;"));
+});
+
+test("generateMigrationSql maps mssql's unsupported RESTRICT to NO ACTION", () => {
+  const empty = makeSimpleProject([]);
+  const target = makeProjectWithRef("restrict", undefined);
+  const diff = diffTargetAgainstLive(empty, target);
+
+  const sql = generateMigrationSql(diff, "mssql");
+  assert.ok(sql.includes("ON DELETE NO ACTION"));
+  assert.ok(!sql.includes("RESTRICT"));
+});
+
+test("generateMigrationSql only emits ON DELETE CASCADE/SET NULL for oracle, dropping ON UPDATE and unsupported actions entirely", () => {
+  const empty = makeSimpleProject([]);
+
+  const cascadeSql = generateMigrationSql(diffTargetAgainstLive(empty, makeProjectWithRef("cascade", "cascade")), "oracle");
+  assert.ok(cascadeSql.includes("REFERENCES \"users\" (\"id\") ON DELETE CASCADE;"));
+  assert.ok(!cascadeSql.includes("ON UPDATE"));
+
+  const restrictSql = generateMigrationSql(diffTargetAgainstLive(empty, makeProjectWithRef("restrict", undefined)), "oracle");
+  assert.ok(restrictSql.includes("REFERENCES \"users\" (\"id\");"));
+  assert.ok(!restrictSql.includes("ON DELETE"));
 });
