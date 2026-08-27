@@ -236,6 +236,7 @@ export function ProjectEditor(props: {
     dragging,
     issuesByRef,
     showValidationIssues,
+    selectedTableIds,
   );
 
   const {
