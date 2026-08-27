@@ -1,7 +1,17 @@
 import * as Y from "yjs";
-import { getRefsMap, getTablesMap, type Comment, type Field, type Table, type TableIndex } from "@athanordb/shared";
+import {
+  getRefsMap,
+  getTablesMap,
+  type Comment,
+  type Field,
+  type Ref,
+  type RefAction,
+  type Table,
+  type TableIndex,
+} from "@athanordb/shared";
 import type { ValidationIssue } from "@athanordb/dbml-engine";
 import type { TableNodeType } from "@/features/editor/nodes/TableNode";
+import type { FieldRefInfo } from "@/features/editor/nodes/table/fieldRefInfo";
 import { generateId } from "@/utils/id";
 import { readCachedTableNode, type TableNodeCache } from "./tableNodeCache";
 
@@ -9,6 +19,7 @@ const EMPTY_ISSUES: ValidationIssue[] = [];
 
 export function buildTableNodes(
   tables: Table[],
+  refs: Ref[],
   doc: Y.Doc,
   refFieldIdsByTable: Map<string, Set<string>>,
   user: string,
@@ -35,6 +46,13 @@ export function buildTableNodes(
   // Callbacks are all stable across a rebuild by construction (the hook wraps
   // them), so one identity stands in for the whole bundle in the cache key.
   const callbacks = onSelectField;
+
+  // Name lookups for `FieldRefInfo.toLabel` — built once for the whole rebuild
+  // rather than per table/field, same reasoning as everything else here.
+  const tableNameById = new Map(tables.map((t) => [t.id, t.name]));
+  const fieldNameByKey = new Map<string, string>();
+  for (const t of tables) for (const f of t.fields) fieldNameByKey.set(`${t.id}.${f.id}`, f.name);
+
   const nodes = tables.map((table) => {
     const refFieldIds = refFieldIdsByTable.get(table.id) ?? EMPTY_FIELD_IDS;
     // The per-table slice of the column selection: a selection landing on some
@@ -46,6 +64,23 @@ export function buildTableNodes(
     // change like `refFieldIdsByTable` above — a joined string, not the array
     // itself, is what the cache can actually compare with `===`.
     const issuesKey = issues.map((issue) => `${issue.severity}:${issue.message}`).join("|");
+
+    // Refs where this table is the FK ("from") side, grouped by field — what
+    // `FieldEditorPopover` needs to offer ON DELETE/ON UPDATE on the column
+    // itself. Joined into a string for the same reason `issuesKey` is: a fresh
+    // Map every rebuild, so `readCachedTableNode` needs something comparable
+    // by `===` rather than deep-diffing a Map every table on every rebuild.
+    const fieldRefs = new Map<string, FieldRefInfo[]>();
+    const fromRefs = refs.filter((r) => r.from.tableId === table.id);
+    for (const r of fromRefs) {
+      const toLabel = `${tableNameById.get(r.to.tableId) ?? r.to.tableId}.${fieldNameByKey.get(`${r.to.tableId}.${r.to.fieldId}`) ?? r.to.fieldId}`;
+      const entry: FieldRefInfo = { refId: r.id, onDelete: r.onDelete, onUpdate: r.onUpdate, toLabel };
+      const list = fieldRefs.get(r.from.fieldId);
+      if (list) list.push(entry);
+      else fieldRefs.set(r.from.fieldId, [entry]);
+    }
+    const refActionsKey = fromRefs.map((r) => `${r.id}:${r.onDelete ?? ""}:${r.onUpdate ?? ""}`).join("|");
+
     const cacheKey = {
       table,
       refFieldIds,
@@ -56,11 +91,12 @@ export function buildTableNodes(
       callbacks,
       issuesKey,
       showValidationIssues,
+      refActionsKey,
     };
     const cached = readCachedTableNode(cache, cacheKey, table.id);
     if (cached) return cached;
 
-    const node = buildTableNode(table, refFieldIds, selectedFieldIdForTable, issues);
+    const node = buildTableNode(table, refFieldIds, selectedFieldIdForTable, issues, fieldRefs, refActionsKey);
     cache.set(table.id, { ...cacheKey, node });
     return node;
   });
@@ -80,6 +116,8 @@ export function buildTableNodes(
     refFieldIds: Set<string>,
     selectedFieldId: string | null,
     issues: ValidationIssue[],
+    fieldRefs: Map<string, FieldRefInfo[]>,
+    refActionsKey: string,
   ): TableNodeType {
     return {
       id: table.id,
@@ -88,6 +126,10 @@ export function buildTableNodes(
       data: {
         table,
         refFieldIds,
+        fieldRefs,
+        // Lets `TableNode`'s memo comparator detect a ref action change without
+        // deep-comparing `fieldRefs` itself — same pattern as `issuesKey`.
+        refActionsKey,
         currentUser: user,
         palette,
         readOnly: !canWrite,
@@ -245,6 +287,15 @@ export function buildTableNodes(
                 const current = tables_.get(table.id);
                 if (!current) return;
                 tables_.set(table.id, { ...current, indexes: current.indexes.filter((idx) => idx.id !== indexId) });
+              },
+              // Lets `FieldEditorPopover` set a ref's ON DELETE/ON UPDATE from the
+              // FK column itself — same doc write `useCanvasEdges`' equivalent
+              // handlers make from the relation's own edge popover, just reachable
+              // from the other end.
+              onUpdateRefAction: (refId: string, patch: { onDelete?: RefAction; onUpdate?: RefAction }) => {
+                const refs_ = getRefsMap(doc);
+                const current = refs_.get(refId);
+                if (current) refs_.set(refId, { ...current, ...patch });
               },
             }),
       },

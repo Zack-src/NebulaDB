@@ -1,7 +1,7 @@
 import { useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
 import type { RefAction, RefCardinality } from "@athanordb/shared";
-import type { TranslationKey } from "@/i18n/translate";
+import { ACTION_SELECT_CLASS, REF_ACTIONS, REF_ACTION_LABEL_KEY } from "./refActionOptions";
 import { CloseIcon, RestoreIcon, SwapHorizontalIcon, TrashIcon } from "@/components/icons/Icons";
 import { Button } from "@/components/ui/Button";
 import { ColorSwatchPicker } from "@/components/inputs/ColorSwatchPicker";
@@ -27,21 +27,6 @@ export interface EdgeSettingsPopoverProps {
   triggerRect: DOMRect | null;
   onClose: () => void;
 }
-
-/** Every value the DBML/SQL-standard `[delete: ...]`/`[update: ...]` action vocabulary supports — `undefined` means "unset", left to the database's own default. */
-const REF_ACTIONS: RefAction[] = ["cascade", "restrict", "set null", "set default", "no action"];
-
-const REF_ACTION_LABEL_KEY: Record<RefAction, TranslationKey> = {
-  cascade: "edge.action.cascade",
-  restrict: "edge.action.restrict",
-  "set null": "edge.action.setNull",
-  "set default": "edge.action.setDefault",
-  "no action": "edge.action.noAction",
-};
-
-const ACTION_SELECT_CLASS =
-  "w-full rounded-md border border-border bg-surface px-2 py-1.5 text-xs text-text " +
-  "focus:border-primary focus:outline-none";
 
 export function EdgeSettingsPopover({
   cardinality,

@@ -354,6 +354,7 @@
   "field.typeLabel": "Type de données",
   "field.typePlaceholder": "ex. int, varchar",
   "field.attributesLabel": "Mots-clés et attributs",
+  "field.referentialActionsLabel": "À la suppression / à la modification",
   "field.primaryKey": "Clé primaire",
   "field.primaryKeyTooltip": "Clé primaire (pk)",
   "field.unique": "Unique",

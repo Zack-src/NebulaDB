@@ -33,6 +33,8 @@ export interface TableNodeCacheEntry {
   /** This table's validation issues, joined into one comparable string — see `buildTableNodes`. */
   issuesKey: string;
   showValidationIssues: boolean;
+  /** `refId:onDelete:onUpdate` for every ref where this table is the FK side, joined — see `buildTableNodes`. */
+  refActionsKey: string;
 }
 
 export type TableNodeCache = Map<string, TableNodeCacheEntry>;
@@ -53,6 +55,7 @@ export function readCachedTableNode(
     cached.callbacks === key.callbacks &&
     cached.issuesKey === key.issuesKey &&
     cached.showValidationIssues === key.showValidationIssues &&
+    cached.refActionsKey === key.refActionsKey &&
     setsEqual(cached.refFieldIds, key.refFieldIds);
   return unchanged ? cached.node : null;
 }

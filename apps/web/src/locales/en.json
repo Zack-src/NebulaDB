@@ -354,6 +354,7 @@
   "field.typeLabel": "Data type",
   "field.typePlaceholder": "e.g. int, varchar",
   "field.attributesLabel": "Keywords and attributes",
+  "field.referentialActionsLabel": "On delete / on update",
   "field.primaryKey": "Primary key",
   "field.primaryKeyTooltip": "Primary key (pk)",
   "field.unique": "Unique",
