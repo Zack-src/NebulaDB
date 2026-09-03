@@ -1,7 +1,29 @@
 import type { Field, MigrationResolutionMap, Ref, RefAction, Table } from "@athanordb/shared";
+import { translateType } from "@athanordb/shared";
 import type { MigrationDiff, MigrationFieldChange, MigrationTableChange } from "./migrationDiff.js";
 
 export type MigrationDialect = "postgres" | "mysql" | "sqlite" | "mssql" | "oracle";
+
+/**
+ * The type actually emitted into SQL for `field` on `dialect`: the engine-
+ * native translation of what was written (see `translateType`), unless the
+ * user explicitly opted to keep it as-written for this column via a
+ * `KEEP_AS_WRITTEN` resolution (see `TYPE_TRANSLATION_SUGGESTED` risks).
+ * Translating by default — rather than only on confirmation — is deliberate:
+ * a schema authored against one engine's vocabulary should deploy cleanly to
+ * another out of the box, with the risk/resolution flow existing only to
+ * let a user override specific columns, not gate the feature entirely.
+ */
+export function effectiveType(
+  field: Field,
+  dialect: MigrationDialect,
+  tableName: string,
+  resolutions: MigrationResolutionMap = {},
+): string {
+  const resKey = `column:${tableName.toLowerCase()}.${field.name.toLowerCase()}`;
+  if (resolutions[resKey]?.strategy === "KEEP_AS_WRITTEN") return field.type || "text";
+  return translateType(field.type || "text", dialect).type;
+}
 
 export function q(ident: string, dialect: MigrationDialect): string {
   if (dialect === "mysql") return `\`${ident.replace(/`/g, "``")}\``;
@@ -95,8 +117,8 @@ function isSqlExpression(val: string): boolean {
   );
 }
 
-export function formatColumnDef(field: Field, dialect: MigrationDialect): string {
-  const parts = [q(field.name, dialect), field.type || "text"];
+export function formatColumnDef(field: Field, dialect: MigrationDialect, typeOverride?: string): string {
+  const parts = [q(field.name, dialect), typeOverride ?? (field.type || "text")];
   if (field.pk) parts.push("PRIMARY KEY");
   if (field.notNull && !field.pk) parts.push("NOT NULL");
   if (field.unique && !field.pk) parts.push("UNIQUE");
@@ -111,8 +133,14 @@ export function formatColumnDef(field: Field, dialect: MigrationDialect): string
   return parts.join(" ");
 }
 
-export function generateCreateTable(table: Table, dialect: MigrationDialect): string {
-  const colDefs = table.fields.map((f) => `  ${formatColumnDef(f, dialect)}`);
+export function generateCreateTable(
+  table: Table,
+  dialect: MigrationDialect,
+  resolutions: MigrationResolutionMap = {},
+): string {
+  const colDefs = table.fields.map(
+    (f) => `  ${formatColumnDef(f, dialect, effectiveType(f, dialect, table.name, resolutions))}`,
+  );
 
   // Composite PK
   const pkIndex = table.indexes.find((i) => i.pk && i.fieldIds.length > 1);
@@ -167,12 +195,13 @@ function generateFieldAlterations(
     if (resolution?.value) {
       fieldToAdd.default = resolution.value;
     }
+    const addType = effectiveType(after, dialect, tableName, resolutions);
     if (dialect === "mssql") {
-      stmts.push(`ALTER TABLE ${q(tableName, dialect)} ADD ${formatColumnDef(fieldToAdd, dialect)};`);
+      stmts.push(`ALTER TABLE ${q(tableName, dialect)} ADD ${formatColumnDef(fieldToAdd, dialect, addType)};`);
     } else if (dialect === "oracle") {
-      stmts.push(`ALTER TABLE ${q(tableName, dialect)} ADD (${formatColumnDef(fieldToAdd, dialect)});`);
+      stmts.push(`ALTER TABLE ${q(tableName, dialect)} ADD (${formatColumnDef(fieldToAdd, dialect, addType)});`);
     } else {
-      stmts.push(`ALTER TABLE ${q(tableName, dialect)} ADD COLUMN ${formatColumnDef(fieldToAdd, dialect)};`);
+      stmts.push(`ALTER TABLE ${q(tableName, dialect)} ADD COLUMN ${formatColumnDef(fieldToAdd, dialect, addType)};`);
     }
     return stmts;
   }
@@ -195,22 +224,24 @@ function generateFieldAlterations(
       stmts.push(`DELETE FROM ${q(tableName, dialect)} WHERE ${q(colName, dialect)} IS NULL;`);
     }
 
+    const targetType = effectiveType(after, dialect, tableName, resolutions);
+
     // Type change
     if (fieldChange.typeChanged) {
       if (dialect === "postgres") {
         stmts.push(
-          `ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} TYPE ${after.type} USING ${q(colName, dialect)}::${after.type};`,
+          `ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} TYPE ${targetType} USING ${q(colName, dialect)}::${targetType};`,
         );
       } else if (dialect === "mysql") {
-        stmts.push(`ALTER TABLE ${q(tableName, dialect)} MODIFY COLUMN ${formatColumnDef(after, dialect)};`);
+        stmts.push(`ALTER TABLE ${q(tableName, dialect)} MODIFY COLUMN ${formatColumnDef(after, dialect, targetType)};`);
       } else if (dialect === "mssql") {
         stmts.push(
-          `ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} ${after.type}${after.notNull ? " NOT NULL" : ""};`,
+          `ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} ${targetType}${after.notNull ? " NOT NULL" : ""};`,
         );
       } else if (dialect === "oracle") {
-        stmts.push(`ALTER TABLE ${q(tableName, dialect)} MODIFY (${q(colName, dialect)} ${after.type});`);
+        stmts.push(`ALTER TABLE ${q(tableName, dialect)} MODIFY (${q(colName, dialect)} ${targetType});`);
       } else {
-        stmts.push(`-- SQLite type altered for ${q(tableName, dialect)}.${q(colName, dialect)} -> ${after.type}`);
+        stmts.push(`-- SQLite type altered for ${q(tableName, dialect)}.${q(colName, dialect)} -> ${targetType}`);
       }
     }
 
@@ -226,7 +257,7 @@ function generateFieldAlterations(
         // mssql folds nullability into the same ALTER COLUMN as a type change — repeat the
         // full column def so a nullability-only change still specifies a type.
         stmts.push(
-          `ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} ${after.type}${after.notNull ? " NOT NULL" : " NULL"};`,
+          `ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} ${targetType}${after.notNull ? " NOT NULL" : " NULL"};`,
         );
       } else if (dialect === "oracle") {
         stmts.push(
@@ -308,7 +339,7 @@ export function generateMigrationSql(
 
   // 2. Added Tables
   for (const table of diff.tables.filter((t) => t.status === "added" && t.after)) {
-    statements.push(generateCreateTable(table.after!, dialect));
+    statements.push(generateCreateTable(table.after!, dialect, resolutions));
   }
 
   // 3. Modified Tables (Columns & Indexes)

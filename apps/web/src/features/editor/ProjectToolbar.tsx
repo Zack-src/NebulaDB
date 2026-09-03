@@ -13,6 +13,7 @@ import {
   RedoIcon,
   SettingsIcon,
   SparklesIcon,
+  SwapHorizontalIcon,
   UndoIcon,
   UploadIcon,
 } from "@/components/icons/Icons";
@@ -31,6 +32,7 @@ export interface ProjectToolbarProps {
   onAutoLayout: () => void;
   onShowImport: () => void;
   onShowExport: () => void;
+  onShowConvertTypes?: () => void;
   onShowHistory: () => void;
   onShowConnections?: () => void;
   onShowDeploy?: () => void;
@@ -88,6 +90,15 @@ export function ProjectToolbar(props: ProjectToolbarProps) {
       ? []
       : [{ icon: <UploadIcon size={14} />, labelKey: "editor.import", onClick: props.onShowImport } as const]),
     { icon: <DownloadIcon size={14} />, labelKey: "editor.export", onClick: props.onShowExport },
+    ...(!props.viewOnly && props.onShowConvertTypes
+      ? [
+          {
+            icon: <SwapHorizontalIcon size={14} />,
+            labelKey: "editor.convertTypes",
+            onClick: props.onShowConvertTypes,
+          } as const,
+        ]
+      : []),
     { icon: <ClockIcon size={14} />, labelKey: "editor.history", onClick: props.onShowHistory },
   ] as const;
 

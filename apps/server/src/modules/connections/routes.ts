@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { readProjectFromDoc, type DatabaseConnectionConfig, type MigrationResolutionMap } from "@athanordb/shared";
-import { diffTargetAgainstLive, generateMigrationSql } from "@athanordb/dbml-engine";
+import { detectTypeTranslationRisks, diffTargetAgainstLive, generateMigrationSql } from "@athanordb/dbml-engine";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireProjectAccess, requireProjectAdmin } from "../../shared/guards.js";
@@ -119,7 +119,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
     try {
       const liveProject = await driver.introspectSchema();
       const diff = diffTargetAgainstLive(liveProject, canvasProject);
-      const risks = await driver.inspectRisks(diff);
+      const risks = [...(await driver.inspectRisks(diff)), ...detectTypeTranslationRisks(diff, conn.engine)];
       const initialSql = generateMigrationSql(diff, conn.engine, {});
 
       return {

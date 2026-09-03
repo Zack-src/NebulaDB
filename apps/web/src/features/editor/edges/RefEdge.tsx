@@ -181,7 +181,13 @@ function RefEdgeImpl({
   };
 
   // Show editing controls when the edge is selected, or when hovering the edge
-  const showEditingControls = Boolean(selected || isHovered);
+  // `routing.isDraggingPoint` keeps this true even if hover flickers off
+  // mid-drag — the waypoint dot is portaled elsewhere in the DOM (not a
+  // descendant of the edge's own hit-stroke), so the moment the cursor
+  // crosses onto the dot itself the browser fires `mouseleave` on the
+  // stroke underneath. Without this, that flip unmounts `EdgeWaypoints`
+  // (and the dot being dragged) mid-gesture — see `useEdgeRouting.ts`.
+  const showEditingControls = Boolean(selected || isHovered || routing.isDraggingPoint);
   const [sourceCardinality, targetCardinality] = ENDPOINT_CARDINALITY[data?.cardinality ?? "one-to-many"];
 
   return (

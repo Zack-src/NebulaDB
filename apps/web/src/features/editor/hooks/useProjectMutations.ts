@@ -115,6 +115,25 @@ export function useProjectMutations(liveProject: Project | null, doc: Y.Doc | nu
     });
   };
 
+  /** Rewrites `field.type` for a batch of fields in one Yjs transaction — the "Convert types" project-wide action's write path (see `ConvertTypesModal`). */
+  const convertFieldTypes = useCallback(
+    (changes: { tableId: string; fieldId: string; newType: string }[]) => {
+      if (!doc || changes.length === 0) return;
+      const tables = getTablesMap(doc);
+      doc.transact(() => {
+        for (const { tableId, fieldId, newType } of changes) {
+          const table = tables.get(tableId);
+          if (!table) continue;
+          tables.set(tableId, {
+            ...table,
+            fields: table.fields.map((f) => (f.id === fieldId ? { ...f, type: newType } : f)),
+          });
+        }
+      });
+    },
+    [doc],
+  );
+
   // "Reset all link routing" used to live here; it is now the built-in
   // `athanordb.core-canvas` plugin's `reset-link-routing` command, applied
   // through `writeProjectToDoc` like any other canvas command.
@@ -232,6 +251,7 @@ export function useProjectMutations(liveProject: Project | null, doc: Y.Doc | nu
     setAllDetailLevels,
     activeDetailLevel,
     setTablesColor,
+    convertFieldTypes,
     duplicateSelected,
     onEdgesDelete,
     onConnect,

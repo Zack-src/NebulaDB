@@ -60,6 +60,15 @@ export function useEdgeRouting(params: {
   const [dragPoints, setDragPoints] = useState<RoutingPoint[] | null>(null);
   const dragPointsRef = useRef<RoutingPoint[] | null>(null);
   const draggingIndexRef = useRef<number | null>(null);
+  // Reactive twin of `draggingIndexRef`: the ref alone can't force
+  // `showEditingControls` to stay true in `RefEdge`. Without it, the fat
+  // invisible hover-stroke sees `mouseleave` the instant the cursor crosses
+  // onto the waypoint dot itself (a portaled, non-descendant element sitting
+  // on top of it) — `isHovered` flips false mid-drag, `EdgeWaypoints`
+  // unmounts, and the very dot being dragged either vanishes or reappears
+  // somewhere that no longer matches the cursor. Reported as the waypoint
+  // "jumping" down-right the instant you grab it.
+  const [isDraggingPoint, setIsDraggingPoint] = useState(false);
   const movedRef = useRef(false);
   const [selectedPointIndex, setSelectedPointIndexState] = useState<number | null>(null);
   const [contextMenu, setContextMenu] = useState<EdgeContextMenuState | null>(null);
@@ -192,6 +201,7 @@ export function useEdgeRouting(params: {
     e.stopPropagation();
     e.preventDefault();
     draggingIndexRef.current = index;
+    setIsDraggingPoint(true);
     movedRef.current = false;
     const startFlow = screenToFlowPosition({ x: e.clientX, y: e.clientY });
     const initialPoints = points.map((p) => ({ ...p }));
@@ -201,19 +211,27 @@ export function useEdgeRouting(params: {
     };
     setSelectedPointIndex(index);
 
-    const orientation = getWaypointOrientation(
-      index,
-      initialPoints,
-      { x: sourceX, y: sourceY },
-      { x: targetX, y: targetY },
-    );
-
     const onMove = (ev: MouseEvent) => {
       const flowPos = screenToFlowPosition({ x: ev.clientX, y: ev.clientY });
       const dx = flowPos.x - startFlow.x;
       const dy = flowPos.y - startFlow.y;
       if (!movedRef.current && Math.hypot(dx, dy) < 3) return;
       movedRef.current = true;
+
+      // Recomputed from the point's *current* dragged position on every move
+      // rather than once at grab time: fixing it at grab meant a point
+      // sitting near-diagonal to its neighbors (row/table just a few px off
+      // axis) could be misclassified once and then stay locked to the wrong
+      // single axis for the whole drag — the point visibly departing from
+      // under the cursor as soon as you moved it, since only the *other*
+      // axis was actually being applied.
+      const livePoints = dragPointsRef.current ?? initialPoints;
+      const orientation = getWaypointOrientation(
+        index,
+        livePoints,
+        { x: sourceX, y: sourceY },
+        { x: targetX, y: targetY },
+      );
 
       const all = [{ x: sourceX, y: sourceY }, ...initialPoints, { x: targetX, y: targetY }];
       const prev = all[index];
@@ -259,6 +277,7 @@ export function useEdgeRouting(params: {
       const finalPoints = dragPointsRef.current;
       setDrag(null);
       draggingIndexRef.current = null;
+      setIsDraggingPoint(false);
       window.removeEventListener("mousemove", onMove);
       window.removeEventListener("mouseup", onUp);
       if (finalPoints && movedRef.current) commitPoints(finalPoints);
@@ -339,6 +358,7 @@ export function useEdgeRouting(params: {
     stepLabelY,
     defaultCorners,
     hasCustomRouting,
+    isDraggingPoint,
     selectedPointIndex,
     setSelectedPointIndex,
     contextMenu,

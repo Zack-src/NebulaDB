@@ -643,6 +643,8 @@
   "connections.engine.postgres": "PostgreSQL",
   "connections.engine.mysql": "MySQL / MariaDB",
   "connections.engine.sqlite": "SQLite",
+  "connections.engine.mssql": "SQL Server",
+  "connections.engine.oracle": "Oracle",
   "connections.host": "Host",
   "connections.port": "Port",
   "connections.user": "User",
@@ -676,6 +678,10 @@
   "connections.strategy.deleteRowsDesc": "Delete rows with NULL values before making column NOT NULL.",
   "connections.strategy.cancel": "Cancel / Handle manually",
   "connections.strategy.cancelDesc": "Abort deployment to resolve conflict manually.",
+  "connections.strategy.useTranslatedType": "Use translated type",
+  "connections.strategy.useTranslatedTypeDesc": "Replace the written type with its native equivalent on this engine.",
+  "connections.strategy.keepAsWritten": "Keep as written",
+  "connections.strategy.keepAsWrittenDesc": "Deploy the type exactly as written in the canvas.",
 
   "deployment.title": "Deploy to Database",
   "deployment.deploy": "Deploy",
@@ -695,6 +701,7 @@
   "deployment.riskDropTable": "Table \"{{table}}\" contains rows and will be permanently deleted",
   "deployment.riskAlterType": "Type alteration on \"{{col}}\" in table \"{{table}}\" with existing data",
   "deployment.riskNullViolation": "Column \"{{col}}\" in table \"{{table}}\" contains NULLs but is set to NOT NULL",
+  "deployment.riskTypeTranslation": "The type of \"{{col}}\" in \"{{table}}\" doesn't exist on this engine and will be translated",
   "deployment.rowsAffected": "row(s) affected",
   "deployment.dataSamplePreview": "Live Data Sample",
   "deployment.items": "values",
@@ -777,5 +784,14 @@
   "deployment.rollbackConfirmAction": "Yes, roll back",
   "deployment.rollbackSuccessTitle": "Rollback completed",
   "deployment.rollbackSuccessDesc": "Executed {{count}} statement(s) against {{name}}.",
-  "deployment.viewSql": "View SQL"
+  "deployment.viewSql": "View SQL",
+
+  "editor.convertTypes": "Convert types",
+  "convertTypes.title": "Convert column types",
+  "convertTypes.targetEngine": "Target engine",
+  "convertTypes.noChanges": "Every type in the project is already compatible with this engine.",
+  "convertTypes.previewHint_one": "{{count}} incompatible type found:",
+  "convertTypes.previewHint_other": "{{count}} incompatible types found:",
+  "convertTypes.apply_one": "Convert {{count}} type",
+  "convertTypes.apply_other": "Convert {{count}} types"
 }

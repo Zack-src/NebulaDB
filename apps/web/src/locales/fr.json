@@ -643,6 +643,8 @@
   "connections.engine.postgres": "PostgreSQL",
   "connections.engine.mysql": "MySQL / MariaDB",
   "connections.engine.sqlite": "SQLite",
+  "connections.engine.mssql": "SQL Server",
+  "connections.engine.oracle": "Oracle",
   "connections.host": "Hôte",
   "connections.port": "Port",
   "connections.user": "Utilisateur",
@@ -676,6 +678,10 @@
   "connections.strategy.deleteRowsDesc": "Supprimer les lignes contenant NULL avant d'appliquer NOT NULL.",
   "connections.strategy.cancel": "Annuler / Gérer manuellement",
   "connections.strategy.cancelDesc": "Interrompre le déploiement pour corriger manuellement.",
+  "connections.strategy.useTranslatedType": "Utiliser le type traduit",
+  "connections.strategy.useTranslatedTypeDesc": "Remplacer le type écrit par son équivalent natif sur ce moteur.",
+  "connections.strategy.keepAsWritten": "Conserver tel quel",
+  "connections.strategy.keepAsWrittenDesc": "Déployer le type exactement tel qu'écrit dans le canvas.",
 
   "deployment.title": "Déployer vers la Base de Données",
   "deployment.deploy": "Déployer",
@@ -695,6 +701,7 @@
   "deployment.riskDropTable": "La table \"{{table}}\" contient des lignes et sera définitivement supprimée",
   "deployment.riskAlterType": "Changement de type sur \"{{col}}\" dans la table \"{{table}}\" avec données existantes",
   "deployment.riskNullViolation": "La colonne \"{{col}}\" dans \"{{table}}\" contient des NULL mais passe en NOT NULL",
+  "deployment.riskTypeTranslation": "Le type de \"{{col}}\" dans \"{{table}}\" n'existe pas sur ce moteur et sera traduit",
   "deployment.rowsAffected": "ligne(s) concernée(s)",
   "deployment.dataSamplePreview": "Échantillon des données réelles",
   "deployment.items": "valeurs",
@@ -777,5 +784,14 @@
   "deployment.rollbackConfirmAction": "Oui, revenir en arrière",
   "deployment.rollbackSuccessTitle": "Retour en arrière terminé",
   "deployment.rollbackSuccessDesc": "{{count}} instruction(s) exécutée(s) sur {{name}}.",
-  "deployment.viewSql": "Voir le SQL"
+  "deployment.viewSql": "Voir le SQL",
+
+  "editor.convertTypes": "Convertir les types",
+  "convertTypes.title": "Convertir les types de colonnes",
+  "convertTypes.targetEngine": "Moteur cible",
+  "convertTypes.noChanges": "Tous les types du projet sont déjà compatibles avec ce moteur.",
+  "convertTypes.previewHint_one": "{{count}} type incompatible détecté :",
+  "convertTypes.previewHint_other": "{{count}} types incompatibles détectés :",
+  "convertTypes.apply_one": "Convertir {{count}} type",
+  "convertTypes.apply_other": "Convertir {{count}} types"
 }

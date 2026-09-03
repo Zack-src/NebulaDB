@@ -235,7 +235,9 @@ export type SchemaDiffRiskType =
   | "NULL_TO_NOT_NULL"
   | "ADD_NOT_NULL_NO_DEFAULT"
   | "FK_VIOLATION"
-  | "UNIQUE_VIOLATION";
+  | "UNIQUE_VIOLATION"
+  /** A column's DBML type isn't the target engine's native spelling — see `translateType` in `typeMapping.ts`. */
+  | "TYPE_TRANSLATION_SUGGESTED";
 
 export type ConflictResolutionStrategy =
   | "DROP_DATA_CONFIRMED"
@@ -244,7 +246,11 @@ export type ConflictResolutionStrategy =
   | "CLEAR_COLUMN_DATA"
   | "BACKFILL_DEFAULT"
   | "DELETE_OFFENDING_ROWS"
-  | "CANCEL";
+  | "CANCEL"
+  /** Apply the engine-native type suggested for a `TYPE_TRANSLATION_SUGGESTED` risk. */
+  | "USE_TRANSLATED_TYPE"
+  /** Deploy/export the column type exactly as written in the canvas, skipping the suggested translation. */
+  | "KEEP_AS_WRITTEN";
 
 export interface StrategyOption {
   key: ConflictResolutionStrategy;
@@ -266,6 +272,8 @@ export interface SchemaRisk {
   defaultStrategy: ConflictResolutionStrategy;
   selectedStrategy: ConflictResolutionStrategy;
   userProvidedValue?: string;
+  /** For `TYPE_TRANSLATION_SUGGESTED`: the engine-native type suggested in place of what was written. */
+  suggestedValue?: string;
 }
 
 export type MigrationResolutionMap = Record<string, { strategy: ConflictResolutionStrategy; value?: string }>;
