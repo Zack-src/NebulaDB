@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { Handle, Position, useReactFlow, useUpdateNodeInternals, type Node, type NodeProps } from "@xyflow/react";
+import { Handle, Position, useReactFlow, type Node, type NodeProps } from "@xyflow/react";
 import { MAX_NAME_LENGTH, type Field, type Table, type TableIndex } from "@athanordb/shared";
 import type { ValidationIssue } from "@athanordb/dbml-engine";
 import { CommentThread } from "@/features/editor/comments/CommentThread";
@@ -11,6 +11,7 @@ import { useDismissablePopover } from "@/hooks/useDismissablePopover";
 import { useDraftValue } from "@/hooks/useDraftValue";
 import { setsEqual } from "@/utils/setsEqual";
 import { useHighlightedFieldKey } from "@/features/editor/canvas/highlightedFields";
+import { scheduleNodeInternalsUpdate } from "@/features/editor/canvas/nodeInternalsBatch";
 import { prefersDarkText } from "@/utils/color";
 import { useTranslation } from "@/i18n/useTranslation";
 import {
@@ -154,11 +155,10 @@ function TableNodeImpl({ data, selected, id }: NodeProps<TableNodeType>) {
   // is that "look again"; the field-id order joined into one string is the
   // dependency so this only fires on an actual reorder (or add/remove),
   // not on every unrelated field edit (name, type, ...).
-  const updateNodeInternals = useUpdateNodeInternals();
   const fieldOrderKey = rows.map((f) => f.id).join("|");
   useEffect(() => {
-    updateNodeInternals(id);
-  }, [fieldOrderKey, id, updateNodeInternals]);
+    scheduleNodeInternalsUpdate(id);
+  }, [fieldOrderKey, id]);
 
   // Figma shows one name per remote selector, not a pile of avatars — the
   // first is enough to say who, "+N" covers the rest without crowding the

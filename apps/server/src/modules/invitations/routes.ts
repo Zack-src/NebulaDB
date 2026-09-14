@@ -3,7 +3,6 @@ import { auditUser } from "../../shared/audit.js";
 import { db } from "../../infrastructure/db.js";
 import { normalizeEmail } from "../auth/email.js";
 import { checkPassword, hashPassword } from "../auth/password.js";
-import { createSession } from "../auth/session.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireAdmin } from "../../shared/guards.js";
 
@@ -131,15 +130,16 @@ export function registerInvitationRoutes(app: FastifyInstance): void {
     }
     if (!created) throw new ApiError("INVITATION_ALREADY_USED");
 
-    createSession(id, reply, req);
+    // Deliberately no createSession() here: the account exists now, but we
+    // send the user to the real login form for their first sign-in instead of
+    // auto-logging them in. That's the only reliable way to get the browser's
+    // own password manager to offer to save the credential it just typed —
+    // Credential Management API `store()` (called client-side once this
+    // resolves) covers Chromium browsers, and an actual username+password
+    // form submission on /login is the fallback everywhere else.
     // The actor here is the brand-new account itself, not an admin — this is
     // the row that ties an account's existence to the invitation it came from.
     auditUser({ id, email: invitation.email }, "invitation.accept", { type: "invitation", id: token }, undefined, req);
-    return {
-      id,
-      email: invitation.email,
-      isAdmin: invitation.is_admin === 1,
-      displayName: invitation.email.split("@")[0],
-    };
+    return { email: invitation.email };
   });
 }

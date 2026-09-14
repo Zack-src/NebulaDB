@@ -90,6 +90,7 @@
   "login.inviteOnly": "New accounts are created by invitation from an administrator or a team.",
   "login.haveInviteLink": "Have an invitation link?",
   "login.haveInviteLinkHint": "Open the link you received by email to set your password and create your account.",
+  "login.accountCreated": "Your account is ready — sign in to continue.",
 
   "acceptInvite.title": "Set your password",
   "acceptInvite.subtitle": "Finish creating your account to accept this invitation.",
@@ -524,6 +525,12 @@
   "admin.section.users": "Users",
   "admin.section.audit": "Audit log",
   "admin.section.errors": "Errors",
+  "admin.section.connections": "Database connections",
+
+  "admin.connections.hint": "Manage a project's saved database connections — the project's own toolbar no longer offers this, only Deploy does.",
+  "admin.connections.projectLabel": "Project",
+  "admin.connections.selectProject": "Select a project…",
+  "admin.connections.noProjects": "No active projects yet.",
 
   "admin.users.empty": "No users.",
   "admin.users.disabled": "Disabled",
@@ -612,8 +619,6 @@
 
   "connections.title": "Database Connections",
   "connections.database": "Database",
-  "connections.manage": "Manage",
-  "connections.manageConnections": "Manage Connections",
   "connections.savedConnections": "Saved Connections",
   "connections.newConnection": "New Connection",
   "connections.editConnection": "Edit Connection",
@@ -686,7 +691,7 @@
   "deployment.reviewRisks": "Review Conflicts",
   "deployment.previewSql": "Preview SQL",
   "deployment.noConnectionTitle": "No Database Connected",
-  "deployment.noConnectionDesc": "Configure a database connection first to deploy your diagram changes directly to a live database.",
+  "deployment.noConnectionDesc": "This project has no database connection yet. Ask an administrator to add one from the admin console's Database connections section.",
   "errors.totpAlreadyEnabled": "Two-factor authentication is already enabled.",
   "errors.totpNotEnabled": "Two-factor authentication is not enabled.",
   "errors.totpSetupNotStarted": "Start two-factor setup before confirming it.",

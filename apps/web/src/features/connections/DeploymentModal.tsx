@@ -27,7 +27,6 @@ import { DeploymentHistoryPanel } from "./DeploymentHistoryPanel";
 export function DeploymentModal(props: {
   projectId: string;
   onClose: () => void;
-  onOpenConnectionManager?: () => void;
   initialConnectionId?: string | null;
 }) {
   const { t } = useTranslation();
@@ -179,11 +178,6 @@ export function DeploymentModal(props: {
             <Button size="sm" variant="ghost" onClick={props.onClose}>
               {t("common.cancel")}
             </Button>
-            {props.onOpenConnectionManager && (
-              <Button size="sm" variant="primary" onClick={props.onOpenConnectionManager}>
-                {t("connections.manageConnections")}
-              </Button>
-            )}
           </div>
         </div>
       </Modal>
@@ -219,11 +213,6 @@ export function DeploymentModal(props: {
             <Button size="xs" variant="ghost" onClick={() => void runAnalysis(selectedConnId)} disabled={analyzing}>
               {analyzing ? t("deployment.analyzing") : t("deployment.refreshDiff")}
             </Button>
-            {props.onOpenConnectionManager && (
-              <Button size="xs" variant="ghost" onClick={props.onOpenConnectionManager}>
-                {t("connections.manage")}
-              </Button>
-            )}
           </div>
         </div>
 

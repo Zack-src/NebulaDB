@@ -85,7 +85,18 @@ export function useProjectMutations(liveProject: Project | null, doc: Y.Doc | nu
   const setAllDetailLevels = (level: DetailLevel) => {
     if (!doc) return;
     const tables = getTablesMap(doc);
-    tables.forEach((table, id) => tables.set(id, { ...table, detailLevel: level }));
+    // Was one `tables.set()` per table with no `doc.transact()` around the
+    // loop — each `set()` is its own Yjs transaction, so it fired its own
+    // "update" event, and `useProjectDoc`'s handler rebuilds the *entire*
+    // `Project` (readProjectFromDoc) on every one of those. For N tables
+    // that's N full-project rebuilds — plus N full node/edge re-renders — for
+    // a single click, worst on compact→full (every table's DOM grows from
+    // its smallest possible box to its largest at once) where it was enough
+    // to hang or crash the tab on a schema with many tables. One transaction
+    // batches every table's change into a single "update" event instead.
+    doc.transact(() => {
+      tables.forEach((table, id) => tables.set(id, { ...table, detailLevel: level }));
+    });
   };
 
   // Highlights a detail-level button only when every table currently shares that

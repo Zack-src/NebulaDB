@@ -1,4 +1,4 @@
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import * as Y from "yjs";
 import { getRefsMap, type Project, type RefCardinality, type RoutingPoint } from "@athanordb/shared";
 import type { ValidationIssue } from "@athanordb/dbml-engine";
@@ -11,6 +11,7 @@ import {
 } from "@/features/editor/edges/refGeometry";
 import type { CanvasNode } from "@/types/index";
 import { time } from "@/utils/perfMonitor";
+import { useIsSelecting } from "@/features/editor/canvas/selectionDragState";
 
 const EMPTY_ISSUES_BY_REF: Map<string, ValidationIssue[]> = new Map();
 
@@ -35,14 +36,13 @@ export function useCanvasEdges(
   canWrite = true,
   /**
    * True while a node is being dragged. The nodes array is replaced on every
-   * drag frame, and this hook takes it as a dependency (endpoint positions
-   * decide which side of each table a relation leaves from) — so a 500-table
-   * schema rebuilt all ~500 edge objects, with their closures, sixty times a
-   * second for one table in flight, then handed React Flow a fresh edge array
-   * each time. Nothing visible is lost by holding still: React Flow anchors
-   * each edge to its handle's live position, so the line follows the dragged
-   * table either way; only the *choice* of left-vs-right handle waits for the
-   * drop.
+   * drag frame, and the geometry pass below takes it as a dependency
+   * (endpoint positions decide which side of each table a relation leaves
+   * from) — so a 500-table schema rebuilt handle sides for all ~500 edges
+   * sixty times a second for one table in flight. Nothing visible is lost by
+   * holding still: React Flow anchors each edge to its handle's live
+   * position, so the line follows the dragged table either way; only the
+   * *choice* of left-vs-right handle waits for the drop.
    */
   dragging = false,
   /** Per-ref validation issues, from `ProjectEditor`'s `useMemo(() => validateProject(liveProject), ...)`. */
@@ -50,6 +50,13 @@ export function useCanvasEdges(
   /** The canvas-wide "show validation issues" toggle — see `CanvasToolbar`. */
   showValidationIssues = true,
 ): RefEdgeType[] {
+  // A selection-box drag replaces `nodes` on every pointer-move tick too,
+  // same as a position drag — but no position changed, only which tables are
+  // selected. Frozen here for the same reason `dragging` already is: this
+  // reference feeds the *geometry* half below (handle sides, from table
+  // positions/sizes), which a selection genuinely cannot change. See
+  // `selectionDragState.ts`.
+  const selecting = useIsSelecting();
   // Written during render on purpose, and the one place in this file that
   // does: the frozen array has to be in place for the very first drag frame
   // (an effect lands a frame late, and re-deriving from state would cost an
@@ -57,15 +64,31 @@ export function useCanvasEdges(
   // idempotent and depends only on this render's own inputs.
   const geometryNodesRef = useRef(nodes);
   // eslint-disable-next-line react-hooks/refs -- see above: idempotent render-phase write, read back in the same render
-  if (!dragging) geometryNodesRef.current = nodes;
+  if (!dragging && !selecting) geometryNodesRef.current = nodes;
   const geometryNodes = geometryNodesRef.current;
 
-  return useMemo(() => {
+  // `onDeleteRef`'s closure needs to know the *current* selected edge at the
+  // moment it's actually called, not the one in scope when `baseEdges` last
+  // rebuilt — that rebuild is now deliberately insulated from selection
+  // changes (see below), so the closure reads this ref instead of closing
+  // over the `selectedEdgeId` parameter directly.
+  const selectedEdgeIdRef = useRef(selectedEdgeId);
+  useEffect(() => {
+    selectedEdgeIdRef.current = selectedEdgeId;
+  }, [selectedEdgeId]);
+
+  // The expensive, hover/selection-independent half of building an edge:
+  // handle-side geometry (`pickHandleSides`, one table-position/size lookup
+  // pair per ref) and the six per-edge closures that write back to the doc.
+  // None of that depends on what's hovered or selected — only on the refs
+  // themselves, live table geometry, and validation state — so splitting it
+  // out means selecting (or drag-selecting) tables never re-derives it.
+  const baseEdges = useMemo(() => {
     if (!liveProject) return [];
     const project = liveProject;
-    return time("canvas.buildEdges", () => buildEdges());
+    return time("canvas.buildBaseEdges", () => buildBaseEdges());
 
-    function buildEdges(): RefEdgeType[] {
+    function buildBaseEdges(): RefEdgeType[] {
       const tablesById = new Map(project.tables.map((t) => [t.id, t]));
       const nodesById = new Map(geometryNodes.map((n) => [n.id, n]));
 
@@ -82,31 +105,13 @@ export function useCanvasEdges(
         return slot;
       };
 
-      // eslint-disable-next-line complexity -- resolves each ref's hover/selection highlight, handle sides and per-slot offset from live table/node state in one pass; splitting the per-edge derivation into helpers would scatter the Yjs-backed callbacks it closes over without a test in place to catch a regression
+      // eslint-disable-next-line complexity -- resolves each ref's handle sides, per-slot offset and doc-mutating callbacks from live table/node state in one pass; splitting the per-edge derivation into helpers would scatter the Yjs-backed callbacks it closes over without a test in place to catch a regression
       return project.refs.map((ref) => {
         const fromTable = tablesById.get(ref.from.tableId);
         const toTable = tablesById.get(ref.to.tableId);
 
         const fromNode = nodesById.get(ref.from.tableId);
         const toNode = nodesById.get(ref.to.tableId);
-
-        const isFieldHovered = Boolean(
-          hoveredFieldId && (hoveredFieldId === ref.from.fieldId || hoveredFieldId === ref.to.fieldId),
-        );
-        const isFieldSelected = Boolean(
-          selectedFieldId && (selectedFieldId === ref.from.fieldId || selectedFieldId === ref.to.fieldId),
-        );
-        const isTableHovered = Boolean(
-          !hoveredFieldId &&
-          !selectedFieldId &&
-          hoveredTableId &&
-          (hoveredTableId === ref.from.tableId || hoveredTableId === ref.to.tableId),
-        );
-        const isTableSelected = !selectedFieldId && (Boolean(fromNode?.selected) || Boolean(toNode?.selected));
-
-        const isEdgeSelected = ref.id === selectedEdgeId;
-        const connectedHighlight =
-          isFieldHovered || isFieldSelected || isTableHovered || isTableSelected || isEdgeSelected;
 
         const refIssues = showValidationIssues ? issuesByRef.get(ref.id) : undefined;
 
@@ -147,14 +152,16 @@ export function useCanvasEdges(
           sourceHandle,
           targetHandle,
           type: "ref",
-          selected: isEdgeSelected,
+          selected: false,
           data: {
             cardinality: ref.cardinality,
             sourceSlot: takeSlot(ref.from.tableId, sourceHandle),
             targetSlot: takeSlot(ref.to.tableId, targetHandle),
             routingPoints: ref.routingPoints,
             highlightLinks,
-            connectedHighlight,
+            connectedHighlight: false,
+            fromFieldId: ref.from.fieldId,
+            toFieldId: ref.to.fieldId,
             hasIssue: Boolean(refIssues?.length),
             issueMessages: refIssues?.map((issue) => issue.message),
             color: ref.style?.color,
@@ -199,7 +206,7 @@ export function useCanvasEdges(
                   if (!doc) return;
                   const refs = getRefsMap(doc);
                   refs.delete(ref.id);
-                  if (selectedEdgeId === ref.id) onSelectEdge?.(null);
+                  if (selectedEdgeIdRef.current === ref.id) onSelectEdge?.(null);
                 },
           },
           // No `markerEnd`: the arrowhead is drawn inside `RefEdge` so it can
@@ -213,15 +220,60 @@ export function useCanvasEdges(
     doc,
     geometryNodes,
     highlightLinks,
-    hoveredFieldId,
-    hoveredTableId,
-    selectedFieldId,
-    selectedEdgeId,
-    onSelectEdge,
     palette,
     onPaletteChange,
+    onSelectEdge,
     canWrite,
     issuesByRef,
     showValidationIssues,
   ]);
+
+  // The cheap, hover/selection-only half: no geometry, no new per-edge
+  // callbacks (reuses `baseEdges`' own) — just which ref, if any, should
+  // read as highlighted right now. Deliberately reads the raw `nodes` param,
+  // not the (possibly frozen) `geometryNodes` above: this half has to stay
+  // live through a selection drag — relations highlighting as the box
+  // crosses each table is the whole point of a selection freeze not also
+  // applying here. A shallow pass over already-built edge objects is cheap
+  // enough to pay on every pointer-move tick; rebuilding their geometry and
+  // closures (the other half) is what wasn't.
+  return useMemo(() => {
+    if (baseEdges.length === 0) return baseEdges;
+    return time("canvas.applyEdgeHighlights", applyHighlights);
+
+    function applyHighlights(): RefEdgeType[] {
+      const selectedTableIds = new Set<string>();
+      for (const node of nodes) {
+        if (node.type === "table" && node.selected) selectedTableIds.add(node.id);
+      }
+
+      return baseEdges.map((edge): RefEdgeType => {
+        // `data` is always set by `buildBaseEdges` above — this narrows the
+        // type (React Flow's own `Edge<T>` declares `data` optional) rather
+        // than actually guarding against a missing one.
+        if (!edge.data) return edge;
+        const { fromFieldId, toFieldId } = edge.data;
+        const isFieldHovered = Boolean(
+          hoveredFieldId && (hoveredFieldId === fromFieldId || hoveredFieldId === toFieldId),
+        );
+        const isFieldSelected = Boolean(
+          selectedFieldId && (selectedFieldId === fromFieldId || selectedFieldId === toFieldId),
+        );
+        const isTableHovered = Boolean(
+          !hoveredFieldId &&
+          !selectedFieldId &&
+          hoveredTableId &&
+          (hoveredTableId === edge.source || hoveredTableId === edge.target),
+        );
+        const isTableSelected =
+          !selectedFieldId && (selectedTableIds.has(edge.source) || selectedTableIds.has(edge.target));
+        const isEdgeSelected = edge.id === selectedEdgeId;
+        const connectedHighlight =
+          isFieldHovered || isFieldSelected || isTableHovered || isTableSelected || isEdgeSelected;
+
+        if (edge.selected === isEdgeSelected && edge.data.connectedHighlight === connectedHighlight) return edge;
+        return { ...edge, selected: isEdgeSelected, data: { ...edge.data, connectedHighlight } };
+      });
+    }
+  }, [baseEdges, nodes, hoveredFieldId, hoveredTableId, selectedFieldId, selectedEdgeId]);
 }

@@ -18,6 +18,9 @@ export interface RefEdgeData {
   highlightLinks?: boolean;
   /** True when this edge touches the currently hovered or selected table — highlights it independently of the global `highlightLinks` toggle. */
   connectedHighlight?: boolean;
+  /** This ref's own from/to field ids — internal bookkeeping for `useCanvasEdges`'s highlight pass, not read by `RefEdge` itself. Lets that pass recompute hover/selection highlighting from `data` alone, without re-deriving handle geometry (which doesn't change from a hover or a selection). */
+  fromFieldId?: string;
+  toFieldId?: string;
   /** Custom highlight color override — falls back to the cardinality's default color when unset. */
   color?: string;
   /** True when this ref has a validation issue (see `packages/dbml-engine/src/validate.ts`) and the canvas-wide "show schema issues" toggle is on — draws the line in the issue colour regardless of hover/selection. */

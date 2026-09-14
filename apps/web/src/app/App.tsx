@@ -21,15 +21,21 @@ export function App() {
   const { session, setSession, logout, updateDisplayName } = useAuthSession(() => setAdminOpen(false));
   const projectsHandle = useProjects(Boolean(session && session !== "loading"));
   const routing = useProjectRouting(session, projectsHandle.projects);
+  // Set once AcceptInvite finishes creating an account, so the login screen
+  // that follows shows a "welcome, sign in" banner and pre-fills the email
+  // instead of looking like an unrelated login prompt. Also stands in for
+  // "the invite step is done": `routing.inviteToken` is read once at mount
+  // and never clears itself, so without this the app would keep showing
+  // AcceptInvite forever after a successful accept.
+  const [welcomeEmail, setWelcomeEmail] = useState<string | null>(null);
 
-  if (routing.inviteToken) {
+  if (routing.inviteToken && !welcomeEmail) {
     return (
       <div className={APP_SHELL}>
         <AcceptInvite
           token={routing.inviteToken}
-          onLoggedIn={(s) => {
-            setSession(s);
-            setViewMode("app");
+          onAccepted={(email) => {
+            setWelcomeEmail(email);
             window.history.replaceState(null, "", "/");
           }}
         />
@@ -73,6 +79,7 @@ export function App() {
   if (!session) {
     return (
       <Login
+        initialEmail={welcomeEmail ?? undefined}
         onLoggedIn={(s) => {
           setSession(s);
           setViewMode("app");

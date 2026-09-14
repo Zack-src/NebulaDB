@@ -6,23 +6,45 @@ import { ErrorText } from "@/components/ui/Alert";
 import { useAsyncAction } from "@/hooks/useAsyncAction";
 import { useTranslation } from "@/i18n/useTranslation";
 import { acceptInvitation } from "@/services/invitationsApi";
-import type { Session } from "@/types";
 
 const MIN_PASSWORD_LENGTH = 8;
 
 export interface AcceptInviteProps {
   token: string;
-  onLoggedIn: (session: Session) => void;
+  /** Called once the account exists. The caller is responsible for sending
+   * the user on to a real login — this component intentionally never
+   * receives a session. */
+  onAccepted: (email: string) => void;
 }
 
-function AcceptInvite({ token, onLoggedIn }: AcceptInviteProps) {
+/**
+ * Best-effort save into the browser's own password manager via the
+ * Credential Management API (Chromium browsers). Not available everywhere
+ * (Firefox/Safari lack it), which is fine: those browsers instead pick up
+ * the credential from the real login form submission that follows.
+ */
+async function tryStoreCredential(email: string, password: string): Promise<void> {
+  try {
+    const PasswordCredentialCtor = (window as unknown as { PasswordCredential?: new (data: unknown) => Credential })
+      .PasswordCredential;
+    if (!PasswordCredentialCtor || !navigator.credentials?.store) return;
+    const credential = new PasswordCredentialCtor({ id: email, password, name: email });
+    await navigator.credentials.store(credential);
+  } catch {
+    // Best effort only — never block account creation on this.
+  }
+}
+
+function AcceptInvite({ token, onAccepted }: AcceptInviteProps) {
   const { t } = useTranslation();
   const [password, setPassword] = useState("");
   const [confirmation, setConfirmation] = useState("");
   const [validationError, setValidationError] = useState<string | null>(null);
 
   const createAccount = useAsyncAction(async () => {
-    onLoggedIn(await acceptInvitation(token, password));
+    const { email } = await acceptInvitation(token, password);
+    await tryStoreCredential(email, password);
+    onAccepted(email);
   });
 
   const handleSubmit = (event: FormEvent) => {

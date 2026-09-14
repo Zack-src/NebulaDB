@@ -1,5 +1,7 @@
 import * as Y from "yjs";
 import type { RevisionMeta } from "@athanordb/shared";
+import { readProjectFromDoc } from "@athanordb/shared";
+import { diffProjects } from "@athanordb/dbml-engine";
 import { db } from "../infrastructure/db.js";
 import { timeSync } from "../infrastructure/perf.js";
 
@@ -51,6 +53,59 @@ export function listRevisions(projectId: string): RevisionMeta[] {
   return db
     .prepare(`SELECT id, author, label, created_at AS createdAt FROM revisions WHERE project_id = ? ORDER BY rowid ASC`)
     .all(projectId) as RevisionMeta[];
+}
+
+/**
+ * `listRevisions`, but with entries dropped when they made no schema change
+ * over the one before them — dragging a table alone commits a revision on
+ * every mouse-up (see `appendRevision`'s comment), so an active editing
+ * session can leave a project with long runs of revisions that only ever
+ * differ from their neighbour by table/note position. That's noise for a
+ * human scanning "what changed and when", even though each row is a
+ * perfectly real point in the CRDT history — restoring to any of them still
+ * works, this only decides what the history *list* surfaces.
+ *
+ * A revision that was explicitly labeled (a checkpoint like "v1.0") is
+ * always kept even if it didn't change anything — the user pointed at that
+ * exact moment on purpose, so second-guessing it here would be wrong.
+ *
+ * "Changed" reuses `diffProjects`'s notion of schema change (tables/fields/
+ * refs), the same one `HistoryPanel`'s "No schema changes since this
+ * revision" already uses — so a revision that only moved a table around
+ * canvas, without touching the schema, does not count as a change here
+ * either.
+ *
+ * Replays the whole log exactly once, incrementally, into a single scratch
+ * doc — O(revisions), not O(revisions²) like reconstructing each one from
+ * scratch would be.
+ */
+export function listMeaningfulRevisions(projectId: string): RevisionMeta[] {
+  const rows = db
+    .prepare(
+      `SELECT id, author, label, created_at AS createdAt, yjs_update FROM revisions WHERE project_id = ? ORDER BY rowid ASC`,
+    )
+    .all(projectId) as (RevisionMeta & { yjs_update: Buffer })[];
+
+  return timeSync("persistence.listMeaningfulRevisions", () => {
+    const doc = new Y.Doc();
+    try {
+      let previousProject = readProjectFromDoc(doc, projectId);
+      const kept: RevisionMeta[] = [];
+      for (const row of rows) {
+        Y.applyUpdate(doc, new Uint8Array(row.yjs_update));
+        const project = readProjectFromDoc(doc, projectId);
+        const diff = diffProjects(previousProject, project);
+        const changed = diff.tables.length > 0 || diff.refs.length > 0;
+        if (changed || row.label) {
+          kept.push({ id: row.id, author: row.author, label: row.label, createdAt: row.createdAt });
+        }
+        previousProject = project;
+      }
+      return kept;
+    } finally {
+      doc.destroy();
+    }
+  });
 }
 
 /**

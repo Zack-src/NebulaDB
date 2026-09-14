@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { CanvasNode } from "@/types/index";
+import { time } from "@/utils/perfMonitor";
 
 /**
  * merged node -> the `builtNodes` entry it was derived from.
@@ -42,33 +43,55 @@ export function useSelectionPreservingNodes(builtNodes: CanvasNode[]) {
   const [prevBuiltNodes, setPrevBuiltNodes] = useState(builtNodes);
   const [derivedFrom] = useState<DerivedFrom>(() => new WeakMap());
 
+  function mergeNodes(prevNodes: CanvasNode[]) {
+    const previousById = new Map(prevNodes.map((node) => [node.id, node]));
+    return builtNodes.map((node) => {
+      const previous = previousById.get(node.id);
+      if (!previous) return node;
+
+      const keepSelection = Boolean(previous.selected) && !node.selected;
+      // A table node's box size is driven by its `detailLevel` (compact
+      // renders 0 field rows, full renders every field — see
+      // `TableNode.tsx`'s `rows` memo). Carrying the old `measured` box
+      // forward across a detail-level change hands React Flow a box that's
+      // now simply wrong, not just stale-until-corrected: going compact ->
+      // full it's the smallest possible box standing in for the largest,
+      // for every table at once when the change is a bulk one (the
+      // detail-level toolbar buttons, `setAllDetailLevels`). Each of those
+      // wrong boxes still gets corrected — but individually, via React
+      // Flow's ResizeObserver, once per table; the resulting flood of
+      // node-dimension-change events cascades into a full node/edge
+      // rebuild after every single one of them. Not carrying `measured`
+      // forward here instead lets every table whose size actually changed
+      // re-measure together in the one settle-down pass React Flow already
+      // does for a freshly-unmeasured node — the same path a first load
+      // goes through, exercised at this size already.
+      const sizeMayHaveChanged =
+        node.type === "table" &&
+        previous.type === "table" &&
+        previous.data.table.detailLevel !== node.data.table.detailLevel;
+      const keepMeasured = Boolean(previous.measured) && !node.measured && !sizeMayHaveChanged;
+      if (!keepSelection && !keepMeasured) {
+        derivedFrom.set(node, node);
+        return node;
+      }
+      // Same source node, same selection: the object already in the store is
+      // exactly what this rebuild would produce, so keep its identity.
+      if (derivedFrom.get(previous) === node && Boolean(previous.selected) === keepSelection) return previous;
+
+      const merged = {
+        ...node,
+        ...(keepSelection ? { selected: true } : {}),
+        ...(keepMeasured ? { measured: previous.measured } : {}),
+      } as CanvasNode;
+      derivedFrom.set(merged, node);
+      return merged;
+    });
+  }
+
   if (builtNodes !== prevBuiltNodes) {
     setPrevBuiltNodes(builtNodes);
-    setNodes((prevNodes) => {
-      const previousById = new Map(prevNodes.map((node) => [node.id, node]));
-      return builtNodes.map((node) => {
-        const previous = previousById.get(node.id);
-        if (!previous) return node;
-
-        const keepSelection = Boolean(previous.selected) && !node.selected;
-        const keepMeasured = Boolean(previous.measured) && !node.measured;
-        if (!keepSelection && !keepMeasured) {
-          derivedFrom.set(node, node);
-          return node;
-        }
-        // Same source node, same selection: the object already in the store is
-        // exactly what this rebuild would produce, so keep its identity.
-        if (derivedFrom.get(previous) === node && Boolean(previous.selected) === keepSelection) return previous;
-
-        const merged = {
-          ...node,
-          ...(keepSelection ? { selected: true } : {}),
-          ...(keepMeasured ? { measured: previous.measured } : {}),
-        } as CanvasNode;
-        derivedFrom.set(merged, node);
-        return merged;
-      });
-    });
+    setNodes((prevNodes) => time("canvas.selectionPreservingMerge", () => mergeNodes(prevNodes)));
   }
   return [nodes, setNodes] as const;
 }

@@ -3,6 +3,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
   type MouseEvent as ReactMouseEvent,
@@ -48,7 +49,9 @@ import {
 import { CanvasZoomBar } from "./CanvasZoomBar";
 import { useStoreChurnProbe } from "./useStoreChurnProbe";
 import { useHighlightedFieldsPublisher } from "./highlightedFields";
-import { recordDuration } from "@/utils/perfMonitor";
+import { useNodeInternalsBatchPublisher } from "./nodeInternalsBatch";
+import { publishSelecting } from "./selectionDragState";
+import { recordDuration, time } from "@/utils/perfMonitor";
 import { SelectionColorToolbar } from "./SelectionColorToolbar";
 import { useCanvasImageExport } from "./useCanvasImageExport";
 import { useCanvasSearch } from "./useCanvasSearch";
@@ -143,6 +146,14 @@ export function CanvasArea(props: CanvasAreaProps) {
   // that no component consumed.
   const [gridStyle] = useState(loadGridStyle);
   const [snapToGrid] = useState(loadSnapToGrid);
+  // Wall-clock start of the current selection-box drag — the one number that
+  // covers *everything* the gesture costs, including work this file can't
+  // put its own `time()` span around (React Flow's own `getNodesInside`/
+  // `triggerNodeChanges`, layout, paint). Compared against the `canvas.*`
+  // spans above in the perf HUD (Ctrl+Shift+P), it says how much of a slow
+  // drag is "explained" by this app's own code vs. opaque browser/library
+  // cost the `longtask` observer is the only other window into.
+  const selectionDragStartRef = useRef<number | null>(null);
 
   const { onNodesChange, awareness, exportRef, navigateRef } = props;
 
@@ -150,6 +161,14 @@ export function CanvasArea(props: CanvasAreaProps) {
   // One O(edges) pass for the whole canvas, replacing the per-table store
   // selector each `TableNode` used to run — see `highlightedFields.ts`.
   useHighlightedFieldsPublisher();
+  // One batched `updateNodeInternals()` call per tick, replacing the one
+  // separate call each `TableNode` used to make on its own — see
+  // `nodeInternalsBatch.ts`.
+  useNodeInternalsBatchPublisher();
+  // Nothing should stay "as if mid-drag" if this canvas unmounts while a
+  // selection drag is somehow still in flight (switching projects, closing
+  // the editor) — mirrors `highlightedFieldsPublisher`'s own reset.
+  useEffect(() => () => publishSelecting(false), []);
   useCanvasImageExport(exportRef);
   useCanvasNavigate(navigateRef, props.nodes, onNodesChange);
   const search = useCanvasSearch(props.nodes, onNodesChange);
@@ -223,7 +242,18 @@ export function CanvasArea(props: CanvasAreaProps) {
     };
   }, [contextMenu, closeContextMenu]);
 
-  const selectedTableIds = props.nodes.filter((node) => node.type === "table" && node.selected).map((node) => node.id);
+  // Memoized rather than recomputed inline: `props.nodes` gets a new array
+  // reference on every selection-drag tick (see `selectionDragState.ts`), and
+  // this filter+map is O(nodes) — negligible for one render, but it used to
+  // run unconditionally on every one of those ticks for no reason, same
+  // shape as the bugs fixed elsewhere in this file this session.
+  const selectedTableIds = useMemo(
+    () =>
+      time("canvas.selectedTableIds", () =>
+        props.nodes.filter((node) => node.type === "table" && node.selected).map((node) => node.id),
+      ),
+    [props.nodes],
+  );
 
   /**
    * Broadcast this user's table selection — the Figma-style outline other
@@ -239,12 +269,14 @@ export function CanvasArea(props: CanvasAreaProps) {
   const { remoteSelections } = props;
   const nodesWithRemoteSelection = useMemo(() => {
     if (remoteSelections.size === 0) return props.nodes;
-    return props.nodes.map((node) => {
-      if (node.type !== "table") return node;
-      const selectors = remoteSelections.get(node.id);
-      if (!selectors) return node;
-      return { ...node, data: { ...node.data, remoteSelectedBy: selectors } };
-    });
+    return time("canvas.remoteSelectionMerge", () =>
+      props.nodes.map((node) => {
+        if (node.type !== "table") return node;
+        const selectors = remoteSelections.get(node.id);
+        if (!selectors) return node;
+        return { ...node, data: { ...node.data, remoteSelectedBy: selectors } };
+      }),
+    );
   }, [props.nodes, remoteSelections]);
 
   // React's own render/commit cost for the whole node tree (every table,
@@ -302,6 +334,21 @@ export function CanvasArea(props: CanvasAreaProps) {
           defaultViewport={initialViewport ?? undefined}
           selectionOnDrag
           selectionMode={SelectionMode.Partial}
+          // See `selectionDragState.ts`: lets `useCanvasEdges` skip
+          // redoing edge *geometry* (handle sides, closures) on every tick
+          // of the drag — table positions don't change from selecting them.
+          // The relation-highlighting itself stays live regardless.
+          onSelectionStart={() => {
+            selectionDragStartRef.current = performance.now();
+            publishSelecting(true);
+          }}
+          onSelectionEnd={() => {
+            if (selectionDragStartRef.current !== null) {
+              recordDuration("canvas.selectionDragTotal", performance.now() - selectionDragStartRef.current);
+              selectionDragStartRef.current = null;
+            }
+            publishSelecting(false);
+          }}
           panOnDrag={[1, 2]}
           {...CANVAS_VIEWPORT_PROPS}
           // Deliberately OFF, despite the obvious appeal for "hundreds of

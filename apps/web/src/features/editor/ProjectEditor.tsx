@@ -29,9 +29,6 @@ const ImportDialog = lazy(() => import("@/features/editor/io/ImportDialog"));
 const ExportDialog = lazy(() => import("@/features/editor/io/ExportDialog"));
 const HistoryPanel = lazy(() => import("@/features/editor/history/HistoryPanel"));
 const PluginManagerDialog = lazy(() => import("@/features/plugins/PluginManagerDialog"));
-const ConnectionManagerModal = lazy(() =>
-  import("@/features/connections/ConnectionManagerModal").then((m) => ({ default: m.ConnectionManagerModal })),
-);
 const DeploymentModal = lazy(() =>
   import("@/features/connections/DeploymentModal").then((m) => ({ default: m.DeploymentModal })),
 );
@@ -76,9 +73,10 @@ export function ProjectEditor(props: {
   const [showHistory, setShowHistory] = useState(false);
   const [showPlugins, setShowPlugins] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
-  const [showConnections, setShowConnections] = useState(false);
   const [showDeployment, setShowDeployment] = useState(false);
   const [viewMode, setViewMode] = useState<EditorViewMode>("mld");
+  // Connections themselves are managed from the admin console now — this
+  // just needs to know which one to preselect when Deploy opens.
   const [activeConnection, setActiveConnection] = useState<DatabaseConnectionSummary | null>(null);
 
   useEffect(() => {
@@ -275,10 +273,8 @@ export function ProjectEditor(props: {
         onShowImport={() => setShowImport(true)}
         onShowExport={() => setShowExport(true)}
         onShowHistory={() => setShowHistory(true)}
-        onShowConnections={() => setShowConnections(true)}
         onShowDeploy={() => setShowDeployment(true)}
         isProjectAdmin={project.permission === "administrator"}
-        connectedDbName={activeConnection?.name}
         onOpenSettings={() => setShowSettings(true)}
         localUser={user}
         localColor={hashColor(user)}
@@ -390,23 +386,11 @@ export function ProjectEditor(props: {
           <HistoryPanel projectId={project.id} currentProject={liveProject} onClose={() => setShowHistory(false)} />
         )}
         {showPlugins && <PluginManagerDialog onClose={() => setShowPlugins(false)} />}
-        {showConnections && (
-          <ConnectionManagerModal
-            projectId={project.id}
-            onClose={() => setShowConnections(false)}
-            activeConnectionId={activeConnection?.id}
-            onSelectActiveConnection={(conn) => setActiveConnection(conn)}
-          />
-        )}
         {showDeployment && (
           <DeploymentModal
             projectId={project.id}
             onClose={() => setShowDeployment(false)}
             initialConnectionId={activeConnection?.id}
-            onOpenConnectionManager={() => {
-              setShowDeployment(false);
-              setShowConnections(true);
-            }}
           />
         )}
         {/* Diagnostics overlay for editor stutter/freezes — hidden until Ctrl+Shift+P, see PerfHud. */}
