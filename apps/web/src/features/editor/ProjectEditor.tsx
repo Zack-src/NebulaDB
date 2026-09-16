@@ -1,6 +1,6 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ReactFlowProvider } from "@xyflow/react";
-import { getMetaMap, type DatabaseConnectionSummary } from "@athanordb/shared";
+import { getMetaMap, type DatabaseConnectionSummary, type Table } from "@athanordb/shared";
 import { validateProject, type ValidationIssue } from "@athanordb/dbml-engine";
 import { listProjectConnections } from "@/services/connectionsApi";
 import { useProjectDoc } from "@/features/collaboration/useProjectDoc";
@@ -10,7 +10,12 @@ import { hashColor } from "@/features/collaboration/awarenessColor";
 import { CanvasArea } from "@/features/editor/canvas/CanvasArea";
 import { ChevronRightIcon } from "@/components/icons/Icons";
 import { DEFAULT_PALETTE } from "@/components/inputs/ColorSwatchPicker";
-import { loadHighlightLinks, loadShowValidationIssues, saveHighlightLinks, saveShowValidationIssues } from "@/utils/preferences";
+import {
+  loadHighlightLinks,
+  loadShowValidationIssues,
+  saveHighlightLinks,
+  saveShowValidationIssues,
+} from "@/utils/preferences";
 import type { CanvasExportHandle, CanvasNavigateHandle, ProjectSummary } from "@/types/index";
 import { useCanvasNodes } from "@/features/editor/hooks/useCanvasNodes";
 import { useCanvasEdges } from "@/features/editor/hooks/useCanvasEdges";
@@ -100,16 +105,25 @@ export function ProjectEditor(props: {
     setDbmlOpen(true);
     setDbmlScrollRequest((prev) => ({ tableName, requestId: (prev?.requestId ?? 0) + 1 }));
   }, []);
+  const openPlugins = useCallback(() => setShowPlugins(true), []);
+  const clearFieldSelection = useCallback(() => {
+    setSelectedFieldId(null);
+    setSelectedEdgeId(null);
+  }, []);
 
-  const handleHighlightLinksChange = (val: boolean) => {
+  // `useCallback`, like `goToDbml` above: stable identities so `CanvasArea`
+  // (a `React.memo`) can actually bail out on an unrelated `ProjectEditor`
+  // re-render instead of a fresh function reference forcing it to re-render
+  // every time regardless.
+  const handleHighlightLinksChange = useCallback((val: boolean) => {
     setHighlightLinks(val);
     saveHighlightLinks(val);
-  };
+  }, []);
 
-  const handleShowValidationIssuesChange = (val: boolean) => {
+  const handleShowValidationIssuesChange = useCallback((val: boolean) => {
     setShowValidationIssues(val);
     saveShowValidationIssues(val);
-  };
+  }, []);
 
   // Recomputed on every doc update, like `refFieldIdsByTable` below — cheap
   // (a handful of O(tables+refs) passes) next to the Yjs->Project rebuild
@@ -190,8 +204,48 @@ export function ProjectEditor(props: {
     [doc],
   );
 
+  // Above this many tables, every table renders at "compact" — a display
+  // override only, never written to the doc (`liveProject` itself, and
+  // everything derived from it below, keeps each table's real setting; only
+  // `renderProject`, fed to the two rendering hooks, is touched). "Full"
+  // detail means every field row plus its four handles, per table — measured
+  // at 500 tables it was ~66% of a selection-drag's wall-clock time spent
+  // outside this app's own code (React Flow's own hit-testing and the
+  // browser's layout/paint for that much DOM), collapsing to a fraction of
+  // that at "compact" (see docs/perf/bench-session-fixes.md and the
+  // dedicated compact-at-500 probe run alongside it). The threshold is a
+  // guess at "more than a screenful even zoomed out", not a measured knee —
+  // revisit with the bench harness if it turns out wrong in either direction.
+  const RENDER_LOD_TABLE_THRESHOLD = 150;
+  // Keyed by the real (Yjs-backed) table object, which `readProjectFromDoc`
+  // already keeps reference-stable per id across doc updates that don't
+  // touch that particular table (see `useCanvasNodes/index.ts`'s own
+  // docstring). Without this cache, minting `{ ...t, detailLevel: "compact" }`
+  // fresh on every `renderProject` recompute handed every *unchanged* table a
+  // new object identity too — on a "standard"/"full" project, that's every
+  // single table, on every doc update, defeating `tableNodeCache`'s whole
+  // point (measured: turned a cheap single-table drag into a full-canvas
+  // rebuild on a 500-table project).
+  const [compactOverrideCache] = useState<WeakMap<Table, Table>>(() => new WeakMap());
+  const renderProject = useMemo(() => {
+    if (!liveProject || liveProject.tables.length <= RENDER_LOD_TABLE_THRESHOLD) return liveProject;
+    const cache = compactOverrideCache;
+    return {
+      ...liveProject,
+      tables: liveProject.tables.map((t) => {
+        if (t.detailLevel === "compact") return t;
+        let overridden = cache.get(t);
+        if (!overridden) {
+          overridden = { ...t, detailLevel: "compact" as const };
+          cache.set(t, overridden);
+        }
+        return overridden;
+      }),
+    };
+  }, [liveProject, compactOverrideCache]);
+
   const { nodes, onNodesChange, dragging } = useCanvasNodes(
-    liveProject,
+    renderProject,
     doc,
     refFieldIdsByTable,
     user,
@@ -219,7 +273,7 @@ export function ProjectEditor(props: {
   });
 
   const edges = useCanvasEdges(
-    liveProject,
+    renderProject,
     doc,
     nodes,
     highlightLinks,
@@ -345,14 +399,11 @@ export function ProjectEditor(props: {
                 navigateRef={canvasNavigateRef}
                 canvasCommands={canvasCommands}
                 onRunCanvasCommand={runCanvasCommand}
-                onOpenPlugins={() => setShowPlugins(true)}
+                onOpenPlugins={openPlugins}
                 statusMessage={pluginMessage}
                 selectedEdgeId={selectedEdgeId}
                 onSelectEdge={setSelectedEdgeId}
-                onClearFieldSelection={() => {
-                  setSelectedFieldId(null);
-                  setSelectedEdgeId(null);
-                }}
+                onClearFieldSelection={clearFieldSelection}
                 canWrite={canWrite}
                 viewMode={viewMode}
                 onSetViewMode={setViewMode}

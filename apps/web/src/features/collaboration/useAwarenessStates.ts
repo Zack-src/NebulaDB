@@ -20,7 +20,19 @@ export function useAwarenessStates(awareness: Awareness | null): Map<number, Awa
         if (clientId === awareness.clientID) return;
         if (state && typeof state === "object" && "user" in state) next.set(clientId, state as AwarenessState);
       });
-      setStates(next);
+      // Yjs fires "change" for the *local* client's own awareness updates
+      // too — including the cursor position this same tab broadcasts on
+      // every animation frame while the mouse moves (see
+      // `useCollaboratorCursor.ts`). With nobody else in the project, that
+      // fired `setStates(new Map())` — a fresh object every time — on every
+      // one of those frames, and `ProjectEditor` re-rendering cascaded into
+      // `CanvasArea` (not memoized) on each one: measured as ~130
+      // `canvas.render.update` commits over a single ~1.6s gesture that
+      // touched none of this app's own code. Solo work is the common case,
+      // so this one-line short-circuit — no new object when the set of
+      // remote collaborators is still empty — is worth it on its own; a
+      // real collaborator's cursor still updates every frame as before.
+      setStates((prev) => (prev.size === 0 && next.size === 0 ? prev : next));
     };
     awareness.on("change", refresh);
     refresh();

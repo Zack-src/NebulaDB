@@ -77,9 +77,21 @@ export const ROW_ACTION_BTN_CLASS =
   "hover:bg-surface-hover hover:text-text [&.has-comments]:bg-surface-hover [&.has-comments]:text-text " +
   "[&.has-open-popover]:bg-surface-hover [&.has-open-popover]:text-text";
 
+// `content-visibility: auto` lets the browser skip layout/paint for a table
+// currently scrolled out of the viewport, without unmounting it the way
+// React Flow's own `onlyRenderVisibleElements` does — that flag was measured
+// and deliberately left off (see `CanvasArea.tsx`'s comment on it) because
+// the mount/unmount churn it caused cost more than the paint work it saved.
+// `content-visibility` gets the same skip without that churn: the DOM node
+// stays put. `contain-intrinsic-size` gives the browser a placeholder box to
+// lay out while a table is skipped — set to this app's own existing
+// "unmeasured table" guess (`DEFAULT_TABLE_WIDTH`/`HEIGHT` in
+// `refGeometry.ts`) so an edge terminating at a currently-skipped table still
+// gets a reasonable box instead of collapsing to zero.
 export const TABLE_NODE_CLASS =
   "min-w-[190px] overflow-hidden rounded-sm [transition:box-shadow_0.12s_ease,border-color_0.12s_ease] " +
-  "border border-border bg-surface text-[calc(12.5px_*_var(--canvas-font-scale))] shadow-sm";
+  "border border-border bg-surface text-[calc(12.5px_*_var(--canvas-font-scale))] shadow-sm " +
+  "[content-visibility:auto] [contain-intrinsic-size:220px_120px]";
 /**
  * Selection recolours the table's own 1px border to primary instead of adding
  * a second, thicker ring around it — an `outline` used to do that job, but at

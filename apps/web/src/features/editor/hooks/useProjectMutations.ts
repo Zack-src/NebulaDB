@@ -17,87 +17,107 @@ import { generateId } from "@/utils/id";
 
 /** Every doc-mutating action the project toolbar/canvas can trigger — add/duplicate elements, connect/delete refs, bulk detail-level and layout changes. */
 export function useProjectMutations(liveProject: Project | null, doc: Y.Doc | null, nodes: CanvasNode[]) {
-  const addTable = (position?: { x: number; y: number }) => {
-    if (!doc) return;
-    const tables = getTablesMap(doc);
-    const id = generateId();
-    const index = tables.size;
-    tables.set(id, {
-      id,
-      name: `table_${index + 1}`,
-      // A field-less table isn't just useless — @dbml/core's parser actually
-      // throws on `Table t { }` (zero columns), which would break the live
-      // DBML round-trip the moment this table's text gets re-imported (e.g.
-      // the user edits any other table before giving this one a column).
-      // Seeding an id column sidesteps that entirely, and matches how every
-      // other schema tool (dbdiagram included) seeds a new table.
-      fields: [{ id: generateId(), name: "id", type: "int", pk: true, increment: true }],
-      indexes: [],
-      position: position ?? { x: (index % 6) * 260, y: Math.floor(index / 6) * 200 },
-      detailLevel: defaultDetailLevelForNewTable(liveProject?.tables ?? []),
-    });
-  };
+  // Every mutator below is a `useCallback`, not a plain closure, so that
+  // `CanvasArea` (a `React.memo`) can actually bail out when nothing it
+  // cares about changed — a fresh function identity on every one of these
+  // per render would defeat that memoization exactly as surely as no memo
+  // at all. See `CanvasArea.tsx`'s own comment on why that matters.
+  const addTable = useCallback(
+    (position?: { x: number; y: number }) => {
+      if (!doc) return;
+      const tables = getTablesMap(doc);
+      const id = generateId();
+      const index = tables.size;
+      tables.set(id, {
+        id,
+        name: `table_${index + 1}`,
+        // A field-less table isn't just useless — @dbml/core's parser actually
+        // throws on `Table t { }` (zero columns), which would break the live
+        // DBML round-trip the moment this table's text gets re-imported (e.g.
+        // the user edits any other table before giving this one a column).
+        // Seeding an id column sidesteps that entirely, and matches how every
+        // other schema tool (dbdiagram included) seeds a new table.
+        fields: [{ id: generateId(), name: "id", type: "int", pk: true, increment: true }],
+        indexes: [],
+        position: position ?? { x: (index % 6) * 260, y: Math.floor(index / 6) * 200 },
+        detailLevel: defaultDetailLevelForNewTable(liveProject?.tables ?? []),
+      });
+    },
+    [doc, liveProject],
+  );
 
-  const addZone = (position?: { x: number; y: number }) => {
-    if (!doc) return;
-    const zones = getZonesMap(doc);
-    const id = generateId();
-    zones.set(id, {
-      id,
-      label: "Zone",
-      position: position ?? { x: 40, y: 40 },
-      size: { width: 300, height: 220 },
-      style: { color: "#f59e0b" },
-    });
-  };
+  const addZone = useCallback(
+    (position?: { x: number; y: number }) => {
+      if (!doc) return;
+      const zones = getZonesMap(doc);
+      const id = generateId();
+      zones.set(id, {
+        id,
+        label: "Zone",
+        position: position ?? { x: 40, y: 40 },
+        size: { width: 300, height: 220 },
+        style: { color: "#f59e0b" },
+      });
+    },
+    [doc],
+  );
 
-  const addStickyNote = (position?: { x: number; y: number }) => {
-    if (!doc) return;
-    const stickyNotes = getStickyNotesMap(doc);
-    const id = generateId();
-    stickyNotes.set(id, {
-      id,
-      text: "",
-      position: position ?? { x: 60, y: 60 },
-      size: { width: 160, height: 120 },
-      style: { color: "#fef08a" },
-    });
-  };
+  const addStickyNote = useCallback(
+    (position?: { x: number; y: number }) => {
+      if (!doc) return;
+      const stickyNotes = getStickyNotesMap(doc);
+      const id = generateId();
+      stickyNotes.set(id, {
+        id,
+        text: "",
+        position: position ?? { x: 60, y: 60 },
+        size: { width: 160, height: 120 },
+        style: { color: "#fef08a" },
+      });
+    },
+    [doc],
+  );
 
-  const addEnum = (position?: { x: number; y: number }) => {
-    if (!doc) return;
-    const enums = getEnumsMap(doc);
-    const id = generateId();
-    const index = enums.size;
-    enums.set(id, {
-      id,
-      name: `enum_${index + 1}`,
-      values: [{ id: generateId(), name: "value_1" }],
-      position: position ?? { x: 40, y: 40 },
-    });
-  };
+  const addEnum = useCallback(
+    (position?: { x: number; y: number }) => {
+      if (!doc) return;
+      const enums = getEnumsMap(doc);
+      const id = generateId();
+      const index = enums.size;
+      enums.set(id, {
+        id,
+        name: `enum_${index + 1}`,
+        values: [{ id: generateId(), name: "value_1" }],
+        position: position ?? { x: 40, y: 40 },
+      });
+    },
+    [doc],
+  );
 
   // Figma-style grouping (select 2+ tables, group them — the group is purely
   // a named membership list, no position of its own, see TableGroupNode.tsx)
   // used to be a plain doc mutation here; it's now the `athanordb.core-canvas`
   // plugin's `group-tables` canvasCommand, same reasoning as auto-layout above.
 
-  const setAllDetailLevels = (level: DetailLevel) => {
-    if (!doc) return;
-    const tables = getTablesMap(doc);
-    // Was one `tables.set()` per table with no `doc.transact()` around the
-    // loop — each `set()` is its own Yjs transaction, so it fired its own
-    // "update" event, and `useProjectDoc`'s handler rebuilds the *entire*
-    // `Project` (readProjectFromDoc) on every one of those. For N tables
-    // that's N full-project rebuilds — plus N full node/edge re-renders — for
-    // a single click, worst on compact→full (every table's DOM grows from
-    // its smallest possible box to its largest at once) where it was enough
-    // to hang or crash the tab on a schema with many tables. One transaction
-    // batches every table's change into a single "update" event instead.
-    doc.transact(() => {
-      tables.forEach((table, id) => tables.set(id, { ...table, detailLevel: level }));
-    });
-  };
+  const setAllDetailLevels = useCallback(
+    (level: DetailLevel) => {
+      if (!doc) return;
+      const tables = getTablesMap(doc);
+      // Was one `tables.set()` per table with no `doc.transact()` around the
+      // loop — each `set()` is its own Yjs transaction, so it fired its own
+      // "update" event, and `useProjectDoc`'s handler rebuilds the *entire*
+      // `Project` (readProjectFromDoc) on every one of those. For N tables
+      // that's N full-project rebuilds — plus N full node/edge re-renders — for
+      // a single click, worst on compact→full (every table's DOM grows from
+      // its smallest possible box to its largest at once) where it was enough
+      // to hang or crash the tab on a schema with many tables. One transaction
+      // batches every table's change into a single "update" event instead.
+      doc.transact(() => {
+        tables.forEach((table, id) => tables.set(id, { ...table, detailLevel: level }));
+      });
+    },
+    [doc],
+  );
 
   // Highlights a detail-level button only when every table currently shares that
   // level — once tables diverge (e.g. per-table override), no button is "active".
@@ -115,16 +135,19 @@ export function useProjectMutations(liveProject: Project | null, doc: Y.Doc | nu
   // with how every other schema-transform command in the app is wired,
   // instead of being the one bulk-layout action bypassing the command system.
 
-  const setTablesColor = (tableIds: string[], color: string) => {
-    if (!doc || tableIds.length === 0) return;
-    const tables = getTablesMap(doc);
-    doc.transact(() => {
-      for (const id of tableIds) {
-        const current = tables.get(id);
-        if (current) tables.set(id, { ...current, style: { ...current.style, color } });
-      }
-    });
-  };
+  const setTablesColor = useCallback(
+    (tableIds: string[], color: string) => {
+      if (!doc || tableIds.length === 0) return;
+      const tables = getTablesMap(doc);
+      doc.transact(() => {
+        for (const id of tableIds) {
+          const current = tables.get(id);
+          if (current) tables.set(id, { ...current, style: { ...current.style, color } });
+        }
+      });
+    },
+    [doc],
+  );
 
   // "Reset all link routing" used to live here; it is now the built-in
   // `athanordb.core-canvas` plugin's `reset-link-routing` command, applied
@@ -139,7 +162,13 @@ export function useProjectMutations(liveProject: Project | null, doc: Y.Doc | nu
       for (const node of selected) {
         if (node.type === "table") {
           const tables = getTablesMap(doc);
-          const src = node.data.table;
+          // The true doc row, not `node.data.table`: on a large schema the
+          // canvas renders every table's `detailLevel` forced to "compact"
+          // regardless of its real setting (see `ProjectEditor`'s
+          // `renderProject`), so the rendered node's own data can't be
+          // trusted as the source for a write — duplicating a "full" table
+          // would otherwise silently downgrade the copy to "compact".
+          const src = tables.get(node.id) ?? node.data.table;
           const fieldIdMap = new Map(src.fields.map((f) => [f.id, generateId()]));
           const id = generateId();
           tables.set(id, {

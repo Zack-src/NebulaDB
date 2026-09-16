@@ -2,6 +2,20 @@
    Flow overrides. `!important` is unavoidable here — React Flow ships inline
    and library styles that would otherwise win. */
 
+/* Rubber-band selection box, painted directly by `useLassoSelection` (not a
+   React-rendered element with per-frame props) — `position: fixed` so its
+   `left`/`top` match raw `event.clientX/clientY` with no offset math. Same
+   fill/border treatment as the app's own selected-row highlight
+   (`.table-node-row.is-selected` below), not React Flow's default blue. */
+.lasso-selection-rect {
+  position: fixed;
+  z-index: 40;
+  pointer-events: none;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid var(--color-primary);
+  border-radius: 2px;
+}
+
 .table-row-handle {
   width: 6px !important;
   height: 6px !important;
