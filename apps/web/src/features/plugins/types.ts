@@ -155,7 +155,7 @@ export interface PluginRecord {
 
 /** A contribution resolved against the plugin that owns it, ready to run. */
 export interface ResolvedContribution<C extends Contribution = Contribution> {
-  /** `<pluginId>:<contributionId>` — stable across reloads, safe as a React key. */
+  /** `<pluginId>:<contributionId>` — stable across reloads, safe as an `{#each}` key. */
   key: string;
   plugin: PluginManifest;
   source: PluginSource;

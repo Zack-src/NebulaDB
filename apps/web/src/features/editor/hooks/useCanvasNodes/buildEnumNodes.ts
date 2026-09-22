@@ -1,6 +1,6 @@
 import * as Y from "yjs";
 import { getEnumsMap, type EnumDef, type EnumValue } from "@athanordb/shared";
-import type { EnumNodeType } from "@/features/editor/nodes/EnumNode";
+import type { EnumNodeType } from "@/features/editor/nodes/nodeTypes";
 import { generateId } from "@/utils/id";
 
 export function buildEnumNodes(enums: EnumDef[], doc: Y.Doc, canWrite = true): EnumNodeType[] {

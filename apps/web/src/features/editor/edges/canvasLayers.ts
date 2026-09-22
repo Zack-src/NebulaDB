@@ -1,7 +1,7 @@
 /**
- * Stacking order for everything React Flow paints on the canvas.
+ * Stacking order for everything Svelte Flow paints on the canvas.
  *
- * React Flow renders the node layer *after* the edge-label layer, so on a
+ * Svelte Flow renders the node layer *after* the edge-label layer, so on a
  * z-index tie the nodes win purely on DOM order — which is why a relation's
  * midpoint toolbar disappeared under any table it happened to cross. It also
  * lifts a selected or dragged node to 1000 of its own accord, so beating an

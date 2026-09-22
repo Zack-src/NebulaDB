@@ -106,7 +106,7 @@ test("Bob's concurrent canvas edit survives Alice's stale DBML-panel resync (the
     const aliceBaseline = projectToDbml(shared);
     // Alice's buffer is untouched (dirty === false), so her "source" on
     // resync is identical to her baseline — exactly what
-    // `DbmlPanel.tsx`/`setup.ts` sends for an unedited buffer.
+    // `DbmlPanel.svelte`/`setup.ts` sends for an unedited buffer.
     const aliceSource = aliceBaseline;
 
     // Bob, meanwhile, adds a column on the canvas — a real concurrent edit,

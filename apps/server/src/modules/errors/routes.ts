@@ -29,7 +29,7 @@ export function registerErrorRoutes(app: FastifyInstance): void {
   });
 
   /**
-   * `ErrorBoundary.tsx` posts here on a caught render crash — the one place
+   * `ErrorBoundary.svelte` posts here on a caught render crash — the one place
    * the client side had nothing at all before this (see `errorLog.ts`'s
    * module comment). Authenticated (an anonymous endpoint that writes to the
    * database on request is its own abuse surface) and rate-limited per the

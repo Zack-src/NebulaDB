@@ -1,5 +1,5 @@
 /* Global reset and element defaults. Tailwind's own preflight is disabled
-   (tailwind.config.js) because this reset is tuned for the React Flow canvas
+   (tailwind.config.js) because this reset is tuned for the Svelte Flow canvas
    internals — these rules are the app's baseline, not a supplement to it. */
 
 * {

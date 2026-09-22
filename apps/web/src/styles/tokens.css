@@ -56,7 +56,7 @@
   --color-info-border: rgba(56, 189, 248, 0.45);
 
   /* Canvas-only surfaces that aren't part of the chrome palette above but
-     still need to invert between themes: the React Flow grid dots and the
+     still need to invert between themes: the Svelte Flow grid dots and the
      DBML editor (CodeMirror, `language.ts`) reference these rather than
      hand-coding their own hex values, so a new theme only has to be declared
      once, here. */

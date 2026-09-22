@@ -5,11 +5,11 @@ import { login, startE2eEnvironment } from "./harness.js";
 
 /**
  * Closes the canvas piece of `docs/todo.md`'s Phase 11/16/23 browser-test
- * gap: selection, keyboard delete, undo, and multi-select — the React Flow
+ * gap: selection, keyboard delete, undo, and multi-select — the Svelte Flow
  * interactions `project-lifecycle.e2e.ts` doesn't touch (that file only
  * proves add-a-table survives a reload). Each of these lives in its own
- * hook/listener rather than React Flow's own defaults (`useCanvasDeleteKey.ts`
- * for delete, `deleteKeyCode={null}` turns React Flow's own off — see that
+ * hook/listener rather than Svelte Flow's own defaults (`canvasDeleteKey.svelte.ts`
+ * for delete, `deleteKey={null}` turns Svelte Flow's own off — see that
  * file's comment), so a unit test over the hook in isolation wouldn't prove
  * the real keyboard→canvas wiring the way driving an actual browser does.
  */
@@ -25,18 +25,18 @@ async function openNewProject(page: Page): Promise<void> {
   const card = page.getByText("Nouveau schéma 1", { exact: true });
   await card.waitFor({ timeout: 10_000 });
   await card.click();
-  await page.locator(".react-flow__pane").waitFor({ timeout: 10_000 });
+  await page.locator(".svelte-flow__pane").waitFor({ timeout: 10_000 });
 }
 
 /** Right-clicks empty canvas at `position` and adds a table there — same flow `project-lifecycle.e2e.ts` uses. */
 async function addTable(page: Page, position: { x: number; y: number }): Promise<void> {
-  const canvas = page.locator(".react-flow__pane");
+  const canvas = page.locator(".svelte-flow__pane");
   await canvas.click({ button: "right", position });
   await page.getByText("Ajouter une table", { exact: true }).click();
 }
 
 function tableNode(page: Page, name: string) {
-  return page.locator(".react-flow__node").filter({ hasText: name });
+  return page.locator(".svelte-flow__node").filter({ hasText: name });
 }
 
 /** The clickable table-name header inside a node — field rows below it `stopPropagation()` their own clicks, so clicking the node's bounding-box center can land on a field instead of selecting the table. */
@@ -85,10 +85,10 @@ test(
       await tableNode(page, "table_2").waitFor({ timeout: 5_000 });
 
       // --- Multi-select surfaces the group toolbar ---
-      // `SelectionColorToolbar.tsx` only renders once 2+ tables are selected
+      // `SelectionColorToolbar.svelte` only renders once 2+ tables are selected
       // and the caller has write access — its presence *is* the assertion
-      // that React Flow's multi-select-click actually took. `CanvasArea.tsx`
-      // doesn't override React Flow's default `multiSelectionKeyCode`
+      // that Svelte Flow's multi-select-click actually took. `CanvasArea.svelte`
+      // doesn't override Svelte Flow's default `multiSelectionKeyCode`
       // (`["Meta", "Control"]`) — Shift is the *rubber-band* selection key
       // here (`selectionOnDrag`), not the add-to-selection one.
       await tableHeader(page, "table_1").click();
@@ -96,7 +96,7 @@ test(
       await page.getByRole("button", { name: "Grouper" }).waitFor({ timeout: 10_000 });
 
       // Deselecting (click empty canvas) makes the group toolbar disappear again.
-      await page.locator(".react-flow__pane").click({ position: { x: 50, y: 400 } });
+      await page.locator(".svelte-flow__pane").click({ position: { x: 50, y: 400 } });
       const groupButtonCount = await page.getByRole("button", { name: "Grouper" }).count();
       assert.equal(groupButtonCount, 0, "the group toolbar must not linger after deselecting");
     } finally {

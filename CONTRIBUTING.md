@@ -34,7 +34,7 @@ belongs in the same change that reformats them.
 | `packages/shared`      | The `Project` schema, the Yjs binding, and the shared entity limits |
 | `packages/dbml-engine` | DBML/SQL parsing, serialisation, diffing, validation                |
 | `apps/server`          | Fastify REST + the WebSocket sync rooms + SQLite persistence        |
-| `apps/web`             | React canvas editor, DBML panel, dashboard, plugin host             |
+| `apps/web`             | Svelte canvas editor, DBML panel, dashboard, plugin host            |
 | `docs/`                | Implementation tracker, V1 roadmap, user guide                      |
 
 Two rules that are easy to break by accident:
@@ -55,30 +55,31 @@ parallel version — this is the actual recurring source of duplication in this
 codebase: a hook built once, then hand-rolled again in the next component
 because nobody knew it was there.
 
-| Need                                            | Use                                               | Not                                         |
-| ----------------------------------------------- | ------------------------------------------------- | ------------------------------------------- |
-| Inline rename / edit-in-place with Enter/Escape | `hooks/useDraftValue.ts`                          | a component-local `onKeyDown` commit block  |
-| Close a popover on Escape or click outside it   | `hooks/useDismissablePopover.ts`                  | separate `mousedown`/`keydown` listeners    |
-| Close _anything_ on Escape only                 | `hooks/useEscapeKey.ts`                           | `window.addEventListener("keydown", ...)`   |
-| Close on click outside (non-canvas context)     | `hooks/useOutsideClick.ts`                        | a manual `mousedown` listener + ref check   |
-| A persisted user preference (`localStorage`)    | `utils/storage.ts`                                | raw `localStorage.getItem`/`setItem`        |
-| Any HTTP call to the API                        | `services/*Api.ts` (add a module if missing)      | a raw `fetch()` inside a component          |
-| An async action with loading/error state        | `hooks/useAsyncAction.ts` / `useAsyncResource.ts` | a bespoke `loading`/`error` `useState` pair |
-| A transient status line that clears itself      | `hooks/useFlashMessage.ts`                        | a message `useState` + its own timer ref    |
+| Need                                            | Use                                                          | Not                                              |
+| ----------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------ |
+| Inline rename / edit-in-place with Enter/Escape | `hooks/draftValue.svelte.ts`                                 | a component-local `onkeydown` commit block       |
+| Close a popover on Escape or click outside it   | `hooks/dismissablePopover.svelte.ts`                         | separate `mousedown`/`keydown` listeners         |
+| Close _anything_ on Escape only                 | `hooks/escapeKey.svelte.ts`                                  | `window.addEventListener("keydown", ...)`        |
+| Close a canvas popover when the viewport moves  | `hooks/closeOnViewportChange.svelte.ts`                      | a hand-rolled `onmove` subscription              |
+| Focus a field the moment it mounts              | `use:autofocus` (`actions/autofocus.ts`)                     | the native `autofocus` attribute                 |
+| Render outside the canvas/dialog stacking       | `use:portal` (`actions/portal.ts`)                           | a manual `document.body.appendChild`             |
+| A persisted user preference (`localStorage`)    | `utils/storage.ts`                                           | raw `localStorage.getItem`/`setItem`             |
+| Any HTTP call to the API                        | `services/*Api.ts` (add a module if missing)                 | a raw `fetch()` inside a component               |
+| An async action with loading/error state        | `hooks/asyncAction.svelte.ts` / `asyncResource.svelte.ts`    | a bespoke `pending`/`error` `$state` pair        |
+| A transient status line that clears itself      | `hooks/flashMessage.svelte.ts`                               | a message `$state` + its own timer               |
 
-Popovers inside the React Flow canvas specifically need `click`, not
-`mousedown` — the pane calls `stopPropagation()` on `mousedown` for its own
-pan/drag handling, so a `mousedown` listener never sees a click on the canvas
-itself. `useDismissablePopover` and `useOutsideClick` already account for
-this; don't rediscover it by shipping a popover that stays open when the
-canvas is clicked.
+Popovers inside the Svelte Flow canvas specifically need `click`, not
+`mousedown` — the pane handles `pointerdown` itself for pan/drag, so a
+`mousedown` listener never reliably sees a click on the canvas itself.
+`useDismissablePopover` already accounts for this; don't rediscover it by
+shipping a popover that stays open when the canvas is clicked.
 
 If you add a new cross-cutting primitive, add its row here in the same PR —
 an unlisted hook gets reimplemented by the next person who needs it.
 
 ## Dev-only routes
 
-Two pages are `lazy()`-loaded and hash-routed straight from `main.tsx`,
+Two pages are code-split (`{#await import()}`) and hash-routed straight from `app/Root.svelte`,
 bypassing auth and project loading entirely — a normal session never fetches
 either chunk:
 

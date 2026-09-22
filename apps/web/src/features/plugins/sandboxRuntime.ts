@@ -2,7 +2,7 @@
  * Source of the sandbox a user plugin runs inside.
  *
  * The plugin body is concatenated between `SANDBOX_PREFIX` and
- * `SANDBOX_SUFFIX` and turned into a Blob-URL Web Worker: no DOM, no React
+ * `SANDBOX_SUFFIX` and turned into a Blob-URL Web Worker: no DOM, no Svelte
  * state, no access to the page's memory — it can only reach the app through
  * the `postMessage` protocol in `types.ts`. That is the whole point of the
  * design: plugin code is third-party code, and it is never evaluated in the

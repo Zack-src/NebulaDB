@@ -1,12 +1,12 @@
-/* Canvas layer: table-node connection handles, relation edges, and the React
-   Flow overrides. `!important` is unavoidable here — React Flow ships inline
+/* Canvas layer: table-node connection handles, relation edges, and the Svelte
+   Flow overrides. `!important` is unavoidable here — Svelte Flow ships inline
    and library styles that would otherwise win. */
 
-/* Rubber-band selection box, painted directly by `useLassoSelection` (not a
-   React-rendered element with per-frame props) — `position: fixed` so its
+/* Rubber-band selection box, painted directly by `createLassoSelection` (not a
+   component-rendered element with per-frame props) — `position: fixed` so its
    `left`/`top` match raw `event.clientX/clientY` with no offset math. Same
    fill/border treatment as the app's own selected-row highlight
-   (`.table-node-row.is-selected` below), not React Flow's default blue. */
+   (`.table-node-row.is-selected` below), not Svelte Flow's default blue. */
 .lasso-selection-rect {
   position: fixed;
   z-index: 40;
@@ -72,7 +72,7 @@
    legible with the line, other refs and a table border passing behind it. */
 .ref-edge-cardinality {
   position: absolute;
-  /* Above every node (React Flow lifts a selected one to 1000) but below the
+  /* Above every node (Svelte Flow lifts a selected one to 1000) but below the
      waypoint dots and the midpoint toolbar, which have to stay clickable. */
   z-index: 1001;
   display: flex;
@@ -91,27 +91,27 @@
   user-select: none;
 }
 
-.react-flow__attribution {
+.svelte-flow__attribution {
   display: none;
 }
 
 /* While a toolbar insert tool is armed (`.canvas-placing` on the canvas
-   wrapper), the pane itself needs the crosshair — React Flow's own inline
+   wrapper), the pane itself needs the crosshair — Svelte Flow's own inline
    cursor (grab/default, swapped per interaction) would otherwise win over a
    plain class on an ancestor. */
-.canvas-placing .react-flow__pane {
+.canvas-placing .svelte-flow__pane {
   cursor: crosshair !important;
 }
 
-/* React Flow puts the pane in "selection" mode (box-select armed) whenever
+/* Svelte Flow puts the pane in "selection" mode (box-select armed) whenever
    panOnDrag is off, and its own stylesheet flips the cursor to pointer for
    that whole state — even during a plain hover, not just while a box-select
    drag is in progress. Nothing under a bare hover is actually clickable. */
-.react-flow__pane.selection {
+.svelte-flow__pane.selection {
   cursor: default !important;
 }
 
-.react-flow__controls .react-flow__controls-button {
+.svelte-flow__controls .svelte-flow__controls-button {
   height: 28px !important;
   width: 28px !important;
   border: none !important;
@@ -120,22 +120,22 @@
   color: var(--color-text-secondary);
 }
 
-.react-flow__controls .react-flow__controls-button:hover {
+.svelte-flow__controls .svelte-flow__controls-button:hover {
   background: rgba(255, 255, 255, 0.1) !important;
   color: var(--color-text);
 }
 
-.react-flow__minimap {
+.svelte-flow__minimap {
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-sm);
   overflow: hidden;
 }
 
-.react-flow__edge-path,
-.react-flow__connection-path {
+.svelte-flow__edge-path,
+.svelte-flow__connection-path {
   stroke-width: 1.5;
 }
 
-.react-flow__handle {
+.svelte-flow__handle {
   border-color: var(--color-bg-canvas);
 }

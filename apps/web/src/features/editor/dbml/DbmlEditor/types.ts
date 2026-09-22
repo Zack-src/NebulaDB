@@ -1,4 +1,3 @@
-import type { MutableRefObject } from "react";
 import type { EditorView } from "@codemirror/view";
 
 export interface DbmlEditorHandle {
@@ -52,4 +51,17 @@ export interface DbmlEditorProps {
   onPluginMessage?: (message: string, isError?: boolean) => void;
 }
 
-export type ViewRef = MutableRefObject<EditorView | null>;
+/** The live CodeMirror view, held in a plain mutable box: it is never read reactively, only by event handlers. */
+export interface ViewRef {
+  current: EditorView | null;
+}
+
+export interface PaletteItem {
+  id: string;
+  label: string;
+  /** right-hand side text: shortcut, type, field count… */
+  hint?: string;
+  kind?: string;
+  detail?: string;
+  run: () => void;
+}

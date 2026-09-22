@@ -91,7 +91,7 @@ class PluginRegistry {
     return () => this.listeners.delete(listener);
   }
 
-  /** Stable array identity between changes, so `useSyncExternalStore` doesn't loop. */
+  /** Stable array identity between changes, so a reactive reader only updates when something actually changed. */
   getSnapshot(): PluginRecord[] {
     return this.snapshot;
   }
@@ -302,7 +302,7 @@ class PluginRegistry {
         selection: runtime.selection,
       });
       // Only rebuild the snapshot when something a subscriber can see actually
-      // changed. Refreshing on every successful call would hand React a new
+      // changed. Refreshing on every successful call would hand subscribers a new
       // array (and new resolved contributions) after each invocation, which is
       // an effect -> invoke -> new identity -> effect loop for any component
       // that runs an exporter from an effect.
@@ -314,7 +314,7 @@ class PluginRegistry {
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       // Same guard as the success path above, and for the same reason: an
-      // unconditional refresh here handed React a fresh snapshot after every
+      // unconditional refresh here handed subscribers a fresh snapshot after every
       // *failed* call, so a plugin exporter that throws re-triggered the very
       // effect that had just invoked it — an infinite invoke loop that span up
       // a Worker per iteration and locked the tab.

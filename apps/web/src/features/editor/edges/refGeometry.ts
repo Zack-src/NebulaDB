@@ -1,4 +1,4 @@
-// Fallback size used the instant a table/zone/sticky mounts, before React
+// Fallback size used the instant a table/zone/sticky mounts, before Svelte
 // Flow's ResizeObserver reports its real `measured` box — self-corrects on
 // the next render once the real size lands, so accuracy here barely matters.
 export const DEFAULT_TABLE_WIDTH = 220;

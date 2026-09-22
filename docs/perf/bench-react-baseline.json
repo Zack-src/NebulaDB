@@ -1,0 +1,6781 @@
+{
+  "tag": "react-baseline",
+  "window": {
+    "width": 1600,
+    "height": 900
+  },
+  "viewport": {
+    "x": 100,
+    "y": 100,
+    "zoom": 0.6
+  },
+  "results": [
+    {
+      "config": {
+        "tables": 10,
+        "columns": 8,
+        "detail": "full"
+      },
+      "loadMs": 509,
+      "ready": {
+        "nodes": 10,
+        "edges": 9,
+        "waitedMs": 426
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 1698.9,
+          "frames": {
+            "count": 231,
+            "avgMs": 7.3,
+            "p95Ms": 7.1,
+            "maxMs": 48.8,
+            "droppedFrames": 1,
+            "fps": 136.2
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "zoom-links-on",
+          "durationMs": 1892.6,
+          "frames": {
+            "count": 270,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 14,
+            "droppedFrames": 0,
+            "fps": 143.3
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "drag-single",
+          "durationMs": 1374.7,
+          "frames": {
+            "count": 197,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 31,
+              "totalMs": 1,
+              "avgMs": 0,
+              "maxMs": 0.9,
+              "p95Ms": 0.1,
+              "lastMs": 0.9
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 929.2,
+          "frames": {
+            "count": 129,
+            "avgMs": 7.1,
+            "p95Ms": 7,
+            "maxMs": 14,
+            "droppedFrames": 0,
+            "fps": 140.6
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 475,
+              "avgMs": 474.5,
+              "maxMs": 474.5,
+              "p95Ms": 474.5,
+              "lastMs": 474.5
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 1402.2,
+          "frames": {
+            "count": 201,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 30,
+              "totalMs": 2,
+              "avgMs": 0.1,
+              "maxMs": 1.6,
+              "p95Ms": 0.1,
+              "lastMs": 1.6
+            },
+            {
+              "label": "canvas.highlightedFields",
+              "count": 31,
+              "totalMs": 1,
+              "avgMs": 0,
+              "maxMs": 0.1,
+              "p95Ms": 0.1,
+              "lastMs": 0
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 433.4,
+          "frames": {
+            "count": 61,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "recolor-single",
+          "durationMs": 433.9,
+          "frames": {
+            "count": 62,
+            "avgMs": 6.9,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            }
+          ]
+        },
+        {
+          "label": "column-flag",
+          "durationMs": 433,
+          "frames": {
+            "count": 61,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.8
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            }
+          ]
+        },
+        {
+          "label": "highlight-toggle",
+          "durationMs": 1005,
+          "frames": {
+            "count": 144,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "delete-columns",
+          "durationMs": 431.7,
+          "frames": {
+            "count": 60,
+            "avgMs": 7.1,
+            "p95Ms": 7,
+            "maxMs": 14,
+            "droppedFrames": 0,
+            "fps": 141.5
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 10,
+        "columns": 8,
+        "detail": "standard"
+      },
+      "loadMs": 477,
+      "ready": {
+        "nodes": 10,
+        "edges": 9,
+        "waitedMs": 390.2
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 1561.7,
+          "frames": {
+            "count": 224,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "zoom-links-on",
+          "durationMs": 1891.9,
+          "frames": {
+            "count": 271,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "drag-single",
+          "durationMs": 1343.7,
+          "frames": {
+            "count": 193,
+            "avgMs": 6.9,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 144.1
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 32,
+              "totalMs": 1,
+              "avgMs": 0,
+              "maxMs": 1,
+              "p95Ms": 0.1,
+              "lastMs": 1
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 833.6,
+          "frames": {
+            "count": 119,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 386,
+              "avgMs": 386.3,
+              "maxMs": 386.3,
+              "p95Ms": 386.3,
+              "lastMs": 386.3
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 1322.9,
+          "frames": {
+            "count": 189,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 30,
+              "totalMs": 2,
+              "avgMs": 0.1,
+              "maxMs": 1.3,
+              "p95Ms": 0.1,
+              "lastMs": 1.3
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 428.4,
+          "frames": {
+            "count": 61,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7,
+            "droppedFrames": 0,
+            "fps": 143.8
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "recolor-single",
+          "durationMs": 430.7,
+          "frames": {
+            "count": 61,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "column-flag",
+          "durationMs": 431.6,
+          "frames": {
+            "count": 61,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            }
+          ]
+        },
+        {
+          "label": "highlight-toggle",
+          "durationMs": 990.7,
+          "frames": {
+            "count": 142,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.8
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "delete-columns",
+          "durationMs": 432.9,
+          "frames": {
+            "count": 60,
+            "avgMs": 7.1,
+            "p95Ms": 7,
+            "maxMs": 14,
+            "droppedFrames": 0,
+            "fps": 141.5
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 1,
+              "avgMs": 0.3,
+              "maxMs": 0.3,
+              "p95Ms": 0.2,
+              "lastMs": 0.3
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 10,
+        "columns": 8,
+        "detail": "compact"
+      },
+      "loadMs": 464,
+      "ready": {
+        "nodes": 10,
+        "edges": 9,
+        "waitedMs": 383.6
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 1569.1,
+          "frames": {
+            "count": 223,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 14.6,
+            "droppedFrames": 0,
+            "fps": 141.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "zoom-links-on",
+          "durationMs": 1567.6,
+          "frames": {
+            "count": 225,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "drag-single",
+          "durationMs": 1327.2,
+          "frames": {
+            "count": 191,
+            "avgMs": 6.9,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 144.2
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 31,
+              "totalMs": 2,
+              "avgMs": 0.1,
+              "maxMs": 0.9,
+              "p95Ms": 0.1,
+              "lastMs": 0.9
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 820.8,
+          "frames": {
+            "count": 117,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 377,
+              "avgMs": 377.4,
+              "maxMs": 377.4,
+              "p95Ms": 377.4,
+              "lastMs": 377.4
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 1342.7,
+          "frames": {
+            "count": 193,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 30,
+              "totalMs": 2,
+              "avgMs": 0.1,
+              "maxMs": 1.6,
+              "p95Ms": 0.1,
+              "lastMs": 1.6
+            },
+            {
+              "label": "canvas.highlightedFields",
+              "count": 31,
+              "totalMs": 1,
+              "avgMs": 0,
+              "maxMs": 0.1,
+              "p95Ms": 0.1,
+              "lastMs": 0
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 432.3,
+          "frames": {
+            "count": 61,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "recolor-single",
+          "durationMs": 433.8,
+          "frames": {
+            "count": 61,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.8
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "column-flag",
+          "durationMs": 433.9,
+          "frames": {
+            "count": 61,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "highlight-toggle",
+          "durationMs": 979.3,
+          "frames": {
+            "count": 140,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.8
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "delete-columns",
+          "durationMs": 435.8,
+          "frames": {
+            "count": 62,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.8
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 50,
+        "columns": 8,
+        "detail": "full"
+      },
+      "loadMs": 751,
+      "ready": {
+        "nodes": 50,
+        "edges": 49,
+        "waitedMs": 670.1
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 1707.6,
+          "frames": {
+            "count": 202,
+            "avgMs": 8.5,
+            "p95Ms": 14,
+            "maxMs": 34.8,
+            "droppedFrames": 2,
+            "fps": 118.1
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildEdges",
+              "count": 7,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.2,
+              "p95Ms": 0.1,
+              "lastMs": 0.1
+            }
+          ]
+        },
+        {
+          "label": "zoom-links-on",
+          "durationMs": 2089.3,
+          "frames": {
+            "count": 217,
+            "avgMs": 9.6,
+            "p95Ms": 20.8,
+            "maxMs": 21,
+            "droppedFrames": 0,
+            "fps": 104.1
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "drag-single",
+          "durationMs": 1410.2,
+          "frames": {
+            "count": 201,
+            "avgMs": 7,
+            "p95Ms": 7.1,
+            "maxMs": 13.8,
+            "droppedFrames": 0,
+            "fps": 142.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 31,
+              "totalMs": 1,
+              "avgMs": 0,
+              "maxMs": 0.8,
+              "p95Ms": 0.1,
+              "lastMs": 0.8
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.3,
+              "maxMs": 1.3,
+              "p95Ms": 1.3,
+              "lastMs": 1.3
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 1037.5,
+          "frames": {
+            "count": 131,
+            "avgMs": 7.9,
+            "p95Ms": 13.9,
+            "maxMs": 27.8,
+            "droppedFrames": 0,
+            "fps": 127.3
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 583,
+              "avgMs": 582.9,
+              "maxMs": 582.9,
+              "p95Ms": 582.9,
+              "lastMs": 582.9
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 1413.2,
+          "frames": {
+            "count": 198,
+            "avgMs": 7.1,
+            "p95Ms": 7,
+            "maxMs": 27.8,
+            "droppedFrames": 0,
+            "fps": 141
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 30,
+              "totalMs": 3,
+              "avgMs": 0.1,
+              "maxMs": 1.9,
+              "p95Ms": 0.1,
+              "lastMs": 1.9
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.6,
+              "maxMs": 0.6,
+              "p95Ms": 0.6,
+              "lastMs": 0.6
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 466,
+          "frames": {
+            "count": 63,
+            "avgMs": 7.3,
+            "p95Ms": 7,
+            "maxMs": 27.8,
+            "droppedFrames": 0,
+            "fps": 137.3
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.6,
+              "maxMs": 0.6,
+              "p95Ms": 0.6,
+              "lastMs": 0.6
+            }
+          ]
+        },
+        {
+          "label": "recolor-single",
+          "durationMs": 432.7,
+          "frames": {
+            "count": 61,
+            "avgMs": 7,
+            "p95Ms": 7.1,
+            "maxMs": 7.2,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            }
+          ]
+        },
+        {
+          "label": "column-flag",
+          "durationMs": 450.2,
+          "frames": {
+            "count": 62,
+            "avgMs": 7.2,
+            "p95Ms": 7,
+            "maxMs": 20.9,
+            "droppedFrames": 0,
+            "fps": 139.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 1,
+              "avgMs": 0.6,
+              "maxMs": 0.7,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.3,
+              "maxMs": 1.3,
+              "p95Ms": 1.3,
+              "lastMs": 1.3
+            }
+          ]
+        },
+        {
+          "label": "highlight-toggle",
+          "durationMs": 1090.2,
+          "frames": {
+            "count": 152,
+            "avgMs": 7.1,
+            "p95Ms": 7,
+            "maxMs": 20.9,
+            "droppedFrames": 0,
+            "fps": 140.1
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "delete-columns",
+          "durationMs": 446,
+          "frames": {
+            "count": 60,
+            "avgMs": 7.3,
+            "p95Ms": 7.1,
+            "maxMs": 27.8,
+            "droppedFrames": 0,
+            "fps": 137
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 1,
+              "avgMs": 0.7,
+              "maxMs": 0.7,
+              "p95Ms": 0.6,
+              "lastMs": 0.6
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.8,
+              "maxMs": 0.8,
+              "p95Ms": 0.8,
+              "lastMs": 0.8
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 50,
+        "columns": 8,
+        "detail": "standard"
+      },
+      "loadMs": 553,
+      "ready": {
+        "nodes": 50,
+        "edges": 49,
+        "waitedMs": 473.4
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 1621.5,
+          "frames": {
+            "count": 229,
+            "avgMs": 7.1,
+            "p95Ms": 7.1,
+            "maxMs": 14,
+            "droppedFrames": 0,
+            "fps": 141.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildEdges",
+              "count": 7,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.2,
+              "p95Ms": 0.2,
+              "lastMs": 0
+            }
+          ]
+        },
+        {
+          "label": "zoom-links-on",
+          "durationMs": 1913.6,
+          "frames": {
+            "count": 261,
+            "avgMs": 7.3,
+            "p95Ms": 7.1,
+            "maxMs": 20.8,
+            "droppedFrames": 0,
+            "fps": 137
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildEdges",
+              "count": 6,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.2,
+              "p95Ms": 0.2,
+              "lastMs": 0.1
+            }
+          ]
+        },
+        {
+          "label": "drag-single",
+          "durationMs": 1391,
+          "frames": {
+            "count": 199,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 14,
+            "droppedFrames": 0,
+            "fps": 143.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 32,
+              "totalMs": 2,
+              "avgMs": 0.1,
+              "maxMs": 0.8,
+              "p95Ms": 0.1,
+              "lastMs": 0.8
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.2,
+              "maxMs": 1.2,
+              "p95Ms": 1.2,
+              "lastMs": 1.2
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 889,
+          "frames": {
+            "count": 123,
+            "avgMs": 7.2,
+            "p95Ms": 7.1,
+            "maxMs": 14,
+            "droppedFrames": 0,
+            "fps": 139.3
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 426,
+              "avgMs": 425.6,
+              "maxMs": 425.6,
+              "p95Ms": 425.6,
+              "lastMs": 425.6
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 1378.4,
+          "frames": {
+            "count": 197,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 13.8,
+            "droppedFrames": 0,
+            "fps": 143.1
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 30,
+              "totalMs": 3,
+              "avgMs": 0.1,
+              "maxMs": 1.7,
+              "p95Ms": 0.1,
+              "lastMs": 1.7
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.9,
+              "maxMs": 0.9,
+              "p95Ms": 0.9,
+              "lastMs": 0.9
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 431.4,
+          "frames": {
+            "count": 61,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.8
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.7,
+              "maxMs": 0.7,
+              "p95Ms": 0.7,
+              "lastMs": 0.7
+            }
+          ]
+        },
+        {
+          "label": "recolor-single",
+          "durationMs": 432.2,
+          "frames": {
+            "count": 61,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.9,
+              "maxMs": 0.9,
+              "p95Ms": 0.9,
+              "lastMs": 0.9
+            }
+          ]
+        },
+        {
+          "label": "column-flag",
+          "durationMs": 447.5,
+          "frames": {
+            "count": 62,
+            "avgMs": 7.2,
+            "p95Ms": 7,
+            "maxMs": 20.8,
+            "droppedFrames": 0,
+            "fps": 139.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 1,
+              "avgMs": 0.6,
+              "maxMs": 0.6,
+              "p95Ms": 0.5,
+              "lastMs": 0.6
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.4,
+              "maxMs": 1.4,
+              "p95Ms": 1.4,
+              "lastMs": 1.4
+            }
+          ]
+        },
+        {
+          "label": "highlight-toggle",
+          "durationMs": 1040.9,
+          "frames": {
+            "count": 146,
+            "avgMs": 7.1,
+            "p95Ms": 7,
+            "maxMs": 13.9,
+            "droppedFrames": 0,
+            "fps": 141
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "delete-columns",
+          "durationMs": 445.7,
+          "frames": {
+            "count": 62,
+            "avgMs": 7.1,
+            "p95Ms": 7,
+            "maxMs": 14,
+            "droppedFrames": 0,
+            "fps": 141.6
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 1,
+              "avgMs": 0.6,
+              "maxMs": 0.7,
+              "p95Ms": 0.6,
+              "lastMs": 0.6
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1,
+              "maxMs": 1,
+              "p95Ms": 1,
+              "lastMs": 1
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 50,
+        "columns": 8,
+        "detail": "compact"
+      },
+      "loadMs": 517,
+      "ready": {
+        "nodes": 50,
+        "edges": 49,
+        "waitedMs": 431.6
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 1768.5,
+          "frames": {
+            "count": 254,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 14,
+            "droppedFrames": 0,
+            "fps": 143.3
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildEdges",
+              "count": 7,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.1,
+              "p95Ms": 0.1,
+              "lastMs": 0.1
+            }
+          ]
+        },
+        {
+          "label": "zoom-links-on",
+          "durationMs": 1905.7,
+          "frames": {
+            "count": 273,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "drag-single",
+          "durationMs": 1362.7,
+          "frames": {
+            "count": 196,
+            "avgMs": 7,
+            "p95Ms": 7.1,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.8
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 31,
+              "totalMs": 2,
+              "avgMs": 0.1,
+              "maxMs": 0.8,
+              "p95Ms": 0.1,
+              "lastMs": 0.8
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.2,
+              "maxMs": 1.2,
+              "p95Ms": 1.2,
+              "lastMs": 1.2
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 836.4,
+          "frames": {
+            "count": 120,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 380,
+              "avgMs": 380.3,
+              "maxMs": 380.3,
+              "p95Ms": 380.3,
+              "lastMs": 380.3
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 1390.2,
+          "frames": {
+            "count": 199,
+            "avgMs": 7,
+            "p95Ms": 7.1,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 30,
+              "totalMs": 3,
+              "avgMs": 0.1,
+              "maxMs": 1.8,
+              "p95Ms": 0.1,
+              "lastMs": 1.8
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.6,
+              "maxMs": 0.6,
+              "p95Ms": 0.6,
+              "lastMs": 0.6
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 432.7,
+          "frames": {
+            "count": 61,
+            "avgMs": 7,
+            "p95Ms": 7.1,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.8
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.7,
+              "maxMs": 0.7,
+              "p95Ms": 0.7,
+              "lastMs": 0.7
+            }
+          ]
+        },
+        {
+          "label": "recolor-single",
+          "durationMs": 434.9,
+          "frames": {
+            "count": 62,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "column-flag",
+          "durationMs": 433.6,
+          "frames": {
+            "count": 60,
+            "avgMs": 7.1,
+            "p95Ms": 7,
+            "maxMs": 13.9,
+            "droppedFrames": 0,
+            "fps": 141.5
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 1,
+              "avgMs": 0.6,
+              "maxMs": 0.7,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.3,
+              "maxMs": 1.3,
+              "p95Ms": 1.3,
+              "lastMs": 1.3
+            }
+          ]
+        },
+        {
+          "label": "highlight-toggle",
+          "durationMs": 1005.5,
+          "frames": {
+            "count": 143,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "delete-columns",
+          "durationMs": 448,
+          "frames": {
+            "count": 63,
+            "avgMs": 7.1,
+            "p95Ms": 7.1,
+            "maxMs": 14,
+            "droppedFrames": 0,
+            "fps": 141.6
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 1,
+              "avgMs": 0.7,
+              "maxMs": 0.7,
+              "p95Ms": 0.6,
+              "lastMs": 0.7
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.9,
+              "maxMs": 0.9,
+              "p95Ms": 0.9,
+              "lastMs": 0.9
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 100,
+        "columns": 8,
+        "detail": "full"
+      },
+      "loadMs": 1277,
+      "ready": {
+        "nodes": 100,
+        "edges": 99,
+        "waitedMs": 1186
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 1983.2,
+          "frames": {
+            "count": 192,
+            "avgMs": 10.3,
+            "p95Ms": 27.7,
+            "maxMs": 76.5,
+            "droppedFrames": 8,
+            "fps": 96.9
+          },
+          "longTasks": {
+            "count": 4,
+            "totalMs": 276,
+            "maxMs": 74
+          },
+          "totalBlockingMs": 76,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 4,
+              "totalMs": 276,
+              "avgMs": 69,
+              "maxMs": 74,
+              "p95Ms": 73,
+              "lastMs": 73
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 10,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.2,
+              "p95Ms": 0.2,
+              "lastMs": 0.1
+            }
+          ]
+        },
+        {
+          "label": "zoom-links-on",
+          "durationMs": 2398.2,
+          "frames": {
+            "count": 196,
+            "avgMs": 12.2,
+            "p95Ms": 27.9,
+            "maxMs": 48.6,
+            "droppedFrames": 8,
+            "fps": 82
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "drag-single",
+          "durationMs": 1466.7,
+          "frames": {
+            "count": 191,
+            "avgMs": 7.7,
+            "p95Ms": 13.9,
+            "maxMs": 27.8,
+            "droppedFrames": 0,
+            "fps": 130.2
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 31,
+              "totalMs": 2,
+              "avgMs": 0.1,
+              "maxMs": 0.9,
+              "p95Ms": 0.1,
+              "lastMs": 0.9
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 2,
+              "maxMs": 2,
+              "p95Ms": 2,
+              "lastMs": 2
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 1135.9,
+          "frames": {
+            "count": 129,
+            "avgMs": 8.7,
+            "p95Ms": 14,
+            "maxMs": 62.6,
+            "droppedFrames": 3,
+            "fps": 114.6
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 54,
+            "maxMs": 54
+          },
+          "totalBlockingMs": 4,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 668,
+              "avgMs": 668,
+              "maxMs": 668,
+              "p95Ms": 668,
+              "lastMs": 668
+            },
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 54,
+              "avgMs": 54,
+              "maxMs": 54,
+              "p95Ms": 54,
+              "lastMs": 54
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 1466.5,
+          "frames": {
+            "count": 174,
+            "avgMs": 8.4,
+            "p95Ms": 13.9,
+            "maxMs": 48.6,
+            "droppedFrames": 1,
+            "fps": 119.2
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 52,
+            "maxMs": 52
+          },
+          "totalBlockingMs": 2,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 52,
+              "avgMs": 52,
+              "maxMs": 52,
+              "p95Ms": 52,
+              "lastMs": 52
+            },
+            {
+              "label": "canvas.onNodesChange",
+              "count": 30,
+              "totalMs": 3,
+              "avgMs": 0.1,
+              "maxMs": 1.9,
+              "p95Ms": 0.1,
+              "lastMs": 1.9
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 1.7,
+              "maxMs": 1.7,
+              "p95Ms": 1.7,
+              "lastMs": 1.7
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 463.2,
+          "frames": {
+            "count": 61,
+            "avgMs": 7.5,
+            "p95Ms": 7,
+            "maxMs": 41.8,
+            "droppedFrames": 1,
+            "fps": 132.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.7,
+              "maxMs": 0.7,
+              "p95Ms": 0.7,
+              "lastMs": 0.7
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.3,
+              "maxMs": 1.3,
+              "p95Ms": 1.3,
+              "lastMs": 1.3
+            }
+          ]
+        },
+        {
+          "label": "recolor-single",
+          "durationMs": 447.7,
+          "frames": {
+            "count": 61,
+            "avgMs": 7.2,
+            "p95Ms": 7.1,
+            "maxMs": 20.9,
+            "droppedFrames": 0,
+            "fps": 139.3
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 1.5,
+              "maxMs": 1.5,
+              "p95Ms": 1.5,
+              "lastMs": 1.5
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            }
+          ]
+        },
+        {
+          "label": "column-flag",
+          "durationMs": 460.6,
+          "frames": {
+            "count": 61,
+            "avgMs": 7.4,
+            "p95Ms": 7,
+            "maxMs": 34.7,
+            "droppedFrames": 1,
+            "fps": 135
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 2,
+              "avgMs": 1,
+              "maxMs": 1.1,
+              "p95Ms": 0.9,
+              "lastMs": 0.9
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 2.3,
+              "maxMs": 2.3,
+              "p95Ms": 2.3,
+              "lastMs": 2.3
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            }
+          ]
+        },
+        {
+          "label": "highlight-toggle",
+          "durationMs": 1089.1,
+          "frames": {
+            "count": 150,
+            "avgMs": 7.2,
+            "p95Ms": 7,
+            "maxMs": 34.7,
+            "droppedFrames": 1,
+            "fps": 138.3
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "delete-columns",
+          "durationMs": 466,
+          "frames": {
+            "count": 61,
+            "avgMs": 7.5,
+            "p95Ms": 7,
+            "maxMs": 41.7,
+            "droppedFrames": 1,
+            "fps": 133
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 2,
+              "avgMs": 0.9,
+              "maxMs": 1,
+              "p95Ms": 0.9,
+              "lastMs": 1
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 1.5,
+              "maxMs": 1.5,
+              "p95Ms": 1.5,
+              "lastMs": 1.5
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.6,
+              "maxMs": 0.6,
+              "p95Ms": 0.6,
+              "lastMs": 0.6
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 100,
+        "columns": 8,
+        "detail": "standard"
+      },
+      "loadMs": 716,
+      "ready": {
+        "nodes": 100,
+        "edges": 99,
+        "waitedMs": 632
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 1695.2,
+          "frames": {
+            "count": 219,
+            "avgMs": 7.7,
+            "p95Ms": 7.1,
+            "maxMs": 34.9,
+            "droppedFrames": 3,
+            "fps": 129.1
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildEdges",
+              "count": 10,
+              "totalMs": 2,
+              "avgMs": 0.2,
+              "maxMs": 0.2,
+              "p95Ms": 0.2,
+              "lastMs": 0.2
+            }
+          ]
+        },
+        {
+          "label": "zoom-links-on",
+          "durationMs": 2009.9,
+          "frames": {
+            "count": 221,
+            "avgMs": 9.1,
+            "p95Ms": 20.8,
+            "maxMs": 48.6,
+            "droppedFrames": 2,
+            "fps": 110.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildEdges",
+              "count": 9,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.3,
+              "p95Ms": 0.2,
+              "lastMs": 0
+            }
+          ]
+        },
+        {
+          "label": "drag-single",
+          "durationMs": 1387.5,
+          "frames": {
+            "count": 197,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 13.9,
+            "droppedFrames": 0,
+            "fps": 142.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 32,
+              "totalMs": 2,
+              "avgMs": 0.1,
+              "maxMs": 1.1,
+              "p95Ms": 0.1,
+              "lastMs": 1.1
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 1.7,
+              "maxMs": 1.7,
+              "p95Ms": 1.7,
+              "lastMs": 1.7
+            },
+            {
+              "label": "canvas.highlightedFields",
+              "count": 32,
+              "totalMs": 1,
+              "avgMs": 0,
+              "maxMs": 0.1,
+              "p95Ms": 0.1,
+              "lastMs": 0
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.6,
+              "maxMs": 0.6,
+              "p95Ms": 0.6,
+              "lastMs": 0.6
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 964.2,
+          "frames": {
+            "count": 123,
+            "avgMs": 7.7,
+            "p95Ms": 13.9,
+            "maxMs": 27.8,
+            "droppedFrames": 0,
+            "fps": 129.1
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 486,
+              "avgMs": 486.1,
+              "maxMs": 486.1,
+              "p95Ms": 486.1,
+              "lastMs": 486.1
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 1395.5,
+          "frames": {
+            "count": 197,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 13.9,
+            "droppedFrames": 0,
+            "fps": 142.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 30,
+              "totalMs": 3,
+              "avgMs": 0.1,
+              "maxMs": 2.2,
+              "p95Ms": 0.1,
+              "lastMs": 2.2
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 8,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.2,
+              "p95Ms": 0.1,
+              "lastMs": 0.1
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.4,
+              "maxMs": 1.4,
+              "p95Ms": 1.4,
+              "lastMs": 1.4
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 447.5,
+          "frames": {
+            "count": 62,
+            "avgMs": 7.1,
+            "p95Ms": 7,
+            "maxMs": 13.9,
+            "droppedFrames": 0,
+            "fps": 141.6
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.7,
+              "maxMs": 0.7,
+              "p95Ms": 0.7,
+              "lastMs": 0.7
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.3,
+              "maxMs": 1.3,
+              "p95Ms": 1.3,
+              "lastMs": 1.3
+            }
+          ]
+        },
+        {
+          "label": "recolor-single",
+          "durationMs": 434.3,
+          "frames": {
+            "count": 62,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1,
+              "maxMs": 1,
+              "p95Ms": 1,
+              "lastMs": 1
+            }
+          ]
+        },
+        {
+          "label": "column-flag",
+          "durationMs": 465,
+          "frames": {
+            "count": 62,
+            "avgMs": 7.4,
+            "p95Ms": 7,
+            "maxMs": 27.8,
+            "droppedFrames": 0,
+            "fps": 135.2
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 3.1,
+              "maxMs": 3.1,
+              "p95Ms": 3.1,
+              "lastMs": 3.1
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 2,
+              "avgMs": 0.9,
+              "maxMs": 1.1,
+              "p95Ms": 0.8,
+              "lastMs": 0.8
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            }
+          ]
+        },
+        {
+          "label": "highlight-toggle",
+          "durationMs": 1071.1,
+          "frames": {
+            "count": 147,
+            "avgMs": 7.2,
+            "p95Ms": 7,
+            "maxMs": 27.8,
+            "droppedFrames": 0,
+            "fps": 138.2
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "delete-columns",
+          "durationMs": 447.9,
+          "frames": {
+            "count": 62,
+            "avgMs": 7.2,
+            "p95Ms": 7.1,
+            "maxMs": 20.8,
+            "droppedFrames": 0,
+            "fps": 139.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 2,
+              "avgMs": 0.9,
+              "maxMs": 1,
+              "p95Ms": 0.9,
+              "lastMs": 0.9
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 1.7,
+              "maxMs": 1.7,
+              "p95Ms": 1.7,
+              "lastMs": 1.7
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.7,
+              "maxMs": 0.7,
+              "p95Ms": 0.7,
+              "lastMs": 0.7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 100,
+        "columns": 8,
+        "detail": "compact"
+      },
+      "loadMs": 562,
+      "ready": {
+        "nodes": 100,
+        "edges": 99,
+        "waitedMs": 478.5
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 1705.2,
+          "frames": {
+            "count": 236,
+            "avgMs": 7.2,
+            "p95Ms": 7.1,
+            "maxMs": 20.9,
+            "droppedFrames": 0,
+            "fps": 138
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildEdges",
+              "count": 10,
+              "totalMs": 2,
+              "avgMs": 0.2,
+              "maxMs": 0.3,
+              "p95Ms": 0.2,
+              "lastMs": 0.1
+            }
+          ]
+        },
+        {
+          "label": "zoom-links-on",
+          "durationMs": 1910,
+          "frames": {
+            "count": 273,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 13.9,
+            "droppedFrames": 0,
+            "fps": 143.3
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "drag-single",
+          "durationMs": 1389.5,
+          "frames": {
+            "count": 199,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.8
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 31,
+              "totalMs": 2,
+              "avgMs": 0.1,
+              "maxMs": 1,
+              "p95Ms": 0.1,
+              "lastMs": 1
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 1.6,
+              "maxMs": 1.6,
+              "p95Ms": 1.6,
+              "lastMs": 1.6
+            },
+            {
+              "label": "canvas.selectedTableIds",
+              "count": 31,
+              "totalMs": 1,
+              "avgMs": 0,
+              "maxMs": 0.1,
+              "p95Ms": 0.1,
+              "lastMs": 0.1
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 864.4,
+          "frames": {
+            "count": 123,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 405,
+              "avgMs": 404.6,
+              "maxMs": 404.6,
+              "p95Ms": 404.6,
+              "lastMs": 404.6
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 1394,
+          "frames": {
+            "count": 200,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 30,
+              "totalMs": 3,
+              "avgMs": 0.1,
+              "maxMs": 1.9,
+              "p95Ms": 0.1,
+              "lastMs": 1.9
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 8,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.2,
+              "p95Ms": 0.1,
+              "lastMs": 0.1
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1,
+              "maxMs": 1,
+              "p95Ms": 1,
+              "lastMs": 1
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 429.1,
+          "frames": {
+            "count": 61,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1,
+              "maxMs": 1,
+              "p95Ms": 1,
+              "lastMs": 1
+            }
+          ]
+        },
+        {
+          "label": "recolor-single",
+          "durationMs": 431.8,
+          "frames": {
+            "count": 61,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.4,
+              "maxMs": 1.4,
+              "p95Ms": 1.4,
+              "lastMs": 1.4
+            }
+          ]
+        },
+        {
+          "label": "column-flag",
+          "durationMs": 434.9,
+          "frames": {
+            "count": 61,
+            "avgMs": 7.1,
+            "p95Ms": 7,
+            "maxMs": 13.8,
+            "droppedFrames": 0,
+            "fps": 141.5
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 2,
+              "avgMs": 0.9,
+              "maxMs": 1,
+              "p95Ms": 0.9,
+              "lastMs": 1
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 2.1,
+              "maxMs": 2.1,
+              "p95Ms": 2.1,
+              "lastMs": 2.1
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            }
+          ]
+        },
+        {
+          "label": "highlight-toggle",
+          "durationMs": 1021.7,
+          "frames": {
+            "count": 143,
+            "avgMs": 7.1,
+            "p95Ms": 7,
+            "maxMs": 27.8,
+            "droppedFrames": 0,
+            "fps": 140.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "delete-columns",
+          "durationMs": 449.1,
+          "frames": {
+            "count": 62,
+            "avgMs": 7.2,
+            "p95Ms": 7.1,
+            "maxMs": 14,
+            "droppedFrames": 0,
+            "fps": 139.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 2,
+              "avgMs": 0.9,
+              "maxMs": 1,
+              "p95Ms": 0.9,
+              "lastMs": 1
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 1.6,
+              "maxMs": 1.6,
+              "p95Ms": 1.6,
+              "lastMs": 1.6
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.6,
+              "maxMs": 0.6,
+              "p95Ms": 0.6,
+              "lastMs": 0.6
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 200,
+        "columns": 8,
+        "detail": "full"
+      },
+      "loadMs": 710,
+      "ready": {
+        "nodes": 200,
+        "edges": 199,
+        "waitedMs": 629
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 1737.2,
+          "frames": {
+            "count": 217,
+            "avgMs": 8,
+            "p95Ms": 13.8,
+            "maxMs": 34.8,
+            "droppedFrames": 2,
+            "fps": 125.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildEdges",
+              "count": 10,
+              "totalMs": 2,
+              "avgMs": 0.2,
+              "maxMs": 0.3,
+              "p95Ms": 0.3,
+              "lastMs": 0.3
+            }
+          ]
+        },
+        {
+          "label": "zoom-links-on",
+          "durationMs": 2003.7,
+          "frames": {
+            "count": 257,
+            "avgMs": 7.8,
+            "p95Ms": 13.9,
+            "maxMs": 55.8,
+            "droppedFrames": 1,
+            "fps": 128.8
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "drag-single",
+          "durationMs": 1405.8,
+          "frames": {
+            "count": 198,
+            "avgMs": 7.1,
+            "p95Ms": 7,
+            "maxMs": 20.9,
+            "droppedFrames": 0,
+            "fps": 141
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 3.4,
+              "maxMs": 3.4,
+              "p95Ms": 3.4,
+              "lastMs": 3.4
+            },
+            {
+              "label": "canvas.onNodesChange",
+              "count": 31,
+              "totalMs": 2,
+              "avgMs": 0.1,
+              "maxMs": 0.9,
+              "p95Ms": 0.1,
+              "lastMs": 0.9
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1,
+              "maxMs": 1,
+              "p95Ms": 1,
+              "lastMs": 1
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 947.5,
+          "frames": {
+            "count": 131,
+            "avgMs": 7.2,
+            "p95Ms": 7,
+            "maxMs": 14,
+            "droppedFrames": 0,
+            "fps": 139.6
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 479,
+              "avgMs": 479.2,
+              "maxMs": 479.2,
+              "p95Ms": 479.2,
+              "lastMs": 479.2
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 1417.9,
+          "frames": {
+            "count": 192,
+            "avgMs": 7.4,
+            "p95Ms": 7.1,
+            "maxMs": 20.9,
+            "droppedFrames": 0,
+            "fps": 136
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 30,
+              "totalMs": 4,
+              "avgMs": 0.1,
+              "maxMs": 2.6,
+              "p95Ms": 0.1,
+              "lastMs": 2.6
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 2.8,
+              "maxMs": 2.8,
+              "p95Ms": 2.8,
+              "lastMs": 2.8
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 1.5,
+              "maxMs": 1.5,
+              "p95Ms": 1.5,
+              "lastMs": 1.5
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 8,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.2,
+              "p95Ms": 0.2,
+              "lastMs": 0.1
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 448.7,
+          "frames": {
+            "count": 61,
+            "avgMs": 7.2,
+            "p95Ms": 7,
+            "maxMs": 21.1,
+            "droppedFrames": 0,
+            "fps": 139.2
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 3.4,
+              "maxMs": 3.4,
+              "p95Ms": 3.4,
+              "lastMs": 3.4
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.4,
+              "maxMs": 1.4,
+              "p95Ms": 1.4,
+              "lastMs": 1.4
+            }
+          ]
+        },
+        {
+          "label": "recolor-single",
+          "durationMs": 445.7,
+          "frames": {
+            "count": 62,
+            "avgMs": 7.1,
+            "p95Ms": 7,
+            "maxMs": 13.9,
+            "droppedFrames": 0,
+            "fps": 141.6
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 2.2,
+              "maxMs": 2.2,
+              "p95Ms": 2.2,
+              "lastMs": 2.2
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.9,
+              "maxMs": 0.9,
+              "p95Ms": 0.9,
+              "lastMs": 0.9
+            }
+          ]
+        },
+        {
+          "label": "column-flag",
+          "durationMs": 466.1,
+          "frames": {
+            "count": 61,
+            "avgMs": 7.5,
+            "p95Ms": 7,
+            "maxMs": 41.8,
+            "droppedFrames": 1,
+            "fps": 133
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 5,
+              "avgMs": 2.6,
+              "maxMs": 2.9,
+              "p95Ms": 2.3,
+              "lastMs": 2.3
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 5,
+              "avgMs": 5.3,
+              "maxMs": 5.3,
+              "p95Ms": 5.3,
+              "lastMs": 5.3
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.7,
+              "maxMs": 0.7,
+              "p95Ms": 0.7,
+              "lastMs": 0.7
+            }
+          ]
+        },
+        {
+          "label": "highlight-toggle",
+          "durationMs": 1083.6,
+          "frames": {
+            "count": 147,
+            "avgMs": 7.3,
+            "p95Ms": 7,
+            "maxMs": 48.7,
+            "droppedFrames": 1,
+            "fps": 136.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "delete-columns",
+          "durationMs": 465.9,
+          "frames": {
+            "count": 62,
+            "avgMs": 7.4,
+            "p95Ms": 7,
+            "maxMs": 34.7,
+            "droppedFrames": 1,
+            "fps": 135.2
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 4,
+              "avgMs": 1.9,
+              "maxMs": 1.9,
+              "p95Ms": 1.9,
+              "lastMs": 1.9
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 3.7,
+              "maxMs": 3.7,
+              "p95Ms": 3.7,
+              "lastMs": 3.7
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.6,
+              "maxMs": 0.6,
+              "p95Ms": 0.6,
+              "lastMs": 0.6
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 200,
+        "columns": 8,
+        "detail": "standard"
+      },
+      "loadMs": 717,
+      "ready": {
+        "nodes": 200,
+        "edges": 199,
+        "waitedMs": 631.7
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 1708.4,
+          "frames": {
+            "count": 214,
+            "avgMs": 8,
+            "p95Ms": 7.1,
+            "maxMs": 34.8,
+            "droppedFrames": 3,
+            "fps": 125.7
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildEdges",
+              "count": 10,
+              "totalMs": 2,
+              "avgMs": 0.2,
+              "maxMs": 0.3,
+              "p95Ms": 0.3,
+              "lastMs": 0.2
+            }
+          ]
+        },
+        {
+          "label": "zoom-links-on",
+          "durationMs": 1930,
+          "frames": {
+            "count": 254,
+            "avgMs": 7.6,
+            "p95Ms": 13.9,
+            "maxMs": 21,
+            "droppedFrames": 0,
+            "fps": 131.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "drag-single",
+          "durationMs": 1410.1,
+          "frames": {
+            "count": 195,
+            "avgMs": 7.2,
+            "p95Ms": 7.1,
+            "maxMs": 41.7,
+            "droppedFrames": 1,
+            "fps": 138.2
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 5,
+              "avgMs": 4.5,
+              "maxMs": 4.5,
+              "p95Ms": 4.5,
+              "lastMs": 4.5
+            },
+            {
+              "label": "canvas.onNodesChange",
+              "count": 31,
+              "totalMs": 3,
+              "avgMs": 0.1,
+              "maxMs": 1.7,
+              "p95Ms": 0.1,
+              "lastMs": 1.7
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 1.6,
+              "maxMs": 1.6,
+              "p95Ms": 1.6,
+              "lastMs": 1.6
+            },
+            {
+              "label": "canvas.highlightedFields",
+              "count": 31,
+              "totalMs": 1,
+              "avgMs": 0,
+              "maxMs": 0.1,
+              "p95Ms": 0.1,
+              "lastMs": 0
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.7,
+              "maxMs": 0.7,
+              "p95Ms": 0.7,
+              "lastMs": 0.7
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 914.5,
+          "frames": {
+            "count": 126,
+            "avgMs": 7.2,
+            "p95Ms": 7,
+            "maxMs": 13.9,
+            "droppedFrames": 0,
+            "fps": 139.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 447,
+              "avgMs": 446.9,
+              "maxMs": 446.9,
+              "p95Ms": 446.9,
+              "lastMs": 446.9
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 1448.4,
+          "frames": {
+            "count": 192,
+            "avgMs": 7.5,
+            "p95Ms": 7.1,
+            "maxMs": 48.7,
+            "droppedFrames": 1,
+            "fps": 133.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 30,
+              "totalMs": 4,
+              "avgMs": 0.1,
+              "maxMs": 2.3,
+              "p95Ms": 0.1,
+              "lastMs": 2.3
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 3.2,
+              "maxMs": 3.2,
+              "p95Ms": 3.2,
+              "lastMs": 3.2
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 8,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.1,
+              "p95Ms": 0.1,
+              "lastMs": 0.1
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1,
+              "maxMs": 1,
+              "p95Ms": 1,
+              "lastMs": 1
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 448.3,
+          "frames": {
+            "count": 63,
+            "avgMs": 7.1,
+            "p95Ms": 7.1,
+            "maxMs": 14,
+            "droppedFrames": 0,
+            "fps": 141.6
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 2.9,
+              "maxMs": 2.9,
+              "p95Ms": 2.9,
+              "lastMs": 2.9
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.1,
+              "maxMs": 1.1,
+              "p95Ms": 1.1,
+              "lastMs": 1.1
+            }
+          ]
+        },
+        {
+          "label": "recolor-single",
+          "durationMs": 433.1,
+          "frames": {
+            "count": 61,
+            "avgMs": 7,
+            "p95Ms": 7.1,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.8
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 1.8,
+              "maxMs": 1.8,
+              "p95Ms": 1.8,
+              "lastMs": 1.8
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.8,
+              "maxMs": 0.8,
+              "p95Ms": 0.8,
+              "lastMs": 0.8
+            }
+          ]
+        },
+        {
+          "label": "column-flag",
+          "durationMs": 479.5,
+          "frames": {
+            "count": 63,
+            "avgMs": 7.5,
+            "p95Ms": 7,
+            "maxMs": 41.8,
+            "droppedFrames": 1,
+            "fps": 133.3
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 6,
+              "avgMs": 5.6,
+              "maxMs": 5.6,
+              "p95Ms": 5.6,
+              "lastMs": 5.6
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 5,
+              "avgMs": 2.6,
+              "maxMs": 2.8,
+              "p95Ms": 2.5,
+              "lastMs": 2.8
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.7,
+              "maxMs": 0.7,
+              "p95Ms": 0.7,
+              "lastMs": 0.7
+            }
+          ]
+        },
+        {
+          "label": "highlight-toggle",
+          "durationMs": 1102,
+          "frames": {
+            "count": 150,
+            "avgMs": 7.3,
+            "p95Ms": 7,
+            "maxMs": 41.8,
+            "droppedFrames": 1,
+            "fps": 137.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "delete-columns",
+          "durationMs": 451.5,
+          "frames": {
+            "count": 61,
+            "avgMs": 7.3,
+            "p95Ms": 7.1,
+            "maxMs": 27.8,
+            "droppedFrames": 0,
+            "fps": 137.2
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 4,
+              "avgMs": 1.8,
+              "maxMs": 1.9,
+              "p95Ms": 1.8,
+              "lastMs": 1.9
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 2.8,
+              "maxMs": 2.8,
+              "p95Ms": 2.8,
+              "lastMs": 2.8
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.8,
+              "maxMs": 0.8,
+              "p95Ms": 0.8,
+              "lastMs": 0.8
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 200,
+        "columns": 8,
+        "detail": "compact"
+      },
+      "loadMs": 698,
+      "ready": {
+        "nodes": 200,
+        "edges": 199,
+        "waitedMs": 617.1
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 1798.7,
+          "frames": {
+            "count": 225,
+            "avgMs": 8,
+            "p95Ms": 13.8,
+            "maxMs": 41.7,
+            "droppedFrames": 3,
+            "fps": 125
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildEdges",
+              "count": 10,
+              "totalMs": 2,
+              "avgMs": 0.2,
+              "maxMs": 0.4,
+              "p95Ms": 0.3,
+              "lastMs": 0.2
+            },
+            {
+              "label": "canvas.onNodesChange",
+              "count": 10,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.1,
+              "p95Ms": 0.1,
+              "lastMs": 0.1
+            }
+          ]
+        },
+        {
+          "label": "zoom-links-on",
+          "durationMs": 1953.4,
+          "frames": {
+            "count": 259,
+            "avgMs": 7.5,
+            "p95Ms": 13.9,
+            "maxMs": 20.8,
+            "droppedFrames": 0,
+            "fps": 133.1
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "drag-single",
+          "durationMs": 1410.6,
+          "frames": {
+            "count": 191,
+            "avgMs": 7.4,
+            "p95Ms": 7.1,
+            "maxMs": 27.7,
+            "droppedFrames": 0,
+            "fps": 135.3
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 3.6,
+              "maxMs": 3.6,
+              "p95Ms": 3.6,
+              "lastMs": 3.6
+            },
+            {
+              "label": "canvas.onNodesChange",
+              "count": 31,
+              "totalMs": 3,
+              "avgMs": 0.1,
+              "maxMs": 1.4,
+              "p95Ms": 0.1,
+              "lastMs": 1.4
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 1.5,
+              "maxMs": 1.5,
+              "p95Ms": 1.5,
+              "lastMs": 1.5
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 962,
+          "frames": {
+            "count": 134,
+            "avgMs": 7.2,
+            "p95Ms": 7,
+            "maxMs": 14,
+            "droppedFrames": 0,
+            "fps": 139.7
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 486,
+              "avgMs": 486,
+              "maxMs": 486,
+              "p95Ms": 486,
+              "lastMs": 486
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 1449.3,
+          "frames": {
+            "count": 198,
+            "avgMs": 7.3,
+            "p95Ms": 7.1,
+            "maxMs": 27.8,
+            "droppedFrames": 0,
+            "fps": 136.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 30,
+              "totalMs": 3,
+              "avgMs": 0.1,
+              "maxMs": 1.9,
+              "p95Ms": 0.1,
+              "lastMs": 1.9
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 3,
+              "maxMs": 3,
+              "p95Ms": 3,
+              "lastMs": 3
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 8,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.1,
+              "p95Ms": 0.1,
+              "lastMs": 0.1
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.3,
+              "maxMs": 1.3,
+              "p95Ms": 1.3,
+              "lastMs": 1.3
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 435.1,
+          "frames": {
+            "count": 61,
+            "avgMs": 7.1,
+            "p95Ms": 7,
+            "maxMs": 13.9,
+            "droppedFrames": 0,
+            "fps": 141.5
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 3.3,
+              "maxMs": 3.3,
+              "p95Ms": 3.3,
+              "lastMs": 3.3
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.3,
+              "maxMs": 1.3,
+              "p95Ms": 1.3,
+              "lastMs": 1.3
+            }
+          ]
+        },
+        {
+          "label": "recolor-single",
+          "durationMs": 446.7,
+          "frames": {
+            "count": 62,
+            "avgMs": 7.1,
+            "p95Ms": 7,
+            "maxMs": 13.9,
+            "droppedFrames": 0,
+            "fps": 141.6
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 1.8,
+              "maxMs": 1.8,
+              "p95Ms": 1.8,
+              "lastMs": 1.8
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.8,
+              "maxMs": 0.8,
+              "p95Ms": 0.8,
+              "lastMs": 0.8
+            }
+          ]
+        },
+        {
+          "label": "column-flag",
+          "durationMs": 463.8,
+          "frames": {
+            "count": 62,
+            "avgMs": 7.4,
+            "p95Ms": 7,
+            "maxMs": 34.7,
+            "droppedFrames": 1,
+            "fps": 135.1
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 5,
+              "avgMs": 2.6,
+              "maxMs": 3.3,
+              "p95Ms": 1.9,
+              "lastMs": 1.9
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 5,
+              "avgMs": 5,
+              "maxMs": 5,
+              "p95Ms": 5,
+              "lastMs": 5
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.8,
+              "maxMs": 0.8,
+              "p95Ms": 0.8,
+              "lastMs": 0.8
+            }
+          ]
+        },
+        {
+          "label": "highlight-toggle",
+          "durationMs": 1085,
+          "frames": {
+            "count": 147,
+            "avgMs": 7.3,
+            "p95Ms": 7.1,
+            "maxMs": 48.8,
+            "droppedFrames": 1,
+            "fps": 136.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "delete-columns",
+          "durationMs": 466.4,
+          "frames": {
+            "count": 62,
+            "avgMs": 7.4,
+            "p95Ms": 7,
+            "maxMs": 34.7,
+            "droppedFrames": 1,
+            "fps": 135.2
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 4,
+              "avgMs": 1.9,
+              "maxMs": 1.9,
+              "p95Ms": 1.9,
+              "lastMs": 1.9
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 4.1,
+              "maxMs": 4.1,
+              "p95Ms": 4.1,
+              "lastMs": 4.1
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.8,
+              "maxMs": 0.8,
+              "p95Ms": 0.8,
+              "lastMs": 0.8
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 500,
+        "columns": 8,
+        "detail": "full"
+      },
+      "loadMs": 1515,
+      "ready": {
+        "nodes": 500,
+        "edges": 499,
+        "waitedMs": 1425.2
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 2151.9,
+          "frames": {
+            "count": 193,
+            "avgMs": 11.2,
+            "p95Ms": 27.8,
+            "maxMs": 76.5,
+            "droppedFrames": 10,
+            "fps": 89.6
+          },
+          "longTasks": {
+            "count": 8,
+            "totalMs": 513,
+            "maxMs": 76
+          },
+          "totalBlockingMs": 113,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 8,
+              "totalMs": 513,
+              "avgMs": 64.1,
+              "maxMs": 76,
+              "p95Ms": 73,
+              "lastMs": 73
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 10,
+              "totalMs": 4,
+              "avgMs": 0.4,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            }
+          ]
+        },
+        {
+          "label": "zoom-links-on",
+          "durationMs": 2384.7,
+          "frames": {
+            "count": 163,
+            "avgMs": 14.5,
+            "p95Ms": 41.7,
+            "maxMs": 55.7,
+            "droppedFrames": 16,
+            "fps": 68.8
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 54,
+            "maxMs": 54
+          },
+          "totalBlockingMs": 4,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 54,
+              "avgMs": 54,
+              "maxMs": 54,
+              "p95Ms": 54,
+              "lastMs": 54
+            }
+          ]
+        },
+        {
+          "label": "drag-single",
+          "durationMs": 2457.2,
+          "frames": {
+            "count": 237,
+            "avgMs": 10.4,
+            "p95Ms": 27.9,
+            "maxMs": 104.3,
+            "droppedFrames": 8,
+            "fps": 96.6
+          },
+          "longTasks": {
+            "count": 2,
+            "totalMs": 129,
+            "maxMs": 79
+          },
+          "totalBlockingMs": 29,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 2,
+              "totalMs": 129,
+              "avgMs": 64.5,
+              "maxMs": 79,
+              "p95Ms": 50,
+              "lastMs": 79
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 16,
+              "avgMs": 15.8,
+              "maxMs": 15.8,
+              "p95Ms": 15.8,
+              "lastMs": 15.8
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 3.9,
+              "maxMs": 3.9,
+              "p95Ms": 3.9,
+              "lastMs": 3.9
+            },
+            {
+              "label": "canvas.onNodesChange",
+              "count": 31,
+              "totalMs": 3,
+              "avgMs": 0.1,
+              "maxMs": 1.5,
+              "p95Ms": 0.1,
+              "lastMs": 1.5
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 1150.2,
+          "frames": {
+            "count": 137,
+            "avgMs": 8.4,
+            "p95Ms": 13.9,
+            "maxMs": 41.7,
+            "droppedFrames": 3,
+            "fps": 119.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 664,
+              "avgMs": 664.3,
+              "maxMs": 664.3,
+              "p95Ms": 664.3,
+              "lastMs": 664.3
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 2256.2,
+          "frames": {
+            "count": 237,
+            "avgMs": 9.5,
+            "p95Ms": 27.8,
+            "maxMs": 83.5,
+            "droppedFrames": 2,
+            "fps": 105.2
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 65,
+            "maxMs": 65
+          },
+          "totalBlockingMs": 15,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 65,
+              "avgMs": 65,
+              "maxMs": 65,
+              "p95Ms": 65,
+              "lastMs": 65
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 11,
+              "avgMs": 11.3,
+              "maxMs": 11.3,
+              "p95Ms": 11.3,
+              "lastMs": 11.3
+            },
+            {
+              "label": "canvas.onNodesChange",
+              "count": 30,
+              "totalMs": 5,
+              "avgMs": 0.2,
+              "maxMs": 2.3,
+              "p95Ms": 0.2,
+              "lastMs": 2.3
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 3.3,
+              "maxMs": 3.3,
+              "p95Ms": 3.3,
+              "lastMs": 3.3
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 8,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.3,
+              "p95Ms": 0.2,
+              "lastMs": 0
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.6,
+              "maxMs": 0.6,
+              "p95Ms": 0.6,
+              "lastMs": 0.6
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 479.5,
+          "frames": {
+            "count": 62,
+            "avgMs": 7.6,
+            "p95Ms": 7,
+            "maxMs": 41.7,
+            "droppedFrames": 1,
+            "fps": 131.1
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 7,
+              "avgMs": 7.2,
+              "maxMs": 7.2,
+              "p95Ms": 7.2,
+              "lastMs": 7.2
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 3.5,
+              "maxMs": 3.5,
+              "p95Ms": 3.5,
+              "lastMs": 3.5
+            }
+          ]
+        },
+        {
+          "label": "recolor-single",
+          "durationMs": 480.6,
+          "frames": {
+            "count": 61,
+            "avgMs": 7.8,
+            "p95Ms": 7.1,
+            "maxMs": 48.7,
+            "droppedFrames": 1,
+            "fps": 129
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 10,
+              "avgMs": 10,
+              "maxMs": 10,
+              "p95Ms": 10,
+              "lastMs": 10
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 3.8,
+              "maxMs": 3.8,
+              "p95Ms": 3.8,
+              "lastMs": 3.8
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.9,
+              "maxMs": 0.9,
+              "p95Ms": 0.9,
+              "lastMs": 0.9
+            }
+          ]
+        },
+        {
+          "label": "column-flag",
+          "durationMs": 523,
+          "frames": {
+            "count": 61,
+            "avgMs": 8.3,
+            "p95Ms": 7.1,
+            "maxMs": 90.4,
+            "droppedFrames": 1,
+            "fps": 120.9
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 81,
+            "maxMs": 81
+          },
+          "totalBlockingMs": 31,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 81,
+              "avgMs": 81,
+              "maxMs": 81,
+              "p95Ms": 81,
+              "lastMs": 81
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 16,
+              "avgMs": 8,
+              "maxMs": 8.7,
+              "p95Ms": 7.3,
+              "lastMs": 8.7
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 10,
+              "avgMs": 9.5,
+              "maxMs": 9.5,
+              "p95Ms": 9.5,
+              "lastMs": 9.5
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 4,
+              "maxMs": 4,
+              "p95Ms": 4,
+              "lastMs": 4
+            }
+          ]
+        },
+        {
+          "label": "highlight-toggle",
+          "durationMs": 1275.9,
+          "frames": {
+            "count": 140,
+            "avgMs": 9.1,
+            "p95Ms": 13.9,
+            "maxMs": 118.2,
+            "droppedFrames": 2,
+            "fps": 110.1
+          },
+          "longTasks": {
+            "count": 2,
+            "totalMs": 170,
+            "maxMs": 111
+          },
+          "totalBlockingMs": 70,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 2,
+              "totalMs": 170,
+              "avgMs": 85,
+              "maxMs": 111,
+              "p95Ms": 59,
+              "lastMs": 59
+            }
+          ]
+        },
+        {
+          "label": "delete-columns",
+          "durationMs": 508.1,
+          "frames": {
+            "count": 61,
+            "avgMs": 8.2,
+            "p95Ms": 7.1,
+            "maxMs": 76.5,
+            "droppedFrames": 1,
+            "fps": 121.9
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 69,
+            "maxMs": 69
+          },
+          "totalBlockingMs": 19,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 69,
+              "avgMs": 69,
+              "maxMs": 69,
+              "p95Ms": 69,
+              "lastMs": 69
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 16,
+              "avgMs": 8.1,
+              "maxMs": 8.9,
+              "p95Ms": 7.3,
+              "lastMs": 8.9
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 12,
+              "avgMs": 11.8,
+              "maxMs": 11.8,
+              "p95Ms": 11.8,
+              "lastMs": 11.8
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 3.4,
+              "maxMs": 3.4,
+              "p95Ms": 3.4,
+              "lastMs": 3.4
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 500,
+        "columns": 8,
+        "detail": "standard"
+      },
+      "loadMs": 1448,
+      "ready": {
+        "nodes": 500,
+        "edges": 499,
+        "waitedMs": 1363.2
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 2082,
+          "frames": {
+            "count": 193,
+            "avgMs": 10.8,
+            "p95Ms": 21,
+            "maxMs": 62.6,
+            "droppedFrames": 10,
+            "fps": 92.5
+          },
+          "longTasks": {
+            "count": 9,
+            "totalMs": 507,
+            "maxMs": 64
+          },
+          "totalBlockingMs": 57,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 9,
+              "totalMs": 507,
+              "avgMs": 56.3,
+              "maxMs": 64,
+              "p95Ms": 63,
+              "lastMs": 63
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 10,
+              "totalMs": 4,
+              "avgMs": 0.4,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            }
+          ]
+        },
+        {
+          "label": "zoom-links-on",
+          "durationMs": 2291.8,
+          "frames": {
+            "count": 172,
+            "avgMs": 13.3,
+            "p95Ms": 41.7,
+            "maxMs": 48.8,
+            "droppedFrames": 16,
+            "fps": 75.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "drag-single",
+          "durationMs": 2110.1,
+          "frames": {
+            "count": 225,
+            "avgMs": 9.4,
+            "p95Ms": 20.9,
+            "maxMs": 90.3,
+            "droppedFrames": 2,
+            "fps": 106.8
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 72,
+            "maxMs": 72
+          },
+          "totalBlockingMs": 22,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 72,
+              "avgMs": 72,
+              "maxMs": 72,
+              "p95Ms": 72,
+              "lastMs": 72
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 15,
+              "avgMs": 14.6,
+              "maxMs": 14.6,
+              "p95Ms": 14.6,
+              "lastMs": 14.6
+            },
+            {
+              "label": "canvas.onNodesChange",
+              "count": 31,
+              "totalMs": 3,
+              "avgMs": 0.1,
+              "maxMs": 1.4,
+              "p95Ms": 0.1,
+              "lastMs": 1.4
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 3.1,
+              "maxMs": 3.1,
+              "p95Ms": 3.1,
+              "lastMs": 3.1
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 1164.1,
+          "frames": {
+            "count": 137,
+            "avgMs": 8.5,
+            "p95Ms": 21,
+            "maxMs": 41.7,
+            "droppedFrames": 6,
+            "fps": 118
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 673,
+              "avgMs": 673.3,
+              "maxMs": 673.3,
+              "p95Ms": 673.3,
+              "lastMs": 673.3
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 2335.2,
+          "frames": {
+            "count": 240,
+            "avgMs": 9.7,
+            "p95Ms": 27.8,
+            "maxMs": 111.3,
+            "droppedFrames": 3,
+            "fps": 103.1
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 76,
+            "maxMs": 76
+          },
+          "totalBlockingMs": 26,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 76,
+              "avgMs": 76,
+              "maxMs": 76,
+              "p95Ms": 76,
+              "lastMs": 76
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 11,
+              "avgMs": 11.1,
+              "maxMs": 11.1,
+              "p95Ms": 11.1,
+              "lastMs": 11.1
+            },
+            {
+              "label": "canvas.onNodesChange",
+              "count": 30,
+              "totalMs": 5,
+              "avgMs": 0.2,
+              "maxMs": 2.4,
+              "p95Ms": 0.2,
+              "lastMs": 2.4
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 3.6,
+              "maxMs": 3.6,
+              "p95Ms": 3.6,
+              "lastMs": 3.6
+            },
+            {
+              "label": "canvas.highlightedFields",
+              "count": 31,
+              "totalMs": 1,
+              "avgMs": 0,
+              "maxMs": 0.1,
+              "p95Ms": 0.1,
+              "lastMs": 0
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 8,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.3,
+              "p95Ms": 0.2,
+              "lastMs": 0.2
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 478.4,
+          "frames": {
+            "count": 62,
+            "avgMs": 7.6,
+            "p95Ms": 7,
+            "maxMs": 41.8,
+            "droppedFrames": 1,
+            "fps": 131.1
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 7,
+              "avgMs": 6.8,
+              "maxMs": 6.8,
+              "p95Ms": 6.8,
+              "lastMs": 6.8
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 3.8,
+              "maxMs": 3.8,
+              "p95Ms": 3.8,
+              "lastMs": 3.8
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            }
+          ]
+        },
+        {
+          "label": "recolor-single",
+          "durationMs": 480.2,
+          "frames": {
+            "count": 62,
+            "avgMs": 7.6,
+            "p95Ms": 7.1,
+            "maxMs": 41.8,
+            "droppedFrames": 1,
+            "fps": 131.1
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 11,
+              "avgMs": 10.7,
+              "maxMs": 10.7,
+              "p95Ms": 10.7,
+              "lastMs": 10.7
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 4.2,
+              "maxMs": 4.2,
+              "p95Ms": 4.2,
+              "lastMs": 4.2
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.9,
+              "maxMs": 0.9,
+              "p95Ms": 0.9,
+              "lastMs": 0.9
+            }
+          ]
+        },
+        {
+          "label": "column-flag",
+          "durationMs": 509.3,
+          "frames": {
+            "count": 60,
+            "avgMs": 8.2,
+            "p95Ms": 7,
+            "maxMs": 83.4,
+            "droppedFrames": 1,
+            "fps": 122.3
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 75,
+            "maxMs": 75
+          },
+          "totalBlockingMs": 25,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 75,
+              "avgMs": 75,
+              "maxMs": 75,
+              "p95Ms": 75,
+              "lastMs": 75
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 14,
+              "avgMs": 7,
+              "maxMs": 7.2,
+              "p95Ms": 6.9,
+              "lastMs": 6.9
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 12,
+              "avgMs": 12,
+              "maxMs": 12,
+              "p95Ms": 12,
+              "lastMs": 12
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 3.1,
+              "maxMs": 3.1,
+              "p95Ms": 3.1,
+              "lastMs": 3.1
+            }
+          ]
+        },
+        {
+          "label": "highlight-toggle",
+          "durationMs": 1275.5,
+          "frames": {
+            "count": 139,
+            "avgMs": 9.2,
+            "p95Ms": 13.9,
+            "maxMs": 125.1,
+            "droppedFrames": 2,
+            "fps": 109.3
+          },
+          "longTasks": {
+            "count": 2,
+            "totalMs": 178,
+            "maxMs": 119
+          },
+          "totalBlockingMs": 78,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 2,
+              "totalMs": 178,
+              "avgMs": 89,
+              "maxMs": 119,
+              "p95Ms": 59,
+              "lastMs": 59
+            }
+          ]
+        },
+        {
+          "label": "delete-columns",
+          "durationMs": 508.2,
+          "frames": {
+            "count": 61,
+            "avgMs": 8.2,
+            "p95Ms": 7,
+            "maxMs": 76.5,
+            "droppedFrames": 1,
+            "fps": 121.9
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 66,
+            "maxMs": 66
+          },
+          "totalBlockingMs": 16,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 66,
+              "avgMs": 66,
+              "maxMs": 66,
+              "p95Ms": 66,
+              "lastMs": 66
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 14,
+              "avgMs": 7.1,
+              "maxMs": 8.2,
+              "p95Ms": 6,
+              "lastMs": 8.2
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 12,
+              "avgMs": 11.5,
+              "maxMs": 11.5,
+              "p95Ms": 11.5,
+              "lastMs": 11.5
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 3.9,
+              "maxMs": 3.9,
+              "p95Ms": 3.9,
+              "lastMs": 3.9
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 500,
+        "columns": 8,
+        "detail": "compact"
+      },
+      "loadMs": 1470,
+      "ready": {
+        "nodes": 500,
+        "edges": 499,
+        "waitedMs": 1385.7
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 2099.4,
+          "frames": {
+            "count": 198,
+            "avgMs": 10.6,
+            "p95Ms": 21,
+            "maxMs": 69.6,
+            "droppedFrames": 10,
+            "fps": 94.3
+          },
+          "longTasks": {
+            "count": 8,
+            "totalMs": 453,
+            "maxMs": 64
+          },
+          "totalBlockingMs": 53,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 8,
+              "totalMs": 453,
+              "avgMs": 56.6,
+              "maxMs": 64,
+              "p95Ms": 64,
+              "lastMs": 61
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 10,
+              "totalMs": 4,
+              "avgMs": 0.4,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.3
+            },
+            {
+              "label": "canvas.onNodesChange",
+              "count": 10,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.1,
+              "p95Ms": 0.1,
+              "lastMs": 0
+            }
+          ]
+        },
+        {
+          "label": "zoom-links-on",
+          "durationMs": 2292,
+          "frames": {
+            "count": 172,
+            "avgMs": 13.3,
+            "p95Ms": 41.7,
+            "maxMs": 55.7,
+            "droppedFrames": 16,
+            "fps": 75.4
+          },
+          "longTasks": {
+            "count": 2,
+            "totalMs": 108,
+            "maxMs": 56
+          },
+          "totalBlockingMs": 8,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 2,
+              "totalMs": 108,
+              "avgMs": 54,
+              "maxMs": 56,
+              "p95Ms": 52,
+              "lastMs": 56
+            }
+          ]
+        },
+        {
+          "label": "drag-single",
+          "durationMs": 2065.2,
+          "frames": {
+            "count": 220,
+            "avgMs": 9.4,
+            "p95Ms": 20.9,
+            "maxMs": 90.3,
+            "droppedFrames": 2,
+            "fps": 106.6
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 70,
+            "maxMs": 70
+          },
+          "totalBlockingMs": 20,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 70,
+              "avgMs": 70,
+              "maxMs": 70,
+              "p95Ms": 70,
+              "lastMs": 70
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 16,
+              "avgMs": 16,
+              "maxMs": 16,
+              "p95Ms": 16,
+              "lastMs": 16
+            },
+            {
+              "label": "canvas.onNodesChange",
+              "count": 31,
+              "totalMs": 3,
+              "avgMs": 0.1,
+              "maxMs": 1.1,
+              "p95Ms": 0.1,
+              "lastMs": 1.1
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 3.2,
+              "maxMs": 3.2,
+              "p95Ms": 3.2,
+              "lastMs": 3.2
+            },
+            {
+              "label": "canvas.highlightedFields",
+              "count": 31,
+              "totalMs": 1,
+              "avgMs": 0,
+              "maxMs": 0.2,
+              "p95Ms": 0.1,
+              "lastMs": 0
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 1133.2,
+          "frames": {
+            "count": 135,
+            "avgMs": 8.3,
+            "p95Ms": 14,
+            "maxMs": 34.8,
+            "droppedFrames": 1,
+            "fps": 119.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 651,
+              "avgMs": 651,
+              "maxMs": 651,
+              "p95Ms": 651,
+              "lastMs": 651
+            },
+            {
+              "label": "canvas.onNodesChange",
+              "count": 6,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.2,
+              "p95Ms": 0.1,
+              "lastMs": 0.2
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 2245.3,
+          "frames": {
+            "count": 225,
+            "avgMs": 9.9,
+            "p95Ms": 27.8,
+            "maxMs": 97.3,
+            "droppedFrames": 5,
+            "fps": 100.5
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 72,
+            "maxMs": 72
+          },
+          "totalBlockingMs": 22,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 72,
+              "avgMs": 72,
+              "maxMs": 72,
+              "p95Ms": 72,
+              "lastMs": 72
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 7,
+              "avgMs": 7.4,
+              "maxMs": 7.4,
+              "p95Ms": 7.4,
+              "lastMs": 7.4
+            },
+            {
+              "label": "canvas.onNodesChange",
+              "count": 30,
+              "totalMs": 4,
+              "avgMs": 0.1,
+              "maxMs": 2.3,
+              "p95Ms": 0.2,
+              "lastMs": 2.3
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 3.1,
+              "maxMs": 3.1,
+              "p95Ms": 3.1,
+              "lastMs": 3.1
+            },
+            {
+              "label": "canvas.highlightedFields",
+              "count": 31,
+              "totalMs": 1,
+              "avgMs": 0,
+              "maxMs": 0.1,
+              "p95Ms": 0.1,
+              "lastMs": 0
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 8,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.2,
+              "p95Ms": 0.2,
+              "lastMs": 0.1
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 483.4,
+          "frames": {
+            "count": 63,
+            "avgMs": 7.6,
+            "p95Ms": 7,
+            "maxMs": 41.7,
+            "droppedFrames": 1,
+            "fps": 131.3
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 7,
+              "avgMs": 7.3,
+              "maxMs": 7.3,
+              "p95Ms": 7.3,
+              "lastMs": 7.3
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 3.9,
+              "maxMs": 3.9,
+              "p95Ms": 3.9,
+              "lastMs": 3.9
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.8,
+              "maxMs": 0.8,
+              "p95Ms": 0.8,
+              "lastMs": 0.8
+            }
+          ]
+        },
+        {
+          "label": "recolor-single",
+          "durationMs": 481.4,
+          "frames": {
+            "count": 62,
+            "avgMs": 7.6,
+            "p95Ms": 7.1,
+            "maxMs": 41.7,
+            "droppedFrames": 1,
+            "fps": 131.2
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 11,
+              "avgMs": 10.6,
+              "maxMs": 10.6,
+              "p95Ms": 10.6,
+              "lastMs": 10.6
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 4.1,
+              "maxMs": 4.1,
+              "p95Ms": 4.1,
+              "lastMs": 4.1
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.8,
+              "maxMs": 0.8,
+              "p95Ms": 0.8,
+              "lastMs": 0.8
+            }
+          ]
+        },
+        {
+          "label": "column-flag",
+          "durationMs": 513.6,
+          "frames": {
+            "count": 61,
+            "avgMs": 8.3,
+            "p95Ms": 7.1,
+            "maxMs": 83.5,
+            "droppedFrames": 1,
+            "fps": 120.2
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 74,
+            "maxMs": 74
+          },
+          "totalBlockingMs": 24,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 74,
+              "avgMs": 74,
+              "maxMs": 74,
+              "p95Ms": 74,
+              "lastMs": 74
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 16,
+              "avgMs": 7.9,
+              "maxMs": 9,
+              "p95Ms": 6.7,
+              "lastMs": 6.7
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 12,
+              "avgMs": 12.4,
+              "maxMs": 12.4,
+              "p95Ms": 12.4,
+              "lastMs": 12.4
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 4.2,
+              "maxMs": 4.2,
+              "p95Ms": 4.2,
+              "lastMs": 4.2
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.8,
+              "maxMs": 0.8,
+              "p95Ms": 0.8,
+              "lastMs": 0.8
+            }
+          ]
+        },
+        {
+          "label": "highlight-toggle",
+          "durationMs": 1239.7,
+          "frames": {
+            "count": 141,
+            "avgMs": 8.7,
+            "p95Ms": 14,
+            "maxMs": 104.2,
+            "droppedFrames": 2,
+            "fps": 114.6
+          },
+          "longTasks": {
+            "count": 2,
+            "totalMs": 155,
+            "maxMs": 102
+          },
+          "totalBlockingMs": 55,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 2,
+              "totalMs": 155,
+              "avgMs": 77.5,
+              "maxMs": 102,
+              "p95Ms": 53,
+              "lastMs": 53
+            }
+          ]
+        },
+        {
+          "label": "delete-columns",
+          "durationMs": 509.8,
+          "frames": {
+            "count": 61,
+            "avgMs": 8,
+            "p95Ms": 7,
+            "maxMs": 76.5,
+            "droppedFrames": 1,
+            "fps": 124.3
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 65,
+            "maxMs": 65
+          },
+          "totalBlockingMs": 15,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 65,
+              "avgMs": 65,
+              "maxMs": 65,
+              "p95Ms": 65,
+              "lastMs": 65
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 14,
+              "avgMs": 6.8,
+              "maxMs": 7.3,
+              "p95Ms": 6.4,
+              "lastMs": 7.3
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 11,
+              "avgMs": 11,
+              "maxMs": 11,
+              "p95Ms": 11,
+              "lastMs": 11
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 4,
+              "maxMs": 4,
+              "p95Ms": 4,
+              "lastMs": 4
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 3,
+              "totalMs": 1,
+              "avgMs": 0.2,
+              "maxMs": 0.2,
+              "p95Ms": 0.2,
+              "lastMs": 0.2
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.6,
+              "maxMs": 0.6,
+              "p95Ms": 0.6,
+              "lastMs": 0.6
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 100,
+        "columns": 4,
+        "detail": "standard"
+      },
+      "loadMs": 689,
+      "ready": {
+        "nodes": 100,
+        "edges": 99,
+        "waitedMs": 605.4
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 1616.7,
+          "frames": {
+            "count": 205,
+            "avgMs": 7.9,
+            "p95Ms": 13.8,
+            "maxMs": 34.8,
+            "droppedFrames": 2,
+            "fps": 127.1
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildEdges",
+              "count": 10,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.3,
+              "p95Ms": 0.2,
+              "lastMs": 0.1
+            }
+          ]
+        },
+        {
+          "label": "zoom-links-on",
+          "durationMs": 2022.1,
+          "frames": {
+            "count": 224,
+            "avgMs": 9,
+            "p95Ms": 14,
+            "maxMs": 48.8,
+            "droppedFrames": 5,
+            "fps": 111.1
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildEdges",
+              "count": 9,
+              "totalMs": 2,
+              "avgMs": 0.2,
+              "maxMs": 0.3,
+              "p95Ms": 0.3,
+              "lastMs": 0
+            }
+          ]
+        },
+        {
+          "label": "drag-single",
+          "durationMs": 1387.7,
+          "frames": {
+            "count": 198,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 13.9,
+            "droppedFrames": 0,
+            "fps": 143.1
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 32,
+              "totalMs": 3,
+              "avgMs": 0.1,
+              "maxMs": 0.9,
+              "p95Ms": 0.2,
+              "lastMs": 0.9
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.3,
+              "maxMs": 1.3,
+              "p95Ms": 1.3,
+              "lastMs": 1.3
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 973.7,
+          "frames": {
+            "count": 127,
+            "avgMs": 7.6,
+            "p95Ms": 7.1,
+            "maxMs": 34.8,
+            "droppedFrames": 1,
+            "fps": 131.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 500,
+              "avgMs": 499.9,
+              "maxMs": 499.9,
+              "p95Ms": 499.9,
+              "lastMs": 499.9
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 1402.2,
+          "frames": {
+            "count": 199,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 20.9,
+            "droppedFrames": 0,
+            "fps": 142.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 30,
+              "totalMs": 3,
+              "avgMs": 0.1,
+              "maxMs": 1.8,
+              "p95Ms": 0.1,
+              "lastMs": 1.8
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 8,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.2,
+              "p95Ms": 0.1,
+              "lastMs": 0.1
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.7,
+              "maxMs": 0.7,
+              "p95Ms": 0.7,
+              "lastMs": 0.7
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 433,
+          "frames": {
+            "count": 60,
+            "avgMs": 7.1,
+            "p95Ms": 7.1,
+            "maxMs": 13.9,
+            "droppedFrames": 0,
+            "fps": 141.5
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.1,
+              "maxMs": 1.1,
+              "p95Ms": 1.1,
+              "lastMs": 1.1
+            }
+          ]
+        },
+        {
+          "label": "recolor-single",
+          "durationMs": 432.2,
+          "frames": {
+            "count": 62,
+            "avgMs": 6.9,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.6,
+              "maxMs": 0.6,
+              "p95Ms": 0.6,
+              "lastMs": 0.6
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.1,
+              "maxMs": 1.1,
+              "p95Ms": 1.1,
+              "lastMs": 1.1
+            }
+          ]
+        },
+        {
+          "label": "column-flag",
+          "durationMs": 451.8,
+          "frames": {
+            "count": 61,
+            "avgMs": 7.3,
+            "p95Ms": 7,
+            "maxMs": 27.8,
+            "droppedFrames": 0,
+            "fps": 137.1
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 2,
+              "avgMs": 0.8,
+              "maxMs": 0.9,
+              "p95Ms": 0.6,
+              "lastMs": 0.6
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 1.7,
+              "maxMs": 1.7,
+              "p95Ms": 1.7,
+              "lastMs": 1.7
+            }
+          ]
+        },
+        {
+          "label": "highlight-toggle",
+          "durationMs": 1068.6,
+          "frames": {
+            "count": 147,
+            "avgMs": 7.2,
+            "p95Ms": 7,
+            "maxMs": 34.8,
+            "droppedFrames": 1,
+            "fps": 138.2
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "delete-columns",
+          "durationMs": 447.1,
+          "frames": {
+            "count": 61,
+            "avgMs": 7.2,
+            "p95Ms": 7,
+            "maxMs": 20.8,
+            "droppedFrames": 0,
+            "fps": 139.3
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 1,
+              "avgMs": 0.6,
+              "maxMs": 0.6,
+              "p95Ms": 0.6,
+              "lastMs": 0.6
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.8,
+              "maxMs": 0.8,
+              "p95Ms": 0.8,
+              "lastMs": 0.8
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 100,
+        "columns": 16,
+        "detail": "standard"
+      },
+      "loadMs": 712,
+      "ready": {
+        "nodes": 100,
+        "edges": 99,
+        "waitedMs": 630.5
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 1686,
+          "frames": {
+            "count": 222,
+            "avgMs": 7.6,
+            "p95Ms": 7.1,
+            "maxMs": 27.8,
+            "droppedFrames": 0,
+            "fps": 131.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildEdges",
+              "count": 10,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.3,
+              "p95Ms": 0.2,
+              "lastMs": 0.1
+            }
+          ]
+        },
+        {
+          "label": "zoom-links-on",
+          "durationMs": 1941.4,
+          "frames": {
+            "count": 220,
+            "avgMs": 8.8,
+            "p95Ms": 14,
+            "maxMs": 34.8,
+            "droppedFrames": 2,
+            "fps": 113.8
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildEdges",
+              "count": 9,
+              "totalMs": 1,
+              "avgMs": 0.2,
+              "maxMs": 0.3,
+              "p95Ms": 0.2,
+              "lastMs": 0.1
+            }
+          ]
+        },
+        {
+          "label": "drag-single",
+          "durationMs": 1391.4,
+          "frames": {
+            "count": 198,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 13.9,
+            "droppedFrames": 0,
+            "fps": 142.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 32,
+              "totalMs": 2,
+              "avgMs": 0.1,
+              "maxMs": 1.1,
+              "p95Ms": 0.1,
+              "lastMs": 1.1
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 2.4,
+              "maxMs": 2.4,
+              "p95Ms": 2.4,
+              "lastMs": 2.4
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.7,
+              "maxMs": 0.7,
+              "p95Ms": 0.7,
+              "lastMs": 0.7
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 944.4,
+          "frames": {
+            "count": 126,
+            "avgMs": 7.4,
+            "p95Ms": 7.1,
+            "maxMs": 21,
+            "droppedFrames": 0,
+            "fps": 134.3
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 473,
+              "avgMs": 472.5,
+              "maxMs": 472.5,
+              "p95Ms": 472.5,
+              "lastMs": 472.5
+            },
+            {
+              "label": "canvas.onNodesChange",
+              "count": 12,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.1,
+              "p95Ms": 0.1,
+              "lastMs": 0.1
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 1398.7,
+          "frames": {
+            "count": 197,
+            "avgMs": 7.1,
+            "p95Ms": 7,
+            "maxMs": 20.9,
+            "droppedFrames": 0,
+            "fps": 141.7
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 30,
+              "totalMs": 3,
+              "avgMs": 0.1,
+              "maxMs": 2.4,
+              "p95Ms": 0.1,
+              "lastMs": 2.4
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 1.8,
+              "maxMs": 1.8,
+              "p95Ms": 1.8,
+              "lastMs": 1.8
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 8,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.1,
+              "p95Ms": 0.1,
+              "lastMs": 0
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.6,
+              "maxMs": 0.6,
+              "p95Ms": 0.6,
+              "lastMs": 0.6
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 449.4,
+          "frames": {
+            "count": 63,
+            "avgMs": 7.1,
+            "p95Ms": 7.1,
+            "maxMs": 14,
+            "droppedFrames": 0,
+            "fps": 141.6
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 2.4,
+              "maxMs": 2.4,
+              "p95Ms": 2.4,
+              "lastMs": 2.4
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.2,
+              "maxMs": 1.2,
+              "p95Ms": 1.2,
+              "lastMs": 1.2
+            }
+          ]
+        },
+        {
+          "label": "recolor-single",
+          "durationMs": 432.2,
+          "frames": {
+            "count": 61,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.6,
+              "maxMs": 0.6,
+              "p95Ms": 0.6,
+              "lastMs": 0.6
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.4,
+              "maxMs": 1.4,
+              "p95Ms": 1.4,
+              "lastMs": 1.4
+            }
+          ]
+        },
+        {
+          "label": "column-flag",
+          "durationMs": 465.6,
+          "frames": {
+            "count": 61,
+            "avgMs": 7.5,
+            "p95Ms": 7.1,
+            "maxMs": 41.6,
+            "droppedFrames": 1,
+            "fps": 133
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 6,
+              "avgMs": 3,
+              "maxMs": 3.7,
+              "p95Ms": 2.3,
+              "lastMs": 3.7
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 4.4,
+              "maxMs": 4.4,
+              "p95Ms": 4.4,
+              "lastMs": 4.4
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.9,
+              "maxMs": 0.9,
+              "p95Ms": 0.9,
+              "lastMs": 0.9
+            }
+          ]
+        },
+        {
+          "label": "highlight-toggle",
+          "durationMs": 1052.8,
+          "frames": {
+            "count": 144,
+            "avgMs": 7.2,
+            "p95Ms": 7,
+            "maxMs": 27.8,
+            "droppedFrames": 0,
+            "fps": 138.1
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "delete-columns",
+          "durationMs": 465.2,
+          "frames": {
+            "count": 63,
+            "avgMs": 7.3,
+            "p95Ms": 7,
+            "maxMs": 27.8,
+            "droppedFrames": 0,
+            "fps": 137.3
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 3.9,
+              "maxMs": 3.9,
+              "p95Ms": 3.9,
+              "lastMs": 3.9
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 3,
+              "avgMs": 1.4,
+              "maxMs": 1.5,
+              "p95Ms": 1.3,
+              "lastMs": 1.5
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.9,
+              "maxMs": 0.9,
+              "p95Ms": 0.9,
+              "lastMs": 0.9
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 100,
+        "columns": 32,
+        "detail": "standard"
+      },
+      "loadMs": 702,
+      "ready": {
+        "nodes": 100,
+        "edges": 99,
+        "waitedMs": 616.6
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 1641.1,
+          "frames": {
+            "count": 213,
+            "avgMs": 7.7,
+            "p95Ms": 7.1,
+            "maxMs": 34.7,
+            "droppedFrames": 2,
+            "fps": 129.8
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildEdges",
+              "count": 10,
+              "totalMs": 2,
+              "avgMs": 0.2,
+              "maxMs": 0.2,
+              "p95Ms": 0.2,
+              "lastMs": 0.1
+            }
+          ]
+        },
+        {
+          "label": "zoom-links-on",
+          "durationMs": 2008.4,
+          "frames": {
+            "count": 221,
+            "avgMs": 9.1,
+            "p95Ms": 14,
+            "maxMs": 41.8,
+            "droppedFrames": 3,
+            "fps": 110.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildEdges",
+              "count": 9,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.2,
+              "p95Ms": 0.2,
+              "lastMs": 0.1
+            }
+          ]
+        },
+        {
+          "label": "drag-single",
+          "durationMs": 1393.1,
+          "frames": {
+            "count": 199,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 13.9,
+            "droppedFrames": 0,
+            "fps": 142.7
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 5,
+              "avgMs": 4.5,
+              "maxMs": 4.5,
+              "p95Ms": 4.5,
+              "lastMs": 4.5
+            },
+            {
+              "label": "canvas.onNodesChange",
+              "count": 32,
+              "totalMs": 2,
+              "avgMs": 0.1,
+              "maxMs": 1.1,
+              "p95Ms": 0.1,
+              "lastMs": 1.1
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.8,
+              "maxMs": 0.8,
+              "p95Ms": 0.8,
+              "lastMs": 0.8
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 972.2,
+          "frames": {
+            "count": 130,
+            "avgMs": 7.4,
+            "p95Ms": 7.1,
+            "maxMs": 27.8,
+            "droppedFrames": 0,
+            "fps": 134.5
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 500,
+              "avgMs": 500.1,
+              "maxMs": 500.1,
+              "p95Ms": 500.1,
+              "lastMs": 500.1
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 1413,
+          "frames": {
+            "count": 201,
+            "avgMs": 7,
+            "p95Ms": 7,
+            "maxMs": 20.9,
+            "droppedFrames": 0,
+            "fps": 142.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 3.7,
+              "maxMs": 3.7,
+              "p95Ms": 3.7,
+              "lastMs": 3.7
+            },
+            {
+              "label": "canvas.onNodesChange",
+              "count": 30,
+              "totalMs": 3,
+              "avgMs": 0.1,
+              "maxMs": 2.5,
+              "p95Ms": 0.1,
+              "lastMs": 2.5
+            },
+            {
+              "label": "canvas.highlightedFields",
+              "count": 31,
+              "totalMs": 1,
+              "avgMs": 0,
+              "maxMs": 0.1,
+              "p95Ms": 0.1,
+              "lastMs": 0
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.2,
+              "maxMs": 1.2,
+              "p95Ms": 1.2,
+              "lastMs": 1.2
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 447.3,
+          "frames": {
+            "count": 62,
+            "avgMs": 7.1,
+            "p95Ms": 7,
+            "maxMs": 14,
+            "droppedFrames": 0,
+            "fps": 141.6
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 2.8,
+              "maxMs": 2.8,
+              "p95Ms": 2.8,
+              "lastMs": 2.8
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.9,
+              "maxMs": 0.9,
+              "p95Ms": 0.9,
+              "lastMs": 0.9
+            }
+          ]
+        },
+        {
+          "label": "recolor-single",
+          "durationMs": 431.1,
+          "frames": {
+            "count": 61,
+            "avgMs": 7,
+            "p95Ms": 7.1,
+            "maxMs": 7.1,
+            "droppedFrames": 0,
+            "fps": 143.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 4.3,
+              "maxMs": 4.3,
+              "p95Ms": 4.3,
+              "lastMs": 4.3
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1,
+              "maxMs": 1,
+              "p95Ms": 1,
+              "lastMs": 1
+            }
+          ]
+        },
+        {
+          "label": "column-flag",
+          "durationMs": 476.5,
+          "frames": {
+            "count": 61,
+            "avgMs": 7.2,
+            "p95Ms": 7,
+            "maxMs": 22.4,
+            "droppedFrames": 0,
+            "fps": 138.8
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 8,
+              "avgMs": 7.7,
+              "maxMs": 7.7,
+              "p95Ms": 7.7,
+              "lastMs": 7.7
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 7,
+              "avgMs": 3.4,
+              "maxMs": 4.3,
+              "p95Ms": 2.5,
+              "lastMs": 2.5
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.9,
+              "maxMs": 0.9,
+              "p95Ms": 0.9,
+              "lastMs": 0.9
+            }
+          ]
+        },
+        {
+          "label": "highlight-toggle",
+          "durationMs": 1069.2,
+          "frames": {
+            "count": 146,
+            "avgMs": 7.3,
+            "p95Ms": 7,
+            "maxMs": 34.8,
+            "droppedFrames": 1,
+            "fps": 137.3
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": []
+        },
+        {
+          "label": "delete-columns",
+          "durationMs": 465.5,
+          "frames": {
+            "count": 63,
+            "avgMs": 7.3,
+            "p95Ms": 7.1,
+            "maxMs": 27.8,
+            "droppedFrames": 0,
+            "fps": 137.3
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "dbml.serialize",
+              "count": 2,
+              "totalMs": 7,
+              "avgMs": 3.6,
+              "maxMs": 4.3,
+              "p95Ms": 2.9,
+              "lastMs": 2.9
+            },
+            {
+              "label": "dbml.signature",
+              "count": 1,
+              "totalMs": 7,
+              "avgMs": 6.8,
+              "maxMs": 6.8,
+              "p95Ms": 6.8,
+              "lastMs": 6.8
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.4,
+              "maxMs": 1.4,
+              "p95Ms": 1.4,
+              "lastMs": 1.4
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

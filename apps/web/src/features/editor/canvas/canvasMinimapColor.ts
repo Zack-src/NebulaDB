@@ -1,5 +1,5 @@
-import type { Node } from "@xyflow/react";
-import { DEFAULT_HEADER_COLOR } from "@/features/editor/nodes/table/TableSettingsPopover";
+import type { Node } from "@xyflow/svelte";
+import { DEFAULT_HEADER_COLOR } from "@/features/editor/nodes/table/tableStyles";
 
 const ZONE_DEFAULT_COLOR = "#f59e0b";
 const STICKY_NOTE_DEFAULT_COLOR = "#fef08a";

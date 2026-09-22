@@ -5,10 +5,10 @@ import { startE2eEnvironment } from "./harness.js";
 /**
  * Closes one of the two remaining browser-test-coverage gaps
  * `docs/todo.md`'s Phase 11/16/23 item flagged: every `components/ui/`
- * primitive, rendered for real. `components/dev/ComponentCatalogue.tsx`
+ * primitive, rendered for real. `components/dev/ComponentCatalogue.svelte`
  * already puts one of every variant on a single screen for exactly this
  * kind of check (see that file's own header comment) — no auth, no project,
- * routed straight off `#components` in `main.tsx` — so this is the cheapest
+ * routed straight off `#components` in `Root.svelte` — so this is the cheapest
  * possible smoke test in the whole E2E suite: one page load, no server
  * round-trip beyond serving the static bundle.
  *

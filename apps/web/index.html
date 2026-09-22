@@ -13,7 +13,7 @@
       a light-theme user would see one dark frame flash before switching,
       every load. Sync + blocking + inline is what avoids it. Failures are
       swallowed: a broken read must fall back to the CSS default, not blank
-      the page before React ever mounts.
+      the page before the app ever mounts.
     -->
     <script>
       (function () {
@@ -27,6 +27,6 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

@@ -8,7 +8,7 @@ import type { BenchConfig } from "./benchProject";
  *
  * The driver (`scripts/bench-web.mjs`) owns everything a real user does with
  * a mouse — wheel zoom, node drags, toolbar clicks — because only real
- * (CDP-level) input goes through React Flow's own d3-zoom/d3-drag handlers.
+ * (CDP-level) input goes through Svelte Flow's own d3-zoom/d3-drag handlers.
  * What lives here is the part a driver can't do from outside the page:
  *
  *  - frame/long-task sampling around a measured window;
@@ -153,8 +153,8 @@ export function installBenchRunner(doc: Y.Doc, config: BenchConfig): void {
   let session: BenchSession | null = null;
 
   const counts = () => ({
-    nodes: document.querySelectorAll(".react-flow__node").length,
-    edges: document.querySelectorAll(".react-flow__edge").length,
+    nodes: document.querySelectorAll(".svelte-flow__node").length,
+    edges: document.querySelectorAll(".svelte-flow__edge").length,
   });
 
   window.__athanorBench = {

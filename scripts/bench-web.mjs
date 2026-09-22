@@ -145,7 +145,7 @@ async function launchBrowser() {
 
 /** The canvas transform, so a scenario can prove the gesture actually did something. */
 const readTransform = (page) =>
-  page.evaluate(() => document.querySelector(".react-flow__viewport")?.getAttribute("style") ?? "");
+  page.evaluate(() => document.querySelector(".svelte-flow__viewport, .react-flow__viewport")?.getAttribute("style") ?? "");
 
 /** Opens a measurement window, runs `action`, then closes it on a real paint. */
 async function measure(page, label, action) {
@@ -157,7 +157,7 @@ async function measure(page, label, action) {
 }
 
 /**
- * Proves the synthetic input actually reaches React Flow before anything is
+ * Proves the synthetic input actually reaches the flow library (Svelte Flow; React Flow for the pre-migration baseline) before anything is
  * measured — a gesture the canvas ignores would otherwise be reported as a
  * beautifully fast scenario.
  */
@@ -178,14 +178,14 @@ async function assertInputReaches(page, center) {
 }
 
 async function nodeCenter(page, tableId) {
-  const box = await page.locator(`.react-flow__node[data-id="${tableId}"]`).boundingBox();
+  const box = await page.locator(`:is(.svelte-flow__node, .react-flow__node)[data-id="${tableId}"]`).boundingBox();
   if (!box) throw new Error(`node ${tableId} not on screen`);
   return { x: box.x + box.width / 2, y: box.y + 12 };
 }
 
 async function runScenarios(page) {
   const results = [];
-  const pane = await page.locator(".react-flow__pane").boundingBox();
+  const pane = await page.locator(".svelte-flow__pane, .react-flow__pane").boundingBox();
   const center = { x: pane.x + pane.width / 2, y: pane.y + pane.height / 2 };
   const linkToggle = page.locator('[data-testid="toggle-link-highlight"]');
 
@@ -247,7 +247,7 @@ async function runScenarios(page) {
     }
     await page.mouse.up();
   });
-  const selectableIds = await page.$$eval(".react-flow__node.selected", (nodes) =>
+  const selectableIds = await page.$$eval(".svelte-flow__node.selected, .react-flow__node.selected", (nodes) =>
     nodes.map((node) => node.getAttribute("data-id")).filter((id) => id?.startsWith("t")),
   );
   if (isWanted("select-multi") && selectableIds.length < 2) {

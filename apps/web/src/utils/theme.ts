@@ -27,7 +27,7 @@ export function saveThemePreset(preset: ThemePreset): void {
  * preset clears the attribute, which is exactly what falling back to the
  * dark default requires.
  *
- * Kept intentionally free of React: `index.html`'s inline boot script calls
+ * Kept intentionally framework-free: `index.html`'s inline boot script calls
  * the same logic (duplicated there, since that script runs before any module
  * has loaded — see its own comment) to paint the right theme before first
  * paint, and this is what every later change (the settings picker) goes

@@ -8,7 +8,7 @@
  * Three pieces:
  *  - `time`/`timeAsync` wrap a hot function, recording how long it took.
  *  - a `longtask` PerformanceObserver flags any >50ms main-thread block even
- *    if it isn't inside one of the wrapped spots above (React itself, a
+ *    if it isn't inside one of the wrapped spots above (Svelte itself, a
  *    third-party lib, GC, layout thrashing...).
  *  - `logPerfReport()` (also reachable as `window.__athanorPerf.report()`
  *    from devtools) prints a table of every measured label, worst offenders
@@ -87,7 +87,7 @@ export async function timeAsync<T>(label: string, fn: () => Promise<T>): Promise
   }
 }
 
-/** Records a duration measured elsewhere (e.g. a React Profiler `onRender` callback), rather than timing a call this module makes itself. */
+/** Records a duration measured elsewhere (e.g. an event timestamp), rather than timing a call this module makes itself. */
 export function recordDuration(label: string, durationMs: number): void {
   if (!enabled) return;
   record(label, durationMs);
