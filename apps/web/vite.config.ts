@@ -1,7 +1,6 @@
 import { fileURLToPath } from "node:url";
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
-import svgr from "vite-plugin-svgr";
+import { svelte } from "@sveltejs/vite-plugin-svelte";
 import type { Socket } from "node:net";
 
 /** Node error shape as it reaches the proxy hooks: `code` sometimes sits on the cause. */
@@ -32,14 +31,14 @@ const WEB_PORT = Number(process.env.VITE_WEB_PORT) || 5173;
 const API_PORT = Number(process.env.VITE_API_PORT) || 3001;
 
 export default defineConfig({
-  plugins: [react(), svgr()],
+  plugins: [svelte()],
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   build: {
     rollupOptions: {
       output: {
-        // React Flow and CodeMirror are both large, independently-cacheable
+        // Svelte Flow and CodeMirror are both large, independently-cacheable
         // dependencies that were otherwise landing in the main `index` chunk
         // (they're imported statically by the canvas and DBML editor, which
         // render as soon as a project opens, so route-level lazy() wouldn't
@@ -50,10 +49,10 @@ export default defineConfig({
         manualChunks(id) {
           if (!id.includes("node_modules")) return undefined;
 
-          // @xyflow/react and its own dependency tree (the @xyflow/system
+          // @xyflow/svelte and its own dependency tree (the @xyflow/system
           // helper package plus the d3-* modules it uses for zoom/drag/pan)
           // and @dagrejs/dagre, which the canvas only imports for
-          // auto-layout alongside React Flow.
+          // auto-layout alongside Svelte Flow.
           if (
             id.includes("node_modules/@xyflow") ||
             id.includes("node_modules/@dagrejs/dagre") ||

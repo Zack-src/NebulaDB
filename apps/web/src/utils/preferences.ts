@@ -1,4 +1,4 @@
-import type { Viewport } from "@xyflow/react";
+import type { Viewport } from "@xyflow/svelte";
 import { isSupportedLocale, type Locale } from "@/i18n/translate";
 import { readBoolean, readJson, readNumberInRange, readString, writeBoolean, writeJson, writeString } from "./storage";
 
@@ -19,7 +19,7 @@ const KEY = {
   snapToGrid: "athanordb.snapToGrid",
 } as const;
 
-/** The three backgrounds React Flow can draw. */
+/** The three backgrounds Svelte Flow can draw. */
 export type GridStyle = "dots" | "lines" | "cross";
 const GRID_STYLES: GridStyle[] = ["dots", "lines", "cross"];
 

@@ -33,11 +33,11 @@ test(
       const page = await env.browser.newPage();
       await login(page, env.baseUrl);
 
-      // Creation is instant and Figma-file-browser-style (`ProjectList.tsx`):
+      // Creation is instant and Figma-file-browser-style (`ProjectList.svelte`):
       // no name dialog, a placeholder name is assigned, and the new tile opens
       // straight into rename mode rather than navigating anywhere — opening it
       // is a separate click, and while renaming the name is an `<input>`
-      // value, not text (`ProjectCard.tsx`), so it has to be waited for
+      // value, not text (`ProjectCard.svelte`), so it has to be waited for
       // separately from the click target. `Escape` cancels the rename and
       // keeps the placeholder name.
       // The list screen's own search field is an `<input>` too and is already
@@ -54,8 +54,8 @@ test(
       await card.waitFor({ timeout: 10_000 });
       await card.click();
 
-      // Right-click empty canvas -> "Ajouter une table" (see CanvasContextMenu.tsx).
-      const canvas = page.locator(".react-flow__pane");
+      // Right-click empty canvas -> "Ajouter une table" (see CanvasContextMenu.svelte).
+      const canvas = page.locator(".svelte-flow__pane");
       await canvas.waitFor({ timeout: 10_000 });
       await canvas.click({ button: "right", position: { x: 300, y: 200 } });
       await page.getByText("Ajouter une table", { exact: true }).click();
@@ -64,13 +64,13 @@ test(
       // Scoped to the canvas node specifically — the same text also legitimately
       // appears in the DBML panel once it resyncs, which would otherwise make
       // this locator ambiguous.
-      const tableOnCanvas = () => page.locator(".react-flow__node").getByText("table_1", { exact: true });
+      const tableOnCanvas = () => page.locator(".svelte-flow__node").getByText("table_1", { exact: true });
       await tableOnCanvas().waitFor({ timeout: 10_000 });
 
       await page.reload();
 
       // The real assertion: after a full page reload (fresh doc fetch from
-      // SQLite, not just an in-memory React state that survived), the table
+      // SQLite, not just an in-memory component state that survived), the table
       // that only existed as an unflushed-to-disk Yjs update moments ago is
       // still there.
       await tableOnCanvas().waitFor({ timeout: 10_000 });

@@ -184,7 +184,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   const webDist = path.resolve(__dirname, "../../web/dist");
   if (existsSync(webDist)) {
     await app.register(fastifyStatic, { root: webDist });
-    // The SPA has client-side "routes" outside App.tsx's in-memory view-switching:
+    // The SPA has client-side "routes" outside App.svelte's in-memory view-switching:
     // a freshly loaded (not client-navigated) `/invite/:token` or `/project/:id`
     // link, e.g. pasted into a browser or opened from a bookmark. @fastify/static
     // only serves the file matching the request path, so those paths 404 without

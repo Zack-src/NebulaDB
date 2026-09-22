@@ -1,11 +1,11 @@
 import * as Y from "yjs";
 import { getTableGroupsMap, type Table, type TableGroup } from "@athanordb/shared";
-import type { TableGroupNodeType } from "@/features/editor/nodes/TableGroupNode";
+import type { TableGroupNodeType } from "@/features/editor/nodes/nodeTypes";
 
 // A group's box is derived, not stored — position/size come from wherever
 // its member tables currently sit, using a generous fixed per-table
 // footprint rather than each table's real rendered height (not available
-// here: `liveProject` has no measured DOM size, and this runs before React
+// here: `liveProject` has no measured DOM size, and this runs before Svelte
 // Flow has measured anything). Loose enough to rarely clip a real table, not
 // pixel-perfect — a visual grouping indicator, not a hard boundary.
 const GROUP_MEMBER_WIDTH_ESTIMATE = 240;

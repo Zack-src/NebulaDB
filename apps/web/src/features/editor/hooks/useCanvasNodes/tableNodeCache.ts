@@ -1,5 +1,5 @@
 import type { Table } from "@athanordb/shared";
-import type { TableNodeType } from "@/features/editor/nodes/TableNode";
+import type { TableNodeType } from "@/features/editor/nodes/nodeTypes";
 import { setsEqual } from "@/utils/setsEqual";
 
 /**
@@ -9,7 +9,7 @@ import { setsEqual } from "@/utils/setsEqual";
  * table — on *any* project change, because the Yjs layer hands back a whole
  * new `Project` on every doc update, even one editing a single unrelated
  * table. At 500 tables that is ~7500 closures allocated for a one-column
- * edit, and a `data` object whose identity always changes, so React Flow's
+ * edit, and a `data` object whose identity always changes, so Svelte Flow's
  * own node diffing and `TableNode`'s `memo` comparator both have to do their
  * full per-table work every time instead of bailing out on `a === b`.
  *

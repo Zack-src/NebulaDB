@@ -1,6 +1,6 @@
 import * as Y from "yjs";
 import { getZonesMap, type Zone } from "@athanordb/shared";
-import type { ZoneNodeType } from "@/features/editor/nodes/ZoneNode";
+import type { ZoneNodeType } from "@/features/editor/nodes/nodeTypes";
 
 export function buildZoneNodes(
   zones: Zone[],

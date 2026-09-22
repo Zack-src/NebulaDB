@@ -5,7 +5,7 @@ import type { RefAction } from "@athanordb/shared";
  * needs to offer ON DELETE/ON UPDATE right on the column that carries the FK,
  * not just on the relation's own edge (`EdgeSettingsPopover`).
  *
- * Its own leaf module rather than living on `TableNode.tsx` or
+ * Its own leaf module rather than living on `nodeTypes.ts` or
  * `buildTableNodes.ts`: both of those already import from each other
  * (`buildTableNodes` builds `TableNodeType`/`TableNodeData`), and `TableNodeRow`/
  * `FieldEditorPopover` need this same type — putting it on either side would

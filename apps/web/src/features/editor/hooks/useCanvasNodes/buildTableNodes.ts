@@ -1,4 +1,3 @@
-import type { CSSProperties } from "react";
 import * as Y from "yjs";
 import {
   getRefsMap,
@@ -11,13 +10,26 @@ import {
   type TableIndex,
 } from "@athanordb/shared";
 import type { ValidationIssue } from "@athanordb/dbml-engine";
-import type { TableNodeType } from "@/features/editor/nodes/TableNode";
+import type { TableNodeType } from "@/features/editor/nodes/nodeTypes";
 import type { FieldRefInfo } from "@/features/editor/nodes/table/fieldRefInfo";
 import { generateId } from "@/utils/id";
 import { DEFAULT_TABLE_HEIGHT, DEFAULT_TABLE_WIDTH } from "@/features/editor/edges/refGeometry";
 import { readCachedTableNode, type TableNodeCache } from "./tableNodeCache";
 
 const EMPTY_ISSUES: ValidationIssue[] = [];
+
+/**
+ * `content-visibility: auto` lets the browser skip layout/paint/hit-test for a
+ * table currently outside the viewport, without the flow's own
+ * `onlyRenderVisibleElements` mount/unmount churn (see `CanvasArea`'s comment
+ * on why that toggle stays off). `contain-intrinsic-size`'s `auto` keyword
+ * remembers the table's last actually-rendered size once it has been on-screen
+ * at least once; the fallback (`DEFAULT_TABLE_WIDTH`/`HEIGHT`, same numbers the
+ * rest of the canvas already falls back to for an unmeasured node — see
+ * `refGeometry.ts`) only matters for a table that has never been visible yet.
+ * One shared string: the flow's node `style` is a plain CSS string.
+ */
+const TABLE_NODE_STYLE = `content-visibility: auto; contain-intrinsic-size: auto ${DEFAULT_TABLE_WIDTH}px auto ${DEFAULT_TABLE_HEIGHT}px;`;
 
 export function buildTableNodes(
   tables: Table[],
@@ -125,24 +137,7 @@ export function buildTableNodes(
       id: table.id,
       position: table.position,
       type: "table",
-      // `content-visibility: auto` lets the browser skip layout/paint/hit-test
-      // for a table currently outside the viewport, without React Flow's own
-      // `onlyRenderVisibleElements` mount/unmount churn (see `CanvasArea`'s
-      // comment on why that toggle stays off — it was worse, not just
-      // untested, at ~200 tables). Selecting/marquee-selecting on a large
-      // schema still touches every *mounted* node for hit-testing; this keeps
-      // every table mounted (state/measurement preserved) while the browser
-      // stops doing real layout work for the ones off-screen.
-      // `contain-intrinsic-size`'s `auto` keyword remembers the table's last
-      // actually-rendered size once it has been on-screen at least once; the
-      // fallback (`DEFAULT_TABLE_WIDTH`/`HEIGHT`, same numbers the rest of the
-      // canvas already falls back to for an unmeasured node — see
-      // `refGeometry.ts`) only matters for a table that has never been visible
-      // yet, and only until it first scrolls into view.
-      style: {
-        contentVisibility: "auto",
-        containIntrinsicSize: `auto ${DEFAULT_TABLE_WIDTH}px auto ${DEFAULT_TABLE_HEIGHT}px`,
-      } as CSSProperties,
+      style: TABLE_NODE_STYLE,
       data: {
         table,
         refFieldIds,
@@ -203,7 +198,7 @@ export function buildTableNodes(
               // is computed from the field as it is in the doc *right now*, not
               // from whatever value was current when the popover last rendered.
               // Spam-clicking a toggle fires several of these synchronously
-              // before React/Yjs can re-render the popover in between, so a
+              // before Svelte/Yjs can re-render the popover in between, so a
               // plain `!field.pk` closed over stale props would flip back and
               // forth off the same stale value instead of advancing each click.
               onUpdateField: (fieldId: string, updates: Partial<Field> | ((current: Field) => Partial<Field>)) => {

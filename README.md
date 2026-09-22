@@ -148,7 +148,7 @@ Password must be 8–128 characters. Respects `ATHANORDB_DB_PATH` same as the se
 ## Features
 
 - **DBML-native**: the schema's source of truth is DBML text. A live Monaco editor panel sits next to the canvas and syncs both ways — edit the diagram visually, or edit the DBML directly, changes apply to the other side automatically (~600ms debounce).
-- **Visual canvas editor** (React Flow): drag tables/zones/sticky notes around, resize zones and notes, pan/zoom, minimap. No "Add Table" toolbar button — right-click empty canvas to add a table, zone, or sticky note.
+- **Visual canvas editor** (Svelte Flow): drag tables/zones/sticky notes around, resize zones and notes, pan/zoom, minimap. No "Add Table" toolbar button — right-click empty canvas to add a table, zone, or sticky note.
 - **Conceptual view (MCD)**: a one-click, read-only Merise-notation view derived automatically from the schema — tables become entities, refs become associations, with junction tables collapsed into n,n associations where the shape allows it (and flagged, not silently mis-converted, when it doesn't).
 - **Detail levels per table**: `compact` (key fields only), `standard` (PK/FK), `full` (every field) — switch one table or all of them at once.
 - **Auto-layout**: one-click layout of the whole diagram (dagre), following FK direction.
@@ -172,8 +172,8 @@ Password must be 8–128 characters. Respects `ATHANORDB_DB_PATH` same as the se
 | Layer               | Choice                                                     | Why                                                                                 |
 | ------------------- | ---------------------------------------------------------- | ----------------------------------------------------------------------------------- |
 | Monorepo            | npm workspaces                                             | no extra global tool                                                                |
-| Frontend            | React + TypeScript + Vite                                  | fast dev loop, huge ecosystem                                                       |
-| Canvas              | React Flow (`@xyflow/react`)                               | node/edge graph primitive, zoom/pan/minimap, custom node renderers per detail level |
+| Frontend            | Svelte 5 + TypeScript + Vite                               | compiled fine-grained reactivity (no virtual DOM), small runtime, fast dev loop     |
+| Canvas              | Svelte Flow (`@xyflow/svelte`)                             | node/edge graph primitive, zoom/pan/minimap, custom node renderers per detail level |
 | DBML editor         | Monaco (`@monaco-editor/react`), self-hosted               | same editor as VS Code; self-hosted worker/assets, no CDN                           |
 | Auto-layout         | `@dagrejs/dagre`                                           | directed-graph layout, used to lay tables out by FK direction                       |
 | Canvas export       | `html-to-image` + `jsPDF`                                  | PNG/SVG snapshot of the canvas, wrapped into a PDF                                  |
@@ -238,7 +238,7 @@ An importer returns DBML because the server's existing merge-by-name import rout
 
 **Security and scope.**
 
-- Plugin code runs in a Web Worker built from a Blob URL: no DOM, no React state, no access to the page's memory. The worker's `fetch`, `XMLHttpRequest`, `WebSocket`, `importScripts`, `indexedDB` and `caches` are removed before the plugin body runs, so a plugin cannot call the API as you or send your schema anywhere.
+- Plugin code runs in a Web Worker built from a Blob URL: no DOM, no app state, no access to the page's memory. The worker's `fetch`, `XMLHttpRequest`, `WebSocket`, `importScripts`, `indexedDB` and `caches` are removed before the plugin body runs, so a plugin cannot call the API as you or send your schema anywhere.
 - Loading is bounded (5s) and every call is bounded (10s); a plugin that hangs is terminated and restarted on the next call rather than freezing the app.
 - This is isolation, not a trust boundary against a determined author: **only install plugin code you trust.**
 - Plugins are stored in **your browser's** `localStorage` only. Nothing is uploaded, and nothing is shared with your team or other users of the same server — installing one is a decision that affects only you.
@@ -247,7 +247,7 @@ An importer returns DBML because the server's existing merge-by-name import rout
 
 ```
 apps/
-  web/      React app (canvas editor, DBML/SQL panels, MCD view)
+  web/      Svelte app (canvas editor, DBML/SQL panels, MCD view)
     src/plugins/   plugin registry, Worker sandbox host, built-in plugins, example plugin
   server/   Fastify + WS server, SQLite storage, Yjs doc host, live DB connections/drivers
 packages/

@@ -1,6 +1,6 @@
 import * as Y from "yjs";
 import { getStickyNotesMap, type StickyNote } from "@athanordb/shared";
-import type { StickyNoteNodeType } from "@/features/editor/nodes/StickyNoteNode";
+import type { StickyNoteNodeType } from "@/features/editor/nodes/nodeTypes";
 
 export function buildStickyNodes(
   stickyNotes: StickyNote[],

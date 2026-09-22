@@ -7,7 +7,7 @@
    Tailwind v4: `@tailwind base/components/utilities` is gone in favour of
    `@import "tailwindcss"`, but that bundle includes preflight (Tailwind's
    reset) — deliberately skipped here (see tailwind.config.js) because the
-   app already has its own reset (index.css) tuned for the canvas/React-Flow
+   app already has its own reset (index.css) tuned for the canvas/Svelte-Flow
    internals. Importing theme + utilities individually, without preflight,
    keeps that behaviour under v4. */
 

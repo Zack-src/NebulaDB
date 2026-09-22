@@ -1,0 +1,7 @@
+<script lang="ts">
+  import type { Snippet } from "svelte";
+
+  let { children, class: className = "" }: { children: Snippet; class?: string } = $props();
+</script>
+
+<div class={`p-5 ${className}`.trim()}>{@render children()}</div>

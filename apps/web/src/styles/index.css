@@ -16,7 +16,7 @@
                        in `layer(app)` so that precedence is declared rather
                        than inherited from being the last unlayered file
      animations      → keyframes
-     canvas          → React Flow overrides, last because they use !important */
+     canvas          → Svelte Flow overrides, last because they use !important */
 
 @layer theme, base, components, utilities, app;
 

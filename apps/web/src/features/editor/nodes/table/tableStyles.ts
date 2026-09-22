@@ -2,11 +2,14 @@
 
 import { INPUT_XS_CLASS, LABEL_XS_CLASS } from "@/components/ui/inputStyles";
 
+/** A table's header colour when the user hasn't picked one. */
+export const DEFAULT_HEADER_COLOR = "#334155";
+
 /**
- * `nodrag`: React Flow's own node-selection gesture and its drag-the-node
+ * `nodrag`: Svelte Flow's own node-selection gesture and its drag-the-node
  * gesture are the same pointerdown-driven system, gated by this one class —
  * without it, clicking a row to select *that column* also selected the whole
- * table underneath it (React Flow resolves selection at the start of the
+ * table underneath it (Svelte Flow resolves selection at the start of the
  * gesture, before it can tell a click from a drag), which was why a link kept
  * glowing long after the column stopped being hovered: the table stayed
  * "selected" until something else was clicked. Dragging the table by grabbing
@@ -21,16 +24,16 @@ export const ROW_CLASS =
  * Row state markers, styled in `styles/canvas.css` rather than returned as
  * utility classes here.
  *
- * The "highlight every relation" toggle used to reach each row as a React
+ * The "highlight every relation" toggle used to reach each row as a
  * prop (`highlightLinks` on every table node's data), so flipping it rebuilt
  * every node's data and re-rendered every table and every column on the
  * canvas — 53s of blocking time on a 500-table schema at full detail, for
  * what is a pure change of colour. It is now a single class on the canvas
  * root (`canvas-links-highlighted`, see `CanvasArea`) that CSS combines with
  * each row's own `is-fk` marker, so the toggle costs one class mutation and
- * no React work at all.
+ * no component work at all.
  *
- * `is-linked` stays a React-side state: unlike the global toggle it is per
+ * `is-linked` stays component state: unlike the global toggle it is per
  * row (this column is on the selected/hovered relation) and changes with the
  * data the row already re-renders for.
  */
@@ -79,8 +82,8 @@ export const ROW_ACTION_BTN_CLASS =
 
 // `content-visibility: auto` lets the browser skip layout/paint for a table
 // currently scrolled out of the viewport, without unmounting it the way
-// React Flow's own `onlyRenderVisibleElements` does — that flag was measured
-// and deliberately left off (see `CanvasArea.tsx`'s comment on it) because
+// Svelte Flow's own `onlyRenderVisibleElements` does — that flag was measured
+// and deliberately left off (see `CanvasArea.svelte`'s comment on it) because
 // the mount/unmount churn it caused cost more than the paint work it saved.
 // `content-visibility` gets the same skip without that churn: the DOM node
 // stays put. `contain-intrinsic-size` gives the browser a placeholder box to

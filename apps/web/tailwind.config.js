@@ -1,9 +1,9 @@
 /** @type {import('tailwindcss').Config} */
 export default {
-  content: ["./index.html", "./src/**/*.{ts,tsx}"],
+  content: ["./index.html", "./src/**/*.{ts,svelte}"],
   darkMode: "class",
   // Preflight (Tailwind's CSS reset) fights the app's own global reset
-  // (index.css, tuned for the canvas/React-Flow internals — it removes
+  // (index.css, tuned for the canvas/Svelte-Flow internals — it removes
   // button/input UA styles our hand-written classes still rely on in
   // un-migrated components). Tailwind v4 dropped `corePlugins` from
   // `@config`-loaded JS configs, so preflight is skipped at the import

@@ -40,21 +40,21 @@ test(
       const card = page.getByText("Nouveau schéma 1", { exact: true });
       await card.waitFor({ timeout: 10_000 });
       await card.click();
-      const canvas = page.locator(".react-flow__pane");
+      const canvas = page.locator(".svelte-flow__pane");
       await canvas.waitFor({ timeout: 10_000 });
       await canvas.click({ button: "right", position: { x: 300, y: 200 } });
       await page.getByText("Ajouter une table", { exact: true }).click();
-      await page.locator(".react-flow__node").getByText("table_1", { exact: true }).waitFor({ timeout: 10_000 });
+      await page.locator(".svelte-flow__node").getByText("table_1", { exact: true }).waitFor({ timeout: 10_000 });
 
       // Open the Plugin Manager: the canvas toolbar's plugin trigger
-      // (icon-only, `data-tooltip` not `aria-label` — see `ToolbarMenu.tsx`)
-      // opens a quick palette (`PluginQuickPalette.tsx`) whose footer links
-      // to the full manager dialog (`PluginManagerDialog.tsx`, opens on the
+      // (icon-only, `data-tooltip` not `aria-label` — see `ToolbarMenu.svelte`)
+      // opens a quick palette (`PluginQuickPalette.svelte`) whose footer links
+      // to the full manager dialog (`PluginManagerDialog.svelte`, opens on the
       // marketplace tab by default).
       await page.locator('[data-tooltip="Commandes de plugins"]').click();
       await page.getByText("Gestionnaire de plugins…", { exact: true }).click();
       // Every marketplace card is a `div` with the plugin's name *and* an
-      // install button as descendants (`MarketplaceTab.tsx`) — filtering by
+      // install button as descendants (`MarketplaceTab.svelte`) — filtering by
       // both, rather than guessing which nesting level `hasText` alone would
       // land on, gets the actual card container regardless of DOM depth.
       const pluginCard = page

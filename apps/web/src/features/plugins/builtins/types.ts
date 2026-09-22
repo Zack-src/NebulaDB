@@ -13,7 +13,7 @@ export interface PluginRunContext {
   /** Ids of the tables currently selected on the canvas — `registry.ts`'s `invoke` always stamps this on before calling a builtin, even though a caller that ignores selection never has to pass one in. */
   selection?: { tableIds: string[] };
   /**
-   * Snapshots the live rendered React Flow canvas — only ever supplied by
+   * Snapshots the live rendered Svelte Flow canvas — only ever supplied by
    * `ExportDialog` (see `useExporters`'s optional second argument), and only
    * ever reaches a *builtin* runner: `PluginHost.invoke`'s message to a
    * sandboxed user plugin worker deliberately forwards just
