@@ -5,7 +5,7 @@ import { auditUser } from "../../../shared/audit.js";
 import { ApiError } from "../../../shared/errors.js";
 import { requireProjectAccess } from "../../../shared/guards.js";
 import {
-  listRevisions,
+  listMeaningfulRevisions,
   loadSnapshot,
   reconstructDocAtRevision,
   setRevisionLabel,
@@ -23,7 +23,7 @@ export function registerProjectRevisionRoutes(app: FastifyInstance): void {
   app.get("/api/projects/:id/revisions", async (req) => {
     const { id } = req.params as { id: string };
     requireProjectAccess(req, id, "view");
-    return listRevisions(id);
+    return listMeaningfulRevisions(id);
   });
 
   app.patch("/api/projects/:id/revisions/:revisionId", async (req) => {

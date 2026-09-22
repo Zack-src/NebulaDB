@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useSyncExternalStore } from "react";
 import { useStore, type ReactFlowState } from "@xyflow/react";
+import { time } from "@/utils/perfMonitor";
 
 /**
  * "Which of this table's columns sit on a highlighted relation", computed
@@ -67,7 +68,7 @@ function computeHighlightedFields(edges: ReactFlowState["edges"]): HighlightedFi
 export function useHighlightedFieldsPublisher(): void {
   const edges = useStore(edgesSelector);
   useEffect(() => {
-    publish(computeHighlightedFields(edges));
+    publish(time("canvas.highlightedFields", () => computeHighlightedFields(edges)));
   }, [edges]);
   // Nothing on the canvas should keep a stale highlight if it unmounts
   // mid-gesture (view switch, project close).

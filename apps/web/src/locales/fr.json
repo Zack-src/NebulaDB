@@ -90,6 +90,7 @@
   "login.inviteOnly": "Les nouveaux comptes se créent sur invitation d'un administrateur ou d'une équipe.",
   "login.haveInviteLink": "Vous possédez un lien d'invitation ?",
   "login.haveInviteLinkHint": "Ouvrez le lien reçu par e-mail pour définir votre mot de passe et créer votre compte.",
+  "login.accountCreated": "Votre compte est prêt — connectez-vous pour continuer.",
 
   "acceptInvite.title": "Définissez votre mot de passe",
   "acceptInvite.subtitle": "Terminez la création de votre compte pour accepter cette invitation.",
@@ -524,6 +525,12 @@
   "admin.section.users": "Utilisateurs",
   "admin.section.audit": "Journal d'audit",
   "admin.section.errors": "Erreurs",
+  "admin.section.connections": "Connexions base de données",
+
+  "admin.connections.hint": "Gérez les connexions base de données enregistrées d'un projet — la barre d'outils du projet ne propose plus que le déploiement.",
+  "admin.connections.projectLabel": "Projet",
+  "admin.connections.selectProject": "Sélectionner un projet…",
+  "admin.connections.noProjects": "Aucun projet actif pour le moment.",
 
   "admin.users.empty": "Aucun utilisateur.",
   "admin.users.disabled": "Désactivé",
@@ -612,8 +619,6 @@
 
   "connections.title": "Connexions Base de Données",
   "connections.database": "Base de données",
-  "connections.manage": "Gérer",
-  "connections.manageConnections": "Gérer les connexions",
   "connections.savedConnections": "Connexions enregistrées",
   "connections.newConnection": "Nouvelle connexion",
   "connections.editConnection": "Modifier la connexion",
@@ -686,7 +691,7 @@
   "deployment.reviewRisks": "Examiner les conflits",
   "deployment.previewSql": "Prévisualiser le SQL",
   "deployment.noConnectionTitle": "Aucune base de données connectée",
-  "deployment.noConnectionDesc": "Configurez d'abord une connexion à une base de données pour déployer vos modifications directement.",
+  "deployment.noConnectionDesc": "Ce projet n'a pas encore de connexion à une base de données. Demandez à un administrateur d'en ajouter une depuis la section « Connexions base de données » du panneau admin.",
   "errors.totpAlreadyEnabled": "L'authentification à deux facteurs est déjà activée.",
   "errors.totpNotEnabled": "L'authentification à deux facteurs n'est pas activée.",
   "errors.totpSetupNotStarted": "Démarrez la configuration à deux facteurs avant de la confirmer.",

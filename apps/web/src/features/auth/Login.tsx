@@ -14,14 +14,19 @@ import type { Session } from "@/types";
 
 export interface LoginProps {
   onLoggedIn: (session: Session) => void;
+  /** Pre-fills the email field and shows a "your account is ready" banner —
+   * set right after a user finishes creating their account via an invitation
+   * link, so this first sign-in reads as the deliberate next step rather
+   * than a login prompt out of nowhere. */
+  initialEmail?: string;
 }
 
 type LoginTab = "login" | "invite";
 
-export function Login({ onLoggedIn }: LoginProps) {
+export function Login({ onLoggedIn, initialEmail }: LoginProps) {
   const { t } = useTranslation();
   const [tab, setTab] = useState<LoginTab>("login");
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail ?? "");
   const [password, setPassword] = useState("");
   // Defaults to the historical 30-day session. Unchecking gives a 12-hour one
   // in a cookie the browser drops when it closes — for a shared machine.
@@ -64,6 +69,11 @@ export function Login({ onLoggedIn }: LoginProps) {
           </CardHeader>
 
           <CardBody className="space-y-5">
+            {initialEmail && !mfaToken && (
+              <p className="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-xs text-success">
+                {t("login.accountCreated")}
+              </p>
+            )}
             {mfaToken ? (
               <MfaStep mfaToken={mfaToken} onBack={() => setMfaToken(null)} onVerified={onLoggedIn} />
             ) : (
@@ -87,7 +97,7 @@ export function Login({ onLoggedIn }: LoginProps) {
                       label={t("login.emailLabel")}
                       type="email"
                       placeholder={t("login.emailPlaceholder")}
-                      autoFocus
+                      autoFocus={!initialEmail}
                       value={email}
                       onChange={(event) => setEmail(event.target.value)}
                       autoComplete="username"
@@ -96,6 +106,7 @@ export function Login({ onLoggedIn }: LoginProps) {
                       label={t("login.passwordLabel")}
                       type="password"
                       placeholder="••••••••"
+                      autoFocus={Boolean(initialEmail)}
                       value={password}
                       onChange={(event) => setPassword(event.target.value)}
                       autoComplete="current-password"

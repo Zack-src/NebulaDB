@@ -1,4 +1,4 @@
-import type { InvitationSummary, Session } from "@/types";
+import type { InvitationSummary } from "@/types";
 import { request } from "./httpClient";
 
 export interface CreatedInvitation {
@@ -20,7 +20,12 @@ export function revokeInvitation(token: string): Promise<void> {
   return request<void>(`/api/invitations/${token}`, { method: "DELETE" });
 }
 
-/** Public: creates the account the invitation was issued for and logs it in. */
-export function acceptInvitation(token: string, password: string): Promise<Session> {
-  return request<Session>(`/api/invitations/${token}/accept`, { method: "POST", body: { password } });
+/**
+ * Public: creates the account the invitation was issued for. Deliberately
+ * does not log the user in — the caller sends them to the real login form
+ * for their first sign-in (see AcceptInvite), so the browser's password
+ * manager gets a genuine username+password submission to save.
+ */
+export function acceptInvitation(token: string, password: string): Promise<{ email: string }> {
+  return request<{ email: string }>(`/api/invitations/${token}/accept`, { method: "POST", body: { password } });
 }

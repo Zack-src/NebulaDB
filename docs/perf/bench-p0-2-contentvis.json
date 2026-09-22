@@ -1,0 +1,563 @@
+{
+  "tag": "p0-2-contentvis",
+  "window": {
+    "width": 1600,
+    "height": 900
+  },
+  "viewport": {
+    "x": 100,
+    "y": 100,
+    "zoom": 0.6
+  },
+  "results": [
+    {
+      "config": {
+        "tables": 200,
+        "columns": 8,
+        "detail": "full"
+      },
+      "loadMs": 777,
+      "ready": {
+        "nodes": 200,
+        "edges": 199,
+        "waitedMs": 690.5
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 1800.5,
+          "frames": {
+            "count": 224,
+            "avgMs": 8,
+            "p95Ms": 13.9,
+            "maxMs": 41.8,
+            "droppedFrames": 3,
+            "fps": 124.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.buildBaseEdges",
+              "count": 8,
+              "totalMs": 2,
+              "avgMs": 0.2,
+              "maxMs": 0.4,
+              "p95Ms": 0.3,
+              "lastMs": 0.1
+            },
+            {
+              "label": "canvas.onNodesChange",
+              "count": 8,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.1,
+              "p95Ms": 0.1,
+              "lastMs": 0.1
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 1114.4,
+          "frames": {
+            "count": 145,
+            "avgMs": 7.6,
+            "p95Ms": 7.1,
+            "maxMs": 20.9,
+            "droppedFrames": 0,
+            "fps": 131.2
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 626,
+              "avgMs": 625.6,
+              "maxMs": 625.6,
+              "p95Ms": 625.6,
+              "lastMs": 625.6
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 1803,
+          "frames": {
+            "count": 229,
+            "avgMs": 7.8,
+            "p95Ms": 13.9,
+            "maxMs": 34.8,
+            "droppedFrames": 1,
+            "fps": 127.7
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.onNodesChange",
+              "count": 30,
+              "totalMs": 4,
+              "avgMs": 0.1,
+              "maxMs": 2.4,
+              "p95Ms": 0.1,
+              "lastMs": 2.4
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 4.2,
+              "maxMs": 4.2,
+              "p95Ms": 4.2,
+              "lastMs": 4.2
+            },
+            {
+              "label": "canvas.applyEdgeHighlights",
+              "count": 31,
+              "totalMs": 2,
+              "avgMs": 0.1,
+              "maxMs": 0.1,
+              "p95Ms": 0.1,
+              "lastMs": 0
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 8,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.2,
+              "p95Ms": 0.1,
+              "lastMs": 0.1
+            },
+            {
+              "label": "canvas.buildBaseEdges",
+              "count": 2,
+              "totalMs": 1,
+              "avgMs": 0.3,
+              "maxMs": 0.4,
+              "p95Ms": 0.2,
+              "lastMs": 0.2
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 500,
+        "columns": 8,
+        "detail": "standard"
+      },
+      "loadMs": 1428,
+      "ready": {
+        "nodes": 500,
+        "edges": 499,
+        "waitedMs": 1334.6
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 2335.8,
+          "frames": {
+            "count": 189,
+            "avgMs": 12.4,
+            "p95Ms": 34.9,
+            "maxMs": 83.5,
+            "droppedFrames": 15,
+            "fps": 80.9
+          },
+          "longTasks": {
+            "count": 10,
+            "totalMs": 704,
+            "maxMs": 80
+          },
+          "totalBlockingMs": 204,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 10,
+              "totalMs": 704,
+              "avgMs": 70.4,
+              "maxMs": 80,
+              "p95Ms": 78,
+              "lastMs": 69
+            },
+            {
+              "label": "canvas.buildBaseEdges",
+              "count": 10,
+              "totalMs": 8,
+              "avgMs": 0.8,
+              "maxMs": 0.9,
+              "p95Ms": 0.9,
+              "lastMs": 0.8
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 1559.9,
+          "frames": {
+            "count": 166,
+            "avgMs": 9.4,
+            "p95Ms": 13.9,
+            "maxMs": 69.5,
+            "droppedFrames": 6,
+            "fps": 106.6
+          },
+          "longTasks": {
+            "count": 6,
+            "totalMs": 361,
+            "maxMs": 73
+          },
+          "totalBlockingMs": 61,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 1028,
+              "avgMs": 1028.4,
+              "maxMs": 1028.4,
+              "p95Ms": 1028.4,
+              "lastMs": 1028.4
+            },
+            {
+              "label": "longtask",
+              "count": 6,
+              "totalMs": 361,
+              "avgMs": 60.2,
+              "maxMs": 73,
+              "p95Ms": 64,
+              "lastMs": 56
+            },
+            {
+              "label": "canvas.applyEdgeHighlights",
+              "count": 6,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.2,
+              "p95Ms": 0.2,
+              "lastMs": 0.1
+            },
+            {
+              "label": "canvas.buildBaseEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.9,
+              "maxMs": 0.9,
+              "p95Ms": 0.9,
+              "lastMs": 0.9
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 3178.2,
+          "frames": {
+            "count": 183,
+            "avgMs": 17.3,
+            "p95Ms": 41.7,
+            "maxMs": 159.9,
+            "droppedFrames": 29,
+            "fps": 57.7
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 121,
+            "maxMs": 121
+          },
+          "totalBlockingMs": 71,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 121,
+              "avgMs": 121,
+              "maxMs": 121,
+              "p95Ms": 121,
+              "lastMs": 121
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 18,
+              "avgMs": 18.3,
+              "maxMs": 18.3,
+              "p95Ms": 18.3,
+              "lastMs": 18.3
+            },
+            {
+              "label": "canvas.applyEdgeHighlights",
+              "count": 31,
+              "totalMs": 9,
+              "avgMs": 0.3,
+              "maxMs": 5.7,
+              "p95Ms": 0.2,
+              "lastMs": 0.1
+            },
+            {
+              "label": "canvas.onNodesChange",
+              "count": 30,
+              "totalMs": 7,
+              "avgMs": 0.2,
+              "maxMs": 4.3,
+              "p95Ms": 0.2,
+              "lastMs": 4.3
+            },
+            {
+              "label": "canvas.highlightedFields",
+              "count": 30,
+              "totalMs": 7,
+              "avgMs": 0.2,
+              "maxMs": 5.9,
+              "p95Ms": 0.1,
+              "lastMs": 0
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 8,
+              "totalMs": 2,
+              "avgMs": 0.3,
+              "maxMs": 0.3,
+              "p95Ms": 0.3,
+              "lastMs": 0.2
+            },
+            {
+              "label": "canvas.selectedTableIds",
+              "count": 30,
+              "totalMs": 1,
+              "avgMs": 0,
+              "maxMs": 0.1,
+              "p95Ms": 0.1,
+              "lastMs": 0
+            },
+            {
+              "label": "canvas.buildBaseEdges",
+              "count": 2,
+              "totalMs": 1,
+              "avgMs": 0.7,
+              "maxMs": 0.8,
+              "p95Ms": 0.7,
+              "lastMs": 0.7
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 500,
+        "columns": 8,
+        "detail": "full"
+      },
+      "loadMs": 1992,
+      "ready": {
+        "nodes": 500,
+        "edges": 499,
+        "waitedMs": 1872.8
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 2305.5,
+          "frames": {
+            "count": 183,
+            "avgMs": 12.6,
+            "p95Ms": 34.8,
+            "maxMs": 90.3,
+            "droppedFrames": 14,
+            "fps": 79.5
+          },
+          "longTasks": {
+            "count": 10,
+            "totalMs": 659,
+            "maxMs": 83
+          },
+          "totalBlockingMs": 159,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 10,
+              "totalMs": 659,
+              "avgMs": 65.9,
+              "maxMs": 83,
+              "p95Ms": 70,
+              "lastMs": 60
+            },
+            {
+              "label": "canvas.buildBaseEdges",
+              "count": 10,
+              "totalMs": 8,
+              "avgMs": 0.8,
+              "maxMs": 1,
+              "p95Ms": 0.9,
+              "lastMs": 1
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 1607.8,
+          "frames": {
+            "count": 168,
+            "avgMs": 9.6,
+            "p95Ms": 13.9,
+            "maxMs": 69.5,
+            "droppedFrames": 7,
+            "fps": 104.6
+          },
+          "longTasks": {
+            "count": 6,
+            "totalMs": 392,
+            "maxMs": 75
+          },
+          "totalBlockingMs": 92,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 1074,
+              "avgMs": 1074.4,
+              "maxMs": 1074.4,
+              "p95Ms": 1074.4,
+              "lastMs": 1074.4
+            },
+            {
+              "label": "longtask",
+              "count": 6,
+              "totalMs": 392,
+              "avgMs": 65.3,
+              "maxMs": 75,
+              "p95Ms": 70,
+              "lastMs": 52
+            },
+            {
+              "label": "canvas.highlightedFields",
+              "count": 6,
+              "totalMs": 1,
+              "avgMs": 0.2,
+              "maxMs": 0.2,
+              "p95Ms": 0.2,
+              "lastMs": 0.1
+            },
+            {
+              "label": "canvas.buildBaseEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1,
+              "maxMs": 1,
+              "p95Ms": 1,
+              "lastMs": 1
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 3217.8,
+          "frames": {
+            "count": 191,
+            "avgMs": 16.8,
+            "p95Ms": 48.6,
+            "maxMs": 145.9,
+            "droppedFrames": 29,
+            "fps": 59.5
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 105,
+            "maxMs": 105
+          },
+          "totalBlockingMs": 55,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 105,
+              "avgMs": 105,
+              "maxMs": 105,
+              "p95Ms": 105,
+              "lastMs": 105
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 20,
+              "avgMs": 20.4,
+              "maxMs": 20.4,
+              "p95Ms": 20.4,
+              "lastMs": 20.4
+            },
+            {
+              "label": "canvas.onNodesChange",
+              "count": 30,
+              "totalMs": 5,
+              "avgMs": 0.2,
+              "maxMs": 3.8,
+              "p95Ms": 0.2,
+              "lastMs": 3.8
+            },
+            {
+              "label": "canvas.applyEdgeHighlights",
+              "count": 31,
+              "totalMs": 3,
+              "avgMs": 0.1,
+              "maxMs": 0.2,
+              "p95Ms": 0.2,
+              "lastMs": 0.1
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 8,
+              "totalMs": 2,
+              "avgMs": 0.2,
+              "maxMs": 0.3,
+              "p95Ms": 0.3,
+              "lastMs": 0.2
+            },
+            {
+              "label": "canvas.selectedTableIds",
+              "count": 30,
+              "totalMs": 1,
+              "avgMs": 0,
+              "maxMs": 0.1,
+              "p95Ms": 0.1,
+              "lastMs": 0
+            },
+            {
+              "label": "canvas.highlightedFields",
+              "count": 30,
+              "totalMs": 1,
+              "avgMs": 0,
+              "maxMs": 0.2,
+              "p95Ms": 0.1,
+              "lastMs": 0
+            },
+            {
+              "label": "canvas.buildBaseEdges",
+              "count": 2,
+              "totalMs": 1,
+              "avgMs": 0.7,
+              "maxMs": 0.9,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

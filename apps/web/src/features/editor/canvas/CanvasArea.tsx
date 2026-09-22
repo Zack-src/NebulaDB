@@ -1,4 +1,5 @@
 import {
+  memo,
   Profiler,
   useCallback,
   useEffect,
@@ -16,7 +17,6 @@ import {
   MiniMap,
   Panel,
   BackgroundVariant,
-  SelectionMode,
   type Connection,
   type NodeChange,
 } from "@xyflow/react";
@@ -48,7 +48,10 @@ import {
 import { CanvasZoomBar } from "./CanvasZoomBar";
 import { useStoreChurnProbe } from "./useStoreChurnProbe";
 import { useHighlightedFieldsPublisher } from "./highlightedFields";
-import { recordDuration } from "@/utils/perfMonitor";
+import { useNodeInternalsBatchPublisher } from "./nodeInternalsBatch";
+import { useLassoSelection } from "./useLassoSelection";
+import { publishSelecting } from "./selectionDragState";
+import { recordDuration, time } from "@/utils/perfMonitor";
 import { SelectionColorToolbar } from "./SelectionColorToolbar";
 import { useCanvasImageExport } from "./useCanvasImageExport";
 import { useCanvasSearch } from "./useCanvasSearch";
@@ -124,8 +127,17 @@ export interface CanvasAreaProps {
  * turns a mouse move into the flow-space coordinate broadcast as this user's
  * cursor, so peers' `RemoteCursorsLayer` renders it in the right spot
  * regardless of each viewer's own pan/zoom.
+ *
+ * Wrapped in `memo` (below) so a `ProjectEditor` re-render that has nothing
+ * to do with the canvas — a collaborator's awareness update, `viewMode`,
+ * anything else this component doesn't itself read — doesn't cascade into
+ * re-rendering (and, inside it, re-committing) the whole node/edge tree.
+ * That only pays off if every prop handed down actually stays
+ * reference-stable when unchanged, which is why the callbacks
+ * `ProjectEditor` passes in are `useCallback`s, not fresh closures per
+ * render — see its own comments on `addTable`/`setAllDetailLevels`/etc.
  */
-export function CanvasArea(props: CanvasAreaProps) {
+function CanvasAreaImpl(props: CanvasAreaProps) {
   const { screenToFlowPosition } = useReactFlow();
   const [contextMenu, setContextMenu] = useState<CanvasContextMenuState | null>(null);
   const { visible: minimapVisible, toggle: toggleMinimap } = useSharedMinimapVisible();
@@ -150,6 +162,14 @@ export function CanvasArea(props: CanvasAreaProps) {
   // One O(edges) pass for the whole canvas, replacing the per-table store
   // selector each `TableNode` used to run — see `highlightedFields.ts`.
   useHighlightedFieldsPublisher();
+  // One batched `updateNodeInternals()` call per tick, replacing the one
+  // separate call each `TableNode` used to make on its own — see
+  // `nodeInternalsBatch.ts`.
+  useNodeInternalsBatchPublisher();
+  // Nothing should stay "as if mid-drag" if this canvas unmounts while a
+  // selection drag is somehow still in flight (switching projects, closing
+  // the editor) — mirrors `highlightedFieldsPublisher`'s own reset.
+  useEffect(() => () => publishSelecting(false), []);
   useCanvasImageExport(exportRef);
   useCanvasNavigate(navigateRef, props.nodes, onNodesChange);
   const search = useCanvasSearch(props.nodes, onNodesChange);
@@ -223,7 +243,18 @@ export function CanvasArea(props: CanvasAreaProps) {
     };
   }, [contextMenu, closeContextMenu]);
 
-  const selectedTableIds = props.nodes.filter((node) => node.type === "table" && node.selected).map((node) => node.id);
+  // Memoized rather than recomputed inline: `props.nodes` gets a new array
+  // reference on every selection-drag tick (see `selectionDragState.ts`), and
+  // this filter+map is O(nodes) — negligible for one render, but it used to
+  // run unconditionally on every one of those ticks for no reason, same
+  // shape as the bugs fixed elsewhere in this file this session.
+  const selectedTableIds = useMemo(
+    () =>
+      time("canvas.selectedTableIds", () =>
+        props.nodes.filter((node) => node.type === "table" && node.selected).map((node) => node.id),
+      ),
+    [props.nodes],
+  );
 
   /**
    * Broadcast this user's table selection — the Figma-style outline other
@@ -239,12 +270,14 @@ export function CanvasArea(props: CanvasAreaProps) {
   const { remoteSelections } = props;
   const nodesWithRemoteSelection = useMemo(() => {
     if (remoteSelections.size === 0) return props.nodes;
-    return props.nodes.map((node) => {
-      if (node.type !== "table") return node;
-      const selectors = remoteSelections.get(node.id);
-      if (!selectors) return node;
-      return { ...node, data: { ...node.data, remoteSelectedBy: selectors } };
-    });
+    return time("canvas.remoteSelectionMerge", () =>
+      props.nodes.map((node) => {
+        if (node.type !== "table") return node;
+        const selectors = remoteSelections.get(node.id);
+        if (!selectors) return node;
+        return { ...node, data: { ...node.data, remoteSelectedBy: selectors } };
+      }),
+    );
   }, [props.nodes, remoteSelections]);
 
   // React's own render/commit cost for the whole node tree (every table,
@@ -254,6 +287,14 @@ export function CanvasArea(props: CanvasAreaProps) {
   const onRenderCanvas: ProfilerOnRenderCallback = useCallback((_id, phase, actualDuration) => {
     recordDuration(`canvas.render.${phase}`, actualDuration);
   }, []);
+
+  // Replaces React Flow's own `selectionOnDrag` — see `useLassoSelection.ts`
+  // for why: its built-in rectangle re-renders the whole canvas on every
+  // native pointermove, measured at 111 commits for one real selection drag.
+  const { onPointerDown: onLassoPointerDown, rectRef: lassoRectRef } = useLassoSelection(
+    nodesWithRemoteSelection,
+    onNodesChange,
+  );
 
   return (
     <div
@@ -267,8 +308,11 @@ export function CanvasArea(props: CanvasAreaProps) {
       }`}
       onMouseMove={handleCursorMove}
       onMouseLeave={handleCursorLeave}
+      onPointerDown={onLassoPointerDown}
       style={{ "--canvas-font-scale": props.fontScale } as CSSProperties}
     >
+      {/* Painted directly by `useLassoSelection` (no React state per frame) — hidden until a drag starts. */}
+      <div ref={lassoRectRef} className="lasso-selection-rect" style={{ display: "none" }} />
       <Profiler id="canvas" onRender={onRenderCanvas}>
         <ReactFlow
           nodes={nodesWithRemoteSelection}
@@ -300,8 +344,10 @@ export function CanvasArea(props: CanvasAreaProps) {
           snapGrid={[GRID_SIZE, GRID_SIZE]}
           fitView={!initialViewport}
           defaultViewport={initialViewport ?? undefined}
-          selectionOnDrag
-          selectionMode={SelectionMode.Partial}
+          // `selectionOnDrag` is deliberately omitted (default false) — a
+          // rubber-band select is handled entirely by `useLassoSelection`
+          // now, wired onto the wrapper `<div>` below instead of through
+          // React Flow's own mechanism. See that hook for why.
           panOnDrag={[1, 2]}
           {...CANVAS_VIEWPORT_PROPS}
           // Deliberately OFF, despite the obvious appeal for "hundreds of
@@ -398,3 +444,5 @@ export function CanvasArea(props: CanvasAreaProps) {
     </div>
   );
 }
+
+export const CanvasArea = memo(CanvasAreaImpl);

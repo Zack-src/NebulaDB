@@ -92,7 +92,7 @@ test("POST /api/invitations is admin-only, and creates a listable, revocable inv
   }
 });
 
-test("accepting an invitation creates a session and an account; a second accept of the same token fails", async () => {
+test("accepting an invitation creates an account but no session (the user logs in for real next); a second accept of the same token fails", async () => {
   const app = await buildApp();
   try {
     const admin = await makeUser(1);
@@ -103,7 +103,7 @@ test("accepting an invitation creates a session and an account; a second accept 
       headers: headers({ cookie: adminCookie }),
       payload: { email: `${randomUUID()}@example.com` },
     });
-    const { token } = created.json();
+    const { token, email } = created.json();
 
     const accepted = await app.inject({
       method: "POST",
@@ -112,7 +112,18 @@ test("accepting an invitation creates a session and an account; a second accept 
       payload: { password: "a perfectly fine password" },
     });
     assert.equal(accepted.statusCode, 200);
-    assert.ok(accepted.cookies.some((c) => c.name === "athanordb_sid"));
+    assert.deepEqual(accepted.json(), { email });
+    assert.ok(!accepted.cookies.some((c) => c.name === "athanordb_sid"));
+
+    // The account works with a real login right after.
+    const loginRes = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      headers: headers(),
+      payload: { email, password: "a perfectly fine password" },
+    });
+    assert.equal(loginRes.statusCode, 200);
+    assert.ok(loginRes.cookies.some((c) => c.name === "athanordb_sid"));
 
     // Sequential reuse: the invitation's status is already "accepted" by the
     // time this second call's own status check runs, so it's refused as an

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { ChevronLeftIcon } from "@/components/icons/Icons";
 import { AuditTab } from "@/features/admin/AuditTab";
+import { ConnectionsTab } from "@/features/admin/ConnectionsTab";
 import { ErrorsTab } from "@/features/admin/ErrorsTab";
 import { InvitationsTab } from "@/features/admin/InvitationsTab";
 import { TeamsTab } from "@/features/admin/TeamsTab";
@@ -17,6 +18,7 @@ const SECTIONS = [
   { key: "users", labelKey: "admin.section.users" },
   { key: "audit", labelKey: "admin.section.audit" },
   { key: "errors", labelKey: "admin.section.errors" },
+  { key: "connections", labelKey: "admin.section.connections" },
 ] as const satisfies readonly { key: string; labelKey: TranslationKeyOf }[];
 
 type Section = (typeof SECTIONS)[number]["key"];
@@ -54,6 +56,7 @@ function AdminConsole({ onClose }: { onClose: () => void }) {
           {section === "users" && <UsersTab />}
           {section === "audit" && <AuditTab />}
           {section === "errors" && <ErrorsTab />}
+          {section === "connections" && <ConnectionsTab />}
         </div>
       </div>
     </div>

@@ -7,7 +7,6 @@ import { Badge } from "@/components/ui/Badge";
 import {
   ChevronLeftIcon,
   ClockIcon,
-  DatabaseIcon,
   DownloadIcon,
   LayoutGridIcon,
   RedoIcon,
@@ -32,20 +31,18 @@ export interface ProjectToolbarProps {
   onShowImport: () => void;
   onShowExport: () => void;
   onShowHistory: () => void;
-  onShowConnections?: () => void;
   onShowDeploy?: () => void;
   /**
-   * `edit` is enough to change the schema, but a live database connection
-   * lets the server reach a network host or local file the caller supplies
-   * and, for a deployment, execute arbitrary generated SQL against it — a
-   * materially larger blast radius than a canvas edit. The connections
-   * routes already enforce project `administrator` server-side (see
-   * `apps/server/src/modules/connections/routes.ts`); this hides the two
-   * buttons for anyone who'd just get a 403 clicking them, rather than
+   * `edit` is enough to change the schema, but a deployment reaches a live
+   * database — a network host or local file the connection (now managed only
+   * from the admin console) points at — and executes arbitrary generated SQL
+   * against it, a materially larger blast radius than a canvas edit. The
+   * connections/deployment routes already enforce project `administrator`
+   * server-side (see `apps/server/src/modules/connections/routes.ts`); this
+   * hides the button for anyone who'd just get a 403 clicking it, rather than
    * leaving that as the only signal they lack access.
    */
   isProjectAdmin: boolean;
-  connectedDbName?: string | null;
   onOpenSettings?: () => void;
   localUser: string;
   localColor: string;
@@ -148,15 +145,6 @@ export function ProjectToolbar(props: ProjectToolbarProps) {
               {action.icon} <span className="hidden lg:inline">{t(action.labelKey)}</span>
             </Button>
           ))}
-
-          {props.onShowConnections && !props.viewOnly && props.isProjectAdmin && (
-            <Button size="sm" variant="ghost" onClick={props.onShowConnections}>
-              <DatabaseIcon size={14} />{" "}
-              <span className="hidden lg:inline">
-                {props.connectedDbName ? props.connectedDbName : t("connections.database")}
-              </span>
-            </Button>
-          )}
 
           {props.onShowDeploy && !props.viewOnly && props.isProjectAdmin && (
             <Button size="sm" variant="primary" onClick={props.onShowDeploy}>
