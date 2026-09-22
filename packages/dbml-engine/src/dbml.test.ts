@@ -138,6 +138,43 @@ Ref: a.id ${symbol} b.id
   }
 });
 
+test("[delete: ...]/[update: ...] on a Ref round-trips: DBML -> Project -> DBML", () => {
+  const source = `
+Table users { id int [pk] }
+Table posts {
+  id int [pk]
+  user_id int
+}
+Ref: posts.user_id > users.id [delete: cascade, update: set null]
+`;
+  const project = toProject(parseDbml(source), "Test");
+  assert.equal(project.refs[0].onDelete, "cascade");
+  assert.equal(project.refs[0].onUpdate, "set null");
+
+  const reexported = projectToDbml(project);
+  assert.match(reexported, /\[delete: cascade, update: set null\]/);
+
+  // And it survives a second parse, not just string-matches the output.
+  const reparsed = toProject(parseDbml(reexported), "Test");
+  assert.equal(reparsed.refs[0].onDelete, "cascade");
+  assert.equal(reparsed.refs[0].onUpdate, "set null");
+});
+
+test("a Ref with no [delete:]/[update:] has neither field set, and re-exports without an action suffix", () => {
+  const source = `
+Table users { id int [pk] }
+Table posts {
+  id int [pk]
+  user_id int
+}
+Ref: posts.user_id > users.id
+`;
+  const project = toProject(parseDbml(source), "Test");
+  assert.equal(project.refs[0].onDelete, undefined);
+  assert.equal(project.refs[0].onUpdate, undefined);
+  assert.doesNotMatch(projectToDbml(project), /delete:|update:/);
+});
+
 test("projectToSql emits a foreign key constraint for postgres", () => {
   const source = `
 Table users { id int [pk] }

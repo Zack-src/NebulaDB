@@ -76,6 +76,7 @@ export function useCanvasNodes(
       ...buildZoneNodes(liveProject.zones, doc, palette, onPaletteChange, canWrite),
       ...buildTableNodes(
         liveProject.tables,
+        liveProject.refs,
         doc,
         refFieldIdsByTable,
         user,

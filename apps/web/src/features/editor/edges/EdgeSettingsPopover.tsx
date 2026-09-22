@@ -1,6 +1,7 @@
 import { useCallback, useRef } from "react";
 import { createPortal } from "react-dom";
-import type { RefCardinality } from "@athanordb/shared";
+import type { RefAction, RefCardinality } from "@athanordb/shared";
+import { ACTION_SELECT_CLASS, REF_ACTIONS, REF_ACTION_LABEL_KEY } from "./refActionOptions";
 import { CloseIcon, RestoreIcon, SwapHorizontalIcon, TrashIcon } from "@/components/icons/Icons";
 import { Button } from "@/components/ui/Button";
 import { ColorSwatchPicker } from "@/components/inputs/ColorSwatchPicker";
@@ -12,6 +13,10 @@ import { EDGE_MENU_ATTRIBUTE } from "./useEdgeRouting";
 export interface EdgeSettingsPopoverProps {
   cardinality: RefCardinality;
   onCardinalityChange?: (cardinality: RefCardinality) => void;
+  onDelete?: RefAction;
+  onUpdate?: RefAction;
+  onDeleteActionChange?: (action: RefAction | undefined) => void;
+  onUpdateActionChange?: (action: RefAction | undefined) => void;
   color?: string;
   onColorChange: (color: string | undefined) => void;
   palette: string[];
@@ -26,6 +31,10 @@ export interface EdgeSettingsPopoverProps {
 export function EdgeSettingsPopover({
   cardinality,
   onCardinalityChange,
+  onDelete,
+  onUpdate,
+  onDeleteActionChange,
+  onUpdateActionChange,
   color,
   onColorChange,
   palette,
@@ -140,6 +149,46 @@ export function EdgeSettingsPopover({
             </div>
             <p className="text-[11px] leading-snug text-text-secondary">{t("edge.cardinality.manyToManyDesc")}</p>
           </button>
+        </div>
+      </div>
+
+      {/* Section 1.5: Referential actions (ON DELETE / ON UPDATE) */}
+      <div className="grid grid-cols-2 gap-2 border-t border-border pt-2.5">
+        <div className="flex flex-col gap-1">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+            {t("edge.onDelete")}
+          </label>
+          <select
+            className={ACTION_SELECT_CLASS}
+            value={onDelete ?? ""}
+            disabled={!onDeleteActionChange}
+            onChange={(e) => onDeleteActionChange?.((e.target.value || undefined) as RefAction | undefined)}
+          >
+            <option value="">{t("edge.action.default")}</option>
+            {REF_ACTIONS.map((action) => (
+              <option key={action} value={action}>
+                {t(REF_ACTION_LABEL_KEY[action])}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-text-muted">
+            {t("edge.onUpdate")}
+          </label>
+          <select
+            className={ACTION_SELECT_CLASS}
+            value={onUpdate ?? ""}
+            disabled={!onUpdateActionChange}
+            onChange={(e) => onUpdateActionChange?.((e.target.value || undefined) as RefAction | undefined)}
+          >
+            <option value="">{t("edge.action.default")}</option>
+            {REF_ACTIONS.map((action) => (
+              <option key={action} value={action}>
+                {t(REF_ACTION_LABEL_KEY[action])}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

@@ -224,7 +224,11 @@ export function projectToDbml(project: Project, options?: { includeVisualMetadat
     if (!from || !to) continue;
     const symbol = CARDINALITY_SYMBOL[ref.cardinality];
     const prefix = ref.name ? `Ref ${quoteIdent(ref.name)}:` : "Ref:";
-    parts.push(`${prefix} ${from.table}.${from.field} ${symbol} ${to.table}.${to.field}`);
+    const actions: string[] = [];
+    if (ref.onDelete) actions.push(`delete: ${ref.onDelete}`);
+    if (ref.onUpdate) actions.push(`update: ${ref.onUpdate}`);
+    const suffix = actions.length > 0 ? ` [${actions.join(", ")}]` : "";
+    parts.push(`${prefix} ${from.table}.${from.field} ${symbol} ${to.table}.${to.field}${suffix}`);
   }
 
   const raw = parts.join("\n\n");

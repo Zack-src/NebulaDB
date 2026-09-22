@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Handle, Position, useReactFlow, type Node, type NodeProps } from "@xyflow/react";
-import { MAX_NAME_LENGTH, type Field, type Table, type TableIndex } from "@athanordb/shared";
+import { MAX_NAME_LENGTH, type Field, type RefAction, type Table, type TableIndex } from "@athanordb/shared";
+import type { FieldRefInfo } from "@/features/editor/nodes/table/fieldRefInfo";
 import type { ValidationIssue } from "@athanordb/dbml-engine";
 import { CommentThread } from "@/features/editor/comments/CommentThread";
 import type { RemoteSelector } from "@/features/collaboration/useRemoteSelections";
@@ -30,6 +31,11 @@ export interface TableNodeData {
   table: Table;
   /** Field ids that are either endpoint of some ref touching this table — always shown outside compact, even if not PK. */
   refFieldIds: Set<string>;
+  /** Refs where a given field is the FK ("from") side, keyed by field id — lets `FieldEditorPopover` offer ON DELETE/ON UPDATE right on the column. */
+  fieldRefs?: Map<string, FieldRefInfo[]>;
+  /** `refId:onDelete:onUpdate` for every ref where this table is the FK side, joined — lets the memo comparator below detect an action change without deep-comparing `fieldRefs`. */
+  refActionsKey?: string;
+  onUpdateRefAction?: (refId: string, patch: { onDelete?: RefAction; onUpdate?: RefAction }) => void;
   currentUser: string;
   palette: string[];
   /** True for a `view` grant — hides every editing affordance on the node. */
@@ -63,9 +69,13 @@ export interface TableNodeData {
 
 export type TableNodeType = Node<TableNodeData, "table">;
 
+/** Shared empty array for a field that's on no ref's FK side — one allocation, not one per row per render. */
+const EMPTY_FIELD_REFS: FieldRefInfo[] = [];
+
 function TableNodeImpl({ data, selected, id }: NodeProps<TableNodeType>) {
   const { t } = useTranslation();
-  const { table, refFieldIds, selectedFieldId, remoteSelectedBy, onSelectField, onTableHoverChange } = data;
+  const { table, refFieldIds, fieldRefs, onUpdateRefAction, selectedFieldId, remoteSelectedBy, onSelectField, onTableHoverChange } =
+    data;
   const { setNodes } = useReactFlow();
   const [renaming, setRenaming] = useState(false);
   const nameDraft = useDraftValue(table.name, (next) => data.onRename(next ?? ""));
@@ -317,6 +327,8 @@ function TableNodeImpl({ data, selected, id }: NodeProps<TableNodeType>) {
             onDeleteComment={data.onDeleteComment}
             onUpdateField={data.onUpdateField}
             onDeleteField={data.onDeleteField}
+            fieldRefs={fieldRefs?.get(field.id) ?? EMPTY_FIELD_REFS}
+            onUpdateRefAction={onUpdateRefAction}
             onReorderField={data.onReorderField}
           />
         ))}
@@ -387,6 +399,7 @@ function tableNodePropsAreEqual(prev: NodeProps<TableNodeType>, next: NodeProps<
     a.readOnly === b.readOnly &&
     a.selectedFieldId === b.selectedFieldId &&
     a.remoteSelectedBy === b.remoteSelectedBy &&
+    a.refActionsKey === b.refActionsKey &&
     setsEqual(a.refFieldIds, b.refFieldIds)
   );
 }

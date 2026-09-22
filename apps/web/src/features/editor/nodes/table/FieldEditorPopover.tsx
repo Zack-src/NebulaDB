@@ -8,7 +8,10 @@ import {
   MAX_TYPE_LENGTH,
   type Comment,
   type Field,
+  type RefAction,
 } from "@athanordb/shared";
+import type { FieldRefInfo } from "@/features/editor/nodes/table/fieldRefInfo";
+import { ACTION_SELECT_CLASS, REF_ACTIONS, REF_ACTION_LABEL_KEY } from "@/features/editor/edges/refActionOptions";
 import {
   AsteriskIcon,
   CloseIcon,
@@ -49,6 +52,9 @@ export interface FieldEditorPopoverProps {
   onDeleteField?: (fieldId: string) => void;
   onAddComment: (text: string) => void;
   onDeleteComment: (commentId: string) => void;
+  /** Refs where this field is the FK ("from") side — usually 0 or 1. Lets this popover offer ON DELETE/ON UPDATE right on the column that carries the FK (the relation's own edge popover, `EdgeSettingsPopover`, offers the same setting from the other end). */
+  fieldRefs?: FieldRefInfo[];
+  onUpdateRefAction?: (refId: string, patch: { onDelete?: RefAction; onUpdate?: RefAction }) => void;
   triggerClassName: string;
 }
 
@@ -68,6 +74,8 @@ export function FieldEditorPopover({
   onDeleteField,
   onAddComment,
   onDeleteComment,
+  fieldRefs,
+  onUpdateRefAction,
   triggerClassName,
 }: FieldEditorPopoverProps) {
   const { t } = useTranslation();
@@ -242,6 +250,65 @@ export function FieldEditorPopover({
                 ))}
               </div>
             </div>
+
+            {/* Only for a column that's actually the FK side of some ref — a
+                plain column has no ON DELETE/ON UPDATE to configure. When it's
+                on more than one ref (rare — a composite/shared FK column),
+                each gets its own pair of selects, labeled by what it points at. */}
+            {fieldRefs && fieldRefs.length > 0 && (
+              <div className={`${POPOVER_GROUP_CLASS} border-t border-border pt-3`}>
+                <label className={POPOVER_LABEL_CLASS}>{t("field.referentialActionsLabel")}</label>
+                {fieldRefs.map((fr) => (
+                  <div key={fr.refId} className="flex flex-col gap-2">
+                    {fieldRefs.length > 1 && (
+                      <span className="font-mono text-[10.5px] text-text-muted">→ {fr.toLabel}</span>
+                    )}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[10.5px] text-text-muted">{t("edge.onDelete")}</label>
+                        <select
+                          className={ACTION_SELECT_CLASS}
+                          value={fr.onDelete ?? ""}
+                          disabled={!onUpdateRefAction}
+                          onChange={(e) =>
+                            onUpdateRefAction?.(fr.refId, {
+                              onDelete: (e.target.value || undefined) as RefAction | undefined,
+                            })
+                          }
+                        >
+                          <option value="">{t("edge.action.default")}</option>
+                          {REF_ACTIONS.map((action) => (
+                            <option key={action} value={action}>
+                              {t(REF_ACTION_LABEL_KEY[action])}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <label className="text-[10.5px] text-text-muted">{t("edge.onUpdate")}</label>
+                        <select
+                          className={ACTION_SELECT_CLASS}
+                          value={fr.onUpdate ?? ""}
+                          disabled={!onUpdateRefAction}
+                          onChange={(e) =>
+                            onUpdateRefAction?.(fr.refId, {
+                              onUpdate: (e.target.value || undefined) as RefAction | undefined,
+                            })
+                          }
+                        >
+                          <option value="">{t("edge.action.default")}</option>
+                          {REF_ACTIONS.map((action) => (
+                            <option key={action} value={action}>
+                              {t(REF_ACTION_LABEL_KEY[action])}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
 
             <div className={POPOVER_GROUP_CLASS}>
               <label className={POPOVER_LABEL_CLASS}>{t("field.defaultLabel")}</label>

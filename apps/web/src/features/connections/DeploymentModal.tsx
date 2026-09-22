@@ -392,6 +392,19 @@ export function DeploymentModal(props: {
                                   })}
                                 </span>
                               )}
+                              {risk.type === "TYPE_TRANSLATION_SUGGESTED" && (
+                                <span>
+                                  {t("deployment.riskTypeTranslation", {
+                                    col: risk.columnName || "",
+                                    table: risk.tableName,
+                                  })}
+                                  {risk.suggestedValue && (
+                                    <span className="ml-1 font-mono font-normal text-text-muted">
+                                      ({risk.suggestedValue})
+                                    </span>
+                                  )}
+                                </span>
+                              )}
                             </h4>
                             <Badge tone={risk.severity === "critical" ? "danger" : "warning"}>
                               {risk.affectedRowCount} {t("deployment.rowsAffected")}

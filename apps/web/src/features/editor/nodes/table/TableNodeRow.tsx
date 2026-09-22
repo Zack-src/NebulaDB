@@ -1,6 +1,7 @@
 import { forwardRef, useEffect, useRef, useState } from "react";
 import { Handle, Position } from "@xyflow/react";
-import { MAX_NAME_LENGTH, type Comment, type Field } from "@athanordb/shared";
+import { MAX_NAME_LENGTH, type Comment, type Field, type RefAction } from "@athanordb/shared";
+import type { FieldRefInfo } from "@/features/editor/nodes/table/fieldRefInfo";
 import { CommentThread } from "@/features/editor/comments/CommentThread";
 import { AsteriskIcon, DiamondIcon, GripVerticalIcon, IncrementIcon, NoteIcon } from "@/components/icons/Icons";
 import { FieldBadge } from "@/features/editor/nodes/table/FieldBadge";
@@ -41,6 +42,9 @@ export interface TableNodeRowProps {
   onUpdateField?: (fieldId: string, updates: Partial<Field> | ((current: Field) => Partial<Field>)) => void;
   onDeleteField?: (fieldId: string) => void;
   onReorderField?: (draggedFieldId: string, targetFieldId: string, before: boolean) => void;
+  /** Refs where this field is the FK ("from") side — usually 0 or 1, more if the column somehow FKs into several tables. */
+  fieldRefs?: FieldRefInfo[];
+  onUpdateRefAction?: (refId: string, patch: { onDelete?: RefAction; onUpdate?: RefAction }) => void;
 }
 
 /**
@@ -68,6 +72,8 @@ export const TableNodeRow = forwardRef<HTMLDivElement, TableNodeRowProps>(functi
     onUpdateField,
     onDeleteField,
     onReorderField,
+    fieldRefs,
+    onUpdateRefAction,
   },
   ref,
 ) {
@@ -218,6 +224,8 @@ export const TableNodeRow = forwardRef<HTMLDivElement, TableNodeRowProps>(functi
           onDeleteField={onDeleteField}
           onAddComment={onAddComment}
           onDeleteComment={onDeleteComment}
+          fieldRefs={fieldRefs}
+          onUpdateRefAction={onUpdateRefAction}
           triggerClassName={ROW_ACTION_BTN_CLASS}
         />
         {/* Only an indicator once a comment actually exists — not a standing

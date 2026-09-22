@@ -32,6 +32,9 @@ import type { EditorViewMode } from "@/features/editor/mcd/ViewModeToggle";
 import DbmlPanel from "@/features/editor/dbml/DbmlPanel";
 const ImportDialog = lazy(() => import("@/features/editor/io/ImportDialog"));
 const ExportDialog = lazy(() => import("@/features/editor/io/ExportDialog"));
+const ConvertTypesModal = lazy(() =>
+  import("@/features/editor/ConvertTypesModal").then((m) => ({ default: m.ConvertTypesModal })),
+);
 const HistoryPanel = lazy(() => import("@/features/editor/history/HistoryPanel"));
 const PluginManagerDialog = lazy(() => import("@/features/plugins/PluginManagerDialog"));
 const DeploymentModal = lazy(() =>
@@ -74,6 +77,7 @@ export function ProjectEditor(props: {
   const remoteSelections = useRemoteSelections(awareness);
   const [showImport, setShowImport] = useState(false);
   const [showExport, setShowExport] = useState(false);
+  const [showConvertTypes, setShowConvertTypes] = useState(false);
   const [dbmlOpen, setDbmlOpen] = useState(true);
   const [showHistory, setShowHistory] = useState(false);
   const [showPlugins, setShowPlugins] = useState(false);
@@ -288,6 +292,7 @@ export function ProjectEditor(props: {
     dragging,
     issuesByRef,
     showValidationIssues,
+    selectedTableIds,
   );
 
   const {
@@ -298,6 +303,7 @@ export function ProjectEditor(props: {
     setAllDetailLevels,
     activeDetailLevel,
     setTablesColor,
+    convertFieldTypes,
     duplicateSelected,
     onEdgesDelete,
     onConnect,
@@ -326,6 +332,7 @@ export function ProjectEditor(props: {
         onAutoLayout={onAutoLayout}
         onShowImport={() => setShowImport(true)}
         onShowExport={() => setShowExport(true)}
+        onShowConvertTypes={canWrite ? () => setShowConvertTypes(true) : undefined}
         onShowHistory={() => setShowHistory(true)}
         onShowDeploy={() => setShowDeployment(true)}
         isProjectAdmin={project.permission === "administrator"}
@@ -431,6 +438,13 @@ export function ProjectEditor(props: {
             project={liveProject}
             captureCanvasImage={captureCanvasImage}
             onClose={() => setShowExport(false)}
+          />
+        )}
+        {showConvertTypes && liveProject && canWrite && (
+          <ConvertTypesModal
+            project={liveProject}
+            onApply={convertFieldTypes}
+            onClose={() => setShowConvertTypes(false)}
           />
         )}
         {showHistory && liveProject && (

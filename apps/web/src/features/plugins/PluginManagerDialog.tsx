@@ -37,10 +37,15 @@ athanor.on("canvasCommand:my-action", (project) => {
 
 export function PluginManagerDialog({ onClose }: { onClose: () => void }) {
   const { t } = useTranslation();
+  // Passing the class methods directly (as this used to) hands React an
+  // unbound function reference — it calls `subscribe(cb)`/`getSnapshot()` as
+  // plain calls, not `pluginRegistry.subscribe(cb)`, so `this` inside them is
+  // `undefined` and `this.snapshot`/`this.listeners` throws. `usePlugins.ts`
+  // already gets this right; mirror it here instead of a second unbound copy.
   const records = useSyncExternalStore(
-    pluginRegistry.subscribe,
-    pluginRegistry.getSnapshot,
-    pluginRegistry.getSnapshot,
+    (listener) => pluginRegistry.subscribe(listener),
+    () => pluginRegistry.getSnapshot(),
+    () => pluginRegistry.getSnapshot(),
   );
 
   const [activeTab, setActiveTab] = useState<ManagerTab>("marketplace");

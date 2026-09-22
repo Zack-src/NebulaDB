@@ -1,6 +1,6 @@
 import { memo, useMemo, useState } from "react";
 import { useStore, type Edge, type EdgeProps, type ReactFlowState } from "@xyflow/react";
-import type { RefCardinality, RoutingPoint } from "@athanordb/shared";
+import type { RefAction, RefCardinality, RoutingPoint } from "@athanordb/shared";
 import { useEdgeRouting } from "@/features/editor/edges/useEdgeRouting";
 import { polylinePath, splitPolylineAtMidpoint } from "@/features/editor/edges/pathMath";
 import { EdgeWaypoints } from "@/features/editor/edges/EdgeWaypoints";
@@ -18,9 +18,9 @@ export interface RefEdgeData {
   highlightLinks?: boolean;
   /** True when this edge touches the currently hovered or selected table — highlights it independently of the global `highlightLinks` toggle. */
   connectedHighlight?: boolean;
-  /** This ref's own from/to field ids — internal bookkeeping for `useCanvasEdges`'s highlight pass, not read by `RefEdge` itself. Lets that pass recompute hover/selection highlighting from `data` alone, without re-deriving handle geometry (which doesn't change from a hover or a selection). */
-  fromFieldId?: string;
-  toFieldId?: string;
+  /** This ref's raw endpoint field ids — kept alongside the geometry-derived handle strings (lossy in compact mode) so the highlight overlay in `useCanvasEdges` can test a ref against `hoveredFieldId`/`selectedFieldId` without re-deriving them. */
+  fromFieldId: string;
+  toFieldId: string;
   /** Custom highlight color override — falls back to the cardinality's default color when unset. */
   color?: string;
   /** True when this ref has a validation issue (see `packages/dbml-engine/src/validate.ts`) and the canvas-wide "show schema issues" toggle is on — draws the line in the issue colour regardless of hover/selection. */
@@ -31,6 +31,10 @@ export interface RefEdgeData {
   onPaletteChange: (palette: string[]) => void;
   onColorChange: (color: string | undefined) => void;
   onCardinalityChange?: (cardinality: RefCardinality) => void;
+  onDelete?: RefAction;
+  onUpdate?: RefAction;
+  onDeleteActionChange?: (action: RefAction | undefined) => void;
+  onUpdateActionChange?: (action: RefAction | undefined) => void;
   onReverseDirection?: () => void;
   onRoutingPointsChange: (points: RoutingPoint[] | undefined) => void;
   onDeleteRef?: () => void;
@@ -177,7 +181,13 @@ function RefEdgeImpl({
   };
 
   // Show editing controls when the edge is selected, or when hovering the edge
-  const showEditingControls = Boolean(selected || isHovered);
+  // `routing.isDraggingPoint` keeps this true even if hover flickers off
+  // mid-drag — the waypoint dot is portaled elsewhere in the DOM (not a
+  // descendant of the edge's own hit-stroke), so the moment the cursor
+  // crosses onto the dot itself the browser fires `mouseleave` on the
+  // stroke underneath. Without this, that flip unmounts `EdgeWaypoints`
+  // (and the dot being dragged) mid-gesture — see `useEdgeRouting.ts`.
+  const showEditingControls = Boolean(selected || isHovered || routing.isDraggingPoint);
   const [sourceCardinality, targetCardinality] = ENDPOINT_CARDINALITY[data?.cardinality ?? "one-to-many"];
 
   return (
@@ -312,6 +322,10 @@ function RefEdgeImpl({
               label={style.label}
               cardinality={data.cardinality}
               onCardinalityChange={data.onCardinalityChange}
+              onDelete={data.onDelete}
+              onUpdate={data.onUpdate}
+              onDeleteActionChange={data.onDeleteActionChange}
+              onUpdateActionChange={data.onUpdateActionChange}
               onReverseDirection={data.onReverseDirection}
               color={strokeColor}
               zoom={zoom}
@@ -343,18 +357,16 @@ function RefEdgeImpl({
 }
 
 /**
- * A schema can have a few hundred of these on screen. Plain `memo()` doesn't
- * actually help here: `useCanvasEdges` takes the *whole* `nodes` array as a
- * dependency (it needs each endpoint's position/size/selection for the
- * edge's geometry and highlight state) and rebuilds every ref's `data`
- * object from scratch whenever that array changes reference — which is
- * whenever *any* node is dragged, (de)selected, or hovered, not just this
- * edge's own endpoints. A fresh `data` object every time defeats a plain
- * shallow-prop `memo` exactly the way a fresh `data` object defeated
- * `TableNode`'s (see that file's comparator) — so every edge re-rendered on
- * every unrelated selection/hover/drag, the same "N things re-render for a
- * change to 1" pattern behind the "select all"/"toggle cardinality
- * links"/zoom freezes measured at 100-500 tables.
+ * A schema can have a few hundred (or few thousand) of these on screen. Plain
+ * `memo()` doesn't actually help here: even with `useCanvasEdges` now split
+ * into a heavy geometry build and a cheap highlight overlay (see that file),
+ * the overlay still hands React Flow a *new* `edges` array on every hover and
+ * (de)selection — it reuses each individual edge's `data` object identity
+ * when that edge's own highlight flags didn't change, but the array itself
+ * is always fresh. A plain shallow-prop `memo` would still re-render every
+ * edge on every unrelated selection/hover, the same "N things re-render for a
+ * change to 1" pattern that defeated `TableNode`'s (see that file's
+ * comparator) before its own per-table cache.
  *
  * This comparator looks past `data`'s identity to the fields that actually
  * drive this component's output — geometry props by value (cheap
@@ -383,6 +395,8 @@ function refEdgePropsAreEqual(prev: EdgeProps<RefEdgeType>, next: EdgeProps<RefE
   if (!a || !b) return false;
   return (
     a.cardinality === b.cardinality &&
+    a.onDelete === b.onDelete &&
+    a.onUpdate === b.onUpdate &&
     a.sourceSlot === b.sourceSlot &&
     a.targetSlot === b.targetSlot &&
     a.routingPoints === b.routingPoints &&

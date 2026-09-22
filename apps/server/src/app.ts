@@ -9,6 +9,8 @@ import websocket from "@fastify/websocket";
 import type { WebSocket } from "ws";
 import { config } from "./config.js";
 import { db } from "./infrastructure/db.js";
+import { registerApiKeyRoutes } from "./modules/apiKeys/routes.js";
+import { resolveApiKey } from "./modules/apiKeys/auth.js";
 import { registerAuditRoutes } from "./modules/audit/routes.js";
 import { registerAuthRoutes } from "./modules/auth/routes.js";
 import { registerTotpRoutes } from "./modules/auth/totpRoutes.js";
@@ -19,6 +21,7 @@ import { registerErrorRoutes } from "./modules/errors/routes.js";
 import { registerInvitationRoutes } from "./modules/invitations/routes.js";
 import { registerProjectRoutes } from "./modules/projects/index.js";
 import { getProjectRow } from "./modules/projects/repository.js";
+import { registerPublicApiRoutes } from "./modules/publicApi/index.js";
 import { registerTeamRoutes } from "./modules/teams/routes.js";
 import { registerUserRoutes } from "./modules/users/index.js";
 import { getRoom, liveRoomCount, setRoomLogger } from "./realtime/roomRegistry.js";
@@ -78,8 +81,18 @@ export async function buildApp(): Promise<FastifyInstance> {
   // rejects here — public routes (login, health, invite-accept once it exists)
   // need to stay reachable. Each route that requires a user calls
   // `requireUser`/`requireAdmin` itself (see auth/session.ts).
+  //
+  // A request with no session cookie (any non-browser `/api/v1` caller) falls
+  // back to `Authorization: Bearer` API-key resolution — see
+  // `modules/apiKeys/auth.ts`. A cookie takes priority when both are somehow
+  // present; this never runs for a request that already resolved a session.
   app.addHook("onRequest", async (req, reply) => {
     req.user = resolveSession(req, reply);
+    if (!req.user) {
+      const resolved = resolveApiKey(req);
+      req.user = resolved?.user ?? null;
+      req.apiKey = resolved?.apiKey ?? null;
+    }
   });
 
   const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -161,6 +174,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerConnectionRoutes(app);
   registerAuditRoutes(app);
   registerErrorRoutes(app);
+  registerApiKeyRoutes(app);
+  registerPublicApiRoutes(app);
 
   // Single-process production deployment: serve the built web app once it
   // exists. In dev, apps/web runs its own Vite server and proxies /api and /ws

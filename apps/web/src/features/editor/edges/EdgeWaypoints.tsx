@@ -39,7 +39,14 @@ export function EdgeWaypoints(props: {
         return (
           <div
             key={i}
-            className={`ref-edge-waypoint pointer-events-auto absolute h-3 w-3 rounded-full border-2 bg-surface shadow-xs active:scale-125 nodrag nopan ${cursorClass}${
+            // No `active:scale-125` here: Tailwind's `scale-*` utilities set the
+            // standalone CSS `scale` property, which composes *with* (not
+            // instead of) this element's own `transform` — the instant you
+            // press the mouse down, the huge `translate(flowX, flowY)` this
+            // dot already carries gets multiplied by that extra 1.25×, and the
+            // point visibly leaps away from the cursor before any drag math
+            // even runs. Reported as the waypoint jumping down-right on grab.
+            className={`ref-edge-waypoint pointer-events-auto absolute h-3 w-3 rounded-full border-2 bg-surface shadow-xs nodrag nopan ${cursorClass}${
               i === props.selectedIndex ? " ring-2 ring-primary ring-offset-1 ring-offset-bg" : ""
             }`}
             style={{
@@ -64,7 +71,9 @@ export function EdgeWaypoints(props: {
       {/* Ghost Candidate Point on Hover between points */}
       {props.candidatePoint && props.onInsertCandidate && (
         <div
-          className="pointer-events-auto absolute flex h-4 w-4 cursor-pointer items-center justify-center rounded-full border border-primary bg-primary-light/90 text-primary shadow-md hover:scale-125 nodrag nopan"
+          // Same reason as the waypoint dot above: no `hover:scale-125` — it
+          // would compose with this element's own large positional `translate`.
+          className="pointer-events-auto absolute flex h-4 w-4 cursor-pointer items-center justify-center rounded-full border border-primary bg-primary-light/90 text-primary shadow-md nodrag nopan"
           style={{
             left: 0,
             top: 0,

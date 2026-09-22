@@ -256,6 +256,35 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 15,
+    name: "api_keys table",
+    up: (db) => {
+      // Backs the `/api/v1` public API (Phase 21). A key authenticates *as*
+      // the user who created it — `user_id` is who `getEffectivePermission`
+      // checks against, same as a session — with an optional narrower scope
+      // list and an optional single-project restriction on top. Only the
+      // SHA-256 hash is stored (`key_hash`, unique so a lookup is a direct
+      // index hit); `key_prefix` is the first chars of the plaintext key kept
+      // around purely so a listing UI can show "adb_3f9a…" without ever
+      // storing or re-deriving the whole secret.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS api_keys (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          name TEXT NOT NULL,
+          key_hash TEXT NOT NULL UNIQUE,
+          key_prefix TEXT NOT NULL,
+          scopes TEXT NOT NULL,
+          project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
+          last_used_at TEXT,
+          revoked_at TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_api_keys_user ON api_keys(user_id);
+      `);
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */

@@ -1,5 +1,13 @@
 import { Parser, ModelExporter } from "@dbml/core";
-import { defaultDetailLevelForNewTable, type Position, type Project, type Ref, type Table } from "@athanordb/shared";
+import {
+  defaultDetailLevelForNewTable,
+  translateType,
+  type Position,
+  type Project,
+  type Ref,
+  type RefAction,
+  type Table,
+} from "@athanordb/shared";
 import { projectToDbml, refSignature } from "./serialize.js";
 
 export type SqlDialect = "postgres" | "mysql" | "mssql";
@@ -159,6 +167,8 @@ export function toProject(database: any, projectName = "Untitled", source?: stri
         fieldId: String(toField?.id ?? to.fieldId ?? to.fieldNames?.[0]),
       },
       cardinality: mapCardinality(ref.endpoints),
+      onDelete: normalizeRefAction(ref.onDelete),
+      onUpdate: normalizeRefAction(ref.onUpdate),
     };
   });
 
@@ -200,6 +210,15 @@ export function toProject(database: any, projectName = "Untitled", source?: stri
   };
 }
 
+const VALID_REF_ACTIONS: ReadonlySet<string> = new Set(["cascade", "restrict", "set null", "set default", "no action"]);
+
+/** @dbml/core gives back `undefined`/`null` when a ref has no `[delete: ...]`/`[update: ...]`, and lowercases whatever action it did parse — narrow to our own `RefAction` union, dropping anything unrecognized rather than carrying through a raw string. */
+function normalizeRefAction(action: unknown): RefAction | undefined {
+  if (typeof action !== "string") return undefined;
+  const normalized = action.toLowerCase().trim();
+  return VALID_REF_ACTIONS.has(normalized) ? (normalized as RefAction) : undefined;
+}
+
 function mapCardinality(endpoints: any[]): "one-to-one" | "one-to-many" | "many-to-many" {
   const relations = endpoints.map((e) => e.relation);
   if (relations[0] === "1" && relations[1] === "1") return "one-to-one";
@@ -207,9 +226,52 @@ function mapCardinality(endpoints: any[]): "one-to-one" | "one-to-many" | "many-
   return "one-to-many";
 }
 
+/**
+ * `project` with every field's type re-rendered in `dialect`'s native
+ * spelling (see `translateType`) — types this table doesn't recognize pass
+ * through untouched. Used before both SQL export and diffing so exported
+ * DDL never carries a foreign engine's type spelling verbatim.
+ */
+function withNativeTypes(project: Project, dialect: SqlDialect): Project {
+  return {
+    ...project,
+    tables: project.tables.map((t) => ({
+      ...t,
+      // Only rewrite fields translateType actually recognized as non-native — leaving
+      // everything else byte-for-byte preserves round-trip fidelity (import -> export
+      // back to the same dialect must not perturb casing/spelling on its own).
+      fields: t.fields.map((f) => {
+        const translation = translateType(f.type, dialect);
+        return translation.changed ? { ...f, type: translation.type } : f;
+      }),
+    })),
+  };
+}
+
+export interface ExportTypeTranslation {
+  table: string;
+  column: string;
+  from: string;
+  to: string;
+}
+
+/** Preview of every type this project's SQL export would translate for `dialect` — for a pre-download confirmation UI. */
+export function previewExportTypeTranslations(project: Project, dialect: SqlDialect): ExportTypeTranslation[] {
+  const changes: ExportTypeTranslation[] = [];
+  for (const table of project.tables) {
+    for (const field of table.fields) {
+      const translation = translateType(field.type, dialect);
+      if (translation.changed) {
+        changes.push({ table: table.name, column: field.name, from: field.type, to: translation.type });
+      }
+    }
+  }
+  return changes;
+}
+
 /** Convert internal `Project` directly to SQL DDL for a dialect, via DBML as the intermediate representation. */
 export function projectToSql(project: Project, dialect: SqlDialect): string {
-  const dbml = projectToDbml(project);
+  const dbml = projectToDbml(withNativeTypes(project, dialect));
   const database = parseDbml(dbml);
   return toSql(database, dialect);
 }

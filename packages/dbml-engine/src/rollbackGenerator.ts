@@ -1,10 +1,12 @@
 import type { MigrationResolutionMap } from "@athanordb/shared";
 import type { MigrationDiff, MigrationFieldChange, MigrationTableChange } from "./migrationDiff.js";
 import {
+  fkFallbackName,
   formatColumnDef,
   generateCreateTable,
   generateDropTable,
   q,
+  refActionClause,
   type MigrationDialect,
 } from "./migrationGenerator.js";
 
@@ -105,7 +107,9 @@ export function generateRollbackSql(
 
   // 4. Refs added by the forward migration -> drop the constraint.
   for (const ref of diff.refs.filter((r) => r.status === "added")) {
-    const fkName = ref.name || `fk_${ref.fromTable}_${ref.fromField}`;
+    // Shares `fkFallbackName` with `migrationGenerator.ts` — must match the name that
+    // created this constraint, or the rollback's DROP/ADD CONSTRAINT targets one that never existed.
+    const fkName = ref.name || fkFallbackName(ref.fromTable, ref.fromField, ref.toTable);
     if (dialect === "postgres")
       statements.push(`ALTER TABLE ${q(ref.fromTable, dialect)} DROP CONSTRAINT IF EXISTS ${q(fkName, dialect)};`);
     else if (dialect === "mysql")
@@ -114,8 +118,10 @@ export function generateRollbackSql(
 
   // 5. Refs dropped by the forward migration -> recreate them.
   for (const ref of diff.refs.filter((r) => r.status === "dropped")) {
-    const fkName = ref.name || `fk_${ref.fromTable}_${ref.fromField}`;
-    const stmt = `ALTER TABLE ${q(ref.fromTable, dialect)} ADD CONSTRAINT ${q(fkName, dialect)} FOREIGN KEY (${q(ref.fromField, dialect)}) REFERENCES ${q(ref.toTable, dialect)} (${q(ref.toField, dialect)});`;
+    // Shares `fkFallbackName` with `migrationGenerator.ts` — must match the name that
+    // created this constraint, or the rollback's DROP/ADD CONSTRAINT targets one that never existed.
+    const fkName = ref.name || fkFallbackName(ref.fromTable, ref.fromField, ref.toTable);
+    const stmt = `ALTER TABLE ${q(ref.fromTable, dialect)} ADD CONSTRAINT ${q(fkName, dialect)} FOREIGN KEY (${q(ref.fromField, dialect)}) REFERENCES ${q(ref.toTable, dialect)} (${q(ref.toField, dialect)})${refActionClause(ref.before, dialect)};`;
     if (dialect === "postgres" || dialect === "mysql") statements.push(stmt);
   }
 
