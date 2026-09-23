@@ -62,7 +62,7 @@ alone is never enough for these.
 | Method | Path | Scope | Notes |
 |---|---|---|---|
 | `GET` | `/api/v1/projects` | `projects:read` | Every project the caller can see, with their permission level |
-| `POST` | `/api/v1/projects` | `projects:write` | `{ name }` — create a new, empty project |
+| `POST` | `/api/v1/projects` | `projects:write` | `{ name, template? }` — create a new project, empty or seeded from a starter template (`blog`, `ecommerce`, `saas`, `auth`) |
 | `GET` | `/api/v1/projects/:id` | `projects:read` | |
 | `PATCH` | `/api/v1/projects/:id` | `projects:write` (+ admin) | `{ name?, status? }` — rename and/or archive/trash/restore |
 | `DELETE` | `/api/v1/projects/:id` | `projects:write` (+ admin) | Permanent delete — irreversible |
@@ -106,6 +106,21 @@ schema edit.
 | `POST` | `/api/v1/teams/:id/members` | `teams:manage` | `{ userId }` — add a member |
 | `DELETE` | `/api/v1/teams/:id/members/:userId` | `teams:manage` | Remove a member |
 
+## OpenAPI
+
+`GET /api/v1/openapi.json` returns an OpenAPI 3.1 description of every route
+above — public, no key needed — for Postman, Swagger UI, Insomnia or a client
+generator (`npx @openapitools/openapi-generator-cli generate -i
+https://your-instance/api/v1/openapi.json -g typescript-fetch -o client/`).
+Each operation carries its required scope as `x-athanordb-scope`, and every
+error response documents the stable `code` values. `servers` is filled in
+when `ATHANORDB_PUBLIC_URL` is set.
+
+The tables on this page, the OpenAPI document and the routes actually
+registered are checked against each other by
+`apps/server/src/modules/publicApi/openapi.test.ts` — a route added to one and
+not the others fails the build.
+
 ## Example
 
 ```bash
@@ -134,10 +149,15 @@ reads, writes, connections, teams and IAM; 10/minute for the deploy and
 rollback triggers — both execute real SQL against a real database), on top
 of the app's global ceiling.
 
+Independently of who calls, each **target database** (same engine, host,
+port and database — or the same SQLite file) accepts at most 30 connection
+operations (test, pull, plan, deploy, rollback) and 5 executed migrations or
+rollbacks per minute, across the web UI and every API key. Past that the
+server answers `429` with code `CONNECTION_RATE_LIMITED` and a
+`retryAfterSeconds` hint; nothing is executed or recorded.
+
 ## Not yet built
 
-- **OpenAPI schema** — this table is hand-maintained for now; generating it
-  from Fastify's route schemas (`@fastify/swagger`) is a separate follow-up.
 - **Per-key usage quotas** beyond the shared route-level rate limit.
 - **Multi-project key scoping** — a key is either unrestricted or locked to
   exactly one project, not a list.

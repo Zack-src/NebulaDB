@@ -24,7 +24,79 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Added (API)
+
+- **OpenAPI description of the public API** at `GET /api/v1/openapi.json`, for
+  Postman, Swagger UI or generating a client. Kept in sync with the routes and
+  `docs/public-api.md` by a test.
+
+### Added (webhooks)
+
+- **Webhooks.** A project can notify Slack, Discord or any HTTP endpoint when
+  its schema changes (grouped after 30 s without edits) or a deployment
+  finishes. JSON payloads are signed (HMAC-SHA256); failed deliveries are
+  retried for about 9 hours. Managed by project administrators from the
+  project card. See [`docs/webhooks.md`](docs/webhooks.md). **Database:**
+  migration 17 adds `project_webhooks` and `webhook_deliveries`. Requires
+  `ATHANORDB_SECRET` (signing secrets are stored encrypted).
+
+### Security
+
+- **Deleting a project now deletes its database connections** (and their
+  stored credentials), deployment history and project-restricted API keys.
+  They used to be left behind. **Operators:** rows orphaned by earlier
+  deletions remain — see the note in `docs/todo.md` (Phase 27) for the
+  one-off cleanup query.
+
+- **Per-database rate limit.** Operations against a connected database (test,
+  pull, plan, deploy, rollback) are now capped per target database — 30 a
+  minute, and 5 executed migrations/rollbacks a minute — whichever user, tab
+  or API key they come from. Previously the web UI's connection routes had
+  no limit at all.
+
+### Fixed
+
+- **Column defaults written as expressions** (`` default: `now()` ``) no longer
+  turn into the string `'now()'` in the DBML panel, and `ALTER … SET DEFAULT`
+  no longer quotes them. A string that merely looks like a call (`'now()'`)
+  stays a string. Existing projects are corrected the next time their DBML is
+  edited.
+- **Foreign keys on the wrong table.** A relation written inline in DBML
+  (`author_id integer [ref: > users.id]`, or `users.id [ref: < posts.author_id]`)
+  was stored backwards: SQL export, migration SQL and **deployments** put the
+  foreign key on the referenced table, and the canvas's "1/n" labels were
+  swapped for relations written the explicit way. Every DBML spelling now
+  means the same thing. **Existing projects are repaired automatically** the
+  first time they are opened after upgrading — the fix appears in the project's
+  history as "AthanorDB (sens des relations corrigé)". Only relations that are
+  unambiguously inverted are touched. **If you deployed a schema from
+  AthanorDB before this release, check its foreign keys.**
+
 ### Added
+
+- **Search inside every schema.** The dashboard search box also finds tables,
+  columns and enums by name across all the projects you can see; a result opens
+  the project centred on that table.
+- **Compare two projects.** _Compare_ in the editor shows name-matched
+  differences with another project, and the migration SQL between them (5
+  dialects, either direction).
+
+- **Email, self-service password reset, emailed invitations.** Optional SMTP
+  configuration (`ATHANORDB_SMTP_*`, plus `ATHANORDB_PUBLIC_URL` for the links —
+  see the README's configuration table). With it set, invitations are emailed
+  to the invitee, and the login page offers _Forgot your password?_: a
+  single-use link valid for one hour, whose use signs out every session of the
+  account and clears a login lockout. Without it, nothing changes — invitation
+  links are still copied by hand. **Database:** migration 16 adds a
+  `password_reset_tokens` table (hashes only). **Operators:** if your SMTP
+  relay is a third-party service, it now processes users' email addresses —
+  mention it in your privacy policy.
+
+- **Project templates.** _From a template_ on the dashboard creates a project
+  seeded with a starter schema — blog, e-commerce, multi-tenant SaaS or
+  authentication — already related and laid out on the canvas. Also available
+  over the API: `POST /api/projects` and `POST /api/v1/projects` accept an
+  optional `template`.
 
 - **Account offboarding.** Administrators can disable an account (reversible,
   kills its sessions and closes its live WebSockets immediately) or delete it

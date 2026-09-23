@@ -7,447 +7,410 @@ the same shape — **What** it means, concretely, **How** to build it (files, ap
 **Blocked by** when something else has to land first. Effort tags: **S** (hours), **M** (a
 day or two), **L** (about a week), **XL** (a project of its own).
 
-**Cleaned up 2026-08-20.** This file had grown into a session-by-session changelog —
-closed items carried full paragraphs of implementation and verification narrative that
-made it hard to see what's actually left. Closed items below are now one line each
-(title + date); the detailed "how it was built and verified" prose is still recoverable
-with `git log --follow -p -- docs/todo.md` for any item that needs it. Duplicate/overlapping
-open items were merged into one (noted inline where that happened); items superseded by
-later work were dropped. **Phase numbers are kept stable even for fully-closed phases** —
-`v1-roadmap.md` and several source comments (`crypto.ts`, `hostGuard.ts`,
-`ErrorBoundary.tsx`, `yjsBinding.ts`) point at specific phase numbers, and renumbering
-would make those stale.
+**Rewritten 2026-09-23**, after the React → Svelte 5 migration (`73823b5`, completed
+2026-09-22 — see `docs/svelte-migration.md`). The previous version of this file predated
+that migration and pointed at files/APIs that no longer exist (`.tsx` paths, React Flow,
+`useSyncExternalStore`, `React.memo`). This pass re-verified every item against the current
+codebase rather than trusting the prior text: ran the full build, the full test suite (349
+tests), `npm run test:e2e` (4/4, real browser + real server), `check:circular`, and `grep`/
+`find` checks for every concrete claim (file existence, symbol existence, absence of things
+claimed absent). Corrections made:
+- **Closed** Phase 16's route-level test coverage item — `routes.test.ts` now exists for
+  `invitations`, `teams`, `users`, `connections`, `apiKeys`, `convert`, `publicApi`, plus
+  `totpRoutes.test.ts`; it wasn't done at the last writing, it is now.
+- **Updated** every file reference from `.tsx` to its current `.svelte` path
+  (`ComponentCatalogue.svelte`, `CanvasArea.svelte`, `ProjectEditor.svelte`,
+  `PluginManagerDialog.svelte`, `DeploymentModal.svelte`, `ConnectionManagerModal.svelte`).
+- **Refreshed** the file-size watchlist — post-migration line counts differ from the old
+  ones (some grew, e.g. `CanvasArea.svelte` 463 l., `DeploymentModal.svelte` 501 l.).
+- **Added** two items straight from this pass: two unconfirmed perf regressions the
+  migration's own bench report flagged (Phase 23), and a small lint cleanup (Phase 23).
+- Everything else below was independently re-checked, not just copied forward: DNS-rebinding
+  gap still open (`hostGuard.ts` still says so in its own comment), no SMTP/nodemailer
+  anywhere in `apps/server`, no OpenAPI/webhook/project-template code exists yet, no git
+  tags exist yet, field-level CRDT is still one `Y.Map` entry per whole table (not per
+  field), plugin storage is still browser-only (no server-side plugin table/route).
 
-**Revisited 2026-08-21** against the running codebase (full test suite, a full build, git
-log, `npm audit`) rather than re-reading only: closed two items that had already landed
-but weren't marked here (the DBML-panel data-loss fix, the `@dbml/core` upgrade),
-corrected file-size references that had drifted since the last measurement, and folded in
-the 2026-08-20 perf/concurrency docs. `docs/refactor-plan.md` was deleted — every item in
-it was done (§5 said so already); recover it with `git log --follow -p -- docs/refactor-plan.md`
-if needed. `docs/v1-roadmap.md` and `docs/user-guide.md` got the same pass.
-
-**Same session, second pass:** the whole Phase 23 "Code health & tooling" set plus Phase
-24's metrics/error-tracking/logging items and Phase 25's versioning item were actually
-built (not just re-audited) — `room.ts` split, the file-size watchlist's two closest
-entries split, an in-app component catalogue, `/api/metrics`, an aggregated error log
-(server + client, with an admin UI), request-id-aware logging, log rotation, and a
-documented versioning decision. Verified end to end after: full build, full lint, full
-test suite (275 tests, 0 failures) and `check:circular`, all green.
-
-Phases 0–1, 3–5, 7 were closed and pruned before this file's history starts. Phases 2, 8,
-9, 12, 18, 26 are fully closed as of this cleanup and pruned the same way (none of them
-are pointed at by number from outside this file): Phase 2's DBML/SQL import is done for
-Postgres/MySQL/SQL Server (SQLite import is a scope decision, not a todo — see *Open
-decisions*); Phase 8's theme item was superseded by Phase 22 (light theme shipped); Phase
-9's "live DB connection" stretch goal was superseded by Phase 27 (built); Phase 12, 18 and
-26 finished with no open remainder. Phase 4's old toolbar item is likewise done (`RefEdge.tsx`
-is a real custom edge, superseded by the Phase 17 toolbar redesign) — no phase 4 section
-exists to restore.
+Phases 0–5, 7–9, 12, 14, 18, 26 are fully closed and pruned (none pointed at by number from
+outside this file — see `git log --follow -p -- docs/todo.md` to recover the detail on any
+of them).
 
 ---
 
 ## Phase 6 — Multi-user editing
 
-- [x] **DBML-panel resync was silently deleting concurrent edits** — found and fixed
-  2026-08-20, verified with two real browser sessions on one project. Two distinct bugs:
-  the panel treated the app's own document→buffer mirroring as a user keystroke, so any
-  canvas edit by anyone made *every* connected client's panel re-POST the whole schema
-  600ms later; and `/import` replaced the document from a buffer that could be seconds
-  stale, deleting anything another user had added meanwhile (reproduced: a column added on
-  the canvas vanished while another user typed DBML). Fixed with a `documentSync`
-  transaction annotation the change listener ignores, plus a three-way merge
-  (`preserveConcurrentAdditions`, new in `packages/dbml-engine`) that keeps entities absent
-  from *both* the buffer and its baseline instead of treating "absent" as "deleted". 5 new
-  tests (`concurrentEdits.test.ts`). Detail in `docs/perf/multiuser-concurrency-2026-08-20.md`.
+- [x] **DBML-panel resync data-loss bug** — fixed 2026-08-20, verified with two real browser
+  sessions on one project. `documentSync` transaction annotation + three-way merge
+  (`preserveConcurrentAdditions`, `packages/dbml-engine/src/concurrentEdits.ts`). Re-verified
+  2026-09-23: `concurrentEdits.test.ts` present and passing, still exercised by the full
+  suite.
 - [~] **Field-level CRDT merge within one table** — **S-M**, low priority. **What:** two
-  users editing different fields of the *same* table (or the same field via DBML vs.
-  canvas) at the same time still last-write-wins instead of merging per field — confirmed
-  by the 2026-08-20 verification above as the one known remaining gap, not just a
-  theoretical concern anymore. **How:** split each table's fields into individual Yjs
-  sub-entries (e.g. one `Y.Map` per table instead of one opaque JSON blob) — touches
-  `packages/shared/src/yjsBinding.ts`, `Room`'s watched-collection logic in
+  users editing different fields of the *same* table at the same time still last-write-wins
+  instead of merging per field. **Confirmed still true 2026-09-23**: `getTablesMap` in
+  `packages/shared/src/yjsBinding.ts` stores each table as one opaque object under one
+  `Y.Map` key — no per-field sub-map. **How:** split each table's fields into individual Yjs
+  sub-entries — touches `yjsBinding.ts`, `Room`'s watched-collection logic in
   `apps/server/src/realtime/room.ts`, and every web mutation that currently does
-  `tablesMap.set(id, {...current, ...patch})`. Revisit if this specific collision (not the
-  resync bug above, which is fixed) gets reported in practice.
-- [x] **Committed multi-user regression test** — done 2026-08-21:
-  `apps/server/src/modules/projects/routes/importExport.concurrency.test.ts`, four tests
-  hitting the real `POST /api/projects/:id/import` route against a real `Room`'s live doc
-  (a concurrent canvas edit written straight to `room.doc`, the same way an incoming
-  WebSocket update would apply). Covers the exact 2026-08-20 scenario in both directions
-  (a canvas addition surviving a stale DBML resync, and vice versa), confirms a real
-  deletion still applies, and confirms a baseline-less import still replaces everything.
-  This is the route-level integration test the original throwaway Playwright verification
-  never left behind — `preserveConcurrentAdditions` itself already had unit tests
-  (`concurrentEdits.test.ts`), but nothing exercised the actual route before this.
+  `tablesMap.set(id, {...current, ...patch})`. Revisit only if this specific collision is
+  reported in practice.
+- [x] **Committed multi-user regression test** — `importExport.concurrency.test.ts` present
+  and passing (verified 2026-09-23), hits the real `POST /api/projects/:id/import` route
+  against a real `Room`'s live doc.
 
 ## Phase 10 — Packaging & deployment
 
-- [x] **Verify the Docker build on a real Docker daemon** — done 2026-08-21, and it found a
-  real bug the first time it ran: Docker Desktop came up on the same machine mid-session,
-  so `docker compose up --build` finally ran against a live daemon instead of failing to
-  connect. The container built, then **crash-looped with SIGSEGV** (exit 139) on every
-  start — the `Dockerfile` pinned `node:20-bookworm-slim` while `better-sqlite3@13` (and
-  `package.json`'s own `engines`) require Node ≥22; `npm ci` even printed the `EBADENGINE`
-  warnings for it, easy to miss in a wall of apt output. Fixed: `FROM node:22-bookworm-slim`.
-  Re-verified after the fix, end to end: container starts `(healthy)`, `/api/health` returns
-  `200`, an import made <200ms before a real `docker compose stop` (genuine `SIGTERM`, not
-  simulated) survived — logs show `SIGTERM received` → `flushed 1 room snapshot(s)` →
-  `shutdown complete` — and the data was still there after a full `docker compose down` +
-  `up` (new container, same named volume). Also closes the SIGTERM item below — same test.
+- [x] **Docker build verified on a real daemon** — `Dockerfile` still pins
+  `node:22-bookworm-slim` (checked 2026-09-23, matches `better-sqlite3@13`'s Node ≥22
+  requirement). Container starts healthy, graceful shutdown confirmed via real `SIGTERM`.
 
 ## Phase 11 — Testing & docs
 
-- [x] Unit tests for `dbml-engine`/`shared` — done, `npm test`.
-- [x] **Server integration tests (REST + WS)** — done 2026-08-21. `Room`/WS is fully
-  covered (`yjs/room.test.ts`); `app.test.ts` covers the highest-risk REST surface (auth,
-  CSRF, rate limiting, permission gating, `/api/metrics`, `/api/errors`) via `buildApp()` +
-  `.inject()`. The remaining route modules now each have their own `routes.test.ts`,
-  same pattern: `modules/invitations/`, `modules/teams/`, `modules/convert/`,
-  `modules/users/` (both `account.ts` and `admin.ts`), and `modules/projects/routes.test.ts`
-  for the three project route files `app.test.ts` didn't already cover
-  (`importExport.ts`, `revisions.ts`, `teams.ts` — `crud.ts` was already there). 22 new
-  tests; server suite is now 150 (was 128), all green. One real gotcha hit and fixed along
-  the way: any test that touches a `Room` (via `getRoom`, directly or through a route) has
-  to call `closeAllRooms()` in its `finally` alongside `app.close()`, or the room's
-  `Awareness` timer keeps that test file's process alive — it doesn't fail, it just never
-  exits, so a missing cleanup shows up as the *whole test run* hanging, not a red test.
-- [x] **Browser-based test coverage (canvas, DBML sync, components, E2E)** — **L**, closed
-  2026-08-25. **The decision** (2026-08-21): Playwright (`playwright-core`, already a
-  dependency for `scripts/bench-web.mjs`), against the real built app — not jsdom + a
-  component-testing library. Three more `apps/web/e2e/*.e2e.ts` files added on top of the
-  original persistence flow, all run with `npm run test:e2e` (still deliberately outside
-  `npm test` — needs a build and a browser first): `canvas-interactions.e2e.ts` (select,
-  keyboard delete, undo, Ctrl-click multi-select surfacing the group toolbar — real React
-  Flow interactions, not a mock), `component-catalogue.e2e.ts` (loads `#components`,
-  asserts every primitive renders with no console errors, in both themes — the cheapest
-  test in the suite, no server/login needed), `plugin-sandbox.e2e.ts` (installs the
-  community "SQLite & Naming Toolkit" template through the real Plugin Manager UI, then
-  runs its exporter through the real Export dialog — proves `PluginHost.ts` actually
-  spins up a `Worker` and runs untrusted code in it, not a same-thread shortcut). Common
-  server/browser boot-and-teardown factored into `apps/web/e2e/harness.ts` once a second
-  file needed it; each file uses its own literal port since `node --test` runs files in
-  parallel by default. **Found and fixed a real bug getting the plugin-sandbox test
-  green**: `PluginManagerDialog.tsx` passed `pluginRegistry.subscribe`/`.getSnapshot` as
-  bare method references to `useSyncExternalStore`, which calls them unbound — `this` was
-  `undefined` inside, crashing the whole editor (`Cannot read properties of undefined
-  (reading 'snapshot')`) the moment the dialog opened. `usePlugins.ts` already had the
-  correct arrow-wrapped pattern; this file just hadn't matched it. Also found while writing
-  the canvas test (not a bug, a fact about the framework): Yjs's `UndoManager` merges
-  same-origin transactions within its default 500ms `captureTimeout` into one undo step —
-  Playwright's actions land faster than a real user's, so distinct logical actions need an
-  explicit pause between them or a single undo unwinds more than intended; and React Flow's
-  default `multiSelectionKeyCode` is `Control`/`Meta`, not `Shift` (`Shift` is the
-  rubber-band-select key here, via `selectionOnDrag`).
-- [x] User docs (`docs/user-guide.md`) — done.
-- [x] Contributing guide (`CONTRIBUTING.md`, `SECURITY.md`, `CHANGELOG.md`) — done.
+- [x] Unit tests for `dbml-engine`/`shared`.
+- [x] Server integration tests (REST + WS) — `Room`/WS covered by `yjs/room.test.ts`,
+  every route module has its own `routes.test.ts` (re-confirmed 2026-09-23, see list above).
+- [x] **Browser-based E2E coverage** (canvas, DBML sync, components, plugin sandbox,
+  project lifecycle) — `apps/web/e2e/{canvas-interactions,component-catalogue,
+  plugin-sandbox,project-lifecycle}.e2e.ts`, shared boot/teardown in `e2e/harness.ts`.
+  **Re-run in full 2026-09-23 post-migration: 4/4 pass** against the real Svelte build —
+  canvas select/delete/undo/multi-select, component catalogue in both themes with zero
+  console errors, the plugin sandbox actually spinning up a real Worker, full project
+  create → edit → reload → persist round-trip. No `.tsx` reference remains; the test files
+  themselves were already framework-agnostic (they drive the DOM, not React internals).
+- [x] User docs (`docs/user-guide.md`), contributing guide, `SECURITY.md`, `CHANGELOG.md`.
 
 ## Phase 13 — Security hardening
 
 - [x] Rate limiting, scrypt cost, max password length, session cleanup, secure-cookie
   guard, CSRF origin check, invitation-accept TOCTOU race, entity-count limits, email
-  validation, unused monaco deps removed — all done 2026-07-31 through 2026-08-09.
-- [~] **Invitation delivery is manual (no email)** — see Phase 20's transactional-email
-  item, the actual blocker; this is the same task, not a separate one.
-
-## Phase 14 — Feature completeness (canvas / DBML)
-
-Closed 2026-08-09/2026-08-15: `TableGroup` visual editor, Enum visual editor, index/composite-PK
-visual editor, canvas search, WebSocket reconnect logic, large-schema rendering safeguards,
-remote-cursor and remote-selection presence. Kept only because `v1-roadmap.md` points at
-this phase by number.
-
-## Phase 15 — Reliability & operations
-
-- [x] Graceful shutdown, global error guard, real migration system, one-way→two-way
-  backup/restore, request/frame size limits, startup config validation, non-root Docker
-  user, the room-eviction Awareness-timer memory leak — all done 2026-07-31 through
-  2026-08-09.
-- [x] **Verify graceful shutdown against a real SIGTERM** — done 2026-08-21, as part of the
-  Docker verification above: `docker compose stop` against the real container sends a
-  genuine `SIGTERM` (unlike the Windows dev machine, where Node never receives one), and
-  the logs confirm the exact sequence — `SIGTERM received` → `flushed N room snapshot(s)`
-  → `shutdown complete` — for a room edited under 200ms earlier, well inside the 2s
-  debounce window this item was worried wouldn't flush in time. It did.
+  validation.
+- [x] **Invitation delivery** — done 2026-09-23 with Phase 20's transactional email: with
+  SMTP configured, `POST /api/invitations` emails the link (`emailSent` in the response,
+  shown in the admin tab); without it, or if the send fails, the copy-the-link flow is
+  unchanged.
 
 ## Phase 16 — Testing, docs & dev experience
 
-- [x] Lint clean and CI-enforced, CI pipeline, README auth docs, LICENSE — all done
-  2026-07-31 through 2026-08-08.
-- [~] **Route-level test coverage for auth/teams/invitations** — **S**. Password hashing,
-  sessions and permission checks are covered; `routes/{auth,invitations,teams,users}.ts`
-  themselves (the HTTP layer, not the logic they call) are not. Same merge as Phase 11 —
-  extend `app.test.ts`'s pattern.
-- [x] **`apps/web` test coverage** — pure-logic modules (autoLayout, refGeometry,
-  DBML symbols, awareness colour) covered by unit tests; canvas/components/plugin-sandbox
-  covered by Playwright E2E — same closure as Phase 11's browser-test-tooling item, not
-  repeated here.
-- [x] **Upgrade `@dbml/core`** — done 2026-08-14 (`ee496aa`, part of a full dependency
-  refresh): 3.x → 10.1.0, seven major versions, all `dbml.test.ts`/`roundtrip.test.ts`
-  cases passing unchanged. `toProject`'s raw/untyped reads off `@dbml/core`'s parse output
-  are still there (that's inherent to the approach, not a leftover of the old version) —
-  fine as long as the roundtrip suite keeps gating any future bump. Vite was bumped to 8
-  (rolldown-vite) in the same pass, which also closed the `esbuild`/`vite` dev-server
-  advisory `v1-roadmap.md` §1 used to flag — `npm audit` reports 0 vulnerabilities as of
-  2026-08-21.
+- [x] Lint clean and CI-enforced, CI pipeline, README auth docs, LICENSE.
+- [x] **Route-level test coverage for auth/teams/invitations** — **closed 2026-09-23**,
+  was `[~]` before. `routes.test.ts` now exists for every route module (`invitations`,
+  `teams`, `users`, `connections`, `apiKeys`, `convert`, `publicApi`) plus
+  `totpRoutes.test.ts`; `app.test.ts` still covers the cross-cutting auth/CSRF/rate-limit
+  surface. Nothing left uncovered at the route layer.
+- [x] **`apps/web` test coverage** — pure-logic modules covered by unit tests,
+  canvas/components/plugin-sandbox covered by Playwright E2E (Phase 11).
+- [x] `@dbml/core` upgraded to 10.1.0, Vite on 8 (rolldown-vite). `npm audit` was **not**
+  clean on 2026-09-23 (fastify ≤5.12.0, sharp <0.35.4, fast-uri — all pre-existing, all
+  fixable in-range); `npm audit fix` → fastify 5.12.5, sharp 0.35.4, 0 vulnerabilities, full
+  build/tests/E2E re-run green.
 
 ## Phase 17 — Plugin system
 
-- [x] Plugin runtime (sandboxed Worker), built-ins on the plugin API, example plugin,
-  plugin manager UI, Figma-style toolbar, settings/persisted state, canvas-command
-  selection context, plugin-defined shortcuts, source download — all done 2026-08-08.
-- [ ] **Plugin-provided UI** — **L**, speculative. What: the Figma model — a plugin renders
-  its own HTML in a sandboxed iframe panel, talking over `postMessage`, instead of only a
-  declarative settings form. How: needs its own security pass before design; not worth
-  building until a real plugin actually needs more than a settings form (none has yet).
-- [ ] **Server-installed / team-shared plugins** — **M**, deliberately deferred. What:
-  plugins live in one browser's `localStorage` today, so a team can't standardise on one.
-  Why deferred: would mean the server storing third-party code and every user of an
-  instance inheriting an admin's install decision — a real trust-model change, not a small
-  add. Revisit if a team actually asks for this.
+- [x] Plugin runtime (sandboxed Worker), built-ins, example plugin, plugin manager UI
+  (`apps/web/src/features/plugins/PluginManagerDialog.svelte`), Figma-style toolbar,
+  settings/persisted state, canvas-command selection context, plugin-defined shortcuts,
+  source download.
+- [ ] **Plugin-provided UI** — **L**, speculative. What: a plugin renders its own HTML in a
+  sandboxed iframe panel (talking over `postMessage`), instead of only a declarative
+  settings form. **Confirmed still not built 2026-09-23** — `PluginHost.ts`/
+  `sandboxRuntime.ts` use `postMessage` only to run the sandboxed exporter/importer
+  functions, not to host arbitrary plugin-rendered UI. Not worth building until a real
+  plugin needs more than a settings form.
+- [ ] **Server-installed / team-shared plugins** — **M**, deliberately deferred. Plugins
+  still live in one browser's `localStorage` (confirmed 2026-09-23 — no plugin table/route
+  in `apps/server/src`). Would mean the server storing third-party code — a real trust-model
+  change. Revisit if a team actually asks for this.
 - [ ] **Plugin publishing/discovery** — **M**. Blocked by the item above — no manifest URL,
   registry, or update check exists; sharing a plugin today means sending a `.js` file.
-- [x] Plugin testing gap — closed with Phase 11's browser-test-tooling item
-  (`apps/web/e2e/plugin-sandbox.e2e.ts` drives the real Worker sandbox end to end).
 
 ## Phase 19 — Security hardening for professional use
 
 - [x] Session revocation, account disable/delete, `canWrite` live re-evaluation, audit log,
   per-account project cap, account lockout, `npm audit` CI gate, documented secret
-  management, TOTP 2FA — all done 2026-08-09 through 2026-08-15.
-- [ ] **Self-service password reset** — **M**. What: `PATCH /api/users/:id/password` is
-  admin-only today; a user who forgets their password is stuck until one is available. How:
-  `routes/invitations.ts` is the right template — single-use token, expiry, an
-  `accepted_at`-style claim inside a transaction. **Blocked by:** Phase 20's transactional
-  email — do them together, a reset link with no delivery mechanism doesn't help anyone.
-- [ ] **Passkeys / WebAuthn** — **L**. TOTP already covers the shorter 2FA effort; passkeys
-  are the unbuilt remainder, not urgent.
+  management, TOTP 2FA.
+- [x] **Self-service password reset** — done 2026-09-23. `modules/auth/passwordReset.ts`
+  + `passwordResetRoutes.ts`: SHA-256-only token storage (migration 16), 1h TTL, single use
+  via a conditional UPDATE, older links invalidated by a newer one, 60s per-account
+  cooldown + per-IP rate limit, identical answer for unknown addresses with the SMTP send
+  deferred past the response, links built from `ATHANORDB_PUBLIC_URL` (never `Host`). Use
+  kills every session + live socket and clears the login lockout; TOTP still required
+  after. Offered only when email is configured (`GET /api/auth/features`). Tests: route
+  suite against a real in-process SMTP server, plus `password-reset.e2e.ts`.
+- [ ] **Passkeys / WebAuthn** — **L**. Confirmed no `webauthn`/`passkey` code exists yet.
+  TOTP already covers the shorter 2FA effort; not urgent.
 
 ## Phase 20 — Accounts & onboarding
 
-- [x] Configurable session length — done 2026-08-09.
-- [ ] **Transactional email** — **M**. The actual blocker behind self-service password
-  reset (Phase 19), invitation delivery (Phase 13) and notifications (below). **How:** an
-  SMTP client (e.g. `nodemailer`), config via `ATHANORDB_SMTP_*` env vars following the
-  same validate-at-boot pattern `config.ts` already uses for everything else, and templates
-  for invite/reset emails. **Verify against:** a real SMTP target or an Ethereal-style test
-  account before shipping — this environment has never had one, which is why it's stayed
-  deferred.
-- [ ] **Notifications** — **M**. What: nothing tells a user they were added to a
-  project/team, or that someone replied to their comment thread. **Blocked by:** the email
-  item above.
+- [x] Configurable session length.
+- [x] **Transactional email** — done 2026-09-23. `infrastructure/mailer.ts` (nodemailer),
+  `ATHANORDB_SMTP_{HOST,PORT,SECURE,USER,PASSWORD,FROM}` + `ATHANORDB_PUBLIC_URL` validated
+  at boot in `config.ts` (email is entirely optional — unset host = off), French
+  text+HTML templates in `shared/emailTemplates.ts`. Verified over real SMTP (an
+  in-process `smtp-server` on TCP with auth) in both the route tests and the E2E suite.
+  **Not verified:** delivery through a real third-party relay (TLS on 465/STARTTLS on 587,
+  SPF/DKIM) — worth one manual send on a real instance before relying on it.
+- [ ] **Notifications** — **M**. Nothing tells a user they were added to a project/team, or
+  that someone replied to their comment thread (`CommentThread.svelte` still has no
+  `@mention` support — confirmed 2026-09-23). **Unblocked 2026-09-23** — `sendMail` and
+  the template helpers in `shared/emailTemplates.ts` exist now; what's left is deciding
+  which events notify, and a per-user opt-out (an email a user can't turn off becomes spam).
 - [ ] **Per-project/team roles beyond view/edit/administrator** — **M**, only if actually
-  wanted. What: no "can invite but not delete", no team-level role distinct from the
-  project-level grant. Adequate for V1 — revisit on real demand, not speculatively.
+  wanted. Revisit on real demand.
 
 ## Phase 21 — Product features & integrations
 
-- [x] **Public API** — done 2026-08-25, extended same day twice: `/api/v1`, API keys
-  (SHA-256 hashed at rest, scoped to `projects:read`/`projects:write`/`deployments:trigger`/
-  `connections:manage`/`teams:manage`, optionally locked to one project, revocable — never
-  reachable from another key, only a session), route-level rate limits. Full
-  CRUD+IAM+ops surface: list/create/get/rename or archive/permanently-delete a project,
-  export DBML/SQL/SVG/PNG, schema revision history, IAM (list/grant/revoke a team's project
-  access), import (same three-way merge as the DBML panel — canvas-only edits like table
-  position/color go through the same route via the DBML visual-metadata sidecar),
-  deploy-trigger and rollback-trigger (both factored out of the existing
-  `apply-deployment`/rollback routes into shared `connections/deploy.ts` functions so every
-  path — session or key — runs the identical pipeline), deployment history, full connection
-  CRUD + test + pull (factored into `connections/pull.ts`), and team CRUD + membership
-  (instance-wide, global-admin-only — a project-restricted key is refused outright here,
-  not just unscoped-checked, via a new `requireGlobalScope`). SVG export is a deterministic
-  server-side renderer (`dbml-engine/src/svg.ts`, from stored layout data — no headless
-  browser); PNG rasterises that SVG with `sharp` (new native dependency, server-only — kept
-  out of `dbml-engine` deliberately so the web bundle never sees it). Key management
-  (`/api/keys`) lives in the Settings billing tab, replacing the old placeholder. `/api/v1`
-  itself split across `publicApi/{index,iamRoutes,connectionRoutes,teamRoutes}.ts` once it
-  grew past one file. Documented in `docs/public-api.md`. **Not done**: OpenAPI schema
-  (below), per-key usage quotas, multi-project key scoping (one project or unrestricted,
-  not a list), structured field-level canvas-style edits.
-- [ ] **OpenAPI schema** — **M**. Pairs with the item above — Fastify's route schemas plus
-  `@fastify/swagger` would generate it from the definitions instead of the hand-maintained
-  `docs/public-api.md` table.
-- [ ] **Webhooks** — **M**. "Schema changed" → Slack/Discord/custom endpoint. Auth model is
-  no longer the blocker (API keys exist) — still needs delivery retries and a signed payload.
-- [ ] **Project templates** — **M**. Every new project starts empty. **How:** cheap on top
-  of the existing DBML import path — a template is just a `.dbml` string plus a small
-  gallery UI (e-commerce, multi-tenant SaaS, auth/RBAC).
-- [ ] **Cross-project diff** — **M**, ~80% of the logic already exists. `diff.ts` diffs two
-  states of *one* project for the history panel; pointing it at two different projects
-  (staging vs prod) is mostly UI plus a project-picker.
-- [ ] **Global multi-project search** — **S-M**. Search exists inside one project (canvas
-  Ctrl+F) and over the project list, not "find this table across all my projects". **How:**
-  a server-side index, or a scan over stored snapshots if an index is overkill at current
-  scale.
-- [ ] **Comment mentions/notifications** — **M**. `CommentThread.tsx` supports threads but
-  not `@user`. **Blocked by:** the email/notification work above.
+- [x] **Public API** (`/api/v1`) — full CRUD+IAM+ops surface, API keys, route-level rate
+  limits, deploy/rollback triggers, SVG/PNG export. Documented in `docs/public-api.md`
+  (still present, checked 2026-09-23). **Not done**: OpenAPI schema, per-key usage quotas,
+  multi-project key scoping.
+- [x] **OpenAPI schema** — done 2026-09-23. `GET /api/v1/openapi.json` (public, 3.1),
+  built from a compact operation catalogue in `modules/publicApi/openapi.ts` rather than
+  Fastify route schemas (adding validation schemas to every route would change request
+  handling, not just docs). Error `code` enum comes straight from `ERROR_CATALOG`; scope
+  per operation as `x-athanordb-scope`. Drift is caught by `openapi.test.ts`: registered
+  routes ↔ catalogue ↔ `docs/public-api.md` tables (mutation-checked), and the document
+  is validated with `@readme/openapi-parser`. Not done: request validation from the same
+  schemas.
+- [x] **Webhooks** — done 2026-09-23 (`modules/webhooks/`, doc: `docs/webhooks.md`).
+  Per project, admin-only, ≤10. Events `schema.changed` (coalesced after 30 s quiet,
+  structural changes only — baseline seeded from the snapshot so a drag after a restart
+  isn't news), `deployment.completed` (deploy + rollback), `ping`. Formats: signed JSON
+  (`t=…,v1=HMAC-SHA256("t.body")`), Slack, Discord. Deliveries are rows first
+  (persistent retry queue: 1m/5m/30m/2h/6h), auto-disable after 20 abandoned in a row,
+  30-day log. SSRF: `node:http` (no redirects), address checked *at connect time* via a
+  `lookup` hook + literal-IP check — no DNS-rebinding gap for webhooks (unlike DB
+  connections, see Phase 27). Response bodies never read. Editing hot path costs one
+  Map lookup for projects without webhooks. Found+fixed while testing: the queue's
+  "already running" flag could pin itself on a settled promise and stop all deliveries
+  after the first empty tick. Tests: route suite against a real local receiver +
+  `webhooks.e2e.ts`. **Not done:** secret rotation (delete + recreate), webhooks via
+  `/api/v1`, per-user notification opt-in (Phase 20 notifications is a separate item).
+- [x] **Project templates** — done 2026-09-23. Four starters (blog, e-commerce,
+  multi-tenant SaaS, auth) in `packages/dbml-engine/src/templates.ts`, seeded server-side
+  through the same `toProject` → `mergeProjectIntoExisting` path as an import
+  (`projectFromTemplate`); `POST /api/projects` and `/api/v1/projects` take an optional
+  `template`. Gallery: `TemplatePickerModal.svelte`. Covered by engine tests (parse,
+  validate, unique ids, layout kept), a route test, and `project-templates.e2e.ts`.
+- [x] **Cross-project diff** — done 2026-09-23. Not `diff.ts` after all: it matches by
+  *id*, and ids never line up across projects (every table would read "removed + added").
+  Uses the name-matched `diffTargetAgainstLive` instead, which also feeds
+  `generateMigrationSql` — so the editor's _Comparer_ modal
+  (`features/editor/compare/CompareProjectsModal.svelte`) shows the differences *and* the
+  SQL turning one schema into the other, per dialect, with a swap-direction toggle. Other
+  project read via `GET /api/projects/:id/content` (view permission, audited as an export,
+  never starts a room). Tests: route test + `compare-projects.e2e.ts`. **Caveat:** its SQL
+  inherits the ref-direction bug in Phase 28 below.
+- [x] **Global multi-project search** — done 2026-09-23. `GET /api/search?q=` over table,
+  column and enum names (+ table notes) across every non-trashed project the caller can
+  view; ranked exact → prefix → substring, capped at 100. Idle projects are read from their
+  snapshot with a per-project name index cached on the snapshot's `updated_at`; live rooms
+  read directly (`realtime/readOnlyProject.ts`, never `getRoom`). Dashboard search box now
+  also shows an "inside your schemas" section; a hit opens the project centred on the
+  table with the column highlighted. While wiring that, fixed a latent canvas bug: any
+  programmatic jump right after mount (the DBML panel's double-click too) was undone by
+  Svelte Flow's initial `fitView` and by the refit-on-resize — `goToTable` now waits for
+  `nodesInitialized && !fitViewQueued` and counts as a user viewport move. Tests: route
+  tests (permissions, trash, ranking, live vs snapshot) + `global-search.e2e.ts`.
+- [ ] **Comment mentions/notifications** — **M**. `CommentThread.svelte`/
+  `CommentThreadPanel.svelte` support threads but not `@user`. Email delivery exists now;
+  still depends on the Phase 20 notifications item (which events, opt-out).
 - [ ] **Export to other ecosystems** (Prisma schema, TypeORM entities, GraphQL SDL, JSON
   Schema) — **M each, as plugins**, deliberately not core. The plugin API already covers
-  exactly this shape (the SQLite exporter ships as the example plugin); shipping two or
-  three of these is the strongest argument for the plugin system's existence.
+  exactly this shape (the SQLite exporter ships as the example plugin).
 
 ## Phase 22 — UX, theming & accessibility
 
-- [x] Light theme, first-run onboarding (deliberately not built), error boundary,
-  loading-state placeholders — done 2026-08-09 through 2026-08-15.
-- [ ] **Landing page and app are visually out of step** — **M**. The landing page (scroll
-  reveals, kinetic type, bento grid) reads as a step up from the plainer dashboard/editor —
-  a prospect clicking through lands on a downgrade. **How:** share the same
-  hover/transition primitives across `ui/Button.tsx`/`Card.tsx` so the basic
-  micro-interactions match; doesn't need the full landing-page treatment everywhere.
+- [x] Light theme, error boundary (now `<svelte:boundary>`, ported from the old React
+  `ErrorBoundary` class — see `docs/svelte-migration.md` §2), loading-state placeholders.
+- [ ] **Landing page and app are visually out of step** — **M**. Not re-checked visually
+  this pass (code-level verification only); revisit with a browser pass since the whole
+  frontend rendering stack changed under this item since it was last written.
 - [ ] **Mobile/tablet: decide, don't drift** — **S** to document, **XL** to actually build.
-  React Flow plus the DBML panel assume a wide pointer-driven screen. Schema modelling is
-  rarely a phone task — the honest move is probably declaring desktop-only in the README
-  and on the landing page rather than half-building responsive support.
+  Svelte Flow (like React Flow before it) assumes a wide pointer-driven screen. Still
+  undecided.
 - [ ] **Accessibility audit** — **M-L**. No systematic check of contrast, keyboard
-  navigation or screen-reader behaviour. Forms/modals/contrast are tractable; the React
-  Flow canvas will stay hard regardless — say so plainly rather than claim coverage.
+  navigation or screen-reader behaviour has been run against the Svelte UI yet — the old
+  React-era audit (never done either, per the prior version of this file) doesn't carry
+  over automatically even though most components ported close to 1:1.
 
 ## Phase 23 — Code health & tooling
 
 - [x] Bundle-size code-splitting, i18n unified to French, Prettier CI gate,
-  circular-dependency lint, complexity lint, the four hook-adoption cleanups
-  (`useDraftValue`/`useDismissablePopover`/`useEscapeKey`/typed `localStorage` helpers), a
-  "reach for this before writing that" table in `CONTRIBUTING.md` — done 2026-08-08 through
-  2026-08-15.
-- [x] **Component catalogue** — done 2026-08-21, as an in-app page rather than Storybook
-  (`components/dev/ComponentCatalogue.tsx`, routed at `/#components`, same
-  lazy-loaded-outside-auth shape as the `#bench` perf harness) — every `ui/` primitive,
-  every variant, both themes, on one screen. Documented in `CONTRIBUTING.md`'s new
-  "Dev-only routes" section.
+  circular-dependency lint, complexity lint, a "reach for this before writing that" table in
+  `CONTRIBUTING.md`.
+- [x] **Component catalogue** — `apps/web/src/components/dev/ComponentCatalogue.svelte`,
+  routed at `/#components`. Re-verified 2026-09-23 via the E2E suite: every primitive
+  renders in both themes with zero console errors.
 - [x] Web test coverage beyond pure logic — closed with Phase 11's browser-test-tooling
-  item, not repeated here.
-- [x] **Split `room.ts`** — done 2026-08-21: 512 → 402 lines. Two genuinely separable
-  pieces came out clean — `realtime/roomRegistry.ts` (the room `Map` + free functions:
-  `getRoom`/`closeAllRooms`/etc., zero coupling to `Room` internals) and
-  `realtime/room/limits.ts` (`enforceLimits`, a near-pure function over `doc` +
-  `pendingChecks`). Deviated from the plan's `awareness.ts`/`connection.ts` split on
-  purpose: on inspection those two are the *same* concern here (the awareness listener
-  mutates the same `conns` map `receive()` reads), and forcing them apart would have added
-  cross-file indirection instead of removing coupling. `yjs/room.test.ts` and the full
-  server suite (128 tests) pass unchanged.
-- [x] **File-size watchlist, first pass** — done 2026-08-21: `CanvasArea.tsx` 490 → 396
-  lines (`useCollaboratorCursor.ts`, `useCanvasDeleteKey.ts`, `canvasMinimapColor.ts`
-  extracted — each a real, bounded concern, not an arbitrary split) and `ProjectEditor.tsx`
-  462 → 379 lines (`useCanvasCommandRunner.ts` — status line, command execution, the
-  auto-layout/group-tables buttons, and the global plugin-shortcut binding, all one
-  concern that component only ever *triggered*). Found and fixed a real duplication in the
-  process: `DbmlPanel.tsx` and `ProjectEditor.tsx` each hand-rolled the same "transient
-  status line with its own timer" state — now `hooks/useFlashMessage.ts`, added to
-  `CONTRIBUTING.md`'s reach-for-this table. Still open, unchanged by this pass:
-  `editor/dbml/language.ts` (401 l.), `dbml-engine/src/dbml.ts` (442 l.),
-  `plugins/registry.ts` (389 l.), `editor/dbml/searchPanel.ts` (372 l.),
-  `editor/nodes/table/TableSettingsPopover.tsx` (320 l.) — none over 500, do
-  opportunistically.
+  item.
+- [x] `realtime/room.ts` split (`roomRegistry.ts`, `room/limits.ts`) — server-side, untouched
+  by the Svelte migration, still 402 lines.
+- [~] **File-size watchlist — refreshed 2026-09-23** (post-migration line counts differ from
+  before; nothing here is broken, just worth splitting opportunistically, same as before):
+  - `packages/dbml-engine/src/dbml.ts` — 504 l. (server-side, grown from 442)
+  - `apps/web/src/features/plugins/communityTemplates.ts` — 722 l. (data-heavy, may not be
+    worth splitting — it's mostly template content, not logic)
+  - `apps/web/src/features/editor/dbml/symbols.ts` — 566 l.
+  - `apps/web/src/features/connections/DeploymentModal.svelte` — 501 l.
+  - `apps/web/src/features/editor/canvas/autoLayout.ts` — 465 l.
+  - `apps/web/src/features/editor/canvas/CanvasArea.svelte` — 463 l.
+  - `apps/web/src/features/editor/ProjectEditor.svelte` — 459 l.
+  - `apps/web/src/features/connections/ConnectionManagerModal.svelte` — 449 l.
+  - None of the above are structural bugs — split opportunistically, same policy as before.
+- [x] **Lint cleanup** — done 2026-09-23, `npm run lint` is clean again.
+  `generateFieldAlterations` split into one helper per change kind (engine tests
+  unchanged and green); `perfMonitor.ts` got back the past-threshold `console.warn` its
+  `quiet` flag and doc comment describe (the flag had nothing left to silence); unused
+  `reply` param dropped.
+- [x] **DBML default expressions lost their backticks on round-trip** — fixed 2026-09-23.
+  `Field.defaultKind` (`expression`/`string`/`number`/`boolean`, straight from @dbml/core's
+  `dbdefault.type`) rides alongside the unchanged `Field.default` string, so no consumer
+  of `default` (drivers, plugins) had to change. Serializer writes `` `now()` `` vs
+  `'now()'` by kind; one `sqlDefaultLiteral` decides SQL literals for CREATE, ALTER SET
+  DEFAULT (which used to quote `now()` as a string) and rollback. No kind (older data,
+  field-editor input) → the previous guess, and the serializer's guess now matches the SQL
+  generator's, so legacy `now()` gets written back as an expression and fixed on the next
+  parse. Field editor shows/accepts backticks for expressions. Diffs only flag a kind
+  change when both sides have one. Tests: `defaults.test.ts`; verified in the real DBML
+  panel on a template project.
+- [ ] **Confirm two perf regressions the migration's own bench flagged** — **S**, from
+  `docs/perf/svelte-migration-results.md` (single pass, explicitly marked "to confirm with a
+  second pass" in that doc): `zoom-links-on` at "complet" detail level went from 0→29ms
+  blocking at 100 tables and 4→40ms at 500 tables; `delete-columns` at 500 tables regressed
+  ~6ms. Both are small in absolute terms and the same doc shows the *overall* migration is a
+  large net win (−58% blocking time, −36% mount time), but neither regression has had a
+  second measurement pass to confirm it's real and not noise.
 
 ## Phase 24 — Observability & operations
 
-- [x] Real `/api/health` (DB check, room count, uptime, 503 on failure), scheduled backups
-  with retention, single-instance Docker Compose documented — done 2026-08-09.
-- [x] **Logging: request-id correlation + rotation guidance** — done 2026-08-21, with an
-  honest limit stated rather than overclaimed. `Room`'s `console.*` calls now go through a
-  `RoomLogger` interface (`realtime/room/logger.ts`) set to `app.log` at boot —
-  structured/JSON, a `room` field on every line, respects `ATHANORDB_LOG_LEVEL`. **Not** a
-  per-request id though: a `Room` outlives any single request (many connections and REST
-  calls touch the same one over its lifetime), so there's no one request to tag those
-  lines with — said explicitly in the code rather than pretended otherwise. Where a line
-  *does* map to exactly one request (the WS route's join/leave in `app.ts`), it now uses
-  that connection's own `req.log`, which does carry a real `reqId`. Rotation:
-  `docker-compose.yml` now sets the `json-file` driver with a cap (Docker's own default is
-  uncapped and grows the host disk forever); bare-process/systemd guidance is in the
-  README's new "Logs" section.
-- [x] **Metrics endpoint** — done 2026-08-21: `GET /api/metrics`, Prometheus text format —
-  room/connection counts (new `Room.connectionCount()` + `roomRegistry.totalConnectionCount()`),
-  hot-path timing from the existing `infrastructure/perf.ts` (`persistence.saveSnapshot`'s
-  stats *are* the snapshot-write latency this item asked for — it was already
-  instrumented, just never exposed), error counts since boot. No auth, same reasoning as
-  `/api/health`. See `infrastructure/metrics.ts`.
-- [x] **Error tracking** — done 2026-08-21. New `error_log` SQLite table (migration 14,
-  row-capped at 2000 rather than date-retained — a debugging aid, not a compliance trail
-  like `audit_log`), written to by the Fastify error handler, `uncaughtException`/
-  `unhandledRejection`, and a new `POST /api/errors/client` that `ErrorBoundary.tsx` now
-  calls on every caught render crash (best-effort, never throws back into the boundary
-  that's already handling one, never awaited). Read via `GET /api/errors` (admin-only) and
-  a new _Admin console → Errors_ tab, sibling to the audit log tab. The client side had
-  nothing at all before this. 2 new tests in `app.test.ts`.
+- [x] `/api/health`, scheduled backups with retention, Docker Compose single-instance setup.
+- [x] Logging (request-id correlation where a request exists, rotation guidance).
+- [x] **Metrics endpoint** — `GET /api/metrics`, re-confirmed present 2026-09-23
+  (`infrastructure/metrics.ts`, `totalConnectionCount()` wired in).
+- [x] **Error tracking** — `error_log` table, `POST /api/errors/client`, admin UI tab.
 
 ## Phase 25 — Documentation, compliance & release process
 
 - [x] GDPR export/deletion/retention, self-hosted Google Fonts, `SECURITY.md`, reverse-proxy
-  deployment guidance — done 2026-08-09.
-- [~] **Versioning scheme / git tags** — decided 2026-08-21, documented in `CHANGELOG.md`'s
-  new "Versioning" section: SemVer, staying `0.y.z` until the V1 checklist in
-  `v1-roadmap.md` clears, then `1.0.0`. **Follow-through not done**: no version bump, no
-  tag yet — cutting the actual first tagged release (moving `CHANGELOG.md`'s `[Unreleased]`
-  entries under a dated heading, `npm version` across every workspace, `git tag`) is a
-  deliberate release action for whoever decides the current state is release-worthy, not
-  something to do unilaterally mid-cleanup.
+  deployment guidance.
+- [~] **Versioning scheme / git tags** — decided (SemVer, `0.y.z` until the V1 checklist
+  clears), documented in `CHANGELOG.md`. **Follow-through still not done**: confirmed
+  2026-09-23, `git tag -l` returns nothing, every workspace is still `0.0.1`. Cutting the
+  first tagged release is a deliberate release action, not something to do unilaterally.
 
 ## Phase 27 — Live database link & deployment
 
-From `v1-roadmap.md` §7 — connects a project to a real database: read-only introspection,
-drift detection against the live schema, migration SQL generation, and apply/rollback with
-per-environment history (`apps/server/src/modules/connections/`,
+Connects a project to a real database: read-only introspection, drift detection, migration
+SQL generation, apply/rollback with per-environment history
+(`apps/server/src/modules/connections/`,
 `packages/dbml-engine/src/{migrationDiff,migrationGenerator,rollbackGenerator}.ts`,
-`ConnectionManagerModal`/`DeploymentModal`). Phases A–D shipped and were hardened once for
-the SSRF/credential-encryption risks found in the first cut. **Each remaining gap needs its
-own security review before being closed, not an audit afterwards** — this is the one
-feature area where a mistake can destroy a client's data rather than just annoy them.
+`ConnectionManagerModal.svelte`/`DeploymentModal.svelte`). **This is the one feature area
+where a mistake can destroy a client's data — each remaining gap needs its own security
+review before being closed, not an audit afterwards.**
 
-- [~] **Close the residual Phase A–D gaps** — **M**, not just untested:
-  - DNS-rebinding protection (`hostGuard.ts` resolves-then-checks a hostname; a name that
-    resolves safely and then points elsewhere at connect time still gets through).
-  - A general private-IP-range block, if one is ever wanted — deliberately not the default
-    today, since a self-hosted deployment's own DB is routinely on `localhost`/LAN.
-  - Per-connection rate limiting.
+- [~] **Close the residual Phase A–D gaps** — **M**, all reconfirmed still open 2026-09-23:
+  - DNS-rebinding protection — `hostGuard.ts`'s own header comment still states this gap
+    explicitly (resolve-then-check is TOCTOU-vulnerable to a hostname that re-resolves
+    elsewhere at connect time).
+  - A general private-IP-range block, if one is ever wanted — deliberately not the default,
+    since a self-hosted deployment's own DB is routinely on `localhost`/LAN.
+  - ~~Per-connection rate limiting~~ — **done 2026-09-23**: `connections/connectionBudget.ts`,
+    enforced in `createDatabaseDriver` so every path (UI, `/api/v1`, test/pull/plan/deploy/
+    rollback) is covered. Keyed by the *target database* (engine+host+port+db or SQLite
+    file, SHA-256 so no connection string is kept), not the connection id — the ad-hoc
+    test route and several connections to one server share a budget. 30 driver opens/min,
+    plus 5 `executeMigration`/min; 429 `CONNECTION_RATE_LIMITED`, never recorded as a
+    failed deployment. In-memory per process (single-instance topology).
+  - ~~Deleted projects kept their connections~~ — **fixed 2026-09-23**: found while adding
+    webhooks. `PRAGMA foreign_keys` is off, so the schema's `ON DELETE CASCADE` never
+    fired: a deleted project's `project_connections` (encrypted credentials), deployment
+    history and project-restricted API keys outlived it. `deleteProjectCascade` now
+    deletes them explicitly, in one transaction. Rows orphaned *before* this fix are
+    still there — a one-off cleanup (`DELETE … WHERE project_id NOT IN (SELECT id FROM
+    projects)`) is worth running on existing instances.
   - An audit of what `sampleData`/risk-inspection queries can leak across a permission
     boundary.
   - A dedicated security review by someone who hasn't already been staring at this code.
-  - MySQL: no way to roll back *through* a mid-batch failure — the generated rollback SQL
-    reverses the complete diff, not whichever prefix actually executed before MySQL's
-    per-statement auto-commit stopped it partway.
-  - Multi-target promotion (dev → staging → prod) — a connection's `environment` is a
-    display/history label today, not a pipeline the app understands.
-- [ ] **Phase E — CI/CD automation** — **L**. "On merge to main, apply pending migrations to
-  staging" via API/CLI/webhook. No longer blocked — Phase 21's `/api/v1` deploy-trigger
-  endpoint (`deployments:trigger` scope) is exactly the primitive this needs — but the
-  CI-side wiring (a GitHub Action, a CLI wrapper, docs for a typical pipeline) isn't built.
+  - MySQL: no way to roll back *through* a mid-batch failure.
+  - Multi-target promotion (dev → staging → prod) — a connection's `environment` is still a
+    display/history label, not a pipeline the app understands.
+- [ ] **Phase E — CI/CD automation** — **L**. Not blocked (Phase 21's `/api/v1`
+  deploy-trigger endpoint is the primitive) but the CI-side wiring (GitHub Action, CLI
+  wrapper, docs) isn't built.
+- [ ] **Phase F — Database users & permissions management** — **XL**, needs scoping
+  first. **What:** manage the *connected database's own* accounts from the app, not
+  AthanorDB's users: list the roles/users that exist on the target DB and what they're
+  granted (per schema/table, ideally per column), create/drop a role, and grant/revoke
+  privileges (`SELECT`/`INSERT`/`UPDATE`/`DELETE`/…) through the same review-then-apply
+  flow a schema migration gets, so the diff and the generated `GRANT`/`REVOKE` SQL are
+  visible before anything runs. Confirmed 2026-09-23: nothing like this exists. The
+  `DatabaseDriver` interface (`drivers/interface.ts`) only has `testConnection`/
+  `introspectSchema`/`inspectRisks`/`executeMigration`/`close`, and no driver reads
+  `pg_roles`/`mysql.user`/`sys.database_principals`/`DBA_USERS`. **How:**
+  - Read side first, since it's lower risk and useful on its own: an
+    `introspectPrivileges()` per driver, returning one normalised shape (role, object,
+    privilege, grantable), shown in a new "Accès" tab of `ConnectionManagerModal.svelte`
+    (already 449 l., on the watchlist, so the tab should be a separate component).
+  - Write side: a privilege diff + `GRANT`/`REVOKE`/`CREATE ROLE` generator next to
+    `migrationGenerator.ts`, with a rollback counterpart like `rollbackGenerator.ts`, and
+    entries in the per-environment deployment history.
+  - Optional: declare the intended grants in the project itself (DBML has no syntax for
+    them, so a sidecar next to the visual metadata), so drift detection covers
+    permissions as well as structure.
+  - Dialect gaps to design around: SQLite has no users at all (hide the feature there);
+    MySQL privileges are per `user@host`; Oracle and SQL Server split logins/users/
+    schemas differently from Postgres roles.
+  **Security, above the Phase 27 bar:** creating an account needs a password, which the
+  app must never store or log (show a generated one once, or require the operator to
+  provide it). The stored connection's credentials need `CREATEROLE`/`GRANT OPTION`,
+  far more than introspection needs, so this should be opt-in per connection, gated
+  behind the project `administrator` level (not `edit`), recorded in the audit log, and
+  never able to touch the connection's own account (no locking yourself out). A separate
+  security review is required before the write side ships, same as the other Phase 27
+  gaps. **Blocked by:** nothing technically. Worth deciding with the Phase A–D residual
+  gaps (per-connection rate limiting, the `sampleData` permission-boundary audit)
+  before widening what a connection can do.
 
 ## Phase 28 — User-reported feedback (canvas popovers, DBML sync, relation UX)
 
-Added 2026-08-19 from a direct user feedback session, not a code audit.
-
-- [x] Table/column settings popovers now open beside the table (not over it) and close on
-  canvas pan/zoom — done 2026-08-19.
-- [x] Fixed a real bug: reordering a table's block in the DBML text got silently undone by
-  the next resync, because `Y.Map` iteration order is fixed at first insert and never
-  updates — `TABLE_ORDER_KEY` in `yjsBinding.ts` now tracks and restores the intended order
-  — done 2026-08-19.
-- [x] Ctrl+F in the DBML editor now focuses the search input — done 2026-08-19.
-- [x] Relation UX: cardinality glyphs no longer sit in a circle, duplicate "1"/"n" labels on
-  a shared column collapse to one, and relations can be reversed (settings popover +
-  right-click menu) — done 2026-08-19.
-- [x] **Canvas not always instant after a DBML edit** — the "second cause" this item was
-  waiting on turned out to be two real ones, both found and fixed 2026-08-20 with an
-  actual browser/bench harness instead of code review: the DBML-panel resync data-loss bug
-  (Phase 6 above) and, at larger schemas, measured rendering bottlenecks (React Flow
-  re-measuring the whole canvas per edit, an O(edges) store selector re-run per table on
-  every store mutation, etc.) — worst-case blocking time cut 10-240x at 100-500 tables.
-  Detail in `docs/perf/multiuser-concurrency-2026-08-20.md` and
-  `docs/perf/canvas-perf-2026-08-20.md`.
-- [ ] **Simplify waypoint create/move/delete on a relation line** — **M**. What: the
-  existing machinery (`useEdgeRouting.ts`/`EdgeWaypoints.tsx`/`EdgeContextMenu.tsx`) is
-  already fairly capable, but a plain click on the edge does either "select" or "insert a
-  waypoint" depending on cursor proximity to the line, decided by a `candidatePoint` the
-  user has no explicit indicator is armed beyond a small preview dot — the likely source of
-  the "too complicated" complaint, though not confirmed. **How:** needs hands-on iteration
-  against the real canvas (a browser connected) or the user's own steer on what specifically
-  feels wrong before redesigning.
+- [x] **Ref direction — FKs landed on the wrong table** — fixed 2026-09-23 (was 🔴). One
+  rule now, everywhere: **`from` = the column carrying the foreign key, `to` = the column
+  it references** (`packages/shared/src/refOrientation.ts`) — the rule the DB drivers, both
+  SQL generators and the Prisma/SQLite plugins already followed. Fixed:
+  - `toProject` orients @dbml/core's endpoints with @dbml/core's own exporter rule
+    (referenced = first endpoint with relation `1`). Every DBML spelling now parses the
+    same way: inline `[ref: > …]` on the FK column, `[ref: < …]` on the referenced column,
+    `Ref: a > b`, `Ref: b < a`, long form, and one-to-one `-` (`refDirection.test.ts`,
+    incl. SQL export, migration SQL and double round-trip for each).
+  - Serializer: one-to-one written referenced-side first (@dbml/core puts a `-` FK on the
+    second endpoint), so it round-trips.
+  - Display: canvas and SVG-export "1/n" endpoint labels, and both Mermaid generators
+    (built-in + community template), assumed the opposite convention — flipped.
+  - Canvas drag: a ref drawn key → plain column is stored the right way round.
+  - `refSignature` is direction-free now (legacy `a->b` sidecar keys still read), so a
+    flip never orphans a ref's style/waypoints or its match on reimport.
+  - **Stored data:** `Room` repairs certainly-inverted refs on load (`isRefInverted`:
+    one-to-many from a key to a non-key; one-to-one from a PK to a unique non-PK),
+    persisted as a revision authored "AthanorDB (sens des relations corrigé)", idempotent.
+    Ambiguous shapes (key↔key) are left alone. Test in `room.test.ts`.
+  - Verified in a real browser: blog template's SQL export now has all 5 FKs on the owning
+    table (was all 5 inverted); arrows point FK → referenced key.
+  **Still owed (Phase 27 rule):** deployment SQL changed as a consequence — worth a review
+  by someone else before the next real deployment, even though every path is now tested.
+- [x] Table/column settings popovers open beside the table, close on pan/zoom.
+- [x] Table-block reorder in DBML text no longer silently undone by resync
+  (`TABLE_ORDER_KEY` in `yjsBinding.ts`).
+- [x] Ctrl+F in the DBML editor focuses the search input.
+- [x] Relation UX: cardinality glyphs, duplicate label collapse, relation reversal.
+- [x] Canvas responsiveness after a DBML edit — both root causes (resync data loss, canvas
+  rendering bottlenecks) fixed and measured.
+- [ ] **Simplify waypoint create/move/delete on a relation line** — **M**. Confirmed still
+  the same mechanism 2026-09-23: `EdgeWaypoints.svelte`/`edgeRouting.svelte.ts` still decide
+  select-vs-insert-waypoint by cursor proximity to the line (`candidatePoint`), with only a
+  small preview dot as feedback. Needs hands-on iteration against the real canvas or the
+  user's own steer before redesigning.
 - [ ] **Auto-detect a relation pointing the "wrong" way** — **S-M**, needs a decision first.
-  What: the schema has no notion of "correct" direction to check against — `Ref.from`/`to`
-  are just two endpoints. **How:** a heuristic could flag a one-to-many ref whose "many"
-  side's field is `pk`/`unique`, or whose "one" side's field is a bare non-key int (signals
-  a swapped FK/PK) — but that heuristic needs the user's confirmation before building, since
-  a false-positive warning on a legitimate schema is worse than no warning.
+  Confirmed no such heuristic exists yet. A false-positive warning on a legitimate schema is
+  worse than no warning — needs the user's confirmation before building.
 
 ---
 
@@ -455,31 +418,27 @@ Added 2026-08-19 from a direct user feedback session, not a code audit.
 
 - **Auth model** — resolved: full email/password auth with sessions, per-project/team
   permissions, invitations, admin console. No external IdP integration.
-- **Canvas library** — React Flow, chosen for speed over a custom SVG/canvas engine;
-  revisit if performance suffers on very large schemas (500+ tables).
-- **History storage** — Yjs update log + periodic SQLite snapshots, avoids storing the
-  full doc on every change.
-- **SQLite as a SQL import/export dialect** — not supported by `@dbml/core` (only
-  postgres/mysql/mssql/snowflake/schemarb). SQLite **export** ships as the example plugin
-  (generated straight from the `Project`, no parser needed); SQLite **import** would still
-  need a dedicated DDL parser — not planned unless someone asks.
+- **Canvas library** — resolved 2026-09-22: migrated from React Flow to **Svelte Flow**
+  (`@xyflow/svelte`, same underlying `@xyflow/system` engine as React Flow) as part of the
+  full React → Svelte 5 rewrite. Net win on the measured bench (−58% blocking time, −36%
+  mount time, −7% critical-path bundle) — see `docs/perf/svelte-migration-results.md`. The
+  original "revisit if performance suffers on very large schemas" concern motivated part of
+  this move, not just the framework switch itself.
+- **History storage** — Yjs update log + periodic SQLite snapshots.
+- **SQLite as a SQL import/export dialect** — not supported by `@dbml/core` for import.
+  SQLite export ships as the example plugin. Import would need a dedicated DDL parser — not
+  planned unless someone asks.
 - **Plugin trust model** — sandboxed Worker + per-browser install, no server-side plugin
-  store. Revisit if plugins need to be shared across a team (see Phase 17).
-- **Desktop-only or responsive?** — undecided (Phase 22). Schema modelling on a phone is a
-  thin use case; declaring desktop-only costs a sentence, half-supporting touch costs an
-  **XL** and still disappoints.
-- **Is "local-first" the architecture or the marketing?** — today it's the marketing (all
-  state is server-side, corrected in the copy already). Committing to real offline
-  persistence (IndexedDB + deferred sync) would be a new architecture, not a copy fix.
-- **Is there a hosted product?** — the landing page's pricing section marks the "Cloud
-  géré" tier as not yet available, no price/CTA. If a hosted product ships, that pulls
-  billing, tenancy and an SLA into scope — and separately, an MIT-licensed core permits
-  anyone else to host it commercially too, which may be fine but should be a decision on
-  record rather than an oversight.
-- **Does the public API come before or after the DB link?** — Phase 27's Phase E is
-  blocked on Phase 21's API, but Phases A–D are not. The API unblocks more (webhooks, CI,
-  integrations); the DB link differentiates more. Sequencing them explicitly beats
-  discovering the dependency mid-build.
-- **i18n** — resolved 2026-08-09: all-French, no i18n library. Revisit only if a second
-  target language becomes a real goal — the strings are inline today, so adopting
-  i18next/react-intl later means touching every component that renders text.
+  store. Revisit if plugins need to be shared across a team (Phase 17).
+- **Desktop-only or responsive?** — still undecided (Phase 22).
+- **Is "local-first" the architecture or the marketing?** — still the marketing; all state
+  is server-side. Committing to real offline persistence (IndexedDB + deferred sync) would
+  be a new architecture, not a copy fix.
+- **Is there a hosted product?** — the landing page's pricing section still marks "Cloud
+  géré" as not yet available. If it ships, that pulls billing, tenancy and an SLA into
+  scope.
+- **Does the public API come before or after the DB link?** — Phase 27's Phase E is blocked
+  on Phase 21's API; Phases A–D are not.
+- **i18n** — resolved: all-French, no i18n library (now `i18n.svelte.ts`, a reactive module
+  instead of a React context — same decision, ported mechanism). Revisit only if a second
+  target language becomes a real goal.

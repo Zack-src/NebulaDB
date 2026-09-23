@@ -10,13 +10,19 @@ contribuer au code, [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ### Se connecter
 
-AthanorDB n'a pas d'inscription libre : un administrateur crée une invitation et
-vous transmet un lien `/invite/<token>`, valable 7 jours, sur lequel vous
-choisissez votre mot de passe. **Ce lien vaut création de compte** — il n'est
-protégé par rien d'autre, ne le faites pas suivre.
+AthanorDB n'a pas d'inscription libre : un administrateur crée une invitation,
+et vous recevez un lien `/invite/<token>`, valable 7 jours, sur lequel vous
+choisissez votre mot de passe — par e-mail si l'instance en envoie, sinon
+transmis à la main par l'administrateur. **Ce lien vaut création de compte** —
+il n'est protégé par rien d'autre, ne le faites pas suivre.
 
-Si vous perdez votre mot de passe, seul un administrateur peut le réinitialiser
-(il n'y a pas encore de « mot de passe oublié » en libre-service).
+Si vous perdez votre mot de passe, le lien **« Mot de passe oublié ? »** sous le
+formulaire de connexion vous envoie un lien de réinitialisation, valable une
+heure et utilisable une seule fois. Choisir un nouveau mot de passe déconnecte
+toutes vos sessions ouvertes et débloque un compte bloqué ; la double
+authentification, elle, reste exigée. Ce lien n'apparaît que si l'instance est
+configurée pour envoyer des e-mails — sinon, seul un administrateur peut
+réinitialiser votre mot de passe.
 
 ### Le tableau de bord
 
@@ -24,8 +30,14 @@ Si vous perdez votre mot de passe, seul un administrateur peut le réinitialiser
 et **Corbeille**. Un projet mis à la corbeille est récupérable ; la suppression
 définitive, elle, ne l'est pas.
 
-Le champ de recherche filtre la liste par nom. Le bouton de création ouvre
-directement un schéma vide.
+Le champ de recherche filtre la liste par nom et, dès deux caractères, cherche
+aussi **dans le contenu** de tous les projets auxquels vous avez accès : tables,
+colonnes et enums dont le nom correspond. Cliquer un résultat ouvre le projet
+centré sur la table, colonne surlignée. Le bouton de création ouvre
+directement un schéma vide ; **Depuis un modèle** propose à la place un schéma
+de départ déjà relié et disposé sur le canevas (blog, e-commerce, SaaS
+multi-tenant, authentification). Le projet créé est un projet ordinaire : tout
+y reste modifiable.
 
 ---
 
@@ -130,6 +142,13 @@ pouvez :
 - restaurer une révision — ce qui applique cet état comme une nouvelle
   modification, sans effacer l'historique intermédiaire.
 
+**Comparer** (barre d'outils) confronte le projet ouvert à un autre projet
+auquel vous avez accès. Les tables et colonnes sont rapprochées par leur nom :
+vous voyez celles qui manquent, celles en trop et les colonnes modifiées (type,
+nullabilité, valeur par défaut…). L'onglet _SQL de migration_ donne le script
+qui transforme un schéma en l'autre, dans le dialecte de votre choix ; le bouton
+⇄ inverse le sens. Ce script est à relire avant toute exécution.
+
 ---
 
 ## 5. Connecter une vraie base de données
@@ -231,8 +250,8 @@ Décochez-la sur un poste partagé : la session ne dure alors que 12 h et
 disparaît à la fermeture du navigateur.
 
 Après dix échecs de connexion, un compte est bloqué quinze minutes. C'est une
-protection contre les tentatives automatisées ; attendez, ou demandez à un
-administrateur de réinitialiser votre mot de passe.
+protection contre les tentatives automatisées ; attendez, réinitialisez votre
+mot de passe par e-mail, ou demandez à un administrateur de le faire.
 
 ### Vos données
 
@@ -265,12 +284,12 @@ détail figure dans la politique de confidentialité de votre instance — voir
 
 Dit explicitement pour éviter de le chercher :
 
-- pas de mot de passe oublié en libre-service, pas d'envoi d'email (la 2FA et
-  les sessions existent, mais un compte bloqué reste dépendant d'un admin) ;
+- pas de notifications par e-mail (ajout à un projet, réponse à un
+  commentaire) — les seuls e-mails envoyés sont les invitations et les
+  réinitialisations de mot de passe ;
 - pas de SSO ni de passkeys ;
 - pas de mode hors-ligne — un onglet fermé pendant une coupure perd les
   modifications non synchronisées ;
-- pas d'API publique ni de clés d'API ;
 - interface pensée pour un écran large, non adaptée au tactile.
 
 La double authentification (§8), le thème clair (§8) et la connexion à une
