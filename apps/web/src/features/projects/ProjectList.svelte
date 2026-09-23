@@ -11,6 +11,8 @@
   import EmptyTrashModal from "@/features/projects/components/EmptyTrashModal.svelte";
   import TemplatePickerModal from "@/features/projects/components/TemplatePickerModal.svelte";
   import { TEMPLATE_COPY } from "@/features/projects/components/templateCopy";
+  import GlobalSearchResults from "@/features/projects/components/GlobalSearchResults.svelte";
+  import type { SearchHit } from "@/services/searchApi";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
@@ -25,6 +27,7 @@
     loaded,
     onCreateProject,
     onOpen,
+    onOpenSearchHit,
     onRename,
     onSetStatus,
     onDeleteForever,
@@ -34,6 +37,7 @@
     loaded: boolean;
     onCreateProject: (name: string, template?: ProjectTemplateId) => Promise<CreateProjectResult>;
     onOpen: (project: ProjectSummary) => void;
+    onOpenSearchHit: (hit: SearchHit) => void;
     onRename: (project: ProjectSummary, name: string) => void;
     onSetStatus: (project: ProjectSummary, status: ProjectStatus) => void;
     onDeleteForever: (project: ProjectSummary) => Promise<string | null>;
@@ -236,6 +240,7 @@
           {/each}
         </div>
       {/if}
+      <GlobalSearchResults query={searchQuery} onOpenHit={onOpenSearchHit} />
     </div>
   </div>
 

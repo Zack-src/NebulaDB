@@ -34,6 +34,11 @@ export function getRoom(projectId: string): Room {
   return room;
 }
 
+/** The live room for a project if one is resident, without creating one — for read-only callers that can fall back to the stored snapshot. */
+export function peekRoom(projectId: string): Room | undefined {
+  return rooms.get(projectId);
+}
+
 /**
  * Snapshots every live room immediately. Called on SIGTERM/SIGINT: without it,
  * anything edited inside the last snapshot-debounce window is only in the

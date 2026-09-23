@@ -196,8 +196,20 @@
   // the editor).
   $effect(() => () => publishSelecting(false));
 
-  const jumpToTable = (tableId: string) =>
-    jumpToTableNode(props.nodesState.nodes, tableId, flow.setCenter, props.nodesState.setSelection.bind(props.nodesState));
+  // A jump is a deliberate viewport choice, same as the user panning: it must
+  // stop the refit-on-resize below from snapping back to "fit everything" —
+  // which it otherwise did whenever a jump landed right after mount (opening
+  // a project from a search hit), before the pane had its final size.
+  const jumpToTable = (tableId: string) => {
+    const found = jumpToTableNode(
+      props.nodesState.nodes,
+      tableId,
+      flow.setCenter,
+      props.nodesState.setSelection.bind(props.nodesState),
+    );
+    if (found) userMovedViewport = true;
+    return found;
+  };
 
   // Imperative handles for the pieces that live outside this canvas (the
   // export dialog, the DBML panel's double-click navigation).
@@ -210,7 +222,12 @@
   });
   $effect(() => {
     const navigateRef = props.navigateRef;
-    navigateRef.current = { goToTable: (tableId) => void jumpToTable(tableId) };
+    navigateRef.current = {
+      // Not ready until Svelte Flow has measured the nodes and run its own
+      // initial `fitView` — a jump made before that is silently undone by it.
+      // Callers that navigate right after mount retry on `false`.
+      goToTable: (tableId) => flowStore.nodesInitialized && !flowStore.fitViewQueued && jumpToTable(tableId),
+    };
     return () => {
       navigateRef.current = null;
     };

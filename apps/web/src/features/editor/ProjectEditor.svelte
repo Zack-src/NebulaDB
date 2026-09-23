@@ -60,6 +60,8 @@
     onDisplayNameChange: (name: string) => Promise<void>;
     onLogout: () => void;
     onBack: () => void;
+    /** Table (and optionally column) to centre on once the document has loaded — from a cross-project search hit. */
+    initialFocus?: { tableName: string; fieldName?: string } | null;
   } = $props();
 
   const { t } = useTranslation();
@@ -176,15 +178,42 @@
   // Same shape as the export handle above — this one drives the DBML editor's
   // double-click-to-canvas navigation instead of a screenshot.
   const canvasNavigateRef: { current: CanvasNavigateHandle | null } = { current: null };
-  function onNavigateToCanvas(target: { tableName: string; fieldName?: string }) {
+  /** Returns whether the canvas actually found the table — false while it hasn't rendered its nodes yet. */
+  function onNavigateToCanvas(target: { tableName: string; fieldName?: string }): boolean {
     const table = liveProject?.tables.find((tbl) => tbl.name.toLowerCase() === target.tableName.toLowerCase());
-    if (!table) return;
-    canvasNavigateRef.current?.goToTable(table.id);
+    if (!table) return false;
+    const found = canvasNavigateRef.current?.goToTable(table.id) ?? false;
     const field = target.fieldName
       ? table.fields.find((f) => f.name.toLowerCase() === target.fieldName!.toLowerCase())
       : undefined;
     selectedFieldId = field?.id ?? null;
+    return found;
   }
+
+  // One-shot: centre on the requested table once it exists in the doc *and*
+  // the canvas can navigate. Both arrive later than mount, independently:
+  // `liveProject` is non-null (but empty) before the first sync lands, and the
+  // canvas only reports ready after Svelte Flow's own initial fit. So this
+  // re-arms on every doc change until the target shows up, retries per frame
+  // until the canvas accepts the jump, and only then marks itself done.
+  let initialFocusDone = false;
+  $effect(() => {
+    const focus = props.initialFocus;
+    const tables = liveProject?.tables;
+    if (!focus || initialFocusDone || !tables) return;
+    if (!tables.some((table) => table.name.toLowerCase() === focus.tableName.toLowerCase())) return;
+    let attempts = 0;
+    let frame = 0;
+    const tryFocus = () => {
+      if (canvasNavigateRef.current && onNavigateToCanvas(focus)) {
+        initialFocusDone = true;
+        return;
+      }
+      if (++attempts < 120) frame = requestAnimationFrame(tryFocus);
+    };
+    frame = requestAnimationFrame(tryFocus);
+    return () => cancelAnimationFrame(frame);
+  });
 
   // Fields that are some ref's endpoint for a given table — shown outside
   // compact detail level even if not PK. A fresh Map/Set per project change;

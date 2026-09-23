@@ -5,6 +5,7 @@
   import { APP_SHELL } from "@/components/ui/layout";
   import type { CreateProjectResult } from "@/features/projects/projects.svelte";
   import type { ProjectTemplateId } from "@athanordb/dbml-engine";
+  import type { SearchHit } from "@/services/searchApi";
   import type { ProjectStatus, ProjectSummary, Session } from "@/types/index";
 
   let props: {
@@ -18,6 +19,7 @@
     onOpenSettings?: () => void;
     onLogout: () => void;
     onCreateProject: (name: string, template?: ProjectTemplateId) => Promise<CreateProjectResult>;
+    onOpenSearchHit: (hit: SearchHit) => void;
     onRenameProject: (p: ProjectSummary, name: string) => Promise<void>;
     onSetProjectStatus: (p: ProjectSummary, status: ProjectStatus) => Promise<void>;
     onDeleteProjectForever: (p: ProjectSummary) => Promise<string | null>;
@@ -45,6 +47,7 @@
       loaded={props.projectsLoaded}
       onCreateProject={props.onCreateProject}
       onOpen={props.onOpenProject}
+      onOpenSearchHit={props.onOpenSearchHit}
       onRename={props.onRenameProject}
       onSetStatus={props.onSetProjectStatus}
       onDeleteForever={props.onDeleteProjectForever}

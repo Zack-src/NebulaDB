@@ -11,6 +11,7 @@ import {
   type ProjectStatus,
 } from "./repository.js";
 import { closeRoom, getRoom } from "../../realtime/roomRegistry.js";
+import { forgetProjectIndex } from "../search/searchIndex.js";
 
 /**
  * Create/update/delete logic shared by the session-only
@@ -97,4 +98,5 @@ export function updateProject(id: string, input: UpdateProjectInput): { name?: s
 export function deleteProject(id: string): void {
   closeRoom(id);
   deleteProjectCascade(id);
+  forgetProjectIndex(id);
 }

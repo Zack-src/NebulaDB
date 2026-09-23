@@ -79,6 +79,7 @@
           onDisplayNameChange={auth.updateDisplayName}
           onLogout={auth.logout}
           onBack={routing.closeProject}
+          initialFocus={routing.focusTarget}
         />
       </ErrorBoundary>
     {/key}
@@ -111,7 +112,9 @@
     projects={projectsHandle.projects}
     projectsLoaded={projectsHandle.loaded}
     openLinkError={routing.openLinkError}
-    onOpenProject={routing.openProjectAndNavigate}
+    onOpenProject={(project) => routing.openProjectAndNavigate(project)}
+    onOpenSearchHit={(hit) =>
+      hit.tableName && routing.openProjectById(hit.projectId, { tableName: hit.tableName, fieldName: hit.fieldName })}
     onOpenAdmin={() => (adminOpen = true)}
     onOpenSettings={() => (viewMode = "settings")}
     onLogout={auth.logout}

@@ -24,6 +24,7 @@ import { registerProjectRoutes } from "./modules/projects/index.js";
 import { getProjectRow } from "./modules/projects/repository.js";
 import { registerPublicApiRoutes } from "./modules/publicApi/index.js";
 import { registerTeamRoutes } from "./modules/teams/routes.js";
+import { registerSearchRoutes } from "./modules/search/routes.js";
 import { registerUserRoutes } from "./modules/users/index.js";
 import { getRoom, liveRoomCount, setRoomLogger } from "./realtime/roomRegistry.js";
 import { renderPrometheusMetrics } from "./infrastructure/metrics.js";
@@ -172,6 +173,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerUserRoutes(app);
   registerTeamRoutes(app);
   registerProjectRoutes(app);
+  registerSearchRoutes(app);
   registerConvertRoutes(app);
   registerConnectionRoutes(app);
   registerAuditRoutes(app);

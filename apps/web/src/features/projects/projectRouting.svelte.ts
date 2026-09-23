@@ -4,6 +4,12 @@ import { ApiError } from "@/services/ApiError";
 import { fetchProject } from "@/services/projectsApi";
 import type { ProjectSummary, Session } from "@/types";
 
+/** Where to centre the canvas once a project opens — set by a cross-project search hit. */
+export interface CanvasFocusTarget {
+  tableName: string;
+  fieldName?: string;
+}
+
 export interface ProjectRoutingHandle {
   readonly inviteToken: string | null;
   /** Token from an emailed `/reset-password/:token` link, read once at mount like `inviteToken`. */
@@ -11,7 +17,11 @@ export interface ProjectRoutingHandle {
   readonly initialProjectId: string | null;
   readonly openProject: ProjectSummary | null;
   readonly openLinkError: string | null;
-  openProjectAndNavigate: (project: ProjectSummary) => void;
+  /** Consumed by the editor on mount; cleared on the next plain open so it never re-applies to another project. */
+  readonly focusTarget: CanvasFocusTarget | null;
+  openProjectAndNavigate: (project: ProjectSummary, focus?: CanvasFocusTarget) => void;
+  /** Same, from an id alone (a search hit) — uses the loaded list when it can, the API otherwise. */
+  openProjectById: (projectId: string, focus?: CanvasFocusTarget) => void;
   closeProject: () => void;
 }
 
@@ -37,6 +47,7 @@ export function useProjectRouting(
   const initialProjectId = projectIdFromLocation();
   let openProjectState = $state.raw<ProjectSummary | null>(null);
   let openLinkError = $state<string | null>(null);
+  let focusTarget = $state.raw<CanvasFocusTarget | null>(null);
 
   /**
    * Logging out closes whatever was open. Derived from the session rather than
@@ -47,10 +58,24 @@ export function useProjectRouting(
     return current && current !== "loading" ? openProjectState : null;
   });
 
-  const openProjectAndNavigate = (project: ProjectSummary) => {
+  const openProjectAndNavigate = (project: ProjectSummary, focus?: CanvasFocusTarget) => {
     openLinkError = null;
+    focusTarget = focus ?? null;
     openProjectState = project;
     history.pushState(null, "", `/project/${project.id}`);
+  };
+
+  const openProjectById = (projectId: string, focus?: CanvasFocusTarget) => {
+    const listed = projects().find((project) => project.id === projectId);
+    if (listed) {
+      openProjectAndNavigate(listed, focus);
+      return;
+    }
+    fetchProject(projectId)
+      .then((project) => openProjectAndNavigate(project, focus))
+      .catch(() => {
+        openLinkError = t("projects.linkForbidden");
+      });
   };
 
   const closeProject = () => {
@@ -78,6 +103,8 @@ export function useProjectRouting(
   // Mirrors browser back/forward on `/project/:id` <-> `/` to in-memory state.
   $effect(() => {
     const handlePopState = () => {
+      // A search hit's focus belongs to the open it came with, not to history navigation.
+      focusTarget = null;
       const id = projectIdFromLocation();
       if (!id) {
         openProjectState = null;
@@ -114,7 +141,11 @@ export function useProjectRouting(
     get openLinkError() {
       return openLinkError;
     },
+    get focusTarget() {
+      return focusTarget;
+    },
     openProjectAndNavigate,
+    openProjectById,
     closeProject,
   };
 }

@@ -124,6 +124,6 @@ export interface CanvasExportHandle {
 }
 
 export interface CanvasNavigateHandle {
-  /** Pans/zooms to the given table (by id) and selects it, same as clicking it directly. */
-  goToTable: (tableId: string) => void;
+  /** Pans/zooms to the given table (by id) and selects it, same as clicking it directly. False if no such node is on the canvas (yet). */
+  goToTable: (tableId: string) => boolean;
 }
