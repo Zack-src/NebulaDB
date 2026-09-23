@@ -113,7 +113,11 @@ function diffFieldsByName(beforeFields: Field[], afterFields: Field[]): Migratio
     } else if (b && a) {
       const typeChanged = !typesMatch(b.type, a.type);
       const notNullChanged = !!b.notNull !== !!a.notNull;
-      const defaultChanged = !defaultsMatch(b.default, a.default);
+      // `now()` the expression vs `'now()'` the string is a real change — but
+      // only knowable when both sides say which they are (a live database's
+      // introspected defaults, and older data, carry no kind).
+      const kindChanged = b.defaultKind !== undefined && a.defaultKind !== undefined && b.defaultKind !== a.defaultKind;
+      const defaultChanged = !defaultsMatch(b.default, a.default) || kindChanged;
       const pkChanged = !!b.pk !== !!a.pk;
       const uniqueChanged = !!b.unique !== !!a.unique;
 

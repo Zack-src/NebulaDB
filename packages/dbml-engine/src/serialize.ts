@@ -1,5 +1,6 @@
 import type {
   DetailLevel,
+  Field,
   Position,
   Project,
   Ref,
@@ -28,10 +29,26 @@ function quoteNoteText(note: string): string {
   return `'${note.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
 }
 
-function formatDefault(value: string): string {
+/** A bare function call (`now()`, `gen_random_uuid()`, `pg_catalog.now()`) or an SQL date keyword. */
+const LEGACY_EXPRESSION_RE = /^([A-Za-z_][\w.]*\(.*\)|current_timestamp|current_date|current_time)$/i;
+
+function quoteDefault(value: string): string {
+  return `'${value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
+}
+
+function formatDefault(value: string, kind?: Field["defaultKind"]): string {
+  if (kind === "expression") return `\`${value}\``;
+  if (kind === "number" || kind === "boolean") return value;
+  if (kind === "string") return quoteDefault(value);
+  // No kind (older data, or typed without backticks): best guess — the same
+  // one the SQL generator makes (`isSqlExpression`), so the DBML text and the
+  // generated SQL agree. Writing a guessed call as `` `now()` `` also lets the
+  // next parse record it as an expression for good, instead of freezing it as
+  // the string 'now()'.
   if (/^-?\d+(\.\d+)?$/.test(value)) return value;
   if (/^(true|false|null)$/i.test(value)) return value.toLowerCase();
-  return `'${value.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
+  if (LEGACY_EXPRESSION_RE.test(value.trim())) return `\`${value.trim()}\``;
+  return quoteDefault(value);
 }
 
 function tableName(table: Table): string {
@@ -209,7 +226,7 @@ export function projectToDbml(project: Project, options?: { includeVisualMetadat
       if (field.unique) settings.push("unique");
       if (field.notNull) settings.push("not null");
       if (field.increment) settings.push("increment");
-      if (field.default !== undefined) settings.push(`default: ${formatDefault(field.default)}`);
+      if (field.default !== undefined) settings.push(`default: ${formatDefault(field.default, field.defaultKind)}`);
       if (field.note) settings.push(`note: ${quoteNoteText(field.note)}`);
       const settingsStr = settings.length ? ` [${settings.join(", ")}]` : "";
       lines.push(`  ${quoteIdent(field.name)} ${field.type}${settingsStr}`);

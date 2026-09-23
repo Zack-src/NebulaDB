@@ -44,6 +44,8 @@ function fieldsEqual(a: Field, b: Field): boolean {
     !!a.notNull === !!b.notNull &&
     !!a.increment === !!b.increment &&
     a.default === b.default &&
+    // Older revisions carry no `defaultKind`: only a change between two known kinds counts.
+    (a.defaultKind === undefined || b.defaultKind === undefined || a.defaultKind === b.defaultKind) &&
     a.note === b.note
   );
 }

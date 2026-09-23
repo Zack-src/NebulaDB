@@ -97,9 +97,15 @@
     () => field.type,
     (next) => update({ type: next }),
   );
+  // Shown and typed the DBML way: backticks mark an expression (`` `now()` ``),
+  // so it can't be confused with the text "now()". Without backticks the kind
+  // is left unset and guessed downstream, as it always was for typed values.
   const defaultValue = useDraftValue(
-    () => field.default ?? "",
-    (next) => update({ default: next }),
+    () => (field.defaultKind === "expression" && field.default ? `\`${field.default}\`` : (field.default ?? "")),
+    (next) => {
+      const expression = /^`(.+)`$/s.exec((next ?? "").trim());
+      update(expression ? { default: expression[1], defaultKind: "expression" } : { default: next, defaultKind: undefined });
+    },
     { allowEmpty: true },
   );
   const note = useDraftValue(

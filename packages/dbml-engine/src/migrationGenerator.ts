@@ -117,19 +117,40 @@ function isSqlExpression(val: string): boolean {
   );
 }
 
+function quoteSqlString(value: string): string {
+  return `'${value.replace(/'/g, "''")}'`;
+}
+
+/**
+ * The SQL literal for `field.default`. With a `defaultKind` (anything parsed
+ * from DBML) there's nothing to guess: an expression is emitted as-is, a
+ * string is always quoted — even one that looks like `now()`. Without one
+ * (older data, values typed in the field editor), `legacyGuess` decides, as
+ * before. `null` when there is no default.
+ */
+export function sqlDefaultLiteral(field: Field, legacyGuess: (trimmed: string) => string): string | null {
+  if (field.default === undefined || field.default === "") return null;
+  const d = field.default.trim();
+  switch (field.defaultKind) {
+    case "expression":
+    case "number":
+      return d;
+    case "boolean":
+      return d.toLowerCase() === "null" ? "NULL" : d.toUpperCase();
+    case "string":
+      return quoteSqlString(field.default);
+    default:
+      return legacyGuess(d);
+  }
+}
+
 export function formatColumnDef(field: Field, dialect: MigrationDialect, typeOverride?: string): string {
   const parts = [q(field.name, dialect), typeOverride ?? (field.type || "text")];
   if (field.pk) parts.push("PRIMARY KEY");
   if (field.notNull && !field.pk) parts.push("NOT NULL");
   if (field.unique && !field.pk) parts.push("UNIQUE");
-  if (field.default !== undefined && field.default !== "") {
-    const d = field.default.trim();
-    if (isSqlExpression(d)) {
-      parts.push(`DEFAULT ${d}`);
-    } else {
-      parts.push(`DEFAULT '${d.replace(/'/g, "''")}'`);
-    }
-  }
+  const literal = sqlDefaultLiteral(field, (d) => (isSqlExpression(d) ? d : quoteSqlString(d)));
+  if (literal !== null) parts.push(`DEFAULT ${literal}`);
   return parts.join(" ");
 }
 
@@ -161,6 +182,158 @@ export function generateDropTable(tableName: string, dialect: MigrationDialect):
   return `DROP TABLE IF EXISTS ${q(tableName, dialect)};`;
 }
 
+type Resolution = MigrationResolutionMap[string] | undefined;
+
+/** Literal for a DEFAULT clause in an ALTER statement: quoted unless it already looks like a literal/expression. */
+function alterDefaultLiteral(raw: string): string {
+  const d = raw.trim();
+  return d.startsWith("'") || d.startsWith("(") || !Number.isNaN(Number(d)) ? d : `'${d.replace(/'/g, "''")}'`;
+}
+
+function dropColumnStatements(table: string, col: string, dialect: MigrationDialect, resolution: Resolution): string[] {
+  if (resolution?.strategy === "KEEP_IN_DB") {
+    return [`-- Kept column ${q(table, dialect)}.${q(col, dialect)} per resolution choice`];
+  }
+  const ifExists = dialect === "postgres" || dialect === "mssql" ? "IF EXISTS " : "";
+  return [`ALTER TABLE ${q(table, dialect)} DROP COLUMN ${ifExists}${q(col, dialect)};`];
+}
+
+function addColumnStatements(
+  table: string,
+  col: string,
+  after: Field,
+  dialect: MigrationDialect,
+  resolutions: MigrationResolutionMap,
+  resolution: Resolution,
+): string[] {
+  if (resolution?.strategy === "KEEP_IN_DB") {
+    return [`-- Skipped adding column ${q(table, dialect)}.${q(col, dialect)} per resolution choice`];
+  }
+
+  const fieldToAdd = { ...after };
+  if (resolution?.value) {
+    // A value typed into the resolution dialog: no DBML kind, so it's guessed like before.
+    fieldToAdd.default = resolution.value;
+    delete fieldToAdd.defaultKind;
+  }
+  const colDef = formatColumnDef(fieldToAdd, dialect, effectiveType(after, dialect, table, resolutions));
+  if (dialect === "mssql") return [`ALTER TABLE ${q(table, dialect)} ADD ${colDef};`];
+  if (dialect === "oracle") return [`ALTER TABLE ${q(table, dialect)} ADD (${colDef});`];
+  return [`ALTER TABLE ${q(table, dialect)} ADD COLUMN ${colDef};`];
+}
+
+/** Backfill or clear data before applying alterations, per the user's resolution choice. */
+function dataFixStatements(table: string, col: string, dialect: MigrationDialect, resolution: Resolution): string[] {
+  const t = q(table, dialect);
+  const c = q(col, dialect);
+  if (resolution?.strategy === "CLEAR_COLUMN_DATA") {
+    return [`UPDATE ${t} SET ${c} = NULL;`];
+  }
+  if (resolution?.strategy === "BACKFILL_DEFAULT" && resolution.value) {
+    const val =
+      resolution.value.startsWith("'") || !Number.isNaN(Number(resolution.value))
+        ? resolution.value
+        : `'${resolution.value.replace(/'/g, "''")}'`;
+    return [`UPDATE ${t} SET ${c} = ${val} WHERE ${c} IS NULL;`];
+  }
+  if (resolution?.strategy === "DELETE_OFFENDING_ROWS") {
+    return [`DELETE FROM ${t} WHERE ${c} IS NULL;`];
+  }
+  return [];
+}
+
+function typeChangeStatement(
+  table: string,
+  col: string,
+  after: Field,
+  targetType: string,
+  dialect: MigrationDialect,
+): string {
+  const t = q(table, dialect);
+  const c = q(col, dialect);
+  switch (dialect) {
+    case "postgres":
+      return `ALTER TABLE ${t} ALTER COLUMN ${c} TYPE ${targetType} USING ${c}::${targetType};`;
+    case "mysql":
+      return `ALTER TABLE ${t} MODIFY COLUMN ${formatColumnDef(after, dialect, targetType)};`;
+    case "mssql":
+      return `ALTER TABLE ${t} ALTER COLUMN ${c} ${targetType}${after.notNull ? " NOT NULL" : ""};`;
+    case "oracle":
+      return `ALTER TABLE ${t} MODIFY (${c} ${targetType});`;
+    default:
+      return `-- SQLite type altered for ${t}.${c} -> ${targetType}`;
+  }
+}
+
+function nullabilityChangeStatement(
+  table: string,
+  col: string,
+  after: Field,
+  targetType: string,
+  dialect: MigrationDialect,
+): string | undefined {
+  const t = q(table, dialect);
+  const c = q(col, dialect);
+  if (dialect === "postgres") {
+    return `ALTER TABLE ${t} ALTER COLUMN ${c} ${after.notNull ? "SET" : "DROP"} NOT NULL;`;
+  }
+  if (dialect === "mssql") {
+    // mssql folds nullability into the same ALTER COLUMN as a type change — repeat the
+    // full column def so a nullability-only change still specifies a type.
+    return `ALTER TABLE ${t} ALTER COLUMN ${c} ${targetType}${after.notNull ? " NOT NULL" : " NULL"};`;
+  }
+  if (dialect === "oracle") {
+    return `ALTER TABLE ${t} MODIFY (${c} ${after.notNull ? "NOT NULL" : "NULL"});`;
+  }
+  return undefined;
+}
+
+function defaultChangeStatement(
+  table: string,
+  col: string,
+  after: Field,
+  dialect: MigrationDialect,
+): string | undefined {
+  const t = q(table, dialect);
+  const c = q(col, dialect);
+  const literal = sqlDefaultLiteral(after, alterDefaultLiteral);
+  if (dialect === "postgres") {
+    return literal !== null
+      ? `ALTER TABLE ${t} ALTER COLUMN ${c} SET DEFAULT ${literal};`
+      : `ALTER TABLE ${t} ALTER COLUMN ${c} DROP DEFAULT;`;
+  }
+  if (dialect === "oracle" && literal !== null) {
+    return `ALTER TABLE ${t} MODIFY (${c} DEFAULT ${literal});`;
+  }
+  return undefined;
+}
+
+function modifyColumnStatements(
+  table: string,
+  fieldChange: MigrationFieldChange,
+  after: Field,
+  dialect: MigrationDialect,
+  resolutions: MigrationResolutionMap,
+  resolution: Resolution,
+): string[] {
+  const col = fieldChange.name;
+  const stmts = dataFixStatements(table, col, dialect, resolution);
+  const targetType = effectiveType(after, dialect, table, resolutions);
+
+  if (fieldChange.typeChanged) {
+    stmts.push(typeChangeStatement(table, col, after, targetType, dialect));
+  }
+  if (fieldChange.notNullChanged && dialect !== "mysql" && !fieldChange.typeChanged) {
+    const stmt = nullabilityChangeStatement(table, col, after, targetType, dialect);
+    if (stmt) stmts.push(stmt);
+  }
+  if (fieldChange.defaultChanged && dialect !== "mysql") {
+    const stmt = defaultChangeStatement(table, col, after, dialect);
+    if (stmt) stmts.push(stmt);
+  }
+  return stmts;
+}
+
 function generateFieldAlterations(
   tableChange: MigrationTableChange,
   fieldChange: MigrationFieldChange,
@@ -169,124 +342,18 @@ function generateFieldAlterations(
 ): string[] {
   const tableName = tableChange.name;
   const colName = fieldChange.name;
-  const resKey = `column:${tableName.toLowerCase()}.${colName.toLowerCase()}`;
-  const resolution = resolutions[resKey];
-  const stmts: string[] = [];
+  const resolution = resolutions[`column:${tableName.toLowerCase()}.${colName.toLowerCase()}`];
 
   if (fieldChange.status === "dropped") {
-    if (resolution?.strategy === "KEEP_IN_DB") {
-      return [`-- Kept column ${q(tableName, dialect)}.${q(colName, dialect)} per resolution choice`];
-    }
-    if (dialect === "postgres" || dialect === "mssql") {
-      stmts.push(`ALTER TABLE ${q(tableName, dialect)} DROP COLUMN IF EXISTS ${q(colName, dialect)};`);
-    } else {
-      stmts.push(`ALTER TABLE ${q(tableName, dialect)} DROP COLUMN ${q(colName, dialect)};`);
-    }
-    return stmts;
+    return dropColumnStatements(tableName, colName, dialect, resolution);
   }
-
   if (fieldChange.status === "added" && fieldChange.after) {
-    const after = fieldChange.after;
-    if (resolution?.strategy === "KEEP_IN_DB") {
-      return [`-- Skipped adding column ${q(tableName, dialect)}.${q(colName, dialect)} per resolution choice`];
-    }
-
-    const fieldToAdd = { ...after };
-    if (resolution?.value) {
-      fieldToAdd.default = resolution.value;
-    }
-    const addType = effectiveType(after, dialect, tableName, resolutions);
-    if (dialect === "mssql") {
-      stmts.push(`ALTER TABLE ${q(tableName, dialect)} ADD ${formatColumnDef(fieldToAdd, dialect, addType)};`);
-    } else if (dialect === "oracle") {
-      stmts.push(`ALTER TABLE ${q(tableName, dialect)} ADD (${formatColumnDef(fieldToAdd, dialect, addType)});`);
-    } else {
-      stmts.push(`ALTER TABLE ${q(tableName, dialect)} ADD COLUMN ${formatColumnDef(fieldToAdd, dialect, addType)};`);
-    }
-    return stmts;
+    return addColumnStatements(tableName, colName, fieldChange.after, dialect, resolutions, resolution);
   }
-
   if (fieldChange.status === "modified" && fieldChange.after) {
-    const after = fieldChange.after;
-
-    // Handle backfill or clear data before applying alterations
-    if (resolution?.strategy === "CLEAR_COLUMN_DATA") {
-      stmts.push(`UPDATE ${q(tableName, dialect)} SET ${q(colName, dialect)} = NULL;`);
-    } else if (resolution?.strategy === "BACKFILL_DEFAULT" && resolution.value) {
-      const val =
-        resolution.value.startsWith("'") || !Number.isNaN(Number(resolution.value))
-          ? resolution.value
-          : `'${resolution.value.replace(/'/g, "''")}'`;
-      stmts.push(
-        `UPDATE ${q(tableName, dialect)} SET ${q(colName, dialect)} = ${val} WHERE ${q(colName, dialect)} IS NULL;`,
-      );
-    } else if (resolution?.strategy === "DELETE_OFFENDING_ROWS") {
-      stmts.push(`DELETE FROM ${q(tableName, dialect)} WHERE ${q(colName, dialect)} IS NULL;`);
-    }
-
-    const targetType = effectiveType(after, dialect, tableName, resolutions);
-
-    // Type change
-    if (fieldChange.typeChanged) {
-      if (dialect === "postgres") {
-        stmts.push(
-          `ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} TYPE ${targetType} USING ${q(colName, dialect)}::${targetType};`,
-        );
-      } else if (dialect === "mysql") {
-        stmts.push(`ALTER TABLE ${q(tableName, dialect)} MODIFY COLUMN ${formatColumnDef(after, dialect, targetType)};`);
-      } else if (dialect === "mssql") {
-        stmts.push(
-          `ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} ${targetType}${after.notNull ? " NOT NULL" : ""};`,
-        );
-      } else if (dialect === "oracle") {
-        stmts.push(`ALTER TABLE ${q(tableName, dialect)} MODIFY (${q(colName, dialect)} ${targetType});`);
-      } else {
-        stmts.push(`-- SQLite type altered for ${q(tableName, dialect)}.${q(colName, dialect)} -> ${targetType}`);
-      }
-    }
-
-    // Nullability change
-    if (fieldChange.notNullChanged && dialect !== "mysql" && !fieldChange.typeChanged) {
-      if (dialect === "postgres") {
-        if (after.notNull) {
-          stmts.push(`ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} SET NOT NULL;`);
-        } else {
-          stmts.push(`ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} DROP NOT NULL;`);
-        }
-      } else if (dialect === "mssql") {
-        // mssql folds nullability into the same ALTER COLUMN as a type change — repeat the
-        // full column def so a nullability-only change still specifies a type.
-        stmts.push(
-          `ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} ${targetType}${after.notNull ? " NOT NULL" : " NULL"};`,
-        );
-      } else if (dialect === "oracle") {
-        stmts.push(
-          `ALTER TABLE ${q(tableName, dialect)} MODIFY (${q(colName, dialect)} ${after.notNull ? "NOT NULL" : "NULL"});`,
-        );
-      }
-    }
-
-    // Default change
-    if (fieldChange.defaultChanged && dialect !== "mysql") {
-      if (dialect === "postgres") {
-        if (after.default !== undefined && after.default !== "") {
-          const d = after.default.trim();
-          const defVal =
-            d.startsWith("'") || d.startsWith("(") || !Number.isNaN(Number(d)) ? d : `'${d.replace(/'/g, "''")}'`;
-          stmts.push(`ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} SET DEFAULT ${defVal};`);
-        } else {
-          stmts.push(`ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} DROP DEFAULT;`);
-        }
-      } else if (dialect === "oracle" && after.default !== undefined && after.default !== "") {
-        const d = after.default.trim();
-        const defVal =
-          d.startsWith("'") || d.startsWith("(") || !Number.isNaN(Number(d)) ? d : `'${d.replace(/'/g, "''")}'`;
-        stmts.push(`ALTER TABLE ${q(tableName, dialect)} MODIFY (${q(colName, dialect)} DEFAULT ${defVal});`);
-      }
-    }
+    return modifyColumnStatements(tableName, fieldChange, fieldChange.after, dialect, resolutions, resolution);
   }
-
-  return stmts;
+  return [];
 }
 
 /**

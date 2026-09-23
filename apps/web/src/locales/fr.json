@@ -409,7 +409,7 @@
   "field.increment": "Incrément",
   "field.incrementTooltip": "Auto-incrément (increment)",
   "field.defaultLabel": "Valeur par défaut",
-  "field.defaultPlaceholder": "ex. now(), 0, 'active'",
+  "field.defaultPlaceholder": "ex. `now()`, 0, 'active'",
   "field.noteLabel": "Note / description",
   "field.notePlaceholder": "Description",
 

@@ -2,6 +2,7 @@ import { Parser, ModelExporter } from "@dbml/core";
 import {
   defaultDetailLevelForNewTable,
   translateType,
+  type Field,
   type Position,
   type Project,
   type Ref,
@@ -109,6 +110,7 @@ export function toProject(database: any, projectName = "Untitled", source?: stri
       // callers (e.g. `formatDefault` when re-serializing to DBML) get what
       // the type promises.
       default: field.dbdefault?.value !== undefined ? String(field.dbdefault.value) : undefined,
+      defaultKind: field.dbdefault?.value !== undefined ? toDefaultKind(field.dbdefault.type) : undefined,
       note: field.note ?? undefined,
     }));
     // Index columns carry the column *name* (`column.value`), not a field
@@ -234,6 +236,10 @@ function orientEndpoints(endpoints: any[]): [any, any] {
   const referenced = endpoints.findIndex((endpoint) => endpoint.relation === "1");
   if (referenced === -1) return [endpoints[0], endpoints[1]];
   return [endpoints[1 - referenced], endpoints[referenced]];
+}
+
+function toDefaultKind(type: unknown): Field["defaultKind"] {
+  return type === "expression" || type === "string" || type === "number" || type === "boolean" ? type : undefined;
 }
 
 function mapCardinality(endpoints: any[]): "one-to-one" | "one-to-many" | "many-to-many" {

@@ -7,6 +7,7 @@ import {
   generateDropTable,
   q,
   refActionClause,
+  sqlDefaultLiteral,
   type MigrationDialect,
 } from "./migrationGenerator.js";
 
@@ -194,10 +195,10 @@ function invertFieldChange(
     }
 
     if (fieldChange.defaultChanged && dialect === "postgres") {
-      if (before.default !== undefined && before.default !== "") {
-        const d = before.default.trim();
-        const defVal =
-          d.startsWith("'") || d.startsWith("(") || !Number.isNaN(Number(d)) ? d : `'${d.replace(/'/g, "''")}'`;
+      const defVal = sqlDefaultLiteral(before, (d) =>
+        d.startsWith("'") || d.startsWith("(") || !Number.isNaN(Number(d)) ? d : `'${d.replace(/'/g, "''")}'`,
+      );
+      if (defVal !== null) {
         stmts.push(`ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} SET DEFAULT ${defVal};`);
       } else {
         stmts.push(`ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} DROP DEFAULT;`);

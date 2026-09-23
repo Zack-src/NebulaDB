@@ -26,6 +26,15 @@ export interface Field {
   notNull?: boolean;
   increment?: boolean;
   default?: string;
+  /**
+   * What `default` is, as DBML spells it: `` `now()` `` (expression), `'x'`
+   * (string), `3` (number), `true`/`null` (boolean). Without it `default` is
+   * a bare string and "is `now()` a function call or the text now()?" can only
+   * be guessed — which the DBML round trip used to get wrong (an expression
+   * came back as the string `'now()'`). Unset on older data and on values
+   * typed without backticks in the field editor: those keep the guess.
+   */
+  defaultKind?: "expression" | "string" | "number" | "boolean";
   note?: string;
 }
 
