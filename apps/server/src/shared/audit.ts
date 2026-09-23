@@ -56,7 +56,10 @@ export type AuditAction =
   | "connection.deploy"
   | "connection.rollback"
   | "apikey.create"
-  | "apikey.revoke";
+  | "apikey.revoke"
+  | "webhook.create"
+  | "webhook.update"
+  | "webhook.delete";
 
 export interface AuditActor {
   id: string | null;

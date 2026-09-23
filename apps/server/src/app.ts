@@ -25,8 +25,11 @@ import { getProjectRow } from "./modules/projects/repository.js";
 import { registerPublicApiRoutes } from "./modules/publicApi/index.js";
 import { registerTeamRoutes } from "./modules/teams/routes.js";
 import { registerSearchRoutes } from "./modules/search/routes.js";
+import { registerWebhookRoutes } from "./modules/webhooks/routes.js";
+import { noteSchemaChange } from "./modules/webhooks/dispatcher.js";
 import { registerUserRoutes } from "./modules/users/index.js";
 import { getRoom, liveRoomCount, setRoomLogger } from "./realtime/roomRegistry.js";
+import { setRoomDocChangeListener } from "./realtime/room.js";
 import { renderPrometheusMetrics } from "./infrastructure/metrics.js";
 import { ApiError, registerErrorHandler } from "./shared/errors.js";
 import { getEffectivePermission } from "./shared/permissions.js";
@@ -69,6 +72,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   // `realtime/room/logger.ts` for what this does (and doesn't) buy in terms
   // of correlation.
   setRoomLogger(app.log);
+  setRoomDocChangeListener(noteSchemaChange);
   await app.register(websocket, { options: { maxPayload: config.wsMaxPayload } });
   await app.register(fastifyCookie);
   // Global ceiling, deliberately loose — the collaborative UI is chatty. The
@@ -174,6 +178,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerTeamRoutes(app);
   registerProjectRoutes(app);
   registerSearchRoutes(app);
+  registerWebhookRoutes(app);
   registerConvertRoutes(app);
   registerConnectionRoutes(app);
   registerAuditRoutes(app);

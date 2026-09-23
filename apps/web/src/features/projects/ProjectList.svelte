@@ -10,6 +10,7 @@
   import DeleteProjectModal from "@/features/projects/components/DeleteProjectModal.svelte";
   import EmptyTrashModal from "@/features/projects/components/EmptyTrashModal.svelte";
   import TemplatePickerModal from "@/features/projects/components/TemplatePickerModal.svelte";
+  import WebhooksModal from "@/features/projects/components/WebhooksModal.svelte";
   import { TEMPLATE_COPY } from "@/features/projects/components/templateCopy";
   import GlobalSearchResults from "@/features/projects/components/GlobalSearchResults.svelte";
   import type { SearchHit } from "@/services/searchApi";
@@ -59,6 +60,7 @@
   let deleteError = $state<string | null>(null);
   let deletePending = $state(false);
   let teamsTarget = $state.raw<ProjectSummary | null>(null);
+  let webhooksTarget = $state.raw<ProjectSummary | null>(null);
   let emptyTrashOpen = $state(false);
   let emptyTrashError = $state<string | null>(null);
   let emptyTrashPending = $state(false);
@@ -236,6 +238,7 @@
               onSetStatus={(status) => onSetStatus(project, status)}
               onDeleteForever={() => openDeleteConfirmation(project)}
               onManageTeams={() => (teamsTarget = project)}
+              onManageWebhooks={() => (webhooksTarget = project)}
             />
           {/each}
         </div>
@@ -269,6 +272,9 @@
       onPick={handleCreateFromTemplate}
       onClose={() => (templatePickerOpen = false)}
     />
+  {/if}
+  {#if webhooksTarget}
+    <WebhooksModal project={webhooksTarget} onClose={() => (webhooksTarget = null)} />
   {/if}
   {#if teamsTarget}
     <ProjectTeamsModal project={teamsTarget} onClose={() => (teamsTarget = null)} />

@@ -306,6 +306,50 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 17,
+    name: "project_webhooks + webhook_deliveries tables",
+    up: (db) => {
+      // Outgoing webhooks (Phase 21). `secret_encrypted` signs every payload
+      // (HMAC) and is encrypted at rest with ATHANORDB_SECRET like connection
+      // credentials — it has to be recoverable to sign with, so hashing isn't
+      // an option. `webhook_deliveries` doubles as the retry queue: a pending
+      // row with a due `next_attempt_at` is picked up by the worker, so
+      // retries survive a restart.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS project_webhooks (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+          url TEXT NOT NULL,
+          format TEXT NOT NULL DEFAULT 'json',
+          events TEXT NOT NULL,
+          secret_encrypted TEXT NOT NULL,
+          enabled INTEGER NOT NULL DEFAULT 1,
+          consecutive_failures INTEGER NOT NULL DEFAULT 0,
+          disabled_reason TEXT,
+          created_by TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_project_webhooks_project ON project_webhooks(project_id);
+
+        CREATE TABLE IF NOT EXISTS webhook_deliveries (
+          id TEXT PRIMARY KEY,
+          webhook_id TEXT NOT NULL REFERENCES project_webhooks(id) ON DELETE CASCADE,
+          event TEXT NOT NULL,
+          payload TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending',
+          attempts INTEGER NOT NULL DEFAULT 0,
+          next_attempt_at TEXT,
+          last_error TEXT,
+          response_status INTEGER,
+          created_at TEXT NOT NULL,
+          completed_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_due ON webhook_deliveries(status, next_attempt_at);
+        CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_webhook ON webhook_deliveries(webhook_id, created_at DESC);
+      `);
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */

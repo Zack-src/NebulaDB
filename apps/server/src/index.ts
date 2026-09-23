@@ -6,6 +6,8 @@ import { db } from "./infrastructure/db.js";
 import { backupTimestamp, pruneOldBackups, runBackup } from "./infrastructure/backupRunner.js";
 import { purgeStaleAttempts } from "./modules/auth/lockout.js";
 import { purgeExpiredResetTokens } from "./modules/auth/passwordReset.js";
+import { startWebhookWorker } from "./modules/webhooks/dispatcher.js";
+import { purgeOldDeliveries } from "./modules/webhooks/repository.js";
 import { purgeExpiredSessions } from "./modules/auth/session.js";
 import { purgeExpiredMfaChallenges } from "./modules/auth/totpRepository.js";
 import { closeAllRooms, flushAllRooms } from "./realtime/roomRegistry.js";
@@ -39,6 +41,8 @@ const sweepSessions = () => {
     if (challenges > 0) app.log.info(`purged ${challenges} expired MFA challenge(s)`);
     const resetTokens = purgeExpiredResetTokens();
     if (resetTokens > 0) app.log.info(`purged ${resetTokens} expired/used password reset token(s)`);
+    const deliveries = purgeOldDeliveries();
+    if (deliveries > 0) app.log.info(`purged ${deliveries} webhook delivery log row(s) older than 30 days`);
   } catch (err) {
     app.log.error({ err }, "session sweep failed");
   }
@@ -46,6 +50,10 @@ const sweepSessions = () => {
 sweepSessions();
 const sessionSweepTimer = setInterval(sweepSessions, SESSION_SWEEP_MS);
 sessionSweepTimer.unref();
+
+// Webhook retries: deliveries whose next attempt has come due. First
+// attempts don't wait for this — they're sent as soon as they're queued.
+startWebhookWorker();
 
 /**
  * Scheduled backups, off unless `ATHANORDB_BACKUP_INTERVAL_HOURS` is set.

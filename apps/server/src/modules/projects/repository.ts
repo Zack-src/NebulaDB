@@ -59,12 +59,28 @@ export function updateProjectStatus(id: string, status: ProjectStatus): void {
   db.prepare("UPDATE projects SET status = ? WHERE id = ?").run(status, id);
 }
 
-/** Removes the project and everything that references it — revisions, snapshots, team grants. */
+/**
+ * Removes the project and everything that references it. Explicit rather
+ * than left to the schema's `ON DELETE CASCADE` clauses: SQLite only honours
+ * those with `PRAGMA foreign_keys = ON`, which this database has never set —
+ * so until 2026-09-23 a deleted project's database connections (encrypted
+ * credentials included), deployment history and project-restricted API keys
+ * all silently outlived it.
+ */
 export function deleteProjectCascade(id: string): void {
-  db.prepare("DELETE FROM project_teams WHERE project_id = ?").run(id);
-  db.prepare("DELETE FROM revisions WHERE project_id = ?").run(id);
-  db.prepare("DELETE FROM snapshots WHERE project_id = ?").run(id);
-  db.prepare("DELETE FROM projects WHERE id = ?").run(id);
+  db.transaction(() => {
+    db.prepare(
+      "DELETE FROM webhook_deliveries WHERE webhook_id IN (SELECT id FROM project_webhooks WHERE project_id = ?)",
+    ).run(id);
+    db.prepare("DELETE FROM project_webhooks WHERE project_id = ?").run(id);
+    db.prepare("DELETE FROM deployment_history WHERE project_id = ?").run(id);
+    db.prepare("DELETE FROM project_connections WHERE project_id = ?").run(id);
+    db.prepare("DELETE FROM api_keys WHERE project_id = ?").run(id);
+    db.prepare("DELETE FROM project_teams WHERE project_id = ?").run(id);
+    db.prepare("DELETE FROM revisions WHERE project_id = ?").run(id);
+    db.prepare("DELETE FROM snapshots WHERE project_id = ?").run(id);
+    db.prepare("DELETE FROM projects WHERE id = ?").run(id);
+  })();
 }
 
 export function teamExists(teamId: string): boolean {

@@ -54,6 +54,13 @@ export const ERROR_CATALOG = {
   ROLLBACK_NOT_AVAILABLE: { status: 400, message: "no rollback SQL is available for this deployment" },
   ROLLBACK_ALREADY_ATTEMPTED: { status: 400, message: "this deployment has already been rolled back" },
   API_KEY_NAME_REQUIRED: { status: 400, message: "name is required" },
+  WEBHOOK_URL_INVALID: { status: 400, message: "url must be an absolute http(s) URL without credentials" },
+  WEBHOOK_ENABLED_INVALID: { status: 400, message: "enabled must be a boolean" },
+  WEBHOOK_FORMAT_INVALID: { status: 400, message: "format must be one of json, slack, discord" },
+  WEBHOOK_EVENTS_INVALID: {
+    status: 400,
+    message: "events must be a non-empty array of schema.changed, deployment.completed",
+  },
   API_KEY_SCOPES_INVALID: {
     status: 400,
     message: "scopes must be a non-empty array of projects:read, projects:write, deployments:trigger",
@@ -85,11 +92,13 @@ export const ERROR_CATALOG = {
   SNAPSHOT_NOT_FOUND: { status: 404, message: "no snapshot saved yet" },
   CONNECTION_NOT_FOUND: { status: 404, message: "connection not found" },
   API_KEY_NOT_FOUND: { status: 404, message: "no such API key" },
+  WEBHOOK_NOT_FOUND: { status: 404, message: "no such webhook on this project" },
 
   // --- 409 ---
   EMAIL_ALREADY_EXISTS: { status: 409, message: "a user with this email already exists" },
   INVITATION_ALREADY_USED: { status: 409, message: "this invitation has already been used" },
   PROJECT_LIMIT_REACHED: { status: 409, message: "you have reached the maximum number of projects" },
+  WEBHOOK_LIMIT_REACHED: { status: 409, message: "a project can have at most 10 webhooks" },
 
   // --- 429 ---
   ACCOUNT_LOCKED: { status: 429, message: "too many failed attempts — this account is temporarily locked" },

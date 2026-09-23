@@ -12,6 +12,7 @@ import {
 } from "./repository.js";
 import { closeRoom, getRoom } from "../../realtime/roomRegistry.js";
 import { forgetProjectIndex } from "../search/searchIndex.js";
+import { invalidateWebhookCache } from "../webhooks/dispatcher.js";
 
 /**
  * Create/update/delete logic shared by the session-only
@@ -99,4 +100,5 @@ export function deleteProject(id: string): void {
   closeRoom(id);
   deleteProjectCascade(id);
   forgetProjectIndex(id);
+  invalidateWebhookCache(id);
 }

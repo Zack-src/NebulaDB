@@ -5,6 +5,27 @@ import { getRoom } from "../../realtime/roomRegistry.js";
 import { createDatabaseDriver } from "./drivers/index.js";
 import { getConnectionById } from "./repository.js";
 import { getDeploymentHistoryEntry, recordDeployment } from "./deploymentHistory.js";
+import { emitWebhookEvent } from "../webhooks/dispatcher.js";
+
+/** `deployment.completed` for the project's webhooks — success or failure, deploy or rollback. */
+function notifyDeployment(
+  projectId: string,
+  conn: { name: string; environment?: string | null; engine: string },
+  kind: "deploy" | "rollback",
+  result: { success: boolean; executedStatements: number; error?: string | null },
+  executedBy: string,
+): void {
+  emitWebhookEvent(projectId, "deployment.completed", {
+    kind,
+    connectionName: conn.name,
+    environment: conn.environment ?? null,
+    engine: conn.engine,
+    success: result.success,
+    executedStatements: result.executedStatements,
+    error: result.error ?? null,
+    executedBy,
+  });
+}
 
 /** Same naive split every driver already uses to *count* statements — kept here too so a history row's `totalStatements` matches what each driver itself reports. */
 function countStatements(sql: string): number {
@@ -74,6 +95,7 @@ export async function deployToConnection(
       error: result.error,
       executedByEmail,
     });
+    notifyDeployment(projectId, conn, "deploy", result, executedByEmail);
 
     if (!result.success) {
       throw new ApiError("MIGRATION_FAILED", {
@@ -140,6 +162,7 @@ export async function rollbackConnectionDeployment(
       error: result.error,
       executedByEmail,
     });
+    notifyDeployment(projectId, conn, "rollback", result, executedByEmail);
 
     if (!result.success) {
       throw new ApiError("ROLLBACK_FAILED", {

@@ -6,7 +6,7 @@
   import { MAX_NAME_LENGTH } from "@athanordb/shared";
   import { autofocus } from "@/actions/autofocus";
   import Icon from "@/components/icons/Icon.svelte";
-  import { ArchiveIcon, PencilIcon, RestoreIcon, TrashIcon, UsersIcon } from "@/components/icons/Icons";
+  import { ArchiveIcon, LinkIcon, PencilIcon, RestoreIcon, TrashIcon, UsersIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
   import Badge from "@/components/ui/Badge.svelte";
   import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
@@ -30,6 +30,7 @@
     onSetStatus,
     onDeleteForever,
     onManageTeams,
+    onManageWebhooks,
   }: {
     project: ProjectSummary;
     section: ProjectStatus;
@@ -44,6 +45,7 @@
     onSetStatus: (status: ProjectStatus) => void;
     onDeleteForever: () => void;
     onManageTeams: () => void;
+    onManageWebhooks: () => void;
   } = $props();
 
   const { t } = useTranslation();
@@ -150,6 +152,15 @@
               onclick={action(onManageTeams)}
             >
               <Icon icon={UsersIcon} size={13} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              data-tooltip={t("projects.card.webhooks")}
+              aria-label={t("projects.card.webhooks")}
+              onclick={action(onManageWebhooks)}
+            >
+              <Icon icon={LinkIcon} size={13} />
             </Button>
             {#if section === "archived"}
               <Button

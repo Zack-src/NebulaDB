@@ -34,6 +34,16 @@ const BLOCKED_HOSTS = new Set([
 /** fd00:ec2::254 is AWS's IPv6 metadata address, in its one canonical expanded form dns/net APIs return. */
 const BLOCKED_IPV6 = "fd00:ec2::254";
 
+/**
+ * The same check, for a single resolved address — what a connection-time
+ * `lookup` hook uses (see `webhooks/delivery.ts`), which checks the address
+ * actually being connected to and so has no DNS-rebinding gap.
+ */
+export function isBlockedAddress(address: string): boolean {
+  const normalized = address.trim().toLowerCase().replace(/^::ffff:/, "");
+  return BLOCKED_HOSTS.has(normalized) || normalized === BLOCKED_IPV6;
+}
+
 export async function assertHostAllowed(host: string | undefined): Promise<void> {
   if (!host) return;
   const trimmed = host.trim().toLowerCase();

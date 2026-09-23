@@ -26,6 +26,20 @@ import type { RoomLogger } from "./room/logger.js";
 
 /** Transaction origin — and so the revision's author in the history panel — for `repairRefOrientation`. */
 const REF_REPAIR_ORIGIN = "AthanorDB (sens des relations corrigé)";
+
+/**
+ * Told about every persisted doc change, with its author — how outgoing
+ * webhooks learn about schema edits without this module importing the
+ * webhooks module (which reads rooms, and would make a cycle). Set once from
+ * `buildApp()`, same pattern as `setRoomLogger`.
+ */
+type DocChangeListener = (projectId: string, author: string) => void;
+let docChangeListener: DocChangeListener | null = null;
+
+export function setRoomDocChangeListener(listener: DocChangeListener | null): void {
+  docChangeListener = listener;
+}
+
 const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
 const SNAPSHOT_DEBOUNCE_MS = 2000;
@@ -186,6 +200,15 @@ export class Room {
       this.log.error({ err, room: this.projectId }, "failed to append revision");
     }
     this.scheduleSnapshot();
+    // Same resilience rule as the revision write above: a listener's failure
+    // must never take the room down with it. Automatic repairs aren't news.
+    if (docChangeListener && origin !== REF_REPAIR_ORIGIN) {
+      try {
+        docChangeListener(this.projectId, author);
+      } catch (err) {
+        this.log.error({ err, room: this.projectId }, "doc change listener failed");
+      }
+    }
 
     const encoder = encoding.createEncoder();
     encoding.writeVarUint(encoder, MESSAGE_SYNC);
