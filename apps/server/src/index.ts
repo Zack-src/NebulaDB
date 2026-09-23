@@ -5,6 +5,7 @@ import { config } from "./config.js";
 import { db } from "./infrastructure/db.js";
 import { backupTimestamp, pruneOldBackups, runBackup } from "./infrastructure/backupRunner.js";
 import { purgeStaleAttempts } from "./modules/auth/lockout.js";
+import { purgeExpiredResetTokens } from "./modules/auth/passwordReset.js";
 import { purgeExpiredSessions } from "./modules/auth/session.js";
 import { purgeExpiredMfaChallenges } from "./modules/auth/totpRepository.js";
 import { closeAllRooms, flushAllRooms } from "./realtime/roomRegistry.js";
@@ -36,6 +37,8 @@ const sweepSessions = () => {
     // row behind forever.
     const challenges = purgeExpiredMfaChallenges();
     if (challenges > 0) app.log.info(`purged ${challenges} expired MFA challenge(s)`);
+    const resetTokens = purgeExpiredResetTokens();
+    if (resetTokens > 0) app.log.info(`purged ${resetTokens} expired/used password reset token(s)`);
   } catch (err) {
     app.log.error({ err }, "session sweep failed");
   }

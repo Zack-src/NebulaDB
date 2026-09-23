@@ -5,6 +5,8 @@ import { normalizeEmail } from "../auth/email.js";
 import { checkPassword, hashPassword } from "../auth/password.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireAdmin } from "../../shared/guards.js";
+import { appUrl, isMailEnabled, sendMail } from "../../infrastructure/mailer.js";
+import { invitationEmail } from "../../shared/emailTemplates.js";
 
 const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -59,7 +61,22 @@ export function registerInvitationRoutes(app: FastifyInstance): void {
       `${normalized}${isAdmin ? " (admin)" : ""}`,
       req,
     );
-    return reply.code(201).send({ token, inviteUrl: `/invite/${token}`, email: normalized, expiresAt });
+    // With email configured the invitee gets the link directly; without it (or
+    // if the send fails) the admin still gets `inviteUrl` to pass on by hand,
+    // exactly as before. A failed send doesn't fail the invitation — it
+    // already exists, and the admin can still copy the link.
+    let emailSent = false;
+    if (isMailEnabled()) {
+      try {
+        await sendMail(
+          invitationEmail(normalized, appUrl(`/invite/${token}`), admin.displayName || admin.email, new Date(expiresAt)),
+        );
+        emailSent = true;
+      } catch (err) {
+        req.log.error({ err }, "invitation email failed");
+      }
+    }
+    return reply.code(201).send({ token, inviteUrl: `/invite/${token}`, email: normalized, expiresAt, emailSent });
   });
 
   app.get("/api/invitations", async (req) => {

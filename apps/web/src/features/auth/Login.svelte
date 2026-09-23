@@ -12,15 +12,17 @@
   import { CHECKBOX_CLASS } from "@/components/ui/inputStyles";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
-  import { login } from "@/services/authApi";
+  import { fetchAuthFeatures, login } from "@/services/authApi";
   import type { Session } from "@/types";
   import MfaStep from "./MfaStep.svelte";
+  import ForgotPasswordStep from "./ForgotPasswordStep.svelte";
 
   type LoginTab = "login" | "invite";
 
   let {
     onLoggedIn,
     initialEmail,
+    initialNotice = "accountCreated",
   }: {
     onLoggedIn: (session: Session) => void;
     /** Pre-fills the email field and shows a "your account is ready" banner —
@@ -28,6 +30,8 @@
      * link, so this first sign-in reads as the deliberate next step rather
      * than a login prompt out of nowhere. */
     initialEmail?: string;
+    /** Which banner accompanies `initialEmail`: arriving from an invitation, or from a password reset. */
+    initialNotice?: "accountCreated" | "passwordReset";
   } = $props();
 
   const { t } = useTranslation();
@@ -43,6 +47,15 @@
   // presence is what switches the form below to the verification step, so
   // clearing it (the "back to login" link) is enough to return to step one.
   let mfaToken = $state<string | null>(null);
+  let forgotOpen = $state(false);
+  // Only offered when the server can actually send the email — a link that
+  // leads to "this instance has no email" is worse than no link.
+  let passwordResetAvailable = $state(false);
+  $effect(() => {
+    fetchAuthFeatures()
+      .then((features) => (passwordResetAvailable = features.passwordReset))
+      .catch(() => {});
+  });
 
   const signIn = useAsyncAction(async () => {
     const result = await login({ email: email.trim(), password, remember });
@@ -82,13 +95,15 @@
       </CardHeader>
 
       <CardBody class="space-y-5">
-        {#if initialEmail && !mfaToken}
+        {#if initialEmail && !mfaToken && !forgotOpen}
           <p class="rounded-lg border border-success/30 bg-success/10 px-3 py-2 text-xs text-success">
-            {t("login.accountCreated")}
+            {initialNotice === "passwordReset" ? t("login.passwordReset") : t("login.accountCreated")}
           </p>
         {/if}
         {#if mfaToken}
           <MfaStep {mfaToken} onBack={() => (mfaToken = null)} onVerified={onLoggedIn} />
+        {:else if forgotOpen}
+          <ForgotPasswordStep initialEmail={email.trim()} onBack={() => (forgotOpen = false)} />
         {:else}
           <Tabs
             variant="boxed"
@@ -141,6 +156,19 @@
               </Button>
 
               {#if signIn.error}<ErrorText>{signIn.error}</ErrorText>{/if}
+
+              {#if passwordResetAvailable}
+                <button
+                  type="button"
+                  class="block text-[11px] text-text-muted hover:text-text underline-offset-2 hover:underline"
+                  onclick={() => {
+                    signIn.clearError();
+                    forgotOpen = true;
+                  }}
+                >
+                  {t("login.forgot.link")}
+                </button>
+              {/if}
             </form>
           {/if}
 

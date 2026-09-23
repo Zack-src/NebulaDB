@@ -14,6 +14,7 @@ import { resolveApiKey } from "./modules/apiKeys/auth.js";
 import { registerAuditRoutes } from "./modules/audit/routes.js";
 import { registerAuthRoutes } from "./modules/auth/routes.js";
 import { registerTotpRoutes } from "./modules/auth/totpRoutes.js";
+import { registerPasswordResetRoutes } from "./modules/auth/passwordResetRoutes.js";
 import { resolveSession } from "./modules/auth/session.js";
 import { registerConvertRoutes } from "./modules/convert/routes.js";
 import { registerConnectionRoutes } from "./modules/connections/routes.js";
@@ -166,6 +167,7 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   registerAuthRoutes(app);
   registerTotpRoutes(app);
+  registerPasswordResetRoutes(app);
   registerInvitationRoutes(app);
   registerUserRoutes(app);
   registerTeamRoutes(app);
@@ -191,6 +193,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     // this explicit fallback to index.html (Vite's dev server already does this
     // by default, so dev needs no equivalent).
     app.get("/invite/:token", (_req, reply) => reply.sendFile("index.html"));
+    app.get("/reset-password/:token", (_req, reply) => reply.sendFile("index.html"));
     app.get("/project/:id", (_req, reply) => reply.sendFile("index.html"));
     app.log.info(`serving built web app from ${webDist}`);
   }

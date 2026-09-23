@@ -285,6 +285,27 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 16,
+    name: "password_reset_tokens table",
+    up: (db) => {
+      // Self-service "forgot password" (Phase 19). Same storage rule as
+      // `api_keys`: only the SHA-256 of the emailed token is kept, so a copy
+      // of the database (a backup, a stolen disk) can't be turned into a
+      // working reset link. Single-use via `used_at`, claimed with a
+      // conditional UPDATE the same way `invitations.accepted_at` is.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS password_reset_tokens (
+          token_hash TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+          expires_at TEXT NOT NULL,
+          used_at TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_password_reset_tokens_user ON password_reset_tokens(user_id);
+      `);
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */

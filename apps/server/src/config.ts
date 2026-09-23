@@ -124,6 +124,78 @@ function readAllowedOrigins(): string[] {
     .filter(Boolean);
 }
 
+/**
+ * The URL users reach the app at, e.g. `https://schemas.example.com`. Needed
+ * wherever the server has to hand out an absolute link with no request to
+ * derive it from — an email is read long after, and far from, the request
+ * that sent it. Trusting the request's `Host` header instead would let anyone
+ * who can reach the reset endpoint have a victim's reset link point at a
+ * domain of their choosing (host-header poisoning).
+ */
+function readPublicUrl(): string | null {
+  const raw = process.env.ATHANORDB_PUBLIC_URL?.trim();
+  if (!raw) return null;
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    fail(`ATHANORDB_PUBLIC_URL must be an absolute http(s) URL (got ${JSON.stringify(raw)})`);
+  }
+  if (url.protocol !== "http:" && url.protocol !== "https:") {
+    fail(`ATHANORDB_PUBLIC_URL must use http or https (got ${JSON.stringify(raw)})`);
+  }
+  return url.origin + url.pathname.replace(/\/+$/, "");
+}
+
+export interface SmtpConfig {
+  host: string;
+  port: number;
+  /** Implicit TLS from the first byte (port 465). `false` still upgrades with STARTTLS when the server offers it. */
+  secure: boolean;
+  user: string | null;
+  password: string | null;
+  from: string;
+}
+
+/**
+ * Outgoing email. Entirely optional: unset `ATHANORDB_SMTP_HOST` means no
+ * email at all — invitations fall back to a link the admin copies by hand,
+ * and "forgot password" isn't offered — rather than a boot failure for an
+ * instance that never wanted email. Once a host *is* set, everything it needs
+ * is validated here, so a typo fails at boot instead of on the first reset
+ * request.
+ */
+function readSmtp(publicUrl: string | null): SmtpConfig | null {
+  const host = process.env.ATHANORDB_SMTP_HOST?.trim();
+  if (!host) return null;
+
+  const rawPort = process.env.ATHANORDB_SMTP_PORT?.trim();
+  const port = rawPort ? Number(rawPort) : 587;
+  if (!Number.isInteger(port) || port < 1 || port > 65535) {
+    fail(`ATHANORDB_SMTP_PORT must be an integer between 1 and 65535 (got ${JSON.stringify(rawPort)})`);
+  }
+
+  const rawSecure = process.env.ATHANORDB_SMTP_SECURE?.trim();
+  if (rawSecure && rawSecure !== "true" && rawSecure !== "false") {
+    fail(`ATHANORDB_SMTP_SECURE must be "true" or "false" (got ${JSON.stringify(rawSecure)})`);
+  }
+  const secure = rawSecure ? rawSecure === "true" : port === 465;
+
+  const user = process.env.ATHANORDB_SMTP_USER?.trim() || null;
+  const password = process.env.ATHANORDB_SMTP_PASSWORD ?? null;
+  if (user && !password) fail("ATHANORDB_SMTP_USER is set but ATHANORDB_SMTP_PASSWORD is not");
+
+  const from = process.env.ATHANORDB_SMTP_FROM?.trim();
+  if (!from) fail("ATHANORDB_SMTP_FROM is required when ATHANORDB_SMTP_HOST is set (e.g. \"AthanorDB <noreply@example.com>\")");
+
+  if (!publicUrl) {
+    fail("ATHANORDB_PUBLIC_URL is required when ATHANORDB_SMTP_HOST is set — emails need absolute links");
+  }
+  return { host, port, secure, user, password: user ? password : null, from };
+}
+
+const publicUrl = readPublicUrl();
+
 export const config = {
   isProduction,
   port: readPort(),
@@ -141,4 +213,7 @@ export const config = {
   backupKeep: readBackupKeep(),
   /** 0 keeps audit entries indefinitely. */
   auditRetentionDays: readAuditRetentionDays(),
+  publicUrl,
+  /** `null` means email is off — see `readSmtp`. */
+  smtp: readSmtp(publicUrl),
 } as const;

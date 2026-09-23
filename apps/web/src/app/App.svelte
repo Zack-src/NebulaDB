@@ -9,6 +9,7 @@
   import Login from "@/features/auth/Login.svelte";
   import SettingsPage from "@/features/settings/SettingsPage.svelte";
   import AcceptInvite from "@/features/auth/AcceptInvite.svelte";
+  import ResetPassword from "@/features/auth/ResetPassword.svelte";
   import AdminConsole from "@/features/admin/AdminConsole.svelte";
   import { APP_SHELL } from "@/components/ui/layout";
 
@@ -29,6 +30,8 @@
   // and never clears itself, so without this the app would keep showing
   // AcceptInvite forever after a successful accept.
   let welcomeEmail = $state<string | null>(null);
+  // Same "step done" role as `welcomeEmail`, for an emailed reset link.
+  let resetEmail = $state<string | null>(null);
 
   const session = $derived(auth.session);
 </script>
@@ -39,6 +42,16 @@
       token={routing.inviteToken}
       onAccepted={(email) => {
         welcomeEmail = email;
+        window.history.replaceState(null, "", "/");
+      }}
+    />
+  </div>
+{:else if routing.resetToken && !resetEmail}
+  <div class={APP_SHELL}>
+    <ResetPassword
+      token={routing.resetToken}
+      onDone={(email) => {
+        resetEmail = email;
         window.history.replaceState(null, "", "/");
       }}
     />
@@ -73,7 +86,8 @@
 {:else if !session}
   <!-- 2. Not authenticated -> Login (direct project URL or otherwise) -->
   <Login
-    initialEmail={welcomeEmail ?? undefined}
+    initialEmail={resetEmail ?? welcomeEmail ?? undefined}
+    initialNotice={resetEmail ? "passwordReset" : "accountCreated"}
     onLoggedIn={(next) => {
       auth.setSession(next);
       viewMode = "app";

@@ -33,9 +33,12 @@
   let email = $state("");
   let invitingAsAdmin = $state(false);
   let copiedToken = $state<string | null>(null);
+  let lastInvite = $state<{ email: string; emailSent: boolean } | null>(null);
 
   const invite = useAsyncAction(async () => {
-    await createInvitation(email.trim(), invitingAsAdmin);
+    lastInvite = null;
+    const created = await createInvitation(email.trim(), invitingAsAdmin);
+    lastInvite = { email: created.email, emailSent: created.emailSent };
     email = "";
     invitingAsAdmin = false;
     invitations.reload();
@@ -83,6 +86,13 @@
       {t("admin.invitations.invite")}
     </Button>
   </div>
+  {#if lastInvite}
+    <p class="-mt-4 mb-5 text-xs text-text-muted" role="status">
+      {lastInvite.emailSent
+        ? t("admin.invitations.emailSent", { email: lastInvite.email })
+        : t("admin.invitations.emailNotSent", { email: lastInvite.email })}
+    </p>
+  {/if}
   {#if error}<ErrorText>{error}</ErrorText>{/if}
   {#if rows.length === 0}
     <EmptyState>{invitations.loading ? t("common.loading") : t("admin.invitations.empty")}</EmptyState>

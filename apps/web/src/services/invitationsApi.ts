@@ -6,6 +6,8 @@ export interface CreatedInvitation {
   inviteUrl: string;
   email: string;
   expiresAt: string;
+  /** False when the instance has no email configured, or the send failed — the link then has to be passed on by hand. */
+  emailSent: boolean;
 }
 
 export function fetchInvitations(): Promise<InvitationSummary[]> {

@@ -6,6 +6,8 @@ import type { ProjectSummary, Session } from "@/types";
 
 export interface ProjectRoutingHandle {
   readonly inviteToken: string | null;
+  /** Token from an emailed `/reset-password/:token` link, read once at mount like `inviteToken`. */
+  readonly resetToken: string | null;
   readonly initialProjectId: string | null;
   readonly openProject: ProjectSummary | null;
   readonly openLinkError: string | null;
@@ -14,6 +16,7 @@ export interface ProjectRoutingHandle {
 }
 
 const INVITE_PATH = /^\/invite\/([^/]+)$/;
+const RESET_PATH = /^\/reset-password\/([^/]+)$/;
 const PROJECT_PATH = /^\/project\/([^/]+)$/;
 
 const projectIdFromLocation = () => location.pathname.match(PROJECT_PATH)?.[1] ?? null;
@@ -30,6 +33,7 @@ export function useProjectRouting(
 ): ProjectRoutingHandle {
   const { t } = useTranslation();
   const inviteToken = location.pathname.match(INVITE_PATH)?.[1] ?? null;
+  const resetToken = location.pathname.match(RESET_PATH)?.[1] ?? null;
   const initialProjectId = projectIdFromLocation();
   let openProjectState = $state.raw<ProjectSummary | null>(null);
   let openLinkError = $state<string | null>(null);
@@ -102,6 +106,7 @@ export function useProjectRouting(
 
   return {
     inviteToken,
+    resetToken,
     initialProjectId,
     get openProject() {
       return openProject;

@@ -26,6 +26,7 @@ export const ERROR_CATALOG = {
   DISPLAY_NAME_REQUIRED: { status: 400, message: "displayName is required" },
   PASSWORDS_REQUIRED: { status: 400, message: "currentPassword and newPassword are required" },
   PASSWORD_REQUIRED_FOR_DELETION: { status: 400, message: "password is required to delete your account" },
+  PASSWORD_RESET_TOKEN_INVALID: { status: 400, message: "this password reset link is invalid, expired or already used" },
   PASSWORD_TOO_WEAK: { status: 400, message: "the password does not meet the minimum requirements" },
   EMAIL_INVALID: { status: 400, message: "a valid email is required" },
   USER_ID_INVALID: { status: 400, message: "a valid userId is required" },
@@ -100,6 +101,10 @@ export const ERROR_CATALOG = {
   CONNECTION_SECRET_MISSING: {
     status: 503,
     message: "ATHANORDB_SECRET must be configured before a database connection can be stored",
+  },
+  PASSWORD_RESET_UNAVAILABLE: {
+    status: 503,
+    message: "password reset by email is not available: this instance has no email configured",
   },
   MIGRATION_FAILED: { status: 502, message: "the migration could not be applied to the target database" },
   ROLLBACK_FAILED: { status: 502, message: "the rollback could not be applied to the target database" },

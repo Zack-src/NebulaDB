@@ -81,3 +81,21 @@ export function regenerateBackupCodes(password: string): Promise<{ backupCodes: 
     body: { password },
   });
 }
+
+/** What the login screen may offer — today only whether "forgot password" works (it needs the server to have email configured). */
+export interface AuthFeatures {
+  passwordReset: boolean;
+}
+
+export function fetchAuthFeatures(): Promise<AuthFeatures> {
+  return request<AuthFeatures>("/api/auth/features");
+}
+
+/** Always resolves the same way whether or not the address has an account — the server never says which. */
+export function requestPasswordReset(email: string): Promise<void> {
+  return request<void>("/api/auth/password-reset/request", { method: "POST", body: { email } });
+}
+
+export function confirmPasswordReset(token: string, password: string): Promise<{ email: string }> {
+  return request<{ email: string }>("/api/auth/password-reset/confirm", { method: "POST", body: { token, password } });
+}

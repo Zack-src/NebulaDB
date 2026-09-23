@@ -211,3 +211,34 @@ test("accepting with a weak password is refused before the account is created", 
     await app.close();
   }
 });
+
+test("with no SMTP configured: invitations still work by link, and forgot-password isn't offered", async () => {
+  const app = await buildApp();
+  try {
+    const admin = await makeUser(1);
+    const adminCookie = await loginAs(app, admin.email, admin.password);
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/invitations",
+      headers: headers({ cookie: adminCookie }),
+      payload: { email: `no-smtp-${randomUUID()}@example.com` },
+    });
+    assert.equal(created.statusCode, 201);
+    assert.equal(created.json().emailSent, false);
+    assert.match(created.json().inviteUrl, /^\/invite\//);
+
+    const features = await app.inject({ method: "GET", url: "/api/auth/features", headers: headers() });
+    assert.deepEqual(features.json(), { passwordReset: false });
+
+    const reset = await app.inject({
+      method: "POST",
+      url: "/api/auth/password-reset/request",
+      headers: headers(),
+      payload: { email: admin.email },
+    });
+    assert.equal(reset.statusCode, 503);
+    assert.equal(reset.json().code, "PASSWORD_RESET_UNAVAILABLE");
+  } finally {
+    await app.close();
+  }
+});

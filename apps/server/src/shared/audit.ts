@@ -35,6 +35,8 @@ export type AuditAction =
   | "team.member.add"
   | "team.member.remove"
   | "user.password.reset"
+  | "user.password.reset_request"
+  | "user.password.reset_self"
   | "user.disable"
   | "user.enable"
   | "user.delete"

@@ -98,7 +98,11 @@ export interface E2eEnvironment {
  * session at all — so callers call `login(page, baseUrl)` themselves when
  * they need one.
  */
-export async function startE2eEnvironment(port: number): Promise<E2eEnvironment> {
+export async function startE2eEnvironment(
+  port: number,
+  /** Extra server env on top of the defaults — e.g. SMTP settings for the email flows. */
+  extraEnv: NodeJS.ProcessEnv = {},
+): Promise<E2eEnvironment> {
   const baseUrl = `http://127.0.0.1:${port}`;
   const dataDir = mkdtempSync(join(tmpdir(), "athanordb-e2e-"));
   const env: NodeJS.ProcessEnv = {
@@ -109,6 +113,7 @@ export async function startE2eEnvironment(port: number): Promise<E2eEnvironment>
     ATHANORDB_LOG_LEVEL: "silent",
     PORT: String(port),
     NODE_ENV: "production",
+    ...extraEnv,
   };
 
   let server: ChildProcess | null = null;

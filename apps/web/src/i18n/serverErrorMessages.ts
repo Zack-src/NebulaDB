@@ -26,6 +26,8 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   DISPLAY_NAME_REQUIRED: "errors.displayNameRequired",
   PASSWORDS_REQUIRED: "errors.passwordsRequired",
   PASSWORD_REQUIRED_FOR_DELETION: "errors.passwordRequiredForDeletion",
+  PASSWORD_RESET_TOKEN_INVALID: "errors.passwordResetTokenInvalid",
+  PASSWORD_RESET_UNAVAILABLE: "errors.passwordResetUnavailable",
   PASSWORD_TOO_WEAK: "errors.passwordTooWeak",
   EMAIL_INVALID: "errors.emailInvalid",
   USER_ID_INVALID: "errors.userIdInvalid",
