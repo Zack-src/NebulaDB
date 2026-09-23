@@ -88,7 +88,7 @@ export function registerInvitationRoutes(app: FastifyInstance): void {
   // Public — this is the one way to create an account without already having one.
   // Rate limited per IP: the token is the only credential, and the route both
   // hashes a password (expensive) and creates an account.
-  app.post("/api/invitations/:token/accept", ACCEPT_RATE_LIMIT, async (req, reply) => {
+  app.post("/api/invitations/:token/accept", ACCEPT_RATE_LIMIT, async (req) => {
     const { token } = req.params as { token: string };
     const invitation = db.prepare(`SELECT ${INVITATION_COLUMNS} FROM invitations WHERE token = ?`).get(token) as
       InvitationRow | undefined;

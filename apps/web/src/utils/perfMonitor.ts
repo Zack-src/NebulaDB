@@ -65,6 +65,14 @@ function record(label: string, durationMs: number): void {
   if (stat.samples.length > SAMPLE_CAP) stat.samples.shift();
 }
 
+function finishSpan(label: string, start: number): void {
+  const durationMs = performance.now() - start;
+  record(label, durationMs);
+  if (!quiet && durationMs > PERF_LOG_THRESHOLD_MS) {
+    console.warn(`[perf] ${label} took ${durationMs.toFixed(1)}ms`);
+  }
+}
+
 /** Wraps a synchronous hot-path function, recording (and, past the threshold, logging) how long it took. No-ops to a bare call when perf logging is off, so this is safe to leave in place permanently. */
 export function time<T>(label: string, fn: () => T): T {
   if (!enabled) return fn();
@@ -72,7 +80,7 @@ export function time<T>(label: string, fn: () => T): T {
   try {
     return fn();
   } finally {
-    record(label, performance.now() - start);
+    finishSpan(label, start);
   }
 }
 
@@ -83,7 +91,7 @@ export async function timeAsync<T>(label: string, fn: () => Promise<T>): Promise
   try {
     return await fn();
   } finally {
-    record(label, performance.now() - start);
+    finishSpan(label, start);
   }
 }
 
