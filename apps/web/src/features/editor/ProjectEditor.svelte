@@ -90,6 +90,7 @@
   let showImport = $state(false);
   let showExport = $state(false);
   let showConvertTypes = $state(false);
+  let showCompare = $state(false);
   let dbmlOpen = $state(true);
   let showHistory = $state(false);
   let showPlugins = $state(false);
@@ -341,6 +342,7 @@
     onShowExport={() => (showExport = true)}
     onShowConvertTypes={canWrite ? () => (showConvertTypes = true) : undefined}
     onShowHistory={() => (showHistory = true)}
+    onShowCompare={() => (showCompare = true)}
     onShowDeploy={() => (showDeployment = true)}
     isProjectAdmin={project.permission === "administrator"}
     onOpenSettings={() => (showSettings = true)}
@@ -465,6 +467,11 @@
   {#if showHistory && liveProject}
     {#await import("@/features/editor/history/HistoryPanel.svelte") then { default: HistoryPanel }}
       <HistoryPanel projectId={project.id} currentProject={liveProject} onClose={() => (showHistory = false)} />
+    {/await}
+  {/if}
+  {#if showCompare && liveProject}
+    {#await import("@/features/editor/compare/CompareProjectsModal.svelte") then { default: CompareProjectsModal }}
+      <CompareProjectsModal currentProject={liveProject} onClose={() => (showCompare = false)} />
     {/await}
   {/if}
   {#if showPlugins}

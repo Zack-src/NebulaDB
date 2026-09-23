@@ -23,6 +23,7 @@
     ChevronLeftIcon,
     ClockIcon,
     DownloadIcon,
+    LayersIcon,
     LayoutGridIcon,
     RedoIcon,
     SettingsIcon,
@@ -47,6 +48,7 @@
     onShowExport: () => void;
     onShowConvertTypes?: () => void;
     onShowHistory: () => void;
+    onShowCompare: () => void;
     onShowDeploy?: () => void;
     /**
      * `edit` is enough to change the schema, but a deployment reaches a live
@@ -76,6 +78,7 @@
       ? [{ icon: SwapHorizontalIcon, labelKey: "editor.convertTypes", onClick: props.onShowConvertTypes } as const]
       : []),
     { icon: ClockIcon, labelKey: "editor.history", onClick: props.onShowHistory },
+    { icon: LayersIcon, labelKey: "editor.compare", onClick: props.onShowCompare },
   ]);
 
   const historyActions = $derived<ToolbarAction[]>(

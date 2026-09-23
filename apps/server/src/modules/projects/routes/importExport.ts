@@ -12,6 +12,7 @@ import { ApiError } from "../../../shared/errors.js";
 import { requireProjectAccess } from "../../../shared/guards.js";
 import { reconstructDocAtRevision } from "../../../realtime/persistence.js";
 import { getRoom } from "../../../realtime/roomRegistry.js";
+import { readProjectReadOnly } from "../../../realtime/readOnlyProject.js";
 import { parseBaselineProject, parseSource, requireSqlDialect, sendSql } from "../dbmlSource.js";
 
 function loadRevisionProject(projectId: string, revisionId: string, name: string): Project {
@@ -65,6 +66,19 @@ export function registerProjectImportExportRoutes(app: FastifyInstance): void {
     // where it is.
     auditUser(user, "project.export", { type: "project", id }, "dbml", req);
     return reply.type("text/plain").send(projectToDbml(current, { includeVisualMetadata: visual === "1" }));
+  });
+
+  /**
+   * The project's current content as JSON — what the cross-project compare
+   * diffs against the one open in the editor. Read without starting a room
+   * (the compared project usually isn't open anywhere). Audited like the
+   * other exports: it hands over the whole schema.
+   */
+  app.get("/api/projects/:id/content", async (req) => {
+    const { id } = req.params as { id: string };
+    const { user, project } = requireProjectAccess(req, id, "view");
+    auditUser(user, "project.export", { type: "project", id }, "json (compare)", req);
+    return readProjectReadOnly(id, project.name);
   });
 
   app.get("/api/projects/:id/export/sql", async (req, reply) => {

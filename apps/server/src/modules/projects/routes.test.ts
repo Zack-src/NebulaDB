@@ -324,3 +324,33 @@ test("project-team routes: granting/revoking is project-admin-only, and an edit 
     await app.close();
   }
 });
+
+test("GET /api/projects/:id/content returns the schema as JSON for a viewer, without leaving a room resident", async () => {
+  const app = await buildApp();
+  try {
+    const owner = await makeUser();
+    const ownerCookie = await loginAs(app, owner.email, owner.password);
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/projects",
+      headers: headers({ cookie: ownerCookie }),
+      payload: { name: "Auth", template: "auth" },
+    });
+    const { id } = created.json() as { id: string };
+    closeAllRooms();
+
+    const { liveRoomCount } = await import("../../realtime/roomRegistry.js");
+    const res = await app.inject({ method: "GET", url: `/api/projects/${id}/content`, headers: headers({ cookie: ownerCookie }) });
+    assert.equal(res.statusCode, 200);
+    const project = res.json() as { name: string; tables: { name: string }[] };
+    assert.equal(project.name, "Auth");
+    assert.ok(project.tables.some((t) => t.name === "password_reset_tokens"));
+    assert.equal(liveRoomCount(), 0, "reading for a compare must not spin up a room");
+
+    const anonymous = await app.inject({ method: "GET", url: `/api/projects/${id}/content`, headers: headers() });
+    assert.equal(anonymous.statusCode, 401);
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
