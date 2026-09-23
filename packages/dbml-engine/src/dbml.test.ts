@@ -735,7 +735,8 @@ test("projectToDbml's sidecar carries ref style/routingPoints, enum position, gr
   const dbml = projectToDbml(project, { includeVisualMetadata: true });
   const meta = extractVisualMetadata(dbml)!;
 
-  assert.deepEqual(meta.refs?.["posts.author_id->users.id"], {
+  // Direction-free key — see `refSignature`.
+  assert.deepEqual(meta.refs?.["posts.author_id<->users.id"], {
     style: { color: "#ff0000" },
     routingPoints: [{ x: 400, y: 100 }],
   });

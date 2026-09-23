@@ -114,7 +114,8 @@ describe("Plugin Generators", () => {
   it("generateMermaid emits erDiagram syntax", () => {
     const mmd = generateMermaid(sampleProject);
     assert.match(mmd, /erDiagram/);
-    assert.match(mmd, /orders \|\|--o{ users : "user_orders"/);
+    // Many orders (the FK side, `ref.from`) to one user.
+    assert.match(mmd, /orders }o--\|\| users : "user_orders"/);
     assert.match(mmd, /users {/);
     assert.match(mmd, /varchar email UK/);
   });

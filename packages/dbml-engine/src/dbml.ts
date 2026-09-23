@@ -148,7 +148,7 @@ export function toProject(database: any, projectName = "Untitled", source?: stri
   });
 
   const refs = (schema?.refs ?? []).map((ref: any, i: number) => {
-    const [from, to] = ref.endpoints;
+    const [from, to] = orientEndpoints(ref.endpoints);
     // @dbml/core endpoints carry tableName/fieldNames, not the numeric ids
     // `toProject` assigns to tables/fields above — resolve through the
     // endpoint's actual Field object (`endpoint.fields[0].table.id`/`.id`)
@@ -217,6 +217,23 @@ function normalizeRefAction(action: unknown): RefAction | undefined {
   if (typeof action !== "string") return undefined;
   const normalized = action.toLowerCase().trim();
   return VALID_REF_ACTIONS.has(normalized) ? (normalized as RefAction) : undefined;
+}
+
+/**
+ * Puts the endpoints in model order: `[FK owner, referenced]` (see
+ * `refOrientation.ts` in `@athanordb/shared`). @dbml/core keeps them in
+ * *syntax* order, which differs per form — an inline `author_id [ref: > users.id]`
+ * comes out as `[users, posts]`, an explicit `Ref: posts.author_id > users.id`
+ * as `[posts, users]`, and `users.id [ref: < posts.author_id]` as
+ * `[posts, users]` again. Copying that order verbatim put the foreign key on
+ * the wrong table for every inline ref. Same rule as @dbml/core's own SQL
+ * exporter: the referenced side is the first endpoint with relation `1`, the
+ * owner is the other one; many-to-many has no owner and keeps its order.
+ */
+function orientEndpoints(endpoints: any[]): [any, any] {
+  const referenced = endpoints.findIndex((endpoint) => endpoint.relation === "1");
+  if (referenced === -1) return [endpoints[0], endpoints[1]];
+  return [endpoints[1 - referenced], endpoints[referenced]];
 }
 
 function mapCardinality(endpoints: any[]): "one-to-one" | "one-to-many" | "many-to-many" {

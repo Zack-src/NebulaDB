@@ -7,6 +7,8 @@ import {
   getStickyNotesMap,
   getTablesMap,
   getZonesMap,
+  isRefInverted,
+  reverseRef,
   type DetailLevel,
   type Project,
 } from "@athanordb/shared";
@@ -232,12 +234,18 @@ export function createProjectMutations(
     if (connection.source === connection.target && fromFieldId === toFieldId) return;
 
     const id = generateId();
-    getRefsMap(current).set(id, {
+    const drawn = {
       id,
       from: { tableId: connection.source, fieldId: fromFieldId },
       to: { tableId: connection.target, fieldId: toFieldId },
-      cardinality: "one-to-many",
-    });
+      cardinality: "one-to-many" as const,
+    };
+    // A ref's `from` is the foreign-key column, whichever way the user
+    // dragged: from `posts.author_id` to `users.id`, or from `users.id` (a
+    // key) to `posts.author_id`. When the drag clearly went key → plain
+    // column, store it the right way round instead of making them reverse it.
+    const tablesById = new Map((liveProject()?.tables ?? []).map((table) => [table.id, table]));
+    getRefsMap(current).set(id, isRefInverted(drawn, tablesById) ? reverseRef(drawn) : drawn);
   };
 
   return {

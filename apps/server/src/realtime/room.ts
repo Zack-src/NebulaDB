@@ -4,12 +4,28 @@ import * as awarenessProtocol from "y-protocols/awareness.js";
 import * as encoding from "lib0/encoding.js";
 import * as decoding from "lib0/decoding.js";
 import type { WebSocket } from "ws";
-import { ENUMS_KEY, META_KEY, REFS_KEY, STICKY_NOTES_KEY, TABLE_GROUPS_KEY, TABLES_KEY, ZONES_KEY } from "@athanordb/shared";
+import {
+  ENUMS_KEY,
+  META_KEY,
+  REFS_KEY,
+  STICKY_NOTES_KEY,
+  TABLE_GROUPS_KEY,
+  TABLES_KEY,
+  ZONES_KEY,
+  getRefsMap,
+  getTablesMap,
+  isRefInverted,
+  reverseRef,
+  type Ref,
+  type Table,
+} from "@athanordb/shared";
 import { appendRevision, saveSnapshot, loadSnapshot } from "./persistence.js";
 import { timeSync } from "../infrastructure/perf.js";
 import { LIMIT_ORIGIN, enforceLimits } from "./room/limits.js";
 import type { RoomLogger } from "./room/logger.js";
 
+/** Transaction origin — and so the revision's author in the history panel — for `repairRefOrientation`. */
+const REF_REPAIR_ORIGIN = "AthanorDB (sens des relations corrigé)";
 const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
 const SNAPSHOT_DEBOUNCE_MS = 2000;
@@ -114,6 +130,35 @@ export class Room {
         this.broadcast(encoding.toUint8Array(encoder), origin as WebSocket | undefined);
       },
     );
+
+    // After the update handler above is wired, so the repair is persisted
+    // (revision + snapshot) like any other change instead of being redone in
+    // memory on every load.
+    this.repairRefOrientation();
+  }
+
+  /**
+   * One-off data repair for projects saved before ref direction was enforced
+   * (see `refOrientation.ts`): an inline DBML ref used to be stored backwards,
+   * which put the foreign key on the wrong table in SQL exports and
+   * deployments. Flips only refs that are *certainly* inverted; idempotent,
+   * so after the first load of a repaired project this finds nothing. Shows
+   * up in the history under its own author name so nobody wonders who did it.
+   */
+  private repairRefOrientation(): void {
+    const refsMap = getRefsMap(this.doc);
+    if (refsMap.size === 0) return;
+    const tablesById = new Map<string, Table>();
+    getTablesMap(this.doc).forEach((table, id) => tablesById.set(id, table));
+    const inverted: Ref[] = [];
+    refsMap.forEach((ref) => {
+      if (isRefInverted(ref, tablesById)) inverted.push(ref);
+    });
+    if (inverted.length === 0) return;
+    this.doc.transact(() => {
+      for (const ref of inverted) refsMap.set(ref.id, reverseRef(ref));
+    }, REF_REPAIR_ORIGIN);
+    this.log.warn({ room: this.projectId, repaired: inverted.length }, "re-oriented inverted refs");
   }
 
   /** Body of the `doc.on("update")` handler above — split out only so `timeSync` can wrap it. */

@@ -16,7 +16,8 @@ export function generateMermaid(project: Project): string {
       } else if (ref.cardinality === "many-to-many") {
         relSymbol = "}o--o{";
       } else {
-        relSymbol = "||--o{";
+        // `from` holds the foreign key — the "many" side, on the left here.
+        relSymbol = "}o--||";
       }
       const label = ref.name ? `"${ref.name}"` : `""`;
       lines.push(`    ${fromTable.name} ${relSymbol} ${toTable.name} : ${label}`);

@@ -5,10 +5,15 @@
   /** Below this the two chips (plus the midpoint toolbar) would collide, so the edge goes unlabelled rather than unreadable. */
   const MIN_PATH = 56;
 
-  /** "one-to-many" -> ["1", "n"], etc. — dbdiagram's per-endpoint convention, as opposed to this app's own combined "1–n" pill at the midpoint. */
+  /**
+   * [label at `from`, label at `to`] — dbdiagram's per-endpoint convention, as
+   * opposed to this app's own combined "1–n" pill at the midpoint. `from` is
+   * the foreign-key side (see `refOrientation.ts`), so a one-to-many reads
+   * "n" there and "1" at the referenced table.
+   */
   export const ENDPOINT_CARDINALITY: Record<"one-to-one" | "one-to-many" | "many-to-many", [string, string]> = {
     "one-to-one": ["1", "1"],
-    "one-to-many": ["1", "n"],
+    "one-to-many": ["n", "1"],
     "many-to-many": ["n", "n"],
   };
 </script>

@@ -64,7 +64,41 @@ export function refSignature(tables: Table[], ref: Ref): string | null {
   // Lowercased so a plain-casing rename (e.g. Ctrl+K+U/L on the DBML text)
   // still matches its old ref and keeps its style/routingPoints, same
   // case-insensitive identity as the table/field name matching above it.
-  return `${from.table}.${from.field}->${to.table}.${to.field}`.toLowerCase();
+  // Direction-free: the same two columns are the same relation whichever way
+  // round a ref happens to be stored, so flipping one (repairing an inverted
+  // ref, or the canvas's "reverse direction") doesn't orphan its style,
+  // waypoints, or its match on the next import.
+  const ends = [`${from.table}.${from.field}`, `${to.table}.${to.field}`].map((end) => end.toLowerCase()).sort();
+  return `${ends[0]}<->${ends[1]}`;
+}
+
+/** One `Ref:` line, or `null` for a ref whose endpoints no longer resolve. */
+function refLine(tables: Table[], ref: Ref): string | null {
+  const from = fieldNameById(tables, ref.from.tableId, ref.from.fieldId);
+  const to = fieldNameById(tables, ref.to.tableId, ref.to.fieldId);
+  if (!from || !to) return null;
+  const symbol = CARDINALITY_SYMBOL[ref.cardinality];
+  const prefix = ref.name ? `Ref ${quoteIdent(ref.name)}:` : "Ref:";
+  const actions: string[] = [];
+  if (ref.onDelete) actions.push(`delete: ${ref.onDelete}`);
+  if (ref.onUpdate) actions.push(`update: ${ref.onUpdate}`);
+  const suffix = actions.length > 0 ? ` [${actions.join(", ")}]` : "";
+  // `>` already reads "from (many) → to (one)". `-` has no arrow, and
+  // @dbml/core puts a one-to-one's foreign key on its *second* endpoint — so
+  // a one-to-one is written referenced side first, or it would come back from
+  // the next parse with its owner swapped.
+  const [left, right] = ref.cardinality === "one-to-one" ? [to, from] : [from, to];
+  return `${prefix} ${left.table}.${left.field} ${symbol} ${right.table}.${right.field}${suffix}`;
+}
+
+/** The `from->to` keys `refSignature` produced before it became direction-free — still found in exported files' visual sidecars. */
+function legacyRefSignatures(tables: Table[], ref: Ref): string[] {
+  const from = fieldNameById(tables, ref.from.tableId, ref.from.fieldId);
+  const to = fieldNameById(tables, ref.to.tableId, ref.to.fieldId);
+  if (!from || !to) return [];
+  const a = `${from.table}.${from.field}`.toLowerCase();
+  const b = `${to.table}.${to.field}`.toLowerCase();
+  return [`${a}->${b}`, `${b}->${a}`];
 }
 
 /**
@@ -131,7 +165,12 @@ export function applyVisualMetadata(project: Project, source: string): Project {
   });
   const refs = project.refs.map((ref) => {
     const key = refSignature(project.tables, ref);
-    const m = key ? meta.refs?.[key] : undefined;
+    const m = key
+      ? (meta.refs?.[key] ??
+        legacyRefSignatures(project.tables, ref)
+          .map((legacy) => meta.refs?.[legacy])
+          .find(Boolean))
+      : undefined;
     if (!m) return ref;
     return { ...ref, style: m.style ?? ref.style, routingPoints: m.routingPoints ?? ref.routingPoints };
   });
@@ -219,16 +258,8 @@ export function projectToDbml(project: Project, options?: { includeVisualMetadat
   }
 
   for (const ref of project.refs) {
-    const from = fieldNameById(project.tables, ref.from.tableId, ref.from.fieldId);
-    const to = fieldNameById(project.tables, ref.to.tableId, ref.to.fieldId);
-    if (!from || !to) continue;
-    const symbol = CARDINALITY_SYMBOL[ref.cardinality];
-    const prefix = ref.name ? `Ref ${quoteIdent(ref.name)}:` : "Ref:";
-    const actions: string[] = [];
-    if (ref.onDelete) actions.push(`delete: ${ref.onDelete}`);
-    if (ref.onUpdate) actions.push(`update: ${ref.onUpdate}`);
-    const suffix = actions.length > 0 ? ` [${actions.join(", ")}]` : "";
-    parts.push(`${prefix} ${from.table}.${from.field} ${symbol} ${to.table}.${to.field}${suffix}`);
+    const line = refLine(project.tables, ref);
+    if (line) parts.push(line);
   }
 
   const raw = parts.join("\n\n");

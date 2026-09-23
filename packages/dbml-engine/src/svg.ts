@@ -89,9 +89,10 @@ function tableCenter(table: Table): { x: number; y: number } {
   return { x: table.position.x + tableWidth(table) / 2, y: table.position.y + tableHeight(table) / 2 };
 }
 
+/** [label at `from`, label at `to`] — `from` is the foreign-key (many) side, same as the canvas. */
 const CARDINALITY_LABEL: Record<Ref["cardinality"], [string, string]> = {
   "one-to-one": ["1", "1"],
-  "one-to-many": ["1", "n"],
+  "one-to-many": ["n", "1"],
   "many-to-many": ["n", "n"],
 };
 

@@ -177,3 +177,68 @@ test("an evicted room releases its Awareness timer", () => {
   // the doc's destroyed flag is the accessible proxy for "cleanup ran".
   assert.equal(room.doc.isDestroyed, true, "the document and its awareness timer are released");
 });
+
+test("loading a project saved with an inverted ref repairs it once, persistently, under its own author", async (t) => {
+  const { writeProjectToDoc, getRefsMap } = await import("@athanordb/shared");
+  const { saveSnapshot, listRevisions } = await import("./persistence.js");
+
+  // A project as an older version stored an inline `posts.author_id [ref: > users.id]`:
+  // `from` on the referenced key, `to` on the FK column.
+  const projectId = newProject();
+  const legacy = new Y.Doc();
+  writeProjectToDoc(legacy, {
+    id: projectId,
+    name: "legacy",
+    tables: [
+      {
+        id: "t-users",
+        name: "users",
+        fields: [{ id: "f-users-id", name: "id", type: "int", pk: true }],
+        indexes: [],
+        position: { x: 0, y: 0 },
+        detailLevel: "full",
+      },
+      {
+        id: "t-posts",
+        name: "posts",
+        fields: [
+          { id: "f-posts-id", name: "id", type: "int", pk: true },
+          { id: "f-posts-author", name: "author_id", type: "int" },
+        ],
+        indexes: [],
+        position: { x: 400, y: 0 },
+        detailLevel: "full",
+      },
+    ],
+    refs: [
+      {
+        id: "r1",
+        from: { tableId: "t-users", fieldId: "f-users-id" },
+        to: { tableId: "t-posts", fieldId: "f-posts-author" },
+        cardinality: "one-to-many",
+      },
+    ],
+    enums: [],
+    zones: [],
+    stickyNotes: [],
+    tableGroups: [],
+  });
+  saveSnapshot(projectId, legacy);
+
+  const room = new Room(projectId, () => {});
+  t.after(() => room.destroy());
+  const repaired = getRefsMap(room.doc).get("r1")!;
+  assert.deepEqual(repaired.from, { tableId: "t-posts", fieldId: "f-posts-author" });
+  assert.deepEqual(repaired.to, { tableId: "t-users", fieldId: "f-users-id" });
+  assert.ok(
+    listRevisions(projectId).some((rev) => rev.author === "AthanorDB (sens des relations corrigé)"),
+    "the repair is a recorded revision, not a silent in-memory change",
+  );
+
+  // A second load of the repaired state finds nothing to do.
+  room.flush();
+  const before = listRevisions(projectId).length;
+  const again = new Room(projectId, () => {});
+  t.after(() => again.destroy());
+  assert.equal(listRevisions(projectId).length, before);
+});

@@ -261,7 +261,8 @@ athanor.registerExporter({
       var from = tablesById[ref.from.tableId];
       var to = tablesById[ref.to.tableId];
       if (from && to) {
-        out.push("    " + from.name + " ||--o{ " + to.name + " : references");
+        // ref.from holds the foreign key: the "many" side of the relation.
+        out.push("    " + from.name + " }o--|| " + to.name + " : references");
       }
     });
 
