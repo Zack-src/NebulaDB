@@ -56,7 +56,11 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
   app.post("/api/v1/projects", API_RATE_LIMIT, async (req, reply) => {
     const user = requireUser(req);
     requireScope(req, "projects:write");
-    const { id, name } = createProjectForUser(user.id, (req.body as { name?: unknown } | undefined)?.name);
+    const body = (req.body ?? {}) as { name?: unknown; template?: unknown };
+    const { id, name } = createProjectForUser(user.id, body.name, {
+      template: body.template,
+      author: user.displayName,
+    });
     auditUser(user, "project.create", { type: "project", id }, `${name} (v1)`, req);
     return reply.code(201).send({ id, name, permission: "administrator" });
   });

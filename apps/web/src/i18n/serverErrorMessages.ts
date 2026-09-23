@@ -14,6 +14,7 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   NAME_REQUIRED: "errors.nameRequired",
   NAME_TOO_LONG: "errors.nameTooLong",
   NAME_OR_STATUS_REQUIRED: "errors.nameOrStatusRequired",
+  PROJECT_TEMPLATE_INVALID: "errors.projectTemplateInvalid",
   PROJECT_STATUS_INVALID: "errors.projectStatusInvalid",
   PERMISSION_INVALID: "errors.permissionInvalid",
   SOURCE_REQUIRED: "errors.sourceRequired",

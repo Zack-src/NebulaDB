@@ -1,3 +1,4 @@
+import type { ProjectTemplateId } from "@athanordb/dbml-engine";
 import type { Project } from "@athanordb/shared";
 import type { PermissionLevel, ProjectStatus, ProjectSummary, ProjectTeamGrant } from "@/types";
 import { request, requestText } from "./httpClient";
@@ -22,8 +23,12 @@ export function fetchProject(projectId: string): Promise<ProjectSummary> {
   return request<ProjectSummary>(projectPath(projectId));
 }
 
-export function createProject(name: string): Promise<ProjectSummary> {
-  return request<ProjectSummary>("/api/projects", { method: "POST", body: { name } });
+/** `template` seeds the project server-side from one of `PROJECT_TEMPLATES`; omitted, the project starts empty. */
+export function createProject(name: string, template?: ProjectTemplateId): Promise<ProjectSummary> {
+  return request<ProjectSummary>("/api/projects", {
+    method: "POST",
+    body: { name, ...(template ? { template } : {}) },
+  });
 }
 
 export function renameProject(projectId: string, name: string): Promise<ProjectSummary> {

@@ -4,6 +4,7 @@
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import { APP_SHELL } from "@/components/ui/layout";
   import type { CreateProjectResult } from "@/features/projects/projects.svelte";
+  import type { ProjectTemplateId } from "@athanordb/dbml-engine";
   import type { ProjectStatus, ProjectSummary, Session } from "@/types/index";
 
   let props: {
@@ -16,7 +17,7 @@
     onOpenAdmin: () => void;
     onOpenSettings?: () => void;
     onLogout: () => void;
-    onCreateProject: (name: string) => Promise<CreateProjectResult>;
+    onCreateProject: (name: string, template?: ProjectTemplateId) => Promise<CreateProjectResult>;
     onRenameProject: (p: ProjectSummary, name: string) => Promise<void>;
     onSetProjectStatus: (p: ProjectSummary, status: ProjectStatus) => Promise<void>;
     onDeleteProjectForever: (p: ProjectSummary) => Promise<string | null>;

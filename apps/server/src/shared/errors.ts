@@ -14,6 +14,7 @@ export const ERROR_CATALOG = {
   NAME_REQUIRED: { status: 400, message: "name is required" },
   NAME_TOO_LONG: { status: 400, message: "name must be 200 characters or fewer" },
   NAME_OR_STATUS_REQUIRED: { status: 400, message: "name or status is required" },
+  PROJECT_TEMPLATE_INVALID: { status: 400, message: "template must be one of blog, ecommerce, saas, auth" },
   PROJECT_STATUS_INVALID: { status: 400, message: "status must be one of active, archived, trashed" },
   PERMISSION_INVALID: { status: 400, message: "permission must be one of view, edit, administrator" },
   SOURCE_REQUIRED: { status: 400, message: "source is required" },

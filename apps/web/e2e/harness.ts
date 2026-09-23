@@ -116,7 +116,9 @@ export async function startE2eEnvironment(port: number): Promise<E2eEnvironment>
 
   const teardown = async () => {
     await browser?.close().catch(() => {});
-    if (server && !server.killed) {
+    // `exitCode !== null` means the server already exited on its own (e.g. it
+    // lost a port race) — waiting for an "exit" event then would hang forever.
+    if (server && !server.killed && server.exitCode === null) {
       server.kill();
       await new Promise((resolve) => server!.once("exit", resolve)).catch(() => {});
     }
@@ -136,6 +138,13 @@ export async function startE2eEnvironment(port: number): Promise<E2eEnvironment>
     });
     try {
       await Promise.race([waitForHealth(baseUrl), serverExited]);
+      // A health check can be answered by *another* file's server if two
+      // files picked the same port: ours then dies with EADDRINUSE while the
+      // check succeeds against the wrong process. Give the loser a moment to
+      // exit, then refuse to carry on against someone else's server.
+      await sleep(300);
+      if (server.exitCode !== null)
+        throw new Error(`server exited (code ${server.exitCode}) — is port ${port} already taken?`);
     } catch (err) {
       throw new Error(`${err}\n--- server output so far ---\n${serverOutput}`, { cause: err });
     }

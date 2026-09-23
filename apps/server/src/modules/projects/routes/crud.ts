@@ -15,8 +15,18 @@ export function registerProjectCrudRoutes(app: FastifyInstance): void {
 
   app.post("/api/projects", async (req, reply) => {
     const user = requireUser(req);
-    const { id, name } = createProjectForUser(user.id, (req.body as { name?: unknown } | undefined)?.name);
-    auditUser(user, "project.create", { type: "project", id }, name, req);
+    const body = (req.body ?? {}) as { name?: unknown; template?: unknown };
+    const { id, name } = createProjectForUser(user.id, body.name, {
+      template: body.template,
+      author: user.displayName,
+    });
+    auditUser(
+      user,
+      "project.create",
+      { type: "project", id },
+      body.template ? `${name} (template: ${body.template})` : name,
+      req,
+    );
     return reply.code(201).send({ id, name, permission: "administrator" });
   });
 

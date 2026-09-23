@@ -1,3 +1,5 @@
+import { writeProjectToDoc } from "@athanordb/shared";
+import { isProjectTemplateId, projectFromTemplate } from "@athanordb/dbml-engine";
 import { ApiError } from "../../shared/errors.js";
 import {
   countProjectsOwnedBy,
@@ -8,7 +10,7 @@ import {
   updateProjectStatus,
   type ProjectStatus,
 } from "./repository.js";
-import { closeRoom } from "../../realtime/roomRegistry.js";
+import { closeRoom, getRoom } from "../../realtime/roomRegistry.js";
 
 /**
  * Create/update/delete logic shared by the session-only
@@ -30,8 +32,22 @@ export function parseProjectName(name: unknown): string {
   return trimmed;
 }
 
-export function createProjectForUser(userId: string, rawName: unknown): { id: string; name: string } {
+export interface CreateProjectOptions {
+  /** Optional starter schema id (see `PROJECT_TEMPLATES`); absent means an empty project. */
+  template?: unknown;
+  /** Recorded as the seeding transaction's origin, the same way an import is attributed. */
+  author?: string;
+}
+
+export function createProjectForUser(
+  userId: string,
+  rawName: unknown,
+  options: CreateProjectOptions = {},
+): { id: string; name: string } {
   const name = parseProjectName(rawName);
+  // Validated before the insert, so an unknown template id never leaves an empty project behind.
+  const template = options.template ?? undefined;
+  if (template !== undefined && !isProjectTemplateId(template)) throw new ApiError("PROJECT_TEMPLATE_INVALID");
   // Trashed projects still count — they are recoverable, so they still occupy the quota.
   if (countProjectsOwnedBy(userId) >= MAX_PROJECTS_PER_USER) {
     throw new ApiError("PROJECT_LIMIT_REACHED", {
@@ -41,6 +57,16 @@ export function createProjectForUser(userId: string, rawName: unknown): { id: st
   }
   const id = crypto.randomUUID();
   insertProject(id, name, userId);
+
+  if (template !== undefined) {
+    // Same path as a DBML import into an empty project, just with a source the
+    // server owns — the templates have their own parse/validate tests, so this
+    // can't fail on user input.
+    const seeded = projectFromTemplate(template, id, name);
+    const room = getRoom(id);
+    room.doc.transact(() => writeProjectToDoc(room.doc, seeded), options.author ?? "template");
+    room.flush();
+  }
   return { id, name };
 }
 
