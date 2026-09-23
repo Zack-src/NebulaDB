@@ -1,6 +1,7 @@
 import type { DatabaseConnectionConfig } from "@athanordb/shared";
 import { ApiError } from "../../../shared/errors.js";
 import { assertHostAllowed } from "../hostGuard.js";
+import { takeConnectionBudget, targetKey } from "../connectionBudget.js";
 import type { DatabaseDriver } from "./interface.js";
 import { PostgresDriver } from "./postgres.js";
 import { MysqlDriver } from "./mysql.js";
@@ -23,6 +24,22 @@ export * from "./oracle.js";
  * guard resolves DNS; every call site now awaits this.
  */
 export async function createDatabaseDriver(config: DatabaseConnectionConfig): Promise<DatabaseDriver> {
+  const key = targetKey(config);
+  takeConnectionBudget(key, "connect");
+  return withWriteBudget(await openDriver(config), key);
+}
+
+/** Every `executeMigration` (deploy, rollback) also spends the much smaller per-target write budget. */
+function withWriteBudget(driver: DatabaseDriver, key: string): DatabaseDriver {
+  const execute = driver.executeMigration.bind(driver);
+  driver.executeMigration = (sql: string) => {
+    takeConnectionBudget(key, "write");
+    return execute(sql);
+  };
+  return driver;
+}
+
+async function openDriver(config: DatabaseConnectionConfig): Promise<DatabaseDriver> {
   switch (config.engine) {
     case "postgres":
     case "mysql":

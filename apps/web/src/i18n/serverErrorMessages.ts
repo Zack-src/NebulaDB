@@ -57,6 +57,7 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   INVITATION_ALREADY_USED: "errors.invitationAlreadyUsed",
   PROJECT_LIMIT_REACHED: "errors.projectLimitReached",
   ACCOUNT_LOCKED: "errors.accountLocked",
+  CONNECTION_RATE_LIMITED: "errors.connectionRateLimited",
   INVITATION_FAILED: "errors.invitationFailed",
   INTERNAL_ERROR: "errors.internal",
   DATABASE_UNAVAILABLE: "errors.databaseUnavailable",

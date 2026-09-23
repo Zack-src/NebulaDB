@@ -319,3 +319,40 @@ test("rollback on an unknown history entry, or one with no rollback SQL, is refu
     await app.close();
   }
 });
+
+test("per-target rate limit: hammering one database through the test route gets a 429, another target doesn't", async () => {
+  const { resetConnectionBudgets } = await import("./connectionBudget.js");
+  resetConnectionBudgets();
+  const app = await buildApp();
+  try {
+    const owner = await makeUser();
+    const cookie = await loginAs(app, owner.email, owner.password);
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/projects",
+      headers: headers({ cookie }),
+      payload: { name: "Budget" },
+    });
+    const projectId = created.json().id as string;
+    const probe = (filePath: string) =>
+      app.inject({
+        method: "POST",
+        url: `/api/projects/${projectId}/connections/test`,
+        headers: headers({ cookie }),
+        payload: { engine: "sqlite", filePath },
+      });
+
+    const target = join(tmpdir(), `athanordb-budget-${randomUUID()}.sqlite`);
+    for (let i = 0; i < 30; i++) assert.equal((await probe(target)).statusCode, 200);
+    const refused = await probe(target);
+    assert.equal(refused.statusCode, 429);
+    assert.equal(refused.json().code, "CONNECTION_RATE_LIMITED");
+
+    const elsewhere = await probe(join(tmpdir(), `athanordb-budget-${randomUUID()}.sqlite`));
+    assert.equal(elsewhere.statusCode, 200);
+  } finally {
+    resetConnectionBudgets();
+    closeAllRooms();
+    await app.close();
+  }
+});

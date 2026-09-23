@@ -93,6 +93,10 @@ export const ERROR_CATALOG = {
 
   // --- 429 ---
   ACCOUNT_LOCKED: { status: 429, message: "too many failed attempts — this account is temporarily locked" },
+  CONNECTION_RATE_LIMITED: {
+    status: 429,
+    message: "too many operations against this database in the last minute — wait before retrying",
+  },
 
   // --- 5xx ---
   INVITATION_FAILED: { status: 500, message: "could not complete the invitation" },

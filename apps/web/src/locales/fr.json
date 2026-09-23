@@ -79,6 +79,7 @@
   "errors.emailAlreadyExists": "Un compte utilise déjà cette adresse e-mail.",
   "errors.projectLimitReached": "Vous avez atteint le nombre maximum de projets.",
   "errors.accountLocked": "Trop de tentatives échouées — ce compte est temporairement verrouillé.",
+  "errors.connectionRateLimited": "Trop d'opérations sur cette base de données dans la dernière minute. Patientez un instant avant de réessayer.",
 
   "login.tagline": "Plateforme d'édition de schémas DBML et de collaboration",
   "login.tab.signIn": "Connexion",
