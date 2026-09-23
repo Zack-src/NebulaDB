@@ -23,6 +23,8 @@ import { registerPublicIamRoutes } from "./iamRoutes.js";
 import { registerPublicConnectionRoutes } from "./connectionRoutes.js";
 import { registerPublicTeamRoutes } from "./teamRoutes.js";
 import { API_RATE_LIMIT } from "./rateLimits.js";
+import { buildOpenApiSpec } from "./openapi.js";
+import { config } from "../../config.js";
 
 /**
  * The stable, versioned, key-authable public surface (Phase 21). Deliberately
@@ -43,6 +45,15 @@ import { API_RATE_LIMIT } from "./rateLimits.js";
  * internal routes.
  */
 export function registerPublicApiRoutes(app: FastifyInstance): void {
+  /**
+   * The machine-readable description of everything below — public, no key
+   * needed: it documents routes, not data, and tools (Postman, client
+   * generators, Swagger UI) need to fetch it before they have a key.
+   */
+  app.get("/api/v1/openapi.json", API_RATE_LIMIT, async () =>
+    buildOpenApiSpec(config.publicUrl ? `${config.publicUrl}` : null),
+  );
+
   app.get("/api/v1/projects", API_RATE_LIMIT, async (req) => {
     const user = requireUser(req);
     requireScope(req, "projects:read");
