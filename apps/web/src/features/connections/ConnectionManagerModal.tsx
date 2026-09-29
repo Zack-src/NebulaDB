@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ErrorText, Hint } from "@/components/ui/Alert";
 import { CheckCircleIcon, CheckIcon, DatabaseIcon, PlusIcon, TrashIcon } from "@/components/icons/Icons";
-import { INPUT_CLASS, SELECT_CLASS } from "@/components/ui/inputStyles";
+import { INPUT_CLASS } from "@/components/ui/inputStyles";
 import { useTranslation } from "@/i18n/useTranslation";
 import {
   createProjectConnection,
@@ -15,24 +15,15 @@ import {
   testConnectionConfig,
   updateProjectConnection,
 } from "@/services/connectionsApi";
-
-const DEFAULT_PORTS: Record<DatabaseEngine, number> = {
-  postgres: 5432,
-  mysql: 3306,
-  sqlite: 0,
-  // Not yet offered in this modal's engine picker below (postgres/mysql/sqlite only) —
-  // the backend supports these two (`apps/server/.../drivers/{mssql,oracle}.ts`), but
-  // wiring them into this UI (dropdown option, badge tone, host/port field visibility)
-  // is a separate piece of work from what added these constants.
-  mssql: 1433,
-  oracle: 1521,
-};
+import { ConnectionFormFields, DEFAULT_PORTS } from "./ConnectionFormFields";
 
 export function ConnectionManagerModal(props: {
   projectId: string;
   onClose: () => void;
   onSelectActiveConnection?: (conn: DatabaseConnectionSummary) => void;
   activeConnectionId?: string | null;
+  /** Opens the read-only diff view (`DeploymentModal` in `readOnly` mode) for the given connection, without going through the deploy flow. */
+  onCheckDifferences?: (connId: string) => void;
 }) {
   const { t } = useTranslation();
   const [connections, setConnections] = useState<DatabaseConnectionSummary[]>([]);
@@ -138,14 +129,6 @@ export function ConnectionManagerModal(props: {
     setTestResult(null);
     setError(null);
     setSuccessMessage(null);
-  };
-
-  const handleEngineChange = (nextEngine: DatabaseEngine) => {
-    setEngine(nextEngine);
-    setPort(DEFAULT_PORTS[nextEngine] || 5432);
-    if (nextEngine === "sqlite") {
-      setFilePath(filePath || "./data/database.sqlite");
-    }
   };
 
   const getFormPayload = (): DatabaseConnectionConfig => ({
@@ -308,142 +291,41 @@ export function ConnectionManagerModal(props: {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="col-span-2 sm:col-span-1">
-              <label className="mb-1 block text-xs font-medium text-text-muted">{t("common.name")}</label>
-              <input
-                className={INPUT_CLASS}
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="ex: Production DB"
-              />
-            </div>
-
-            <div className="col-span-2 sm:col-span-1">
-              <label className="mb-1 block text-xs font-medium text-text-muted">{t("connections.engine")}</label>
-              <select
-                className={SELECT_CLASS}
-                value={engine}
-                onChange={(e) => handleEngineChange(e.target.value as DatabaseEngine)}
-              >
-                <option value="postgres">{t("connections.engine.postgres")}</option>
-                <option value="mysql">{t("connections.engine.mysql")}</option>
-                <option value="sqlite">{t("connections.engine.sqlite")}</option>
-              </select>
-            </div>
-
-            <div className="col-span-2">
-              <label className="mb-1 block text-xs font-medium text-text-muted">{t("connections.environment")}</label>
-              <input
-                className={INPUT_CLASS}
-                value={environment}
-                onChange={(e) => setEnvironment(e.target.value)}
-                placeholder={t("connections.environmentPlaceholder")}
-              />
-              <Hint>{t("connections.environmentHint")}</Hint>
-            </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-text-muted">{t("common.name")}</label>
+            <input
+              className={INPUT_CLASS}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="ex: Production DB"
+            />
           </div>
 
-          {engine === "sqlite" ? (
-            <div>
-              <label className="mb-1 block text-xs font-medium text-text-muted">{t("connections.filePath")}</label>
-              <input
-                className={INPUT_CLASS}
-                value={filePath}
-                onChange={(e) => setFilePath(e.target.value)}
-                placeholder="./data/app.sqlite"
-              />
-              <Hint>{t("connections.sqliteHint")}</Hint>
-            </div>
-          ) : (
-            <>
-              <div className="flex items-center gap-2 pt-1">
-                <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-text">
-                  <input
-                    type="checkbox"
-                    checked={useUri}
-                    onChange={(e) => setUseUri(e.target.checked)}
-                    className="rounded border-border"
-                  />
-                  {t("connections.useUri")}
-                </label>
-              </div>
-
-              {useUri ? (
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-text-muted">
-                    {t("connections.connectionUri")}
-                  </label>
-                  <input
-                    className={INPUT_CLASS}
-                    type="password"
-                    value={connectionString}
-                    onChange={(e) => setConnectionString(e.target.value)}
-                    placeholder={
-                      engine === "postgres"
-                        ? "postgres://user:pass@host:5432/dbname"
-                        : "mysql://user:pass@host:3306/dbname"
-                    }
-                  />
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="col-span-2">
-                      <label className="mb-1 block text-xs font-medium text-text-muted">{t("connections.host")}</label>
-                      <input className={INPUT_CLASS} value={host} onChange={(e) => setHost(e.target.value)} />
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-text-muted">{t("connections.port")}</label>
-                      <input
-                        className={INPUT_CLASS}
-                        type="number"
-                        value={port}
-                        onChange={(e) => setPort(Number(e.target.value))}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2">
-                    <div className="col-span-1">
-                      <label className="mb-1 block text-xs font-medium text-text-muted">
-                        {t("connections.database")}
-                      </label>
-                      <input className={INPUT_CLASS} value={database} onChange={(e) => setDatabase(e.target.value)} />
-                    </div>
-                    <div className="col-span-1">
-                      <label className="mb-1 block text-xs font-medium text-text-muted">{t("connections.user")}</label>
-                      <input className={INPUT_CLASS} value={user} onChange={(e) => setUser(e.target.value)} />
-                    </div>
-                    <div className="col-span-1">
-                      <label className="mb-1 block text-xs font-medium text-text-muted">
-                        {t("connections.password")}
-                      </label>
-                      <input
-                        className={INPUT_CLASS}
-                        type="password"
-                        value={password}
-                        onChange={(e) => setPassword(e.target.value)}
-                        placeholder={selectedId !== "new" ? "••••••••" : ""}
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="inline-flex cursor-pointer items-center gap-1.5 text-xs text-text">
-                      <input
-                        type="checkbox"
-                        checked={ssl}
-                        onChange={(e) => setSsl(e.target.checked)}
-                        className="rounded border-border"
-                      />
-                      {t("connections.sslEnable")}
-                    </label>
-                  </div>
-                </div>
-              )}
-            </>
-          )}
+          <ConnectionFormFields
+            environment={environment}
+            onEnvironmentChange={setEnvironment}
+            engine={engine}
+            onEngineChange={setEngine}
+            host={host}
+            onHostChange={setHost}
+            port={port}
+            onPortChange={setPort}
+            database={database}
+            onDatabaseChange={setDatabase}
+            user={user}
+            onUserChange={setUser}
+            password={password}
+            onPasswordChange={setPassword}
+            passwordPlaceholder={selectedId !== "new" ? "••••••••" : ""}
+            ssl={ssl}
+            onSslChange={setSsl}
+            connectionString={connectionString}
+            onConnectionStringChange={setConnectionString}
+            filePath={filePath}
+            onFilePathChange={setFilePath}
+            useUri={useUri}
+            onUseUriChange={setUseUri}
+          />
 
           {testResult && (
             <div
@@ -469,6 +351,11 @@ export function ConnectionManagerModal(props: {
               {selectedId !== "new" && (
                 <Button size="sm" variant="ghost" onClick={handlePullSchema} disabled={pulling}>
                   {pulling ? t("common.loading") : t("connections.pullSchema")}
+                </Button>
+              )}
+              {selectedId !== "new" && props.onCheckDifferences && (
+                <Button size="sm" variant="ghost" onClick={() => props.onCheckDifferences!(selectedId)}>
+                  {t("connections.checkDifferences")}
                 </Button>
               )}
             </div>

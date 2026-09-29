@@ -29,6 +29,13 @@ export function DeploymentModal(props: {
   onClose: () => void;
   onOpenConnectionManager?: () => void;
   initialConnectionId?: string | null;
+  /**
+   * "Vérifier les différences" entry point: same diff/risks/SQL preview as a
+   * real deployment plan, minus the ability to act on it — no Apply button.
+   * Reuses `plan-deployment` as-is rather than a second, lighter-weight diff
+   * endpoint/UI, since the two would otherwise show the exact same data.
+   */
+  readOnly?: boolean;
 }) {
   const { t } = useTranslation();
   const [connections, setConnections] = useState<DatabaseConnectionSummary[]>([]);
@@ -158,9 +165,11 @@ export function DeploymentModal(props: {
     }
   };
 
+  const modalTitle = props.readOnly ? t("deployment.checkDifferencesTitle") : t("deployment.title");
+
   if (loading) {
     return (
-      <Modal title={t("deployment.title")} onClose={props.onClose}>
+      <Modal title={modalTitle} onClose={props.onClose}>
         <div className="flex h-48 items-center justify-center text-xs text-text-muted">{t("common.loading")}</div>
       </Modal>
     );
@@ -168,7 +177,7 @@ export function DeploymentModal(props: {
 
   if (connections.length === 0) {
     return (
-      <Modal title={t("deployment.title")} onClose={props.onClose}>
+      <Modal title={modalTitle} onClose={props.onClose}>
         <div className="space-y-4 py-4 text-center">
           <DatabaseIcon size={32} className="mx-auto text-text-muted" />
           <div>
@@ -195,7 +204,7 @@ export function DeploymentModal(props: {
   const risks = plan?.risks ?? [];
 
   return (
-    <Modal title={t("deployment.title")} onClose={props.onClose} wide>
+    <Modal title={modalTitle} onClose={props.onClose} wide>
       <div className="space-y-4">
         {/* Header toolbar: connection selection */}
         <div className="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-border bg-surface-raised p-2.5">
@@ -579,7 +588,7 @@ export function DeploymentModal(props: {
               </Button>
             )}
 
-            {activeStep === "sql" && (
+            {activeStep === "sql" && !props.readOnly && (
               <Button
                 size="sm"
                 variant="primary"

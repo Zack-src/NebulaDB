@@ -35,6 +35,27 @@ export interface RollbackResponse {
   executedStatements: number;
 }
 
+export interface CreateProjectFromDatabaseResponse {
+  id: string;
+  name: string;
+  connectionId: string;
+  tablesCount: number;
+}
+
+/** Creates a brand-new project from a live database's introspected schema — see `/api/projects/from-database`. */
+export async function createProjectFromDatabase(
+  projectName: string,
+  config: Omit<DatabaseConnectionConfig, "id" | "projectId">,
+): Promise<CreateProjectFromDatabaseResponse> {
+  return request<CreateProjectFromDatabaseResponse>("/api/projects/from-database", {
+    method: "POST",
+    // `projectName` is a distinct field from `config.name` (the connection's
+    // own name) on purpose — spreading `config` after a shared `name` key
+    // would have let the connection's name silently overwrite the project's.
+    body: { projectName, ...config },
+  });
+}
+
 export async function listProjectConnections(projectId: string): Promise<DatabaseConnectionSummary[]> {
   const res = await request<{ connections: DatabaseConnectionSummary[] }>(`/api/projects/${projectId}/connections`);
   return res.connections;

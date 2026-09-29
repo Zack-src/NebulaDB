@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { MAX_NAME_LENGTH, type Table, type TableIndex } from "@athanordb/shared";
-import { KeyIcon, PlusIcon, SettingsIcon, TrashIcon } from "@/components/icons/Icons";
+import { CopyIcon, KeyIcon, PlusIcon, SettingsIcon, TrashIcon } from "@/components/icons/Icons";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { SWATCH_CELL_CLASS, SWATCH_CELL_ACTIVE_CLASS, SWATCH_GRID_CLASS } from "@/components/inputs/ColorSwatchPicker";
@@ -164,6 +164,7 @@ export interface TableSettingsPopoverProps {
   onAddIndex?: (fieldIds: string[], options: IndexOptions) => void;
   onUpdateIndex?: (indexId: string, updates: Partial<Pick<TableIndex, "unique" | "pk" | "name">>) => void;
   onDeleteIndex?: (indexId: string) => void;
+  onDuplicate?: () => void;
   triggerClassName: string;
 }
 
@@ -179,6 +180,7 @@ export function TableSettingsPopover({
   onAddIndex,
   onUpdateIndex,
   onDeleteIndex,
+  onDuplicate,
   triggerClassName,
 }: TableSettingsPopoverProps) {
   const { t } = useTranslation();
@@ -273,6 +275,20 @@ export function TableSettingsPopover({
                 ))}
               </div>
             </div>
+
+            {onDuplicate && (
+              <Button
+                variant="default"
+                size="sm"
+                className="justify-center"
+                onClick={() => {
+                  onDuplicate();
+                  dismiss();
+                }}
+              >
+                <CopyIcon size={12} /> {t("table.duplicate")}
+              </Button>
+            )}
 
             {(onAddIndex || table.indexes.length > 0) && (
               <div className={POPOVER_GROUP_CLASS}>

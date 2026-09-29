@@ -82,6 +82,11 @@ export function ProjectEditor(props: {
   const [showSettings, setShowSettings] = useState(false);
   const [showConnections, setShowConnections] = useState(false);
   const [showDeployment, setShowDeployment] = useState(false);
+  // "Check Differences" in ConnectionManagerModal opens this same modal in
+  // read-only mode, scoped to whichever connection the button was pressed
+  // from rather than whatever `activeConnection` happens to be.
+  const [deploymentReadOnly, setDeploymentReadOnly] = useState(false);
+  const [deploymentConnId, setDeploymentConnId] = useState<string | null>(null);
   const [viewMode, setViewMode] = useState<EditorViewMode>("mld");
   const [activeConnection, setActiveConnection] = useState<DatabaseConnectionSummary | null>(null);
 
@@ -283,7 +288,11 @@ export function ProjectEditor(props: {
         onShowConvertTypes={canWrite ? () => setShowConvertTypes(true) : undefined}
         onShowHistory={() => setShowHistory(true)}
         onShowConnections={() => setShowConnections(true)}
-        onShowDeploy={() => setShowDeployment(true)}
+        onShowDeploy={() => {
+          setDeploymentReadOnly(false);
+          setDeploymentConnId(null);
+          setShowDeployment(true);
+        }}
         isProjectAdmin={project.permission === "administrator"}
         connectedDbName={activeConnection?.name}
         onOpenSettings={() => setShowSettings(true)}
@@ -410,13 +419,20 @@ export function ProjectEditor(props: {
             onClose={() => setShowConnections(false)}
             activeConnectionId={activeConnection?.id}
             onSelectActiveConnection={(conn) => setActiveConnection(conn)}
+            onCheckDifferences={(connId) => {
+              setShowConnections(false);
+              setDeploymentReadOnly(true);
+              setDeploymentConnId(connId);
+              setShowDeployment(true);
+            }}
           />
         )}
         {showDeployment && (
           <DeploymentModal
             projectId={project.id}
             onClose={() => setShowDeployment(false)}
-            initialConnectionId={activeConnection?.id}
+            initialConnectionId={deploymentReadOnly ? deploymentConnId : activeConnection?.id}
+            readOnly={deploymentReadOnly}
             onOpenConnectionManager={() => {
               setShowDeployment(false);
               setShowConnections(true);

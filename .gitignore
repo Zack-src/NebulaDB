@@ -12,3 +12,10 @@ build/
 coverage/
 backups/
 .claude/worktrees/
+
+# Generated from a real client's live SQL Server schema (migrate-mssql-to-postgres.mjs
+# --dump-schema/--gen-ddl) — table/column names+types are that client's structure,
+# not this repo's; regenerate locally instead of committing.
+scripts/.mssql-schema-dump.json
+scripts/mssql-clone.sql
+scripts/postgres-clone.sql

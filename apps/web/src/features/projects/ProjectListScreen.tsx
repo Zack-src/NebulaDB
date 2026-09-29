@@ -3,6 +3,7 @@ import { Navbar } from "@/components/layout/Navbar";
 import { ErrorText } from "@/components/ui/Alert";
 import { APP_SHELL } from "@/components/ui/layout";
 import type { CreateProjectResult } from "@/features/projects/hooks/useProjects";
+import type { CreateProjectFromDatabaseResponse } from "@/services/connectionsApi";
 import type { ProjectStatus, ProjectSummary, Session } from "@/types/index";
 
 export interface ProjectListScreenProps {
@@ -21,6 +22,7 @@ export interface ProjectListScreenProps {
   onSetProjectStatus: (p: ProjectSummary, status: ProjectStatus) => Promise<void>;
   onDeleteProjectForever: (p: ProjectSummary) => Promise<string | null>;
   onEmptyTrash: (items: ProjectSummary[]) => Promise<string | null>;
+  onProjectCreatedFromDatabase: (result: CreateProjectFromDatabaseResponse) => void;
 }
 
 export function ProjectListScreen(props: ProjectListScreenProps) {
@@ -49,6 +51,7 @@ export function ProjectListScreen(props: ProjectListScreenProps) {
           onSetStatus={props.onSetProjectStatus}
           onDeleteForever={props.onDeleteProjectForever}
           onEmptyTrash={props.onEmptyTrash}
+          onProjectCreatedFromDatabase={props.onProjectCreatedFromDatabase}
         />
       </div>
     </div>

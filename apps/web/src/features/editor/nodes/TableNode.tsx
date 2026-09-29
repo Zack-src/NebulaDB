@@ -63,6 +63,7 @@ export interface TableNodeData {
   onAddIndex?: (fieldIds: string[], opts: { unique?: boolean; pk?: boolean; name?: string }) => void;
   onUpdateIndex?: (indexId: string, updates: Partial<Pick<TableIndex, "unique" | "pk" | "name">>) => void;
   onDeleteIndex?: (indexId: string) => void;
+  onDuplicate?: () => void;
   [key: string]: unknown;
 }
 
@@ -297,6 +298,7 @@ function TableNodeImpl({ data, selected, id }: NodeProps<TableNodeType>) {
                   onAddIndex={data.onAddIndex}
                   onUpdateIndex={data.onUpdateIndex}
                   onDeleteIndex={data.onDeleteIndex}
+                  onDuplicate={data.onDuplicate}
                   triggerClassName={HEADER_BTN_CLASS}
                 />
               </>

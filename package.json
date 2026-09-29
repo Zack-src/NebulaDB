@@ -45,6 +45,7 @@
   "allowScripts": {
     "better-sqlite3@13.0.3": true,
     "core-js@3.50.0": true,
-    "esbuild@0.28.2": true
+    "esbuild@0.28.2": true,
+    "duckdb@1.4.4": true
   }
 }

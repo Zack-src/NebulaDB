@@ -1,11 +1,12 @@
 import { useState } from "react";
-import { PlusIcon, FolderIcon, TrashIcon } from "@/components/icons/Icons";
+import { PlusIcon, FolderIcon, TrashIcon, DatabaseIcon } from "@/components/icons/Icons";
 import { useDraftValue } from "@/hooks/useDraftValue";
 import { ProjectTeamsModal } from "@/features/teams/ProjectTeamsModal";
 import { PROJECT_SECTIONS, ProjectTabs } from "@/features/projects/components/ProjectTabs";
 import { ProjectCard } from "@/features/projects/components/ProjectCard";
 import { DeleteProjectModal } from "@/features/projects/components/DeleteProjectModal";
 import { EmptyTrashModal } from "@/features/projects/components/EmptyTrashModal";
+import { NewProjectFromDatabaseModal } from "@/features/projects/NewProjectFromDatabaseModal";
 import { Button } from "@/components/ui/Button";
 import { ErrorText } from "@/components/ui/Alert";
 import { EmptyState } from "@/components/ui/List";
@@ -13,6 +14,7 @@ import { SkeletonCardGrid } from "@/components/ui/Skeleton";
 import { Input } from "@/components/ui/Input";
 import { useTranslation } from "@/i18n/useTranslation";
 import type { CreateProjectResult } from "@/features/projects/hooks/useProjects";
+import type { CreateProjectFromDatabaseResponse } from "@/services/connectionsApi";
 import type { ProjectStatus, ProjectSummary } from "@/types";
 
 export interface ProjectListProps {
@@ -24,6 +26,8 @@ export interface ProjectListProps {
   onSetStatus: (project: ProjectSummary, status: ProjectStatus) => void;
   onDeleteForever: (project: ProjectSummary) => Promise<string | null>;
   onEmptyTrash: (projects: ProjectSummary[]) => Promise<string | null>;
+  /** Fired once `createProjectFromDatabase` (called by the modal itself) succeeds — the caller refreshes the list and navigates in. */
+  onProjectCreatedFromDatabase: (result: CreateProjectFromDatabaseResponse) => void;
 }
 
 export function ProjectList({
@@ -35,6 +39,7 @@ export function ProjectList({
   onSetStatus,
   onDeleteForever,
   onEmptyTrash,
+  onProjectCreatedFromDatabase,
 }: ProjectListProps) {
   const { t } = useTranslation();
   const [section, setSection] = useState<ProjectStatus>("active");
@@ -53,6 +58,7 @@ export function ProjectList({
   const [emptyTrashPending, setEmptyTrashPending] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
+  const [showNewFromDatabase, setShowNewFromDatabase] = useState(false);
 
   const startRename = (project: ProjectSummary) => {
     setRenamingId(project.id);
@@ -125,6 +131,9 @@ export function ProjectList({
         <Button variant="primary" onClick={handleCreate} disabled={creating} className="w-full gap-2 text-xs">
           <PlusIcon size={14} /> {creating ? t("projects.creating") : t("projects.newProject")}
         </Button>
+        <Button variant="outline" onClick={() => setShowNewFromDatabase(true)} className="w-full gap-2 text-xs">
+          <DatabaseIcon size={14} /> {t("projects.newFromDatabase")}
+        </Button>
         <ProjectTabs projects={projects} section={section} onSectionChange={setSection} />
       </aside>
 
@@ -155,6 +164,13 @@ export function ProjectList({
                 className="shrink-0 gap-2 text-xs sm:hidden"
               >
                 <PlusIcon size={14} /> {t("projects.new")}
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setShowNewFromDatabase(true)}
+                className="shrink-0 gap-2 text-xs sm:hidden"
+              >
+                <DatabaseIcon size={14} />
               </Button>
             </div>
           </div>
@@ -230,6 +246,15 @@ export function ProjectList({
         />
       )}
       {teamsTarget && <ProjectTeamsModal project={teamsTarget} onClose={() => setTeamsTarget(null)} />}
+      {showNewFromDatabase && (
+        <NewProjectFromDatabaseModal
+          onClose={() => setShowNewFromDatabase(false)}
+          onCreated={(result) => {
+            setShowNewFromDatabase(false);
+            onProjectCreatedFromDatabase(result);
+          }}
+        />
+      )}
     </div>
   );
 }

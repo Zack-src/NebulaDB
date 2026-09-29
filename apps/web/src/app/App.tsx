@@ -12,6 +12,8 @@ import { SettingsPage } from "@/features/settings/SettingsPage";
 import { AcceptInvite } from "@/features/auth/AcceptInvite";
 import { AdminConsole } from "@/features/admin/AdminConsole";
 import { APP_SHELL } from "@/components/ui/layout";
+import { fetchProject } from "@/services/projectsApi";
+import type { CreateProjectFromDatabaseResponse } from "@/services/connectionsApi";
 
 export function App() {
   const { t } = useTranslation();
@@ -21,6 +23,17 @@ export function App() {
   const { session, setSession, logout, updateDisplayName } = useAuthSession(() => setAdminOpen(false));
   const projectsHandle = useProjects(Boolean(session && session !== "loading"));
   const routing = useProjectRouting(session, projectsHandle.projects);
+
+  // The new project already has its schema pulled in by the time this fires
+  // (`createProjectFromDatabase` did that server-side) — refresh the list so
+  // it shows up there too, then fetch its full `ProjectSummary` (permission,
+  // status, ...) and navigate straight into the populated canvas.
+  const handleProjectCreatedFromDatabase = (result: CreateProjectFromDatabaseResponse) => {
+    projectsHandle.refreshProjects();
+    fetchProject(result.id)
+      .then((summary) => routing.openProjectAndNavigate(summary))
+      .catch(() => {});
+  };
 
   if (routing.inviteToken) {
     return (
@@ -115,6 +128,7 @@ export function App() {
       onSetProjectStatus={projectsHandle.setProjectStatus}
       onDeleteProjectForever={projectsHandle.deleteProjectForever}
       onEmptyTrash={projectsHandle.emptyTrash}
+      onProjectCreatedFromDatabase={handleProjectCreatedFromDatabase}
     />
   );
 }
