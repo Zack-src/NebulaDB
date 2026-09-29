@@ -6,6 +6,7 @@
   import type { CreateProjectResult } from "@/features/projects/projects.svelte";
   import type { ProjectTemplateId } from "@athanordb/dbml-engine";
   import type { SearchHit } from "@/services/searchApi";
+  import type { CreateProjectFromDatabaseResponse } from "@/services/connectionsApi";
   import type { ProjectStatus, ProjectSummary, Session } from "@/types/index";
 
   let props: {
@@ -24,6 +25,7 @@
     onSetProjectStatus: (p: ProjectSummary, status: ProjectStatus) => Promise<void>;
     onDeleteProjectForever: (p: ProjectSummary) => Promise<string | null>;
     onEmptyTrash: (items: ProjectSummary[]) => Promise<string | null>;
+    onProjectCreatedFromDatabase: (result: CreateProjectFromDatabaseResponse) => void;
   } = $props();
 </script>
 
@@ -52,6 +54,7 @@
       onSetStatus={props.onSetProjectStatus}
       onDeleteForever={props.onDeleteProjectForever}
       onEmptyTrash={props.onEmptyTrash}
+      onProjectCreatedFromDatabase={props.onProjectCreatedFromDatabase}
     />
   </div>
 </div>

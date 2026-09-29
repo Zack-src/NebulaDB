@@ -18,6 +18,9 @@
   const { t } = useTranslation();
   const projects = useAsyncResource(fetchProjects);
   let selectedProjectId = $state("");
+  // Set by the manager's "Check Differences" button: swaps the manager for a
+  // read-only diff scoped to that connection, then returns to the picker.
+  let diffConnectionId = $state<string | null>(null);
 
   const activeProjects = $derived((projects.data ?? []).filter((p) => p.status === "active"));
   const selectedProject = $derived(activeProjects.find((p) => p.id === selectedProjectId) ?? null);
@@ -43,7 +46,20 @@
     <EmptyState>{t("admin.connections.noProjects")}</EmptyState>
   {/if}
 
-  {#if selectedProject}
-    <ConnectionManagerModal projectId={selectedProject.id} onClose={() => (selectedProjectId = "")} />
+  {#if selectedProject && diffConnectionId}
+    {#await import("@/features/connections/DeploymentModal.svelte") then { default: DeploymentModal }}
+      <DeploymentModal
+        projectId={selectedProject.id}
+        initialConnectionId={diffConnectionId}
+        readOnly
+        onClose={() => (diffConnectionId = null)}
+      />
+    {/await}
+  {:else if selectedProject}
+    <ConnectionManagerModal
+      projectId={selectedProject.id}
+      onClose={() => (selectedProjectId = "")}
+      onCheckDifferences={(connectionId) => (diffConnectionId = connectionId)}
+    />
   {/if}
 </div>

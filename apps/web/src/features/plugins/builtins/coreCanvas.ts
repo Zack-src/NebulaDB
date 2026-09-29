@@ -28,7 +28,9 @@ const contributions: Contribution[] = [
     kind: "canvasCommand",
     id: GROUP_TABLES_ID,
     label: "Grouper les tables sélectionnées",
-    description: "Crée un TableGroup à partir des tables actuellement sélectionnées sur le canvas (2 minimum).",
+    description:
+      "Crée un TableGroup à partir des tables actuellement sélectionnées sur le canvas (2 minimum). " +
+      "Si la sélection correspond exactement à un groupe existant, le dissout à la place plutôt que d'en empiler un second.",
   },
   {
     kind: "canvasCommand",
@@ -109,6 +111,23 @@ const runners: Record<string, BuiltinRunner> = {
     if (tableIds.length < 2) {
       return { message: "Sélectionnez au moins 2 tables pour créer un groupe." };
     }
+
+    // Re-selecting the exact membership of an existing group and hitting
+    // "Grouper" again used to stack a second, redundant TableGroup on the
+    // same tables. Toggle to dissolving that group instead — a cheap,
+    // unambiguous way to "ungroup" without a separate command, since the
+    // only way to reach this state is picking precisely a group's tables.
+    const selectedSet = new Set(tableIds);
+    const existingGroup = project.tableGroups.find(
+      (g) => g.tableIds.length === selectedSet.size && g.tableIds.every((id) => selectedSet.has(id)),
+    );
+    if (existingGroup) {
+      return {
+        project: { ...project, tableGroups: project.tableGroups.filter((g) => g.id !== existingGroup.id) },
+        message: `Groupe "${existingGroup.name}" dissous.`,
+      };
+    }
+
     const group = { id: generateId(), name: `group_${project.tableGroups.length + 1}`, tableIds };
     return {
       project: { ...project, tableGroups: [...project.tableGroups, group] },

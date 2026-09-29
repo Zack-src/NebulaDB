@@ -56,6 +56,7 @@ export interface TableNodeData {
   onAddIndex?: (fieldIds: string[], opts: { unique?: boolean; pk?: boolean; name?: string }) => void;
   onUpdateIndex?: (indexId: string, updates: Partial<Pick<TableIndex, "unique" | "pk" | "name">>) => void;
   onDeleteIndex?: (indexId: string) => void;
+  onDuplicate?: () => void;
   [key: string]: unknown;
 }
 

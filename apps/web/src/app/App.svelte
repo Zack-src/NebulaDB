@@ -12,6 +12,7 @@
   import ResetPassword from "@/features/auth/ResetPassword.svelte";
   import AdminConsole from "@/features/admin/AdminConsole.svelte";
   import { APP_SHELL } from "@/components/ui/layout";
+  import type { CreateProjectFromDatabaseResponse } from "@/services/connectionsApi";
 
   const { t } = useTranslation();
   let adminOpen = $state(false);
@@ -34,6 +35,14 @@
   let resetEmail = $state<string | null>(null);
 
   const session = $derived(auth.session);
+
+  // The new project already has its schema pulled in by the time this fires
+  // (`createProjectFromDatabase` did that server-side) — refresh the list so
+  // it shows up there too, then navigate straight into the populated canvas.
+  function handleProjectCreatedFromDatabase(result: CreateProjectFromDatabaseResponse) {
+    projectsHandle.refreshProjects();
+    routing.openProjectById(result.id);
+  }
 </script>
 
 {#if routing.inviteToken && !welcomeEmail}
@@ -123,5 +132,6 @@
     onSetProjectStatus={projectsHandle.setProjectStatus}
     onDeleteProjectForever={projectsHandle.deleteProjectForever}
     onEmptyTrash={projectsHandle.emptyTrash}
+    onProjectCreatedFromDatabase={handleProjectCreatedFromDatabase}
   />
 {/if}

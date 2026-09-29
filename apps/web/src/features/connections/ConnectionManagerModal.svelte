@@ -1,22 +1,6 @@
-<script lang="ts" module>
-  import type { DatabaseEngine } from "@athanordb/shared";
-
-  const DEFAULT_PORTS: Record<DatabaseEngine, number> = {
-    postgres: 5432,
-    mysql: 3306,
-    sqlite: 0,
-    // Not yet offered in this modal's engine picker below (postgres/mysql/sqlite only) —
-    // the backend supports these two (`apps/server/.../drivers/{mssql,oracle}.ts`), but
-    // wiring them into this UI (dropdown option, badge tone, host/port field visibility)
-    // is a separate piece of work from what added these constants.
-    mssql: 1433,
-    oracle: 1521,
-  };
-</script>
-
 <script lang="ts">
   import { untrack } from "svelte";
-  import type { DatabaseConnectionConfig, DatabaseConnectionSummary } from "@athanordb/shared";
+  import type { DatabaseConnectionConfig, DatabaseConnectionSummary, DatabaseEngine } from "@athanordb/shared";
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";
   import Badge from "@/components/ui/Badge.svelte";
@@ -24,7 +8,8 @@
   import Hint from "@/components/ui/Hint.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { CheckCircleIcon, CheckIcon, DatabaseIcon, PlusIcon, TrashIcon } from "@/components/icons/Icons";
-  import { INPUT_CLASS, SELECT_CLASS } from "@/components/ui/inputStyles";
+  import { INPUT_CLASS } from "@/components/ui/inputStyles";
+  import ConnectionFormFields, { DEFAULT_PORTS } from "@/features/connections/ConnectionFormFields.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import {
     createProjectConnection,
@@ -39,10 +24,13 @@
     projectId,
     onClose,
     onSelectActiveConnection,
+    onCheckDifferences,
   }: {
     projectId: string;
     onClose: () => void;
     onSelectActiveConnection?: (conn: DatabaseConnectionSummary) => void;
+    /** Opens the read-only diff (no Apply) between the project's schema and the given connection's live database. */
+    onCheckDifferences?: (connectionId: string) => void;
   } = $props();
 
   const { t } = useTranslation();
@@ -142,14 +130,6 @@
     testResult = null;
     error = null;
     successMessage = null;
-  }
-
-  function handleEngineChange(nextEngine: DatabaseEngine) {
-    engine = nextEngine;
-    port = DEFAULT_PORTS[nextEngine] || 5432;
-    if (nextEngine === "sqlite") {
-      filePath = filePath || "./data/database.sqlite";
-    }
   }
 
   function getFormPayload(): DatabaseConnectionConfig {
@@ -303,110 +283,26 @@
         {/if}
       </div>
 
-      <div class="grid grid-cols-2 gap-3">
-        <div class="col-span-2 sm:col-span-1">
-          <!-- svelte-ignore a11y_label_has_associated_control -->
-          <label class={LABEL}>{t("common.name")}</label>
-          <input class={INPUT_CLASS} bind:value={name} placeholder="ex: Production DB" />
-        </div>
-
-        <div class="col-span-2 sm:col-span-1">
-          <!-- svelte-ignore a11y_label_has_associated_control -->
-          <label class={LABEL}>{t("connections.engine")}</label>
-          <select
-            class={SELECT_CLASS}
-            value={engine}
-            onchange={(e) => handleEngineChange(e.currentTarget.value as DatabaseEngine)}
-          >
-            <option value="postgres">{t("connections.engine.postgres")}</option>
-            <option value="mysql">{t("connections.engine.mysql")}</option>
-            <option value="sqlite">{t("connections.engine.sqlite")}</option>
-          </select>
-        </div>
-
-        <div class="col-span-2">
-          <!-- svelte-ignore a11y_label_has_associated_control -->
-          <label class={LABEL}>{t("connections.environment")}</label>
-          <input class={INPUT_CLASS} bind:value={environment} placeholder={t("connections.environmentPlaceholder")} />
-          <Hint>{t("connections.environmentHint")}</Hint>
-        </div>
+      <div>
+        <!-- svelte-ignore a11y_label_has_associated_control -->
+        <label class={LABEL}>{t("common.name")}</label>
+        <input class={INPUT_CLASS} bind:value={name} placeholder="ex: Production DB" />
       </div>
 
-      {#if engine === "sqlite"}
-        <div>
-          <!-- svelte-ignore a11y_label_has_associated_control -->
-          <label class={LABEL}>{t("connections.filePath")}</label>
-          <input class={INPUT_CLASS} bind:value={filePath} placeholder="./data/app.sqlite" />
-          <Hint>{t("connections.sqliteHint")}</Hint>
-        </div>
-      {:else}
-        <div class="flex items-center gap-2 pt-1">
-          <label class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-text">
-            <input type="checkbox" bind:checked={useUri} class="rounded border-border" />
-            {t("connections.useUri")}
-          </label>
-        </div>
-
-        {#if useUri}
-          <div>
-            <!-- svelte-ignore a11y_label_has_associated_control -->
-            <label class={LABEL}>{t("connections.connectionUri")}</label>
-            <input
-              class={INPUT_CLASS}
-              type="password"
-              bind:value={connectionString}
-              placeholder={engine === "postgres"
-                ? "postgres://user:pass@host:5432/dbname"
-                : "mysql://user:pass@host:3306/dbname"}
-            />
-          </div>
-        {:else}
-          <div class="space-y-3">
-            <div class="grid grid-cols-3 gap-2">
-              <div class="col-span-2">
-                <!-- svelte-ignore a11y_label_has_associated_control -->
-                <label class={LABEL}>{t("connections.host")}</label>
-                <input class={INPUT_CLASS} bind:value={host} />
-              </div>
-              <div>
-                <!-- svelte-ignore a11y_label_has_associated_control -->
-                <label class={LABEL}>{t("connections.port")}</label>
-                <input class={INPUT_CLASS} type="number" bind:value={port} />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-3 gap-2">
-              <div class="col-span-1">
-                <!-- svelte-ignore a11y_label_has_associated_control -->
-                <label class={LABEL}>{t("connections.database")}</label>
-                <input class={INPUT_CLASS} bind:value={database} />
-              </div>
-              <div class="col-span-1">
-                <!-- svelte-ignore a11y_label_has_associated_control -->
-                <label class={LABEL}>{t("connections.user")}</label>
-                <input class={INPUT_CLASS} bind:value={user} />
-              </div>
-              <div class="col-span-1">
-                <!-- svelte-ignore a11y_label_has_associated_control -->
-                <label class={LABEL}>{t("connections.password")}</label>
-                <input
-                  class={INPUT_CLASS}
-                  type="password"
-                  bind:value={password}
-                  placeholder={selectedId !== "new" ? "••••••••" : ""}
-                />
-              </div>
-            </div>
-
-            <div>
-              <label class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-text">
-                <input type="checkbox" bind:checked={ssl} class="rounded border-border" />
-                {t("connections.sslEnable")}
-              </label>
-            </div>
-          </div>
-        {/if}
-      {/if}
+      <ConnectionFormFields
+        bind:environment
+        bind:engine
+        bind:host
+        bind:port
+        bind:database
+        bind:user
+        bind:password
+        passwordPlaceholder={selectedId !== "new" ? "••••••••" : ""}
+        bind:ssl
+        bind:connectionString
+        bind:filePath
+        bind:useUri
+      />
 
       {#if testResult}
         <div
@@ -432,6 +328,11 @@
           {#if selectedId !== "new"}
             <Button size="sm" variant="ghost" onclick={handlePullSchema} disabled={pulling}>
               {pulling ? t("common.loading") : t("connections.pullSchema")}
+            </Button>
+          {/if}
+          {#if selectedId !== "new" && onCheckDifferences}
+            <Button size="sm" variant="ghost" onclick={() => onCheckDifferences(selectedId)}>
+              {t("connections.checkDifferences")}
             </Button>
           {/if}
         </div>

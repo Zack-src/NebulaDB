@@ -3,11 +3,12 @@ import { readProjectFromDoc, type DatabaseConnectionConfig, type MigrationResolu
 import { detectTypeTranslationRisks, diffTargetAgainstLive, generateMigrationSql } from "@athanordb/dbml-engine";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
-import { requireProjectAccess, requireProjectAdmin } from "../../shared/guards.js";
+import { requireProjectAccess, requireProjectAdmin, requireUser } from "../../shared/guards.js";
 import { getRoom } from "../../realtime/roomRegistry.js";
 import { createDatabaseDriver } from "./drivers/index.js";
 import { deployToConnection, rollbackConnectionDeployment } from "./deploy.js";
 import { pullConnectionSchema } from "./pull.js";
+import { createProjectFromDatabase } from "./createFromDatabase.js";
 import { listDeploymentHistory } from "./deploymentHistory.js";
 import {
   deleteConnection,
@@ -29,8 +30,43 @@ const VALID_ENGINES = new Set(["postgres", "mysql", "sqlite", "mssql", "oracle"]
  * a project `edit` grant allows today. `hostGuard.ts` and the SQLite driver's
  * own-database guard narrow *where* that can point; this narrows *who* can
  * trigger it at all.
+ *
+ * `from-database` is the one exception: there is no project yet to require
+ * `administrator` on, so it only requires an authenticated user — the same
+ * bar `POST /api/projects` already sets, since the caller becomes that new
+ * project's administrator regardless of which route created it.
  */
 export function registerConnectionRoutes(app: FastifyInstance): void {
+  // 0. Create a brand-new project from a live database's introspected schema
+  app.post("/api/projects/from-database", async (req) => {
+    const user = requireUser(req);
+    const body = (req.body ?? {}) as { projectName?: string } & Omit<DatabaseConnectionConfig, "id" | "projectId">;
+
+    if (!VALID_ENGINES.has(body.engine)) throw new ApiError("CONNECTION_ENGINE_INVALID");
+    const { projectName, ...connectionConfig } = body;
+    // `connectionConfig.name` is required by `saveConnection` (NOT NULL column) but, unlike the
+    // per-project `POST .../connections` route, there's no reason to make a caller here supply two
+    // names for what's overwhelmingly one thing — default it the same way the project name itself
+    // falls back.
+    connectionConfig.name = connectionConfig.name?.trim() || projectName?.trim() || connectionConfig.database || "Database";
+
+    const result = await createProjectFromDatabase(
+      user.id,
+      user.displayName,
+      projectName || connectionConfig.name,
+      connectionConfig,
+    );
+    auditUser(
+      user,
+      "project.create",
+      { type: "project", id: result.id },
+      `from database: ${result.tablesCount} table(s)`,
+      req,
+    );
+
+    return result;
+  });
+
   // 1. List connections for a project
   app.get("/api/projects/:id/connections", async (req) => {
     const { id } = req.params as { id: string };

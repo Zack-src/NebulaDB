@@ -22,6 +22,7 @@
     onAddIndex,
     onUpdateIndex,
     onDeleteIndex,
+    onDuplicate,
     triggerClassName,
   }: {
     table: Table;
@@ -31,6 +32,7 @@
     onAddIndex?: (fieldIds: string[], options: IndexOptions) => void;
     onUpdateIndex?: (indexId: string, updates: Partial<Pick<TableIndex, "unique" | "pk" | "name">>) => void;
     onDeleteIndex?: (indexId: string) => void;
+    onDuplicate?: () => void;
     triggerClassName: string;
   } = $props();
 
@@ -75,6 +77,7 @@
     {onAddIndex}
     {onUpdateIndex}
     {onDeleteIndex}
+    {onDuplicate}
     {triggerRect}
     {trigger}
     onClose={() => (open = false)}

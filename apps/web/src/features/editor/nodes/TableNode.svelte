@@ -256,6 +256,7 @@
           onAddIndex={data.onAddIndex}
           onUpdateIndex={data.onUpdateIndex}
           onDeleteIndex={data.onDeleteIndex}
+          onDuplicate={data.onDuplicate}
           triggerClassName={HEADER_BTN_CLASS}
         />
       {/if}

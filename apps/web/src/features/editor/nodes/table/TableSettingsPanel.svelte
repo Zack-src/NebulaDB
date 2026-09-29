@@ -3,7 +3,8 @@
   import { anchoredPlacement, provisionalPopoverStyle } from "@/actions/placement";
   import { portal } from "@/actions/portal";
   import Icon from "@/components/icons/Icon.svelte";
-  import { PlusIcon } from "@/components/icons/Icons";
+  import { CopyIcon, PlusIcon } from "@/components/icons/Icons";
+  import Button from "@/components/ui/Button.svelte";
   import { SWATCH_CELL_ACTIVE_CLASS, SWATCH_CELL_CLASS, SWATCH_GRID_CLASS } from "@/components/inputs/colorSwatches";
   import { useCloseOnViewportChange } from "@/hooks/closeOnViewportChange.svelte";
   import { useDismissablePopover } from "@/hooks/dismissablePopover.svelte";
@@ -29,6 +30,7 @@
     onAddIndex,
     onUpdateIndex,
     onDeleteIndex,
+    onDuplicate,
     triggerRect,
     trigger,
     onClose,
@@ -40,6 +42,7 @@
     onAddIndex?: (fieldIds: string[], options: IndexOptions) => void;
     onUpdateIndex?: (indexId: string, updates: Partial<Pick<TableIndex, "unique" | "pk" | "name">>) => void;
     onDeleteIndex?: (indexId: string) => void;
+    onDuplicate?: () => void;
     triggerRect: DOMRect;
     trigger: HTMLElement | undefined;
     onClose: () => void;
@@ -110,6 +113,21 @@
       {/each}
     </div>
   </div>
+
+  {#if onDuplicate}
+    <Button
+      variant="default"
+      size="sm"
+      class="justify-center"
+      onclick={() => {
+        onDuplicate();
+        onClose();
+      }}
+    >
+      <Icon icon={CopyIcon} size={12} />
+      {t("table.duplicate")}
+    </Button>
+  {/if}
 
   {#if onAddIndex || table.indexes.length > 0}
     <div class={POPOVER_GROUP_CLASS}>

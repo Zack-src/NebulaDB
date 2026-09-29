@@ -203,6 +203,83 @@ test("deployment history + rollback: full lifecycle against a real SQLite target
   }
 });
 
+test("plan-deployment surfaces a type-translation risk for a column type the target engine has no equivalent for", async () => {
+  const app = await buildApp();
+  const targetFile = join(tmpdir(), `athanordb-test-target-${randomUUID()}.sqlite`);
+  try {
+    const owner = await makeUser();
+    const cookie = await loginAs(app, owner.email, owner.password);
+
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/projects",
+      headers: headers({ cookie }),
+      payload: { name: "Type translation project" },
+    });
+    const project = created.json();
+
+    const room = getRoom(project.id);
+    room.doc.transact(() => {
+      writeProjectToDoc(room.doc, {
+        id: project.id,
+        name: project.name,
+        tables: [
+          {
+            id: "t-users",
+            name: "users",
+            // "uuid" has no native SQLite equivalent — see typeMapping.ts.
+            fields: [{ id: "t-users.id", name: "id", type: "uuid", pk: true }],
+            indexes: [],
+            position: { x: 0, y: 0 },
+            detailLevel: "standard",
+          },
+        ],
+        refs: [],
+        enums: [],
+        zones: [],
+        stickyNotes: [],
+        tableGroups: [],
+      });
+    }, "test-seed");
+
+    const connRes = await app.inject({
+      method: "POST",
+      url: `/api/projects/${project.id}/connections`,
+      headers: headers({ cookie }),
+      payload: { name: "Local file", engine: "sqlite", filePath: targetFile },
+    });
+    const connId = connRes.json().connection.id;
+
+    const plan = await app.inject({
+      method: "POST",
+      url: `/api/projects/${project.id}/connections/${connId}/plan-deployment`,
+      headers: headers({ cookie }),
+      payload: {},
+    });
+    assert.equal(plan.statusCode, 200);
+    const risks = plan.json().risks;
+    const translationRisk = risks.find((r: { type: string }) => r.type === "TYPE_TRANSLATION_SUGGESTED");
+    assert.ok(translationRisk, "expected a TYPE_TRANSLATION_SUGGESTED risk for the uuid column");
+    assert.equal(translationRisk.tableName, "users");
+    assert.equal(translationRisk.columnName, "id");
+    assert.equal(translationRisk.suggestedValue, "text");
+    assert.equal(translationRisk.defaultStrategy, "USE_TRANSLATED_TYPE");
+
+    // Applying with no resolutions (the default) deploys the translated type, not the raw "uuid".
+    const apply = await app.inject({
+      method: "POST",
+      url: `/api/projects/${project.id}/connections/${connId}/apply-deployment`,
+      headers: headers({ cookie }),
+      payload: { resolutions: {} },
+    });
+    assert.equal(apply.statusCode, 200);
+    assert.match(apply.json().sql, /"id" text/);
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
+
 test("deployment history and rollback are admin-only, not just view", async () => {
   const app = await buildApp();
   try {
@@ -352,6 +429,97 @@ test("per-target rate limit: hammering one database through the test route gets 
     assert.equal(elsewhere.statusCode, 200);
   } finally {
     resetConnectionBudgets();
+  }
+});
+
+test("from-database creates a project pre-populated with the live schema, no separate project/connection step needed", async () => {
+  const app = await buildApp();
+  const targetFile = join(tmpdir(), `athanordb-test-fromdb-${randomUUID()}.sqlite`);
+  try {
+    const { SqliteDriver } = await import("./drivers/sqlite.js");
+    const seedDriver = new SqliteDriver({
+      id: "seed",
+      projectId: "seed",
+      name: "seed",
+      engine: "sqlite",
+      filePath: targetFile,
+    });
+    await seedDriver.executeMigration(
+      "CREATE TABLE widgets (id INTEGER PRIMARY KEY, name TEXT NOT NULL); CREATE TABLE gadgets (id INTEGER PRIMARY KEY);",
+    );
+    await seedDriver.close();
+
+    const owner = await makeUser();
+    const cookie = await loginAs(app, owner.email, owner.password);
+
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/projects/from-database",
+      headers: headers({ cookie }),
+      payload: { projectName: "Imported DB", engine: "sqlite", filePath: targetFile },
+    });
+    assert.equal(res.statusCode, 200);
+    const body = res.json();
+    assert.equal(body.name, "Imported DB");
+    assert.equal(body.tablesCount, 2);
+
+    // The project is real (owned by the caller, who is its administrator) and its canvas already has the tables.
+    const fetched = await app.inject({
+      method: "GET",
+      url: `/api/projects/${body.id}`,
+      headers: headers({ cookie }),
+    });
+    assert.equal(fetched.statusCode, 200);
+    assert.equal(fetched.json().permission, "administrator");
+
+    const dbml = await app.inject({
+      method: "GET",
+      url: `/api/projects/${body.id}/export/dbml`,
+      headers: headers({ cookie }),
+    });
+    assert.match(dbml.body, /Table widgets/);
+    assert.match(dbml.body, /Table gadgets/);
+
+    // ...and the connection it introspected through is attached and usable (e.g. for a later re-pull or diff check).
+    const connections = await app.inject({
+      method: "GET",
+      url: `/api/projects/${body.id}/connections`,
+      headers: headers({ cookie }),
+    });
+    assert.equal(connections.json().connections[0].id, body.connectionId);
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
+
+test("from-database rolls back the project (and its connection) if introspection fails, rather than leaving an empty project behind", async () => {
+  const app = await buildApp();
+  try {
+    const owner = await makeUser();
+    const cookie = await loginAs(app, owner.email, owner.password);
+    const projectName = `Should not survive ${randomUUID()}`;
+
+    // Pointing at AthanorDB's own database file trips `assertNotAppDatabase`
+    // in the SQLite driver's constructor — a deterministic, realistic
+    // introspection failure to verify the rollback against.
+    const res = await app.inject({
+      method: "POST",
+      url: "/api/projects/from-database",
+      headers: headers({ cookie }),
+      payload: { projectName, engine: "sqlite", filePath: process.env.ATHANORDB_DB_PATH },
+    });
+    assert.equal(res.statusCode, 400);
+    assert.equal(res.json().code, "CONNECTION_TARGET_FORBIDDEN");
+
+    // A project with no teams is listable by *any* logged-in user (see
+    // `getEffectivePermission`), so this file's other tests' leftover
+    // projects are visible here too — asserting this specific project is
+    // absent (by its unique name) is what actually verifies the rollback,
+    // not an absolute count.
+    const after = await app.inject({ method: "GET", url: "/api/projects", headers: headers({ cookie }) });
+    assert.ok(!after.json().some((p: { name: string }) => p.name === projectName));
+  } finally {
     closeAllRooms();
     await app.close();
   }

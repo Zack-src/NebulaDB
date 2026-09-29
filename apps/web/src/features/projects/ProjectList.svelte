@@ -1,7 +1,7 @@
 <script lang="ts">
   import Icon from "@/components/icons/Icon.svelte";
   import type { ProjectTemplateId } from "@athanordb/dbml-engine";
-  import { FolderIcon, LayoutGridIcon, PlusIcon, TrashIcon } from "@/components/icons/Icons";
+  import { DatabaseIcon, FolderIcon, LayoutGridIcon, PlusIcon, TrashIcon } from "@/components/icons/Icons";
   import { useDraftValue } from "@/hooks/draftValue.svelte";
   import ProjectTeamsModal from "@/features/teams/ProjectTeamsModal.svelte";
   import ProjectTabs from "@/features/projects/components/ProjectTabs.svelte";
@@ -10,10 +10,12 @@
   import DeleteProjectModal from "@/features/projects/components/DeleteProjectModal.svelte";
   import EmptyTrashModal from "@/features/projects/components/EmptyTrashModal.svelte";
   import TemplatePickerModal from "@/features/projects/components/TemplatePickerModal.svelte";
+  import NewProjectFromDatabaseModal from "@/features/projects/NewProjectFromDatabaseModal.svelte";
   import WebhooksModal from "@/features/projects/components/WebhooksModal.svelte";
   import { TEMPLATE_COPY } from "@/features/projects/components/templateCopy";
   import GlobalSearchResults from "@/features/projects/components/GlobalSearchResults.svelte";
   import type { SearchHit } from "@/services/searchApi";
+  import type { CreateProjectFromDatabaseResponse } from "@/services/connectionsApi";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
@@ -33,6 +35,7 @@
     onSetStatus,
     onDeleteForever,
     onEmptyTrash,
+    onProjectCreatedFromDatabase,
   }: {
     projects: ProjectSummary[];
     loaded: boolean;
@@ -43,6 +46,8 @@
     onSetStatus: (project: ProjectSummary, status: ProjectStatus) => void;
     onDeleteForever: (project: ProjectSummary) => Promise<string | null>;
     onEmptyTrash: (projects: ProjectSummary[]) => Promise<string | null>;
+    /** Fired once the modal's `createProjectFromDatabase` call succeeds — the caller refreshes the list and navigates in. */
+    onProjectCreatedFromDatabase: (result: CreateProjectFromDatabaseResponse) => void;
   } = $props();
 
   const { t } = useTranslation();
@@ -68,6 +73,7 @@
   let creating = $state(false);
   let templatePickerOpen = $state(false);
   let templateError = $state<string | null>(null);
+  let newFromDatabaseOpen = $state(false);
 
   function commitRename() {
     nameDraft.commit();
@@ -164,6 +170,10 @@
       <Icon icon={LayoutGridIcon} size={14} />
       {t("projects.fromTemplate")}
     </Button>
+    <Button onclick={() => (newFromDatabaseOpen = true)} class="-mt-2 w-full gap-2 text-xs">
+      <Icon icon={DatabaseIcon} size={14} />
+      {t("projects.newFromDatabase")}
+    </Button>
     <ProjectTabs {projects} {section} onSectionChange={(next) => (section = next)} />
   </aside>
 
@@ -189,6 +199,13 @@
           <Button onclick={openTemplatePicker} disabled={creating} class="shrink-0 gap-2 text-xs sm:hidden">
             <Icon icon={LayoutGridIcon} size={14} />
             {t("projects.fromTemplate")}
+          </Button>
+          <Button
+            onclick={() => (newFromDatabaseOpen = true)}
+            class="shrink-0 gap-2 text-xs sm:hidden"
+            aria-label={t("projects.newFromDatabase")}
+          >
+            <Icon icon={DatabaseIcon} size={14} />
           </Button>
         </div>
       </div>
@@ -271,6 +288,15 @@
       error={templateError}
       onPick={handleCreateFromTemplate}
       onClose={() => (templatePickerOpen = false)}
+    />
+  {/if}
+  {#if newFromDatabaseOpen}
+    <NewProjectFromDatabaseModal
+      onClose={() => (newFromDatabaseOpen = false)}
+      onCreated={(result) => {
+        newFromDatabaseOpen = false;
+        onProjectCreatedFromDatabase(result);
+      }}
     />
   {/if}
   {#if webhooksTarget}

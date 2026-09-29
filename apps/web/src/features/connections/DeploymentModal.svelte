@@ -38,9 +38,22 @@
     projectId,
     onClose,
     initialConnectionId,
-  }: { projectId: string; onClose: () => void; initialConnectionId?: string | null } = $props();
+    readOnly = false,
+  }: {
+    projectId: string;
+    onClose: () => void;
+    initialConnectionId?: string | null;
+    /**
+     * "Check Differences" entry point: same diff/risks/SQL preview as a real
+     * deployment plan, minus the ability to act on it — no Apply button. Reuses
+     * `plan-deployment` as-is rather than a second, lighter-weight diff
+     * endpoint/UI, since the two would otherwise show the exact same data.
+     */
+    readOnly?: boolean;
+  } = $props();
 
   const { t } = useTranslation();
+  const modalTitle = $derived(readOnly ? t("deployment.checkDifferencesTitle") : t("deployment.title"));
   let connections = $state.raw<DatabaseConnectionSummary[]>([]);
   let selectedConnId = $state<string>("");
   let loading = $state(true);
@@ -156,11 +169,11 @@
 </script>
 
 {#if loading}
-  <Modal title={t("deployment.title")} {onClose}>
+  <Modal title={modalTitle} {onClose}>
     <div class="flex h-48 items-center justify-center text-xs text-text-muted">{t("common.loading")}</div>
   </Modal>
 {:else if connections.length === 0}
-  <Modal title={t("deployment.title")} {onClose}>
+  <Modal title={modalTitle} {onClose}>
     <div class="space-y-4 py-4 text-center">
       <Icon icon={DatabaseIcon} size={32} class="mx-auto text-text-muted" />
       <div>
@@ -173,7 +186,7 @@
     </div>
   </Modal>
 {:else}
-  <Modal title={t("deployment.title")} {onClose} wide>
+  <Modal title={modalTitle} {onClose} wide>
     <div class="space-y-4">
       <!-- Header toolbar: connection selection -->
       <div class="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-border bg-surface-raised p-2.5">
@@ -488,7 +501,7 @@
             <Button size="sm" variant="primary" onclick={() => (activeStep = "sql")}>{t("deployment.previewSql")}</Button>
           {/if}
 
-          {#if activeStep === "sql"}
+          {#if activeStep === "sql" && !readOnly}
             <Button size="sm" variant="primary" onclick={handleApplyDeployment} disabled={deploying || !diff?.hasChanges}>
               <Icon icon={CheckIcon} size={13} />
               {deploying ? t("deployment.deploying") : t("deployment.applyMigration")}

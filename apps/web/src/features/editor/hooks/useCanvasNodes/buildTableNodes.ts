@@ -303,6 +303,28 @@ export function buildTableNodes(
                 if (!current) return;
                 tables_.set(table.id, { ...current, indexes: current.indexes.filter((idx) => idx.id !== indexId) });
               },
+              // Same field/index id remapping as `duplicateSelected` (multi-node
+              // Ctrl+D) in `useProjectMutations`, just for a single table reached
+              // from its own settings popover instead of the canvas selection.
+              onDuplicate: () => {
+                const tables_ = getTablesMap(doc);
+                const current = tables_.get(table.id);
+                if (!current) return;
+                const fieldIdMap = new Map(current.fields.map((f) => [f.id, generateId()]));
+                const id = generateId();
+                tables_.set(id, {
+                  ...current,
+                  id,
+                  name: `${current.name}_copy`,
+                  position: { x: current.position.x + 24, y: current.position.y + 24 },
+                  fields: current.fields.map((f) => ({ ...f, id: fieldIdMap.get(f.id)! })),
+                  indexes: current.indexes.map((idx) => ({
+                    ...idx,
+                    id: generateId(),
+                    fieldIds: idx.fieldIds.map((fid) => fieldIdMap.get(fid) ?? fid),
+                  })),
+                });
+              },
               // Lets `FieldEditorPopover` set a ref's ON DELETE/ON UPDATE from the
               // FK column itself — same doc write `useCanvasEdges`' equivalent
               // handlers make from the relation's own edge popover, just reachable
