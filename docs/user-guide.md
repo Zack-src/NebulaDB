@@ -334,4 +334,4 @@ Dit explicitement pour éviter de le chercher :
 La double authentification (§8), le thème clair (§8) et la connexion à une
 vraie base de données (§5 — introspection, déploiement, retour en arrière)
 étaient sur cette liste avant : ils existent désormais et n'y figurent plus.
-La feuille de route de ce qui reste est dans [`v1-roadmap.md`](./v1-roadmap.md).
+La feuille de route de ce qui reste est dans [`todo.md`](./todo.md).
