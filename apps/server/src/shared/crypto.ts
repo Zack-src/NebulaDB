@@ -25,6 +25,10 @@ const IV_LENGTH = 12;
  * fresh install that never configures a live DB connection or 2FA isn't
  * refused a boot over an unrelated env var.
  */
+function deriveKey(secret: string): Buffer {
+  return crypto.createHash("sha256").update(secret).digest();
+}
+
 function encryptionKey(): Buffer {
   const secret = process.env.ATHANORDB_SECRET;
   if (!secret || secret.trim() === "") {
@@ -41,8 +45,24 @@ function encryptionKey(): Buffer {
         "set it before using either feature.",
     });
   }
-  return crypto.createHash("sha256").update(secret).digest();
+  return deriveKey(secret);
 }
+
+/**
+ * The key being rotated *away from*, if any. While `ATHANORDB_SECRET_PREVIOUS`
+ * is set, anything still encrypted with it stays readable, so a rotation is
+ * "set the new secret, keep the old one as PREVIOUS, run `npm run
+ * rotate-secret`, then drop PREVIOUS" rather than a flag day that leaves every
+ * stored connection undecryptable.
+ */
+function previousEncryptionKey(): Buffer | null {
+  const secret = process.env.ATHANORDB_SECRET_PREVIOUS;
+  if (!secret || secret.trim() === "") return null;
+  return deriveKey(secret);
+}
+
+/** Payloads written before the format carried a version are the bare `iv:tag:ciphertext` — still read, never written. */
+const FORMAT_VERSION = "v1";
 
 export function encryptPayload(data: unknown): string {
   const key = encryptionKey();
@@ -53,24 +73,37 @@ export function encryptPayload(data: unknown): string {
   encrypted += cipher.final("hex");
   const authTag = cipher.getAuthTag();
 
-  return `${iv.toString("hex")}:${authTag.toString("hex")}:${encrypted}`;
+  return `${FORMAT_VERSION}:${iv.toString("hex")}:${authTag.toString("hex")}:${encrypted}`;
+}
+
+function decryptWith(key: Buffer, ivHex: string, authTagHex: string, encryptedHex: string): string {
+  const decipher = crypto.createDecipheriv(ALGORITHM, key, Buffer.from(ivHex, "hex"));
+  decipher.setAuthTag(Buffer.from(authTagHex, "hex"));
+  let decrypted = decipher.update(encryptedHex, "hex", "utf8");
+  decrypted += decipher.final("utf8");
+  return decrypted;
+}
+
+function splitPayload(encryptedString: string): [string, string, string] {
+  const parts = encryptedString.split(":");
+  if (parts.length === 4 && parts[0] === FORMAT_VERSION) return [parts[1], parts[2], parts[3]];
+  if (parts.length === 3) return [parts[0], parts[1], parts[2]];
+  throw new Error("Invalid encrypted payload format");
 }
 
 export function decryptPayload<T = unknown>(encryptedString: string): T {
+  const [ivHex, authTagHex, encryptedHex] = splitPayload(encryptedString);
   const key = encryptionKey();
-  const parts = encryptedString.split(":");
-  if (parts.length !== 3) {
-    throw new Error("Invalid encrypted payload format");
+  try {
+    return JSON.parse(decryptWith(key, ivHex, authTagHex, encryptedHex)) as T;
+  } catch (err) {
+    const previous = previousEncryptionKey();
+    if (!previous) throw err;
+    return JSON.parse(decryptWith(previous, ivHex, authTagHex, encryptedHex)) as T;
   }
+}
 
-  const [ivHex, authTagHex, encryptedHex] = parts;
-  const iv = Buffer.from(ivHex, "hex");
-  const authTag = Buffer.from(authTagHex, "hex");
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, iv);
-  decipher.setAuthTag(authTag);
-
-  let decrypted = decipher.update(encryptedHex, "hex", "utf8");
-  decrypted += decipher.final("utf8");
-
-  return JSON.parse(decrypted) as T;
+/** Re-encrypts a stored payload with the current key and format — the unit of work of `rotate-secret`. */
+export function reencryptPayload(encryptedString: string): string {
+  return encryptPayload(decryptPayload(encryptedString));
 }

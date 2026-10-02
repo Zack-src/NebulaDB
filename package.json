@@ -20,6 +20,7 @@
     "backup": "npm run backup -w apps/server --",
     "restore": "npm run restore -w apps/server --",
     "bootstrap-admin": "npm run bootstrap-admin -w apps/server --",
+    "rotate-secret": "npm run rotate-secret -w apps/server --",
     "test": "npm run test --workspaces --if-present",
     "test:e2e": "npm run test:e2e -w apps/web",
     "check:circular": "npm run check:circular --workspaces --if-present",
