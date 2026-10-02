@@ -11,14 +11,34 @@ import { pullConnectionSchema } from "./pull.js";
 import { createProjectFromDatabase } from "./createFromDatabase.js";
 import { listDeploymentHistory } from "./deploymentHistory.js";
 import {
-  deleteConnection,
-  getConnectionById,
+  getConnectionOrigin,
+  getProjectConnection,
+  isConnectionLinked,
   listConnectionsByProject,
   saveConnection,
+  unlinkProjectConnection,
   updateConnection,
 } from "./repository.js";
+import { VALID_ENGINES } from "./engines.js";
+import type { SessionUser } from "../auth/session.js";
 
-const VALID_ENGINES = new Set(["postgres", "mysql", "sqlite", "mssql", "oracle"]);
+/**
+ * Per-caller ceiling on top of the per-target budget (`connectionBudget.ts`):
+ * that one protects a database, this one stops a single session from cycling
+ * through many different targets — every one of these routes makes the server
+ * open an outbound connection.
+ */
+const CONNECTION_RATE_LIMIT = { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } };
+
+/**
+ * A connection reached through a project must be attached to it, and one an
+ * instance admin created can only be *used* from a project, not edited:
+ * its credentials may serve several projects.
+ */
+export function assertProjectMayEditConnection(user: SessionUser, projectId: string, connId: string): void {
+  if (!isConnectionLinked(projectId, connId)) throw new ApiError("CONNECTION_NOT_FOUND");
+  if (getConnectionOrigin(connId) === "admin" && !user.isAdmin) throw new ApiError("CONNECTION_MANAGED_BY_ADMIN");
+}
 
 /**
  * Everything here but the list route requires project `administrator`, not
@@ -38,7 +58,7 @@ const VALID_ENGINES = new Set(["postgres", "mysql", "sqlite", "mssql", "oracle"]
  */
 export function registerConnectionRoutes(app: FastifyInstance): void {
   // 0. Create a brand-new project from a live database's introspected schema
-  app.post("/api/projects/from-database", async (req) => {
+  app.post("/api/projects/from-database", CONNECTION_RATE_LIMIT, async (req) => {
     const user = requireUser(req);
     const body = (req.body ?? {}) as { projectName?: string } & Omit<DatabaseConnectionConfig, "id" | "projectId">;
 
@@ -48,7 +68,8 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
     // per-project `POST .../connections` route, there's no reason to make a caller here supply two
     // names for what's overwhelmingly one thing — default it the same way the project name itself
     // falls back.
-    connectionConfig.name = connectionConfig.name?.trim() || projectName?.trim() || connectionConfig.database || "Database";
+    connectionConfig.name =
+      connectionConfig.name?.trim() || projectName?.trim() || connectionConfig.database || "Database";
 
     const result = await createProjectFromDatabase(
       user.id,
@@ -75,7 +96,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
   });
 
   // 2. Create connection
-  app.post("/api/projects/:id/connections", async (req) => {
+  app.post("/api/projects/:id/connections", CONNECTION_RATE_LIMIT, async (req) => {
     const { id } = req.params as { id: string };
     const { user } = requireProjectAdmin(req, id);
     const body = (req.body ?? {}) as Omit<DatabaseConnectionConfig, "id">;
@@ -89,13 +110,14 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
   });
 
   // 3. Update connection
-  app.put("/api/projects/:id/connections/:connId", async (req) => {
+  app.put("/api/projects/:id/connections/:connId", CONNECTION_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
     const { user } = requireProjectAdmin(req, id);
     const body = (req.body ?? {}) as Partial<DatabaseConnectionConfig>;
     if (body.engine !== undefined && !VALID_ENGINES.has(body.engine)) throw new ApiError("CONNECTION_ENGINE_INVALID");
 
-    const updated = updateConnection(connId, body);
+    assertProjectMayEditConnection(user, id, connId);
+    const updated = updateConnection(connId, body, id);
     if (!updated) throw new ApiError("CONNECTION_NOT_FOUND");
 
     auditUser(user, "connection.update", { type: "project", id }, `${updated.engine}: ${updated.name}`, req);
@@ -103,11 +125,13 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
   });
 
   // 4. Delete connection
-  app.delete("/api/projects/:id/connections/:connId", async (req) => {
+  app.delete("/api/projects/:id/connections/:connId", CONNECTION_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
     const { user } = requireProjectAdmin(req, id);
 
-    const ok = deleteConnection(connId);
+    // Detaches; the connection itself only goes if this project created it
+    // and nothing else uses it (see `unlinkProjectConnection`).
+    const ok = unlinkProjectConnection(id, connId);
     if (!ok) throw new ApiError("CONNECTION_NOT_FOUND");
 
     auditUser(user, "connection.delete", { type: "project", id }, connId, req);
@@ -115,7 +139,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
   });
 
   // 5. Test connection config
-  app.post("/api/projects/:id/connections/test", async (req) => {
+  app.post("/api/projects/:id/connections/test", CONNECTION_RATE_LIMIT, async (req) => {
     const { id } = req.params as { id: string };
     requireProjectAdmin(req, id);
     const body = (req.body ?? {}) as DatabaseConnectionConfig;
@@ -130,7 +154,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
   });
 
   // 6. Pull schema from live DB into canvas
-  app.post("/api/projects/:id/connections/:connId/pull", async (req) => {
+  app.post("/api/projects/:id/connections/:connId/pull", CONNECTION_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
     const { user, project } = requireProjectAdmin(req, id);
 
@@ -141,11 +165,11 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
   });
 
   // 7. Plan deployment: Diff canvas project vs live DB and inspect risks
-  app.post("/api/projects/:id/connections/:connId/plan-deployment", async (req) => {
+  app.post("/api/projects/:id/connections/:connId/plan-deployment", CONNECTION_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
     const { project } = requireProjectAdmin(req, id);
 
-    const conn = getConnectionById(connId);
+    const conn = getProjectConnection(id, connId);
     if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
 
     const room = getRoom(id);
@@ -170,7 +194,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
   });
 
   // 8. Apply deployment: Generate DDL with resolutions & execute transactionally
-  app.post("/api/projects/:id/connections/:connId/apply-deployment", async (req) => {
+  app.post("/api/projects/:id/connections/:connId/apply-deployment", CONNECTION_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
     const { user, project } = requireProjectAdmin(req, id);
     const body = (req.body ?? {}) as { resolutions?: MigrationResolutionMap };
@@ -192,7 +216,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
   app.get("/api/projects/:id/connections/:connId/history", async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
     requireProjectAdmin(req, id);
-    return { history: listDeploymentHistory(connId) };
+    return { history: listDeploymentHistory(id, connId) };
   });
 
   /**
@@ -203,7 +227,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
    * `deploymentHistory.ts`'s `rolledBack` for why that's derived, not a flag
    * that could drift.
    */
-  app.post("/api/projects/:id/connections/:connId/history/:historyId/rollback", async (req) => {
+  app.post("/api/projects/:id/connections/:connId/history/:historyId/rollback", CONNECTION_RATE_LIMIT, async (req) => {
     const { id, connId, historyId } = req.params as { id: string; connId: string; historyId: string };
     const { user } = requireProjectAdmin(req, id);
 

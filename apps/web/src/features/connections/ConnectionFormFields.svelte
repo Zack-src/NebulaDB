@@ -6,9 +6,6 @@
     mysql: 3306,
     sqlite: 0,
     mssql: 1433,
-    // Not yet offered by the engine picker below — the backend supports it
-    // (`apps/server/.../drivers/oracle.ts`), but wiring it into this form is a
-    // separate piece of work from what added this constant.
     oracle: 1521,
   };
 </script>
@@ -19,8 +16,8 @@
   import { useTranslation } from "@/i18n/i18n.svelte";
 
   /**
-   * The connection-config form fields, shared by `ConnectionManagerModal`
-   * (editing a project's existing connections) and `NewProjectFromDatabaseModal`
+   * The connection-config form fields, shared by the admin console's
+   * `ConnectionEditModal` and `NewProjectFromDatabaseModal`
    * (entering one before a project even exists) — extracted so the two don't
    * drift out of sync on engine support, field layout, or validation as either
    * one changes.
@@ -66,8 +63,10 @@
     engine === "postgres"
       ? "postgres://user:pass@host:5432/dbname"
       : engine === "mssql"
-        ? "mssql://user:pass@host:1433/dbname"
-        : "mysql://user:pass@host:3306/dbname",
+        ? "Server=host,1433;Database=dbname;User Id=user;Password=pass;Encrypt=true"
+        : engine === "oracle"
+          ? "host:1521/service_name"
+          : "mysql://user:pass@host:3306/dbname",
   );
 </script>
 
@@ -83,6 +82,7 @@
       <option value="postgres">{t("connections.engine.postgres")}</option>
       <option value="mysql">{t("connections.engine.mysql")}</option>
       <option value="mssql">{t("connections.engine.mssql")}</option>
+      <option value="oracle">{t("connections.engine.oracle")}</option>
       <option value="sqlite">{t("connections.engine.sqlite")}</option>
     </select>
   </div>
@@ -134,7 +134,7 @@
       <div class="grid grid-cols-3 gap-2">
         <div class="col-span-1">
           <!-- svelte-ignore a11y_label_has_associated_control -->
-          <label class={LABEL}>{t("connections.database")}</label>
+          <label class={LABEL}>{engine === "oracle" ? t("connections.oracleService") : t("connections.database")}</label>
           <input class={INPUT_CLASS} bind:value={database} />
         </div>
         <div class="col-span-1">

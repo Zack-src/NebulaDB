@@ -19,12 +19,22 @@ import { ApiError } from "../../shared/errors.js";
  * single-instance deployment is the supported topology (docker-compose).
  */
 
-export type BudgetKind = "connect" | "write";
+export type BudgetKind = "connect" | "write" | "admin" | "adminWrite";
 
 /** Opening a driver: test, pull, plan. Generous for a person clicking, tight for a loop. */
 const CONNECT_LIMIT = { max: 30, windowMs: 60_000 };
 /** Executing migration/rollback SQL — changes a real schema; far fewer is plenty. */
 const WRITE_LIMIT = { max: 5, windowMs: 60_000 };
+/** Admin console reads: browsing a tree fires a request per click, so the ceiling is far higher than `connect`. */
+const ADMIN_LIMIT = { max: 240, windowMs: 60_000 };
+/** Admin console writes (a write-mode statement, a drop, a grant). An operator works statement by statement, hence more than `write`. */
+const ADMIN_WRITE_LIMIT = { max: 40, windowMs: 60_000 };
+const LIMITS: Record<BudgetKind, { max: number; windowMs: number }> = {
+  connect: CONNECT_LIMIT,
+  write: WRITE_LIMIT,
+  admin: ADMIN_LIMIT,
+  adminWrite: ADMIN_WRITE_LIMIT,
+};
 const MAX_TRACKED_TARGETS = 5_000;
 
 const hits = new Map<string, number[]>();
@@ -48,7 +58,7 @@ export function targetKey(config: DatabaseConnectionConfig): string {
 
 /** Records one use of `kind` against `key`, or throws a 429 if the window is already full. */
 export function takeConnectionBudget(key: string, kind: BudgetKind, now = Date.now()): void {
-  const limit = kind === "write" ? WRITE_LIMIT : CONNECT_LIMIT;
+  const limit = LIMITS[kind];
   const bucket = `${kind}:${key}`;
   const recent = (hits.get(bucket) ?? []).filter((at) => now - at < limit.windowMs);
   if (recent.length >= limit.max) {

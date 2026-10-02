@@ -60,12 +60,11 @@ export function updateProjectStatus(id: string, status: ProjectStatus): void {
 }
 
 /**
- * Removes the project and everything that references it. Explicit rather
- * than left to the schema's `ON DELETE CASCADE` clauses: SQLite only honours
- * those with `PRAGMA foreign_keys = ON`, which this database has never set —
- * so until 2026-09-23 a deleted project's database connections (encrypted
- * credentials included), deployment history and project-restricted API keys
- * all silently outlived it.
+ * Removes the project and everything that references it, explicitly and in
+ * one transaction rather than leaning on the schema's `ON DELETE CASCADE`
+ * clauses: several of the referencing tables (`revisions`, `snapshots`,
+ * `project_teams`) declare no cascade at all, and what must happen to a
+ * connection is not a cascade anyway — see below.
  */
 export function deleteProjectCascade(id: string): void {
   db.transaction(() => {
@@ -74,7 +73,14 @@ export function deleteProjectCascade(id: string): void {
     ).run(id);
     db.prepare("DELETE FROM project_webhooks WHERE project_id = ?").run(id);
     db.prepare("DELETE FROM deployment_history WHERE project_id = ?").run(id);
-    db.prepare("DELETE FROM project_connections WHERE project_id = ?").run(id);
+    // Connections are instance-level since migration 18: only the link goes, plus
+    // any connection this project created that is now attached to nothing.
+    db.prepare("DELETE FROM project_connection_links WHERE project_id = ?").run(id);
+    db.prepare(
+      `DELETE FROM db_connections
+        WHERE origin = 'project'
+          AND NOT EXISTS (SELECT 1 FROM project_connection_links l WHERE l.connection_id = db_connections.id)`,
+    ).run();
     db.prepare("DELETE FROM api_keys WHERE project_id = ?").run(id);
     db.prepare("DELETE FROM project_teams WHERE project_id = ?").run(id);
     db.prepare("DELETE FROM revisions WHERE project_id = ?").run(id);

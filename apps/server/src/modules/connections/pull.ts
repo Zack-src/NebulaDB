@@ -2,7 +2,7 @@ import { readProjectFromDoc, writeProjectToDoc } from "@athanordb/shared";
 import { ApiError } from "../../shared/errors.js";
 import { getRoom } from "../../realtime/roomRegistry.js";
 import { createDatabaseDriver } from "./drivers/index.js";
-import { getConnectionById } from "./repository.js";
+import { getProjectConnection } from "./repository.js";
 
 export interface PullSchemaResult {
   pulled: boolean;
@@ -21,7 +21,7 @@ export async function pullConnectionSchema(
   connId: string,
   authorDisplayName: string,
 ): Promise<PullSchemaResult> {
-  const conn = getConnectionById(connId);
+  const conn = getProjectConnection(projectId, connId);
   if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
 
   const driver = await createDatabaseDriver(conn);

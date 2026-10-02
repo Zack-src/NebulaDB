@@ -42,7 +42,8 @@
     <span class="mr-1.5 whitespace-nowrap text-[13.5px] font-semibold">{t("admin.title")}</span>
   </header>
   <div class="h-full overflow-y-auto px-6 py-12">
-    <div class="mx-auto max-w-[880px]">
+    <!-- The connections section hosts a data grid and a SQL console, which need the width the list tabs don't. -->
+    <div class={`mx-auto ${section === "connections" ? "max-w-[1240px]" : "max-w-[880px]"}`}>
       <div class="mb-[18px] flex gap-3.5 border-b border-border">
         {#each SECTIONS as { key, labelKey } (key)}
           <button

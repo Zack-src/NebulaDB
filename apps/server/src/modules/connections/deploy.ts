@@ -3,7 +3,7 @@ import { diffTargetAgainstLive, generateMigrationSql, generateRollbackSql } from
 import { ApiError } from "../../shared/errors.js";
 import { getRoom } from "../../realtime/roomRegistry.js";
 import { createDatabaseDriver } from "./drivers/index.js";
-import { getConnectionById } from "./repository.js";
+import { getProjectConnection } from "./repository.js";
 import { getDeploymentHistoryEntry, recordDeployment } from "./deploymentHistory.js";
 import { emitWebhookEvent } from "../webhooks/dispatcher.js";
 
@@ -56,8 +56,9 @@ export async function deployToConnection(
   resolutions: MigrationResolutionMap,
   executedByEmail: string,
 ): Promise<DeployToConnectionResult> {
-  const conn = getConnectionById(connId);
+  const conn = getProjectConnection(projectId, connId);
   if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
+  if (conn.readOnly) throw new ApiError("CONNECTION_READ_ONLY");
 
   const room = getRoom(projectId);
   const canvasProject = readProjectFromDoc(room.doc, projectId, projectName);
@@ -140,8 +141,9 @@ export async function rollbackConnectionDeployment(
   if (!entry.rollbackSql) throw new ApiError("ROLLBACK_NOT_AVAILABLE");
   if (entry.rolledBack) throw new ApiError("ROLLBACK_ALREADY_ATTEMPTED");
 
-  const conn = getConnectionById(connId);
+  const conn = getProjectConnection(projectId, connId);
   if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
+  if (conn.readOnly) throw new ApiError("CONNECTION_READ_ONLY");
 
   const driver = await createDatabaseDriver(conn);
   try {

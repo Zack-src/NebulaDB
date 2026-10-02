@@ -1,8 +1,16 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { DatabaseConnectionConfig } from "@athanordb/shared";
-import { ApiError } from "../../shared/errors.js";
-import { resetConnectionBudgets, takeConnectionBudget, targetKey } from "./connectionBudget.js";
+import { randomUUID } from "node:crypto";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+// The module under test reaches `infrastructure/db.ts` through `shared/errors.ts`. Without
+// this, importing it would open — and migrate — the developer's real `./data` database.
+process.env.ATHANORDB_DB_PATH ??= join(tmpdir(), `athanordb-test-budget-${randomUUID()}.sqlite`);
+
+const { ApiError } = await import("../../shared/errors.js");
+const { resetConnectionBudgets, takeConnectionBudget, targetKey } = await import("./connectionBudget.js");
 
 function config(extra: Partial<DatabaseConnectionConfig>): DatabaseConnectionConfig {
   return { id: "c", projectId: "p", name: "n", engine: "postgres", ...extra };

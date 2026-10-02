@@ -9,17 +9,17 @@ import { deployToConnection, rollbackConnectionDeployment } from "../connections
 import { pullConnectionSchema } from "../connections/pull.js";
 import { listDeploymentHistory } from "../connections/deploymentHistory.js";
 import {
-  deleteConnection,
   listConnectionsByProject,
   saveConnection,
+  unlinkProjectConnection,
   updateConnection,
 } from "../connections/repository.js";
+import { assertProjectMayEditConnection } from "../connections/routes.js";
+import { isValidEngine } from "../connections/engines.js";
 import { API_RATE_LIMIT, DEPLOY_RATE_LIMIT } from "./rateLimits.js";
 
-const VALID_ENGINES = new Set(["postgres", "mysql", "sqlite", "mssql", "oracle"]);
-
 function requireValidEngine(engine: unknown): void {
-  if (typeof engine !== "string" || !VALID_ENGINES.has(engine)) throw new ApiError("CONNECTION_ENGINE_INVALID");
+  if (!isValidEngine(engine)) throw new ApiError("CONNECTION_ENGINE_INVALID");
 }
 
 /**
@@ -59,7 +59,8 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
     const body = (req.body ?? {}) as Partial<DatabaseConnectionConfig>;
     if (body.engine !== undefined) requireValidEngine(body.engine);
 
-    const updated = updateConnection(connId, body);
+    assertProjectMayEditConnection(user, id, connId);
+    const updated = updateConnection(connId, body, id);
     if (!updated) throw new ApiError("CONNECTION_NOT_FOUND");
 
     auditUser(user, "connection.update", { type: "project", id }, `${updated.engine}: ${updated.name} (v1)`, req);
@@ -71,7 +72,7 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
     const { user } = requireProjectAdmin(req, id);
     requireScope(req, "connections:manage", id);
 
-    const ok = deleteConnection(connId);
+    const ok = unlinkProjectConnection(id, connId);
     if (!ok) throw new ApiError("CONNECTION_NOT_FOUND");
 
     auditUser(user, "connection.delete", { type: "project", id }, `${connId} (v1)`, req);
@@ -127,7 +128,7 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
     const { id, connId } = req.params as { id: string; connId: string };
     requireProjectAdmin(req, id);
     requireScope(req, "projects:read", id);
-    return { history: listDeploymentHistory(connId) };
+    return { history: listDeploymentHistory(id, connId) };
   });
 
   app.post("/api/v1/projects/:id/connections/:connId/history/:historyId/rollback", DEPLOY_RATE_LIMIT, async (req) => {

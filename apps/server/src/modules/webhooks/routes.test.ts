@@ -290,7 +290,7 @@ test("deleting a project removes its webhooks, deliveries, connections and scope
     const count = (table: string) =>
       (db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE project_id = ?`).get(projectId) as { n: number }).n;
     assert.equal(count("project_webhooks"), 1);
-    assert.equal(count("project_connections"), 1);
+    assert.equal(count("project_connection_links"), 1);
 
     const deleted = await app.inject({
       method: "DELETE",
@@ -299,7 +299,7 @@ test("deleting a project removes its webhooks, deliveries, connections and scope
     });
     assert.equal(deleted.statusCode, 200);
     assert.equal(count("project_webhooks"), 0);
-    assert.equal(count("project_connections"), 0, "credentials must not outlive their project");
+    assert.equal(count("project_connection_links"), 0, "credentials must not outlive their project");
   } finally {
     closeAllRooms();
     await app.close();

@@ -12,7 +12,7 @@
   /**
    * "New Project from Database": the counterpart to Athanor's existing
    * project-to-database deploy flow. There is no project to attach a
-   * connection to yet, so unlike `ConnectionManagerModal` this has no separate
+   * connection to yet, so unlike the admin console's `ConnectionEditModal` this has no separate
    * "Test Connection" step against `/api/projects/:id/connections/test` (that
    * route needs a project id) — submitting *is* the test: the server creates
    * the project, saves the connection, and introspects the live schema into it

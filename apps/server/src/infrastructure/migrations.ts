@@ -350,6 +350,119 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 18,
+    name: "db_connections + project_connection_links (connections become global)",
+    up: (db) => {
+      // A connection used to belong to exactly one project. It is now an
+      // instance-level object the global admin manages, attached to any number
+      // of projects through a link table. Ids are preserved on the way over, so
+      // `deployment_history.connection_id` keeps pointing at the same thing.
+      // `origin` remembers which side created a row: one that came from a
+      // project is still cleaned up with its last project, an admin-created one
+      // only ever goes when an admin deletes it.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS db_connections (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          engine TEXT NOT NULL,
+          environment TEXT,
+          config_encrypted TEXT NOT NULL,
+          tags TEXT NOT NULL DEFAULT '[]',
+          origin TEXT NOT NULL DEFAULT 'admin',
+          read_only INTEGER NOT NULL DEFAULT 0,
+          created_by TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+          last_status TEXT,
+          last_checked_at TEXT,
+          last_version TEXT,
+          last_latency_ms INTEGER,
+          last_error TEXT
+        );
+        CREATE TABLE IF NOT EXISTS project_connection_links (
+          project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+          connection_id TEXT NOT NULL REFERENCES db_connections(id) ON DELETE CASCADE,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          PRIMARY KEY (project_id, connection_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_project_connection_links_conn ON project_connection_links(connection_id);
+      `);
+      const legacy = db
+        .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'project_connections'")
+        .get();
+      if (!legacy) return;
+      db.exec(`
+        INSERT OR IGNORE INTO db_connections (id, name, engine, environment, config_encrypted, origin, created_at, updated_at)
+          SELECT id, name, engine, environment, config_encrypted, 'project', created_at, updated_at
+            FROM project_connections WHERE project_id IN (SELECT id FROM projects);
+        INSERT OR IGNORE INTO project_connection_links (project_id, connection_id, created_at)
+          SELECT project_id, id, created_at FROM project_connections WHERE project_id IN (SELECT id FROM projects);
+      `);
+      // `deployment_history.connection_id` is a foreign key to the table being
+      // retired, and better-sqlite3 enforces foreign keys: dropping
+      // `project_connections` first would both null every history row's
+      // connection (ON DELETE SET NULL) and leave the history table pointing
+      // at a table that no longer exists. So history is rebuilt against
+      // `db_connections` *before* the old table goes.
+      db.exec(`
+        CREATE TABLE deployment_history_new (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+          connection_id TEXT REFERENCES db_connections(id) ON DELETE SET NULL,
+          connection_name TEXT NOT NULL,
+          environment TEXT,
+          engine TEXT NOT NULL,
+          sql TEXT NOT NULL,
+          rollback_sql TEXT,
+          rollback_of TEXT REFERENCES deployment_history_new(id),
+          success INTEGER NOT NULL,
+          executed_statements INTEGER NOT NULL DEFAULT 0,
+          total_statements INTEGER NOT NULL DEFAULT 0,
+          error TEXT,
+          executed_by TEXT,
+          executed_by_email TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        INSERT INTO deployment_history_new
+          SELECT id, project_id,
+                 CASE WHEN connection_id IN (SELECT id FROM db_connections) THEN connection_id END,
+                 connection_name, environment, engine, sql, rollback_sql, rollback_of, success,
+                 executed_statements, total_statements, error, executed_by, executed_by_email, created_at
+            FROM deployment_history ORDER BY rowid;
+        DROP TABLE deployment_history;
+        ALTER TABLE deployment_history_new RENAME TO deployment_history;
+        CREATE INDEX IF NOT EXISTS idx_deployment_history_conn ON deployment_history(connection_id, created_at DESC);
+        CREATE INDEX IF NOT EXISTS idx_deployment_history_project ON deployment_history(project_id);
+        DROP TABLE project_connections;
+      `);
+    },
+  },
+  {
+    version: 19,
+    name: "admin_query_history table",
+    up: (db) => {
+      // What an admin ran through the SQL console, for their own recall — the
+      // audit log keeps the accountable (and shorter) record. Row-capped per
+      // user on write, like `error_log`. Never stores result rows.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS admin_query_history (
+          id TEXT PRIMARY KEY,
+          connection_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          database_name TEXT,
+          sql TEXT NOT NULL,
+          read_only INTEGER NOT NULL DEFAULT 1,
+          success INTEGER NOT NULL,
+          row_count INTEGER,
+          duration_ms INTEGER,
+          error TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_admin_query_history_conn ON admin_query_history(connection_id, user_id, created_at DESC);
+      `);
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */

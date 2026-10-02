@@ -186,6 +186,10 @@ export interface DatabaseConnectionConfig {
   ssl?: boolean;
   connectionString?: string;
   filePath?: string;
+  /** Free-text labels an admin filters the global connection list by. */
+  tags?: string[];
+  /** When set, the app refuses to write through this connection: no deployment, no write SQL, no drop, no user management. */
+  readOnly?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -206,6 +210,27 @@ export interface DatabaseConnectionSummary {
   filePath?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+/** `admin`: created in the admin console, lives until an admin deletes it. `project`: created through a project, deleted with its last project. */
+export type ConnectionOrigin = "admin" | "project";
+
+export interface ConnectionHealth {
+  /** `null` until the first check. */
+  status: "online" | "offline" | null;
+  checkedAt: string | null;
+  version: string | null;
+  latencyMs: number | null;
+  error: string | null;
+}
+
+/** A connection as the admin console lists it: the summary plus what only the global view knows. */
+export interface AdminConnectionSummary extends DatabaseConnectionSummary {
+  origin: ConnectionOrigin;
+  tags: string[];
+  readOnly: boolean;
+  projects: { id: string; name: string }[];
+  health: ConnectionHealth;
 }
 
 /**

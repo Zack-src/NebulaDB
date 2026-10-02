@@ -26,7 +26,10 @@ export const ERROR_CATALOG = {
   DISPLAY_NAME_REQUIRED: { status: 400, message: "displayName is required" },
   PASSWORDS_REQUIRED: { status: 400, message: "currentPassword and newPassword are required" },
   PASSWORD_REQUIRED_FOR_DELETION: { status: 400, message: "password is required to delete your account" },
-  PASSWORD_RESET_TOKEN_INVALID: { status: 400, message: "this password reset link is invalid, expired or already used" },
+  PASSWORD_RESET_TOKEN_INVALID: {
+    status: 400,
+    message: "this password reset link is invalid, expired or already used",
+  },
   PASSWORD_TOO_WEAK: { status: 400, message: "the password does not meet the minimum requirements" },
   EMAIL_INVALID: { status: 400, message: "a valid email is required" },
   USER_ID_INVALID: { status: 400, message: "a valid userId is required" },
@@ -41,8 +44,22 @@ export const ERROR_CATALOG = {
     message: "you are the last active administrator — grant admin to someone else first",
   },
   INVITATION_INVALID: { status: 400, message: "this invitation is no longer valid" },
-  CONNECTION_ENGINE_INVALID: { status: 400, message: "engine must be one of postgres, mysql, sqlite" },
+  CONNECTION_ENGINE_INVALID: { status: 400, message: "engine must be one of postgres, mysql, mssql, oracle, sqlite" },
   CONNECTION_TARGET_FORBIDDEN: { status: 400, message: "this connection target is not allowed" },
+  DB_ADMIN_INPUT_INVALID: {
+    status: 400,
+    message: "the request is missing a required field or names an unknown object",
+  },
+  DB_ADMIN_UNSUPPORTED: { status: 400, message: "this operation is not supported by this database engine" },
+  DB_ADMIN_SYSTEM_OBJECT: {
+    status: 400,
+    message: "system databases, schemas and accounts cannot be modified from here",
+  },
+  DB_ADMIN_CONFIRMATION_MISMATCH: { status: 400, message: "the confirmation does not match the name of the object" },
+  DB_ADMIN_WRITE_NOT_ALLOWED: {
+    status: 400,
+    message: "this statement modifies data or structure — switch the console to write mode to run it",
+  },
   TOTP_ALREADY_ENABLED: { status: 400, message: "two-factor authentication is already enabled" },
   TOTP_NOT_ENABLED: { status: 400, message: "two-factor authentication is not enabled" },
   TOTP_SETUP_NOT_STARTED: { status: 400, message: "start two-factor setup before confirming it" },
@@ -80,6 +97,11 @@ export const ERROR_CATALOG = {
   FORBIDDEN: { status: 403, message: "forbidden" },
   API_SCOPE_INSUFFICIENT: { status: 403, message: "this API key does not have the required scope" },
   API_KEY_PROJECT_RESTRICTED: { status: 403, message: "this API key is restricted to a different project" },
+  CONNECTION_READ_ONLY: { status: 403, message: "this connection is marked read-only" },
+  CONNECTION_MANAGED_BY_ADMIN: {
+    status: 403,
+    message: "this connection is managed by an instance administrator and cannot be changed from a project",
+  },
   ACCOUNT_DISABLED: { status: 403, message: "this account has been disabled" },
   ORIGIN_INVALID: { status: 403, message: "invalid origin" },
   ORIGIN_MISMATCH: { status: 403, message: "cross-origin request refused" },
@@ -98,6 +120,10 @@ export const ERROR_CATALOG = {
   EMAIL_ALREADY_EXISTS: { status: 409, message: "a user with this email already exists" },
   INVITATION_ALREADY_USED: { status: 409, message: "this invitation has already been used" },
   PROJECT_LIMIT_REACHED: { status: 409, message: "you have reached the maximum number of projects" },
+  CONNECTION_IN_USE: {
+    status: 409,
+    message: "this connection is still attached to one or more projects — confirm to delete it anyway",
+  },
   WEBHOOK_LIMIT_REACHED: { status: 409, message: "a project can have at most 10 webhooks" },
 
   // --- 429 ---
@@ -119,6 +145,7 @@ export const ERROR_CATALOG = {
     status: 503,
     message: "password reset by email is not available: this instance has no email configured",
   },
+  DB_ADMIN_QUERY_FAILED: { status: 502, message: "the target database rejected the statement" },
   MIGRATION_FAILED: { status: 502, message: "the migration could not be applied to the target database" },
   ROLLBACK_FAILED: { status: 502, message: "the rollback could not be applied to the target database" },
 } as const;

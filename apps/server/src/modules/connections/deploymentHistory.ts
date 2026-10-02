@@ -87,18 +87,31 @@ export function recordDeployment(input: RecordDeploymentInput): string {
 
 const DEFAULT_HISTORY_LIMIT = 50;
 
-/** Newest first. `rolledBack` is computed per row (a successful rollback entry pointing back at it), not stored, so it can never drift out of sync with reality. */
-export function listDeploymentHistory(connectionId: string, limit = DEFAULT_HISTORY_LIMIT): DeploymentHistoryEntry[] {
+/**
+ * Newest first, for one connection *as used by one project* — a connection can
+ * be attached to several, and each only sees its own deployments. `rolledBack`
+ * is computed per row (a successful rollback entry pointing back at it), not
+ * stored, so it can never drift out of sync with reality.
+ */
+export function listDeploymentHistory(
+  projectId: string,
+  connectionId: string,
+  limit = DEFAULT_HISTORY_LIMIT,
+): DeploymentHistoryEntry[] {
   const rows = db
-    .prepare(`SELECT * FROM deployment_history WHERE connection_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?`)
-    .all(connectionId, limit) as HistoryRow[];
+    .prepare(
+      `SELECT * FROM deployment_history WHERE connection_id = ? AND project_id = ?
+        ORDER BY created_at DESC, rowid DESC LIMIT ?`,
+    )
+    .all(connectionId, projectId, limit) as HistoryRow[];
   const rolledBackIds = new Set(
     (
       db
         .prepare(
-          `SELECT DISTINCT rollback_of FROM deployment_history WHERE connection_id = ? AND success = 1 AND rollback_of IS NOT NULL`,
+          `SELECT DISTINCT rollback_of FROM deployment_history
+            WHERE connection_id = ? AND project_id = ? AND success = 1 AND rollback_of IS NOT NULL`,
         )
-        .all(connectionId) as { rollback_of: string }[]
+        .all(connectionId, projectId) as { rollback_of: string }[]
     ).map((r) => r.rollback_of),
   );
   return rows.map((row) => rowToEntry(row, rolledBackIds.has(row.id)));
