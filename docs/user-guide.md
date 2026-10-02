@@ -153,9 +153,12 @@ qui transforme un schéma en l'autre, dans le dialecte de votre choix ; le bouto
 
 ## 5. Connecter une vraie base de données
 
-_Gérer les connexions_ (barre d'outils du canvas) relie un projet à une base
-**PostgreSQL, MySQL/MariaDB ou SQLite** réelle : hôte/port ou URI de connexion,
-avec test avant enregistrement. Deux usages :
+Les connexions sont créées par un administrateur de l'instance, dans
+**Admin → Connexions base de données** (voir « Administrer les bases
+connectées » plus bas), puis **rattachées aux projets** qui peuvent s'en
+servir. Moteurs pris en charge : **PostgreSQL, MySQL/MariaDB, SQL Server,
+Oracle et SQLite** — hôte/port ou URI de connexion, avec test avant
+enregistrement. Pour un projet, deux usages :
 
 - **Importer le schéma de la base** — lit le schéma réel et remplace le vôtre
   sur le canvas (utile pour démarrer depuis une base existante plutôt que de
@@ -178,6 +181,42 @@ appliqué une partie des instructions — vérifiez la base cible dans ce cas.
 
 Aucune exécution n'est automatique : l'assistant demande toujours une
 confirmation explicite après avoir montré le SQL qui va tourner.
+
+### Administrer les bases connectées (administrateurs de l'instance)
+
+**Admin → Connexions base de données** liste toutes les connexions de
+l'instance, avec leur état (pastille verte : la base a répondu à la dernière
+vérification), leurs tags et les projets rattachés. On y ajoute, modifie et
+supprime une connexion ; les identifiants sont chiffrés et ne sont jamais
+réaffichés. Cocher **Lecture seule** interdit toute écriture d'Athanor par
+cette connexion (déploiement compris).
+
+**Ouvrir** une connexion donne accès à la base elle-même :
+
+- **Explorateur** — bases, schémas, tables et vues ; pour une table, ses
+  données (paginées, exportables en CSV) et sa structure (colonnes, index,
+  contraintes). On peut supprimer une colonne, une table, une vue ou une base :
+  le SQL exact est affiché, et il faut saisir le nom de l'objet pour confirmer.
+  Les objets système ne sont pas supprimables.
+- **Console SQL** — en **lecture seule** par défaut : une seule instruction de
+  lecture à la fois, avec délai maximal et résultat plafonné. Le **mode
+  écriture** se coche explicitement et redemande confirmation à chaque
+  exécution. Chaque requête est gardée dans votre historique et inscrite au
+  journal d'audit (le texte de la requête, jamais ses résultats).
+- **Utilisateurs et permissions** — les comptes et rôles de la base, leurs
+  privilèges par serveur, base, schéma ou table ; création, suppression,
+  changement de mot de passe, activation/désactivation, ajout à un rôle,
+  attribution et révocation de privilèges. Chaque action montre son SQL avant
+  de s'exécuter. Les différences entre moteurs sont respectées : comptes
+  `utilisateur@hôte` sur MySQL, logins serveur et utilisateurs de base sur SQL
+  Server, rôles sur PostgreSQL ; SQLite n'a pas de comptes. Un mot de passe
+  saisi ou généré n'est ni stocké ni journalisé par Athanor : notez-le.
+- **Sessions** — qui est connecté et ce qui s'exécute, avec la possibilité de
+  terminer une session bloquée.
+
+Le compte utilisé par la connexion doit lui-même avoir les droits nécessaires
+(lire le catalogue, créer des rôles…) : sinon la base refuse, et son message
+est affiché tel quel.
 
 ## 6. Import et export
 

@@ -24,6 +24,55 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Added (database administration)
+
+- **Instance-level database connections.** Connections are now created,
+  edited and deleted by an instance administrator in **Admin → Database
+  connections**, then attached to the projects that may use them — one
+  connection can serve several projects. Oracle joins PostgreSQL,
+  MySQL/MariaDB, SQL Server and SQLite in the form. Each connection has tags,
+  a reachability status (checked on demand and in the background) and an
+  optional **read-only** flag that makes AthanorDB refuse to write through it.
+  **Database:** migration 18 moves `project_connections` to `db_connections`
+  - `project_connection_links` (ids preserved, deployment history kept).
+    **Behaviour change:** through a project (web or `/api/v1`), deleting a
+    connection now detaches it, and a connection created by an instance admin
+    can be used but not edited. **Config:**
+    `ATHANORDB_CONNECTION_HEALTH_INTERVAL_MINUTES` (default 15, `0` = off).
+- **Database console** for each connection (instance administrators only):
+  an explorer (databases, schemas, tables, paged data with CSV export,
+  structure), a SQL console (read-only by default; write mode is explicit,
+  confirmed, time- and row-capped; per-admin history), drop of a column,
+  table, view or database behind a SQL preview and the object's name typed
+  back, and a session monitor with kill. Everything is recorded in the audit
+  log. **Database:** migration 19 adds `admin_query_history`.
+- **Database users and permissions.** List the target server's accounts and
+  roles and what they are granted; create, drop, lock, change a password,
+  manage role membership, grant and revoke — each shown as SQL before it
+  runs. Covers PostgreSQL, MySQL/MariaDB (`user@host`), SQL Server (logins
+  and database users) and Oracle; SQLite has no accounts. Passwords are never
+  stored or logged.
+- Also in this release, previously unlisted: **New project from database**,
+  **table duplication** on the canvas, and **Check differences** between a
+  project and a connected database.
+
+### Security
+
+- **DNS rebinding closed for database connections.** The target host is
+  resolved once, checked, and the driver connects to that exact address
+  (host/port configs and PostgreSQL/MySQL URLs). A host hidden in a
+  connection string used to skip the metadata-endpoint check entirely; it no
+  longer does, for any engine.
+- **A project administrator could act on another project's connection** by
+  knowing its id (update, delete, pull, plan, deploy). Project routes now
+  only resolve connections attached to that project.
+- **Encryption key rotation.** Stored secrets carry a format version, and
+  `ATHANORDB_SECRET_PREVIOUS` + `npm run rotate-secret` re-encrypt everything
+  under a new `ATHANORDB_SECRET`. Existing data stays readable as is.
+- **`ATHANORDB_SQLITE_DIR`** restricts SQLite connections to one directory
+  (opt-in; symlinks are resolved).
+- The connection routes of the web UI now also have a per-caller rate limit.
+
 ### Added (API)
 
 - **OpenAPI description of the public API** at `GET /api/v1/openapi.json`, for

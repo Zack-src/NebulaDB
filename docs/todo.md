@@ -20,7 +20,7 @@ claimed absent). Corrections made:
   `totpRoutes.test.ts`; it wasn't done at the last writing, it is now.
 - **Updated** every file reference from `.tsx` to its current `.svelte` path
   (`ComponentCatalogue.svelte`, `CanvasArea.svelte`, `ProjectEditor.svelte`,
-  `PluginManagerDialog.svelte`, `DeploymentModal.svelte`, `ConnectionManagerModal.svelte`).
+  `PluginManagerDialog.svelte`, `DeploymentModal.svelte`).
 - **Refreshed** the file-size watchlist — post-migration line counts differ from the old
   ones (some grew, e.g. `CanvasArea.svelte` 463 l., `DeploymentModal.svelte` 501 l.).
 - **Added** two items straight from this pass: two unconfirmed perf regressions the
@@ -254,7 +254,7 @@ of them).
   - `apps/web/src/features/editor/canvas/autoLayout.ts` — 465 l.
   - `apps/web/src/features/editor/canvas/CanvasArea.svelte` — 463 l.
   - `apps/web/src/features/editor/ProjectEditor.svelte` — 459 l.
-  - `apps/web/src/features/connections/ConnectionManagerModal.svelte` — 449 l.
+  - `apps/web/src/features/admin/connections/UsersPanel.svelte` — 447 l.
   - None of the above are structural bugs — split opportunistically, same policy as before.
 - [x] **Lint cleanup** — done 2026-09-23, `npm run lint` is clean again.
   `generateFieldAlterations` split into one helper per change kind (engine tests
@@ -303,14 +303,28 @@ Connects a project to a real database: read-only introspection, drift detection,
 SQL generation, apply/rollback with per-environment history
 (`apps/server/src/modules/connections/`,
 `packages/dbml-engine/src/{migrationDiff,migrationGenerator,rollbackGenerator}.ts`,
-`ConnectionManagerModal.svelte`/`DeploymentModal.svelte`). **This is the one feature area
+`DeploymentModal.svelte`; connections themselves are instance-level since 2026-10-02 and
+managed in the admin console — `apps/web/src/features/admin/connections/`,
+`apps/server/src/modules/dbAdmin/`). **This is the one feature area
 where a mistake can destroy a client's data — each remaining gap needs its own security
 review before being closed, not an audit afterwards.**
 
 - [~] **Close the residual Phase A–D gaps** — **M**, all reconfirmed still open 2026-09-23:
-  - DNS-rebinding protection — `hostGuard.ts`'s own header comment still states this gap
-    explicitly (resolve-then-check is TOCTOU-vulnerable to a hostname that re-resolves
-    elsewhere at connect time).
+  - ~~DNS-rebinding protection~~ — **done 2026-10-02**: `connections/targetPinning.ts`
+    resolves the host once (`hostGuard.resolveAllowedHost`), checks every address, and
+    hands the driver that exact address (TLS still gets the original name). Covers
+    host/port configs and PostgreSQL/MySQL URLs. **Still check-only, not pinned:** SQL
+    Server and Oracle connection *strings*, and a PostgreSQL/MySQL URL carrying its own
+    TLS options (`sslrootcert`, `?ssl=`) — rewriting those would drop options. A host
+    inside a connection string used to skip the guard altogether; it no longer does.
+  - ~~SQLite arbitrary file paths~~ — **opt-in fix 2026-10-02**: `ATHANORDB_SQLITE_DIR`
+    restricts SQLite connections to one directory (symlinks resolved). Unset keeps the
+    old behaviour so existing connections survive an upgrade; making it the default
+    would be a breaking change to schedule.
+  - ~~A project administrator could reach another project's connection by id~~ — **fixed
+    2026-10-02** (found while making connections instance-level): the project routes
+    never checked that `:connId` belonged to `:id`. They now resolve through
+    `getProjectConnection`.
   - A general private-IP-range block, if one is ever wanted — deliberately not the default,
     since a self-hosted deployment's own DB is routinely on `localhost`/LAN.
   - ~~Per-connection rate limiting~~ — **done 2026-09-23**: `connections/connectionBudget.ts`,
@@ -326,7 +340,11 @@ review before being closed, not an audit afterwards.**
     history and project-restricted API keys outlived it. `deleteProjectCascade` now
     deletes them explicitly, in one transaction. Rows orphaned *before* this fix are
     still there — a one-off cleanup (`DELETE … WHERE project_id NOT IN (SELECT id FROM
-    projects)`) is worth running on existing instances.
+    projects)`) is worth running on existing instances. *Correction 2026-10-02:* the
+    diagnosis above ("`PRAGMA foreign_keys` is off") does not hold for the current build —
+    better-sqlite3 enables foreign keys by default, which migration 18 ran into (it has
+    to rebuild `deployment_history` before dropping the table it referenced). That
+    migration also drops connections whose project no longer exists.
   - An audit of what `sampleData`/risk-inspection queries can leak across a permission
     boundary.
   - A dedicated security review by someone who hasn't already been staring at this code.
@@ -336,39 +354,27 @@ review before being closed, not an audit afterwards.**
 - [ ] **Phase E — CI/CD automation** — **L**. Not blocked (Phase 21's `/api/v1`
   deploy-trigger endpoint is the primitive) but the CI-side wiring (GitHub Action, CLI
   wrapper, docs) isn't built.
-- [ ] **Phase F — Database users & permissions management** — **XL**, needs scoping
-  first. **What:** manage the *connected database's own* accounts from the app, not
-  AthanorDB's users: list the roles/users that exist on the target DB and what they're
-  granted (per schema/table, ideally per column), create/drop a role, and grant/revoke
-  privileges (`SELECT`/`INSERT`/`UPDATE`/`DELETE`/…) through the same review-then-apply
-  flow a schema migration gets, so the diff and the generated `GRANT`/`REVOKE` SQL are
-  visible before anything runs. Confirmed 2026-09-23: nothing like this exists. The
-  `DatabaseDriver` interface (`drivers/interface.ts`) only has `testConnection`/
-  `introspectSchema`/`inspectRisks`/`executeMigration`/`close`, and no driver reads
-  `pg_roles`/`mysql.user`/`sys.database_principals`/`DBA_USERS`. **How:**
-  - Read side first, since it's lower risk and useful on its own: an
-    `introspectPrivileges()` per driver, returning one normalised shape (role, object,
-    privilege, grantable), shown in a new "Accès" tab of `ConnectionManagerModal.svelte`
-    (already 449 l., on the watchlist, so the tab should be a separate component).
-  - Write side: a privilege diff + `GRANT`/`REVOKE`/`CREATE ROLE` generator next to
-    `migrationGenerator.ts`, with a rollback counterpart like `rollbackGenerator.ts`, and
-    entries in the per-environment deployment history.
-  - Optional: declare the intended grants in the project itself (DBML has no syntax for
-    them, so a sidecar next to the visual metadata), so drift detection covers
-    permissions as well as structure.
-  - Dialect gaps to design around: SQLite has no users at all (hide the feature there);
-    MySQL privileges are per `user@host`; Oracle and SQL Server split logins/users/
-    schemas differently from Postgres roles.
-  **Security, above the Phase 27 bar:** creating an account needs a password, which the
-  app must never store or log (show a generated one once, or require the operator to
-  provide it). The stored connection's credentials need `CREATEROLE`/`GRANT OPTION`,
-  far more than introspection needs, so this should be opt-in per connection, gated
-  behind the project `administrator` level (not `edit`), recorded in the audit log, and
-  never able to touch the connection's own account (no locking yourself out). A separate
-  security review is required before the write side ships, same as the other Phase 27
-  gaps. **Blocked by:** nothing technically. Worth deciding with the Phase A–D residual
-  gaps (per-connection rate limiting, the `sampleData` permission-boundary audit)
-  before widening what a connection can do.
+- [x] **Phase F — Database users & permissions management** — **done 2026-10-02**, as
+  part of the database administration console (`docs/plan-db-admin.md`). Per-engine
+  adapters in `apps/server/src/modules/dbAdmin/drivers/` map PostgreSQL roles, MySQL
+  `user@host` accounts, SQL Server logins/database users and Oracle users/roles onto one
+  model (`packages/shared/src/dbAdmin.ts`); the UI is the console's "Utilisateurs et
+  permissions" tab. Every change is a previewed statement, audited, with passwords
+  masked and never stored. Scope decisions that differ from the original sketch: it is
+  gated behind the **instance** administrator (not project `administrator`), and it acts
+  directly rather than through a declared-grants diff — declaring intended grants in the
+  project (so drift detection covers permissions) is still open. Tested against live
+  PostgreSQL 16, MySQL 8.4, SQL Server 2022 and Oracle Free 23
+  (`dbAdmin/drivers/live.test.ts`, skipped when the servers aren't running).
+  **Still owed:** the independent security review the Phase 27 rule asks for; column-level
+  grants (read, not yet grantable from the UI); nothing stops an admin from locking or
+  dropping the connection's *own* account.
+- [ ] **Database console follow-ups** — from `docs/plan-db-admin.md` phase 4, not built:
+  backup/restore and data import (needs the engines' client tools in the image), schema
+  comparison between two connections, SSH tunnel and custom CA for TLS (drivers still
+  connect with `rejectUnauthorized: false` unless a PostgreSQL URL says otherwise), a
+  CodeMirror SQL editor with completion (the console uses a plain textarea), MongoDB.
+  SQLite queries run synchronously and cannot be timed out.
 
 ## Phase 28 — User-reported feedback (canvas popovers, DBML sync, relation UX)
 

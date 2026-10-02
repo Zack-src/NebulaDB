@@ -81,8 +81,8 @@ alone is never enough for these.
 |---|---|---|---|
 | `GET` | `/api/v1/projects/:id/connections` | `projects:read` | |
 | `POST` | `/api/v1/projects/:id/connections` | `connections:manage` (+ admin) | `{ name, engine, ...credentials }` — create a connection |
-| `PUT` | `/api/v1/projects/:id/connections/:connId` | `connections:manage` (+ admin) | Partial update — an omitted password is preserved, not cleared |
-| `DELETE` | `/api/v1/projects/:id/connections/:connId` | `connections:manage` (+ admin) | |
+| `PUT` | `/api/v1/projects/:id/connections/:connId` | `connections:manage` (+ admin) | Partial update — an omitted password is preserved, not cleared. `403 CONNECTION_MANAGED_BY_ADMIN` for a connection created in the admin console |
+| `DELETE` | `/api/v1/projects/:id/connections/:connId` | `connections:manage` (+ admin) | Detaches the connection from the project; it is deleted as well if this project created it and no other project uses it |
 | `POST` | `/api/v1/projects/:id/connections/test` | `connections:manage` (+ admin) | Tests a config without saving it |
 | `POST` | `/api/v1/projects/:id/connections/:connId/pull` | `connections:manage` (+ admin) | Introspects the live database and merges it onto the canvas, preserving existing tables' ids/positions/styles by name match |
 | `POST` | `/api/v1/projects/:id/connections/:connId/deploy` | `deployments:trigger` (+ admin) | `{ resolutions? }` — runs the identical introspect → diff → generate → execute → record pipeline as the app's own deploy button |
@@ -93,6 +93,16 @@ All connection routes but `GET` (list) require project `administrator` —
 they open a connection to a host/file the caller supplies, or execute
 generated SQL against it, a materially larger blast radius than a plain
 schema edit.
+
+Connections are instance-level objects: one can be attached to several
+projects. These routes only ever see the connections attached to `:id` — a
+`:connId` that belongs to another project answers `404` — and history is the
+project's own deployments through that connection. A connection created by an
+instance administrator (admin console) can be used from here but not edited;
+one marked read-only refuses `deploy` and `rollback` with
+`403 CONNECTION_READ_ONLY`. Creating, editing and administering instance-level
+connections (explorer, SQL console, database users) is done in the web admin
+console and is not part of `/api/v1`.
 
 ### Teams (instance-wide, global-admin-only)
 
