@@ -49,7 +49,15 @@ L'écran d'un projet a deux moitiés synchronisées en permanence :
 - à droite, le **canvas** — le même schéma sous forme de diagramme.
 
 Éditer l'un met l'autre à jour. Le texte DBML se synchronise environ 600 ms
-après votre dernière frappe.
+après votre dernière frappe ; la barre d'état de l'éditeur indique où il en est
+(_Synchronisé_, _En attente_, _Erreur ligne n_). Tant que vous tapez, c'est
+votre texte qui fait foi : il n'est ni reformaté ni remplacé.
+
+Le bouton ⚙ de cette barre d'état liste ce que l'éditeur fait de lui-même, et
+permet de le régler (par navigateur) : formatage automatique (jamais par
+défaut, ou à l'enregistrement — le bouton _Formater_ et `Maj+Alt+F` restent
+disponibles), complétion pendant la frappe, fermeture des crochets, et délai de
+synchronisation — jusqu'à « uniquement sur `Ctrl+S` ».
 
 ### Créer et modifier des tables
 
@@ -94,9 +102,18 @@ signalée plutôt que silencieusement mal convertie.
 | `Ctrl`/`Cmd` + `Z`                         | Annuler                                          |
 | `Ctrl`/`Cmd` + `Maj` + `Z` ou `Ctrl` + `Y` | Rétablir                                         |
 | `Ctrl`/`Cmd` + `D`                         | Dupliquer la sélection                           |
+| `Ctrl`/`Cmd` + `C` puis `Ctrl`/`Cmd` + `V` | Copier / coller les tables sélectionnées         |
 | `Ctrl`/`Cmd` + `F`                         | Rechercher une table sur le canvas               |
 | `Entrée` / `Maj`+`Entrée`                  | Résultat suivant / précédent (dans la recherche) |
 | `Échap`                                    | Fermer la recherche ou le panneau ouvert         |
+
+Le copier / coller passe par le presse-papiers du système : il fonctionne
+d'un projet à l'autre, et coller dans l'éditeur DBML donne le texte des tables.
+Les copies gardent couleurs, colonnes, index et réglages ; seul le nom change
+(`clients_copy`, puis `clients_copy2`…). Les relations entre deux tables
+copiées suivent les copies ; celles vers une table non copiée sont laissées de
+côté. Le clic droit sur une zone vide propose aussi _Copier_ et _Coller_ (à
+l'endroit du clic).
 
 Les raccourcis du canvas sont ignorés pendant que vous tapez dans un champ ou
 dans l'éditeur DBML. Les plugins peuvent en déclarer d'autres (voir §7).

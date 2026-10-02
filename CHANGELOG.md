@@ -24,6 +24,33 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Fixed (DBML editor)
+
+- **Hand edits no longer get "rolled back".** Retargeting a `Ref:` by hand
+  could bring the old relation back next to the new one (when typing paused on
+  a half-written table name), and a buffer using `<` or an inline `[ref: …]`
+  was replaced wholesale by the generated layout — comments included — after
+  every sync. The buffer now wins while it is the newer of the two, and a
+  relation is recognised however it is written. No database or configuration
+  change.
+
+### Added (canvas)
+
+- **Copy / paste tables** with `Ctrl/Cmd+C` / `Ctrl/Cmd+V` or the canvas
+  context menu — within a project, between projects and tabs, and as DBML
+  text into the DBML editor. Colours, columns, indexes and settings are kept;
+  the copy is named `<name>_copy` (`_copy2`, … when taken) and relations
+  between copied tables follow them. `Ctrl+D` now picks a free name the same
+  way instead of creating a second `<name>_copy`.
+
+### Added (DBML editor)
+
+- **Editor behaviour settings** (⚙ in the editor's status bar, stored per
+  browser): automatic formatting (never by default, or on save), completion
+  while typing, bracket closing, and the delay before the text is sent to the
+  diagram — including "only on Ctrl+S". The status bar now shows whether the
+  text and the diagram agree (`Synced` / `Pending` / `Error on line n`).
+
 ### Added (database administration)
 
 - **Instance-level database connections.** Connections are now created,

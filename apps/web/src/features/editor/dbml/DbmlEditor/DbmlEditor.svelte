@@ -5,15 +5,26 @@
 
 <script lang="ts">
   import { untrack } from "svelte";
-  import { EditorState } from "@codemirror/state";
+  import { EditorState, Transaction } from "@codemirror/state";
   import { EditorView } from "@codemirror/view";
   import { foldAll as cmFoldAll, unfoldAll as cmUnfoldAll } from "@codemirror/language";
   import { openSearchPanel } from "@codemirror/search";
   import { openLintPanel } from "@codemirror/lint";
   import { formatDocument } from "@/features/editor/dbml/format";
+  import { minimalChange } from "@/features/editor/dbml/bufferSync";
   import { applyRename, type RenameRequest } from "@/features/editor/dbml/rename";
   import { applyServerProblem } from "@/features/editor/dbml/lint";
-  import { createDbmlExtensions, documentSync, fontCompartment, fontTheme, wrapCompartment } from "@/features/editor/dbml/setup";
+  import {
+    bracketsCompartment,
+    bracketsExtension,
+    completionCompartment,
+    completionExtension,
+    createDbmlExtensions,
+    documentSync,
+    fontCompartment,
+    fontTheme,
+    wrapCompartment,
+  } from "@/features/editor/dbml/setup";
   import { getSymbols } from "@/features/editor/dbml/symbols";
   import { jumpTo } from "@/features/editor/dbml/navigation";
   import { matchShortcut } from "@/features/plugins/shortcuts";
@@ -21,6 +32,7 @@
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { EMPTY_CURSOR, readCursorInfo } from "./cursorInfo";
   import { readStoredFontSize, readStoredWrap, writeStoredFontSize, writeStoredWrap } from "./prefs";
+  import { behaviourPrefs } from "./behaviourPrefs.svelte";
   import { buildPaletteItems } from "./paletteItems";
   import { runPluginEditorCommand } from "./pluginCommands";
   import RenamePopover from "./RenamePopover.svelte";
@@ -120,8 +132,16 @@
       extensions: createDbmlExtensions({
         lineWrap: readStoredWrap(),
         fontSize: readStoredFontSize(),
+        autoComplete: untrack(() => behaviourPrefs.autoComplete),
+        closeBrackets: untrack(() => behaviourPrefs.closeBrackets),
         onChange: (value) => props.onChange(value),
-        onSave: () => props.onSave(),
+        onSave: () => {
+          // The only place the editor reformats on its own, and only when asked
+          // to in the settings — off by default.
+          const view = viewRef.current;
+          if (view && behaviourPrefs.formatMode === "onSave" && !props.readOnly) formatDocument(view);
+          props.onSave();
+        },
         onPalette: (mode) => setPalette(mode),
         onRename: openRename,
         onNavigateToCanvas: (target) => props.onNavigateToCanvas?.(target),
@@ -151,32 +171,21 @@
     const next = props.value;
     const view = viewRef.current;
     if (!view) return;
-    const current = view.state.doc.toString();
-    if (next === current) return;
-
-    // A schema resync (e.g. one attribute toggled on one column) used to
-    // replace the *whole* buffer even though only a few characters actually
-    // differ — CodeMirror then re-tokenizes and re-highlights the entire
-    // document on every sync. Trimming to the smallest changed range keeps the
-    // edit — and the resulting redraw — proportional to what actually changed.
-    let start = 0;
-    const maxStart = Math.min(current.length, next.length);
-    while (start < maxStart && current.charCodeAt(start) === next.charCodeAt(start)) start++;
-    let endCurrent = current.length;
-    let endNext = next.length;
-    while (endCurrent > start && endNext > start && current.charCodeAt(endCurrent - 1) === next.charCodeAt(endNext - 1)) {
-      endCurrent--;
-      endNext--;
-    }
+    // Only what differs is replaced (see `minimalChange`), and no selection is
+    // given: CodeMirror maps the cursor through the change, so it stays in the
+    // text it was in instead of at an offset that now points somewhere else.
+    const changes = minimalChange(view.state.doc.toString(), next);
+    if (!changes) return;
 
     view.dispatch({
-      changes: { from: start, to: endCurrent, insert: next.slice(start, endNext) },
-      selection: { anchor: Math.min(view.state.selection.main.anchor, next.length) },
+      changes,
       // Tagged so the change listener can tell this apart from typing: this is
       // the document being mirrored into the buffer, and echoing it back to
       // the server as an import is what made two connected clients fight over
       // the schema (see `documentSync` in ../setup.ts).
-      annotations: documentSync.of(true),
+      // Not undoable either: Ctrl+Z takes back what the user typed, not what
+      // a collaborator did on the canvas.
+      annotations: [documentSync.of(true), Transaction.addToHistory.of(false)],
     });
   });
 
@@ -210,6 +219,15 @@
     const size = fontSize;
     viewRef.current?.dispatch({ effects: fontCompartment.reconfigure(fontTheme(size)) });
     writeStoredFontSize(size);
+  });
+
+  $effect(() => {
+    const enabled = behaviourPrefs.autoComplete;
+    viewRef.current?.dispatch({ effects: completionCompartment.reconfigure(completionExtension(enabled)) });
+  });
+  $effect(() => {
+    const enabled = behaviourPrefs.closeBrackets;
+    viewRef.current?.dispatch({ effects: bracketsCompartment.reconfigure(bracketsExtension(enabled)) });
   });
 
   // Ctrl/Cmd + wheel zooms the editor font. Registered with `{ passive: false }`
@@ -283,6 +301,7 @@
 
   <StatusBar
     {cursor}
+    syncIndicator={props.syncIndicator}
     {wrap}
     onToggleWrap={() => (wrap = !wrap)}
     {fontSize}

@@ -85,6 +85,24 @@ export const paletteHandler = Facet.define<(mode: "symbols" | "commands") => voi
 
 export const wrapCompartment = new Compartment();
 export const fontCompartment = new Compartment();
+export const completionCompartment = new Compartment();
+export const bracketsCompartment = new Compartment();
+
+/** `activateOnTyping` off leaves completion available on demand (Ctrl+I / Ctrl+Space). */
+export function completionExtension(activateOnTyping: boolean): Extension {
+  return autocompletion({
+    override: [dbmlCompletion],
+    selectOnOpen: true,
+    activateOnTyping,
+    closeOnBlur: true,
+    icons: true,
+    maxRenderedOptions: 60,
+  });
+}
+
+export function bracketsExtension(enabled: boolean): Extension {
+  return enabled ? closeBrackets() : [];
+}
 
 function callFacet<T extends (...args: never[]) => void>(
   view: EditorView,
@@ -156,6 +174,8 @@ export const documentSync = Annotation.define<boolean>();
 export interface DbmlEditorOptions {
   lineWrap: boolean;
   fontSize: number;
+  autoComplete: boolean;
+  closeBrackets: boolean;
   onChange: (value: string) => void;
   onSave: () => void;
   onPalette: (mode: "symbols" | "commands") => void;
@@ -189,7 +209,7 @@ export function createDbmlExtensions(options: DbmlEditorOptions): Extension[] {
     indentOnInput(),
     indentUnit.of("  "),
     bracketMatching(),
-    closeBrackets(),
+    bracketsCompartment.of(bracketsExtension(options.closeBrackets)),
     highlightSelectionMatches({ minSelectionLength: 2 }),
     search({ top: true, createPanel: createSearchPanel }),
     searchPanelTheme,
@@ -200,14 +220,7 @@ export function createDbmlExtensions(options: DbmlEditorOptions): Extension[] {
     dbmlHover,
     dbmlLint,
     errorRuler,
-    autocompletion({
-      override: [dbmlCompletion],
-      selectOnOpen: true,
-      activateOnTyping: true,
-      closeOnBlur: true,
-      icons: true,
-      maxRenderedOptions: 60,
-    }),
+    completionCompartment.of(completionExtension(options.autoComplete)),
     Prec.high(dbmlKeymap),
     keymap.of([
       ...closeBracketsKeymap,

@@ -45,6 +45,8 @@
   import { useCanvasFontScale } from "@/features/editor/hooks/canvasFontScale.svelte";
   import { activeDetailLevelOf, createProjectMutations } from "@/features/editor/hooks/projectMutations";
   import { useEditorKeyboardShortcuts } from "@/features/editor/hooks/editorKeyboardShortcuts.svelte";
+  import { useCanvasClipboard } from "@/features/editor/hooks/canvasClipboard.svelte";
+  import { useFlashMessage } from "@/hooks/flashMessage.svelte";
   import { useCanvasCommandRunner } from "@/features/editor/hooks/canvasCommandRunner.svelte";
   import ProjectToolbar from "@/features/editor/ProjectToolbar.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
@@ -326,6 +328,19 @@
     mutations.duplicateSelected,
     () => canWrite && viewMode === "mld",
   );
+
+  // Copy / paste of tables through the system clipboard — see `tableClipboard.ts`.
+  const clipboardStatus = useFlashMessage(3000);
+  const clipboard = useCanvasClipboard({
+    project: () => liveProject,
+    selectedTableIds: () => selectedTableIds,
+    canCopy: () => viewMode === "mld",
+    canPaste: () => canWrite && viewMode === "mld",
+    paste: mutations.pasteTables,
+    onCopied: (count) => clipboardStatus.flash(t("canvas.tablesCopied", { count })),
+    onPasted: (count) => clipboardStatus.flash(t("canvas.tablesPasted", { count })),
+    onNothingToPaste: () => clipboardStatus.flash(t("canvas.nothingToPaste")),
+  });
 </script>
 
 <div style="width: 100%; height: 100%; display: flex; flex-direction: column">
@@ -416,7 +431,9 @@
               canvasCommands={canvasCommands.list}
               onRunCanvasCommand={commandRunner.runCanvasCommand}
               onOpenPlugins={openPlugins}
-              statusMessage={commandRunner.pluginMessage}
+              statusMessage={clipboardStatus.message ?? commandRunner.pluginMessage}
+              onCopyTables={clipboard.copy}
+              onPasteTables={clipboard.pasteAt}
               {selectedEdgeId}
               onSelectEdge={setSelectedEdgeId}
               onClearFieldSelection={clearFieldSelection}

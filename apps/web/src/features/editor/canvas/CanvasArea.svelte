@@ -90,6 +90,10 @@
     onAddZone: (position: CanvasPoint) => void;
     onAddNote: (position: CanvasPoint) => void;
     onAddEnum: (position: CanvasPoint) => void;
+    /** Copies the selected tables to the clipboard. */
+    onCopyTables: () => void;
+    /** Pastes copied tables with the group's top-left corner at `position`. */
+    onPasteTables: (position: CanvasPoint) => void;
     /** Applies a header colour to every currently-selected table at once. */
     onSetTablesColor: (tableIds: string[], color: string) => void;
     /** Bundles the currently-selected tables into a named table group. */
@@ -474,6 +478,9 @@
       onAddZone={props.onAddZone}
       onAddNote={props.onAddNote}
       onAddEnum={props.onAddEnum}
+      copyCount={props.selectedTableIds.length}
+      onCopy={props.onCopyTables}
+      onPaste={props.onPasteTables}
       onClose={closeContextMenu}
     />
   {/if}

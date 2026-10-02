@@ -192,3 +192,26 @@ Table a {
 `;
   assert.equal(dbmlSignature(a), dbmlSignature(b));
 });
+
+test("dbmlSignature gives one relation one signature, however it is written", () => {
+  const tables = `
+Table users {
+  id int [pk]
+}
+Table orders {
+  id int [pk]
+  user_id int
+}
+`;
+  const canonical = dbmlSignature(`${tables}Ref: orders.user_id > users.id\n`);
+  assert.equal(dbmlSignature(`${tables}Ref: users.id < orders.user_id\n`), canonical);
+  assert.equal(dbmlSignature(tables.replace("user_id int", "user_id int [ref: > users.id]")), canonical);
+  assert.equal(dbmlSignature(`${tables}Ref {\n  orders.user_id > users.id\n}\n`), canonical);
+  assert.equal(
+    dbmlSignature(`${tables}Ref: orders.user_id - users.id\n`),
+    dbmlSignature(`${tables}Ref: users.id - orders.user_id\n`),
+  );
+  // …and a different target or cardinality is still a different schema.
+  assert.notEqual(dbmlSignature(`${tables}Ref: orders.id > users.id\n`), canonical);
+  assert.notEqual(dbmlSignature(`${tables}Ref: orders.user_id - users.id\n`), canonical);
+});

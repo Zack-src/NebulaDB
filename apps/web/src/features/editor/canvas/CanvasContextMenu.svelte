@@ -1,6 +1,10 @@
 <script lang="ts" module>
   import type { CanvasPoint } from "./types";
 
+  /** Key names, not prose — never translated. */
+  const COPY_SHORTCUT = "Ctrl+C";
+  const PASTE_SHORTCUT = "Ctrl+V";
+
   export interface CanvasContextMenuState {
     screenX: number;
     screenY: number;
@@ -11,17 +15,20 @@
 <script lang="ts">
   import { menuPlacement } from "@/actions/placement";
   import Icon from "@/components/icons/Icon.svelte";
-  import { FrameIcon, NoteIcon, TableIcon, TagIcon } from "@/components/icons/Icons";
-  import { CONTEXT_MENU_CLASS, CONTEXT_MENU_ITEM_CLASS } from "@/components/ui/contextMenuStyles";
+  import { ClipboardPasteIcon, CopyIcon, FrameIcon, NoteIcon, TableIcon, TagIcon } from "@/components/icons/Icons";
+  import { CONTEXT_MENU_CLASS, CONTEXT_MENU_ITEM_CLASS, CONTEXT_MENU_SEPARATOR_CLASS } from "@/components/ui/contextMenuStyles";
   import { useTranslation } from "@/i18n/i18n.svelte";
 
-  /** Right-click-on-empty-canvas menu — the only way to add a node besides editing DBML directly. */
+  /** Right-click-on-empty-canvas menu: add a node at the cursor, copy the selected tables, paste copied ones here. */
   let {
     menu,
     onAddTable,
     onAddZone,
     onAddNote,
     onAddEnum,
+    copyCount,
+    onCopy,
+    onPaste,
     onClose,
   }: {
     menu: CanvasContextMenuState;
@@ -29,6 +36,10 @@
     onAddZone: (position: CanvasPoint) => void;
     onAddNote: (position: CanvasPoint) => void;
     onAddEnum: (position: CanvasPoint) => void;
+    /** Number of selected tables — "Copy" is only offered when there is something to copy. */
+    copyCount: number;
+    onCopy: () => void;
+    onPaste: (position: CanvasPoint) => void;
     onClose: () => void;
   } = $props();
 
@@ -62,4 +73,23 @@
       {t(item.labelKey)}
     </button>
   {/each}
+  <div class={CONTEXT_MENU_SEPARATOR_CLASS}></div>
+  {#if copyCount > 0}
+    <button
+      class={CONTEXT_MENU_ITEM_CLASS}
+      onclick={() => {
+        onCopy();
+        onClose();
+      }}
+    >
+      <Icon icon={CopyIcon} size={14} />
+      {t("canvas.copyTables", { count: copyCount })}
+      <span class="ml-auto text-[11px] text-text-muted">{COPY_SHORTCUT}</span>
+    </button>
+  {/if}
+  <button class={CONTEXT_MENU_ITEM_CLASS} onclick={() => addAtCursor(onPaste)}>
+    <Icon icon={ClipboardPasteIcon} size={14} />
+    {t("canvas.pasteTables")}
+    <span class="ml-auto text-[11px] text-text-muted">{PASTE_SHORTCUT}</span>
+  </button>
 </div>

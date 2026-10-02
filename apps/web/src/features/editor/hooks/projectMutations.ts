@@ -14,6 +14,12 @@ import {
 } from "@athanordb/shared";
 import type { CanvasNode } from "@/types/index";
 import { generateId } from "@/utils/id";
+import {
+  instantiateClipboard,
+  uniqueCopyName,
+  type PasteTarget,
+  type TableClipboard,
+} from "@/features/editor/canvas/tableClipboard";
 
 /**
  * Every doc-mutating action the project toolbar/canvas can trigger — add/
@@ -143,6 +149,9 @@ export function createProjectMutations(
     const selected = nodes().filter((n) => n.selected);
     if (selected.length === 0) return;
     const OFFSET = 24;
+    // Shared across the loop so duplicating `a` twice — or `a` and `a_copy`
+    // together — never yields two tables with the same name.
+    const takenNames = new Set([...getTablesMap(current).values()].map((table) => table.name.toLowerCase()));
     current.transact(() => {
       for (const node of selected) {
         if (node.type === "table") {
@@ -159,7 +168,7 @@ export function createProjectMutations(
           tables.set(id, {
             ...src,
             id,
-            name: `${src.name}_copy`,
+            name: uniqueCopyName(src.name, takenNames),
             position: { x: src.position.x + OFFSET, y: src.position.y + OFFSET },
             fields: src.fields.map((f) => ({ ...f, id: fieldIdMap.get(f.id)! })),
             indexes: src.indexes.map((idx) => ({
@@ -197,6 +206,20 @@ export function createProjectMutations(
         }
       }
     });
+  };
+
+  /** Adds copied tables (see `tableClipboard.ts`) in one undoable step; returns how many landed. */
+  const pasteTables = (clipboard: TableClipboard, target: PasteTarget): number => {
+    const current = doc();
+    if (!current) return 0;
+    const tables = getTablesMap(current);
+    const pasted = instantiateClipboard(clipboard, [...tables.values()], target, generateId);
+    current.transact(() => {
+      for (const table of pasted.tables) tables.set(table.id, table);
+      const refs = getRefsMap(current);
+      for (const ref of pasted.refs) refs.set(ref.id, ref);
+    });
+    return pasted.tables.length;
   };
 
   const deleteEdges = (edgeIds: string[]) => {
@@ -257,6 +280,7 @@ export function createProjectMutations(
     setTablesColor,
     convertFieldTypes,
     duplicateSelected,
+    pasteTables,
     deleteEdges,
     onConnect,
   };

@@ -37,12 +37,21 @@ export interface CursorInfo {
   warnings: number;
 }
 
+/** Where the buffer stands against the diagram — shown in the status bar. */
+export interface SyncIndicator {
+  state: "synced" | "pending" | "error";
+  /** Line of the problem the server reported, when the error is one. */
+  line?: number;
+}
+
 export interface DbmlEditorProps {
   value: string;
   /** Renders the buffer but refuses edits — used for a `view` grant, where typed changes would be discarded by the server anyway. */
   readOnly?: boolean;
   onChange: (value: string) => void;
   onSave: () => void;
+  /** Omitted for a read-only buffer, which has nothing to send. */
+  syncIndicator?: SyncIndicator;
   problem?: import("@/features/editor/dbml/lint").ServerProblem | null;
   scrollToTable?: { tableName: string; requestId: number } | null;
   /** Double-click on a table/column in the buffer -> jump to it on the canvas. */

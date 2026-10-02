@@ -510,7 +510,6 @@ export function dbmlSignature(source: string | Text): string {
       f.notNull ? "nn" : "",
       f.increment ? "inc" : "",
       f.note ?? "",
-      f.inlineRefs.map((r) => `${r.relation}${r.table.toLowerCase()}.${r.field.toLowerCase()}`).join("+"),
       // `\`now()\`` and `'now()'` are the same default as far as the serializer
       // is concerned — it rewrites backtick expressions as strings on export
       unquoteIdent(/\bdefault\s*:\s*([^,\]]+)/i.exec(f.settings)?.[1].trim() ?? ""),
@@ -548,13 +547,29 @@ export function dbmlSignature(source: string | Text): string {
     .map((event) => `${event.name.toLowerCase()}|${event.values.map((v) => v.name.toLowerCase()).join(";")}`)
     .sort();
 
-  const refs = symbols.refs
-    .map((r) => {
-      const side = (endpoint: { table: string; fields: string[] }) =>
-        `${endpoint.table.toLowerCase()}.${endpoint.fields.map((f) => f.toLowerCase()).join(",")}`;
-      return `${side(r.left)}${r.relation}${side(r.right)}`;
-    })
-    .sort();
+  // One canonical spelling per relation, wherever and however it was written:
+  // `a.x < b.y` is `b.y > a.x`, and a column's inline `[ref: > b.y]` is the
+  // same relation as a standalone `Ref:` line. The serializer only ever emits
+  // the standalone many-to-one form, so comparing the spellings themselves
+  // reported a schema change on every sync for a buffer that used another one —
+  // and the whole buffer was then replaced by the serializer's output.
+  const refSig = (left: string, relation: string, right: string) => {
+    if (relation === ">") return `${left}>${right}`;
+    if (relation === "<") return `${right}>${left}`;
+    return [left, right].sort().join(relation);
+  };
+  const side = (endpoint: { table: string; fields: string[] }) =>
+    `${endpoint.table.toLowerCase()}.${endpoint.fields.map((f) => f.toLowerCase()).join(",")}`;
+  const refs = [
+    ...symbols.refs.map((r) => refSig(side(r.left), r.relation, side(r.right))),
+    ...symbols.tables.flatMap((t) =>
+      t.fields.flatMap((f) =>
+        f.inlineRefs.map((r) =>
+          refSig(side({ table: t.name, fields: [f.name] }), r.relation, side({ table: r.table, fields: [r.field] })),
+        ),
+      ),
+    ),
+  ].sort();
 
   return JSON.stringify({ tables, enums, refs });
 }

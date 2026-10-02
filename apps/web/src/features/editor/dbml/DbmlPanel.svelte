@@ -1,5 +1,4 @@
 <script lang="ts" module>
-  const DBML_SYNC_DEBOUNCE_MS = 600;
   /** How long a plugin's status line stays up before it clears itself. */
   const PLUGIN_MESSAGE_MS = 4000;
   /** The format name, not prose — never translated. */
@@ -20,11 +19,13 @@
   import { ChevronLeftIcon, CodeIcon, LayoutGridIcon, SettingsIcon } from "@/components/icons/Icons";
   import Icon from "@/components/icons/Icon.svelte";
   import DbmlEditor from "@/features/editor/dbml/DbmlEditor/DbmlEditor.svelte";
-  import type { PluginEditorCommand } from "@/features/editor/dbml/DbmlEditor/types";
+  import type { PluginEditorCommand, SyncIndicator } from "@/features/editor/dbml/DbmlEditor/types";
+  import { behaviourPrefs } from "@/features/editor/dbml/DbmlEditor/behaviourPrefs.svelte";
   import { useEditorCommands } from "@/features/plugins/plugins.svelte";
   import type { EditorCommandResult } from "@/features/plugins/types";
   import type { ServerProblem } from "@/features/editor/dbml/lint";
   import { dbmlSignature } from "@/features/editor/dbml/symbols";
+  import { createBufferSync } from "@/features/editor/dbml/bufferSync";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
@@ -65,10 +66,6 @@
   }
 
   let text = $state(serializeInitial());
-  // State (not a plain variable) so the sync effect re-runs when an import
-  // lands: a project update that arrived while the edit was in flight is
-  // reconciled right then instead of waiting for the next one.
-  let dirty = $state(false);
   /**
    * Two kinds of error live side by side here, and they are stored differently
    * on purpose. `error` holds a message the *server* wrote (a DBML diagnostic
@@ -90,7 +87,23 @@
   let panelWidth = $state(loadDbmlPanelWidth());
   let isResizing = $state(false);
   let debounce: ReturnType<typeof setTimeout> | null = null;
-  let lastAppliedText: string | null = untrack(() => text);
+  // Bumped whenever the buffer/document arbitration may have a different
+  // answer than last time (an import settled, a deferral ran out) — the
+  // controller itself is plain, non-reactive state.
+  let syncTick = $state(0);
+  let syncState = $state<SyncIndicator["state"]>("synced");
+  const syncIndicator = $derived<SyncIndicator>({ state: syncState, line: problem?.line });
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  const sync = createBufferSync<{ keepalive?: boolean }>({
+    initialText: untrack(() => text),
+    signatureOf: (source) => time("dbml.signature", () => dbmlSignature(source)),
+    send: (source, baseline, options) => importSource(props.projectId, source, undefined, baseline, options),
+    onSettled: (err) => {
+      syncTick++;
+      syncState = sync.status;
+      reportImportOutcome(err);
+    },
+  });
   let editor: DbmlEditor | undefined = $state();
 
   function startResizing(event: MouseEvent) {
@@ -121,51 +134,37 @@
     saveDbmlPanelWidth(DBML_PANEL_WIDTH_DEFAULT);
   }
 
-  /** Signature of the buffer, and a one-slot cache for the generated one — the
-   * project object changes on every canvas interaction (a table drag included),
-   * so this runs far more often than the document actually changes. */
-  const textSignature = $derived(dbmlSignature(text));
-  let generatedSignature: { source: string; signature: string } | null = null;
-  function signatureOf(source: string) {
-    if (generatedSignature?.source === source) return generatedSignature.signature;
-    const signature = dbmlSignature(source);
-    generatedSignature = { source, signature };
-    return signature;
-  }
-
   // Sync live project changes (e.g. node/ref deletions or modifications) into DBML text.
   // `projectToDbml` re-serializes the whole schema in its own canonical layout, so
   // adopting it blindly would throw away the buffer's formatting and comments a few
-  // hundred ms after every edit. Only replace the text when the schema actually
-  // differs from what the buffer already declares.
+  // hundred ms after every edit. `bufferSync.ts` decides when the document may
+  // replace the buffer — never while the buffer is the newer of the two.
   $effect(() => {
     const project = props.project;
     const projectId = props.projectId;
-    const currentText = text;
-    const currentSignature = textSignature;
-    if (dirty) return;
+    void syncTick;
 
-    const adopt = (dbml: string) => {
-      if (dirty || lastAppliedText === dbml || currentText === dbml) return;
-      if (time("dbml.signature", () => signatureOf(dbml)) === currentSignature) {
-        // same schema, different layout — keep what the user is looking at
-        lastAppliedText = dbml;
-        return;
-      }
-      text = dbml;
-      lastAppliedText = dbml;
+    const offer = (dbml: string) => {
+      const { adopt, retryInMs } = sync.offerDocument(dbml);
+      if (adopt !== undefined) text = adopt;
+      if (retryTimer) clearTimeout(retryTimer);
+      retryTimer = retryInMs === undefined ? null : setTimeout(() => syncTick++, retryInMs);
     };
 
     try {
-      adopt(time("dbml.serialize", () => projectToDbml(project)));
+      offer(time("dbml.serialize", () => projectToDbml(project)));
     } catch (err) {
       // Background reconciliation, not a user action — log it and retry via
       // the server's own serializer rather than surfacing it as an error.
       console.error("[dbml] client-side re-serialization failed, falling back to server export:", err);
       exportDbml(projectId)
-        .then(adopt)
+        .then(offer)
         .catch((fallbackErr: unknown) => console.error("[dbml] fallback export also failed:", fallbackErr));
     }
+    return () => {
+      if (retryTimer) clearTimeout(retryTimer);
+      retryTimer = null;
+    };
   });
 
   function clearErrors() {
@@ -174,50 +173,44 @@
     problem = null;
   }
 
-  function applyNow(source: string, options?: { keepalive?: boolean }) {
-    if (readOnly) return;
-    // The document-derived text this buffer was edited on top of — the
-    // server needs it to tell a deletion apart from a table it simply
-    // never had (a collaborator's, added while this buffer was open).
-    const baseline = lastAppliedText ?? undefined;
-    lastAppliedText = source;
-    importSource(props.projectId, source, undefined, baseline, options)
-      .then(() => {
-        dirty = false;
-        clearErrors();
-      })
-      .catch((err: unknown) => {
-        const parseFailure = err instanceof ApiError && typeof err.details.line === "number";
-        if (parseFailure) {
-          // A real DBML validation problem — actionable, stays visible next
-          // to the editor (not a transport/sync failure). The server's own
-          // diagnostic is used verbatim: it names the offending token.
-          const { line, column, endLine, endColumn } = (err as ApiError).details as Record<string, number>;
-          error = (err as ApiError).message;
-          problem = { message: (err as ApiError).message, line, column, endLine, endColumn };
-          return;
-        }
-        // Rejected for some other reason (permissions, a malformed request,
-        // a dropped connection) — not something typing more DBML fixes, so
-        // it isn't shown as an editor error; logged for debugging instead.
-        console.error("[dbml] sync rejected:", err);
-        clearErrors();
-      });
+  function reportImportOutcome(err: unknown) {
+    if (err === null) return clearErrors();
+    const parseFailure = err instanceof ApiError && typeof err.details.line === "number";
+    if (parseFailure) {
+      // A real DBML validation problem — actionable, stays visible next
+      // to the editor (not a transport/sync failure). The server's own
+      // diagnostic is used verbatim: it names the offending token.
+      const { line, column, endLine, endColumn } = (err as ApiError).details as Record<string, number>;
+      error = (err as ApiError).message;
+      problem = { message: (err as ApiError).message, line, column, endLine, endColumn };
+      return;
+    }
+    // Rejected for some other reason (permissions, a malformed request,
+    // a dropped connection) — not something typing more DBML fixes, so
+    // it isn't shown as an editor error; logged for debugging instead.
+    console.error("[dbml] sync rejected:", err);
+    clearErrors();
   }
 
-  // A rename (or any edit) sits in the browser for up to DBML_SYNC_DEBOUNCE_MS
-  // before it's actually POSTed — closing the panel, navigating away, or
+  function applyNow(options?: { keepalive?: boolean }, force = false) {
+    if (readOnly) return;
+    sync.flush(options, force);
+  }
+
+  // A rename (or any edit) sits in the browser for the configured sync delay
+  // before it's actually POSTed (indefinitely with the delay set to "manual") — closing the panel, navigating away, or
   // reloading inside that window would otherwise drop the edit on the floor.
   // Flush whatever's still pending instead of discarding it.
   $effect(() => {
     const flushPending = () => {
-      if (!debounce) return;
-      clearTimeout(debounce);
+      if (debounce) clearTimeout(debounce);
       debounce = null;
       // `keepalive` lets this survive the tab actually closing/reloading
       // (a plain fetch gets aborted with the document); a same-tab route
       // change or panel close doesn't need it but it's harmless either way.
-      if (dirty) applyNow(untrack(() => text), { keepalive: true });
+      // Forced: the page is going away, there is no waiting for an import
+      // already in flight to be answered.
+      applyNow({ keepalive: true }, true);
     };
     window.addEventListener("beforeunload", flushPending);
     return () => {
@@ -228,20 +221,25 @@
 
   function handleChange(value: string) {
     text = value;
-    dirty = true;
+    sync.edit(value);
     clearErrors();
+    syncState = "pending";
     if (debounce) clearTimeout(debounce);
+    debounce = null;
+    // `0` is "only when I ask" (Ctrl+S); leaving the panel still flushes.
+    const delay = behaviourPrefs.syncDelayMs;
+    if (delay === 0) return;
     debounce = setTimeout(() => {
       debounce = null;
-      applyNow(value);
-    }, DBML_SYNC_DEBOUNCE_MS);
+      applyNow();
+    }, delay);
   }
 
   /** Ctrl+S — skip the debounce and push the current buffer immediately. */
   function handleSave() {
     if (debounce) clearTimeout(debounce);
     debounce = null;
-    applyNow(text);
+    applyNow();
   }
 
   /** Plugin editor commands, adapted to what `DbmlEditor` needs (text in, text out). */
@@ -296,6 +294,7 @@
       onChange={handleChange}
       onSave={handleSave}
       {problem}
+      syncIndicator={readOnly ? undefined : syncIndicator}
       scrollToTable={props.scrollToTable}
       onNavigateToCanvas={props.onNavigateToCanvas}
       {pluginCommands}

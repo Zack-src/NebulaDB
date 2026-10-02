@@ -23,13 +23,14 @@ Before starting any phase, check the **Prerequisites** list just below.
 ## Roadmap at a glance
 
 Suggested order (each lot depends only on lots above it — see the plan's §20 for the
-dependency table). Lot numbers are the plan's.
+dependency table). Lot numbers are the plan's. `✔` = done (2026-10-02: lot 1 and the copy / paste
+item; lot 2 is next and starts with a decision — headless base or in-house, see Phase 29).
 
 | Order | Lot | Phase | What                                                             |
 | ----- | --- | ----- | ---------------------------------------------------------------- |
-| 1     | 1   | 29    | Fix the DBML editor "rollback" bug and the auto-format behaviour |
+| ✔     | 1   | 29    | Fix the DBML editor "rollback" bug and the auto-format behaviour |
 | 2     | 2   | 29    | UI foundations: tokens + custom form components                  |
-| 3     | —   | 29    | Canvas copy / paste of tables                                    |
+| ✔     | —   | 29    | Canvas copy / paste of tables                                    |
 | 4     | 3   | 30    | Table locks and roles                                            |
 | 5     | 4   | 30    | "Structure goes through the schema" policy                       |
 | 6     | 5   | 31    | Workspace shell with tabs                                        |
@@ -114,26 +115,36 @@ API have since shipped.
 
 ## Phase 29 — Editor reliability and UI foundations (plan §1, §2)
 
-- [ ] **DBML editor: edits get "rolled back" while typing** — **M**, 🔴 user-reported
-      2026-10-02. Example: changing the target of a `Ref:` by hand reverts the text strangely.
-      **What:** the text buffer must win while the user is typing; a resync from the model must
-      never overwrite a newer buffer. **Where:** `features/editor/dbml/DbmlEditor/DbmlEditor.svelte`
-      (resync effect ~l.150–180), `dbml/setup.ts` (`documentSync`), `dbml/format.ts`,
-      `dbml/completion.ts`, `dbml/rename.ts`. **How:**
-  1. Reproduce first — headless CodeMirror test typing on a `Ref:` line; assert final text
-     equals what was typed and that no external `dispatch` fires during the typing burst.
-  2. Hypotheses to rule out in order: resync overwrite with normalised serialisation; format
-     applied on the fly; completion replacing a stale range; a transiently invalid ref
-     resynced from the previous model.
-  3. Fix: suspend resync while the editor has focus and a keystroke happened within N ms
-     (defer to blur / pause); compare a revision counter so an older model can never replace a
-     newer buffer.
-  4. Test with two clients (see `documentSync` and `concurrentEdits.test.ts`).
-- [ ] **DBML editor: make automatic edits explicit and configurable** — **M**. Formatting is a
-      button + shortcut + optional "format on save" (off by default), not a silent rewrite;
-      settings for format mode, propagated rename (ask / always), relation completion, sync delay;
-      a sync indicator in `StatusBar.svelte` (`Synchronisé` / `En attente` / `Erreur ligne n`).
-      **Blocked by:** the item above (same code).
+- [x] **DBML editor: edits get "rolled back" while typing** — fixed 2026-10-02. Reproduced
+      first, then three causes found and closed (`features/editor/dbml/bufferSync.ts`):
+  1. **Baseline advanced on send, not on success.** A pause on a half-typed table name
+     (`> cust.id`) posted an invalid buffer; it then became the _baseline_ of the next import,
+     the server could not parse it, treated everything as "added by someone else" and
+     **restored the old `Ref`** next to the new one. The baseline now only moves when an import
+     is acknowledged, and imports are sent one at a time.
+  2. **`dbmlSignature` was not canonical for relations.** `a.x < b.y` and inline `[ref: > …]`
+     never matched the serializer's `Ref: b.y > a.x`, so every sync replaced the **whole
+     buffer** (comments and layout lost). One relation now has one signature (`symbols.ts`).
+  3. **Races.** An import answering for an older revision marked a newer buffer clean, and the
+     HTTP answer could beat the realtime update (the pre-import project was mirrored back).
+     Revision counter + a short grace period; no resync within 1.5 s of a keystroke.
+     Also: the resync dispatch maps the cursor through the change and stays out of the undo
+     history. **Verified:** `bufferSync.test.ts` (real parse/merge pipeline, two clients),
+     `symbols.test.ts`, and `e2e/dbml-editing.e2e.ts` in a real browser — the e2e **fails on the
+     previous code** and passes now. **Not done:** when a collaborator's change really differs,
+     the buffer is still replaced by the canonical serialisation as a whole (comments lost) — a
+     per-block merge would keep untouched tables as written. **Found on the way:** `npm test` in
+     `apps/web` ran 5 of 66 tests (unquoted `src/**` glob, no globstar in `sh`) — fixed.
+- [x] **DBML editor: make automatic edits explicit and configurable** — done 2026-10-02.
+      ⚙ in the editor status bar lists what the editor does on its own (`BehaviourSettings.svelte`,
+      `behaviourPrefs.svelte.ts`, per browser): format (never — default / on save), completion
+      while typing, bracket closing, sync delay (0.4–2 s or **Ctrl+S only**). Sync indicator in
+      `StatusBar.svelte` (`Synchronisé` / `En attente` / `Erreur ligne n`). Verified by the second
+      scenario of `e2e/dbml-editing.e2e.ts`. **Left out, deliberately:** "propagated rename
+      (ask / always)" — no automatic rename exists to configure (F2 always shows the occurrence
+      count and asks); retyping a table name by hand is still a delete + add for the server.
+      The settings use button groups, to be swapped for `SegmentedControl`/`Switch` when the
+      components below exist.
 - [ ] **UI tokens and theme** — **M**. Single token file in `apps/web/src/styles/` (semantic
       colours incl. `--danger`, `--warning`, `--locked`; 4 px spacing scale; radii; shadows;
       motion durations; type scale), light/dark derived from the same tokens. Extend
@@ -152,20 +163,27 @@ Input, Field, Card, Badge, Tabs, List*, Skeleton*, EmptyState`): `Select`/`Combo
       rejecting raw `<select>` and `<input type="checkbox|radio|number|date">` in `features/**`;
       today ~19 files use `<select>` and ~43 use `<input>`. Migrate screen by screen (Phase 37),
       listing the remaining files here as they shrink.
-- [ ] **Copy / paste tables on the canvas** — **M**. Only `Ctrl/Cmd+D` (`duplicateSelected`
-      in `projectMutations.ts`) exists today; no `Ctrl+C` / `Ctrl+V`, no clipboard code, no
-      "Copy"/"Paste" in `CanvasContextMenu.svelte`. Wanted: select one or several tables, copy,
-      paste — colours, columns and settings are kept; only the **table name changes**
-      (`<name>_copy`, then `_copy2`… if taken).
-  - Shortcuts in `editorKeyboardShortcuts.svelte.ts` (same guards: not while typing, inert on
-    a read-only project and in the MCD view); add Copy / Paste to the canvas context menu.
-  - Paste within the project **and** across projects/tabs: put the selection on the system
-    clipboard as DBML plus a small marker for colours/layout, so it also pastes as text into
-    the DBML editor.
-  - To decide: relations between two copied tables are kept (retargeted to the copies); a
-    relation to a table that was _not_ copied is dropped by default (or kept pointing at the
-    original); paste position (offset or at the cursor); a copy of a locked table (Phase 30)
-    is not locked.
+- [x] **Copy / paste tables on the canvas** — done 2026-10-02. `Ctrl/Cmd+C` / `Ctrl/Cmd+V`
+      and Copy / Paste in the canvas context menu (`canvas/tableClipboard.ts`,
+      `hooks/canvasClipboard.svelte.ts`, `pasteTables` in `projectMutations.ts`). Colours, size,
+      detail level, columns, indexes and notes are kept; only the name changes (`_copy`, `_copy2`…
+      — `Ctrl+D` now uses the same rule and no longer produces two `x_copy`). Goes through the
+      **system clipboard** as DBML + one marker comment line, so it pastes across projects and
+      tabs, and as text into the DBML editor. Bound to the `copy` / `paste` DOM events, so it
+      works without the async Clipboard API (plain-http self-hosting) and one paste is one undo
+      step. **Decisions taken** (the item left them open): a relation between two copied tables
+      follows the copies (without its waypoints); a relation to a table that was not copied is
+      **dropped**; `Ctrl+V` puts the copies 24 px off the originals (further on each repeat),
+      context-menu Paste puts the group at the cursor; comments are not copied. The clipboard
+      is untrusted input: rebuilt field by field, capped at 200 tables.
+      **Verified:** `tableClipboard.test.ts`, `e2e/canvas-clipboard.e2e.ts` (real browser: copy,
+      paste ×3, clipboard text, reload, undo). **Not done:** enums / zones / notes are not
+      copied (still `Ctrl+D` only) — an enum-typed column pasted into another project keeps the
+      type name without the enum; plain DBML from elsewhere cannot be pasted onto the canvas
+      (needs the parser, i.e. a server round-trip — paste it in the DBML editor); the pasted
+      tables are not selected afterwards; context-menu Paste outside a secure context only
+      knows this tab's last copy. When Phase 30 lands: a copy of a locked table is not locked
+      (nothing to do — locks will be keyed by table name).
 - [ ] **Simplify waypoint create/move/delete on a relation line** — **M**. Still the same
       mechanism: `EdgeWaypoints.svelte`/`edgeRouting.svelte.ts` choose select-vs-insert by cursor
       proximity (`candidatePoint`) with only a preview dot as feedback. Needs hands-on iteration on
