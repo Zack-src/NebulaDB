@@ -1,0 +1,22 @@
+# Oracle Free, for the admin-driver tests and for trying an Oracle connection by hand.
+# Kept apart from docker-compose.test.yml (like docker-compose.mssql.yml): the image is
+# large, and the Oracle tests skip themselves when nothing is listening.
+#
+#   docker compose -f docker-compose.oracle.yml up -d      # first start takes about a minute
+#   docker compose -f docker-compose.oracle.yml down -v
+#
+# Connection form: host localhost, port 51521, database (service) FREEPDB1,
+# user system, password athanordb_test.
+services:
+  athanordb-test-oracle:
+    image: gvenzl/oracle-free:23-slim-faststart
+    container_name: athanordb-test-oracle
+    environment:
+      ORACLE_PASSWORD: athanordb_test
+    ports:
+      - "51521:1521"
+    healthcheck:
+      test: ["CMD", "healthcheck.sh"]
+      interval: 5s
+      timeout: 5s
+      retries: 30

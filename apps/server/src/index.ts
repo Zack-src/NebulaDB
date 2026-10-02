@@ -7,6 +7,7 @@ import { backupTimestamp, pruneOldBackups, runBackup } from "./infrastructure/ba
 import { purgeStaleAttempts } from "./modules/auth/lockout.js";
 import { purgeExpiredResetTokens } from "./modules/auth/passwordReset.js";
 import { startWebhookWorker } from "./modules/webhooks/dispatcher.js";
+import { startConnectionHealthChecks } from "./modules/dbAdmin/health.js";
 import { purgeOldDeliveries } from "./modules/webhooks/repository.js";
 import { purgeExpiredSessions } from "./modules/auth/session.js";
 import { purgeExpiredMfaChallenges } from "./modules/auth/totpRepository.js";
@@ -54,6 +55,7 @@ sessionSweepTimer.unref();
 // Webhook retries: deliveries whose next attempt has come due. First
 // attempts don't wait for this — they're sent as soon as they're queued.
 startWebhookWorker();
+startConnectionHealthChecks(config.connectionHealthIntervalMinutes);
 
 /**
  * Scheduled backups, off unless `ATHANORDB_BACKUP_INTERVAL_HOURS` is set.

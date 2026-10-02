@@ -1,0 +1,27 @@
+# SQL Server instance for manual testing of Athanor's MSSQL connections.
+# Separate from docker-compose.yml / docker-compose.test.yml.
+#
+# Usage:
+#   docker compose -f docker-compose.mssql.yml up -d
+#   docker compose -f docker-compose.mssql.yml down      # keeps data
+#   docker compose -f docker-compose.mssql.yml down -v   # wipes data
+services:
+  athanordb-test-mssql:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: athanordb-test-mssql
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "Athanor_Test123!"
+      MSSQL_PID: Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - athanordb-test-mssql-data:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P \"$$MSSQL_SA_PASSWORD\" -Q 'SELECT 1' || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  athanordb-test-mssql-data:

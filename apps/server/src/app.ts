@@ -18,6 +18,7 @@ import { registerPasswordResetRoutes } from "./modules/auth/passwordResetRoutes.
 import { resolveSession } from "./modules/auth/session.js";
 import { registerConvertRoutes } from "./modules/convert/routes.js";
 import { registerConnectionRoutes } from "./modules/connections/routes.js";
+import { registerDbAdminRoutes } from "./modules/dbAdmin/routes.js";
 import { registerErrorRoutes } from "./modules/errors/routes.js";
 import { registerInvitationRoutes } from "./modules/invitations/routes.js";
 import { registerProjectRoutes } from "./modules/projects/index.js";
@@ -181,6 +182,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerWebhookRoutes(app);
   registerConvertRoutes(app);
   registerConnectionRoutes(app);
+  registerDbAdminRoutes(app);
   registerAuditRoutes(app);
   registerErrorRoutes(app);
   registerApiKeyRoutes(app);
