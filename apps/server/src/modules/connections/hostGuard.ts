@@ -1,4 +1,5 @@
 import dns from "node:dns/promises";
+import net from "node:net";
 import { ApiError } from "../../shared/errors.js";
 
 /**
@@ -16,13 +17,11 @@ import { ApiError } from "../../shared/errors.js";
  * this code at all: every route in `routes.ts` requires project
  * `administrator`, not just `edit` — see the routes file for that reasoning.
  *
- * What this does **not** cover, and is not attempting to: DNS-rebinding (the
- * hostname could resolve here to a safe IP and to something else at actual
- * connection time — a TOCTOU gap inherent to checking-then-connecting rather
- * than connecting-and-checking), IPv6 metadata variants beyond the one listed
- * below, and general private-range restriction. A real SSRF hardening pass
- * (network allowlisting the roadmap named as a prerequisite for Phase 27)
- * is still owed — this closes the one gap with no legitimate-use tension.
+ * DNS rebinding is closed by `resolveAllowedHost`: the name is resolved once,
+ * every address is checked, and the driver then connects to that exact
+ * address instead of resolving the name a second time. What this still does
+ * **not** attempt: IPv6 metadata variants beyond the one listed below, and
+ * general private-range restriction.
  */
 const BLOCKED_HOSTS = new Set([
   "169.254.169.254", // AWS / GCP / Azure / DigitalOcean instance metadata
@@ -40,7 +39,10 @@ const BLOCKED_IPV6 = "fd00:ec2::254";
  * actually being connected to and so has no DNS-rebinding gap.
  */
 export function isBlockedAddress(address: string): boolean {
-  const normalized = address.trim().toLowerCase().replace(/^::ffff:/, "");
+  const normalized = address
+    .trim()
+    .toLowerCase()
+    .replace(/^::ffff:/, "");
   return BLOCKED_HOSTS.has(normalized) || normalized === BLOCKED_IPV6;
 }
 
@@ -71,4 +73,40 @@ export async function assertHostAllowed(host: string | undefined): Promise<void>
     // rejection.
     if (err instanceof ApiError) throw err;
   }
+}
+
+export interface PinnedHost {
+  /** What the caller typed — still the right name for TLS (SNI, certificate check). */
+  hostname: string;
+  /** The address that was checked, and the only one the driver may connect to. */
+  address: string;
+}
+
+function forbidden(): ApiError {
+  return new ApiError("CONNECTION_TARGET_FORBIDDEN", {
+    message: "connections to the cloud provider metadata endpoint are not allowed",
+  });
+}
+
+/**
+ * Resolve-once-then-connect: returns the address the driver must use, so the
+ * name can't answer with a safe IP here and the metadata endpoint a moment
+ * later. `null` when the name doesn't resolve — the driver's own attempt then
+ * fails with its own, more specific error.
+ */
+export async function resolveAllowedHost(host: string | undefined): Promise<PinnedHost | null> {
+  if (!host) return null;
+  const hostname = host.trim().replace(/^\[|\]$/g, "");
+  if (!hostname) return null;
+  if (isBlockedAddress(hostname) || BLOCKED_HOSTS.has(hostname.toLowerCase())) throw forbidden();
+  if (net.isIP(hostname)) return { hostname, address: hostname };
+
+  let records: { address: string }[];
+  try {
+    records = await dns.lookup(hostname, { all: true });
+  } catch {
+    return null;
+  }
+  if (records.some(({ address }) => isBlockedAddress(address))) throw forbidden();
+  return records.length > 0 ? { hostname, address: records[0].address } : null;
 }

@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
 import type { DatabaseConnectionConfig, Project, Ref, SchemaRisk, Table, TableIndex } from "@athanordb/shared";
@@ -5,6 +6,20 @@ import type { MigrationDiff } from "@athanordb/dbml-engine";
 import { config as appConfig } from "../../../config.js";
 import { ApiError } from "../../../shared/errors.js";
 import type { DatabaseDriver, MigrationExecutionResult, TestConnectionResult } from "./interface.js";
+
+/** Follows symlinks as far as the path exists, so a link inside the allowed directory can't point back out of it. */
+function realPath(target: string): string {
+  const resolved = path.resolve(target);
+  try {
+    return fs.realpathSync(resolved);
+  } catch {
+    try {
+      return path.join(fs.realpathSync(path.dirname(resolved)), path.basename(resolved));
+    } catch {
+      return resolved;
+    }
+  }
+}
 
 /**
  * Refuses to open AthanorDB's own database file as a "live" SQLite target.
@@ -19,19 +34,30 @@ import type { DatabaseDriver, MigrationExecutionResult, TestConnectionResult } f
  * anything a misconfigured *live* database connection could cause, so it's
  * worth a dedicated guard rather than leaving it to the admin-only bar alone.
  *
- * Deliberately narrow, not a full path allowlist: nothing here stops opening
- * some *other* file on the server's filesystem the process can write to —
- * that's a real, still-open residual risk (tracked in `docs/todo.md`), not
- * one this function claims to close.
+ * On its own this is deliberately narrow: nothing stops opening some *other*
+ * file the process can write to unless the operator sets
+ * `ATHANORDB_SQLITE_DIR`, which turns it into a real path allowlist.
  */
-function assertNotAppDatabase(requestedPath: string): void {
+export function assertSqlitePathAllowed(requestedPath: string): void {
   if (requestedPath === ":memory:") return;
-  const resolvedRequested = path.resolve(requestedPath);
-  const resolvedApp = path.resolve(appConfig.dbPath);
+  const resolvedRequested = realPath(requestedPath);
+  const resolvedApp = realPath(appConfig.dbPath);
   if (resolvedRequested === resolvedApp) {
     throw new ApiError("CONNECTION_TARGET_FORBIDDEN", {
       message: "refusing to open AthanorDB's own database file as a live connection target",
     });
+  }
+  // The full allowlist the narrow check above never was: opt-in through
+  // `ATHANORDB_SQLITE_DIR`, because an existing install's connections may
+  // legitimately point anywhere on disk and must keep working after an upgrade.
+  if (appConfig.sqliteAllowedDir) {
+    const allowed = realPath(appConfig.sqliteAllowedDir);
+    const relative = path.relative(allowed, resolvedRequested);
+    if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
+      throw new ApiError("CONNECTION_TARGET_FORBIDDEN", {
+        message: "SQLite connections are restricted to the directory configured in ATHANORDB_SQLITE_DIR",
+      });
+    }
   }
 }
 
@@ -40,7 +66,7 @@ export class SqliteDriver implements DatabaseDriver {
 
   constructor(config: DatabaseConnectionConfig) {
     const requestedPath = config.filePath || config.database || ":memory:";
-    assertNotAppDatabase(requestedPath);
+    assertSqlitePathAllowed(requestedPath);
     this.db = new Database(requestedPath);
   }
 

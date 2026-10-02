@@ -1,6 +1,6 @@
 import type { DatabaseConnectionConfig } from "@athanordb/shared";
 import { ApiError } from "../../../shared/errors.js";
-import { assertHostAllowed } from "../hostGuard.js";
+import { pinConnectionTarget } from "../targetPinning.js";
 import { takeConnectionBudget, targetKey } from "../connectionBudget.js";
 import type { DatabaseDriver } from "./interface.js";
 import { PostgresDriver } from "./postgres.js";
@@ -17,11 +17,10 @@ export * from "./mssql.js";
 export * from "./oracle.js";
 
 /**
- * The single place every route creates a driver from — `assertHostAllowed`
- * runs here rather than inside each network driver's constructor so it's
- * impossible to add a fourth network engine later and forget to wire the
- * guard in. `async` (a change from the original sync factory) because the
- * guard resolves DNS; every call site now awaits this.
+ * The single place every route creates a driver from — `pinConnectionTarget`
+ * (host guard + DNS pinning) runs here rather than inside each network
+ * driver's constructor so it's impossible to add another network engine
+ * later and forget to wire the guard in. `async` because it resolves DNS.
  */
 export async function createDatabaseDriver(config: DatabaseConnectionConfig): Promise<DatabaseDriver> {
   const key = targetKey(config);
@@ -42,25 +41,16 @@ function withWriteBudget(driver: DatabaseDriver, key: string): DatabaseDriver {
 async function openDriver(config: DatabaseConnectionConfig): Promise<DatabaseDriver> {
   switch (config.engine) {
     case "postgres":
+      return new PostgresDriver(await pinConnectionTarget(config));
     case "mysql":
+      return new MysqlDriver(await pinConnectionTarget(config));
     case "mssql":
+      return new MssqlDriver(await pinConnectionTarget(config));
     case "oracle":
-      await assertHostAllowed(config.host);
-      switch (config.engine) {
-        case "postgres":
-          return new PostgresDriver(config);
-        case "mysql":
-          return new MysqlDriver(config);
-        case "mssql":
-          return new MssqlDriver(config);
-        case "oracle":
-          return new OracleDriver(config);
-      }
-      break;
+      return new OracleDriver(await pinConnectionTarget(config));
     case "sqlite":
       return new SqliteDriver(config);
     default:
       throw new ApiError("CONNECTION_ENGINE_INVALID");
   }
-  throw new ApiError("CONNECTION_ENGINE_INVALID");
 }

@@ -1,8 +1,13 @@
 import mysql from "mysql2/promise";
 import type { RowDataPacket } from "mysql2/promise";
-import type { DatabaseConnectionConfig, Project, Ref, SchemaRisk, Table, TableIndex } from "@athanordb/shared";
+import type { Project, Ref, SchemaRisk, Table, TableIndex } from "@athanordb/shared";
 import type { MigrationDiff } from "@athanordb/dbml-engine";
-import type { DatabaseDriver, MigrationExecutionResult, TestConnectionResult } from "./interface.js";
+import type {
+  DatabaseDriver,
+  DriverConnectionConfig,
+  MigrationExecutionResult,
+  TestConnectionResult,
+} from "./interface.js";
 
 interface VersionRow extends RowDataPacket {
   version: string;
@@ -39,11 +44,32 @@ interface ValueRow extends RowDataPacket {
   val: unknown;
 }
 
+/** Shared with the admin driver (`admin/mysql.ts`). */
+export function mysqlPoolConfig(config: DriverConnectionConfig, database?: string): mysql.PoolOptions {
+  if (config.connectionString) {
+    return {
+      uri: config.connectionString,
+      waitForConnections: true,
+      connectionLimit: 5,
+      ...(database ? { database } : {}),
+    };
+  }
+  return {
+    host: config.pinnedAddress || config.host || "localhost",
+    port: config.port || 3306,
+    database: database || config.database || "mysql",
+    user: config.user || "root",
+    password: config.password,
+    waitForConnections: true,
+    connectionLimit: 5,
+  };
+}
+
 export class MysqlDriver implements DatabaseDriver {
   private pool: mysql.Pool;
   private databaseName: string;
 
-  constructor(config: DatabaseConnectionConfig) {
+  constructor(config: DriverConnectionConfig) {
     this.databaseName = config.database || "mysql";
     // `multipleStatements` used to be needed here so `executeMigration` could
     // hand the whole generated script to the driver in one `query()` call —
@@ -51,23 +77,7 @@ export class MysqlDriver implements DatabaseDriver {
     // comment for why), so this stays off: one less way a future change to
     // this driver could accidentally let a single call execute more than the
     // one statement it was given.
-    if (config.connectionString) {
-      this.pool = mysql.createPool({
-        uri: config.connectionString,
-        waitForConnections: true,
-        connectionLimit: 5,
-      });
-    } else {
-      this.pool = mysql.createPool({
-        host: config.host || "localhost",
-        port: config.port || 3306,
-        database: this.databaseName,
-        user: config.user || "root",
-        password: config.password,
-        waitForConnections: true,
-        connectionLimit: 5,
-      });
-    }
+    this.pool = mysql.createPool(mysqlPoolConfig(config));
   }
 
   async testConnection(): Promise<TestConnectionResult> {

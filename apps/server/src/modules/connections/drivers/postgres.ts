@@ -1,7 +1,12 @@
 import pg from "pg";
-import type { DatabaseConnectionConfig, Project, Ref, SchemaRisk, Table, TableIndex } from "@athanordb/shared";
+import type { Project, Ref, SchemaRisk, Table, TableIndex } from "@athanordb/shared";
 import type { MigrationDiff } from "@athanordb/dbml-engine";
-import type { DatabaseDriver, MigrationExecutionResult, TestConnectionResult } from "./interface.js";
+import type {
+  DatabaseDriver,
+  DriverConnectionConfig,
+  MigrationExecutionResult,
+  TestConnectionResult,
+} from "./interface.js";
 
 const { Pool } = pg;
 
@@ -14,27 +19,35 @@ interface ColumnRow {
   column_default: string | null;
 }
 
+/** Shared with the admin driver (`admin/postgres.ts`) so both connect to the same pinned address the same way. */
+export function postgresPoolConfig(config: DriverConnectionConfig, database?: string): pg.PoolConfig {
+  const ssl = config.ssl
+    ? { rejectUnauthorized: config.tlsVerify ?? false, servername: config.tlsServerName }
+    : undefined;
+  if (config.connectionString) {
+    return {
+      connectionString: config.connectionString,
+      ssl,
+      connectionTimeoutMillis: 5000,
+      ...(database ? { database } : {}),
+    };
+  }
+  return {
+    host: config.pinnedAddress || config.host || "localhost",
+    port: config.port || 5432,
+    database: database || config.database || "postgres",
+    user: config.user || "postgres",
+    password: config.password,
+    ssl,
+    connectionTimeoutMillis: 5000,
+  };
+}
+
 export class PostgresDriver implements DatabaseDriver {
   private pool: pg.Pool;
 
-  constructor(config: DatabaseConnectionConfig) {
-    if (config.connectionString) {
-      this.pool = new Pool({
-        connectionString: config.connectionString,
-        ssl: config.ssl ? { rejectUnauthorized: false } : undefined,
-        connectionTimeoutMillis: 5000,
-      });
-    } else {
-      this.pool = new Pool({
-        host: config.host || "localhost",
-        port: config.port || 5432,
-        database: config.database || "postgres",
-        user: config.user || "postgres",
-        password: config.password,
-        ssl: config.ssl ? { rejectUnauthorized: false } : undefined,
-        connectionTimeoutMillis: 5000,
-      });
-    }
+  constructor(config: DriverConnectionConfig) {
+    this.pool = new Pool(postgresPoolConfig(config));
   }
 
   async testConnection(): Promise<TestConnectionResult> {

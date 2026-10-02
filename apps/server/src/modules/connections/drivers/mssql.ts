@@ -1,7 +1,13 @@
+import net from "node:net";
 import sql from "mssql";
-import type { DatabaseConnectionConfig, Project, Ref, SchemaRisk, Table, TableIndex } from "@athanordb/shared";
+import type { Project, Ref, SchemaRisk, Table, TableIndex } from "@athanordb/shared";
 import type { MigrationDiff } from "@athanordb/dbml-engine";
-import type { DatabaseDriver, MigrationExecutionResult, TestConnectionResult } from "./interface.js";
+import type {
+  DatabaseDriver,
+  DriverConnectionConfig,
+  MigrationExecutionResult,
+  TestConnectionResult,
+} from "./interface.js";
 
 interface ColumnRow {
   TABLE_NAME: string;
@@ -30,37 +36,55 @@ function bracket(ident: string): string {
   return `[${ident.replace(/]/g, "]]")}]`;
 }
 
+/** Opens the socket to the pinned address while `server` stays the real name, which TLS and the login packet still need. */
+function pinnedConnector(address: string, port: number): () => Promise<net.Socket> {
+  return () =>
+    new Promise((resolve, reject) => {
+      const socket = net.connect({ host: address, port });
+      socket.once("connect", () => resolve(socket));
+      socket.once("error", reject);
+    });
+}
+
+/** Shared with the admin driver (`admin/mssql.ts`). */
+export function mssqlPoolConfig(config: DriverConnectionConfig, database?: string): sql.config {
+  if (config.connectionString) {
+    return { connectionString: config.connectionString, ...(database ? { database } : {}) } as unknown as sql.config;
+  }
+  const port = config.port || 1433;
+  const options: Record<string, unknown> = {
+    encrypt: Boolean(config.ssl),
+    trustServerCertificate: !config.ssl,
+  };
+  if (config.pinnedAddress) options.connector = pinnedConnector(config.pinnedAddress, port);
+  return {
+    server: config.host || "localhost",
+    port,
+    database: database || config.database || "master",
+    user: config.user || "sa",
+    password: config.password,
+    options,
+    connectionTimeout: 5000,
+  };
+}
+
 export class MssqlDriver implements DatabaseDriver {
   private pool: sql.ConnectionPool;
   private ready: Promise<sql.ConnectionPool>;
   private databaseName: string;
 
-  constructor(config: DatabaseConnectionConfig) {
+  constructor(config: DriverConnectionConfig) {
     this.databaseName = config.database || "master";
-    const poolConfig: sql.config = config.connectionString
-      ? ({ connectionString: config.connectionString } as unknown as sql.config)
-      : {
-          server: config.host || "localhost",
-          port: config.port || 1433,
-          database: this.databaseName,
-          user: config.user || "sa",
-          password: config.password,
-          options: {
-            encrypt: Boolean(config.ssl),
-            trustServerCertificate: !config.ssl,
-          },
-          connectionTimeout: 5000,
-        };
-    this.pool = new sql.ConnectionPool(poolConfig);
+    this.pool = new sql.ConnectionPool(mssqlPoolConfig(config));
     this.ready = this.pool.connect();
   }
 
   async testConnection(): Promise<TestConnectionResult> {
     try {
       const pool = await this.ready;
-      const result = await pool.request().query<{ version: string; db: string }>(
-        "SELECT @@VERSION AS version, DB_NAME() AS db",
-      );
+      const result = await pool
+        .request()
+        .query<{ version: string; db: string }>("SELECT @@VERSION AS version, DB_NAME() AS db");
       const row = result.recordset[0];
       return {
         ok: true,
@@ -179,9 +203,21 @@ export class MssqlDriver implements DatabaseDriver {
             affectedRowCount: count,
             sampleData: sampleRes.recordset,
             availableStrategies: [
-              { key: "DROP_DATA_CONFIRMED", labelKey: "connections.strategy.dropData", descriptionKey: "connections.strategy.dropDataDesc" },
-              { key: "KEEP_IN_DB", labelKey: "connections.strategy.keepInDb", descriptionKey: "connections.strategy.keepInDbDesc" },
-              { key: "CANCEL", labelKey: "connections.strategy.cancel", descriptionKey: "connections.strategy.cancelDesc" },
+              {
+                key: "DROP_DATA_CONFIRMED",
+                labelKey: "connections.strategy.dropData",
+                descriptionKey: "connections.strategy.dropDataDesc",
+              },
+              {
+                key: "KEEP_IN_DB",
+                labelKey: "connections.strategy.keepInDb",
+                descriptionKey: "connections.strategy.keepInDbDesc",
+              },
+              {
+                key: "CANCEL",
+                labelKey: "connections.strategy.cancel",
+                descriptionKey: "connections.strategy.cancelDesc",
+              },
             ],
             defaultStrategy: "KEEP_IN_DB",
             selectedStrategy: "KEEP_IN_DB",

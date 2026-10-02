@@ -1,8 +1,17 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { SqliteDriver } from "./sqlite.js";
+import { randomUUID } from "node:crypto";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+
+// The module under test reaches `infrastructure/db.ts` through `shared/errors.ts`. Without
+// this, importing it would open — and migrate — the developer's real `./data` database.
+process.env.ATHANORDB_DB_PATH ??= join(tmpdir(), `athanordb-test-sqlitedriver-${randomUUID()}.sqlite`);
+
 import { diffTargetAgainstLive } from "@athanordb/dbml-engine";
 import type { Project } from "@athanordb/shared";
+
+const { SqliteDriver } = await import("./sqlite.js");
 
 test("SqliteDriver connects, introspects, inspects risks with sample data, and executes migrations", async () => {
   const driver = new SqliteDriver({

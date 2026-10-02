@@ -1,7 +1,12 @@
 import oracledb from "oracledb";
-import type { DatabaseConnectionConfig, Project, Ref, SchemaRisk, Table, TableIndex } from "@athanordb/shared";
+import type { Project, Ref, SchemaRisk, Table, TableIndex } from "@athanordb/shared";
 import type { MigrationDiff } from "@athanordb/dbml-engine";
-import type { DatabaseDriver, MigrationExecutionResult, TestConnectionResult } from "./interface.js";
+import type {
+  DatabaseDriver,
+  DriverConnectionConfig,
+  MigrationExecutionResult,
+  TestConnectionResult,
+} from "./interface.js";
 
 oracledb.outFormat = oracledb.OUT_FORMAT_OBJECT;
 
@@ -21,6 +26,19 @@ interface ForeignKeyRow {
   R_COLUMN_NAME: string;
 }
 
+/** Shared with the admin driver (`admin/oracle.ts`). */
+export function oraclePoolAttributes(config: DriverConnectionConfig): oracledb.PoolAttributes {
+  const address = config.pinnedAddress || config.host || "localhost";
+  const host = address.includes(":") ? `[${address}]` : address;
+  return {
+    user: config.user || "system",
+    password: config.password,
+    connectString: config.connectionString || `${host}:${config.port || 1521}/${config.database || "FREEPDB1"}`,
+    poolMin: 0,
+    poolMax: 5,
+  };
+}
+
 /**
  * Same shape as the other network drivers (see `PostgresDriver`/`MysqlDriver`
  * for the reasoning behind risk-inspection and statement-by-statement
@@ -33,15 +51,8 @@ interface ForeignKeyRow {
 export class OracleDriver implements DatabaseDriver {
   private pool: Promise<oracledb.Pool>;
 
-  constructor(config: DatabaseConnectionConfig) {
-    const connectString = config.connectionString || `${config.host || "localhost"}:${config.port || 1521}/${config.database || "FREEPDB1"}`;
-    this.pool = oracledb.createPool({
-      user: config.user || "system",
-      password: config.password,
-      connectString,
-      poolMin: 0,
-      poolMax: 5,
-    });
+  constructor(config: DriverConnectionConfig) {
+    this.pool = oracledb.createPool(oraclePoolAttributes(config));
   }
 
   private async getConnection(): Promise<oracledb.Connection> {
@@ -86,7 +97,10 @@ export class OracleDriver implements DatabaseDriver {
          WHERE cons.constraint_type = 'P'`,
       );
       const pkSet = new Set(
-        (pkRes.rows ?? []).map((r) => `${(r as unknown as { TABLE_NAME: string }).TABLE_NAME}.${(r as unknown as { COLUMN_NAME: string }).COLUMN_NAME}`),
+        (pkRes.rows ?? []).map(
+          (r) =>
+            `${(r as unknown as { TABLE_NAME: string }).TABLE_NAME}.${(r as unknown as { COLUMN_NAME: string }).COLUMN_NAME}`,
+        ),
       );
 
       const fkRes = await conn.execute<ForeignKeyRow>(
@@ -167,9 +181,21 @@ export class OracleDriver implements DatabaseDriver {
               affectedRowCount: count,
               sampleData: (sampleRes.rows ?? []) as Record<string, unknown>[],
               availableStrategies: [
-                { key: "DROP_DATA_CONFIRMED", labelKey: "connections.strategy.dropData", descriptionKey: "connections.strategy.dropDataDesc" },
-                { key: "KEEP_IN_DB", labelKey: "connections.strategy.keepInDb", descriptionKey: "connections.strategy.keepInDbDesc" },
-                { key: "CANCEL", labelKey: "connections.strategy.cancel", descriptionKey: "connections.strategy.cancelDesc" },
+                {
+                  key: "DROP_DATA_CONFIRMED",
+                  labelKey: "connections.strategy.dropData",
+                  descriptionKey: "connections.strategy.dropDataDesc",
+                },
+                {
+                  key: "KEEP_IN_DB",
+                  labelKey: "connections.strategy.keepInDb",
+                  descriptionKey: "connections.strategy.keepInDbDesc",
+                },
+                {
+                  key: "CANCEL",
+                  labelKey: "connections.strategy.cancel",
+                  descriptionKey: "connections.strategy.cancelDesc",
+                },
               ],
               defaultStrategy: "KEEP_IN_DB",
               selectedStrategy: "KEEP_IN_DB",

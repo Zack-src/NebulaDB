@@ -186,12 +186,30 @@ function readSmtp(publicUrl: string | null): SmtpConfig | null {
   if (user && !password) fail("ATHANORDB_SMTP_USER is set but ATHANORDB_SMTP_PASSWORD is not");
 
   const from = process.env.ATHANORDB_SMTP_FROM?.trim();
-  if (!from) fail("ATHANORDB_SMTP_FROM is required when ATHANORDB_SMTP_HOST is set (e.g. \"AthanorDB <noreply@example.com>\")");
+  if (!from)
+    fail('ATHANORDB_SMTP_FROM is required when ATHANORDB_SMTP_HOST is set (e.g. "AthanorDB <noreply@example.com>")');
 
   if (!publicUrl) {
     fail("ATHANORDB_PUBLIC_URL is required when ATHANORDB_SMTP_HOST is set — emails need absolute links");
   }
   return { host, port, secure, user, password: user ? password : null, from };
+}
+
+/**
+ * Minutes between background connectivity checks of every saved database
+ * connection (the status shown in the admin console). One light probe per
+ * connection per pass; `0` turns it off and leaves only the manual check.
+ */
+function readConnectionHealthIntervalMinutes(): number {
+  const raw = process.env.ATHANORDB_CONNECTION_HEALTH_INTERVAL_MINUTES;
+  if (raw === undefined || raw.trim() === "") return 15;
+  const minutes = Number(raw);
+  if (!Number.isFinite(minutes) || minutes < 0 || minutes > 24 * 60) {
+    fail(
+      `ATHANORDB_CONNECTION_HEALTH_INTERVAL_MINUTES must be a number of minutes between 0 and 1440 (got ${JSON.stringify(raw)})`,
+    );
+  }
+  return minutes;
 }
 
 const publicUrl = readPublicUrl();
@@ -214,6 +232,14 @@ export const config = {
   /** 0 keeps audit entries indefinitely. */
   auditRetentionDays: readAuditRetentionDays(),
   publicUrl,
+  /**
+   * When set, a SQLite connection may only open a file inside this directory.
+   * Unset keeps the historical behaviour (any path the process can read,
+   * except the app's own database) — see `drivers/sqlite.ts`.
+   */
+  /** 0 disables the background checks. */
+  connectionHealthIntervalMinutes: readConnectionHealthIntervalMinutes(),
+  sqliteAllowedDir: process.env.ATHANORDB_SQLITE_DIR?.trim() || null,
   /** `null` means email is off — see `readSmtp`. */
   smtp: readSmtp(publicUrl),
 } as const;
