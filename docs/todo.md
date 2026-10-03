@@ -44,7 +44,7 @@ diagram preview and per-table restore).
 | ◐     | 15  | 32    | Destructive-change detection                                     |
 | ◐     | 7   | 33    | CSV seeds                                                        |
 | ◐     | 16  | 33    | Test-data generation (+ AI extension point)                      |
-| 14    | 8   | 34    | Admin activity journal                                           |
+| ◐     | 8   | 34    | Admin activity journal                                           |
 | 15    | 9   | 34    | External-change detection and alerts                             |
 | 16    | 19  | 34    | Health dashboard, traffic, visual EXPLAIN                        |
 | 17    | 20  | 34    | Subscription notifications                                       |
@@ -655,14 +655,28 @@ file_ref, options_json, updated_at)`; an abstract `SeedSource` interface (`csv` 
 
 **Needs first:** schema fingerprint, job runner, capability levels (Prerequisites).
 
-- [ ] **Admin "Activité" tab** — **L**. One filterable view (source Athanor / Base; connection;
-      user; type — structure · data · accounts · sessions · deployments; period; "hors Athanor
-      uniquement"; search; CSV export) merging today's `AuditTab.svelte` and `ErrorsTab.svelte`;
-      row detail panel (full SQL, duration, rows, IP, project, link to schema / deployment);
-      cursor pagination. Server: extend `shared/audit.ts` with new event types (locks, structure
-      policy, seeds, editor SQL, drift) and common fields `connection_id`, `project_id`,
-      `correlation_id`; configurable retention; JSON/CSV export; optional hash-chain for a
-      tamper-evident log. Reads stay out of the journal (as today).
+- [~] **Admin "Activité" tab** — first slice done 2026-10-03. Admin → Activité
+  (`ActivityTab.svelte`) replaces the audit tab: period, type (category derived from the action
+  — `activityCategory`, `AUDIT_ACTIONS` is now a runtime list), project, database, text search,
+  cursor paging on `rowid`, expandable detail with a link to the project (its deployments tab for a
+  deployment), CSV / JSON export of everything the filters match (10 000 rows; formula-looking
+  CSV cells defused). Server: `listActivity` + `GET /api/admin/activity[/export]`; `audit()` takes
+  a context (`projectId`, `connectionId`, defaulting from the target) and records the request id
+  as `correlation_id` (Fastify now issues UUIDs); migration 27 adds and backfills the columns.
+  **Decisions taken:** the Errors tab stays separate (different readers, different retention);
+  retention stays `ATHANORDB_AUDIT_RETENTION_DAYS` (no Admin → Paramètres screen yet).
+  **Verified:** `audit/routes.test.ts` (categories, filters, paging, export, admin-only),
+  `e2e/activity.e2e.ts`. **Still to do:** source "Base" (lot 10, database-side logs) and the "hors
+  Athanor uniquement" filter that needs it; per-user filter (by clicking an actor — the API has
+  `actorId`); duration / rows affected for SQL entries; hash-chain for a tamper-evident log;
+  editor-SQL vs console-SQL told apart. The original item: **L**. One filterable view (source Athanor / Base; connection;
+  user; type — structure · data · accounts · sessions · deployments; period; "hors Athanor
+  uniquement"; search; CSV export) merging today's `AuditTab.svelte` and `ErrorsTab.svelte`;
+  row detail panel (full SQL, duration, rows, IP, project, link to schema / deployment);
+  cursor pagination. Server: extend `shared/audit.ts` with new event types (locks, structure
+  policy, seeds, editor SQL, drift) and common fields `connection_id`, `project_id`,
+  `correlation_id`; configurable retention; JSON/CSV export; optional hash-chain for a
+  tamper-evident log. Reads stay out of the journal (as today).
 - [ ] **External-change detection ("Surveillance" per project)** — **XL**. Project setting
       "Détecter les modifications externes à Athanor": interval (5 min … daily), scope
       (structure / + views, functions, procedures / + accounts and permissions), ignore list,

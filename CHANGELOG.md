@@ -41,6 +41,22 @@ this file has a dated entry for — not on every commit.
   that listed the application's paths one by one needs `/project/*/*` as well.
   No database or configuration change.
 
+### Changed (admin activity)
+
+- **Admin → Activité replaces the audit tab.** One list of what was done
+  through Athanor — structure, data, deployments, accounts, sessions,
+  projects, configuration — filtered by period, type, project, database and
+  text, paged ("Entrées plus anciennes"), each entry opening on its detail
+  (actor, full detail, project with a link, database, IP, request id), and
+  exportable as CSV or JSON with the same filters. Read-only, admin-only, as
+  before. API: `GET /api/admin/activity`, `GET /api/admin/activity/export`.
+- Audit entries now record the project and the database they concern and the
+  request that produced them; request ids are UUIDs (they were a per-process
+  counter, `req-1`…), also in the server log.
+- **Database change:** migration 27 adds `project_id`, `connection_id` and
+  `correlation_id` to `audit_log` and fills the first two for older entries
+  whose target was a project or a connection. Automatic, one-way.
+
 ### Added (test data)
 
 - **Generate test rows for a table** — the "Générer" tab of its initial data:

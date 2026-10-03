@@ -312,6 +312,16 @@ protégé) est enregistré mais ne bloque encore rien : les garde-fous par étap
 viendront avec le pipeline de promotion. Supprimer une étape laisse ses
 connexions sans étape ; leur historique de déploiement garde le nom.
 
+### Activité (administrateurs de l'instance)
+
+**Admin → Activité** liste ce qui a été fait depuis Athanor et qui compte plus
+tard : déploiements, changements de structure et de données sur les bases,
+comptes et permissions, sessions, projets, configuration. Filtres : période,
+type, projet, base, recherche libre ; une ligne s'ouvre sur son détail (auteur,
+détail complet, projet avec un lien, base, IP, requête). **Exporter en CSV /
+JSON** télécharge tout ce que les filtres retiennent. Les entrées ne peuvent
+être ni modifiées ni supprimées.
+
 ### Administrer les bases connectées (administrateurs de l'instance)
 
 **Admin → Connexions base de données** liste toutes les connexions de
