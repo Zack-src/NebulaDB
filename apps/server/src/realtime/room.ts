@@ -12,11 +12,15 @@ import {
   TABLE_GROUPS_KEY,
   TABLES_KEY,
   ZONES_KEY,
+  findLockViolations,
   getRefsMap,
   getTablesMap,
   isRefInverted,
   reverseRef,
+  revertLockViolations,
+  type LockableSchema,
   type Ref,
+  type ServerNotice,
   type Table,
 } from "@athanordb/shared";
 import { appendRevision, saveSnapshot, loadSnapshot } from "./persistence.js";
@@ -40,8 +44,16 @@ export function setRoomDocChangeListener(listener: DocChangeListener | null): vo
   docChangeListener = listener;
 }
 
+/**
+ * Transaction origin — and so the revision's author in the history panel — for
+ * the change that puts a locked table back after a connection altered it.
+ */
+const LOCK_REVERT_ORIGIN = "AthanorDB (table verrouillée rétablie)";
+
 const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
+/** Server → client only: a JSON `ServerNotice`. Clients that predate it ignore unknown message types. */
+const MESSAGE_NOTICE = 2;
 const SNAPSHOT_DEBOUNCE_MS = 2000;
 
 const COLLECTION_KEYS = [META_KEY, TABLES_KEY, REFS_KEY, ENUMS_KEY, ZONES_KEY, STICKY_NOTES_KEY, TABLE_GROUPS_KEY];
@@ -70,7 +82,17 @@ const ACCESS_TTL_MS = 5000;
  * unaware of how permissions are modelled — the room only ever needed to know
  * "may this socket write", and now also "may it still be here at all".
  */
-export type AccessResolver = () => { canWrite: boolean } | null;
+/**
+ * `lockedTableIds`: the tables this connection may move and recolour but not
+ * alter — every locked table of the project, minus those its user has the
+ * authority to change. Absent or empty for the common case of no lock at all.
+ */
+export interface ConnectionAccess {
+  canWrite: boolean;
+  lockedTableIds?: ReadonlySet<string>;
+}
+
+export type AccessResolver = () => ConnectionAccess | null;
 
 export type { RoomLogger };
 
@@ -79,8 +101,11 @@ interface ConnMeta {
   awarenessClientIds: Set<number>;
   resolveAccess: AccessResolver;
   canWrite: boolean;
+  lockedTableIds: ReadonlySet<string>;
   accessCheckedAt: number;
 }
+
+const NO_LOCKS: ReadonlySet<string> = new Set();
 
 /**
  * One project's live collaborative document: a Y.Doc shared over WS by all
@@ -202,7 +227,7 @@ export class Room {
     this.scheduleSnapshot();
     // Same resilience rule as the revision write above: a listener's failure
     // must never take the room down with it. Automatic repairs aren't news.
-    if (docChangeListener && origin !== REF_REPAIR_ORIGIN) {
+    if (docChangeListener && origin !== REF_REPAIR_ORIGIN && origin !== LOCK_REVERT_ORIGIN) {
       try {
         docChangeListener(this.projectId, author);
       } catch (err) {
@@ -223,6 +248,7 @@ export class Room {
       awarenessClientIds: new Set(),
       resolveAccess,
       canWrite: initial?.canWrite ?? false,
+      lockedTableIds: initial?.lockedTableIds ?? NO_LOCKS,
       accessCheckedAt: Date.now(),
     });
 
@@ -273,11 +299,15 @@ export class Room {
         syncProtocol.readSyncStep1(decoder, encoder, this.doc);
         if (encoding.length(encoder) > 1) conn.send(encoding.toUint8Array(encoder));
       } else if (canWrite) {
+        // Resolved by `currentCanWrite` just above, so never staler than the write permission itself.
+        const locked = this.conns.get(conn)?.lockedTableIds ?? NO_LOCKS;
+        const before = locked.size > 0 ? this.lockableSchema() : null;
         if (innerType === syncProtocol.messageYjsSyncStep2) {
           syncProtocol.readSyncStep2(decoder, this.doc, conn);
         } else if (innerType === syncProtocol.messageYjsUpdate) {
           syncProtocol.readUpdate(decoder, this.doc, conn);
         }
+        if (before) this.revertLockedChanges(conn, before, locked);
         // Yjs observers run synchronously during transaction cleanup, so by
         // the time the read above returns, `pendingChecks` holds everything
         // this frame touched.
@@ -354,7 +384,7 @@ export class Room {
   }
 
   private refreshAccess(conn: WebSocket, meta: ConnMeta): boolean {
-    let access: { canWrite: boolean } | null;
+    let access: ConnectionAccess | null;
     try {
       access = meta.resolveAccess();
     } catch (err) {
@@ -362,17 +392,75 @@ export class Room {
       // vanished mid-query) must not be read as "allowed" — and must not
       // propagate, since this runs inside a WebSocket message handler.
       this.log.error({ err, room: this.projectId, author: meta.author }, "permission re-check failed");
+      // `canWrite` false already stops every write, locked table or not.
       meta.canWrite = false;
       return false;
     }
     meta.accessCheckedAt = Date.now();
     meta.canWrite = access?.canWrite ?? false;
+    meta.lockedTableIds = access?.lockedTableIds ?? NO_LOCKS;
     if (!access) {
       this.log.warn({ room: this.projectId, author: meta.author }, "lost access — closing connection");
       conn.close();
       return false;
     }
     return meta.canWrite;
+  }
+
+  /** The current tables and relations, by reference — cheap enough to take before every guarded frame. */
+  private lockableSchema(): LockableSchema {
+    return { tables: Array.from(getTablesMap(this.doc).values()), refs: Array.from(getRefsMap(this.doc).values()) };
+  }
+
+  /**
+   * Undoes what a connection's update did to tables locked against it.
+   *
+   * A REST write is refused before it happens (`assertLocksAllow`); a realtime
+   * update cannot be: by the time its effect on a table is known it has been
+   * merged into the shared document, and a CRDT has no "un-apply". So the
+   * locked tables are written back as they were, in a change of their own that
+   * every client — the offender included — receives like any other. The
+   * app's own UI never sends such an update (locked tables are read-only
+   * there); this is what stands behind the UI for a hand-crafted frame, an
+   * outdated client, or a plugin.
+   *
+   * Only the structure is restored: a move, a recolour or a comment made in
+   * the same update is kept, as is everything it did to unlocked tables.
+   */
+  private revertLockedChanges(conn: WebSocket, before: LockableSchema, locked: ReadonlySet<string>): void {
+    const after = this.lockableSchema();
+    const violations = findLockViolations(before, after, locked);
+    if (violations.length === 0) return;
+
+    const restored = revertLockViolations(before, after, violations);
+    const violated = new Set(violations.map((violation) => violation.tableId));
+    const tablesMap = getTablesMap(this.doc);
+    const refsMap = getRefsMap(this.doc);
+    this.doc.transact(() => {
+      for (const table of restored.tables) if (violated.has(table.id)) tablesMap.set(table.id, table);
+      for (const ref of after.refs) if (violated.has(ref.from.tableId)) refsMap.delete(ref.id);
+      for (const ref of restored.refs) if (violated.has(ref.from.tableId)) refsMap.set(ref.id, ref);
+    }, LOCK_REVERT_ORIGIN);
+
+    const tables = violations.map((violation) => violation.tableName);
+    this.log.warn(
+      { room: this.projectId, author: this.conns.get(conn)?.author, tables },
+      "reverted a change to locked tables",
+    );
+    this.sendNotice(conn, { type: "table-locked", tables });
+  }
+
+  /** Pushes a notice to every connection — "refetch this", never the data itself. */
+  announce(notice: ServerNotice): void {
+    this.conns.forEach((_meta, conn) => this.sendNotice(conn, notice));
+  }
+
+  private sendNotice(conn: WebSocket, notice: ServerNotice): void {
+    if (conn.readyState !== conn.OPEN) return;
+    const encoder = encoding.createEncoder();
+    encoding.writeVarUint(encoder, MESSAGE_NOTICE);
+    encoding.writeVarString(encoder, JSON.stringify(notice));
+    conn.send(encoding.toUint8Array(encoder));
   }
 
   /**

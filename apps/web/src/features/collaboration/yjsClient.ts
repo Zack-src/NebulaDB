@@ -3,10 +3,13 @@ import * as syncProtocol from "y-protocols/sync.js";
 import * as awarenessProtocol from "y-protocols/awareness.js";
 import * as encoding from "lib0/encoding.js";
 import * as decoding from "lib0/decoding.js";
+import type { ServerNotice } from "@athanordb/shared";
 import { hashColor } from "@/features/collaboration/awarenessColor";
 
 const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
+/** Server → client only: a JSON `ServerNotice` (locks changed, a locked table was put back). */
+const MESSAGE_NOTICE = 2;
 
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30000;
@@ -84,6 +87,7 @@ export function connectProject(
   projectId: string,
   user: string,
   onStatus?: (status: ConnectionStatus) => void,
+  onNotice?: (notice: ServerNotice) => void,
 ): ProjectConnection {
   const offline = offlineConnectionFactory?.(projectId);
   if (offline) {
@@ -175,6 +179,12 @@ export function connectProject(
         if (encoding.length(encoder) > 1) ws.send(encoding.toUint8Array(encoder));
       } else if (messageType === MESSAGE_AWARENESS) {
         awarenessProtocol.applyAwarenessUpdate(awareness, decoding.readVarUint8Array(decoder), REMOTE_ORIGIN);
+      } else if (messageType === MESSAGE_NOTICE) {
+        try {
+          onNotice?.(JSON.parse(decoding.readVarString(decoder)) as ServerNotice);
+        } catch {
+          // A notice this build cannot read is not worth breaking the sync loop over.
+        }
       }
     });
 

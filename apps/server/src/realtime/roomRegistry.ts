@@ -1,3 +1,4 @@
+import type { ServerNotice } from "@athanordb/shared";
 import { Room, type RoomLogger } from "./room.js";
 
 /**
@@ -86,6 +87,23 @@ export function revalidateRoom(projectId: string): void {
  */
 export function revalidateAllRooms(): void {
   for (const room of rooms.values()) room.revalidate();
+}
+
+/**
+ * A table lock was placed, changed or lifted: every connection's set of
+ * frozen tables is recomputed at once, and clients are told to refetch the
+ * lock list so padlocks appear and disappear without a reload.
+ */
+export function notifyLocksChanged(projectId: string): void {
+  const room = rooms.get(projectId);
+  if (!room) return;
+  room.revalidate();
+  room.announce({ type: "locks-changed" });
+}
+
+/** Pushes a notice to everyone who has this project open. A project nobody has open has nobody to tell. */
+export function notifyProject(projectId: string, notice: ServerNotice): void {
+  rooms.get(projectId)?.announce(notice);
 }
 
 /** Tears down a project's in-memory room (if one is live) ahead of deleting its rows — see `Room.destroy`. */

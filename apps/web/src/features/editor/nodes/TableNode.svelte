@@ -11,7 +11,14 @@
   import { MAX_NAME_LENGTH, type Field } from "@athanordb/shared";
   import { autofocus } from "@/actions/autofocus";
   import Icon from "@/components/icons/Icon.svelte";
-  import { AlertTriangleIcon, CodeIcon, PlusIcon } from "@/components/icons/Icons";
+  import {
+    AlertTriangleIcon,
+    CodeIcon,
+    DatabaseIcon,
+    LockIcon,
+    LockOpenIcon,
+    PlusIcon,
+  } from "@/components/icons/Icons";
   import CommentThread from "@/features/editor/comments/CommentThread.svelte";
   import TableSettingsPopover from "@/features/editor/nodes/table/TableSettingsPopover.svelte";
   import TableNodeRow from "@/features/editor/nodes/table/TableNodeRow.svelte";
@@ -87,6 +94,19 @@
   );
 
   const table = $derived(data.table);
+  const lock = $derived(data.lock);
+  /** Who locked the table and why — what a collaborator needs to know before asking for it to be lifted. */
+  const lockNote = $derived(
+    lock
+      ? [
+          t(lock.level === "full" ? "locks.levelFull" : "locks.levelStructure"),
+          lock.lockedByName ? t("locks.by", { name: lock.lockedByName }) : null,
+          lock.reason,
+        ]
+          .filter(Boolean)
+          .join(" · ")
+      : "",
+  );
   const tableComments = $derived(table.comments?.filter((c) => !c.fieldId) ?? []);
   const headerColor = $derived(table.style?.color ?? DEFAULT_HEADER_COLOR);
   const issues = $derived(data.issues ?? []);
@@ -160,7 +180,7 @@
 <!-- svelte-ignore a11y_no_static_element_interactions -->
 <div
   bind:this={root}
-  class={`group table-node ${TABLE_NODE_CLASS} ${selected ? `is-selected ${TABLE_NODE_SELECTED_CLASS}` : ""}`}
+  class={`group table-node ${TABLE_NODE_CLASS} ${selected ? `is-selected ${TABLE_NODE_SELECTED_CLASS}` : ""} ${lock ? "is-locked border-dashed" : ""}`}
   onmouseenter={() => {
     isTableHovered = true;
     data.onTableHoverChange?.(table.id);
@@ -179,7 +199,7 @@
     style:background={headerColor}
     style:color={prefersDarkText(headerColor) ? "var(--color-text-on-light)" : "#ffffff"}
     ondblclick={() => {
-      if (!data.readOnly) renaming = true;
+      if (!data.readOnly && !data.structureLocked) renaming = true;
     }}
   >
     <Handle type="target" position={Position.Left} id="header-left-target" style="opacity: 0" />
@@ -208,11 +228,43 @@
     {:else}
       <span
         class={TABLE_NAME_CLASS}
-        data-tooltip={table.note ? table.name : data.readOnly ? table.name : t("table.doubleClickToRename")}
+        data-tooltip={table.note || data.readOnly || data.structureLocked
+          ? table.name
+          : t("table.doubleClickToRename")}
         data-tooltip-note={table.note || undefined}
       >
         {table.name}
       </span>
+    {/if}
+
+    {#if lock}
+      <!-- Outside the hover-only actions: a lock has to be visible at rest. -->
+      {#if data.onManageLock}
+        <button
+          type="button"
+          class={`${HEADER_BTN_CLASS} nodrag !opacity-100`}
+          onclick={(event) => {
+            event.stopPropagation();
+            data.onManageLock?.();
+          }}
+          ondblclick={(event) => event.stopPropagation()}
+          data-tooltip={t("locks.manageTooltip")}
+          data-tooltip-note={lockNote}
+          aria-label={t("locks.manageTooltip")}
+        >
+          <Icon icon={LockIcon} size={13} />
+        </button>
+      {:else}
+        <span
+          class="nodrag flex h-6 w-6 shrink-0 items-center justify-center"
+          role="img"
+          aria-label={t("locks.lockedTooltip")}
+          data-tooltip={t("locks.lockedTooltip")}
+          data-tooltip-note={lockNote}
+        >
+          <Icon icon={LockIcon} size={13} />
+        </span>
+      {/if}
     {/if}
 
     <div class={HEADER_ACTIONS_CLASS}>
@@ -239,6 +291,36 @@
           <Icon icon={CodeIcon} size={13} />
         </button>
       {/if}
+      {#if data.onViewData}
+        <button
+          type="button"
+          class={`${HEADER_BTN_CLASS} nodrag`}
+          onclick={(event) => {
+            event.stopPropagation();
+            data.onViewData?.();
+          }}
+          ondblclick={(event) => event.stopPropagation()}
+          data-tooltip={t("workspace.sql.viewData")}
+          aria-label={t("workspace.sql.viewData")}
+        >
+          <Icon icon={DatabaseIcon} size={13} />
+        </button>
+      {/if}
+      {#if !lock && data.onManageLock}
+        <button
+          type="button"
+          class={`${HEADER_BTN_CLASS} nodrag`}
+          onclick={(event) => {
+            event.stopPropagation();
+            data.onManageLock?.();
+          }}
+          ondblclick={(event) => event.stopPropagation()}
+          data-tooltip={t("locks.lockTooltip")}
+          aria-label={t("locks.lockTooltip")}
+        >
+          <Icon icon={LockOpenIcon} size={13} />
+        </button>
+      {/if}
       {#if !data.readOnly}
         <CommentThread
           comments={tableComments}
@@ -257,6 +339,7 @@
           onUpdateIndex={data.onUpdateIndex}
           onDeleteIndex={data.onDeleteIndex}
           onDuplicate={data.onDuplicate}
+          nameLocked={data.structureLocked}
           triggerClassName={HEADER_BTN_CLASS}
         />
       {/if}

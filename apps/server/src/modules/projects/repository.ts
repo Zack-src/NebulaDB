@@ -82,6 +82,8 @@ export function deleteProjectCascade(id: string): void {
           AND NOT EXISTS (SELECT 1 FROM project_connection_links l WHERE l.connection_id = db_connections.id)`,
     ).run();
     db.prepare("DELETE FROM api_keys WHERE project_id = ?").run(id);
+    db.prepare("DELETE FROM table_locks WHERE project_id = ?").run(id);
+    db.prepare("DELETE FROM schema_fingerprints WHERE project_id = ?").run(id);
     db.prepare("DELETE FROM project_teams WHERE project_id = ?").run(id);
     db.prepare("DELETE FROM revisions WHERE project_id = ?").run(id);
     db.prepare("DELETE FROM snapshots WHERE project_id = ?").run(id);

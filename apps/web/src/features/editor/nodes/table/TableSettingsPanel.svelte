@@ -31,6 +31,7 @@
     onUpdateIndex,
     onDeleteIndex,
     onDuplicate,
+    nameLocked = false,
     triggerRect,
     trigger,
     onClose,
@@ -43,6 +44,7 @@
     onUpdateIndex?: (indexId: string, updates: Partial<Pick<TableIndex, "unique" | "pk" | "name">>) => void;
     onDeleteIndex?: (indexId: string) => void;
     onDuplicate?: () => void;
+    nameLocked?: boolean;
     triggerRect: DOMRect;
     trigger: HTMLElement | undefined;
     onClose: () => void;
@@ -89,6 +91,7 @@
     <label class={POPOVER_LABEL_CLASS}>{t("table.nameLabel")}</label>
     <input
       class={POPOVER_INPUT_CLASS}
+      disabled={nameLocked}
       bind:value={name.value}
       maxlength={MAX_NAME_LENGTH}
       onblur={() => name.commit()}

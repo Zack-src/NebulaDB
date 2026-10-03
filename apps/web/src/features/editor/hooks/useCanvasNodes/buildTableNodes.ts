@@ -8,10 +8,12 @@ import {
   type RefAction,
   type Table,
   type TableIndex,
+  type TableLock,
 } from "@athanordb/shared";
 import type { ValidationIssue } from "@athanordb/dbml-engine";
 import type { TableNodeType } from "@/features/editor/nodes/nodeTypes";
 import type { FieldRefInfo } from "@/features/editor/nodes/table/fieldRefInfo";
+import { NO_TABLE_LOCKS, canOverrideLock, type TableLocksView } from "@/features/editor/locks/tableLocks.svelte";
 import { generateId } from "@/utils/id";
 import { DEFAULT_TABLE_HEIGHT, DEFAULT_TABLE_WIDTH } from "@/features/editor/edges/refGeometry";
 import { readCachedTableNode, type TableNodeCache } from "./tableNodeCache";
@@ -56,6 +58,12 @@ export function buildTableNodes(
    * changed" and "reallocate the whole canvas".
    */
   cache: TableNodeCache = new Map(),
+  /** The project's table locks, and which of them bind this user — see `TableLocksState`. */
+  locks: TableLocksView = NO_TABLE_LOCKS,
+  /** Opens the lock dialog for a table. Stable identity, like the other callbacks. */
+  onManageLock?: (tableId: string) => void,
+  /** Shows a table's rows in the SQL drawer; `null` when the user may not query the database. Stable identity. */
+  onViewData: ((table: Table) => void) | null = null,
 ): TableNodeType[] {
   // Callbacks are all stable across a rebuild by construction (the hook wraps
   // them), so one identity stands in for the whole bundle in the cache key.
@@ -95,12 +103,24 @@ export function buildTableNodes(
     }
     const refActionsKey = fromRefs.map((r) => `${r.id}:${r.onDelete ?? ""}:${r.onUpdate ?? ""}`).join("|");
 
+    const lock = locks.byTable.get(table.id);
+    const structureLocked = locks.frozen.has(table.id);
+    // An unlocked table can be locked by anyone with authority; a locked one
+    // only by someone whose authority reaches that lock.
+    const canManageLock = Boolean(
+      canWrite && onManageLock && locks.canManage && (!lock || canOverrideLock(locks.canManage, lock)),
+    );
+
     const cacheKey = {
       table,
       refFieldIds,
       selectedFieldId: selectedFieldIdForTable,
       palette,
       canWrite,
+      lock,
+      structureLocked,
+      canManageLock,
+      canViewData: onViewData !== null,
       user,
       callbacks,
       issuesKey,
@@ -110,7 +130,11 @@ export function buildTableNodes(
     const cached = readCachedTableNode(cache, cacheKey, table.id);
     if (cached) return cached;
 
-    const node = buildTableNode(table, refFieldIds, selectedFieldIdForTable, issues, fieldRefs, refActionsKey);
+    const node = buildTableNode(table, refFieldIds, selectedFieldIdForTable, issues, fieldRefs, refActionsKey, {
+      lock,
+      structureLocked,
+      canManageLock,
+    });
     cache.set(table.id, { ...cacheKey, node });
     return node;
   });
@@ -132,7 +156,12 @@ export function buildTableNodes(
     issues: ValidationIssue[],
     fieldRefs: Map<string, FieldRefInfo[]>,
     refActionsKey: string,
+    locking: { lock: TableLock | undefined; structureLocked: boolean; canManageLock: boolean },
   ): TableNodeType {
+    // A table locked against this user keeps everything that does not alter
+    // it — colour, comments, duplicate — and loses the rest, the same way a
+    // view-only grant loses all of it: by the handler not being there.
+    const structural = canWrite && !locking.structureLocked;
     return {
       id: table.id,
       position: table.position,
@@ -148,17 +177,23 @@ export function buildTableNodes(
         currentUser: user,
         palette,
         readOnly: !canWrite,
+        lock: locking.lock,
+        structureLocked: locking.structureLocked,
+        onManageLock: locking.canManageLock ? () => onManageLock?.(table.id) : undefined,
         selectedFieldId,
         issues: showValidationIssues ? issues : EMPTY_ISSUES,
         onSelectField,
         onPaletteChange,
         onGoToDbml: () => onGoToDbml(table.name),
+        // Read from the document at click time: the node may have been built before a rename.
+        onViewData: onViewData ? () => onViewData(getTablesMap(doc).get(table.id) ?? table) : undefined,
         // Purely visual (no doc write), so unlike the mutators below it is never
         // gated on `canWrite` — a view-only session still gets to see which
         // relation a column belongs to.
         onFieldHoverChange,
         onTableHoverChange,
         onRename: (name: string) => {
+          if (locking.structureLocked) return;
           const tables_ = getTablesMap(doc);
           const current = tables_.get(table.id);
           if (current) tables_.set(table.id, { ...current, name });
@@ -191,7 +226,33 @@ export function buildTableNodes(
         // node components already treat an absent handler as "don't offer this",
         // so the affordances disappear rather than becoming buttons whose writes
         // the server throws away.
-        ...(!canWrite
+        ...(canWrite
+          ? {
+              // Same field/index id remapping as `duplicateSelected` (multi-node
+              // Ctrl+D) in `useProjectMutations`, just for a single table reached
+              // from its own settings popover instead of the canvas selection.
+              onDuplicate: () => {
+                const tables_ = getTablesMap(doc);
+                const current = tables_.get(table.id);
+                if (!current) return;
+                const fieldIdMap = new Map(current.fields.map((f) => [f.id, generateId()]));
+                const id = generateId();
+                tables_.set(id, {
+                  ...current,
+                  id,
+                  name: `${current.name}_copy`,
+                  position: { x: current.position.x + 24, y: current.position.y + 24 },
+                  fields: current.fields.map((f) => ({ ...f, id: fieldIdMap.get(f.id)! })),
+                  indexes: current.indexes.map((idx) => ({
+                    ...idx,
+                    id: generateId(),
+                    fieldIds: idx.fieldIds.map((fid) => fieldIdMap.get(fid) ?? fid),
+                  })),
+                });
+              },
+            }
+          : {}),
+        ...(!structural
           ? {}
           : {
               // `updates` may be an updater function so a toggle (`pk: !field.pk`)
@@ -302,28 +363,6 @@ export function buildTableNodes(
                 const current = tables_.get(table.id);
                 if (!current) return;
                 tables_.set(table.id, { ...current, indexes: current.indexes.filter((idx) => idx.id !== indexId) });
-              },
-              // Same field/index id remapping as `duplicateSelected` (multi-node
-              // Ctrl+D) in `useProjectMutations`, just for a single table reached
-              // from its own settings popover instead of the canvas selection.
-              onDuplicate: () => {
-                const tables_ = getTablesMap(doc);
-                const current = tables_.get(table.id);
-                if (!current) return;
-                const fieldIdMap = new Map(current.fields.map((f) => [f.id, generateId()]));
-                const id = generateId();
-                tables_.set(id, {
-                  ...current,
-                  id,
-                  name: `${current.name}_copy`,
-                  position: { x: current.position.x + 24, y: current.position.y + 24 },
-                  fields: current.fields.map((f) => ({ ...f, id: fieldIdMap.get(f.id)! })),
-                  indexes: current.indexes.map((idx) => ({
-                    ...idx,
-                    id: generateId(),
-                    fieldIds: idx.fieldIds.map((fid) => fieldIdMap.get(fid) ?? fid),
-                  })),
-                });
               },
               // Lets `FieldEditorPopover` set a ref's ON DELETE/ON UPDATE from the
               // FK column itself — same doc write `useCanvasEdges`' equivalent

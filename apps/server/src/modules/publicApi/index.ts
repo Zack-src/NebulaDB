@@ -8,6 +8,7 @@ import {
   projectToSvg,
   toProject,
 } from "@athanordb/dbml-engine";
+import { assertLocksAllow } from "../tableLocks/access.js";
 import { requireScope } from "../apiKeys/auth.js";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
@@ -174,6 +175,7 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
     const reconciled = body.baseline?.trim()
       ? preserveConcurrentAdditions(current, merged, parseBaselineProject(body.baseline, project.name))
       : merged;
+    assertLocksAllow(user.id, id, current, reconciled);
     room.doc.transact(() => writeProjectToDoc(room.doc, reconciled), user.displayName);
     auditUser(user, "project.import", { type: "project", id }, `${reconciled.tables.length} table(s) (v1)`, req);
     return { imported: true, tables: reconciled.tables.length };

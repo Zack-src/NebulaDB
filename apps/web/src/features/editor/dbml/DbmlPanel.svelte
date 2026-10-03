@@ -29,6 +29,7 @@
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
+  import { describeApiError } from "@/i18n/serverErrorMessages";
   import { ApiError } from "@/services/ApiError";
   import type { TranslationKeyOf } from "@/types";
   import { exportDbml, importSource } from "@/services/projectsApi";
@@ -183,6 +184,14 @@
       const { line, column, endLine, endColumn } = (err as ApiError).details as Record<string, number>;
       error = (err as ApiError).message;
       problem = { message: (err as ApiError).message, line, column, endLine, endColumn };
+      return;
+    }
+    if (err instanceof ApiError && err.code === "TABLE_LOCKED") {
+      // The buffer changes a locked table: nothing was applied, and unlike a
+      // dropped connection this *is* something the user can fix — by putting
+      // that table back the way it was.
+      error = describeApiError(err, t);
+      problem = null;
       return;
     }
     // Rejected for some other reason (permissions, a malformed request,

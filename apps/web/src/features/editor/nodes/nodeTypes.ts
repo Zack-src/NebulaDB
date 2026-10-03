@@ -6,6 +6,7 @@ import type {
   StickyNote,
   Table,
   TableGroup,
+  TableLock,
   TableIndex,
   Zone,
 } from "@athanordb/shared";
@@ -34,6 +35,12 @@ export interface TableNodeData {
   palette: string[];
   /** True for a `view` grant — hides every editing affordance on the node. */
   readOnly?: boolean;
+  /** The lock on this table, if any — shown as a padlock to everyone. */
+  lock?: TableLock;
+  /** True when the lock binds *this user*: the name, columns and indexes are not offered for editing; looks and comments still are. */
+  structureLocked?: boolean;
+  /** Present for someone who may place, change or lift this table's lock — opens the lock dialog. */
+  onManageLock?: () => void;
   selectedFieldId?: string | null;
   /** This table's validation issues (see `packages/dbml-engine/src/validate.ts`) — empty when the canvas-wide toggle is off. */
   issues?: ValidationIssue[];
@@ -41,6 +48,8 @@ export interface TableNodeData {
   onPaletteChange: (palette: string[]) => void;
   onRename: (name: string) => void;
   onGoToDbml?: () => void;
+  /** Opens the SQL drawer on this table's first rows. Present only for someone who may query the project's database. */
+  onViewData?: () => void;
   /** Fires when the pointer enters/leaves a specific column row (`null` on leave) — narrows link highlighting to that column. */
   onFieldHoverChange: (fieldId: string | null) => void;
   /** Fires when the pointer enters/leaves a table (`null` on leave) — highlights all relations of the table. */

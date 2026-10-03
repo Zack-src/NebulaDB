@@ -10,6 +10,7 @@ import {
 import { auditUser } from "../../../shared/audit.js";
 import { ApiError } from "../../../shared/errors.js";
 import { requireProjectAccess } from "../../../shared/guards.js";
+import { assertLocksAllow } from "../../tableLocks/access.js";
 import { reconstructDocAtRevision } from "../../../realtime/persistence.js";
 import { getRoom } from "../../../realtime/roomRegistry.js";
 import { readProjectReadOnly } from "../../../realtime/readOnlyProject.js";
@@ -49,6 +50,7 @@ export function registerProjectImportExportRoutes(app: FastifyInstance): void {
     const reconciled = body.baseline?.trim()
       ? preserveConcurrentAdditions(current, merged, parseBaselineProject(body.baseline, project.name))
       : merged;
+    assertLocksAllow(user.id, id, current, reconciled);
     room.doc.transact(() => writeProjectToDoc(room.doc, reconciled), user.displayName);
     // An import can restructure an entire schema in one call, which is the
     // kind of change someone later asks "who did that, and when?" about.

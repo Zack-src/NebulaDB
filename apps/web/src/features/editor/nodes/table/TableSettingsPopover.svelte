@@ -23,6 +23,7 @@
     onUpdateIndex,
     onDeleteIndex,
     onDuplicate,
+    nameLocked = false,
     triggerClassName,
   }: {
     table: Table;
@@ -33,6 +34,8 @@
     onUpdateIndex?: (indexId: string, updates: Partial<Pick<TableIndex, "unique" | "pk" | "name">>) => void;
     onDeleteIndex?: (indexId: string) => void;
     onDuplicate?: () => void;
+    /** The table is locked against this user: the name is shown, not editable. */
+    nameLocked?: boolean;
     triggerClassName: string;
   } = $props();
 
@@ -78,6 +81,7 @@
     {onUpdateIndex}
     {onDeleteIndex}
     {onDuplicate}
+    {nameLocked}
     {triggerRect}
     {trigger}
     onClose={() => (open = false)}

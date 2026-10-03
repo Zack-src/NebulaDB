@@ -1,4 +1,4 @@
-import type { Table } from "@athanordb/shared";
+import type { Table, TableLock } from "@athanordb/shared";
 import type { TableNodeType } from "@/features/editor/nodes/nodeTypes";
 import { setsEqual } from "@/utils/setsEqual";
 
@@ -27,6 +27,13 @@ export interface TableNodeCacheEntry {
   selectedFieldId: string | null;
   palette: string[];
   canWrite: boolean;
+  /** The lock object itself: the lock list is refetched as a whole, so a changed lock is a new object. */
+  lock: TableLock | undefined;
+  /** Whether that lock binds this user, and whether they may manage it — both follow the user's authority, not the lock alone. */
+  structureLocked: boolean;
+  canManageLock: boolean;
+  /** Whether "view data" is offered — it follows the session and the connection, not the table. */
+  canViewData: boolean;
   user: string;
   /** Identity of the callback bundle the node's data closes over. */
   callbacks: unknown;
@@ -51,6 +58,10 @@ export function readCachedTableNode(
     cached.selectedFieldId === key.selectedFieldId &&
     cached.palette === key.palette &&
     cached.canWrite === key.canWrite &&
+    cached.lock === key.lock &&
+    cached.structureLocked === key.structureLocked &&
+    cached.canManageLock === key.canManageLock &&
+    cached.canViewData === key.canViewData &&
     cached.user === key.user &&
     cached.callbacks === key.callbacks &&
     cached.issuesKey === key.issuesKey &&

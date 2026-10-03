@@ -5,6 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as Y from "yjs";
 import * as encoding from "lib0/encoding.js";
+import * as decoding from "lib0/decoding.js";
 import * as syncProtocol from "y-protocols/sync.js";
 import type { WebSocket } from "ws";
 
@@ -241,4 +242,165 @@ test("loading a project saved with an inverted ref repairs it once, persistently
   const again = new Room(projectId, () => {});
   t.after(() => again.destroy());
   assert.equal(listRevisions(projectId).length, before);
+});
+
+// --- Table locks -----------------------------------------------------------
+
+function lockTestTable(id: string, name: string, columns: string[]) {
+  return {
+    id,
+    name,
+    fields: columns.map((column) => ({ id: `${id}.${column}`, name: column, type: "int" })),
+    indexes: [],
+    position: { x: 0, y: 0 },
+    detailLevel: "full" as const,
+  };
+}
+
+/** A room holding `users` and `orders`, with `orders.user_id` → `users.id`. */
+function roomWithSchema(t: TestContext): InstanceType<typeof Room> {
+  const room = newRoom(t);
+  room.doc.transact(() => {
+    const tables = room.doc.getMap("tables");
+    tables.set("users", lockTestTable("users", "users", ["id", "email"]));
+    tables.set("orders", lockTestTable("orders", "orders", ["id", "user_id"]));
+    room.doc.getMap("refs").set("r1", {
+      id: "r1",
+      from: { tableId: "orders", fieldId: "orders.user_id" },
+      to: { tableId: "users", fieldId: "users.id" },
+      cardinality: "one-to-many",
+    });
+  }, "setup");
+  return room;
+}
+
+/** A frame from a client that is in sync with the room, carrying only what `mutate` changed — what a real editor sends. */
+function clientEdit(room: InstanceType<typeof Room>, mutate: (doc: Y.Doc) => void): Uint8Array {
+  const client = new Y.Doc();
+  Y.applyUpdate(client, Y.encodeStateAsUpdate(room.doc));
+  const before = Y.encodeStateVector(client);
+  mutate(client);
+  const encoder = encoding.createEncoder();
+  encoding.writeVarUint(encoder, 0); // MESSAGE_SYNC
+  syncProtocol.writeUpdate(encoder, Y.encodeStateAsUpdate(client, before));
+  return encoding.toUint8Array(encoder);
+}
+
+/** `Room` keeps its project id private; the revision log is the only way to see what it persisted. */
+const roomProjectId = (room: InstanceType<typeof Room>) => (room as unknown as { projectId: string }).projectId;
+
+type AnyTable = ReturnType<typeof lockTestTable> & { position: { x: number; y: number } };
+const tableOf = (doc: Y.Doc, id: string) => doc.getMap("tables").get(id) as AnyTable | undefined;
+
+/** The `ServerNotice`s (message type 2) a fake socket received. */
+function noticesSent(sent: Uint8Array[]): unknown[] {
+  return sent.flatMap((frame) => {
+    const decoder = decoding.createDecoder(frame);
+    return decoding.readVarUint(decoder) === 2 ? [JSON.parse(decoding.readVarString(decoder))] : [];
+  });
+}
+
+test("a change to a locked table is put back, and the connection is told which table", (t) => {
+  const room = roomWithSchema(t);
+  const { socket, sent } = fakeSocket();
+  room.join(socket, "erin", () => ({ canWrite: true, lockedTableIds: new Set(["users"]) }));
+
+  room.receive(
+    socket,
+    clientEdit(room, (doc) => {
+      const users = tableOf(doc, "users")!;
+      doc.getMap("tables").set("users", {
+        ...users,
+        name: "customers",
+        fields: [...users.fields, { id: "users.phone", name: "phone", type: "text" }],
+        position: { x: 640, y: 120 },
+      });
+      // Same frame, an unlocked table: must survive.
+      const orders = tableOf(doc, "orders")!;
+      doc.getMap("tables").set("orders", { ...orders, name: "purchases" });
+    }),
+  );
+
+  const users = tableOf(room.doc, "users")!;
+  assert.equal(users.name, "users", "the rename is undone");
+  assert.deepEqual(
+    users.fields.map((field) => field.name),
+    ["id", "email"],
+    "the added column is gone",
+  );
+  assert.deepEqual(users.position, { x: 640, y: 120 }, "moving a locked table is allowed and kept");
+  assert.equal(tableOf(room.doc, "orders")!.name, "purchases", "the unlocked table keeps its change");
+  assert.deepEqual(noticesSent(sent), [{ type: "table-locked", tables: ["users"] }]);
+});
+
+test("deleting a locked table, or its foreign key, is put back", (t) => {
+  const room = roomWithSchema(t);
+  const { socket } = fakeSocket();
+  room.join(socket, "erin", () => ({ canWrite: true, lockedTableIds: new Set(["orders"]) }));
+
+  room.receive(
+    socket,
+    clientEdit(room, (doc) => doc.getMap("refs").delete("r1")),
+  );
+  assert.ok(room.doc.getMap("refs").has("r1"), "the locked table's foreign key is restored");
+
+  room.receive(
+    socket,
+    clientEdit(room, (doc) => doc.getMap("tables").delete("orders")),
+  );
+  assert.equal(tableOf(room.doc, "orders")?.name, "orders", "the deleted table is restored");
+});
+
+test("moving a locked table, or editing another one, sends no notice and reverts nothing", async (t) => {
+  const { listRevisions } = await import("./persistence.js");
+  const room = roomWithSchema(t);
+  const { socket, sent } = fakeSocket();
+  room.join(socket, "erin", () => ({ canWrite: true, lockedTableIds: new Set(["users"]) }));
+  const revisionsBefore = listRevisions(roomProjectId(room)).length;
+
+  room.receive(
+    socket,
+    clientEdit(room, (doc) => {
+      doc.getMap("tables").set("users", { ...tableOf(doc, "users")!, position: { x: 10, y: 20 } });
+      doc.getMap("tables").set("audit", lockTestTable("audit", "audit", ["user_id"]));
+      // A new table may point at a locked one: that alters the new table, not the locked one.
+      doc.getMap("refs").set("r2", {
+        id: "r2",
+        from: { tableId: "audit", fieldId: "audit.user_id" },
+        to: { tableId: "users", fieldId: "users.id" },
+        cardinality: "one-to-many",
+      });
+    }),
+  );
+
+  assert.deepEqual(tableOf(room.doc, "users")!.position, { x: 10, y: 20 });
+  assert.ok(room.doc.getMap("refs").has("r2"));
+  assert.deepEqual(noticesSent(sent), []);
+  assert.equal(listRevisions(roomProjectId(room)).length, revisionsBefore + 1, "one revision: the edit, no revert");
+});
+
+test("a lock binds only the connections it is resolved for, and lifting it takes effect on revalidate", (t) => {
+  const room = roomWithSchema(t);
+  const admin = fakeSocket();
+  const editor = fakeSocket();
+  let locked = new Set(["users"]);
+  room.join(admin.socket, "admin", () => ({ canWrite: true }));
+  room.join(editor.socket, "editor", () => ({ canWrite: true, lockedTableIds: locked }));
+
+  const rename = (name: string) => (doc: Y.Doc) =>
+    doc.getMap("tables").set("users", { ...tableOf(doc, "users")!, name });
+
+  room.receive(admin.socket, clientEdit(room, rename("accounts")));
+  assert.equal(tableOf(room.doc, "users")!.name, "accounts", "the administrator edits the locked table");
+
+  room.receive(editor.socket, clientEdit(room, rename("people")));
+  assert.equal(tableOf(room.doc, "users")!.name, "accounts", "the editor does not");
+
+  locked = new Set();
+  room.revalidate(); // what the lock routes call
+  room.receive(editor.socket, clientEdit(room, rename("people")));
+  assert.equal(tableOf(room.doc, "users")!.name, "people", "once unlocked, the editor does");
+
+  room.announce({ type: "locks-changed" });
+  assert.deepEqual(noticesSent(admin.sent).at(-1), { type: "locks-changed" });
 });
