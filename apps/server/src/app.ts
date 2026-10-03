@@ -27,6 +27,7 @@ import { getProjectRow } from "./modules/projects/repository.js";
 import { registerPublicApiRoutes } from "./modules/publicApi/index.js";
 import { registerTeamRoutes } from "./modules/teams/routes.js";
 import { registerSearchRoutes } from "./modules/search/routes.js";
+import { registerSeedRoutes } from "./modules/seeds/routes.js";
 import { lockedTableIdsFor } from "./modules/tableLocks/access.js";
 import { registerTableLockRoutes } from "./modules/tableLocks/routes.js";
 import { registerWebhookRoutes } from "./modules/webhooks/routes.js";
@@ -183,6 +184,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerProjectRoutes(app);
   registerSearchRoutes(app);
   registerTableLockRoutes(app);
+  registerSeedRoutes(app);
   registerWebhookRoutes(app);
   registerConvertRoutes(app);
   registerEnvironmentRoutes(app);

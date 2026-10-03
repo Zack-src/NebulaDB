@@ -82,7 +82,9 @@ export type AuditAction =
   | "environment.create"
   | "environment.update"
   | "environment.delete"
-  | "environment.reorder";
+  | "environment.reorder"
+  | "seed.set"
+  | "seed.remove";
 
 export interface AuditActor {
   id: string | null;

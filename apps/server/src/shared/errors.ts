@@ -80,6 +80,10 @@ export const ERROR_CATALOG = {
     status: 400,
     message: "a stage needs a name (at most 40 characters); colour, protection and production must be known values",
   },
+  SEED_INVALID: {
+    status: 400,
+    message: "a seed needs CSV content (at most 2 MB, 50 000 rows) and valid options: separator, header, mapping, mode",
+  },
   RESTORE_TABLES_INVALID: { status: 400, message: "tableIds must be a non-empty array of table ids (at most 500)" },
   ROLLBACK_NOT_AVAILABLE: { status: 400, message: "no rollback SQL is available for this deployment" },
   ROLLBACK_ALREADY_ATTEMPTED: { status: 400, message: "this deployment has already been rolled back" },
@@ -132,6 +136,7 @@ export const ERROR_CATALOG = {
   WEBHOOK_NOT_FOUND: { status: 404, message: "no such webhook on this project" },
   TABLE_NOT_FOUND: { status: 404, message: "no such table in this project" },
   ENVIRONMENT_NOT_FOUND: { status: 404, message: "no such environment stage" },
+  SEED_NOT_FOUND: { status: 404, message: "this table has no seed" },
 
   // --- 409 ---
   EMAIL_ALREADY_EXISTS: { status: 409, message: "a user with this email already exists" },
@@ -153,6 +158,10 @@ export const ERROR_CATALOG = {
   STRUCTURE_VIA_SCHEMA: {
     status: 409,
     message: "structure changes on this database go through its schema — make the change in the project and deploy it",
+  },
+  SEEDS_NOT_DEPLOYABLE: {
+    status: 409,
+    message: "a seed of this project has errors or its tables depend on each other in a cycle — fix it before deploying",
   },
   DEPLOYMENT_BLOCKED_BY_RISK: {
     status: 409,

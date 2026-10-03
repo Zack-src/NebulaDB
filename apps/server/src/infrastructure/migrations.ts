@@ -619,6 +619,37 @@ export const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 25,
+    name: "table_seeds table, deployment_history.seed_report",
+    up: (db) => {
+      // A table's initial rows, as the CSV it was given (`content`, capped
+      // at SEED_MAX_BYTES) and how to read it (`options_json`: separator,
+      // header, column mapping by field id, mode). Keyed by table id, like
+      // table locks, so a rename keeps its seed.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS table_seeds (
+          project_id TEXT NOT NULL,
+          table_id TEXT NOT NULL,
+          table_name TEXT NOT NULL,
+          format TEXT NOT NULL DEFAULT 'csv',
+          content TEXT NOT NULL,
+          options_json TEXT NOT NULL,
+          row_count INTEGER NOT NULL,
+          bytes INTEGER NOT NULL,
+          updated_by TEXT,
+          updated_by_name TEXT,
+          updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+          PRIMARY KEY (project_id, table_id)
+        );
+      `);
+      // What each seeded table got during a deployment (JSON array of `SeedResult`).
+      const columns = db.prepare("PRAGMA table_info(deployment_history)").all() as { name: string }[];
+      if (!columns.some((c) => c.name === "seed_report")) {
+        db.exec("ALTER TABLE deployment_history ADD COLUMN seed_report TEXT");
+      }
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */
