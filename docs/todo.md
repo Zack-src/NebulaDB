@@ -1027,9 +1027,6 @@ DeploymentModal.svelte` 501 l. (will grow with Phase 32 — split first) ·
   463 l. · `features/editor/ProjectEditor.svelte` 459 l. (gets the workspace shell in Phase 31) ·
   `features/admin/connections/UsersPanel.svelte` 447 l. · `apps/server/src/modules/connections/
 repository.ts` has grown a lot with instance-level connections — worth a look.
-- [ ] **`npm run check:circular -w apps/server` fails** — **S**, found 2026-10-03, not fixed: madge
-      reports `packages/shared/dist/schema.d.ts > seeds.d.ts` (a type-only cycle between
-      `schema.ts` and `seeds.ts`). Move the shared type to one side, or point madge at the sources.
 - [ ] **Confirm two perf regressions flagged by the Svelte migration bench** — **S**
       (`docs/perf/svelte-migration-results.md`, single pass): `zoom-links-on` at "complet" detail
       0→29 ms blocking at 100 tables and 4→40 ms at 500; `delete-columns` at 500 tables +~6 ms. Small
