@@ -1,4 +1,5 @@
 import pg from "pg";
+import { q } from "@athanordb/dbml-engine";
 import type { Project, Ref, Table, TableIndex } from "@athanordb/shared";
 import type {
   DatabaseDriver,
@@ -186,6 +187,34 @@ export class PostgresDriver implements DatabaseDriver {
     const res = await this.pool.query({ text: sql, rowMode: "array" });
     const value = res.rows[0]?.[0];
     return value === null || value === undefined ? null : Number(value);
+  }
+
+  /**
+   * Inserts seed rows in one transaction, in batches, with bound parameters —
+   * never values spliced into the SQL. All or nothing: a failing row rolls the
+   * whole table back. Returns the number of rows inserted.
+   */
+  async insertRows(table: string, columns: string[], rows: (string | null)[][]): Promise<number> {
+    if (rows.length === 0) return 0;
+    const client = await this.pool.connect();
+    const head = `INSERT INTO ${q(table, "postgres")} (${columns.map((c) => q(c, "postgres")).join(", ")}) VALUES `;
+    const batch = Math.max(1, Math.min(500, Math.floor(30000 / columns.length)));
+    try {
+      await client.query("BEGIN");
+      for (let i = 0; i < rows.length; i += batch) {
+        const chunk = rows.slice(i, i + batch);
+        let n = 0;
+        const values = chunk.map((row) => `(${row.map(() => `$${++n}`).join(", ")})`).join(", ");
+        await client.query(head + values, chunk.flat());
+      }
+      await client.query("COMMIT");
+      return rows.length;
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw err;
+    } finally {
+      client.release();
+    }
   }
 
   async executeMigration(sql: string): Promise<MigrationExecutionResult> {

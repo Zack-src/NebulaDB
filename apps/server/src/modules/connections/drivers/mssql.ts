@@ -1,4 +1,5 @@
 import net from "node:net";
+import { q } from "@athanordb/dbml-engine";
 import sql from "mssql";
 import type { Project, Ref, Table, TableIndex } from "@athanordb/shared";
 import type {
@@ -185,6 +186,46 @@ export class MssqlDriver implements DatabaseDriver {
     const row = res.recordset[0] as Record<string, unknown> | undefined;
     const value = row ? Object.values(row)[0] : undefined;
     return value === null || value === undefined ? null : Number(value);
+  }
+
+  /**
+   * Inserts seed rows in one transaction, in batches, with bound parameters —
+   * never values spliced into the SQL. All or nothing: a failing row rolls the
+   * whole table back. Returns the number of rows inserted.
+   */
+  async insertRows(table: string, columns: string[], rows: (string | null)[][]): Promise<number> {
+    if (rows.length === 0) return 0;
+    const pool = await this.ready;
+    const transaction = new sql.Transaction(pool);
+    // SQL Server caps a statement at 2100 parameters and a VALUES list at 1000 rows.
+    const batch = Math.max(1, Math.min(1000, Math.floor(2000 / columns.length)));
+    const head = `INSERT INTO ${q(table, "mssql")} (${columns.map((c) => q(c, "mssql")).join(", ")}) VALUES `;
+    await transaction.begin();
+    try {
+      for (let i = 0; i < rows.length; i += batch) {
+        const chunk = rows.slice(i, i + batch);
+        const request = new sql.Request(transaction);
+        let n = 0;
+        const values = chunk
+          .map(
+            (row) =>
+              `(${row
+                .map((value) => {
+                  const name = `p${n++}`;
+                  request.input(name, sql.NVarChar(sql.MAX), value);
+                  return `@${name}`;
+                })
+                .join(", ")})`,
+          )
+          .join(", ");
+        await request.query(head + values);
+      }
+      await transaction.commit();
+      return rows.length;
+    } catch (err) {
+      await transaction.rollback().catch(() => {});
+      throw err;
+    }
   }
 
   /**

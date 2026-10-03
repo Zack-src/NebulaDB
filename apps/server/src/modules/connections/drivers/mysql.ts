@@ -1,4 +1,5 @@
 import mysql from "mysql2/promise";
+import { q } from "@athanordb/dbml-engine";
 import type { RowDataPacket } from "mysql2/promise";
 import type { Project, Ref, Table, TableIndex } from "@athanordb/shared";
 import type {
@@ -171,6 +172,28 @@ export class MysqlDriver implements DatabaseDriver {
     const [rows] = await this.pool.query<RowDataPacket[]>({ sql, rowsAsArray: true });
     const value = (rows[0] as unknown as unknown[] | undefined)?.[0];
     return value === null || value === undefined ? null : Number(value);
+  }
+
+  /**
+   * Inserts seed rows in one transaction, in batches, with bound parameters —
+   * never values spliced into the SQL. All or nothing: a failing row rolls the
+   * whole table back. Returns the number of rows inserted.
+   */
+  async insertRows(table: string, columns: string[], rows: (string | null)[][]): Promise<number> {
+    if (rows.length === 0) return 0;
+    const conn = await this.pool.getConnection();
+    const head = `INSERT INTO ${q(table, "mysql")} (${columns.map((c) => q(c, "mysql")).join(", ")}) VALUES ?`;
+    try {
+      await conn.beginTransaction();
+      for (let i = 0; i < rows.length; i += 500) await conn.query(head, [rows.slice(i, i + 500)]);
+      await conn.commit();
+      return rows.length;
+    } catch (err) {
+      await conn.rollback().catch(() => {});
+      throw err;
+    } finally {
+      conn.release();
+    }
   }
 
   /**

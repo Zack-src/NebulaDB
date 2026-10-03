@@ -1,4 +1,5 @@
 import oracledb from "oracledb";
+import { q } from "@athanordb/dbml-engine";
 import type { Project, Ref, Table, TableIndex } from "@athanordb/shared";
 import type {
   DatabaseDriver,
@@ -173,6 +174,27 @@ export class OracleDriver implements DatabaseDriver {
       const res = await conn.execute(sql, [], { outFormat: oracledb.OUT_FORMAT_ARRAY });
       const value = (res.rows?.[0] as unknown[] | undefined)?.[0];
       return value === null || value === undefined ? null : Number(value);
+    } finally {
+      await conn.close().catch(() => {});
+    }
+  }
+
+  /**
+   * Inserts seed rows in one transaction, in batches, with bound parameters —
+   * never values spliced into the SQL. All or nothing: a failing row rolls the
+   * whole table back. Returns the number of rows inserted.
+   */
+  async insertRows(table: string, columns: string[], rows: (string | null)[][]): Promise<number> {
+    if (rows.length === 0) return 0;
+    const conn = await this.getConnection();
+    const statement = `INSERT INTO ${q(table, "oracle")} (${columns.map((c) => q(c, "oracle")).join(", ")}) VALUES (${columns.map((_, i) => `:${i + 1}`).join(", ")})`;
+    try {
+      await conn.executeMany(statement, rows, { autoCommit: false });
+      await conn.commit();
+      return rows.length;
+    } catch (err) {
+      await conn.rollback().catch(() => {});
+      throw err;
     } finally {
       await conn.close().catch(() => {});
     }

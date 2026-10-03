@@ -18,6 +18,8 @@ export interface DatabaseDriver {
   introspectSchema(): Promise<Project>;
   /** One aggregate query's single number (`null` for none) — the pre-deployment risk probes. */
   queryScalar(sql: string): Promise<number | null>;
+  /** Seed rows, bound parameters, one transaction; returns how many went in. */
+  insertRows(table: string, columns: string[], rows: (string | null)[][]): Promise<number>;
   executeMigration(sql: string): Promise<MigrationExecutionResult>;
   close(): Promise<void>;
 }
