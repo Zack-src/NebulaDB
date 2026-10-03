@@ -6,12 +6,25 @@ import type { Locale } from "./translate";
  * dictionary because a date format is a rule, not a phrase.
  */
 
+/**
+ * A date from the server. SQLite writes `YYYY-MM-DD HH:MM:SS` in UTC with no
+ * zone, which `new Date()` would read as local time — hours off for anyone
+ * not on UTC. Such a value is read as UTC; anything carrying a zone (ISO with
+ * `Z` or an offset) or a `Date` is taken as it is.
+ */
+export function toDate(value: string | Date): Date {
+  if (typeof value !== "string") return value;
+  return /^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}(:\d{2}(\.\d+)?)?$/.test(value)
+    ? new Date(`${value.replace(" ", "T")}Z`)
+    : new Date(value);
+}
+
 export function formatDate(value: string | Date, locale: Locale): string {
-  return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(new Date(value));
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium" }).format(toDate(value));
 }
 
 export function formatDateTime(value: string | Date, locale: Locale): string {
-  return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
+  return new Intl.DateTimeFormat(locale, { dateStyle: "medium", timeStyle: "short" }).format(toDate(value));
 }
 
 export function formatNumber(value: number, locale: Locale): string {
@@ -28,7 +41,7 @@ const RELATIVE_UNITS: [Intl.RelativeTimeFormatUnit, number][] = [
 
 /** "il y a 3 jours" / "3 days ago" — picks the largest unit the difference fills. */
 export function formatRelativeTime(value: string | Date, locale: Locale): string {
-  const deltaMs = new Date(value).getTime() - Date.now();
+  const deltaMs = toDate(value).getTime() - Date.now();
   const formatter = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
   for (const [unit, unitMs] of RELATIVE_UNITS) {
     if (Math.abs(deltaMs) >= unitMs) return formatter.format(Math.round(deltaMs / unitMs), unit);

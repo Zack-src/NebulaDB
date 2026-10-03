@@ -71,7 +71,7 @@
       {t("deployment.historyEmpty")}
     </div>
   {:else}
-    <ul class="max-h-96 space-y-2 overflow-y-auto pr-1">
+    <ul class="m-0 max-h-96 list-none space-y-2 overflow-y-auto p-0 pr-1">
       {#each entries as entry (entry.id)}
         <li class="rounded-sm border border-border bg-surface p-3 text-xs">
           <div class="flex flex-wrap items-center justify-between gap-2">
@@ -116,7 +116,7 @@
           {#if entry.acceptedRisks && entry.acceptedRisks.length > 0}
             <div class="mt-2 rounded-sm border border-border bg-surface-raised p-2 text-[11px]">
               <span class="mb-1 block font-semibold text-text">{t("deployment.historyAcceptedRisks")}</span>
-              <ul class="space-y-0.5">
+              <ul class="m-0 list-none space-y-0.5 p-0">
                 {#each entry.acceptedRisks as risk, index (index)}
                   <li class="text-text-muted">
                     <span class="font-mono text-text">
