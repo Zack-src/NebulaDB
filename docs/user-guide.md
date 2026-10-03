@@ -262,6 +262,17 @@ déploiement** tant que les données ou le schéma ne sont pas corrigés. L'aper
 SQL suit vos choix, et quand un choix supprime des données, vous pouvez dire
 pourquoi : la raison est gardée dans l'historique avec le déploiement.
 
+**Données initiales.** Une table peut apporter ses premières lignes : le
+bouton _Données initiales (CSV)_ de son en-tête prend un fichier CSV (2 Mo et
+50 000 lignes au plus), associe ses colonnes à celles de la table par leur nom
+(modifiable), et montre un aperçu vérifié — type, NOT NULL, longueur, doublons
+sur une clé, colonne obligatoire absente. Au déploiement, ces lignes sont
+insérées après le schéma, les tables parentes d'abord ; par défaut seulement
+si la table est vide (« Ajouter si vide »), sinon à chaque fois (« Toujours
+ajouter »). Le plan indique `clients : +248 lignes` et permet de ne pas les
+insérer cette fois. Des données avec erreurs bloquent le déploiement tant
+qu'elles ne sont pas corrigées.
+
 Chaque connexion est placée sur une **étape** de la chaîne de déploiement
 (DEV › Staging › Prod par défaut — voir « Environnements » plus bas). Sur
 l'étape marquée **production**, déployer ou annuler un déploiement demande de

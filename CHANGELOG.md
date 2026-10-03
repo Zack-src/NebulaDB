@@ -41,6 +41,26 @@ this file has a dated entry for — not on every commit.
   that listed the application's paths one by one needs `/project/*/*` as well.
   No database or configuration change.
 
+### Added (initial data)
+
+- **Tables can bring rows: CSV seeds.** On the canvas, a table's "Données
+  initiales" button takes a CSV file (2 MB / 50 000 rows at most, separator
+  detected, UTF-8 or Windows-1252), matches its columns to the table's by name,
+  and previews it checked against the table: types, NOT NULL, lengths,
+  duplicates under a key, required columns left out, formula-looking text. A
+  table with a seed shows it in its header.
+- **Deployments insert them after the DDL**, parents before the tables that
+  point at them, one transaction per table, with bound parameters. By default
+  only into an empty table, so a second deployment adds nothing ("Toujours
+  ajouter" changes that). The plan lists `customers : +248 lignes` and can
+  leave the seeds out; a seed with errors, a foreign key with no parent in the
+  parent's seed, or seeded tables depending on each other in a cycle stop the
+  deployment before anything runs (`409 SEEDS_NOT_DEPLOYABLE`). What each
+  table got is kept in the deployment history. API: `skipSeeds` on deploy.
+- A `full` table lock now also freezes the table's seed.
+- **Database change:** migration 25 adds the `table_seeds` table and
+  `deployment_history.seed_report`. Automatic, one-way.
+
 ### Changed (deployment safety) — read before upgrading
 
 - **"Annuler / Gérer manuellement" now cancels.** The option was offered on

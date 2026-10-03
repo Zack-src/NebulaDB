@@ -42,7 +42,7 @@ diagram preview and per-table restore).
 | ◐     | 14  | 32    | Configurable environment pipeline and promotion                  |
 | 10    | 11  | 32    | Logical backups, restore, deployment rollback                    |
 | ◐     | 15  | 32    | Destructive-change detection                                     |
-| 12    | 7   | 33    | CSV seeds                                                        |
+| ◐     | 7   | 33    | CSV seeds                                                        |
 | 13    | 16  | 33    | Test-data generation (+ AI extension point)                      |
 | 14    | 8   | 34    | Admin activity journal                                           |
 | 15    | 9   | 34    | External-change detection and alerts                             |
@@ -579,18 +579,39 @@ here: each gets its own security review before it is closed.**
 
 ## Phase 33 — Data: seeds and test data (plan §5, §14)
 
-- [ ] **CSV seeds for tables** — **XL**. Entity `table_seeds(project_id, table_name, format,
+- [~] **CSV seeds for tables** — first slice done 2026-10-03. `packages/shared/src/seeds.ts`
+  (pure, shared by the editor preview and the server): RFC 4180 parser (unquoted empty = NULL,
+  `""` = empty string), separator detection, mapping by name, `validateSeed` (types, NOT NULL,
+  length, PK / UNIQUE duplicates, required columns, row width, foreign keys against the parent's
+  seed, formula-looking text as a warning), `seedInsertOrder` (FK order, cycles reported,
+  self-references ignored). Migration 25 `table_seeds` keyed by **table id** (content stored in
+  the database, mapping by **field id**, so a canvas rename keeps it), routes
+  `GET/PUT/DELETE /api/projects/:id/seeds[/:tableId]` (`edit` to change, audited, live
+  `seeds-changed` notice), a `full` lock freezes the seed. Drivers got `insertRows` (bound
+  parameters, batches, one transaction per table, all five engines). Deployment: seeds checked
+  **before** the DDL (`SEEDS_NOT_DEPLOYABLE`), inserted after it, `if-empty` (default) or
+  `append`, report in `deployment_history.seed_report`; the plan lists rows per table and can
+  skip them. Editor: `SeedDialog.svelte` (file, separator, header, mode, mapping, checked
+  preview), header icon at rest on a seeded table. **Verified:** `seeds.test.ts` (shared),
+  `seeds/routes.test.ts` (SQLite end to end: FK order, refusal, `if-empty` on redeploy, lock),
+  `e2e/seeds.e2e.ts`. **Still to do:** `upsert` / `replace` modes (engine-specific SQL);
+  versioning with the project history (today the last file only — the audit log says who changed
+  it); `json` / `xlsx` / `sql` sources; seeds are not part of the DBML text; a seed whose CSV
+  column was mapped to a deleted field silently ignores it; Oracle dates as text depend on
+  `NLS_DATE_FORMAT`; a seed insert failing after the DDL leaves the DDL applied (reported, not
+  rolled back); the security review of the Phase 27 rule. The original item, for the rest:
+  **XL**. Entity `table_seeds(project_id, table_name, format,
 file_ref, options_json, updated_at)`; an abstract `SeedSource` interface (`csv` first, then
-      `json` / `xlsx` / `sql`); file stored server-side and **versioned with the project history**.
-      Editor: "Données initiales" section in the table inspector — import, preview of the first
-      rows, column mapping (separator, header, encoding), validation (types, NOT NULL, UNIQUE,
-      FKs) **before** any deployment, 📄 icon on the node. CSV-formula-injection protection, size
-      limit, encoding detection. Deployment: step added to `deploy.ts` after the DDL, inserting in
-      **FK dependency order** (cycles detected and reported), in batches, in a transaction where
-      the engine allows; per-table mode `insert-if-empty` (default) / `upsert` / `replace`; the
-      dry-run lists `users : +248 lignes`. A seed inherits the `full` lock level (Phase 30).
-      Open: size cap / streaming; mapping migration on column rename; DBML annotation syntax that
-      stays valid DBML. **Blocked by:** locks (for the permission rule), workspace for the UI.
+  `json` / `xlsx` / `sql`); file stored server-side and **versioned with the project history**.
+  Editor: "Données initiales" section in the table inspector — import, preview of the first
+  rows, column mapping (separator, header, encoding), validation (types, NOT NULL, UNIQUE,
+  FKs) **before** any deployment, 📄 icon on the node. CSV-formula-injection protection, size
+  limit, encoding detection. Deployment: step added to `deploy.ts` after the DDL, inserting in
+  **FK dependency order** (cycles detected and reported), in batches, in a transaction where
+  the engine allows; per-table mode `insert-if-empty` (default) / `upsert` / `replace`; the
+  dry-run lists `users : +248 lignes`. A seed inherits the `full` lock level (Phase 30).
+  Open: size cap / streaming; mapping migration on column rename; DBML annotation syntax that
+  stays valid DBML. **Blocked by:** locks (for the permission rule), workspace for the UI.
 - [ ] **Export current data as a seed** — **S**, console → table → "Exporter comme données
       initiales" (CSV export already exists).
 - [ ] **Test-data generation** — **L**. Inspector tab "Générer": volume, reproducible seed,

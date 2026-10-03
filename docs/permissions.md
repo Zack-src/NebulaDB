@@ -44,6 +44,7 @@ There are two axes, and no others.
 | See cursors and presence (realtime)                                       |  ✔   |  ✔   |       ✔       |
 | Edit the schema on the canvas or in the DBML editor (realtime)            |      |  ✔   |       ✔       |
 | Import DBML / SQL into the project                                        |      |  ✔   |       ✔       |
+| Set or remove a table's initial data (CSV seed); a `full` lock freezes it |      |  ✔   |       ✔       |
 | Label a revision; restore a revision (whole or some tables), the snapshot |      |  ✔   |       ✔       |
 | Rename, archive, trash, restore from trash, delete the project            |      |      |       ✔       |
 | Grant or revoke a team on the project                                     |      |      |       ✔       |
