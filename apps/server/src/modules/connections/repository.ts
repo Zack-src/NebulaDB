@@ -10,6 +10,7 @@ import type {
 } from "@athanordb/shared";
 import { db } from "../../infrastructure/db.js";
 import { decryptPayload, encryptPayload } from "../../shared/crypto.js";
+import { deleteBackupsOfConnection } from "../backups/repository.js";
 import { getEnvironment, resolveConnectionEnvironment } from "../environments/repository.js";
 
 interface ConnectionRow {
@@ -305,8 +306,13 @@ export function updateGlobalConnection(
   return getAdminConnection(id);
 }
 
-/** Deletes the connection itself, wherever it was attached. Deployment history keeps its own snapshot of the name. */
+/**
+ * Deletes the connection itself, wherever it was attached. Deployment history
+ * keeps its own snapshot of the name; its backups go with it — they hold its
+ * data, and nothing would list them any more.
+ */
 export function deleteConnection(id: string): boolean {
+  deleteBackupsOfConnection(id);
   return db.transaction(() => {
     db.prepare("DELETE FROM project_connection_links WHERE connection_id = ?").run(id);
     db.prepare("DELETE FROM admin_query_history WHERE connection_id = ?").run(id);

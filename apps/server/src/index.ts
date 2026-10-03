@@ -9,6 +9,7 @@ import { purgeExpiredResetTokens } from "./modules/auth/passwordReset.js";
 import { startWebhookWorker } from "./modules/webhooks/dispatcher.js";
 import { startConnectionHealthChecks } from "./modules/dbAdmin/health.js";
 import { runDueMonitoring } from "./modules/monitoring/monitor.js";
+import { failInterruptedBackups, purgeExpiredBackups } from "./modules/backups/repository.js";
 import { scheduleJob, stopAllJobs } from "./infrastructure/scheduler.js";
 import { purgeOldDeliveries } from "./modules/webhooks/repository.js";
 import { purgeExpiredSessions } from "./modules/auth/session.js";
@@ -60,6 +61,13 @@ startWebhookWorker();
 startConnectionHealthChecks(config.connectionHealthIntervalMinutes);
 // The watch over projects' databases: each project says how often; this only looks for who is due.
 scheduleJob("drift-monitor", 60_000, runDueMonitoring);
+// Backups of connected databases: whatever a restart cut short is marked failed, and what is past its retention goes.
+const interrupted = failInterruptedBackups();
+if (interrupted > 0) app.log.warn(`${interrupted} database backup(s) were interrupted by the restart`);
+scheduleJob("database-backup-retention", 60 * 60 * 1000, () => {
+  const purged = purgeExpiredBackups();
+  if (purged > 0) app.log.info(`purged ${purged} database backup(s) past their retention`);
+});
 
 /**
  * Scheduled backups, off unless `ATHANORDB_BACKUP_INTERVAL_HOURS` is set.
