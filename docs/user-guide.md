@@ -43,7 +43,31 @@ y reste modifiable.
 
 ## 2. L'éditeur
 
-L'écran d'un projet a deux moitiés synchronisées en permanence :
+Un projet s'ouvre sur un **espace de travail** à onglets, sous l'en-tête :
+
+- **Schéma** — l'éditeur décrit ci-dessous ;
+- **Données & SQL** — la base elle-même : explorateur, console SQL, comptes et
+  sessions (section 5). Réservé aux administrateurs de l'instance, et présent
+  seulement si une base est rattachée au projet ;
+- **Déploiements** — ce qui a été déployé sur la base courante, le retour
+  arrière, la comparaison schéma / base et le déploiement. Réservé aux
+  administrateurs du projet ;
+- **Historique** — les versions du schéma (section 4).
+
+Chaque onglet a sa propre adresse : on peut la partager, recharger la page ou
+utiliser les boutons précédent / suivant du navigateur. À droite de la barre, le
+sélecteur indique la **base courante** — celle que visent Données & SQL,
+Déploiements et le bouton Déployer — avec son étape (environnement), en rouge
+quand c'est l'étape de production.
+
+Sur l'onglet Schéma, les administrateurs de l'instance disposent aussi d'un
+**panneau SQL** sous le diagramme (bouton _SQL_ de la barre d'onglets, ou
+`Ctrl+J`), redimensionnable, branché sur la base courante. Le bouton **Voir les
+données** de l'en-tête d'une table y affiche ses premières lignes. Ce panneau
+suit les mêmes règles que la console SQL (section 5) : lecture seule par défaut,
+tout est journalisé, et un changement de structure est renvoyé vers le schéma.
+
+L'onglet Schéma a deux moitiés synchronisées en permanence :
 
 - à gauche, le **panneau DBML** — le schéma sous forme de texte ;
 - à droite, le **canvas** — le même schéma sous forme de diagramme.
@@ -142,6 +166,31 @@ toute modification est refusée par le serveur. Si vos droits changent pendant
 que vous travaillez, le changement s'applique en quelques secondes sans avoir à
 recharger.
 
+### Verrouiller une table
+
+Un administrateur du projet peut **verrouiller** une table : survolez-la et
+cliquez sur le cadenas de son en-tête. Le verrou gèle sa structure — nom,
+colonnes, types, contraintes, index, clés étrangères qu'elle porte, et sa
+suppression. Tout le monde continue de voir la table, de la déplacer, de changer
+sa couleur et de la commenter ; les administrateurs du projet peuvent toujours la
+modifier.
+
+- Le cadenas, avec le nom de la personne qui l'a posé et le motif, apparaît chez
+  tous les collaborateurs sans recharger.
+- Une modification qui touche une table verrouillée est refusée **en entier** :
+  un import ou une synchronisation de l'éditeur DBML qui change aussi d'autres
+  tables n'est pas appliqué à moitié. Le message nomme les tables en cause.
+- La règle vaut partout : canvas, éditeur DBML, import, restauration d'une
+  version, récupération depuis une base, API.
+- Un administrateur de l'instance peut poser un verrou que seuls les
+  administrateurs de l'instance pourront lever.
+- Dupliquer une table verrouillée donne une copie libre.
+
+Les deux niveaux, _Structure_ et _Complet_, ont aujourd'hui le même effet ;
+_Complet_ couvrira aussi les données initiales de la table quand elles
+existeront. Le détail de qui peut faire quoi est dans
+[`permissions.md`](permissions.md).
+
 ### Commentaires
 
 Une table ou une colonne peut porter un fil de discussion. Il n'y a pas encore
@@ -151,13 +200,27 @@ de mentions ni de notifications : les réponses se découvrent en ouvrant le fil
 
 ## 4. Historique et versions
 
-Le panneau **Historique** liste les révisions du projet, avec leur auteur. Vous
-pouvez :
+L'onglet **Historique** présente les révisions du projet, de la plus récente à
+la plus ancienne. Les modifications faites à la suite par une même personne
+sont regroupées sur une ligne (« 3 étapes » — la flèche les déplie), avec les
+tables touchées (`+` ajoutée, `~` modifiée, `−` supprimée). La case
+**Mes modifications** ne garde que les vôtres. Entre les révisions apparaissent
+les verrous posés ou levés, les restaurations et, pour les administrateurs du
+projet, les déploiements. Vous pouvez :
 
-- consulter l'état du schéma à une révision donnée ;
+- consulter l'état du schéma à une révision donnée, et ce qui a changé depuis ;
+- **Aperçu sur le graphe** : le schéma s'affiche avec les tables ajoutées depuis
+  cette révision entourées de vert, celles modifiées d'orange ; un bandeau nomme
+  celles supprimées depuis. **Fermer l'aperçu** enlève les couleurs ;
 - nommer une révision (pour retrouver un jalon) ;
 - restaurer une révision — ce qui applique cet état comme une nouvelle
-  modification, sans effacer l'historique intermédiaire.
+  modification, sans effacer l'historique intermédiaire ;
+- restaurer **une seule table** (bouton **Restaurer** au survol d'une ligne des
+  modifications, ou **remettre** dans le bandeau d'aperçu) : elle revient comme
+  dans la révision, avec ses clés étrangères, et le reste du schéma ne bouge pas.
+
+Une table verrouillée ne peut pas être modifiée par une restauration, entière
+ou partielle.
 
 **Comparer** (barre d'outils) confronte le projet ouvert à un autre projet
 auquel vous avez accès. Les tables et colonnes sont rapprochées par leur nom :
@@ -188,6 +251,12 @@ enregistrement. Pour un projet, deux usages :
   changement par changement), un aperçu du SQL exact avant toute exécution,
   puis le résultat.
 
+Chaque connexion est placée sur une **étape** de la chaîne de déploiement
+(DEV › Staging › Prod par défaut — voir « Environnements » plus bas). Sur
+l'étape marquée **production**, déployer ou annuler un déploiement demande de
+**saisir le nom de la connexion** : rien ne s'exécute avant. L'API publique
+applique la même règle (champ `confirmName`).
+
 Chaque déploiement est gardé dans l'**historique de la connexion**, avec qui
 l'a lancé et combien d'instructions ont été exécutées, et peut être **annulé**
 (retour en arrière au mieux — pas une restauration depuis une sauvegarde : les
@@ -198,6 +267,18 @@ appliqué une partie des instructions — vérifiez la base cible dans ce cas.
 
 Aucune exécution n'est automatique : l'assistant demande toujours une
 confirmation explicite après avoir montré le SQL qui va tourner.
+
+### Environnements (administrateurs de l'instance)
+
+**Admin → Environnements** définit la chaîne d'étapes sur laquelle les
+connexions sont placées, dans l'ordre (flèches pour avancer / reculer une
+étape) : nom, couleur, niveau de protection, et la case **Production** — une
+seule étape à la fois ; la cocher sur une autre la retire de la précédente.
+L'étape de production apparaît en rouge partout et impose la saisie du nom de
+la connexion avant un déploiement. Le niveau de protection (libre, revue,
+protégé) est enregistré mais ne bloque encore rien : les garde-fous par étape
+viendront avec le pipeline de promotion. Supprimer une étape laisse ses
+connexions sans étape ; leur historique de déploiement garde le nom.
 
 ### Administrer les bases connectées (administrateurs de l'instance)
 
@@ -230,6 +311,36 @@ cette connexion (déploiement compris).
   saisi ou généré n'est ni stocké ni journalisé par Athanor : notez-le.
 - **Sessions** — qui est connecté et ce qui s'exécute, avec la possibilité de
   terminer une session bloquée.
+
+**La structure passe par le schéma.** Quand une connexion est rattachée à un
+projet, la console ne modifie plus elle-même les tables ni les index : supprimer
+une table ou une colonne depuis l'explorateur, ou exécuter un
+`CREATE / ALTER / DROP TABLE` ou `INDEX` en SQL, ouvre à la place un message qui
+renvoie vers le projet — **Ouvrir dans le schéma** l'ouvre directement sur la
+table concernée. Le changement se fait là, puis se déploie : il garde son
+historique et son retour arrière, et le schéma ne diverge pas de la base.
+
+Ce comportement se règle en haut de la liste des connexions (défaut de
+l'instance) et, connexion par connexion, dans sa fenêtre de modification :
+
+- **Via le schéma uniquement** (défaut) — redirection, comme ci-dessus ;
+- **Avertir** — autorisé après une confirmation explicite, et inscrit au journal
+  d'audit comme fait hors schéma ;
+- **Libre** — aucune restriction.
+
+Quand un changement de structure est tout de même fait depuis la console
+(politiques **Avertir** et **Libre**), chaque projet rattaché à cette base affiche
+un bandeau dans son éditeur : « La base … a été modifiée en dehors du schéma ».
+Les administrateurs du projet y voient le nombre de différences et peuvent
+**voir les différences**, **resynchroniser** le schéma depuis la base, ou
+**ignorer** l'avertissement. Un déploiement ou une resynchronisation le fait
+disparaître. Les modifications faites par d'autres outils que la console ne
+sont pas encore détectées.
+
+Les données (`INSERT`, `UPDATE`, `DELETE`), les vues, les fonctions, les bases
+entières et les connexions rattachées à aucun projet ne sont pas concernées.
+C'est un garde-fou, pas un bac à sable : une instruction de structure construite
+dans une procédure ou un bloc `DO` n'est pas détectée.
 
 Le compte utilisé par la connexion doit lui-même avoir les droits nécessaires
 (lire le catalogue, créer des rôles…) : sinon la base refuse, et son message

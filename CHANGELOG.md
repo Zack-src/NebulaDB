@@ -24,6 +24,127 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Changed (project workspace)
+
+- **A project now opens on a workspace with tabs**: Schéma (the editor),
+  Données & SQL (the database console, for instance administrators),
+  Déploiements (history, rollback, deploy — for project administrators) and
+  Historique. Each tab has its own address (`/project/<id>/data`,
+  `/deployments`, `/history`). The revision history is a page instead of a
+  dialog, and the toolbar's "Historique" button is replaced by the tab.
+- **SQL under the diagram.** On the Schéma tab, instance administrators can
+  open a SQL panel below the canvas (button in the tab bar, or `Ctrl+J`) on the
+  project's current database; a table's "Voir les données" button shows its
+  first rows there. Same rules as the console: read-only unless switched,
+  audited, structure sent to the schema.
+- **Reverse proxies:** nothing to change if `/` is proxied as a whole. A proxy
+  that listed the application's paths one by one needs `/project/*/*` as well.
+  No database or configuration change.
+
+### Changed (environments) — read before upgrading
+
+- **Environments are now configured stages**, not a free-text label on each
+  connection. Admin → Environnements holds the chain (name, colour, order,
+  protection) and at most one **production** stage. Migration 23 turns every
+  label already in use into a stage (one per distinct label, ignoring case),
+  guesses the order (dev first, production last) and flags as production the
+  label that reads as such (`prod`, `production` — not `preprod`); an
+  instance with no labels gets DEV › Staging › Prod. **Check the result in
+  Admin → Environnements after upgrading.** Deployment history keeps the names
+  it recorded.
+- **Deploying to, or rolling back on, the production stage asks for the
+  connection's name** — in the app (a retype dialog) and in the API:
+  `POST /api/v1/…/deploy` and `…/rollback` answer `409
+PRODUCTION_CONFIRMATION_REQUIRED` unless the body carries
+  `"confirmName": "<connection name>"`. **Scripts that deploy to a connection
+  labelled "production" through the API need that field after the upgrade.**
+- **A connection's `environment` must name an existing stage** (or send
+  `environmentId`); an unknown name is refused with `404
+ENVIRONMENT_NOT_FOUND` instead of being stored as typed.
+- **Database change:** migration 23 adds the `environments` table and
+  `db_connections.environment_id`. Automatic, one-way.
+
+### Added (history)
+
+- **The history reads as a timeline.** Newest first; edits made close together
+  by one person are one line ("3 étapes", expandable), each with the tables it
+  touched; a "Mes modifications" filter; lock changes, restores and — for
+  project administrators — deployments and rollbacks appear among the
+  revisions.
+- **Preview on the diagram.** "Aperçu sur le graphe" outlines on the canvas the
+  tables added (green) or changed (orange) since a revision, and names those
+  deleted since. The preview follows edits made meanwhile.
+- **Restore one table.** From a revision's list of changes or from the preview,
+  a single table can be put back as it was — the rest of the schema stays as it
+  is now. Its own foreign keys come back with it. A locked table still refuses
+  it. `POST /api/projects/:id/revisions/:revisionId/restore` takes an optional
+  `{ "tableIds": [...] }`.
+- **Fixed:** revision times in the history were shown as if UTC were local time
+  (two hours early in Paris in summer).
+- No database or configuration change. The undo stack (`Ctrl+Z`) is now
+  capped at 200 steps per session.
+
+### Added (drift)
+
+- **The editor says when a linked database was changed outside the schema.**
+  After a table or index change made from the console (policies "Avertir" and
+  "Libre"), every project modelling that database shows a banner, with — for
+  its administrators — the number of differences and the choice to view them,
+  resynchronise the schema from the database, or dismiss. A deployment or a
+  pull clears it. Changes made by other tools are not detected yet.
+- **Database change:** migration 22 adds the `schema_fingerprints` table and
+  two columns on `project_connection_links`. Automatic, one-way.
+
+### Changed (database console) — read before upgrading
+
+- **On a database that a project models, the console no longer changes tables
+  or indexes by default.** Dropping a table or a column from the explorer, or
+  running `CREATE / ALTER / DROP TABLE|INDEX` in the SQL console, is refused
+  and points to the project instead: the change is made in the schema and
+  deployed. This applies as soon as the instance is upgraded, to every
+  connection attached to at least one project. To get the previous behaviour
+  back, an instance administrator sets **Admin → Connexions → Structure des
+  bases liées à un projet** to "Libre" (or "Avertir": allowed after
+  confirmation, and logged as done outside the schema). Each connection can
+  also have its own setting. Connections attached to no project, data
+  statements, views, functions and whole databases are unaffected.
+- **Database change:** migration 21 adds the `instance_settings` table and two
+  columns on `db_connections`. Automatic, one-way.
+- **API:** `POST /api/admin/connections/:id/query` and `…/drop` can now answer
+  `409` with `STRUCTURE_VIA_SCHEMA` or `STRUCTURE_CONFIRMATION_REQUIRED`.
+
+### Added (table locks)
+
+- **A project administrator can lock a table.** Its structure — name, columns,
+  types, constraints, indexes, the foreign keys it carries, and its deletion —
+  is then frozen for everyone else, on every way of writing a schema: canvas,
+  DBML editor, import, history restore, pull from a database and `/api/v1`.
+  Moving, recolouring and commenting stay open. An instance administrator can
+  place a lock that only instance administrators can lift. Who can do what is
+  now written down in `docs/permissions.md`.
+- **Database change:** migration 20 adds the `table_locks` table. Automatic,
+  one-way; nothing to do by hand.
+- **API:** a write that touches a locked table now answers `403` with code
+  `TABLE_LOCKED` and the list of tables (`tables`). Scripts that import into a
+  project with locks should expect it.
+
+### Fixed (database connections)
+
+- **Pulling a schema from a database lost its relations.** Tables were given
+  new ids while the relations kept the ones from the introspection, so every
+  relation pointed at a table that did not exist. Relations now follow their
+  tables, on a first pull and on later ones.
+
+### Changed (interface)
+
+- **The app's own form controls.** Dropdowns, menus, checkboxes, switches,
+  number fields, confirmation dialogs and transient messages are now drawn by
+  the app (`apps/web/src/components/ui/`) rather than by the browser, so they
+  look the same on every platform and work from the keyboard. First screens
+  using them: the DBML editor's behaviour settings and the editor switches in
+  Settings; the others follow screen by screen. No database or configuration
+  change.
+
 ### Fixed (DBML editor)
 
 - **Hand edits no longer get "rolled back".** Retargeting a `Ref:` by hand

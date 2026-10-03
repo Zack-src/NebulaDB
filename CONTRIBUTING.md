@@ -55,18 +55,22 @@ parallel version — this is the actual recurring source of duplication in this
 codebase: a hook built once, then hand-rolled again in the next component
 because nobody knew it was there.
 
-| Need                                            | Use                                                          | Not                                              |
-| ----------------------------------------------- | ------------------------------------------------------------ | ------------------------------------------------ |
-| Inline rename / edit-in-place with Enter/Escape | `hooks/draftValue.svelte.ts`                                 | a component-local `onkeydown` commit block       |
-| Close a popover on Escape or click outside it   | `hooks/dismissablePopover.svelte.ts`                         | separate `mousedown`/`keydown` listeners         |
-| Close _anything_ on Escape only                 | `hooks/escapeKey.svelte.ts`                                  | `window.addEventListener("keydown", ...)`        |
-| Close a canvas popover when the viewport moves  | `hooks/closeOnViewportChange.svelte.ts`                      | a hand-rolled `onmove` subscription              |
-| Focus a field the moment it mounts              | `use:autofocus` (`actions/autofocus.ts`)                     | the native `autofocus` attribute                 |
-| Render outside the canvas/dialog stacking       | `use:portal` (`actions/portal.ts`)                           | a manual `document.body.appendChild`             |
-| A persisted user preference (`localStorage`)    | `utils/storage.ts`                                           | raw `localStorage.getItem`/`setItem`             |
-| Any HTTP call to the API                        | `services/*Api.ts` (add a module if missing)                 | a raw `fetch()` inside a component               |
-| An async action with loading/error state        | `hooks/asyncAction.svelte.ts` / `asyncResource.svelte.ts`    | a bespoke `pending`/`error` `$state` pair        |
-| A transient status line that clears itself      | `hooks/flashMessage.svelte.ts`                               | a message `$state` + its own timer               |
+| Need                                            | Use                                                       | Not                                             |
+| ----------------------------------------------- | --------------------------------------------------------- | ----------------------------------------------- |
+| Inline rename / edit-in-place with Enter/Escape | `hooks/draftValue.svelte.ts`                              | a component-local `onkeydown` commit block      |
+| Close a popover on Escape or click outside it   | `hooks/dismissablePopover.svelte.ts`                      | separate `mousedown`/`keydown` listeners        |
+| Close _anything_ on Escape only                 | `hooks/escapeKey.svelte.ts`                               | `window.addEventListener("keydown", ...)`       |
+| Close a canvas popover when the viewport moves  | `hooks/closeOnViewportChange.svelte.ts`                   | a hand-rolled `onmove` subscription             |
+| Focus a field the moment it mounts              | `use:autofocus` (`actions/autofocus.ts`)                  | the native `autofocus` attribute                |
+| Render outside the canvas/dialog stacking       | `use:portal` (`actions/portal.ts`)                        | a manual `document.body.appendChild`            |
+| A persisted user preference (`localStorage`)    | `utils/storage.ts`                                        | raw `localStorage.getItem`/`setItem`            |
+| Any HTTP call to the API                        | `services/*Api.ts` (add a module if missing)              | a raw `fetch()` inside a component              |
+| An async action with loading/error state        | `hooks/asyncAction.svelte.ts` / `asyncResource.svelte.ts` | a bespoke `pending`/`error` `$state` pair       |
+| A transient status line that clears itself      | `hooks/flashMessage.svelte.ts`                            | a message `$state` + its own timer              |
+| A dropdown, checkbox, switch or number field    | `components/ui/` (`Select`, `Checkbox`, `Switch`, …)      | a native `<select>` / `<input type="checkbox">` |
+| A menu or panel hanging off a button            | `components/ui/Menu.svelte` / `Popover.svelte`            | a hand-positioned `position: fixed` div         |
+| "Are you sure?", with or without retyping       | `components/overlays/ConfirmDialog.svelte`                | `confirm()` or a one-off modal                  |
+| A message that outlives the screen it came from | `toast` (`components/ui/toast.svelte.ts`)                 | a banner owned by a component about to unmount  |
 
 Popovers inside the Svelte Flow canvas specifically need `click`, not
 `mousedown` — the pane handles `pointerdown` itself for pan/drag, so a

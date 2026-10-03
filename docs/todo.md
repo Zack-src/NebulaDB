@@ -23,20 +23,23 @@ Before starting any phase, check the **Prerequisites** list just below.
 ## Roadmap at a glance
 
 Suggested order (each lot depends only on lots above it — see the plan's §20 for the
-dependency table). Lot numbers are the plan's. `✔` = done (2026-10-02: lot 1 and the copy / paste
-item; lot 2 is next and starts with a decision — headless base or in-house, see Phase 29).
+dependency table). Lot numbers are the plan's. `✔` = done, `◐` = usable, remainder listed in its
+phase (2026-10-02: lot 1, the copy / paste item, lot 2's tokens + form components — built
+in-house; `DataGrid` and `Splitter` are still owed and block lot 6, not lots 3–5 — and lot 3:
+locks enforced on every write path, with a first editor UI; 2026-10-03: lot 18's timeline,
+diagram preview and per-table restore).
 
 | Order | Lot | Phase | What                                                             |
 | ----- | --- | ----- | ---------------------------------------------------------------- |
 | ✔     | 1   | 29    | Fix the DBML editor "rollback" bug and the auto-format behaviour |
-| 2     | 2   | 29    | UI foundations: tokens + custom form components                  |
+| ◐     | 2   | 29    | UI foundations: tokens + custom form components                  |
 | ✔     | —   | 29    | Canvas copy / paste of tables                                    |
-| 4     | 3   | 30    | Table locks and roles                                            |
-| 5     | 4   | 30    | "Structure goes through the schema" policy                       |
-| 6     | 5   | 31    | Workspace shell with tabs                                        |
-| 7     | 6   | 31    | SQL panel inside the schema editor                               |
-| 8     | 18  | 31    | Undo / redo and visual history                                   |
-| 9     | 14  | 32    | Configurable environment pipeline and promotion                  |
+| ◐     | 3   | 30    | Table locks and roles                                            |
+| ✔     | 4   | 30    | "Structure goes through the schema" policy                       |
+| ◐     | 5   | 31    | Workspace shell with tabs                                        |
+| ◐     | 6   | 31    | SQL panel inside the schema editor                               |
+| ◐     | 18  | 31    | Undo / redo and visual history                                   |
+| ◐     | 14  | 32    | Configurable environment pipeline and promotion                  |
 | 10    | 11  | 32    | Logical backups, restore, deployment rollback                    |
 | 11    | 15  | 32    | Destructive-change detection                                     |
 | 12    | 7   | 33    | CSV seeds                                                        |
@@ -55,21 +58,38 @@ item; lot 2 is next and starts with a decision — headless base or in-house, se
 
 ### Prerequisites to settle before coding (cross-cutting)
 
-- [ ] **Role / permission matrix** — **S** to document. Roles are spread across
-      `modules/projects/`, `modules/teams/` and `shared/guards.ts` (`requireAdmin`); there is no
-      single table of "who can do what". Locks (Phase 30), SQL for non-admins (Phase 31),
-      approvals (Phase 32) and per-variant rights (Phase 35) all need it. Write it first, in
-      `docs/` (one page: role × action).
-- [ ] **Stable ids for schema objects** — **S** to verify. Variants (Phase 35), destructive
-      rename detection (Phase 32) and per-column locks need a table/column to keep its identity
-      across a rename. Check `packages/shared/src/schema.ts` (`Table`/`Field` ids) and whether the
-      DBML round-trip preserves them (`packages/dbml-engine/src/dbml.ts`).
-- [ ] **Schema fingerprint** — **M**. One normalised, hashable representation of an
-      introspected schema (canonical types, stable ordering, equivalent defaults) reused by drift
-      detection (Phase 34), rollback script generation (Phase 32) and environment comparison
-      (Phase 32). Build once, in `packages/dbml-engine/`, on top of `introspectSchema` /
-      `diffTargetAgainstLive`. **Blocks** three phases — do not let each invent its own.
-- [ ] **Background job runner** — **M**. Health checks run on one timer
+- [x] **Role / permission matrix** — written 2026-10-02: [`docs/permissions.md`](permissions.md),
+      role × action, taken from the guards in the code. It also lists what no role covers today
+      (no level between `edit` and `administrator`, no read restriction inside a project, an
+      all-or-nothing database console) — the gaps Phases 31, 32 and 35 will have to fill. Keep
+      it in step with the guards: a route that changes its guard changes this page.
+- [x] **Stable ids for schema objects** — verified 2026-10-02. **Tables: stable.** A table
+      keeps its id across a canvas rename, the DBML round trip (`mergeProjectIntoExisting`
+      matches by name, then recovers a renamed table by its columns when the match is
+      unambiguous), a history restore and a pull from a database. **Columns: stable on the
+      canvas only.** A column renamed in the DBML text, or any column after a pull, gets a new
+      id. So table locks are keyed by table id and compare columns by name
+      (`packages/shared/src/tableLocks.ts`); **per-column locks, and rename detection in
+      Phase 32 / 35, still need a column identity that survives the text** — not solved.
+- [x] **Schema fingerprint** — done 2026-10-02. `packages/dbml-engine/src/fingerprint.ts`:
+      `fingerprintSchema(project)` → canonical structure with a hash per table and one for the
+      whole; `diffFingerprints(a, b)` → tables added / removed / changed. Canonical means:
+      engine aliases unified (`int4` = `integer`, `character varying` = `varchar`…), defaults
+      stripped of quoting and casts, a primary key or unique constraint the same thing whether
+      declared on the column or as an index, `NO ACTION` = nothing; and **not** part of it:
+      order, letter case, index / constraint names, notes, everything visual. Versioned
+      (`FINGERPRINT_VERSION`) — bump it when the canonical form changes; a stored fingerprint
+      of another version is ignored rather than compared. The hash is a small non-cryptographic
+      one (identical in the browser and Node): this is change detection, not tamper evidence.
+      **Strict where `diffTargetAgainstLive` is lenient, on purpose:** that diff equates
+      `varchar(255)` and `text` because it compares hand-written DBML with what an engine
+      reports; the fingerprint compares a database with itself later, where
+      `varchar(255)` → `varchar(320)` must be seen. So: fingerprint for database ↔ database
+      (drift since the reference, before / after a deployment, two environments), the lenient
+      diff for schema ↔ database. First consumer: the drift banner (Phase 30). **Not done:**
+      views / functions / accounts are outside it, like the rest of the model; type aliases
+      cover the common PostgreSQL / MySQL spellings, not every engine's — extend
+      `TYPE_ALIASES` when a false "changed" shows up.- [ ] **Background job runner** — **M**. Health checks run on one timer
       (`ATHANORDB_CONNECTION_HEALTH_INTERVAL_MINUTES`); backups, drift checks, metrics sampling
       and notifications digests all need scheduled, cancellable, budget-aware jobs with progress.
       Generalise that timer into `infrastructure/jobs.ts` (single-instance topology, in-process,
@@ -77,7 +97,7 @@ item; lot 2 is next and starts with a decision — headless base or in-house, se
 - [ ] **Capability levels per connection** — **S**. Level 0 (catalogue read), 1 (supervision
       views), 2 (server-side audit configured) — detected at connection test and stored on
       `db_connections` (`plan §8.3`). Journal, traffic, advisor and drift attribution all branch on it.
-- [ ] **Migrations** — next migration number is **20**. Every item below that adds a table
+- [ ] **Migrations** — next migration number is **23** (20 is `table_locks`, 21 the structure policy, 22 drift). Every item below that adds a table
       gets its own migration, tested on a populated database (`infrastructure/migrations.test.ts`).
       Reminder from `memory`: saving `migrations.ts` while `npm run dev` runs migrates the real dev
       DB, one way — work on a copy.
@@ -143,26 +163,56 @@ API have since shipped.
       scenario of `e2e/dbml-editing.e2e.ts`. **Left out, deliberately:** "propagated rename
       (ask / always)" — no automatic rename exists to configure (F2 always shows the occurrence
       count and asks); retyping a table name by hand is still a delete + add for the server.
-      The settings use button groups, to be swapped for `SegmentedControl`/`Switch` when the
-      components below exist.
-- [ ] **UI tokens and theme** — **M**. Single token file in `apps/web/src/styles/` (semantic
-      colours incl. `--danger`, `--warning`, `--locked`; 4 px spacing scale; radii; shadows;
-      motion durations; type scale), light/dark derived from the same tokens. Extend
-      `components/dev/ComponentCatalogue.svelte` into the living showcase (every component, every
-      state, both themes).
-- [ ] **Custom form components** — **L**. In `apps/web/src/components/ui/` (today: `Button,
-Input, Field, Card, Badge, Tabs, List*, Skeleton*, EmptyState`): `Select`/`Combobox`
-      (search, groups, icons, keyboard), `Menu` (replaces `ToolbarMenu`, `InsertToolDropdown`,
-      `DetailLevelDropdown` and the ad-hoc menus), `Checkbox`, `Radio`, `Switch`, `NumberInput`,
-      `TextArea`, `PasswordInput`, `Popover`, `Tooltip`, `Toast`, `ConfirmDialog` (danger level,
-      "retype the name" — already used for DROP), `DataGrid` (virtualised; replaces
-      `ResultGrid.svelte`), `Splitter` (resizable, remembered per user), `SegmentedControl`.
-      Accessible (ARIA, focus, keyboard) — add Playwright coverage in `apps/web/e2e/`.
-      Open: headless base (Bits UI / Melt UI) vs. fully in-house.
-- [ ] **Forbid native controls** — **S**, after the components exist. A local ESLint rule
-      rejecting raw `<select>` and `<input type="checkbox|radio|number|date">` in `features/**`;
-      today ~19 files use `<select>` and ~43 use `<input>`. Migrate screen by screen (Phase 37),
-      listing the remaining files here as they shrink.
+      The settings now use `SegmentedControl` / `Switch` (see below).
+- [x] **UI tokens and theme** — done 2026-10-02. `styles/tokens.css` already held colours,
+      radii, shadows and z-order for both themes; added what was missing: `--color-locked`
+      (+ `-light` / `-border`, both themes), the 4 px spacing scale (`--space-*`, for hand-written
+      CSS — Tailwind's spacing utilities are already multiples of 4 px), a type scale
+      (`text-caption` 11 … `text-heading` 16), motion (`duration-fast|base|slow`,
+      `ease-emphasized`) zeroed under `prefers-reduced-motion`, and `--z-toast`. All bridged in
+      `tailwind.config.js`. The catalogue (`/#components`) shows every new component in both
+      themes. **Not done:** existing components still use literal sizes (`text-[12.5px]`,
+      `duration-150`) — swap them for the tokens screen by screen in Phase 37, not in one sweep.
+- [~] **Custom form components** — first slice done 2026-10-02, **decision taken: in-house**,
+  no headless dependency (the app already had the hard parts — `actions/portal`,
+  `actions/placement`, `hooks/escapeKey`, `hooks/dismissablePopover` — and the plan calls
+  them "composants maison"; revisit only if `DataGrid` or a date picker proves too costly).
+  In `components/ui/`: `Popover` (anchored, follows scroll / resize; the engine under the
+  next two), `Menu` + `MenuItem` (any button as trigger; icon, shortcut hint, checked, danger,
+  disabled; arrows / Home / End / type-ahead / Escape), `Select` (icons, hints, groups,
+  disabled options, search field past 8 options, type-ahead; ARIA select-only combobox —
+  **covers `Combobox`**, there is no free-text variant), `Checkbox` (indeterminate, invalid),
+  `RadioGroup`, `Switch`, `SegmentedControl`, `NumberInput` (stepper, unit, bounds on blur),
+  `TextArea` (auto-grow), `PasswordInput`, `toast` + `overlays/ToastHost` (action button,
+  pauses on hover / focus), `overlays/ConfirmDialog` (three danger levels, "retype the name",
+  async-aware). `anchoredPlacement` gained `side: "top"` and `matchWidth`; `Modal` gained
+  `narrow`. **Used for real in:** the DBML editor's behaviour settings (`SegmentedControl` +
+  `Switch`) and `SettingSwitch`. **Verified:** `e2e/component-catalogue.e2e.ts` drives each
+  one by role and from the keyboard in a real browser; `e2e/dbml-editing.e2e.ts` covers the
+  migrated settings. **Still to build:**
+  - `DataGrid` (virtualised, sort, column resize; replaces `ResultGrid.svelte`) — **L**,
+    needed by Phase 31 "Extract shared SQL components".
+  - ~~`Splitter`~~ — built 2026-10-02 with the SQL drawer (`components/ui/Splitter.svelte`):
+    pointer drag, arrow keys / Home / End, a real `separator` for assistive tech. The size is
+    the caller's to persist; today that is per browser (`utils/storage`), not per account. The
+    DBML panel's own width is still fixed — it could use it.
+  - Sub-menus in `Menu`, and moving `ToolbarMenu` / `InsertToolDropdown` /
+    `DetailLevelDropdown` / `PluginMenu` / the two context menus onto it — **M**. Its own
+    change, with browser coverage of the canvas toolbar checked first.
+  - A date picker (nothing uses `<input type="date">` today — build it when something does).
+  - `Tooltip`: `GlobalTooltip` (`data-tooltip`) already does the job; what is left is
+    replacing the native `title=` attributes still on plain elements (`StatusBar.svelte`
+    has 8).
+  - `toast` and `ConfirmDialog` have their first call sites (table locks, the structure
+    policy); `RollbackConfirmModal`, `StatementModal`, `DeleteUserModal` and the remaining
+    `window.confirm()` calls are the next candidates.
+- [~] **Forbid native controls** — rule in place 2026-10-02 (`eslint.config.js`): raw
+  `<select>` and `<input type="checkbox|radio|number">` are an error in
+  `apps/web/src/features/**` (`type="date"` is not in the rule yet — no component to point
+  to). The 27 files that still use them are listed in `NATIVE_CONTROLS_NOT_MIGRATED` in that
+  file — the list only shrinks; migrate screen by screen (Phase 37) and delete the line.
+  Biggest: `admin/connections/UsersPanel` (5 selects, 2 inputs), `ConnectionFormFields`,
+  `ProjectTeamsModal`, `PluginSettingsModal`, `WebhooksModal`.
 - [x] **Copy / paste tables on the canvas** — done 2026-10-02. `Ctrl/Cmd+C` / `Ctrl/Cmd+V`
       and Copy / Paste in the canvas context menu (`canvas/tableClipboard.ts`,
       `hooks/canvasClipboard.svelte.ts`, `pasteTables` in `projectMutations.ts`). Colours, size,
@@ -196,73 +246,221 @@ Input, Field, Card, Badge, Tabs, List*, Skeleton*, EmptyState`): `Select`/`Combo
 **Needs first:** the role matrix (Prerequisites). Server is the source of truth for both
 features; the UI only mirrors it.
 
-- [ ] **Table locks (data model + enforcement)** — **L**. Migration: `table_locks(project_id,
-table_name, level, reason, locked_by, locked_at)`; levels `structure` (no column / type /
-      constraint change) and `full` (+ seed + deletion). New permission `table.lock.manage`;
-      audit `table.lock|unlock` (`shared/audit.ts`). **Enforce on every write path** — project
-      routes (`modules/projects/routes/crud.ts`, `importExport.ts`), `/api/v1`, DBML import, the
-      realtime room (`apps/server/src/realtime/room.ts` — a locked table's patch from a client
-      must be rejected or reverted), plugins. A diff touching a locked table is rejected
-      **whole**, listing the tables in cause; error `TABLE_LOCKED` + i18n key
-      (`i18n/serverErrorMessages.ts`, `ERROR_CATALOG`). Lower roles keep read access to structure,
-      contents and seeds. **Open:** per-column locks (start table-only); can a project admin lift an
-      instance-admin lock (proposal: no).
-- [ ] **Table locks (editor UI)** — **M**. 🔒 on `TableNode.svelte` with greyed border and
-      hidden edit handles; context-menu entries disabled with an explanation (rename, delete, add
-      column) and, for admins, "Verrouiller…" opening a dialog (level, reason, who can unlock);
-      locked table text is a **read-only range** in CodeMirror (hatched, tooltip); a "Verrous"
-      list for admins (table, level, by, date, reason, unlock); lock changes propagate live to
-      collaborators. **Blocked by:** Phase 29 `ConfirmDialog` / `Popover` (can start with the
-      existing `Modal`).
-- [ ] **Structure policy per connection** — **M**. In `ConnectionEditModal.svelte`
-      (`features/admin/connections/`) and an instance default in Admin → Paramètres:
-      `schema-only` (default, redirect), `warn` (allowed after strong confirmation, marked
-      "hors schéma" in the audit), `free` (today's behaviour); "also apply to free SQL" toggle;
-      a connection may be stricter than the default, never looser unless the instance admin
-      decides; changes audited. **Open:** per connection, per project, or both (stricter wins);
-      is the existing `read-only` flag a special case of `schema-only`.
-- [ ] **Intercept structural actions in the console** — **M**. Explorer drops (column / table
-      / view / database, `StatementModal.svelte`) and free SQL go through `modules/dbAdmin/
-sqlGuard.ts`, which already classifies statements — extend it to flag `CREATE|ALTER|DROP`
-      on `TABLE|COLUMN|INDEX|VIEW` as _structural_. The intercepted action opens a dialog
-      "Ouvrir dans le schéma ➜" that jumps to the linked project with the object (even a column)
-      selected — extend `scrollToTable` of `DbmlEditor`. A connection with no project offers
-      "Créer un projet depuis cette base" (`NewProjectFromDatabaseModal.svelte`).
-- [ ] **Drift banner after an out-of-schema action** — **S**. When policy is `warn`/`free` and
-      a structural action ran, show "La base a divergé du schéma (n différences) — Voir /
-      Resynchroniser" in the editor, reusing `editor/compare/` and `pull.ts`. **Blocked by:**
-      schema fingerprint (Prerequisites).
+- [x] **Table locks (data model + enforcement)** — done 2026-10-02. Migration 20
+      `table_locks`, **keyed by table id** (not name — see the stable-ids prerequisite), with the
+      name kept for the audit trail. Routes `GET/PUT/DELETE /api/projects/:id/locks[/:tableId]`
+      (`modules/tableLocks/`); audit `table.lock` / `table.unlock`; errors `TABLE_LOCKED`
+      (lists the tables), `TABLE_LOCK_FORBIDDEN`, `TABLE_LOCK_INVALID`, `TABLE_NOT_FOUND`, all
+      translated. One definition of "touching a locked table" for every write path
+      (`findLockViolations`, `packages/shared`): DBML / SQL import, revision and snapshot
+      restore, pull from a database, the same under `/api/v1` — **refused whole** — and the
+      realtime room, where an update cannot be refused once merged and is instead **put back**
+      in a change of its own, with a notice to the connection that sent it.
+      **Decisions taken** (the item left them open):
+  - _What a lock freezes:_ name, schema, note, columns (name, type, constraints, default,
+    note, order), indexes, the foreign keys the table **carries**, and its existence. Not its
+    position, size, colour, detail level or comments. A foreign key pointing **at** a locked
+    table belongs to the other table and is allowed.
+  - _Deletion is frozen at both levels._ The item had deletion under `full` only; a
+    "structure" lock that lets the table be dropped and recreated protects nothing. So
+    `structure` and `full` are **enforced alike today**; `full` is stored and will add the
+    table's seed in Phase 33.
+  - _Who:_ permission `table.lock.manage` = project `administrator`. They may also still
+    edit a table under a project lock.
+  - _Instance locks:_ each lock has an authority, `project` or `instance`. Only an instance
+    administrator can place an `instance` lock, and then only instance administrators can
+    edit the table or lift it — the "can a project admin lift an instance-admin lock"
+    question, answered no, but as a choice made per lock rather than by who happened to
+    place it.
+  - _Table-only._ Per-column locks wait for a column identity (see prerequisites).
+
+  **Verified:** `tableLocks.test.ts` (shared), `realtime/room.test.ts` (revert, move kept,
+  per-connection, lift on revalidate), `modules/tableLocks/routes.test.ts` (rights, import
+  refused whole, an unchanged locked table survives the DBML round trip, restore, pull,
+  cascade on project delete). **Found on the way, fixed:** pulling a schema from a database
+  left every relation pointing at ids no table had (`connections/pull.ts` gave tables fresh
+  ids and kept the relations on the introspection's) — relations now follow their tables.
+  **Not done:** lock management under `/api/v1` (enforcement is there, the routes are not);
+  plugins need nothing special (they write through the realtime doc) but no plugin was
+  tested; the revert is a second revision in the history and briefly visible to other
+  clients — merging it into the offending update before broadcast would hide both; the
+  security review the Phase 27 rule asks for.
+
+- [~] **Table locks (editor UI)** — first slice done 2026-10-02. Padlock in the table header
+  (visible at rest, tooltip with level, who, why); dashed border; for someone the lock
+  binds, no rename (header and settings popover), no add / edit / reorder / delete column, no
+  index edit — colour, comments and duplicate stay; Delete leaves the table in place and
+  says why (also when deleting another table would strip a locked table's foreign key);
+  lock dialog for administrators (`locks/TableLockDialog.svelte`: level, authority for
+  instance administrators, reason, unlock) built on the Phase 29 components; lock changes
+  reach collaborators live (`ServerNotice` on the project socket); a refused DBML sync is
+  shown in the panel instead of only logged. **Verified:** `e2e/table-locks.e2e.ts`, two
+  browser sessions. **Still to do:**
+  - Read-only range for a locked table in the DBML editor (CodeMirror) — today the text can
+    be typed and the sync is then refused with the table named.
+  - The "Verrous" list for administrators (all locks of a project in one place).
+  - Context-menu entries (lock; rename / delete shown disabled with the reason) — the
+    padlock button covers the action, the menu does not mention locks yet.
+  - Editing or deleting a relation carried by a locked table is still _offered_ (edge
+    popover, Delete on an edge, drawing a new relation from it): the server puts it back
+    and a toast says so. Same for bulk actions (type conversion, canvas plugins).
+  - MCD view shows no padlock.- [x] **Structure policy per connection** — done 2026-10-02. Three policies (`schema-only`,
+    `warn`, `free`) plus "also apply to free SQL"; an **instance default** (new
+    `instance_settings` table, edited at the top of Admin → Connexions — there is no
+    Admin → Paramètres screen yet) and a **per-connection override** in
+    `ConnectionEditModal.svelte` (migration 21: `db_connections.structure_policy`,
+    `structure_policy_sql`). Changes audited (`dbconn.policy`, `instance.structure_policy`);
+    a project route cannot set it. **Decisions taken:**
+  - _Per connection + instance default_, not per project. A connection's own policy simply
+    wins, stricter or looser: only instance administrators reach the console, so "never
+    looser unless the instance admin decides" had no one left to restrict.
+  - _Only for a database a project models._ A connection attached to no project is left
+    alone whatever the policy — there is no schema to go through. (The plan had it offer
+    "create a project from this database"; refusing to drop a table on a scratch database
+    until a project exists seemed worse than not interfering. Not built.)
+  - _Only what a project models:_ tables (so columns and constraints) and indexes. Views,
+    functions, triggers and whole databases are not intercepted — the schema editor cannot
+    own them, so there would be nowhere to send the user.
+  - _`read-only` stays separate:_ it refuses every write, data included; the policy only
+    concerns structure.
+  - **Default is `schema-only`, and it applies on upgrade:** an instance that upgrades finds
+    table DDL refused in the console for connections attached to a project, until an
+    administrator relaxes the default. Deliberate (it is the point of the feature), and the
+    first line of the changelog entry.
+- [x] **Intercept structural actions in the console** — done 2026-10-02.
+      `sqlGuard.ts#findStructuralStatements` finds `CREATE / ALTER / DROP TABLE|INDEX` and
+      MySQL's `RENAME TABLE` (temporary tables, permission grants and unmodelled objects
+      excluded; a SQL Server batch is scanned whole). `schema-only`: the explorer's drop table /
+      drop column and write-mode SQL answer `409 STRUCTURE_VIA_SCHEMA` with what was attempted
+      and the projects concerned, and the console shows "Modifier la structure" with **Ouvrir
+      dans le schéma ➜** — a plain link, `/project/:id?table=…&field=…`, which opens the
+      project with the table (and column) selected. `warn`: SQL answers
+      `STRUCTURE_CONFIRMATION_REQUIRED`, runs once confirmed (`ConfirmDialog`, its first real
+      use), and is audited `dbadmin.structure.out_of_schema`; in the explorer, typing the
+      object's name is that confirmation. **Verified:** `sqlGuard.test.ts`,
+      `dbAdmin/routes.test.ts` (4 scenarios), `e2e/structure-policy.e2e.ts`. **Not done:** like
+      the read-only check it is a guard rail, not a parser — DDL built inside a procedure, a
+      `DO` block or `EXEC('…')` is not seen; a quoted object name is reported without its name
+      (the redirect then opens the project without selecting a table); the write-mode run is
+      still confirmed by a native `confirm()`; the security review the Phase 27 rule asks for.- [x] **Drift banner after an out-of-schema action** — done 2026-10-02. A structural change
+      made from the console on a database a project models (policy `warn` or `free`, SQL or
+      explorer) marks every project linked to it (`project_connection_links.out_of_schema_at`,
+      migration 22). The editor shows "La base « X » a été modifiée en dehors du schéma", live
+      (`ServerNotice` `drift-changed`), to everyone who can open the project; project
+      administrators also get the number of differences and three actions — **Voir les
+      différences** (the existing read-only deployment plan), **Resynchroniser** (pull, after
+      confirmation) and **Ignorer**. A **reference fingerprint** (`schema_fingerprints`) is
+      recorded after every successful deployment, rollback and pull, and
+      `POST …/connections/:connId/drift-check` reads the database and answers both "how does it
+      differ from the schema" and "what changed since the reference". A deployment or a pull
+      clears the mark. **Verified:** `dbAdmin/routes.test.ts` (the whole cycle),
+      `e2e/structure-policy.e2e.ts`. **Not done — this is the banner, not detection:** nothing
+      looks at the database on its own, so a change made by another tool is only found when
+      someone runs the check or opens the deployment plan. Periodic detection, attribution,
+      per-line import / revert / ignore and the alert centre are Phase 34, which now has its
+      reference fingerprint and its storage to build on (it still needs the job runner).
 
 ## Phase 31 — Workspace, SQL in the editor, history (plan §0, §6, §19)
 
-- [ ] **Workspace shell with tabs** — **L**. `features/workspace/WorkspaceShell.svelte`: bar
-      with project, environment pill (red on production), connection selector, collaborators,
-      Deploy; tabs **Schéma · Données & SQL · Déploiements · Historique** plus admin-only
-      **Utilisateurs · Sessions**. Route `/projects/:id/:tab` in
-      `features/projects/projectRouting.svelte.ts`. Schéma = today's `ProjectEditor.svelte`;
-      Données & SQL = explorer + console reused from `features/admin/connections/`. The redirects
-      of Phase 30 become tab changes with the object selected. **Blocked by:** Phase 29 tokens.
-- [ ] **Extract shared SQL components** — **M**. Move `SqlPanel.svelte`, `ResultGrid.svelte`
-      (→ `DataGrid`) and the history UI from `features/admin/connections/` to `features/sql/`;
-      `services/dbAdminApi.ts` keeps its API.
-- [ ] **SQL panel in the schema editor** — **L**. Collapsible bottom panel (`Ctrl+J`,
-      `Splitter`), connection selector among those linked to the project, environment guard, run /
-      history / CSV; "Voir les données" on a table (context menu) inserts `SELECT * … LIMIT 100`;
-      clicking a table name in a result selects it in the graph; SQL autocomplete fed by the
-      **project schema** (no round-trip). DDL typed here follows the Phase 30 interception.
-      **Permissions decision needed:** the console is `requireAdmin` today. Proposal: members with
-      editor role get **read-only** SQL on linked connections (READ ONLY transaction, row/time
-      caps, `connectionBudget`, audited); data writes need an explicit right; structure never.
-      Replace the console's plain `<textarea>` by a **CodeMirror SQL editor with completion**
-      (open item of the console follow-ups, Phase 27).
-- [ ] **Undo / redo and visual history** — **M**. Today: `features/editor/history/`
-      (`HistoryPanel`, `DiffSummary`), revisions in `modules/projects/routes/revisions.ts`, Yjs
-      `UndoManager`. Wanted: per-user undo in collaboration (only your own changes), history list
-      with visual diff preview on the graph, restore = new revision (never rewrite history),
-      partial restore ("only this table"), markers for deployments / locks / published versions /
-      drift, grouping of keystroke micro-edits, and **restore refused if it would change a locked
-      table**. **Open:** retention / compaction of detailed revisions; whether undoing a deployed
-      change proposes a new deployment.
+- [~] **Workspace shell with tabs** — first slice done 2026-10-02. A bar of tabs under the
+  project header (`features/workspace/WorkspaceBar.svelte`): **Schéma** (the editor),
+  **Données & SQL** (the database console — explorer, SQL, and where the engine has them
+  accounts and sessions — on the project's connection), **Déploiements** (history,
+  rollback, "check differences", deploy) and **Historique** (the revision timeline, now a
+  page instead of a dialog). Each tab is an address — `/project/:id/data`, `/deployments`,
+  `/history` — so reload, links and back / forward work. One **connection selector** for the
+  whole workspace, with the environment next to it (red when the label looks like
+  production — a guess on a free-text label until Phase 32's stages). When the console is
+  used from the project, the Phase 30 redirect is a tab change with the table selected.
+  **Decisions taken:**
+  - _`/project/:id/:tab`, not `/projects/:id/:tab`_: existing links and bookmarks keep working.
+  - _The shell lives in `ProjectEditor.svelte`_, not in a separate `WorkspaceShell`: the
+    document connection, presence and the header have to outlive a tab change, and they
+    already live there. The file has grown and wants splitting (see the watchlist).
+  - _The other tabs replace the editor, they do not cover it_: an unmounted canvas has no
+    shortcuts or clipboard handlers to fire by accident. The price: the canvas selection is
+    lost on a round trip (viewport and document are not).
+  - _Who sees what follows the server_: Données & SQL for instance administrators (the
+    console's rule, unchanged), Déploiements for project administrators, Historique for
+    everyone (label / restore need `edit`). A tab named by the URL but not offered falls
+    back to Schéma.
+
+  **Verified:** `e2e/workspace.e2e.ts`. **Still to do:**
+  - Collaborators and Deploy are still in the header, not in the workspace bar: the plan's
+    single bar (project · environment · connection · people · Deploy) is not merged.
+  - No top-level "Utilisateurs" / "Sessions" tabs: they are sections of Données & SQL, as
+    in the console.
+  - Tab visibility for a non-administrator is not covered by a browser test.
+  - The Pipeline and Sauvegardes tabs (Phase 32) will be added here.
+
+- [x] **Extract shared SQL components** — done 2026-10-02. `SqlPanel.svelte` (with its
+      history list), `ResultGrid.svelte`, `format.ts` and `StructureRedirectDialog.svelte` moved
+      from `features/admin/connections/` to `features/sql/`; `services/dbAdminApi.ts` unchanged.
+      `SqlPanel` lost its native `<select>` and checkbox on the way (`Select`, `Switch`).
+      `ResultGrid` is still the plain table — replacing it by a virtualised `DataGrid` is the
+      Phase 29 item.
+- [~] **SQL panel in the schema editor** — first slice done 2026-10-02. A drawer under the
+  diagram (`features/sql/EditorSqlDrawer.svelte`): toggle button in the workspace bar and
+  `Ctrl+J` (also while typing), resizable with the new `Splitter`, open / closed and height
+  remembered per browser; it is the console's own `SqlPanel` on the workspace's current
+  connection, so read-only by default, history, CSV, audit and the Phase 30 interception all
+  come with it. **Voir les données** — a button in each table's header — opens the drawer
+  and runs the engine's own "first 100 rows" (`previewStatement.ts`: `LIMIT`, `TOP`,
+  `FETCH FIRST`; identifiers quoted only when they have to be). **Verified:**
+  `previewStatement.test.ts`, `e2e/workspace.e2e.ts`. **Still to do:**
+  - **The permission decision — untouched, and the owner's.** The drawer is offered to
+    exactly those the console is offered to: instance administrators. The proposal stands:
+    members with `edit` get **read-only** SQL on linked connections (READ ONLY transaction,
+    row / time caps, `connectionBudget`, audited); data writes need an explicit right;
+    structure never. It needs new server routes (the console's are `requireAdmin`), a role
+    for "may write data", and the security review of the Phase 27 rule.
+  - "Voir les données" is a header button, not a context-menu entry (tables have no context
+    menu yet — see the `Menu` migration in Phase 29).
+  - Clicking a table name in a result to select it in the graph; following a foreign key
+    from a result row.
+  - A **CodeMirror SQL editor** with completion fed by the project schema — the editor is
+    still a `<textarea>` (also an open item of the console follow-ups, Phase 27).
+  - The write-mode run is still confirmed by a native `confirm()`.
+- [~] **Undo / redo and visual history** — first slice done 2026-10-03.
+  - _Per-user undo_ was already there: `Y.UndoManager` only tracks local origins, remote
+    updates carry `yjsClient`'s remote origin. Now **capped at 200 steps** per session
+    (`projectDoc.svelte.ts`). A restore is a new revision (unchanged), refused on a locked
+    table (unchanged — now also for a partial restore).
+  - _Timeline_ (`history/timeline.ts`, `HistoryPanel.svelte`): newest first; each revision
+    carries a short summary of the tables it touched (`RevisionMeta.changes`, computed in
+    `listMeaningfulRevisions`); **micro-edits grouped** client-side — same author, ≤ 2 min
+    apart, ≤ 15 min per line, a label or a marker ends the line — expandable into steps, so
+    every revision stays restorable; "Mes modifications" filter (on the display name
+    revisions are recorded under).
+  - _Markers_ (`GET /api/projects/:id/history/markers`, `projects/historyMarkers.ts`): lock
+    placed / lifted and restores from the audit log (`view`), deployments and rollbacks
+    from `deployment_history` (project administrators only — the deployment-history rule).
+    A restore's audit line now names the revision it wrote, so the marker sits exactly
+    before it even within one second.
+  - _Preview on the graph_: "Aperçu sur le graphe" switches to the schema tab with the tables
+    added / changed since the revision outlined green / orange (a node `class`, memoised so
+    the node cache keeps working) and a strip (`HistoryPreviewBanner.svelte`) naming the
+    tables deleted since; live against the current schema.
+  - _Partial restore_: `restoreTables` (`dbml-engine/partialRestore.ts`) + optional
+    `tableIds` on the restore route. **Decision:** a foreign key follows the table that
+    carries it (the lock rule) — restored tables get their own FKs back, other tables keep
+    theirs unless the target disappeared.
+  - **Found on the way, fixed:** the history showed SQLite's UTC times as local time.
+
+  **Verified:** `partialRestore.test.ts`, `timeline.test.ts`, `projects/routes.test.ts`
+  (partial restore, invalid body, markers per role), `e2e/history.e2e.ts` (grouping, steps,
+  preview classes on the canvas, bringing a deleted table back, the marker's place).
+  **Still to do:**
+  - Removed tables are named in the strip, not drawn as ghosts on the canvas; the preview is
+    table-level (no per-column colouring); relations are counted, not drawn.
+  - Markers for published versions (Phase 35) and drift (needs Phase 34's journal — today
+    only the _current_ out-of-schema mark is stored, not its history).
+  - Column-level partial restore (needs the column identity of the prerequisites); enums and
+    zones are not part of a partial restore.
+  - Restoring an unlabelled point inside a group means expanding it first — fine for now,
+    revisit if people miss it.
+  - **Open (unchanged):** retention / compaction of detailed revisions; whether undoing a
+    deployed change proposes a new deployment.
 
 ## Phase 32 — Environments, backups and safe deployment (plan §11, §12, §13)
 
@@ -270,14 +468,42 @@ Builds on Phase 27's deployment machinery (`modules/connections/deploy.ts`,
 `deploymentHistory.ts`, `DeploymentModal.svelte`). **Phase 27's rule applies to every item
 here: each gets its own security review before it is closed.**
 
-- [ ] **Configurable environment pipeline** — **L**. Replace the free-text
-      `db_connections.environment` label by references to configurable stages: tables
-      `environments(id, name, colour, protection, position)` and `project_environments`;
-      Admin → Environnements to add / rename / reorder stages (`DEV › PreProd › Non-Prod › Prod`
-      or any chain), instance default + per-project override; exactly one stage flagged
-      _production_ (red everywhere, auto backup before deploy, retype-the-name confirmation).
-      Migration must map existing labels onto stages without breaking history. Closes the Phase 27
-      item "multi-target promotion".
+- [~] **Configurable environment pipeline** — first slice done 2026-10-03. Migration 23:
+  `environments(id, name, color, protection, is_production, position)` (unique name, a partial
+  unique index keeps **at most one** production stage) and `db_connections.environment_id`;
+  every label in use became a stage (see the changelog for the guess). `modules/environments/`:
+  `GET /api/environments` (anyone signed in), `POST/PATCH/DELETE /api/admin/environments` and
+  `PUT …/order` (instance administrators, audited `environment.*`). Admin → Environnements
+  (`EnvironmentsTab.svelte`): chain preview, rename, colour, protection, production, reorder
+  (arrows), delete. Connections pick a stage (`Select` in `ConnectionFormFields`);
+  `EnvironmentBadge` replaces the "looks like production" guess everywhere (workspace bar, SQL
+  drawer, deployments tab, admin list, console). **Production enforced server-side**: deploy and
+  rollback — app and `/api/v1` — need `confirmName` equal to the connection's name
+  (`assertProductionConfirmed`, `deploy.ts`); the app asks with `ConfirmDialog` /
+  `RollbackConfirmModal`.
+  **Decisions taken:**
+  - _`db_connections.environment` stays_, as the stage's name kept in step on rename (one
+    `UPDATE` in the same transaction): deployment history, webhooks and drift read it as a
+    snapshot and needed no change. `environment_id` is the reference.
+  - _At most one production stage, not exactly one_: an instance may have none (a warning says
+    so); flagging another moves the flag.
+  - _A free-text name sent by an older client resolves to an existing stage or is refused_
+    (`ENVIRONMENT_NOT_FOUND`, listing the known names) — inventing stages from whatever was
+    typed would undo the administrator's chain.
+  - _A project administrator may still choose a connection's stage_ (including off production);
+    they could deploy anyway by typing the name, so this is no escalation.
+
+  **Verified:** `migrations.test.ts` (label mapping, seeding), `environments/routes.test.ts`
+  (rights, uniqueness, reorder, single production, rename carried to connections, delete,
+  production deploy + rollback refused without the name), `e2e/environments.e2e.ts`.
+  **Still to do:**
+  - Per-project override of the chain (`project_environments`) — not built.
+  - _Protection_ (`free` / `review` / `protected`) is stored, not enforced — the per-stage
+    guards belong to the pipeline item below.
+  - Auto backup before a production deployment (needs Logical backups).
+  - Write-mode SQL and explorer drops in the console on a production connection do not ask for
+    the name (the console has its own confirmations; align them).
+  - Drag-and-drop reordering (arrows today); the security review of the Phase 27 rule.
 - [ ] **Pipeline tab and promotion** — **L**. Per project: stages with version, connection and
       status; **Promote vN →** deploys the same schema version to the next stage with the **real**
       diff of the target (introspection, not only what changed in the project); no stage skipping
