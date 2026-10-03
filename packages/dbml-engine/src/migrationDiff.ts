@@ -51,6 +51,14 @@ function typesMatch(a: string, b: string): boolean {
   const normB = normalizeType(b);
   if (normA === normB) return true;
 
+  // `varchar(320)` and `varchar(255)` are one alias group but not one type:
+  // when both sides spell out their size / precision, it has to agree. Only
+  // when both do — one side without parameters (`int` against MySQL's
+  // `int(11)`, `varchar` against `varchar(255)`) stays a match, as before.
+  const paramsA = /\(([^)]*)\)/.exec(normA)?.[1]?.replace(/\s+/g, "");
+  const paramsB = /\(([^)]*)\)/.exec(normB)?.[1]?.replace(/\s+/g, "");
+  if (paramsA !== undefined && paramsB !== undefined && paramsA !== paramsB) return false;
+
   // Dialect type aliases
   const aliases: Record<string, string[]> = {
     int: ["integer", "int4", "int"],
