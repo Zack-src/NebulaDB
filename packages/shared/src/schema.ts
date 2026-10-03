@@ -171,6 +171,7 @@ export interface Project {
 
 import type { StructurePolicySetting } from "./dbAdmin.js";
 import type { EnvironmentColor } from "./environments.js";
+import type { SeedResult } from "./seeds.js";
 
 export type DatabaseEngine = "postgres" | "mysql" | "sqlite" | "mssql" | "oracle";
 
@@ -286,6 +287,8 @@ export interface DeploymentHistoryEntry {
   acceptedRisks?: AcceptedRisk[];
   /** Why they were accepted, when the person deploying said so. */
   riskNote?: string;
+  /** What the tables' seeds inserted after the DDL. */
+  seedReport?: SeedResult[];
 }
 
 /** One risk of a deployment plan as it was settled, kept with the deployment. */

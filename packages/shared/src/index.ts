@@ -8,3 +8,4 @@ export * from "./refOrientation.js";
 export * from "./dbAdmin.js";
 export * from "./tableLocks.js";
 export * from "./environments.js";
+export * from "./seeds.js";

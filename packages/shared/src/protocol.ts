@@ -54,7 +54,11 @@ export interface HistoryMarker {
  * just brought back in step — refetch `GET /api/projects/:id/drift`.
  */
 export type ServerNotice =
-  { type: "locks-changed" } | { type: "table-locked"; tables: string[] } | { type: "drift-changed" };
+  | { type: "locks-changed" }
+  | { type: "table-locked"; tables: string[] }
+  | { type: "drift-changed" }
+  /** A table's seed was set or removed — refetch `GET /api/projects/:id/seeds`. */
+  | { type: "seeds-changed" };
 
 /** One database linked to a project, and whether it is known to have left the schema. `GET /api/projects/:id/drift`. */
 export interface ProjectDriftEntry {
