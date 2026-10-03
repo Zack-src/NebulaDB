@@ -273,6 +273,16 @@ ajouter »). Le plan indique `clients : +248 lignes` et permet de ne pas les
 insérer cette fois. Des données avec erreurs bloquent le déploiement tant
 qu'elles ne sont pas corrigées.
 
+**Générer des données de test.** L'onglet _Générer_ du même dialogue fabrique
+des lignes à partir de la seule structure de la table : un générateur par
+colonne, proposé d'après son nom et son type (e-mail, téléphone, prénom, ville,
+dates, nombres, liste de valeurs pondérées, UUID, séquence…), un volume, une
+graine (la même graine redonne les mêmes lignes) et une langue. Une clé
+étrangère puise dans les données initiales de la table parente. L'aperçu se
+régénère à volonté ; **Utiliser comme données initiales** passe les lignes à
+l'onglet Fichier, où elles sont vérifiées et enregistrées comme un CSV, et
+**Exporter en CSV** les télécharge.
+
 Chaque connexion est placée sur une **étape** de la chaîne de déploiement
 (DEV › Staging › Prod par défaut — voir « Environnements » plus bas). Sur
 l'étape marquée **production**, déployer ou annuler un déploiement demande de

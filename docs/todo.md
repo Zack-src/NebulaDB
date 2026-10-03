@@ -43,7 +43,7 @@ diagram preview and per-table restore).
 | 10    | 11  | 32    | Logical backups, restore, deployment rollback                    |
 | ◐     | 15  | 32    | Destructive-change detection                                     |
 | ◐     | 7   | 33    | CSV seeds                                                        |
-| 13    | 16  | 33    | Test-data generation (+ AI extension point)                      |
+| ◐     | 16  | 33    | Test-data generation (+ AI extension point)                      |
 | 14    | 8   | 34    | Admin activity journal                                           |
 | 15    | 9   | 34    | External-change detection and alerts                             |
 | 16    | 19  | 34    | Health dashboard, traffic, visual EXPLAIN                        |
@@ -614,21 +614,42 @@ file_ref, options_json, updated_at)`; an abstract `SeedSource` interface (`csv` 
   stays valid DBML. **Blocked by:** locks (for the permission rule), workspace for the UI.
 - [ ] **Export current data as a seed** — **S**, console → table → "Exporter comme données
       initiales" (CSV export already exists).
-- [ ] **Test-data generation** — **L**. Inspector tab "Générer": volume, reproducible seed,
-      locale, per-column generator (heuristic by name — `email`, `phone`, `iban`, `city` — plus a
-      catalogue: names, addresses, dates, numbers, weighted enums, UUID, text, regex, fixed
-      value, copy of another column), integrity (NOT NULL, UNIQUE, types, lengths, FKs in
-      dependency order, simple CHECK). Destinations: save as seed, insert into a **non-production**
-      connection (never Prod without an explicit right), CSV export. Batches, progress, cancel.
-      Table `generator_configs`, versioned with the project, inherited/overridable by variants.
-      Open: Faker-like library vs. in-house; volume cap in v1.
-- [ ] **AI extension point for generation** — **S** (interface only), the AI itself is later.
-      `DataGeneratorProvider { id; generate({table, rows, locale, hints?, seed?}): AsyncIterable<Row[]> }`
-      in the style of `drivers/index.ts` / plugins; `builtin` is the only provider at first.
-      Guard-rails designed in from day one: the provider receives **structure only, never real
-      data**; enabled by the admin per instance or project; requests journalled; quotas; provider
-      key encrypted like other secrets; **output re-validated by the same constraints** before
-      insertion. Open: may a future AI see anonymised samples?
+- [~] **Test-data generation** — first slice done 2026-10-03. In-house, no Faker:
+  `packages/shared/src/dataGenerator.ts` — seeded PRNG (mulberry32), 22 column generators, fr / en
+  data, `suggestGenerator` (relation, increment, name, type), `generateRows` (NOT NULL, PK /
+  UNIQUE with retries then a reported problem, declared length, FKs drawn from the parent's
+  **seed** — never from a database), `toCsv`. Server: `modules/generator/` — settings per
+  table (migration 26 `generator_configs`), `POST …/generators/:tableId/run` through the
+  provider registry. UI: "Générer" tab of `SeedDialog` (`GeneratePanel.svelte`): volume, seed,
+  locale, generator per column with values / range, preview, other rows, export CSV, use as
+  initial data (then checked and saved like a file). **Decisions taken:** in-house generator (no
+  dependency, deterministic across server and browser); v1 cap 10 000 rows (a seed's cap is
+  50 000); destination (b) "insert into a non-production connection" **not built** — generating
+  into the seed then deploying to a development connection covers it, with the production
+  guards already in place. **Verified:** `dataGenerator.test.ts` (generated rows pass
+  `validateSeed`), `generator/routes.test.ts`, `e2e/seeds.e2e.ts` (orders generated from the
+  customers' seed, deployed). **Still to do:** regex and "copy of another column" generators,
+  CHECK constraints, composite unique keys, inheritance by variants (Phase 35), progress /
+  cancel for large volumes, direct insertion. The original item: **L**. Inspector tab "Générer": volume, reproducible seed,
+  locale, per-column generator (heuristic by name — `email`, `phone`, `iban`, `city` — plus a
+  catalogue: names, addresses, dates, numbers, weighted enums, UUID, text, regex, fixed
+  value, copy of another column), integrity (NOT NULL, UNIQUE, types, lengths, FKs in
+  dependency order, simple CHECK). Destinations: save as seed, insert into a **non-production**
+  connection (never Prod without an explicit right), CSV export. Batches, progress, cancel.
+  Table `generator_configs`, versioned with the project, inherited/overridable by variants.
+  Open: Faker-like library vs. in-house; volume cap in v1.
+- [~] **AI extension point for generation** — interface done 2026-10-03:
+  `DataGeneratorProvider` + registry in `modules/generator/providers.ts`, `builtin` only,
+  the run route takes `provider`; structure-only input and re-validation of the output by
+  the seed checks hold by construction. Still to do when a provider exists: admin enablement
+  per instance / project, journalled requests, quotas, encrypted provider key. The original
+  item: **S** (interface only), the AI itself is later.
+  `DataGeneratorProvider { id; generate({table, rows, locale, hints?, seed?}): AsyncIterable<Row[]> }`
+  in the style of `drivers/index.ts` / plugins; `builtin` is the only provider at first.
+  Guard-rails designed in from day one: the provider receives **structure only, never real
+  data**; enabled by the admin per instance or project; requests journalled; quotas; provider
+  key encrypted like other secrets; **output re-validated by the same constraints** before
+  insertion. Open: may a future AI see anonymised samples?
 
 ## Phase 34 — Observability: journal, drift, health, alerts (plan §8, §9, §17, §18)
 

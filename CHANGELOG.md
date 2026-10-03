@@ -41,6 +41,22 @@ this file has a dated entry for — not on every commit.
   that listed the application's paths one by one needs `/project/*/*` as well.
   No database or configuration change.
 
+### Added (test data)
+
+- **Generate test rows for a table** — the "Générer" tab of its initial data:
+  a generator per column, suggested from its name and type (e-mail, phone,
+  first name, city, dates, numbers, weighted choices, UUID, sequence, fixed
+  value…), a volume (up to 10 000), a seed that makes the run repeatable, a
+  locale (French, English). Built from the structure only — no real row is
+  read; a foreign key draws from the parent table's initial data. NOT NULL,
+  unique columns and declared lengths are respected. The rows can be exported
+  as CSV or used as the table's initial data, where they are checked like any
+  file. The settings are kept per table.
+- An extension point (`DataGeneratorProvider`) lets another generator — an AI
+  service, later — plug in; only the built-in one exists, and nothing enables
+  another. API: `/api/projects/:id/generators/:tableId[/run]`.
+- **Database change:** migration 26 adds the `generator_configs` table.
+
 ### Added (initial data)
 
 - **Tables can bring rows: CSV seeds.** On the canvas, a table's "Données
