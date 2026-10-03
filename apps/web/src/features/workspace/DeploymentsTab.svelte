@@ -8,6 +8,7 @@
   import DeploymentHistoryPanel from "@/features/connections/DeploymentHistoryPanel.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import EnvironmentBadge from "@/features/environments/EnvironmentBadge.svelte";
+  import MonitoringCard from "./MonitoringCard.svelte";
 
   /**
    * What was deployed to the current connection, and the two ways to act on
@@ -55,6 +56,8 @@
           </Button>
         {/if}
       </div>
+      <!-- The watch covers all the project's databases, not only the current one. -->
+      <MonitoringCard {projectId} canManage={canDeploy} />
       <!-- Keyed: the panel fetches once for the connection it was created with. -->
       {#key connection.id}
         <DeploymentHistoryPanel

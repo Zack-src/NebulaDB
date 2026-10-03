@@ -10,6 +10,7 @@
   const EVENTS: { id: WebhookEvent; labelKey: TranslationKeyOf }[] = [
     { id: "schema.changed", labelKey: "webhooks.event.schemaChanged" },
     { id: "deployment.completed", labelKey: "webhooks.event.deploymentCompleted" },
+    { id: "drift.detected", labelKey: "webhooks.event.driftDetected" },
   ];
   const STATUS_TONE = { succeeded: "success", failed: "danger", pending: "warning" } as const;
   const STATUS_KEY = {
@@ -69,7 +70,11 @@
 
   let url = $state("");
   let format = $state<WebhookFormat>("slack");
-  let events = $state<Record<WebhookEvent, boolean>>({ "schema.changed": true, "deployment.completed": true });
+  let events = $state<Record<WebhookEvent, boolean>>({
+    "schema.changed": true,
+    "deployment.completed": true,
+    "drift.detected": true,
+  });
   let newSecret = $state<string | null>(null);
   let secretCopied = $state(false);
   /** Last "send a test" outcome per webhook id. */

@@ -99,6 +99,7 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   SEED_INVALID: "errors.seedInvalid",
   GENERATOR_INVALID: "errors.generatorInvalid",
   ACTIVITY_QUERY_INVALID: "errors.activityQueryInvalid",
+  MONITORING_INVALID: "errors.monitoringInvalid",
   SEED_NOT_FOUND: "errors.seedNotFound",
   SEEDS_NOT_DEPLOYABLE: "errors.seedsNotDeployable",
   DESTRUCTIVE_CHANGE_UNRESOLVED: "errors.destructiveChangeUnresolved",
