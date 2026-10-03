@@ -30,6 +30,7 @@ interface HistoryRow {
   accepted_risks: string | null;
   seed_report: string | null;
   risk_note: string | null;
+  backup_id: string | null;
   created_at: string;
 }
 
@@ -52,6 +53,7 @@ function rowToEntry(row: HistoryRow, rolledBack: boolean): DeploymentHistoryEntr
     ...(row.accepted_risks ? { acceptedRisks: parseJsonArray<AcceptedRisk>(row.accepted_risks) } : {}),
     ...(row.risk_note ? { riskNote: row.risk_note } : {}),
     ...(row.seed_report ? { seedReport: parseJsonArray<SeedResult>(row.seed_report) } : {}),
+    ...(row.backup_id ? { backupId: row.backup_id } : {}),
     createdAt: row.created_at,
     rolledBack,
   };
@@ -76,6 +78,7 @@ export interface RecordDeploymentInput {
   acceptedRisks?: AcceptedRisk[];
   riskNote?: string | null;
   seedReport?: SeedResult[];
+  backupId?: string | null;
 }
 
 export function recordDeployment(input: RecordDeploymentInput): string {
@@ -83,8 +86,9 @@ export function recordDeployment(input: RecordDeploymentInput): string {
   db.prepare(
     `INSERT INTO deployment_history
        (id, project_id, connection_id, connection_name, environment, engine, sql, rollback_sql, rollback_of,
-        success, executed_statements, total_statements, error, executed_by_email, accepted_risks, risk_note, seed_report)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        success, executed_statements, total_statements, error, executed_by_email, accepted_risks, risk_note, seed_report,
+        backup_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     input.projectId,
@@ -103,6 +107,7 @@ export function recordDeployment(input: RecordDeploymentInput): string {
     input.acceptedRisks && input.acceptedRisks.length > 0 ? JSON.stringify(input.acceptedRisks) : null,
     input.riskNote?.trim() || null,
     input.seedReport && input.seedReport.length > 0 ? JSON.stringify(input.seedReport) : null,
+    input.backupId ?? null,
   );
   return id;
 }

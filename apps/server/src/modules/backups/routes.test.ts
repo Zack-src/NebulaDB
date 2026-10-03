@@ -17,13 +17,14 @@ process.env.ATHANORDB_DATABASE_BACKUP_MAX_MB = "1";
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
 const { hashPassword } = await import("../auth/password.js");
-const { closeAllRooms } = await import("../../realtime/roomRegistry.js");
+const { closeAllRooms, getRoom } = await import("../../realtime/roomRegistry.js");
+const { writeProjectToDoc } = await import("@athanordb/shared");
 const { backupFilePath } = await import("./storage.js");
 const { failInterruptedBackups, insertBackup, purgeExpiredBackups } = await import("./repository.js");
 const { backupPageSql, fromBackupCell, tablesInBackupOrder, toBackupCell } = await import("./format.js");
 
 type App = Awaited<ReturnType<typeof buildApp>>;
-type Method = "GET" | "POST" | "PATCH" | "DELETE";
+type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
 const HOST = "localhost:3001";
 const headers = (extra: Record<string, string> = {}) => ({ host: HOST, origin: `http://${HOST}`, ...extra });
@@ -251,7 +252,9 @@ test("a backup is taken, stored encrypted, downloaded, and restored over changed
       .split("\n")
       .map((line) => JSON.parse(line) as unknown);
     assert.deepEqual((lines[0] as { format: string; version: number }).format, "athanordb-backup");
-    assert.ok(lines.some((line) => Array.isArray(line) && line[1] === "Ada Lovelace" && line[2] === "9007199254740993"));
+    assert.ok(
+      lines.some((line) => Array.isArray(line) && line[1] === "Ada Lovelace" && line[2] === "9007199254740993"),
+    );
     assert.ok(lines.some((line) => Array.isArray(line) && line[3] === 'line\nbreak, "quoted"'));
 
     // The data moves on: a customer and their orders go, a row changes, another arrives.
@@ -292,7 +295,9 @@ test("a backup is taken, stored encrypted, downloaded, and restored over changed
     assert.deepEqual(dump(file), original);
 
     // What was there just before the restore was kept, and says why.
-    const { backups, usedBytes } = (await call(app, admin, "GET", `/api/admin/connections/${connId}/backups`)).json() as {
+    const { backups, usedBytes } = (
+      await call(app, admin, "GET", `/api/admin/connections/${connId}/backups`)
+    ).json() as {
       backups: Backup[];
       usedBytes: number;
     };
@@ -328,9 +333,14 @@ test("a restore refuses a read-only target, a target missing a column, and a fil
       call(app, admin, "POST", `/api/admin/backups/${backup.id}/restore`, body);
 
     const readOnly = await connect(app, admin, "Frozen", targetFile(SHOP), { readOnly: true });
-    assert.equal((await restore({ connectionId: readOnly, confirmName: "Frozen" })).json().code, "CONNECTION_READ_ONLY");
+    assert.equal(
+      (await restore({ connectionId: readOnly, confirmName: "Frozen" })).json().code,
+      "CONNECTION_READ_ONLY",
+    );
 
-    const narrower = targetFile("CREATE TABLE customers (id INTEGER PRIMARY KEY, name TEXT); CREATE TABLE notes (body TEXT);");
+    const narrower = targetFile(
+      "CREATE TABLE customers (id INTEGER PRIMARY KEY, name TEXT); CREATE TABLE notes (body TEXT);",
+    );
     const other = await connect(app, admin, "Narrow", narrower);
     const refused = (await restore({ connectionId: other, confirmName: "Narrow" })).json();
     assert.equal(refused.code, "RESTORE_TARGET_MISMATCH");
@@ -344,7 +354,11 @@ test("a restore refuses a read-only target, a target missing a column, and a fil
     const copied = (
       await restore({ connectionId: twinId, confirmName: "Twin", tables: ["notes"], skipSafetyBackup: true })
     ).json().result;
-    assert.deepEqual(copied, { success: true, tables: [{ name: "notes", deleted: 0, inserted: 1 }], safetyBackupId: null });
+    assert.deepEqual(copied, {
+      success: true,
+      tables: [{ name: "notes", deleted: 0, inserted: 1 }],
+      safetyBackupId: null,
+    });
 
     const path = backupFilePath(backup.id);
     const bytes = readFileSync(path);
@@ -375,8 +389,14 @@ test("a backup over the size ceiling fails and leaves no file; pin, retention, d
     assert.equal(tooLarge.status, "failed");
     assert.match(tooLarge.error!, /ATHANORDB_DATABASE_BACKUP_MAX_MB/);
     assert.equal(existsSync(backupFilePath(tooLarge.id)), false);
-    assert.equal((await call(app, admin, "GET", `/api/admin/backups/${tooLarge.id}/download`)).json().code, "BACKUP_NOT_READY");
-    assert.equal((await call(app, admin, "POST", `/api/admin/backups/${tooLarge.id}/cancel`)).json().code, "BACKUP_NOT_READY");
+    assert.equal(
+      (await call(app, admin, "GET", `/api/admin/backups/${tooLarge.id}/download`)).json().code,
+      "BACKUP_NOT_READY",
+    );
+    assert.equal(
+      (await call(app, admin, "POST", `/api/admin/backups/${tooLarge.id}/cancel`)).json().code,
+      "BACKUP_NOT_READY",
+    );
 
     const connId = await connect(app, admin, "Small", targetFile(SHOP));
     const kept = await backUp(app, admin, connId);
@@ -402,7 +422,10 @@ test("a backup over the size ceiling fails and leaves no file; pin, retention, d
       note: null,
       createdBy: null,
     });
-    assert.equal((await call(app, admin, "POST", `/api/admin/connections/${connId}/backups`, {})).json().code, "BACKUP_ALREADY_RUNNING");
+    assert.equal(
+      (await call(app, admin, "POST", `/api/admin/connections/${connId}/backups`, {})).json().code,
+      "BACKUP_ALREADY_RUNNING",
+    );
     assert.equal((await call(app, admin, "DELETE", `/api/admin/backups/${ghost}`)).json().code, "BACKUP_NOT_READY");
     assert.equal(failInterruptedBackups(), 1);
     assert.equal((await call(app, admin, "DELETE", `/api/admin/backups/${ghost}`)).statusCode, 200);
@@ -410,7 +433,93 @@ test("a backup over the size ceiling fails and leaves no file; pin, retention, d
     // Deleting the connection takes its backups, files included.
     assert.equal((await call(app, admin, "DELETE", `/api/admin/connections/${connId}`)).statusCode, 200);
     assert.equal(existsSync(backupFilePath(kept.id)), false);
-    assert.equal((db.prepare("SELECT COUNT(*) AS n FROM backups WHERE connection_id = ?").get(connId) as { n: number }).n, 0);
+    assert.equal(
+      (db.prepare("SELECT COUNT(*) AS n FROM backups WHERE connection_id = ?").get(connId) as { n: number }).n,
+      0,
+    );
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
+
+test("a production deployment backs the database up first — or does not happen", async () => {
+  const app = await buildApp();
+  try {
+    const admin = await login(app, 1);
+    const project = (await call(app, admin, "POST", "/api/projects", { name: "Shop" })).json() as { id: string };
+    const column = (name: string, pk = false) => ({ id: `f-${name}`, name, type: pk ? "integer" : "text", pk });
+    const write = (fields: ReturnType<typeof column>[]) => {
+      const room = getRoom(project.id);
+      room.doc.transact(() => {
+        writeProjectToDoc(room.doc, {
+          id: project.id,
+          name: "Shop",
+          tables: [
+            { id: "t-blobs", name: "blobs", fields, indexes: [], position: { x: 0, y: 0 }, detailLevel: "standard" },
+          ],
+          refs: [],
+          enums: [],
+          zones: [],
+          stickyNotes: [],
+          tableGroups: [],
+        });
+      }, "test-seed");
+    };
+    const file = targetFile(
+      "CREATE TABLE blobs (id INTEGER PRIMARY KEY, body TEXT); INSERT INTO blobs (body) VALUES ('kept');",
+    );
+    const base = `/api/projects/${project.id}/connections`;
+    const created = await call(app, admin, "POST", base, {
+      name: "Live",
+      engine: "sqlite",
+      filePath: file,
+      environment: "Prod",
+    });
+    assert.equal(created.json().connection.production, true, created.body);
+    const connId = created.json().connection.id as string;
+    const deploy = (body: Record<string, unknown>) =>
+      call(app, admin, "POST", `${base}/${connId}/apply-deployment`, { confirmName: "Live", ...body });
+    const backups = async () =>
+      (await call(app, admin, "GET", `/api/admin/connections/${connId}/backups`)).json().backups as Backup[];
+
+    // Nothing to change: nothing to protect, no backup.
+    write([column("id", true), column("body")]);
+    assert.equal((await deploy({})).json().backupId, null);
+    assert.equal((await backups()).length, 0);
+
+    // A change on the production stage: the backup comes first, and the history says which.
+    write([column("id", true), column("body"), column("label")]);
+    const deployed = await deploy({});
+    assert.equal(deployed.statusCode, 200, deployed.body);
+    const [backup] = await backups();
+    assert.equal(deployed.json().backupId, backup.id);
+    assert.equal(backup.trigger, "pre-deployment");
+    assert.equal(backup.status, "done");
+    assert.deepEqual(backup.tables[0].columns, ["id", "body"], "taken before the column was added");
+    const history = (await call(app, admin, "GET", `${base}/${connId}/history`)).json().history as {
+      backupId?: string;
+    }[];
+    assert.equal(history[0].backupId, backup.id);
+
+    // Explicitly without.
+    write([column("id", true), column("body"), column("label"), column("extra")]);
+    assert.equal((await deploy({ backupBefore: false })).json().backupId, null);
+    assert.equal((await backups()).length, 1);
+
+    // The database outgrows what a logical backup may read: the deployment is refused, untouched.
+    const filler = new Database(file);
+    const insert = filler.prepare("INSERT INTO blobs (body) VALUES (?)");
+    for (let i = 0; i < 30; i++) insert.run("x".repeat(50_000));
+    filler.close();
+    write([column("id", true), column("body"), column("label"), column("extra"), column("more")]);
+    const refused = await deploy({});
+    assert.equal(refused.statusCode, 502);
+    assert.equal(refused.json().code, "BACKUP_FAILED");
+    const after = new Database(file, { readonly: true });
+    const columns = (after.prepare("PRAGMA table_info(blobs)").all() as { name: string }[]).map((c) => c.name);
+    after.close();
+    assert.deepEqual(columns, ["id", "body", "label", "extra"]);
   } finally {
     closeAllRooms();
     await app.close();

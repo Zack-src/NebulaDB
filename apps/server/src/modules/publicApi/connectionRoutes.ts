@@ -120,12 +120,14 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
       confirmName?: string;
       riskNote?: string;
       skipSeeds?: boolean;
+      backupBefore?: boolean;
     };
 
     const result = await deployToConnection(id, project.name, connId, body.resolutions || {}, user.email, {
       confirmName: body.confirmName,
       riskNote: body.riskNote,
       skipSeeds: body.skipSeeds === true,
+      backupBefore: typeof body.backupBefore === "boolean" ? body.backupBefore : undefined,
     });
 
     auditUser(

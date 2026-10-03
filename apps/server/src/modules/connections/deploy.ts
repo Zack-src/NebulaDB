@@ -10,6 +10,7 @@ import { getEnvironment } from "../environments/repository.js";
 import { analyzeDeploymentRisks, settleRisks } from "./riskAnalysis.js";
 import { applySeeds, assertSeedsDeployable, prepareSeeds } from "../seeds/deploySeeds.js";
 import type { SeedResult } from "@athanordb/shared";
+import { backupOrRefuse } from "../backups/runner.js";
 
 const RISK_NOTE_MAX = 1000;
 
@@ -89,6 +90,8 @@ export interface DeployToConnectionResult {
   irreversibleWarnings: string[];
   /** What each seeded table got; a failure there does not undo the DDL, which already ran. */
   seedReport: SeedResult[];
+  /** The backup of the database taken just before, when there was one. */
+  backupId: string | null;
 }
 
 /**
@@ -113,6 +116,12 @@ export async function deployToConnection(
     riskNote?: string;
     /** Leave the tables' seeds out of this deployment. */
     skipSeeds?: boolean;
+    /**
+     * Back the database up before changing it. Left unset, that is done on
+     * the production stage and nowhere else; `false` is the explicit way to
+     * deploy to production without one.
+     */
+    backupBefore?: boolean;
   } = {},
 ): Promise<DeployToConnectionResult> {
   const { confirmName } = options;
@@ -152,6 +161,20 @@ export async function deployToConnection(
         : rollbackSqlRaw
       : null;
 
+    // Last thing before the database changes, once everything that could
+    // refuse the deployment has had its say. A backup that does not complete
+    // refuses it too (`BACKUP_FAILED`): a safety copy that silently was not
+    // taken is worse than none asked for.
+    const willWrite = diff.hasChanges || Boolean(seeds && seeds.seeds.length > 0);
+    const backup =
+      willWrite && (options.backupBefore ?? isProductionStage(conn))
+        ? await backupOrRefuse({
+            connection: conn,
+            trigger: "pre-deployment",
+            note: `before a deployment of ${projectName} by ${executedByEmail}`,
+          })
+        : null;
+
     const result = await driver.executeMigration(sql);
     const seedReport: SeedResult[] =
       result.success && seeds && seeds.seeds.length > 0 ? await applySeeds(driver, seeds, conn.engine) : [];
@@ -172,6 +195,7 @@ export async function deployToConnection(
       acceptedRisks,
       riskNote: typeof options.riskNote === "string" ? options.riskNote.slice(0, RISK_NOTE_MAX) : null,
       seedReport,
+      backupId: backup?.id ?? null,
     });
     notifyDeployment(projectId, conn, "deploy", result, executedByEmail);
 
@@ -191,6 +215,7 @@ export async function deployToConnection(
       rollbackAvailable: Boolean(rollbackSql),
       irreversibleWarnings: irreversible,
       seedReport,
+      backupId: backup?.id ?? null,
     };
   } finally {
     await driver.close().catch(() => {});

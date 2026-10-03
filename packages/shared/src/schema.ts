@@ -289,6 +289,8 @@ export interface DeploymentHistoryEntry {
   riskNote?: string;
   /** What the tables' seeds inserted after the DDL. */
   seedReport?: SeedResult[];
+  /** The backup of the database taken just before this deployment (instance administrators can restore it). */
+  backupId?: string;
 }
 
 /** One risk of a deployment plan as it was settled, kept with the deployment. */

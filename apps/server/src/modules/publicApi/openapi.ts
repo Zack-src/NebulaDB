@@ -266,6 +266,11 @@ export const OPERATIONS: Operation[] = [
           description:
             "The connection's name — required when it is on the production stage (409 PRODUCTION_CONFIRMATION_REQUIRED otherwise)",
         },
+        backupBefore: {
+          type: "boolean",
+          description:
+            "Back the database up before changing it. Default: true on the production stage, false elsewhere. If the backup does not complete, nothing is deployed (502 BACKUP_FAILED)",
+        },
       },
       [],
     ),
@@ -277,6 +282,7 @@ export const OPERATIONS: Operation[] = [
         sql: str,
         rollbackAvailable: bool,
         irreversibleWarnings: { type: "array", items: str },
+        backupId: { type: ["string", "null"] },
       }),
     },
   },
