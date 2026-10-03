@@ -1,4 +1,4 @@
-import type { DatabaseEngine } from "@athanordb/shared";
+import type { DatabaseEngine, StructuralAction } from "@athanordb/shared";
 import { ApiError } from "../../shared/errors.js";
 
 /**
@@ -132,4 +132,74 @@ export function assertReadOnlyStatement(sql: string, engine: DatabaseEngine): vo
   const tokens = new Set(body.toUpperCase().match(/[A-Z_]+/g) ?? []);
   const hit = forbidden.find((word) => tokens.has(word));
   if (hit) throw writeNotAllowed(`${hit} is not allowed`);
+}
+
+// ---- Structural statements ---------------------------------------------------
+
+/** Words that may sit between `CREATE` and `TABLE` / `INDEX`. */
+const CREATE_MODIFIERS =
+  "OR\\s+REPLACE|UNIQUE|CLUSTERED|NONCLUSTERED|FULLTEXT|SPATIAL|BITMAP|COLUMNSTORE|GLOBAL|LOCAL|TEMP|TEMPORARY|UNLOGGED|VIRTUAL";
+const STRUCTURAL = `(CREATE|ALTER|DROP)\\s+((?:(?:${CREATE_MODIFIERS})\\s+)*)(TABLE|INDEX)\\b[ \\t]*([^;\\n]*)`;
+const STRUCTURAL_AT_START = new RegExp(`^[\\s(]*${STRUCTURAL}`, "i");
+const STRUCTURAL_ANYWHERE = new RegExp(`\\b${STRUCTURAL}`, "gi");
+/** MySQL's `RENAME TABLE a TO b`. */
+const RENAME_AT_START = /^\s*RENAME\s+TABLE\b\s*([^;]*)/i;
+/** Noise between the object keyword and its name. */
+const NAME_PREFIX = /^(?:IF\s+(?:NOT\s+)?EXISTS|ONLY|CONCURRENTLY)\s+/i;
+/** Granting the *right* to create tables is a permission change, not a structural one. */
+const PERMISSION_STATEMENT = /^\s*(GRANT|REVOKE|DENY)\b/i;
+
+function objectName(rest: string): string | null {
+  let text = rest.trimStart();
+  while (NAME_PREFIX.test(text)) text = text.replace(NAME_PREFIX, "");
+  // A quoted name was blanked by `stripSqlNoise`; better no name than a wrong one.
+  return /^[A-Za-z_#@][\w$#@.]*/.exec(text)?.[0] ?? null;
+}
+
+function toAction(verb: string, modifiers: string, kind: string, rest: string): StructuralAction | null {
+  const object = objectName(rest);
+  // A temporary table lives and dies with the session: it is not the schema.
+  // (Oracle's GLOBAL TEMPORARY table is a permanent definition, and is.)
+  const temporary = /\b(TEMP|TEMPORARY)\b/i.test(modifiers) && !/\bGLOBAL\b/i.test(modifiers);
+  if (temporary || object?.startsWith("#")) return null;
+  return {
+    verb: verb.toLowerCase() as StructuralAction["verb"],
+    kind: kind.toLowerCase() as StructuralAction["kind"],
+    object,
+  };
+}
+
+/**
+ * The statements in `sql` that change what the *schema editor* models: tables
+ * (so columns and constraints too, through `ALTER TABLE`) and indexes. Empty
+ * for anything else — data statements, and also views, functions, triggers
+ * and whole databases, which a project cannot describe and so cannot be asked
+ * to own.
+ *
+ * Like the read-only check above, a guard rail for someone working in good
+ * faith, not a parser and not a sandbox: DDL built inside a procedure, a `DO`
+ * block or `EXEC('…')` is not seen.
+ */
+export function findStructuralStatements(sql: string, engine: DatabaseEngine): StructuralAction[] {
+  const stripped = stripSqlNoise(sql, engine);
+  const actions: StructuralAction[] = [];
+  for (const statement of stripped.split(";")) {
+    if (PERMISSION_STATEMENT.test(statement)) continue;
+    const rename = RENAME_AT_START.exec(statement);
+    if (rename) {
+      actions.push({ verb: "rename", kind: "table", object: objectName(rename[1]) });
+      continue;
+    }
+    // SQL Server runs a batch with no `;` between statements, so the first
+    // keyword of the "statement" says nothing about the rest of it.
+    const matches =
+      engine === "mssql"
+        ? Array.from(statement.matchAll(STRUCTURAL_ANYWHERE))
+        : [STRUCTURAL_AT_START.exec(statement)].filter((match) => match !== null);
+    for (const match of matches) {
+      const action = toAction(match[1], match[2], match[3], match[4]);
+      if (action) actions.push(action);
+    }
+  }
+  return actions;
 }

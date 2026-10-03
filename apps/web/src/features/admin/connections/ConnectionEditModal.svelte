@@ -1,5 +1,7 @@
 <script lang="ts">
-  import type { AdminConnectionSummary, DatabaseEngine } from "@athanordb/shared";
+  import type { AdminConnectionSummary, DatabaseEngine, StructurePolicy } from "@athanordb/shared";
+  import Checkbox from "@/components/ui/Checkbox.svelte";
+  import RadioGroup from "@/components/ui/RadioGroup.svelte";
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
@@ -48,7 +50,7 @@
   // svelte-ignore state_referenced_locally
   const initial = connection;
   let name = $state(initial?.name ?? "");
-  let environment = $state(initial?.environment ?? "");
+  let environmentId = $state(initial?.environmentId ?? "");
   let engine = $state<DatabaseEngine>(initial?.engine ?? "postgres");
   let host = $state(initial?.host ?? "localhost");
   let port = $state(initial?.port ?? DEFAULT_PORTS[initial?.engine ?? "postgres"]);
@@ -61,6 +63,9 @@
   let useUri = $state(Boolean(initial?.connectionString));
   let tags = $state((initial?.tags ?? []).join(", "));
   let readOnly = $state(Boolean(initial?.readOnly));
+  // "inherit" is this form's word for "no policy of its own" (`null` on the wire).
+  let structurePolicy = $state<StructurePolicy | "inherit">(initial?.structurePolicy?.policy ?? "inherit");
+  let structureApplyToSql = $state(initial?.structurePolicy?.applyToSql ?? true);
   let projectIds = $state<string[]>((initial?.projects ?? []).map((p) => p.id));
 
   const projects = useAsyncResource(fetchProjects);
@@ -71,7 +76,7 @@
     const network = !useUri && engine !== "sqlite";
     return {
       name: name.trim(),
-      environment: environment.trim(),
+      environmentId: environmentId || null,
       engine,
       host: network ? host : undefined,
       port: network ? Number(port) : undefined,
@@ -83,6 +88,8 @@
       filePath: engine === "sqlite" ? filePath : undefined,
       tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
       readOnly,
+      structurePolicy:
+        structurePolicy === "inherit" ? null : { policy: structurePolicy, applyToSql: structureApplyToSql },
     };
   }
 
@@ -123,7 +130,7 @@
     </div>
 
     <ConnectionFormFields
-      bind:environment
+      bind:environmentId
       bind:engine
       bind:host
       bind:port
@@ -150,6 +157,26 @@
         <span class="block text-text-muted">{t("admin.connections.readOnlyHint")}</span>
       </span>
     </label>
+
+    <div>
+      <div id="structure-policy-label" class={LABEL}>{t("dbadmin.structure.settingTitle")}</div>
+      <Hint>{t("dbadmin.structure.settingHint")}</Hint>
+      <RadioGroup
+        bind:value={structurePolicy}
+        aria-labelledby="structure-policy-label"
+        options={[
+          { value: "inherit", label: t("dbadmin.structure.inherit"), hint: t("dbadmin.structure.inheritHint") },
+          { value: "schema-only", label: t("dbadmin.structure.policy.schema-only"), hint: t("dbadmin.structure.policyHint.schema-only") },
+          { value: "warn", label: t("dbadmin.structure.policy.warn"), hint: t("dbadmin.structure.policyHint.warn") },
+          { value: "free", label: t("dbadmin.structure.policy.free"), hint: t("dbadmin.structure.policyHint.free") },
+        ]}
+      />
+      {#if structurePolicy === "schema-only" || structurePolicy === "warn"}
+        <Checkbox bind:checked={structureApplyToSql} class="mt-2.5" hint={t("dbadmin.structure.applyToSqlHint")}>
+          {t("dbadmin.structure.applyToSql")}
+        </Checkbox>
+      {/if}
+    </div>
 
     <div>
       <div class={LABEL}>{t("admin.connections.projects")}</div>

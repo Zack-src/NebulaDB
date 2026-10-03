@@ -14,12 +14,23 @@
   import ListRow from "@/components/ui/ListRow.svelte";
   import ConnectionEditModal from "@/features/admin/connections/ConnectionEditModal.svelte";
   import DbConsole from "@/features/admin/connections/DbConsole.svelte";
-  import { parseServerTime } from "@/features/admin/connections/format";
+  import EnvironmentBadge from "@/features/environments/EnvironmentBadge.svelte";
+  import { parseServerTime } from "@/features/sql/format";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { formatRelativeTime } from "@/i18n/formatters";
   import { i18n, useTranslation } from "@/i18n/i18n.svelte";
-  import { checkAdminConnectionHealth, deleteAdminConnection, listAdminConnections } from "@/services/dbAdminApi";
+  import {
+    checkAdminConnectionHealth,
+    deleteAdminConnection,
+    fetchInstanceStructurePolicy,
+    listAdminConnections,
+    saveInstanceStructurePolicy,
+  } from "@/services/dbAdminApi";
+  import type { StructurePolicy, StructurePolicySetting } from "@athanordb/shared";
+  import Checkbox from "@/components/ui/Checkbox.svelte";
+  import Select from "@/components/ui/Select.svelte";
+  import { toast } from "@/components/ui/toast.svelte";
 
   /**
    * Database connections are instance-level: created, edited and deleted here
@@ -42,6 +53,21 @@
       if (!needle) return true;
       return [c.name, c.engine, c.environment ?? "", c.host ?? "", ...c.tags].some((v) => v.toLowerCase().includes(needle));
     }),
+  );
+
+  // The instance-wide default every connection follows unless it has its own.
+  const defaultPolicy = useAsyncResource(fetchInstanceStructurePolicy);
+  const savePolicy = useAsyncAction(async (next: StructurePolicySetting) => {
+    await saveInstanceStructurePolicy(next);
+    defaultPolicy.reload();
+    toast.success(t("dbadmin.structure.defaultSaved"));
+  });
+  const policyOptions = $derived(
+    (["schema-only", "warn", "free"] as StructurePolicy[]).map((value) => ({
+      value,
+      label: t(`dbadmin.structure.policy.${value}`),
+      hint: t(`dbadmin.structure.policyHint.${value}`),
+    })),
   );
 
   const check = useAsyncAction(async (id: string) => {
@@ -89,6 +115,33 @@
       </Button>
     </div>
 
+    {#if defaultPolicy.data}
+      {@const current = defaultPolicy.data}
+      <div class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border border-border bg-surface px-3 py-2">
+        <span id="default-structure-policy" class="text-xs font-semibold text-text">
+          {t("dbadmin.structure.defaultTitle")}
+        </span>
+        <Select
+          size="sm"
+          class="w-64"
+          aria-labelledby="default-structure-policy"
+          value={current.policy}
+          options={policyOptions}
+          disabled={savePolicy.pending}
+          onChange={(policy) => void savePolicy.run({ ...current, policy })}
+        />
+        {#if current.policy !== "free"}
+          <Checkbox
+            checked={current.applyToSql}
+            disabled={savePolicy.pending}
+            onChange={(applyToSql) => void savePolicy.run({ ...current, applyToSql })}
+          >
+            <span class="text-xs">{t("dbadmin.structure.applyToSql")}</span>
+          </Checkbox>
+        {/if}
+      </div>
+    {/if}
+    {#if savePolicy.error}<ErrorText>{savePolicy.error}</ErrorText>{/if}
     {#if connections.error ?? check.error}<ErrorText>{connections.error ?? check.error}</ErrorText>{/if}
     {#if rows.length === 0}
       <EmptyState>{connections.loading ? t("common.loading") : t("admin.connections.empty")}</EmptyState>
@@ -107,7 +160,7 @@
             <ListMain>
               <span class="font-semibold">{c.name}</span>
               <Badge tone="admin">{t(`connections.engine.${c.engine}`)}</Badge>
-              {#if c.environment}<span class="text-text-muted">{c.environment}</span>{/if}
+              {#if c.environment}<EnvironmentBadge name={c.environment} color={c.environmentColor} production={c.production} />{/if}
               {#if c.readOnly}<Badge tone="warning">{t("dbadmin.readOnly")}</Badge>{/if}
               {#each c.tags as tag (tag)}<Badge tone="muted">{tag}</Badge>{/each}
               <span class="block truncate font-mono text-[11px] text-text-muted">{target(c)}</span>

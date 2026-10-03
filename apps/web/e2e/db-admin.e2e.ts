@@ -88,7 +88,7 @@ test("admin: add a connection, explore it, query it and drop a table", { timeout
     await page.getByText(/Mode lecture seule/).waitFor();
     await snap("sql-read-only-refusal");
 
-    await page.getByLabel("Mode écriture").check();
+    await page.getByRole("switch", { name: "Mode écriture" }).click();
     await editor.fill("UPDATE customers SET name = 'Ada Lovelace' WHERE id = 1");
     await page.getByRole("button", { name: "Exécuter", exact: true }).click();
     await page.getByText("1 ligne(s) affectée(s)").waitFor();

@@ -1,5 +1,10 @@
 <script lang="ts">
-  import type { DbAdminObjectRef, DbAdminStatementsResult, DbAdminTable } from "@athanordb/shared";
+  import type {
+    DbAdminObjectRef,
+    DbAdminStatementsResult,
+    DbAdminTable,
+    StructurePolicyRefusal,
+  } from "@athanordb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { ChevronLeftIcon, ChevronRightIcon, KeyIcon, TableIcon, TrashIcon } from "@/components/icons/Icons";
   import Badge from "@/components/ui/Badge.svelte";
@@ -20,9 +25,10 @@
     type ConnectionOverview,
     type DropKind,
   } from "@/services/dbAdminApi";
-  import { formatBytes } from "./format";
-  import ResultGrid from "./ResultGrid.svelte";
+  import { formatBytes } from "@/features/sql/format";
+  import ResultGrid from "@/features/sql/ResultGrid.svelte";
   import StatementModal from "./StatementModal.svelte";
+  import StructureRedirectDialog from "@/features/sql/StructureRedirectDialog.svelte";
 
   /**
    * Database → schema → table browser. The left column narrows down to a table;
@@ -57,6 +63,29 @@
   let view = $state<"data" | "structure">("data");
   let offset = $state(0);
   let drop = $state.raw<{ kind: DropKind; ref: DbAdminObjectRef; name: string } | null>(null);
+  let redirect = $state.raw<StructurePolicyRefusal | null>(null);
+
+  // Tables and columns are what a project models; a view or a whole database
+  // is not. The server applies the same rule — this only saves asking it for a
+  // preview it would refuse.
+  const policy = $derived(overview.structurePolicy);
+  const policyApplies = (kind: DropKind) => (kind === "table" || kind === "column") && policy.projects.length > 0;
+
+  function requestDrop(next: { kind: DropKind; ref: DbAdminObjectRef; name: string }) {
+    if (policyApplies(next.kind) && policy.policy === "schema-only") {
+      redirect = {
+        policy: policy.policy,
+        projects: policy.projects,
+        actions: [
+          next.kind === "column"
+            ? { verb: "alter", kind: "table", object: next.ref.table ?? null, column: next.ref.column }
+            : { verb: "drop", kind: "table", object: next.ref.table ?? null },
+        ],
+      };
+      return;
+    }
+    drop = next;
+  }
 
   const schemas = useAsyncResource(() => (capabilities.schemas ? fetchSchemas(connectionId, databaseArg) : Promise.resolve([])));
   // Opening a database lands on its first non-system schema rather than on "all schemas" of a server with hundreds of tables.
@@ -193,7 +222,7 @@
             size="sm"
             disabled={overview.readOnly}
             data-tooltip={dropTooltip}
-            onclick={() => (drop = { kind: table.kind, ref: tableRef, name: table.name })}
+            onclick={() => requestDrop({ kind: table.kind, ref: tableRef, name: table.name })}
           >
             <Icon icon={TrashIcon} size={12} />
             {t("common.delete")}
@@ -248,7 +277,7 @@
                           size="icon-xs"
                           disabled={overview.readOnly}
                           data-tooltip={dropTooltip ?? t("dbadmin.explorer.dropColumn")}
-                          onclick={() => (drop = { kind: "column", ref: { ...tableRef, column: column.name }, name: column.name })}
+                          onclick={() => requestDrop({ kind: "column", ref: { ...tableRef, column: column.name }, name: column.name })}
                         >
                           <Icon icon={TrashIcon} size={11} />
                         </Button>
@@ -293,11 +322,16 @@
 {#if drop}
   <StatementModal
     title={t(`dbadmin.drop.title.${drop.kind}`, { name: drop.name })}
-    hint={t("dbadmin.drop.hint")}
+    hint={policyApplies(drop.kind) && policy.policy === "warn"
+      ? `${t("dbadmin.drop.hint")} ${t("dbadmin.structure.warnHint")}`
+      : t("dbadmin.drop.hint")}
     confirmName={drop.name}
     danger
     run={runDrop}
     onClose={() => (drop = null)}
     onDone={afterDrop}
   />
+{/if}
+{#if redirect}
+  <StructureRedirectDialog refusal={redirect} onClose={() => (redirect = null)} />
 {/if}

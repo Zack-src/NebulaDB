@@ -4,11 +4,13 @@ import type {
   DbAdminObjectRef,
   DbAdminStatementsResult,
   DbUserAction,
+  StructuralAction,
 } from "@athanordb/shared";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireAdmin } from "../../shared/guards.js";
 import type { BudgetKind } from "../connections/connectionBudget.js";
+import { markOutOfSchema } from "../connections/drift.js";
 import { createDatabaseDriver } from "../connections/drivers/index.js";
 import { isValidEngine } from "../connections/engines.js";
 import {
@@ -24,6 +26,15 @@ import { optionalName, requireName } from "./drivers/common.js";
 import { createAdminDriver, type AdminStatement, type DatabaseAdminDriver, type DropKind } from "./drivers/index.js";
 import { checkConnectionHealth } from "./health.js";
 import { listQueryHistory, recordQuery } from "./queryHistory.js";
+import { findStructuralStatements } from "./sqlGuard.js";
+import {
+  describeStructuralActions,
+  effectiveStructurePolicy,
+  getInstanceStructurePolicy,
+  judgeStructuralActions,
+  parseStructurePolicySetting,
+  setInstanceStructurePolicy,
+} from "./structurePolicy.js";
 
 /** Reads: listing, browsing, a query. A person clicking through a tree, not a script. */
 const READ_LIMIT = { config: { rateLimit: { max: 240, timeWindow: "1 minute" } } };
@@ -96,6 +107,10 @@ function parseConnectionBody(body: Record<string, unknown>, partial: boolean): P
   if (!partial || body.engine !== undefined) {
     if (!isValidEngine(body.engine)) throw new ApiError("CONNECTION_ENGINE_INVALID");
   }
+  // `null` clears the connection's own policy (back to the instance default).
+  if (body.structurePolicy !== undefined && body.structurePolicy !== null) {
+    body = { ...body, structurePolicy: parseStructurePolicySetting(body.structurePolicy) };
+  }
   // Server-assigned or meaningless here; never taken from the client.
   const config = { ...body };
   for (const key of ["id", "projectId", "createdAt", "updatedAt"]) delete config[key];
@@ -149,9 +164,22 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
     const user = requireAdmin(req);
     const { id } = req.params as { id: string };
     const updates = parseConnectionBody((req.body ?? {}) as Record<string, unknown>, true);
+    const before = getAdminConnection(id);
     const connection = updateGlobalConnection(id, updates);
     if (!connection) throw new ApiError("CONNECTION_NOT_FOUND");
     auditUser(user, "dbconn.update", { type: "connection", id }, `${connection.engine}: ${connection.name}`, req);
+    // Its own line in the trail: loosening a policy is the kind of change someone asks about later.
+    const describe = (setting: typeof connection.structurePolicy) =>
+      setting ? `${setting.policy}${setting.applyToSql ? "" : " (not SQL)"}` : "instance default";
+    if (describe(before?.structurePolicy ?? null) !== describe(connection.structurePolicy)) {
+      auditUser(
+        user,
+        "dbconn.policy",
+        { type: "connection", id },
+        `${connection.name}: ${describe(before?.structurePolicy ?? null)} -> ${describe(connection.structurePolicy)}`,
+        req,
+      );
+    }
     return { connection };
   });
 
@@ -211,6 +239,28 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
     return { connection };
   });
 
+  // ---- Structure policy ----------------------------------------------------
+
+  app.get("/api/admin/settings/structure-policy", READ_LIMIT, async (req) => {
+    requireAdmin(req);
+    return { setting: getInstanceStructurePolicy() };
+  });
+
+  app.put("/api/admin/settings/structure-policy", WRITE_LIMIT, async (req) => {
+    const user = requireAdmin(req);
+    const setting = parseStructurePolicySetting(req.body);
+    const previous = getInstanceStructurePolicy();
+    setInstanceStructurePolicy(setting, user.id);
+    auditUser(
+      user,
+      "instance.structure_policy",
+      null,
+      `${previous.policy}${previous.applyToSql ? "" : " (not SQL)"} -> ${setting.policy}${setting.applyToSql ? "" : " (not SQL)"}`,
+      req,
+    );
+    return { setting };
+  });
+
   // ---- Explorer ------------------------------------------------------------
 
   app.get("/api/admin/connections/:id/overview", READ_LIMIT, async (req) => {
@@ -221,6 +271,7 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
       capabilities: driver.capabilities,
       privileges: driver.privilegeCatalog(),
       readOnly: Boolean(connection.readOnly),
+      structurePolicy: effectiveStructurePolicy(id),
       defaultDatabase: connection.database ?? null,
       databases: await driver.listDatabases(),
     }));
@@ -276,6 +327,7 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
       sql?: unknown;
       database?: unknown;
       readOnly?: unknown;
+      confirmStructural?: unknown;
       maxRows?: unknown;
       timeoutMs?: unknown;
     };
@@ -288,6 +340,23 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
     const database = optionalName(body.database, "database");
     const connection = loadConnection(id);
     if (!readOnly) assertWritable(connection);
+
+    // Read-only mode already refuses any DDL, so only a write can be structural.
+    // Judged before anything runs: a refusal must leave the database untouched.
+    // Found whatever the policy says: a structural change made under `free`, or
+    // typed where the policy does not cover SQL, still leaves the schema behind
+    // and the projects modelling this database are told so.
+    let structural: StructuralAction[] = [];
+    let outOfSchema = false;
+    let leavesSchemaBehind = false;
+    if (!readOnly) {
+      const policy = effectiveStructurePolicy(id);
+      structural = findStructuralStatements(sql, connection.engine);
+      outOfSchema =
+        judgeStructuralActions(policy, policy.applyToSql ? structural : [], body.confirmStructural === true) ===
+        "out-of-schema";
+      leavesSchemaBehind = structural.length > 0 && policy.projects.length > 0;
+    }
 
     const startedAt = Date.now();
     const record = (success: boolean, rowCount: number | null, error: string | null) => {
@@ -323,6 +392,16 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
         }),
       );
       record(true, result.rowCount, null);
+      if (leavesSchemaBehind) markOutOfSchema(id, `sql: ${describeStructuralActions(structural)}`);
+      if (outOfSchema) {
+        auditUser(
+          user,
+          "dbadmin.structure.out_of_schema",
+          { type: "connection", id },
+          `sql: ${describeStructuralActions(structural)}`,
+          req,
+        );
+      }
       return { result };
     } catch (err) {
       record(false, null, err instanceof Error ? err.message : String(err));
@@ -356,6 +435,20 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
     const connection = loadConnection(id);
     if (execute) assertWritable(connection);
 
+    // Tables and columns are what a project models; a view or a whole database
+    // is not, so there is no schema to send those through. Checked on the
+    // preview too: under `schema-only` the answer is the same before and after
+    // the confirmation, and saying so first spares the user typing the name.
+    // Under `warn`, typing that name *is* the explicit confirmation.
+    const structural: StructuralAction[] =
+      kind === "table"
+        ? [{ verb: "drop", kind: "table", object: ref.table ?? null }]
+        : kind === "column"
+          ? [{ verb: "alter", kind: "table", object: ref.table ?? null, column: ref.column }]
+          : [];
+    const dropPolicy = effectiveStructurePolicy(id);
+    const outOfSchema = judgeStructuralActions(dropPolicy, structural, true) === "out-of-schema" && execute;
+
     const result = await withDriver(connection, execute ? "adminWrite" : "admin", async (driver) => {
       // The object must be one the server itself lists — never a name taken on trust — and not a system one.
       const targetName = await resolveDropTarget(driver, kind, ref);
@@ -364,6 +457,18 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
       return previewOrExecute(driver, statements, execute, ref.database);
     });
     if (execute) auditUser(user, "dbadmin.drop", { type: "connection", id }, `${kind} ${describeRef(ref)}`, req);
+    if (execute && structural.length > 0 && dropPolicy.projects.length > 0) {
+      markOutOfSchema(id, `explorer: ${describeStructuralActions(structural)}`);
+    }
+    if (outOfSchema) {
+      auditUser(
+        user,
+        "dbadmin.structure.out_of_schema",
+        { type: "connection", id },
+        `explorer: ${describeStructuralActions(structural)}`,
+        req,
+      );
+    }
     return result;
   });
 

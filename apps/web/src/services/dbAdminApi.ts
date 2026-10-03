@@ -16,6 +16,8 @@ import type {
   DbPrincipalRef,
   DbPrivilegeCatalog,
   DbUserAction,
+  EffectiveStructurePolicy,
+  StructurePolicySetting,
 } from "@athanordb/shared";
 import type { TestConnectionResponse } from "./connectionsApi";
 import { request } from "./httpClient";
@@ -27,6 +29,8 @@ export interface ConnectionOverview {
   capabilities: DbAdminCapabilities;
   privileges: DbPrivilegeCatalog;
   readOnly: boolean;
+  /** What the console does with table / index changes on this connection — see `StructurePolicy`. */
+  structurePolicy: EffectiveStructurePolicy;
   defaultDatabase: string | null;
   databases: DbAdminDatabase[];
 }
@@ -78,6 +82,21 @@ export async function checkAdminConnectionHealth(id: string): Promise<AdminConne
     .connection;
 }
 
+// ---- Structure policy ------------------------------------------------------
+
+export async function fetchInstanceStructurePolicy(): Promise<StructurePolicySetting> {
+  return (await request<{ setting: StructurePolicySetting }>("/api/admin/settings/structure-policy")).setting;
+}
+
+export async function saveInstanceStructurePolicy(setting: StructurePolicySetting): Promise<StructurePolicySetting> {
+  return (
+    await request<{ setting: StructurePolicySetting }>("/api/admin/settings/structure-policy", {
+      method: "PUT",
+      body: setting,
+    })
+  ).setting;
+}
+
 // ---- Explorer --------------------------------------------------------------
 
 export function fetchConnectionOverview(id: string): Promise<ConnectionOverview> {
@@ -112,7 +131,8 @@ export async function fetchTableRows(
 export async function runAdminQuery(
   id: string,
   sql: string,
-  options: { database?: string; readOnly: boolean; maxRows?: number },
+  /** `confirmStructural`: the user accepted running table / index DDL outside the schema (policy `warn`). */
+  options: { database?: string; readOnly: boolean; maxRows?: number; confirmStructural?: boolean },
 ): Promise<DbAdminQueryResult> {
   return (
     await request<{ result: DbAdminQueryResult }>(`${base(id)}/query`, { method: "POST", body: { sql, ...options } })

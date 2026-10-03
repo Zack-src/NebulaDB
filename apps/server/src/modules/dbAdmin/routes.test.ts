@@ -132,7 +132,7 @@ test("global connection lifecycle: create, list without secrets, update keeping 
       port: 5432,
       user: "app",
       password: "s3cret",
-      environment: "production",
+      environment: "Prod",
       tags: ["eu", "eu", " critical "],
       readOnly: true,
     });
@@ -502,6 +502,341 @@ test("health check records status, version and latency; an unreachable target is
     assert.equal(res.statusCode, 200);
     assert.equal(res.json().connection.health.status, "offline");
     assert.match(res.json().connection.health.error, /own database/);
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
+
+// ---- Structure policy --------------------------------------------------------
+
+/** A connection to a seeded SQLite file, attached to a fresh project — the case the policy is about. */
+async function linkedConnection(app: App, cookie: string, extra: Record<string, unknown> = {}) {
+  const connection = await createConnection(app, cookie, extra);
+  const project = (await call(app, cookie, "POST", "/api/projects", { name: "Shop schema" })).json() as { id: string };
+  const linked = await call(app, cookie, "PUT", `/api/admin/connections/${connection.id}/projects`, {
+    projectIds: [project.id],
+  });
+  assert.equal(linked.statusCode, 200, linked.body);
+  return { connection, project, base: `/api/admin/connections/${connection.id}` };
+}
+
+const tableNames = (file: string) => {
+  const target = new Database(file, { readonly: true });
+  try {
+    return (
+      target.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all() as { name: string }[]
+    ).map((row) => row.name);
+  } finally {
+    target.close();
+  }
+};
+
+const outOfSchemaAudit = (connectionId: string) =>
+  (
+    db
+      .prepare(
+        "SELECT detail FROM audit_log WHERE action = 'dbadmin.structure.out_of_schema' AND target_id = ? ORDER BY rowid",
+      )
+      .all(connectionId) as { detail: string }[]
+  ).map((row) => row.detail);
+
+test("structure policy, default: on a database a project models, table DDL is sent to the schema — data and views are not", async () => {
+  const app = await buildApp();
+  try {
+    resetConnectionBudgets();
+    const cookie = await login(app, 1);
+    const { connection, project, base } = await linkedConnection(app, cookie);
+
+    const overview = (await call(app, cookie, "GET", `${base}/overview`)).json();
+    assert.deepEqual(overview.structurePolicy, {
+      policy: "schema-only",
+      applyToSql: true,
+      source: "instance",
+      projects: [{ id: project.id, name: "Shop schema" }],
+    });
+
+    // Explorer: refused on the preview already, with where to go instead.
+    for (const body of [
+      { kind: "table", ref: { table: "orders" } },
+      { kind: "column", ref: { table: "orders", column: "note" } },
+    ]) {
+      const refused = await call(app, cookie, "POST", `${base}/drop`, body);
+      assert.equal(refused.statusCode, 409, refused.body);
+      assert.equal(refused.json().code, "STRUCTURE_VIA_SCHEMA");
+      assert.deepEqual(refused.json().projects, [{ id: project.id, name: "Shop schema" }]);
+      assert.equal(refused.json().actions[0].object, "orders");
+    }
+
+    // SQL console, write mode.
+    const query = (sql: string, extra: Record<string, unknown> = {}) =>
+      call(app, cookie, "POST", `${base}/query`, { sql, readOnly: false, ...extra });
+    for (const sql of [
+      "DROP TABLE orders",
+      "ALTER TABLE users ADD COLUMN phone TEXT",
+      "CREATE INDEX i ON users(name)",
+    ]) {
+      const refused = await query(sql);
+      assert.equal(refused.json().code, "STRUCTURE_VIA_SCHEMA", sql);
+      // Confirming is a `warn` thing: it does not get past `schema-only`.
+      assert.equal((await query(sql, { confirmStructural: true })).json().code, "STRUCTURE_VIA_SCHEMA", sql);
+    }
+    assert.deepEqual(tableNames(connection.filePath), ["orders", "users"], "nothing ran");
+
+    // What the schema does not model stays the console's business.
+    assert.equal((await query("UPDATE users SET name = 'Ada L.' WHERE id = 1")).statusCode, 200);
+    assert.equal((await query("DROP VIEW big_orders")).statusCode, 200);
+    assert.equal((await query("CREATE TEMP TABLE scratch (id INTEGER)")).statusCode, 200);
+    assert.deepEqual(outOfSchemaAudit(connection.id), []);
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
+
+test("structure policy: a database no project models is left alone, whatever the policy", async () => {
+  const app = await buildApp();
+  try {
+    resetConnectionBudgets();
+    const cookie = await login(app, 1);
+    const connection = await createConnection(app, cookie);
+    const base = `/api/admin/connections/${connection.id}`;
+    assert.deepEqual((await call(app, cookie, "GET", `${base}/overview`)).json().structurePolicy.projects, []);
+    const dropped = await call(app, cookie, "POST", `${base}/query`, { sql: "DROP TABLE orders", readOnly: false });
+    assert.equal(dropped.statusCode, 200, dropped.body);
+    assert.deepEqual(tableNames(connection.filePath), ["users"]);
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
+
+test("structure policy `warn`: runs only once confirmed, and is recorded as made outside the schema", async () => {
+  const app = await buildApp();
+  try {
+    resetConnectionBudgets();
+    const cookie = await login(app, 1);
+    const { connection, base } = await linkedConnection(app, cookie, {
+      structurePolicy: { policy: "warn", applyToSql: true },
+    });
+    assert.equal((await call(app, cookie, "GET", `${base}/overview`)).json().structurePolicy.source, "connection");
+
+    const sql = "ALTER TABLE users ADD COLUMN phone TEXT";
+    const asked = await call(app, cookie, "POST", `${base}/query`, { sql, readOnly: false });
+    assert.equal(asked.statusCode, 409);
+    assert.equal(asked.json().code, "STRUCTURE_CONFIRMATION_REQUIRED");
+    assert.deepEqual(asked.json().actions, [{ verb: "alter", kind: "table", object: "users" }]);
+
+    const confirmed = await call(app, cookie, "POST", `${base}/query`, {
+      sql,
+      readOnly: false,
+      confirmStructural: true,
+    });
+    assert.equal(confirmed.statusCode, 200, confirmed.body);
+
+    // Explorer: the preview is shown, and typing the name is the confirmation.
+    const drop = { kind: "column", ref: { table: "orders", column: "note" } };
+    assert.equal((await call(app, cookie, "POST", `${base}/drop`, drop)).statusCode, 200);
+    const executed = await call(app, cookie, "POST", `${base}/drop`, { ...drop, execute: true, confirm: "note" });
+    assert.equal(executed.statusCode, 200, executed.body);
+
+    assert.deepEqual(outOfSchemaAudit(connection.id), [
+      "sql: alter table users",
+      "explorer: alter table orders (note)",
+    ]);
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
+
+test("structure policy: instance default and per-connection override, each audited; only the console may set it", async () => {
+  const app = await buildApp();
+  try {
+    resetConnectionBudgets();
+    const cookie = await login(app, 1);
+    const member = await login(app, 0);
+    const settings = "/api/admin/settings/structure-policy";
+    assert.equal((await call(app, member, "GET", settings)).statusCode, 403);
+    assert.equal((await call(app, member, "PUT", settings, { policy: "free" })).statusCode, 403);
+    assert.deepEqual((await call(app, cookie, "GET", settings)).json().setting, {
+      policy: "schema-only",
+      applyToSql: true,
+    });
+    assert.equal(
+      (await call(app, cookie, "PUT", settings, { policy: "anything" })).json().code,
+      "STRUCTURE_POLICY_INVALID",
+    );
+
+    const { connection, project, base } = await linkedConnection(app, cookie);
+    const run = (sql: string) => call(app, cookie, "POST", `${base}/query`, { sql, readOnly: false });
+    const dropPreview = () => call(app, cookie, "POST", `${base}/drop`, { kind: "table", ref: { table: "orders" } });
+
+    // Schema-only for the explorer, typed SQL left free.
+    const explorerOnly = await call(app, cookie, "PUT", `/api/admin/connections/${connection.id}`, {
+      structurePolicy: { policy: "schema-only", applyToSql: false },
+    });
+    assert.equal(explorerOnly.statusCode, 200, explorerOnly.body);
+    assert.equal((await run("CREATE INDEX idx_users_name ON users(name)")).statusCode, 200);
+    assert.equal((await dropPreview()).json().code, "STRUCTURE_VIA_SCHEMA");
+
+    // Back to the instance default, then relax the instance.
+    const inherit = await call(app, cookie, "PUT", `/api/admin/connections/${connection.id}`, {
+      structurePolicy: null,
+    });
+    assert.equal(inherit.json().connection.structurePolicy, null);
+    assert.equal((await run("DROP INDEX idx_users_name")).json().code, "STRUCTURE_VIA_SCHEMA");
+    assert.equal((await call(app, cookie, "PUT", settings, { policy: "free", applyToSql: true })).statusCode, 200);
+    assert.equal((await run("DROP INDEX idx_users_name")).statusCode, 200);
+    assert.equal((await dropPreview()).statusCode, 200);
+
+    // A project route cannot touch the policy, even for the project's administrator.
+    await call(app, cookie, "PUT", `/api/admin/connections/${connection.id}`, {
+      structurePolicy: { policy: "schema-only", applyToSql: true },
+    });
+    const viaProject = await call(app, cookie, "PUT", `/api/projects/${project.id}/connections/${connection.id}`, {
+      name: "Renamed through the project",
+      structurePolicy: { policy: "free", applyToSql: false },
+    });
+    assert.notEqual(viaProject.statusCode, 500, viaProject.body);
+    const after = (await call(app, cookie, "GET", "/api/admin/connections")).json().connections as {
+      id: string;
+      structurePolicy: unknown;
+    }[];
+    assert.deepEqual(after.find((c) => c.id === connection.id)!.structurePolicy, {
+      policy: "schema-only",
+      applyToSql: true,
+    });
+
+    const trail = (
+      db
+        .prepare(
+          "SELECT action, detail FROM audit_log WHERE action IN ('dbconn.policy', 'instance.structure_policy') ORDER BY rowid",
+        )
+        .all() as { action: string; detail: string }[]
+    ).map((row) => `${row.action}: ${row.detail}`);
+    assert.deepEqual(trail, [
+      "dbconn.policy: Target: instance default -> schema-only (not SQL)",
+      "dbconn.policy: Target: schema-only (not SQL) -> instance default",
+      "instance.structure_policy: schema-only -> free",
+      "dbconn.policy: Target: instance default -> schema-only",
+    ]);
+  } finally {
+    // Other tests in this file rely on the built-in default.
+    db.prepare("DELETE FROM instance_settings").run();
+    closeAllRooms();
+    await app.close();
+  }
+});
+
+// ---- Drift -------------------------------------------------------------------
+
+test("drift: an out-of-schema change marks the project, a check says what differs, and a pull or deployment clears it", async () => {
+  const app = await buildApp();
+  try {
+    resetConnectionBudgets();
+    const cookie = await login(app, 1);
+    const member = await login(app, 0);
+    const { connection, project, base } = await linkedConnection(app, cookie, {
+      structurePolicy: { policy: "free", applyToSql: true },
+    });
+    const projectBase = `/api/projects/${project.id}`;
+    const connBase = `${projectBase}/connections/${connection.id}`;
+    const drift = async (as = cookie) =>
+      (await call(app, as, "GET", `${projectBase}/drift`)).json().connections as {
+        connectionId: string;
+        outOfSchemaAt: string | null;
+        outOfSchemaDetail: string | null;
+        referenceTakenAt: string | null;
+      }[];
+    const check = async () => (await call(app, cookie, "POST", `${connBase}/drift-check`)).json();
+
+    // Linked, never synchronised: no reference, no mark.
+    assert.deepEqual(await drift(), [
+      {
+        connectionId: connection.id,
+        connectionName: "Target",
+        outOfSchemaAt: null,
+        outOfSchemaDetail: null,
+        referenceTakenAt: null,
+      },
+    ]);
+    assert.equal((await check()).sinceReference, null);
+
+    // A pull makes schema and database agree, and records the reference.
+    assert.equal((await call(app, cookie, "POST", `${connBase}/pull`)).statusCode, 200);
+    assert.ok((await drift())[0].referenceTakenAt);
+    assert.deepEqual(await check().then(({ againstSchema, sinceReference }) => ({ againstSchema, sinceReference })), {
+      againstSchema: { tables: 0, refs: 0 },
+      sinceReference: { added: [], removed: [], changed: [] },
+    });
+
+    // Policy `free`: nothing is refused, but the projects modelling the database are told.
+    const altered = await call(app, cookie, "POST", `${base}/query`, {
+      sql: "ALTER TABLE users ADD COLUMN phone TEXT",
+      readOnly: false,
+    });
+    assert.equal(altered.statusCode, 200, altered.body);
+    const marked = (await drift())[0];
+    assert.ok(marked.outOfSchemaAt);
+    assert.equal(marked.outOfSchemaDetail, "sql: alter table users");
+    const afterAlter = await check();
+    assert.deepEqual(afterAlter.againstSchema, { tables: 1, refs: 0 });
+    assert.deepEqual(afterAlter.sinceReference, { added: [], removed: [], changed: ["users"] });
+
+    // Anyone who can open the project sees the mark; only its administrators look at the database or dismiss.
+    assert.ok((await drift(member))[0].outOfSchemaAt);
+    assert.equal((await call(app, member, "POST", `${connBase}/drift-check`)).statusCode, 403);
+    assert.equal((await call(app, member, "POST", `${connBase}/drift/dismiss`)).statusCode, 403);
+
+    // Dismissing clears the mark, not the difference.
+    assert.equal((await call(app, cookie, "POST", `${connBase}/drift/dismiss`)).statusCode, 200);
+    assert.equal((await drift())[0].outOfSchemaAt, null);
+    assert.deepEqual((await check()).sinceReference.changed, ["users"]);
+
+    // The explorer marks too…
+    const drop = { kind: "column", ref: { table: "orders", column: "note" }, execute: true, confirm: "note" };
+    assert.equal((await call(app, cookie, "POST", `${base}/drop`, drop)).statusCode, 200);
+    assert.equal((await drift())[0].outOfSchemaDetail, "explorer: alter table orders (note)");
+    // …a data statement or a view does not.
+    await call(app, cookie, "POST", `${connBase}/drift/dismiss`);
+    await call(app, cookie, "POST", `${base}/query`, { sql: "DROP VIEW big_orders", readOnly: false });
+    await call(app, cookie, "POST", `${base}/query`, { sql: "DELETE FROM orders", readOnly: false });
+    assert.equal((await drift())[0].outOfSchemaAt, null);
+
+    // Resynchronising (pull) brings the schema to the database: mark gone, reference moved.
+    await call(app, cookie, "POST", `${base}/query`, {
+      sql: "CREATE INDEX idx_phone ON users(phone)",
+      readOnly: false,
+    });
+    assert.ok((await drift())[0].outOfSchemaAt);
+    assert.equal((await call(app, cookie, "POST", `${connBase}/pull`)).statusCode, 200);
+    assert.equal((await drift())[0].outOfSchemaAt, null);
+    const afterPull = await check();
+    assert.deepEqual(afterPull.againstSchema, { tables: 0, refs: 0 });
+    assert.deepEqual(afterPull.sinceReference, { added: [], removed: [], changed: [] });
+
+    // A deployment makes the database follow the schema, and is a reference too.
+    const dbml = (await call(app, cookie, "GET", `${projectBase}/export/dbml`)).body;
+    const imported = await call(app, cookie, "POST", `${projectBase}/import`, {
+      source: `${dbml}\nTable audit_log {\n  id int [pk]\n}\n`,
+    });
+    assert.equal(imported.statusCode, 200, imported.body);
+    assert.deepEqual((await check()).againstSchema, { tables: 1, refs: 0 });
+    const deployed = await call(app, cookie, "POST", `${connBase}/apply-deployment`, { resolutions: {} });
+    assert.equal(deployed.statusCode, 200, deployed.body);
+    const afterDeploy = await check();
+    assert.deepEqual(afterDeploy.againstSchema, { tables: 0, refs: 0 });
+    assert.deepEqual(afterDeploy.sinceReference, { added: [], removed: [], changed: [] });
+
+    // Unlinking drops the reference with the link.
+    await call(app, cookie, "PUT", `${base}/projects`, { projectIds: [] });
+    const left = db
+      .prepare("SELECT COUNT(*) AS n FROM schema_fingerprints WHERE connection_id = ?")
+      .get(connection.id) as {
+      n: number;
+    };
+    assert.equal(left.n, 0);
   } finally {
     closeAllRooms();
     await app.close();
