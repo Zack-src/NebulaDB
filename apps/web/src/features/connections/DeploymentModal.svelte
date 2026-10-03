@@ -74,6 +74,7 @@
     rollbackAvailable: boolean;
     irreversibleWarnings: string[];
     seedReport: SeedResult[];
+    backupId: string | null;
   } | null>(null);
   /** Leave the tables' initial data out of this deployment. */
   let skipSeeds = $state(false);
@@ -81,6 +82,8 @@
   let copied = $state(false);
   /** Why the risks are accepted — kept with the deployment in its history. */
   let riskNote = $state("");
+  /** `null` until someone ticks or unticks the box: the default then follows the connection (on for production). */
+  let backupChoice = $state<boolean | null>(null);
 
   // Load connections for this project
   $effect(() => {
@@ -172,6 +175,7 @@
         confirmName,
         riskNote: riskNote.trim() || undefined,
         skipSeeds,
+        backupBefore,
       });
       activeStep = "done";
     } catch (err) {
@@ -182,6 +186,7 @@
   }
 
   const selectedConn = $derived(connections.find((c) => c.id === selectedConnId));
+  const backupBefore = $derived(backupChoice ?? selectedConn?.production ?? false);
   const diff = $derived(plan?.diff);
   const risks = $derived(plan?.risks ?? []);
   const seedPlan = $derived(plan?.seeds ?? []);
@@ -531,6 +536,11 @@
               ></textarea>
             </label>
           {/if}
+          {#if !readOnly}
+            <Checkbox checked={backupBefore} onChange={(checked) => (backupChoice = checked)} hint={t("deployment.backupBeforeHint")}>
+              <span class="text-xs">{t("deployment.backupBefore")}</span>
+            </Checkbox>
+          {/if}
           {#if blockingRisks.length > 0}
             <p class="text-xs text-danger" role="alert">{t("deployment.blockedByCancel", { count: blockingRisks.length })}</p>
           {/if}
@@ -548,6 +558,9 @@
               name: selectedConn?.name || "",
             })}
           </p>
+          {#if deployResult.backupId}
+            <p class="mt-1 text-text-muted" data-testid="deploy-backup">{t("deployment.backupTaken")}</p>
+          {/if}
           {#if deployResult.seedReport.length > 0}
             <ul class="mt-3 space-y-0.5 text-left font-mono text-[11px]" data-testid="seed-report">
               {#each deployResult.seedReport as result (result.tableName)}

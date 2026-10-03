@@ -37,6 +37,8 @@ export interface ApplyDeploymentResponse {
   rollbackAvailable: boolean;
   irreversibleWarnings: string[];
   seedReport: SeedResult[];
+  /** The backup taken just before, when there was one. */
+  backupId: string | null;
 }
 
 export interface RollbackResponse {
@@ -135,6 +137,8 @@ export async function applyDeployment(
     riskNote?: string;
     /** Leave the seeds out of this deployment. */
     skipSeeds?: boolean;
+    /** Back the database up first; unset, the server does on the production stage only. */
+    backupBefore?: boolean;
   } = {},
 ): Promise<ApplyDeploymentResponse> {
   return request<ApplyDeploymentResponse>(`/api/projects/${projectId}/connections/${connId}/apply-deployment`, {

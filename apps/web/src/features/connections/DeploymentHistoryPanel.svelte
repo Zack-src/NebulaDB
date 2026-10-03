@@ -113,6 +113,9 @@
               })}
             </p>
           {/if}
+          {#if entry.backupId}
+            <p class="mt-1.5 text-[11px] text-text-muted">{t("deployment.historyBackup")}</p>
+          {/if}
           {#if entry.acceptedRisks && entry.acceptedRisks.length > 0}
             <div class="mt-2 rounded-sm border border-border bg-surface-raised p-2 text-[11px]">
               <span class="mb-1 block font-semibold text-text">{t("deployment.historyAcceptedRisks")}</span>
