@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -56,6 +57,10 @@ export async function buildApp(): Promise<FastifyInstance> {
   // — a client could send an arbitrarily large Yjs update and the server would
   // buffer all of it.
   const app = Fastify({
+    // A UUID per request, not Fastify's per-process counter (`req-1`…): the
+    // id is kept in the audit log as `correlation_id` and must stay unique
+    // across restarts. It also ties log lines to that audit entry.
+    genReqId: () => randomUUID(),
     logger: {
       level: config.logLevel,
       // Defence in depth, not a fix for a current leak: Fastify's default
