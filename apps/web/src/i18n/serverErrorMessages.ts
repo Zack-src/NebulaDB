@@ -96,6 +96,9 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   ENVIRONMENT_NAME_TAKEN: "errors.environmentNameTaken",
   PRODUCTION_CONFIRMATION_REQUIRED: "errors.productionConfirmationRequired",
   DEPLOYMENT_BLOCKED_BY_RISK: "errors.deploymentBlockedByRisk",
+  SEED_INVALID: "errors.seedInvalid",
+  SEED_NOT_FOUND: "errors.seedNotFound",
+  SEEDS_NOT_DEPLOYABLE: "errors.seedsNotDeployable",
   DESTRUCTIVE_CHANGE_UNRESOLVED: "errors.destructiveChangeUnresolved",
 };
 
