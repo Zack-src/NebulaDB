@@ -603,6 +603,22 @@ export const MIGRATIONS: Migration[] = [
       });
     },
   },
+  {
+    version: 24,
+    name: "deployment_history.accepted_risks, risk_note",
+    up: (db) => {
+      // What the plan risked and what was chosen for each risk (JSON array of
+      // `AcceptedRisk`), and the free-text reason given — so "who accepted
+      // dropping orders.note, and why" is answered by the history itself.
+      const columns = db.prepare("PRAGMA table_info(deployment_history)").all() as { name: string }[];
+      if (!columns.some((c) => c.name === "accepted_risks")) {
+        db.exec("ALTER TABLE deployment_history ADD COLUMN accepted_risks TEXT");
+      }
+      if (!columns.some((c) => c.name === "risk_note")) {
+        db.exec("ALTER TABLE deployment_history ADD COLUMN risk_note TEXT");
+      }
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */

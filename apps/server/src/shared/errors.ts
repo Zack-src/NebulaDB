@@ -154,6 +154,14 @@ export const ERROR_CATALOG = {
     status: 409,
     message: "structure changes on this database go through its schema — make the change in the project and deploy it",
   },
+  DEPLOYMENT_BLOCKED_BY_RISK: {
+    status: 409,
+    message: "a change in this plan is set to “cancel / handle manually” — fix the data or change the schema, then deploy",
+  },
+  DESTRUCTIVE_CHANGE_UNRESOLVED: {
+    status: 409,
+    message: "this plan loses or rejects data on the production stage — send a resolution for each critical risk",
+  },
   PRODUCTION_CONFIRMATION_REQUIRED: {
     status: 409,
     message: "this connection is the production stage — send its name as confirmName to deploy or roll back",

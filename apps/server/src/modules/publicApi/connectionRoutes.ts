@@ -109,16 +109,16 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
     const { id, connId } = req.params as { id: string; connId: string };
     const { user, project } = requireProjectAdmin(req, id);
     requireScope(req, "deployments:trigger", id);
-    const body = (req.body ?? {}) as { resolutions?: MigrationResolutionMap; confirmName?: string };
+    const body = (req.body ?? {}) as {
+      resolutions?: MigrationResolutionMap;
+      confirmName?: string;
+      riskNote?: string;
+    };
 
-    const result = await deployToConnection(
-      id,
-      project.name,
-      connId,
-      body.resolutions || {},
-      user.email,
-      body.confirmName,
-    );
+    const result = await deployToConnection(id, project.name, connId, body.resolutions || {}, user.email, {
+      confirmName: body.confirmName,
+      riskNote: body.riskNote,
+    });
 
     auditUser(
       user,

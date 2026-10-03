@@ -7,6 +7,13 @@ import { saveReferenceFingerprint, type FingerprintSource } from "./drift.js";
 import type { DatabaseDriver } from "./drivers/interface.js";
 import { getProjectConnection } from "./repository.js";
 import { getEnvironment } from "../environments/repository.js";
+import { analyzeDeploymentRisks, settleRisks } from "./riskAnalysis.js";
+
+const RISK_NOTE_MAX = 1000;
+
+function isProductionStage(conn: { environmentId?: string | null }): boolean {
+  return Boolean(conn.environmentId && getEnvironment(conn.environmentId)?.production);
+}
 
 /**
  * A connection on the production stage is only written to by someone who
@@ -95,9 +102,14 @@ export async function deployToConnection(
   connId: string,
   resolutions: MigrationResolutionMap,
   executedByEmail: string,
-  /** The connection's name, retyped — required when it is on the production stage. */
-  confirmName?: string,
+  options: {
+    /** The connection's name, retyped — required when it is on the production stage. */
+    confirmName?: string;
+    /** Why the plan's risks are accepted — kept with the deployment. */
+    riskNote?: string;
+  } = {},
 ): Promise<DeployToConnectionResult> {
+  const { confirmName } = options;
   const conn = getProjectConnection(projectId, connId);
   if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
   if (conn.readOnly) throw new ApiError("CONNECTION_READ_ONLY");
@@ -110,6 +122,13 @@ export async function deployToConnection(
   try {
     const liveProject = await driver.introspectSchema();
     const diff = diffTargetAgainstLive(liveProject, canvasProject);
+    // Measured again here, whatever the plan said: the data may have moved
+    // since, and an API caller may never have looked at a plan at all.
+    const acceptedRisks = settleRisks(
+      await analyzeDeploymentRisks(driver, diff, conn.engine),
+      resolutions,
+      isProductionStage(conn),
+    );
     const sql = generateMigrationSql(diff, conn.engine, resolutions);
     const { sql: rollbackSqlRaw, irreversible } = generateRollbackSql(diff, conn.engine, resolutions);
     // The warnings are prepended as SQL comments rather than kept in a
@@ -138,6 +157,8 @@ export async function deployToConnection(
       totalStatements: countStatements(sql),
       error: result.error,
       executedByEmail,
+      acceptedRisks,
+      riskNote: typeof options.riskNote === "string" ? options.riskNote.slice(0, RISK_NOTE_MAX) : null,
     });
     notifyDeployment(projectId, conn, "deploy", result, executedByEmail);
 
