@@ -394,7 +394,17 @@ de la limite de l'instance (512 Mo de données par défaut), elle échoue et
 l'outil du moteur (`pg_dump`, `mysqldump`…) est le bon choix. Les tables sont
 lues l'une après l'autre : sur une base très active, la sauvegarde n'est pas un
 instantané parfaitement cohérent. Les vues, séquences et comptes n'en font pas
-partie, et il n'y a pas encore de sauvegarde planifiée.
+partie.
+
+**Sauvegarder automatiquement.** En haut de l'onglet, l'interrupteur
+« Sauvegarder automatiquement » planifie les sauvegardes de cette base : tous
+les jours, toutes les semaines (un jour donné) ou tous les mois (un jour de 1 à
+28), à l'heure choisie — **l'heure du serveur**. On indique combien de
+sauvegardes planifiées garder : les plus anciennes sont supprimées après chaque
+nouvelle, sauf celles qui sont épinglées. La date de la prochaine sauvegarde est
+affichée ; si le serveur était arrêté à l'heure prévue, la sauvegarde manquée
+est faite une fois à son retour. Un échec est signalé sur cette ligne et dans
+la liste, mais n'envoie pas encore d'alerte.
 
 **Avant un déploiement en production**, Athanor sauvegarde la base
 automatiquement (case « Sauvegarder la base avant de déployer », cochée par
@@ -545,9 +555,9 @@ Dit explicitement pour éviter de le chercher :
   commentaire) — les seuls e-mails envoyés sont les invitations et les
   réinitialisations de mot de passe ;
 - pas de SSO ni de passkeys ;
-- pas de sauvegarde planifiée des bases connectées, ni de sauvegarde par l'outil
-  natif du moteur — les sauvegardes se lancent à la main, ou avant un
-  déploiement en production (§5) ;
+- pas de sauvegarde des bases connectées par l'outil natif du moteur, ni vers un
+  stockage externe (S3…) — les sauvegardes sont logiques et restent sur le
+  serveur d'Athanor (§5) ;
 - pas de mode hors-ligne — un onglet fermé pendant une coupure perd les
   modifications non synchronisées ;
 - interface pensée pour un écran large, non adaptée au tactile.

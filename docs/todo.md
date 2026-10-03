@@ -100,7 +100,7 @@ rollback is still to do).
 - [ ] **Capability levels per connection** — **S**. Level 0 (catalogue read), 1 (supervision
       views), 2 (server-side audit configured) — detected at connection test and stored on
       `db_connections` (`plan §8.3`). Journal, traffic, advisor and drift attribution all branch on it.
-- [ ] **Migrations** — next migration number is **30** (28 is the watch, 29 `backups`). Every item below that adds a table
+- [ ] **Migrations** — next migration number is **31** (29 is `backups`, 30 `backup_schedules`). Every item below that adds a table
       gets its own migration, tested on a populated database (`infrastructure/migrations.test.ts`).
       Reminder from `memory`: saving `migrations.ts` while `npm run dev` runs migrates the real dev
       DB, one way — work on a copy.
@@ -589,12 +589,24 @@ here: each gets its own security review before it is closed.**
   blob, `NULL` vs empty string and a multi-line text restored bit for bit; the file is neither
   readable nor a plain gzip; altered file refused; size ceiling; pin / retention; restart;
   connection delete; the production deployment with, without, and refused), the SQLite driver
-  test, `e2e/backups.e2e.ts`. Cancelling a running backup is not covered by a test. **PostgreSQL, MySQL, SQL Server and Oracle: `queryRows` and the
+  test, `e2e/backups.e2e.ts`. **PostgreSQL, MySQL, SQL Server and Oracle: `queryRows` and the
   page query are written and unit-tested as text, but were not run against a live server**
   (no Docker on the machine that day) — run `drivers/live.test.ts`-style checks before relying
   on them; dates on SQL Server / Oracle go through JavaScript dates (UTC, milliseconds).
-  **Still to do:** schedules (daily / weekly / monthly with their own retention —
-  `backup_schedules`); destinations other than the local directory (S3-compatible, SFTP —
+  **Schedules** (added 2026-10-03, second slice): one per connection (migration 30
+  `backup_schedules`, `modules/backups/schedule.ts`, `PUT …/connections/:id/backup-schedule`,
+  `BackupScheduleCard.svelte`) — daily, weekly (weekday) or monthly (day 1–28) at an hour of the
+  **server's local time**, keeping the last N scheduled backups (pinned ones neither count nor
+  go; the age-based sweep leaves scheduled backups alone). A one-minute job on the scheduler runs
+  what is due, one database after the other; saving a schedule never fires it for an hour
+  already past; a server that was down runs **one** catch-up backup, not one per missed
+  occurrence; the run is recorded before it starts, so a crash does not loop. Verified:
+  `shared/backups.test.ts` (occurrences), `backups/routes.test.ts` (fires once, catch-up, keep,
+  pin, off; **cancel** now covered too), `e2e/backups.e2e.ts`. Not done for schedules: the plan's
+  three-tier retention (7 daily / 4 weekly / 6 monthly — one frequency and one count today), a
+  per-table scope, a time zone other than the server's, an alert when a scheduled backup fails
+  (the card says so; nothing is sent — Phase 34's channels).
+  **Still to do:** destinations other than the local directory (S3-compatible, SFTP —
   `storage_targets`); the weekly **restore test** into a scratch database; a per-table choice in
   the UI (the API takes `tables`); `connectionBudget` is spent once per backup, not per page,
   and there is no per-page time limit; views, sequences and accounts are not in a backup;

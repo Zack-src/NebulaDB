@@ -44,6 +44,12 @@ this file has a dated entry for — not on every commit.
   la base avant de déployer" in the deployment dialog, or send
   `backupBefore: false` to `/api/v1/…/deploy`, to deploy without one. Other
   stages are unchanged (the box is there, unticked).
+- **Scheduled backups.** In the Sauvegardes tab, "Sauvegarder automatiquement":
+  every day, every week (on a weekday) or every month (on a day from 1 to 28),
+  at an hour of the **server's clock**, keeping the last N. Off by default.
+  Scheduled backups are kept by that count, not by
+  `ATHANORDB_DATABASE_BACKUP_RETENTION_DAYS`. A server that was down at the
+  hour runs the missed backup once when it is back.
 - **Configuration:** `ATHANORDB_DATABASE_BACKUP_DIR` (default: a
   `database-backups` folder next to the app database — make sure that volume
   has the room), `ATHANORDB_DATABASE_BACKUP_MAX_MB` (512),
@@ -53,7 +59,8 @@ this file has a dated entry for — not on every commit.
 - **Secret rotation** (`npm run rotate-secret`) now also covers the backups'
   keys. Losing `ATHANORDB_SECRET` makes the stored backups unreadable, like
   the stored connections.
-- Migration 29 (`backups`, `deployment_history.backup_id`). Deleting a
+- Migrations 29 (`backups`, `deployment_history.backup_id`) and 30
+  (`backup_schedules`). Deleting a
   connection deletes its backups.
 - Verified on SQLite end to end. On PostgreSQL, MySQL, SQL Server and Oracle
   the code path is written but has not been run against a live server yet:
