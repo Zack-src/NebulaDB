@@ -28,9 +28,12 @@
     validateSeed,
     type SeedMode,
     type SeedOptions,
+    type Ref,
     type Table,
     type TableSeedSummary,
   } from "@athanordb/shared";
+  import Tabs from "@/components/ui/Tabs.svelte";
+  import GeneratePanel from "./GeneratePanel.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { FileSpreadsheetIcon, UploadIcon } from "@/components/icons/Icons";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
@@ -58,12 +61,15 @@
   let {
     projectId,
     table,
+    refs = [],
     existing,
     canEdit,
     onClose,
   }: {
     projectId: string;
     table: Table;
+    /** The project's relations — which columns are foreign keys, for the generator's suggestions. */
+    refs?: readonly Ref[];
     existing: TableSeedSummary | null;
     /** False for a view grant, or when a `full` lock binds this user. */
     canEdit: boolean;
@@ -80,6 +86,17 @@
   let loadError = $state<string | null>(null);
   let confirmingRemove = $state(false);
   let fileInput: HTMLInputElement | undefined = $state();
+  let tab = $state<"file" | "generate">("file");
+
+  /** Generated rows become the dialog's file: checked and saved the same way. */
+  function useGenerated(csv: string, generatedMapping: string[]) {
+    content = csv;
+    fileName = t("generator.fileName");
+    separator = ",";
+    header = true;
+    mapping = generatedMapping;
+    tab = "file";
+  }
 
   $effect(() => {
     if (!existing) return;
@@ -166,6 +183,18 @@
 <Modal title={t("seeds.title", { table: table.name })} {onClose} wide dismissable={!busy}>
   <div class="flex flex-col gap-3 text-body-sm">
     <Hint>{t("seeds.hint")}</Hint>
+    <Tabs
+      variant="line"
+      tabs={[
+        { id: "file", label: t("seeds.tabFile") },
+        { id: "generate", label: t("seeds.tabGenerate") },
+      ]}
+      activeTab={tab}
+      onChange={(next) => (tab = next)}
+    />
+    {#if tab === "generate"}
+      <GeneratePanel {projectId} {table} {refs} {canEdit} onUse={useGenerated} />
+    {:else}
 
     <div class="flex flex-wrap items-center gap-2">
       <Icon icon={FileSpreadsheetIcon} size={15} class="text-text-muted" />
@@ -307,6 +336,7 @@
       {/if}
     {/if}
 
+    {/if}
     {#if save.error ?? remove.error}<ErrorText>{save.error ?? remove.error}</ErrorText>{/if}
 
     <div class="flex items-center gap-2 border-t border-border pt-3">

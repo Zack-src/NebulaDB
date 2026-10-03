@@ -796,6 +796,7 @@
         <SeedDialog
           projectId={project.id}
           table={seedDialogTable}
+          refs={liveProject?.refs ?? []}
           existing={seeds.byTable.get(seedDialogTable.id) ?? null}
           canEdit={seedEditable(seedDialogTable.id)}
           onClose={() => {

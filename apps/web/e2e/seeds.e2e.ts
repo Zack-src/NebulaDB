@@ -100,14 +100,31 @@ test("seeds: CSV in the editor, checked, shown on the table, deployed", { timeou
     // The table says it brings rows, at rest.
     await node("customers").getByRole("button", { name: "Données initiales : 2 lignes" }).waitFor();
 
-    // The plan counts them; the deployment inserts them.
+    // orders: generated rows, their customer drawn from the customers' initial data.
+    await node("orders").hover();
+    await node("orders").getByRole("button", { name: "Données initiales (CSV)" }).click();
+    const orders = page.getByRole("dialog", { name: "Données initiales — orders" });
+    await orders.getByRole("tab", { name: "Générer" }).click();
+    await orders.getByRole("spinbutton", { name: "Lignes" }).fill("8");
+    await orders.getByRole("spinbutton", { name: "Lignes" }).blur();
+    await orders.getByRole("button", { name: "Aperçu" }).click();
+    await orders.getByRole("table", { name: "Lignes générées" }).waitFor();
+    await snap("generated");
+    await orders.getByRole("button", { name: "Utiliser comme données initiales (8 lignes)" }).click();
+    await orders.getByText("Toutes les lignes conviennent à la table.").waitFor();
+    await orders.getByRole("button", { name: "Enregistrer" }).click();
+    await orders.waitFor({ state: "detached" });
+
+    // The plan counts them, parents first; the deployment inserts them.
     await page.getByRole("button", { name: "Déployer", exact: true }).first().click();
     const modal = page.getByRole("dialog").first();
     await modal.getByTestId("seed-plan").getByText("customers : +2 lignes").waitFor();
+    await modal.getByTestId("seed-plan").getByText("orders : +8 lignes").waitFor();
     await snap("plan");
     await modal.getByRole("button", { name: "Prévisualiser le SQL" }).click();
     await modal.getByRole("button", { name: "Appliquer les modifications en base" }).click();
     await modal.getByTestId("seed-report").getByText("customers : +2 lignes").waitFor();
+    await modal.getByTestId("seed-report").getByText("orders : +8 lignes").waitFor();
     await snap("deployed");
 
     const target = new Database(targetFile, { readonly: true });
@@ -115,6 +132,13 @@ test("seeds: CSV in the editor, checked, shown on the table, deployed", { timeou
       { id: 1, name: "Ada" },
       { id: 2, name: "Grace" },
     ]);
+    const customerIds = (target.prepare("SELECT DISTINCT customer_id AS c FROM orders").all() as { c: number }[]).map(
+      (row) => row.c,
+    );
+    assert.ok(
+      customerIds.every((id) => id === 1 || id === 2),
+      `orders point at existing customers: ${customerIds}`,
+    );
     target.close();
     assert.deepEqual(errors, []);
   } finally {
