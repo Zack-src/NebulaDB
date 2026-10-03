@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { AdminConnectionSummary, BackupSummary } from "@athanordb/shared";
+  import type { AdminConnectionSummary, BackupSchedule, BackupSummary } from "@athanordb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { ArchiveIcon, CloseIcon, DownloadIcon, LockIcon, LockOpenIcon, RestoreIcon, TrashIcon } from "@/components/icons/Icons";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
@@ -21,6 +21,7 @@
     setBackupPinned,
     startBackup,
   } from "@/services/backupsApi";
+  import BackupScheduleCard from "./BackupScheduleCard.svelte";
   import RestoreDialog from "./RestoreDialog.svelte";
 
   /**
@@ -35,6 +36,10 @@
   const backups = useAsyncResource(() => listBackups(connection.id));
   let restoring = $state.raw<BackupSummary | null>(null);
   let deleting = $state.raw<BackupSummary | null>(null);
+
+  /** The schedule as last saved here — fresher than the list, which is only read again on demand. */
+  let savedSchedule = $state.raw<BackupSchedule | null>(null);
+  const schedule = $derived(savedSchedule ?? backups.data?.schedule ?? null);
 
   const list = $derived(backups.data?.backups ?? []);
   const running = $derived(list.some((backup) => backup.status === "running"));
@@ -88,6 +93,9 @@
         : t("backups.retentionOff")}
     </Hint>
   {/if}
+  {#if schedule}
+    <BackupScheduleCard connectionId={connection.id} {schedule} onSaved={(saved) => (savedSchedule = saved)} />
+  {/if}
   {#if backups.error ?? start.error ?? act.error}<ErrorText>{backups.error ?? start.error ?? act.error}</ErrorText>{/if}
 
   {#if list.length === 0}
@@ -134,6 +142,8 @@
                   {t("backups.pinned")}
                 {:else if backup.expiresAt}
                   {t("backups.until", { date: when(backup.expiresAt) })}
+                {:else if backup.trigger === "scheduled" && backup.status === "done"}
+                  {t("backups.keptBySchedule")}
                 {/if}
               </td>
               <td class="px-1 py-1">

@@ -1,4 +1,4 @@
-import type { BackupList, BackupSummary, RestoreResult } from "@athanordb/shared";
+import type { BackupList, BackupSchedule, BackupSummary, RestoreResult } from "@athanordb/shared";
 import { request } from "./httpClient";
 
 /** Backups of a connected database — instance administrators only, like the console they sit in. */
@@ -18,6 +18,24 @@ export async function startBackup(
       body: options,
     })
   ).backup;
+}
+
+/** What the schedule form sends: the whole schedule, every time. */
+export type BackupScheduleSettings = Pick<
+  BackupSchedule,
+  "enabled" | "frequency" | "hour" | "weekday" | "dayOfMonth" | "keep"
+>;
+
+export async function saveBackupSchedule(
+  connectionId: string,
+  settings: BackupScheduleSettings,
+): Promise<BackupSchedule> {
+  return (
+    await request<{ schedule: BackupSchedule }>(`/api/admin/connections/${connectionId}/backup-schedule`, {
+      method: "PUT",
+      body: settings,
+    })
+  ).schedule;
 }
 
 export async function cancelBackup(backupId: string): Promise<void> {

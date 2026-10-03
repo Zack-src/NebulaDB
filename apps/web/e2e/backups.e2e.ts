@@ -114,6 +114,24 @@ test("backups: back up, lose rows, restore them", { timeout: 90_000 }, async () 
     await safety.waitFor({ state: "detached" });
     assert.equal(await panel.locator("tbody tr").count(), 1);
 
+    // The schedule: off until switched on, saved as it is changed, and still there after a reload.
+    const schedule = page.getByTestId("backup-schedule");
+    await schedule.getByText("Aucune sauvegarde automatique.").waitFor();
+    await schedule.getByRole("switch", { name: "Sauvegarder automatiquement" }).click();
+    await schedule.getByText(/Prochaine sauvegarde :/).waitFor();
+    await schedule.getByRole("combobox", { name: "Fréquence" }).click();
+    await page.getByRole("option", { name: "Toutes les semaines" }).click();
+    await schedule.getByRole("combobox", { name: "Jour de la semaine" }).waitFor();
+    await snap("schedule");
+    await page.reload();
+    await page.getByRole("tab", { name: "Sauvegardes", exact: true }).click();
+    const reloaded = page.getByTestId("backup-schedule");
+    await reloaded.getByRole("combobox", { name: "Jour de la semaine" }).waitFor();
+    assert.equal(
+      await reloaded.getByRole("switch", { name: "Sauvegarder automatiquement" }).getAttribute("aria-checked"),
+      "true",
+    );
+
     assert.deepEqual(errors, []);
   } finally {
     await env.teardown();
