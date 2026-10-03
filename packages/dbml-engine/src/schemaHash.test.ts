@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Field, Ref, Table } from "@athanordb/shared";
-import { canonicalDefault, canonicalType, diffFingerprints, fingerprintSchema } from "./fingerprint.js";
+import { canonicalDefault, canonicalType, diffFingerprints, fingerprintSchema } from "./schemaHash.js";
 import { mergeProjectIntoExisting, parseDbml, toProject } from "./dbml.js";
 import { projectToDbml } from "./serialize.js";
 

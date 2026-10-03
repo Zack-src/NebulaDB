@@ -72,7 +72,7 @@ rollback is still to do).
       id. So table locks are keyed by table id and compare columns by name
       (`packages/shared/src/tableLocks.ts`); **per-column locks, and rename detection in
       Phase 32 / 35, still need a column identity that survives the text** — not solved.
-- [x] **Schema fingerprint** — done 2026-10-02. `packages/dbml-engine/src/fingerprint.ts`:
+- [x] **Schema fingerprint** — done 2026-10-02. `packages/dbml-engine/src/schemaHash.ts`:
       `fingerprintSchema(project)` → canonical structure with a hash per table and one for the
       whole; `diffFingerprints(a, b)` → tables added / removed / changed. Canonical means:
       engine aliases unified (`int4` = `integer`, `character varying` = `varchar`…), defaults
