@@ -41,6 +41,24 @@ this file has a dated entry for — not on every commit.
   that listed the application's paths one by one needs `/project/*/*` as well.
   No database or configuration change.
 
+### Added (watch for outside changes)
+
+- **A project can watch its databases.** Déploiements → "Surveiller les
+  modifications hors Athanor": on, how often (5 minutes to daily), tables to
+  ignore, "Vérifier maintenant". Each database that was deployed to or pulled
+  from is read again and compared with the state that left it; a difference
+  nothing in Athanor explains is recorded once, turns on the editor's drift
+  banner, and is sent to the project's webhooks (new event `drift.detected`).
+  A deployment that failed half-way is named as the likely cause. A database
+  that cannot be read is reported "injoignable", never as a change. A
+  deployment or a pull settles what was found; "Ignorer" waves it off for good.
+  Off by default; project administrators turn it on. API:
+  `GET/PUT /api/projects/:id/monitoring`, `POST …/monitoring/check`.
+- **Fixed:** dates read from the server (deployment history, error log…) were
+  shown as local time while they are UTC — hours off outside UTC.
+- **Database change:** migration 28 adds `monitor_settings` and
+  `drift_events`. Automatic, one-way.
+
 ### Changed (admin activity)
 
 - **Admin → Activité replaces the audit tab.** One list of what was done

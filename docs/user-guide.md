@@ -283,6 +283,15 @@ régénère à volonté ; **Utiliser comme données initiales** passe les lignes
 l'onglet Fichier, où elles sont vérifiées et enregistrées comme un CSV, et
 **Exporter en CSV** les télécharge.
 
+**Surveiller les modifications hors Athanor.** Dans l'onglet _Déploiements_,
+un administrateur du projet peut faire relire ses bases à intervalle régulier
+(de 5 minutes à une fois par jour) : chacune est comparée à l'état laissé par
+le dernier déploiement ou import. Une différence qu'Athanor n'explique pas
+(quelqu'un a modifié la base avec un autre outil) est listée, allume le
+bandeau de l'éditeur et part aux webhooks du projet. Une base illisible est
+signalée « injoignable », jamais comme une modification. Un déploiement ou un
+import règle ce qui a été trouvé ; **Ignorer** l'écarte définitivement.
+
 Chaque connexion est placée sur une **étape** de la chaîne de déploiement
 (DEV › Staging › Prod par défaut — voir « Environnements » plus bas). Sur
 l'étape marquée **production**, déployer ou annuler un déploiement demande de

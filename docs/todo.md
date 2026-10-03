@@ -45,7 +45,7 @@ diagram preview and per-table restore).
 | ◐     | 7   | 33    | CSV seeds                                                        |
 | ◐     | 16  | 33    | Test-data generation (+ AI extension point)                      |
 | ◐     | 8   | 34    | Admin activity journal                                           |
-| 15    | 9   | 34    | External-change detection and alerts                             |
+| ◐     | 9   | 34    | External-change detection and alerts                             |
 | 16    | 19  | 34    | Health dashboard, traffic, visual EXPLAIN                        |
 | 17    | 20  | 34    | Subscription notifications                                       |
 | 18    | 10  | 34    | Database-side logs (levels 1–2)                                  |
@@ -677,22 +677,42 @@ file_ref, options_json, updated_at)`; an abstract `SeedSource` interface (`csv` 
   policy, seeds, editor SQL, drift) and common fields `connection_id`, `project_id`,
   `correlation_id`; configurable retention; JSON/CSV export; optional hash-chain for a
   tamper-evident log. Reads stay out of the journal (as today).
-- [ ] **External-change detection ("Surveillance" per project)** — **XL**. Project setting
-      "Détecter les modifications externes à Athanor": interval (5 min … daily), scope
-      (structure / + views, functions, procedures / + accounts and permissions), ignore list,
-      alert channels, severity (critical on Prod connection), optional action "mark project
-      divergent and block deployments". Mechanism: store the **reference fingerprint** after every
-      successful deployment or pull; periodic re-introspection; on difference, look in
-      `deployment_history` for a recent Athanor deployment that explains it, otherwise
-      **external** (author and time when capability level 2 is available); event `drift.detected`;
-      reference updated once resolved. Tables `schema_fingerprints`, `drift_events`,
-      `monitor_settings`, `alert_acks`; routes `GET/PUT /api/projects/:id/monitoring`,
-      `POST …/monitoring/check`, `GET …/drift`, `POST …/drift/:id/resolve`; also in `/api/v1` +
-      `openapi.ts` (the sync test `openapi.test.ts` will fail until `docs/public-api.md` matches).
-      A connection error is state "inconnu" + a separate "base injoignable" alert, never a false
-      drift. Honours `connectionBudget` and `hostGuard`.
-      **Open:** first scope = structure only; watch data (e.g. rows of a locked table)?; block
-      deployments automatically while a drift is unresolved?
+- [~] **External-change detection ("Surveillance" per project)** — first slice done
+  2026-10-03. **Job runner first:** `infrastructure/scheduler.ts` (`scheduleJob`: no overlap,
+  never throws, `unref`ed, last run kept — `listJobs`; the older timers were not moved onto it).
+  `modules/monitoring/`: `monitor_settings` + `drift_events` (migration 28), routes
+  `GET/PUT /api/projects/:id/monitoring`, `POST …/monitoring/check`; a one-minute job checks the
+  projects that are due, one database at a time (60 s read cut-off). Compared with the reference
+  fingerprint of the last deployment / pull (strict `diffFingerprints`), ignore list by table
+  name; a state is reported once (`live_hash`), an "Ignorer" is remembered, a deployment / pull
+  resolves, an `unreachable` event is opened once and closed when the database answers. Kind
+  `partial-deployment` when a deployment failed half-way since the reference. Marks the link
+  out-of-schema (the existing banner), webhook `drift.detected` (Slack / Discord text too). UI: the
+  "Surveillance" card on the Déploiements tab. **Decisions taken:** structure only (no views /
+  functions / accounts, no data); deployments are **not** blocked while a drift is open; off by
+  default, project administrators switch it on. **Verified:** `monitoring/routes.test.ts` (SQLite
+  changed by hand: found once, ignored list, waved off, settled by a deployment; unreachable never
+  a change; rights), `e2e/monitoring.e2e.ts`. **Found on the way, fixed:** dates from the server
+  were formatted as local time (`toDate` in `i18n/formatters.ts`). **Still to do:** author / time
+  of an outside change (capability level 2); `/api/v1` and `openapi.ts`; e-mail alerts, grace delay,
+  mute and reminders (the channels item below); severity by stage (critical on production);
+  `connectionBudget` is not consulted (the job is sequential and bounded instead). The original
+  item: **XL**. Project setting
+  "Détecter les modifications externes à Athanor": interval (5 min … daily), scope
+  (structure / + views, functions, procedures / + accounts and permissions), ignore list,
+  alert channels, severity (critical on Prod connection), optional action "mark project
+  divergent and block deployments". Mechanism: store the **reference fingerprint** after every
+  successful deployment or pull; periodic re-introspection; on difference, look in
+  `deployment_history` for a recent Athanor deployment that explains it, otherwise
+  **external** (author and time when capability level 2 is available); event `drift.detected`;
+  reference updated once resolved. Tables `schema_fingerprints`, `drift_events`,
+  `monitor_settings`, `alert_acks`; routes `GET/PUT /api/projects/:id/monitoring`,
+  `POST …/monitoring/check`, `GET …/drift`, `POST …/drift/:id/resolve`; also in `/api/v1` +
+  `openapi.ts` (the sync test `openapi.test.ts` will fail until `docs/public-api.md` matches).
+  A connection error is state "inconnu" + a separate "base injoignable" alert, never a false
+  drift. Honours `connectionBudget` and `hostGuard`.
+  **Open:** first scope = structure only; watch data (e.g. rows of a locked table)?; block
+  deployments automatically while a drift is unresolved?
 - [ ] **Drift UI** — **L**. Editor banner ("modifiée en dehors d'Athanor — n différences" with
       Voir / Mettre à jour le schéma / Réappliquer le schéma / Ignorer), differences page reusing
       `editor/compare/` with per-line Import / Revert / Ignore (ignore list = exceptions), "divergent"
