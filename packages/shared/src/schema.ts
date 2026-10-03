@@ -282,6 +282,22 @@ export interface DeploymentHistoryEntry {
   createdAt: string;
   /** True once a successful rollback of this entry exists — the rollback action is offered at most once. */
   rolledBack: boolean;
+  /** The risks the plan carried and what was decided for each — who and when are the entry itself. */
+  acceptedRisks?: AcceptedRisk[];
+  /** Why they were accepted, when the person deploying said so. */
+  riskNote?: string;
+}
+
+/** One risk of a deployment plan as it was settled, kept with the deployment. */
+export interface AcceptedRisk {
+  type: SchemaDiffRiskType;
+  tableName: string;
+  columnName?: string;
+  detail?: string;
+  affectedRowCount: number;
+  strategy: ConflictResolutionStrategy;
+  /** The target could not be measured when the plan was made. */
+  unmeasured?: boolean;
 }
 
 export type SchemaDiffRiskType =
@@ -292,6 +308,8 @@ export type SchemaDiffRiskType =
   | "ADD_NOT_NULL_NO_DEFAULT"
   | "FK_VIOLATION"
   | "UNIQUE_VIOLATION"
+  /** A text column gets a shorter limit than it had (or a limit where it had none). */
+  | "LENGTH_REDUCTION"
   /** A column's DBML type isn't the target engine's native spelling — see `translateType` in `typeMapping.ts`. */
   | "TYPE_TRANSLATION_SUGGESTED";
 
@@ -303,6 +321,8 @@ export type ConflictResolutionStrategy =
   | "BACKFILL_DEFAULT"
   | "DELETE_OFFENDING_ROWS"
   | "CANCEL"
+  /** Run the change as planned: offered when a probe could not measure the target — the database itself refuses a constraint the data breaks. */
+  | "PROCEED"
   /** Apply the engine-native type suggested for a `TYPE_TRANSLATION_SUGGESTED` risk. */
   | "USE_TRANSLATED_TYPE"
   /** Deploy/export the column type exactly as written in the canvas, skipping the suggested translation. */
@@ -322,8 +342,17 @@ export interface SchemaRisk {
   tableName: string;
   columnName?: string;
   refName?: string;
+  /** Rows concerned (with data, NULL, duplicated, orphaned…) — a count, never the rows themselves. */
   affectedRowCount: number;
-  sampleData?: Array<Record<string, unknown> | string | number | boolean | null>;
+  /** The columns of a new unique index, or the relation of a new foreign key. */
+  detail?: string;
+  /** Where the answer goes in the `MigrationResolutionMap`; absent: `column:t.c` or `table:t`. */
+  resolutionKey?: string;
+  /** The target could not be measured (timeout, error): the risk is a possibility, not a finding. */
+  unmeasured?: boolean;
+  /** `LENGTH_REDUCTION`: the longest value today, and the new limit. */
+  measuredMax?: number;
+  limit?: number;
   availableStrategies: StrategyOption[];
   defaultStrategy: ConflictResolutionStrategy;
   selectedStrategy: ConflictResolutionStrategy;

@@ -12,3 +12,4 @@ export * from "./typeTranslationRisks.js";
 export * from "./templates.js";
 export * from "./fingerprint.js";
 export * from "./partialRestore.js";
+export * from "./deploymentProbes.js";
