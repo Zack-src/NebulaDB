@@ -1,8 +1,8 @@
 import { db } from "../../infrastructure/db.js";
 
-export type WebhookEvent = "schema.changed" | "deployment.completed" | "ping";
+export type WebhookEvent = "schema.changed" | "deployment.completed" | "drift.detected" | "ping";
 /** Events a webhook can subscribe to — `ping` is only ever sent on demand (the "send a test" button). */
-export const SUBSCRIBABLE_EVENTS: WebhookEvent[] = ["schema.changed", "deployment.completed"];
+export const SUBSCRIBABLE_EVENTS: WebhookEvent[] = ["schema.changed", "deployment.completed", "drift.detected"];
 export type WebhookFormat = "json" | "slack" | "discord";
 export const WEBHOOK_FORMATS: WebhookFormat[] = ["json", "slack", "discord"];
 

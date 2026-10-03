@@ -11,6 +11,7 @@ import { getRoom, notifyProject } from "../../realtime/roomRegistry.js";
 import { ApiError } from "../../shared/errors.js";
 import { createDatabaseDriver } from "./drivers/index.js";
 import { getProjectConnection } from "./repository.js";
+import { closeDriftEvents } from "../monitoring/repository.js";
 
 /**
  * Keeps track of whether a project's database still is what the project last
@@ -26,8 +27,8 @@ import { getProjectConnection } from "./repository.js";
  *   show its banner, and it costs nothing to read: no connection is opened
  *   until someone asks what actually differs.
  *
- * Periodic detection of changes made by *other* tools (Phase 34) will compare
- * against the same reference; it is not done here.
+ * Periodic detection of changes made by *other* tools compares against the
+ * same reference: see `modules/monitoring/`.
  */
 
 export type FingerprintSource = "deploy" | "rollback" | "pull";
@@ -52,11 +53,13 @@ export function saveReferenceFingerprint(
       `UPDATE project_connection_links SET out_of_schema_at = NULL, out_of_schema_detail = NULL
         WHERE project_id = ? AND connection_id = ?`,
     ).run(projectId, connectionId);
+    // Schema and database agree again: what the watch had found is settled.
+    closeDriftEvents(projectId, connectionId, "resolved", ["external", "partial-deployment"]);
   })();
   notifyProject(projectId, { type: "drift-changed" });
 }
 
-function loadReference(projectId: string, connectionId: string): SchemaFingerprint | null {
+export function loadReference(projectId: string, connectionId: string): SchemaFingerprint | null {
   const row = db
     .prepare("SELECT snapshot_json FROM schema_fingerprints WHERE project_id = ? AND connection_id = ?")
     .get(projectId, connectionId) as { snapshot_json: string } | undefined;
@@ -68,6 +71,23 @@ function loadReference(projectId: string, connectionId: string): SchemaFingerpri
   } catch {
     return null;
   }
+}
+
+/** When the reference was taken — `null` when there is none. */
+export function referenceTakenAt(projectId: string, connectionId: string): string | null {
+  const row = db
+    .prepare("SELECT taken_at FROM schema_fingerprints WHERE project_id = ? AND connection_id = ?")
+    .get(projectId, connectionId) as { taken_at: string } | undefined;
+  return row?.taken_at ?? null;
+}
+
+/** Marks one project's link to a database as changed outside the schema, with what was found. */
+export function markProjectOutOfSchema(projectId: string, connectionId: string, detail: string): void {
+  db.prepare(
+    `UPDATE project_connection_links SET out_of_schema_at = datetime('now'), out_of_schema_detail = ?
+      WHERE project_id = ? AND connection_id = ?`,
+  ).run(detail.slice(0, 500), projectId, connectionId);
+  notifyProject(projectId, { type: "drift-changed" });
 }
 
 /**
@@ -93,6 +113,8 @@ export function dismissOutOfSchema(projectId: string, connectionId: string): boo
         WHERE project_id = ? AND connection_id = ? AND out_of_schema_at IS NOT NULL`,
     )
     .run(projectId, connectionId).changes;
+  // Waved off: the watch will not report this state of the database again.
+  closeDriftEvents(projectId, connectionId, "ignored", ["external", "partial-deployment"]);
   if (changed > 0) notifyProject(projectId, { type: "drift-changed" });
   return changed > 0;
 }

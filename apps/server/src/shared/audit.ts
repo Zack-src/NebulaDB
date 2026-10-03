@@ -85,6 +85,7 @@ export const AUDIT_ACTIONS = [
   "environment.reorder",
   "seed.set",
   "seed.remove",
+  "project.monitoring",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

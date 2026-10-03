@@ -8,6 +8,8 @@ import { purgeStaleAttempts } from "./modules/auth/lockout.js";
 import { purgeExpiredResetTokens } from "./modules/auth/passwordReset.js";
 import { startWebhookWorker } from "./modules/webhooks/dispatcher.js";
 import { startConnectionHealthChecks } from "./modules/dbAdmin/health.js";
+import { runDueMonitoring } from "./modules/monitoring/monitor.js";
+import { scheduleJob, stopAllJobs } from "./infrastructure/scheduler.js";
 import { purgeOldDeliveries } from "./modules/webhooks/repository.js";
 import { purgeExpiredSessions } from "./modules/auth/session.js";
 import { purgeExpiredMfaChallenges } from "./modules/auth/totpRepository.js";
@@ -56,6 +58,8 @@ sessionSweepTimer.unref();
 // attempts don't wait for this — they're sent as soon as they're queued.
 startWebhookWorker();
 startConnectionHealthChecks(config.connectionHealthIntervalMinutes);
+// The watch over projects' databases: each project says how often; this only looks for who is due.
+scheduleJob("drift-monitor", 60_000, runDueMonitoring);
 
 /**
  * Scheduled backups, off unless `ATHANORDB_BACKUP_INTERVAL_HOURS` is set.
@@ -114,6 +118,7 @@ async function shutdown(signal: string): Promise<void> {
   timer.unref();
 
   clearInterval(sessionSweepTimer);
+  stopAllJobs();
   if (backupTimer) clearInterval(backupTimer);
   try {
     const flushed = flushAllRooms();

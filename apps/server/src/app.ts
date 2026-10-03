@@ -30,6 +30,7 @@ import { registerTeamRoutes } from "./modules/teams/routes.js";
 import { registerSearchRoutes } from "./modules/search/routes.js";
 import { registerSeedRoutes } from "./modules/seeds/routes.js";
 import { registerGeneratorRoutes } from "./modules/generator/routes.js";
+import { registerMonitoringRoutes } from "./modules/monitoring/routes.js";
 import { lockedTableIdsFor } from "./modules/tableLocks/access.js";
 import { registerTableLockRoutes } from "./modules/tableLocks/routes.js";
 import { registerWebhookRoutes } from "./modules/webhooks/routes.js";
@@ -192,6 +193,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerTableLockRoutes(app);
   registerSeedRoutes(app);
   registerGeneratorRoutes(app);
+  registerMonitoringRoutes(app);
   registerWebhookRoutes(app);
   registerConvertRoutes(app);
   registerEnvironmentRoutes(app);

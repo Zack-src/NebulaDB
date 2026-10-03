@@ -688,6 +688,40 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 28,
+    name: "monitor_settings and drift_events tables",
+    up: (db) => {
+      // Per project: whether its databases are watched, how often, what to
+      // ignore, and when they were last read. Off unless someone turns it on.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS monitor_settings (
+          project_id TEXT PRIMARY KEY,
+          enabled INTEGER NOT NULL DEFAULT 0,
+          interval_minutes INTEGER NOT NULL DEFAULT 60,
+          ignore_json TEXT NOT NULL DEFAULT '[]',
+          last_checked_at TEXT,
+          updated_by_name TEXT,
+          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE TABLE IF NOT EXISTS drift_events (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL,
+          connection_id TEXT NOT NULL,
+          kind TEXT NOT NULL,
+          detected_at TEXT NOT NULL DEFAULT (datetime('now')),
+          live_hash TEXT,
+          added_json TEXT NOT NULL DEFAULT '[]',
+          removed_json TEXT NOT NULL DEFAULT '[]',
+          changed_json TEXT NOT NULL DEFAULT '[]',
+          error TEXT,
+          status TEXT NOT NULL DEFAULT 'open',
+          resolved_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_drift_events_project ON drift_events(project_id, detected_at DESC);
+      `);
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */

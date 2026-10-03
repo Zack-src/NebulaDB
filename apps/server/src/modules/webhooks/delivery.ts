@@ -78,6 +78,14 @@ function summarize(envelope: WebhookEnvelope): string {
         ? `🚀 « ${name} » déployé sur ${target} (${data.executedStatements} instruction(s))${link}`
         : `❌ Échec du déploiement de « ${name} » sur ${target} : ${data.error ?? "erreur inconnue"}${link}`;
     }
+    case "drift.detected": {
+      const target = `${data.connectionName}${data.environment ? ` [${data.environment}]` : ""}`;
+      const count = ["added", "removed", "changed"].reduce(
+        (sum, key) => sum + ((data[key] as string[] | undefined)?.length ?? 0),
+        0,
+      );
+      return `⚠️ La base ${target} de « ${name} » a été modifiée en dehors d'Athanor (${count} table(s))${link}`;
+    }
   }
 }
 

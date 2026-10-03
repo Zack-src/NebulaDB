@@ -84,6 +84,10 @@ export const ERROR_CATALOG = {
     status: 400,
     message: "a seed needs CSV content (at most 2 MB, 50 000 rows) and valid options: separator, header, mapping, mode",
   },
+  MONITORING_INVALID: {
+    status: 400,
+    message: "monitoring: enabled (boolean), intervalMinutes (5, 15, 60, 360 or 1440), ignoreTables (names)",
+  },
   ACTIVITY_QUERY_INVALID: {
     status: 400,
     message: "activity filters: dates as YYYY-MM-DD[ HH:MM[:SS]], a known category, an integer cursor",
@@ -101,7 +105,7 @@ export const ERROR_CATALOG = {
   WEBHOOK_FORMAT_INVALID: { status: 400, message: "format must be one of json, slack, discord" },
   WEBHOOK_EVENTS_INVALID: {
     status: 400,
-    message: "events must be a non-empty array of schema.changed, deployment.completed",
+    message: "events must be a non-empty array of schema.changed, deployment.completed, drift.detected",
   },
   API_KEY_SCOPES_INVALID: {
     status: 400,

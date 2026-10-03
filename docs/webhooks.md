@@ -6,11 +6,12 @@ project can have up to 10.
 
 ## Events
 
-| Event                  | Sent when                                                                                                                                           |
-| ---------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Event                  | Sent when                                                                                                                                                                                      |
+| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `schema.changed`       | The schema changed, once the project has seen **30 seconds without an edit**. A burst of edits becomes one notification listing every author. Moving tables or changing colours doesn't count. |
-| `deployment.completed` | A deployment or a rollback to a connected database finished — successfully or not.                                                                  |
-| `ping`                 | Only when someone clicks **Tester** — never subscribed to.                                                                                          |
+| `deployment.completed` | A deployment or a rollback to a connected database finished — successfully or not.                                                                                                             |
+| `drift.detected`       | The project's watch (Déploiements → Surveillance) found a database changed outside Athanor since the last deployment or pull. Once per state of the database.                                  |
+| `ping`                 | Only when someone clicks **Tester** — never subscribed to.                                                                                                                                     |
 
 ## Formats
 
@@ -42,6 +43,11 @@ Slack and Discord messages are short French sentences built from the event.
 For `deployment.completed`, `data` is `{ kind: "deploy" | "rollback",
 connectionName, environment, engine, success, executedStatements, error,
 executedBy }` — `executedBy` is the email of the person who ran it.
+
+For `drift.detected`, `data` is `{ kind: "external" | "partial-deployment",
+connectionName, environment, added, removed, changed }` — the last three are
+table names. `partial-deployment` means a deployment failed half-way since the
+reference and explains the change.
 
 `id` is the same for every retry of one delivery: use it to ignore duplicates.
 
