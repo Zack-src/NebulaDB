@@ -102,6 +102,17 @@
             {/if}
           </div>
 
+          {#if entry.seedReport && entry.seedReport.length > 0}
+            <p class="mt-1.5 font-mono text-[11px] text-text-muted">
+              {t("seeds.historyLine", {
+                tables: entry.seedReport
+                  .map((result) =>
+                    result.error ? `${result.tableName} ✕` : result.skipped ? `${result.tableName} =` : `${result.tableName} +${result.inserted}`,
+                  )
+                  .join(", "),
+              })}
+            </p>
+          {/if}
           {#if entry.acceptedRisks && entry.acceptedRisks.length > 0}
             <div class="mt-2 rounded-sm border border-border bg-surface-raised p-2 text-[11px]">
               <span class="mb-1 block font-semibold text-text">{t("deployment.historyAcceptedRisks")}</span>

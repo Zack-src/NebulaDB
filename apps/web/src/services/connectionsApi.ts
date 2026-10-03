@@ -6,6 +6,8 @@ import type {
   MigrationResolutionMap,
   ProjectDriftEntry,
   SchemaRisk,
+  SeedPlanEntry,
+  SeedResult,
 } from "@athanordb/shared";
 import type { MigrationDiff } from "@athanordb/dbml-engine";
 import { request } from "./httpClient";
@@ -20,6 +22,10 @@ export interface TestConnectionResponse {
 export interface PlanDeploymentResponse {
   diff: MigrationDiff;
   risks: SchemaRisk[];
+  /** What each table's seed would do after the DDL. */
+  seeds: SeedPlanEntry[];
+  /** Seeded tables that depend on each other in a cycle (names) — the deployment refuses them. */
+  seedCycles: string[][];
   sqlPreview: string;
   engine: string;
 }
@@ -30,6 +36,7 @@ export interface ApplyDeploymentResponse {
   sql: string;
   rollbackAvailable: boolean;
   irreversibleWarnings: string[];
+  seedReport: SeedResult[];
 }
 
 export interface RollbackResponse {
@@ -126,6 +133,8 @@ export async function applyDeployment(
     confirmName?: string;
     /** Why the plan's risks are accepted; kept with the deployment. */
     riskNote?: string;
+    /** Leave the seeds out of this deployment. */
+    skipSeeds?: boolean;
   } = {},
 ): Promise<ApplyDeploymentResponse> {
   return request<ApplyDeploymentResponse>(`/api/projects/${projectId}/connections/${connId}/apply-deployment`, {

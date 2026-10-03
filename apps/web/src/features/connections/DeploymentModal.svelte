@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { SchemaRisk } from "@athanordb/shared";
+  import type { SchemaRisk, SeedResult } from "@athanordb/shared";
 
   /** Where a risk's answer goes in the resolutions — the server files it under the same key. */
   function riskKey(risk: SchemaRisk): string {
@@ -20,6 +20,7 @@
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Button from "@/components/ui/Button.svelte";
   import Badge from "@/components/ui/Badge.svelte";
+  import Checkbox from "@/components/ui/Checkbox.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { AlertTriangleIcon, CheckCircleIcon, CheckIcon, DatabaseIcon } from "@/components/icons/Icons";
@@ -72,7 +73,10 @@
     sql: string;
     rollbackAvailable: boolean;
     irreversibleWarnings: string[];
+    seedReport: SeedResult[];
   } | null>(null);
+  /** Leave the tables' initial data out of this deployment. */
+  let skipSeeds = $state(false);
   let error = $state<string | null>(null);
   let copied = $state(false);
   /** Why the risks are accepted — kept with the deployment in its history. */
@@ -167,6 +171,7 @@
       deployResult = await applyDeployment(projectId, selectedConnId, resolutions, {
         confirmName,
         riskNote: riskNote.trim() || undefined,
+        skipSeeds,
       });
       activeStep = "done";
     } catch (err) {
@@ -179,6 +184,13 @@
   const selectedConn = $derived(connections.find((c) => c.id === selectedConnId));
   const diff = $derived(plan?.diff);
   const risks = $derived(plan?.risks ?? []);
+  const seedPlan = $derived(plan?.seeds ?? []);
+  const seedsToInsert = $derived(!skipSeeds && seedPlan.some((entry) => entry.action === "insert"));
+  const seedsBroken = $derived(
+    !skipSeeds && (seedPlan.some((entry) => entry.errors > 0) || (plan?.seedCycles.length ?? 0) > 0),
+  );
+  /** Something to deploy: schema changes, or seeds to insert into an unchanged schema. */
+  const hasWork = $derived(Boolean(diff?.hasChanges) || seedsToInsert);
   const strategyOf = (risk: SchemaRisk) => resolutions[riskKey(risk)]?.strategy ?? risk.defaultStrategy;
   /** Risks answered "cancel / handle manually": the server refuses the deployment while there is one. */
   const blockingRisks = $derived(risks.filter((risk) => risk.severity !== "info" && strategyOf(risk) === "CANCEL"));
@@ -272,13 +284,13 @@
             <div class="flex h-48 items-center justify-center text-xs text-text-muted">
               {t("deployment.analyzingDiff")}
             </div>
-          {:else if !diff?.hasChanges}
+          {:else if !diff?.hasChanges && !seedsToInsert}
             <div class="rounded-sm border border-border bg-surface-raised p-6 text-center text-xs text-text-muted">
               <Icon icon={CheckCircleIcon} size={24} class="mx-auto mb-2 text-emerald-400" />
               <p class="font-semibold text-text">{t("deployment.inSync")}</p>
               <p class="mt-1">{t("deployment.inSyncDesc")}</p>
             </div>
-          {:else}
+          {:else if diff}
             <div class="max-h-80 space-y-2 overflow-y-auto pr-1">
               {#each diff.tables as table (table.name)}
                 <div class="rounded-sm border border-border bg-surface p-2.5 text-xs">
@@ -319,6 +331,37 @@
               {/each}
             </div>
           {/if}
+        </div>
+      {/if}
+
+      <!-- The tables' initial data, inserted after the DDL -->
+      {#if activeStep === "diff" && !analyzing && seedPlan.length > 0}
+        <div class="mt-3 rounded-sm border border-border bg-surface p-2.5 text-xs" data-testid="seed-plan">
+          <div class="mb-1.5 flex items-center justify-between gap-2">
+            <span class="font-semibold text-text">{t("seeds.planTitle")}</span>
+            {#if !readOnly}
+              <Checkbox bind:checked={skipSeeds}><span class="text-xs">{t("seeds.skip")}</span></Checkbox>
+            {/if}
+          </div>
+          <ul class={`space-y-0.5 font-mono text-[11px] ${skipSeeds ? "opacity-50" : ""}`}>
+            {#each seedPlan as entry (entry.tableId)}
+              <li class={entry.errors > 0 ? "text-danger" : entry.action === "insert" ? "text-emerald-400" : "text-text-muted"}>
+                {entry.tableName} :
+                {#if entry.errors > 0}
+                  {t("seeds.planErrors", { count: entry.errors })}
+                {:else if entry.action === "insert"}
+                  {t("seeds.planInsert", { count: entry.rows })}
+                {:else if entry.action === "skip-not-empty"}
+                  {t("seeds.planSkip", { count: entry.existingRows ?? 0 })}
+                {:else}
+                  {t("seeds.planUnmeasured")}
+                {/if}
+              </li>
+            {/each}
+          </ul>
+          {#each plan?.seedCycles ?? [] as cycle, index (index)}
+            <p class="mt-1 text-danger">{t("seeds.planCycle", { tables: cycle.join(" → ") })}</p>
+          {/each}
         </div>
       {/if}
 
@@ -505,6 +548,20 @@
               name: selectedConn?.name || "",
             })}
           </p>
+          {#if deployResult.seedReport.length > 0}
+            <ul class="mt-3 space-y-0.5 text-left font-mono text-[11px]" data-testid="seed-report">
+              {#each deployResult.seedReport as result (result.tableName)}
+                <li class={result.error ? "text-danger" : "text-text"}>
+                  {result.tableName} :
+                  {result.error
+                    ? t("seeds.reportFailed", { error: result.error })
+                    : result.skipped
+                      ? t("seeds.reportSkipped")
+                      : t("seeds.reportInserted", { count: result.inserted })}
+                </li>
+              {/each}
+            </ul>
+          {/if}
           {#if deployResult.irreversibleWarnings.length > 0}
             <div class="mt-3 space-y-1 rounded-sm border border-amber-500/40 bg-amber-500/5 p-2.5 text-left text-[11px] text-amber-300">
               <p class="font-semibold">{t("deployment.rollbackIrreversibleTitle")}</p>
@@ -549,7 +606,7 @@
         <div class="flex items-center gap-2">
           <Button size="sm" variant="ghost" onclick={onClose}>{t("common.close")}</Button>
 
-          {#if activeStep === "diff" && diff?.hasChanges}
+          {#if activeStep === "diff" && hasWork}
             <Button size="sm" variant="primary" onclick={() => (activeStep = risks.length > 0 ? "risks" : "sql")}>
               {risks.length > 0 ? t("deployment.reviewRisks") : t("deployment.previewSql")}
             </Button>
@@ -561,7 +618,7 @@
 
           {#if activeStep === "sql" && !readOnly}
             <Button size="sm" variant="primary" onclick={() => void handleApplyDeployment()}
-              disabled={deploying || !diff?.hasChanges || blockingRisks.length > 0}
+              disabled={deploying || !hasWork || blockingRisks.length > 0 || seedsBroken}
             >
               <Icon icon={CheckIcon} size={13} />
               {deploying ? t("deployment.deploying") : t("deployment.applyMigration")}
