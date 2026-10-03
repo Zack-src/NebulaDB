@@ -1,12 +1,12 @@
 import crypto from "node:crypto";
-import type { AcceptedRisk, DatabaseEngine, DeploymentHistoryEntry } from "@athanordb/shared";
+import type { AcceptedRisk, DatabaseEngine, DeploymentHistoryEntry, SeedResult } from "@athanordb/shared";
 import { db } from "../../infrastructure/db.js";
 
-/** A stored `accepted_risks` column; anything unreadable reads as none rather than failing the history. */
-function parseAcceptedRisks(raw: string): AcceptedRisk[] {
+/** A stored JSON column (`accepted_risks`, `seed_report`); anything unreadable reads as none rather than failing the history. */
+function parseJsonArray<T>(raw: string): T[] {
   try {
     const parsed: unknown = JSON.parse(raw);
-    return Array.isArray(parsed) ? (parsed as AcceptedRisk[]) : [];
+    return Array.isArray(parsed) ? (parsed as T[]) : [];
   } catch {
     return [];
   }
@@ -28,6 +28,7 @@ interface HistoryRow {
   error: string | null;
   executed_by_email: string | null;
   accepted_risks: string | null;
+  seed_report: string | null;
   risk_note: string | null;
   created_at: string;
 }
@@ -48,8 +49,9 @@ function rowToEntry(row: HistoryRow, rolledBack: boolean): DeploymentHistoryEntr
     totalStatements: row.total_statements,
     error: row.error ?? undefined,
     executedByEmail: row.executed_by_email,
-    ...(row.accepted_risks ? { acceptedRisks: parseAcceptedRisks(row.accepted_risks) } : {}),
+    ...(row.accepted_risks ? { acceptedRisks: parseJsonArray<AcceptedRisk>(row.accepted_risks) } : {}),
     ...(row.risk_note ? { riskNote: row.risk_note } : {}),
+    ...(row.seed_report ? { seedReport: parseJsonArray<SeedResult>(row.seed_report) } : {}),
     createdAt: row.created_at,
     rolledBack,
   };
@@ -73,6 +75,7 @@ export interface RecordDeploymentInput {
   executedByEmail: string | null;
   acceptedRisks?: AcceptedRisk[];
   riskNote?: string | null;
+  seedReport?: SeedResult[];
 }
 
 export function recordDeployment(input: RecordDeploymentInput): string {
@@ -80,8 +83,8 @@ export function recordDeployment(input: RecordDeploymentInput): string {
   db.prepare(
     `INSERT INTO deployment_history
        (id, project_id, connection_id, connection_name, environment, engine, sql, rollback_sql, rollback_of,
-        success, executed_statements, total_statements, error, executed_by_email, accepted_risks, risk_note)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        success, executed_statements, total_statements, error, executed_by_email, accepted_risks, risk_note, seed_report)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     input.projectId,
@@ -99,6 +102,7 @@ export function recordDeployment(input: RecordDeploymentInput): string {
     input.executedByEmail,
     input.acceptedRisks && input.acceptedRisks.length > 0 ? JSON.stringify(input.acceptedRisks) : null,
     input.riskNote?.trim() || null,
+    input.seedReport && input.seedReport.length > 0 ? JSON.stringify(input.seedReport) : null,
   );
   return id;
 }

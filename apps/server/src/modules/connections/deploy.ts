@@ -8,6 +8,8 @@ import type { DatabaseDriver } from "./drivers/interface.js";
 import { getProjectConnection } from "./repository.js";
 import { getEnvironment } from "../environments/repository.js";
 import { analyzeDeploymentRisks, settleRisks } from "./riskAnalysis.js";
+import { applySeeds, assertSeedsDeployable, prepareSeeds } from "../seeds/deploySeeds.js";
+import type { SeedResult } from "@athanordb/shared";
 
 const RISK_NOTE_MAX = 1000;
 
@@ -85,6 +87,8 @@ export interface DeployToConnectionResult {
   sql: string;
   rollbackAvailable: boolean;
   irreversibleWarnings: string[];
+  /** What each seeded table got; a failure there does not undo the DDL, which already ran. */
+  seedReport: SeedResult[];
 }
 
 /**
@@ -107,6 +111,8 @@ export async function deployToConnection(
     confirmName?: string;
     /** Why the plan's risks are accepted — kept with the deployment. */
     riskNote?: string;
+    /** Leave the tables' seeds out of this deployment. */
+    skipSeeds?: boolean;
   } = {},
 ): Promise<DeployToConnectionResult> {
   const { confirmName } = options;
@@ -129,6 +135,10 @@ export async function deployToConnection(
       resolutions,
       isProductionStage(conn),
     );
+    // Seeds are checked before anything runs: a seed that cannot go in must
+    // not leave the database half-deployed.
+    const seeds = options.skipSeeds ? null : prepareSeeds(projectId, canvasProject);
+    if (seeds) assertSeedsDeployable(seeds);
     const sql = generateMigrationSql(diff, conn.engine, resolutions);
     const { sql: rollbackSqlRaw, irreversible } = generateRollbackSql(diff, conn.engine, resolutions);
     // The warnings are prepended as SQL comments rather than kept in a
@@ -143,6 +153,8 @@ export async function deployToConnection(
       : null;
 
     const result = await driver.executeMigration(sql);
+    const seedReport: SeedResult[] =
+      result.success && seeds && seeds.seeds.length > 0 ? await applySeeds(driver, seeds, conn.engine) : [];
 
     recordDeployment({
       projectId,
@@ -159,6 +171,7 @@ export async function deployToConnection(
       executedByEmail,
       acceptedRisks,
       riskNote: typeof options.riskNote === "string" ? options.riskNote.slice(0, RISK_NOTE_MAX) : null,
+      seedReport,
     });
     notifyDeployment(projectId, conn, "deploy", result, executedByEmail);
 
@@ -177,6 +190,7 @@ export async function deployToConnection(
       sql,
       rollbackAvailable: Boolean(rollbackSql),
       irreversibleWarnings: irreversible,
+      seedReport,
     };
   } finally {
     await driver.close().catch(() => {});

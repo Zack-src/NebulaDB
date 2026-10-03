@@ -10,6 +10,7 @@ import { deployToConnection, rollbackConnectionDeployment } from "./deploy.js";
 import { checkDrift, dismissOutOfSchema, listProjectDrift } from "./drift.js";
 import { pullConnectionSchema } from "./pull.js";
 import { analyzeDeploymentRisks } from "./riskAnalysis.js";
+import { planSeeds, prepareSeeds } from "../seeds/deploySeeds.js";
 import { createProjectFromDatabase } from "./createFromDatabase.js";
 import { listDeploymentHistory } from "./deploymentHistory.js";
 import {
@@ -209,11 +210,16 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
       const liveProject = await driver.introspectSchema();
       const diff = diffTargetAgainstLive(liveProject, canvasProject);
       const risks = await analyzeDeploymentRisks(driver, diff, conn.engine);
+      const preparedSeeds = prepareSeeds(id, canvasProject);
+      const created = new Set(diff.tables.filter((t) => t.status === "added").map((t) => t.name.toLowerCase()));
+      const seeds = await planSeeds(driver, preparedSeeds, conn.engine, created);
       const initialSql = generateMigrationSql(diff, conn.engine, {});
 
       return {
         diff,
         risks,
+        seeds,
+        seedCycles: preparedSeeds.cycles,
         sqlPreview: initialSql,
         engine: conn.engine,
       };
@@ -230,11 +236,13 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
       resolutions?: MigrationResolutionMap;
       confirmName?: string;
       riskNote?: string;
+      skipSeeds?: boolean;
     };
 
     const result = await deployToConnection(id, project.name, connId, body.resolutions || {}, user.email, {
       confirmName: body.confirmName,
       riskNote: body.riskNote,
+      skipSeeds: body.skipSeeds === true,
     });
 
     auditUser(

@@ -113,11 +113,13 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
       resolutions?: MigrationResolutionMap;
       confirmName?: string;
       riskNote?: string;
+      skipSeeds?: boolean;
     };
 
     const result = await deployToConnection(id, project.name, connId, body.resolutions || {}, user.email, {
       confirmName: body.confirmName,
       riskNote: body.riskNote,
+      skipSeeds: body.skipSeeds === true,
     });
 
     auditUser(
