@@ -171,7 +171,6 @@ export interface Project {
 
 import type { StructurePolicySetting } from "./dbAdmin.js";
 import type { EnvironmentColor } from "./environments.js";
-import type { SeedResult } from "./seeds.js";
 
 export type DatabaseEngine = "postgres" | "mysql" | "sqlite" | "mssql" | "oracle";
 
@@ -291,6 +290,15 @@ export interface DeploymentHistoryEntry {
   seedReport?: SeedResult[];
   /** The backup of the database taken just before this deployment (instance administrators can restore it). */
   backupId?: string;
+}
+
+/** What one table's seed did during a deployment — kept in the deployment's history. Lives here, not in `seeds.ts`, which imports this file. */
+export interface SeedResult {
+  tableName: string;
+  inserted: number;
+  /** Not inserted because the table already had rows (`if-empty`). */
+  skipped: boolean;
+  error?: string;
 }
 
 /** One risk of a deployment plan as it was settled, kept with the deployment. */

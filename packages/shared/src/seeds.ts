@@ -389,12 +389,3 @@ export interface SeedPlanEntry {
   errors: number;
   warnings: number;
 }
-
-/** What one table's seed did during a deployment — kept in the deployment's history. */
-export interface SeedResult {
-  tableName: string;
-  inserted: number;
-  /** Not inserted because the table already had rows (`if-empty`). */
-  skipped: boolean;
-  error?: string;
-}
