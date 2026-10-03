@@ -19,6 +19,8 @@ const TARGETS = [
   { table: "db_connections", key: "id", column: "config_encrypted" },
   { table: "project_webhooks", key: "id", column: "secret_encrypted" },
   { table: "users", key: "id", column: "totp_secret_encrypted" },
+  // Each backup file has its own key; this is that key, not the file.
+  { table: "backups", key: "id", column: "key_encrypted" },
 ];
 
 function main(): void {

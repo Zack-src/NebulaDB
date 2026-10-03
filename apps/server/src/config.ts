@@ -5,6 +5,8 @@
  * falling back to a default halfway through a request.
  */
 
+import path from "node:path";
+
 const isProduction = process.env.NODE_ENV === "production";
 
 function fail(message: string): never {
@@ -212,12 +214,42 @@ function readConnectionHealthIntervalMinutes(): number {
   return minutes;
 }
 
+/**
+ * Ceiling on the data one logical backup of a connected database may read,
+ * before compression. A logical backup goes row by row through the driver:
+ * fine for small and medium databases, the wrong tool past that — the engine's
+ * own (`pg_dump`, `mysqldump`…) is. The limit says so instead of filling the disk.
+ */
+function readDatabaseBackupMaxBytes(): number {
+  const raw = process.env.ATHANORDB_DATABASE_BACKUP_MAX_MB;
+  if (raw === undefined || raw.trim() === "") return 512 * 1024 * 1024;
+  const mb = Number(raw);
+  if (!Number.isFinite(mb) || mb < 1 || mb > 102_400) {
+    fail(
+      `ATHANORDB_DATABASE_BACKUP_MAX_MB must be a size in megabytes between 1 and 102400 (got ${JSON.stringify(raw)})`,
+    );
+  }
+  return Math.round(mb * 1024 * 1024);
+}
+
+/** Days a backup of a connected database is kept, unless pinned. `0` keeps them until someone deletes them. */
+function readDatabaseBackupRetentionDays(): number {
+  const raw = process.env.ATHANORDB_DATABASE_BACKUP_RETENTION_DAYS;
+  if (raw === undefined || raw.trim() === "") return 30;
+  const days = Number(raw);
+  if (!Number.isInteger(days) || days < 0 || days > 3650) {
+    fail(`ATHANORDB_DATABASE_BACKUP_RETENTION_DAYS must be an integer between 0 and 3650 (got ${JSON.stringify(raw)})`);
+  }
+  return days;
+}
+
+const dbPath = process.env.ATHANORDB_DB_PATH ?? "./data/athanordb.sqlite";
 const publicUrl = readPublicUrl();
 
 export const config = {
   isProduction,
   port: readPort(),
-  dbPath: process.env.ATHANORDB_DB_PATH ?? "./data/athanordb.sqlite",
+  dbPath,
   cookieSecure: readCookieSecure(),
   /** Max REST body — DBML/SQL imports are the big ones. */
   bodyLimit: readSizeMb("ATHANORDB_MAX_BODY_MB", 4),
@@ -229,6 +261,15 @@ export const config = {
   backupIntervalHours: readBackupIntervalHours(),
   backupDir: process.env.ATHANORDB_BACKUP_DIR ?? "./backups",
   backupKeep: readBackupKeep(),
+  /**
+   * Backups of the *connected* databases (the "Sauvegardes" tab), not of
+   * AthanorDB's own data above. Next to the app database by default, so the
+   * volume that persists one persists the other.
+   */
+  databaseBackupDir:
+    process.env.ATHANORDB_DATABASE_BACKUP_DIR?.trim() || path.join(path.dirname(dbPath), "database-backups"),
+  databaseBackupMaxBytes: readDatabaseBackupMaxBytes(),
+  databaseBackupRetentionDays: readDatabaseBackupRetentionDays(),
   /** 0 keeps audit entries indefinitely. */
   auditRetentionDays: readAuditRetentionDays(),
   publicUrl,

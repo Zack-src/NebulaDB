@@ -10,3 +10,4 @@ export * from "./tableLocks.js";
 export * from "./environments.js";
 export * from "./seeds.js";
 export * from "./dataGenerator.js";
+export * from "./backups.js";

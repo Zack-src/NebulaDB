@@ -88,6 +88,10 @@ export const ERROR_CATALOG = {
     status: 400,
     message: "monitoring: enabled (boolean), intervalMinutes (5, 15, 60, 360 or 1440), ignoreTables (names)",
   },
+  BACKUP_INVALID: {
+    status: 400,
+    message: "backup: tables (names of this database), note (text, 500 characters at most), pinned (boolean)",
+  },
   ACTIVITY_QUERY_INVALID: {
     status: 400,
     message: "activity filters: dates as YYYY-MM-DD[ HH:MM[:SS]], a known category, an integer cursor",
@@ -148,6 +152,7 @@ export const ERROR_CATALOG = {
   WEBHOOK_NOT_FOUND: { status: 404, message: "no such webhook on this project" },
   TABLE_NOT_FOUND: { status: 404, message: "no such table in this project" },
   ENVIRONMENT_NOT_FOUND: { status: 404, message: "no such environment stage" },
+  BACKUP_NOT_FOUND: { status: 404, message: "no such backup" },
   SEED_NOT_FOUND: { status: 404, message: "this table has no seed" },
 
   // --- 409 ---
@@ -187,6 +192,17 @@ export const ERROR_CATALOG = {
     status: 409,
     message: "this connection is the production stage — send its name as confirmName to deploy or roll back",
   },
+  BACKUP_ALREADY_RUNNING: { status: 409, message: "a backup of this database is already running" },
+  BACKUP_NOT_READY: { status: 409, message: "this backup is not finished, or did not complete" },
+  BACKUP_CORRUPTED: {
+    status: 409,
+    message: "the stored backup file is missing or no longer matches its checksum",
+  },
+  RESTORE_CONFIRMATION_REQUIRED: {
+    status: 409,
+    message: "a restore replaces data — send the target connection's name as confirmName",
+  },
+  RESTORE_TARGET_MISMATCH: { status: 409, message: "this backup cannot be restored into that database" },
   ENVIRONMENT_NAME_TAKEN: { status: 409, message: "another stage already has this name" },
   STRUCTURE_CONFIRMATION_REQUIRED: {
     status: 409,
@@ -208,6 +224,7 @@ export const ERROR_CATALOG = {
   DB_ADMIN_QUERY_FAILED: { status: 502, message: "the target database rejected the statement" },
   MIGRATION_FAILED: { status: 502, message: "the migration could not be applied to the target database" },
   ROLLBACK_FAILED: { status: 502, message: "the rollback could not be applied to the target database" },
+  BACKUP_FAILED: { status: 502, message: "the safety backup did not complete, so nothing was changed" },
 } as const;
 
 export type ApiErrorCode = keyof typeof ERROR_CATALOG;

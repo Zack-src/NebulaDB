@@ -86,6 +86,10 @@ export const AUDIT_ACTIONS = [
   "seed.set",
   "seed.remove",
   "project.monitoring",
+  "backup.create",
+  "backup.delete",
+  "backup.download",
+  "backup.restore",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -114,7 +118,7 @@ const CATEGORY_RULES: [RegExp, ActivityCategory][] = [
     /^(table\.(lock|unlock)|dbadmin\.(drop|structure\.)|dbconn\.policy|instance\.structure_policy|project\.(import|revision\.restore))/,
     "structure",
   ],
-  [/^(dbadmin\.query|seed\.|project\.export)/, "data"],
+  [/^(dbadmin\.query|seed\.|backup\.|project\.export)/, "data"],
   [/^(auth\.|dbadmin\.session|user\.sessions|user\.totp)/, "sessions"],
   [/^(user\.|invitation\.|team\.|dbuser\.|project\.team\.|apikey\.)/, "accounts"],
   [/^project\./, "projects"],

@@ -722,6 +722,46 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 29,
+    name: "backups table, deployment_history.backup_id",
+    up: (db) => {
+      // Logical backups of connected databases. The rows live in a file
+      // (`storage_ref` is not needed: the file is named after the id); this is
+      // what the file holds, how it went, and the file's own key — encrypted
+      // with the instance secret, so rotating that secret never rewrites a file.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS backups (
+          id TEXT PRIMARY KEY,
+          connection_id TEXT,
+          connection_name TEXT NOT NULL,
+          engine TEXT NOT NULL,
+          trigger TEXT NOT NULL,
+          status TEXT NOT NULL,
+          scope_json TEXT,
+          tables_json TEXT NOT NULL DEFAULT '[]',
+          tables_total INTEGER NOT NULL DEFAULT 0,
+          rows INTEGER NOT NULL DEFAULT 0,
+          size_bytes INTEGER,
+          checksum TEXT,
+          key_encrypted TEXT,
+          error TEXT,
+          note TEXT,
+          created_by TEXT,
+          created_by_name TEXT,
+          started_at TEXT NOT NULL DEFAULT (datetime('now')),
+          finished_at TEXT,
+          pinned INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE INDEX IF NOT EXISTS idx_backups_connection ON backups(connection_id, started_at DESC);
+      `);
+      // The safety backup taken just before a deployment, when there was one.
+      const columns = db.prepare("PRAGMA table_info(deployment_history)").all() as { name: string }[];
+      if (!columns.some((c) => c.name === "backup_id")) {
+        db.exec("ALTER TABLE deployment_history ADD COLUMN backup_id TEXT");
+      }
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */
