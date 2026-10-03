@@ -84,6 +84,10 @@ export const ERROR_CATALOG = {
     status: 400,
     message: "a seed needs CSV content (at most 2 MB, 50 000 rows) and valid options: separator, header, mapping, mode",
   },
+  GENERATOR_INVALID: {
+    status: 400,
+    message: "a generation needs rows (1 to 10 000), an integer seed, a locale (fr, en) and known column generators",
+  },
   RESTORE_TABLES_INVALID: { status: 400, message: "tableIds must be a non-empty array of table ids (at most 500)" },
   ROLLBACK_NOT_AVAILABLE: { status: 400, message: "no rollback SQL is available for this deployment" },
   ROLLBACK_ALREADY_ATTEMPTED: { status: 400, message: "this deployment has already been rolled back" },

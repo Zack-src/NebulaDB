@@ -650,6 +650,24 @@ export const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 26,
+    name: "generator_configs table",
+    up: (db) => {
+      // How a table's test data is generated (rows, seed, locale, a generator
+      // per field id) — kept so a run can be repeated and adjusted.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS generator_configs (
+          project_id TEXT NOT NULL,
+          table_id TEXT NOT NULL,
+          config_json TEXT NOT NULL,
+          updated_by_name TEXT,
+          updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+          PRIMARY KEY (project_id, table_id)
+        );
+      `);
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */
