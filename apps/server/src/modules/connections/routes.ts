@@ -108,7 +108,9 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
     if (!VALID_ENGINES.has(body.engine)) throw new ApiError("CONNECTION_ENGINE_INVALID");
 
     const saved = saveConnection(id, body);
-    auditUser(user, "connection.create", { type: "project", id }, `${body.engine}: ${body.name}`, req);
+    auditUser(user, "connection.create", { type: "project", id }, `${body.engine}: ${body.name}`, req, {
+      connectionId: saved.id,
+    });
     return { connection: saved };
   });
 
@@ -123,7 +125,9 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
     const updated = updateConnection(connId, body, id);
     if (!updated) throw new ApiError("CONNECTION_NOT_FOUND");
 
-    auditUser(user, "connection.update", { type: "project", id }, `${updated.engine}: ${updated.name}`, req);
+    auditUser(user, "connection.update", { type: "project", id }, `${updated.engine}: ${updated.name}`, req, {
+      connectionId: connId,
+    });
     return { connection: updated };
   });
 
@@ -137,7 +141,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
     const ok = unlinkProjectConnection(id, connId);
     if (!ok) throw new ApiError("CONNECTION_NOT_FOUND");
 
-    auditUser(user, "connection.delete", { type: "project", id }, connId, req);
+    auditUser(user, "connection.delete", { type: "project", id }, connId, req, { connectionId: connId });
     return { deleted: true };
   });
 
@@ -162,7 +166,9 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
     const { user, project } = requireProjectAdmin(req, id);
 
     const result = await pullConnectionSchema(id, project.name, connId, user.displayName, user.id);
-    auditUser(user, "connection.pull", { type: "project", id }, `${connId} -> ${result.tablesCount} tables`, req);
+    auditUser(user, "connection.pull", { type: "project", id }, `${connId} -> ${result.tablesCount} tables`, req, {
+      connectionId: connId,
+    });
 
     return result;
   });
@@ -189,7 +195,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
     const { user } = requireProjectAdmin(req, id);
     if (!getProjectConnection(id, connId)) throw new ApiError("CONNECTION_NOT_FOUND");
     if (dismissOutOfSchema(id, connId)) {
-      auditUser(user, "connection.drift.dismiss", { type: "project", id }, connId, req);
+      auditUser(user, "connection.drift.dismiss", { type: "project", id }, connId, req, { connectionId: connId });
     }
     return { dismissed: true };
   });
@@ -251,6 +257,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
       { type: "project", id },
       `${connId}: executed ${result.executedStatements} statements`,
       req,
+      { connectionId: connId },
     );
 
     return result;
@@ -278,7 +285,9 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
     const { confirmName } = (req.body ?? {}) as { confirmName?: string };
     const result = await rollbackConnectionDeployment(id, connId, historyId, user.email, confirmName);
 
-    auditUser(user, "connection.rollback", { type: "project", id }, `${connId}: rolled back ${historyId}`, req);
+    auditUser(user, "connection.rollback", { type: "project", id }, `${connId}: rolled back ${historyId}`, req, {
+      connectionId: connId,
+    });
 
     return result;
   });

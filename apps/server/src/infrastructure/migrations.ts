@@ -668,6 +668,26 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 27,
+    name: "audit_log.project_id, connection_id, correlation_id",
+    up: (db) => {
+      // The activity view filters by project and by database, and groups what
+      // one request did. Older rows get the project or connection their target
+      // already named; the rest stay NULL (unknown, not "none").
+      const columns = db.prepare("PRAGMA table_info(audit_log)").all() as { name: string }[];
+      for (const column of ["project_id", "connection_id", "correlation_id"]) {
+        if (!columns.some((c) => c.name === column)) db.exec(`ALTER TABLE audit_log ADD COLUMN ${column} TEXT`);
+      }
+      db.exec(`
+        UPDATE audit_log SET project_id = target_id WHERE project_id IS NULL AND target_type = 'project';
+        UPDATE audit_log SET connection_id = target_id WHERE connection_id IS NULL AND target_type = 'connection';
+        CREATE INDEX IF NOT EXISTS idx_audit_log_project ON audit_log(project_id);
+        CREATE INDEX IF NOT EXISTS idx_audit_log_connection ON audit_log(connection_id);
+        CREATE INDEX IF NOT EXISTS idx_audit_log_actor ON audit_log(actor_id);
+      `);
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */

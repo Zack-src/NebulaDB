@@ -84,6 +84,10 @@ export const ERROR_CATALOG = {
     status: 400,
     message: "a seed needs CSV content (at most 2 MB, 50 000 rows) and valid options: separator, header, mapping, mode",
   },
+  ACTIVITY_QUERY_INVALID: {
+    status: 400,
+    message: "activity filters: dates as YYYY-MM-DD[ HH:MM[:SS]], a known category, an integer cursor",
+  },
   GENERATOR_INVALID: {
     status: 400,
     message: "a generation needs rows (1 to 10 000), an integer seed, a locale (fr, en) and known column generators",
