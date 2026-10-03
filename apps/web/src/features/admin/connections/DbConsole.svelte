@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { AdminConnectionSummary } from "@athanordb/shared";
   import Icon from "@/components/icons/Icon.svelte";
-  import { ChevronLeftIcon, CodeIcon, TableIcon, UsersIcon, ClockIcon } from "@/components/icons/Icons";
+  import { ArchiveIcon, ChevronLeftIcon, CodeIcon, TableIcon, UsersIcon, ClockIcon } from "@/components/icons/Icons";
   import Badge from "@/components/ui/Badge.svelte";
   import Button from "@/components/ui/Button.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
@@ -15,8 +15,9 @@
   import EnvironmentBadge from "@/features/environments/EnvironmentBadge.svelte";
   import SqlPanel from "@/features/sql/SqlPanel.svelte";
   import UsersPanel from "./UsersPanel.svelte";
+  import BackupsPanel from "@/features/backups/BackupsPanel.svelte";
 
-  type Section = "explorer" | "sql" | "users" | "sessions";
+  type Section = "explorer" | "sql" | "users" | "sessions" | "backups";
 
   /**
    * Everything done *on* one connected server. The overview request doubles as
@@ -52,6 +53,7 @@
     ];
     if (overview.data?.capabilities.users) list.push({ id: "users", label: t("dbadmin.tab.users"), icon: UsersIcon });
     if (overview.data?.capabilities.sessions) list.push({ id: "sessions", label: t("dbadmin.tab.sessions"), icon: ClockIcon });
+    list.push({ id: "backups", label: t("dbadmin.tab.backups"), icon: ArchiveIcon });
     return list;
   });
 </script>
@@ -92,8 +94,10 @@
       <SqlPanel connectionId={connection.id} overview={data} bind:database />
     {:else if section === "users"}
       <UsersPanel connectionId={connection.id} engine={connection.engine} overview={data} />
-    {:else}
+    {:else if section === "sessions"}
       <SessionsPanel connectionId={connection.id} overview={data} />
+    {:else}
+      <BackupsPanel {connection} />
     {/if}
   {/if}
 </div>

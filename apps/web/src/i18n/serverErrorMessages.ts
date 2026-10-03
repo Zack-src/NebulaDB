@@ -103,6 +103,13 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   SEED_NOT_FOUND: "errors.seedNotFound",
   SEEDS_NOT_DEPLOYABLE: "errors.seedsNotDeployable",
   DESTRUCTIVE_CHANGE_UNRESOLVED: "errors.destructiveChangeUnresolved",
+  BACKUP_INVALID: "errors.backupInvalid",
+  BACKUP_NOT_FOUND: "errors.backupNotFound",
+  BACKUP_ALREADY_RUNNING: "errors.backupAlreadyRunning",
+  BACKUP_NOT_READY: "errors.backupNotReady",
+  BACKUP_CORRUPTED: "errors.backupCorrupted",
+  RESTORE_CONFIRMATION_REQUIRED: "errors.restoreConfirmationRequired",
+  RESTORE_TARGET_MISMATCH: "errors.restoreTargetMismatch",
 };
 
 /**
@@ -116,6 +123,8 @@ const PREFER_SERVER_MESSAGE = new Set([
   "EXPORT_FAILED",
   "PASSWORD_TOO_WEAK",
   "PROJECT_LIMIT_REACHED",
+  // Says why the backup did not complete (too large, unreachable, a table that cannot be read).
+  "BACKUP_FAILED",
 ]);
 
 export type Translator = (key: TranslationKey, options?: TranslateOptions) => string;
