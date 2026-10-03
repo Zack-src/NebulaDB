@@ -166,3 +166,51 @@ export interface DbAdminStatementsResult {
   sql: string[];
   executed: boolean;
 }
+
+// ---- Structure policy ("structure goes through the schema") -------------------
+
+/**
+ * What the console does with an action that changes tables or indexes on a
+ * database some project models.
+ *
+ * `schema-only`: refused — the change is made in the schema editor and
+ * deployed, where it has history, review and rollback. `warn`: allowed after
+ * an explicit confirmation, and recorded in the audit log as made outside the
+ * schema. `free`: no restriction (the console's behaviour before this existed).
+ */
+export type StructurePolicy = "schema-only" | "warn" | "free";
+
+export const STRUCTURE_POLICIES: readonly StructurePolicy[] = ["schema-only", "warn", "free"];
+
+export interface StructurePolicySetting {
+  policy: StructurePolicy;
+  /** Also applies to statements typed in the SQL console, not only to the explorer's own drop actions. */
+  applyToSql: boolean;
+}
+
+/** The policy in force on one connection, and where it comes from. */
+export interface EffectiveStructurePolicy extends StructurePolicySetting {
+  source: "connection" | "instance";
+  /**
+   * The projects modelling this database. With none, nothing is intercepted
+   * whatever the policy says: there is no schema for the structure to go through.
+   */
+  projects: { id: string; name: string }[];
+}
+
+/** One structural change found in a statement or requested from the explorer. */
+export interface StructuralAction {
+  verb: "create" | "alter" | "drop" | "rename";
+  kind: "table" | "index";
+  /** As written when it could be read; `null` for a quoted or computed name. */
+  object: string | null;
+  /** Set for the explorer's "drop column". */
+  column?: string;
+}
+
+/** Body of a `STRUCTURE_VIA_SCHEMA` / `STRUCTURE_CONFIRMATION_REQUIRED` error. */
+export interface StructurePolicyRefusal {
+  policy: StructurePolicy;
+  actions: StructuralAction[];
+  projects: { id: string; name: string }[];
+}

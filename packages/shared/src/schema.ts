@@ -169,6 +169,9 @@ export interface Project {
   paletteColors?: string[];
 }
 
+import type { StructurePolicySetting } from "./dbAdmin.js";
+import type { EnvironmentColor } from "./environments.js";
+
 export type DatabaseEngine = "postgres" | "mysql" | "sqlite" | "mssql" | "oracle";
 
 export interface DatabaseConnectionConfig {
@@ -176,8 +179,16 @@ export interface DatabaseConnectionConfig {
   projectId: string;
   name: string;
   engine: DatabaseEngine;
-  /** Free-text operator label ("production", "staging", a client name) — never interpreted by the app, only shown and recorded on `DeploymentHistoryEntry` so history still reads correctly after the connection is later renamed or deleted. */
+  /**
+   * The name of the deployment stage this connection belongs to (see
+   * `EnvironmentStage`) — kept in step with the stage, and copied onto each
+   * `DeploymentHistoryEntry` so history still reads correctly after a rename.
+   * On input, a name is resolved to an existing stage; `environmentId` wins
+   * when both are sent.
+   */
   environment?: string;
+  /** The stage itself; `null` for none. */
+  environmentId?: string | null;
   host?: string;
   port?: number;
   database?: string;
@@ -190,6 +201,11 @@ export interface DatabaseConnectionConfig {
   tags?: string[];
   /** When set, the app refuses to write through this connection: no deployment, no write SQL, no drop, no user management. */
   readOnly?: boolean;
+  /**
+   * This connection's own structure policy; `null` to follow the instance
+   * default. Only ever set from the admin console — a project route ignores it.
+   */
+  structurePolicy?: StructurePolicySetting | null;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -199,7 +215,11 @@ export interface DatabaseConnectionSummary {
   projectId: string;
   name: string;
   engine: DatabaseEngine;
+  /** The stage's name, its id, colour, and whether it is the production stage — absent when the connection has none. */
   environment?: string;
+  environmentId?: string;
+  environmentColor?: EnvironmentColor;
+  production?: boolean;
   host?: string;
   port?: number;
   database?: string;
@@ -229,6 +249,8 @@ export interface AdminConnectionSummary extends DatabaseConnectionSummary {
   origin: ConnectionOrigin;
   tags: string[];
   readOnly: boolean;
+  /** `null`: follows the instance default. */
+  structurePolicy: StructurePolicySetting | null;
   projects: { id: string; name: string }[];
   health: ConnectionHealth;
 }

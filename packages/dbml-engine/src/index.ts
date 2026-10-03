@@ -10,3 +10,5 @@ export * from "./migrationGenerator.js";
 export * from "./rollbackGenerator.js";
 export * from "./typeTranslationRisks.js";
 export * from "./templates.js";
+export * from "./fingerprint.js";
+export * from "./partialRestore.js";

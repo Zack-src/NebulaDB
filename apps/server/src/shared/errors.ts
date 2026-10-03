@@ -68,6 +68,19 @@ export const ERROR_CATALOG = {
   CLIENT_ERROR_MESSAGE_REQUIRED: { status: 400, message: "message is required" },
   ERROR_LOG_SOURCE_INVALID: { status: 400, message: "source must be one of server, client" },
   DEPLOYMENT_HISTORY_NOT_FOUND: { status: 400, message: "no such deployment history entry" },
+  STRUCTURE_POLICY_INVALID: {
+    status: 400,
+    message: "policy must be one of schema-only, warn, free, and applyToSql a boolean",
+  },
+  TABLE_LOCK_INVALID: {
+    status: 400,
+    message: "level must be structure or full, authority project or instance, reason a string",
+  },
+  ENVIRONMENT_INVALID: {
+    status: 400,
+    message: "a stage needs a name (at most 40 characters); colour, protection and production must be known values",
+  },
+  RESTORE_TABLES_INVALID: { status: 400, message: "tableIds must be a non-empty array of table ids (at most 500)" },
   ROLLBACK_NOT_AVAILABLE: { status: 400, message: "no rollback SQL is available for this deployment" },
   ROLLBACK_ALREADY_ATTEMPTED: { status: 400, message: "this deployment has already been rolled back" },
   API_KEY_NAME_REQUIRED: { status: 400, message: "name is required" },
@@ -98,6 +111,8 @@ export const ERROR_CATALOG = {
   API_SCOPE_INSUFFICIENT: { status: 403, message: "this API key does not have the required scope" },
   API_KEY_PROJECT_RESTRICTED: { status: 403, message: "this API key is restricted to a different project" },
   CONNECTION_READ_ONLY: { status: 403, message: "this connection is marked read-only" },
+  TABLE_LOCKED: { status: 403, message: "this change touches a locked table" },
+  TABLE_LOCK_FORBIDDEN: { status: 403, message: "this lock can only be changed by an instance administrator" },
   CONNECTION_MANAGED_BY_ADMIN: {
     status: 403,
     message: "this connection is managed by an instance administrator and cannot be changed from a project",
@@ -115,6 +130,8 @@ export const ERROR_CATALOG = {
   CONNECTION_NOT_FOUND: { status: 404, message: "connection not found" },
   API_KEY_NOT_FOUND: { status: 404, message: "no such API key" },
   WEBHOOK_NOT_FOUND: { status: 404, message: "no such webhook on this project" },
+  TABLE_NOT_FOUND: { status: 404, message: "no such table in this project" },
+  ENVIRONMENT_NOT_FOUND: { status: 404, message: "no such environment stage" },
 
   // --- 409 ---
   EMAIL_ALREADY_EXISTS: { status: 409, message: "a user with this email already exists" },
@@ -131,6 +148,20 @@ export const ERROR_CATALOG = {
   CONNECTION_RATE_LIMITED: {
     status: 429,
     message: "too many operations against this database in the last minute — wait before retrying",
+  },
+
+  STRUCTURE_VIA_SCHEMA: {
+    status: 409,
+    message: "structure changes on this database go through its schema — make the change in the project and deploy it",
+  },
+  PRODUCTION_CONFIRMATION_REQUIRED: {
+    status: 409,
+    message: "this connection is the production stage — send its name as confirmName to deploy or roll back",
+  },
+  ENVIRONMENT_NAME_TAKEN: { status: 409, message: "another stage already has this name" },
+  STRUCTURE_CONFIRMATION_REQUIRED: {
+    status: 409,
+    message: "this statement changes the structure outside the schema — confirm to run it anyway",
   },
 
   // --- 5xx ---

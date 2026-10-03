@@ -55,6 +55,7 @@ export type AuditAction =
   | "connection.pull"
   | "connection.deploy"
   | "connection.rollback"
+  | "connection.drift.dismiss"
   | "dbconn.create"
   | "dbconn.update"
   | "dbconn.delete"
@@ -72,7 +73,16 @@ export type AuditAction =
   | "apikey.revoke"
   | "webhook.create"
   | "webhook.update"
-  | "webhook.delete";
+  | "webhook.delete"
+  | "dbconn.policy"
+  | "instance.structure_policy"
+  | "dbadmin.structure.out_of_schema"
+  | "table.lock"
+  | "table.unlock"
+  | "environment.create"
+  | "environment.update"
+  | "environment.delete"
+  | "environment.reorder";
 
 export interface AuditActor {
   id: string | null;

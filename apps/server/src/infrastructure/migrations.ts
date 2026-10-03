@@ -463,6 +463,146 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 20,
+    name: "table_locks table",
+    up: (db) => {
+      // Keyed by the table's id in the project document, not its name: the id
+      // survives a rename, the DBML round trip and a history restore.
+      // `table_name` is the name when the lock was written, for the audit
+      // trail and for a lock whose table is momentarily absent. No foreign key
+      // on `locked_by`: deleting an account must not lift the locks it placed.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS table_locks (
+          project_id TEXT NOT NULL,
+          table_id TEXT NOT NULL,
+          table_name TEXT NOT NULL,
+          level TEXT NOT NULL,
+          authority TEXT NOT NULL DEFAULT 'project',
+          reason TEXT,
+          locked_by TEXT,
+          locked_by_name TEXT,
+          locked_at TEXT NOT NULL DEFAULT (datetime('now')),
+          PRIMARY KEY (project_id, table_id)
+        );
+      `);
+    },
+  },
+  {
+    version: 21,
+    name: "structure policy: instance_settings table, db_connections.structure_policy",
+    up: (db) => {
+      // `instance_settings` is a plain key → JSON store for what an
+      // administrator sets for the whole instance. First tenant: the default
+      // structure policy. No row means "the built-in default".
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS instance_settings (
+          key TEXT PRIMARY KEY,
+          value TEXT NOT NULL,
+          updated_by TEXT,
+          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+      `);
+      // NULL `structure_policy` = follow the instance default; the SQL flag
+      // only means something next to a non-NULL policy.
+      const columns = db.prepare("PRAGMA table_info(db_connections)").all() as { name: string }[];
+      if (!columns.some((c) => c.name === "structure_policy")) {
+        db.exec("ALTER TABLE db_connections ADD COLUMN structure_policy TEXT");
+      }
+      if (!columns.some((c) => c.name === "structure_policy_sql")) {
+        db.exec("ALTER TABLE db_connections ADD COLUMN structure_policy_sql INTEGER NOT NULL DEFAULT 1");
+      }
+    },
+  },
+  {
+    version: 22,
+    name: "drift: schema_fingerprints table, project_connection_links.out_of_schema_at",
+    up: (db) => {
+      // One reference per (project, connection): the database as it stood
+      // after the last deployment or pull. `snapshot_json` is the fingerprint
+      // itself (canonical structure, no data), kept so a later check can say
+      // *which* tables changed, not only that something did.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS schema_fingerprints (
+          project_id TEXT NOT NULL,
+          connection_id TEXT NOT NULL,
+          taken_at TEXT NOT NULL DEFAULT (datetime('now')),
+          source TEXT NOT NULL,
+          hash TEXT NOT NULL,
+          snapshot_json TEXT NOT NULL,
+          PRIMARY KEY (project_id, connection_id)
+        );
+      `);
+      const columns = db.prepare("PRAGMA table_info(project_connection_links)").all() as { name: string }[];
+      if (!columns.some((c) => c.name === "out_of_schema_at")) {
+        db.exec("ALTER TABLE project_connection_links ADD COLUMN out_of_schema_at TEXT");
+      }
+      if (!columns.some((c) => c.name === "out_of_schema_detail")) {
+        db.exec("ALTER TABLE project_connection_links ADD COLUMN out_of_schema_detail TEXT");
+      }
+    },
+  },
+  {
+    version: 23,
+    name: "environments table, db_connections.environment_id",
+    up: (db) => {
+      // The deployment chain (DEV › … › Prod) as configured stages instead of a
+      // free-text label on each connection. `db_connections.environment` stays,
+      // as the stage's name kept in step with it: deployment history, webhooks
+      // and drift already read it as a snapshot, and need nothing new.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS environments (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+          color TEXT NOT NULL,
+          protection TEXT NOT NULL DEFAULT 'free',
+          is_production INTEGER NOT NULL DEFAULT 0,
+          position INTEGER NOT NULL,
+          created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_environments_production ON environments(is_production) WHERE is_production = 1;
+      `);
+      const columns = db.prepare("PRAGMA table_info(db_connections)").all() as { name: string }[];
+      if (!columns.some((c) => c.name === "environment_id")) {
+        db.exec("ALTER TABLE db_connections ADD COLUMN environment_id TEXT REFERENCES environments(id) ON DELETE SET NULL");
+      }
+      if ((db.prepare("SELECT COUNT(*) AS n FROM environments").get() as { n: number }).n > 0) return;
+
+      // Every label already in use becomes a stage, so no connection loses
+      // what it said. Order and production flag are a best guess from the
+      // name (frozen here, on purpose: a migration must not change behaviour
+      // when the app's own heuristics do); an administrator corrects it in
+      // Admin → Environnements. An instance with no labels gets DEV › Staging › Prod.
+      const labels = (
+        db
+          .prepare("SELECT DISTINCT TRIM(environment) AS label FROM db_connections WHERE TRIM(COALESCE(environment, '')) <> ''")
+          .all() as { label: string }[]
+      ).map((row) => row.label);
+      const isProd = (label: string) => /\bprod(uction)?\b/i.test(label) && !/(pre|non|not)[-_ ]?prod/i.test(label);
+      const rank = (label: string) =>
+        isProd(label) || /\blive\b/i.test(label) ? 2 : /\b(dev|develop|development|local)\b/i.test(label) ? 0 : 1;
+      const color = (label: string) => (rank(label) === 2 ? "red" : rank(label) === 0 ? "green" : "amber");
+
+      const seen = new Map<string, string>();
+      for (const label of labels) if (!seen.has(label.toLowerCase())) seen.set(label.toLowerCase(), label);
+      const stages = labels.length
+        ? [...seen.values()].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b))
+        : ["DEV", "Staging", "Prod"];
+      const production = stages.find(isProd);
+
+      const insert = db.prepare(
+        "INSERT INTO environments (id, name, color, protection, is_production, position) VALUES (?, ?, ?, ?, ?, ?)",
+      );
+      stages.forEach((name, position) => {
+        const id = crypto.randomUUID();
+        const prod = name === production;
+        insert.run(id, name, color(name), prod ? "protected" : "free", prod ? 1 : 0, position);
+        db.prepare(
+          "UPDATE db_connections SET environment_id = ?, environment = ? WHERE LOWER(TRIM(environment)) = LOWER(?)",
+        ).run(id, name, name);
+      });
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */

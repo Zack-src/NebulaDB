@@ -21,7 +21,7 @@ interface GrantRow {
   permission: PermissionLevel;
 }
 
-function isGlobalAdmin(userId: string): boolean {
+export function isGlobalAdmin(userId: string): boolean {
   const row = db.prepare("SELECT is_admin FROM users WHERE id = ?").get(userId) as UserAdminRow | undefined;
   return row?.is_admin === 1;
 }

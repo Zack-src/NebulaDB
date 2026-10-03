@@ -48,6 +48,11 @@ test("runMigrations creates the tables introduced after the baseline", () => {
   runMigrations(db);
   assert.ok(tableExists(db, "login_attempts"), "login_attempts");
   assert.ok(tableExists(db, "audit_log"), "audit_log");
+  assert.ok(tableExists(db, "table_locks"), "table_locks");
+  assert.ok(tableExists(db, "instance_settings"), "instance_settings");
+  assert.ok(tableExists(db, "schema_fingerprints"), "schema_fingerprints");
+  assert.ok(columnNames(db, "project_connection_links").includes("out_of_schema_at"));
+  assert.ok(columnNames(db, "db_connections").includes("structure_policy"));
 });
 
 test("runMigrations is a no-op the second time — nothing left pending once user_version is current", () => {
@@ -160,5 +165,63 @@ test("migration 18 turns per-project connections into global ones without losing
         "INSERT INTO deployment_history (id, project_id, connection_id, connection_name, engine, sql, success) VALUES ('h3', 'p2', 'c2', 'Local', 'sqlite', 'x', 1)",
       )
       .run(),
+  );
+});
+
+test("migration 23 turns each environment label into a stage, production last and flagged", () => {
+  const db = freshDbMissingColumns();
+  for (const migration of MIGRATIONS.filter((m) => m.version < 23)) migration.up(db);
+  db.pragma("user_version = 22");
+  db.exec(`
+    INSERT INTO db_connections (id, name, engine, environment, config_encrypted) VALUES
+      ('c1', 'Main', 'postgres', 'production', 'b'),
+      ('c2', 'Pre', 'postgres', 'PreProd', 'b'),
+      ('c3', 'Mine', 'sqlite', 'dev', 'b'),
+      ('c4', 'Other main', 'postgres', ' Production ', 'b'),
+      ('c5', 'None', 'sqlite', NULL, 'b');
+  `);
+
+  runMigrations(db);
+
+  const stages = db
+    .prepare("SELECT id, name, color, is_production AS production, position FROM environments ORDER BY position")
+    .all() as { id: string; name: string; color: string; production: number; position: number }[];
+  assert.deepEqual(
+    stages.map((s) => [s.name, s.color, s.production]),
+    [
+      ["dev", "green", 0],
+      ["PreProd", "amber", 0],
+      ["production", "red", 1],
+    ],
+    "one stage per label (case and spaces ignored); 'PreProd' is not production",
+  );
+  const byId = new Map(stages.map((s) => [s.id, s.name]));
+  const links = db.prepare("SELECT id, environment, environment_id FROM db_connections ORDER BY id").all() as {
+    id: string;
+    environment: string | null;
+    environment_id: string | null;
+  }[];
+  assert.deepEqual(
+    links.map((l) => [l.id, l.environment, l.environment_id ? byId.get(l.environment_id) : null]),
+    [
+      ["c1", "production", "production"],
+      ["c2", "PreProd", "PreProd"],
+      ["c3", "dev", "dev"],
+      ["c4", "production", "production"],
+      ["c5", null, null],
+    ],
+  );
+});
+
+test("migration 23 seeds DEV › Staging › Prod on an instance that had no labels", () => {
+  const db = freshDbMissingColumns();
+  runMigrations(db);
+  assert.deepEqual(
+    db.prepare("SELECT name, is_production AS production FROM environments ORDER BY position").all(),
+    [
+      { name: "DEV", production: 0 },
+      { name: "Staging", production: 0 },
+      { name: "Prod", production: 1 },
+    ],
   );
 });

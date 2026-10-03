@@ -52,6 +52,7 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   PROJECT_NOT_FOUND: "errors.projectNotFound",
   TEAM_NOT_FOUND: "errors.teamNotFound",
   REVISION_NOT_FOUND: "errors.revisionNotFound",
+  RESTORE_TABLES_INVALID: "errors.restoreTablesInvalid",
   SNAPSHOT_NOT_FOUND: "errors.snapshotNotFound",
   EMAIL_ALREADY_EXISTS: "errors.emailAlreadyExists",
   INVITATION_ALREADY_USED: "errors.invitationAlreadyUsed",
@@ -83,6 +84,17 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   DEPLOYMENT_HISTORY_NOT_FOUND: "errors.deploymentHistoryNotFound",
   ROLLBACK_NOT_AVAILABLE: "errors.rollbackNotAvailable",
   ROLLBACK_ALREADY_ATTEMPTED: "errors.rollbackAlreadyAttempted",
+  STRUCTURE_VIA_SCHEMA: "errors.structureViaSchema",
+  STRUCTURE_CONFIRMATION_REQUIRED: "errors.structureConfirmationRequired",
+  STRUCTURE_POLICY_INVALID: "errors.structurePolicyInvalid",
+  TABLE_LOCKED: "errors.tableLocked",
+  TABLE_LOCK_FORBIDDEN: "errors.tableLockForbidden",
+  TABLE_LOCK_INVALID: "errors.tableLockInvalid",
+  TABLE_NOT_FOUND: "errors.tableNotFound",
+  ENVIRONMENT_INVALID: "errors.environmentInvalid",
+  ENVIRONMENT_NOT_FOUND: "errors.environmentNotFound",
+  ENVIRONMENT_NAME_TAKEN: "errors.environmentNameTaken",
+  PRODUCTION_CONFIRMATION_REQUIRED: "errors.productionConfirmationRequired",
 };
 
 /**
@@ -106,7 +118,10 @@ export function describeApiError(error: unknown, t: Translator): string {
   if (error instanceof ApiError) {
     if (error.code && PREFER_SERVER_MESSAGE.has(error.code)) return error.message;
     const key = error.code ? CODE_TO_KEY[error.code] : undefined;
-    return key ? t(key) : error.message;
+    if (!key) return error.message;
+    // The one code whose translation names what the server found: which tables were in the way.
+    const tables = error.details.tables;
+    return error.code === "TABLE_LOCKED" && Array.isArray(tables) ? t(key, { tables: tables.join(", ") }) : t(key);
   }
   return t("errors.unexpected");
 }
