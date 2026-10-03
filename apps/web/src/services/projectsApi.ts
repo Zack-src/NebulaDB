@@ -1,5 +1,5 @@
 import type { ProjectTemplateId } from "@athanordb/dbml-engine";
-import type { Project } from "@athanordb/shared";
+import type { HistoryMarker, Project, RevisionChanges } from "@athanordb/shared";
 import type { PermissionLevel, ProjectStatus, ProjectSummary, ProjectTeamGrant } from "@/types";
 import { request, requestText } from "./httpClient";
 import type { SqlDialect } from "./convertApi";
@@ -9,6 +9,8 @@ export interface RevisionSummary {
   createdAt: string;
   author: string | null;
   label: string | null;
+  /** What the revision changed; absent on a labelled revision that changed nothing. */
+  changes?: RevisionChanges;
 }
 
 const projectPath = (projectId: string) => `/api/projects/${projectId}`;
@@ -78,8 +80,17 @@ export function labelRevision(projectId: string, revisionId: string, label: stri
   return request<void>(`${projectPath(projectId)}/revisions/${revisionId}`, { method: "PATCH", body: { label } });
 }
 
-export function restoreRevision(projectId: string, revisionId: string): Promise<void> {
-  return request<void>(`${projectPath(projectId)}/revisions/${revisionId}/restore`, { method: "POST" });
+/** Restores the whole revision, or with `tableIds` only those tables — the rest of the project stays as it is now. */
+export function restoreRevision(projectId: string, revisionId: string, tableIds?: string[]): Promise<void> {
+  return request<void>(`${projectPath(projectId)}/revisions/${revisionId}/restore`, {
+    method: "POST",
+    ...(tableIds ? { body: { tableIds } } : {}),
+  });
+}
+
+/** Locks, restores and (for project administrators) deployments, oldest first. */
+export function fetchHistoryMarkers(projectId: string): Promise<HistoryMarker[]> {
+  return request<HistoryMarker[]>(`${projectPath(projectId)}/history/markers`);
 }
 
 // --- import / export ---

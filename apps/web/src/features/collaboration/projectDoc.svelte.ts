@@ -3,6 +3,7 @@ import * as Y from "yjs";
 import type { Awareness } from "y-protocols/awareness.js";
 import {
   type Project,
+  type ServerNotice,
   getEnumsMap,
   getRefsMap,
   getStickyNotesMap,
@@ -12,6 +13,9 @@ import {
 } from "@athanordb/shared";
 import { connectProject, type ConnectionStatus } from "@/features/collaboration/yjsClient";
 import { time } from "@/utils/perfMonitor";
+
+/** Undo steps kept per session (one step groups the edits of ~0.5 s — `Y.UndoManager`'s `captureTimeout`). */
+const UNDO_STACK_LIMIT = 200;
 
 export interface ProjectDocHandle {
   readonly project: Project | null;
@@ -26,6 +30,8 @@ export function useProjectDoc(
   projectId: () => string,
   fallbackName: () => string,
   user: () => string,
+  /** Server pushes outside the document itself — see `ServerNotice`. Not tracked: changing it never reconnects. */
+  onNotice?: (notice: ServerNotice) => void,
 ): ProjectDocHandle {
   let project = $state.raw<Project | null>(null);
   let doc = $state.raw<Y.Doc | null>(null);
@@ -47,9 +53,14 @@ export function useProjectDoc(
     undoManager = null;
     awareness = null;
     connection = "connecting";
-    const conn = connectProject(id, userName, (status) => {
-      connection = status;
-    });
+    const conn = connectProject(
+      id,
+      userName,
+      (status) => {
+        connection = status;
+      },
+      (notice) => onNotice?.(notice),
+    );
     // Rebuilds the *whole* project (every table/field/ref/zone) from the Yjs
     // maps on every single doc update, local or remote — the classic
     // "recompute everything on every tiny change" hot path for a big schema
@@ -70,6 +81,15 @@ export function useProjectDoc(
     // updates arrive tagged with `yjsClient`'s remote-origin symbol, so each
     // user's undo stack stays their own instead of undoing peers' changes.
     const manager = new Y.UndoManager(editableMaps);
+    // Bounded: each step pins the deleted content it would bring back, so an
+    // afternoon of editing must not keep every one alive. The oldest go first;
+    // the revision history still has them.
+    const trimUndoStack = () => {
+      if (manager.undoStack.length > UNDO_STACK_LIMIT) {
+        manager.undoStack.splice(0, manager.undoStack.length - UNDO_STACK_LIMIT);
+      }
+    };
+    manager.on("stack-item-added", trimUndoStack);
     doc = conn.doc;
     undoManager = manager;
     awareness = conn.awareness;

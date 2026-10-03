@@ -23,9 +23,30 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { SvelteFlowProvider } from "@xyflow/svelte";
-  import { getMetaMap, type DatabaseConnectionSummary, type Project, type Table } from "@athanordb/shared";
-  import { validateProject, type ValidationIssue } from "@athanordb/dbml-engine";
-  import { listProjectConnections } from "@/services/connectionsApi";
+  import {
+    getMetaMap,
+    type DatabaseConnectionSummary,
+    type Project,
+    type ProjectDriftEntry,
+    type ServerNotice,
+    type Table,
+  } from "@athanordb/shared";
+  import { toast } from "@/components/ui/toast.svelte";
+  import { TableLocksState } from "@/features/editor/locks/tableLocks.svelte";
+  import Splitter from "@/components/ui/Splitter.svelte";
+  import { previewRowsStatement } from "@/features/sql/previewStatement";
+  import { readBoolean, readNumberInRange, writeBoolean, writeString } from "@/utils/storage";
+  import { diffProjects, validateProject, type ValidationIssue } from "@athanordb/dbml-engine";
+  import type { RevisionSummary } from "@/services/projectsApi";
+  import HistoryPreviewBanner from "@/features/editor/history/HistoryPreviewBanner.svelte";
+  import type { HistoryDiffStatus } from "@/features/editor/hooks/useCanvasNodes/canvasNodes.svelte";
+  import { fetchProjectDrift, listProjectConnections } from "@/services/connectionsApi";
+  import DriftBanner from "@/features/editor/drift/DriftBanner.svelte";
+  import type { TabItem } from "@/components/ui/Tabs.svelte";
+  import { ClockIcon, CodeIcon, DatabaseIcon, SparklesIcon } from "@/components/icons/Icons";
+  import type { WorkspaceTab } from "@/features/projects/projectRouting.svelte";
+  import WorkspaceBar from "@/features/workspace/WorkspaceBar.svelte";
+  import { provideWorkspace } from "@/features/workspace/workspaceContext";
   import { useProjectDoc } from "@/features/collaboration/projectDoc.svelte";
   import { useAwarenessStates, useRemoteSelections } from "@/features/collaboration/awarenessStates.svelte";
   import { hashColor } from "@/features/collaboration/awarenessColor";
@@ -64,6 +85,9 @@
     onBack: () => void;
     /** Table (and optionally column) to centre on once the document has loaded — from a cross-project search hit. */
     initialFocus?: { tableName: string; fieldName?: string } | null;
+    /** The workspace tab the URL names. Optional: the perf harness mounts the editor with no router. */
+    tab?: WorkspaceTab;
+    onTabChange?: (tab: WorkspaceTab) => void;
   } = $props();
 
   const { t } = useTranslation();
@@ -78,10 +102,43 @@
    * write to the document is gated on this.
    */
   const canWrite = $derived(project.permission !== "view");
+
+  // Table locks: mirrored here so the editor does not offer what the server
+  // would refuse. The server remains the one that enforces them.
+  const tableLocks = new TableLocksState(() => project.id);
+  let lockDialogTableId = $state<string | null>(null);
+  const openLockDialog = (tableId: string) => (lockDialogTableId = tableId);
+  const tellLockedTablesKept = (tables: string[]) =>
+    toast.warning(t("locks.keptToast", { tables: tables.join(", "), count: tables.length }));
+  // Linked databases known to have been changed outside the schema — see `DriftBanner`.
+  let drift = $state.raw<ProjectDriftEntry[]>([]);
+  let differencesFor = $state<string | null>(null);
+  const refreshDrift = () =>
+    fetchProjectDrift(project.id)
+      .then((entries) => (drift = entries.filter((entry) => entry.outOfSchemaAt)))
+      // Offline or the perf harness: no banner is better than a broken editor.
+      .catch(() => {});
+  $effect(() => {
+    void project.id;
+    drift = [];
+    void refreshDrift();
+  });
+
+  function handleServerNotice(notice: ServerNotice) {
+    if (notice.type === "drift-changed") void refreshDrift();
+    else if (notice.type === "locks-changed") void tableLocks.refresh();
+    else if (notice.type === "table-locked") {
+      toast.warning(t("locks.revertedToast", { tables: notice.tables.join(", "), count: notice.tables.length }));
+      // The local picture was evidently out of date — that is how the change got offered at all.
+      void tableLocks.refresh();
+    }
+  }
+
   const docHandle = useProjectDoc(
     () => project.id,
     () => project.name,
     () => user,
+    handleServerNotice,
   );
   const liveProject = $derived(docHandle.project);
   const doc = $derived(docHandle.doc);
@@ -94,21 +151,78 @@
   let showConvertTypes = $state(false);
   let showCompare = $state(false);
   let dbmlOpen = $state(true);
-  let showHistory = $state(false);
   let showPlugins = $state(false);
   let showSettings = $state(false);
   let showDeployment = $state(false);
   let viewMode = $state<EditorViewMode>("mld");
   // Connections themselves are managed from the admin console now — this
   // just needs to know which one to preselect when Deploy opens.
-  let activeConnection = $state.raw<DatabaseConnectionSummary | null>(null);
+  let connections = $state.raw<DatabaseConnectionSummary[]>([]);
+  let connectionId = $state<string | null>(null);
+  const activeConnection = $derived(connections.find((connection) => connection.id === connectionId) ?? null);
 
   $effect(() => {
     listProjectConnections(project.id)
       .then((list) => {
-        if (list.length > 0) activeConnection = list[0];
+        connections = list;
+        if (!list.some((connection) => connection.id === connectionId)) connectionId = list[0]?.id ?? null;
       })
       .catch(() => {});
+  });
+
+  // ---- Workspace tabs --------------------------------------------------------
+  // The schema editor is one section of the project among several. Which ones
+  // are offered follows what the server would allow: the database console is
+  // for instance administrators, deployments for the project's administrators.
+  const isProjectAdmin = $derived(project.permission === "administrator");
+  const workspaceTabs = $derived.by(() => {
+    const list: TabItem<WorkspaceTab>[] = [{ id: "schema", label: t("workspace.tab.schema"), icon: CodeIcon }];
+    if (props.session.isAdmin && connections.length > 0) {
+      list.push({ id: "data", label: t("workspace.tab.data"), icon: DatabaseIcon });
+    }
+    if (isProjectAdmin) list.push({ id: "deployments", label: t("workspace.tab.deployments"), icon: SparklesIcon });
+    list.push({ id: "history", label: t("workspace.tab.history"), icon: ClockIcon });
+    return list;
+  });
+  // A tab named by the URL but not offered to this user (a shared link, a
+  // permission that changed) quietly shows the schema instead of an empty page.
+  let localTab = $state<WorkspaceTab>("schema");
+  const requestedTab = $derived(props.tab ?? localTab);
+  const tab = $derived(workspaceTabs.some((item) => item.id === requestedTab) ? requestedTab : "schema");
+  const setTab = (next: WorkspaceTab) => {
+    localTab = next;
+    props.onTabChange?.(next);
+  };
+
+  // ---- History preview -------------------------------------------------------
+  // "Aperçu sur le graphe" from the history tab: the schema tab with the tables
+  // added or changed since that revision outlined. Recomputed against the live
+  // project, so the outline follows edits made meanwhile.
+  let historyPreview = $state.raw<{ revision: RevisionSummary; project: Project } | null>(null);
+  /** The revision the history tab shows when it is opened again — the one last previewed. */
+  let historyRevisionId = $state<string | null>(null);
+  const historyPreviewDiff = $derived(
+    historyPreview && liveProject ? diffProjects(historyPreview.project, liveProject) : null,
+  );
+  const historyDiffStatus = $derived.by((): ReadonlyMap<string, HistoryDiffStatus> | null => {
+    if (!historyPreviewDiff) return null;
+    const marks = new Map<string, HistoryDiffStatus>();
+    for (const table of historyPreviewDiff.tables) {
+      if (table.status !== "removed") marks.set(table.id, table.status);
+    }
+    return marks;
+  });
+  function previewRevision(revision: RevisionSummary, revisionProject: Project) {
+    historyPreview = { revision, project: revisionProject };
+    historyRevisionId = revision.id;
+    viewMode = "mld";
+    setTab("schema");
+  }
+  // Leaving the project ends the preview; so does a revision from another one.
+  $effect(() => {
+    void project.id;
+    historyPreview = null;
+    historyRevisionId = null;
   });
 
   const canvasCommands = useCanvasCommands(() => project.id);
@@ -193,23 +307,69 @@
     return found;
   }
 
+  // ---- SQL drawer under the schema -------------------------------------------
+  // The console's SQL panel, within reach of the diagram. Offered to exactly
+  // those the console is offered to; open / closed and height are remembered
+  // per browser.
+  const SQL_OPEN_KEY = "athanordb.sqlDrawer.open";
+  const SQL_HEIGHT_KEY = "athanordb.sqlDrawer.height";
+  const SQL_MIN_HEIGHT = 140;
+  const SQL_MAX_HEIGHT = 640;
+  const canUseSql = $derived(props.session.isAdmin && activeConnection !== null);
+  let sqlOpen = $state(readBoolean(SQL_OPEN_KEY, false));
+  let sqlHeight = $state(readNumberInRange(SQL_HEIGHT_KEY, SQL_MIN_HEIGHT, SQL_MAX_HEIGHT, 300));
+  let sqlRequest = $state.raw<{ sql: string; token: number } | null>(null);
+  const setSqlOpen = (open: boolean) => {
+    sqlOpen = open;
+    writeBoolean(SQL_OPEN_KEY, open);
+  };
+  // Stable identity: it is part of what the table node cache compares.
+  const viewTableData = (table: Table) => {
+    if (!activeConnection) return;
+    setSqlOpen(true);
+    sqlRequest = { sql: previewRowsStatement(activeConnection.engine, table), token: (sqlRequest?.token ?? 0) + 1 };
+  };
+  $effect(() => {
+    if (!canUseSql || tab !== "schema") return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey || event.key.toLowerCase() !== "j") return;
+      // Deliberately also while typing: it is how one leaves the SQL editor for the diagram and comes back.
+      event.preventDefault();
+      setSqlOpen(!sqlOpen);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  });
+
+  // What the canvas should centre on as soon as it can: the table a search hit
+  // or a link asked for when the project opened, or one requested later from
+  // another tab (the console sending a structural change to the schema).
+  let focusRequest = $state.raw<{ tableName: string; fieldName?: string } | null>(untrack(() => props.initialFocus) ?? null);
+  provideWorkspace({
+    openInSchema: (projectId, tableName, fieldName) => {
+      if (projectId !== project.id) return false;
+      setTab("schema");
+      if (tableName) focusRequest = { tableName, fieldName };
+      return true;
+    },
+  });
+
   // One-shot: centre on the requested table once it exists in the doc *and*
   // the canvas can navigate. Both arrive later than mount, independently:
   // `liveProject` is non-null (but empty) before the first sync lands, and the
   // canvas only reports ready after Svelte Flow's own initial fit. So this
   // re-arms on every doc change until the target shows up, retries per frame
   // until the canvas accepts the jump, and only then marks itself done.
-  let initialFocusDone = false;
   $effect(() => {
-    const focus = props.initialFocus;
+    const focus = focusRequest;
     const tables = liveProject?.tables;
-    if (!focus || initialFocusDone || !tables) return;
+    if (!focus || !tables || tab !== "schema") return;
     if (!tables.some((table) => table.name.toLowerCase() === focus.tableName.toLowerCase())) return;
     let attempts = 0;
     let frame = 0;
     const tryFocus = () => {
       if (canvasNavigateRef.current && onNavigateToCanvas(focus)) {
-        initialFocusDone = true;
+        focusRequest = null;
         return;
       }
       if (++attempts < 120) frame = requestAnimationFrame(tryFocus);
@@ -272,7 +432,15 @@
     canWrite: () => canWrite,
     issuesByTable: () => issuesByTable,
     showValidationIssues: () => showValidationIssues,
+    locks: () => tableLocks.view,
+    onManageLock: openLockDialog,
+    onLockedTablesKept: tellLockedTablesKept,
+    viewData: () => (canUseSql ? viewTableData : null),
+    historyDiff: () => (tab === "schema" ? historyDiffStatus : null),
   });
+  const lockDialogTable = $derived(
+    lockDialogTableId ? (liveProject?.tables.find((table) => table.id === lockDialogTableId) ?? null) : null,
+  );
 
   // Same array back while the selected set is unchanged — a drag frame
   // replaces `nodes` without changing which tables are selected, and nothing
@@ -326,7 +494,8 @@
   useEditorKeyboardShortcuts(
     () => docHandle.undoManager,
     mutations.duplicateSelected,
-    () => canWrite && viewMode === "mld",
+    // The canvas is not mounted on the other tabs: Ctrl+Z there must not undo an edit nobody is looking at.
+    () => canWrite && viewMode === "mld" && tab === "schema",
   );
 
   // Copy / paste of tables through the system clipboard — see `tableClipboard.ts`.
@@ -334,8 +503,8 @@
   const clipboard = useCanvasClipboard({
     project: () => liveProject,
     selectedTableIds: () => selectedTableIds,
-    canCopy: () => viewMode === "mld",
-    canPaste: () => canWrite && viewMode === "mld",
+    canCopy: () => viewMode === "mld" && tab === "schema",
+    canPaste: () => canWrite && viewMode === "mld" && tab === "schema",
     paste: mutations.pasteTables,
     onCopied: (count) => clipboardStatus.flash(t("canvas.tablesCopied", { count })),
     onPasted: (count) => clipboardStatus.flash(t("canvas.tablesPasted", { count })),
@@ -356,10 +525,9 @@
     onShowImport={() => (showImport = true)}
     onShowExport={() => (showExport = true)}
     onShowConvertTypes={canWrite ? () => (showConvertTypes = true) : undefined}
-    onShowHistory={() => (showHistory = true)}
     onShowCompare={() => (showCompare = true)}
     onShowDeploy={() => (showDeployment = true)}
-    isProjectAdmin={project.permission === "administrator"}
+    {isProjectAdmin}
     onOpenSettings={() => (showSettings = true)}
     localUser={user}
     localColor={hashColor(user)}
@@ -374,6 +542,69 @@
     />
   {/if}
 
+  <WorkspaceBar
+    tabs={workspaceTabs}
+    {tab}
+    onTabChange={setTab}
+    {connections}
+    {connectionId}
+    onConnectionChange={(id) => (connectionId = id)}
+    {sqlOpen}
+    onToggleSql={canUseSql && tab === "schema" ? () => setSqlOpen(!sqlOpen) : undefined}
+  />
+  {#each drift as entry (entry.connectionId)}
+    <DriftBanner
+      projectId={project.id}
+      {entry}
+      canManage={isProjectAdmin}
+      onShowDifferences={(connectionId) => (differencesFor = connectionId)}
+    />
+  {/each}
+
+  <!-- The other tabs replace the editor rather than cover it: an unmounted
+       canvas has no keyboard shortcuts, clipboard handlers or selection to act
+       on by accident. The document connection lives above, so nothing is lost. -->
+  {#if tab === "data"}
+    {#await import("@/features/workspace/DataTab.svelte") then { default: DataTab }}
+      <DataTab {connectionId} />
+    {/await}
+  {:else if tab === "deployments"}
+    {#await import("@/features/workspace/DeploymentsTab.svelte") then { default: DeploymentsTab }}
+      <DeploymentsTab
+        projectId={project.id}
+        connection={activeConnection}
+        canDeploy={canWrite}
+        onDeploy={() => (showDeployment = true)}
+        onShowDifferences={() => (differencesFor = connectionId)}
+      />
+    {/await}
+  {:else if tab === "history" && liveProject}
+    {#await import("@/features/editor/history/HistoryPanel.svelte") then { default: HistoryPanel }}
+      <HistoryPanel
+        projectId={project.id}
+        currentProject={liveProject}
+        currentUser={user}
+        initialRevisionId={historyRevisionId}
+        canRestore={canWrite}
+        onPreview={previewRevision}
+        onClose={() => {
+          historyPreview = null;
+          setTab("schema");
+        }}
+      />
+    {/await}
+  {:else}
+  {#if historyPreview && historyPreviewDiff}
+    <HistoryPreviewBanner
+      projectId={project.id}
+      revision={historyPreview.revision}
+      diff={historyPreviewDiff}
+      canRestore={canWrite}
+      onBack={() => setTab("history")}
+      onClose={() => (historyPreview = null)}
+    />
+  {/if}
+  <div class="flex min-h-0 min-w-0 flex-1 flex-col">
   <div class="relative flex min-h-0 min-w-0 flex-1">
     {#if dbmlOpen && liveProject}
       <DbmlPanel
@@ -454,6 +685,26 @@
       {/key}
     </SvelteFlowProvider>
   </div>
+  {#if sqlOpen && canUseSql && activeConnection}
+    <Splitter
+      bind:size={sqlHeight}
+      min={SQL_MIN_HEIGHT}
+      max={SQL_MAX_HEIGHT}
+      edge="top"
+      aria-label={t("workspace.sql.resize")}
+      onCommit={(height) => writeString(SQL_HEIGHT_KEY, String(height))}
+    />
+    <div class="flex shrink-0 flex-col" style:height="{sqlHeight}px">
+      {#await import("@/features/sql/EditorSqlDrawer.svelte") then { default: EditorSqlDrawer }}
+        <!-- Keyed: the drawer and its history belong to one connection. -->
+        {#key activeConnection.id}
+          <EditorSqlDrawer connection={activeConnection} request={sqlRequest} onClose={() => setSqlOpen(false)} />
+        {/key}
+      {/await}
+    </div>
+  {/if}
+  </div>
+  {/if}
 
   <!-- Dialogs are code-split: none of them is in the chunk a project view loads. -->
   {#if showImport && canWrite}
@@ -481,11 +732,6 @@
       />
     {/await}
   {/if}
-  {#if showHistory && liveProject}
-    {#await import("@/features/editor/history/HistoryPanel.svelte") then { default: HistoryPanel }}
-      <HistoryPanel projectId={project.id} currentProject={liveProject} onClose={() => (showHistory = false)} />
-    {/await}
-  {/if}
   {#if showCompare && liveProject}
     {#await import("@/features/editor/compare/CompareProjectsModal.svelte") then { default: CompareProjectsModal }}
       <CompareProjectsModal currentProject={liveProject} onClose={() => (showCompare = false)} />
@@ -502,6 +748,29 @@
         projectId={project.id}
         onClose={() => (showDeployment = false)}
         initialConnectionId={activeConnection?.id}
+      />
+    {/await}
+  {/if}
+  {#if differencesFor}
+    {#await import("@/features/connections/DeploymentModal.svelte") then { default: DeploymentModal }}
+      <DeploymentModal
+        projectId={project.id}
+        readOnly
+        initialConnectionId={differencesFor}
+        onClose={() => (differencesFor = null)}
+      />
+    {/await}
+  {/if}
+  {#if lockDialogTable && tableLocks.view.canManage}
+    {#await import("@/features/editor/locks/TableLockDialog.svelte") then { default: TableLockDialog }}
+      <TableLockDialog
+        projectId={project.id}
+        tableId={lockDialogTable.id}
+        tableName={lockDialogTable.name}
+        lock={tableLocks.view.byTable.get(lockDialogTable.id) ?? null}
+        canManage={tableLocks.view.canManage}
+        onChanged={() => void tableLocks.refresh()}
+        onClose={() => (lockDialogTableId = null)}
       />
     {/await}
   {/if}

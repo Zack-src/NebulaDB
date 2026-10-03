@@ -247,6 +247,119 @@ test("revisions: listed after an edit, labelable, restorable; a view grant can r
   }
 });
 
+test("revisions: partial restore puts back only the tables asked for; the timeline lists the restore, deployments only for administrators", async () => {
+  const app = await buildApp();
+  try {
+    const owner = await makeUser();
+    const viewer = await makeUser();
+    const ownerCookie = await loginAs(app, owner.email, owner.password);
+    const viewerCookie = await loginAs(app, viewer.email, viewer.password);
+    const project = await makeProject(app, ownerCookie);
+    const importDbml = (source: string) =>
+      app.inject({
+        method: "POST",
+        url: `/api/projects/${project.id}/import`,
+        headers: headers({ cookie: ownerCookie }),
+        payload: { source },
+      });
+    const snapshotTables = async () =>
+      (
+        (await app.inject({ method: "GET", url: `/api/projects/${project.id}/snapshot`, headers: headers({ cookie: ownerCookie }) })).json() as {
+          tables: { id: string; name: string; fields: { name: string }[] }[];
+        }
+      ).tables;
+
+    await importDbml(`Table users {
+  id int [pk]
+  email varchar
+}
+Table orders {
+  id int [pk]
+}
+`);
+    const revisions = (
+      await app.inject({ method: "GET", url: `/api/projects/${project.id}/revisions`, headers: headers({ cookie: ownerCookie }) })
+    ).json() as { id: string; changes?: { tables: { name: string; status: string }[] } }[];
+    const checkpoint = revisions[revisions.length - 1];
+    assert.deepEqual(
+      checkpoint.changes?.tables.map((t) => `${t.status}:${t.name}`).sort(),
+      ["added:orders", "added:users"],
+      "each revision says which tables it touched",
+    );
+    const usersId = (await snapshotTables()).find((t) => t.name === "users")!.id;
+
+    // Both tables change afterwards.
+    await importDbml(`Table users {
+  id int [pk]
+}
+Table orders {
+  id int [pk]
+  total int
+}
+`);
+
+    const invalid = await app.inject({
+      method: "POST",
+      url: `/api/projects/${project.id}/revisions/${checkpoint.id}/restore`,
+      headers: headers({ cookie: ownerCookie }),
+      payload: { tableIds: [] },
+    });
+    assert.equal(invalid.statusCode, 400);
+    assert.equal(invalid.json().code, "RESTORE_TABLES_INVALID");
+
+    const partial = await app.inject({
+      method: "POST",
+      url: `/api/projects/${project.id}/revisions/${checkpoint.id}/restore`,
+      headers: headers({ cookie: ownerCookie }),
+      payload: { tableIds: [usersId] },
+    });
+    assert.equal(partial.statusCode, 200);
+    assert.deepEqual(
+      (await snapshotTables()).map((t) => `${t.name}(${t.fields.map((f) => f.name).join(",")})`).sort(),
+      ["orders(id,total)", "users(id,email)"],
+      "users is back as it was, orders keeps its later change",
+    );
+
+    // A deployment row, as `recordDeployment` would leave it.
+    db.prepare(
+      `INSERT INTO deployment_history (id, project_id, connection_id, connection_name, environment, engine, sql, success, executed_by_email)
+       VALUES (?, ?, NULL, 'Staging DB', 'staging', 'postgres', 'SELECT 1', 1, ?)`,
+    ).run(randomUUID(), project.id, owner.email);
+
+    const ownerMarkers = (
+      await app.inject({ method: "GET", url: `/api/projects/${project.id}/history/markers`, headers: headers({ cookie: ownerCookie }) })
+    ).json() as {
+      kind: string;
+      detail: string;
+      revisionAt?: string | null;
+      producedRevisionId?: string;
+      environment?: string | null;
+    }[];
+    const restoreMarker = ownerMarkers.find((m) => m.kind === "restore");
+    assert.equal(restoreMarker?.detail, "users");
+    assert.ok(restoreMarker?.revisionAt, "the restore names when the restored revision was made");
+    assert.ok(restoreMarker?.producedRevisionId, "and which revision it wrote");
+    assert.deepEqual(
+      ownerMarkers.filter((m) => m.kind === "deployment").map((m) => [m.detail, m.environment]),
+      [["Staging DB", "staging"]],
+    );
+
+    // A view grant sees the restore, not the deployment.
+    const viewerMarkers = await app.inject({
+      method: "GET",
+      url: `/api/projects/${project.id}/history/markers`,
+      headers: headers({ cookie: viewerCookie }),
+    });
+    assert.equal(viewerMarkers.statusCode, 200);
+    const kinds = (viewerMarkers.json() as { kind: string }[]).map((m) => m.kind);
+    assert.ok(kinds.includes("restore"));
+    assert.ok(!kinds.includes("deployment"), "deployment history is for project administrators");
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
+
 test("project-team routes: granting/revoking is project-admin-only, and an edit grant sees it in GET /api/projects/:id/teams", async () => {
   const app = await buildApp();
   try {

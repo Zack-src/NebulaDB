@@ -9,10 +9,12 @@ import {
   getTablesMap,
   getZonesMap,
   type Project,
+  type Table,
 } from "@athanordb/shared";
 import type { ValidationIssue } from "@athanordb/dbml-engine";
 import { DEFAULT_PALETTE } from "@/components/inputs/colorSwatches";
 import { DEFAULT_TABLE_HEIGHT, DEFAULT_TABLE_WIDTH } from "@/features/editor/edges/refGeometry";
+import { NO_TABLE_LOCKS, type TableLocksView } from "@/features/editor/locks/tableLocks.svelte";
 import type { CanvasNode } from "@/types/index";
 import { time } from "@/utils/perfMonitor";
 import { buildZoneNodes } from "./buildZoneNodes";
@@ -40,7 +42,20 @@ export interface CanvasNodesInput {
   issuesByTable: () => Map<string, ValidationIssue[]>;
   /** The canvas-wide "show validation issues" toggle — see `CanvasToolbar`. */
   showValidationIssues: () => boolean;
+  /** Table locks and which of them bind this user. Optional: the perf harness has none. */
+  locks?: () => TableLocksView;
+  /** Opens the lock dialog for a table. */
+  onManageLock?: (tableId: string) => void;
+  /** "View data" on a table, or `null` when it is not offered — a getter, since that follows the connection. */
+  viewData?: () => ((table: Table) => void) | null;
+  /** Told the names of the locked tables a delete left in place, so the user learns why they are still there. */
+  onLockedTablesKept?: (tableNames: string[]) => void;
+  /** Tables to outline while the history previews a revision (see `HistoryPreviewBanner`); `null` the rest of the time. */
+  historyDiff?: () => ReadonlyMap<string, HistoryDiffStatus> | null;
 }
+
+/** How a table differs from the revision the history is previewing. Removed tables are not on the canvas to mark. */
+export type HistoryDiffStatus = "added" | "changed";
 
 /**
  * merged node -> the built node it was derived from.
@@ -96,6 +111,12 @@ export class CanvasNodesState {
   private readonly tableNodeCache: TableNodeCache = new Map();
   private readonly derivedFrom: DerivedFrom = new WeakMap();
   private readonly zoneDragMembers = new Map<string, ZoneMembers>();
+  // A marked node per (built node, status): an unchanged table keeps the same
+  // marked object across rebuilds, so the preview does not defeat the cache.
+  private readonly historyMarked: Record<HistoryDiffStatus, WeakMap<CanvasNode, CanvasNode>> = {
+    added: new WeakMap(),
+    changed: new WeakMap(),
+  };
 
   // Stable identity, so it can be part of the table cache key rather than
   // invalidating every table on every rebuild.
@@ -117,7 +138,9 @@ export class CanvasNodesState {
     const issuesByTable = this.input.issuesByTable();
     const showValidationIssues = this.input.showValidationIssues();
 
-    return time("canvas.buildNodes", () => [
+    const historyDiff = this.input.historyDiff?.() ?? null;
+
+    const nodes = time("canvas.buildNodes", () => [
       ...buildZoneNodes(liveProject.zones, doc, palette, this.onPaletteChange, canWrite),
       ...buildTableNodes(
         liveProject.tables,
@@ -136,12 +159,28 @@ export class CanvasNodesState {
         issuesByTable,
         showValidationIssues,
         this.tableNodeCache,
+        this.input.locks?.() ?? NO_TABLE_LOCKS,
+        this.input.onManageLock,
+        this.input.viewData?.() ?? null,
       ),
       ...buildStickyNodes(liveProject.stickyNotes, doc, palette, this.onPaletteChange, canWrite),
       ...buildEnumNodes(liveProject.enums, doc, canWrite),
       ...buildTableGroupNodes(liveProject.tableGroups, liveProject.tables, doc, canWrite),
     ]);
+    return historyDiff && historyDiff.size > 0 ? nodes.map((node) => this.markHistoryDiff(node, historyDiff)) : nodes;
   });
+
+  private markHistoryDiff(node: CanvasNode, diff: ReadonlyMap<string, HistoryDiffStatus>): CanvasNode {
+    const status = node.type === "table" ? diff.get(node.id) : undefined;
+    if (!status) return node;
+    const cache = this.historyMarked[status];
+    let marked = cache.get(node);
+    if (!marked) {
+      marked = { ...node, class: `history-diff-${status}` } as CanvasNode;
+      cache.set(node, marked);
+    }
+    return marked;
+  }
 
   constructor(input: CanvasNodesInput) {
     this.input = input;
@@ -225,7 +264,8 @@ export class CanvasNodesState {
       for (const other of nodes) {
         if (other.type !== "table" && other.type !== "sticky" && other.type !== "enum") continue;
         const w = other.measured?.width ?? (other.type === "sticky" ? other.width : undefined) ?? DEFAULT_TABLE_WIDTH;
-        const h = other.measured?.height ?? (other.type === "sticky" ? other.height : undefined) ?? DEFAULT_TABLE_HEIGHT;
+        const h =
+          other.measured?.height ?? (other.type === "sticky" ? other.height : undefined) ?? DEFAULT_TABLE_HEIGHT;
         const cx = other.position.x + w / 2;
         const cy = other.position.y + h / 2;
         if (cx >= zx && cx <= zx + zw && cy >= zy && cy <= zy + zh) {
@@ -320,8 +360,23 @@ export class CanvasNodesState {
       const enums = getEnumsMap(doc);
       const tableGroups = getTableGroupsMap(doc);
       const refs = getRefsMap(doc);
+      // Deleting a table removes every relation touching it — including the
+      // foreign keys *other* tables carry towards it. So a table is kept when
+      // it is locked against this user, and also when deleting it would strip
+      // a foreign key from a table that is.
+      const frozen = this.input.locks?.().frozen ?? NO_TABLE_LOCKS.frozen;
+      const kept: string[] = [];
       for (const id of ids) {
-        if (tables.has(id)) {
+        const table = tables.get(id);
+        if (table) {
+          const altersLocked =
+            frozen.has(id) ||
+            (frozen.size > 0 &&
+              Array.from(refs.values()).some((ref) => ref.to.tableId === id && frozen.has(ref.from.tableId)));
+          if (altersLocked) {
+            kept.push(table.name);
+            continue;
+          }
           tables.delete(id);
           for (const [refId, ref] of refs.entries()) {
             if (ref.from.tableId === id || ref.to.tableId === id) refs.delete(refId);
@@ -336,6 +391,7 @@ export class CanvasNodesState {
           tableGroups.delete(id);
         }
       }
+      if (kept.length > 0) this.input.onLockedTablesKept?.(kept);
     });
   }
 }

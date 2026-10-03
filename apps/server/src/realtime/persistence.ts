@@ -1,7 +1,7 @@
 import * as Y from "yjs";
-import type { RevisionMeta } from "@athanordb/shared";
+import type { RevisionChanges, RevisionMeta } from "@athanordb/shared";
 import { readProjectFromDoc } from "@athanordb/shared";
-import { diffProjects } from "@athanordb/dbml-engine";
+import { diffProjects, type ProjectDiff } from "@athanordb/dbml-engine";
 import { db } from "../infrastructure/db.js";
 import { timeSync } from "../infrastructure/perf.js";
 
@@ -35,6 +35,13 @@ export function appendRevision(projectId: string, author: string, update: Uint8A
       `INSERT INTO revisions (id, project_id, author, yjs_update, created_at) VALUES (?, ?, ?, ?, datetime('now'))`,
     ).run(crypto.randomUUID(), projectId, author, Buffer.from(update));
   });
+}
+
+/** The project's most recent revision, or `null` before its first edit. */
+export function latestRevisionId(projectId: string): string | null {
+  const row = db.prepare("SELECT id FROM revisions WHERE project_id = ? ORDER BY rowid DESC LIMIT 1").get(projectId) as
+    { id: string } | undefined;
+  return row?.id ?? null;
 }
 
 /** Names a revision as a checkpoint (e.g. "v1.0"), or clears the label with `null`. Returns false if no such revision exists for the project. */
@@ -75,6 +82,9 @@ export function listRevisions(projectId: string): RevisionMeta[] {
  * canvas, without touching the schema, does not count as a change here
  * either.
  *
+ * Each kept revision carries `changes`, the short form of that diff, for the
+ * history line ("orders, customers · 2 relations").
+ *
  * Replays the whole log exactly once, incrementally, into a single scratch
  * doc — O(revisions), not O(revisions²) like reconstructing each one from
  * scratch would be.
@@ -97,7 +107,13 @@ export function listMeaningfulRevisions(projectId: string): RevisionMeta[] {
         const diff = diffProjects(previousProject, project);
         const changed = diff.tables.length > 0 || diff.refs.length > 0;
         if (changed || row.label) {
-          kept.push({ id: row.id, author: row.author, label: row.label, createdAt: row.createdAt });
+          kept.push({
+            id: row.id,
+            author: row.author,
+            label: row.label,
+            createdAt: row.createdAt,
+            ...(changed ? { changes: summarizeChanges(diff) } : {}),
+          });
         }
         previousProject = project;
       }
@@ -106,6 +122,17 @@ export function listMeaningfulRevisions(projectId: string): RevisionMeta[] {
       doc.destroy();
     }
   });
+}
+
+/** Tables listed by name in a revision's summary; the rest are only counted. */
+const SUMMARY_TABLES = 8;
+
+function summarizeChanges(diff: ProjectDiff): RevisionChanges {
+  return {
+    tables: diff.tables.slice(0, SUMMARY_TABLES).map((table) => ({ name: table.name, status: table.status })),
+    moreTables: Math.max(0, diff.tables.length - SUMMARY_TABLES),
+    refs: diff.refs.length,
+  };
 }
 
 /**

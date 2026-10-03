@@ -139,3 +139,21 @@
 .svelte-flow__handle {
   border-color: var(--color-bg-canvas);
 }
+
+/* History preview (`HistoryPreviewBanner`): tables added or changed since the
+   revision being previewed. A ring outside the node rather than its border, so
+   it never fights the table's own colour, selection or lock styling. */
+.svelte-flow__node.history-diff-added,
+.svelte-flow__node.history-diff-changed {
+  border-radius: var(--radius-md, 8px);
+}
+.svelte-flow__node.history-diff-added {
+  box-shadow:
+    0 0 0 3px var(--color-success),
+    0 0 0 8px var(--color-success-light);
+}
+.svelte-flow__node.history-diff-changed {
+  box-shadow:
+    0 0 0 3px var(--color-warning),
+    0 0 0 8px var(--color-warning-light);
+}
