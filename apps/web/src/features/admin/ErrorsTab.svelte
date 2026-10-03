@@ -22,7 +22,7 @@
   import { fetchErrorLog } from "@/services/errorsApi";
 
   /**
-   * Read-only, same shape as `AuditTab` — the two are siblings on purpose:
+   * Read-only, same shape as `ActivityTab` — the two are siblings on purpose:
    * where the audit log answers "what did someone do", this answers "what
    * broke", server-side unhandled throws and client-side render crashes both.
    * See `errorLog.ts` on the server for why this exists and what it doesn't

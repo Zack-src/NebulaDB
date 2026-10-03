@@ -5,7 +5,7 @@
     { key: "invitations", labelKey: "admin.section.invitations" },
     { key: "teams", labelKey: "admin.section.teams" },
     { key: "users", labelKey: "admin.section.users" },
-    { key: "audit", labelKey: "admin.section.audit" },
+    { key: "audit", labelKey: "admin.section.activity" },
     { key: "errors", labelKey: "admin.section.errors" },
     { key: "connections", labelKey: "admin.section.connections" },
     { key: "environments", labelKey: "admin.section.environments" },
@@ -17,7 +17,7 @@
 <script lang="ts">
   import Icon from "@/components/icons/Icon.svelte";
   import { ChevronLeftIcon } from "@/components/icons/Icons";
-  import AuditTab from "@/features/admin/AuditTab.svelte";
+  import ActivityTab from "@/features/admin/ActivityTab.svelte";
   import ConnectionsTab from "@/features/admin/ConnectionsTab.svelte";
   import EnvironmentsTab from "@/features/admin/EnvironmentsTab.svelte";
   import ErrorsTab from "@/features/admin/ErrorsTab.svelte";
@@ -61,7 +61,7 @@
       {#if section === "invitations"}<InvitationsTab />{/if}
       {#if section === "teams"}<TeamsTab />{/if}
       {#if section === "users"}<UsersTab />{/if}
-      {#if section === "audit"}<AuditTab />{/if}
+      {#if section === "audit"}<ActivityTab />{/if}
       {#if section === "errors"}<ErrorsTab />{/if}
       {#if section === "connections"}<ConnectionsTab />{/if}
       {#if section === "environments"}<EnvironmentsTab />{/if}
