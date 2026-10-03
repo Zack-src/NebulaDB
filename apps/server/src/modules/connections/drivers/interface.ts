@@ -1,5 +1,4 @@
-import type { DatabaseConnectionConfig, Project, SchemaRisk } from "@athanordb/shared";
-import type { MigrationDiff } from "@athanordb/dbml-engine";
+import type { DatabaseConnectionConfig, Project } from "@athanordb/shared";
 
 export interface TestConnectionResult {
   ok: boolean;
@@ -17,7 +16,8 @@ export interface MigrationExecutionResult {
 export interface DatabaseDriver {
   testConnection(): Promise<TestConnectionResult>;
   introspectSchema(): Promise<Project>;
-  inspectRisks(diff: MigrationDiff): Promise<SchemaRisk[]>;
+  /** One aggregate query's single number (`null` for none) — the pre-deployment risk probes. */
+  queryScalar(sql: string): Promise<number | null>;
   executeMigration(sql: string): Promise<MigrationExecutionResult>;
   close(): Promise<void>;
 }

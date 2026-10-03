@@ -1,6 +1,5 @@
 import oracledb from "oracledb";
-import type { Project, Ref, SchemaRisk, Table, TableIndex } from "@athanordb/shared";
-import type { MigrationDiff } from "@athanordb/dbml-engine";
+import type { Project, Ref, Table, TableIndex } from "@athanordb/shared";
 import type {
   DatabaseDriver,
   DriverConnectionConfig,
@@ -163,52 +162,20 @@ export class OracleDriver implements DatabaseDriver {
     }
   }
 
-  async inspectRisks(diff: MigrationDiff): Promise<SchemaRisk[]> {
-    const risks: SchemaRisk[] = [];
+  /**
+   * Runs one aggregate query (a count or a maximum, see `planRiskProbes`)
+   * and returns its single number — `null` when there is none (an empty
+   * `MAX`). Never used for row data.
+   */
+  async queryScalar(sql: string): Promise<number | null> {
     const conn = await this.getConnection();
     try {
-      for (const t of diff.tables.filter((t) => t.status === "dropped")) {
-        try {
-          const countRes = await conn.execute<{ C: number }>(`SELECT COUNT(*) AS "C" FROM "${t.name}"`);
-          const count = (countRes.rows?.[0] as unknown as { C: number })?.C ?? 0;
-          if (count > 0) {
-            const sampleRes = await conn.execute(`SELECT * FROM "${t.name}" WHERE ROWNUM <= 5`);
-            risks.push({
-              id: `risk-table-drop-${t.name}`,
-              type: "DROP_TABLE_WITH_DATA",
-              severity: "critical",
-              tableName: t.name,
-              affectedRowCount: count,
-              sampleData: (sampleRes.rows ?? []) as Record<string, unknown>[],
-              availableStrategies: [
-                {
-                  key: "DROP_DATA_CONFIRMED",
-                  labelKey: "connections.strategy.dropData",
-                  descriptionKey: "connections.strategy.dropDataDesc",
-                },
-                {
-                  key: "KEEP_IN_DB",
-                  labelKey: "connections.strategy.keepInDb",
-                  descriptionKey: "connections.strategy.keepInDbDesc",
-                },
-                {
-                  key: "CANCEL",
-                  labelKey: "connections.strategy.cancel",
-                  descriptionKey: "connections.strategy.cancelDesc",
-                },
-              ],
-              defaultStrategy: "KEEP_IN_DB",
-              selectedStrategy: "KEEP_IN_DB",
-            });
-          }
-        } catch {
-          // table might not exist
-        }
-      }
+      const res = await conn.execute(sql, [], { outFormat: oracledb.OUT_FORMAT_ARRAY });
+      const value = (res.rows?.[0] as unknown[] | undefined)?.[0];
+      return value === null || value === undefined ? null : Number(value);
     } finally {
       await conn.close().catch(() => {});
     }
-    return risks;
   }
 
   /**

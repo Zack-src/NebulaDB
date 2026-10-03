@@ -12,8 +12,9 @@ import { diffTargetAgainstLive } from "@athanordb/dbml-engine";
 import type { Project } from "@athanordb/shared";
 
 const { SqliteDriver } = await import("./sqlite.js");
+const { analyzeDeploymentRisks } = await import("../riskAnalysis.js");
 
-test("SqliteDriver connects, introspects, inspects risks with sample data, and executes migrations", async () => {
+test("SqliteDriver connects, introspects, measures risks, and executes migrations", async () => {
   const driver = new SqliteDriver({
     id: "test-conn",
     projectId: "p1",
@@ -57,11 +58,11 @@ test("SqliteDriver connects, introspects, inspects risks with sample data, and e
   const diff = diffTargetAgainstLive(schema, targetProject);
   assert.equal(diff.hasChanges, true);
 
-  const risks = await driver.inspectRisks(diff);
+  const risks = await analyzeDeploymentRisks(driver, diff, "sqlite");
   assert.equal(risks.length, 1);
   assert.equal(risks[0].type, "DROP_COLUMN_WITH_DATA");
   assert.equal(risks[0].affectedRowCount, 2);
-  assert.deepEqual(risks[0].sampleData, ["alice@test.com", "bob@test.com"]);
+  assert.equal("sampleData" in risks[0], false, "a count, never the rows themselves");
 
   await driver.close();
 });

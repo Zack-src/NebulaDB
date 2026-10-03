@@ -1,8 +1,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import Database from "better-sqlite3";
-import type { DatabaseConnectionConfig, Project, Ref, SchemaRisk, Table, TableIndex } from "@athanordb/shared";
-import type { MigrationDiff } from "@athanordb/dbml-engine";
+import type { DatabaseConnectionConfig, Project, Ref, Table, TableIndex } from "@athanordb/shared";
 import { config as appConfig } from "../../../config.js";
 import { ApiError } from "../../../shared/errors.js";
 import type { DatabaseDriver, MigrationExecutionResult, TestConnectionResult } from "./interface.js";
@@ -159,147 +158,14 @@ export class SqliteDriver implements DatabaseDriver {
     };
   }
 
-  async inspectRisks(diff: MigrationDiff): Promise<SchemaRisk[]> {
-    const risks: SchemaRisk[] = [];
-
-    // Dropped tables
-    for (const t of diff.tables.filter((t) => t.status === "dropped")) {
-      try {
-        const row = this.db.prepare(`SELECT COUNT(*) AS c FROM "${t.name}"`).get() as { c: number };
-        const count = row?.c ?? 0;
-        if (count > 0) {
-          const sampleRows = this.db.prepare(`SELECT * FROM "${t.name}" LIMIT 5`).all() as Record<string, unknown>[];
-          risks.push({
-            id: `risk-table-drop-${t.name}`,
-            type: "DROP_TABLE_WITH_DATA",
-            severity: "critical",
-            tableName: t.name,
-            affectedRowCount: count,
-            sampleData: sampleRows,
-            availableStrategies: [
-              {
-                key: "DROP_DATA_CONFIRMED",
-                labelKey: "connections.strategy.dropData",
-                descriptionKey: "connections.strategy.dropDataDesc",
-              },
-              {
-                key: "KEEP_IN_DB",
-                labelKey: "connections.strategy.keepInDb",
-                descriptionKey: "connections.strategy.keepInDbDesc",
-              },
-              {
-                key: "CANCEL",
-                labelKey: "connections.strategy.cancel",
-                descriptionKey: "connections.strategy.cancelDesc",
-              },
-            ],
-            defaultStrategy: "KEEP_IN_DB",
-            selectedStrategy: "KEEP_IN_DB",
-          });
-        }
-      } catch {
-        // ignore
-      }
-    }
-
-    // Modified tables
-    for (const t of diff.tables.filter((t) => t.status === "modified")) {
-      // Dropped columns
-      for (const f of t.fields.filter((f) => f.status === "dropped")) {
-        try {
-          const row = this.db.prepare(`SELECT COUNT(*) AS c FROM "${t.name}" WHERE "${f.name}" IS NOT NULL`).get() as {
-            c: number;
-          };
-          const count = row?.c ?? 0;
-          if (count > 0) {
-            const sampleRows = this.db
-              .prepare(`SELECT "${f.name}" AS val FROM "${t.name}" WHERE "${f.name}" IS NOT NULL LIMIT 5`)
-              .all() as { val: unknown }[];
-            risks.push({
-              id: `risk-col-drop-${t.name}-${f.name}`,
-              type: "DROP_COLUMN_WITH_DATA",
-              severity: "critical",
-              tableName: t.name,
-              columnName: f.name,
-              affectedRowCount: count,
-              sampleData: sampleRows.map((r) => r.val) as (
-                string | number | boolean | Record<string, unknown> | null
-              )[],
-              availableStrategies: [
-                {
-                  key: "DROP_DATA_CONFIRMED",
-                  labelKey: "connections.strategy.dropData",
-                  descriptionKey: "connections.strategy.dropDataDesc",
-                },
-                {
-                  key: "KEEP_IN_DB",
-                  labelKey: "connections.strategy.keepColumn",
-                  descriptionKey: "connections.strategy.keepColumnDesc",
-                },
-                {
-                  key: "CANCEL",
-                  labelKey: "connections.strategy.cancel",
-                  descriptionKey: "connections.strategy.cancelDesc",
-                },
-              ],
-              defaultStrategy: "KEEP_IN_DB",
-              selectedStrategy: "KEEP_IN_DB",
-            });
-          }
-        } catch {
-          // ignore
-        }
-      }
-
-      // Altered type
-      for (const f of t.fields.filter((f) => f.status === "modified" && f.typeChanged)) {
-        try {
-          const row = this.db.prepare(`SELECT COUNT(*) AS c FROM "${t.name}" WHERE "${f.name}" IS NOT NULL`).get() as {
-            c: number;
-          };
-          const count = row?.c ?? 0;
-          if (count > 0) {
-            const sampleRows = this.db
-              .prepare(`SELECT "${f.name}" AS val FROM "${t.name}" WHERE "${f.name}" IS NOT NULL LIMIT 5`)
-              .all() as { val: unknown }[];
-            risks.push({
-              id: `risk-col-type-${t.name}-${f.name}`,
-              type: "ALTER_COLUMN_TYPE",
-              severity: "warning",
-              tableName: t.name,
-              columnName: f.name,
-              affectedRowCount: count,
-              sampleData: sampleRows.map((r) => r.val) as (
-                string | number | boolean | Record<string, unknown> | null
-              )[],
-              availableStrategies: [
-                {
-                  key: "FORCE_CAST",
-                  labelKey: "connections.strategy.forceCast",
-                  descriptionKey: "connections.strategy.forceCastDesc",
-                },
-                {
-                  key: "CLEAR_COLUMN_DATA",
-                  labelKey: "connections.strategy.clearData",
-                  descriptionKey: "connections.strategy.clearDataDesc",
-                },
-                {
-                  key: "CANCEL",
-                  labelKey: "connections.strategy.cancel",
-                  descriptionKey: "connections.strategy.cancelDesc",
-                },
-              ],
-              defaultStrategy: "FORCE_CAST",
-              selectedStrategy: "FORCE_CAST",
-            });
-          }
-        } catch {
-          // ignore
-        }
-      }
-    }
-
-    return risks;
+  /**
+   * Runs one aggregate query (a count or a maximum, see `planRiskProbes`)
+   * and returns its single number — `null` when there is none (an empty
+   * `MAX`). Never used for row data.
+   */
+  async queryScalar(sql: string): Promise<number | null> {
+    const value = this.db.prepare(sql).pluck().get();
+    return value === null || value === undefined ? null : Number(value);
   }
 
   async executeMigration(sql: string): Promise<MigrationExecutionResult> {

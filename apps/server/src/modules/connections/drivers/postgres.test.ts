@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { PostgresDriver } from "./postgres.js";
+import { analyzeDeploymentRisks, resolutionKeyOf } from "../riskAnalysis.js";
 import { TEST_DB_HINT } from "./testDbAvailability.js";
 import { diffTargetAgainstLive, generateMigrationSql } from "@athanordb/dbml-engine";
 import type { Project } from "@athanordb/shared";
@@ -20,7 +21,7 @@ const config = {
   password: process.env.ATHANORDB_TEST_PG_PASSWORD || "athanordb_test",
 };
 
-test("PostgresDriver connects, introspects, inspects risks with sample data, deploys migrations", async (t) => {
+test("PostgresDriver connects, introspects, measures risks, deploys migrations", async (t) => {
   const driver = new PostgresDriver(config);
 
   // testConnection() swallows connection failures into `.error` rather than
@@ -82,17 +83,17 @@ test("PostgresDriver connects, introspects, inspects risks with sample data, dep
     const diff = diffTargetAgainstLive(schema, targetProject);
     assert.equal(diff.hasChanges, true);
 
-    const risks = await driver.inspectRisks(diff);
+    const risks = await analyzeDeploymentRisks(driver, diff, "postgres");
     const dropRisk = risks.find((r) => r.type === "DROP_COLUMN_WITH_DATA");
     assert.ok(dropRisk, "dropping a populated column should be flagged as a risk");
     assert.equal(dropRisk!.affectedRowCount, 2);
-    assert.deepEqual([...(dropRisk!.sampleData ?? [])].sort(), ["alice@test.com", "bob@test.com"]);
+    assert.equal("sampleData" in dropRisk!, false, "a count, never the rows themselves");
 
     // 6. Generate the real migration SQL for that diff and actually apply it
     // end-to-end (apply-deployment's exact call sequence), then confirm the
     // live schema reflects it.
     const sql = generateMigrationSql(diff, "postgres", {
-      [dropRisk!.id]: { strategy: "DROP_DATA_CONFIRMED" },
+      [resolutionKeyOf(dropRisk!)]: { strategy: "DROP_DATA_CONFIRMED" },
     });
     const applied = await driver.executeMigration(sql);
     assert.equal(applied.success, true, applied.error ?? "migration should have succeeded");

@@ -1,7 +1,6 @@
 import mysql from "mysql2/promise";
 import type { RowDataPacket } from "mysql2/promise";
-import type { Project, Ref, SchemaRisk, Table, TableIndex } from "@athanordb/shared";
-import type { MigrationDiff } from "@athanordb/dbml-engine";
+import type { Project, Ref, Table, TableIndex } from "@athanordb/shared";
 import type {
   DatabaseDriver,
   DriverConnectionConfig,
@@ -34,14 +33,6 @@ interface ForeignKeyRow extends RowDataPacket {
   COLUMN_NAME: string;
   REFERENCED_TABLE_NAME: string;
   REFERENCED_COLUMN_NAME: string;
-}
-
-interface CountRow extends RowDataPacket {
-  c: number;
-}
-
-interface ValueRow extends RowDataPacket {
-  val: unknown;
 }
 
 /** Shared with the admin driver (`admin/mysql.ts`). */
@@ -171,147 +162,15 @@ export class MysqlDriver implements DatabaseDriver {
     };
   }
 
-  async inspectRisks(diff: MigrationDiff): Promise<SchemaRisk[]> {
-    const risks: SchemaRisk[] = [];
-
-    // Dropped tables
-    for (const t of diff.tables.filter((t) => t.status === "dropped")) {
-      try {
-        const [rows] = await this.pool.query<CountRow[]>(`SELECT COUNT(*) AS c FROM \`${t.name}\``);
-        const count = Number(rows[0]?.c ?? 0);
-        if (count > 0) {
-          const [sampleRows] = await this.pool.query<RowDataPacket[]>(`SELECT * FROM \`${t.name}\` LIMIT 5`);
-          risks.push({
-            id: `risk-table-drop-${t.name}`,
-            type: "DROP_TABLE_WITH_DATA",
-            severity: "critical",
-            tableName: t.name,
-            affectedRowCount: count,
-            sampleData: sampleRows,
-            availableStrategies: [
-              {
-                key: "DROP_DATA_CONFIRMED",
-                labelKey: "connections.strategy.dropData",
-                descriptionKey: "connections.strategy.dropDataDesc",
-              },
-              {
-                key: "KEEP_IN_DB",
-                labelKey: "connections.strategy.keepInDb",
-                descriptionKey: "connections.strategy.keepInDbDesc",
-              },
-              {
-                key: "CANCEL",
-                labelKey: "connections.strategy.cancel",
-                descriptionKey: "connections.strategy.cancelDesc",
-              },
-            ],
-            defaultStrategy: "KEEP_IN_DB",
-            selectedStrategy: "KEEP_IN_DB",
-          });
-        }
-      } catch {
-        // ignore
-      }
-    }
-
-    // Modified tables
-    for (const t of diff.tables.filter((t) => t.status === "modified")) {
-      // Dropped columns
-      for (const f of t.fields.filter((f) => f.status === "dropped")) {
-        try {
-          const [rows] = await this.pool.query<CountRow[]>(
-            `SELECT COUNT(*) AS c FROM \`${t.name}\` WHERE \`${f.name}\` IS NOT NULL`,
-          );
-          const count = Number(rows[0]?.c ?? 0);
-          if (count > 0) {
-            const [sampleRows] = await this.pool.query<ValueRow[]>(
-              `SELECT \`${f.name}\` AS val FROM \`${t.name}\` WHERE \`${f.name}\` IS NOT NULL LIMIT 5`,
-            );
-            risks.push({
-              id: `risk-col-drop-${t.name}-${f.name}`,
-              type: "DROP_COLUMN_WITH_DATA",
-              severity: "critical",
-              tableName: t.name,
-              columnName: f.name,
-              affectedRowCount: count,
-              sampleData: sampleRows.map((r) => r.val) as (
-                string | number | boolean | Record<string, unknown> | null
-              )[],
-              availableStrategies: [
-                {
-                  key: "DROP_DATA_CONFIRMED",
-                  labelKey: "connections.strategy.dropData",
-                  descriptionKey: "connections.strategy.dropDataDesc",
-                },
-                {
-                  key: "KEEP_IN_DB",
-                  labelKey: "connections.strategy.keepColumn",
-                  descriptionKey: "connections.strategy.keepColumnDesc",
-                },
-                {
-                  key: "CANCEL",
-                  labelKey: "connections.strategy.cancel",
-                  descriptionKey: "connections.strategy.cancelDesc",
-                },
-              ],
-              defaultStrategy: "KEEP_IN_DB",
-              selectedStrategy: "KEEP_IN_DB",
-            });
-          }
-        } catch {
-          // ignore
-        }
-      }
-
-      // Altered type
-      for (const f of t.fields.filter((f) => f.status === "modified" && f.typeChanged)) {
-        try {
-          const [rows] = await this.pool.query<CountRow[]>(
-            `SELECT COUNT(*) AS c FROM \`${t.name}\` WHERE \`${f.name}\` IS NOT NULL`,
-          );
-          const count = Number(rows[0]?.c ?? 0);
-          if (count > 0) {
-            const [sampleRows] = await this.pool.query<ValueRow[]>(
-              `SELECT \`${f.name}\` AS val FROM \`${t.name}\` WHERE \`${f.name}\` IS NOT NULL LIMIT 5`,
-            );
-            risks.push({
-              id: `risk-col-type-${t.name}-${f.name}`,
-              type: "ALTER_COLUMN_TYPE",
-              severity: "warning",
-              tableName: t.name,
-              columnName: f.name,
-              affectedRowCount: count,
-              sampleData: sampleRows.map((r) => r.val) as (
-                string | number | boolean | Record<string, unknown> | null
-              )[],
-              availableStrategies: [
-                {
-                  key: "FORCE_CAST",
-                  labelKey: "connections.strategy.forceCast",
-                  descriptionKey: "connections.strategy.forceCastDesc",
-                },
-                {
-                  key: "CLEAR_COLUMN_DATA",
-                  labelKey: "connections.strategy.clearData",
-                  descriptionKey: "connections.strategy.clearDataDesc",
-                },
-                {
-                  key: "CANCEL",
-                  labelKey: "connections.strategy.cancel",
-                  descriptionKey: "connections.strategy.cancelDesc",
-                },
-              ],
-              defaultStrategy: "FORCE_CAST",
-              selectedStrategy: "FORCE_CAST",
-            });
-          }
-        } catch {
-          // ignore
-        }
-      }
-    }
-
-    return risks;
+  /**
+   * Runs one aggregate query (a count or a maximum, see `planRiskProbes`)
+   * and returns its single number — `null` when there is none (an empty
+   * `MAX`). Never used for row data.
+   */
+  async queryScalar(sql: string): Promise<number | null> {
+    const [rows] = await this.pool.query<RowDataPacket[]>({ sql, rowsAsArray: true });
+    const value = (rows[0] as unknown as unknown[] | undefined)?.[0];
+    return value === null || value === undefined ? null : Number(value);
   }
 
   /**

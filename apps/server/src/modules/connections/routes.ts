@@ -1,6 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { readProjectFromDoc, type DatabaseConnectionConfig, type MigrationResolutionMap } from "@athanordb/shared";
-import { detectTypeTranslationRisks, diffTargetAgainstLive, generateMigrationSql } from "@athanordb/dbml-engine";
+import { diffTargetAgainstLive, generateMigrationSql } from "@athanordb/dbml-engine";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireProjectAccess, requireProjectAdmin, requireUser } from "../../shared/guards.js";
@@ -9,6 +9,7 @@ import { createDatabaseDriver } from "./drivers/index.js";
 import { deployToConnection, rollbackConnectionDeployment } from "./deploy.js";
 import { checkDrift, dismissOutOfSchema, listProjectDrift } from "./drift.js";
 import { pullConnectionSchema } from "./pull.js";
+import { analyzeDeploymentRisks } from "./riskAnalysis.js";
 import { createProjectFromDatabase } from "./createFromDatabase.js";
 import { listDeploymentHistory } from "./deploymentHistory.js";
 import {
@@ -207,7 +208,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
     try {
       const liveProject = await driver.introspectSchema();
       const diff = diffTargetAgainstLive(liveProject, canvasProject);
-      const risks = [...(await driver.inspectRisks(diff)), ...detectTypeTranslationRisks(diff, conn.engine)];
+      const risks = await analyzeDeploymentRisks(driver, diff, conn.engine);
       const initialSql = generateMigrationSql(diff, conn.engine, {});
 
       return {
@@ -225,16 +226,16 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
   app.post("/api/projects/:id/connections/:connId/apply-deployment", CONNECTION_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
     const { user, project } = requireProjectAdmin(req, id);
-    const body = (req.body ?? {}) as { resolutions?: MigrationResolutionMap; confirmName?: string };
+    const body = (req.body ?? {}) as {
+      resolutions?: MigrationResolutionMap;
+      confirmName?: string;
+      riskNote?: string;
+    };
 
-    const result = await deployToConnection(
-      id,
-      project.name,
-      connId,
-      body.resolutions || {},
-      user.email,
-      body.confirmName,
-    );
+    const result = await deployToConnection(id, project.name, connId, body.resolutions || {}, user.email, {
+      confirmName: body.confirmName,
+      riskNote: body.riskNote,
+    });
 
     auditUser(
       user,

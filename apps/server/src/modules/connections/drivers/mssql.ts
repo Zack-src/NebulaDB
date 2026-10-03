@@ -1,7 +1,6 @@
 import net from "node:net";
 import sql from "mssql";
-import type { Project, Ref, SchemaRisk, Table, TableIndex } from "@athanordb/shared";
-import type { MigrationDiff } from "@athanordb/dbml-engine";
+import type { Project, Ref, Table, TableIndex } from "@athanordb/shared";
 import type {
   DatabaseDriver,
   DriverConnectionConfig,
@@ -23,17 +22,6 @@ interface ForeignKeyRow {
   COLUMN_NAME: string;
   REFERENCED_TABLE_NAME: string;
   REFERENCED_COLUMN_NAME: string;
-}
-
-/**
- * Same shape as `PostgresDriver`/`MysqlDriver` (see those for the reasoning
- * behind the risk-inspection and statement-by-statement execution patterns);
- * this one targets SQL Server via `mssql` (tedious). `bracketAll` mirrors
- * `q()` in `migrationGenerator.ts` — kept local rather than imported so this
- * driver has no compile-time dependency on dbml-engine's internal helper.
- */
-function bracket(ident: string): string {
-  return `[${ident.replace(/]/g, "]]")}]`;
 }
 
 /** Opens the socket to the pinned address while `server` stays the real name, which TLS and the login packet still need. */
@@ -68,6 +56,7 @@ export function mssqlPoolConfig(config: DriverConnectionConfig, database?: strin
   };
 }
 
+/** Same shape as `PostgresDriver`/`MysqlDriver` (statement-by-statement execution); targets SQL Server via `mssql` (tedious). */
 export class MssqlDriver implements DatabaseDriver {
   private pool: sql.ConnectionPool;
   private ready: Promise<sql.ConnectionPool>;
@@ -185,50 +174,17 @@ export class MssqlDriver implements DatabaseDriver {
     };
   }
 
-  async inspectRisks(diff: MigrationDiff): Promise<SchemaRisk[]> {
-    const risks: SchemaRisk[] = [];
+  /**
+   * Runs one aggregate query (a count or a maximum, see `planRiskProbes`)
+   * and returns its single number — `null` when there is none (an empty
+   * `MAX`). Never used for row data.
+   */
+  async queryScalar(sql_: string): Promise<number | null> {
     const pool = await this.ready;
-
-    for (const t of diff.tables.filter((t) => t.status === "dropped")) {
-      try {
-        const countRes = await pool.request().query<{ c: number }>(`SELECT COUNT(*) AS c FROM ${bracket(t.name)}`);
-        const count = countRes.recordset[0]?.c ?? 0;
-        if (count > 0) {
-          const sampleRes = await pool.request().query(`SELECT TOP 5 * FROM ${bracket(t.name)}`);
-          risks.push({
-            id: `risk-table-drop-${t.name}`,
-            type: "DROP_TABLE_WITH_DATA",
-            severity: "critical",
-            tableName: t.name,
-            affectedRowCount: count,
-            sampleData: sampleRes.recordset,
-            availableStrategies: [
-              {
-                key: "DROP_DATA_CONFIRMED",
-                labelKey: "connections.strategy.dropData",
-                descriptionKey: "connections.strategy.dropDataDesc",
-              },
-              {
-                key: "KEEP_IN_DB",
-                labelKey: "connections.strategy.keepInDb",
-                descriptionKey: "connections.strategy.keepInDbDesc",
-              },
-              {
-                key: "CANCEL",
-                labelKey: "connections.strategy.cancel",
-                descriptionKey: "connections.strategy.cancelDesc",
-              },
-            ],
-            defaultStrategy: "KEEP_IN_DB",
-            selectedStrategy: "KEEP_IN_DB",
-          });
-        }
-      } catch {
-        // table might not exist
-      }
-    }
-
-    return risks;
+    const res = await pool.request().query(sql_);
+    const row = res.recordset[0] as Record<string, unknown> | undefined;
+    const value = row ? Object.values(row)[0] : undefined;
+    return value === null || value === undefined ? null : Number(value);
   }
 
   /**

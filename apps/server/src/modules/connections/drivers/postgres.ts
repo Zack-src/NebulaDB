@@ -1,6 +1,5 @@
 import pg from "pg";
-import type { Project, Ref, SchemaRisk, Table, TableIndex } from "@athanordb/shared";
-import type { MigrationDiff } from "@athanordb/dbml-engine";
+import type { Project, Ref, Table, TableIndex } from "@athanordb/shared";
 import type {
   DatabaseDriver,
   DriverConnectionConfig,
@@ -178,191 +177,15 @@ export class PostgresDriver implements DatabaseDriver {
     }
   }
 
-  async inspectRisks(diff: MigrationDiff): Promise<SchemaRisk[]> {
-    const risks: SchemaRisk[] = [];
-    const client = await this.pool.connect();
-
-    try {
-      // 1. Dropped tables
-      for (const t of diff.tables.filter((t) => t.status === "dropped")) {
-        try {
-          const countRes = await client.query(`SELECT COUNT(*)::int AS count FROM "${t.name}"`);
-          const count = countRes.rows[0]?.count ?? 0;
-          if (count > 0) {
-            const sampleRes = await client.query(`SELECT * FROM "${t.name}" LIMIT 5`);
-            risks.push({
-              id: `risk-table-drop-${t.name}`,
-              type: "DROP_TABLE_WITH_DATA",
-              severity: "critical",
-              tableName: t.name,
-              affectedRowCount: count,
-              sampleData: sampleRes.rows,
-              availableStrategies: [
-                {
-                  key: "DROP_DATA_CONFIRMED",
-                  labelKey: "connections.strategy.dropData",
-                  descriptionKey: "connections.strategy.dropDataDesc",
-                },
-                {
-                  key: "KEEP_IN_DB",
-                  labelKey: "connections.strategy.keepInDb",
-                  descriptionKey: "connections.strategy.keepInDbDesc",
-                },
-                {
-                  key: "CANCEL",
-                  labelKey: "connections.strategy.cancel",
-                  descriptionKey: "connections.strategy.cancelDesc",
-                },
-              ],
-              defaultStrategy: "KEEP_IN_DB",
-              selectedStrategy: "KEEP_IN_DB",
-            });
-          }
-        } catch {
-          // table might not exist
-        }
-      }
-
-      // 2. Modified tables
-      for (const t of diff.tables.filter((t) => t.status === "modified")) {
-        // Dropped columns
-        for (const f of t.fields.filter((f) => f.status === "dropped")) {
-          try {
-            const countRes = await client.query(
-              `SELECT COUNT(*)::int AS count FROM "${t.name}" WHERE "${f.name}" IS NOT NULL`,
-            );
-            const count = countRes.rows[0]?.count ?? 0;
-            if (count > 0) {
-              const sampleRes = await client.query(
-                `SELECT "${f.name}" AS val FROM "${t.name}" WHERE "${f.name}" IS NOT NULL LIMIT 5`,
-              );
-              risks.push({
-                id: `risk-col-drop-${t.name}-${f.name}`,
-                type: "DROP_COLUMN_WITH_DATA",
-                severity: "critical",
-                tableName: t.name,
-                columnName: f.name,
-                affectedRowCount: count,
-                sampleData: sampleRes.rows.map((r) => r.val),
-                availableStrategies: [
-                  {
-                    key: "DROP_DATA_CONFIRMED",
-                    labelKey: "connections.strategy.dropData",
-                    descriptionKey: "connections.strategy.dropDataDesc",
-                  },
-                  {
-                    key: "KEEP_IN_DB",
-                    labelKey: "connections.strategy.keepColumn",
-                    descriptionKey: "connections.strategy.keepColumnDesc",
-                  },
-                  {
-                    key: "CANCEL",
-                    labelKey: "connections.strategy.cancel",
-                    descriptionKey: "connections.strategy.cancelDesc",
-                  },
-                ],
-                defaultStrategy: "KEEP_IN_DB",
-                selectedStrategy: "KEEP_IN_DB",
-              });
-            }
-          } catch {
-            // column might not exist
-          }
-        }
-
-        // Altered type
-        for (const f of t.fields.filter((f) => f.status === "modified" && f.typeChanged)) {
-          try {
-            const countRes = await client.query(
-              `SELECT COUNT(*)::int AS count FROM "${t.name}" WHERE "${f.name}" IS NOT NULL`,
-            );
-            const count = countRes.rows[0]?.count ?? 0;
-            if (count > 0) {
-              const sampleRes = await client.query(
-                `SELECT "${f.name}" AS val FROM "${t.name}" WHERE "${f.name}" IS NOT NULL LIMIT 5`,
-              );
-              risks.push({
-                id: `risk-col-type-${t.name}-${f.name}`,
-                type: "ALTER_COLUMN_TYPE",
-                severity: "warning",
-                tableName: t.name,
-                columnName: f.name,
-                affectedRowCount: count,
-                sampleData: sampleRes.rows.map((r) => r.val),
-                availableStrategies: [
-                  {
-                    key: "FORCE_CAST",
-                    labelKey: "connections.strategy.forceCast",
-                    descriptionKey: "connections.strategy.forceCastDesc",
-                  },
-                  {
-                    key: "CLEAR_COLUMN_DATA",
-                    labelKey: "connections.strategy.clearData",
-                    descriptionKey: "connections.strategy.clearDataDesc",
-                  },
-                  {
-                    key: "CANCEL",
-                    labelKey: "connections.strategy.cancel",
-                    descriptionKey: "connections.strategy.cancelDesc",
-                  },
-                ],
-                defaultStrategy: "FORCE_CAST",
-                selectedStrategy: "FORCE_CAST",
-              });
-            }
-          } catch {
-            // ignore
-          }
-        }
-
-        // Nullable -> NOT NULL
-        for (const f of t.fields.filter((f) => f.status === "modified" && f.notNullChanged && f.after?.notNull)) {
-          try {
-            const countRes = await client.query(
-              `SELECT COUNT(*)::int AS count FROM "${t.name}" WHERE "${f.name}" IS NULL`,
-            );
-            const count = countRes.rows[0]?.count ?? 0;
-            if (count > 0) {
-              risks.push({
-                id: `risk-col-null-${t.name}-${f.name}`,
-                type: "NULL_TO_NOT_NULL",
-                severity: "critical",
-                tableName: t.name,
-                columnName: f.name,
-                affectedRowCount: count,
-                availableStrategies: [
-                  {
-                    key: "BACKFILL_DEFAULT",
-                    labelKey: "connections.strategy.backfillDefault",
-                    descriptionKey: "connections.strategy.backfillDefaultDesc",
-                    requiresInput: "default_value",
-                  },
-                  {
-                    key: "DELETE_OFFENDING_ROWS",
-                    labelKey: "connections.strategy.deleteRows",
-                    descriptionKey: "connections.strategy.deleteRowsDesc",
-                  },
-                  {
-                    key: "CANCEL",
-                    labelKey: "connections.strategy.cancel",
-                    descriptionKey: "connections.strategy.cancelDesc",
-                  },
-                ],
-                defaultStrategy: "BACKFILL_DEFAULT",
-                selectedStrategy: "BACKFILL_DEFAULT",
-                userProvidedValue: f.after?.default || "",
-              });
-            }
-          } catch {
-            // ignore
-          }
-        }
-      }
-
-      return risks;
-    } finally {
-      client.release();
-    }
+  /**
+   * Runs one aggregate query (a count or a maximum, see `planRiskProbes`)
+   * and returns its single number — `null` when there is none (an empty
+   * `MAX`). Never used for row data.
+   */
+  async queryScalar(sql: string): Promise<number | null> {
+    const res = await this.pool.query({ text: sql, rowMode: "array" });
+    const value = res.rows[0]?.[0];
+    return value === null || value === undefined ? null : Number(value);
   }
 
   async executeMigration(sql: string): Promise<MigrationExecutionResult> {
