@@ -21,7 +21,6 @@
   import Icon from "@/components/icons/Icon.svelte";
   import {
     ChevronLeftIcon,
-    ClockIcon,
     DownloadIcon,
     LayersIcon,
     LayoutGridIcon,
@@ -47,7 +46,6 @@
     onShowImport: () => void;
     onShowExport: () => void;
     onShowConvertTypes?: () => void;
-    onShowHistory: () => void;
     onShowCompare: () => void;
     onShowDeploy?: () => void;
     /**
@@ -68,7 +66,8 @@
 
   const { t } = useTranslation();
 
-  // Export and history are reads — a viewer keeps them. Import writes, so it
+  // Export is a read — a viewer keeps it (history is a tab of the workspace
+  // bar, not a button here). Import writes, so it
   // is dropped entirely rather than disabled: a viewer has no path to make it
   // work. Plugins lives only in the canvas toolbar.
   const panelActions = $derived<ToolbarAction[]>([
@@ -77,7 +76,6 @@
     ...(!props.viewOnly && props.onShowConvertTypes
       ? [{ icon: SwapHorizontalIcon, labelKey: "editor.convertTypes", onClick: props.onShowConvertTypes } as const]
       : []),
-    { icon: ClockIcon, labelKey: "editor.history", onClick: props.onShowHistory },
     { icon: LayersIcon, labelKey: "editor.compare", onClick: props.onShowCompare },
   ]);
 

@@ -1,16 +1,22 @@
 <script lang="ts">
-  import type { DbAdminQueryHistoryEntry, DbAdminQueryResult } from "@athanordb/shared";
+  import { untrack } from "svelte";
+  import type { DbAdminQueryHistoryEntry, DbAdminQueryResult, StructurePolicyRefusal } from "@athanordb/shared";
+  import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
-  import { CHECKBOX_CLASS, SELECT_SM_CLASS, TEXTAREA_CODE_CLASS } from "@/components/ui/inputStyles";
+  import { TEXTAREA_CODE_CLASS } from "@/components/ui/inputStyles";
+  import Select from "@/components/ui/Select.svelte";
+  import Switch from "@/components/ui/Switch.svelte";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { formatRelativeTime } from "@/i18n/formatters";
   import { i18n, useTranslation } from "@/i18n/i18n.svelte";
+  import { ApiError } from "@/services/ApiError";
   import { fetchQueryHistory, runAdminQuery, type ConnectionOverview } from "@/services/dbAdminApi";
   import { parseServerTime } from "./format";
   import ResultGrid from "./ResultGrid.svelte";
+  import StructureRedirectDialog, { describeStructuralAction } from "./StructureRedirectDialog.svelte";
 
   /**
    * The SQL console. Read-only is the resting state: the server refuses
@@ -21,7 +27,22 @@
     connectionId,
     overview,
     database = $bindable(),
-  }: { connectionId: string; overview: ConnectionOverview; database: string } = $props();
+    request = null,
+    compact = false,
+  }: {
+    connectionId: string;
+    overview: ConnectionOverview;
+    database: string;
+    /**
+     * A statement to load and run, from outside the panel ("Voir les données"
+     * on a table). A new `token` means a new request, even for the same SQL.
+     * Always run read-only, whatever mode the panel was in: the caller asked
+     * to look at something.
+     */
+    request?: { sql: string; token: number } | null;
+    /** A shorter editor — for the drawer under the schema, where height is the scarce thing. */
+    compact?: boolean;
+  } = $props();
 
   const { t } = useTranslation();
   const RUN_SHORTCUT = "Ctrl + Enter";
@@ -30,13 +51,40 @@
   let result = $state.raw<DbAdminQueryResult | null>(null);
   const history = useAsyncResource(() => fetchQueryHistory(connectionId));
 
-  const execute = useAsyncAction(async () => {
+  // The two answers of the structure policy are not errors to print under the
+  // editor: one sends the user to the schema, the other asks a question.
+  let redirect = $state.raw<StructurePolicyRefusal | null>(null);
+  let toConfirm = $state.raw<StructurePolicyRefusal | null>(null);
+
+  const execute = useAsyncAction(async (confirmStructural: boolean = false) => {
     result = null;
     try {
-      result = await runAdminQuery(connectionId, sql, { database: database || undefined, readOnly: !writeMode });
+      result = await runAdminQuery(connectionId, sql, {
+        database: database || undefined,
+        readOnly: !writeMode,
+        confirmStructural: confirmStructural || undefined,
+      });
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "STRUCTURE_VIA_SCHEMA") {
+        redirect = err.details as unknown as StructurePolicyRefusal;
+      } else if (err instanceof ApiError && err.code === "STRUCTURE_CONFIRMATION_REQUIRED") {
+        toConfirm = err.details as unknown as StructurePolicyRefusal;
+      } else throw err;
     } finally {
       history.reload();
     }
+  });
+
+  let handledToken: number | null = null;
+  $effect(() => {
+    const next = request;
+    if (!next || next.token === handledToken) return;
+    handledToken = next.token;
+    untrack(() => {
+      sql = next.sql;
+      writeMode = false;
+      void execute.run();
+    });
   });
 
   function run() {
@@ -61,17 +109,20 @@
 <div class="space-y-3">
   <div class="flex flex-wrap items-center gap-3">
     {#if overview.capabilities.multiDatabase}
-      <select class={SELECT_SM_CLASS} bind:value={database} aria-label={t("dbadmin.database")}>
-        {#each overview.databases as db (db.name)}
-          <option value={db.name}>{db.name}</option>
-        {/each}
-      </select>
+      <Select
+        size="sm"
+        class="min-w-40"
+        bind:value={database}
+        options={overview.databases.map((db) => ({ value: db.name, label: db.name }))}
+        aria-label={t("dbadmin.database")}
+      />
     {/if}
+    <!-- A switch, not a checkbox: it takes effect at once, on the next run. -->
     <label
-      class={`inline-flex items-center gap-1.5 text-xs ${overview.readOnly ? "cursor-not-allowed text-text-muted" : "cursor-pointer text-text"}`}
+      class={`inline-flex items-center gap-2 text-xs ${overview.readOnly ? "cursor-not-allowed text-text-muted" : "cursor-pointer text-text"}`}
       data-tooltip={overview.readOnly ? t("dbadmin.readOnlyConnection") : undefined}
     >
-      <input type="checkbox" class={CHECKBOX_CLASS} bind:checked={writeMode} disabled={overview.readOnly} />
+      <Switch size="sm" bind:checked={writeMode} disabled={overview.readOnly} />
       {t("dbadmin.sql.writeMode")}
     </label>
     <span class={`text-xs ${writeMode ? "font-semibold text-danger" : "text-text-muted"}`}>
@@ -80,7 +131,7 @@
   </div>
 
   <textarea
-    class={`${TEXTAREA_CODE_CLASS} h-40 w-full ${writeMode ? "!border-danger/60" : ""}`}
+    class={`${TEXTAREA_CODE_CLASS} ${compact ? "!min-h-0 h-20" : "h-40"} w-full ${writeMode ? "!border-danger/60" : ""}`}
     bind:value={sql}
     onkeydown={onKeydown}
     spellcheck="false"
@@ -120,3 +171,22 @@
     {/if}
   </div>
 </div>
+
+{#if redirect}
+  <StructureRedirectDialog refusal={redirect} onClose={() => (redirect = null)} />
+{/if}
+{#if toConfirm}
+  <ConfirmDialog
+    title={t("dbadmin.structure.confirmTitle")}
+    message={t("dbadmin.structure.confirmMessage", {
+      actions: toConfirm.actions.map((action) => describeStructuralAction(action, t)).join(", "),
+    })}
+    danger="warning"
+    confirmLabel={t("dbadmin.structure.confirmRun")}
+    onCancel={() => (toConfirm = null)}
+    onConfirm={() => {
+      toConfirm = null;
+      void execute.run(true);
+    }}
+  />
+{/if}
