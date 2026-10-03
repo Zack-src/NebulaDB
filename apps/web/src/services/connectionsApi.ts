@@ -2,7 +2,9 @@ import type {
   DatabaseConnectionConfig,
   DatabaseConnectionSummary,
   DeploymentHistoryEntry,
+  DriftCheckResult,
   MigrationResolutionMap,
+  ProjectDriftEntry,
   SchemaRisk,
 } from "@athanordb/shared";
 import type { MigrationDiff } from "@athanordb/dbml-engine";
@@ -119,10 +121,12 @@ export async function applyDeployment(
   projectId: string,
   connId: string,
   resolutions: MigrationResolutionMap,
+  /** The connection's name, retyped — the server requires it for the production stage. */
+  confirmName?: string,
 ): Promise<ApplyDeploymentResponse> {
   return request<ApplyDeploymentResponse>(`/api/projects/${projectId}/connections/${connId}/apply-deployment`, {
     method: "POST",
-    body: { resolutions },
+    body: { resolutions, ...(confirmName === undefined ? {} : { confirmName }) },
   });
 }
 
@@ -137,9 +141,27 @@ export async function rollbackDeployment(
   projectId: string,
   connId: string,
   historyId: string,
+  /** As for `applyDeployment`. */
+  confirmName?: string,
 ): Promise<RollbackResponse> {
   return request<RollbackResponse>(`/api/projects/${projectId}/connections/${connId}/history/${historyId}/rollback`, {
     method: "POST",
-    body: {},
+    body: confirmName === undefined ? {} : { confirmName },
   });
+}
+
+// ---- Drift: has a linked database left the schema? --------------------------
+
+/** The marks only — no database is contacted. Readable by anyone who can open the project. */
+export async function fetchProjectDrift(projectId: string): Promise<ProjectDriftEntry[]> {
+  return (await request<{ connections: ProjectDriftEntry[] }>(`/api/projects/${projectId}/drift`)).connections;
+}
+
+/** Reads the database now. Project administrators only. */
+export function checkProjectDrift(projectId: string, connId: string): Promise<DriftCheckResult> {
+  return request<DriftCheckResult>(`/api/projects/${projectId}/connections/${connId}/drift-check`, { method: "POST" });
+}
+
+export async function dismissProjectDrift(projectId: string, connId: string): Promise<void> {
+  await request<unknown>(`/api/projects/${projectId}/connections/${connId}/drift/dismiss`, { method: "POST" });
 }

@@ -7,6 +7,7 @@ import { requireProjectAccess, requireProjectAdmin, requireUser } from "../../sh
 import { getRoom } from "../../realtime/roomRegistry.js";
 import { createDatabaseDriver } from "./drivers/index.js";
 import { deployToConnection, rollbackConnectionDeployment } from "./deploy.js";
+import { checkDrift, dismissOutOfSchema, listProjectDrift } from "./drift.js";
 import { pullConnectionSchema } from "./pull.js";
 import { createProjectFromDatabase } from "./createFromDatabase.js";
 import { listDeploymentHistory } from "./deploymentHistory.js";
@@ -158,10 +159,37 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
     const { id, connId } = req.params as { id: string; connId: string };
     const { user, project } = requireProjectAdmin(req, id);
 
-    const result = await pullConnectionSchema(id, project.name, connId, user.displayName);
+    const result = await pullConnectionSchema(id, project.name, connId, user.displayName, user.id);
     auditUser(user, "connection.pull", { type: "project", id }, `${connId} -> ${result.tablesCount} tables`, req);
 
     return result;
+  });
+
+  // 6b. Drift: has a linked database left the schema?
+  // Reading the marks contacts no database, so anyone who can open the project
+  // may: the banner is information, and an editor about to change a table the
+  // database no longer matches should know. Looking at the database itself,
+  // and dismissing the mark, stay with the project's administrators.
+  app.get("/api/projects/:id/drift", async (req) => {
+    const { id } = req.params as { id: string };
+    requireProjectAccess(req, id, "view");
+    return { connections: listProjectDrift(id) };
+  });
+
+  app.post("/api/projects/:id/connections/:connId/drift-check", CONNECTION_RATE_LIMIT, async (req) => {
+    const { id, connId } = req.params as { id: string; connId: string };
+    const { project } = requireProjectAdmin(req, id);
+    return checkDrift(id, project.name, connId);
+  });
+
+  app.post("/api/projects/:id/connections/:connId/drift/dismiss", async (req) => {
+    const { id, connId } = req.params as { id: string; connId: string };
+    const { user } = requireProjectAdmin(req, id);
+    if (!getProjectConnection(id, connId)) throw new ApiError("CONNECTION_NOT_FOUND");
+    if (dismissOutOfSchema(id, connId)) {
+      auditUser(user, "connection.drift.dismiss", { type: "project", id }, connId, req);
+    }
+    return { dismissed: true };
   });
 
   // 7. Plan deployment: Diff canvas project vs live DB and inspect risks
@@ -197,9 +225,16 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
   app.post("/api/projects/:id/connections/:connId/apply-deployment", CONNECTION_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
     const { user, project } = requireProjectAdmin(req, id);
-    const body = (req.body ?? {}) as { resolutions?: MigrationResolutionMap };
+    const body = (req.body ?? {}) as { resolutions?: MigrationResolutionMap; confirmName?: string };
 
-    const result = await deployToConnection(id, project.name, connId, body.resolutions || {}, user.email);
+    const result = await deployToConnection(
+      id,
+      project.name,
+      connId,
+      body.resolutions || {},
+      user.email,
+      body.confirmName,
+    );
 
     auditUser(
       user,
@@ -231,7 +266,8 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
     const { id, connId, historyId } = req.params as { id: string; connId: string; historyId: string };
     const { user } = requireProjectAdmin(req, id);
 
-    const result = await rollbackConnectionDeployment(id, connId, historyId, user.email);
+    const { confirmName } = (req.body ?? {}) as { confirmName?: string };
+    const result = await rollbackConnectionDeployment(id, connId, historyId, user.email, confirmName);
 
     auditUser(user, "connection.rollback", { type: "project", id }, `${connId}: rolled back ${historyId}`, req);
 
