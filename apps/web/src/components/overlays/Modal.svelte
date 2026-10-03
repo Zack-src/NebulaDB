@@ -39,12 +39,15 @@
     onClose,
     children,
     wide = false,
+    narrow = false,
     dismissable = true,
   }: {
     title: string;
     onClose: () => void;
     children: Snippet;
     wide?: boolean;
+    /** A question with two buttons (`ConfirmDialog`) — the default width leaves it stranded in an empty panel. */
+    narrow?: boolean;
     /** False while an operation is in flight — Escape and backdrop clicks stop closing the dialog out from under it. */
     dismissable?: boolean;
   } = $props();
@@ -118,7 +121,7 @@
   <div
     bind:this={dialog}
     tabindex="-1"
-    class={`flex max-h-[86vh] w-[640px] max-w-full animate-modal-in flex-col overflow-hidden rounded-xl border border-border-strong bg-surface shadow-xl outline-hidden ${wide ? "sm:w-[760px]" : ""}`}
+    class={`flex max-h-[86vh] max-w-full animate-modal-in flex-col overflow-hidden rounded-xl border border-border-strong bg-surface shadow-xl outline-hidden ${narrow ? "w-[440px]" : "w-[640px]"} ${wide ? "sm:w-[760px]" : ""}`}
     role="dialog"
     aria-modal="true"
     aria-label={title}

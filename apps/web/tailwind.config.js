@@ -76,6 +76,27 @@ export default {
           light: "var(--color-info-light)",
           border: "var(--color-info-border)",
         },
+        locked: {
+          DEFAULT: "var(--color-locked)",
+          light: "var(--color-locked-light)",
+          border: "var(--color-locked-border)",
+        },
+      },
+      fontSize: {
+        caption: "var(--text-caption)",
+        label: "var(--text-label)",
+        "body-sm": "var(--text-body-sm)",
+        body: "var(--text-body)",
+        title: "var(--text-title)",
+        heading: "var(--text-heading)",
+      },
+      transitionDuration: {
+        fast: "var(--motion-fast)",
+        base: "var(--motion-base)",
+        slow: "var(--motion-slow)",
+      },
+      transitionTimingFunction: {
+        emphasized: "var(--ease-emphasized)",
       },
       // Every rung is listed, including the ones Tailwind ships itself: a gap
       // in the map falls through to a stock value that has nothing to do with

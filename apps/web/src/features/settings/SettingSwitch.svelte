@@ -1,8 +1,8 @@
 <script lang="ts">
-  import { CHECKBOX_CLASS } from "@/components/ui/inputStyles";
+  import Switch from "@/components/ui/Switch.svelte";
 
   /**
-   * A labelled on/off row. Built as a real `<label>` wrapping the checkbox so the
+   * A labelled on/off row. Built as a real `<label>` wrapping the switch so the
    * text names the control for assistive tech and clicking anywhere in the row
    * toggles it — the hand-rolled rows this replaces were bare `<input>`s beside
    * unassociated `<div>`s, with no accessible name at all.
@@ -22,10 +22,5 @@
     <span class="block text-xs font-bold text-text">{label}</span>
     <span class="block text-[11px] leading-normal text-text-muted">{hint}</span>
   </span>
-  <input
-    type="checkbox"
-    class={`${CHECKBOX_CLASS} h-4 w-4`}
-    {checked}
-    onchange={(event) => onChange(event.currentTarget.checked)}
-  />
+  <Switch {checked} {onChange} />
 </label>

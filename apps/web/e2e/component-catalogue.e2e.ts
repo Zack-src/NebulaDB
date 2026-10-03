@@ -19,6 +19,8 @@ import { startE2eEnvironment } from "./harness.js";
  */
 
 const PORT = Number(process.env.E2E_PORT) || 4392;
+/** Its own port: test files run in parallel, and every port near 4392 belongs to another file. */
+const FORMS_PORT = PORT + 12;
 
 test(
   "component catalogue renders every primitive, in both themes, with no console errors",
@@ -67,3 +69,117 @@ test(
     }
   },
 );
+
+/**
+ * The form components of Phase 29 (`Select`, `Menu`, `Switch`, …) replace
+ * native controls, so what the browser used to guarantee — reachable by role,
+ * operable from the keyboard — is now this code's job. Each block below drives
+ * one component the way a keyboard or screen-reader user would.
+ */
+test("form components are reachable by role and operable from the keyboard", { timeout: 45_000 }, async () => {
+  const env = await startE2eEnvironment(FORMS_PORT);
+  try {
+    const page = await env.browser.newPage();
+    const errors: string[] = [];
+    page.on("pageerror", (err) => errors.push(String(err)));
+    await page.goto(`${env.baseUrl}/#components`);
+    await page.getByText("Catalogue de composants", { exact: true }).waitFor({ timeout: 10_000 });
+
+    // Select: opens on ArrowDown, skips the disabled option, picks on Enter.
+    const engine = page.getByRole("combobox", { name: "Moteur", exact: true });
+    await engine.focus();
+    await page.keyboard.press("ArrowDown");
+    await page.getByRole("listbox", { name: "Moteur", exact: true }).waitFor();
+    assert.equal(await page.getByRole("option", { name: "PostgreSQL" }).getAttribute("aria-selected"), "true");
+    await page.keyboard.press("ArrowDown"); // MySQL
+    await page.keyboard.press("ArrowDown"); // SQL Server
+    await page.keyboard.press("ArrowDown"); // Oracle is disabled → SQLite
+    await page.keyboard.press("Enter");
+    assert.match(await engine.innerText(), /SQLite/);
+    assert.equal(await page.getByRole("listbox").count(), 0, "picking closes the list");
+    // …and a letter jumps to the matching option without opening it.
+    await page.keyboard.press("m");
+    assert.match(await engine.innerText(), /MySQL/);
+
+    // Select with a search field (more than 8 options): type to filter, Enter picks, focus returns to the trigger.
+    const type = page.getByRole("combobox", { name: "Type de colonne", exact: true });
+    await type.click();
+    await page.keyboard.type("JSONB");
+    assert.equal(await page.getByRole("option").count(), 1);
+    await page.keyboard.press("Enter");
+    assert.match(await type.innerText(), /jsonb/);
+    assert.equal(await type.evaluate((element) => element === document.activeElement), true);
+    // Escape closes without changing the value.
+    await type.click();
+    await page.keyboard.press("Escape");
+    assert.equal(await page.getByRole("listbox").count(), 0);
+    assert.match(await type.innerText(), /jsonb/);
+
+    // Menu: Enter opens on the first entry, arrows move, the disabled entry is skipped, Escape restores focus.
+    const actions = page.getByRole("button", { name: "Actions", exact: true });
+    await actions.focus();
+    await page.keyboard.press("Enter");
+    await page.getByRole("menu", { name: "Actions" }).waitFor();
+    assert.equal(
+      await page.getByRole("menuitem", { name: /Renommer/ }).evaluate((el) => el === document.activeElement),
+      true,
+    );
+    await page.keyboard.press("End");
+    assert.equal(
+      await page.getByRole("menuitem", { name: /Supprimer/ }).evaluate((el) => el === document.activeElement),
+      true,
+    );
+    await page.keyboard.press("Escape");
+    assert.equal(await page.getByRole("menu").count(), 0);
+    assert.equal(await actions.evaluate((element) => element === document.activeElement), true);
+    await actions.click();
+    await page.getByRole("menuitem", { name: /Copier/ }).click();
+    await page.getByText("Valeur : copy", { exact: true }).waitFor();
+
+    // Checkbox: the label toggles the real (hidden) input.
+    const alerts = page.getByRole("checkbox", { name: /Recevoir les alertes/ });
+    assert.equal(await alerts.isChecked(), true);
+    await page.getByText("Recevoir les alertes par e-mail", { exact: true }).click();
+    assert.equal(await alerts.isChecked(), false);
+
+    // Switch and SegmentedControl.
+    const snap = page.getByRole("switch", { name: "Aimanter à la grille", exact: true });
+    await snap.focus();
+    await page.keyboard.press("Space");
+    assert.equal(await snap.getAttribute("aria-checked"), "false");
+    const density = page.getByRole("radiogroup", { name: "Densité" });
+    await density.getByRole("radio", { name: "Confortable" }).focus();
+    await page.keyboard.press("ArrowRight");
+    assert.equal(await density.getByRole("radio", { name: "Compacte" }).getAttribute("aria-checked"), "true");
+    await page.keyboard.press("ArrowRight"); // "Dense" is disabled → wraps
+    assert.equal(await density.getByRole("radio", { name: "Confortable" }).getAttribute("aria-checked"), "true");
+
+    // NumberInput: bounds apply when the field is left, not while typing.
+    const delay = page.getByRole("spinbutton", { name: "Délai maximal" });
+    await delay.fill("99");
+    assert.equal(await delay.inputValue(), "99");
+    await delay.blur();
+    assert.equal(await delay.inputValue(), "60");
+
+    // Toast with an action.
+    await page.getByRole("button", { name: "Toast avec action" }).click();
+    const toastRegion = page.getByRole("region", { name: "Notifications" });
+    await toastRegion.getByText("Table « orders » supprimée.").waitFor();
+    await toastRegion.getByRole("button", { name: "Annuler" }).click();
+    await toastRegion.getByText("Suppression annulée.").waitFor();
+
+    // ConfirmDialog: the destructive button stays disabled until the name is retyped.
+    await page.getByRole("button", { name: "Suppression (retaper le nom)" }).click();
+    const dialog = page.getByRole("dialog");
+    const confirm = dialog.getByRole("button", { name: "Supprimer", exact: true });
+    assert.equal(await confirm.isDisabled(), true);
+    await page.keyboard.type("orders"); // the field took the focus on open
+    assert.equal(await confirm.isDisabled(), false);
+    await page.keyboard.press("Enter");
+    await dialog.waitFor({ state: "detached" });
+
+    assert.deepEqual(errors, [], `expected no page errors, got:\n${errors.join("\n")}`);
+  } finally {
+    await env.teardown();
+  }
+});

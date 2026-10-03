@@ -5,6 +5,46 @@ import svelte from "eslint-plugin-svelte";
 import globals from "globals";
 import eslintConfigPrettier from "eslint-config-prettier";
 
+const HARD_CODED_TEXT = {
+  selector: "SvelteText[value=/[A-Za-zÀ-ÿ]{4,}/]",
+  message: "Hard-coded UI text. Add the string to src/locales/fr.json + en.json and render it with t('key').",
+};
+
+/**
+ * Feature files that still use a native `<select>` or checkbox / radio /
+ * number `<input>` (docs/todo.md, Phase 29 "Forbid native controls"). The list
+ * only ever shrinks: migrate a file to `components/ui/`, delete its line. A new
+ * file is never added here.
+ */
+const NATIVE_CONTROLS_NOT_MIGRATED = [
+  "admin/AuditTab.svelte",
+  "admin/DeleteUserModal.svelte",
+  "admin/ErrorsTab.svelte",
+  "admin/InvitationsTab.svelte",
+  "admin/TeamDetailView.svelte",
+  "admin/connections/ConnectionEditModal.svelte",
+  "admin/connections/ExplorerPanel.svelte",
+  "admin/connections/UsersPanel.svelte",
+  "auth/Login.svelte",
+  "connections/ConnectionFormFields.svelte",
+  "connections/DeploymentModal.svelte",
+  "editor/ConvertTypesModal.svelte",
+  "editor/compare/CompareProjectsModal.svelte",
+  "editor/edges/EdgeSettingsPopover.svelte",
+  "editor/io/ExportDialog.svelte",
+  "editor/io/ImportDialog.svelte",
+  "editor/nodes/table/AddIndexForm.svelte",
+  "editor/nodes/table/FieldEditorPanel.svelte",
+  "plugins/dialog/InstalledTab.svelte",
+  "plugins/dialog/MarketplaceTab.svelte",
+  "plugins/dialog/PluginSettingsModal.svelte",
+  "plugins/dialog/StudioTab.svelte",
+  "projects/components/WebhooksModal.svelte",
+  "settings/ApiKeys.svelte",
+  "settings/totp/BackupCodesModal.svelte",
+  "teams/ProjectTeamsModal.svelte",
+].map((file) => `apps/web/src/features/${file}`);
+
 export default tseslint.config(
   { ignores: ["**/dist/**", "**/node_modules/**", "**/data/**"] },
   js.configs.recommended,
@@ -69,11 +109,31 @@ export default tseslint.config(
     files: ["apps/web/src/**/*.svelte"],
     ignores: ["apps/web/src/locales/**"],
     rules: {
+      "no-restricted-syntax": ["error", HARD_CODED_TEXT],
+    },
+  },
+  {
+    // Screens are built from `components/ui/`, not from the browser's own
+    // controls: a native `<select>` or checkbox looks different on every
+    // platform and cannot carry an icon, a search field or an indeterminate
+    // state. `components/` itself is exempt — that is where the native element
+    // is wrapped. Flat config replaces a rule's options rather than merging
+    // them, so the hard-coded-text selector is repeated here.
+    files: ["apps/web/src/features/**/*.svelte"],
+    ignores: NATIVE_CONTROLS_NOT_MIGRATED,
+    rules: {
       "no-restricted-syntax": [
         "error",
+        HARD_CODED_TEXT,
         {
-          selector: "SvelteText[value=/[A-Za-zÀ-ÿ]{4,}/]",
-          message: "Hard-coded UI text. Add the string to src/locales/fr.json + en.json and render it with t('key').",
+          selector: "SvelteElement[name.name='select']",
+          message: "Native <select>. Use Select from @/components/ui/Select.svelte.",
+        },
+        {
+          selector:
+            "SvelteElement[name.name='input'] > SvelteStartTag > SvelteAttribute[key.name='type'] > SvelteLiteral[value=/^(checkbox|radio|number)$/]",
+          message:
+            "Native checkbox / radio / number input. Use Checkbox, Switch, RadioGroup, SegmentedControl or NumberInput from @/components/ui/.",
         },
       ],
     },

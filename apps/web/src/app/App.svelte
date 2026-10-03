@@ -89,6 +89,8 @@
           onLogout={auth.logout}
           onBack={routing.closeProject}
           initialFocus={routing.focusTarget}
+          tab={routing.tab}
+          onTabChange={routing.setTab}
         />
       </ErrorBoundary>
     {/key}

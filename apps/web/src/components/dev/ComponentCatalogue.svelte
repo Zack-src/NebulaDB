@@ -18,10 +18,64 @@
   import SkeletonCardGrid from "@/components/ui/SkeletonCardGrid.svelte";
   import Tabs, { type TabItem } from "@/components/ui/Tabs.svelte";
   import BrandMark from "@/components/ui/BrandMark.svelte";
+  import Checkbox from "@/components/ui/Checkbox.svelte";
+  import Menu from "@/components/ui/Menu.svelte";
+  import MenuItem from "@/components/ui/MenuItem.svelte";
+  import NumberInput from "@/components/ui/NumberInput.svelte";
+  import PasswordInput from "@/components/ui/PasswordInput.svelte";
+  import Popover from "@/components/ui/Popover.svelte";
+  import RadioGroup from "@/components/ui/RadioGroup.svelte";
+  import SegmentedControl from "@/components/ui/SegmentedControl.svelte";
+  import Select, { type SelectOption } from "@/components/ui/Select.svelte";
+  import Switch from "@/components/ui/Switch.svelte";
+  import TextArea from "@/components/ui/TextArea.svelte";
+  import { toast } from "@/components/ui/toast.svelte";
+  import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Icon from "@/components/icons/Icon.svelte";
-  import { CheckIcon, SearchIcon, TrashIcon } from "@/components/icons/Icons";
+  import {
+    CheckIcon,
+    CopyIcon,
+    DatabaseIcon,
+    PencilIcon,
+    SearchIcon,
+    TableIcon,
+    TrashIcon,
+  } from "@/components/icons/Icons";
   import { applyThemePreset, type ThemePreset } from "@/utils/theme";
   import Section from "./CatalogueSection.svelte";
+
+  const ENGINE_OPTIONS: SelectOption<string>[] = [
+    { value: "postgres", label: "PostgreSQL", icon: DatabaseIcon },
+    { value: "mysql", label: "MySQL / MariaDB", icon: DatabaseIcon },
+    { value: "mssql", label: "SQL Server", icon: DatabaseIcon },
+    { value: "oracle", label: "Oracle", icon: DatabaseIcon, disabled: true },
+    { value: "sqlite", label: "SQLite", icon: DatabaseIcon, hint: "Fichier local" },
+  ];
+
+  const TYPE_OPTIONS: SelectOption<string>[] = [
+    ...["smallint", "integer", "bigint", "numeric", "real"].map((value) => ({ value, label: value, group: "Nombres" })),
+    ...["char", "varchar", "text", "uuid"].map((value) => ({ value, label: value, group: "Texte" })),
+    ...["date", "time", "timestamp", "interval"].map((value) => ({ value, label: value, group: "Dates" })),
+    ...["boolean", "json", "jsonb", "bytea"].map((value) => ({ value, label: value, group: "Autres" })),
+  ];
+
+  const LOCK_LEVELS = [
+    { value: "structure", label: "Structure", hint: "Seuls les admins modifient colonnes et types." },
+    { value: "full", label: "Complet", hint: "Structure, données initiales et suppression." },
+    { value: "none", label: "Aucun", disabled: true },
+  ];
+
+  const DENSITIES = [
+    { value: "comfortable", label: "Confortable" },
+    { value: "compact", label: "Compacte" },
+    { value: "dense", label: "Dense", disabled: true },
+  ];
+
+  const SYNC_DELAYS = [
+    { value: 400, label: "0,4 s" },
+    { value: 1000, label: "1 s" },
+    { value: 0, label: "Ctrl+S" },
+  ];
 
   const BUTTON_VARIANTS = ["default", "primary", "gradient", "glow", "outline", "ghost", "danger", "danger-ghost"] as const;
   const BUTTON_SIZES = ["lg", "md", "sm", "xs"] as const;
@@ -52,6 +106,22 @@
   let theme = $state<ThemePreset>("obsidian");
   let tab = $state<string>("one");
   let inputValue = $state("");
+
+  let engine = $state("postgres");
+  let columnType = $state<string | undefined>(undefined);
+  let alerts = $state(true);
+  let lockLevel = $state("structure");
+  let snapToGrid = $state(true);
+  let density = $state("comfortable");
+  let syncDelay = $state(400);
+  let timeout = $state<number | null>(5);
+  let password = $state("");
+  let note = $state("");
+  let showGrid = $state(true);
+  let lastMenuAction = $state("—");
+  let popoverOpen = $state(false);
+  let popoverAnchor: HTMLButtonElement | null = $state(null);
+  let confirming = $state<"plain" | "danger" | null>(null);
 
   function setPreset(preset: ThemePreset) {
     theme = preset;
@@ -179,5 +249,153 @@
         {/each}
       </div>
     </Section>
+
+    <Section
+      title="Select"
+      description="Remplace <select>. Icônes, indices, options désactivées ; champ de recherche et groupes au-delà de 8 options. Clavier : flèches, Début / Fin, Entrée, Échap, saisie d'une lettre."
+    >
+      <div class="grid max-w-xl grid-cols-2 gap-3">
+        <Select bind:value={engine} options={ENGINE_OPTIONS} aria-label="Moteur" class="w-full" />
+        <Select
+          bind:value={columnType}
+          options={TYPE_OPTIONS}
+          placeholder="Type de colonne"
+          aria-label="Type de colonne"
+          class="w-full"
+        />
+        <Select bind:value={engine} options={ENGINE_OPTIONS} size="sm" aria-label="Moteur (sm)" class="w-full" />
+        <Select bind:value={engine} options={ENGINE_OPTIONS} size="xs" aria-label="Moteur (xs)" class="w-full" />
+        <Select value="postgres" options={ENGINE_OPTIONS} disabled aria-label="Moteur (désactivé)" class="w-full" />
+        <Select
+          bind:value={columnType}
+          options={TYPE_OPTIONS}
+          invalid
+          placeholder="Invalide"
+          aria-label="Type (invalide)"
+          class="w-full"
+        />
+      </div>
+      <p class="text-label text-text-muted">{t("componentCatalogue.lastValue", { value: `${engine} · ${columnType ?? "—"}` })}</p>
+    </Section>
+
+    <Section
+      title="Menu"
+      description="N'importe quel bouton comme déclencheur. Entrées avec icône, raccourci, état coché, danger, désactivé."
+    >
+      <div class="flex items-center gap-4">
+        <Menu aria-label="Actions">
+          {#snippet trigger(props)}
+            <Button {...props} variant="outline" size="sm">{t("componentCatalogue.menuTrigger")}</Button>
+          {/snippet}
+          <MenuItem icon={PencilIcon} shortcut="F2" onSelect={() => (lastMenuAction = "rename")}>{t("common.rename")}</MenuItem>
+          <MenuItem icon={CopyIcon} shortcut="Ctrl+D" onSelect={() => (lastMenuAction = "copy")}>{t("common.copy")}</MenuItem>
+          <MenuItem checked={showGrid} keepOpen onSelect={() => (showGrid = !showGrid)}>
+            {t("componentCatalogue.menuShowGrid")}
+          </MenuItem>
+          <MenuItem icon={TableIcon} disabled onSelect={() => {}}>{t("componentCatalogue.menuLocked")}</MenuItem>
+          <MenuItem icon={TrashIcon} danger onSelect={() => (lastMenuAction = "delete")}>{t("common.delete")}</MenuItem>
+        </Menu>
+        <span class="text-label text-text-muted">{t("componentCatalogue.lastValue", { value: lastMenuAction })}</span>
+      </div>
+    </Section>
+
+    <Section title="Checkbox / RadioGroup" description="Cases dessinées sur de vrais <input> masqués : libellé, clavier et lecteur d'écran natifs.">
+      <div class="grid max-w-xl grid-cols-2 gap-6">
+        <div class="flex flex-col gap-2">
+          <Checkbox bind:checked={alerts} hint="Un message par détection, pas par table.">
+            {t("componentCatalogue.checkboxLabel")}
+          </Checkbox>
+          <Checkbox indeterminate>{t("componentCatalogue.checkboxIndeterminate")}</Checkbox>
+          <Checkbox invalid>{t("componentCatalogue.errorExample")}</Checkbox>
+          <Checkbox checked disabled>{t("componentCatalogue.checkboxDisabled")}</Checkbox>
+        </div>
+        <RadioGroup bind:value={lockLevel} options={LOCK_LEVELS} aria-label="Niveau de verrou" />
+      </div>
+    </Section>
+
+    <Section title="Switch / SegmentedControl" description="Réglages à effet immédiat. Le segment est un groupe radio : une tabulation, flèches pour changer.">
+      <div class="flex flex-col gap-3">
+        <div class="flex items-center gap-4">
+          <Switch bind:checked={snapToGrid} aria-label="Aimanter à la grille" />
+          <Switch bind:checked={snapToGrid} size="sm" aria-label="Aimanter à la grille (sm)" />
+          <Switch checked disabled aria-label="Désactivé" />
+        </div>
+        <div class="flex flex-wrap items-center gap-4">
+          <SegmentedControl bind:value={density} options={DENSITIES} aria-label="Densité" />
+          <SegmentedControl bind:value={syncDelay} options={SYNC_DELAYS} size="sm" aria-label="Délai de synchronisation" />
+          <SegmentedControl bind:value={syncDelay} options={SYNC_DELAYS} size="xs" aria-label="Délai (xs)" />
+        </div>
+      </div>
+    </Section>
+
+    <Section title="NumberInput / PasswordInput / TextArea" description="Pas-à-pas et unité, afficher / masquer, hauteur automatique.">
+      <div class="grid max-w-xl grid-cols-2 gap-3">
+        <NumberInput bind:value={timeout} min={1} max={60} unit="s" aria-label="Délai maximal" class="w-full" />
+        <NumberInput value={0.5} step={0.1} min={0} max={1} inputSize="sm" aria-label="Opacité" class="w-full" />
+        <PasswordInput bind:value={password} placeholder="Mot de passe" aria-label="Mot de passe" wrapperClassName="w-full" />
+        <NumberInput value={3} disabled aria-label="Désactivé" class="w-full" />
+        <TextArea bind:value={note} autoGrow rows={2} maxRows={6} placeholder="Note (grandit avec le contenu)" class="col-span-2 w-full" />
+        <TextArea variant="code" rows={3} value={"Table users {\n  id bigint [pk]\n}"} aria-label="DBML" class="col-span-2 w-full" />
+      </div>
+    </Section>
+
+    <Section title="Popover" description="Le moteur de positionnement de Menu et Select, utilisable seul.">
+      <div>
+        <Button bind:ref={popoverAnchor} variant="outline" size="sm" onclick={() => (popoverOpen = !popoverOpen)}>
+          {t("componentCatalogue.popoverOpen")}
+        </Button>
+        <Popover open={popoverOpen} anchor={popoverAnchor} onClose={() => (popoverOpen = false)} class="w-64 p-3">
+          <p class="m-0 text-body-sm text-text-secondary">{t("componentCatalogue.popoverBody")}</p>
+        </Popover>
+      </div>
+    </Section>
+
+    <Section title="Toast" description="Pile en haut à droite ; se met en pause au survol ; une action possible (« Annuler »).">
+      <div class="flex flex-wrap gap-2">
+        <Button size="sm" onclick={() => toast.info(t("componentCatalogue.toastInfoMessage"))}>
+          {t("componentCatalogue.toastInfo")}
+        </Button>
+        <Button
+          size="sm"
+          onclick={() =>
+            toast.success(t("componentCatalogue.toastUndoMessage"), {
+              action: { label: t("common.cancel"), run: () => toast.info(t("componentCatalogue.toastUndone")) },
+            })}
+        >
+          {t("componentCatalogue.toastUndo")}
+        </Button>
+        <Button size="sm" variant="danger" onclick={() => toast.error(t("componentCatalogue.toastErrorMessage"))}>
+          {t("componentCatalogue.toastError")}
+        </Button>
+      </div>
+    </Section>
+
+    <Section title="ConfirmDialog" description="Trois niveaux de danger ; « retapez le nom » pour l'irréversible.">
+      <div class="flex flex-wrap gap-2">
+        <Button size="sm" onclick={() => (confirming = "plain")}>{t("componentCatalogue.confirmPlain")}</Button>
+        <Button size="sm" variant="danger" onclick={() => (confirming = "danger")}>
+          {t("componentCatalogue.confirmDanger")}
+        </Button>
+      </div>
+    </Section>
   </div>
 </div>
+
+{#if confirming === "plain"}
+  <ConfirmDialog
+    title={t("componentCatalogue.confirmPlainTitle")}
+    message={t("componentCatalogue.confirmPlainMessage")}
+    onConfirm={() => (confirming = null)}
+    onCancel={() => (confirming = null)}
+  />
+{:else if confirming === "danger"}
+  <ConfirmDialog
+    title={t("componentCatalogue.confirmDangerTitle")}
+    message={t("componentCatalogue.confirmDangerMessage")}
+    danger="danger"
+    requireText="orders"
+    confirmLabel={t("common.delete")}
+    onConfirm={() => (confirming = null)}
+    onCancel={() => (confirming = null)}
+  />
+{/if}

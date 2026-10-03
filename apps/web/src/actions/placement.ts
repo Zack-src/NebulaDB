@@ -38,7 +38,9 @@ export function menuPlacement(node: HTMLElement, point: { x: number; y: number }
 
 export interface AnchoredPlacementParams {
   rect: DOMRect | null;
-  side?: "bottom" | "right";
+  side?: "bottom" | "top" | "right";
+  /** Never narrower than the control it hangs off — a select's list under its trigger. */
+  matchWidth?: boolean;
 }
 
 /**
@@ -50,6 +52,8 @@ export interface AnchoredPlacementParams {
  * `side: "right"` anchors instead to the right of `rect` (flipping to the
  * left when there isn't room), top-aligned with `rect` — used for popovers
  * that should sit beside the thing they edit rather than drop down over it.
+ * `side: "top"` is the mirror of the default for controls at the bottom of
+ * the window: above, flipped below only when it cannot fit above.
  *
  * The height cap is the part the hand-rolled versions all got wrong — each
  * clamped its position against a *guessed* height constant while the element
@@ -60,9 +64,11 @@ export interface AnchoredPlacementParams {
  * position; this reveals it once placed.
  */
 export function anchoredPlacement(node: HTMLElement, params: AnchoredPlacementParams) {
-  const place = ({ rect, side = "bottom" }: AnchoredPlacementParams) => {
+  const place = ({ rect, side = "bottom", matchWidth = false }: AnchoredPlacementParams) => {
     if (!rect) return;
     const style = node.style;
+    // Set before anything is measured: it changes the width the rest reads.
+    if (matchWidth) style.minWidth = `${rect.width}px`;
 
     if (side === "right") {
       const width = node.offsetWidth;
@@ -84,7 +90,8 @@ export function anchoredPlacement(node: HTMLElement, params: AnchoredPlacementPa
     const width = node.offsetWidth;
     const below = window.innerHeight - rect.bottom - ANCHOR_GAP - MARGIN;
     const above = rect.top - ANCHOR_GAP - MARGIN;
-    const flip = below < MIN_PANEL_HEIGHT && above > below;
+    const flip =
+      side === "top" ? !(node.scrollHeight > above && below > above) : below < MIN_PANEL_HEIGHT && above > below;
 
     const left = Math.min(Math.max(MARGIN, rect.left), Math.max(MARGIN, window.innerWidth - width - MARGIN));
     const maxHeight = Math.max(MIN_PANEL_HEIGHT, flip ? above : below);

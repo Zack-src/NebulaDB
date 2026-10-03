@@ -134,14 +134,14 @@ test(
 
       // Settings: nothing reformats by default, and sync can wait for Ctrl+S.
       await page.getByRole("button", { name: "Comportement de l'éditeur" }).click();
-      const group = (label: string) => page.getByRole("group", { name: label });
+      const group = (label: string) => page.getByRole("radiogroup", { name: label });
       assert.equal(
-        await group("Formater automatiquement").getByRole("button", { name: "Jamais" }).getAttribute("aria-pressed"),
+        await group("Formater automatiquement").getByRole("radio", { name: "Jamais" }).getAttribute("aria-checked"),
         "true",
       );
       if (SCREENSHOT) await page.screenshot({ path: `${SCREENSHOT}/dbml-settings.png` });
-      await group("Synchroniser avec le diagramme").getByRole("button", { name: "Ctrl+S" }).click();
-      await group("Formater automatiquement").getByRole("button", { name: "À l'enregistrement" }).click();
+      await group("Synchroniser avec le diagramme").getByRole("radio", { name: "Ctrl+S" }).click();
+      await group("Formater automatiquement").getByRole("radio", { name: "À l'enregistrement" }).click();
       await page.keyboard.press("Escape");
 
       await editor.click();

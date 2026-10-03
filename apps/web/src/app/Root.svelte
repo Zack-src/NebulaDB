@@ -2,6 +2,7 @@
   import App from "@/app/App.svelte";
   import ErrorBoundary from "@/app/ErrorBoundary.svelte";
   import GlobalTooltip from "@/components/overlays/GlobalTooltip.svelte";
+  import ToastHost from "@/components/overlays/ToastHost.svelte";
   import { i18n } from "@/i18n/i18n.svelte";
 
   /**
@@ -37,4 +38,5 @@
     <App />
   </ErrorBoundary>
 {/if}
+<ToastHost />
 <GlobalTooltip />

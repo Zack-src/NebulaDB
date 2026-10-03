@@ -54,6 +54,43 @@
   --color-info-hover: #7dd3fc;
   --color-info-light: rgba(56, 189, 248, 0.16);
   --color-info-border: rgba(56, 189, 248, 0.45);
+  /* "Locked" — a table or control an admin froze (Phase 30). Deliberately a
+     neutral slate, not a warning hue: a lock is a state, not a problem. */
+  --color-locked: #94a3b8;
+  --color-locked-light: rgba(148, 163, 184, 0.14);
+  --color-locked-border: rgba(148, 163, 184, 0.45);
+  /* Deployment stages (Admin → Environnements) pick from green, blue, violet,
+     amber, orange, red, grey: the five above cover all but two. */
+  --color-stage-violet: #a78bfa;
+  --color-stage-orange: #fb923c;
+
+  /* Spacing, on a 4px step. Tailwind's own spacing utilities (`p-2`, `gap-3`…)
+     already resolve to multiples of 4px, so these exist for hand-written CSS
+     only — one scale, two authoring surfaces, like the colours above. */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Type scale. The UI is dense, so the steps are small and the body size is
+     13px; `text-caption` … `text-heading` (tailwind.config.js) map onto these. */
+  --text-caption: 11px;
+  --text-label: 12px;
+  --text-body-sm: 12.5px;
+  --text-body: 13px;
+  --text-title: 14px;
+  --text-heading: 16px;
+
+  /* Motion. Three durations and one curve; `duration-fast` etc. map onto them.
+     Zeroed under `prefers-reduced-motion` at the bottom of this file, so a
+     component that uses the tokens honours that preference without knowing. */
+  --motion-fast: 120ms;
+  --motion-base: 180ms;
+  --motion-slow: 260ms;
+  --ease-emphasized: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* Canvas-only surfaces that aren't part of the chrome palette above but
      still need to invert between themes: the Svelte Flow grid dots and the
@@ -116,6 +153,7 @@
   --z-modal: 1000;
   --z-popover: 2000;
   --z-context-menu: 2500;
+  --z-toast: 2800;
   --z-tooltip: 3000;
 
   --canvas-font-scale: 1;
@@ -175,6 +213,11 @@
   --color-info-hover: #0369a1;
   --color-info-light: rgba(2, 132, 199, 0.12);
   --color-info-border: rgba(2, 132, 199, 0.35);
+  --color-locked: #475569;
+  --color-locked-light: rgba(71, 85, 105, 0.1);
+  --color-locked-border: rgba(71, 85, 105, 0.35);
+  --color-stage-violet: #7c3aed;
+  --color-stage-orange: #ea580c;
 
   --color-canvas-grid: #d7dae2;
   --color-editor-bg: #fbfcfe;
@@ -210,4 +253,12 @@
   --shadow-glow: 0 0 25px rgba(79, 70, 229, 0.18);
 
   color-scheme: light;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-base: 0ms;
+    --motion-slow: 0ms;
+  }
 }
