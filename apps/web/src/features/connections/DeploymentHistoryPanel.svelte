@@ -1,3 +1,22 @@
+<script lang="ts" module>
+  import type { ConflictResolutionStrategy } from "@athanordb/shared";
+  import type { TranslationKeyOf } from "@/types";
+
+  /** The words the plan used for each answer, so the history reads the same. */
+  const STRATEGY_LABEL: Record<ConflictResolutionStrategy, TranslationKeyOf> = {
+    DROP_DATA_CONFIRMED: "connections.strategy.dropData",
+    KEEP_IN_DB: "connections.strategy.keepInDb",
+    FORCE_CAST: "connections.strategy.forceCast",
+    CLEAR_COLUMN_DATA: "connections.strategy.clearData",
+    BACKFILL_DEFAULT: "connections.strategy.backfillDefault",
+    DELETE_OFFENDING_ROWS: "connections.strategy.deleteRows",
+    CANCEL: "connections.strategy.cancel",
+    PROCEED: "connections.strategy.proceed",
+    USE_TRANSLATED_TYPE: "connections.strategy.useTranslatedType",
+    KEEP_AS_WRITTEN: "connections.strategy.keepAsWritten",
+  };
+</script>
+
 <script lang="ts">
   import type { DatabaseEngine, DeploymentHistoryEntry } from "@athanordb/shared";
   import Button from "@/components/ui/Button.svelte";
@@ -82,6 +101,25 @@
               </Button>
             {/if}
           </div>
+
+          {#if entry.acceptedRisks && entry.acceptedRisks.length > 0}
+            <div class="mt-2 rounded-sm border border-border bg-surface-raised p-2 text-[11px]">
+              <span class="mb-1 block font-semibold text-text">{t("deployment.historyAcceptedRisks")}</span>
+              <ul class="space-y-0.5">
+                {#each entry.acceptedRisks as risk, index (index)}
+                  <li class="text-text-muted">
+                    <span class="font-mono text-text">
+                      {risk.columnName ? `${risk.tableName}.${risk.columnName}` : (risk.detail ?? risk.tableName)}
+                    </span>
+                    · {t(`deployment.riskType.${risk.type}`)}
+                    {#if !risk.unmeasured && risk.affectedRowCount > 0}({risk.affectedRowCount} {t("deployment.rowsAffected")}){/if}
+                    → {t(STRATEGY_LABEL[risk.strategy])}
+                  </li>
+                {/each}
+              </ul>
+              {#if entry.riskNote}<p class="mt-1 italic text-text">« {entry.riskNote} »</p>{/if}
+            </div>
+          {/if}
 
           {#if entry.error}<ErrorText>{entry.error}</ErrorText>{/if}
         </li>

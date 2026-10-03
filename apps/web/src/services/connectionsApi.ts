@@ -121,12 +121,16 @@ export async function applyDeployment(
   projectId: string,
   connId: string,
   resolutions: MigrationResolutionMap,
-  /** The connection's name, retyped — the server requires it for the production stage. */
-  confirmName?: string,
+  options: {
+    /** The connection's name, retyped — the server requires it for the production stage. */
+    confirmName?: string;
+    /** Why the plan's risks are accepted; kept with the deployment. */
+    riskNote?: string;
+  } = {},
 ): Promise<ApplyDeploymentResponse> {
   return request<ApplyDeploymentResponse>(`/api/projects/${projectId}/connections/${connId}/apply-deployment`, {
     method: "POST",
-    body: { resolutions, ...(confirmName === undefined ? {} : { confirmName }) },
+    body: { resolutions, ...options },
   });
 }
 

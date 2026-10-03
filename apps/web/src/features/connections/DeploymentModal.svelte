@@ -1,7 +1,9 @@
 <script lang="ts" module>
   import type { SchemaRisk } from "@athanordb/shared";
 
+  /** Where a risk's answer goes in the resolutions — the server files it under the same key. */
   function riskKey(risk: SchemaRisk): string {
+    if (risk.resolutionKey) return risk.resolutionKey;
     return risk.columnName
       ? `column:${risk.tableName.toLowerCase()}.${risk.columnName.toLowerCase()}`
       : `table:${risk.tableName.toLowerCase()}`;
@@ -31,6 +33,7 @@
     type PlanDeploymentResponse,
   } from "@/services/connectionsApi";
   import { copyText } from "@/utils/clipboard";
+  import { DATA_LOSS_STRATEGIES, generateMigrationSql, type MigrationDialect } from "@athanordb/dbml-engine";
   import DeploymentHistoryPanel from "./DeploymentHistoryPanel.svelte";
 
   type Step = "diff" | "risks" | "sql" | "done" | "history";
@@ -72,6 +75,8 @@
   } | null>(null);
   let error = $state<string | null>(null);
   let copied = $state(false);
+  /** Why the risks are accepted — kept with the deployment in its history. */
+  let riskNote = $state("");
 
   // Load connections for this project
   $effect(() => {
@@ -159,7 +164,10 @@
     deploying = true;
     error = null;
     try {
-      deployResult = await applyDeployment(projectId, selectedConnId, resolutions, confirmName);
+      deployResult = await applyDeployment(projectId, selectedConnId, resolutions, {
+        confirmName,
+        riskNote: riskNote.trim() || undefined,
+      });
       activeStep = "done";
     } catch (err) {
       error = err instanceof Error ? err.message : String(err);
@@ -171,6 +179,14 @@
   const selectedConn = $derived(connections.find((c) => c.id === selectedConnId));
   const diff = $derived(plan?.diff);
   const risks = $derived(plan?.risks ?? []);
+  const strategyOf = (risk: SchemaRisk) => resolutions[riskKey(risk)]?.strategy ?? risk.defaultStrategy;
+  /** Risks answered "cancel / handle manually": the server refuses the deployment while there is one. */
+  const blockingRisks = $derived(risks.filter((risk) => risk.severity !== "info" && strategyOf(risk) === "CANCEL"));
+  const losesData = $derived(risks.some((risk) => DATA_LOSS_STRATEGIES.has(strategyOf(risk))));
+  // The SQL that will run, with the answers given so far — not the plan's first draft.
+  const sqlPreview = $derived(
+    plan ? generateMigrationSql(plan.diff, plan.engine as MigrationDialect, resolutions) : "-- No SQL generated",
+  );
 
   const TAB = "border-b-2 px-3 py-2 font-medium transition-colors";
   const tabState = (step: Step) =>
@@ -321,14 +337,18 @@
                 {@const currentRes = resolutions[riskKey(risk)]}
                 <div
                   class={`rounded-sm border p-3.5 text-xs ${
-                    risk.severity === "critical" ? "border-rose-500/40 bg-rose-500/5" : "border-amber-500/40 bg-amber-500/5"
+                    risk.severity === "critical"
+                      ? "border-rose-500/40 bg-rose-500/5"
+                      : risk.severity === "info"
+                        ? "border-border bg-surface"
+                        : "border-amber-500/40 bg-amber-500/5"
                   }`}
                 >
                   <div class="flex items-start gap-2.5">
                     <Icon
                       icon={AlertTriangleIcon}
                       size={16}
-                      class={risk.severity === "critical" ? "text-rose-400" : "text-amber-400"}
+                      class={risk.severity === "critical" ? "text-rose-400" : risk.severity === "info" ? "text-text-muted" : "text-amber-400"}
                     />
                     <div class="flex-1 space-y-2">
                       <div class="flex items-center justify-between">
@@ -347,6 +367,24 @@
                               {t("deployment.riskNullViolation", { col: risk.columnName || "", table: risk.tableName })}
                             </span>
                           {/if}
+                          {#if risk.type === "ADD_NOT_NULL_NO_DEFAULT"}
+                            <span>{t("deployment.riskAddNotNull", { col: risk.columnName || "", table: risk.tableName })}</span>
+                          {/if}
+                          {#if risk.type === "LENGTH_REDUCTION"}
+                            <span>
+                              {t("deployment.riskLengthReduction", {
+                                col: risk.columnName || "",
+                                table: risk.tableName,
+                                limit: risk.limit ?? 0,
+                              })}
+                            </span>
+                          {/if}
+                          {#if risk.type === "UNIQUE_VIOLATION"}
+                            <span>{t("deployment.riskUnique", { cols: risk.detail || risk.columnName || "", table: risk.tableName })}</span>
+                          {/if}
+                          {#if risk.type === "FK_VIOLATION"}
+                            <span>{t("deployment.riskForeignKey", { ref: risk.detail || "" })}</span>
+                          {/if}
                           {#if risk.type === "TYPE_TRANSLATION_SUGGESTED"}
                             <span>
                               {t("deployment.riskTypeTranslation", { col: risk.columnName || "", table: risk.tableName })}
@@ -356,32 +394,22 @@
                             </span>
                           {/if}
                         </h4>
-                        <Badge tone={risk.severity === "critical" ? "danger" : "warning"}>
-                          {risk.affectedRowCount}
-                          {t("deployment.rowsAffected")}
+                        <Badge tone={risk.severity === "critical" ? "danger" : risk.severity === "info" ? "muted" : "warning"}>
+                          {#if risk.unmeasured}
+                            {t("deployment.riskUnmeasured")}
+                          {:else if risk.type === "LENGTH_REDUCTION"}
+                            {t("deployment.riskLongest", { max: risk.measuredMax ?? 0, limit: risk.limit ?? 0 })}
+                          {:else}
+                            {risk.affectedRowCount}
+                            {t("deployment.rowsAffected")}
+                          {/if}
                         </Badge>
                       </div>
 
-                      <!-- Data Sample Preview -->
-                      {#if risk.sampleData && risk.sampleData.length > 0}
-                        <div class="rounded-sm border border-border bg-surface-raised p-2 text-[11px]">
-                          <span class="mb-1 block font-semibold text-text-muted">
-                            {t("deployment.dataSamplePreview")} ({risk.sampleData.length}
-                            {t("deployment.items")}):
-                          </span>
-                          <div class="flex flex-wrap gap-1.5">
-                            {#each risk.sampleData as item, i (i)}
-                              <span
-                                class="inline-block max-w-[200px] truncate rounded bg-surface px-1.5 py-0.5 font-mono text-text shadow-xs"
-                              >
-                                {typeof item === "object" ? JSON.stringify(item) : String(item)}
-                              </span>
-                            {/each}
-                          </div>
-                        </div>
-                      {/if}
-
-                      <!-- Strategy selector radio group -->
+                      <!-- Strategy selector radio group — nothing to decide for a check that passed -->
+                      {#if risk.severity === "info"}
+                        <p class="text-text-muted">{t("deployment.riskFits")}</p>
+                      {:else}
                       <div class="space-y-1.5 pt-1">
                         <span class="block font-semibold text-text">{t("deployment.selectStrategy")}:</span>
                         <div class="space-y-1">
@@ -425,6 +453,7 @@
                           </div>
                         {/if}
                       </div>
+                      {/if}
                     </div>
                   </div>
                 </div>
@@ -446,8 +475,22 @@
           <textarea
             readonly
             class={`${TEXTAREA_CODE_CLASS} h-72 w-full`}
-            value={plan?.sqlPreview ?? "-- No SQL generated"}
+            value={sqlPreview}
           ></textarea>
+          {#if losesData && !readOnly}
+            <label class="block pt-1 text-xs text-text">
+              <span class="mb-1 block font-semibold">{t("deployment.riskNote")}</span>
+              <textarea
+                class={`${INPUT_CLASS} h-14 w-full`}
+                bind:value={riskNote}
+                maxlength={1000}
+                placeholder={t("deployment.riskNotePlaceholder")}
+              ></textarea>
+            </label>
+          {/if}
+          {#if blockingRisks.length > 0}
+            <p class="text-xs text-danger" role="alert">{t("deployment.blockedByCancel", { count: blockingRisks.length })}</p>
+          {/if}
         </div>
       {/if}
 
@@ -517,7 +560,9 @@
           {/if}
 
           {#if activeStep === "sql" && !readOnly}
-            <Button size="sm" variant="primary" onclick={() => void handleApplyDeployment()} disabled={deploying || !diff?.hasChanges}>
+            <Button size="sm" variant="primary" onclick={() => void handleApplyDeployment()}
+              disabled={deploying || !diff?.hasChanges || blockingRisks.length > 0}
+            >
               <Icon icon={CheckIcon} size={13} />
               {deploying ? t("deployment.deploying") : t("deployment.applyMigration")}
             </Button>
