@@ -80,3 +80,38 @@ export interface DriftCheckResult {
   /** Tables that changed in the database since the reference; `null` when there is no reference yet. */
   sinceReference: { added: string[]; removed: string[]; changed: string[] } | null;
 }
+
+/**
+ * A project's watch over its databases (`GET/PUT /api/projects/:id/monitoring`):
+ * every `intervalMinutes`, each linked database that has a reference
+ * (a deployment or a pull happened) is read again and compared with it.
+ */
+export interface MonitorSettings {
+  enabled: boolean;
+  intervalMinutes: number;
+  /** Table names whose changes are not reported. */
+  ignoreTables: string[];
+  lastCheckedAt: string | null;
+}
+
+export const MONITOR_INTERVALS: readonly number[] = [5, 15, 60, 360, 1440];
+
+/**
+ * Something the watch found. `external`: the database changed since Athanor
+ * last deployed or pulled, and no deployment explains it. `partial-deployment`:
+ * the change matches a deployment that failed half-way. `unreachable`: the
+ * database could not be read — never reported as a change.
+ */
+export interface DriftEvent {
+  id: Id;
+  connectionId: Id;
+  connectionName: string | null;
+  kind: "external" | "partial-deployment" | "unreachable";
+  detectedAt: string;
+  added: string[];
+  removed: string[];
+  changed: string[];
+  error: string | null;
+  status: "open" | "resolved" | "ignored";
+  resolvedAt: string | null;
+}
