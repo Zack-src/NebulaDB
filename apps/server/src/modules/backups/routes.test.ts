@@ -22,6 +22,7 @@ const { writeProjectToDoc } = await import("@athanordb/shared");
 const { backupFilePath } = await import("./storage.js");
 const { failInterruptedBackups, insertBackup, purgeExpiredBackups } = await import("./repository.js");
 const { backupPageSql, fromBackupCell, tablesInBackupOrder, toBackupCell } = await import("./format.js");
+const { runDueBackupSchedules } = await import("./schedule.js");
 
 type App = Awaited<ReturnType<typeof buildApp>>;
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -200,6 +201,7 @@ test("backups: only instance administrators", async () => {
     const routes: [Method, string][] = [
       ["GET", "/api/admin/connections/x/backups"],
       ["POST", "/api/admin/connections/x/backups"],
+      ["PUT", "/api/admin/connections/x/backup-schedule"],
       ["POST", "/api/admin/backups/x/cancel"],
       ["PATCH", "/api/admin/backups/x"],
       ["DELETE", "/api/admin/backups/x"],
@@ -520,6 +522,114 @@ test("a production deployment backs the database up first — or does not happen
     const columns = (after.prepare("PRAGMA table_info(blobs)").all() as { name: string }[]).map((c) => c.name);
     after.close();
     assert.deepEqual(columns, ["id", "body", "label", "extra"]);
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
+
+test("a running backup can be cancelled, and leaves no file", async () => {
+  const app = await buildApp();
+  try {
+    const admin = await login(app, 1);
+    const file = targetFile("CREATE TABLE events (id INTEGER PRIMARY KEY, label TEXT);");
+    const filler = new Database(file);
+    const insert = filler.prepare("INSERT INTO events (label) VALUES (?)");
+    filler.transaction(() => {
+      for (let i = 0; i < 40_000; i++) insert.run("event");
+    })();
+    filler.close();
+    const connId = await connect(app, admin, "Events", file);
+    const started = await call(app, admin, "POST", `/api/admin/connections/${connId}/backups`, {});
+    const { id } = started.json().backup as Backup;
+    // Twenty pages to read: the cancel lands between two of them.
+    assert.equal((await call(app, admin, "POST", `/api/admin/backups/${id}/cancel`)).statusCode, 200);
+    let backup: Backup | undefined;
+    for (let i = 0; i < 400 && backup?.status !== "cancelled"; i++) {
+      const list = (await call(app, admin, "GET", `/api/admin/connections/${connId}/backups`)).json();
+      backup = (list.backups as Backup[]).find((b) => b.id === id);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+    }
+    assert.equal(backup?.status, "cancelled");
+    assert.equal(existsSync(backupFilePath(id)), false);
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
+
+test("a schedule fires once per occurrence, never for a past one, and keeps the last N", async () => {
+  const app = await buildApp();
+  try {
+    const admin = await login(app, 1);
+    const connId = await connect(app, admin, "Nightly", targetFile(SHOP));
+    const url = `/api/admin/connections/${connId}/backup-schedule`;
+    const list = async () =>
+      (await call(app, admin, "GET", `/api/admin/connections/${connId}/backups`)).json() as {
+        backups: Backup[];
+        schedule: { enabled: boolean; keep: number; nextRunAt: string | null; lastStatus: string | null };
+      };
+    assert.deepEqual((await list()).schedule, {
+      enabled: false,
+      frequency: "daily",
+      hour: 2,
+      weekday: 1,
+      dayOfMonth: 1,
+      keep: 7,
+      lastRunAt: null,
+      lastStatus: null,
+      nextRunAt: null,
+    });
+
+    const settings = { enabled: true, frequency: "daily", hour: 2, weekday: 1, dayOfMonth: 1, keep: 2 };
+    for (const bad of [{ ...settings, hour: 24 }, { ...settings, frequency: "hourly" }, { ...settings, keep: 0 }, {}]) {
+      assert.equal((await call(app, admin, "PUT", url, bad)).json().code, "BACKUP_INVALID");
+    }
+    const saved = (await call(app, admin, "PUT", url, settings)).json().schedule;
+    assert.equal(saved.enabled, true);
+    assert.ok(new Date(saved.nextRunAt).getTime() > Date.now());
+
+    // Right after saving, today's 02:00 is already past: nothing fires for it.
+    assert.equal(await runDueBackupSchedules(new Date()), 0);
+
+    const day = (n: number) => {
+      const date = new Date();
+      date.setDate(date.getDate() + n);
+      date.setHours(3, 0, 0, 0);
+      return date;
+    };
+    assert.equal(await runDueBackupSchedules(day(1)), 1);
+    assert.equal(await runDueBackupSchedules(day(1)), 0, "once per occurrence");
+    const first = (await list()).backups[0];
+    assert.equal(first.trigger, "scheduled");
+    assert.equal(first.status, "done");
+    assert.equal(first.expiresAt, null, "kept by count, not by age");
+    assert.equal((await list()).schedule.lastStatus, "done");
+    await call(app, admin, "PATCH", `/api/admin/backups/${first.id}`, { pinned: true });
+
+    // The server was down for days: one catch-up run, not one per missed night.
+    assert.equal(await runDueBackupSchedules(day(5)), 1);
+    assert.equal(await runDueBackupSchedules(day(6)), 1);
+    assert.equal(await runDueBackupSchedules(day(7)), 1);
+    const kept = (await list()).backups.filter((b) => b.trigger === "scheduled");
+    // Two kept by the schedule, plus the pinned one, which neither counts nor goes.
+    assert.equal(kept.length, 3);
+    assert.ok(kept.some((b) => b.id === first.id));
+    // The age-based sweep leaves scheduled backups to their schedule.
+    db.prepare("UPDATE backups SET started_at = datetime(started_at, '-365 days') WHERE connection_id = ?").run(connId);
+    assert.equal(purgeExpiredBackups(), 0);
+
+    await call(app, admin, "PUT", url, { ...settings, enabled: false });
+    assert.equal(await runDueBackupSchedules(day(30)), 0);
+    const audited = db
+      .prepare("SELECT detail FROM audit_log WHERE action = 'backup.schedule' ORDER BY rowid")
+      .all() as {
+      detail: string;
+    }[];
+    assert.deepEqual(
+      audited.map((row) => row.detail),
+      ["Nightly: daily at 2:00, keeping 2", "Nightly: off"],
+    );
   } finally {
     closeAllRooms();
     await app.close();

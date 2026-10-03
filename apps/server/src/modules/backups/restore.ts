@@ -37,7 +37,10 @@ interface PlannedTable {
 }
 
 function mismatch(reason: string, details: Record<string, unknown>): ApiError {
-  return new ApiError("RESTORE_TARGET_MISMATCH", { message: `this backup cannot be restored there: ${reason}`, details });
+  return new ApiError("RESTORE_TARGET_MISMATCH", {
+    message: `this backup cannot be restored there: ${reason}`,
+    details,
+  });
 }
 
 /**

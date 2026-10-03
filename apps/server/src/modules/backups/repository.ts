@@ -1,11 +1,5 @@
 import crypto from "node:crypto";
-import type {
-  BackupStatus,
-  BackupSummary,
-  BackupTableInfo,
-  BackupTrigger,
-  DatabaseEngine,
-} from "@athanordb/shared";
+import type { BackupStatus, BackupSummary, BackupTableInfo, BackupTrigger, DatabaseEngine } from "@athanordb/shared";
 import { config } from "../../config.js";
 import { db } from "../../infrastructure/db.js";
 import { removeBackupFile, type StoredBackup } from "./storage.js";
@@ -33,11 +27,15 @@ interface BackupRow {
   expires_at: string | null;
 }
 
-/** `expires_at` is computed, not stored: changing the retention applies to the backups already there. */
+/**
+ * `expires_at` is computed, not stored: changing the retention applies to the
+ * backups already there. A scheduled backup has none — its schedule keeps the
+ * last N of them instead (`pruneScheduledBackups`).
+ */
 function selectBackups(where: string): string {
   const expires =
     config.databaseBackupRetentionDays > 0
-      ? `CASE WHEN pinned = 1 OR status = 'running' THEN NULL
+      ? `CASE WHEN pinned = 1 OR status = 'running' OR (trigger = 'scheduled' AND status = 'done') THEN NULL
               ELSE datetime(started_at, '+${config.databaseBackupRetentionDays} days') END`
       : "NULL";
   return `SELECT *, ${expires} AS expires_at FROM backups WHERE ${where}`;
@@ -104,8 +102,7 @@ export function getBackup(id: string): BackupSummary | null {
 /** The encrypted key of a finished backup's file; `null` while it runs or after it failed. */
 export function getBackupKey(id: string): string | null {
   const row = db.prepare("SELECT key_encrypted FROM backups WHERE id = ? AND status = 'done'").get(id) as
-    | { key_encrypted: string | null }
-    | undefined;
+    { key_encrypted: string | null } | undefined;
   return row?.key_encrypted ?? null;
 }
 
@@ -167,6 +164,7 @@ export function deleteBackup(id: string): void {
 export function deleteBackupsOfConnection(connectionId: string): number {
   const ids = db.prepare("SELECT id FROM backups WHERE connection_id = ?").all(connectionId) as { id: string }[];
   for (const { id } of ids) deleteBackup(id);
+  db.prepare("DELETE FROM backup_schedules WHERE connection_id = ?").run(connectionId);
   return ids.length;
 }
 
@@ -184,11 +182,26 @@ export function failInterruptedBackups(): number {
   return ids.length;
 }
 
-/** Removes what is past the retention, pinned backups excepted. `0` days keeps everything. */
+/** Keeps a connection's `keep` most recent scheduled backups; pinned ones neither count nor go. */
+export function pruneScheduledBackups(connectionId: string, keep: number): number {
+  const ids = db
+    .prepare(
+      `SELECT id FROM backups WHERE connection_id = ? AND trigger = 'scheduled' AND status = 'done' AND pinned = 0
+        ORDER BY started_at DESC, rowid DESC LIMIT -1 OFFSET ?`,
+    )
+    .all(connectionId, keep) as { id: string }[];
+  for (const { id } of ids) deleteBackup(id);
+  return ids.length;
+}
+
+/** Removes what is past the retention, pinned and scheduled backups excepted. `0` days keeps everything. */
 export function purgeExpiredBackups(): number {
   if (config.databaseBackupRetentionDays <= 0) return 0;
   const ids = db
-    .prepare("SELECT id FROM backups WHERE pinned = 0 AND status != 'running' AND started_at < datetime('now', ?)")
+    .prepare(
+      `SELECT id FROM backups WHERE pinned = 0 AND status != 'running' AND started_at < datetime('now', ?)
+          AND NOT (trigger = 'scheduled' AND status = 'done')`,
+    )
     .all(`-${config.databaseBackupRetentionDays} days`) as { id: string }[];
   for (const { id } of ids) deleteBackup(id);
   return ids.length;

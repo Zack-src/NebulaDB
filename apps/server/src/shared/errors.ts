@@ -90,7 +90,9 @@ export const ERROR_CATALOG = {
   },
   BACKUP_INVALID: {
     status: 400,
-    message: "backup: tables (names of this database), note (text, 500 characters at most), pinned (boolean)",
+    message:
+      "backup: tables (names of this database), note (500 characters at most), pinned (boolean); schedule: enabled, " +
+      "frequency (daily, weekly, monthly), hour (0–23), weekday (0–6), dayOfMonth (1–28), keep (1–365)",
   },
   ACTIVITY_QUERY_INVALID: {
     status: 400,

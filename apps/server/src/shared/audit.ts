@@ -90,6 +90,7 @@ export const AUDIT_ACTIONS = [
   "backup.delete",
   "backup.download",
   "backup.restore",
+  "backup.schedule",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

@@ -10,6 +10,7 @@ import { startWebhookWorker } from "./modules/webhooks/dispatcher.js";
 import { startConnectionHealthChecks } from "./modules/dbAdmin/health.js";
 import { runDueMonitoring } from "./modules/monitoring/monitor.js";
 import { failInterruptedBackups, purgeExpiredBackups } from "./modules/backups/repository.js";
+import { runDueBackupSchedules } from "./modules/backups/schedule.js";
 import { scheduleJob, stopAllJobs } from "./infrastructure/scheduler.js";
 import { purgeOldDeliveries } from "./modules/webhooks/repository.js";
 import { purgeExpiredSessions } from "./modules/auth/session.js";
@@ -64,6 +65,8 @@ scheduleJob("drift-monitor", 60_000, runDueMonitoring);
 // Backups of connected databases: whatever a restart cut short is marked failed, and what is past its retention goes.
 const interrupted = failInterruptedBackups();
 if (interrupted > 0) app.log.warn(`${interrupted} database backup(s) were interrupted by the restart`);
+// Each connection's schedule says when; this only looks for whose hour has come.
+scheduleJob("database-backup-schedules", 60_000, () => runDueBackupSchedules().then(() => {}));
 scheduleJob("database-backup-retention", 60 * 60 * 1000, () => {
   const purged = purgeExpiredBackups();
   if (purged > 0) app.log.info(`purged ${purged} database backup(s) past their retention`);

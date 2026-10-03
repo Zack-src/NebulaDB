@@ -762,6 +762,29 @@ export const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 30,
+    name: "backup_schedules table",
+    up: (db) => {
+      // One schedule per connection. `not_before` is when it was last saved:
+      // a schedule never fires for an instant that was already past then.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS backup_schedules (
+          connection_id TEXT PRIMARY KEY,
+          enabled INTEGER NOT NULL DEFAULT 0,
+          frequency TEXT NOT NULL DEFAULT 'daily',
+          hour INTEGER NOT NULL DEFAULT 2,
+          weekday INTEGER NOT NULL DEFAULT 1,
+          day_of_month INTEGER NOT NULL DEFAULT 1,
+          keep INTEGER NOT NULL DEFAULT 7,
+          not_before TEXT NOT NULL,
+          last_run_at TEXT,
+          last_status TEXT,
+          updated_by_name TEXT
+        );
+      `);
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */

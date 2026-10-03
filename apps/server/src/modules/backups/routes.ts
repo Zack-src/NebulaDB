@@ -8,6 +8,7 @@ import { getConnectionById } from "../connections/repository.js";
 import { deleteBackup, getBackup, getBackupKey, listBackups, setBackupPinned, usedBytes } from "./repository.js";
 import { restoreBackup } from "./restore.js";
 import { cancelBackup, startBackup } from "./runner.js";
+import { getBackupSchedule, parseBackupSchedule, saveBackupSchedule } from "./schedule.js";
 import { backupFileChecksum, openBackupDownload } from "./storage.js";
 
 const READ_LIMIT = { config: { rateLimit: { max: 240, timeWindow: "1 minute" } } };
@@ -47,6 +48,7 @@ function list(connectionId: string): BackupList {
     backups: listBackups(connectionId),
     limits: { maxBytes: config.databaseBackupMaxBytes, retentionDays: config.databaseBackupRetentionDays },
     usedBytes: usedBytes(connectionId),
+    schedule: getBackupSchedule(connectionId),
   };
 }
 
@@ -85,6 +87,24 @@ export function registerBackupRoutes(app: FastifyInstance): void {
     });
     auditUser(user, "backup.create", { type: "connection", id }, describe(backup), req);
     return reply.status(202).send({ backup });
+  });
+
+  app.put("/api/admin/connections/:id/backup-schedule", READ_LIMIT, async (req) => {
+    const user = requireAdmin(req);
+    const { id } = req.params as { id: string };
+    const connection = loadConnection(id);
+    const settings = parseBackupSchedule(req.body);
+    const schedule = saveBackupSchedule(id, settings, user.displayName);
+    auditUser(
+      user,
+      "backup.schedule",
+      { type: "connection", id },
+      settings.enabled
+        ? `${connection.name}: ${settings.frequency} at ${settings.hour}:00, keeping ${settings.keep}`
+        : `${connection.name}: off`,
+      req,
+    );
+    return { schedule };
   });
 
   app.post("/api/admin/backups/:backupId/cancel", READ_LIMIT, async (req) => {
