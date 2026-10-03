@@ -24,6 +24,41 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Added (database backups) — read before upgrading
+
+- **Backups of the connected databases.** In the database console (Admin →
+  Connexions → Ouvrir, or a project's Données & SQL tab), a new **Sauvegardes**
+  tab: back up now, follow the running one, download, pin, delete, restore.
+  A backup is _logical_ — structure and rows read through the driver — and
+  stored as one compressed, AES-256 encrypted file with a checksum. Instance
+  administrators only.
+- **Restore.** The chosen tables are emptied and refilled from a backup, into
+  the same database or another one of the same engine, after the database's
+  name is retyped. The target's current rows are backed up first. Data only:
+  the tables must already exist. Not one transaction across tables — see the
+  user guide.
+- **A production deployment now backs the database up first.** On the stage
+  flagged as production, a deployment that changes something takes a backup
+  before running; if the backup does not complete (database larger than the
+  limit, unreadable table), **the deployment is refused**. Untick "Sauvegarder
+  la base avant de déployer" in the deployment dialog, or send
+  `backupBefore: false` to `/api/v1/…/deploy`, to deploy without one. Other
+  stages are unchanged (the box is there, unticked).
+- **Configuration:** `ATHANORDB_DATABASE_BACKUP_DIR` (default: a
+  `database-backups` folder next to the app database — make sure that volume
+  has the room), `ATHANORDB_DATABASE_BACKUP_MAX_MB` (512),
+  `ATHANORDB_DATABASE_BACKUP_RETENTION_DAYS` (30, `0` keeps everything; pinned
+  backups are never removed). These are separate from `ATHANORDB_BACKUP_*`,
+  which still concern AthanorDB's own data.
+- **Secret rotation** (`npm run rotate-secret`) now also covers the backups'
+  keys. Losing `ATHANORDB_SECRET` makes the stored backups unreadable, like
+  the stored connections.
+- Migration 29 (`backups`, `deployment_history.backup_id`). Deleting a
+  connection deletes its backups.
+- Verified on SQLite end to end. On PostgreSQL, MySQL, SQL Server and Oracle
+  the code path is written but has not been run against a live server yet:
+  try a backup and a restore on a copy before relying on it.
+
 ### Changed (project workspace)
 
 - **A project now opens on a workspace with tabs**: Schéma (the editor),

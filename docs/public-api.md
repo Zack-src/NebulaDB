@@ -85,7 +85,7 @@ alone is never enough for these.
 | `DELETE` | `/api/v1/projects/:id/connections/:connId` | `connections:manage` (+ admin) | Detaches the connection from the project; it is deleted as well if this project created it and no other project uses it |
 | `POST` | `/api/v1/projects/:id/connections/test` | `connections:manage` (+ admin) | Tests a config without saving it |
 | `POST` | `/api/v1/projects/:id/connections/:connId/pull` | `connections:manage` (+ admin) | Introspects the live database and merges it onto the canvas, preserving existing tables' ids/positions/styles by name match |
-| `POST` | `/api/v1/projects/:id/connections/:connId/deploy` | `deployments:trigger` (+ admin) | `{ resolutions? }` — runs the identical introspect → diff → generate → execute → record pipeline as the app's own deploy button |
+| `POST` | `/api/v1/projects/:id/connections/:connId/deploy` | `deployments:trigger` (+ admin) | `{ resolutions?, confirmName?, backupBefore? }` — runs the identical introspect → diff → generate → execute → record pipeline as the app's own deploy button. On the production stage `confirmName` (the connection's name) is required and the database is backed up first unless `backupBefore: false`; a backup that does not complete refuses the deployment (`502 BACKUP_FAILED`). The answer carries `backupId` |
 | `GET` | `/api/v1/projects/:id/connections/:connId/history` | `projects:read` (+ admin) | |
 | `POST` | `/api/v1/projects/:id/connections/:connId/history/:historyId/rollback` | `deployments:trigger` (+ admin) | Re-runs the stored inverse SQL for a past deployment — refused if already rolled back, or if none was generated |
 

@@ -105,6 +105,10 @@ Instance administrator only (`requireAdmin`) — a project `administrator` has n
 - The database console, entirely: instance-level connections (create, edit, delete, link to
   projects, health), explorer, free SQL, drops, database users and permissions, sessions and
   kill, query history.
+- Backups of a connected database: take, list, download, pin, delete, restore. A project
+  `administrator` deploying to the production stage _causes_ a backup (taken before the
+  deployment) and sees in the deployment history that one exists, but cannot list, download or
+  restore it.
 
 Being an instance administrator does not by itself mean "anything goes" in the console: on a
 database attached to a project, table and index changes follow the **structure policy** (refused

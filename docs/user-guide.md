@@ -362,6 +362,45 @@ cette connexion (déploiement compris).
   saisi ou généré n'est ni stocké ni journalisé par Athanor : notez-le.
 - **Sessions** — qui est connecté et ce qui s'exécute, avec la possibilité de
   terminer une session bloquée.
+- **Sauvegardes** — voir ci-dessous.
+
+**Sauvegarder et restaurer une base.** L'onglet **Sauvegardes** liste les
+sauvegardes de la base ouverte. **Sauvegarder maintenant** en lance une : Athanor
+lit la structure puis toutes les lignes, table par table, et les range dans un
+fichier compressé et chiffré sur le serveur. La liste montre l'avancement, puis
+la taille, le nombre de lignes et la date jusqu'à laquelle la sauvegarde est
+conservée (30 jours par défaut) ; **épingler** une sauvegarde l'exclut de ce
+nettoyage. On peut la **télécharger** (un fichier `.jsonl.gz` : une ligne JSON
+par ligne de table) ou la supprimer.
+
+**Restaurer** remet les lignes d'une sauvegarde dans la base : on choisit les
+tables, la base cible (celle d'origine, ou une autre du même moteur) et on
+saisit le nom de la base pour confirmer. Les tables choisies sont **vidées puis
+remplies** — tout ce qui y a changé depuis la sauvegarde est perdu. Par défaut,
+l'état actuel de ces tables est d'abord sauvegardé (il apparaît dans la liste,
+« Avant restauration ») : c'est ce qui permet de revenir en arrière. À savoir :
+
+- seules les **données** sont restaurées ; les tables et leurs colonnes doivent
+  déjà exister (déployez le schéma d'abord) ;
+- une table référencée par une autre ne se restaure pas seule : restaurez-les
+  ensemble ;
+- la restauration n'est pas une transaction unique : si elle échoue en cours de
+  route, le résultat l'indique table par table, et la sauvegarde « Avant
+  restauration » permet de retrouver l'état d'avant ;
+- une connexion en lecture seule ne peut pas être restaurée.
+
+C'est une sauvegarde **logique**, adaptée aux bases petites et moyennes : au-delà
+de la limite de l'instance (512 Mo de données par défaut), elle échoue et
+l'outil du moteur (`pg_dump`, `mysqldump`…) est le bon choix. Les tables sont
+lues l'une après l'autre : sur une base très active, la sauvegarde n'est pas un
+instantané parfaitement cohérent. Les vues, séquences et comptes n'en font pas
+partie, et il n'y a pas encore de sauvegarde planifiée.
+
+**Avant un déploiement en production**, Athanor sauvegarde la base
+automatiquement (case « Sauvegarder la base avant de déployer », cochée par
+défaut sur l'environnement de production). Si la sauvegarde n'aboutit pas, rien
+n'est déployé. L'historique des déploiements indique qu'une sauvegarde a été
+prise ; seul un administrateur de l'instance peut la restaurer.
 
 **La structure passe par le schéma.** Quand une connexion est rattachée à un
 projet, la console ne modifie plus elle-même les tables ni les index : supprimer
@@ -506,6 +545,9 @@ Dit explicitement pour éviter de le chercher :
   commentaire) — les seuls e-mails envoyés sont les invitations et les
   réinitialisations de mot de passe ;
 - pas de SSO ni de passkeys ;
+- pas de sauvegarde planifiée des bases connectées, ni de sauvegarde par l'outil
+  natif du moteur — les sauvegardes se lancent à la main, ou avant un
+  déploiement en production (§5) ;
 - pas de mode hors-ligne — un onglet fermé pendant une coupure perd les
   modifications non synchronisées ;
 - interface pensée pour un écran large, non adaptée au tactile.

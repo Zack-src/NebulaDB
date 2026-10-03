@@ -27,7 +27,8 @@ dependency table). Lot numbers are the plan's. `✔` = done, `◐` = usable, rem
 phase (2026-10-02: lot 1, the copy / paste item, lot 2's tokens + form components — built
 in-house; `DataGrid` and `Splitter` are still owed and block lot 6, not lots 3–5 — and lot 3:
 locks enforced on every write path, with a first editor UI; 2026-10-03: lot 18's timeline,
-diagram preview and per-table restore).
+diagram preview and per-table restore; lot 11's logical backups and restore — its deployment
+rollback is still to do).
 
 | Order | Lot | Phase | What                                                             |
 | ----- | --- | ----- | ---------------------------------------------------------------- |
@@ -40,7 +41,7 @@ diagram preview and per-table restore).
 | ◐     | 6   | 31    | SQL panel inside the schema editor                               |
 | ◐     | 18  | 31    | Undo / redo and visual history                                   |
 | ◐     | 14  | 32    | Configurable environment pipeline and promotion                  |
-| 10    | 11  | 32    | Logical backups, restore, deployment rollback                    |
+| ◐     | 11  | 32    | Logical backups, restore, deployment rollback                    |
 | ◐     | 15  | 32    | Destructive-change detection                                     |
 | ◐     | 7   | 33    | CSV seeds                                                        |
 | ◐     | 16  | 33    | Test-data generation (+ AI extension point)                      |
@@ -89,15 +90,17 @@ diagram preview and per-table restore).
       diff for schema ↔ database. First consumer: the drift banner (Phase 30). **Not done:**
       views / functions / accounts are outside it, like the rest of the model; type aliases
       cover the common PostgreSQL / MySQL spellings, not every engine's — extend
-      `TYPE_ALIASES` when a false "changed" shows up.- [ ] **Background job runner** — **M**. Health checks run on one timer
-      (`ATHANORDB_CONNECTION_HEALTH_INTERVAL_MINUTES`); backups, drift checks, metrics sampling
-      and notifications digests all need scheduled, cancellable, budget-aware jobs with progress.
-      Generalise that timer into `infrastructure/jobs.ts` (single-instance topology, in-process,
-      persisted state in a table) before adding the second scheduled feature.
+      `TYPE_ALIASES` when a false "changed" shows up.
+- [~] **Background job runner** — first version done 2026-10-03 with the watch (Phase 34):
+  `infrastructure/scheduler.ts` (`scheduleJob`: no overlap, never throws, `unref`ed, last run
+  kept — `listJobs`). Used by the drift watch and the backup retention sweep. **Not done:** the
+  older timers (health checks, the app's own backups, the session sweep) are not on it; state
+  is in memory, not in a table; a _long_ job with progress and cancel is each feature's own
+  (the backup runner has one, `modules/backups/runner.ts`) rather than a shared mechanism.
 - [ ] **Capability levels per connection** — **S**. Level 0 (catalogue read), 1 (supervision
       views), 2 (server-side audit configured) — detected at connection test and stored on
       `db_connections` (`plan §8.3`). Journal, traffic, advisor and drift attribution all branch on it.
-- [ ] **Migrations** — next migration number is **23** (20 is `table_locks`, 21 the structure policy, 22 drift). Every item below that adds a table
+- [ ] **Migrations** — next migration number is **30** (28 is the watch, 29 `backups`). Every item below that adds a table
       gets its own migration, tested on a populated database (`infrastructure/migrations.test.ts`).
       Reminder from `memory`: saving `migrations.ts` while `npm run dev` runs migrates the real dev
       DB, one way — work on a copy.
@@ -500,7 +503,6 @@ here: each gets its own security review before it is closed.**
   - Per-project override of the chain (`project_environments`) — not built.
   - _Protection_ (`free` / `review` / `protected`) is stored, not enforced — the per-stage
     guards belong to the pipeline item below.
-  - Auto backup before a production deployment (needs Logical backups).
   - Write-mode SQL and explorer drops in the console on a production connection do not ask for
     the name (the console has its own confirmations; align them).
   - Drag-and-drop reordering (arrows today); the security review of the Phase 27 rule.
@@ -550,21 +552,80 @@ here: each gets its own security review before it is closed.**
       (not guessed), data-loss list, option to back the data up first, schema rolled back as a new
       revision, irreversible cases flagged. Today's `rollbackGenerator.ts` is the starting point —
       check how it relates before building. **Blocked by:** fingerprint; backups.
-- [ ] **Logical backups** — **XL**. New `modules/backups/`: export structure + data **through
-      the driver** (SQL / CSV per table, streamed) for all engines incl. SQLite; manual and
-      scheduled (daily / weekly / monthly retention), size limit shown, destinations local dir and
-      S3-compatible (SFTP later), AES-256 encrypted with a key derived from the instance secret
-      (compatible with `rotate-secret`), checksum, background job with progress / cancel,
-      `connectionBudget` respected, weekly **restore test** into a scratch database with row
-      counts. Tables `backups`, `backup_schedules`, `restore_jobs`, `storage_targets`; config
-      `ATHANORDB_BACKUP_*`. **Automatic backup before a Prod deployment.**
-      **Blocked by:** job runner. Open: size cap for logical mode, who pays for storage, legal
-      retention of backups holding personal data.
-- [ ] **Restore** — **L**. Whole database or chosen tables; to the same database, another
-      connection or a new database; preview of what is overwritten / lost; automatic safety backup
-      first; retype-the-connection-name; blocked on `read-only` connections, by the structure
-      policy where it applies, and by table locks; right `backup.restore`; audited. Open: double
-      approval for Prod.
+- [~] **Logical backups** — first slice done 2026-10-03. `modules/backups/`: a backup reads the
+  structure (introspection) then every table page by page through the driver's new `queryRows`
+  (all five engines; ordered by primary key, 2 000 rows a page) and writes one JSON document per
+  line → gzip → **AES-256-GCM** → one file, never whole in memory (`storage.ts`). Each file has
+  its own random key; the instance secret encrypts that key in the `backups` row (migration 29),
+  so `rotate-secret` re-encrypts keys, not files. SHA-256 of the stored file, checked before
+  every download and restore. Tables are stored **parents first** (the order a restore inserts
+  in). Runs in the background: `POST /api/admin/connections/:id/backups` answers `202`, the
+  list shows tables done / total, `…/cancel` stops it between pages, one backup per database at
+  a time, a backup cut by a restart is marked failed at boot. Size ceiling
+  `ATHANORDB_DATABASE_BACKUP_MAX_MB` (512, before compression — over it the backup **fails**
+  and says to use the engine's tool), retention `ATHANORDB_DATABASE_BACKUP_RETENTION_DAYS`
+  (30; hourly sweep on the scheduler; a **pinned** backup is never swept), directory
+  `ATHANORDB_DATABASE_BACKUP_DIR` (next to the app database). Download = the decrypted file,
+  still gzipped (`.jsonl.gz`). A deleted connection takes its backups with it. Audited
+  (`backup.create|download|delete|restore`). UI: the **Sauvegardes** tab of the database console
+  (`features/backups/BackupsPanel.svelte`) — so also in the workspace's Données & SQL tab.
+  **Before a deployment:** `deployToConnection` backs the database up first when the connection
+  is on the production stage (or when `backupBefore: true`), only if the deployment changes
+  something; a backup that does not complete **refuses the deployment** (`BACKUP_FAILED`);
+  `backupBefore: false` is the explicit way without. The backup's id is kept in
+  `deployment_history.backup_id` and shown in the history.
+  **Decisions taken:**
+  - _Instance administrators only_, like the console: a backup is every row of the database. A
+    project administrator can _cause_ one (the pre-deployment copy) but not list, download or
+    restore it.
+  - _JSON Lines, not SQL / CSV per table_: one streamable file, `NULL` and the empty string
+    told apart, bytes as base64 — and nothing to quote per dialect.
+  - _Not a consistent snapshot_: tables are read one after another, without a transaction
+    across them. Fine for a quiet database, approximate under writes — said in the user guide.
+  - _The existing `ATHANORDB_BACKUP_*` variables stay what they were_ (the app's own data);
+    the new ones are `ATHANORDB_DATABASE_BACKUP_*`.
+
+  **Verified:** `backups/routes.test.ts` on SQLite (rights; a backup with a 64-bit integer, a
+  blob, `NULL` vs empty string and a multi-line text restored bit for bit; the file is neither
+  readable nor a plain gzip; altered file refused; size ceiling; pin / retention; restart;
+  connection delete; the production deployment with, without, and refused), the SQLite driver
+  test, `e2e/backups.e2e.ts`. Cancelling a running backup is not covered by a test. **PostgreSQL, MySQL, SQL Server and Oracle: `queryRows` and the
+  page query are written and unit-tested as text, but were not run against a live server**
+  (no Docker on the machine that day) — run `drivers/live.test.ts`-style checks before relying
+  on them; dates on SQL Server / Oracle go through JavaScript dates (UTC, milliseconds).
+  **Still to do:** schedules (daily / weekly / monthly with their own retention —
+  `backup_schedules`); destinations other than the local directory (S3-compatible, SFTP —
+  `storage_targets`); the weekly **restore test** into a scratch database; a per-table choice in
+  the UI (the API takes `tables`); `connectionBudget` is spent once per backup, not per page,
+  and there is no per-page time limit; views, sequences and accounts are not in a backup;
+  paging by `OFFSET` gets slow on very large tables (keyset on the primary key would not);
+  `/api/v1`; the security review of the Phase 27 rule. Open (unchanged): who pays for
+  storage, legal retention of backups holding personal data.
+
+- [~] **Restore** — first slice done 2026-10-03 (`modules/backups/restore.ts`,
+  `POST /api/admin/backups/:id/restore`, `RestoreDialog.svelte`). **Data only**: the chosen
+  tables are emptied (children first) and refilled from the backup (parents first, 500 rows a
+  batch, bound parameters), into the backup's own connection or another one **of the same
+  engine**. Refused before anything is touched: no `confirmName` equal to the target's name
+  (every target, not only production); a `read-only` target; a table or column of the backup
+  missing in the target; a table outside the selection that references one inside it (emptying
+  would fail on its foreign key — or cascade into it); a cycle among the chosen tables; a file
+  that no longer matches its checksum. A **safety backup** of the target's current rows is taken
+  first (`pre-restore`, listed like any other) unless `skipSafetyBackup` is sent. The result is
+  per table (deleted / inserted / error). **Verified:** `backups/routes.test.ts`,
+  `e2e/backups.e2e.ts`. **Still to do:**
+  - **Not atomic across tables**: a failure half-way leaves the tables after it empty — the
+    safety backup is what brings the previous state back. One transaction for the whole restore
+    needs the drivers to expose one.
+  - No preview of what will be lost ("21 rows created since"); no restore into a **new**
+    database or of the **structure** (deploy first); no cross-engine restore.
+  - Identity / `GENERATED ALWAYS` columns (SQL Server needs `IDENTITY_INSERT`) and sequences
+    (PostgreSQL `serial` is not moved past the restored ids) — not handled.
+  - A self-referencing table is inserted in primary-key order, which may not satisfy its own
+    foreign key.
+  - Table locks are not consulted (they freeze the schema and the seed, not rows — decide);
+    a dedicated right `backup.restore` (today: instance administrator); double approval on
+    production; the security review of the Phase 27 rule.
 - [ ] **Native backups and point-in-time (later)** — **XL**. Engine tools (`pg_dump`,
       `mysqldump`, `BACKUP DATABASE`, Data Pump) — needs the client tools in the image; archived
       logs (WAL, binlog) for point-in-time when the DBA configured them. This is the "backup/
@@ -966,6 +1027,9 @@ DeploymentModal.svelte` 501 l. (will grow with Phase 32 — split first) ·
   463 l. · `features/editor/ProjectEditor.svelte` 459 l. (gets the workspace shell in Phase 31) ·
   `features/admin/connections/UsersPanel.svelte` 447 l. · `apps/server/src/modules/connections/
 repository.ts` has grown a lot with instance-level connections — worth a look.
+- [ ] **`npm run check:circular -w apps/server` fails** — **S**, found 2026-10-03, not fixed: madge
+      reports `packages/shared/dist/schema.d.ts > seeds.d.ts` (a type-only cycle between
+      `schema.ts` and `seeds.ts`). Move the shared type to one side, or point madge at the sources.
 - [ ] **Confirm two perf regressions flagged by the Svelte migration bench** — **S**
       (`docs/perf/svelte-migration-results.md`, single pass): `zoom-links-on` at "complet" detail
       0→29 ms blocking at 100 tables and 4→40 ms at 500; `delete-columns` at 500 tables +~6 ms. Small
