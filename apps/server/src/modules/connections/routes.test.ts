@@ -94,11 +94,11 @@ test("deployment history + rollback: full lifecycle against a real SQLite target
       method: "POST",
       url: `/api/projects/${project.id}/connections`,
       headers: headers({ cookie }),
-      payload: { name: "Local file", engine: "sqlite", filePath: targetFile, environment: "test-env" },
+      payload: { name: "Local file", engine: "sqlite", filePath: targetFile, environment: "Staging" },
     });
     assert.equal(connRes.statusCode, 200);
     const connId = connRes.json().connection.id;
-    assert.equal(connRes.json().connection.environment, "test-env");
+    assert.equal(connRes.json().connection.environment, "Staging");
 
     // Plan: the live file is empty, the canvas has `widgets` -> a diff exists.
     const plan = await app.inject({
@@ -134,7 +134,7 @@ test("deployment history + rollback: full lifecycle against a real SQLite target
     assert.equal(entries.length, 1);
     const [deployEntry] = entries;
     assert.equal(deployEntry.success, true);
-    assert.equal(deployEntry.environment, "test-env");
+    assert.equal(deployEntry.environment, "Staging");
     assert.equal(deployEntry.engine, "sqlite");
     assert.ok(deployEntry.rollbackSql);
     assert.equal(deployEntry.rolledBack, false);

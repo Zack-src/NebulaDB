@@ -99,7 +99,7 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
     const { user, project } = requireProjectAdmin(req, id);
     requireScope(req, "connections:manage", id);
 
-    const result = await pullConnectionSchema(id, project.name, connId, user.displayName);
+    const result = await pullConnectionSchema(id, project.name, connId, user.displayName, user.id);
     auditUser(user, "connection.pull", { type: "project", id }, `${connId} -> ${result.tablesCount} tables (v1)`, req);
 
     return result;
@@ -109,9 +109,16 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
     const { id, connId } = req.params as { id: string; connId: string };
     const { user, project } = requireProjectAdmin(req, id);
     requireScope(req, "deployments:trigger", id);
-    const body = (req.body ?? {}) as { resolutions?: MigrationResolutionMap };
+    const body = (req.body ?? {}) as { resolutions?: MigrationResolutionMap; confirmName?: string };
 
-    const result = await deployToConnection(id, project.name, connId, body.resolutions || {}, user.email);
+    const result = await deployToConnection(
+      id,
+      project.name,
+      connId,
+      body.resolutions || {},
+      user.email,
+      body.confirmName,
+    );
 
     auditUser(
       user,
@@ -136,7 +143,8 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
     const { user } = requireProjectAdmin(req, id);
     requireScope(req, "deployments:trigger", id);
 
-    const result = await rollbackConnectionDeployment(id, connId, historyId, user.email);
+    const { confirmName } = (req.body ?? {}) as { confirmName?: string };
+    const result = await rollbackConnectionDeployment(id, connId, historyId, user.email, confirmName);
 
     auditUser(user, "connection.rollback", { type: "project", id }, `${connId}: rolled back ${historyId} (v1)`, req);
 

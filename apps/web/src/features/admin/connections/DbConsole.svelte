@@ -12,7 +12,8 @@
   import { fetchConnectionOverview } from "@/services/dbAdminApi";
   import ExplorerPanel from "./ExplorerPanel.svelte";
   import SessionsPanel from "./SessionsPanel.svelte";
-  import SqlPanel from "./SqlPanel.svelte";
+  import EnvironmentBadge from "@/features/environments/EnvironmentBadge.svelte";
+  import SqlPanel from "@/features/sql/SqlPanel.svelte";
   import UsersPanel from "./UsersPanel.svelte";
 
   type Section = "explorer" | "sql" | "users" | "sessions";
@@ -22,7 +23,14 @@
    * the reachability check and tells the console what this engine supports, so
    * a section that doesn't apply (accounts on SQLite) is simply not offered.
    */
-  let { connection, onClose }: { connection: AdminConnectionSummary; onClose: () => void } = $props();
+  let {
+    connection,
+    onClose,
+  }: {
+    connection: AdminConnectionSummary;
+    /** Absent when the console is a tab of a project's workspace: there is no list to go back to. */
+    onClose?: () => void;
+  } = $props();
 
   const { t } = useTranslation();
   const overview = useAsyncResource(() => fetchConnectionOverview(connection.id));
@@ -50,14 +58,24 @@
 
 <div>
   <div class="mb-3 flex flex-wrap items-center gap-2">
-    <Button variant="ghost" size="sm" onclick={onClose}>
-      <Icon icon={ChevronLeftIcon} size={13} />
-      {t("dbadmin.backToConnections")}
-    </Button>
+    {#if onClose}
+      <Button variant="ghost" size="sm" onclick={onClose}>
+        <Icon icon={ChevronLeftIcon} size={13} />
+        {t("dbadmin.backToConnections")}
+      </Button>
+    {/if}
     <span class="text-[14px] font-semibold">{connection.name}</span>
     <Badge tone="admin">{t(`connections.engine.${connection.engine}`)}</Badge>
-    {#if connection.environment}<span class="text-xs text-text-muted">{connection.environment}</span>{/if}
+    {#if connection.environment}<EnvironmentBadge name={connection.environment} color={connection.environmentColor} production={connection.production} />{/if}
     {#if connection.readOnly}<Badge tone="warning">{t("dbadmin.readOnly")}</Badge>{/if}
+    {#if overview.data && overview.data.structurePolicy.projects.length > 0}
+      {@const policy = overview.data.structurePolicy}
+      <span data-tooltip={t(`dbadmin.structure.policyHint.${policy.policy}`)}>
+        <Badge tone={policy.policy === "schema-only" ? "muted" : "warning"}>
+          {t(`dbadmin.structure.policy.${policy.policy}`)}
+        </Badge>
+      </span>
+    {/if}
   </div>
 
   {#if overview.error}

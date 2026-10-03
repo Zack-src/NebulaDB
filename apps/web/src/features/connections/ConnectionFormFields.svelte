@@ -11,9 +11,12 @@
 </script>
 
 <script lang="ts">
+  import type { EnvironmentStage } from "@athanordb/shared";
   import Hint from "@/components/ui/Hint.svelte";
   import { INPUT_CLASS, SELECT_CLASS } from "@/components/ui/inputStyles";
+  import Select from "@/components/ui/Select.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
+  import { fetchEnvironments } from "@/services/environmentsApi";
 
   /**
    * The connection-config form fields, shared by the admin console's
@@ -23,7 +26,7 @@
    * one changes.
    */
   let {
-    environment = $bindable(),
+    environmentId = $bindable(),
     engine = $bindable(),
     host = $bindable(),
     port = $bindable(),
@@ -36,7 +39,8 @@
     filePath = $bindable(),
     useUri = $bindable(),
   }: {
-    environment: string;
+    /** The deployment stage (Admin → Environnements); `""` for none. */
+    environmentId: string;
     engine: DatabaseEngine;
     host: string;
     port: number;
@@ -52,6 +56,22 @@
 
   const { t } = useTranslation();
   const LABEL = "mb-1 block text-xs font-medium text-text-muted";
+
+  let stages = $state.raw<EnvironmentStage[]>([]);
+  $effect(() => {
+    fetchEnvironments()
+      .then((loaded) => (stages = loaded))
+      // Without the list the field only offers "none"; the server still checks whatever is sent.
+      .catch(() => {});
+  });
+  const stageOptions = $derived([
+    { value: "", label: t("connections.environmentNone") },
+    ...stages.map((stage) => ({
+      value: stage.id,
+      label: stage.name,
+      hint: stage.production ? t("environments.production") : undefined,
+    })),
+  ]);
 
   function handleEngineChange(nextEngine: DatabaseEngine) {
     engine = nextEngine;
@@ -89,8 +109,13 @@
 
   <div class="col-span-2">
     <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label class={LABEL}>{t("connections.environment")}</label>
-    <input class={INPUT_CLASS} bind:value={environment} placeholder={t("connections.environmentPlaceholder")} />
+    <label id="connection-environment" class={LABEL}>{t("connections.environment")}</label>
+    <Select
+      aria-labelledby="connection-environment"
+      value={environmentId}
+      options={stageOptions}
+      onChange={(value) => (environmentId = value)}
+    />
     <Hint>{t("connections.environmentHint")}</Hint>
   </div>
 </div>

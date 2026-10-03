@@ -213,7 +213,8 @@ export const OPERATIONS: Operation[] = [
     tag: "Connections",
     scope: "connections:manage",
     admin: true,
-    summary: "Update a connection the project created (an omitted password is kept; 403 for one an instance admin manages)",
+    summary:
+      "Update a connection the project created (an omitted password is kept; 403 for one an instance admin manages)",
     body: ref("ConnectionInput"),
     ok: { status: 200, schema: obj({ connection: ref("Connection") }) },
   },
@@ -257,7 +258,17 @@ export const OPERATIONS: Operation[] = [
     summary: "Deploy the canvas schema to the live database",
     description:
       "Introspect → diff → generate SQL → execute → record, the same pipeline as the web app's deploy button. `resolutions` answers the risks a plan reported (e.g. a default value for a new NOT NULL column).",
-    body: obj({ resolutions: { type: "object", additionalProperties: true } }, []),
+    body: obj(
+      {
+        resolutions: { type: "object", additionalProperties: true },
+        confirmName: {
+          type: "string",
+          description:
+            "The connection's name — required when it is on the production stage (409 PRODUCTION_CONFIRMATION_REQUIRED otherwise)",
+        },
+      },
+      [],
+    ),
     ok: {
       status: 200,
       schema: obj({
@@ -285,6 +296,16 @@ export const OPERATIONS: Operation[] = [
     scope: "deployments:trigger",
     admin: true,
     summary: "Roll back a past deployment",
+    body: obj(
+      {
+        confirmName: {
+          type: "string",
+          description:
+            "The connection's name — required when it is on the production stage (409 PRODUCTION_CONFIRMATION_REQUIRED otherwise)",
+        },
+      },
+      [],
+    ),
     ok: { status: 200, schema: obj({ success: bool, executedStatements: int }) },
   },
 
@@ -388,7 +409,10 @@ const COMPONENTS: Record<string, Schema> = {
       projectId: str,
       name: str,
       engine: ref("Engine"),
-      environment: str,
+      environment: { type: "string", description: "Name of the deployment stage (Admin → Environnements)" },
+      environmentId: str,
+      environmentColor: str,
+      production: { type: "boolean", description: "The connection is on the production stage" },
       host: str,
       port: int,
       database: str,
@@ -406,7 +430,11 @@ const COMPONENTS: Record<string, Schema> = {
     {
       name: str,
       engine: ref("Engine"),
-      environment: str,
+      environmentId: { type: ["string", "null"], description: "A stage id from GET /api/environments; null for none" },
+      environment: {
+        type: "string",
+        description: "Alternatively, an existing stage's name (case-insensitive); an unknown name is refused (404)",
+      },
       host: str,
       port: int,
       database: str,

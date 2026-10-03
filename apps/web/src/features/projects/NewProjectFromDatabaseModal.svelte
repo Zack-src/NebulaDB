@@ -31,7 +31,7 @@
   const { t } = useTranslation();
 
   let name = $state("");
-  let environment = $state("");
+  let environmentId = $state("");
   let engine = $state<DatabaseEngine>("postgres");
   let host = $state("localhost");
   let port = $state(5432);
@@ -54,7 +54,7 @@
       const remote = !(useUri || engine === "sqlite");
       const result = await createProjectFromDatabase(name, {
         name: connectionName,
-        environment: environment.trim() || undefined,
+        environmentId: environmentId || undefined,
         engine,
         host: remote ? host : undefined,
         port: remote ? Number(port) : undefined,
@@ -85,7 +85,7 @@
     </div>
 
     <ConnectionFormFields
-      bind:environment
+      bind:environmentId
       bind:engine
       bind:host
       bind:port

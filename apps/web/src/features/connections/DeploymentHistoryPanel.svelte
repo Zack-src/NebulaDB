@@ -19,7 +19,20 @@
    * fetch/confirm/execute state, not more branches threaded through the
    * existing ones.
    */
-  let { projectId, connId, engine }: { projectId: string; connId: string; engine?: DatabaseEngine } = $props();
+  let {
+    projectId,
+    connId,
+    engine,
+    production = false,
+    connectionName = "",
+  }: {
+    projectId: string;
+    connId: string;
+    engine?: DatabaseEngine;
+    /** On the production stage, a rollback asks for the connection's name. */
+    production?: boolean;
+    connectionName?: string;
+  } = $props();
 
   const { t } = useTranslation();
   const history = useAsyncResource(() => listDeploymentHistory(projectId, connId));
@@ -82,6 +95,8 @@
       {connId}
       entry={confirmEntry}
       {engine}
+      {production}
+      {connectionName}
       onClose={() => (confirmEntry = null)}
       onRolledBack={() => {
         confirmEntry = null;

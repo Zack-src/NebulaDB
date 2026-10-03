@@ -8,6 +8,7 @@
     { key: "audit", labelKey: "admin.section.audit" },
     { key: "errors", labelKey: "admin.section.errors" },
     { key: "connections", labelKey: "admin.section.connections" },
+    { key: "environments", labelKey: "admin.section.environments" },
   ] as const satisfies readonly { key: string; labelKey: TranslationKeyOf }[];
 
   type Section = (typeof SECTIONS)[number]["key"];
@@ -18,6 +19,7 @@
   import { ChevronLeftIcon } from "@/components/icons/Icons";
   import AuditTab from "@/features/admin/AuditTab.svelte";
   import ConnectionsTab from "@/features/admin/ConnectionsTab.svelte";
+  import EnvironmentsTab from "@/features/admin/EnvironmentsTab.svelte";
   import ErrorsTab from "@/features/admin/ErrorsTab.svelte";
   import InvitationsTab from "@/features/admin/InvitationsTab.svelte";
   import TeamsTab from "@/features/admin/TeamsTab.svelte";
@@ -62,6 +64,7 @@
       {#if section === "audit"}<AuditTab />{/if}
       {#if section === "errors"}<ErrorsTab />{/if}
       {#if section === "connections"}<ConnectionsTab />{/if}
+      {#if section === "environments"}<EnvironmentsTab />{/if}
     </div>
   </div>
 </div>

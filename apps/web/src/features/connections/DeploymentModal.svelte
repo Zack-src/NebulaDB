@@ -15,6 +15,7 @@
     MigrationResolutionMap,
   } from "@athanordb/shared";
   import Modal from "@/components/overlays/Modal.svelte";
+  import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Button from "@/components/ui/Button.svelte";
   import Badge from "@/components/ui/Badge.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
@@ -145,12 +146,20 @@
     });
   }
 
-  async function handleApplyDeployment() {
+  /** Open while a production deployment waits for its connection's name. */
+  let confirmingProduction = $state(false);
+
+  async function handleApplyDeployment(confirmName?: string) {
     if (!selectedConnId) return;
+    if (selectedConn?.production && confirmName === undefined) {
+      confirmingProduction = true;
+      return;
+    }
+    confirmingProduction = false;
     deploying = true;
     error = null;
     try {
-      deployResult = await applyDeployment(projectId, selectedConnId, resolutions);
+      deployResult = await applyDeployment(projectId, selectedConnId, resolutions, confirmName);
       activeStep = "done";
     } catch (err) {
       error = err instanceof Error ? err.message : String(err);
@@ -469,7 +478,13 @@
       <!-- Step 5: Deployment history for this connection, with rollback -->
       {#if activeStep === "history" && selectedConnId}
         {#key selectedConnId}
-          <DeploymentHistoryPanel {projectId} connId={selectedConnId} engine={selectedConn?.engine} />
+          <DeploymentHistoryPanel
+            {projectId}
+            connId={selectedConnId}
+            engine={selectedConn?.engine}
+            production={selectedConn?.production}
+            connectionName={selectedConn?.name}
+          />
         {/key}
       {/if}
 
@@ -502,7 +517,7 @@
           {/if}
 
           {#if activeStep === "sql" && !readOnly}
-            <Button size="sm" variant="primary" onclick={handleApplyDeployment} disabled={deploying || !diff?.hasChanges}>
+            <Button size="sm" variant="primary" onclick={() => void handleApplyDeployment()} disabled={deploying || !diff?.hasChanges}>
               <Icon icon={CheckIcon} size={13} />
               {deploying ? t("deployment.deploying") : t("deployment.applyMigration")}
             </Button>
@@ -511,4 +526,16 @@
       </div>
     </div>
   </Modal>
+{/if}
+
+{#if confirmingProduction && selectedConn}
+  <ConfirmDialog
+    title={t("environments.deployTitle", { name: selectedConn.name })}
+    message={t("environments.deployMessage", { environment: selectedConn.environment ?? "" })}
+    danger="danger"
+    requireText={selectedConn.name}
+    confirmLabel={t("deployment.applyMigration")}
+    onCancel={() => (confirmingProduction = false)}
+    onConfirm={() => void handleApplyDeployment(selectedConn.name)}
+  />
 {/if}

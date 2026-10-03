@@ -19,6 +19,7 @@ import { resolveSession } from "./modules/auth/session.js";
 import { registerConvertRoutes } from "./modules/convert/routes.js";
 import { registerConnectionRoutes } from "./modules/connections/routes.js";
 import { registerDbAdminRoutes } from "./modules/dbAdmin/routes.js";
+import { registerEnvironmentRoutes } from "./modules/environments/routes.js";
 import { registerErrorRoutes } from "./modules/errors/routes.js";
 import { registerInvitationRoutes } from "./modules/invitations/routes.js";
 import { registerProjectRoutes } from "./modules/projects/index.js";
@@ -26,6 +27,8 @@ import { getProjectRow } from "./modules/projects/repository.js";
 import { registerPublicApiRoutes } from "./modules/publicApi/index.js";
 import { registerTeamRoutes } from "./modules/teams/routes.js";
 import { registerSearchRoutes } from "./modules/search/routes.js";
+import { lockedTableIdsFor } from "./modules/tableLocks/access.js";
+import { registerTableLockRoutes } from "./modules/tableLocks/routes.js";
 import { registerWebhookRoutes } from "./modules/webhooks/routes.js";
 import { noteSchemaChange } from "./modules/webhooks/dispatcher.js";
 import { registerUserRoutes } from "./modules/users/index.js";
@@ -179,8 +182,10 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerTeamRoutes(app);
   registerProjectRoutes(app);
   registerSearchRoutes(app);
+  registerTableLockRoutes(app);
   registerWebhookRoutes(app);
   registerConvertRoutes(app);
+  registerEnvironmentRoutes(app);
   registerConnectionRoutes(app);
   registerDbAdminRoutes(app);
   registerAuditRoutes(app);
@@ -204,6 +209,8 @@ export async function buildApp(): Promise<FastifyInstance> {
     app.get("/invite/:token", (_req, reply) => reply.sendFile("index.html"));
     app.get("/reset-password/:token", (_req, reply) => reply.sendFile("index.html"));
     app.get("/project/:id", (_req, reply) => reply.sendFile("index.html"));
+    // `/project/:id/data`, `/deployments`, `/history` — the workspace tabs.
+    app.get("/project/:id/:tab", (_req, reply) => reply.sendFile("index.html"));
     app.log.info(`serving built web app from ${webDist}`);
   }
 
@@ -240,7 +247,10 @@ export async function buildApp(): Promise<FastifyInstance> {
         // project should experience.
         room.join(socket, author, () => {
           const level = getEffectivePermission(userId, projectId);
-          return level ? { canWrite: level !== "view" } : null;
+          if (!level) return null;
+          const canWrite = level !== "view";
+          // A view-only socket cannot write at all, so its lock set is never consulted.
+          return { canWrite, lockedTableIds: canWrite ? lockedTableIdsFor(userId, projectId) : undefined };
         });
         // `req.log` rather than `app.log`: this is the one point in a
         // connection's life that maps to a single request (the WS upgrade),

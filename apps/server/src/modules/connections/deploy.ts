@@ -3,7 +3,28 @@ import { diffTargetAgainstLive, generateMigrationSql, generateRollbackSql } from
 import { ApiError } from "../../shared/errors.js";
 import { getRoom } from "../../realtime/roomRegistry.js";
 import { createDatabaseDriver } from "./drivers/index.js";
+import { saveReferenceFingerprint, type FingerprintSource } from "./drift.js";
+import type { DatabaseDriver } from "./drivers/interface.js";
 import { getProjectConnection } from "./repository.js";
+import { getEnvironment } from "../environments/repository.js";
+
+/**
+ * A connection on the production stage is only written to by someone who
+ * typed its name: the same rule for the editor, the deployments tab and the
+ * public API, checked here rather than trusted to a dialog.
+ */
+function assertProductionConfirmed(
+  conn: { name: string; environmentId?: string | null },
+  confirmName: string | undefined,
+): void {
+  const stage = conn.environmentId ? getEnvironment(conn.environmentId) : null;
+  if (!stage?.production) return;
+  if (typeof confirmName !== "string" || confirmName.trim() !== conn.name.trim()) {
+    throw new ApiError("PRODUCTION_CONFIRMATION_REQUIRED", {
+      details: { connection: conn.name, environment: stage.name },
+    });
+  }
+}
 import { getDeploymentHistoryEntry, recordDeployment } from "./deploymentHistory.js";
 import { emitWebhookEvent } from "../webhooks/dispatcher.js";
 
@@ -25,6 +46,25 @@ function notifyDeployment(
     error: result.error ?? null,
     executedBy,
   });
+}
+
+/**
+ * After a successful deployment or rollback the database is, by construction,
+ * what Athanor made it: read it back and keep that as the reference later
+ * drift is measured against. Best effort — the deployment has already
+ * happened, and failing it now over a bookkeeping read would be a lie.
+ */
+async function rememberDeployedState(
+  driver: DatabaseDriver,
+  projectId: string,
+  connectionId: string,
+  source: FingerprintSource,
+): Promise<void> {
+  try {
+    saveReferenceFingerprint(projectId, connectionId, await driver.introspectSchema(), source);
+  } catch (err) {
+    console.error("[drift] could not record the reference fingerprint:", err);
+  }
 }
 
 /** Same naive split every driver already uses to *count* statements — kept here too so a history row's `totalStatements` matches what each driver itself reports. */
@@ -55,10 +95,13 @@ export async function deployToConnection(
   connId: string,
   resolutions: MigrationResolutionMap,
   executedByEmail: string,
+  /** The connection's name, retyped — required when it is on the production stage. */
+  confirmName?: string,
 ): Promise<DeployToConnectionResult> {
   const conn = getProjectConnection(projectId, connId);
   if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
   if (conn.readOnly) throw new ApiError("CONNECTION_READ_ONLY");
+  assertProductionConfirmed(conn, confirmName);
 
   const room = getRoom(projectId);
   const canvasProject = readProjectFromDoc(room.doc, projectId, projectName);
@@ -105,6 +148,8 @@ export async function deployToConnection(
       });
     }
 
+    await rememberDeployedState(driver, projectId, conn.id, "deploy");
+
     return {
       success: true,
       executedStatements: result.executedStatements,
@@ -133,6 +178,8 @@ export async function rollbackConnectionDeployment(
   connId: string,
   historyId: string,
   executedByEmail: string,
+  /** As for `deployToConnection`. */
+  confirmName?: string,
 ): Promise<RollbackConnectionResult> {
   const entry = getDeploymentHistoryEntry(historyId);
   if (!entry || entry.connectionId !== connId || entry.projectId !== projectId) {
@@ -144,6 +191,7 @@ export async function rollbackConnectionDeployment(
   const conn = getProjectConnection(projectId, connId);
   if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
   if (conn.readOnly) throw new ApiError("CONNECTION_READ_ONLY");
+  assertProductionConfirmed(conn, confirmName);
 
   const driver = await createDatabaseDriver(conn);
   try {
@@ -172,6 +220,8 @@ export async function rollbackConnectionDeployment(
         details: { error: result.error, executedStatements: result.executedStatements },
       });
     }
+
+    await rememberDeployedState(driver, projectId, conn.id, "rollback");
 
     return { success: true, executedStatements: result.executedStatements };
   } finally {
