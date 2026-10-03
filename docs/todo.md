@@ -41,7 +41,7 @@ diagram preview and per-table restore).
 | ◐     | 18  | 31    | Undo / redo and visual history                                   |
 | ◐     | 14  | 32    | Configurable environment pipeline and promotion                  |
 | 10    | 11  | 32    | Logical backups, restore, deployment rollback                    |
-| 11    | 15  | 32    | Destructive-change detection                                     |
+| ◐     | 15  | 32    | Destructive-change detection                                     |
 | 12    | 7   | 33    | CSV seeds                                                        |
 | 13    | 16  | 33    | Test-data generation (+ AI extension point)                      |
 | 14    | 8   | 34    | Admin activity journal                                           |
@@ -504,6 +504,7 @@ here: each gets its own security review before it is closed.**
   - Write-mode SQL and explorer drops in the console on a production connection do not ask for
     the name (the console has its own confirmations; align them).
   - Drag-and-drop reordering (arrows today); the security review of the Phase 27 rule.
+
 - [ ] **Pipeline tab and promotion** — **L**. Per project: stages with version, connection and
       status; **Promote vN →** deploys the same schema version to the next stage with the **real**
       diff of the target (introspection, not only what changed in the project); no stage skipping
@@ -517,14 +518,33 @@ here: each gets its own security review before it is closed.**
 - [ ] **Per-environment variables** — **M**. `{{schema}}`, `{{table_prefix}}`, `{{tablespace}}`
       per stage, substituted at DDL generation, with a check that blocks the deployment when a
       variable is used but undefined. Open: encrypted secret variables.
-- [ ] **Destructive-change detection in the deployment plan** — **M-L**. Computed in the
-      dry-run (`DeploymentModal.svelte`) from the diff plus **aggregate** sampling queries on the
-      target (counts, min/max — never row data): `DROP TABLE/COLUMN`, length / precision
-      reduction beyond the current max, `NOT NULL` over existing NULLs, new `UNIQUE`/PK over
-      duplicates, incompatible type change, new FK over orphans, rename seen as drop+add (needs
-      stable ids). Severity 🔴/🟡; accepted risks recorded in deployment history (who, when,
-      why); per-stage blocking (a 🔴 untreated blocks Prod); option "save the column before".
-      Respects `connectionBudget`, bounded in time.
+- [~] **Destructive-change detection in the deployment plan** — first slice done 2026-10-03.
+  One engine-agnostic analysis replaces the five `inspectRisks` (which disagreed — SQL Server
+  and Oracle only checked dropped tables — and read sample rows): `planRiskProbes`
+  (`dbml-engine/deploymentProbes.ts`, pure, one **aggregate** query per risky change, in the
+  target's dialect) + `analyzeDeploymentRisks` (`connections/riskAnalysis.ts`, runs them
+  through the drivers' new `queryScalar`, 5 s per probe, 20 s in all, a failed probe reported
+  _unmeasured_). Covered: dropped table / column with data, type change, NOT NULL over NULLs,
+  new NOT NULL column without default on a non-empty table, text limit below the longest
+  value (an `info` line when it fits), new unique / PK over duplicates, new FK over orphans.
+  **Enforced server-side at apply** (`settleRisks`, measured again, never trusted from the
+  client): a risk answered — or defaulting to — "cancel" refuses the deployment; on the
+  production stage every critical risk needs an explicit answer. Settled risks + an optional
+  reason go to `deployment_history.accepted_risks` / `risk_note` (migration 24) and show in
+  the history. The SQL preview is now regenerated client-side from the answers.
+  **Found on the way, fixed:** "Annuler / Gérer manuellement" was offered and ignored — the
+  destructive change ran; `typesMatch` treated `varchar(320)` and `varchar(255)` as one type,
+  so a size change was never deployed. New strategy `PROCEED` for an unmeasured constraint.
+  **Verified:** `deploymentProbes.test.ts`, `riskAnalysis.test.ts` (SQLite, through the
+  routes), the driver tests, `e2e/deployment-risks.e2e.ts`.
+  **Still to do:**
+  - Precision / scale reduction on numerics, and "incompatible type change" beyond a count
+    (e.g. text → int over non-numeric values) — not probed.
+  - Rename seen as drop + add (needs column identity, see prerequisites).
+  - "Save the column before" (needs backups); per-stage blocking beyond production (needs the
+    pipeline's stage guards); `connectionBudget` is not consulted (time bounds only).
+  - The probes run on the target with the deploying user's connection: on a very large table a
+    `COUNT(*)` may be slow until its 5 s cut-off.
 - [ ] **Deployment rollback with inverse script** — **L**. Button "Revenir avant ce
       déploiement" in the history: inverse script computed from the **before/after fingerprints**
       (not guessed), data-loss list, option to back the data up first, schema rolled back as a new

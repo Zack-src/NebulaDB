@@ -41,6 +41,34 @@ this file has a dated entry for — not on every commit.
   that listed the application's paths one by one needs `/project/*/*` as well.
   No database or configuration change.
 
+### Changed (deployment safety) — read before upgrading
+
+- **"Annuler / Gérer manuellement" now cancels.** The option was offered on
+  every risk of a deployment plan and then ignored: the change ran anyway — a
+  dropped column with data was dropped. A deployment with a risk set to it is
+  now refused (`409 DEPLOYMENT_BLOCKED_BY_RISK`).
+- **The plan measures more, and reads no rows.** Besides dropped tables and
+  columns, type changes and NOT NULL over NULLs, it now checks a new NOT NULL
+  column without a default on a table with rows, a text limit below the
+  longest value, a new unique constraint over duplicates and a new foreign key
+  over orphans — on every engine (SQL Server and Oracle only checked dropped
+  tables). Only aggregates are run (counts, maximum lengths), each bounded in
+  time; the plan no longer shows sample values from the database. A check that
+  could not run is shown as "non mesuré", never as safe.
+- **The server measures again when deploying**, whatever the client sent. On
+  the production stage every critical risk needs an explicit answer: an API
+  call with no `resolutions` gets `409 DESTRUCTIVE_CHANGE_UNRESOLVED` instead
+  of the defaults. **API scripts deploying to production must send their
+  resolutions.**
+- **Accepted risks are kept with the deployment** — what was at stake, what
+  was chosen, and an optional reason (`riskNote`), shown in its history.
+- **The SQL preview follows the answers** given in the plan instead of showing
+  the first draft.
+- **Fixed:** a size change on a text column (`varchar(320)` → `varchar(255)`)
+  was not seen by the deployment diff, so nothing was deployed.
+- **Database change:** migration 24 adds `accepted_risks` and `risk_note` to
+  `deployment_history`. Automatic, one-way.
+
 ### Changed (environments) — read before upgrading
 
 - **Environments are now configured stages**, not a free-text label on each

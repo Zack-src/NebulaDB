@@ -251,6 +251,17 @@ enregistrement. Pour un projet, deux usages :
   changement par changement), un aperçu du SQL exact avant toute exécution,
   puis le résultat.
 
+Avant tout déploiement, le plan **mesure ce que chaque changement ferait aux
+données** déjà en base, par des agrégats seulement (comptes, longueur
+maximale — jamais le contenu des lignes) : table ou colonne supprimée qui
+contient des données, NOT NULL posé sur des valeurs NULL, nouvelle colonne
+NOT NULL sans défaut, longueur réduite sous la plus longue valeur, unicité sur
+des doublons, clé étrangère sur des lignes orphelines. Pour chaque risque, vous
+choisissez quoi faire ; **« Annuler / Gérer manuellement » bloque le
+déploiement** tant que les données ou le schéma ne sont pas corrigés. L'aperçu
+SQL suit vos choix, et quand un choix supprime des données, vous pouvez dire
+pourquoi : la raison est gardée dans l'historique avec le déploiement.
+
 Chaque connexion est placée sur une **étape** de la chaîne de déploiement
 (DEV › Staging › Prod par défaut — voir « Environnements » plus bas). Sur
 l'étape marquée **production**, déployer ou annuler un déploiement demande de
