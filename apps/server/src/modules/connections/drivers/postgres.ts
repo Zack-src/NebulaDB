@@ -5,6 +5,7 @@ import type {
   DatabaseDriver,
   DriverConnectionConfig,
   MigrationExecutionResult,
+  RowValue,
   TestConnectionResult,
 } from "./interface.js";
 
@@ -194,7 +195,7 @@ export class PostgresDriver implements DatabaseDriver {
    * never values spliced into the SQL. All or nothing: a failing row rolls the
    * whole table back. Returns the number of rows inserted.
    */
-  async insertRows(table: string, columns: string[], rows: (string | null)[][]): Promise<number> {
+  async insertRows(table: string, columns: string[], rows: RowValue[][]): Promise<number> {
     if (rows.length === 0) return 0;
     const client = await this.pool.connect();
     const head = `INSERT INTO ${q(table, "postgres")} (${columns.map((c) => q(c, "postgres")).join(", ")}) VALUES `;
@@ -215,6 +216,17 @@ export class PostgresDriver implements DatabaseDriver {
     } finally {
       client.release();
     }
+  }
+
+  /**
+   * Runs one `SELECT` and returns its rows as arrays, values as close to what
+   * the engine stores as the client library allows — the reader behind logical
+   * backups. Every value is left as the text PostgreSQL sent (no date or number parsing), which it reads back unchanged.
+   */
+  async queryRows(sql: string): Promise<unknown[][]> {
+    const asText = { getTypeParser: () => (value: string) => value };
+    const res = await this.pool.query({ text: sql, rowMode: "array", types: asText as never });
+    return res.rows as unknown[][];
   }
 
   async executeMigration(sql: string): Promise<MigrationExecutionResult> {

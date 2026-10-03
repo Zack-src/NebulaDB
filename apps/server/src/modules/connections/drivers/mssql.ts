@@ -6,6 +6,7 @@ import type {
   DatabaseDriver,
   DriverConnectionConfig,
   MigrationExecutionResult,
+  RowValue,
   TestConnectionResult,
 } from "./interface.js";
 
@@ -193,7 +194,7 @@ export class MssqlDriver implements DatabaseDriver {
    * never values spliced into the SQL. All or nothing: a failing row rolls the
    * whole table back. Returns the number of rows inserted.
    */
-  async insertRows(table: string, columns: string[], rows: (string | null)[][]): Promise<number> {
+  async insertRows(table: string, columns: string[], rows: RowValue[][]): Promise<number> {
     if (rows.length === 0) return 0;
     const pool = await this.ready;
     const transaction = new sql.Transaction(pool);
@@ -212,7 +213,11 @@ export class MssqlDriver implements DatabaseDriver {
               `(${row
                 .map((value) => {
                   const name = `p${n++}`;
-                  request.input(name, sql.NVarChar(sql.MAX), value);
+                  request.input(
+                    name,
+                    value instanceof Uint8Array ? sql.VarBinary(sql.MAX) : sql.NVarChar(sql.MAX),
+                    value,
+                  );
                   return `@${name}`;
                 })
                 .join(", ")})`,
@@ -226,6 +231,19 @@ export class MssqlDriver implements DatabaseDriver {
       await transaction.rollback().catch(() => {});
       throw err;
     }
+  }
+
+  /**
+   * Runs one `SELECT` and returns its rows as arrays, values as close to what
+   * the engine stores as the client library allows — the reader behind logical
+   * backups. Dates come back as JavaScript dates (UTC), binary columns as buffers.
+   */
+  async queryRows(sql_: string): Promise<unknown[][]> {
+    const pool = await this.ready;
+    const request = pool.request();
+    request.arrayRowMode = true;
+    const res = await request.query(sql_);
+    return res.recordset as unknown as unknown[][];
   }
 
   /**

@@ -13,13 +13,18 @@ export interface MigrationExecutionResult {
   error?: string;
 }
 
+/** A value bound into an `INSERT`: text as the engine reads it, `NULL`, or raw bytes for a binary column. */
+export type RowValue = string | null | Uint8Array;
+
 export interface DatabaseDriver {
   testConnection(): Promise<TestConnectionResult>;
   introspectSchema(): Promise<Project>;
   /** One aggregate query's single number (`null` for none) — the pre-deployment risk probes. */
   queryScalar(sql: string): Promise<number | null>;
   /** Seed rows, bound parameters, one transaction; returns how many went in. */
-  insertRows(table: string, columns: string[], rows: (string | null)[][]): Promise<number>;
+  insertRows(table: string, columns: string[], rows: RowValue[][]): Promise<number>;
+  /** One `SELECT`'s rows as arrays, untruncated and as faithful as the client library allows — what a backup reads. */
+  queryRows(sql: string): Promise<unknown[][]>;
   executeMigration(sql: string): Promise<MigrationExecutionResult>;
   close(): Promise<void>;
 }

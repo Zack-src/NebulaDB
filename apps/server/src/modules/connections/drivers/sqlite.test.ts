@@ -66,3 +66,26 @@ test("SqliteDriver connects, introspects, measures risks, and executes migration
 
   await driver.close();
 });
+
+test("SqliteDriver reads rows untruncated and inserts back what it read, bytes included", async () => {
+  const config = { id: "c", projectId: "p", name: "Rows", engine: "sqlite" as const, database: ":memory:" };
+  const driver = new SqliteDriver(config);
+  await driver.executeMigration("CREATE TABLE blobs (id INTEGER PRIMARY KEY, big INTEGER, label TEXT, body BLOB);");
+  const long = "x".repeat(20_000);
+  await driver.insertRows(
+    "blobs",
+    ["id", "big", "label", "body"],
+    [
+      ["1", "9007199254740993", long, Buffer.from([0, 255, 16])],
+      ["2", null, "", null],
+    ],
+  );
+  const rows = await driver.queryRows('SELECT id, big, label, body FROM "blobs" ORDER BY id');
+  assert.equal(rows.length, 2);
+  // 2^53 + 1: lost as a JavaScript number, kept as a bigint.
+  assert.equal(String(rows[0][1]), "9007199254740993");
+  assert.equal((rows[0][2] as string).length, 20_000);
+  assert.deepEqual([...(rows[0][3] as Buffer)], [0, 255, 16]);
+  assert.deepEqual(rows[1].slice(1), [null, "", null]);
+  await driver.close();
+});

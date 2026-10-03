@@ -5,6 +5,7 @@ import type {
   DatabaseDriver,
   DriverConnectionConfig,
   MigrationExecutionResult,
+  RowValue,
   TestConnectionResult,
 } from "./interface.js";
 
@@ -184,7 +185,7 @@ export class OracleDriver implements DatabaseDriver {
    * never values spliced into the SQL. All or nothing: a failing row rolls the
    * whole table back. Returns the number of rows inserted.
    */
-  async insertRows(table: string, columns: string[], rows: (string | null)[][]): Promise<number> {
+  async insertRows(table: string, columns: string[], rows: RowValue[][]): Promise<number> {
     if (rows.length === 0) return 0;
     const conn = await this.getConnection();
     const statement = `INSERT INTO ${q(table, "oracle")} (${columns.map((c) => q(c, "oracle")).join(", ")}) VALUES (${columns.map((_, i) => `:${i + 1}`).join(", ")})`;
@@ -195,6 +196,30 @@ export class OracleDriver implements DatabaseDriver {
     } catch (err) {
       await conn.rollback().catch(() => {});
       throw err;
+    } finally {
+      await conn.close().catch(() => {});
+    }
+  }
+
+  /**
+   * Runs one `SELECT` and returns its rows as arrays, values as close to what
+   * the engine stores as the client library allows — the reader behind logical
+   * backups. Large objects are fetched whole (CLOB as text, BLOB as a buffer) rather than as streams.
+   */
+  async queryRows(sql: string): Promise<unknown[][]> {
+    const conn = await this.getConnection();
+    try {
+      const res = await conn.execute(sql, [], {
+        outFormat: oracledb.OUT_FORMAT_ARRAY,
+        fetchTypeHandler: (meta) => {
+          if (meta.dbType === oracledb.DB_TYPE_CLOB || meta.dbType === oracledb.DB_TYPE_NCLOB) {
+            return { type: oracledb.STRING };
+          }
+          if (meta.dbType === oracledb.DB_TYPE_BLOB) return { type: oracledb.BUFFER };
+          return undefined;
+        },
+      });
+      return (res.rows ?? []) as unknown[][];
     } finally {
       await conn.close().catch(() => {});
     }

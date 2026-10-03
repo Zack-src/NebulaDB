@@ -6,6 +6,7 @@ import type {
   DatabaseDriver,
   DriverConnectionConfig,
   MigrationExecutionResult,
+  RowValue,
   TestConnectionResult,
 } from "./interface.js";
 
@@ -179,7 +180,7 @@ export class MysqlDriver implements DatabaseDriver {
    * never values spliced into the SQL. All or nothing: a failing row rolls the
    * whole table back. Returns the number of rows inserted.
    */
-  async insertRows(table: string, columns: string[], rows: (string | null)[][]): Promise<number> {
+  async insertRows(table: string, columns: string[], rows: RowValue[][]): Promise<number> {
     if (rows.length === 0) return 0;
     const conn = await this.pool.getConnection();
     const head = `INSERT INTO ${q(table, "mysql")} (${columns.map((c) => q(c, "mysql")).join(", ")}) VALUES ?`;
@@ -194,6 +195,22 @@ export class MysqlDriver implements DatabaseDriver {
     } finally {
       conn.release();
     }
+  }
+
+  /**
+   * Runs one `SELECT` and returns its rows as arrays, values as close to what
+   * the engine stores as the client library allows — the reader behind logical
+   * backups. Dates and big numbers come back as the strings MySQL prints, not as JavaScript dates or rounded numbers.
+   */
+  async queryRows(sql: string): Promise<unknown[][]> {
+    const [rows] = await this.pool.query<RowDataPacket[]>({
+      sql,
+      rowsAsArray: true,
+      dateStrings: true,
+      supportBigNumbers: true,
+      bigNumberStrings: true,
+    });
+    return rows as unknown as unknown[][];
   }
 
   /**
