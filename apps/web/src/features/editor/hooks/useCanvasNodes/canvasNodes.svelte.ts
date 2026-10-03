@@ -10,6 +10,7 @@ import {
   getZonesMap,
   type Project,
   type Table,
+  type TableSeedSummary,
 } from "@athanordb/shared";
 import type { ValidationIssue } from "@athanordb/dbml-engine";
 import { DEFAULT_PALETTE } from "@/components/inputs/colorSwatches";
@@ -48,6 +49,10 @@ export interface CanvasNodesInput {
   onManageLock?: (tableId: string) => void;
   /** "View data" on a table, or `null` when it is not offered — a getter, since that follows the connection. */
   viewData?: () => ((table: Table) => void) | null;
+  /** Each table's seed, by table id. Optional: the perf harness has none. */
+  seeds?: () => ReadonlyMap<string, TableSeedSummary>;
+  /** Opens a table's initial data. */
+  onManageSeed?: (tableId: string) => void;
   /** Told the names of the locked tables a delete left in place, so the user learns why they are still there. */
   onLockedTablesKept?: (tableNames: string[]) => void;
   /** Tables to outline while the history previews a revision (see `HistoryPreviewBanner`); `null` the rest of the time. */
@@ -162,6 +167,8 @@ export class CanvasNodesState {
         this.input.locks?.() ?? NO_TABLE_LOCKS,
         this.input.onManageLock,
         this.input.viewData?.() ?? null,
+        this.input.seeds?.(),
+        this.input.onManageSeed,
       ),
       ...buildStickyNodes(liveProject.stickyNotes, doc, palette, this.onPaletteChange, canWrite),
       ...buildEnumNodes(liveProject.enums, doc, canWrite),

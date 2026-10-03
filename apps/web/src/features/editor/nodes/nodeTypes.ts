@@ -8,6 +8,7 @@ import type {
   TableGroup,
   TableLock,
   TableIndex,
+  TableSeedSummary,
   Zone,
 } from "@athanordb/shared";
 import type { ValidationIssue } from "@athanordb/dbml-engine";
@@ -50,6 +51,10 @@ export interface TableNodeData {
   onGoToDbml?: () => void;
   /** Opens the SQL drawer on this table's first rows. Present only for someone who may query the project's database. */
   onViewData?: () => void;
+  /** The table's initial rows, if it has any — shown in the header at rest. */
+  seed?: TableSeedSummary;
+  /** Opens the initial data dialog. Present when there is a seed to look at or the user may add one. */
+  onManageSeed?: () => void;
   /** Fires when the pointer enters/leaves a specific column row (`null` on leave) — narrows link highlighting to that column. */
   onFieldHoverChange: (fieldId: string | null) => void;
   /** Fires when the pointer enters/leaves a table (`null` on leave) — highlights all relations of the table. */

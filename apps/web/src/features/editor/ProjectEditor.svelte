@@ -33,6 +33,7 @@
   } from "@athanordb/shared";
   import { toast } from "@/components/ui/toast.svelte";
   import { TableLocksState } from "@/features/editor/locks/tableLocks.svelte";
+  import { SeedsState } from "@/features/editor/seeds/seeds.svelte";
   import Splitter from "@/components/ui/Splitter.svelte";
   import { previewRowsStatement } from "@/features/sql/previewStatement";
   import { readBoolean, readNumberInRange, writeBoolean, writeString } from "@/utils/storage";
@@ -108,6 +109,10 @@
   const tableLocks = new TableLocksState(() => project.id);
   let lockDialogTableId = $state<string | null>(null);
   const openLockDialog = (tableId: string) => (lockDialogTableId = tableId);
+  // Tables' initial rows (seeds): mirrored for the canvas icon; the dialog edits them.
+  const seeds = new SeedsState(() => project.id);
+  let seedDialogTableId = $state<string | null>(null);
+  const openSeedDialog = (tableId: string) => (seedDialogTableId = tableId);
   const tellLockedTablesKept = (tables: string[]) =>
     toast.warning(t("locks.keptToast", { tables: tables.join(", "), count: tables.length }));
   // Linked databases known to have been changed outside the schema — see `DriftBanner`.
@@ -127,6 +132,7 @@
   function handleServerNotice(notice: ServerNotice) {
     if (notice.type === "drift-changed") void refreshDrift();
     else if (notice.type === "locks-changed") void tableLocks.refresh();
+    else if (notice.type === "seeds-changed") void seeds.refresh();
     else if (notice.type === "table-locked") {
       toast.warning(t("locks.revertedToast", { tables: notice.tables.join(", "), count: notice.tables.length }));
       // The local picture was evidently out of date — that is how the change got offered at all.
@@ -434,10 +440,19 @@
     showValidationIssues: () => showValidationIssues,
     locks: () => tableLocks.view,
     onManageLock: openLockDialog,
+    seeds: () => seeds.byTable,
+    onManageSeed: openSeedDialog,
     onLockedTablesKept: tellLockedTablesKept,
     viewData: () => (canUseSql ? viewTableData : null),
     historyDiff: () => (tab === "schema" ? historyDiffStatus : null),
   });
+  const seedDialogTable = $derived(
+    seedDialogTableId ? (liveProject?.tables.find((table) => table.id === seedDialogTableId) ?? null) : null,
+  );
+  /** A `full` lock freezes the rows as well as the shape, for whoever it binds. */
+  const seedEditable = (tableId: string) =>
+    canWrite &&
+    !(tableLocks.view.byTable.get(tableId)?.level === "full" && tableLocks.view.frozen.has(tableId));
   const lockDialogTable = $derived(
     lockDialogTableId ? (liveProject?.tables.find((table) => table.id === lockDialogTableId) ?? null) : null,
   );
@@ -772,6 +787,23 @@
         onChanged={() => void tableLocks.refresh()}
         onClose={() => (lockDialogTableId = null)}
       />
+    {/await}
+  {/if}
+  {#if seedDialogTable}
+    {#await import("@/features/editor/seeds/SeedDialog.svelte") then { default: SeedDialog }}
+      <!-- Keyed: another table is another file. -->
+      {#key seedDialogTable.id}
+        <SeedDialog
+          projectId={project.id}
+          table={seedDialogTable}
+          existing={seeds.byTable.get(seedDialogTable.id) ?? null}
+          canEdit={seedEditable(seedDialogTable.id)}
+          onClose={() => {
+            seedDialogTableId = null;
+            void seeds.refresh();
+          }}
+        />
+      {/key}
     {/await}
   {/if}
   <!-- Diagnostics overlay for editor stutter/freezes — hidden until Ctrl+Shift+P, see PerfHud. -->

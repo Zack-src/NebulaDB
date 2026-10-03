@@ -17,6 +17,7 @@
     DatabaseIcon,
     LockIcon,
     LockOpenIcon,
+    FileSpreadsheetIcon,
     PlusIcon,
   } from "@/components/icons/Icons";
   import CommentThread from "@/features/editor/comments/CommentThread.svelte";
@@ -267,6 +268,23 @@
       {/if}
     {/if}
 
+    {#if data.seed && data.onManageSeed}
+      <!-- At rest, like the padlock: a table that brings rows with it should say so. -->
+      <button
+        type="button"
+        class={`${HEADER_BTN_CLASS} nodrag !opacity-100`}
+        onclick={(event) => {
+          event.stopPropagation();
+          data.onManageSeed?.();
+        }}
+        ondblclick={(event) => event.stopPropagation()}
+        data-tooltip={t("seeds.nodeTooltip", { count: data.seed.rowCount })}
+        aria-label={t("seeds.nodeTooltip", { count: data.seed.rowCount })}
+      >
+        <Icon icon={FileSpreadsheetIcon} size={13} />
+      </button>
+    {/if}
+
     <div class={HEADER_ACTIONS_CLASS}>
       {#if issues.length > 0}
         <span
@@ -304,6 +322,21 @@
           aria-label={t("workspace.sql.viewData")}
         >
           <Icon icon={DatabaseIcon} size={13} />
+        </button>
+      {/if}
+      {#if !data.seed && data.onManageSeed}
+        <button
+          type="button"
+          class={`${HEADER_BTN_CLASS} nodrag`}
+          onclick={(event) => {
+            event.stopPropagation();
+            data.onManageSeed?.();
+          }}
+          ondblclick={(event) => event.stopPropagation()}
+          data-tooltip={t("seeds.addTooltip")}
+          aria-label={t("seeds.addTooltip")}
+        >
+          <Icon icon={FileSpreadsheetIcon} size={13} />
         </button>
       {/if}
       {#if !lock && data.onManageLock}

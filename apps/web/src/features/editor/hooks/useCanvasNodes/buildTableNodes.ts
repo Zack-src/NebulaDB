@@ -9,6 +9,7 @@ import {
   type Table,
   type TableIndex,
   type TableLock,
+  type TableSeedSummary,
 } from "@athanordb/shared";
 import type { ValidationIssue } from "@athanordb/dbml-engine";
 import type { TableNodeType } from "@/features/editor/nodes/nodeTypes";
@@ -64,6 +65,10 @@ export function buildTableNodes(
   onManageLock?: (tableId: string) => void,
   /** Shows a table's rows in the SQL drawer; `null` when the user may not query the database. Stable identity. */
   onViewData: ((table: Table) => void) | null = null,
+  /** Each table's seed, by table id. */
+  seeds: ReadonlyMap<string, TableSeedSummary> = new Map(),
+  /** Opens a table's initial data. Stable identity. */
+  onManageSeed?: (tableId: string) => void,
 ): TableNodeType[] {
   // Callbacks are all stable across a rebuild by construction (the hook wraps
   // them), so one identity stands in for the whole bundle in the cache key.
@@ -121,6 +126,7 @@ export function buildTableNodes(
       structureLocked,
       canManageLock,
       canViewData: onViewData !== null,
+      seed: seeds.get(table.id),
       user,
       callbacks,
       issuesKey,
@@ -135,6 +141,11 @@ export function buildTableNodes(
       structureLocked,
       canManageLock,
     });
+    const seed = seeds.get(table.id);
+    if (seed || (canWrite && onManageSeed)) {
+      node.data.seed = seed;
+      node.data.onManageSeed = onManageSeed ? () => onManageSeed(table.id) : undefined;
+    }
     cache.set(table.id, { ...cacheKey, node });
     return node;
   });

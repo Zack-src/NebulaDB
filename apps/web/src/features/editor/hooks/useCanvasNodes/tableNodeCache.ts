@@ -1,4 +1,4 @@
-import type { Table, TableLock } from "@athanordb/shared";
+import type { Table, TableLock, TableSeedSummary } from "@athanordb/shared";
 import type { TableNodeType } from "@/features/editor/nodes/nodeTypes";
 import { setsEqual } from "@/utils/setsEqual";
 
@@ -34,6 +34,8 @@ export interface TableNodeCacheEntry {
   canManageLock: boolean;
   /** Whether "view data" is offered — it follows the session and the connection, not the table. */
   canViewData: boolean;
+  /** The seed summary itself: the list is refetched as a whole, so a changed seed is a new object. */
+  seed: TableSeedSummary | undefined;
   user: string;
   /** Identity of the callback bundle the node's data closes over. */
   callbacks: unknown;
@@ -62,6 +64,7 @@ export function readCachedTableNode(
     cached.structureLocked === key.structureLocked &&
     cached.canManageLock === key.canManageLock &&
     cached.canViewData === key.canViewData &&
+    cached.seed === key.seed &&
     cached.user === key.user &&
     cached.callbacks === key.callbacks &&
     cached.issuesKey === key.issuesKey &&
