@@ -66,13 +66,17 @@ function maskConnectionString(value: string | undefined): string | undefined {
 }
 
 /** The connection's stage as the summary shows it — name, colour, production — or nothing. */
-function stageFields(row: ConnectionRow): Pick<
-  DatabaseConnectionSummary,
-  "environment" | "environmentId" | "environmentColor" | "production"
-> {
+function stageFields(
+  row: ConnectionRow,
+): Pick<DatabaseConnectionSummary, "environment" | "environmentId" | "environmentColor" | "production"> {
   const stage = row.environment_id ? getEnvironment(row.environment_id) : null;
   if (!stage) return {};
-  return { environment: stage.name, environmentId: stage.id, environmentColor: stage.color, production: stage.production };
+  return {
+    environment: stage.name,
+    environmentId: stage.id,
+    environmentColor: stage.color,
+    production: stage.production,
+  };
 }
 
 function rowToSummary(row: ConnectionRow, projectId: string): DatabaseConnectionSummary {
@@ -254,7 +258,11 @@ function applyUpdate(id: string, updates: Partial<DatabaseConnectionConfig>, all
   // A stage, never free text: `resolveConnectionEnvironment` refuses an unknown name.
   const resolved = resolveConnectionEnvironment(updates);
   const stage =
-    resolved !== undefined ? resolved : row.environment_id ? { id: row.environment_id, name: row.environment ?? "" } : null;
+    resolved !== undefined
+      ? resolved
+      : row.environment_id
+        ? { id: row.environment_id, name: row.environment ?? "" }
+        : null;
   const tags = updates.tags !== undefined ? normalizeTags(updates.tags) : (existing.tags ?? []);
   const readOnly = updates.readOnly !== undefined ? Boolean(updates.readOnly) : Boolean(existing.readOnly);
   const policy =
