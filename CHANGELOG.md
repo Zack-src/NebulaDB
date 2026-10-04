@@ -42,7 +42,9 @@ this file has a dated entry for — not on every commit.
   along the stages: level, behind, failed or never deployed, and which stage
   one is waiting for.
 - The deployment dialog now shows a refused deployment in the interface's
-  language instead of the server's English message.
+  language instead of the server's English message, and its first step says
+  up front what would refuse the deployment: open lint errors (when the
+  project blocks on them) and a stage that has to come first.
 - Migration 33 (`deployment_history.schema_hash`).
 
 ### Fixed (DBML with several schemas)

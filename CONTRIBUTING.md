@@ -124,6 +124,12 @@ Every workspace uses plain `node:test` — no vitest, no jest, no jsdom.
   `<input>` before the one you actually want, a forbidden `fetch()` port) are
   exactly the kind of thing that's cheap to avoid once and easy to rediscover
   the hard way otherwise.
+  Each file starts its own server and browser on its own port, and the suite
+  runs eight files at a time (`--test-concurrency=8` in `apps/web/package.json`):
+  unbounded, thirty of them at once made slow machines fail tests that were
+  only timing-sensitive. For the same reason, **wait for** what an action
+  produces (`waitFor`, a success message) before reading a count or calling
+  the API — a dialog closing means the request started, not that it finished.
 
 Write tests for logic that can be exercised without a browser; say so in the PR
 when something could only be checked manually, and say what you actually ran.

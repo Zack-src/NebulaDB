@@ -1016,8 +1016,9 @@ version, snapshot_json, notes)` — a version is an explicit **"Publier vN"**, n
     deployment — needs a safe matcher or a restricted syntax first); pluralisation / prefix
     conventions.
   - Per-**column** exceptions and annotations (needs the column identity of the prerequisites).
-  - The deployment dialog shows the refusal as an error line; it does not list the findings or
-    link to the tab. The plan step could warn before "Deploy" is pressed.
+  - ~~The plan step could warn before "Deploy" is pressed~~ — done 2026-10-04: the plan answers
+    `blockers` (`lintErrors`, `waitsForStage`) and the dialog shows them on its first step. It
+    still does not list the findings or link to the Problèmes tab.
   - Instance-wide default profile; rules per variant (Phase 35: inherit and tighten).
   - Findings on relations (e.g. FK without `ON DELETE`), enums, and types unknown to the target
     engine; `fk-indexed` only sees single-column foreign keys (so does the model).
@@ -1052,8 +1053,9 @@ version, snapshot_json, notes)` — a version is an explicit **"Publier vN"**, n
   `publicApi/routes.test.ts`, `openapi.test.ts`, `e2e/dictionary.e2e.ts` (typed in a browser,
   found in the exported DBML, kept across a reload, filters, Markdown download, the lint rule).
   **Still to do:** PDF export; the diagram in the HTML export; a multi-line description (needs
-  the serializer to write `'''` notes); owner picked from teams; hiding the annotations where
-  the note is displayed; a lint rule for undocumented **columns** and for a personal column in
+  the serializer to write `'''` notes); owner picked from teams; ~~hiding the annotations where
+  the note is displayed~~ (done 2026-10-04: `readableNote` on the canvas tooltips and the DBML
+  hover — the note editor and the DBML text keep the raw note); a lint rule for undocumented **columns** and for a personal column in
   a table not classified as such; enums are not in the dictionary; AI-assisted filling; the
   RGPD report and masking of Phase 38 that this classification prepares.
 
