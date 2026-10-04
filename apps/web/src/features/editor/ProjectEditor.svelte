@@ -122,7 +122,12 @@
   // Tables' initial rows (seeds): mirrored for the canvas icon; the dialog edits them.
   const seeds = new SeedsState(() => project.id);
   let seedDialogTableId = $state<string | null>(null);
-  const openSeedDialog = (tableId: string) => (seedDialogTableId = tableId);
+  /** Set when the dialog was opened from the console to take the database's rows. */
+  let seedFromDatabase = $state(false);
+  const openSeedDialog = (tableId: string) => {
+    seedFromDatabase = false;
+    seedDialogTableId = tableId;
+  };
   // The schema linter's rules for this project; the findings themselves are computed here, on the live document.
   const lint = new LintState(() => project.id);
   const tellLockedTablesKept = (tables: string[]) =>
@@ -406,6 +411,15 @@
       if (projectId !== project.id) return false;
       setTab("schema");
       if (tableName) focusRequest = { tableName, fieldName };
+      return true;
+    },
+    seedFromDatabase: (tableName) => {
+      const table = liveProject?.tables.find((tbl) => tbl.name.toLowerCase() === tableName.toLowerCase());
+      if (!table || !seedEditable(table.id)) return false;
+      setTab("schema");
+      focusRequest = { tableName: table.name };
+      seedFromDatabase = true;
+      seedDialogTableId = table.id;
       return true;
     },
   });
@@ -865,6 +879,10 @@
           refs={liveProject?.refs ?? []}
           existing={seeds.byTable.get(seedDialogTable.id) ?? null}
           canEdit={seedEditable(seedDialogTable.id)}
+          database={props.session.isAdmin && activeConnection
+            ? { id: activeConnection.id, name: activeConnection.name }
+            : null}
+          loadFromDatabase={seedFromDatabase}
           onClose={() => {
             seedDialogTableId = null;
             void seeds.refresh();

@@ -1535,5 +1535,15 @@
   "lint.settings.blockDeployment": "Refuser un déploiement tant qu'une erreur est ouverte",
   "lint.settings.exceptions": "Exceptions",
   "lint.settings.removeException": "Retirer l'exception de {{table}}",
-  "lint.settings.noteHint": "Une table peut aussi s'exempter elle-même : « lint-ignore: pk-required » (ou « lint-ignore: all ») dans sa note."
+  "lint.settings.noteHint": "Une table peut aussi s'exempter elle-même : « lint-ignore: pk-required » (ou « lint-ignore: all ») dans sa note.",
+  "errors.databaseTableNotFound": "La base n'a pas de table de ce nom : déployez d'abord le schéma.",
+  "seeds.fromDatabase.action": "Reprendre les lignes de la base",
+  "seeds.fromDatabase.hint": "Lit les lignes que la table contient dans « {{database}} ». Rien n'est enregistré avant « Enregistrer ».",
+  "seeds.fromDatabase.fileName": "Lignes de « {{database}} »",
+  "seeds.fromDatabase.truncated_one": "La table contient plus qu'un jeu de données initiales ne peut en garder : seule la première ligne a été reprise.",
+  "seeds.fromDatabase.truncated_other": "La table contient plus qu'un jeu de données initiales ne peut en garder : seules les {{count}} premières lignes ont été reprises.",
+  "seeds.fromDatabase.skipped": "Colonnes laissées de côté (absentes de la base, ou binaires) : {{columns}}.",
+  "dbadmin.explorer.exportAsSeed": "Données initiales",
+  "dbadmin.explorer.exportAsSeedHint": "Reprendre les lignes de cette table comme données initiales de la table du schéma",
+  "dbadmin.explorer.exportAsSeedUnavailable": "Le schéma n'a pas de table « {{table}} » dont vous puissiez modifier les données initiales."
 }

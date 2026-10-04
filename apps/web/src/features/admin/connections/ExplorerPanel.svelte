@@ -6,7 +6,16 @@
     StructurePolicyRefusal,
   } from "@athanordb/shared";
   import Icon from "@/components/icons/Icon.svelte";
-  import { ChevronLeftIcon, ChevronRightIcon, KeyIcon, TableIcon, TrashIcon } from "@/components/icons/Icons";
+  import {
+    ChevronLeftIcon,
+    ChevronRightIcon,
+    FileSpreadsheetIcon,
+    KeyIcon,
+    TableIcon,
+    TrashIcon,
+  } from "@/components/icons/Icons";
+  import { toast } from "@/components/ui/toast.svelte";
+  import { useWorkspace } from "@/features/workspace/workspaceContext";
   import Badge from "@/components/ui/Badge.svelte";
   import Button from "@/components/ui/Button.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
@@ -59,6 +68,8 @@
 
   let schema = $state("");
   let filter = $state("");
+  // Inside a project's workspace the explorer knows which schema it is looking at the database of.
+  const workspace = useWorkspace();
   let selected = $state.raw<DbAdminTable | null>(null);
   let view = $state<"data" | "structure">("data");
   let offset = $state(0);
@@ -217,6 +228,21 @@
             activeTab={view}
             onChange={(id) => (view = id)}
           />
+          {#if workspace && table.kind === "table"}
+            <Button
+              variant="outline"
+              size="sm"
+              data-tooltip={t("dbadmin.explorer.exportAsSeedHint")}
+              onclick={() => {
+                if (!workspace.seedFromDatabase(table.name)) {
+                  toast.warning(t("dbadmin.explorer.exportAsSeedUnavailable", { table: table.name }));
+                }
+              }}
+            >
+              <Icon icon={FileSpreadsheetIcon} size={12} />
+              {t("dbadmin.explorer.exportAsSeed")}
+            </Button>
+          {/if}
           <Button
             variant="danger"
             size="sm"

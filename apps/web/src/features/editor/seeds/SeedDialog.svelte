@@ -17,6 +17,7 @@
 </script>
 
 <script lang="ts">
+  import { untrack } from "svelte";
   import {
     SEED_MAX_BYTES,
     SEED_MODES,
@@ -35,7 +36,7 @@
   import Tabs from "@/components/ui/Tabs.svelte";
   import GeneratePanel from "./GeneratePanel.svelte";
   import Icon from "@/components/icons/Icon.svelte";
-  import { FileSpreadsheetIcon, UploadIcon } from "@/components/icons/Icons";
+  import { DatabaseIcon, FileSpreadsheetIcon, UploadIcon } from "@/components/icons/Icons";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";
@@ -49,7 +50,7 @@
   import { describeApiError } from "@/i18n/serverErrorMessages";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import type { TranslationKeyOf } from "@/types";
-  import { deleteSeed, fetchSeed, saveSeed } from "@/services/seedsApi";
+  import { deleteSeed, fetchSeed, readSeedFromDatabase, saveSeed } from "@/services/seedsApi";
 
   /**
    * "Données initiales" of one table: a CSV file, how to read it, which column
@@ -64,6 +65,8 @@
     refs = [],
     existing,
     canEdit,
+    database = null,
+    loadFromDatabase = false,
     onClose,
   }: {
     projectId: string;
@@ -73,6 +76,10 @@
     existing: TableSeedSummary | null;
     /** False for a view grant, or when a `full` lock binds this user. */
     canEdit: boolean;
+    /** The workspace's current database, when this user may read its rows (instance administrators): offers "take the rows it holds". */
+    database?: { id: string; name: string } | null;
+    /** Read the database's rows as soon as the dialog opens — it was opened from the console for that. */
+    loadFromDatabase?: boolean;
     onClose: () => void;
   } = $props();
 
@@ -102,6 +109,8 @@
     if (!existing) return;
     fetchSeed(projectId, existing.tableId)
       .then((seed) => {
+        // Rows read from the database meanwhile are what the person asked for.
+        if (content !== null) return;
         content = seed.content;
         separator = seed.options.separator;
         header = seed.options.header;
@@ -142,10 +151,36 @@
     if (text.includes("�")) text = new TextDecoder("windows-1252").decode(buffer);
     content = text;
     fileName = file.name;
+    databaseNote = null;
     separator = detectSeparator(text);
     const first = parseCsv(text.split(/\r?\n/, 1)[0] ?? "", separator)[0] ?? [];
     mapping = header ? suggestMapping(first, table.fields) : first.map((_, i) => table.fields[i]?.id ?? null);
   }
+
+  /** What the last read from the database left out or cut — said next to the file. */
+  let databaseNote = $state<string | null>(null);
+  const fromDatabase = useAsyncAction(async () => {
+    if (!database) return;
+    const seed = await readSeedFromDatabase(projectId, table.id, database.id);
+    content = seed.content;
+    fileName = t("seeds.fromDatabase.fileName", { database: database.name });
+    separator = ",";
+    header = true;
+    mapping = seed.mapping;
+    tab = "file";
+    databaseNote =
+      [
+        seed.truncated ? t("seeds.fromDatabase.truncated", { count: seed.rowCount }) : null,
+        seed.skippedColumns.length > 0
+          ? t("seeds.fromDatabase.skipped", { columns: seed.skippedColumns.join(", ") })
+          : null,
+      ]
+        .filter(Boolean)
+        .join(" ") || null;
+  });
+  $effect(() => {
+    if (untrack(() => loadFromDatabase && canEdit)) void untrack(() => fromDatabase.run());
+  });
 
   function setHeader(next: boolean) {
     header = next;
@@ -225,9 +260,23 @@
           <Icon icon={UploadIcon} size={13} />
           {content === null ? t("seeds.chooseFile") : t("seeds.replaceFile")}
         </Button>
+        {#if database}
+          <Button
+            size="sm"
+            variant="outline"
+            onclick={() => void fromDatabase.run()}
+            disabled={busy || fromDatabase.pending}
+            data-tooltip={t("seeds.fromDatabase.hint", { database: database.name })}
+          >
+            <Icon icon={DatabaseIcon} size={13} />
+            {fromDatabase.pending ? t("common.loading") : t("seeds.fromDatabase.action")}
+          </Button>
+        {/if}
       {/if}
     </div>
     {#if loadError}<ErrorText>{loadError}</ErrorText>{/if}
+    {#if fromDatabase.error}<ErrorText>{fromDatabase.error}</ErrorText>{/if}
+    {#if databaseNote}<Hint>{databaseNote}</Hint>{/if}
 
     {#if content !== null}
       <div class="flex flex-wrap items-center gap-x-4 gap-y-2">

@@ -1535,5 +1535,15 @@
   "lint.settings.blockDeployment": "Refuse a deployment while an error is open",
   "lint.settings.exceptions": "Exceptions",
   "lint.settings.removeException": "Remove the exception for {{table}}",
-  "lint.settings.noteHint": "A table can also except itself: “lint-ignore: pk-required” (or “lint-ignore: all”) in its note."
+  "lint.settings.noteHint": "A table can also except itself: “lint-ignore: pk-required” (or “lint-ignore: all”) in its note.",
+  "errors.databaseTableNotFound": "The database has no table of that name: deploy the schema first.",
+  "seeds.fromDatabase.action": "Take the rows from the database",
+  "seeds.fromDatabase.hint": "Reads the rows the table holds in “{{database}}”. Nothing is saved before “Save”.",
+  "seeds.fromDatabase.fileName": "Rows of “{{database}}”",
+  "seeds.fromDatabase.truncated_one": "The table holds more than initial data may keep: only the first row was taken.",
+  "seeds.fromDatabase.truncated_other": "The table holds more than initial data may keep: only the first {{count}} rows were taken.",
+  "seeds.fromDatabase.skipped": "Columns left out (absent from the database, or binary): {{columns}}.",
+  "dbadmin.explorer.exportAsSeed": "Initial data",
+  "dbadmin.explorer.exportAsSeedHint": "Take this table's rows as the initial data of the schema's table",
+  "dbadmin.explorer.exportAsSeedUnavailable": "The schema has no table “{{table}}” whose initial data you may change."
 }

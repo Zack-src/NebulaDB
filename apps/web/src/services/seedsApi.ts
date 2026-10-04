@@ -1,4 +1,4 @@
-import type { SeedOptions, TableSeed, TableSeedSummary } from "@athanordb/shared";
+import type { SeedFromDatabase, SeedOptions, TableSeed, TableSeedSummary } from "@athanordb/shared";
 import { request } from "./httpClient";
 
 const base = (projectId: string) => `/api/projects/${projectId}/seeds`;
@@ -27,4 +27,18 @@ export async function saveSeed(
 
 export function deleteSeed(projectId: string, tableId: string): Promise<void> {
   return request<void>(`${base(projectId)}/${encodeURIComponent(tableId)}`, { method: "DELETE" });
+}
+
+/** The table's rows as they are in one of the project's databases, as a seed to review — nothing is saved. Instance administrators only. */
+export async function readSeedFromDatabase(
+  projectId: string,
+  tableId: string,
+  connectionId: string,
+): Promise<SeedFromDatabase> {
+  return (
+    await request<{ seed: SeedFromDatabase }>(`${base(projectId)}/${encodeURIComponent(tableId)}/from-database`, {
+      method: "POST",
+      body: { connectionId },
+    })
+  ).seed;
 }
