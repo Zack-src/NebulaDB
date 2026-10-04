@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { AdminConnectionSummary, DatabaseEngine, StructurePolicy } from "@athanordb/shared";
+  import type { AdminConnectionSummary, ConnectionAuthMode, DatabaseEngine, StructurePolicy } from "@athanordb/shared";
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import RadioGroup from "@/components/ui/RadioGroup.svelte";
   import Modal from "@/components/overlays/Modal.svelte";
@@ -17,6 +17,7 @@
   import { pullDatabaseSchema } from "@/services/connectionsApi";
   import {
     createAdminConnection,
+    fetchCredentialHolders,
     setAdminConnectionProjects,
     testAdminConnection,
     updateAdminConnection,
@@ -63,6 +64,11 @@
   let useUri = $state(Boolean(initial?.connectionString));
   let tags = $state((initial?.tags ?? []).join(", "));
   let readOnly = $state(Boolean(initial?.readOnly));
+  let authMode = $state<ConnectionAuthMode>(initial?.authMode ?? "shared");
+  /** A personal account replaces a user and a password: there are none in a SQLite file or a connection string. */
+  const personalPossible = $derived(engine !== "sqlite" && !useUri);
+  // Who has already given an account: what tells an administrator the switch will not lock everyone out.
+  const holders = useAsyncResource(() => (initial ? fetchCredentialHolders(initial.id) : Promise.resolve([])));
   // "inherit" is this form's word for "no policy of its own" (`null` on the wire).
   let structurePolicy = $state<StructurePolicy | "inherit">(initial?.structurePolicy?.policy ?? "inherit");
   let structureApplyToSql = $state(initial?.structurePolicy?.applyToSql ?? true);
@@ -88,6 +94,7 @@
       filePath: engine === "sqlite" ? filePath : undefined,
       tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
       readOnly,
+      authMode: personalPossible ? authMode : "shared",
       structurePolicy:
         structurePolicy === "inherit" ? null : { policy: structurePolicy, applyToSql: structureApplyToSql },
     };
@@ -157,6 +164,34 @@
         <span class="block text-text-muted">{t("admin.connections.readOnlyHint")}</span>
       </span>
     </label>
+
+    {#if personalPossible}
+      <div>
+        <div id="auth-mode-label" class={LABEL}>{t("admin.connections.authMode")}</div>
+        <RadioGroup
+          bind:value={authMode}
+          aria-labelledby="auth-mode-label"
+          options={[
+            { value: "shared", label: t("admin.connections.authShared"), hint: t("admin.connections.authSharedHint") },
+            {
+              value: "personal",
+              label: t("admin.connections.authPersonal"),
+              hint: t("admin.connections.authPersonalHint"),
+            },
+          ]}
+        />
+        {#if authMode === "personal" && initial}
+          <p class="m-0 mt-2 text-xs text-text-muted" data-testid="credential-holders">
+            {(holders.data ?? []).length > 0
+              ? t("admin.connections.authHolders", {
+                  count: (holders.data ?? []).length,
+                  people: (holders.data ?? []).map((holder) => `${holder.email} (${holder.username})`).join(", "),
+                })
+              : t("admin.connections.authNoHolder")}
+          </p>
+        {/if}
+      </div>
+    {/if}
 
     <div>
       <div id="structure-policy-label" class={LABEL}>{t("dbadmin.structure.settingTitle")}</div>

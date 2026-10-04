@@ -18,6 +18,7 @@ import type {
   DbUserAction,
   EffectiveStructurePolicy,
   StructurePolicySetting,
+  PersonalCredentialHolder,
 } from "@athanordb/shared";
 import type { TestConnectionResponse } from "./connectionsApi";
 import { request } from "./httpClient";
@@ -75,6 +76,11 @@ export async function setAdminConnectionProjects(id: string, projectIds: string[
 /** `id` lets the server fall back to the stored password when the form's is empty (editing an existing connection). */
 export function testAdminConnection(config: AdminConnectionInput, id?: string): Promise<TestConnectionResponse> {
   return request<TestConnectionResponse>("/api/admin/connections/test", { method: "POST", body: { ...config, id } });
+}
+
+/** Who has given their own account on a connection — names, never passwords. */
+export async function fetchCredentialHolders(id: string): Promise<PersonalCredentialHolder[]> {
+  return (await request<{ holders: PersonalCredentialHolder[] }>(`${base(id)}/credentials`)).holders;
 }
 
 export async function checkAdminConnectionHealth(id: string): Promise<AdminConnectionSummary> {

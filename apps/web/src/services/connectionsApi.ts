@@ -10,6 +10,7 @@ import type {
   SchemaRisk,
   SeedPlanEntry,
   SeedResult,
+  PersonalCredentialStatus,
 } from "@athanordb/shared";
 import type { LintRuleId, MigrationDiff, SchemaComparisonEntry } from "@athanordb/dbml-engine";
 import { request } from "./httpClient";
@@ -62,6 +63,27 @@ export interface CreateProjectFromDatabaseResponse {
   name: string;
   connectionId: string;
   tablesCount: number;
+}
+
+/** This user's own account on a connection that asks each user for theirs — its name, never its password. */
+export function fetchPersonalCredentials(connectionId: string): Promise<PersonalCredentialStatus> {
+  return request<PersonalCredentialStatus>(`/api/connections/${connectionId}/credentials`);
+}
+
+/** The server tries the account on the database before keeping it. */
+export function savePersonalCredentials(
+  connectionId: string,
+  username: string,
+  password: string,
+): Promise<PersonalCredentialStatus> {
+  return request<PersonalCredentialStatus>(`/api/connections/${connectionId}/credentials`, {
+    method: "PUT",
+    body: { username, password },
+  });
+}
+
+export function deletePersonalCredentials(connectionId: string): Promise<PersonalCredentialStatus> {
+  return request<PersonalCredentialStatus>(`/api/connections/${connectionId}/credentials`, { method: "DELETE" });
 }
 
 /** Creates a brand-new project from a live database's introspected schema — see `/api/projects/from-database`. */

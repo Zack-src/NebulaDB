@@ -4,6 +4,7 @@
   import { CodeIcon, DatabaseIcon, LockIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
   import Select from "@/components/ui/Select.svelte";
+  import PersonalAccountButton from "@/features/connections/PersonalAccountButton.svelte";
   import EnvironmentBadge from "@/features/environments/EnvironmentBadge.svelte";
   import Tabs, { type TabItem } from "@/components/ui/Tabs.svelte";
   import type { WorkspaceTab } from "@/features/projects/projectRouting.svelte";
@@ -91,6 +92,9 @@
       {/if}
       {#if current?.environment}
         <EnvironmentBadge name={current.environment} color={current.environmentColor} production={current.production} />
+      {/if}
+      {#if current}
+        <PersonalAccountButton connection={current} />
       {/if}
       {#if connections.length > 0}
         <Select

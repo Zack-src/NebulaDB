@@ -95,6 +95,11 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   ENVIRONMENT_NOT_FOUND: "errors.environmentNotFound",
   ENVIRONMENT_NAME_TAKEN: "errors.environmentNameTaken",
   PRODUCTION_CONFIRMATION_REQUIRED: "errors.productionConfirmationRequired",
+  PERSONAL_CREDENTIALS_REQUIRED: "errors.personalCredentialsRequired",
+  PERSONAL_CREDENTIALS_NOT_USED: "errors.personalCredentialsNotUsed",
+  PERSONAL_CREDENTIALS_INVALID: "errors.personalCredentialsInvalid",
+  PERSONAL_CREDENTIALS_REJECTED: "errors.personalCredentialsRejected",
+  CONNECTION_AUTH_MODE_INVALID: "errors.connectionAuthModeInvalid",
   DEPLOYMENT_BLOCKED_BY_RISK: "errors.deploymentBlockedByRisk",
   SEED_INVALID: "errors.seedInvalid",
   GENERATOR_INVALID: "errors.generatorInvalid",
@@ -145,6 +150,11 @@ export function describeApiError(error: unknown, t: Translator): string {
     const key = error.code ? CODE_TO_KEY[error.code] : undefined;
     if (!key) return error.message;
     // The one code whose translation names what the server found: which tables were in the way.
+    if (error.code === "PERSONAL_CREDENTIALS_REQUIRED") {
+      return t(key, { connection: String(error.details.connectionName ?? "") });
+    }
+    // The database's own words are the useful part: "password authentication failed for user …".
+    if (error.code === "PERSONAL_CREDENTIALS_REJECTED") return t(key, { reason: String(error.details.reason ?? "") });
     const tables = error.details.tables;
     return error.code === "TABLE_LOCKED" && Array.isArray(tables) ? t(key, { tables: tables.join(", ") }) : t(key);
   }

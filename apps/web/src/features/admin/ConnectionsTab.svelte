@@ -13,6 +13,7 @@
   import ListMain from "@/components/ui/ListMain.svelte";
   import ListRow from "@/components/ui/ListRow.svelte";
   import ConnectionEditModal from "@/features/admin/connections/ConnectionEditModal.svelte";
+  import PersonalAccountButton from "@/features/connections/PersonalAccountButton.svelte";
   import DbConsole from "@/features/admin/connections/DbConsole.svelte";
   import EnvironmentBadge from "@/features/environments/EnvironmentBadge.svelte";
   import { parseServerTime } from "@/features/sql/format";
@@ -168,6 +169,7 @@
             <span class="shrink-0 text-xs text-text-muted" data-tooltip={c.projects.map((p) => p.name).join(", ") || undefined}>
               {t("admin.connections.projectCount", { count: c.projects.length })}
             </span>
+            <PersonalAccountButton connection={c} />
             <Button variant="outline" size="sm" onclick={() => (consoleFor = c)}>
               <Icon icon={CodeIcon} size={13} />
               {t("admin.connections.open")}

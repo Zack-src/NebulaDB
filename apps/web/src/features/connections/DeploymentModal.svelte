@@ -108,7 +108,7 @@
           selectedConnId = match ? initial! : list[0].id;
         }
       } catch (err) {
-        error = err instanceof Error ? err.message : String(err);
+        error = describeApiError(err, t);
       } finally {
         loading = false;
       }
@@ -137,7 +137,7 @@
       resolutions = initialRes;
       activeStep = res.risks.length > 0 ? "risks" : "diff";
     } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
+      error = describeApiError(err, t);
     } finally {
       analyzing = false;
     }
