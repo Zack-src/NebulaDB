@@ -303,8 +303,12 @@ features; the UI only mirrors it.
   reach collaborators live (`ServerNotice` on the project socket); a refused DBML sync is
   shown in the panel instead of only logged. **Verified:** `e2e/table-locks.e2e.ts`, two
   browser sessions. **Still to do:**
-  - Read-only range for a locked table in the DBML editor (CodeMirror) — today the text can
-    be typed and the sync is then refused with the table named.
+  - ~~Read-only range for a locked table in the DBML editor~~ — built 2026-10-04
+    (`dbml/lockedRanges.ts`): the `Table … { … }` block of a table whose lock binds the user is
+    tinted and refuses edits (a CodeMirror `changeFilter`), with a toast naming the table;
+    resyncs from the document and **Formater** (whitespace only) pass. Covered by
+    `e2e/table-locks.e2e.ts`. Not frozen: a standalone `Ref:` line carried by a locked table,
+    and an inline `[ref: …]` elsewhere pointing at it — the server still decides those.
   - ~~The "Verrous" list~~ — built 2026-10-04 (`locks/TableLocksList.svelte`): a padlock with
     the count in the workspace bar, shown as soon as one table is locked, opens every lock of
     the project (level, authority, who, when, why). Read by anyone who sees the project;

@@ -95,6 +95,9 @@ this file has a dated entry for — not on every commit.
   count appears in the workspace bar and opens the list of every lock: level,
   who, when, why. Everyone who sees the project can read it and jump to the
   table; whoever may manage a lock changes or lifts it from there.
+- **A locked table's block is read-only in the DBML editor** for those the
+  lock binds: it is tinted, and typing in it is refused with a message, instead
+  of being accepted and then failing to synchronise.
 
 ### Added (public API)
 

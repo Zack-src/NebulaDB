@@ -237,6 +237,8 @@ modifier.
   tables n'est pas appliqué à moitié. Le message nomme les tables en cause.
 - La règle vaut partout : canvas, éditeur DBML, import, restauration d'une
   version, récupération depuis une base, API.
+- Dans l'éditeur DBML, le bloc d'une table verrouillée est teinté et refuse la
+  saisie pour ceux que le verrou lie ; **Formater** reste possible.
 - Un administrateur de l'instance peut poser un verrou que seuls les
   administrateurs de l'instance pourront lever.
 - Dupliquer une table verrouillée donne une copie libre.
