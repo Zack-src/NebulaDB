@@ -30,7 +30,6 @@ const NATIVE_CONTROLS_NOT_MIGRATED = [
   "plugins/dialog/MarketplaceTab.svelte",
   "plugins/dialog/PluginSettingsModal.svelte",
   "plugins/dialog/StudioTab.svelte",
-  "settings/totp/BackupCodesModal.svelte",
 ].map((file) => `apps/web/src/features/${file}`);
 
 export default tseslint.config(

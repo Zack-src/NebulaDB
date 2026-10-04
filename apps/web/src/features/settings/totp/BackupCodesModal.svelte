@@ -1,6 +1,7 @@
 <script lang="ts">
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";
+  import Checkbox from "@/components/ui/Checkbox.svelte";
   import Hint from "@/components/ui/Hint.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { CheckIcon } from "@/components/icons/Icons";
@@ -20,10 +21,9 @@
         <code class="text-center text-xs text-text">{code}</code>
       {/each}
     </div>
-    <label class="flex cursor-pointer items-center gap-2 text-xs text-text-secondary select-none">
-      <input type="checkbox" bind:checked={confirmed} class="rounded border-border" />
-      {t("totp.backupCodesConfirm")}
-    </label>
+    <Checkbox bind:checked={confirmed} class="select-none">
+      <span class="text-xs text-text-secondary">{t("totp.backupCodesConfirm")}</span>
+    </Checkbox>
     <div class="flex items-center justify-end border-t border-border pt-3">
       <Button size="sm" variant="primary" onclick={onClose} disabled={!confirmed} class="gap-1.5">
         <Icon icon={CheckIcon} size={13} />
