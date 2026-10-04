@@ -147,7 +147,8 @@
   }
 
   function handleCopySql() {
-    const sql = plan?.sqlPreview ?? "";
+    // What the textarea shows: the SQL as the answers given to the risks shape it, not the plan's first draft.
+    const sql = sqlPreview;
     void copyText(sql).then((ok) => {
       if (ok) {
         copied = true;
