@@ -72,7 +72,7 @@ test("seeds: a table's rows in the database become its initial data, after revie
 
     await page.goto(`${env.baseUrl}/project/${projectId}/data`);
     await page.getByRole("button", { name: /countries/ }).click();
-    await page.getByRole("cell", { name: "Belgique" }).waitFor();
+    await page.getByRole("gridcell", { name: "Belgique" }).waitFor();
     await snap("explorer");
     await page.getByRole("button", { name: "Données initiales", exact: true }).click();
 

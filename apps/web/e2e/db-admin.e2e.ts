@@ -67,7 +67,7 @@ test("admin: add a connection, explore it, query it and drop a table", { timeout
     // Explorer.
     await page.getByRole("button", { name: "Ouvrir" }).click();
     await page.getByRole("button", { name: /customers/ }).click();
-    await page.getByRole("cell", { name: "ada@example.com" }).waitFor();
+    await page.getByRole("gridcell", { name: "ada@example.com" }).waitFor();
     await snap("explorer-data");
     await page.getByRole("tab", { name: "Structure" }).click();
     await page.getByRole("cell", { name: "INTEGER" }).first().waitFor();
@@ -80,7 +80,7 @@ test("admin: add a connection, explore it, query it and drop a table", { timeout
     const editor = page.getByRole("textbox", { name: "Console SQL" });
     await editor.fill("SELECT name FROM customers ORDER BY id");
     await page.getByRole("button", { name: "Exécuter", exact: true }).click();
-    await page.getByRole("cell", { name: "Linus" }).waitFor();
+    await page.getByRole("gridcell", { name: "Linus" }).waitFor();
 
     await editor.fill("DELETE FROM customers");
     await page.getByRole("button", { name: "Exécuter", exact: true }).click();

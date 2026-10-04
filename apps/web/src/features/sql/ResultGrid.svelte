@@ -15,14 +15,14 @@
   import Icon from "@/components/icons/Icon.svelte";
   import { DownloadIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
+  import DataGrid from "@/components/ui/DataGrid.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
 
   /** A statement's rows, as returned — cells are already JSON-safe strings/numbers/booleans/null. */
   let { result, fileName = "result" }: { result: DbAdminQueryResult; fileName?: string } = $props();
 
   const { t } = useTranslation();
-  /** The SQL keyword, shown as such in every language. */
-  const NULL_LABEL = "NULL";
+  const columnsKey = $derived(JSON.stringify(result.columns));
 
   function exportCsv() {
     // The BOM is what makes Excel read the file as UTF-8 instead of the system code page.
@@ -55,31 +55,13 @@
 </div>
 
 {#if result.columns.length > 0}
-  <div class="max-h-[420px] overflow-auto rounded-md border border-border">
-    <table class="w-full border-collapse font-mono text-[12px]">
-      <thead class="sticky top-0 bg-surface-raised">
-        <tr>
-          {#each result.columns as column, i (i)}
-            <th class="border-b border-border px-2 py-1.5 text-left font-semibold whitespace-nowrap text-text-secondary">
-              {column}
-            </th>
-          {/each}
-        </tr>
-      </thead>
-      <tbody>
-        {#each result.rows as row, r (r)}
-          <tr class="border-b border-border/60 last:border-b-0 hover:bg-surface-hover">
-            {#each row as cell, c (c)}
-              <td class="max-w-[320px] truncate px-2 py-1 align-top whitespace-nowrap" title={cell === null ? "" : String(cell)}>
-                {#if cell === null}<span class="text-text-muted italic">{NULL_LABEL}</span>{:else}{String(cell)}{/if}
-              </td>
-            {/each}
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-    {#if result.rows.length === 0}
-      <p class="px-3 py-4 text-center font-sans text-xs text-text-muted">{t("dbadmin.result.empty")}</p>
-    {/if}
-  </div>
+  <!-- Keyed on the columns: another page of the same table keeps its sort and widths, another result starts afresh. -->
+  {#key columnsKey}
+    <DataGrid
+      columns={result.columns}
+      rows={result.rows}
+      aria-label={t("dbadmin.result.gridLabel")}
+      emptyLabel={t("dbadmin.result.empty")}
+    />
+  {/key}
 {/if}

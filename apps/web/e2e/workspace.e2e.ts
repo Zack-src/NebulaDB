@@ -112,7 +112,7 @@ test(
         await drawer.getByRole("textbox", { name: "Console SQL" }).inputValue(),
         "SELECT * FROM customers LIMIT 100",
       );
-      await drawer.getByRole("cell", { name: "Ada" }).waitFor();
+      await drawer.getByRole("gridcell", { name: "Ada" }).waitFor();
       // The diagram is still there above it.
       await canvasTable("invoices").waitFor();
       await snap("sql-drawer");
@@ -153,7 +153,7 @@ test(
       await tab("Données & SQL").click();
       await page.waitForURL(`**/project/${projectId}/data`);
       await page.getByRole("button", { name: /customers/ }).click();
-      await page.getByRole("cell", { name: "Ada" }).waitFor();
+      await page.getByRole("gridcell", { name: "Ada" }).waitFor();
       await snap("data");
 
       // A structural change typed here is handed to the schema tab — same page, table selected.

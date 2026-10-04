@@ -1108,6 +1108,7 @@
   "dbadmin.result.affected": "{{count}} ligne(s) affectée(s)",
   "dbadmin.result.truncated": "résultat tronqué",
   "dbadmin.result.empty": "Aucune ligne.",
+  "dbadmin.result.gridLabel": "Lignes du résultat",
   "dbadmin.result.exportCsv": "Exporter en CSV",
   "dbadmin.sql.writeMode": "Mode écriture",
   "dbadmin.sql.writeModeHint": "Les instructions modifient réellement la base.",
