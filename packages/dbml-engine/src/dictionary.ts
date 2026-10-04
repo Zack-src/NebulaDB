@@ -85,9 +85,20 @@ export interface DictionaryTable extends NoteMeta {
   columns: DictionaryColumn[];
 }
 
+/** A list of allowed values: what each one means, and which columns take them. */
+export interface DictionaryEnum {
+  id: string;
+  name: string;
+  values: { name: string; description: string }[];
+  /** `table.column` of every column typed with this enum. */
+  usedBy: string[];
+}
+
 export interface DataDictionary {
   projectName: string;
   tables: DictionaryTable[];
+  /** By name. Not part of `completeness`: a value's name is often all there is to say. */
+  enums: DictionaryEnum[];
   /** How much of the schema says what it is. */
   completeness: { tables: number; describedTables: number; columns: number; describedColumns: number };
 }
@@ -133,10 +144,29 @@ export function buildDictionary(project: Project): DataDictionary {
       };
     });
 
+  // A column's type names its enum, with or without the schema in front (`status`, `shop.status`).
+  const typeName = (type: string) => type.replace(/\[\]$/, "").split(".").pop()!.replace(/"/g, "").trim().toLowerCase();
+  const enums = [...project.enums]
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map((def): DictionaryEnum => {
+      const name = typeName(def.name);
+      return {
+        id: def.id,
+        name: def.name,
+        values: def.values.map((value) => ({ name: value.name, description: parseNote(value.note).description })),
+        usedBy: tables.flatMap((table) =>
+          table.columns
+            .filter((column) => typeName(column.type) === name)
+            .map((column) => `${table.name}.${column.name}`),
+        ),
+      };
+    });
+
   const columns = tables.flatMap((table) => table.columns);
   return {
     projectName: project.name,
     tables,
+    enums,
     completeness: {
       tables: tables.length,
       describedTables: tables.filter((table) => table.description).length,
@@ -179,6 +209,14 @@ export function dictionaryToMarkdown(dictionary: DataDictionary): string {
     }
     lines.push("");
   }
+  if (dictionary.enums.length > 0) lines.push("# Enums", "");
+  for (const def of dictionary.enums) {
+    lines.push(`## ${def.name}`, "");
+    if (def.usedBy.length > 0) lines.push(`**Used by:** ${def.usedBy.map((column) => `\`${column}\``).join(", ")}`, "");
+    lines.push("| Value | Description |", "| --- | --- |");
+    for (const value of def.values) lines.push(`| \`${value.name}\` | ${mdCell(value.description)} |`);
+    lines.push("");
+  }
   return lines.join("\n");
 }
 
@@ -188,7 +226,7 @@ function csvCell(value: string): string {
   return /[",\r\n]/.test(safe) ? `"${safe.replace(/"/g, '""')}"` : safe;
 }
 
-/** One line per table (empty `column`) and per column. */
+/** One line per table (empty `column`) and per column. Enums are not in it: they have no place in these columns. */
 export function dictionaryToCsv(dictionary: DataDictionary): string {
   const rows = [["table", "column", "type", "constraints", "description", "owner", "classification", "tags"]];
   for (const table of dictionary.tables) {
@@ -255,6 +293,18 @@ ${rows}
 </section>`;
     })
     .join("\n");
+  const enums = dictionary.enums
+    .map(
+      (def) => `<section id="enum-${e(def.name)}">
+<h3>${e(def.name)}</h3>
+${def.usedBy.length > 0 ? `<p class="facts">Used by: ${e(def.usedBy.join(", "))}</p>` : ""}
+<table><thead><tr><th>Value</th><th>Description</th></tr></thead>
+<tbody>
+${def.values.map((value) => `<tr><td><code>${e(value.name)}</code></td><td>${e(value.description)}</td></tr>`).join("\n")}
+</tbody></table>
+</section>`,
+    )
+    .join("\n");
   const nav = dictionary.tables.map((table) => `<a href="#${e(table.name)}">${e(table.name)}</a>`).join(" ");
   return `<!doctype html>
 <html lang="en"><head><meta charset="utf-8"><title>${e(dictionary.projectName)} — data dictionary</title>
@@ -271,6 +321,7 @@ th{background:#f3f5f7}.facts{color:#52606d}.c{font-size:11px;border-radius:999px
   } columns.</p>
 <nav>${nav}</nav>
 ${tables}
+${enums ? `<h2>Enums</h2>\n${enums}` : ""}
 </body></html>
 `;
 }

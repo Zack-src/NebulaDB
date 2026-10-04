@@ -142,6 +142,58 @@ test("exports: Markdown, CSV and a self-contained HTML page", () => {
   assert.ok(html.includes('<span class="c c-personal">personal</span>'));
 });
 
+test("enums: what each value means and which columns take them", () => {
+  const withEnums: Project = {
+    ...project,
+    tables: [
+      {
+        ...project.tables[0],
+        fields: [
+          ...project.tables[0].fields,
+          { id: "o3", name: "status", type: "order_status", note: "Where the order is." },
+          { id: "o4", name: "previous", type: "shop.order_status[]" },
+        ],
+      },
+      project.tables[1],
+    ],
+    enums: [
+      { id: "e2", name: "unused", values: [{ id: "v3", name: "x" }], position: { x: 0, y: 0 } },
+      {
+        id: "e1",
+        name: "order_status",
+        values: [
+          { id: "v1", name: "paid", note: "Money received. | <b>" },
+          { id: "v2", name: "sent" },
+        ],
+        position: { x: 0, y: 0 },
+      },
+    ],
+  };
+  const dictionary = buildDictionary(withEnums);
+  assert.deepEqual(
+    dictionary.enums.map((def) => [def.name, def.usedBy]),
+    [
+      ["order_status", ["orders.status", "orders.previous"]],
+      ["unused", []],
+    ],
+  );
+  assert.deepEqual(dictionary.enums[0].values, [
+    { name: "paid", description: "Money received. | <b>" },
+    { name: "sent", description: "" },
+  ]);
+  // Enums do not weigh on how much of the schema is described.
+  assert.equal(dictionary.completeness.columns, 6);
+
+  const markdown = dictionaryToMarkdown(dictionary);
+  assert.ok(markdown.includes("## order_status\n\n**Used by:** `orders.status`, `orders.previous`"), markdown);
+  assert.ok(markdown.includes("| `paid` | Money received. \\| <b> |"), markdown);
+  const html = dictionaryToHtml(dictionary);
+  assert.ok(html.includes('<section id="enum-order_status">'));
+  assert.ok(html.includes("<td><code>paid</code></td><td>Money received. | &lt;b&gt;</td>"), html);
+  assert.ok(!dictionaryToMarkdown(buildDictionary(project)).includes("# Enums"));
+  assert.ok(!dictionaryToHtml(buildDictionary(project)).includes("Enums"));
+});
+
 test("a note is shown to a reader without the annotation syntax", () => {
   assert.equal(
     readableNote("Customer accounts. [owner: crm-team] [class: personal] [tags: rgpd, core]"),

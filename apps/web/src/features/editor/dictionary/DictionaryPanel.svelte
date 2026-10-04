@@ -73,6 +73,17 @@
     });
   });
   const visible = $derived(matching.slice(0, shown));
+  /** Enums follow the search, not the two table filters: they have nothing to document here and no classification. */
+  const matchingEnums = $derived.by(() => {
+    if (filter !== "all") return [];
+    const needle = search.trim().toLowerCase();
+    if (!needle) return dictionary.enums;
+    return dictionary.enums.filter((def) =>
+      [def.name, ...def.values.flatMap((value) => [value.name, value.description])].some((text) =>
+        text.toLowerCase().includes(needle),
+      ),
+    );
+  });
 
   const filterOptions = $derived<{ value: Filter; label: string }[]>([
     { value: "all", label: t("dictionary.filter.all") },
@@ -164,7 +175,7 @@
       <SegmentedControl size="sm" bind:value={filter} options={filterOptions} aria-label={t("dictionary.filter.label")} />
     </div>
 
-    {#if visible.length === 0}
+    {#if visible.length === 0 && matchingEnums.length === 0}
       <EmptyState>{dictionary.tables.length === 0 ? t("dictionary.empty") : t("dictionary.emptyFilter")}</EmptyState>
     {/if}
     {#each visible as table (table.id)}
@@ -271,6 +282,31 @@
       <Button variant="outline" size="sm" onclick={() => (shown += PAGE)}>
         {t("dictionary.showMore", { count: matching.length - visible.length })}
       </Button>
+    {/if}
+    {#if matchingEnums.length > 0}
+      <h3 class="m-0 mt-2 text-body-sm font-semibold text-text">{t("dictionary.enums")}</h3>
+      {#each matchingEnums as def (def.id)}
+        <section class="rounded-md border border-border bg-surface text-xs" data-enum={def.name}>
+          <div class="flex flex-wrap items-baseline gap-2 border-b border-border px-3 py-2">
+            <span class="font-mono text-body-sm font-semibold text-text">{def.name}</span>
+            <span class="text-text-muted">
+              {def.usedBy.length > 0
+                ? t("dictionary.enumUsedBy", { columns: def.usedBy.join(", ") })
+                : t("dictionary.enumUnused")}
+            </span>
+          </div>
+          <table class="w-full border-collapse" aria-label={t("dictionary.valuesOf", { name: def.name })}>
+            <tbody>
+              {#each def.values as value (value.name)}
+                <tr class="border-b border-border last:border-b-0">
+                  <td class="w-[22%] px-3 py-1 font-mono font-semibold text-text">{value.name}</td>
+                  <td class="px-3 py-1 text-text-secondary">{value.description}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </section>
+      {/each}
     {/if}
   </div>
 </div>

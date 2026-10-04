@@ -23,6 +23,11 @@ Table orders {
   id integer [pk]
   customer_id integer [ref: > customers.id]
 }
+
+Enum order_status {
+  paid [note: 'Commande réglée']
+  sent
+}
 `;
 
 test(
@@ -99,8 +104,16 @@ test(
       await panel.locator('[data-table="orders"]').waitFor();
       assert.equal(await customers.count(), 1, "customers still has an undescribed column");
       await panel.getByRole("radio", { name: "Toutes" }).click();
+      // Enums are listed after the tables, with what each value means; the search covers them too.
+      const status = panel.locator('[data-enum="order_status"]');
+      await status.getByText("Commande réglée").waitFor();
+      await status.getByText("Utilisée par aucune colonne").waitFor();
       await panel.getByRole("searchbox").fill("coeur");
       await panel.locator('[data-table="orders"]').waitFor({ state: "detached" });
+      assert.equal(await status.count(), 0);
+      await panel.getByRole("searchbox").fill("réglée");
+      await status.waitFor();
+      assert.equal(await customers.count(), 0);
       await panel.getByRole("searchbox").fill("");
 
       // The exported document.
@@ -119,6 +132,8 @@ test(
         markdown,
       );
       assert.ok(markdown.includes("| `customer_id` | integer | fk → customers.id |"), markdown);
+      assert.ok(markdown.includes("## order_status"), markdown);
+      assert.ok(markdown.includes("| `paid` | Commande réglée |"), markdown);
 
       // The linter no longer asks for a description of the table that has one.
       await page.getByRole("tab", { name: /Problèmes/ }).click();
