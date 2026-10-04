@@ -24,6 +24,13 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Added (guided tour)
+
+- **A guided tour of the editor** the first time a browser opens a project:
+  five short steps — diagram, DBML panel, toolbar, shortcuts, tabs — each
+  outlining what it describes, without blocking the editor. Replay it with the
+  ⓘ button of the project header.
+
 ### Changed (pipeline) — read before upgrading
 
 - **A protected stage no longer takes a schema the stage before it does not

@@ -125,9 +125,19 @@ API have since shipped.
       product, including against the announced hosted offer. Switching to AGPL touches two files
       while there are no outside contributors; much heavier afterwards. Tied to "Is there a hosted
       product?" in the open decisions.
-- [ ] **First-run onboarding** — **M**. Nothing guides a new user to the canvas, shortcuts
-      (`Ctrl+F`, `Ctrl+D`, and the new copy/paste) or plugins: a short guided tour / tooltips.
-      Best done once the Phase 29 components and Phase 31 workspace shell exist.
+- [x] **First-run onboarding** — done 2026-10-04. A five-step guided tour of the editor
+      (`features/onboarding/EditorTour.svelte`): the diagram, the DBML panel, the canvas toolbar,
+      the shortcuts (`Ctrl+F`, `Ctrl+D`, copy / paste, undo, delete) and the workspace tabs — each
+      step outlines what it talks about. Shown the first time a browser opens a project,
+      replayable from the ⓘ button of the project header; Escape or "Passer" ends it.
+      **Decisions taken:** _no scrim_ — the editor stays usable around the card, a tour that
+      blocks the screen gets skipped; _once per browser_ (`localStorage`), not per account —
+      there is no synced-preferences store yet (Phase 38 idea 40); _targets found by selector_,
+      so a closed panel leaves the card standing alone rather than breaking the step. The perf
+      harness mounts the editor without it (`guided`), and the e2e helper `login` marks it seen.
+      **Verified:** `e2e/onboarding.e2e.ts`. **Not done:** nothing on the project list or the
+      admin console; no step about plugins beyond the toolbar's mention; no tour of the
+      Déploiements tab for administrators.
 - [ ] **Written decisions** (cost one sentence if assumed): mobile / tablet (Phase 22), and
       the language policy (fr + en, see open decisions).
 - [ ] **Out of V1, stated plainly rather than implied:** SSO, passkeys (TOTP 2FA is done), real

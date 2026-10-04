@@ -174,6 +174,14 @@ le DBML. Une table dont la clé ne se laisse pas reconstruire proprement en
 association (association ternaire probable, table de jonction ambiguë) est
 signalée plutôt que silencieusement mal convertie.
 
+### Visite guidée
+
+La première fois que vous ouvrez un projet dans un navigateur, une visite en
+cinq étapes présente le diagramme, le panneau DBML, la barre d'outils, les
+raccourcis et les onglets, en entourant à chaque fois ce dont elle parle.
+Elle ne bloque rien : vous pouvez continuer à travailler, la passer (`Échap`
+ou **Passer**), et la rejouer avec le bouton ⓘ en haut à droite.
+
 ### Raccourcis clavier
 
 | Raccourci                                  | Effet                                            |
