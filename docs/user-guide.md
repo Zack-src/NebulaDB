@@ -482,6 +482,27 @@ supprime une connexion ; les identifiants sont chiffrés et ne sont jamais
 réaffichés. Cocher **Lecture seule** interdit toute écriture d'Athanor par
 cette connexion (déploiement compris).
 
+**Un compte partagé, ou le compte de chacun.** Par défaut, tout le monde passe
+par le compte enregistré sur la connexion. En choisissant **Le compte de
+chacun** dans sa fenêtre de modification, chaque utilisateur doit donner **son
+propre compte sur la base** : bouton **Mon compte SQL**, à côté de la base
+dans un projet et dans cette liste. Le compte est essayé avant d'être
+enregistré, son mot de passe est chiffré et n'est plus jamais affiché. Tout ce
+que la personne fait ensuite sur cette base depuis Athanor — plan et
+déploiement, retour arrière, import du schéma, comparaison, console,
+sauvegarde ou restauration qu'elle lance — est fait sous son compte : les
+journaux de la base disent qui a fait quoi, et ce sont ses permissions qui
+décident. Sans compte, la personne est refusée, avec un message qui dit où le
+renseigner ; elle n'est jamais connectée avec le compte partagé à la place.
+
+Le compte enregistré sur la connexion devient alors un **compte de service** :
+il ne sert plus qu'aux tâches sans personne derrière — la surveillance, les
+sauvegardes planifiées, la pastille de disponibilité — et peut donc être en
+lecture seule. La fenêtre de modification indique qui a déjà donné son compte.
+Ce mode n'existe pas pour un fichier SQLite ni pour une connexion donnée par
+une chaîne de connexion (URI). Une clé d'API agit pour son propriétaire, donc
+avec le compte de celui-ci.
+
 **Ouvrir** une connexion donne accès à la base elle-même :
 
 - **Explorateur** — bases, schémas, tables et vues ; pour une table, ses

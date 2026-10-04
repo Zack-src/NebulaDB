@@ -24,6 +24,50 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Added (personal database accounts)
+
+- **A connection can ask each user for their own database account** instead of
+  sharing one: Admin → Connexions → a connection → "Compte utilisé pour se
+  connecter" → **Le compte de chacun**. Whatever a person then does on that
+  database through Athanor — deployment plan, deployment, rollback, pull,
+  comparison, drift check, the console (explorer, SQL, users, sessions),
+  backups and restores they start, reading a table as initial data — is done
+  as their own account: the database's logs say who did what, and its
+  permissions decide what each person may do.
+- **"Mon compte SQL"**, next to the database in a project and in the admin
+  list: each user gives their account there. It is tried on the database
+  before being kept; the password is encrypted like a connection's and never
+  shown again. Without an account, a person is refused
+  (`409 PERSONAL_CREDENTIALS_REQUIRED`) — never connected with the shared
+  account instead.
+- **The account stored on the connection becomes its service account**: used
+  only by work nobody is behind — the watch, scheduled backups, the
+  availability check. It can be a read-only account.
+- Existing connections are unchanged (one shared account). Not available for a
+  SQLite file or a connection given as a connection string. Only an instance
+  administrator changes the mode; the change, and each account given or
+  removed, are in the activity journal (`dbconn.auth_mode`,
+  `dbconn.credentials.set` / `.remove`).
+- Routes: `GET` / `PUT` / `DELETE /api/connections/:id/credentials` (one's
+  own), `GET /api/admin/connections/:id/credentials` (who has given one).
+  Migration 35 (`db_connections.auth_mode`, `db_connection_credentials`);
+  `npm run rotate-secret` re-encrypts the new table too. The personal-data
+  export lists the accounts given (names); deleting an Athanor account or a
+  connection deletes them.
+- An API key acts as its owner, so `/api/v1` uses the owner's database account
+  on such a connection.
+
+### Fixed
+
+- The deployment dialog showed the server's English message when the plan
+  itself was refused (unreachable database, missing personal account); it now
+  goes through the translated messages, like a refused deployment.
+
+### Added (small things)
+
+- **Deployment plan**: a table's initial data with warnings says so, next to
+  its row count.
+
 ### Added (schema quality) — one rule may block a deployment after upgrading
 
 - **Three linter rules.** `personal-data-class`: a column classified personal

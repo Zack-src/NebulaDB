@@ -100,7 +100,7 @@ rollback is still to do; 2026-10-04: lot 17's schema linter and data dictionary)
 - [ ] **Capability levels per connection** — **S**. Level 0 (catalogue read), 1 (supervision
       views), 2 (server-side audit configured) — detected at connection test and stored on
       `db_connections` (`plan §8.3`). Journal, traffic, advisor and drift attribution all branch on it.
-- [ ] **Migrations** — next migration number is **35** (29 is `backups`, 30 `backup_schedules`, 31 `lint_settings`, 32 `environments.variables_json`, 33 `deployment_history.schema_hash`, 34 `subscriptions` + `notifications`). Every item below that adds a table
+- [ ] **Migrations** — next migration number is **36** (29 is `backups`, 30 `backup_schedules`, 31 `lint_settings`, 32 `environments.variables_json`, 33 `deployment_history.schema_hash`, 34 `subscriptions` + `notifications`, 35 `db_connections.auth_mode` + `db_connection_credentials`). Every item below that adds a table
       gets its own migration, tested on a populated database (`infrastructure/migrations.test.ts`).
       Reminder from `memory`: saving `migrations.ts` while `npm run dev` runs migrates the real dev
       DB, one way — work on a copy.
@@ -788,7 +788,8 @@ here: each gets its own security review before it is closed.**
   it); `json` / `xlsx` / `sql` sources; seeds are not part of the DBML text; ~~a seed whose CSV
   column was mapped to a deleted field silently ignores it~~ (2026-10-04: `validateSeed`
   reports it — kind `column-gone`, a warning, named by the file's header — in the seed dialog
-  and in the plan's warning count; the deployment dialog itself still lists no seed warning); Oracle dates as text depend on
+  and in the plan's warning count, which the deployment dialog shows next to the table's rows
+  since 2026-10-05); Oracle dates as text depend on
   `NLS_DATE_FORMAT`; a seed insert failing after the DDL leaves the DDL applied (reported, not
   rolled back); the security review of the Phase 27 rule. The original item, for the rest:
   **XL**. Entity `table_seeds(project_id, table_name, format,
@@ -1306,6 +1307,55 @@ generation, apply / rollback with per-environment history
 admin console (`apps/web/src/features/admin/connections/`, `apps/server/src/modules/dbAdmin/`).
 **This is the one area where a mistake can destroy a client's data — each remaining gap needs
 its own security review before being closed, not an audit afterwards.**
+
+- [~] **Personal database accounts** — first slice done 2026-10-05 (the owner's request: no
+  shared account, so the database's logs and permissions are per person). A connection has an
+  **account mode** (migration 35 `db_connections.auth_mode`): `shared` — as before — or
+  `personal`, where each user gives their own account (`db_connection_credentials`: name in
+  clear, password encrypted with the instance secret, one per user and connection).
+  `connections/personalCredentials.ts#configForActor` swaps the account in at the two places
+  every driver is created (`createDatabaseDriver`, `createAdminDriver`), so no route can be
+  forgotten; who is asking comes from the request (`infrastructure/actor.ts`, an
+  `AsyncLocalStorage` opened by the first `onRequest` hook and named once the session or API
+  key is resolved). Routes `GET/PUT/DELETE /api/connections/:id/credentials`,
+  `GET /api/admin/connections/:id/credentials`; UI: the mode in `ConnectionEditModal`,
+  `PersonalAccountButton` / `PersonalAccountDialog` in the workspace bar and the admin list.
+  **Decisions taken:**
+  - _An option per connection, not the rule for all_: existing connections stay `shared`, so
+    nothing breaks on upgrade. **Open for the owner:** make `personal` the default for new
+    connections, or the only mode.
+  - _A person never falls back to the stored account_ — no account, `409
+PERSONAL_CREDENTIALS_REQUIRED`, before the target is touched.
+  - _The stored account becomes a service account_ for work nobody is behind: the watch (also
+    a check asked for by hand — its findings are the project's), scheduled backups, the health
+    check (also by hand — "offline" must not mean "this administrator has no account"). So
+    those are **not** attributed to a person in the database's logs.
+  - _Tried before kept_: saving an account opens a connection with it; 10 saves a minute, so
+    the route is no way to guess a database password.
+  - _Only instance administrators set the mode_ (like the structure policy); a project route
+    ignores it. Who may give an account: instance administrators and administrators of a
+    linked project — the people who can act on the database through Athanor at all.
+  - _Not for SQLite_ (no accounts) _nor a connection string_ (the account is inside it):
+    refused, `CONNECTION_AUTH_MODE_INVALID`.
+
+  **Verified:** `connections/credentialRoutes.test.ts` (mode rules, rights, refusal, the
+  account never returned nor stored in clear, audit, export, cascade on user and connection
+  delete, the service account for unattended work, the actor not outliving its request),
+  `migrations.test.ts`, `e2e/personal-accounts.e2e.ts`. **Not verified: a real login.** No
+  database server on the machine: the step "the database accepts this account" is replaced in
+  the server test, and the browser test stops at the refusal. Try it once on PostgreSQL and
+  MySQL before relying on it. **Still to do:**
+  - A pre-deployment backup and a backup started by hand run as the person; a long one
+    outlives the request and keeps that account — fine, but not re-checked if the account is
+    removed meanwhile.
+  - Nothing tells a user that an account they gave stopped working (password changed on the
+    database) before the next action fails with the database's own message.
+  - Creating the database accounts themselves is the DBA's (the console's "Utilisateurs"
+    panel can, as whoever is connected); no "invite this user and create their account" flow.
+  - `/api/v1`: a key uses its owner's account, but there is no route to give one by API.
+  - External authentication (IAM tokens, Kerberos, client certificates) — passwords only.
+  - The security review of the Phase 27 rule: this changes which account every statement runs
+    as.
 
 - [~] **Residual security gaps** — **M**:
   - **SQL Server / Oracle connection strings** and a PostgreSQL / MySQL URL carrying its own TLS

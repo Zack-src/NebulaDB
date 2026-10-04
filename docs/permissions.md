@@ -61,6 +61,7 @@ There are two axes, and no others.
 | Webhooks: list, create, edit, delete, test, read deliveries                  |      |      |       ✔       |
 | Database connections of the project: add, edit, remove, test                 |      |      |       ✔       |
 | List the project's connections (names and hosts, never the password)         |  ✔   |  ✔   |       ✔       |
+| Give, change, remove one's own account on a connection that asks for it      |      |      |       ✔       |
 | Pull a schema from a database; plan, apply and roll back a deployment        |      |      |       ✔       |
 | Deploy to / roll back on the production stage (connection name retyped)      |      |      |       ✔       |
 | Read deployment history                                                      |      |      |       ✔       |
@@ -128,6 +129,17 @@ Instance administrator only (`requireAdmin`) — a project `administrator` has n
   `administrator` deploying to the production stage _causes_ a backup (taken before the
   deployment) and sees in the deployment history that one exists, but cannot list, download or
   restore it.
+
+**Whose database account.** A connection is used with the one account stored on it, or — when
+an instance administrator sets it to personal accounts — with the account each user gave
+(`PUT /api/connections/:id/credentials`: instance administrators, and administrators of a
+project the connection is attached to; anyone else is answered `404`). In that mode Athanor's
+roles decide who may _ask_ for an action, and the database's own permissions, on that person's
+account, decide whether it happens. A person with no account is refused
+(`PERSONAL_CREDENTIALS_REQUIRED`), never connected as the stored account, which only unattended
+work uses: the watch (also when a check is asked for by hand), scheduled backups, the health
+check. Only an instance administrator changes the mode, and can see who gave an account — never
+the passwords.
 
 Being an instance administrator does not by itself mean "anything goes" in the console: on a
 database attached to a project, table and index changes follow the **structure policy** (refused

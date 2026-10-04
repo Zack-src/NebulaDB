@@ -89,7 +89,17 @@ réponse). Les cookies de session et les en-têtes d'autorisation en sont
 **exclus**. **Finalité :** exploitation et diagnostic. **Base légale :** intérêt
 légitime.
 
-### 2.8 Ce qui n'est pas collecté
+### 2.8 Comptes personnels sur les bases connectées
+
+Lorsqu'une connexion à une base de données demande à chacun son propre compte,
+le **nom** du compte que vous donnez sur cette base et son **mot de passe**,
+chiffré, sont enregistrés avec votre compte utilisateur. Le mot de passe n'est
+jamais réaffiché ni exporté ; le nom figure dans l'export de vos données et est
+visible des administrateurs de l'instance. **Finalité :** que vos actions sur
+cette base soient faites, et tracées par la base elle-même, sous votre
+identité. **Base légale :** exécution du contrat.
+
+### 2.9 Ce qui n'est pas collecté
 
 Aucune donnée de paiement, aucune donnée de localisation, aucun profilage,
 aucune décision automatisée, aucun suivi comportemental, aucune donnée
@@ -108,6 +118,7 @@ Vérifiez-les contre la vôtre avant publication.
 | Journal d'audit                    | **365 jours**, purge automatique toutes les heures                                                                                                                                                                 | `ATHANORDB_AUDIT_RETENTION_DAYS` |
 | Contenus et historique des projets | Jusqu'à suppression définitive du projet                                                                                                                                                                           | —                                |
 | Abonnements et notifications       | Abonnements : jusqu'à ce que vous cessiez de suivre le projet, ou jusqu'à la suppression du projet ou du compte. Notifications : les **200** plus récentes par compte, les plus anciennes sont supprimées à mesure | —                                |
+| Comptes personnels sur les bases   | Jusqu'à ce que vous retiriez le compte, ou jusqu'à la suppression de la connexion ou de votre compte utilisateur                                                                                                   | —                                |
 | Invitations                        | Lien valable 7 jours ; l'enregistrement (email, date) subsiste jusqu'à révocation ou remplacement par une nouvelle invitation pour la même adresse                                                                 | —                                |
 | Sauvegardes                        | Si activées : les **7** dernières exécutions sont conservées, les plus anciennes sont supprimées                                                                                                                   | `ATHANORDB_BACKUP_KEEP`          |
 | Journaux techniques                | Selon la politique de journalisation de [ENTITÉ] — à compléter                                                                                                                                                     | —                                |
