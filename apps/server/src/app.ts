@@ -19,6 +19,8 @@ import { registerPasswordResetRoutes } from "./modules/auth/passwordResetRoutes.
 import { resolveSession } from "./modules/auth/session.js";
 import { registerConvertRoutes } from "./modules/convert/routes.js";
 import { registerConnectionRoutes } from "./modules/connections/routes.js";
+import { registerCredentialRoutes } from "./modules/connections/credentialRoutes.js";
+import { runInActorScope, setActor } from "./infrastructure/actor.js";
 import { registerDbAdminRoutes } from "./modules/dbAdmin/routes.js";
 import { registerEnvironmentRoutes } from "./modules/environments/routes.js";
 import { registerErrorRoutes } from "./modules/errors/routes.js";
@@ -108,6 +110,11 @@ export async function buildApp(): Promise<FastifyInstance> {
   // back to `Authorization: Bearer` API-key resolution — see
   // `modules/apiKeys/auth.ts`. A cookie takes priority when both are somehow
   // present; this never runs for a request that already resolved a session.
+  //
+  // The hook before it opens the request's actor scope: whoever the request
+  // turns out to act for is who a `personal` database connection is opened as
+  // (see `infrastructure/actor.ts`).
+  app.addHook("onRequest", (_req, _reply, done) => runInActorScope(done));
   app.addHook("onRequest", async (req, reply) => {
     req.user = resolveSession(req, reply);
     if (!req.user) {
@@ -115,6 +122,7 @@ export async function buildApp(): Promise<FastifyInstance> {
       req.user = resolved?.user ?? null;
       req.apiKey = resolved?.apiKey ?? null;
     }
+    setActor(req.user?.id ?? null);
   });
 
   const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -206,6 +214,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerConvertRoutes(app);
   registerEnvironmentRoutes(app);
   registerConnectionRoutes(app);
+  registerCredentialRoutes(app);
   registerDbAdminRoutes(app);
   registerAuditRoutes(app);
   registerErrorRoutes(app);

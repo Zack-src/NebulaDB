@@ -45,6 +45,13 @@ export const ERROR_CATALOG = {
   },
   INVITATION_INVALID: { status: 400, message: "this invitation is no longer valid" },
   CONNECTION_ENGINE_INVALID: { status: 400, message: "engine must be one of postgres, mysql, mssql, oracle, sqlite" },
+  CONNECTION_AUTH_MODE_INVALID: {
+    status: 400,
+    message:
+      "authMode must be shared or personal — and personal needs a host, user and password: not a SQLite file, not a connection string",
+  },
+  PERSONAL_CREDENTIALS_INVALID: { status: 400, message: "username and password are required" },
+  PERSONAL_CREDENTIALS_REJECTED: { status: 400, message: "the database refused this account" },
   CONNECTION_TARGET_FORBIDDEN: { status: 400, message: "this connection target is not allowed" },
   DB_ADMIN_INPUT_INVALID: {
     status: 400,
@@ -196,7 +203,8 @@ export const ERROR_CATALOG = {
   },
   SEEDS_NOT_DEPLOYABLE: {
     status: 409,
-    message: "a seed of this project has errors or its tables depend on each other in a cycle — fix it before deploying",
+    message:
+      "a seed of this project has errors or its tables depend on each other in a cycle — fix it before deploying",
   },
   PIPELINE_STAGE_SKIPPED: {
     status: 409,
@@ -216,12 +224,18 @@ export const ERROR_CATALOG = {
   },
   DEPLOYMENT_BLOCKED_BY_RISK: {
     status: 409,
-    message: "a change in this plan is set to “cancel / handle manually” — fix the data or change the schema, then deploy",
+    message:
+      "a change in this plan is set to “cancel / handle manually” — fix the data or change the schema, then deploy",
   },
   DESTRUCTIVE_CHANGE_UNRESOLVED: {
     status: 409,
     message: "this plan loses or rejects data on the production stage — send a resolution for each critical risk",
   },
+  PERSONAL_CREDENTIALS_REQUIRED: {
+    status: 409,
+    message: "this connection uses personal accounts — give your own account on this database first",
+  },
+  PERSONAL_CREDENTIALS_NOT_USED: { status: 409, message: "this connection uses one shared account" },
   PRODUCTION_CONFIRMATION_REQUIRED: {
     status: 409,
     message: "this connection is the production stage — send its name as confirmName to deploy or roll back",

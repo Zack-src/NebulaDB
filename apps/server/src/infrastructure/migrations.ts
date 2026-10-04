@@ -564,7 +564,9 @@ export const MIGRATIONS: Migration[] = [
       `);
       const columns = db.prepare("PRAGMA table_info(db_connections)").all() as { name: string }[];
       if (!columns.some((c) => c.name === "environment_id")) {
-        db.exec("ALTER TABLE db_connections ADD COLUMN environment_id TEXT REFERENCES environments(id) ON DELETE SET NULL");
+        db.exec(
+          "ALTER TABLE db_connections ADD COLUMN environment_id TEXT REFERENCES environments(id) ON DELETE SET NULL",
+        );
       }
       if ((db.prepare("SELECT COUNT(*) AS n FROM environments").get() as { n: number }).n > 0) return;
 
@@ -575,7 +577,9 @@ export const MIGRATIONS: Migration[] = [
       // Admin → Environnements. An instance with no labels gets DEV › Staging › Prod.
       const labels = (
         db
-          .prepare("SELECT DISTINCT TRIM(environment) AS label FROM db_connections WHERE TRIM(COALESCE(environment, '')) <> ''")
+          .prepare(
+            "SELECT DISTINCT TRIM(environment) AS label FROM db_connections WHERE TRIM(COALESCE(environment, '')) <> ''",
+          )
           .all() as { label: string }[]
       ).map((row) => row.label);
       const isProd = (label: string) => /\bprod(uction)?\b/i.test(label) && !/(pre|non|not)[-_ ]?prod/i.test(label);
@@ -854,6 +858,32 @@ export const MIGRATIONS: Migration[] = [
           read_at TEXT
         );
         CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, read_at);
+      `);
+    },
+  },
+  {
+    version: 35,
+    name: "db_connections.auth_mode and db_connection_credentials",
+    up: (db) => {
+      // Personal database accounts: a connection may ask each user for their
+      // own account instead of sharing the stored one. Existing connections
+      // stay `shared`. The name is plain (it is what the database's own logs
+      // show); the password is encrypted like a connection's.
+      const columns = db.prepare("PRAGMA table_info(db_connections)").all() as { name: string }[];
+      if (!columns.some((c) => c.name === "auth_mode")) {
+        db.exec("ALTER TABLE db_connections ADD COLUMN auth_mode TEXT NOT NULL DEFAULT 'shared'");
+      }
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS db_connection_credentials (
+          id TEXT PRIMARY KEY,
+          connection_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          username TEXT NOT NULL,
+          secret_encrypted TEXT NOT NULL,
+          updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+          UNIQUE (connection_id, user_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_db_connection_credentials_user ON db_connection_credentials(user_id);
       `);
     },
   },

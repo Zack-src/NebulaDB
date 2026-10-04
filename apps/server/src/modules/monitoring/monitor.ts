@@ -1,3 +1,4 @@
+import { asUnattended } from "../../infrastructure/actor.js";
 import { notifyFollowers } from "../notifications/repository.js";
 import { diffFingerprints, fingerprintSchema } from "@athanordb/dbml-engine";
 import { db } from "../../infrastructure/db.js";
@@ -72,8 +73,16 @@ export interface MonitorCheckResult {
  * link is marked so the editor shows its banner, and `drift.detected` goes to
  * the project's webhooks. A database that cannot be read is "unreachable" —
  * reported once, closed when it answers again, never taken for a change.
+ *
+ * Read as each connection's service account, also when a person asks for the
+ * check: the watch's findings are the project's, and a missing personal
+ * account must not be recorded as a database that cannot be reached.
  */
-export async function checkProjectMonitoring(projectId: string): Promise<MonitorCheckResult> {
+export function checkProjectMonitoring(projectId: string): Promise<MonitorCheckResult> {
+  return asUnattended(() => readWatchedDatabases(projectId));
+}
+
+async function readWatchedDatabases(projectId: string): Promise<MonitorCheckResult> {
   const settings = getMonitorSettings(projectId);
   const ignored = new Set(settings.ignoreTables.map((name) => name.toLowerCase()));
   const result: MonitorCheckResult = { checked: 0, changes: 0, unreachable: 0 };

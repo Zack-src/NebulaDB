@@ -216,12 +216,37 @@ test("migration 23 turns each environment label into a stage, production last an
 test("migration 23 seeds DEV › Staging › Prod on an instance that had no labels", () => {
   const db = freshDbMissingColumns();
   runMigrations(db);
-  assert.deepEqual(
-    db.prepare("SELECT name, is_production AS production FROM environments ORDER BY position").all(),
-    [
-      { name: "DEV", production: 0 },
-      { name: "Staging", production: 0 },
-      { name: "Prod", production: 1 },
-    ],
+  assert.deepEqual(db.prepare("SELECT name, is_production AS production FROM environments ORDER BY position").all(), [
+    { name: "DEV", production: 0 },
+    { name: "Staging", production: 0 },
+    { name: "Prod", production: 1 },
+  ]);
+});
+
+test("migration 35 leaves every existing connection on its shared account and adds the personal-account table", () => {
+  const db = freshDbMissingColumns();
+  for (const migration of MIGRATIONS.filter((m) => m.version < 35)) migration.up(db);
+  db.pragma("user_version = 34");
+  db.exec(`
+    INSERT INTO db_connections (id, name, engine, config_encrypted) VALUES
+      ('c1', 'Main', 'postgres', 'b'),
+      ('c2', 'File', 'sqlite', 'b');
+  `);
+
+  runMigrations(db);
+
+  assert.deepEqual(db.prepare("SELECT id, auth_mode FROM db_connections ORDER BY id").all(), [
+    { id: "c1", auth_mode: "shared" },
+    { id: "c2", auth_mode: "shared" },
+  ]);
+  assert.ok(tableExists(db, "db_connection_credentials"));
+  // One account per user and connection.
+  const insert = db.prepare(
+    "INSERT INTO db_connection_credentials (id, connection_id, user_id, username, secret_encrypted) VALUES (?, 'c1', 'u1', 'ada', 'x')",
   );
+  insert.run("k1");
+  assert.throws(() => insert.run("k2"), /UNIQUE/);
+  // Running it again changes nothing.
+  MIGRATIONS.find((m) => m.version === 35)!.up(db);
+  assert.equal((db.prepare("SELECT COUNT(*) AS n FROM db_connection_credentials").get() as { n: number }).n, 1);
 });

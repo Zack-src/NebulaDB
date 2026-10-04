@@ -2,6 +2,7 @@ import type { DatabaseConnectionConfig } from "@athanordb/shared";
 import { ApiError } from "../../../shared/errors.js";
 import { pinConnectionTarget } from "../targetPinning.js";
 import { takeConnectionBudget, targetKey } from "../connectionBudget.js";
+import { configForActor } from "../personalCredentials.js";
 import type { DatabaseDriver } from "./interface.js";
 import { PostgresDriver } from "./postgres.js";
 import { MysqlDriver } from "./mysql.js";
@@ -21,8 +22,13 @@ export * from "./oracle.js";
  * (host guard + DNS pinning) runs here rather than inside each network
  * driver's constructor so it's impossible to add another network engine
  * later and forget to wire the guard in. `async` because it resolves DNS.
+ *
+ * Also where a connection in `personal` mode gets the account of whoever is
+ * asking (`configForActor`) — before the budget is spent, so someone without
+ * an account is refused without touching the target.
  */
-export async function createDatabaseDriver(config: DatabaseConnectionConfig): Promise<DatabaseDriver> {
+export async function createDatabaseDriver(stored: DatabaseConnectionConfig): Promise<DatabaseDriver> {
+  const config = configForActor(stored);
   const key = targetKey(config);
   takeConnectionBudget(key, "connect");
   return withWriteBudget(await openDriver(config), key);

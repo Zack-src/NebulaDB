@@ -171,6 +171,15 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
     // Its own line in the trail: loosening a policy is the kind of change someone asks about later.
     const describe = (setting: typeof connection.structurePolicy) =>
       setting ? `${setting.policy}${setting.applyToSql ? "" : " (not SQL)"}` : "instance default";
+    if (before && before.authMode !== connection.authMode) {
+      auditUser(
+        user,
+        "dbconn.auth_mode",
+        { type: "connection", id },
+        `${connection.name}: ${before.authMode} -> ${connection.authMode}`,
+        req,
+      );
+    }
     if (describe(before?.structurePolicy ?? null) !== describe(connection.structurePolicy)) {
       auditUser(
         user,

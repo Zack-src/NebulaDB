@@ -1,4 +1,5 @@
 import { listSubscriptionsOf } from "../notifications/repository.js";
+import { listPersonalCredentialsOf } from "../connections/personalCredentials.js";
 import type { FastifyRequest } from "fastify";
 import { listAuditLog } from "../../shared/audit.js";
 import { listSessions } from "../auth/session.js";
@@ -82,6 +83,8 @@ export function buildPersonalDataExport(userId: string, req: FastifyRequest) {
     // What the account asked to be told about. The notifications themselves are
     // pointers to events recorded elsewhere (audit trail, deployment history).
     subscriptions: listSubscriptionsOf(userId),
+    // The accounts given on databases that ask each user for their own: names, never passwords.
+    databaseAccounts: listPersonalCredentialsOf(userId),
     ownedProjects: listProjectsOwnedBy(userId),
     auditTrail: listAuditLog({ limit: 500 }).filter((entry) => entry.actorId === userId),
     // Stated rather than silently omitted: schema edits are attributed by

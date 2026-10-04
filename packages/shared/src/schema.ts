@@ -174,6 +174,31 @@ import type { EnvironmentColor } from "./environments.js";
 
 export type DatabaseEngine = "postgres" | "mysql" | "sqlite" | "mssql" | "oracle";
 
+/**
+ * Whose database account a connection is used with. `shared`: the one stored
+ * on the connection, for everybody. `personal`: each user gives their own,
+ * and the stored one is only the service account of unattended work (the
+ * watch, scheduled backups, health checks).
+ */
+export type ConnectionAuthMode = "shared" | "personal";
+export const CONNECTION_AUTH_MODES: readonly ConnectionAuthMode[] = ["shared", "personal"];
+
+/** One's own account on a connection: its name, never its password. */
+export interface PersonalCredentialStatus {
+  authMode: ConnectionAuthMode;
+  /** `null` when the user has given no account. */
+  username: string | null;
+  updatedAt: string | null;
+}
+
+/** Someone who has given an account on a connection — what its administrators see. */
+export interface PersonalCredentialHolder {
+  userId: string;
+  email: string;
+  username: string;
+  updatedAt: string;
+}
+
 export interface DatabaseConnectionConfig {
   id: string;
   projectId: string;
@@ -206,6 +231,8 @@ export interface DatabaseConnectionConfig {
    * default. Only ever set from the admin console — a project route ignores it.
    */
   structurePolicy?: StructurePolicySetting | null;
+  /** Unset means `shared`. Only ever set from the admin console — a project route ignores it. */
+  authMode?: ConnectionAuthMode;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -228,6 +255,8 @@ export interface DatabaseConnectionSummary {
   ssl?: boolean;
   connectionString?: string;
   filePath?: string;
+  /** `personal`: every user connects with their own account — see `ConnectionAuthMode`. */
+  authMode: ConnectionAuthMode;
   createdAt: string;
   updatedAt: string;
 }

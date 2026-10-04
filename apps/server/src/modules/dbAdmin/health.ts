@@ -1,4 +1,5 @@
 import type { AdminConnectionSummary } from "@athanordb/shared";
+import { asUnattended } from "../../infrastructure/actor.js";
 import { createDatabaseDriver } from "../connections/drivers/index.js";
 import {
   getAdminConnection,
@@ -12,8 +13,16 @@ import {
  * runs — timed and stored on the connection, so the admin list can show
  * whether each server answered the last time anyone asked. Never throws: an
  * unreachable database is a result, not an error.
+ *
+ * Always as the connection's service account, whoever asked: the stored status
+ * says whether the database answers, and must not read "offline" because the
+ * administrator who clicked has no personal account on it.
  */
-export async function checkConnectionHealth(id: string): Promise<AdminConnectionSummary | null> {
+export function checkConnectionHealth(id: string): Promise<AdminConnectionSummary | null> {
+  return asUnattended(() => probeConnection(id));
+}
+
+async function probeConnection(id: string): Promise<AdminConnectionSummary | null> {
   const config = getConnectionById(id);
   if (!config) return null;
   const startedAt = Date.now();

@@ -17,6 +17,7 @@ import { reencryptPayload } from "./shared/crypto.js";
  */
 const TARGETS = [
   { table: "db_connections", key: "id", column: "config_encrypted" },
+  { table: "db_connection_credentials", key: "id", column: "secret_encrypted" },
   { table: "project_webhooks", key: "id", column: "secret_encrypted" },
   { table: "users", key: "id", column: "totp_secret_encrypted" },
   // Each backup file has its own key; this is that key, not the file.

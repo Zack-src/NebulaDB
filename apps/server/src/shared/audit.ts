@@ -75,6 +75,9 @@ export const AUDIT_ACTIONS = [
   "webhook.update",
   "webhook.delete",
   "dbconn.policy",
+  "dbconn.auth_mode",
+  "dbconn.credentials.set",
+  "dbconn.credentials.remove",
   "instance.structure_policy",
   "dbadmin.structure.out_of_schema",
   "table.lock",
@@ -124,7 +127,7 @@ const CATEGORY_RULES: [RegExp, ActivityCategory][] = [
   ],
   [/^(dbadmin\.query|seed\.|backup\.|project\.export)/, "data"],
   [/^(auth\.|dbadmin\.session|user\.sessions|user\.totp)/, "sessions"],
-  [/^(user\.|invitation\.|team\.|dbuser\.|project\.team\.|apikey\.)/, "accounts"],
+  [/^(user\.|invitation\.|team\.|dbuser\.|dbconn\.credentials\.|project\.team\.|apikey\.)/, "accounts"],
   [/^project\./, "projects"],
 ];
 

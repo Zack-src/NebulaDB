@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import type {
   AdminConnectionSummary,
+  ConnectionAuthMode,
   ConnectionOrigin,
   DatabaseConnectionConfig,
   DatabaseConnectionSummary,
@@ -10,6 +11,7 @@ import type {
 } from "@athanordb/shared";
 import { db } from "../../infrastructure/db.js";
 import { decryptPayload, encryptPayload } from "../../shared/crypto.js";
+import { ApiError } from "../../shared/errors.js";
 import { deleteBackupsOfConnection } from "../backups/repository.js";
 import { getEnvironment, resolveConnectionEnvironment } from "../environments/repository.js";
 
@@ -25,6 +27,7 @@ interface ConnectionRow {
   read_only: number;
   structure_policy: string | null;
   structure_policy_sql: number;
+  auth_mode: string;
   created_by: string | null;
   created_at: string;
   updated_at: string;
@@ -96,6 +99,7 @@ function rowToSummary(row: ConnectionRow, projectId: string): DatabaseConnection
     ssl: config.ssl,
     connectionString: maskConnectionString(config.connectionString),
     filePath: config.filePath,
+    authMode: row.auth_mode as ConnectionAuthMode,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
@@ -113,9 +117,25 @@ function rowToConfig(row: ConnectionRow, projectId: string): DatabaseConnectionC
     environmentId: row.environment_id,
     tags: parseTags(row.tags),
     readOnly: row.read_only === 1,
+    authMode: row.auth_mode as ConnectionAuthMode,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   };
+}
+
+/**
+ * A personal account replaces the connection's user and password, so there
+ * have to be some to replace: not a SQLite file (no accounts), not a
+ * connection string (the account is somewhere inside it).
+ */
+function assertAuthModeFits(
+  mode: unknown,
+  config: Pick<DatabaseConnectionConfig, "engine" | "connectionString">,
+): void {
+  if (mode !== "shared" && mode !== "personal") throw new ApiError("CONNECTION_AUTH_MODE_INVALID");
+  if (mode === "personal" && (config.engine === "sqlite" || Boolean(config.connectionString?.trim()))) {
+    throw new ApiError("CONNECTION_AUTH_MODE_INVALID");
+  }
 }
 
 function getRow(id: string): ConnectionRow | undefined {
@@ -129,6 +149,7 @@ function toBlob(config: Partial<DatabaseConnectionConfig>): string {
     "tags",
     "readOnly",
     "structurePolicy",
+    "authMode",
     "environment",
     "environmentId",
     "projectId",
@@ -219,6 +240,15 @@ export function createGlobalConnection(config: ConnectionInput, createdBy: strin
   const id = insertConnection(config, "admin", createdBy);
   // The insert is shared with project-created connections, which never carry a policy.
   if (config.structurePolicy) applyUpdate(id, { structurePolicy: config.structurePolicy }, true);
+  if (config.authMode && config.authMode !== "shared") {
+    try {
+      applyUpdate(id, { authMode: config.authMode }, true);
+    } catch (err) {
+      // Not half-created: a connection refused for its mode does not stay behind as a shared one.
+      deleteConnection(id);
+      throw err;
+    }
+  }
   return getAdminConnection(id)!;
 }
 
@@ -229,9 +259,9 @@ function rowStructurePolicy(row: ConnectionRow): StructurePolicySetting | null {
 }
 
 /**
- * `allowPolicy`: the structure policy is the instance administrator's to set.
- * A project route passes `false`, and whatever it sent for it is ignored
- * rather than trusted.
+ * `allowPolicy`: the structure policy and the account mode are the instance
+ * administrator's to set. A project route passes `false`, and whatever it
+ * sent for them is ignored rather than trusted.
  */
 function applyUpdate(id: string, updates: Partial<DatabaseConnectionConfig>, allowPolicy = false): boolean {
   const row = getRow(id);
@@ -268,11 +298,15 @@ function applyUpdate(id: string, updates: Partial<DatabaseConnectionConfig>, all
   const readOnly = updates.readOnly !== undefined ? Boolean(updates.readOnly) : Boolean(existing.readOnly);
   const policy =
     allowPolicy && updates.structurePolicy !== undefined ? updates.structurePolicy : rowStructurePolicy(row);
+  // Checked against the connection as it will be: an engine or a connection
+  // string changed in the same request counts.
+  const authMode = allowPolicy && updates.authMode !== undefined ? updates.authMode : row.auth_mode;
+  assertAuthModeFits(authMode, merged);
 
   db.prepare(
     `UPDATE db_connections
         SET name = ?, engine = ?, environment = ?, environment_id = ?, config_encrypted = ?, tags = ?, read_only = ?,
-            structure_policy = ?, structure_policy_sql = ?, updated_at = datetime('now')
+            structure_policy = ?, structure_policy_sql = ?, auth_mode = ?, updated_at = datetime('now')
       WHERE id = ?`,
   ).run(
     merged.name,
@@ -284,6 +318,7 @@ function applyUpdate(id: string, updates: Partial<DatabaseConnectionConfig>, all
     readOnly ? 1 : 0,
     policy?.policy ?? null,
     policy?.applyToSql === false ? 0 : 1,
+    authMode,
     id,
   );
   return true;
@@ -317,6 +352,7 @@ export function deleteConnection(id: string): boolean {
     db.prepare("DELETE FROM project_connection_links WHERE connection_id = ?").run(id);
     db.prepare("DELETE FROM admin_query_history WHERE connection_id = ?").run(id);
     db.prepare("DELETE FROM schema_fingerprints WHERE connection_id = ?").run(id);
+    db.prepare("DELETE FROM db_connection_credentials WHERE connection_id = ?").run(id);
     return db.prepare("DELETE FROM db_connections WHERE id = ?").run(id).changes > 0;
   })();
 }
@@ -347,6 +383,7 @@ function pruneOrphanProjectConnections(): void {
       WHERE origin = 'project'
         AND NOT EXISTS (SELECT 1 FROM project_connection_links l WHERE l.connection_id = db_connections.id)`,
   ).run();
+  db.prepare("DELETE FROM db_connection_credentials WHERE connection_id NOT IN (SELECT id FROM db_connections)").run();
 }
 
 function rowToAdminSummary(row: ConnectionRow): AdminConnectionSummary {
