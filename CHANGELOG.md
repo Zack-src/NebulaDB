@@ -24,6 +24,46 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Added (schema quality) — one rule may block a deployment after upgrading
+
+- **Three linter rules.** `personal-data-class`: a column classified personal
+  or sensitive in the dictionary, in a table that is not (warning in Standard,
+  error in Strict, off in Souple). `column-description`: columns without a
+  description, one finding per table — `id` keys and `created_at` /
+  `updated_at` are not asked for one (info in Strict, off elsewhere).
+  `fk-on-delete`: a foreign key that does not say what deleting the referenced
+  row does (info in Strict, off elsewhere). **A project on the Strict profile
+  that refuses deployments on errors is now refused while a personal column
+  sits in an unclassified table**: classify the table, except it, or lower the
+  rule.
+- **The deployment dialog names the lint errors that block it** (table and
+  finding, the first 20) and has a button to the Problèmes tab; the plan's
+  `blockers` carries them as `lintFindings`.
+- **Enums in the data dictionary**: listed after the tables with what each
+  value means (its note) and the columns that use it — in the Dictionnaire
+  tab, the Markdown and HTML exports and the API's JSON (`enums`). Not in the
+  CSV export.
+
+### Added (public API)
+
+- `GET` / `PUT /api/v1/projects/:id/monitoring` and
+  `POST /api/v1/projects/:id/monitoring/check`: the watch over a project's
+  databases — its settings, what it found, and a check on demand a CI job can
+  stop on (`result.changes > 0`).
+
+### Added (small things)
+
+- **MCD view**: a locked table keeps its padlock (and dashed border) there,
+  with who locked it and why.
+- **Pipeline card**: follows the schema by itself — a change made by a
+  colleague or an import no longer needs "Actualiser".
+- **Initial data**: a CSV column mapped to a table column that has since been
+  deleted is reported as a warning in the seed dialog (and counted among the
+  seed's warnings in the deployment plan's answer) instead of being left out
+  silently.
+- **DBML editor**: the status bar uses the application's tooltips, and its
+  font-size buttons have a name for screen readers.
+
 ### Added (notifications)
 
 - **Follow a project.** The eye in a project's header lets each account choose

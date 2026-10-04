@@ -214,8 +214,10 @@ API have since shipped.
     change, with browser coverage of the canvas toolbar checked first.
   - A date picker (nothing uses `<input type="date">` today — build it when something does).
   - `Tooltip`: `GlobalTooltip` (`data-tooltip`) already does the job; what is left is
-    replacing the native `title=` attributes still on plain elements (`StatusBar.svelte`
-    has 8).
+    replacing the native `title=` attributes still on plain elements. `StatusBar.svelte`'s 8
+    were replaced 2026-10-04 (its font-size and problems buttons gained an `aria-label`, which
+    the `title` used to stand in for); other files still have some — grep ` title={` under
+    `features/`, most hits being a component's own `title` prop.
   - `toast` and `ConfirmDialog` have their first call sites (table locks, the structure
     policy); `RollbackConfirmModal`, `StatementModal`, `DeleteUserModal` and the remaining
     `window.confirm()` calls are the next candidates.
@@ -334,13 +336,18 @@ features; the UI only mirrors it.
     cannot be drawn onto a locked table's column — each with a toast naming the table
     (`projectMutations.test.ts`). Still offered and then put back by the server: bulk actions
     (type conversion, canvas plugins).
-  - MCD view shows no padlock.- [x] **Structure policy per connection** — done 2026-10-02. Three policies (`schema-only`,
-    `warn`, `free`) plus "also apply to free SQL"; an **instance default** (new
-    `instance_settings` table, edited at the top of Admin → Connexions — there is no
-    Admin → Paramètres screen yet) and a **per-connection override** in
-    `ConnectionEditModal.svelte` (migration 21: `db_connections.structure_policy`,
-    `structure_policy_sql`). Changes audited (`dbconn.policy`, `instance.structure_policy`);
-    a project route cannot set it. **Decisions taken:**
+  - ~~MCD view shows no padlock~~ — done 2026-10-04: `locks/LockBadge.svelte` on the entity
+    (and on the association a locked junction table became), dashed border, same tooltip as
+    the table node. Read-only there, like the rest of that view. Covered by
+    `e2e/table-locks.e2e.ts`.
+
+- [x] **Structure policy per connection** — done 2026-10-02. Three policies (`schema-only`,
+      `warn`, `free`) plus "also apply to free SQL"; an **instance default** (new
+      `instance_settings` table, edited at the top of Admin → Connexions — there is no
+      Admin → Paramètres screen yet) and a **per-connection override** in
+      `ConnectionEditModal.svelte` (migration 21: `db_connections.structure_policy`,
+      `structure_policy_sql`). Changes audited (`dbconn.policy`, `instance.structure_policy`);
+      a project route cannot set it. **Decisions taken:**
   - _Per connection + instance default_, not per project. A connection's own policy simply
     wins, stricter or looser: only instance administrators reach the console, so "never
     looser unless the instance admin decides" had no one left to restrict.
@@ -572,8 +579,11 @@ here: each gets its own security review before it is closed.**
   schema"); required approval for `review` (it is enforced like `protected` for now);
   deployment windows / freeze; "mandatory backup" per stage (production only today); a
   per-project chain; alerts on promotion; a rollback on stage N does not flag N+1 as ahead;
-  the card does not refresh by itself when the schema changes (button); the security review
-  of the Phase 27 rule.
+  ~~the card does not refresh by itself when the schema changes~~ (done 2026-10-04: the editor
+  hands the card the schema's fingerprint, computed in the browser; when it differs from the
+  one the server answered with, the card asks again — once per schema, after 0.8 s; a
+  deployment made from another browser still needs "Actualiser"); the security review of the
+  Phase 27 rule.
 
 - [~] **Compare environments** — first slice done 2026-10-04. `compareSchemas` +
   `describeTableChange` (`dbml-engine/schemaHash.ts`): two structures by the **strict**
@@ -775,8 +785,10 @@ here: each gets its own security review before it is closed.**
   `seeds/routes.test.ts` (SQLite end to end: FK order, refusal, `if-empty` on redeploy, lock),
   `e2e/seeds.e2e.ts`. **Still to do:** `upsert` / `replace` modes (engine-specific SQL);
   versioning with the project history (today the last file only — the audit log says who changed
-  it); `json` / `xlsx` / `sql` sources; seeds are not part of the DBML text; a seed whose CSV
-  column was mapped to a deleted field silently ignores it; Oracle dates as text depend on
+  it); `json` / `xlsx` / `sql` sources; seeds are not part of the DBML text; ~~a seed whose CSV
+  column was mapped to a deleted field silently ignores it~~ (2026-10-04: `validateSeed`
+  reports it — kind `column-gone`, a warning, named by the file's header — in the seed dialog
+  and in the plan's warning count; the deployment dialog itself still lists no seed warning); Oracle dates as text depend on
   `NLS_DATE_FORMAT`; a seed insert failing after the DDL leaves the DDL applied (reported, not
   rolled back); the security review of the Phase 27 rule. The original item, for the rest:
   **XL**. Entity `table_seeds(project_id, table_name, format,
@@ -888,7 +900,12 @@ file_ref, options_json, updated_at)`; an abstract `SeedSource` interface (`csv` 
   changed by hand: found once, ignored list, waved off, settled by a deployment; unreachable never
   a change; rights), `e2e/monitoring.e2e.ts`. **Found on the way, fixed:** dates from the server
   were formatted as local time (`toDate` in `i18n/formatters.ts`). **Still to do:** author / time
-  of an outside change (capability level 2); `/api/v1` and `openapi.ts`; e-mail alerts, grace delay,
+  of an outside change (capability level 2); ~~`/api/v1` and `openapi.ts`~~ (done 2026-10-04:
+  `GET` / `PUT /api/v1/projects/:id/monitoring`, `POST …/monitoring/check` —
+  `publicApi/monitoringRoutes.ts`, read behind `projects:read`, settings behind
+  `projects:write` + administrator, the check for administrators under the deployment rate
+  limit; verified in `monitoring/routes.test.ts` and `openapi.test.ts`; waving an event off
+  ("Ignorer") is not in the API); e-mail alerts, grace delay,
   mute and reminders (the channels item below); severity by stage (critical on production);
   `connectionBudget` is not consulted (the job is sequential and bounded instead). The original
   item: **XL**. Project setting
@@ -1016,9 +1033,15 @@ version, snapshot_json, notes)` — a version is an explicit **"Publier vN"**, n
 ## Phase 36 — Schema quality and performance (plan §15, §16)
 
 - [~] **Schema linter** — first slice done 2026-10-04. `packages/dbml-engine/src/lint.ts` (pure,
-  shared by the editor and the server): nine rules — `pk-required`, `fk-indexed`,
+  shared by the editor and the server): twelve rules — `pk-required`, `fk-indexed`,
   `naming-snake-case`, `varchar-length`, `timestamps`, `no-float-money`, `table-description`,
-  and two fed by lists of the project's own, `forbidden-type` and `required-column` — each at a
+  two fed by lists of the project's own, `forbidden-type` and `required-column`, and three
+  added 2026-10-04: `column-description` (one finding per table; `id` keys and the timestamp
+  columns are not asked for one; off / off / info), `personal-data-class` (a column classified
+  personal or sensitive in a table that is not; off / warning / error — **so a Strict project
+  that blocks deployments on errors can be refused after upgrading**, said in the changelog)
+  and `fk-on-delete` (a relation without `ON DELETE`, reported on the table that carries it;
+  off / off / info) — each at a
   level (`off` / `info` / `warning` / `error`) set by a profile (Souple / Standard / Strict) or
   one by one (Perso, read against Standard). Exceptions per table: in the settings (keyed by
   table id) or `lint-ignore: rule-id[, …]` / `lint-ignore: all` in the table's note. Two **safe
@@ -1054,11 +1077,14 @@ version, snapshot_json, notes)` — a version is an explicit **"Publier vN"**, n
     conventions.
   - Per-**column** exceptions and annotations (needs the column identity of the prerequisites).
   - ~~The plan step could warn before "Deploy" is pressed~~ — done 2026-10-04: the plan answers
-    `blockers` (`lintErrors`, `waitsForStage`) and the dialog shows them on its first step. It
-    still does not list the findings or link to the Problèmes tab.
+    `blockers` (`lintErrors`, `waitsForStage`) and the dialog shows them on its first step —
+    and, since later that day, names the blocking findings (`lintFindings`, the first 20) with
+    a button to the Problèmes tab (`lint/check.ts#blockingLintFindings`, covered by
+    `e2e/lint.e2e.ts`). The read-only "check differences" dialog shows neither.
   - Instance-wide default profile; rules per variant (Phase 35: inherit and tighten).
-  - Findings on relations (e.g. FK without `ON DELETE`), enums, and types unknown to the target
-    engine; `fk-indexed` only sees single-column foreign keys (so does the model).
+  - Findings on enums and on types unknown to the target engine (a relation without
+    `ON DELETE` is `fk-on-delete`, above); `fk-indexed` only sees single-column foreign keys
+    (so does the model). None of the three new rules has a one-click fix.
   - The MCD view shows no finding; the canvas badge of an unselected table was not re-checked.
   - A `lint.changed` webhook / CI example in `docs/public-api.md`.
 
@@ -1092,8 +1118,12 @@ version, snapshot_json, notes)` — a version is an explicit **"Publier vN"**, n
   **Still to do:** PDF export; the diagram in the HTML export; a multi-line description (needs
   the serializer to write `'''` notes); owner picked from teams; ~~hiding the annotations where
   the note is displayed~~ (done 2026-10-04: `readableNote` on the canvas tooltips and the DBML
-  hover — the note editor and the DBML text keep the raw note); a lint rule for undocumented **columns** and for a personal column in
-  a table not classified as such; enums are not in the dictionary; AI-assisted filling; the
+  hover — the note editor and the DBML text keep the raw note); ~~a lint rule for undocumented **columns** and for a personal column in
+  a table not classified as such~~ (done 2026-10-04, see the linter); ~~enums are not in the
+  dictionary~~ (done 2026-10-04: `DataDictionary.enums` — values with their note, and the
+  columns typed with the enum — shown read-only after the tables, in the Markdown and HTML
+  exports and the API's JSON; not in the CSV, not in the completeness figure, and a value's
+  note is still edited in the schema, not in this tab); AI-assisted filling; the
   RGPD report and masking of Phase 38 that this classification prepares.
 
 - [ ] **Index suggestions and clean-up** — **L**. Ranked list (impact) of indexes to create

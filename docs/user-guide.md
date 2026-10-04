@@ -117,7 +117,10 @@ relations. Ces réglages sont visuels et partagés par le projet.
 Pendant que vous modélisez, le schéma est comparé à des **conventions** : clé
 primaire présente, clés étrangères indexées, noms en `snake_case`, `varchar`
 avec une longueur, colonnes `created_at` / `updated_at`, pas de flottant pour
-un montant, tables décrites. L'onglet **Problèmes** liste les constats table
+un montant, tables décrites, donnée personnelle dans une table classée comme
+telle — et, en profil Strict ou à la demande, colonnes décrites et clés
+étrangères qui disent ce que fait une suppression. L'onglet **Problèmes** liste
+les constats table
 par table, par niveau (erreur, avertissement, info) ; les erreurs et
 avertissements apparaissent aussi sur la table dans le diagramme, et tous sont
 soulignés dans l'éditeur DBML.
@@ -139,7 +142,12 @@ soulignés dans l'éditeur DBML.
 - **Refuser un déploiement tant qu'une erreur est ouverte** (désactivé par
   défaut) : le serveur refuse alors de déployer un schéma qui a un constat de
   niveau erreur, depuis l'application comme par l'API. Les avertissements et
-  les infos ne bloquent jamais.
+  les infos ne bloquent jamais. La fenêtre de déploiement nomme les erreurs
+  en cause dès sa première étape et propose **Ouvrir l'onglet Problèmes**.
+- La règle des **colonnes décrites** ne réclame rien pour une clé `id` ni pour
+  `created_at` / `updated_at` ; celle des **données personnelles** signale une
+  colonne classée _personnel_ ou _sensible_ (voir le dictionnaire) dans une
+  table qui ne l'est pas.
 
 Ce que le linter ne fait pas : il ne regarde que la structure du schéma (pas
 les données ni la base déployée), et ses règles de nommage se limitent au
@@ -160,7 +168,13 @@ l'export et l'import DBML, et peut s'écrire directement dans l'éditeur DBML. U
 table verrouillée ne se documente que par ceux que le verrou ne lie pas. Une
 description tient sur une ligne.
 
-**Markdown**, **CSV** et **HTML** téléchargent le dictionnaire ; l'API le sert
+Les **énumérations** du schéma sont listées après les tables : chaque valeur
+avec sa note, et les colonnes qui l'utilisent. Elles se lisent ici et
+s'écrivent dans le schéma (la note d'une valeur, dans l'éditeur DBML) ; elles
+ne comptent pas dans la part du schéma décrite.
+
+**Markdown**, **CSV** et **HTML** téléchargent le dictionnaire (les
+énumérations sont dans le Markdown et le HTML, pas dans le CSV) ; l'API le sert
 aussi (`/api/v1/projects/:id/dictionary`). Il n'y a pas encore d'export PDF.
 
 ### Vue conceptuelle (MCD)
@@ -170,7 +184,7 @@ Merise : chaque table devient une entité, chaque relation une association,
 dérivées automatiquement du schéma. C'est une vue de **lecture seule** — on
 peut y déplacer les éléments pour aérer l'affichage (bouton de réinitialisation
 inclus), mais toute modification du schéma se fait toujours depuis le MLD ou
-le DBML. Une table dont la clé ne se laisse pas reconstruire proprement en
+le DBML. Une table verrouillée y garde son cadenas. Une table dont la clé ne se laisse pas reconstruire proprement en
 association (association ternaire probable, table de jonction ambiguë) est
 signalée plutôt que silencieusement mal convertie.
 
@@ -355,7 +369,9 @@ insérées après le schéma, les tables parentes d'abord ; par défaut seulemen
 si la table est vide (« Ajouter si vide »), sinon à chaque fois (« Toujours
 ajouter »). Le plan indique `clients : +248 lignes` et permet de ne pas les
 insérer cette fois. Des données avec erreurs bloquent le déploiement tant
-qu'elles ne sont pas corrigées.
+qu'elles ne sont pas corrigées. Si une colonne de la table est supprimée après
+coup, le dialogue signale la colonne du fichier qui lui était associée : ses
+valeurs ne sont plus insérées.
 
 Un administrateur de l'instance peut aussi partir de **ce que la base contient
 déjà** : dans le même dialogue, _Reprendre les lignes de la base_ lit la table
@@ -386,7 +402,8 @@ du projet à niveau : la carte affiche « Attend DEV », et le déploiement est
 refusé tant que ce n'est pas fait. Un administrateur de l'instance peut passer
 outre pour un correctif urgent : après le refus, il saisit un motif et choisit
 **Sauter l'étape et déployer** ; le motif est journalisé. Une base sans étape
-est en dehors du pipeline.
+est en dehors du pipeline. La carte suit le schéma : quand il change, elle se
+met à jour d'elle-même.
 
 **Variables par environnement.** Un même schéma peut porter des noms différents
 selon l'étape : écrivez `{{variable}}` dans le nom ou le schéma d'une table —
