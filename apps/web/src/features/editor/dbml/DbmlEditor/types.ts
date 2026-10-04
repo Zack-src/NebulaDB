@@ -53,6 +53,8 @@ export interface DbmlEditorProps {
   /** Omitted for a read-only buffer, which has nothing to send. */
   syncIndicator?: SyncIndicator;
   problem?: import("@/features/editor/dbml/lint").ServerProblem | null;
+  /** The schema linter's findings, underlined on the table or column they are about. */
+  findings?: readonly import("@/features/editor/dbml/lint").SchemaFinding[];
   scrollToTable?: { tableName: string; requestId: number } | null;
   /** Double-click on a table/column in the buffer -> jump to it on the canvas. */
   onNavigateToCanvas?: (target: import("@/features/editor/dbml/canvasLink").CanvasNavigateTarget) => void;

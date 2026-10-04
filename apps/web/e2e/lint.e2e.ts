@@ -118,6 +118,9 @@ test("lint: findings are listed, fixed, excepted and ruled by the project's prof
     await orderLines.getByRole("button", { name: "Ouvrir dans le schéma" }).click();
     await page.waitForURL(`${env.baseUrl}/project/${projectId}`);
     await page.locator(".svelte-flow__node").filter({ hasText: "OrderLines" }).first().waitFor();
+    // The same findings are underlined in the DBML buffer, on the table they are about.
+    await page.locator(".cm-lintRange-error").filter({ hasText: "customers" }).first().waitFor();
+    await page.locator(".cm-lintRange-error").filter({ hasText: "OrderLines" }).first().waitFor();
     await snap("schema");
 
     assert.deepEqual(errors, []);

@@ -23,7 +23,7 @@
   import { behaviourPrefs } from "@/features/editor/dbml/DbmlEditor/behaviourPrefs.svelte";
   import { useEditorCommands } from "@/features/plugins/plugins.svelte";
   import type { EditorCommandResult } from "@/features/plugins/types";
-  import type { ServerProblem } from "@/features/editor/dbml/lint";
+  import type { SchemaFinding, ServerProblem } from "@/features/editor/dbml/lint";
   import { dbmlSignature } from "@/features/editor/dbml/symbols";
   import { createBufferSync } from "@/features/editor/dbml/bufferSync";
   import Button from "@/components/ui/Button.svelte";
@@ -51,6 +51,8 @@
     onClose: () => void;
     scrollToTable?: { tableName: string; requestId: number } | null;
     onNavigateToCanvas?: (target: { tableName: string; fieldName?: string }) => void;
+    /** The schema linter's findings, underlined in the buffer. */
+    findings?: readonly SchemaFinding[];
   } = $props();
 
   const { t } = useTranslation();
@@ -303,6 +305,7 @@
       onChange={handleChange}
       onSave={handleSave}
       {problem}
+      findings={props.findings}
       syncIndicator={readOnly ? undefined : syncIndicator}
       scrollToTable={props.scrollToTable}
       onNavigateToCanvas={props.onNavigateToCanvas}

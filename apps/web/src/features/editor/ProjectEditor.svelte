@@ -305,6 +305,15 @@
       }));
     return [...structural, ...conventions];
   });
+  /** The same findings — `info` included — underlined in the DBML buffer. */
+  const dbmlFindings = $derived(
+    lintFindings.map((finding) => ({
+      severity: finding.severity,
+      message: t(`lint.rule.${finding.ruleId}.message` as "lint.rule.pk-required.message", finding.params),
+      tableName: finding.tableName,
+      fieldName: finding.fieldName,
+    })),
+  );
   /** Applies one of the linter's two safe fixes — one change to the document, so one undo step. */
   function fixLintFinding(finding: LintFinding) {
     if (!liveProject || !writeDoc) return;
@@ -685,6 +694,7 @@
         onClose={() => (dbmlOpen = false)}
         scrollToTable={dbmlScrollRequest}
         {onNavigateToCanvas}
+        findings={dbmlFindings}
       />
     {:else}
       <button

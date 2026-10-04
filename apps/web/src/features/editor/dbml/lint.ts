@@ -28,6 +28,31 @@ export function applyServerProblem(view: EditorView, problem: ServerProblem | nu
   forceLinting(view);
 }
 
+/** A finding of the schema linter, already worded, to underline where the buffer names its table or column. */
+export interface SchemaFinding {
+  severity: "error" | "warning" | "info";
+  message: string;
+  tableName: string;
+  fieldName?: string;
+}
+
+const NO_FINDINGS: readonly SchemaFinding[] = [];
+export const setSchemaFindings = StateEffect.define<readonly SchemaFinding[]>();
+
+export const schemaFindingsField = StateField.define<readonly SchemaFinding[]>({
+  create: () => NO_FINDINGS,
+  update(value, tr) {
+    for (const e of tr.effects) if (e.is(setSchemaFindings)) return e.value;
+    return value;
+  },
+});
+
+/** Hands the project's lint findings to the editor's diagnostics. */
+export function applySchemaFindings(view: EditorView, findings: readonly SchemaFinding[]) {
+  view.dispatch({ effects: setSchemaFindings.of(findings) });
+  forceLinting(view);
+}
+
 const KNOWN_TYPES = new Set(DBML_TYPES.map((t) => t.toLowerCase()));
 
 /** `decimal(10,2)` -> `decimal`, `varchar[]` -> `varchar`. */
@@ -42,7 +67,8 @@ function spanOfLine(view: EditorView, lineNumber: number): Span {
 /**
  * Static analysis run on every edit: relationship targets that don't exist,
  * duplicate declarations, unknown column types, unbalanced blocks — plus the
- * last error reported by the backend importer.
+ * last error reported by the backend importer, and the schema linter's
+ * findings (the project's conventions, e.g. a missing primary key).
  */
 export const dbmlLinter = linter(
   (view) => {
@@ -99,13 +125,19 @@ export const dbmlLinter = linter(
       if (table.fields.length === 0) {
         push(table.nameSpan, "warning", `Table "${table.name}" has no columns.`);
       }
+    }
 
-      // A composite PK is an `indexes { (a, b) [pk] }` entry, not a per-field
-      // flag — either counts.
-      const hasPk = table.fields.some((f) => f.pk) || table.indexes.some((line) => /\[[^\]]*\bpk\b/i.test(line));
-      if (table.fields.length > 0 && !hasPk) {
-        push(table.nameSpan, "warning", `Table "${table.name}" has no primary key.`);
-      }
+    // The schema linter's findings. They describe the synchronised schema, so
+    // they are placed by name: one about a table or column the buffer no
+    // longer has is simply not shown.
+    for (const finding of state.field(schemaFindingsField, false) ?? NO_FINDINGS) {
+      const table = symbols.tableByName.get(finding.tableName.toLowerCase());
+      if (!table) continue;
+      const field = finding.fieldName
+        ? table.fields.find((f) => f.name.toLowerCase() === finding.fieldName!.toLowerCase())
+        : undefined;
+      if (finding.fieldName && !field) continue;
+      push(field?.nameSpan ?? table.nameSpan, finding.severity, finding.message, "schema-lint");
     }
 
     // duplicate enums
@@ -197,8 +229,11 @@ export const dbmlLinter = linter(
     delay: 400,
     // the backend error arrives as an effect, not a doc change — without this
     // the linter would keep showing the diagnostics of the previous run
-    needsRefresh: (update) => update.transactions.some((tr) => tr.effects.some((event) => event.is(setServerProblem))),
+    needsRefresh: (update) =>
+      update.transactions.some((tr) =>
+        tr.effects.some((event) => event.is(setServerProblem) || event.is(setSchemaFindings)),
+      ),
   },
 );
 
-export const dbmlLint = [serverProblemField, dbmlLinter];
+export const dbmlLint = [serverProblemField, schemaFindingsField, dbmlLinter];

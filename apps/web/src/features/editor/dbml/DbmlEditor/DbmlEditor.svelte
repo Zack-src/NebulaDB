@@ -13,7 +13,7 @@
   import { formatDocument } from "@/features/editor/dbml/format";
   import { minimalChange } from "@/features/editor/dbml/bufferSync";
   import { applyRename, type RenameRequest } from "@/features/editor/dbml/rename";
-  import { applyServerProblem } from "@/features/editor/dbml/lint";
+  import { applySchemaFindings, applyServerProblem } from "@/features/editor/dbml/lint";
   import {
     bracketsCompartment,
     bracketsExtension,
@@ -193,6 +193,12 @@
     const problem = props.problem ?? null;
     const view = viewRef.current;
     if (view) applyServerProblem(view, problem);
+  });
+
+  $effect(() => {
+    const findings = props.findings ?? [];
+    const view = viewRef.current;
+    if (view) applySchemaFindings(view, findings);
   });
 
   let lastScrollRequestId: number | null = null;
