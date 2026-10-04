@@ -55,7 +55,8 @@ test("compare two projects: name-matched diff, direction, and migration SQL", { 
     await page.locator(".svelte-flow__node").getByText("users", { exact: true }).waitFor();
 
     await page.getByRole("button", { name: "Comparer" }).click();
-    await page.getByTestId("compare-picker").selectOption({ label: "Blog A" });
+    await page.getByRole("combobox", { name: "Choisir un projet…" }).click();
+    await page.getByRole("option", { name: "Blog A" }).click();
 
     // Default direction: the other project (A) is migrated towards the open one (B).
     const counts = page.getByTestId("compare-counts");

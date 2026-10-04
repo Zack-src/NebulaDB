@@ -40,7 +40,8 @@
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
   import Tabs from "@/components/ui/Tabs.svelte";
-  import { SELECT_CLASS, SELECT_SM_CLASS, TEXTAREA_CODE_CLASS } from "@/components/ui/inputStyles";
+  import { TEXTAREA_CODE_CLASS } from "@/components/ui/inputStyles";
+  import Select from "@/components/ui/Select.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { describeApiError } from "@/i18n/serverErrorMessages";
   import { fetchProjectContent, fetchProjects } from "@/services/projectsApi";
@@ -139,17 +140,13 @@
     <span class="rounded bg-surface-hover px-2 py-1 text-xs font-semibold" data-testid="compare-to">
       {to ? to.name : currentIsTarget ? currentProject.name : "…"}
     </span>
-    <select
-      class={`${SELECT_CLASS} ml-auto min-w-[200px]`}
+    <Select
+      class="ml-auto min-w-[200px]"
       bind:value={otherId}
+      options={candidates.map((candidate) => ({ value: candidate.id, label: candidate.name }))}
+      placeholder={t("compare.pickProject")}
       aria-label={t("compare.pickProject")}
-      data-testid="compare-picker"
-    >
-      <option value="">{t("compare.pickProject")}</option>
-      {#each candidates as candidate (candidate.id)}
-        <option value={candidate.id}>{candidate.name}</option>
-      {/each}
-    </select>
+    />
   </div>
 
   {#if error}<ErrorText>{error}</ErrorText>{/if}
@@ -169,11 +166,13 @@
       />
       {#if view === "sql"}
         <div class="flex items-center gap-2">
-          <select class={SELECT_SM_CLASS} bind:value={dialect} aria-label={t("compare.dialect")}>
-            {#each DIALECTS as option (option.id)}
-              <option value={option.id}>{option.label}</option>
-            {/each}
-          </select>
+          <Select
+            size="sm"
+            class="w-36"
+            bind:value={dialect}
+            options={DIALECTS.map((option) => ({ value: option.id, label: option.label }))}
+            aria-label={t("compare.dialect")}
+          />
           <Button size="sm" onclick={copySql} disabled={!diff.hasChanges}>
             {copied ? t("common.copied") : t("compare.copySql")}
           </Button>

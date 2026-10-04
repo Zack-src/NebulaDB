@@ -19,7 +19,6 @@ const HARD_CODED_TEXT = {
 const NATIVE_CONTROLS_NOT_MIGRATED = [
   "admin/AuditTab.svelte",
   "auth/Login.svelte",
-  "editor/compare/CompareProjectsModal.svelte",
   "editor/edges/EdgeSettingsPopover.svelte",
   "editor/io/ExportDialog.svelte",
   "editor/io/ImportDialog.svelte",
