@@ -375,3 +375,71 @@ test("pull from a database: relations follow their tables, and a pull that alter
     await app.close();
   }
 });
+
+test("/api/v1 locks: listed, placed and lifted by table name with an API key, under the same rules and scopes", async () => {
+  const app = await buildApp();
+  try {
+    const instanceAdmin = await makeUser(app, 1);
+    const owner = await makeUser(app);
+    const editor = await makeUser(app);
+    const project = await projectWithSchema(app, owner.cookie);
+    grant(project.id, editor.id, "edit");
+    const key = async (cookie: string, scopes: string[]) =>
+      (await call(app, cookie, "POST", "/api/keys", { name: "locks", scopes })).json().plaintextKey as string;
+    const withKey = (plaintext: string, method: "GET" | "PUT" | "DELETE", url: string, payload?: unknown) =>
+      app.inject({
+        method,
+        url,
+        headers: { host: "localhost:3001", authorization: `Bearer ${plaintext}` },
+        ...(payload === undefined ? {} : { payload: payload as object }),
+      });
+    const writeKey = await key(owner.cookie, ["projects:read", "projects:write"]);
+    const readKey = await key(owner.cookie, ["projects:read"]);
+    const editorKey = await key(editor.cookie, ["projects:read", "projects:write"]);
+    const url = `/api/v1/projects/${project.id}/locks`;
+
+    // A read scope lists and nothing more; an editor's key is no administrator's.
+    assert.equal((await withKey(readKey, "PUT", `${url}/users`, { level: "structure" })).statusCode, 403);
+    assert.equal((await withKey(editorKey, "PUT", `${url}/users`, { level: "structure" })).statusCode, 403);
+    assert.equal((await withKey(writeKey, "PUT", `${url}/no_such_table`, { level: "full" })).statusCode, 404);
+    assert.equal((await withKey(writeKey, "PUT", `${url}/users`, { level: "frozen" })).statusCode, 400);
+
+    // By name, whatever its case — and by id.
+    const locked = await withKey(writeKey, "PUT", `${url}/USERS`, { level: "structure", reason: "reference" });
+    assert.equal(locked.statusCode, 200, locked.body);
+    assert.equal(locked.json().tableId, project.tableId("users"));
+    assert.equal(locked.json().tableName, "users");
+    const changed = await withKey(writeKey, "PUT", `${url}/${project.tableId("users")}`, { level: "full" });
+    assert.equal(changed.json().level, "full");
+
+    const listed = (await withKey(readKey, "GET", url)).json();
+    assert.equal(listed.canManage, "project");
+    assert.deepEqual(
+      listed.locks.map((lock: { tableName: string; level: string; reason: string | null }) => [
+        lock.tableName,
+        lock.level,
+        lock.reason,
+      ]),
+      [["users", "full", null]],
+    );
+    // The lock placed through the API is the one the app enforces.
+    const refused = await call(app, editor.cookie, "POST", `/api/projects/${project.id}/import`, {
+      source: (await project.dbml()).replace(...EMAIL_TO_TEXT),
+    });
+    assert.equal(refused.json().code, "TABLE_LOCKED");
+
+    // An instance lock stays out of a project administrator's reach here too.
+    const instanceLock = await call(app, instanceAdmin.cookie, "PUT", `${url}/users`, {
+      level: "structure",
+      authority: "instance",
+    });
+    assert.equal(instanceLock.statusCode, 200, instanceLock.body);
+    assert.equal((await withKey(writeKey, "DELETE", `${url}/users`)).json().code, "TABLE_LOCK_FORBIDDEN");
+    assert.equal((await call(app, instanceAdmin.cookie, "DELETE", `${url}/users`)).statusCode, 200);
+    assert.equal((await withKey(writeKey, "DELETE", `${url}/users`)).statusCode, 404);
+    assert.deepEqual((await withKey(readKey, "GET", url)).json().locks, []);
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});

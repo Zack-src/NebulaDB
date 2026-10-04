@@ -22,6 +22,7 @@ import { getProjectSummary, listProjectSummaries } from "../projects/repository.
 import { createProjectForUser, deleteProject, updateProject } from "../projects/projectCrud.js";
 import { parseBaselineProject, parseSource, requireSqlDialect, sendSql } from "../projects/dbmlSource.js";
 import { registerPublicIamRoutes } from "./iamRoutes.js";
+import { registerPublicLockRoutes } from "./lockRoutes.js";
 import { registerPublicConnectionRoutes } from "./connectionRoutes.js";
 import { registerPublicTeamRoutes } from "./teamRoutes.js";
 import { API_RATE_LIMIT } from "./rateLimits.js";
@@ -191,6 +192,7 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
   });
 
   registerPublicIamRoutes(app);
+  registerPublicLockRoutes(app);
   registerPublicConnectionRoutes(app);
   registerPublicTeamRoutes(app);
 }

@@ -106,6 +106,52 @@ export const OPERATIONS: Operation[] = [
   },
   {
     method: "get",
+    path: "/api/v1/projects/:id/locks",
+    tag: "Projects",
+    scope: "projects:read",
+    summary: "Table locks of the project",
+    ok: {
+      status: 200,
+      schema: obj({
+        locks: { type: "array", items: ref("TableLock") },
+        canManage: {
+          type: ["string", "null"],
+          enum: ["project", "instance", null],
+          description: "The highest lock authority the caller holds, or null when they can only read",
+        },
+      }),
+    },
+  },
+  {
+    method: "put",
+    path: "/api/v1/projects/:id/locks/:table",
+    tag: "Projects",
+    scope: "projects:write",
+    admin: true,
+    summary: "Lock a table, or change its lock",
+    description:
+      "`:table` is the table's id or its name. An `instance` lock needs an instance administrator, and only one can change or lift it afterwards (403 TABLE_LOCK_FORBIDDEN).",
+    body: obj(
+      {
+        level: { type: "string", enum: ["structure", "full"] },
+        authority: { type: "string", enum: ["project", "instance"], default: "project" },
+        reason: { type: ["string", "null"], maxLength: 300 },
+      },
+      ["level"],
+    ),
+    ok: { status: 200, schema: ref("TableLock") },
+  },
+  {
+    method: "delete",
+    path: "/api/v1/projects/:id/locks/:table",
+    tag: "Projects",
+    scope: "projects:write",
+    admin: true,
+    summary: "Lift a table's lock",
+    ok: { status: 200, schema: flag("unlocked") },
+  },
+  {
+    method: "get",
     path: "/api/v1/projects/:id/lint",
     tag: "Projects",
     scope: "projects:read",
@@ -444,6 +490,17 @@ const COMPONENTS: Record<string, Schema> = {
     permission: PERMISSION,
   }),
   Revision: obj({ id: str, author: str, label: { type: ["string", "null"] }, createdAt: str }),
+  TableLock: obj({
+    projectId: str,
+    tableId: str,
+    tableName: str,
+    level: { type: "string", enum: ["structure", "full"] },
+    authority: { type: "string", enum: ["project", "instance"] },
+    reason: { type: ["string", "null"] },
+    lockedBy: { type: ["string", "null"] },
+    lockedByName: { type: ["string", "null"] },
+    lockedAt: str,
+  }),
   Connection: obj(
     {
       id: str,
