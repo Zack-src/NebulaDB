@@ -11,6 +11,9 @@
 </script>
 
 <script lang="ts">
+  import { ApiError } from "@/services/ApiError";
+  import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
+  import { describeApiError } from "@/i18n/serverErrorMessages";
   import type {
     ConflictResolutionStrategy,
     DatabaseConnectionSummary,
@@ -44,6 +47,7 @@
     onClose,
     initialConnectionId,
     readOnly = false,
+    canSkipStage = false,
   }: {
     projectId: string;
     onClose: () => void;
@@ -55,6 +59,8 @@
      * endpoint/UI, since the two would otherwise show the exact same data.
      */
     readOnly?: boolean;
+    /** Instance administrators may deploy to a stage before the one ahead of it is level — with a reason. */
+    canSkipStage?: boolean;
   } = $props();
 
   const { t } = useTranslation();
@@ -160,6 +166,10 @@
 
   /** Open while a production deployment waits for its connection's name. */
   let confirmingProduction = $state(false);
+  /** Set when the server refused the deployment because an earlier stage does not have this schema yet. */
+  let stageBlocked = $state(false);
+  let skipStage = $state(false);
+  let skipReason = $state("");
 
   async function handleApplyDeployment(confirmName?: string) {
     if (!selectedConnId) return;
@@ -176,11 +186,16 @@
         riskNote: riskNote.trim() || undefined,
         skipSeeds,
         backupBefore,
+        ...(skipStage ? { skipStageOrder: true, skipReason: skipReason.trim() } : {}),
       });
+      stageBlocked = false;
       activeStep = "done";
     } catch (err) {
-      error = err instanceof Error ? err.message : String(err);
+      // In the reader's language, like every other refusal of the server.
+      error = describeApiError(err, t);
+      stageBlocked = err instanceof ApiError && err.code === "PIPELINE_STAGE_SKIPPED";
     } finally {
+      skipStage = false;
       deploying = false;
     }
   }
@@ -602,6 +617,28 @@
       {/if}
 
       {#if error}<ErrorText>{error}</ErrorText>{/if}
+      {#if stageBlocked && canSkipStage}
+        <div class="mt-2 flex flex-wrap items-center gap-2 text-xs" data-testid="stage-skip">
+          <input
+            class={`${INPUT_SM_CLASS} min-w-[220px] flex-1`}
+            placeholder={t("pipeline.skipReasonPlaceholder")}
+            aria-label={t("pipeline.skipReason")}
+            maxlength={300}
+            bind:value={skipReason}
+          />
+          <Button
+            size="sm"
+            variant="danger"
+            disabled={deploying || !skipReason.trim()}
+            onclick={() => {
+              skipStage = true;
+              void handleApplyDeployment();
+            }}
+          >
+            {t("pipeline.skipAndDeploy")}
+          </Button>
+        </div>
+      {/if}
 
       <!-- Modal footer actions -->
       <div class="flex items-center justify-between border-t border-border pt-4">

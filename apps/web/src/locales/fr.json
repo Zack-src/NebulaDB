@@ -1602,5 +1602,19 @@
   "environments.variablesLabel": "Variables de {{name}}",
   "environments.variablesPlaceholder": "schema=ventes, table_prefix=pp_",
   "environments.variablesHint": "Valeurs des variables du schéma pour cette étape, sous la forme nom=valeur séparées par des virgules. Une valeur vide est permise.",
-  "environments.variablesInvalid": "Variables : écrivez nom=valeur, séparés par des virgules."
+  "environments.variablesInvalid": "Variables : écrivez nom=valeur, séparés par des virgules.",
+  "errors.pipelineStageSkipped": "Cette étape ne reçoit un schéma qu'une fois l'étape précédente à niveau : déployez-y d'abord.",
+  "errors.stageSkipReasonRequired": "Sauter une étape demande un motif.",
+  "pipeline.title": "Pipeline",
+  "pipeline.hint": "Les bases du projet, dans l'ordre des étapes. Une étape protégée ne reçoit le schéma qu'une fois l'étape précédente à niveau.",
+  "pipeline.refresh": "Actualiser",
+  "pipeline.waits": "Attend {{stage}}",
+  "pipeline.waitsHint": "Le schéma actuel doit d'abord être déployé sur {{stage}}.",
+  "pipeline.state.level": "À niveau",
+  "pipeline.state.behind": "En retard",
+  "pipeline.state.failed": "Échec",
+  "pipeline.state.never": "Jamais déployé",
+  "pipeline.skipReason": "Motif pour sauter l'étape",
+  "pipeline.skipReasonPlaceholder": "Motif (correctif urgent…) — sera journalisé",
+  "pipeline.skipAndDeploy": "Sauter l'étape et déployer"
 }

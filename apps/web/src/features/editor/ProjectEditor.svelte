@@ -186,6 +186,8 @@
   let showPlugins = $state(false);
   let showSettings = $state(false);
   let showDeployment = $state(false);
+  /** Counts deployment dialogs closed — the pipeline refetches on it. */
+  let deploymentsSeen = $state(0);
   let viewMode = $state<EditorViewMode>("mld");
   // Connections themselves are managed from the admin console now — this
   // just needs to know which one to preselect when Deploy opens.
@@ -677,6 +679,11 @@
         projectId={project.id}
         connection={activeConnection}
         {connections}
+        refreshKey={deploymentsSeen}
+        onDeployTo={(id) => {
+          connectionId = id;
+          showDeployment = true;
+        }}
         onOpenTable={(tableName) => {
           setTab("schema");
           focusRequest = { tableName };
@@ -883,8 +890,12 @@
     {#await import("@/features/connections/DeploymentModal.svelte") then { default: DeploymentModal }}
       <DeploymentModal
         projectId={project.id}
-        onClose={() => (showDeployment = false)}
+        onClose={() => {
+          showDeployment = false;
+          deploymentsSeen += 1;
+        }}
         initialConnectionId={activeConnection?.id}
+        canSkipStage={props.session.isAdmin}
       />
     {/await}
   {/if}

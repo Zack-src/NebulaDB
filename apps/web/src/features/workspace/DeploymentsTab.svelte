@@ -9,6 +9,7 @@
   import { useTranslation } from "@/i18n/i18n.svelte";
   import EnvironmentBadge from "@/features/environments/EnvironmentBadge.svelte";
   import CompareEnvironmentsCard from "./CompareEnvironmentsCard.svelte";
+  import PipelineCard from "./PipelineCard.svelte";
   import MonitoringCard from "./MonitoringCard.svelte";
 
   /**
@@ -22,6 +23,8 @@
     connection,
     connections = [],
     onOpenTable = () => {},
+    refreshKey = 0,
+    onDeployTo = () => {},
     canDeploy,
     onDeploy,
     onShowDifferences,
@@ -32,6 +35,10 @@
     /** Every database of the project — two or more can be compared with each other. */
     connections?: DatabaseConnectionSummary[];
     onOpenTable?: (tableName: string) => void;
+    /** Changes when a deployment dialog closes: what the pipeline shows may be stale. */
+    refreshKey?: number;
+    /** Opens the deployment dialog on one of the project's databases. */
+    onDeployTo?: (connectionId: string) => void;
     /** False for a view-only project: comparing stays, deploying goes. */
     canDeploy: boolean;
     onDeploy: () => void;
@@ -62,6 +69,7 @@
           </Button>
         {/if}
       </div>
+      <PipelineCard {projectId} {refreshKey} canDeploy={canDeploy} {onDeployTo} />
       <!-- The watch covers all the project's databases, not only the current one. -->
       <MonitoringCard {projectId} canManage={canDeploy} />
       {#if connections.length > 1}

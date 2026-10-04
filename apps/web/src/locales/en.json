@@ -1602,5 +1602,19 @@
   "environments.variablesLabel": "Variables of {{name}}",
   "environments.variablesPlaceholder": "schema=sales, table_prefix=pp_",
   "environments.variablesHint": "Values of the schema's variables on this stage, as name=value separated by commas. An empty value is allowed.",
-  "environments.variablesInvalid": "Variables: write name=value, separated by commas."
+  "environments.variablesInvalid": "Variables: write name=value, separated by commas.",
+  "errors.pipelineStageSkipped": "This stage takes a schema only once the stage before it is level: deploy there first.",
+  "errors.stageSkipReasonRequired": "Skipping a stage needs a reason.",
+  "pipeline.title": "Pipeline",
+  "pipeline.hint": "The project's databases, in the order of the stages. A protected stage takes the schema only once the stage before it is level.",
+  "pipeline.refresh": "Refresh",
+  "pipeline.waits": "Waits for {{stage}}",
+  "pipeline.waitsHint": "The current schema must be deployed to {{stage}} first.",
+  "pipeline.state.level": "Level",
+  "pipeline.state.behind": "Behind",
+  "pipeline.state.failed": "Failed",
+  "pipeline.state.never": "Never deployed",
+  "pipeline.skipReason": "Reason for skipping the stage",
+  "pipeline.skipReasonPlaceholder": "Reason (urgent fix…) — it will be logged",
+  "pipeline.skipAndDeploy": "Skip the stage and deploy"
 }

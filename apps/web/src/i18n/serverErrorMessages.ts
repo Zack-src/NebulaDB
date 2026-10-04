@@ -105,6 +105,8 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   LINT_INVALID: "errors.lintInvalid",
   LINT_BLOCKS_DEPLOYMENT: "errors.lintBlocksDeployment",
   VARIABLES_UNRESOLVED: "errors.variablesUnresolved",
+  PIPELINE_STAGE_SKIPPED: "errors.pipelineStageSkipped",
+  STAGE_SKIP_REASON_REQUIRED: "errors.stageSkipReasonRequired",
   SEED_NOT_FOUND: "errors.seedNotFound",
   SEEDS_NOT_DEPLOYABLE: "errors.seedsNotDeployable",
   DESTRUCTIVE_CHANGE_UNRESOLVED: "errors.destructiveChangeUnresolved",

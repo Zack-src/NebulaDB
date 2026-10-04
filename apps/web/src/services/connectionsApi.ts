@@ -6,6 +6,7 @@ import type {
   DriftCheckResult,
   MigrationResolutionMap,
   ProjectDriftEntry,
+  ProjectPipeline,
   SchemaRisk,
   SeedPlanEntry,
   SeedResult,
@@ -89,6 +90,11 @@ export function compareProjectConnections(
   });
 }
 
+/** The project's databases along the chain of stages, and how far the current schema has got. Project administrators. */
+export async function fetchProjectPipeline(projectId: string): Promise<ProjectPipeline> {
+  return (await request<{ pipeline: ProjectPipeline }>(`/api/projects/${projectId}/pipeline`)).pipeline;
+}
+
 export async function listProjectConnections(projectId: string): Promise<DatabaseConnectionSummary[]> {
   const res = await request<{ connections: DatabaseConnectionSummary[] }>(`/api/projects/${projectId}/connections`);
   return res.connections;
@@ -161,6 +167,9 @@ export async function applyDeployment(
     skipSeeds?: boolean;
     /** Back the database up first; unset, the server does on the production stage only. */
     backupBefore?: boolean;
+    /** Deploy although the stage before is not level — instance administrators, with `skipReason`. */
+    skipStageOrder?: boolean;
+    skipReason?: string;
   } = {},
 ): Promise<ApplyDeploymentResponse> {
   return request<ApplyDeploymentResponse>(`/api/projects/${projectId}/connections/${connId}/apply-deployment`, {
