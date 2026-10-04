@@ -25,6 +25,7 @@
   import { SvelteFlowProvider } from "@xyflow/svelte";
   import {
     getMetaMap,
+    getTablesMap,
     type DatabaseConnectionSummary,
     type Project,
     type ProjectDriftEntry,
@@ -37,14 +38,23 @@
   import Splitter from "@/components/ui/Splitter.svelte";
   import { previewRowsStatement } from "@/features/sql/previewStatement";
   import { readBoolean, readNumberInRange, writeBoolean, writeString } from "@/utils/storage";
-  import { diffProjects, validateProject, type ValidationIssue } from "@athanordb/dbml-engine";
+  import {
+    applyLintFix,
+    diffProjects,
+    lintProject,
+    validateProject,
+    type LintFinding,
+    type ValidationIssue,
+  } from "@athanordb/dbml-engine";
+  import { LintState } from "@/features/editor/lint/lint.svelte";
+  import { generateId } from "@/utils/id";
   import type { RevisionSummary } from "@/services/projectsApi";
   import HistoryPreviewBanner from "@/features/editor/history/HistoryPreviewBanner.svelte";
   import type { HistoryDiffStatus } from "@/features/editor/hooks/useCanvasNodes/canvasNodes.svelte";
   import { fetchProjectDrift, listProjectConnections } from "@/services/connectionsApi";
   import DriftBanner from "@/features/editor/drift/DriftBanner.svelte";
   import type { TabItem } from "@/components/ui/Tabs.svelte";
-  import { ClockIcon, CodeIcon, DatabaseIcon, SparklesIcon } from "@/components/icons/Icons";
+  import { AlertTriangleIcon, ClockIcon, CodeIcon, DatabaseIcon, SparklesIcon } from "@/components/icons/Icons";
   import type { WorkspaceTab } from "@/features/projects/projectRouting.svelte";
   import WorkspaceBar from "@/features/workspace/WorkspaceBar.svelte";
   import { provideWorkspace } from "@/features/workspace/workspaceContext";
@@ -113,6 +123,8 @@
   const seeds = new SeedsState(() => project.id);
   let seedDialogTableId = $state<string | null>(null);
   const openSeedDialog = (tableId: string) => (seedDialogTableId = tableId);
+  // The schema linter's rules for this project; the findings themselves are computed here, on the live document.
+  const lint = new LintState(() => project.id);
   const tellLockedTablesKept = (tables: string[]) =>
     toast.warning(t("locks.keptToast", { tables: tables.join(", "), count: tables.length }));
   // Linked databases known to have been changed outside the schema — see `DriftBanner`.
@@ -133,6 +145,7 @@
     if (notice.type === "drift-changed") void refreshDrift();
     else if (notice.type === "locks-changed") void tableLocks.refresh();
     else if (notice.type === "seeds-changed") void seeds.refresh();
+    else if (notice.type === "lint-changed") void lint.refresh();
     else if (notice.type === "table-locked") {
       toast.warning(t("locks.revertedToast", { tables: notice.tables.join(", "), count: notice.tables.length }));
       // The local picture was evidently out of date — that is how the change got offered at all.
@@ -188,6 +201,12 @@
     }
     if (isProjectAdmin) list.push({ id: "deployments", label: t("workspace.tab.deployments"), icon: SparklesIcon });
     list.push({ id: "history", label: t("workspace.tab.history"), icon: ClockIcon });
+    list.push({
+      id: "problems",
+      label: t("workspace.tab.problems"),
+      icon: AlertTriangleIcon,
+      badge: lintFindings.length > 0 ? lintFindings.length : undefined,
+    });
     return list;
   });
   // A tab named by the URL but not offered to this user (a shared link, a
@@ -270,7 +289,29 @@
   // Recomputed on every doc update, like `refFieldIdsByTable` below — cheap
   // (a handful of O(tables+refs) passes) next to the Yjs->Project rebuild that
   // already happens on every change.
-  const validationIssues = $derived(liveProject ? validateProject(liveProject) : []);
+  const lintFindings = $derived(liveProject ? lintProject(liveProject, lint.settings) : []);
+  // What the canvas marks on a table: what is structurally wrong, plus the
+  // linter's errors and warnings (its `info` findings stay in the problems
+  // tab). The missing key is the linter's to report, at the project's level.
+  const validationIssues = $derived.by((): ValidationIssue[] => {
+    if (!liveProject) return [];
+    const structural = validateProject(liveProject).filter((issue) => issue.code !== "no-primary-key");
+    const conventions = lintFindings
+      .filter((finding) => finding.severity !== "info")
+      .map((finding) => ({
+        severity: finding.severity as ValidationIssue["severity"],
+        message: t(`lint.rule.${finding.ruleId}.message` as "lint.rule.pk-required.message", finding.params),
+        tableId: finding.tableId,
+      }));
+    return [...structural, ...conventions];
+  });
+  /** Applies one of the linter's two safe fixes — one change to the document, so one undo step. */
+  function fixLintFinding(finding: LintFinding) {
+    if (!liveProject || !writeDoc) return;
+    const fixed = applyLintFix(liveProject, finding, generateId)?.tables.find((table) => table.id === finding.tableId);
+    if (fixed) getTablesMap(writeDoc).set(fixed.id, fixed);
+  }
+  const canFixLintOn = (tableId: string) => canWrite && !tableLocks.view.frozen.has(tableId);
   const issuesByTable = $derived.by(() => {
     const map = new Map<string, ValidationIssue[]>();
     for (const issue of validationIssues) {
@@ -591,6 +632,21 @@
         canDeploy={canWrite}
         onDeploy={() => (showDeployment = true)}
         onShowDifferences={() => (differencesFor = connectionId)}
+      />
+    {/await}
+  {:else if tab === "problems"}
+    {#await import("@/features/editor/lint/ProblemsPanel.svelte") then { default: ProblemsPanel }}
+      <ProblemsPanel
+        findings={lintFindings}
+        settings={lint.settings}
+        canFix={canFixLintOn}
+        canManage={isProjectAdmin}
+        onOpenTable={(tableName, fieldName) => {
+          setTab("schema");
+          focusRequest = { tableName, fieldName };
+        }}
+        onFix={fixLintFinding}
+        onSaveSettings={lint.save}
       />
     {/await}
   {:else if tab === "history" && liveProject}

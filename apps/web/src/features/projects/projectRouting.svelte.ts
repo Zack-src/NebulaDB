@@ -9,9 +9,9 @@ import type { ProjectSummary, Session } from "@/types";
  * has no URL segment; the others are `/project/:id/<tab>`, so a tab can be
  * linked to, reloaded and reached with back / forward.
  */
-export type WorkspaceTab = "schema" | "data" | "deployments" | "history";
+export type WorkspaceTab = "schema" | "data" | "deployments" | "history" | "problems";
 
-const TAB_SEGMENTS: readonly WorkspaceTab[] = ["data", "deployments", "history"];
+const TAB_SEGMENTS: readonly WorkspaceTab[] = ["data", "deployments", "history", "problems"];
 
 /** Where to centre the canvas once a project opens — set by a cross-project search hit. */
 export interface CanvasFocusTarget {
