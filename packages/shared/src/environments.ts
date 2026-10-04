@@ -41,6 +41,8 @@ export interface EnvironmentStage {
   position: number;
   /** How many connections point at this stage. */
   connectionCount: number;
+  /** What this stage calls the schema's `{{variables}}` — e.g. `{ schema: "sales", table_prefix: "pp_" }`. */
+  variables: Record<string, string>;
 }
 
 /** What an administrator sends to create or change a stage. */
@@ -49,4 +51,5 @@ export interface EnvironmentStageInput {
   color?: EnvironmentColor;
   protection?: EnvironmentProtection;
   production?: boolean;
+  variables?: Record<string, string>;
 }

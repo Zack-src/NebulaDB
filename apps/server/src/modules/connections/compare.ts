@@ -1,4 +1,4 @@
-import { compareSchemas, type SchemaComparisonEntry } from "@athanordb/dbml-engine";
+import { compareSchemas, resolveVariables, type SchemaComparisonEntry } from "@athanordb/dbml-engine";
 import {
   readProjectFromDoc,
   type DatabaseConnectionConfig,
@@ -7,6 +7,7 @@ import {
 } from "@athanordb/shared";
 import { getRoom } from "../../realtime/roomRegistry.js";
 import { ApiError } from "../../shared/errors.js";
+import { stageVariables } from "../environments/variables.js";
 import { createDatabaseDriver } from "./drivers/index.js";
 import { getProjectConnection } from "./repository.js";
 
@@ -66,7 +67,14 @@ export async function compareConnections(
 
   const sourceStructure = await readStructure(source);
   const targetStructure = await readStructure(target);
-  const schema = readProjectFromDoc(getRoom(projectId).doc, projectId, projectName);
+  // "In the schema" under either stage's names: the two sides may spell `{{variables}}` differently.
+  const written = readProjectFromDoc(getRoom(projectId).doc, projectId, projectName);
+  const schema = {
+    tables: [source, target].flatMap(
+      (connection) => resolveVariables(written, stageVariables(connection.environmentId)).project.tables,
+    ),
+    refs: [],
+  };
   return {
     comparedAt: new Date().toISOString(),
     source: side(source),

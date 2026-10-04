@@ -802,6 +802,18 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 32,
+    name: "environments.variables_json",
+    up: (db) => {
+      // What each stage calls the schema's `{{variables}}` (a schema name, a
+      // table prefix). Empty: a schema without placeholders needs none.
+      const columns = db.prepare("PRAGMA table_info(environments)").all() as { name: string }[];
+      if (!columns.some((c) => c.name === "variables_json")) {
+        db.exec("ALTER TABLE environments ADD COLUMN variables_json TEXT NOT NULL DEFAULT '{}'");
+      }
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */

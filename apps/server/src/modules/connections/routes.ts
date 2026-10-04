@@ -8,6 +8,7 @@ import { getRoom } from "../../realtime/roomRegistry.js";
 import { createDatabaseDriver } from "./drivers/index.js";
 import { deployToConnection, rollbackConnectionDeployment } from "./deploy.js";
 import { compareConnections } from "./compare.js";
+import { schemaForConnection } from "../environments/variables.js";
 import { checkDrift, dismissOutOfSchema, listProjectDrift } from "./drift.js";
 import { pullConnectionSchema } from "./pull.js";
 import { analyzeDeploymentRisks } from "./riskAnalysis.js";
@@ -219,7 +220,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
     if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
 
     const room = getRoom(id);
-    const canvasProject = readProjectFromDoc(room.doc, project.id, project.name);
+    const canvasProject = schemaForConnection(readProjectFromDoc(room.doc, project.id, project.name), conn);
 
     const driver = await createDatabaseDriver(conn);
     try {

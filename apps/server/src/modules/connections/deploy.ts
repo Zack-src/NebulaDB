@@ -36,6 +36,7 @@ function assertProductionConfirmed(
   }
 }
 import { getDeploymentHistoryEntry, recordDeployment } from "./deploymentHistory.js";
+import { schemaForConnection } from "../environments/variables.js";
 import { assertLintAllowsDeployment } from "../lint/check.js";
 import { getLintSettings } from "../lint/repository.js";
 import { emitWebhookEvent } from "../webhooks/dispatcher.js";
@@ -133,10 +134,12 @@ export async function deployToConnection(
   assertProductionConfirmed(conn, confirmName);
 
   const room = getRoom(projectId);
-  const canvasProject = readProjectFromDoc(room.doc, projectId, projectName);
+  const writtenProject = readProjectFromDoc(room.doc, projectId, projectName);
   // Before a connection is even opened: nothing of the target is needed to
-  // know the schema breaks the project's own rules.
-  assertLintAllowsDeployment(canvasProject, getLintSettings(projectId));
+  // know the schema breaks the project's own rules, or names a variable the
+  // stage does not define.
+  assertLintAllowsDeployment(writtenProject, getLintSettings(projectId));
+  const canvasProject = schemaForConnection(writtenProject, conn);
 
   const driver = await createDatabaseDriver(conn);
   try {

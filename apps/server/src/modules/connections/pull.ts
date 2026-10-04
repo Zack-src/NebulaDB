@@ -1,3 +1,5 @@
+import { hasVariables, resolveVariables } from "@athanordb/dbml-engine";
+import { stageVariables } from "../environments/variables.js";
 import { readProjectFromDoc, writeProjectToDoc } from "@athanordb/shared";
 import { ApiError } from "../../shared/errors.js";
 import { getRoom } from "../../realtime/roomRegistry.js";
@@ -36,7 +38,13 @@ export async function pullConnectionSchema(
     const room = getRoom(projectId);
     const current = readProjectFromDoc(room.doc, projectId, projectName);
 
-    const existingTablesByName = new Map(current.tables.map((t) => [t.name.toLowerCase(), t]));
+    // A table whose name holds `{{variables}}` is found under the name this
+    // stage gives it — and keeps its placeholders, or one pull from one stage
+    // would turn the shared schema into that stage's.
+    const named = resolveVariables(current, stageVariables(conn.environmentId)).project.tables;
+    const existingTablesByName = new Map(current.tables.map((t, i) => [named[i].name.toLowerCase(), t]));
+    const templated = (t: { name: string; schemaName?: string }) =>
+      hasVariables(t.name) || hasVariables(t.schemaName ?? "");
     // Introspection ids a table by its name; the project ids it by a stable
     // uuid. Relations have to follow the table to the id it ends up with, or
     // they point at nothing.
@@ -47,6 +55,7 @@ export async function pullConnectionSchema(
       tableIds.set(table.id, id);
       return {
         ...table,
+        ...(prev && templated(prev) ? { name: prev.name, schemaName: prev.schemaName } : {}),
         id,
         position: prev?.position ?? table.position,
         size: prev?.size,

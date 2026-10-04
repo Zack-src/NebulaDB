@@ -8,6 +8,7 @@ import {
   type EnvironmentStage,
   type EnvironmentStageInput,
 } from "@athanordb/shared";
+import { parseVariableValues } from "@athanordb/dbml-engine";
 import { db } from "../../infrastructure/db.js";
 import { ApiError } from "../../shared/errors.js";
 
@@ -19,6 +20,7 @@ interface EnvironmentRow {
   is_production: number;
   position: number;
   connection_count: number;
+  variables_json: string;
 }
 
 const SELECT_STAGES = `
@@ -34,6 +36,7 @@ function rowToStage(row: EnvironmentRow): EnvironmentStage {
     production: row.is_production === 1,
     position: row.position,
     connectionCount: row.connection_count,
+    variables: JSON.parse(row.variables_json) as Record<string, string>,
   };
 }
 
@@ -78,6 +81,11 @@ function parseInput(body: unknown, partial: boolean): EnvironmentStageInput {
     if (typeof raw.production !== "boolean") throw new ApiError("ENVIRONMENT_INVALID");
     input.production = raw.production;
   }
+  if (raw.variables !== undefined) {
+    const variables = parseVariableValues(raw.variables);
+    if (!variables) throw new ApiError("ENVIRONMENT_INVALID");
+    input.variables = variables;
+  }
   return input;
 }
 
@@ -101,12 +109,15 @@ export function createEnvironment(body: unknown): EnvironmentStage {
     const { next } = db.prepare("SELECT COALESCE(MAX(position) + 1, 0) AS next FROM environments").get() as {
       next: number;
     };
-    db.prepare("INSERT INTO environments (id, name, color, protection, position) VALUES (?, ?, ?, ?, ?)").run(
+    db.prepare(
+      "INSERT INTO environments (id, name, color, protection, position, variables_json) VALUES (?, ?, ?, ?, ?, ?)",
+    ).run(
       id,
       input.name!,
       input.color ?? (input.production ? "red" : "blue"),
       input.protection ?? "free",
       next,
+      JSON.stringify(input.variables ?? {}),
     );
     if (input.production) takeProductionFlag(id);
   })();
@@ -124,10 +135,11 @@ export function updateEnvironment(id: string, body: unknown): { before: Environm
   const input = parseInput(body, true);
   if (input.name) assertNameFree(input.name, id);
   db.transaction(() => {
-    db.prepare("UPDATE environments SET name = ?, color = ?, protection = ? WHERE id = ?").run(
+    db.prepare("UPDATE environments SET name = ?, color = ?, protection = ?, variables_json = ? WHERE id = ?").run(
       input.name ?? before.name,
       input.color ?? before.color,
       input.protection ?? before.protection,
+      JSON.stringify(input.variables ?? before.variables),
       id,
     );
     if (input.name && input.name !== before.name) {

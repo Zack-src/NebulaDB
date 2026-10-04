@@ -1,3 +1,4 @@
+import { schemaForConnection } from "../environments/variables.js";
 import { readProjectFromDoc, type DriftCheckResult, type Project, type ProjectDriftEntry } from "@athanordb/shared";
 import {
   FINGERPRINT_VERSION,
@@ -163,7 +164,7 @@ export async function checkDrift(
   const driver = await createDatabaseDriver(conn);
   try {
     const live = await driver.introspectSchema();
-    const canvas = readProjectFromDoc(getRoom(projectId).doc, projectId, projectName);
+    const canvas = schemaForConnection(readProjectFromDoc(getRoom(projectId).doc, projectId, projectName), conn);
     const diff = diffTargetAgainstLive(live, canvas);
     const reference = loadReference(projectId, connectionId);
     const since = reference ? diffFingerprints(reference, fingerprintSchema(live)) : null;

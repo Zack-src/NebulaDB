@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import Database from "better-sqlite3";
 
 process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-environments-${randomUUID()}.sqlite`);
 process.env.ATHANORDB_COOKIE_SECURE = "false";
@@ -288,6 +289,122 @@ test("environments: deploying to the production stage needs the connection's nam
       );
     assert.equal((await rollback({})).json().code, "PRODUCTION_CONFIRMATION_REQUIRED");
     assert.equal((await rollback({ confirmName: "Shop live" })).statusCode, 200);
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
+
+test("variables: one schema deployed under each stage's names; an undefined variable stops everything", async () => {
+  const app = await buildApp();
+  try {
+    const admin = await makeUser(1);
+    const cookie = await loginAs(app, admin.email, admin.password);
+    const stage = async (body: unknown) => call(app, cookie, "POST", "/api/admin/environments", body);
+
+    assert.equal((await stage({ name: "Vars bad", variables: { table_prefix: 'x"; DROP' } })).statusCode, 400);
+    assert.equal((await stage({ name: "Vars bad", variables: { "not a name": "x" } })).statusCode, 400);
+    const dev = (await stage({ name: "Vars dev", variables: { table_prefix: "dev_" } })).json().environment as Stage & {
+      variables: Record<string, string>;
+    };
+    assert.deepEqual(dev.variables, { table_prefix: "dev_" });
+    const staging = (await stage({ name: "Vars staging" })).json().environment as Stage;
+
+    const project = (await call(app, cookie, "POST", "/api/projects", { name: "Shop" })).json() as { id: string };
+    const base = `/api/projects/${project.id}`;
+    const imported = await call(app, cookie, "POST", `${base}/import`, {
+      source:
+        'Table "{{table_prefix}}orders" {\n  id integer [pk]\n  label varchar(40)\n}\n\nTable settings {\n  id integer [pk]\n}\n',
+    });
+    assert.equal(imported.statusCode, 200, imported.body);
+    const content = (await call(app, cookie, "GET", `${base}/content`)).json() as {
+      tables: { id: string; name: string; fields: { id: string; name: string }[] }[];
+    };
+    const ordersTable = content.tables.find((table) => table.name === "{{table_prefix}}orders")!;
+    const ordersId = ordersTable.id;
+    // A seed follows its table to whatever the stage calls it.
+    const seeded = await call(app, cookie, "PUT", `${base}/seeds/${ordersId}`, {
+      content: "id,label\n1,first",
+      options: { separator: ",", header: true, mapping: ordersTable.fields.map((field) => field.id), mode: "if-empty" },
+    });
+    assert.equal(seeded.statusCode, 200, seeded.body);
+
+    const dir = mkdtempSync(join(tmpdir(), "athanordb-vars-"));
+    const connect = async (name: string, environmentId: string | null) =>
+      (
+        await call(app, cookie, "POST", `${base}/connections`, {
+          name,
+          engine: "sqlite",
+          filePath: join(dir, `${name}.sqlite`),
+          environmentId,
+        })
+      ).json().connection.id as string;
+    const tablesOf = (name: string) => {
+      const handle = new Database(join(dir, `${name}.sqlite`), { readonly: true });
+      try {
+        return (
+          handle.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").all() as {
+            name: string;
+          }[]
+        ).map((row) => row.name);
+      } finally {
+        handle.close();
+      }
+    };
+    const plan = (connId: string) => call(app, cookie, "POST", `${base}/connections/${connId}/plan-deployment`, {});
+    const deploy = (connId: string) =>
+      call(app, cookie, "POST", `${base}/connections/${connId}/apply-deployment`, { resolutions: {} });
+
+    // Dev: the placeholder becomes the stage's prefix, in the plan and in the database.
+    const devConn = await connect("dev", dev.id);
+    const devPlan = await plan(devConn);
+    assert.equal(devPlan.statusCode, 200, devPlan.body);
+    assert.deepEqual((devPlan.json().diff.tables as { name: string }[]).map((table) => table.name).sort(), [
+      "dev_orders",
+      "settings",
+    ]);
+    assert.ok(!devPlan.json().sqlPreview.includes("{{"), devPlan.json().sqlPreview);
+    assert.equal((await deploy(devConn)).statusCode, 200);
+    assert.deepEqual(tablesOf("dev"), ["dev_orders", "settings"]);
+    const devRows = new Database(join(dir, "dev.sqlite"), { readonly: true });
+    assert.deepEqual(devRows.prepare("SELECT id, label FROM dev_orders").all(), [{ id: 1, label: "first" }]);
+    devRows.close();
+    // Deployed means level: nothing left to plan, no drift against the schema.
+    assert.deepEqual((await plan(devConn)).json().diff.tables, []);
+    const drift = await call(app, cookie, "POST", `${base}/connections/${devConn}/drift-check`, {});
+    assert.deepEqual(drift.json().againstSchema, { tables: 0, refs: 0 });
+
+    // Staging defines nothing: refused before anything is created — and so is a connection without a stage.
+    const stagingConn = await connect("staging", staging.id);
+    for (const attempt of [
+      await plan(stagingConn),
+      await deploy(stagingConn),
+      await deploy(await connect("loose", null)),
+    ]) {
+      assert.equal(attempt.statusCode, 409, attempt.body);
+      assert.equal(attempt.json().code, "VARIABLES_UNRESOLVED");
+      assert.deepEqual(attempt.json().missing, ["table_prefix"]);
+    }
+    // An empty value is a value: no prefix on this stage.
+    const patched = await call(app, cookie, "PATCH", `/api/admin/environments/${staging.id}`, {
+      variables: { table_prefix: "" },
+    });
+    assert.equal(patched.statusCode, 200, patched.body);
+    assert.equal((await deploy(stagingConn)).statusCode, 200);
+    assert.deepEqual(tablesOf("staging"), ["orders", "settings"]);
+
+    // Pulling from one stage does not turn the shared schema into that stage's.
+    const devDb = new Database(join(dir, "dev.sqlite"));
+    devDb.exec("ALTER TABLE dev_orders ADD COLUMN note TEXT");
+    devDb.close();
+    const pulled = await call(app, cookie, "POST", `${base}/connections/${devConn}/pull`, {});
+    assert.equal(pulled.statusCode, 200, pulled.body);
+    const after = (await call(app, cookie, "GET", `${base}/content`)).json() as {
+      tables: { id: string; name: string; fields: { name: string }[] }[];
+    };
+    const orders = after.tables.find((table) => table.id === ordersId)!;
+    assert.equal(orders.name, "{{table_prefix}}orders");
+    assert.ok(orders.fields.some((field) => field.name === "note"));
   } finally {
     closeAllRooms();
     await app.close();

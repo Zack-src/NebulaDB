@@ -78,7 +78,9 @@ export const ERROR_CATALOG = {
   },
   ENVIRONMENT_INVALID: {
     status: 400,
-    message: "a stage needs a name (at most 40 characters); colour, protection and production must be known values",
+    message:
+      "a stage needs a name (at most 40 characters); colour, protection and production must be known values; " +
+      "variables: name → identifier fragment (letters, digits, _ $ . -, 64 characters at most)",
   },
   SEED_INVALID: {
     status: 400,
@@ -193,6 +195,12 @@ export const ERROR_CATALOG = {
   SEEDS_NOT_DEPLOYABLE: {
     status: 409,
     message: "a seed of this project has errors or its tables depend on each other in a cycle — fix it before deploying",
+  },
+  VARIABLES_UNRESOLVED: {
+    status: 409,
+    message:
+      "the schema uses {{variables}} this connection's stage does not resolve cleanly — define them on the stage " +
+      "(Admin → Environnements) or change the names",
   },
   LINT_BLOCKS_DEPLOYMENT: {
     status: 409,
