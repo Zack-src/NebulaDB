@@ -1284,6 +1284,8 @@
   "seeds.planSkip": "a déjà {{count}} lignes — rien n'est ajouté",
   "seeds.planErrors_one": "{{count}} erreur — corrigez les données",
   "seeds.planErrors_other": "{{count}} erreurs — corrigez les données",
+  "seeds.planWarnings_one": "{{count}} avertissement — voir les données initiales de la table",
+  "seeds.planWarnings_other": "{{count}} avertissements — voir les données initiales de la table",
   "seeds.planUnmeasured": "nombre de lignes inconnu — insérées seulement si vide",
   "seeds.planCycle": "Tables qui dépendent l'une de l'autre : {{tables}} — aucun ordre d'insertion possible",
   "seeds.reportInserted_one": "+{{count}} ligne",

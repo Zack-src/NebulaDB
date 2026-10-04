@@ -1284,6 +1284,8 @@
   "seeds.planSkip": "already has {{count}} rows — nothing added",
   "seeds.planErrors_one": "{{count}} error — fix the seed",
   "seeds.planErrors_other": "{{count}} errors — fix the seed",
+  "seeds.planWarnings_one": "{{count}} warning — see the table's initial data",
+  "seeds.planWarnings_other": "{{count}} warnings — see the table's initial data",
   "seeds.planUnmeasured": "row count unknown — inserted only if empty",
   "seeds.planCycle": "Tables depending on each other: {{tables}} — no order to insert them in",
   "seeds.reportInserted_one": "+{{count}} row",

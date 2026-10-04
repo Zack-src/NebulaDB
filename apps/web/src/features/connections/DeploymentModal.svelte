@@ -420,6 +420,11 @@
                 {:else}
                   {t("seeds.planUnmeasured")}
                 {/if}
+                {#if entry.errors === 0 && entry.warnings > 0}
+                  <span class="text-warning" data-seed-warnings={entry.tableName}>
+                    · {t("seeds.planWarnings", { count: entry.warnings })}
+                  </span>
+                {/if}
               </li>
             {/each}
           </ul>
