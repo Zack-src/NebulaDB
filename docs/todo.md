@@ -709,8 +709,9 @@ here: each gets its own security review before it is closed.**
   per-table scope, a time zone other than the server's, an alert when a scheduled backup fails
   (the card says so; nothing is sent — Phase 34's channels).
   **Still to do:** destinations other than the local directory (S3-compatible, SFTP —
-  `storage_targets`); the weekly **restore test** into a scratch database; a per-table choice in
-  the UI (the API takes `tables`); `connectionBudget` is spent once per backup, not per page,
+  `storage_targets`); the weekly **restore test** into a scratch database; ~~a per-table choice in
+  the UI~~ (done 2026-10-04: "Choisir les tables…" — `BackupScopeDialog.svelte`, tables only,
+  with a note); `connectionBudget` is spent once per backup, not per page,
   and there is no per-page time limit; views, sequences and accounts are not in a backup;
   paging by `OFFSET` gets slow on very large tables (keyset on the primary key would not);
   `/api/v1`; the security review of the Phase 27 rule. Open (unchanged): who pays for
@@ -857,8 +858,8 @@ file_ref, options_json, updated_at)`; an abstract `SeedSource` interface (`csv` 
   retention stays `ATHANORDB_AUDIT_RETENTION_DAYS` (no Admin → Paramètres screen yet).
   **Verified:** `audit/routes.test.ts` (categories, filters, paging, export, admin-only),
   `e2e/activity.e2e.ts`. **Still to do:** source "Base" (lot 10, database-side logs) and the "hors
-  Athanor uniquement" filter that needs it; per-user filter (by clicking an actor — the API has
-  `actorId`); duration / rows affected for SQL entries; hash-chain for a tamper-evident log;
+  Athanor uniquement" filter that needs it; ~~per-user filter~~ (done 2026-10-04: "Voir toute son activité" in an entry's detail sets
+  `actorId`, kept in the export links); duration / rows affected for SQL entries; hash-chain for a tamper-evident log;
   editor-SQL vs console-SQL told apart. The original item: **L**. One filterable view (source Athanor / Base; connection;
   user; type — structure · data · accounts · sessions · deployments; period; "hors Athanor
   uniquement"; search; CSV export) merging today's `AuditTab.svelte` and `ErrorsTab.svelte`;

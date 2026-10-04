@@ -24,6 +24,13 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Added (small things)
+
+- **Activity**: from an entry's detail, "Voir toute son activité" narrows the
+  journal — and its exports — to what that person did.
+- **Backups**: "Choisir les tables…" backs up only the ticked tables, with a
+  note saying why.
+
 ### Added (guided tour)
 
 - **A guided tour of the editor** the first time a browser opens a project:
