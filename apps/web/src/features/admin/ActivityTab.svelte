@@ -49,6 +49,8 @@
   let category = $state<ActivityCategory | "">("");
   let projectId = $state("");
   let connectionId = $state("");
+  /** Set from an entry: "everything this person did". Not a list to pick from — the journal names its own actors. */
+  let actor = $state.raw<{ id: string; label: string } | null>(null);
   let search = $state("");
   let searchDraft = $state("");
   let expanded = $state<string | null>(null);
@@ -61,6 +63,7 @@
     category: category || undefined,
     projectId: projectId || undefined,
     connectionId: connectionId || undefined,
+    actorId: actor?.id,
     search: search || undefined,
   });
 
@@ -174,6 +177,12 @@
     </a>
   </div>
 
+  {#if actor}
+    <p class="m-0 mb-2 flex items-center gap-2 text-xs" data-testid="activity-actor">
+      <span>{t("activity.onlyActor", { name: actor.label })}</span>
+      <Button size="xs" variant="ghost" onclick={() => (actor = null)}>{t("activity.allActors")}</Button>
+    </p>
+  {/if}
   {#if firstPage.error ?? more.error}<ErrorText>{firstPage.error ?? more.error}</ErrorText>{/if}
 
   {#if !firstPage.loading && entries.length === 0}
@@ -207,7 +216,19 @@
           {#if open}
             <dl class="m-0 grid grid-cols-[140px_minmax(0,1fr)] gap-x-3 gap-y-1 bg-surface-raised px-4 py-3 text-xs">
               <dt class="text-text-muted">{t("activity.field.actor")}</dt>
-              <dd class="m-0">{[entry.actorName, entry.actorEmail].filter(Boolean).join(" — ") || "—"}</dd>
+              <dd class="m-0 flex flex-wrap items-center gap-2">
+                <span>{[entry.actorName, entry.actorEmail].filter(Boolean).join(" — ") || "—"}</span>
+                {#if entry.actorId && actor?.id !== entry.actorId}
+                  {@const id = entry.actorId}
+                  <Button
+                    size="xs"
+                    variant="ghost"
+                    onclick={() => (actor = { id, label: entry.actorName ?? entry.actorEmail ?? id })}
+                  >
+                    {t("activity.showActor")}
+                  </Button>
+                {/if}
+              </dd>
               <dt class="text-text-muted">{t("activity.field.action")}</dt>
               <dd class="m-0 font-mono">{entry.action}</dd>
               {#if entry.detail}

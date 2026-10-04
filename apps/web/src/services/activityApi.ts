@@ -30,6 +30,8 @@ export interface ActivityFilters {
   category?: ActivityCategory;
   projectId?: string;
   connectionId?: string;
+  /** Only what this account did. */
+  actorId?: string;
   search?: string;
 }
 

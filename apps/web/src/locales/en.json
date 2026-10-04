@@ -1642,5 +1642,8 @@
   "tour.shortcut.undo": "undo / redo your changes",
   "tour.shortcut.delete": "delete the selection",
   "tour.workspace.title": "The rest of the project",
-  "tour.workspace.body": "The tabs lead to the version history, the problems found in the schema, the data dictionary and, depending on your rights, the deployments and the data of the linked databases. Top right: import, export and this tour, to replay whenever you like."
+  "tour.workspace.body": "The tabs lead to the version history, the problems found in the schema, the data dictionary and, depending on your rights, the deployments and the data of the linked databases. Top right: import, export and this tour, to replay whenever you like.",
+  "activity.showActor": "Show everything they did",
+  "activity.onlyActor": "Only what {{name}} did.",
+  "activity.allActors": "All actors"
 }

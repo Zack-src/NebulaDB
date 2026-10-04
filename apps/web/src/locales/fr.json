@@ -1642,5 +1642,8 @@
   "tour.shortcut.undo": "annuler / rétablir vos modifications",
   "tour.shortcut.delete": "supprimer la sélection",
   "tour.workspace.title": "Le reste du projet",
-  "tour.workspace.body": "Les onglets mènent à l'historique des versions, aux problèmes relevés dans le schéma, au dictionnaire de données et, selon vos droits, aux déploiements et aux données des bases rattachées. En haut à droite : import, export et cette visite, à rejouer quand vous voulez."
+  "tour.workspace.body": "Les onglets mènent à l'historique des versions, aux problèmes relevés dans le schéma, au dictionnaire de données et, selon vos droits, aux déploiements et aux données des bases rattachées. En haut à droite : import, export et cette visite, à rejouer quand vous voulez.",
+  "activity.showActor": "Voir toute son activité",
+  "activity.onlyActor": "Seulement l'activité de {{name}}.",
+  "activity.allActors": "Tous les auteurs"
 }

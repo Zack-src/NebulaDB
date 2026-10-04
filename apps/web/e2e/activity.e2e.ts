@@ -62,10 +62,10 @@ test("activity: filtered list, detail, link to the project, export", { timeout: 
     await page.getByRole("combobox", { name: "Type" }).click();
     await page.getByRole("option", { name: "Structure" }).click();
     await list.getByText("project.create").first().waitFor({ state: "detached" });
-    assert.deepEqual(
-      (await entries.locator("span.font-mono").allInnerTexts()).map((a) => a.trim()).sort(),
-      ["project.import", "table.lock"],
-    );
+    assert.deepEqual((await entries.locator("span.font-mono").allInnerTexts()).map((a) => a.trim()).sort(), [
+      "project.import",
+      "table.lock",
+    ]);
 
     // Back to all types, narrowed to one project.
     await page.getByRole("combobox", { name: "Type" }).click();
@@ -88,6 +88,19 @@ test("activity: filtered list, detail, link to the project, export", { timeout: 
     await entries.filter({ hasText: "table.lock" }).getByRole("button").click();
     await list.locator("dl").getByText("customers (structure, project)").waitFor();
     await snap("detail");
+
+    // From an entry to everything its author did — the filter also goes into the export.
+    await list.getByRole("button", { name: "Voir toute son activité" }).click();
+    await page
+      .getByTestId("activity-actor")
+      .getByText(/Seulement l'activité de/)
+      .waitFor();
+    await entries.first().waitFor();
+    assert.match((await page.getByRole("link", { name: "Exporter en CSV" }).getAttribute("href")) ?? "", /actorId=/);
+    await page.getByRole("button", { name: "Tous les auteurs" }).click();
+    await page.getByTestId("activity-actor").waitFor({ state: "detached" });
+    // The entry stays open across the two reloads of the list.
+    await list.locator("dl").getByText("customers (structure, project)").waitFor();
     await list.getByRole("link", { name: "Boutique" }).click();
     await page.waitForURL(`**/project/${projectId}`);
 
