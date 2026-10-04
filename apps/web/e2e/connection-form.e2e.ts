@@ -298,12 +298,9 @@ test(
       const switched = await savedConnection(page, "Par URI");
       assert.equal(switched.host, "db2.internal");
       assert.equal(switched.database, "shop");
-      // BUG: unticking the toggle on a connection saved by URI does not drop the URI. The form
-      // leaves `connectionString` out of the request, the server's update merges over what it has,
-      // so the old URI stays stored next to the new host — and the driver prefers a URI when there
-      // is one: the connection still goes to the old address, and the form reopens with the toggle
-      // ticked again. The expectation that fails today:
-      //   assert.equal(switched.connectionString, undefined);
+      // The URI goes with the toggle: left behind, the driver would prefer it and the connection
+      // would still go to the old address.
+      assert.equal(switched.connectionString, undefined);
 
       // ------------------------------------------------------------------
       // Importing the database's schema into the linked project.

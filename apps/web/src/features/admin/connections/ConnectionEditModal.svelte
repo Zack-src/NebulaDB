@@ -91,7 +91,8 @@
       user: network ? user : undefined,
       password: network ? password || undefined : undefined,
       ssl: network ? ssl : undefined,
-      connectionString: useUri && engine !== "sqlite" ? connectionString : undefined,
+      // Empty rather than left out: an update that does not mention it would keep the stored one.
+      connectionString: useUri && engine !== "sqlite" ? connectionString : "",
       filePath: engine === "sqlite" ? filePath : undefined,
       tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
       readOnly,

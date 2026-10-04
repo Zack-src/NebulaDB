@@ -283,6 +283,19 @@ function applyUpdate(id: string, updates: Partial<DatabaseConnectionConfig>, all
     merged.connectionString = existing.connectionString;
   }
 
+  // A connection is reached by a connection string or by host and port, never
+  // both: the drivers prefer the string when there is one, so a string left
+  // behind after switching to host and port would keep sending the connection
+  // to the old address — and stale host fields would show next to a new string.
+  // An empty string is how a client says "no connection string any more".
+  if (updates.connectionString !== undefined) {
+    if (!merged.connectionString?.trim()) {
+      delete merged.connectionString;
+    } else if (merged.connectionString !== existing.connectionString) {
+      for (const key of ["host", "port", "database", "user", "password", "ssl"] as const) delete merged[key];
+    }
+  }
+
   // `environment`, `tags` and `read_only` live in their own plain columns
   // (not in the encrypted blob): they are operator labels and a policy flag,
   // not secrets, and are read on paths that have no reason to decrypt.

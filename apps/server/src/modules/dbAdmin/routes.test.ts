@@ -50,6 +50,54 @@ function call(app: App, cookie: string, method: "GET" | "POST" | "PUT" | "DELETE
   });
 }
 
+test("a connection is reached by a connection string or by host and port, never both", async () => {
+  const app = await buildApp();
+  try {
+    const cookie = await login(app, 1);
+    const created = await call(app, cookie, "POST", "/api/admin/connections", {
+      name: "Shop",
+      engine: "postgres",
+      connectionString: "postgres://app:secret@old.internal:5432/shop",
+    });
+    assert.equal(created.statusCode, 200, created.body);
+    const { id } = created.json().connection as { id: string };
+    const url = `/api/admin/connections/${id}`;
+
+    // An update that does not mention the string keeps it, and its mask sent back means "unchanged".
+    const renamed = (await call(app, cookie, "PUT", url, { name: "Shop 2" })).json().connection;
+    assert.equal(renamed.connectionString, "postgres://app:***@old.internal:5432/shop");
+    const same = await call(app, cookie, "PUT", url, { connectionString: renamed.connectionString });
+    assert.equal(same.json().connection.connectionString, renamed.connectionString);
+
+    // Switching to host and port: the string must not stay behind, the drivers would prefer it.
+    const byHost = (
+      await call(app, cookie, "PUT", url, {
+        connectionString: "",
+        host: "new.internal",
+        port: 5432,
+        database: "shop",
+        user: "app",
+        password: "secret",
+      })
+    ).json().connection;
+    assert.equal(byHost.connectionString, undefined);
+    assert.deepEqual([byHost.host, byHost.port, byHost.user, byHost.hasPassword], ["new.internal", 5432, "app", true]);
+
+    // And back: a new string replaces the host fields instead of sitting next to them.
+    const byString = (
+      await call(app, cookie, "PUT", url, { connectionString: "postgres://app:secret@third.internal:5432/shop" })
+    ).json().connection;
+    assert.equal(byString.connectionString, "postgres://app:***@third.internal:5432/shop");
+    assert.deepEqual(
+      [byString.host, byString.port, byString.user, byString.hasPassword],
+      [undefined, undefined, undefined, false],
+    );
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
+
 /** A real SQLite file with two tables and a view — the one engine that needs no server to test the console against. */
 function seedTarget(): string {
   const file = join(tmpdir(), `athanordb-test-dbadmin-target-${randomUUID()}.sqlite`);
