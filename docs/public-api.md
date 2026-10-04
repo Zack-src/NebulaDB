@@ -67,6 +67,7 @@ alone is never enough for these.
 | `PATCH` | `/api/v1/projects/:id` | `projects:write` (+ admin) | `{ name?, status? }` — rename and/or archive/trash/restore |
 | `DELETE` | `/api/v1/projects/:id` | `projects:write` (+ admin) | Permanent delete — irreversible |
 | `GET` | `/api/v1/projects/:id/history` | `projects:read` | Schema revision log (Yjs update history), same as the app's history panel |
+| `GET` | `/api/v1/projects/:id/lint` | `projects:read` | Schema linter findings (`{ profile, blockDeployment, summary, findings }`) with the project's own rules — a CI step can fail on `summary.error > 0` |
 | `GET` | `/api/v1/projects/:id/iam` | `projects:read` | Teams granted access to this project and their permission level |
 | `PUT` | `/api/v1/projects/:id/iam/:teamId` | `projects:write` (+ admin) | `{ permission: "view"\|"edit"\|"administrator" }` — grant or change a team's access |
 | `DELETE` | `/api/v1/projects/:id/iam/:teamId` | `projects:write` (+ admin) | Revoke a team's access |

@@ -9,6 +9,7 @@ import {
   toProject,
 } from "@athanordb/dbml-engine";
 import { assertLocksAllow } from "../tableLocks/access.js";
+import { lintReport } from "../lint/check.js";
 import { requireScope } from "../apiKeys/auth.js";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
@@ -115,6 +116,14 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
     requireProjectAccess(req, id, "view");
     requireScope(req, "projects:read", id);
     return { revisions: listRevisions(id) };
+  });
+
+  // What the schema linter finds, with the project's own rules — the same findings as the editor's problems panel.
+  app.get("/api/v1/projects/:id/lint", API_RATE_LIMIT, async (req) => {
+    const { id } = req.params as { id: string };
+    const { project } = requireProjectAccess(req, id, "view");
+    requireScope(req, "projects:read", id);
+    return lintReport(id, project.name);
   });
 
   app.get("/api/v1/projects/:id/export/dbml", API_RATE_LIMIT, async (req, reply) => {

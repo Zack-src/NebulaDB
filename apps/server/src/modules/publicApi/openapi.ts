@@ -106,6 +106,41 @@ export const OPERATIONS: Operation[] = [
   },
   {
     method: "get",
+    path: "/api/v1/projects/:id/lint",
+    tag: "Projects",
+    scope: "projects:read",
+    summary: "Schema linter findings, with the project's own rules",
+    ok: {
+      status: 200,
+      schema: obj({
+        profile: { type: "string", enum: ["relaxed", "standard", "strict", "custom"] },
+        blockDeployment: {
+          type: "boolean",
+          description: "A finding of level error refuses a deployment (409 LINT_BLOCKS_DEPLOYMENT)",
+        },
+        summary: obj({ error: int, warning: int, info: int }),
+        findings: {
+          type: "array",
+          items: obj(
+            {
+              ruleId: str,
+              severity: { type: "string", enum: ["info", "warning", "error"] },
+              tableId: str,
+              tableName: str,
+              fieldId: str,
+              fieldName: str,
+              message: str,
+              params: { type: "object", additionalProperties: str },
+              fixable: bool,
+            },
+            ["ruleId", "severity", "tableId", "tableName", "message", "params", "fixable"],
+          ),
+        },
+      }),
+    },
+  },
+  {
+    method: "get",
     path: "/api/v1/projects/:id/iam",
     tag: "Projects",
     scope: "projects:read",
