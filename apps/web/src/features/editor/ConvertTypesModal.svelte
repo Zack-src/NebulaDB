@@ -20,7 +20,8 @@
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";
   import Hint from "@/components/ui/Hint.svelte";
-  import { SELECT_CLASS, CHECKBOX_CLASS } from "@/components/ui/inputStyles";
+  import Checkbox from "@/components/ui/Checkbox.svelte";
+  import Select from "@/components/ui/Select.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
 
   /**
@@ -83,32 +84,37 @@
   <div class="space-y-3">
     <div>
       <!-- svelte-ignore a11y_label_has_associated_control -->
-      <label class="mb-1 block text-xs font-medium text-text-muted">{t("convertTypes.targetEngine")}</label>
-      <select
-        class={SELECT_CLASS}
+      <label id="convert-types-engine" class="mb-1 block text-xs font-medium text-text-muted">
+        {t("convertTypes.targetEngine")}
+      </label>
+      <Select
+        class="w-full"
+        aria-labelledby="convert-types-engine"
         value={targetEngine}
-        onchange={(e) => {
-          targetEngine = e.currentTarget.value as DatabaseEngine;
+        options={ENGINES.map((engine) => ({ value: engine, label: t(`connections.engine.${engine}` as const) }))}
+        onChange={(engine) => {
+          targetEngine = engine;
           excluded.clear();
         }}
-      >
-        {#each ENGINES as engine (engine)}
-          <option value={engine}>{t(`connections.engine.${engine}` as const)}</option>
-        {/each}
-      </select>
+      />
     </div>
 
     {#if changes.length === 0}
       <Hint>{t("convertTypes.noChanges")}</Hint>
     {:else}
       <Hint>{t("convertTypes.previewHint", { count: changes.length })}</Hint>
-      <div class="max-h-72 space-y-1 overflow-y-auto rounded-sm border border-border bg-surface p-2">
+      <div class="flex max-h-72 flex-col gap-1 overflow-y-auto rounded-sm border border-border bg-surface p-2">
         {#each changes as c (c.key)}
-          <label class="flex cursor-pointer items-center gap-2 rounded-sm px-1.5 py-1 text-xs hover:bg-surface-hover">
-            <input type="checkbox" class={CHECKBOX_CLASS} checked={!excluded.has(c.key)} onchange={() => toggle(c.key)} />
-            <span class="font-mono text-text">{c.tableName}.{c.fieldName}</span>
-            <span class="font-mono text-text-muted">{c.from} → {c.to}</span>
-          </label>
+          <Checkbox
+            class="rounded-sm px-1.5 py-1 hover:bg-surface-hover"
+            checked={!excluded.has(c.key)}
+            onChange={() => toggle(c.key)}
+          >
+            <span class="flex flex-wrap gap-x-2 font-mono text-xs">
+              <span>{c.tableName}.{c.fieldName}</span>
+              <span class="text-text-muted">{c.from} → {c.to}</span>
+            </span>
+          </Checkbox>
         {/each}
       </div>
     {/if}
