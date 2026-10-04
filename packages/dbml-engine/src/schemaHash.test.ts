@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Field, Ref, Table } from "@athanordb/shared";
-import { canonicalDefault, canonicalType, diffFingerprints, fingerprintSchema } from "./schemaHash.js";
+import { canonicalDefault, canonicalType, compareSchemas, diffFingerprints, fingerprintSchema } from "./schemaHash.js";
 import { mergeProjectIntoExisting, parseDbml, toProject } from "./dbml.js";
 import { projectToDbml } from "./serialize.js";
 
@@ -201,4 +201,40 @@ Ref: orders.user_id > users.id [delete: cascade]
   const second = mergeProjectIntoExisting(empty, toProject(parseDbml(text), "p", text));
   assert.equal(fingerprintSchema(second).hash, fingerprintSchema(first).hash);
   assert.equal(Object.keys(fingerprintSchema(first).tables).join(","), "orders,users");
+});
+
+test("two databases compared: what each has alone, what differs and how, what nobody modelled", () => {
+  const source = shop();
+  const target = shop();
+  // The target is behind on `users` (a size, a missing column), ahead by a table, and lacks `orders`' key.
+  target.users.fields[1] = field("email", "varchar(120)", { unique: true, notNull: true });
+  target.users.fields.pop();
+  target.users.fields.push(field("legacy_code", "text"));
+  const audit = table("audit_copy", [field("id", "int")]);
+  const invoices = table("invoices", [field("id", "int", { pk: true })]);
+  const targetSchema = { tables: [target.users, audit], refs: [] };
+  const sourceSchema = { tables: [...source.tables, invoices], refs: source.refs };
+
+  const entries = compareSchemas(sourceSchema, targetSchema, sourceSchema);
+  assert.deepEqual(
+    entries.map((entry) => [entry.name, entry.status, entry.inSchema]),
+    [
+      ["audit_copy", "only-target", false],
+      ["invoices", "only-source", true],
+      ["orders", "only-source", true],
+      ["users", "different", true],
+    ],
+  );
+  assert.deepEqual(entries[3].detail, {
+    columnsAdded: ["legacy_code"],
+    columnsRemoved: ["status"],
+    columnsChanged: [{ name: "email", before: "varchar(255) not null", after: "varchar(120) not null" }],
+    primaryKeyChanged: false,
+    indexesChanged: false,
+    foreignKeysChanged: false,
+  });
+
+  assert.deepEqual(compareSchemas(sourceSchema, sourceSchema), []);
+  // Without a reference schema, nothing is flagged as unmodelled.
+  assert.ok(compareSchemas(sourceSchema, targetSchema).every((entry) => entry.inSchema));
 });

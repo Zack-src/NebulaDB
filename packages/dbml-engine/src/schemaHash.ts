@@ -258,3 +258,85 @@ export function diffFingerprints(before: SchemaFingerprint, after: SchemaFingerp
   }
   return { added, removed, changed, hasChanges: added.length + removed.length + changed.length > 0 };
 }
+
+/** What differs inside one table between two fingerprints of it. */
+export interface TableChangeDetail {
+  columnsAdded: string[];
+  columnsRemoved: string[];
+  /** Same name, another type, nullability, default or auto-increment — `before` / `after` as short text. */
+  columnsChanged: { name: string; before: string; after: string }[];
+  primaryKeyChanged: boolean;
+  indexesChanged: boolean;
+  foreignKeysChanged: boolean;
+}
+
+function describeColumn(column: ColumnFingerprint): string {
+  return [
+    column.type,
+    column.notNull ? "not null" : "",
+    column.default !== null ? `default ${column.default}` : "",
+    column.increment ? "increment" : "",
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+/** The detail behind a "changed" table of `diffFingerprints`: `before` → `after`. */
+export function describeTableChange(before: TableFingerprint, after: TableFingerprint): TableChangeDetail {
+  const key = (column: ColumnFingerprint) => column.name.toLowerCase();
+  const previous = new Map(before.columns.map((column) => [key(column), column]));
+  const next = new Map(after.columns.map((column) => [key(column), column]));
+  const columnsChanged: TableChangeDetail["columnsChanged"] = [];
+  for (const column of after.columns) {
+    const was = previous.get(key(column));
+    if (was && describeColumn(was) !== describeColumn(column)) {
+      columnsChanged.push({ name: column.name, before: describeColumn(was), after: describeColumn(column) });
+    }
+  }
+  const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  return {
+    columnsAdded: after.columns.filter((column) => !previous.has(key(column))).map((column) => column.name),
+    columnsRemoved: before.columns.filter((column) => !next.has(key(column))).map((column) => column.name),
+    columnsChanged,
+    primaryKeyChanged: !same(before.primaryKey, after.primaryKey),
+    indexesChanged: !same(before.indexes, after.indexes),
+    foreignKeysChanged: !same(before.foreignKeys, after.foreignKeys),
+  };
+}
+
+export interface SchemaComparisonEntry {
+  name: string;
+  status: "only-source" | "only-target" | "different";
+  /** Whether the reference schema (the project's) has a table of that name — `false` is an object nobody modelled. */
+  inSchema: boolean;
+  /** For `different`: source as `before`, target as `after` — `columnsRemoved` exist only in the source, `columnsAdded` only in the target. */
+  detail?: TableChangeDetail;
+}
+
+/**
+ * Two databases side by side, by the strict fingerprint (this is database ↔
+ * database: `varchar(255)` and `varchar(320)` must differ). Tables by name;
+ * identical tables are not listed.
+ */
+export function compareSchemas(
+  source: Pick<Project, "tables" | "refs">,
+  target: Pick<Project, "tables" | "refs">,
+  reference?: Pick<Project, "tables" | "refs">,
+): SchemaComparisonEntry[] {
+  const a = fingerprintSchema(source);
+  const b = fingerprintSchema(target);
+  const modelled = reference ? new Set(Object.keys(fingerprintSchema(reference).tables)) : null;
+  const entries: SchemaComparisonEntry[] = [];
+  for (const key of new Set([...Object.keys(a.tables), ...Object.keys(b.tables)])) {
+    const inSource = a.tables[key];
+    const inTarget = b.tables[key];
+    if (inSource && inTarget && inSource.hash === inTarget.hash) continue;
+    entries.push({
+      name: (inSource ?? inTarget).name,
+      status: !inTarget ? "only-source" : !inSource ? "only-target" : "different",
+      inSchema: modelled ? modelled.has(key) : true,
+      ...(inSource && inTarget ? { detail: describeTableChange(inSource, inTarget) } : {}),
+    });
+  }
+  return entries.sort((x, y) => x.name.localeCompare(y.name));
+}
