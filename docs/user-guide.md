@@ -260,6 +260,21 @@ Les deux niveaux, _Structure_ et _Complet_, gèlent la structure de la même
 façon ; _Complet_ gèle en plus les données initiales de la table (§5). Le détail de qui peut faire quoi est dans
 [`permissions.md`](permissions.md).
 
+### Suivre un projet et notifications
+
+L'**œil** de l'en-tête d'un projet ouvre la liste de ce que vous pouvez suivre :
+déploiements et retours arrière, verrous posés ou levés, données initiales
+modifiées, base modifiée hors Athanor. Cochez ce qui vous intéresse — rien
+n'est suivi par défaut, et tout décocher arrête le suivi.
+
+La **bulle** à côté (présente aussi sur le tableau de bord) est le centre de
+notifications : ce qui s'est passé sur les projets que vous suivez, avec le
+nombre de non-lues. Cliquer sur une notification la marque comme lue et ouvre
+son projet. Vous n'êtes jamais prévenu de ce que vous avez fait vous-même, ni
+de ce que vous ne pourriez pas voir dans l'application — un déploiement n'est
+annoncé qu'aux administrateurs du projet. Les notifications restent dans
+l'application : aucun e-mail n'est envoyé.
+
 ### Commentaires
 
 Une table ou une colonne peut porter un fil de discussion. Il n'y a pas encore
@@ -635,11 +650,13 @@ mot de passe par e-mail, ou demandez à un administrateur de le faire.
 Toujours dans _Paramètres → Profil_, section **Vos données** :
 
 - **Exporter mes données** télécharge un JSON contenant votre compte, vos
-  sessions actives, vos équipes, les projets dont vous êtes propriétaire et les
+  sessions actives, vos équipes, vos abonnements (les projets que vous suivez),
+  les projets dont vous êtes propriétaire et les
   actions sensibles que vous avez effectuées. Les empreintes de mot de passe en
   sont exclues volontairement.
 - **Supprimer mon compte** est définitif et demande votre mot de passe. Vos
-  sessions et vos appartenances aux équipes disparaissent ; les projets dont
+  sessions, vos appartenances aux équipes, vos abonnements et vos notifications
+  disparaissent ; les projets dont
   vous êtes propriétaire ne sont **pas** détruits — ils peuvent être partagés
   avec toute une équipe et restent gérables par un administrateur. Vos
   modifications de schéma gardent votre nom dans l'historique des projets :
@@ -661,9 +678,10 @@ détail figure dans la politique de confidentialité de votre instance — voir
 
 Dit explicitement pour éviter de le chercher :
 
-- pas de notifications par e-mail (ajout à un projet, réponse à un
-  commentaire) — les seuls e-mails envoyés sont les invitations et les
-  réinitialisations de mot de passe ;
+- pas de notifications par e-mail — celles des projets suivis restent dans
+  l'application (§3), et rien ne prévient d'un ajout à un projet ou d'une
+  réponse à un commentaire ; les seuls e-mails envoyés sont les invitations et
+  les réinitialisations de mot de passe ;
 - pas de SSO ni de passkeys ;
 - pas de sauvegarde des bases connectées par l'outil natif du moteur, ni vers un
   stockage externe (S3…) — les sauvegardes sont logiques et restent sur le

@@ -48,7 +48,7 @@ rollback is still to do; 2026-10-04: lot 17's schema linter and data dictionary)
 | ◐     | 8   | 34    | Admin activity journal                                           |
 | ◐     | 9   | 34    | External-change detection and alerts                             |
 | 16    | 19  | 34    | Health dashboard, traffic, visual EXPLAIN                        |
-| 17    | 20  | 34    | Subscription notifications                                       |
+| ◐     | 20  | 34    | Subscription notifications                                       |
 | 18    | 10  | 34    | Database-side logs (levels 1–2)                                  |
 | 19    | 12  | 35    | Derived projects (base + variants)                               |
 | 20    | 13  | 32    | Native backups, fine data rollback, unified timeline             |
@@ -100,7 +100,7 @@ rollback is still to do; 2026-10-04: lot 17's schema linter and data dictionary)
 - [ ] **Capability levels per connection** — **S**. Level 0 (catalogue read), 1 (supervision
       views), 2 (server-side audit configured) — detected at connection test and stored on
       `db_connections` (`plan §8.3`). Journal, traffic, advisor and drift attribution all branch on it.
-- [ ] **Migrations** — next migration number is **34** (29 is `backups`, 30 `backup_schedules`, 31 `lint_settings`, 32 `environments.variables_json`, 33 `deployment_history.schema_hash`). Every item below that adds a table
+- [ ] **Migrations** — next migration number is **35** (29 is `backups`, 30 `backup_schedules`, 31 `lint_settings`, 32 `environments.variables_json`, 33 `deployment_history.schema_hash`, 34 `subscriptions` + `notifications`). Every item below that adds a table
       gets its own migration, tested on a populated database (`infrastructure/migrations.test.ts`).
       Reminder from `memory`: saving `migrations.ts` while `npm run dev` runs migrates the real dev
       DB, one way — work on a copy.
@@ -947,14 +947,37 @@ ANALYZE`, **read-only statements only**, explicit confirmation, time cap) in the
       console; per-engine normalisation (PostgreSQL / MySQL / SQL Server / Oracle; SQLite
       `EXPLAIN QUERY PLAN` simplified) into a node tree coloured by cost, estimated vs. actual rows,
       slowest node highlighted, raw text available. **Blocked by:** SQL panel (Phase 31).
-- [ ] **Subscription notifications** — **L**. Follow a table, project, stage, variant, or
-      "everything on Prod"; choose events (structure change, lock / unlock, seed change, drift,
-      deployment — with stage, failed backup, new base version); channels in-app / e-mail /
-      webhook; immediate or daily digest; never notify one's own change; never notify about what
-      the user cannot see. Table `subscriptions(user_id, scope_type, scope_id, events_json,
-channels_json, digest)`, routes `/api/subscriptions`, 🔔 on tables and a notification centre
-      shared with drift alerts. **Subsumes** Phase 20 "Notifications" and Phase 21 "Comment
-      mentions" — decide opt-out rules once, for all.
+- [~] **Subscription notifications** — first slice done 2026-10-04: **follow a project,
+  in-app**. Migration 34 `subscriptions(user_id, scope_type, scope_id, events_json)` (only
+  `scope_type = 'project'` is written) and `notifications`. `modules/notifications/`:
+  `GET/PUT /api/projects/:id/subscription` (one's own, on a project one can see),
+  `GET /api/notifications`, `POST /api/notifications/read`; `notifyFollowers` called where
+  things happen — deployments and rollbacks, lock placed / lifted, seed set / removed, drift
+  found by the watch. UI: the eye in the project header (`FollowMenu.svelte`, a tick per
+  event) and the notification centre (`NotificationBell.svelte`) in the project header and
+  on the dashboard, read again every minute and when opened.
+  **Decisions taken** (the "decide opt-out rules once, for all" of the item):
+  - _Opt-in, per project, per event_ — nobody is subscribed to anything by default, not even
+    a project's owner. No instance-wide "everything on Prod" yet.
+  - _Never one's own doing_ (by account id, or by e-mail for a deployment).
+  - _Never what the follower could not see_: the level the event's own screen asks for is
+    checked for each follower **when the event happens** — a deployment needs project
+    `administrator` (the deployment-history rule), the others `view`. A grant that went
+    since the subscription tells nothing more.
+  - _A notification is a pointer_: an event name and a few names (table, connection, who),
+    worded by the client in the reader's language; 200 kept per account, older ones trimmed
+    as new ones arrive. The record stays the audit log and the deployment history.
+  - _Structure changes are not an event_: every edit of a schema would be one. "The schema
+    changed since you last looked" needs a digest, which does not exist yet.
+
+  **Verified:** `notifications/routes.test.ts` (rights, own action, level per event, read,
+  unsubscribe, revoked grant, cascade), `e2e/notifications.e2e.ts` (two accounts).
+  **Still to do:** e-mail and webhook channels and the daily digest (`sendMail` exists; the
+  per-user opt-out is the subscription itself); following a **table**, a stage or a variant;
+  events: structure change (digest), failed backup, comment replies and `@mentions` (the
+  Phase 20 / 21 items this one subsumes — not built); the bell polls, it is not pushed (the
+  project socket could carry it while a project is open); no notification preferences page;
+  drift alerts and this centre are one list but drift has no acknowledge / mute yet.
 
 ## Phase 35 — Derived projects: base + variants (plan §10)
 

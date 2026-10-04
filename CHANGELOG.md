@@ -24,6 +24,21 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Added (notifications)
+
+- **Follow a project.** The eye in a project's header lets each account choose
+  what it wants to be told about: deployments and rollbacks, locks placed or
+  lifted, initial data changed, a database changed outside Athanor. Nobody
+  follows anything until they choose to.
+- **A notification centre** in the project header and on the dashboard, with
+  the unread count; opening a notification marks it read and goes to its
+  project. In-app only for now — no e-mail.
+- Nobody is notified of what they did themselves, nor of what they could not
+  see in the app (a deployment only reaches project administrators).
+- Migration 34 (`subscriptions`, `notifications`). The personal-data export now
+  lists what the account follows; deleting an account or a project deletes its
+  subscriptions and notifications.
+
 ### Added (public API)
 
 - `GET /api/v1/projects/:id/pipeline` — where the current schema has been

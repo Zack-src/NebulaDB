@@ -46,6 +46,8 @@ There are two axes, and no others.
 | Import DBML / SQL into the project                                           |      |  ✔   |       ✔       |
 | Set or remove a table's initial data (CSV seed); a `full` lock freezes it    |      |  ✔   |       ✔       |
 | Read the schema linter's rules and findings (`GET …/lint`, `/api/v1/…/lint`) |  ✔   |  ✔   |       ✔       |
+| Follow the project, read one's own notifications about it                    |  ✔   |  ✔   |       ✔       |
+| Be notified of a deployment or rollback (when following them)                |      |      |       ✔       |
 | Read the project's pipeline (`GET …/pipeline`)                               |      |      |       ✔       |
 | Use `{{variables}}` in table names (a schema edit)                           |      |  ✔   |       ✔       |
 | Compare two of the project's databases with each other                       |      |      |       ✔       |
