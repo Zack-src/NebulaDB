@@ -1,5 +1,6 @@
 import type { Field, Project, Table } from "@athanordb/shared";
 import { parseNote } from "./dictionary.js";
+import { withoutVariables } from "./variables.js";
 
 // Zero `@dbml/core` import, like validate.ts: the editor runs this on every
 // change and the server runs the very same function before a deployment.
@@ -257,7 +258,8 @@ export function lintProject(project: Project, settings: LintSettings = DEFAULT_L
       }
     }
 
-    if (!SNAKE_CASE.test(table.name)) {
+    // A `{{variable}}` in a table's name is filled in per stage: the rule looks at what is written around it.
+    if (!SNAKE_CASE.test(withoutVariables(table.name) || "x")) {
       report("naming-snake-case", `Table name "${table.name}" is not snake_case`, { name: table.name });
     }
 
