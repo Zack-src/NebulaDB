@@ -115,6 +115,9 @@ test(
       await snap("confirm");
       await go.click();
       await confirm.waitFor({ state: "detached" });
+      // The confirmation closes when the deployment starts; the history is only written when it ends
+      // (a production deployment backs the database up first).
+      await modal.getByText("Déploiement réussi avec succès").waitFor();
 
       const history = await page.evaluate(async (id) => {
         const list = (await (await fetch(`/api/projects/${id}/connections`)).json()) as {

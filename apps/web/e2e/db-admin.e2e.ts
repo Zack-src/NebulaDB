@@ -107,7 +107,8 @@ test("admin: add a connection, explore it, query it and drop a table", { timeout
     await execute.click();
     await confirm.waitFor({ state: "detached" });
     await page.getByRole("button", { name: /customers/ }).waitFor();
-    assert.equal(await page.getByRole("button", { name: /invoices/ }).count(), 0);
+    // Waited for, not counted at once: the list is refetched after the drop.
+    await page.getByRole("button", { name: /invoices/ }).waitFor({ state: "detached" });
 
     const after = new Database(targetFile, { readonly: true });
     const tables = (
