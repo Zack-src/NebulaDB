@@ -54,7 +54,9 @@ Un projet s'ouvre sur un **espace de travail** à onglets, sous l'en-tête :
   administrateurs du projet ;
 - **Historique** — les versions du schéma (section 4) ;
 - **Problèmes** — ce que le linter trouve dans le schéma, avec le nombre de
-  constats sur l'onglet (voir « Qualité du schéma » plus bas).
+  constats sur l'onglet (voir « Qualité du schéma » plus bas) ;
+- **Dictionnaire** — ce que chaque table et chaque colonne signifie (voir
+  « Dictionnaire de données » plus bas).
 
 Chaque onglet a sa propre adresse : on peut la partager, recharger la page ou
 utiliser les boutons précédent / suivant du navigateur. À droite de la barre, le
@@ -142,6 +144,24 @@ soulignés dans l'éditeur DBML.
 Ce que le linter ne fait pas : il ne regarde que la structure du schéma (pas
 les données ni la base déployée), et ses règles de nommage se limitent au
 `snake_case` — pas encore de motif de nom personnalisé.
+
+### Dictionnaire de données (onglet Dictionnaire)
+
+Pour chaque table et chaque colonne : une **description**, un **responsable**
+(tables), une **classification** — public, interne, personnel, sensible — et
+des **étiquettes**. Un champ est enregistré dès qu'on le quitte. La barre en
+haut indique la part du schéma décrite ; la recherche et les filtres **À
+documenter** et **Données personnelles** réduisent la liste.
+
+Tout est écrit dans la **note** de la table ou de la colonne, à la suite de la
+description : `Comptes clients. [owner: equipe-crm] [class: personal] [tags:
+rgpd]`. Le dictionnaire fait donc partie du schéma : il suit l'historique,
+l'export et l'import DBML, et peut s'écrire directement dans l'éditeur DBML. Une
+table verrouillée ne se documente que par ceux que le verrou ne lie pas. Une
+description tient sur une ligne.
+
+**Markdown**, **CSV** et **HTML** téléchargent le dictionnaire ; l'API le sert
+aussi (`/api/v1/projects/:id/dictionary`). Il n'y a pas encore d'export PDF.
 
 ### Vue conceptuelle (MCD)
 

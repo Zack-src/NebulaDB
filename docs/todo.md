@@ -28,7 +28,7 @@ phase (2026-10-02: lot 1, the copy / paste item, lot 2's tokens + form component
 in-house; `DataGrid` and `Splitter` are still owed and block lot 6, not lots 3–5 — and lot 3:
 locks enforced on every write path, with a first editor UI; 2026-10-03: lot 18's timeline,
 diagram preview and per-table restore; lot 11's logical backups and restore — its deployment
-rollback is still to do; 2026-10-04: lot 17's schema linter — the data dictionary is still to do).
+rollback is still to do; 2026-10-04: lot 17's schema linter and data dictionary).
 
 | Order | Lot | Phase | What                                                             |
 | ----- | --- | ----- | ---------------------------------------------------------------- |
@@ -942,12 +942,39 @@ version, snapshot_json, notes)` — a version is an explicit **"Publier vN"**, n
   - The MCD view shows no finding; the canvas badge of an unselected table was not re-checked.
   - A `lint.changed` webhook / CI example in `docs/public-api.md`.
 
-- [ ] **Data dictionary** — **M**. Description, owner (user or team), **classification**
-      (public / internal / personal / sensitive) and tags per table and column, stored **in the
-      schema** (DBML `Note`s) so history and variants follow; "Dictionnaire" page with completeness
-      indicator and a lint rule for undocumented tables; export HTML (static site with diagram),
-      PDF, CSV, Markdown. Optional AI-assisted filling later. Prepares RGPD classification and
-      masking (Phase 38).
+- [~] **Data dictionary** — first slice done 2026-10-04. `packages/dbml-engine/src/dictionary.ts`
+  (pure): a table's or column's note is its **description** followed by bracketed annotations —
+  `'Customer accounts. [owner: crm-team] [class: personal] [tags: rgpd, core]'` — read by
+  `parseNote`, written by `formatNote`; `buildDictionary` (tables by name, columns with their
+  constraints and foreign-key target, completeness), `dictionaryToMarkdown` / `…Csv` / `…Html`
+  (one self-contained page, no script). Classification: `public` / `internal` / `personal` /
+  `sensitive`. Editor: the **Dictionnaire** workspace tab (`features/editor/dictionary/`):
+  completeness bar, search, filters (to document / personal data), every field saved into the
+  note when left, the three exports. `GET /api/v1/projects/:id/dictionary[?format=…]`. The
+  linter's `table-description` rule reads the description only: a note made of annotations
+  does not count.
+  **Decisions taken:**
+  - _In the note, as text_ — the plan's "stored in the schema": it survives the DBML round
+    trip, history, export, a pull request on the file, and variants later, with no table of
+    its own. The price: a note is one line of DBML, so a description is one line; and the
+    annotations show wherever the raw note shows (canvas tooltip, DBML hover).
+  - _Owner is free text_ (a team's or a person's name), not a reference to an account: it must
+    still read right in an exported file and after the account is gone.
+  - _Who edits:_ anyone with `edit`, except on a table whose lock binds them — a lock already
+    froze notes.
+  - _Each edit re-reads the live note_ before writing, so two people documenting one table do
+    not undo each other's field (last write wins per annotation, not per note).
+
+  **Verified:** `dictionary.test.ts` (parse / format, DBML round trip, completeness, the three
+  exports — pipe, formula-looking text and markup defused — and the lint rule),
+  `publicApi/routes.test.ts`, `openapi.test.ts`, `e2e/dictionary.e2e.ts` (typed in a browser,
+  found in the exported DBML, kept across a reload, filters, Markdown download, the lint rule).
+  **Still to do:** PDF export; the diagram in the HTML export; a multi-line description (needs
+  the serializer to write `'''` notes); owner picked from teams; hiding the annotations where
+  the note is displayed; a lint rule for undocumented **columns** and for a personal column in
+  a table not classified as such; enums are not in the dictionary; AI-assisted filling; the
+  RGPD report and masking of Phase 38 that this classification prepares.
+
 - [ ] **Index suggestions and clean-up** — **L**. Ranked list (impact) of indexes to create
       (from analysed queries + stats), duplicates / redundant, and unused ones (`pg_stat_user_
 indexes`, `sys.dm_db_index_usage_stats`, `performance_schema`, Oracle views) with an

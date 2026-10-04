@@ -24,6 +24,19 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Added (data dictionary)
+
+- **A "Dictionnaire" tab in every project.** Each table and column gets a
+  description, an owner, a classification (public, internal, personal,
+  sensitive) and tags, with a completeness bar, a search and two filters (to
+  document, personal data). Exports: Markdown, CSV, a self-contained HTML page.
+- **Stored in the schema's notes**, as text after the description —
+  `[owner: …] [class: …] [tags: …]` — so it follows history, DBML export and
+  import. Existing notes are untouched and read as descriptions.
+- `GET /api/v1/projects/:id/dictionary` (`?format=markdown|csv|html`).
+- The linter's "table described" rule no longer counts a note made only of
+  annotations as a description.
+
 ### Added (table locks)
 
 - **"Verrous du projet".** As soon as a table is locked, a padlock with the
