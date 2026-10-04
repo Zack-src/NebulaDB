@@ -38,8 +38,6 @@ test("admin: add a connection, explore it, query it and drop a table", { timeout
     const snap = async (name: string) => {
       if (process.env.E2E_SHOTS) await page.screenshot({ path: join(process.env.E2E_SHOTS, `${++shot}-${name}.png`) });
     };
-    // The console confirms a write-mode run with a native dialog.
-    page.on("dialog", (dialog) => void dialog.accept());
     await login(page, env.baseUrl);
 
     await page.getByRole("button", { name: "Admin", exact: true }).click();
@@ -91,6 +89,7 @@ test("admin: add a connection, explore it, query it and drop a table", { timeout
     await page.getByRole("switch", { name: "Mode écriture" }).click();
     await editor.fill("UPDATE customers SET name = 'Ada Lovelace' WHERE id = 1");
     await page.getByRole("button", { name: "Exécuter", exact: true }).click();
+    await page.getByRole("dialog").getByRole("button", { name: "Exécuter en écriture" }).click();
     await page.getByText("1 ligne(s) affectée(s)").waitFor();
     await snap("sql-write");
 

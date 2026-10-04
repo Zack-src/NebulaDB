@@ -50,7 +50,6 @@ test(
     try {
       const page = await env.browser.newPage({ viewport: { width: 1400, height: 900 } });
       page.setDefaultTimeout(15_000);
-      page.on("dialog", (dialog) => void dialog.accept());
       const errors: string[] = [];
       page.on("pageerror", (err) => errors.push(String(err)));
       let shot = 0;
@@ -163,6 +162,7 @@ test(
       await page.getByRole("textbox", { name: "Console SQL" }).fill("ALTER TABLE invoices ADD COLUMN note TEXT");
       await page.evaluate(() => ((window as unknown as { __marker: boolean }).__marker = true));
       await page.getByRole("button", { name: "Exécuter", exact: true }).click();
+      await page.getByRole("dialog").getByRole("button", { name: "Exécuter en écriture" }).click();
       await page.getByRole("link", { name: "Ouvrir dans le schéma « Boutique »" }).click();
       await page.locator(".svelte-flow__node.selected").filter({ hasText: "invoices" }).waitFor();
       assert.equal(await tab("Schéma").getAttribute("aria-selected"), "true");

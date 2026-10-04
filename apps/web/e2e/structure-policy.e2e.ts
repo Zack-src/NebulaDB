@@ -67,8 +67,6 @@ test(
     try {
       const page = await env.browser.newPage({ viewport: { width: 1400, height: 900 } });
       page.setDefaultTimeout(15_000);
-      // The console confirms a write-mode run with a native dialog.
-      page.on("dialog", (dialog) => void dialog.accept());
       await login(page, env.baseUrl);
 
       // A project modelling the database, and the connection attached to it.
@@ -120,6 +118,7 @@ test(
       await page.getByRole("switch", { name: "Mode écriture" }).click();
       await editor.fill("ALTER TABLE invoices ADD COLUMN note TEXT");
       await page.getByRole("button", { name: "Exécuter", exact: true }).click();
+      await page.getByRole("dialog").getByRole("button", { name: "Exécuter en écriture" }).click();
       await redirect.getByText("modifier la table invoices").waitFor();
       assert.deepEqual(tablesOf(targetFile), ["customers", "invoices"]);
 
@@ -143,6 +142,7 @@ test(
       await page.getByRole("switch", { name: "Mode écriture" }).click();
       await editor.fill("ALTER TABLE invoices ADD COLUMN note TEXT");
       await page.getByRole("button", { name: "Exécuter", exact: true }).click();
+      await page.getByRole("dialog").getByRole("button", { name: "Exécuter en écriture" }).click();
       const confirm = page.getByRole("dialog", { name: "Modifier la structure hors du schéma ?" });
       await confirm.getByText(/modifier la table invoices/).waitFor();
       const columns = () => {

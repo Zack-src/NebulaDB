@@ -87,10 +87,12 @@
     });
   });
 
+  /** A write-mode run is asked for first: the statement may change or delete data. */
+  let confirmingWrite = $state(false);
   function run() {
     if (!sql.trim() || execute.pending) return;
-    if (writeMode && !window.confirm(t("dbadmin.sql.confirmWrite"))) return;
-    void execute.run();
+    if (writeMode) confirmingWrite = true;
+    else void execute.run();
   }
 
   function onKeydown(event: KeyboardEvent) {
@@ -174,6 +176,19 @@
 
 {#if redirect}
   <StructureRedirectDialog refusal={redirect} onClose={() => (redirect = null)} />
+{/if}
+{#if confirmingWrite}
+  <ConfirmDialog
+    title={t("dbadmin.sql.confirmWriteTitle")}
+    message={t("dbadmin.sql.confirmWrite")}
+    danger="danger"
+    confirmLabel={t("dbadmin.sql.confirmWriteRun")}
+    onCancel={() => (confirmingWrite = false)}
+    onConfirm={() => {
+      confirmingWrite = false;
+      void execute.run();
+    }}
+  />
 {/if}
 {#if toConfirm}
   <ConfirmDialog

@@ -2,6 +2,7 @@
   import type { AdminConnectionSummary, ConnectionAuthMode, DatabaseEngine, StructurePolicy } from "@athanordb/shared";
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import RadioGroup from "@/components/ui/RadioGroup.svelte";
+  import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
@@ -121,6 +122,8 @@
   });
 
   let pullMessage = $state<string | null>(null);
+  /** The project whose schema is about to be replaced by the database's — asked first. */
+  let pullingInto = $state<{ id: string; name: string } | null>(null);
   const pull = useAsyncAction(async (projectId: string) => {
     pullMessage = null;
     const res = await pullDatabaseSchema(projectId, initial!.id);
@@ -230,9 +233,7 @@
                 size="xs"
                 variant="ghost"
                 disabled={pull.pending}
-                onclick={() => {
-                  if (window.confirm(t("connections.confirmPull"))) void pull.run(project.id);
-                }}
+                onclick={() => (pullingInto = { id: project.id, name: project.name })}
               >
                 {t("connections.pullSchema")}
               </Button>
@@ -280,3 +281,18 @@
     </div>
   </div>
 </Modal>
+
+{#if pullingInto}
+  <ConfirmDialog
+    title={t("connections.confirmPullTitle", { project: pullingInto.name })}
+    message={t("connections.confirmPull")}
+    danger="warning"
+    confirmLabel={t("connections.confirmPullRun")}
+    onCancel={() => (pullingInto = null)}
+    onConfirm={() => {
+      const target = pullingInto;
+      pullingInto = null;
+      if (target) void pull.run(target.id);
+    }}
+  />
+{/if}
