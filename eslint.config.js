@@ -39,7 +39,6 @@ const NATIVE_CONTROLS_NOT_MIGRATED = [
   "plugins/dialog/MarketplaceTab.svelte",
   "plugins/dialog/PluginSettingsModal.svelte",
   "plugins/dialog/StudioTab.svelte",
-  "projects/components/WebhooksModal.svelte",
   "settings/ApiKeys.svelte",
   "settings/totp/BackupCodesModal.svelte",
   "teams/ProjectTeamsModal.svelte",

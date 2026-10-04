@@ -45,7 +45,8 @@ test(
 
       await page.getByRole("button", { name: "Webhooks", exact: true }).click();
       await page.getByLabel("Adresse du webhook").fill(receiverUrl);
-      await page.getByLabel("Format").selectOption("json");
+      await page.getByRole("combobox", { name: "Format" }).click();
+      await page.getByRole("option", { name: "JSON signé" }).click();
       await page.getByRole("button", { name: "Ajouter" }).click();
 
       const secret = (await page.getByTestId("webhook-secret").innerText()).trim();

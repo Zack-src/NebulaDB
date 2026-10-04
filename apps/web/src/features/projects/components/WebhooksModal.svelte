@@ -37,13 +37,16 @@
   import Modal from "@/components/overlays/Modal.svelte";
   import Badge from "@/components/ui/Badge.svelte";
   import Button from "@/components/ui/Button.svelte";
+  import Checkbox from "@/components/ui/Checkbox.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
   import List from "@/components/ui/List.svelte";
   import ListMain from "@/components/ui/ListMain.svelte";
   import ListRow from "@/components/ui/ListRow.svelte";
-  import { CHECKBOX_CLASS, INPUT_CLASS, SELECT_CLASS } from "@/components/ui/inputStyles";
+  import Select from "@/components/ui/Select.svelte";
+  import Switch from "@/components/ui/Switch.svelte";
+  import { INPUT_CLASS } from "@/components/ui/inputStyles";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { formatDateTime } from "@/i18n/formatters";
@@ -151,18 +154,16 @@
         aria-label={t("webhooks.url")}
         bind:value={url}
       />
-      <select class={SELECT_CLASS} bind:value={format} aria-label={t("webhooks.formatLabel")}>
-        {#each FORMATS as option (option.id)}
-          <option value={option.id}>{t(option.labelKey)}</option>
-        {/each}
-      </select>
+      <Select
+        class="w-36"
+        bind:value={format}
+        options={FORMATS.map((option) => ({ value: option.id, label: t(option.labelKey) }))}
+        aria-label={t("webhooks.formatLabel")}
+      />
     </div>
     <div class="flex flex-wrap items-center gap-4 text-xs">
       {#each EVENTS as option (option.id)}
-        <label class="flex items-center gap-1.5">
-          <input type="checkbox" class={CHECKBOX_CLASS} bind:checked={events[option.id]} />
-          {t(option.labelKey)}
-        </label>
+        <Checkbox bind:checked={events[option.id]}><span class="text-xs">{t(option.labelKey)}</span></Checkbox>
       {/each}
       <Button
         variant="primary"
@@ -211,13 +212,9 @@
             {/if}
             <Button size="sm" onclick={() => void test.run(hook.id)} disabled={test.pending}>{t("webhooks.test")}</Button>
             <Button size="sm" variant="ghost" onclick={() => void showLog.run(hook.id)}>{t("webhooks.log")}</Button>
-            <label class="flex items-center gap-1 text-[11px] text-text-muted">
-              <input
-                type="checkbox"
-                class={CHECKBOX_CLASS}
-                checked={hook.enabled}
-                onchange={(event) => void toggle.run(hook.id, event.currentTarget.checked)}
-              />
+            <!-- A switch, not a checkbox: it takes effect at once. -->
+            <label class="flex cursor-pointer items-center gap-1.5 text-[11px] text-text-muted">
+              <Switch size="sm" checked={hook.enabled} onChange={(enabled) => void toggle.run(hook.id, enabled)} />
               {t("webhooks.enabled")}
             </label>
             <Button
