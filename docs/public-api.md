@@ -203,6 +203,125 @@ curl -X POST -H "Authorization: Bearer $KEY" -H "Content-Type: application/json"
   "https://your-instance/api/v1/projects/$PROJECT/connections/$CONN_ID/deploy"
 ```
 
+### In a CI job
+
+A job that deploys the schema only when it is safe to: it stops if the
+linter reports errors, stops if a database of the project was changed outside
+the schema, then deploys. `curl` (7.76 or later, for `--fail-with-body`) and
+`jq` are all it needs.
+
+The key belongs to a project `administrator` and carries `projects:read`
+(lint, check) and `deployments:trigger` (deploy); restrict it to the project.
+
+```bash
+#!/usr/bin/env bash
+# ci/athanor-deploy.sh
+set -euo pipefail
+
+: "${ATHANOR_URL:?}" "${ATHANOR_KEY:?}" "${PROJECT:?}" "${CONN_ID:?}"
+CONN_NAME="${CONN_NAME:-}"     # the connection's name: needed on the production stage
+RESOLUTIONS="${RESOLUTIONS:-}" # answers to the risks of this deployment (JSON), see below
+[ -n "$RESOLUTIONS" ] || RESOLUTIONS='{}'
+API="$ATHANOR_URL/api/v1/projects/$PROJECT"
+
+# Prints the answer; on an error status, prints it ({ error, code, ... }) to stderr and fails.
+call() {
+  local body
+  if ! body=$(curl --silent --show-error --fail-with-body \
+    -H "Authorization: Bearer $ATHANOR_KEY" "$@"); then
+    echo "$body" >&2
+    return 1
+  fi
+  printf '%s' "$body"
+}
+
+# 1. The schema against the project's own lint rules.
+lint=$(call "$API/lint")
+if [ "$(jq '.summary.error' <<<"$lint")" -gt 0 ]; then
+  jq -r '.findings[] | select(.severity == "error") | "lint: \(.tableName): \(.message)"' <<<"$lint" >&2
+  exit 1
+fi
+
+# 2. The project's databases against what was last deployed to them.
+check=$(call -X POST "$API/monitoring/check")
+if [ "$(jq '.result.unreachable' <<<"$check")" -gt 0 ]; then
+  echo "a database could not be read: nothing is known about it" >&2
+  exit 1
+fi
+# result.changes counts what this check found for the first time; a change
+# already reported stays in events, open, until it is settled.
+drift=$(jq '.result.changes + ([.events[] | select(.status == "open" and .kind != "unreachable")] | length)' <<<"$check")
+if [ "$drift" -gt 0 ]; then
+  jq -r '.events[] | select(.status == "open") | "changed outside the schema: \(.connectionName) (\(.kind))"' <<<"$check" >&2
+  exit 1
+fi
+
+# 3. Deploy.
+body=$(jq -n --arg name "$CONN_NAME" --argjson resolutions "$RESOLUTIONS" \
+  '{ confirmName: $name, resolutions: $resolutions }')
+call -X POST -H "Content-Type: application/json" -d "$body" \
+  "$API/connections/$CONN_ID/deploy" | jq '{ success, executedStatements, backupId }'
+```
+
+The same as a GitHub Actions job, the key and the ids kept as repository
+secrets and variables:
+
+```yaml
+jobs:
+  deploy-schema:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint, check and deploy the schema
+        env:
+          ATHANOR_URL: https://your-instance
+          ATHANOR_KEY: ${{ secrets.ATHANOR_KEY }}
+          PROJECT: ${{ vars.ATHANOR_PROJECT }}
+          CONN_ID: ${{ vars.ATHANOR_CONNECTION }}
+          CONN_NAME: Production
+        run: bash ci/athanor-deploy.sh
+```
+
+What the deployment step meets on its way:
+
+- **`confirmName`** is the connection's name, as `GET
+  /api/v1/projects/:id/connections` lists it. On the production stage the
+  deployment is refused without it (`409 PRODUCTION_CONFIRMATION_REQUIRED`);
+  elsewhere it is not looked at.
+- **`resolutions`** answers the changes that lose or reject data, one entry
+  per risk: `{ "column:users.legacy_code": { "strategy": "DROP_DATA_CONFIRMED" } }`,
+  `{ "column:users.country": { "strategy": "BACKFILL_DEFAULT", "value": "FR" } }`
+  (keys are lower-case: `table:<table>` or `column:<table>.<column>`). Away
+  from production a risk left unanswered takes its default — a dropped column
+  that holds data is kept in the database. On the production stage a critical
+  risk needs its answer: the deployment is refused with
+  `409 DESTRUCTIVE_CHANGE_UNRESOLVED` and the list of `risks` to answer, so a
+  job never loses data nobody decided to lose. Set `RESOLUTIONS` for that one
+  run, once someone has decided.
+- On the production stage the database is **backed up first** (`backupId` in
+  the answer; `502 BACKUP_FAILED` and nothing deployed when the backup does
+  not complete), and a stage that is not `free` wants the stage before it to
+  have this schema already (`409 PIPELINE_STAGE_SKIPPED`): run the job on that
+  stage's connection first.
+- When the connection asks each user for **their own database account**, the
+  deployment runs as the account of the key's owner, and is refused with
+  `409 PERSONAL_CREDENTIALS_REQUIRED` until the owner has given one. Once, in
+  the app or with a key that carries `connections:manage`:
+
+  ```bash
+  curl -X PUT -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+    -d '{"username": "ci_deployer", "password": "..."}' \
+    "https://your-instance/api/v1/connections/$CONN_ID/credentials"
+  ```
+
+  The check of step 2 is not concerned: like the watch, it reads with the
+  connection's service account.
+- The check only reads the databases it has a reference for — those the
+  project has deployed to or pulled from at least once (`result.checked` says
+  how many).
+- A project can refuse by itself to deploy a schema with lint errors
+  (`409 LINT_BLOCKS_DEPLOYMENT`); step 1 stops the job either way.
+
 ## Rate limits
 
 `/api/v1` routes carry their own per-route limits (120 requests/minute for
