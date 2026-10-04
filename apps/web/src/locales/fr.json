@@ -1157,6 +1157,7 @@
   "dbadmin.users.pick": "Sélectionnez un utilisateur ou un rôle pour voir et modifier ses permissions.",
   "dbadmin.users.kind.user": "Utilisateur",
   "dbadmin.users.kind.role": "Rôle",
+  "dbadmin.users.kindLabel": "Utilisateur ou rôle",
   "dbadmin.users.host": "Hôte autorisé (% = tous)",
   "dbadmin.users.generate": "Générer",
   "dbadmin.users.passwordOnce": "Notez ce mot de passe maintenant : Athanor ne le conserve pas et ne pourra pas le réafficher.",

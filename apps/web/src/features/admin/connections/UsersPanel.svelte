@@ -4,10 +4,12 @@
   import { CloseIcon, KeyIcon, PlusIcon, TrashIcon, UserIcon, UsersIcon } from "@/components/icons/Icons";
   import Badge from "@/components/ui/Badge.svelte";
   import Button from "@/components/ui/Button.svelte";
+  import Checkbox from "@/components/ui/Checkbox.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
-  import { CHECKBOX_CLASS, INPUT_SM_CLASS, SELECT_SM_CLASS } from "@/components/ui/inputStyles";
+  import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
+  import Select from "@/components/ui/Select.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { applyUserAction, fetchGrants, fetchPrincipals, type ConnectionOverview } from "@/services/dbAdminApi";
@@ -174,12 +176,16 @@
 <div class="grid grid-cols-1 gap-4 md:grid-cols-12">
   <div class="space-y-2 md:col-span-4">
     {#if hasDatabaseContext}
-      <select class={`${SELECT_SM_CLASS} w-full`} bind:value={context} aria-label={t("dbadmin.users.level")}>
-        {#if capabilities.principalLevels}<option value={SERVER_LEVEL}>{t("dbadmin.users.serverLevel")}</option>{/if}
-        {#each overview.databases as db (db.name)}
-          <option value={db.name}>{db.name}</option>
-        {/each}
-      </select>
+      <Select
+        size="sm"
+        class="w-full"
+        bind:value={context}
+        options={[
+          ...(capabilities.principalLevels ? [{ value: SERVER_LEVEL, label: t("dbadmin.users.serverLevel") }] : []),
+          ...overview.databases.map((db) => ({ value: db.name, label: db.name })),
+        ]}
+        aria-label={t("dbadmin.users.level")}
+      />
     {/if}
     <div class="flex items-center gap-1">
       <input class={`${INPUT_SM_CLASS} min-w-0 flex-1`} bind:value={filter} placeholder={t("dbadmin.users.filter")} />
@@ -191,10 +197,16 @@
 
     {#if creating}
       <div class="space-y-2 rounded-md border border-border bg-surface-raised p-2.5">
-        <select class={`${SELECT_SM_CLASS} w-full`} bind:value={newKind}>
-          <option value="user">{t("dbadmin.users.kind.user")}</option>
-          <option value="role">{t("dbadmin.users.kind.role")}</option>
-        </select>
+        <Select
+          size="sm"
+          class="w-full"
+          bind:value={newKind}
+          options={[
+            { value: "user", label: t("dbadmin.users.kind.user") },
+            { value: "role", label: t("dbadmin.users.kind.role") },
+          ]}
+          aria-label={t("dbadmin.users.kindLabel")}
+        />
         <input class={`${INPUT_SM_CLASS} w-full`} bind:value={newName} placeholder={t("common.name")} autocomplete="off" />
         {#if capabilities.principalHost && newKind === "user"}
           <input class={`${INPUT_SM_CLASS} w-full`} bind:value={newHost} placeholder={t("dbadmin.users.host")} autocomplete="off" />
@@ -333,12 +345,15 @@
           {/each}
           {#if p.memberOf.length === 0}<span class="text-xs text-text-muted">{t("dbadmin.users.noRoles")}</span>{/if}
           {#if roles.filter((r) => r !== p.name && !p.memberOf.includes(r)).length > 0}
-            <select class={SELECT_SM_CLASS} bind:value={roleToAdd} disabled={locked}>
-              <option value="">{t("dbadmin.users.addRole")}</option>
-              {#each roles.filter((r) => r !== p.name && !p.memberOf.includes(r)) as role (role)}
-                <option value={role}>{role}</option>
-              {/each}
-            </select>
+            <Select
+              size="sm"
+              class="min-w-40"
+              bind:value={roleToAdd}
+              options={roles.filter((r) => r !== p.name && !p.memberOf.includes(r)).map((role) => ({ value: role, label: role }))}
+              placeholder={t("dbadmin.users.addRole")}
+              disabled={locked}
+              aria-label={t("dbadmin.users.addRole")}
+            />
             {#if roleToAdd}
               <Button
                 size="xs"
@@ -390,18 +405,24 @@
         <section class="space-y-2 rounded-md border border-border bg-surface-raised p-2.5">
           <div class="text-xs font-semibold text-text-secondary">{t("dbadmin.users.grantNew")}</div>
           <div class="flex flex-wrap items-center gap-1.5">
-            <select class={SELECT_SM_CLASS} bind:value={grantScope} aria-label={t("dbadmin.users.scopeLabel")}>
-              {#each scopes as scope (scope)}
-                <option value={scope}>{t(`dbadmin.users.scope.${scope}`)}</option>
-              {/each}
-            </select>
+            <Select
+              size="sm"
+              class="w-28"
+              bind:value={grantScope}
+              options={scopes.map((scope) => ({ value: scope, label: t(`dbadmin.users.scope.${scope}`) }))}
+              aria-label={t("dbadmin.users.scopeLabel")}
+            />
             {#if needsDatabase}
-              <select class={SELECT_SM_CLASS} bind:value={grantDatabase} aria-label={t("dbadmin.database")}>
-                <option value="">{context || t("dbadmin.database")}</option>
-                {#each overview.databases.filter((d) => d.name !== context) as db (db.name)}
-                  <option value={db.name}>{db.name}</option>
-                {/each}
-              </select>
+              <Select
+                size="sm"
+                class="min-w-40"
+                bind:value={grantDatabase}
+                options={[
+                  { value: "", label: context || t("dbadmin.database") },
+                  ...overview.databases.filter((d) => d.name !== context).map((db) => ({ value: db.name, label: db.name })),
+                ]}
+                aria-label={t("dbadmin.database")}
+              />
             {/if}
             {#if needsSchema}
               <input class={`${INPUT_SM_CLASS} w-32`} bind:value={grantSchema} placeholder={t("dbadmin.schema")} autocomplete="off" />
@@ -412,17 +433,19 @@
           </div>
           <div class="flex flex-wrap gap-x-3 gap-y-1">
             {#each overview.privileges[grantScope] ?? [] as privilege (privilege)}
-              <label class="inline-flex cursor-pointer items-center gap-1.5 text-xs">
-                <input type="checkbox" class={CHECKBOX_CLASS} value={privilege} bind:group={grantPrivileges} />
-                {privilege}
-              </label>
+              <Checkbox
+                checked={grantPrivileges.includes(privilege)}
+                onChange={(checked) =>
+                  (grantPrivileges = checked ? [...grantPrivileges, privilege] : grantPrivileges.filter((held) => held !== privilege))}
+              >
+                <span class="text-xs">{privilege}</span>
+              </Checkbox>
             {/each}
           </div>
           <div class="flex items-center gap-3">
-            <label class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-text-secondary">
-              <input type="checkbox" class={CHECKBOX_CLASS} bind:checked={grantOption} />
-              {t("dbadmin.users.withGrantOption")}
-            </label>
+            <Checkbox bind:checked={grantOption}>
+              <span class="text-xs text-text-secondary">{t("dbadmin.users.withGrantOption")}</span>
+            </Checkbox>
             <Button size="sm" variant="primary" disabled={grantPrivileges.length === 0} onclick={() => submitGrant(p)}>
               {t("dbadmin.users.previewGrant")}
             </Button>
