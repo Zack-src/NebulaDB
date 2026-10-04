@@ -78,7 +78,8 @@ export function requireScope(req: FastifyRequest, scope: ApiKeyScope, projectId?
 
 /**
  * Scope check for a route with no single project to restrict against —
- * team management, which is instance-wide, not per-project. A
+ * team management and database backups, which are instance-wide, not
+ * per-project. A
  * project-restricted key is refused outright rather than silently let
  * through: "restricted to project X" implied a narrower key than "can
  * manage every team in the instance," and letting a global-admin-owned

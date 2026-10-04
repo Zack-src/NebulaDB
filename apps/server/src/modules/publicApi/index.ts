@@ -26,6 +26,7 @@ import { svgToPng } from "../../shared/svgToPng.js";
 import { getProjectSummary, listProjectSummaries } from "../projects/repository.js";
 import { createProjectForUser, deleteProject, updateProject } from "../projects/projectCrud.js";
 import { parseBaselineProject, parseSource, requireSqlDialect, sendSql } from "../projects/dbmlSource.js";
+import { registerPublicBackupRoutes } from "./backupRoutes.js";
 import { registerPublicIamRoutes } from "./iamRoutes.js";
 import { registerPublicLockRoutes } from "./lockRoutes.js";
 import { registerPublicMonitoringRoutes } from "./monitoringRoutes.js";
@@ -222,6 +223,7 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
   registerPublicLockRoutes(app);
   registerPublicMonitoringRoutes(app);
   registerPublicConnectionRoutes(app);
+  registerPublicBackupRoutes(app);
   registerPublicWebhookRoutes(app);
   registerPublicTeamRoutes(app);
 }

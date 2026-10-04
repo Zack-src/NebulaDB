@@ -558,6 +558,168 @@ test("a running backup can be cancelled, and leaves no file", async () => {
   }
 });
 
+test("/api/v1 backups: taken, polled, listed, downloaded and deleted with an administrator's unrestricted key", async () => {
+  const app = await buildApp();
+  try {
+    const admin = await login(app, 1);
+    const member = await login(app, 0);
+    const file = targetFile(SHOP);
+    const connId = await connect(app, admin, "Shop v1", file);
+    const key = async (cookie: string, scopes: string[], projectId?: string) => {
+      const res = await call(app, cookie, "POST", "/api/keys", { name: "backups", scopes, projectId });
+      assert.equal(res.statusCode, 201, res.body);
+      return res.json().plaintextKey as string;
+    };
+    const withKey = (plaintext: string | null, method: Method, url: string, payload?: unknown) =>
+      app.inject({
+        method,
+        url,
+        headers: { host: HOST, ...(plaintext ? { authorization: `Bearer ${plaintext}` } : {}) },
+        ...(payload === undefined ? {} : { payload: payload as object }),
+      });
+    const project = (await call(app, admin, "POST", "/api/projects", { name: "Shop schema" })).json() as { id: string };
+    const manageKey = await key(admin, ["connections:manage"]);
+    const readKey = await key(admin, ["projects:read", "projects:write", "deployments:trigger"]);
+    const restrictedKey = await key(admin, ["connections:manage"], project.id);
+    const memberKey = await key(member, ["connections:manage"]);
+
+    const routes: [Method, string][] = [
+      ["GET", `/api/v1/connections/${connId}/backups`],
+      ["POST", `/api/v1/connections/${connId}/backups`],
+      ["GET", "/api/v1/backups/x"],
+      ["POST", "/api/v1/backups/x/cancel"],
+      ["DELETE", "/api/v1/backups/x"],
+      ["GET", "/api/v1/backups/x/download"],
+    ];
+    for (const [method, url] of routes) {
+      const body = method === "POST" ? {} : undefined;
+      assert.equal((await withKey(null, method, url, body)).statusCode, 401, url);
+      // The right scope is not enough: the key's owner is no instance administrator.
+      const asMember = await withKey(memberKey, method, url, body);
+      assert.deepEqual([asMember.statusCode, asMember.json().code], [403, "ADMIN_REQUIRED"], url);
+      const unscoped = await withKey(readKey, method, url, body);
+      assert.deepEqual([unscoped.statusCode, unscoped.json().code], [403, "API_SCOPE_INSUFFICIENT"], url);
+      // A key narrowed to one project does not reach a database of the instance.
+      const restricted = await withKey(restrictedKey, method, url, body);
+      assert.deepEqual([restricted.statusCode, restricted.json().code], [403, "API_KEY_PROJECT_RESTRICTED"], url);
+    }
+    // There is no restore here, with any key.
+    assert.equal((await withKey(manageKey, "POST", "/api/v1/backups/x/restore", {})).statusCode, 404);
+
+    const list = `/api/v1/connections/${connId}/backups`;
+    assert.equal(
+      (await withKey(manageKey, "GET", "/api/v1/connections/nope/backups")).json().code,
+      "CONNECTION_NOT_FOUND",
+    );
+    assert.equal((await withKey(manageKey, "GET", "/api/v1/backups/nope")).json().code, "BACKUP_NOT_FOUND");
+    assert.equal((await withKey(manageKey, "POST", list, { tables: "orders" })).json().code, "BACKUP_INVALID");
+
+    const started = await withKey(manageKey, "POST", list, { tables: ["customers"], note: " nightly job " });
+    assert.equal(started.statusCode, 202, started.body);
+    const { id } = started.json().backup as Backup;
+    let backup = started.json().backup as Backup & { note: string | null; scope: string[] | null };
+    for (let i = 0; i < 400 && backup.status === "running"; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      backup = (await withKey(manageKey, "GET", `/api/v1/backups/${id}`)).json().backup;
+    }
+    assert.equal(backup.status, "done", backup.error ?? "");
+    assert.equal(backup.trigger, "manual");
+    assert.equal(backup.note, "nightly job");
+    assert.deepEqual(backup.scope, ["customers"]);
+    assert.deepEqual(
+      backup.tables.map((t) => [t.name, t.rows]),
+      [["customers", 2]],
+    );
+
+    const listed = (await withKey(manageKey, "GET", list)).json() as { backups: Backup[]; usedBytes: number };
+    assert.deepEqual(
+      listed.backups.map((b) => b.id),
+      [id],
+    );
+    assert.equal(listed.usedBytes, backup.sizeBytes);
+    // The same record the app shows.
+    const inApp = (await call(app, admin, "GET", `/api/admin/connections/${connId}/backups`)).json();
+    assert.deepEqual(inApp.backups, listed.backups);
+
+    const download = await withKey(manageKey, "GET", `/api/v1/backups/${id}/download`);
+    assert.equal(download.statusCode, 200, download.body);
+    assert.equal(download.headers["content-type"], "application/gzip");
+    assert.match(String(download.headers["content-disposition"]), /Shop_v1-\d+\.jsonl\.gz/);
+    const lines = gunzipSync(download.rawPayload)
+      .toString("utf8")
+      .trim()
+      .split("\n")
+      .map((line) => JSON.parse(line) as unknown);
+    assert.deepEqual(lines[0] && (lines[0] as { format: string; tables: string[] }).tables, ["customers"]);
+    assert.ok(lines.some((line) => Array.isArray(line) && line[1] === "Ada Lovelace"));
+    assert.deepEqual(lines.at(-1), { end: "customers", rows: 2 });
+
+    // A finished backup has nothing to cancel.
+    assert.equal((await withKey(manageKey, "POST", `/api/v1/backups/${id}/cancel`)).json().code, "BACKUP_NOT_READY");
+    const deleted = await withKey(manageKey, "DELETE", `/api/v1/backups/${id}`);
+    assert.deepEqual([deleted.statusCode, deleted.json()], [200, { deleted: true }]);
+    assert.equal(existsSync(backupFilePath(id)), false);
+    assert.equal((await withKey(manageKey, "GET", `/api/v1/backups/${id}`)).statusCode, 404);
+    assert.deepEqual((await withKey(manageKey, "GET", list)).json().backups, []);
+
+    // Recorded as the app's own actions are; a refused call records nothing.
+    const actions = (
+      db
+        .prepare("SELECT action FROM audit_log WHERE action LIKE 'backup.%' AND target_id = ? ORDER BY rowid")
+        .all(connId) as { action: string }[]
+    ).map((row) => row.action);
+    assert.deepEqual(actions, ["backup.create", "backup.download", "backup.delete"]);
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
+
+test("/api/v1 backups: a running backup is cancelled with a key", async () => {
+  const app = await buildApp();
+  try {
+    const admin = await login(app, 1);
+    const file = targetFile("CREATE TABLE events (id INTEGER PRIMARY KEY, label TEXT);");
+    const filler = new Database(file);
+    const insert = filler.prepare("INSERT INTO events (label) VALUES (?)");
+    filler.transaction(() => {
+      for (let i = 0; i < 40_000; i++) insert.run("event");
+    })();
+    filler.close();
+    const connId = await connect(app, admin, "Events v1", file);
+    const created = await call(app, admin, "POST", "/api/keys", { name: "backups", scopes: ["connections:manage"] });
+    const authorization = `Bearer ${created.json().plaintextKey as string}`;
+    const withKey = (method: Method, url: string, payload?: unknown) =>
+      app.inject({
+        method,
+        url,
+        headers: { host: HOST, authorization },
+        ...(payload === undefined ? {} : { payload: payload as object }),
+      });
+
+    const started = await withKey("POST", `/api/v1/connections/${connId}/backups`, {});
+    const { id } = started.json().backup as Backup;
+    // One at a time per database, and a running one is not deleted from under its writer.
+    assert.equal(
+      (await withKey("POST", `/api/v1/connections/${connId}/backups`, {})).json().code,
+      "BACKUP_ALREADY_RUNNING",
+    );
+    assert.equal((await withKey("DELETE", `/api/v1/backups/${id}`)).json().code, "BACKUP_NOT_READY");
+    assert.equal((await withKey("GET", `/api/v1/backups/${id}/download`)).json().code, "BACKUP_NOT_READY");
+    assert.deepEqual((await withKey("POST", `/api/v1/backups/${id}/cancel`)).json(), { cancelling: true });
+    let status = "running";
+    for (let i = 0; i < 400 && status === "running"; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      status = ((await withKey("GET", `/api/v1/backups/${id}`)).json().backup as Backup).status;
+    }
+    assert.equal(status, "cancelled");
+    assert.equal(existsSync(backupFilePath(id)), false);
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
+
 test("a schedule fires once per occurrence, never for a past one, and keeps the last N", async () => {
   const app = await buildApp();
   try {

@@ -26,16 +26,16 @@ retrieved again — treat a lost key as gone and issue a new one.
 | `projects:read` | List/read projects, export DBML/SQL/SVG/PNG, schema history, IAM, deployment history |
 | `projects:write` | Create/rename/archive/delete a project, import/edit its schema, IAM grant/revoke |
 | `deployments:trigger` | Run a deployment or rollback against a connected database |
-| `connections:manage` | Create/update/delete/test a database connection, pull a live schema onto the canvas |
+| `connections:manage` | Create/update/delete/test a database connection, pull a live schema onto the canvas; take, download and delete a database's backups (instance administrators only) |
 | `teams:manage` | Create/rename/delete a team, add/remove its members — instance-wide, global-admin-only |
 
 A key with no matching scope gets `403 API_SCOPE_INSUFFICIENT`, not a silent
 downgrade. A key created with a specific `projectId` only works against that
 one project (`403 API_KEY_PROJECT_RESTRICTED` against any other) — omit it
-for a key that should follow whatever projects its owner can see. Team
-routes are instance-wide, not project-scoped — a project-restricted key is
-refused outright (`403 API_KEY_PROJECT_RESTRICTED`) rather than let through
-unscoped.
+for a key that should follow whatever projects its owner can see. Team and
+backup routes are instance-wide, not project-scoped — a project-restricted
+key is refused outright (`403 API_KEY_PROJECT_RESTRICTED`) rather than let
+through unscoped.
 
 ### Key management (session-only)
 
@@ -119,7 +119,24 @@ instance administrator (admin console) can be used from here but not edited;
 one marked read-only refuses `deploy` and `rollback` with
 `403 CONNECTION_READ_ONLY`. Creating, editing and administering instance-level
 connections (explorer, SQL console, database users) is done in the web admin
-console and is not part of `/api/v1`.
+console and is not part of `/api/v1` — their backups excepted, below.
+
+### Backups (instance-wide, global-admin-only)
+
+| Method | Path | Scope | Notes |
+|---|---|---|---|
+| `GET` | `/api/v1/connections/:id/backups` | `connections:manage` | A connected database's backups, newest first: `{ backups, limits, usedBytes, schedule }` |
+| `POST` | `/api/v1/connections/:id/backups` | `connections:manage` | `{ tables?, note? }` — starts a backup of the whole database, or of the tables named, and answers `202 { backup }` at once. One per database at a time (`409 BACKUP_ALREADY_RUNNING`) |
+| `GET` | `/api/v1/backups/:id` | `connections:manage` | One backup (`{ backup }`): poll it until `status` leaves `running` for `done`, `failed` (see `error`) or `cancelled`; `tables.length` of `tablesTotal` is how far it is |
+| `POST` | `/api/v1/backups/:id/cancel` | `connections:manage` | Cancels a running backup; `409 BACKUP_NOT_READY` when it is not running |
+| `DELETE` | `/api/v1/backups/:id` | `connections:manage` | Deletes the backup and its file; `409 BACKUP_NOT_READY` while it runs — cancel it first |
+| `GET` | `/api/v1/backups/:id/download` | `connections:manage` | The decrypted file, `application/gzip`: one JSON document per line (a header, then per table a `{ table, columns }` line, its rows as arrays, an `{ end, rows }` line). `409 BACKUP_NOT_READY` unless `done`. Restoring is deliberately not part of `/api/v1`: it empties tables, and is done in the app, where the target's name is retyped |
+
+`:id` of a connection is the one `GET /api/v1/projects/:id/connections`
+lists. A backup is every row of the database in one file, so these need an
+instance administrator's key — a project administrator's is refused
+(`403 ADMIN_REQUIRED`) — and, like the team routes, refuse a key restricted
+to one project. The schedule and the pin are set in the app.
 
 ### Teams (instance-wide, global-admin-only)
 
@@ -173,8 +190,9 @@ curl -X POST -H "Authorization: Bearer $KEY" -H "Content-Type: application/json"
 
 `/api/v1` routes carry their own per-route limits (120 requests/minute for
 reads, writes, connections, teams and IAM; 10/minute for the deploy and
-rollback triggers — both execute real SQL against a real database), on top
-of the app's global ceiling.
+rollback triggers — both execute real SQL against a real database — and for
+starting or downloading a backup, every row of a database), on top of the
+app's global ceiling.
 
 Independently of who calls, each **target database** (same engine, host,
 port and database — or the same SQLite file) accepts at most 30 connection

@@ -21,14 +21,17 @@ interface Operation {
   path: string;
   tag: "Projects" | "Connections" | "Teams";
   scope: ApiKeyScope;
-  /** Also needs project `administrator` (or global admin for teams) — a scope alone isn't enough. */
-  admin?: boolean;
+  /**
+   * Also needs project `administrator` (or global admin for teams) — a scope alone isn't enough.
+   * `"instance"`: a global administrator, on a route outside the Teams tag.
+   */
+  admin?: boolean | "instance";
   summary: string;
   description?: string;
   query?: { name: string; schema: Schema; description?: string; required?: boolean }[];
   body?: Schema;
   /** Success response: a JSON schema, or a non-JSON media type. */
-  ok: { status: 200 | 201; schema?: Schema; mediaType?: string };
+  ok: { status: 200 | 201 | 202; schema?: Schema; mediaType?: string };
 }
 
 const ref = (name: string): Schema => ({ $ref: `#/components/schemas/${name}` });
@@ -612,6 +615,84 @@ export const OPERATIONS: Operation[] = [
     ok: { status: 200, schema: obj({ success: bool, executedStatements: int }) },
   },
 
+  // --- backups (instance-level: a connection's id, no project) ---
+  {
+    method: "get",
+    path: "/api/v1/connections/:id/backups",
+    tag: "Connections",
+    scope: "connections:manage",
+    admin: "instance",
+    summary: "A connected database's backups, newest first, with the limits and the schedule",
+    ok: {
+      status: 200,
+      schema: obj({
+        backups: { type: "array", items: ref("Backup") },
+        limits: obj({
+          maxBytes: { type: "integer", description: "Ceiling on the data read for one backup, before compression" },
+          retentionDays: { type: "integer", description: "Days a backup is kept; 0 keeps them until deleted" },
+        }),
+        usedBytes: { type: "integer", description: "Disk space taken by this connection's stored backups" },
+        schedule: { type: "object", description: "The automatic schedule, set in the app" },
+      }),
+    },
+  },
+  {
+    method: "post",
+    path: "/api/v1/connections/:id/backups",
+    tag: "Connections",
+    scope: "connections:manage",
+    admin: "instance",
+    summary: "Start a backup of the database, whole or of the tables named",
+    description:
+      "Answers as soon as the backup has started — poll `GET /api/v1/backups/{id}` until `status` is no longer `running`. One backup per database at a time (409 BACKUP_ALREADY_RUNNING).",
+    body: obj(
+      {
+        tables: { type: "array", items: str, maxItems: 2000, description: "Default: the whole database" },
+        note: { type: "string", maxLength: 500 },
+      },
+      [],
+    ),
+    ok: { status: 202, schema: obj({ backup: ref("Backup") }) },
+  },
+  {
+    method: "get",
+    path: "/api/v1/backups/:id",
+    tag: "Connections",
+    scope: "connections:manage",
+    admin: "instance",
+    summary: "One backup: its state, and how far it is while it runs",
+    ok: { status: 200, schema: obj({ backup: ref("Backup") }) },
+  },
+  {
+    method: "post",
+    path: "/api/v1/backups/:id/cancel",
+    tag: "Connections",
+    scope: "connections:manage",
+    admin: "instance",
+    summary: "Cancel a running backup (409 BACKUP_NOT_READY when it is not running)",
+    ok: { status: 200, schema: flag("cancelling") },
+  },
+  {
+    method: "delete",
+    path: "/api/v1/backups/:id",
+    tag: "Connections",
+    scope: "connections:manage",
+    admin: "instance",
+    summary: "Delete a backup and its file (409 BACKUP_NOT_READY while it runs: cancel it first)",
+    ok: { status: 200, schema: flag("deleted") },
+  },
+  {
+    method: "get",
+    path: "/api/v1/backups/:id/download",
+    tag: "Connections",
+    scope: "connections:manage",
+    admin: "instance",
+    summary: "The backup's file, decrypted: gzipped JSON lines",
+    description:
+      "One JSON document per line: a header, then for each table a `{ table, columns }` line, its rows as arrays and an `{ end, rows }` line. Restoring a backup is not part of this API — it empties tables, and is done in the app, where the target's name is retyped.",
+    ok: { status: 200, mediaType: "application/gzip" },
+  },
+
   // --- teams ---
   {
     method: "get",
@@ -772,6 +853,34 @@ const COMPONENTS: Record<string, Schema> = {
     lockedByName: { type: ["string", "null"] },
     lockedAt: str,
   }),
+  Backup: obj({
+    id: str,
+    connectionId: { type: ["string", "null"] },
+    connectionName: str,
+    engine: ref("Engine"),
+    trigger: { type: "string", enum: ["manual", "scheduled", "pre-deployment", "pre-restore"] },
+    status: { type: "string", enum: ["running", "done", "failed", "cancelled"] },
+    scope: { type: ["array", "null"], items: str, description: "The tables asked for; null for the whole database" },
+    tables: {
+      type: "array",
+      items: obj({ name: str, columns: { type: "array", items: str }, rows: int }),
+      description: "Tables written so far (all of them once done), parents before children",
+    },
+    tablesTotal: { type: "integer", description: "With `tables.length`, the progress of a running backup" },
+    rows: int,
+    sizeBytes: { type: ["integer", "null"], description: "Size of the stored file; null until it is finished" },
+    checksum: { type: ["string", "null"], description: "SHA-256 of the stored file" },
+    error: { type: ["string", "null"] },
+    note: { type: ["string", "null"] },
+    createdByName: { type: ["string", "null"] },
+    startedAt: str,
+    finishedAt: { type: ["string", "null"] },
+    pinned: { type: "boolean", description: "A pinned backup is never removed by the retention sweep" },
+    expiresAt: {
+      type: ["string", "null"],
+      description: "When the retention sweep removes it; null when it never will",
+    },
+  }),
   Connection: obj(
     {
       id: str,
@@ -848,6 +957,9 @@ const ERROR_RESPONSES = {
   "429": "Rate limited",
 };
 
+/** Answers that are bytes, not text. */
+const BINARY_MEDIA_TYPES = new Set(["image/png", "application/gzip"]);
+
 function toOpenApiPath(path: string): string {
   return path.replace(/:([A-Za-z]+)/g, "{$1}");
 }
@@ -871,12 +983,12 @@ export function buildOpenApiSpec(serverUrl: string | null): Record<string, unkno
     const okContent = op.ok.mediaType
       ? {
           [op.ok.mediaType]: {
-            schema: op.ok.mediaType.startsWith("image/png") ? { type: "string", format: "binary" } : str,
+            schema: BINARY_MEDIA_TYPES.has(op.ok.mediaType) ? { type: "string", format: "binary" } : str,
           },
         }
       : { "application/json": { schema: op.ok.schema } };
     const permissionNote = op.admin
-      ? op.tag === "Teams"
+      ? op.tag === "Teams" || op.admin === "instance"
         ? "Requires a global administrator."
         : "Requires project `administrator`, not just the scope."
       : undefined;
