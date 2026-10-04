@@ -7,6 +7,7 @@ import { requireProjectAccess, requireProjectAdmin, requireUser } from "../../sh
 import { getRoom } from "../../realtime/roomRegistry.js";
 import { createDatabaseDriver } from "./drivers/index.js";
 import { deployToConnection, rollbackConnectionDeployment } from "./deploy.js";
+import { compareConnections } from "./compare.js";
 import { checkDrift, dismissOutOfSchema, listProjectDrift } from "./drift.js";
 import { pullConnectionSchema } from "./pull.js";
 import { analyzeDeploymentRisks } from "./riskAnalysis.js";
@@ -182,6 +183,15 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
     const { id } = req.params as { id: string };
     requireProjectAccess(req, id, "view");
     return { connections: listProjectDrift(id) };
+  });
+
+  // Two of the project's databases against each other. It opens both, so it
+  // is for the project's administrators, like every route that reaches a database.
+  app.post("/api/projects/:id/connections/compare", CONNECTION_RATE_LIMIT, async (req) => {
+    const { id } = req.params as { id: string };
+    const { project } = requireProjectAdmin(req, id);
+    const { sourceId, targetId } = (req.body ?? {}) as { sourceId?: unknown; targetId?: unknown };
+    return compareConnections(id, project.name, sourceId, targetId);
   });
 
   app.post("/api/projects/:id/connections/:connId/drift-check", CONNECTION_RATE_LIMIT, async (req) => {
