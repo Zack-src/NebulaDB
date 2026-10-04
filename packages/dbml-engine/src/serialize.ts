@@ -89,10 +89,22 @@ export function refSignature(tables: Table[], ref: Ref): string | null {
   return `${ends[0]}<->${ends[1]}`;
 }
 
+/**
+ * An endpoint as the `Ref:` line spells it: the table with its schema, each
+ * part quoted when it has to be. Writing the bare table name made a relation
+ * between tables of a named schema unparseable (`Table 'orders' does not
+ * exist in Schema 'public'`) — and with it the whole DBML text.
+ */
+function refEndpoint(tables: Table[], tableId: string, fieldId: string): string | null {
+  const table = tables.find((t) => t.id === tableId);
+  const field = table?.fields.find((f) => f.id === fieldId);
+  return table && field ? `${tableName(table)}.${quoteIdent(field.name)}` : null;
+}
+
 /** One `Ref:` line, or `null` for a ref whose endpoints no longer resolve. */
 function refLine(tables: Table[], ref: Ref): string | null {
-  const from = fieldNameById(tables, ref.from.tableId, ref.from.fieldId);
-  const to = fieldNameById(tables, ref.to.tableId, ref.to.fieldId);
+  const from = refEndpoint(tables, ref.from.tableId, ref.from.fieldId);
+  const to = refEndpoint(tables, ref.to.tableId, ref.to.fieldId);
   if (!from || !to) return null;
   const symbol = CARDINALITY_SYMBOL[ref.cardinality];
   const prefix = ref.name ? `Ref ${quoteIdent(ref.name)}:` : "Ref:";
@@ -105,7 +117,7 @@ function refLine(tables: Table[], ref: Ref): string | null {
   // a one-to-one is written referenced side first, or it would come back from
   // the next parse with its owner swapped.
   const [left, right] = ref.cardinality === "one-to-one" ? [to, from] : [from, to];
-  return `${prefix} ${left.table}.${left.field} ${symbol} ${right.table}.${right.field}${suffix}`;
+  return `${prefix} ${left} ${symbol} ${right}${suffix}`;
 }
 
 /** The `from->to` keys `refSignature` produced before it became direction-free — still found in exported files' visual sidecars. */
