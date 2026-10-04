@@ -82,9 +82,11 @@ test("pipeline: stages in order, a refused skip, then a skip with a reason", { t
     await snap("start");
 
     /** Opens the deployment dialog from a stage of the card and applies the plan. */
-    const deployFrom = async (name: string) => {
+    const deployFrom = async (name: string, notice?: RegExp) => {
       await stage(name).getByRole("button", { name: "Déployer" }).click();
       const modal = page.getByRole("dialog").first();
+      // The plan says what would refuse the deployment, before "Apply".
+      if (notice) await modal.getByRole("alert").filter({ hasText: notice }).waitFor();
       await modal.getByRole("button", { name: "Prévisualiser le SQL" }).click();
       await modal.getByRole("button", { name: "Appliquer les modifications en base" }).click();
       return modal;
@@ -95,7 +97,7 @@ test("pipeline: stages in order, a refused skip, then a skip with a reason", { t
     };
 
     // Out of order: refused, in words.
-    let modal = await deployFrom("Staging");
+    let modal = await deployFrom("Staging", /Cette étape attend DEV/);
     await modal.getByText("Cette étape ne reçoit un schéma qu'une fois l'étape précédente à niveau").waitFor();
     await snap("refused");
     await close(modal);

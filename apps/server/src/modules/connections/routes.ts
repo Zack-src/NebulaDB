@@ -1,7 +1,7 @@
 import { stageSkipFor } from "../pipeline/routes.js";
 import type { FastifyInstance } from "fastify";
 import { readProjectFromDoc, type DatabaseConnectionConfig, type MigrationResolutionMap } from "@athanordb/shared";
-import { diffTargetAgainstLive, generateMigrationSql } from "@athanordb/dbml-engine";
+import { diffTargetAgainstLive, generateMigrationSql, lintProject } from "@athanordb/dbml-engine";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireProjectAccess, requireProjectAdmin, requireUser } from "../../shared/guards.js";
@@ -9,6 +9,8 @@ import { getRoom } from "../../realtime/roomRegistry.js";
 import { createDatabaseDriver } from "./drivers/index.js";
 import { deployToConnection, rollbackConnectionDeployment } from "./deploy.js";
 import { compareConnections } from "./compare.js";
+import { getLintSettings } from "../lint/repository.js";
+import { projectPipeline, schemaHashOf } from "../pipeline/pipeline.js";
 import { schemaForConnection } from "../environments/variables.js";
 import { checkDrift, dismissOutOfSchema, listProjectDrift } from "./drift.js";
 import { pullConnectionSchema } from "./pull.js";
@@ -221,7 +223,20 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
     if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
 
     const room = getRoom(id);
-    const canvasProject = schemaForConnection(readProjectFromDoc(room.doc, project.id, project.name), conn);
+    const writtenProject = readProjectFromDoc(room.doc, project.id, project.name);
+    const canvasProject = schemaForConnection(writtenProject, conn);
+    // What would refuse the deployment whatever the plan says — told with the
+    // plan, not after "Apply". The deployment checks both again itself.
+    const lintSettings = getLintSettings(id);
+    const stage = conn.environmentId
+      ? projectPipeline(id, schemaHashOf(writtenProject)).stages.find((entry) => entry.id === conn.environmentId)
+      : undefined;
+    const blockers = {
+      lintErrors: lintSettings.blockDeployment
+        ? lintProject(writtenProject, lintSettings).filter((finding) => finding.severity === "error").length
+        : 0,
+      waitsForStage: stage && !stage.ready ? stage.requires : null,
+    };
 
     const driver = await createDatabaseDriver(conn);
     try {
@@ -240,6 +255,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
         seedCycles: preparedSeeds.cycles,
         sqlPreview: initialSql,
         engine: conn.engine,
+        blockers,
       };
     } finally {
       await driver.close().catch(() => {});

@@ -1617,5 +1617,9 @@
   "pipeline.skipReason": "Motif pour sauter l'étape",
   "pipeline.skipReasonPlaceholder": "Motif (correctif urgent…) — sera journalisé",
   "pipeline.skipAndDeploy": "Sauter l'étape et déployer",
-  "locks.dbmlLocked": "La table « {{table}} » est verrouillée : son bloc ne peut pas être modifié."
+  "locks.dbmlLocked": "La table « {{table}} » est verrouillée : son bloc ne peut pas être modifié.",
+  "deployment.blockedByLint_one": "Ce projet refuse de déployer avec une erreur de qualité ouverte, et il y en a {{count}} : voyez l'onglet Problèmes.",
+  "deployment.blockedByLint_other": "Ce projet refuse de déployer avec des erreurs de qualité ouvertes, et il y en a {{count}} : voyez l'onglet Problèmes.",
+  "deployment.waitsForStage": "Cette étape attend {{stage}} : le schéma actuel doit d'abord y être déployé.",
+  "deployment.waitsForStageAdmin": "Cette étape attend {{stage}} : le schéma actuel doit d'abord y être déployé. Vous pourrez sauter l'étape, avec un motif, après le refus."
 }

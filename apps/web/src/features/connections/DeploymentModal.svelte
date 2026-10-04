@@ -355,6 +355,23 @@
       {/if}
 
       <!-- The tables' initial data, inserted after the DDL -->
+      {#if activeStep === "diff" && !analyzing && !readOnly && plan}
+        {#if plan.blockers.lintErrors > 0}
+          <p class="m-0 mb-2 rounded-md border border-danger bg-danger-light px-3 py-2 text-xs text-danger" role="alert">
+            {t("deployment.blockedByLint", { count: plan.blockers.lintErrors })}
+          </p>
+        {/if}
+        {#if plan.blockers.waitsForStage}
+          <p
+            class="m-0 mb-2 rounded-md border border-warning bg-warning-light px-3 py-2 text-xs text-warning"
+            role="alert"
+          >
+            {canSkipStage
+              ? t("deployment.waitsForStageAdmin", { stage: plan.blockers.waitsForStage })
+              : t("deployment.waitsForStage", { stage: plan.blockers.waitsForStage })}
+          </p>
+        {/if}
+      {/if}
       {#if activeStep === "diff" && !analyzing && seedPlan.length > 0}
         <div class="mt-3 rounded-sm border border-border bg-surface p-2.5 text-xs" data-testid="seed-plan">
           <div class="mb-1.5 flex items-center justify-between gap-2">

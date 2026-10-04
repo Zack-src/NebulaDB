@@ -1617,5 +1617,9 @@
   "pipeline.skipReason": "Reason for skipping the stage",
   "pipeline.skipReasonPlaceholder": "Reason (urgent fix…) — it will be logged",
   "pipeline.skipAndDeploy": "Skip the stage and deploy",
-  "locks.dbmlLocked": "Table “{{table}}” is locked: its block cannot be changed."
+  "locks.dbmlLocked": "Table “{{table}}” is locked: its block cannot be changed.",
+  "deployment.blockedByLint_one": "This project refuses to deploy with an open quality error, and there is {{count}}: see the Problems tab.",
+  "deployment.blockedByLint_other": "This project refuses to deploy with open quality errors, and there are {{count}}: see the Problems tab.",
+  "deployment.waitsForStage": "This stage waits for {{stage}}: the current schema must be deployed there first.",
+  "deployment.waitsForStageAdmin": "This stage waits for {{stage}}: the current schema must be deployed there first. You will be able to skip the stage, with a reason, after the refusal."
 }

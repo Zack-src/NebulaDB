@@ -30,6 +30,13 @@ export interface PlanDeploymentResponse {
   seedCycles: string[][];
   sqlPreview: string;
   engine: string;
+  /** What would refuse this deployment whatever the plan says. */
+  blockers: {
+    /** Lint findings of level error, when the project refuses to deploy with them; 0 otherwise. */
+    lintErrors: number;
+    /** The earlier stage that has to receive this schema first; `null` when none. */
+    waitsForStage: string | null;
+  };
 }
 
 export interface ApplyDeploymentResponse {
