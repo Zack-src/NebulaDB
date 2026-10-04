@@ -1,3 +1,4 @@
+import { notifyFollowers } from "../notifications/repository.js";
 import type { FastifyInstance } from "fastify";
 import { readProjectReadOnly } from "../../realtime/readOnlyProject.js";
 import { notifyProject } from "../../realtime/roomRegistry.js";
@@ -69,6 +70,12 @@ export function registerSeedRoutes(app: FastifyInstance): void {
       updatedByName: user.displayName,
     });
     auditUser(user, "seed.set", { type: "project", id }, `${table.name}: ${input.rowCount} row(s)`, req);
+    notifyFollowers(
+      id,
+      "seed",
+      { removed: false, table: table.name, rows: input.rowCount, by: user.displayName },
+      { actor: { id: user.id } },
+    );
     notifyProject(id, { type: "seeds-changed" });
     return { seed };
   });
@@ -108,6 +115,7 @@ export function registerSeedRoutes(app: FastifyInstance): void {
     assertSeedEditable(user.id, id, tableId, tableName);
     deleteSeed(id, tableId);
     auditUser(user, "seed.remove", { type: "project", id }, tableName, req);
+    notifyFollowers(id, "seed", { removed: true, table: tableName, by: user.displayName }, { actor: { id: user.id } });
     notifyProject(id, { type: "seeds-changed" });
     return { deleted: true };
   });

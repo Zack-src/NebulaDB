@@ -1,3 +1,4 @@
+import { notifyFollowers } from "../notifications/repository.js";
 import { readProjectFromDoc, type MigrationResolutionMap } from "@athanordb/shared";
 import { diffTargetAgainstLive, generateMigrationSql, generateRollbackSql } from "@athanordb/dbml-engine";
 import { ApiError } from "../../shared/errors.js";
@@ -60,6 +61,13 @@ function notifyDeployment(
     error: result.error ?? null,
     executedBy,
   });
+  // The deployment history is the project administrators' to read, so is this.
+  notifyFollowers(
+    projectId,
+    "deployment",
+    { kind, connection: conn.name, environment: conn.environment ?? null, success: result.success, by: executedBy },
+    { actor: { email: executedBy }, needs: "administrator" },
+  );
 }
 
 /**

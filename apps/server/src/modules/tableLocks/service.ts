@@ -1,3 +1,4 @@
+import { notifyFollowers } from "../notifications/repository.js";
 import type { FastifyRequest } from "fastify";
 import {
   TABLE_LOCK_AUTHORITIES,
@@ -88,6 +89,12 @@ export function placeLock(
     req,
   );
   notifyLocksChanged(projectId);
+  notifyFollowers(
+    projectId,
+    "lock",
+    { locked: true, table: table.name, level: lock.level, by: user.displayName },
+    { actor: { id: user.id } },
+  );
   return lock;
 }
 
@@ -101,4 +108,10 @@ export function liftLock(user: Caller, projectId: string, tableId: string, req: 
   deleteTableLock(projectId, tableId);
   auditUser(user, "table.unlock", { type: "project", id: projectId }, existing.tableName, req);
   notifyLocksChanged(projectId);
+  notifyFollowers(
+    projectId,
+    "lock",
+    { locked: false, table: existing.tableName, by: user.displayName },
+    { actor: { id: user.id } },
+  );
 }

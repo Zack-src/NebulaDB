@@ -1,3 +1,4 @@
+import { notifyFollowers } from "../notifications/repository.js";
 import { diffFingerprints, fingerprintSchema } from "@athanordb/dbml-engine";
 import { db } from "../../infrastructure/db.js";
 import { notifyProject } from "../../realtime/roomRegistry.js";
@@ -134,6 +135,12 @@ export async function checkProjectMonitoring(projectId: string): Promise<Monitor
       connectionId,
       `${kind === "external" ? "external change" : "partial deployment"}: ${summary}`,
     );
+    notifyFollowers(projectId, "drift", {
+      kind,
+      connection: conn.name,
+      environment: conn.environment ?? null,
+      tables: added.length + removed.length + changed.length,
+    });
     emitWebhookEvent(projectId, "drift.detected", {
       kind,
       connectionName: conn.name,
