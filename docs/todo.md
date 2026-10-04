@@ -115,6 +115,9 @@ rollback is still to do; 2026-10-04: lot 17's schema linter and data dictionary)
 
 ## Owner's checklist — to decide, to test, to verify (as of 2026-10-05)
 
+**The same list in French, on one page, with what can be automated for each test:**
+[`a-decider-et-a-tester.md`](a-decider-et-a-tester.md) — keep the two in step.
+
 Everything below waits for **the owner**, not for code. It gathers in one place what the phases
 further down say in passing, so nothing has to be found again before the next round of changes.
 Each line names the phase that has the detail. **Keep it current:** an item settled here is
