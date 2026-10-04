@@ -2,7 +2,7 @@ import { StateEffect, StateField } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import { forceLinting, linter, type Diagnostic } from "@codemirror/lint";
 import { DBML_TYPES } from "@/features/editor/dbml/language";
-import { getSymbols, type FieldSymbol, type Span } from "@/features/editor/dbml/symbols";
+import { getSymbols, type FieldSymbol, type Span, type TableSymbol } from "@/features/editor/dbml/symbols";
 
 export interface ServerProblem {
   message: string;
@@ -62,6 +62,19 @@ function spanOfLine(view: EditorView, lineNumber: number): Span {
   const line = view.state.doc.line(Math.min(Math.max(1, lineNumber), view.state.doc.lines));
   const start = line.from + (line.text.length - line.text.trimStart().length);
   return { from: start, to: Math.max(start + 1, line.to) };
+}
+
+/**
+ * Where a finding of the schema linter goes in the buffer. Findings describe
+ * the synchronised schema, so they are placed by name: one about a table or
+ * column the buffer no longer has gets no span, and is simply not shown.
+ */
+function spanOfFinding(tableByName: Map<string, TableSymbol>, finding: SchemaFinding): Span | null {
+  const table = tableByName.get(finding.tableName.toLowerCase());
+  if (!table) return null;
+  if (!finding.fieldName) return table.nameSpan;
+  const name = finding.fieldName.toLowerCase();
+  return table.fields.find((f) => f.name.toLowerCase() === name)?.nameSpan ?? null;
 }
 
 /**
@@ -127,17 +140,9 @@ export const dbmlLinter = linter(
       }
     }
 
-    // The schema linter's findings. They describe the synchronised schema, so
-    // they are placed by name: one about a table or column the buffer no
-    // longer has is simply not shown.
     for (const finding of state.field(schemaFindingsField, false) ?? NO_FINDINGS) {
-      const table = symbols.tableByName.get(finding.tableName.toLowerCase());
-      if (!table) continue;
-      const field = finding.fieldName
-        ? table.fields.find((f) => f.name.toLowerCase() === finding.fieldName!.toLowerCase())
-        : undefined;
-      if (finding.fieldName && !field) continue;
-      push(field?.nameSpan ?? table.nameSpan, finding.severity, finding.message, "schema-lint");
+      const span = spanOfFinding(symbols.tableByName, finding);
+      if (span) push(span, finding.severity, finding.message, "schema-lint");
     }
 
     // duplicate enums
