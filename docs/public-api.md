@@ -71,6 +71,13 @@ alone is never enough for these.
 | `GET` | `/api/v1/projects/:id/locks` | `projects:read` | Table locks (`{ locks, canManage }`): which tables are frozen, at what level, by whom and why |
 | `PUT` | `/api/v1/projects/:id/locks/:table` | `projects:write` (+ admin) | `{ level: "structure"\|"full", authority?: "project"\|"instance", reason? }` — lock a table or change its lock; `:table` is the table's id or name. An `instance` lock needs an instance administrator |
 | `DELETE` | `/api/v1/projects/:id/locks/:table` | `projects:write` (+ admin) | Lift the lock |
+| `GET` | `/api/v1/projects/:id/webhooks` | `projects:read` (+ admin) | The project's outgoing webhooks (`{ webhooks }`) — address, format, events, state; never the signing secret |
+| `POST` | `/api/v1/projects/:id/webhooks` | `projects:write` (+ admin) | `{ url, format?: "json"\|"slack"\|"discord", events? }` — answers `{ webhook, secret }`; the secret is shown this once (see [`webhooks.md`](webhooks.md)) |
+| `PATCH` | `/api/v1/projects/:id/webhooks/:hookId` | `projects:write` (+ admin) | `{ url?, format?, events?, enabled? }` — switching one back on resets its failure count |
+| `DELETE` | `/api/v1/projects/:id/webhooks/:hookId` | `projects:write` (+ admin) | Deletes the webhook and its delivery log |
+| `POST` | `/api/v1/projects/:id/webhooks/:hookId/rotate-secret` | `projects:write` (+ admin) | A new signing secret for the same webhook: `{ webhook, secret }`. The old one stops signing at once |
+| `POST` | `/api/v1/projects/:id/webhooks/:hookId/test` | `projects:write` (+ admin) | Sends a `ping` now and answers the delivery (`status`, `responseStatus`, `error`) |
+| `GET` | `/api/v1/projects/:id/webhooks/:hookId/deliveries` | `projects:read` (+ admin) | The 20 most recent deliveries (`{ deliveries }`) — never the response body |
 | `GET` | `/api/v1/projects/:id/lint` | `projects:read` | Schema linter findings (`{ profile, blockDeployment, summary, findings }`) with the project's own rules — a CI step can fail on `summary.error > 0` |
 | `GET` | `/api/v1/projects/:id/iam` | `projects:read` | Teams granted access to this project and their permission level |
 | `PUT` | `/api/v1/projects/:id/iam/:teamId` | `projects:write` (+ admin) | `{ permission: "view"\|"edit"\|"administrator" }` — grant or change a team's access |

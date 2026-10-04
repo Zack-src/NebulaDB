@@ -76,7 +76,11 @@ function isFromAthanorDB(rawBody, signatureHeader, secret, toleranceSeconds = 30
 }
 ```
 
-Lost the secret? Delete the webhook and create it again.
+Lost the secret, or it leaked? **Régénérer le secret** on the webhook (or
+`POST …/webhooks/:hookId/rotate-secret`) gives it a new one — shown once, like
+the first — and keeps its address, events and delivery log. The old secret
+stops signing at once, including for a delivery still waiting to be retried:
+put the new one in the receiving service straight away.
 
 ## Delivery and retries
 

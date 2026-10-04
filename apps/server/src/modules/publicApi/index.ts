@@ -31,6 +31,7 @@ import { registerPublicLockRoutes } from "./lockRoutes.js";
 import { registerPublicMonitoringRoutes } from "./monitoringRoutes.js";
 import { registerPublicConnectionRoutes } from "./connectionRoutes.js";
 import { registerPublicTeamRoutes } from "./teamRoutes.js";
+import { registerPublicWebhookRoutes } from "./webhookRoutes.js";
 import { API_RATE_LIMIT } from "./rateLimits.js";
 import { buildOpenApiSpec } from "./openapi.js";
 import { config } from "../../config.js";
@@ -221,5 +222,6 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
   registerPublicLockRoutes(app);
   registerPublicMonitoringRoutes(app);
   registerPublicConnectionRoutes(app);
+  registerPublicWebhookRoutes(app);
   registerPublicTeamRoutes(app);
 }
