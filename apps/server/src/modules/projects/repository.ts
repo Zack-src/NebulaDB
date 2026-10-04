@@ -86,6 +86,7 @@ export function deleteProjectCascade(id: string): void {
     db.prepare("DELETE FROM table_seeds WHERE project_id = ?").run(id);
     db.prepare("DELETE FROM generator_configs WHERE project_id = ?").run(id);
     db.prepare("DELETE FROM monitor_settings WHERE project_id = ?").run(id);
+    db.prepare("DELETE FROM lint_settings WHERE project_id = ?").run(id);
     db.prepare("DELETE FROM drift_events WHERE project_id = ?").run(id);
     db.prepare("DELETE FROM schema_fingerprints WHERE project_id = ?").run(id);
     db.prepare("DELETE FROM project_teams WHERE project_id = ?").run(id);

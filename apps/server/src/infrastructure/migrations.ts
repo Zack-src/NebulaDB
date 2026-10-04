@@ -785,6 +785,23 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 31,
+    name: "lint_settings table",
+    up: (db) => {
+      // Per project: the linter's profile, overridden rules, exceptions and
+      // whether an error stops a deployment. One JSON document — it is read
+      // and written whole, and checked on the way out as on the way in.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS lint_settings (
+          project_id TEXT PRIMARY KEY,
+          settings_json TEXT NOT NULL,
+          updated_by_name TEXT,
+          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+      `);
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */

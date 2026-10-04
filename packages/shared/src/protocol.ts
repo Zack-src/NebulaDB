@@ -58,7 +58,9 @@ export type ServerNotice =
   | { type: "table-locked"; tables: string[] }
   | { type: "drift-changed" }
   /** A table's seed was set or removed — refetch `GET /api/projects/:id/seeds`. */
-  | { type: "seeds-changed" };
+  | { type: "seeds-changed" }
+  /** The linter's settings changed — refetch `GET /api/projects/:id/lint`. */
+  | { type: "lint-changed" };
 
 /** One database linked to a project, and whether it is known to have left the schema. `GET /api/projects/:id/drift`. */
 export interface ProjectDriftEntry {
