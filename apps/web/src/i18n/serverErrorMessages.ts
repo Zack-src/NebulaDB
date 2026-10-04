@@ -101,6 +101,7 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   ACTIVITY_QUERY_INVALID: "errors.activityQueryInvalid",
   MONITORING_INVALID: "errors.monitoringInvalid",
   DATABASE_TABLE_NOT_FOUND: "errors.databaseTableNotFound",
+  COMPARISON_INVALID: "errors.comparisonInvalid",
   LINT_INVALID: "errors.lintInvalid",
   LINT_BLOCKS_DEPLOYMENT: "errors.lintBlocksDeployment",
   SEED_NOT_FOUND: "errors.seedNotFound",

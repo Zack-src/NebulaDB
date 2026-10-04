@@ -1,6 +1,7 @@
 import type {
   DatabaseConnectionConfig,
   DatabaseConnectionSummary,
+  DatabaseEngine,
   DeploymentHistoryEntry,
   DriftCheckResult,
   MigrationResolutionMap,
@@ -9,7 +10,7 @@ import type {
   SeedPlanEntry,
   SeedResult,
 } from "@athanordb/shared";
-import type { MigrationDiff } from "@athanordb/dbml-engine";
+import type { MigrationDiff, SchemaComparisonEntry } from "@athanordb/dbml-engine";
 import { request } from "./httpClient";
 
 export interface TestConnectionResponse {
@@ -64,6 +65,27 @@ export async function createProjectFromDatabase(
     // own name) on purpose — spreading `config` after a shared `name` key
     // would have let the connection's name silently overwrite the project's.
     body: { projectName, ...config },
+  });
+}
+
+/** `POST /api/projects/:id/connections/compare` — two of the project's databases, read now. */
+export interface EnvironmentComparison {
+  comparedAt: string;
+  source: { id: string; name: string; engine: DatabaseEngine; environment: string | null };
+  target: { id: string; name: string; engine: DatabaseEngine; environment: string | null };
+  /** Tables that differ; empty when both databases have one structure. */
+  tables: SchemaComparisonEntry[];
+}
+
+/** Project administrators only: it opens both databases. */
+export function compareProjectConnections(
+  projectId: string,
+  sourceId: string,
+  targetId: string,
+): Promise<EnvironmentComparison> {
+  return request<EnvironmentComparison>(`/api/projects/${projectId}/connections/compare`, {
+    method: "POST",
+    body: { sourceId, targetId },
   });
 }
 

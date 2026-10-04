@@ -1581,5 +1581,21 @@
   "dictionary.class.personal": "Personal",
   "dictionary.class.sensitive": "Sensitive",
   "dictionary.showMore_one": "Show the next table",
-  "dictionary.showMore_other": "Show more ({{count}} tables)"
+  "dictionary.showMore_other": "Show more ({{count}} tables)",
+  "errors.comparisonInvalid": "Pick two different databases to compare.",
+  "compareEnv.title": "Compare two environments",
+  "compareEnv.hint": "Reads the structure of both databases now and sets them side by side: what one has that the other lacks, table by table. Data is not compared.",
+  "compareEnv.source": "First database",
+  "compareEnv.target": "Second database",
+  "compareEnv.run": "Compare",
+  "compareEnv.identical": "“{{source}}” and “{{target}}” have the same structure.",
+  "compareEnv.differences": "Differences between the two databases",
+  "compareEnv.different": "Different",
+  "compareEnv.onlyIn": "Only in {{name}}",
+  "compareEnv.outOfSchema": "Not in the schema",
+  "compareEnv.openInSchema": "Show in the schema",
+  "compareEnv.columnsOnlyIn": "Columns only in {{name}}:",
+  "compareEnv.primaryKey": "The primary key differs.",
+  "compareEnv.indexes": "Indexes differ.",
+  "compareEnv.foreignKeys": "Foreign keys differ."
 }

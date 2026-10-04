@@ -8,6 +8,7 @@
   import DeploymentHistoryPanel from "@/features/connections/DeploymentHistoryPanel.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import EnvironmentBadge from "@/features/environments/EnvironmentBadge.svelte";
+  import CompareEnvironmentsCard from "./CompareEnvironmentsCard.svelte";
   import MonitoringCard from "./MonitoringCard.svelte";
 
   /**
@@ -19,6 +20,8 @@
   let {
     projectId,
     connection,
+    connections = [],
+    onOpenTable = () => {},
     canDeploy,
     onDeploy,
     onShowDifferences,
@@ -26,6 +29,9 @@
     projectId: string;
     /** The workspace's current connection; `null` when the project has none. */
     connection: DatabaseConnectionSummary | null;
+    /** Every database of the project — two or more can be compared with each other. */
+    connections?: DatabaseConnectionSummary[];
+    onOpenTable?: (tableName: string) => void;
     /** False for a view-only project: comparing stays, deploying goes. */
     canDeploy: boolean;
     onDeploy: () => void;
@@ -58,6 +64,9 @@
       </div>
       <!-- The watch covers all the project's databases, not only the current one. -->
       <MonitoringCard {projectId} canManage={canDeploy} />
+      {#if connections.length > 1}
+        <CompareEnvironmentsCard {projectId} {connections} currentId={connection.id} {onOpenTable} />
+      {/if}
       <!-- Keyed: the panel fetches once for the connection it was created with. -->
       {#key connection.id}
         <DeploymentHistoryPanel

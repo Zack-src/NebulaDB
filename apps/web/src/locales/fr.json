@@ -1581,5 +1581,21 @@
   "dictionary.class.personal": "Personnel",
   "dictionary.class.sensitive": "Sensible",
   "dictionary.showMore_one": "Afficher la table suivante",
-  "dictionary.showMore_other": "Afficher la suite ({{count}} tables)"
+  "dictionary.showMore_other": "Afficher la suite ({{count}} tables)",
+  "errors.comparisonInvalid": "Choisissez deux bases différentes à comparer.",
+  "compareEnv.title": "Comparer deux environnements",
+  "compareEnv.hint": "Lit la structure des deux bases maintenant et les met côte à côte : ce que l'une a et que l'autre n'a pas, table par table. Les données ne sont pas comparées.",
+  "compareEnv.source": "Première base",
+  "compareEnv.target": "Seconde base",
+  "compareEnv.run": "Comparer",
+  "compareEnv.identical": "« {{source}} » et « {{target}} » ont la même structure.",
+  "compareEnv.differences": "Différences entre les deux bases",
+  "compareEnv.different": "Différente",
+  "compareEnv.onlyIn": "Seulement dans {{name}}",
+  "compareEnv.outOfSchema": "Hors schéma",
+  "compareEnv.openInSchema": "Voir dans le schéma",
+  "compareEnv.columnsOnlyIn": "Colonnes seulement dans {{name}} :",
+  "compareEnv.primaryKey": "La clé primaire diffère.",
+  "compareEnv.indexes": "Les index diffèrent.",
+  "compareEnv.foreignKeys": "Les clés étrangères diffèrent."
 }

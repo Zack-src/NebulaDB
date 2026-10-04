@@ -676,6 +676,11 @@
       <DeploymentsTab
         projectId={project.id}
         connection={activeConnection}
+        {connections}
+        onOpenTable={(tableName) => {
+          setTab("schema");
+          focusRequest = { tableName };
+        }}
         canDeploy={canWrite}
         onDeploy={() => (showDeployment = true)}
         onShowDifferences={() => (differencesFor = connectionId)}
