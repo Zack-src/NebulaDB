@@ -9,7 +9,7 @@
   import Card from "@/components/ui/Card.svelte";
   import CardBody from "@/components/ui/CardBody.svelte";
   import CardHeader from "@/components/ui/CardHeader.svelte";
-  import { CHECKBOX_CLASS } from "@/components/ui/inputStyles";
+  import Checkbox from "@/components/ui/Checkbox.svelte";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { fetchAuthFeatures, login } from "@/services/authApi";
@@ -137,13 +137,9 @@
                 autocomplete="current-password"
               />
 
-              <label class="flex items-start gap-2 text-xs text-text-secondary cursor-pointer select-none">
-                <input type="checkbox" class={`${CHECKBOX_CLASS} mt-px`} bind:checked={remember} />
-                <span>
-                  {t("login.rememberMe")}
-                  <span class="block text-[11px] text-text-muted">{t("login.rememberMeHint")}</span>
-                </span>
-              </label>
+              <Checkbox bind:checked={remember} hint={t("login.rememberMeHint")} class="select-none">
+                <span class="text-xs text-text-secondary">{t("login.rememberMe")}</span>
+              </Checkbox>
 
               <Button
                 variant="primary"
