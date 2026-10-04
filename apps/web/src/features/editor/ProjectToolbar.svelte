@@ -12,6 +12,8 @@
 </script>
 
 <script lang="ts">
+  import FollowMenu from "@/features/notifications/FollowMenu.svelte";
+  import NotificationBell from "@/features/notifications/NotificationBell.svelte";
   import PresenceList from "@/features/collaboration/PresenceList.svelte";
   import type { AwarenessState, ConnectionStatus } from "@/features/collaboration/yjsClient";
   import Button from "@/components/ui/Button.svelte";
@@ -59,6 +61,8 @@
      */
     isProjectAdmin: boolean;
     onOpenSettings?: () => void;
+    /** Present in the real app: the project to follow, and where a notification about another one leads. */
+    follow?: { projectId: string; onOpenProject: (projectId: string) => void };
     /** Present where the guided tour exists: replays it. */
     onShowTour?: () => void;
     localUser: string;
@@ -172,6 +176,10 @@
 
     <PresenceList localName={props.localUser} localColor={props.localColor} remote={props.remoteAwareness} />
 
+    {#if props.follow}
+      <FollowMenu projectId={props.follow.projectId} />
+      <NotificationBell onOpenProject={props.follow.onOpenProject} />
+    {/if}
     {#if props.onShowTour}
       <Button
         variant="ghost"

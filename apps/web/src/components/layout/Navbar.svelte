@@ -3,6 +3,7 @@
 </script>
 
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import BrandMark from "@/components/ui/BrandMark.svelte";
   import Button from "@/components/ui/Button.svelte";
   import { APP_HEADER } from "@/components/ui/layout";
@@ -21,6 +22,7 @@
   let {
     session,
     onOpenSettings,
+    actions,
     onOpenAdmin,
     onLogout,
     title = APP_NAME,
@@ -28,6 +30,8 @@
   }: {
     session: Session;
     onOpenSettings?: () => void;
+    /** Extra controls a screen puts before the settings button (the notification centre). */
+    actions?: Snippet;
     onOpenAdmin?: () => void;
     onLogout?: () => void;
     title?: string;
@@ -66,6 +70,7 @@
       </Button>
     {/if}
 
+    {#if actions}{@render actions()}{/if}
     {#if onOpenSettings}
       <Button
         variant="default"

@@ -98,6 +98,8 @@
     /** The workspace tab the URL names. Optional: the perf harness mounts the editor with no router. */
     tab?: WorkspaceTab;
     onTabChange?: (tab: WorkspaceTab) => void;
+    /** Opens another project by id — where a notification leads. */
+    onOpenProject?: (projectId: string) => void;
     /** The real app: offer the guided tour on a first visit. Off in the perf harness, which must render nothing extra. */
     guided?: boolean;
   } = $props();
@@ -547,6 +549,9 @@
     onShowDeploy={() => (showDeployment = true)}
     {isProjectAdmin}
     onOpenSettings={() => (showSettings = true)}
+    follow={props.guided && props.onOpenProject
+      ? { projectId: project.id, onOpenProject: props.onOpenProject }
+      : undefined}
     onShowTour={props.guided
       ? () => {
           setTab("schema");

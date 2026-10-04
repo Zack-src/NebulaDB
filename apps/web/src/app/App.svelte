@@ -91,6 +91,7 @@
           initialFocus={routing.focusTarget}
           tab={routing.tab}
           onTabChange={routing.setTab}
+          onOpenProject={(projectId) => routing.openProjectById(projectId)}
           guided
         />
       </ErrorBoundary>
@@ -129,6 +130,7 @@
       hit.tableName && routing.openProjectById(hit.projectId, { tableName: hit.tableName, fieldName: hit.fieldName })}
     onOpenAdmin={() => (adminOpen = true)}
     onOpenSettings={() => (viewMode = "settings")}
+    onOpenProjectById={(projectId) => routing.openProjectById(projectId)}
     onLogout={auth.logout}
     onCreateProject={projectsHandle.createProject}
     onRenameProject={projectsHandle.renameProject}

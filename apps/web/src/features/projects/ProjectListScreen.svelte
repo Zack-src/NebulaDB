@@ -1,4 +1,5 @@
 <script lang="ts">
+  import NotificationBell from "@/features/notifications/NotificationBell.svelte";
   import ProjectList from "@/features/projects/ProjectList.svelte";
   import Navbar from "@/components/layout/Navbar.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
@@ -18,6 +19,8 @@
     onOpenProject: (p: ProjectSummary) => void;
     onOpenAdmin: () => void;
     onOpenSettings?: () => void;
+    /** Opens a project known only by its id — where a notification leads. */
+    onOpenProjectById?: (projectId: string) => void;
     onLogout: () => void;
     onCreateProject: (name: string, template?: ProjectTemplateId) => Promise<CreateProjectResult>;
     onOpenSearchHit: (hit: SearchHit) => void;
@@ -35,7 +38,11 @@
     onOpenSettings={props.onOpenSettings}
     onOpenAdmin={props.onOpenAdmin}
     onLogout={props.onLogout}
-  />
+  >
+    {#snippet actions()}
+      <NotificationBell onOpenProject={props.onOpenProjectById} />
+    {/snippet}
+  </Navbar>
 
   {#if props.openLinkError}
     <div class="p-4">

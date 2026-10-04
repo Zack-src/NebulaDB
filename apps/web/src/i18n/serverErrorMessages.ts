@@ -102,6 +102,7 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   MONITORING_INVALID: "errors.monitoringInvalid",
   DATABASE_TABLE_NOT_FOUND: "errors.databaseTableNotFound",
   COMPARISON_INVALID: "errors.comparisonInvalid",
+  SUBSCRIPTION_INVALID: "errors.subscriptionInvalid",
   LINT_INVALID: "errors.lintInvalid",
   LINT_BLOCKS_DEPLOYMENT: "errors.lintBlocksDeployment",
   VARIABLES_UNRESOLVED: "errors.variablesUnresolved",
