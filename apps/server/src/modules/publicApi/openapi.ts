@@ -424,6 +424,52 @@ export const OPERATIONS: Operation[] = [
     },
   },
   {
+    method: "get",
+    path: "/api/v1/projects/:id/monitoring",
+    tag: "Connections",
+    scope: "projects:read",
+    summary: "The watch over the project's databases: its settings and what it found",
+    ok: {
+      status: 200,
+      schema: obj({ settings: ref("MonitorSettings"), events: { type: "array", items: ref("DriftEvent") } }),
+    },
+  },
+  {
+    method: "put",
+    path: "/api/v1/projects/:id/monitoring",
+    tag: "Connections",
+    scope: "projects:write",
+    admin: true,
+    summary: "Switch the watch on or off, set its pace and the tables it ignores",
+    body: obj(
+      {
+        enabled: bool,
+        intervalMinutes: { type: "integer", enum: [5, 15, 60, 360, 1440] },
+        ignoreTables: { type: "array", items: str, maxItems: 200 },
+      },
+      ["enabled", "intervalMinutes"],
+    ),
+    ok: { status: 200, schema: obj({ settings: ref("MonitorSettings") }) },
+  },
+  {
+    method: "post",
+    path: "/api/v1/projects/:id/monitoring/check",
+    tag: "Connections",
+    scope: "projects:read",
+    admin: true,
+    summary: "Read the project's databases now and report what changed outside the schema",
+    description:
+      "Compares each database with the reference recorded at its last deployment or pull. Reads only; a database that cannot be read counts as `unreachable`, never as a change.",
+    ok: {
+      status: 200,
+      schema: obj({
+        result: obj({ checked: int, changes: int, unreachable: int }),
+        settings: ref("MonitorSettings"),
+        events: { type: "array", items: ref("DriftEvent") },
+      }),
+    },
+  },
+  {
     method: "post",
     path: "/api/v1/projects/:id/connections/compare",
     tag: "Connections",
@@ -587,6 +633,25 @@ const COMPONENTS: Record<string, Schema> = {
       type: "boolean",
       description: "The last thing done here is a successful deployment of the current schema",
     },
+  }),
+  MonitorSettings: obj({
+    enabled: bool,
+    intervalMinutes: int,
+    ignoreTables: { type: "array", items: str },
+    lastCheckedAt: { type: ["string", "null"] },
+  }),
+  DriftEvent: obj({
+    id: str,
+    connectionId: str,
+    connectionName: { type: ["string", "null"] },
+    kind: { type: "string", enum: ["external", "partial-deployment", "unreachable"] },
+    detectedAt: str,
+    added: { type: "array", items: str, description: "Tables the database has that the reference did not" },
+    removed: { type: "array", items: str },
+    changed: { type: "array", items: str },
+    error: { type: ["string", "null"] },
+    status: { type: "string", enum: ["open", "resolved", "ignored"] },
+    resolvedAt: { type: ["string", "null"] },
   }),
   TableLock: obj({
     projectId: str,

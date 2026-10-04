@@ -208,6 +208,32 @@ test("monitoring: an unreachable database is reported once, never as a change; o
       "not taken for a change",
     );
 
+    // The same under /api/v1, behind a key's scopes: reading is `projects:read`, setting the watch `projects:write`.
+    const key = async (scopes: string[]) =>
+      (await call(app, owner, "POST", "/api/keys", { name: "watch", scopes })).json().plaintextKey as string;
+    const withKey = (plaintext: string, method: "GET" | "POST" | "PUT", url: string, payload?: unknown) =>
+      app.inject({
+        method,
+        url,
+        headers: { host: HOST, authorization: `Bearer ${plaintext}` },
+        ...(payload === undefined ? {} : { payload: payload as object }),
+      });
+    const readKey = await key(["projects:read"]);
+    const writeKey = await key(["projects:read", "projects:write"]);
+    const v1 = `/api/v1/projects/${project.id}/monitoring`;
+    const listed = await withKey(readKey, "GET", v1);
+    assert.equal(listed.statusCode, 200, listed.body);
+    assert.equal((listed.json() as Monitoring).events.filter((e) => e.kind === "unreachable").length, 1);
+    const watch = { enabled: true, intervalMinutes: 15, ignoreTables: ["scratch"] };
+    assert.equal((await withKey(readKey, "PUT", v1, watch)).statusCode, 403);
+    assert.equal((await withKey(writeKey, "PUT", v1, { enabled: true, intervalMinutes: 7 })).statusCode, 400);
+    const set = await withKey(writeKey, "PUT", v1, watch);
+    assert.equal(set.statusCode, 200, set.body);
+    assert.equal((set.json() as Monitoring).settings.intervalMinutes, 15);
+    const checked = (await withKey(readKey, "POST", `${v1}/check`)).json() as Monitoring;
+    assert.deepEqual(checked.result, { checked: 1, changes: 0, unreachable: 1 });
+    assert.equal((await app.inject({ method: "GET", url: v1, headers: { host: HOST } })).statusCode, 401);
+
     await call(app, owner, "PUT", `${base}/connections/${connId}`, { filePath: targetFile });
     const back = (await call(app, owner, "POST", `${base}/monitoring/check`)).json() as Monitoring;
     assert.equal(back.events.find((e) => e.kind === "unreachable")?.status, "resolved");
