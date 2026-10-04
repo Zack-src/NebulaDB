@@ -1597,5 +1597,10 @@
   "compareEnv.columnsOnlyIn": "Columns only in {{name}}:",
   "compareEnv.primaryKey": "The primary key differs.",
   "compareEnv.indexes": "Indexes differ.",
-  "compareEnv.foreignKeys": "Foreign keys differ."
+  "compareEnv.foreignKeys": "Foreign keys differ.",
+  "errors.variablesUnresolved": "The schema uses environment variables this connection's stage does not resolve cleanly (a variable without a value, a table left without a name, or duplicate names): define them in Admin → Environments.",
+  "environments.variablesLabel": "Variables of {{name}}",
+  "environments.variablesPlaceholder": "schema=sales, table_prefix=pp_",
+  "environments.variablesHint": "Values of the schema's variables on this stage, as name=value separated by commas. An empty value is allowed.",
+  "environments.variablesInvalid": "Variables: write name=value, separated by commas."
 }

@@ -82,13 +82,37 @@
     stages.reload();
   });
 
+  // A stage's variables are typed as one line, `name=value, name=value`; an empty value is a value ("no prefix here").
+  const formatVariables = (variables: Record<string, string>) =>
+    Object.entries(variables)
+      .map(([name, value]) => `${name}=${value}`)
+      .join(", ");
+  let variablesError = $state<string | null>(null);
+  function saveVariables(stage: EnvironmentStage, text: string) {
+    if (text.trim() === formatVariables(stage.variables)) return;
+    const pairs = text
+      .split(",")
+      .map((pair) => pair.trim())
+      .filter(Boolean)
+      .map((pair) => pair.split("=").map((part) => part.trim()));
+    // The server checks names and values; what it cannot do is guess what a pair without `=` meant.
+    if (pairs.some((pair) => pair.length !== 2 || !pair[0])) {
+      variablesError = t("environments.variablesInvalid");
+      return;
+    }
+    variablesError = null;
+    void save.run(stage, { variables: Object.fromEntries(pairs) as Record<string, string> });
+  }
+
   function rename(stage: EnvironmentStage, value: string) {
     const name = value.trim();
     if (name && name !== stage.name) void save.run(stage, { name });
   }
 
   const busy = $derived(add.pending || save.pending || move.pending || remove.pending);
-  const shownError = $derived(stages.error ?? add.error ?? save.error ?? move.error ?? remove.error);
+  const shownError = $derived(
+    variablesError ?? stages.error ?? add.error ?? save.error ?? move.error ?? remove.error,
+  );
 </script>
 
 <div>
@@ -173,7 +197,18 @@
           >
             <span class="text-xs">{t("environments.production")}</span>
           </Checkbox>
-          <span class="ml-auto shrink-0 text-xs text-text-muted">
+          {#key formatVariables(stage.variables)}
+            <input
+              class={`${INPUT_SM_CLASS} min-w-[160px] flex-1 font-mono`}
+              value={formatVariables(stage.variables)}
+              placeholder={t("environments.variablesPlaceholder")}
+              aria-label={t("environments.variablesLabel", { name: stage.name })}
+              data-tooltip={t("environments.variablesHint")}
+              disabled={busy}
+              onchange={(event) => saveVariables(stage, event.currentTarget.value)}
+            />
+          {/key}
+          <span class="shrink-0 text-xs text-text-muted">
             {t("environments.connectionCount", { count: stage.connectionCount })}
           </span>
           <Button
