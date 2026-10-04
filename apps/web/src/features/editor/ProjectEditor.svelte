@@ -82,6 +82,7 @@
   import ProjectToolbar from "@/features/editor/ProjectToolbar.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { useCanvasCommands } from "@/features/plugins/plugins.svelte";
+  import { inboxPush } from "@/features/notifications/inboxPush.svelte";
   import McdCanvas from "@/features/editor/mcd/McdCanvas.svelte";
   import type { EditorViewMode } from "@/features/editor/mcd/ViewModeToggle.svelte";
   import DbmlPanel from "@/features/editor/dbml/DbmlPanel.svelte";
@@ -155,6 +156,7 @@
     else if (notice.type === "locks-changed") void tableLocks.refresh();
     else if (notice.type === "seeds-changed") void seeds.refresh();
     else if (notice.type === "lint-changed") void lint.refresh();
+    else if (notice.type === "notification") inboxPush.signal();
     else if (notice.type === "table-locked") {
       toast.warning(t("locks.revertedToast", { tables: notice.tables.join(", "), count: notice.tables.length }));
       // The local picture was evidently out of date — that is how the change got offered at all.

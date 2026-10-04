@@ -4,11 +4,13 @@
 </script>
 
 <script lang="ts">
+  import { untrack } from "svelte";
   import type { UserNotification } from "@athanordb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { CommentIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
   import Popover from "@/components/ui/Popover.svelte";
+  import { inboxPush } from "@/features/notifications/inboxPush.svelte";
   import { parseServerTime } from "@/features/sql/format";
   import { formatRelativeTime } from "@/i18n/formatters";
   import { i18n, useTranslation } from "@/i18n/i18n.svelte";
@@ -40,6 +42,15 @@
     void refresh();
     const timer = window.setInterval(() => void refresh(), POLL_MS);
     return () => window.clearInterval(timer);
+  });
+  // An open project's socket says so the moment a notification arrives; the
+  // poll above remains for everywhere else (the dashboard, other projects).
+  let seenPush = untrack(() => inboxPush.count);
+  $effect(() => {
+    if (inboxPush.count !== seenPush) {
+      seenPush = inboxPush.count;
+      void refresh();
+    }
   });
 
   /** One line saying what happened, from the event and its facts. */
