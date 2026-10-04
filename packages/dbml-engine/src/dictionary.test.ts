@@ -44,7 +44,12 @@ const project: Project = {
     },
   ],
   refs: [
-    { id: "r1", from: { tableId: "t2", fieldId: "o2" }, to: { tableId: "t1", fieldId: "c1" }, cardinality: "one-to-many" },
+    {
+      id: "r1",
+      from: { tableId: "t2", fieldId: "o2" },
+      to: { tableId: "t1", fieldId: "c1" },
+      cardinality: "one-to-many",
+    },
   ],
   enums: [],
   zones: [],
@@ -113,7 +118,7 @@ test("exports: Markdown, CSV and a self-contained HTML page", () => {
   const dictionary = buildDictionary({
     ...project,
     tables: [
-      { ...project.tables[1], fields: [{ id: "c1", name: "id", type: "integer", pk: true, note: "=1+1 <b>x</b>" }] },
+      { ...project.tables[1], fields: [{ id: "c1", name: "id", type: "integer", pk: true, note: "=1+1 | <b>x</b>" }] },
     ],
     refs: [],
   });
@@ -121,18 +126,17 @@ test("exports: Markdown, CSV and a self-contained HTML page", () => {
   const markdown = dictionaryToMarkdown(dictionary);
   assert.match(markdown, /^# Shop — data dictionary/);
   assert.match(markdown, /\*\*Owner:\*\* crm-team · \*\*Classification:\*\* personal · \*\*Tags:\*\* rgpd, core/);
-  // A pipe in a description must not split the table row.
-  assert.ok(!markdown.includes("bought | once") || markdown.includes("People who bought | once.\n"));
-  assert.match(markdown, /\| `id` \| integer \| pk \|  \| =1\+1 <b>x<\/b> \|/);
+  // A pipe in a column's description must not split the table row.
+  assert.ok(markdown.includes("| `id` | integer | pk |  | =1+1 \\| <b>x</b> |"), markdown);
 
   const csv = dictionaryToCsv(dictionary).split("\r\n");
   assert.equal(csv[0], "table,column,type,constraints,description,owner,classification,tags");
   assert.equal(csv[1], "customers,,,,People who bought | once.,crm-team,personal,rgpd core");
   // A description that looks like a formula is defused.
-  assert.equal(csv[2], "customers,id,integer,pk,'=1+1 <b>x</b>,,,");
+  assert.equal(csv[2], "customers,id,integer,pk,'=1+1 | <b>x</b>,,,");
 
   const html = dictionaryToHtml(dictionary);
-  assert.ok(html.includes("=1+1 &lt;b&gt;x&lt;/b&gt;"), "markup in a description is text");
+  assert.ok(html.includes("=1+1 | &lt;b&gt;x&lt;/b&gt;"), "markup in a description is text");
   assert.ok(!html.includes("<script"));
   assert.ok(html.includes('<span class="c c-personal">personal</span>'));
 });
