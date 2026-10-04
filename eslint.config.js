@@ -18,7 +18,6 @@ const HARD_CODED_TEXT = {
  */
 const NATIVE_CONTROLS_NOT_MIGRATED = [
   "admin/AuditTab.svelte",
-  "admin/DeleteUserModal.svelte",
   "admin/ErrorsTab.svelte",
   "admin/InvitationsTab.svelte",
   "admin/TeamDetailView.svelte",

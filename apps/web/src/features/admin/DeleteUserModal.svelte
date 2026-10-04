@@ -4,7 +4,8 @@
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
-  import { INPUT_CLASS, SELECT_CLASS } from "@/components/ui/inputStyles";
+  import { INPUT_CLASS } from "@/components/ui/inputStyles";
+  import Select from "@/components/ui/Select.svelte";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { deleteUser } from "@/services/usersApi";
@@ -45,15 +46,22 @@
 <Modal title={t("admin.deleteUser.title", { email: targetUser.email })} {onClose}>
   <Hint>{t("admin.deleteUser.consequences")}</Hint>
 
-  <label class="mt-4 block text-xs font-semibold text-text-secondary">
+  <!-- svelte-ignore a11y_label_has_associated_control -->
+  <label id="delete-user-transfer" class="mt-4 block text-xs font-semibold text-text-secondary">
     {t("admin.deleteUser.ownedProjects")}
-    <select class={`${SELECT_CLASS} mt-1 w-full`} bind:value={transferTo}>
-      <option value="">{t("admin.deleteUser.leaveOwnerless")}</option>
-      {#each transferCandidates as user (user.id)}
-        <option value={user.id}>{t("admin.deleteUser.transferTo", { name: user.displayName, email: user.email })}</option>
-      {/each}
-    </select>
   </label>
+  <Select
+    class="mt-1 w-full"
+    aria-labelledby="delete-user-transfer"
+    bind:value={transferTo}
+    options={[
+      { value: "", label: t("admin.deleteUser.leaveOwnerless") },
+      ...transferCandidates.map((user) => ({
+        value: user.id,
+        label: t("admin.deleteUser.transferTo", { name: user.displayName, email: user.email }),
+      })),
+    ]}
+  />
 
   <label class="mt-4 block text-xs font-semibold text-text-secondary">
     {t("admin.deleteUser.typeToConfirmPrefix")} <span class="font-mono text-text">{targetUser.email}</span>
