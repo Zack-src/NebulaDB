@@ -479,6 +479,7 @@
   "commandPalette.noMatch": "No match",
   "import.chooseFile": "Choose file…",
   "import.title": "Import schema",
+  "import.format": "Source format",
   "comments.onField": "Comments on {{field}}",
   "comments.title": "Comments",
   "comments.empty": "No comments yet.",

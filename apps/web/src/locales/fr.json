@@ -479,6 +479,7 @@
   "commandPalette.noMatch": "Aucun résultat",
   "import.chooseFile": "Choisir un fichier…",
   "import.title": "Importer un schéma",
+  "import.format": "Format de la source",
   "comments.onField": "Commentaires sur {{field}}",
   "comments.title": "Commentaires",
   "comments.empty": "Aucun commentaire.",

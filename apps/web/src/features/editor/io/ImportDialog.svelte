@@ -5,7 +5,8 @@
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
-  import { SELECT_CLASS, TEXTAREA_CODE_CLASS } from "@/components/ui/inputStyles";
+  import { TEXTAREA_CODE_CLASS } from "@/components/ui/inputStyles";
+  import Select from "@/components/ui/Select.svelte";
   import { useImporters } from "@/features/plugins/plugins.svelte";
   import type { ImportResult } from "@/features/plugins/types";
   import { useTranslation } from "@/i18n/i18n.svelte";
@@ -83,11 +84,15 @@
 <Modal title={t("import.title")} onClose={props.onClose}>
   <Hint>{t("import.mergeHint")}</Hint>
   <div class="mb-2.5 flex items-center gap-2">
-    <select class={SELECT_CLASS} value={selection} onchange={(event) => (selection = event.currentTarget.value)}>
-      {#each importers.list as i (i.key)}
-        <option value={i.key}>{i.contribution.label}{i.source === "user" ? ` — ${i.plugin.name}` : ""}</option>
-      {/each}
-    </select>
+    <Select
+      class="w-56"
+      bind:value={selection}
+      options={importers.list.map((i) => ({
+        value: i.key,
+        label: `${i.contribution.label}${i.source === "user" ? ` — ${i.plugin.name}` : ""}`,
+      }))}
+      aria-label={t("import.format")}
+    />
     <input
       bind:this={fileInput}
       type="file"
