@@ -21,7 +21,8 @@
   import ListMain from "@/components/ui/ListMain.svelte";
   import ListRow from "@/components/ui/ListRow.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
-  import { CHECKBOX_CLASS, INPUT_CLASS } from "@/components/ui/inputStyles";
+  import Checkbox from "@/components/ui/Checkbox.svelte";
+  import { INPUT_CLASS } from "@/components/ui/inputStyles";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { copyText } from "@/utils/clipboard";
@@ -77,10 +78,9 @@
       bind:value={email}
       onkeydown={(event) => event.key === "Enter" && handleInvite()}
     />
-    <label class="flex items-center gap-1.5 whitespace-nowrap text-[13px] text-text-muted">
-      <input type="checkbox" class={CHECKBOX_CLASS} bind:checked={invitingAsAdmin} />
-      {t("common.admin")}
-    </label>
+    <Checkbox bind:checked={invitingAsAdmin} class="whitespace-nowrap">
+      <span class="text-[13px] text-text-muted">{t("common.admin")}</span>
+    </Checkbox>
     <Button variant="primary" onclick={handleInvite} disabled={invite.pending || !email.trim()}>
       <Icon icon={PlusIcon} size={14} />
       {t("admin.invitations.invite")}
