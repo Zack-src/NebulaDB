@@ -162,6 +162,10 @@ export const ERROR_CATALOG = {
   ENVIRONMENT_NOT_FOUND: { status: 404, message: "no such environment stage" },
   BACKUP_NOT_FOUND: { status: 404, message: "no such backup" },
   SEED_NOT_FOUND: { status: 404, message: "this table has no seed" },
+  DATABASE_TABLE_NOT_FOUND: {
+    status: 404,
+    message: "the database has no table of that name — deploy the schema first",
+  },
 
   // --- 409 ---
   EMAIL_ALREADY_EXISTS: { status: 409, message: "a user with this email already exists" },

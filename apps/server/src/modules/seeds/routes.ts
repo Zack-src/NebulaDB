@@ -3,7 +3,9 @@ import { readProjectReadOnly } from "../../realtime/readOnlyProject.js";
 import { notifyProject } from "../../realtime/roomRegistry.js";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
-import { requireProjectAccess } from "../../shared/guards.js";
+import { requireAdmin, requireProjectAccess } from "../../shared/guards.js";
+import { getProjectConnection } from "../connections/repository.js";
+import { readTableAsSeed } from "./fromDatabase.js";
 import { canOverrideLock, lockAuthorityOf } from "../tableLocks/access.js";
 import { getTableLock } from "../tableLocks/repository.js";
 import { deleteSeed, getSeed, listSeeds, parseSeedInput, upsertSeed } from "./repository.js";
@@ -22,6 +24,8 @@ function assertSeedEditable(userId: string, projectId: string, tableId: string, 
     });
   }
 }
+
+const FROM_DATABASE_LIMIT = { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } };
 
 /**
  * Seeds: the rows a table starts with, inserted after the DDL of a
@@ -66,6 +70,31 @@ export function registerSeedRoutes(app: FastifyInstance): void {
     });
     auditUser(user, "seed.set", { type: "project", id }, `${table.name}: ${input.rowCount} row(s)`, req);
     notifyProject(id, { type: "seeds-changed" });
+    return { seed };
+  });
+
+  // The table's rows as they are in one of the project's databases, as a seed
+  // to review. Instance administrators only, like the console and the
+  // backups: this hands out every row of the table. Nothing is saved — the
+  // dialog shows the rows checked, and saving is the ordinary PUT above.
+  app.post("/api/projects/:id/seeds/:tableId/from-database", FROM_DATABASE_LIMIT, async (req) => {
+    const { id, tableId } = req.params as { id: string; tableId: string };
+    const user = requireAdmin(req);
+    const { project } = requireProjectAccess(req, id, "edit");
+    const { connectionId } = (req.body ?? {}) as { connectionId?: unknown };
+    const connection = typeof connectionId === "string" ? getProjectConnection(id, connectionId) : null;
+    if (!connection) throw new ApiError("CONNECTION_NOT_FOUND");
+    const table = readProjectReadOnly(id, project.name).tables.find((t) => t.id === tableId);
+    if (!table) throw new ApiError("TABLE_NOT_FOUND");
+    const seed = await readTableAsSeed(connection, table);
+    auditUser(
+      user,
+      "seed.read_database",
+      { type: "project", id },
+      `${table.name}: ${seed.rowCount} row(s) from ${connection.name}${seed.truncated ? " (truncated)" : ""}`,
+      req,
+      { connectionId: connection.id },
+    );
     return { seed };
   });
 

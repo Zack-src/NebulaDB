@@ -164,7 +164,9 @@ test("seeds: set and listed, validated before the deployment, inserted parents f
     assert.equal(refused.json().code, "SEEDS_NOT_DEPLOYABLE");
     assert.deepEqual(refused.json().tables, ["orders"]);
     const untouched = new Database(targetFile, { readonly: true });
-    const tablesAfterRefusal = untouched.prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table'").get() as {
+    const tablesAfterRefusal = untouched
+      .prepare("SELECT COUNT(*) AS n FROM sqlite_master WHERE type = 'table'")
+      .get() as {
       n: number;
     };
     untouched.close();
@@ -239,6 +241,82 @@ test("seeds: a full lock freezes the seed for those it binds; a view grant canno
     assert.equal(refused.json().code, "TABLE_LOCKED");
     assert.equal((await call(app, owner, "DELETE", `${base}/seeds/t-customers`)).json().code, "TABLE_LOCKED");
     assert.equal((await put(instanceAdmin)).statusCode, 200, "the lock's own authority still can");
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
+
+test("seeds: a table's rows are read from a database as a seed to review — instance administrators only", async () => {
+  const app = await buildApp();
+  try {
+    const instanceAdmin = await userCookie(app, 1);
+    const owner = await userCookie(app, 0);
+    // The owner administers the project without being an instance administrator.
+    const project = (await call(app, owner, "POST", "/api/projects", { name: "Shop" })).json() as { id: string };
+    seedCanvas(project.id);
+    const base = `/api/projects/${project.id}`;
+    const dir = mkdtempSync(join(tmpdir(), "athanordb-seed-source-"));
+    const targetFile = join(dir, "shop.sqlite");
+    const target = new Database(targetFile);
+    // `nickname` is not in the schema; `orders.customer_id` holds bytes.
+    target.exec(`
+      CREATE TABLE customers (id INTEGER PRIMARY KEY, name TEXT, nickname TEXT);
+      INSERT INTO customers VALUES (3, NULL, 'x'), (1, 'Ada', 'x'), (2, '', 'x'), (4, 'a,b "q"', 'x');
+      CREATE TABLE orders (id INTEGER PRIMARY KEY, customer_id BLOB);
+      INSERT INTO orders VALUES (10, x'0102'), (11, x'03');
+    `);
+    target.close();
+    const connect = async (name: string, filePath: string) =>
+      (await call(app, instanceAdmin, "POST", `${base}/connections`, { name, engine: "sqlite", filePath })).json()
+        .connection.id as string;
+    const connId = await connect("Shop db", targetFile);
+    const read = (cookie: string, tableId: string, connectionId: unknown = connId) =>
+      call(app, cookie, "POST", `${base}/seeds/${tableId}/from-database`, { connectionId });
+
+    // In key order; NULL and the empty string told apart; the text that needs quoting quoted.
+    const customers = await read(instanceAdmin, "t-customers");
+    assert.equal(customers.statusCode, 200, customers.body);
+    assert.deepEqual(customers.json().seed, {
+      content: 'id,name\n1,Ada\n2,""\n3,\n4,"a,b ""q"""\n',
+      mapping: ["c-id", "c-name"],
+      rowCount: 4,
+      truncated: false,
+      skippedColumns: [],
+    });
+    // Read, not saved.
+    assert.deepEqual((await call(app, instanceAdmin, "GET", `${base}/seeds`)).json().seeds, []);
+    const audited = db
+      .prepare("SELECT detail, connection_id FROM audit_log WHERE action = 'seed.read_database'")
+      .all() as { detail: string; connection_id: string }[];
+    assert.deepEqual(audited, [{ detail: "customers: 4 row(s) from Shop db", connection_id: connId }]);
+
+    // What comes back is a seed the ordinary route accepts.
+    const saved = await call(app, instanceAdmin, "PUT", `${base}/seeds/t-customers`, {
+      content: customers.json().seed.content,
+      options: csvOptions(customers.json().seed.mapping),
+    });
+    assert.equal(saved.statusCode, 200, saved.body);
+
+    // A binary column has no CSV spelling: left out, and named.
+    const orders = (await read(instanceAdmin, "t-orders")).json().seed;
+    assert.deepEqual(orders, {
+      content: "id\n10\n11\n",
+      mapping: ["o-id"],
+      rowCount: 2,
+      truncated: false,
+      skippedColumns: ["customer_id"],
+    });
+
+    // Every row of a table: not for a project administrator who is not an instance one.
+    assert.equal((await read(owner, "t-customers")).statusCode, 403);
+
+    assert.equal((await read(instanceAdmin, "t-customers", "nope")).json().code, "CONNECTION_NOT_FOUND");
+    assert.equal((await read(instanceAdmin, "t-nope")).json().code, "TABLE_NOT_FOUND");
+    const emptyId = await connect("Empty db", join(dir, "empty.sqlite"));
+    const missing = await read(instanceAdmin, "t-customers", emptyId);
+    assert.equal(missing.statusCode, 404);
+    assert.equal(missing.json().code, "DATABASE_TABLE_NOT_FOUND");
   } finally {
     closeAllRooms();
     await app.close();

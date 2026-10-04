@@ -45,6 +45,19 @@ export interface TableSeed extends TableSeedSummary {
   content: string;
 }
 
+/** A table's current rows read from a database, as a seed to review — `POST …/seeds/:tableId/from-database`. Not saved. */
+export interface SeedFromDatabase {
+  /** CSV, `,`-separated, header first. */
+  content: string;
+  /** One field id per CSV column. */
+  mapping: string[];
+  rowCount: number;
+  /** The table holds more than a seed may: these are its first rows. */
+  truncated: boolean;
+  /** Columns of the schema left out: absent from the database, or binary. */
+  skippedColumns: string[];
+}
+
 export type SeedIssueKind =
   "not-null" | "type" | "length" | "unique" | "foreign-key" | "missing-column" | "formula" | "width";
 

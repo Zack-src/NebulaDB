@@ -85,6 +85,7 @@ export const AUDIT_ACTIONS = [
   "environment.reorder",
   "seed.set",
   "seed.remove",
+  "seed.read_database",
   "project.monitoring",
   "project.lint",
   "backup.create",
