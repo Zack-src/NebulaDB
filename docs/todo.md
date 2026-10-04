@@ -546,7 +546,7 @@ here: each gets its own security review before it is closed.**
   naming both stages). This is the first thing `protection` enforces. The way past:
   `skipStageOrder: true` + `skipReason` — **instance administrators only**, audited
   `connection.deploy.stage_skipped` — on the app's route and `/api/v1`.
-  `GET /api/projects/:id/pipeline`. UI: the "Pipeline" card at the top of the Déploiements tab
+  `GET /api/projects/:id/pipeline` (and `/api/v1/projects/:id/pipeline`, 2026-10-04). UI: the "Pipeline" card at the top of the Déploiements tab
   (`workspace/PipelineCard.svelte`: stages, state per database — à niveau / en retard / échec /
   jamais déployé —, "Attend X", Deploy per database), and in the deployment dialog the refusal
   in the reader's language with, for an instance administrator, a reason field and "Sauter
@@ -589,7 +589,7 @@ here: each gets its own security review before it is closed.**
   "Promouvoir" (needs the pipeline item above — today the way to level two stages is to deploy
   the schema to each); two engines compare by canonical type names, which is only as good as
   `TYPE_ALIASES` (not tried across engines); index and foreign-key differences are flagged,
-  not itemised; `/api/v1`; `connectionBudget` is not consulted; views and other objects are
+  not itemised; `connectionBudget` is not consulted (`/api/v1` added 2026-10-04); views and other objects are
   outside the fingerprint.
 - [~] **Per-environment variables** — first slice done 2026-10-04. A table's **name** or
   **schema** may hold `{{variable}}` placeholders (`Table "{{table_prefix}}orders"`,

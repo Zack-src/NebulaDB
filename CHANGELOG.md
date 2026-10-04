@@ -24,6 +24,13 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Added (public API)
+
+- `GET /api/v1/projects/:id/pipeline` — where the current schema has been
+  deployed along the stages — and `POST /api/v1/projects/:id/connections/compare`
+  — two of the project's databases against each other. Both read-only, for
+  project administrators.
+
 ### Added (small things)
 
 - **Activity**: from an entry's detail, "Voir toute son activité" narrows the
