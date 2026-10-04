@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { join } from "node:path";
 import { test } from "node:test";
 import { startE2eEnvironment } from "./harness.js";
 
@@ -21,6 +22,10 @@ import { startE2eEnvironment } from "./harness.js";
 const PORT = Number(process.env.E2E_PORT) || 4392;
 /** Its own port: test files run in parallel, and every port near 4392 belongs to another file. */
 const FORMS_PORT = PORT + 12;
+const GRID_PORT = PORT + 37;
+/** The smallest and largest `montant` of the catalogue's generated rows (`ComponentCatalogue.svelte`). */
+const GRID_MIN_AMOUNT = "0.14";
+const GRID_MAX_AMOUNT = "1429.43";
 
 test(
   "component catalogue renders every primitive, in both themes, with no console errors",
@@ -177,6 +182,145 @@ test("form components are reachable by role and operable from the keyboard", { t
     assert.equal(await confirm.isDisabled(), false);
     await page.keyboard.press("Enter");
     await dialog.waitFor({ state: "detached" });
+
+    assert.deepEqual(errors, [], `expected no page errors, got:\n${errors.join("\n")}`);
+  } finally {
+    await env.teardown();
+  }
+});
+
+/**
+ * `DataGrid` shows query results, where 10 000 rows is an ordinary answer: the
+ * catalogue gives it that many, and this checks what a plain `<table>` gave for
+ * free and a virtualised grid has to earn — rows far down are reachable, the
+ * DOM stays small, and sort and resize work from the mouse and the keyboard.
+ *
+ * Set `E2E_SHOTS=<dir>` to keep a screenshot of the grid in both themes.
+ */
+test("DataGrid sorts, resizes and scrolls 10 000 rows with a small DOM", { timeout: 45_000 }, async () => {
+  const env = await startE2eEnvironment(GRID_PORT);
+  try {
+    const page = await env.browser.newPage({ viewport: { width: 1280, height: 900 } });
+    const errors: string[] = [];
+    page.on("pageerror", (err) => errors.push(String(err)));
+    await page.goto(`${env.baseUrl}/#components`);
+    await page.getByText("Catalogue de composants", { exact: true }).waitFor({ timeout: 10_000 });
+
+    const grid = page.getByRole("grid", { name: "Commandes" });
+    await grid.scrollIntoViewIfNeeded();
+    assert.equal(await grid.getAttribute("aria-rowcount"), "10001", "the header row counts");
+    assert.equal(await grid.getAttribute("aria-colcount"), "20");
+    /** The row at a position on screen — `aria-rowindex`, where the header is 1. */
+    const rowAt = (rowIndex: number) => grid.locator(`[role="row"][aria-rowindex="${rowIndex}"]`);
+    const cellsAt = (rowIndex: number) => rowAt(rowIndex).getByRole("gridcell").allInnerTexts();
+    const header = (name: string) => grid.getByRole("columnheader", { name, exact: true });
+    const sortBy = (name: string) => header(name).getByRole("button").click();
+    const dataRows = grid.locator('[role="rowgroup"] > [role="row"]');
+
+    // Virtualised: 10 000 rows given, a few dozen rendered.
+    assert.equal((await cellsAt(2))[0], "1");
+    const rendered = await dataRows.count();
+    assert.ok(rendered > 5 && rendered < 60, `expected a few dozen rows in the DOM, got ${rendered}`);
+    // NULL is written as such, and set apart from text.
+    assert.equal((await cellsAt(4))[6], "NULL");
+    assert.equal(await rowAt(4).getByRole("gridcell").nth(6).locator("span").count(), 1);
+    // A value longer than its column is cut on screen and whole in the tooltip.
+    const note = rowAt(2).getByRole("gridcell").nth(8);
+    assert.match((await note.getAttribute("title")) ?? "", /laisser au gardien si absent\.$/);
+    assert.equal(await note.evaluate((cell) => cell.scrollWidth > cell.clientWidth), true);
+
+    // Sort by click: ascending, descending, none.
+    assert.equal(await header("id").getAttribute("aria-sort"), "none");
+    await sortBy("id");
+    assert.equal(await header("id").getAttribute("aria-sort"), "ascending");
+    assert.equal((await cellsAt(2))[0], "1");
+    await sortBy("id");
+    assert.equal(await header("id").getAttribute("aria-sort"), "descending");
+    assert.equal((await cellsAt(2))[0], "10000");
+    await sortBy("id");
+    assert.equal(await header("id").getAttribute("aria-sort"), "none");
+    assert.equal((await cellsAt(2))[0], "1");
+
+    // Numbers kept as text sort by value, not as text ("1000.00" would come before "2.00")…
+    await sortBy("montant");
+    assert.equal((await cellsAt(2))[4], GRID_MIN_AMOUNT);
+    assert.equal(await header("id").getAttribute("aria-sort"), "none", "one sorted column at a time");
+    await sortBy("montant");
+    assert.equal((await cellsAt(2))[4], GRID_MAX_AMOUNT);
+    // …and NULL is last in both directions; End, on the grid, goes to the last row.
+    await sortBy("remise");
+    assert.equal((await cellsAt(2))[6], "0");
+    await sortBy("remise");
+    assert.equal((await cellsAt(2))[6], "40");
+    await grid.focus();
+    await page.keyboard.press("End");
+    await rowAt(10_001).waitFor();
+    assert.equal((await cellsAt(10_001))[6], "NULL");
+    await page.keyboard.press("Home");
+    await rowAt(2).waitFor();
+    await page.keyboard.press("ArrowDown");
+    assert.equal(await grid.evaluate((element) => element.scrollTop), 28, "one row per arrow press");
+    await sortBy("remise"); // back to unsorted
+
+    // Scroll far down: those rows render, and the DOM is no bigger for it.
+    await grid.evaluate((element) => (element.scrollTop = 28 * 5000));
+    await rowAt(5002).waitFor();
+    assert.equal((await cellsAt(5002))[0], "5001");
+    const renderedFarDown = await dataRows.count();
+    assert.ok(renderedFarDown < 60, `expected a few dozen rows in the DOM, got ${renderedFarDown}`);
+    assert.equal(await rowAt(2).count(), 0, "rows out of view are removed");
+    // The header stays on top of the rows.
+    const gridBox = await grid.boundingBox();
+    const headerBox = await header("id").boundingBox();
+    assert.ok(gridBox && headerBox && Math.abs(headerBox.y - gridBox.y) < 2, "sticky header");
+    console.log(`DataGrid: ${rendered} rows in the DOM at the top, ${renderedFarDown} at row 5 000, of 10 000`);
+
+    // Resize from the keyboard, on the handle.
+    const handle = grid.getByRole("separator", { name: "Redimensionner la colonne client" });
+    const width = async () => Math.round((await header("client").boundingBox())?.width ?? 0);
+    const initial = await width();
+    assert.equal(await handle.getAttribute("aria-valuenow"), String(initial));
+    await handle.focus();
+    await page.keyboard.press("ArrowRight");
+    assert.equal(await width(), initial + 16);
+    assert.equal(await handle.getAttribute("aria-valuenow"), String(initial + 16));
+    await page.keyboard.press("Shift+ArrowLeft");
+    assert.equal(await width(), initial - 48);
+    await page.keyboard.press("Home");
+    assert.equal(await width(), 48, "the minimum width");
+    // The cells follow their header.
+    const cell = dataRows.first().getByRole("gridcell").nth(1);
+    assert.equal(Math.round((await cell.boundingBox())?.width ?? 0), 48);
+    await page.keyboard.press("Enter");
+    assert.equal(await width(), initial, "Enter fits the content again");
+    // The caller is told: the catalogue prints the widths it was handed.
+    await page.getByText(new RegExp(`· [0-9]+ / ${initial} / `)).waitFor();
+
+    // …and with the pointer: drag the edge, double-click to fit.
+    const box = await handle.boundingBox();
+    assert.ok(box);
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + box.width / 2 + 60, box.y + box.height / 2, { steps: 4 });
+    await page.mouse.up();
+    assert.equal(await width(), initial + 60);
+    await handle.dblclick();
+    assert.equal(await width(), initial);
+    assert.equal(await header("client").getAttribute("aria-sort"), "none", "resizing is not a click on the header");
+
+    // No rows: the header, and a sentence.
+    await page.getByRole("grid", { name: "Résultat vide" }).waitFor();
+    await page.getByText("Aucune ligne.", { exact: true }).waitFor();
+
+    if (process.env.E2E_SHOTS) {
+      await grid.evaluate((element) => (element.scrollTop = 0));
+      await sortBy("montant");
+      await rowAt(2).waitFor();
+      const section = page.locator("section").filter({ has: grid });
+      await section.screenshot({ path: join(process.env.E2E_SHOTS, "datagrid-dark.png") });
+      await page.getByRole("button", { name: "Clair" }).click();
+      await section.screenshot({ path: join(process.env.E2E_SHOTS, "datagrid-light.png") });
+    }
 
     assert.deepEqual(errors, [], `expected no page errors, got:\n${errors.join("\n")}`);
   } finally {

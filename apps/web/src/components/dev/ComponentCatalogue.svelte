@@ -19,6 +19,8 @@
   import Tabs, { type TabItem } from "@/components/ui/Tabs.svelte";
   import BrandMark from "@/components/ui/BrandMark.svelte";
   import Checkbox from "@/components/ui/Checkbox.svelte";
+  import DataGrid from "@/components/ui/DataGrid.svelte";
+  import type { GridSort } from "@/components/ui/dataGrid";
   import Menu from "@/components/ui/Menu.svelte";
   import MenuItem from "@/components/ui/MenuItem.svelte";
   import NumberInput from "@/components/ui/NumberInput.svelte";
@@ -83,6 +85,46 @@
   const CARD_VARIANTS = ["default", "glass", "glow", "outline"] as const;
   const TABS_VARIANTS = ["pill", "line", "boxed"] as const;
 
+  /**
+   * 10 000 rows × 20 columns, the same on every load: what `DataGrid` has to
+   * stay smooth with. NULLs, numbers kept as text, and text longer than its
+   * column are all in there on purpose.
+   */
+  const GRID_ROW_COUNT = 10_000;
+  const GRID_COUNTRIES = ["France", "Belgique", "Suisse", "Canada", "Sénégal", "Maroc"];
+  const GRID_STATUSES = ["payée", "en attente", "expédiée", "annulée"];
+  const GRID_COLUMNS = [
+    "id",
+    "client",
+    "pays",
+    "statut",
+    "montant",
+    "quantite",
+    "remise",
+    "cree_le",
+    "note",
+    "expedie",
+    ...Array.from({ length: 10 }, (_, index) => `mesure_${index + 1}`),
+  ];
+  const pad = (value: number, length: number) => String(value).padStart(length, "0");
+  const GRID_ROWS: unknown[][] = Array.from({ length: GRID_ROW_COUNT }, (_, index) => {
+    const id = index + 1;
+    const mixed = (id * 7919) % 10_007;
+    return [
+      id,
+      `Client ${pad(mixed, 5)}`,
+      GRID_COUNTRIES[mixed % GRID_COUNTRIES.length],
+      GRID_STATUSES[mixed % GRID_STATUSES.length],
+      (mixed / 7).toFixed(2),
+      (mixed % 40) + 1,
+      id % 3 === 0 ? null : (mixed % 9) * 5,
+      `2026-${pad((mixed % 12) + 1, 2)}-${pad((mixed % 28) + 1, 2)} 08:${pad(mixed % 60, 2)}`,
+      id % 5 === 0 ? null : `Commande n° ${id} — à livrer avant la fin du mois, sans signature, laisser au gardien si absent.`,
+      mixed % 2 === 0,
+      ...Array.from({ length: 10 }, (_, column) => ((mixed * (column + 3)) % 1000) / 10),
+    ];
+  });
+
   const DEMO_TABS: TabItem[] = [
     { id: "one", label: "Général" },
     { id: "two", label: "Sécurité", badge: 2 },
@@ -122,6 +164,11 @@
   let popoverOpen = $state(false);
   let popoverAnchor: HTMLButtonElement | null = $state(null);
   let confirming = $state<"plain" | "danger" | null>(null);
+  let gridSort = $state<GridSort | null>(null);
+  let gridWidths = $state<number[] | undefined>(undefined);
+  const gridState = $derived(
+    `${gridSort ? `${GRID_COLUMNS[gridSort.column]} ${gridSort.direction}` : "—"} · ${gridWidths ? gridWidths.slice(0, 4).join(" / ") : "auto"}`,
+  );
 
   function setPreset(preset: ThemePreset) {
     theme = preset;
@@ -347,6 +394,25 @@
         <Popover open={popoverOpen} anchor={popoverAnchor} onClose={() => (popoverOpen = false)} class="w-64 p-3">
           <p class="m-0 text-body-sm text-text-secondary">{t("componentCatalogue.popoverBody")}</p>
         </Popover>
+      </div>
+    </Section>
+
+    <Section
+      title="DataGrid"
+      description="10 000 lignes × 20 colonnes, seules celles à l'écran sont dans le DOM. Clic sur un en-tête : tri croissant, décroissant, aucun (NULL toujours en dernier). Bord droit d'un en-tête : glisser, flèches au clavier, double-clic ou Entrée pour ajuster."
+    >
+      <DataGrid
+        columns={GRID_COLUMNS}
+        rows={GRID_ROWS}
+        bind:sort={gridSort}
+        bind:widths={gridWidths}
+        maxHeight={360}
+        aria-label="Commandes"
+        emptyLabel="Aucune ligne."
+      />
+      <p class="text-label text-text-muted">{t("componentCatalogue.lastValue", { value: gridState })}</p>
+      <div class="max-w-md">
+        <DataGrid columns={["id", "nom"]} rows={[]} aria-label="Résultat vide" emptyLabel="Aucune ligne." />
       </div>
     </Section>
 
