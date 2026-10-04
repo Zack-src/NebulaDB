@@ -8,6 +8,7 @@
     TABLE_NAME_CLASS,
     TABLE_NODE_CLASS,
   } from "@/features/editor/nodes/table/tableStyles";
+  import LockBadge from "@/features/editor/locks/LockBadge.svelte";
   import type { EntityNodeType } from "./mcdNodes";
 
   /**
@@ -24,7 +25,9 @@
   const headerColor = $derived(data.sourceTable?.style?.color ?? DEFAULT_HEADER_COLOR);
 </script>
 
-<div class={`${TABLE_NODE_CLASS} ${data.hasWarning ? "border-warning" : ""}`}>
+<div
+  class={`${TABLE_NODE_CLASS} ${data.hasWarning ? "border-warning" : ""} ${data.lock ? "is-locked border-dashed" : ""}`}
+>
   <Handle type="target" position={Position.Left} style="opacity: 0" />
   <Handle type="source" position={Position.Right} style="opacity: 0" />
   <div
@@ -33,9 +36,12 @@
     style:color={prefersDarkText(headerColor) ? "var(--color-text-on-light)" : "#ffffff"}
   >
     <span class={TABLE_NAME_CLASS}>{data.entity.name}</span>
+    {#if data.lock}
+      <span class="ml-auto"><LockBadge lock={data.lock} /></span>
+    {/if}
     {#if data.hasWarning}
       <span
-        class="ml-auto shrink-0 text-[11px]"
+        class={`${data.lock ? "" : "ml-auto"} shrink-0 text-[11px]`}
         data-tooltip="Cette table peut cacher une association non reconstruite — voir l'avertissement"
       >
         ⚠

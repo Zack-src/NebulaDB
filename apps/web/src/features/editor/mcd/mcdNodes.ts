@@ -1,10 +1,21 @@
 import type { Edge, Node } from "@xyflow/svelte";
-import type { McdAssociation, McdCardinality, McdEntity, McdModel, Position, Project, Table } from "@athanordb/shared";
+import type {
+  McdAssociation,
+  McdCardinality,
+  McdEntity,
+  McdModel,
+  Position,
+  Project,
+  Table,
+  TableLock,
+} from "@athanordb/shared";
 
 export interface EntityNodeData {
   entity: McdEntity;
   /** The table this entity was derived from — read only for its header colour, same as `TableNode`. */
   sourceTable?: Table;
+  /** The lock on that table, when it has one — shown, never managed, from here. */
+  lock?: TableLock;
   hasWarning?: boolean;
   [key: string]: unknown;
 }
@@ -15,6 +26,8 @@ export interface AssociationNodeData {
   association: McdAssociation;
   /** Set when this association was collapsed from a junction table — carries that table's own colour, same as any other table. */
   sourceTable?: Table;
+  /** The junction table's lock: the association is that table under another shape. */
+  lock?: TableLock;
   [key: string]: unknown;
 }
 
@@ -31,7 +44,12 @@ export type McdEdgeType = Edge<McdEdgeData, "mcd">;
 export type McdNode = EntityNodeType | AssociationNodeType;
 
 /** Pure assembly of the node array the MCD flow renders — no state, no positioning logic of its own (see `mcdPositions.ts` for that). */
-export function buildMcdNodes(model: McdModel, project: Project, positions: Map<string, Position>): McdNode[] {
+export function buildMcdNodes(
+  model: McdModel,
+  project: Project,
+  positions: Map<string, Position>,
+  locks: ReadonlyMap<string, TableLock> = new Map(),
+): McdNode[] {
   const tablesById = new Map<string, Table>(project.tables.map((t) => [t.id, t]));
   const warnedTableIds = new Set(model.warnings.map((w) => w.tableId));
 
@@ -42,6 +60,7 @@ export function buildMcdNodes(model: McdModel, project: Project, positions: Map<
     data: {
       entity,
       sourceTable: tablesById.get(entity.sourceTableId),
+      lock: locks.get(entity.sourceTableId),
       hasWarning: warnedTableIds.has(entity.sourceTableId),
     },
   }));
@@ -49,7 +68,8 @@ export function buildMcdNodes(model: McdModel, project: Project, positions: Map<
     id: association.id,
     type: "association",
     position: positions.get(association.id) ?? { x: 0, y: 0 },
-    data: { association, sourceTable: tablesById.get(association.sourceId) },
+    // `sourceId` is a table's id only for a collapsed junction table; a relation's id matches no lock.
+    data: { association, sourceTable: tablesById.get(association.sourceId), lock: locks.get(association.sourceId) },
   }));
 
   return [...entityNodes, ...associationNodes];

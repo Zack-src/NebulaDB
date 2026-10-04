@@ -2,6 +2,7 @@
   import { Handle, Position, type NodeProps } from "@xyflow/svelte";
   import { prefersDarkText } from "@/utils/color";
   import { DEFAULT_HEADER_COLOR, ROW_TYPE_CLASS, TABLE_NODE_CLASS } from "@/features/editor/nodes/table/tableStyles";
+  import LockBadge from "@/features/editor/locks/LockBadge.svelte";
   import type { AssociationNodeType } from "./mcdNodes";
 
   /**
@@ -16,7 +17,7 @@
   const headerColor = $derived(data.sourceTable?.style?.color ?? DEFAULT_HEADER_COLOR);
 </script>
 
-<div class={`${TABLE_NODE_CLASS} rounded-full!`}>
+<div class={`${TABLE_NODE_CLASS} rounded-full! ${data.lock ? "is-locked border-dashed" : ""}`}>
   <Handle type="target" position={Position.Left} style="opacity: 0" />
   <Handle type="source" position={Position.Right} style="opacity: 0" />
   <div
@@ -25,6 +26,9 @@
     style:color={prefersDarkText(headerColor) ? "var(--color-text-on-light)" : "#ffffff"}
   >
     {data.association.name}
+    {#if data.lock}
+      <LockBadge lock={data.lock} />
+    {/if}
   </div>
   {#each data.association.attributes as attr (attr.id)}
     <div

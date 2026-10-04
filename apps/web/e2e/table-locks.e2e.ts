@@ -139,6 +139,15 @@ test(
       await addColumn(editor, "users").waitFor({ state: "detached" });
       assert.equal(await addColumn(editor, "orders").count(), 1, "the unlocked table is unaffected");
 
+      // The MCD view draws the same schema: the padlock follows the table there.
+      await editor.getByRole("button", { name: "MCD", exact: true }).click();
+      const entityPadlock = tableNode(editor, "users").getByRole("img", { name: "Table verrouillée" });
+      await entityPadlock.waitFor();
+      assert.match((await entityPadlock.getAttribute("data-tooltip-note")) ?? "", /Table de référence RH/);
+      assert.equal(await tableNode(editor, "orders").getByRole("img", { name: "Table verrouillée" }).count(), 0);
+      await editor.getByRole("button", { name: "MLD", exact: true }).click();
+      await padlock.waitFor();
+
       // Double-click no longer opens the rename field…
       await tableHeader(editor, "users").dblclick();
       assert.equal(await tableNode(editor, "users").locator("input").count(), 0);

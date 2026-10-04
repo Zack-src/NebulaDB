@@ -11,7 +11,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { Background, BackgroundVariant, Panel, SvelteFlow } from "@xyflow/svelte";
-  import { deriveMCD, type Project } from "@athanordb/shared";
+  import { deriveMCD, type Project, type TableLock } from "@athanordb/shared";
   import { loadGridStyle } from "@/utils/preferences";
   import {
     CANVAS_VIEWPORT_PROPS,
@@ -46,8 +46,11 @@
     viewportUserId,
     viewMode,
     onSetViewMode,
+    locks,
   }: {
     project: Project;
+    /** The project's table locks, by table id: a locked table keeps its padlock in this view. */
+    locks: ReadonlyMap<string, TableLock>;
     projectId: string;
     viewportUserId: string;
     viewMode: EditorViewMode;
@@ -65,7 +68,7 @@
   const gridStyle = loadGridStyle();
 
   const basePositions = $derived(computeMcdPositions(model, project));
-  const baseNodes = $derived(buildMcdNodes(model, project, basePositions));
+  const baseNodes = $derived(buildMcdNodes(model, project, basePositions, locks));
   const drag = useMcdNodeDrag(() => baseNodes);
   const edges = $derived(buildMcdEdges(model));
   const selectedIds = $derived(drag.nodes.filter((n) => n.selected).map((n) => n.id));

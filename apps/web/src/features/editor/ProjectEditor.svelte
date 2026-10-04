@@ -751,6 +751,7 @@
               viewportUserId={props.session.id}
               {viewMode}
               onSetViewMode={(mode) => (viewMode = mode)}
+              locks={tableLocks.view.byTable}
             />
           {/if}
         </div>
