@@ -1216,14 +1216,19 @@ of the discussion. Cut or promote into a phase above.
 
 ### Phase 23 — Code health
 
-- [~] **File-size watchlist** (2026-09-23 counts; split opportunistically, none is a bug):
-  `packages/dbml-engine/src/dbml.ts` 504 l. · `features/plugins/communityTemplates.ts` 722 l.
-  (mostly data) · `features/editor/dbml/symbols.ts` 566 l. · `features/connections/
-DeploymentModal.svelte` 501 l. (will grow with Phase 32 — split first) ·
-  `features/editor/canvas/autoLayout.ts` 465 l. · `features/editor/canvas/CanvasArea.svelte`
-  463 l. · `features/editor/ProjectEditor.svelte` 459 l. (gets the workspace shell in Phase 31) ·
-  `features/admin/connections/UsersPanel.svelte` 447 l. · `apps/server/src/modules/connections/
-repository.ts` has grown a lot with instance-level connections — worth a look.
+- [~] **File-size watchlist** (2026-10-04 counts; split opportunistically, none is a bug):
+  `features/editor/ProjectEditor.svelte` **892 l.** — the workspace shell, six tabs and a dozen
+  lazily mounted dialogs live there; it peaked at 1 002 on 2026-10-04, when the schema-quality
+  logic (`lint/schemaQuality.svelte.ts`) and the SQL drawer state (`sql/sqlDrawer.svelte.ts`)
+  were moved out. Next candidates: the block of dialogs (one component taking a `dialogs`
+  state object) and the history-preview state. · `features/connections/DeploymentModal.svelte`
+  **710 l.** (risks, seeds, backup, production confirmation, stage skip — split by step) ·
+  `features/plugins/communityTemplates.ts` 723 l. (mostly data) ·
+  `features/editor/dbml/symbols.ts` 581 l. · `packages/dbml-engine/src/dbml.ts` 537 l. ·
+  `features/editor/canvas/CanvasArea.svelte` 487 l. · `features/editor/canvas/autoLayout.ts`
+  465 l. · `features/admin/connections/UsersPanel.svelte` 447 l. ·
+  `apps/server/src/modules/connections/repository.ts` has grown a lot with instance-level
+  connections — worth a look.
 - [ ] **Confirm two perf regressions flagged by the Svelte migration bench** — **S**
       (`docs/perf/svelte-migration-results.md`, single pass): `zoom-links-on` at "complet" detail
       0→29 ms blocking at 100 tables and 4→40 ms at 500; `delete-columns` at 500 tables +~6 ms. Small
