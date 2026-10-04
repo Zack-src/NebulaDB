@@ -1645,5 +1645,15 @@
   "tour.workspace.body": "Les onglets mènent à l'historique des versions, aux problèmes relevés dans le schéma, au dictionnaire de données et, selon vos droits, aux déploiements et aux données des bases rattachées. En haut à droite : import, export et cette visite, à rejouer quand vous voulez.",
   "activity.showActor": "Voir toute son activité",
   "activity.onlyActor": "Seulement l'activité de {{name}}.",
-  "activity.allActors": "Tous les auteurs"
+  "activity.allActors": "Tous les auteurs",
+  "backups.scope.open": "Choisir les tables…",
+  "backups.scope.title": "Sauvegarder certaines tables",
+  "backups.scope.hint": "Une sauvegarde partielle ne contient que les tables cochées ; une restauration depuis elle ne touchera qu'elles.",
+  "backups.scope.tables": "Tables à sauvegarder",
+  "backups.scope.all": "Tout cocher",
+  "backups.scope.none": "Tout décocher",
+  "backups.scope.count": "{{count}} / {{total}}",
+  "backups.scope.note": "Note (facultative) : pourquoi cette sauvegarde",
+  "backups.scope.start_one": "Sauvegarder {{count}} table",
+  "backups.scope.start_other": "Sauvegarder {{count}} tables"
 }

@@ -1645,5 +1645,15 @@
   "tour.workspace.body": "The tabs lead to the version history, the problems found in the schema, the data dictionary and, depending on your rights, the deployments and the data of the linked databases. Top right: import, export and this tour, to replay whenever you like.",
   "activity.showActor": "Show everything they did",
   "activity.onlyActor": "Only what {{name}} did.",
-  "activity.allActors": "All actors"
+  "activity.allActors": "All actors",
+  "backups.scope.open": "Choose tables…",
+  "backups.scope.title": "Back up some tables",
+  "backups.scope.hint": "A partial backup holds only the ticked tables; a restore from it will touch only those.",
+  "backups.scope.tables": "Tables to back up",
+  "backups.scope.all": "Tick all",
+  "backups.scope.none": "Untick all",
+  "backups.scope.count": "{{count}} / {{total}}",
+  "backups.scope.note": "Note (optional): why this backup",
+  "backups.scope.start_one": "Back up {{count}} table",
+  "backups.scope.start_other": "Back up {{count}} tables"
 }

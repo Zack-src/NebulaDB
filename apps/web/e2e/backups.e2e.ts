@@ -132,6 +132,24 @@ test("backups: back up, lose rows, restore them", { timeout: 90_000 }, async () 
       "true",
     );
 
+    // --- A backup of some tables only, with its note ---
+    write("CREATE TABLE import_log (id INTEGER PRIMARY KEY, line TEXT); INSERT INTO import_log VALUES (1, 'x');");
+    const panelAgain = page.getByTestId("backups");
+    await panelAgain.getByRole("button", { name: "Choisir les tables…" }).click();
+    const scope = page.getByRole("dialog", { name: "Sauvegarder certaines tables" });
+    const tables = scope.getByRole("list", { name: "Tables à sauvegarder" });
+    await tables.getByText("import_log").waitFor();
+    const go = scope.getByRole("button", { name: /^Sauvegarder [0-9]+ table/ });
+    assert.equal(await go.isDisabled(), true, "nothing to back up until a table is ticked");
+    // The label toggles the real (hidden) input.
+    await tables.getByText("customers", { exact: true }).click();
+    await scope.getByLabel("Note (facultative) : pourquoi cette sauvegarde").fill("avant import");
+    await scope.getByRole("button", { name: "Sauvegarder 1 table" }).click();
+    await scope.waitFor({ state: "detached" });
+    const partial = panelAgain.locator('tr[data-status="done"]').filter({ hasText: "avant import" });
+    await partial.waitFor();
+    await partial.getByText(/^1 table · /).waitFor();
+
     assert.deepEqual(errors, []);
   } finally {
     await env.teardown();

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import BackupScopeDialog from "./BackupScopeDialog.svelte";
   import type { AdminConnectionSummary, BackupSchedule, BackupSummary } from "@athanordb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { ArchiveIcon, CloseIcon, DownloadIcon, LockIcon, LockOpenIcon, RestoreIcon, TrashIcon } from "@/components/icons/Icons";
@@ -36,6 +37,7 @@
   const backups = useAsyncResource(() => listBackups(connection.id));
   let restoring = $state.raw<BackupSummary | null>(null);
   let deleting = $state.raw<BackupSummary | null>(null);
+  let choosingScope = $state(false);
 
   /** The schedule as last saved here — fresher than the list, which is only read again on demand. */
   let savedSchedule = $state.raw<BackupSchedule | null>(null);
@@ -80,6 +82,9 @@
     {#if backups.data}
       <span class="text-xs text-text-muted">{t("backups.used", { size: formatBytes(backups.data.usedBytes) })}</span>
     {/if}
+    <Button size="sm" variant="outline" onclick={() => (choosingScope = true)} disabled={running || start.pending}>
+      {t("backups.scope.open")}
+    </Button>
     <Button size="sm" variant="primary" onclick={() => void start.run()} disabled={running || start.pending}>
       <Icon icon={ArchiveIcon} size={13} />
       {t("backups.now")}
@@ -201,6 +206,14 @@
     </div>
   {/if}
 </section>
+
+{#if choosingScope}
+  <BackupScopeDialog
+    connectionId={connection.id}
+    onStarted={() => backups.reload()}
+    onClose={() => (choosingScope = false)}
+  />
+{/if}
 
 {#if deleting}
   {@const target = deleting}
