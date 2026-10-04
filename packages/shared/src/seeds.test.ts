@@ -86,6 +86,19 @@ test("validateSeed: types, NOT NULL, lengths, duplicates, missing required colum
   assert.equal(issues.find((i) => i.kind === "formula")?.severity, "warning");
 });
 
+test("validateSeed: a CSV column mapped to a column the table no longer has is a warning, not a silence", () => {
+  const users = table("users", [{ name: "id", type: "integer", pk: true }, { name: "email" }]);
+  const csv = parseCsv(["id,email,phone", "1,a@x.io,0102"].join("\n"), ",");
+  const mapping = ["users.id", "users.email", "users.phone"];
+  assert.deepEqual(validateSeed(users, csv, { header: true, mapping }), {
+    issues: [{ kind: "column-gone", row: 0, value: "phone", severity: "warning" }],
+    total: 1,
+  });
+  // Without a header the file's column is named by its position; an unmapped column is nobody's business.
+  assert.deepEqual(validateSeed(users, csv.slice(1), { header: false, mapping }).issues[0].value, "#3");
+  assert.equal(validateSeed(users, csv, { header: true, mapping: ["users.id", "users.email", null] }).total, 0);
+});
+
 test("validateSeed: a foreign key is checked against the parent table's own seed", () => {
   const customers = table("customers", [{ name: "id", type: "int", pk: true }]);
   const orders = table("orders", [

@@ -1268,6 +1268,7 @@
   "seeds.issue.missingColumn": "colonne obligatoire non remplie par le fichier",
   "seeds.issue.formula": "ressemble à une formule de tableur",
   "seeds.issue.width": "nombre de valeurs incorrect sur cette ligne",
+  "seeds.issue.columnGone": "colonne du fichier associée à une colonne de la table qui n'existe plus : ses valeurs sont ignorées",
   "seeds.saved": "Données initiales de {{table}} enregistrées ({{count}} lignes)",
   "seeds.removed": "Données initiales de {{table}} retirées",
   "seeds.remove": "Retirer",

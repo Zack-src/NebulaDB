@@ -13,6 +13,7 @@
     "missing-column": "seeds.issue.missingColumn",
     formula: "seeds.issue.formula",
     width: "seeds.issue.width",
+    "column-gone": "seeds.issue.columnGone",
   };
 </script>
 

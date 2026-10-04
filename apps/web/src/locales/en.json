@@ -1268,6 +1268,7 @@
   "seeds.issue.missingColumn": "required column not filled by the file",
   "seeds.issue.formula": "looks like a spreadsheet formula",
   "seeds.issue.width": "wrong number of values on this line",
+  "seeds.issue.columnGone": "column of the file mapped to a table column that no longer exists: its values are left out",
   "seeds.saved": "Initial data of {{table}} saved ({{count}} rows)",
   "seeds.removed": "Initial data of {{table}} removed",
   "seeds.remove": "Remove",

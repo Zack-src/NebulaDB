@@ -59,7 +59,7 @@ export interface SeedFromDatabase {
 }
 
 export type SeedIssueKind =
-  "not-null" | "type" | "length" | "unique" | "foreign-key" | "missing-column" | "formula" | "width";
+  "not-null" | "type" | "length" | "unique" | "foreign-key" | "missing-column" | "formula" | "width" | "column-gone";
 
 export interface SeedIssue {
   kind: SeedIssueKind;
@@ -241,7 +241,9 @@ export interface SeedValidationContext {
  * duplicate under a primary key or UNIQUE, a foreign key with no parent among
  * the parent table's own seed, a required column the CSV does not fill, a row
  * of the wrong width. Formula-looking text (`=`, `+`, `-`, `@` first) is a
- * warning: stored as text, but run by a spreadsheet that opens an export.
+ * warning: stored as text, but run by a spreadsheet that opens an export. So
+ * is a CSV column mapped to a table column that no longer exists: its values
+ * are left out, which nobody asked for.
  */
 export function validateSeed(
   table: Table,
@@ -256,6 +258,13 @@ export function validateSeed(
     if (issues.length < SEED_MAX_ISSUES) issues.push(issue);
   };
   const { columns, rows, width } = seedRows(parsed, options, table);
+
+  options.mapping.forEach((fieldId, index) => {
+    if (!fieldId || table.fields.some((field) => field.id === fieldId)) return;
+    // Named as the file names it; by position when the file has no header.
+    const header = options.header ? parsed[0]?.[index] : null;
+    report({ kind: "column-gone", row: 0, value: header || `#${index + 1}`, severity: "warning" });
+  });
 
   const mapped = new Set(columns.map((field) => field.id));
   for (const field of table.fields) {
