@@ -155,6 +155,25 @@ test("pipeline: a guarded stage takes a schema only after the stage before it; a
     ]);
     assert.equal((await deploy(owner.cookie, prod)).json().code, "PIPELINE_STAGE_SKIPPED");
 
+    // The public API tells the same story, and compares two of the databases.
+    const v1 = (await call(app, owner.cookie, "GET", `/api/v1/projects/${project.id}/pipeline`)).json()
+      .pipeline as Pipeline;
+    assert.deepEqual(
+      v1.stages.map((entry) => [entry.name, entry.ready]),
+      [
+        ["DEV", true],
+        ["Staging", false],
+        ["Prod", false],
+      ],
+    );
+    assert.equal((await call(app, editor.cookie, "GET", `/api/v1/projects/${project.id}/pipeline`)).statusCode, 403);
+    const compared = await call(app, owner.cookie, "POST", `/api/v1/projects/${project.id}/connections/compare`, {
+      sourceId: dev,
+      targetId: prod,
+    });
+    assert.equal(compared.statusCode, 200, compared.body);
+    assert.deepEqual(compared.json().tables, [], "every stage got the first schema, none the second");
+
     // The urgent fix: not for a project administrator, not without a reason, and on the record.
     assert.equal((await deploy(owner.cookie, prod, { skipStageOrder: true, skipReason: "hotfix" })).statusCode, 403);
     assert.equal(

@@ -1,3 +1,7 @@
+import { readProjectFromDoc } from "@athanordb/shared";
+import { getRoom } from "../../realtime/roomRegistry.js";
+import { compareConnections } from "../connections/compare.js";
+import { projectPipeline, schemaHashOf } from "../pipeline/pipeline.js";
 import { stageSkipFor } from "../pipeline/routes.js";
 import type { FastifyInstance } from "fastify";
 import type { DatabaseConnectionConfig, MigrationResolutionMap } from "@athanordb/shared";
@@ -146,6 +150,24 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
     );
 
     return result;
+  });
+
+  // Where the current schema has been deployed along the stages — what a CI job reads before promoting.
+  app.get("/api/v1/projects/:id/pipeline", API_RATE_LIMIT, async (req) => {
+    const { id } = req.params as { id: string };
+    const { project } = requireProjectAdmin(req, id);
+    requireScope(req, "projects:read", id);
+    const schema = readProjectFromDoc(getRoom(id).doc, id, project.name);
+    return { pipeline: projectPipeline(id, schemaHashOf(schema)) };
+  });
+
+  // Two of the project's databases against each other. Reads both, changes nothing.
+  app.post("/api/v1/projects/:id/connections/compare", DEPLOY_RATE_LIMIT, async (req) => {
+    const { id } = req.params as { id: string };
+    const { project } = requireProjectAdmin(req, id);
+    requireScope(req, "projects:read", id);
+    const { sourceId, targetId } = (req.body ?? {}) as { sourceId?: unknown; targetId?: unknown };
+    return compareConnections(id, project.name, sourceId, targetId);
   });
 
   app.get("/api/v1/projects/:id/connections/:connId/history", API_RATE_LIMIT, async (req) => {

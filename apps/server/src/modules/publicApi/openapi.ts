@@ -393,6 +393,67 @@ export const OPERATIONS: Operation[] = [
   },
   {
     method: "get",
+    path: "/api/v1/projects/:id/pipeline",
+    tag: "Connections",
+    scope: "projects:read",
+    admin: true,
+    summary: "The project's databases along the stages, and which have the current schema",
+    ok: {
+      status: 200,
+      schema: obj({
+        pipeline: obj({
+          schemaHash: str,
+          stages: {
+            type: "array",
+            items: obj(
+              {
+                id: str,
+                name: str,
+                production: bool,
+                protection: { type: "string", enum: ["free", "review", "protected"] },
+                connections: { type: "array", items: ref("PipelineConnection") },
+                requires: { type: ["string", "null"], description: "The earlier stage that must be level first" },
+                ready: { type: "boolean", description: "A deployment to this stage would pass the order rule now" },
+              },
+              ["id", "name", "production", "protection", "connections", "requires", "ready"],
+            ),
+          },
+          unstaged: { type: "array", items: ref("PipelineConnection") },
+        }),
+      }),
+    },
+  },
+  {
+    method: "post",
+    path: "/api/v1/projects/:id/connections/compare",
+    tag: "Connections",
+    scope: "projects:read",
+    admin: true,
+    summary: "Compare the structure of two of the project's databases",
+    body: obj({ sourceId: str, targetId: str }),
+    ok: {
+      status: 200,
+      schema: obj({
+        comparedAt: str,
+        source: { type: "object" },
+        target: { type: "object" },
+        tables: {
+          type: "array",
+          items: obj(
+            {
+              name: str,
+              status: { type: "string", enum: ["only-source", "only-target", "different"] },
+              inSchema: bool,
+              detail: { type: "object" },
+            },
+            ["name", "status", "inSchema"],
+          ),
+        },
+      }),
+    },
+  },
+  {
+    method: "get",
     path: "/api/v1/projects/:id/connections/:connId/history",
     tag: "Connections",
     scope: "projects:read",
@@ -514,6 +575,19 @@ const COMPONENTS: Record<string, Schema> = {
     permission: PERMISSION,
   }),
   Revision: obj({ id: str, author: str, label: { type: ["string", "null"] }, createdAt: str }),
+  PipelineConnection: obj({
+    id: str,
+    name: str,
+    engine: str,
+    lastDeployment: {
+      type: ["object", "null"],
+      properties: { at: str, by: { type: ["string", "null"] }, success: bool, rollback: bool },
+    },
+    level: {
+      type: "boolean",
+      description: "The last thing done here is a successful deployment of the current schema",
+    },
+  }),
   TableLock: obj({
     projectId: str,
     tableId: str,
