@@ -4,6 +4,7 @@
   import Icon from "@/components/icons/Icon.svelte";
   import { AlertTriangleIcon, CheckCircleIcon } from "@/components/icons/Icons";
   import { INPUT_CLASS } from "@/components/ui/inputStyles";
+  import RadioGroup from "@/components/ui/RadioGroup.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import type { TranslationKeyOf } from "@/types";
   import { riskKey } from "./deploymentModel";
@@ -25,6 +26,7 @@
   } = $props();
 
   const { t } = useTranslation();
+  const uid = $props.id();
 </script>
 
 <!-- Step 2: Risk and Conflict Resolution -->
@@ -37,7 +39,7 @@
     </div>
   {:else}
     <div class="max-h-84 space-y-3 overflow-y-auto pr-1">
-      {#each risks as risk (risk.id)}
+      {#each risks as risk, index (risk.id)}
         {@const currentRes = resolutions[riskKey(risk)]}
         <div
           class={`rounded-sm border p-3.5 text-xs ${
@@ -115,33 +117,19 @@
                 <p class="text-text-muted">{t("deployment.riskFits")}</p>
               {:else}
                 <div class="space-y-1.5 pt-1">
-                  <span class="block font-semibold text-text">{t("deployment.selectStrategy")}:</span>
-                  <div class="space-y-1">
-                    {#each risk.availableStrategies as opt (opt.key)}
-                      {@const selected = currentRes?.strategy === opt.key}
-                      <label
-                        class={`flex cursor-pointer items-center justify-between rounded-sm border p-2 text-xs transition-colors ${
-                          selected
-                            ? "border-accent bg-accent/10 font-medium text-accent"
-                            : "border-border bg-surface text-text hover:bg-surface-hover"
-                        }`}
-                      >
-                        <div class="flex items-center gap-2">
-                          <!-- eslint-disable no-restricted-syntax -- the native radio moved here unchanged from DeploymentModal.svelte, still to migrate (docs/todo.md, Phase 29) -->
-                          <input
-                            type="radio"
-                            name={risk.id}
-                            checked={selected}
-                            onchange={() => onStrategyChange(risk, opt.key)}
-                            class="text-accent"
-                          />
-                          <!-- eslint-enable no-restricted-syntax -->
-                          <span>{t(opt.labelKey as TranslationKeyOf)}</span>
-                        </div>
-                        <span class="text-[10px] text-text-muted">{t(opt.descriptionKey as TranslationKeyOf)}</span>
-                      </label>
-                    {/each}
-                  </div>
+                  <span id={`${uid}-strategy-${index}`} class="block font-semibold text-text">
+                    {t("deployment.selectStrategy")}:
+                  </span>
+                  <RadioGroup
+                    value={currentRes?.strategy}
+                    options={risk.availableStrategies.map((opt) => ({
+                      value: opt.key,
+                      label: t(opt.labelKey as TranslationKeyOf),
+                      hint: t(opt.descriptionKey as TranslationKeyOf),
+                    }))}
+                    onChange={(strategy) => onStrategyChange(risk, strategy)}
+                    aria-labelledby={`${uid}-strategy-${index}`}
+                  />
 
                   <!-- Optional default value input if strategy requires it -->
                   {#if currentRes?.strategy === "BACKFILL_DEFAULT"}

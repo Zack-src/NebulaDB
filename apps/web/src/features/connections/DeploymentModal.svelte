@@ -13,7 +13,7 @@
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { CheckIcon, DatabaseIcon } from "@/components/icons/Icons";
-  import { SELECT_CLASS } from "@/components/ui/inputStyles";
+  import Select from "@/components/ui/Select.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import {
     applyDeployment,
@@ -239,11 +239,13 @@
         <div class="flex items-center gap-2">
           <Icon icon={DatabaseIcon} size={16} class="text-accent" />
           <span class="text-xs font-semibold text-text">{t("deployment.targetDatabase")}:</span>
-          <select class={`${SELECT_CLASS} !py-1 text-xs font-medium`} bind:value={selectedConnId}>
-            {#each connections as c (c.id)}
-              <option value={c.id}>{c.name} ({c.engine})</option>
-            {/each}
-          </select>
+          <Select
+            size="sm"
+            class="min-w-48"
+            bind:value={selectedConnId}
+            options={connections.map((c) => ({ value: c.id, label: `${c.name} (${c.engine})` }))}
+            aria-label={t("deployment.targetDatabase")}
+          />
         </div>
 
         <div class="flex items-center gap-2">

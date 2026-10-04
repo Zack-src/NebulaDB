@@ -24,7 +24,6 @@ const NATIVE_CONTROLS_NOT_MIGRATED = [
   "admin/TeamDetailView.svelte",
   "admin/connections/ExplorerPanel.svelte",
   "auth/Login.svelte",
-  "connections/DeploymentModal.svelte",
   "editor/ConvertTypesModal.svelte",
   "editor/compare/CompareProjectsModal.svelte",
   "editor/edges/EdgeSettingsPopover.svelte",
