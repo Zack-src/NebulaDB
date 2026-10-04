@@ -15,7 +15,7 @@
   import Hint from "@/components/ui/Hint.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
   import Badge from "@/components/ui/Badge.svelte";
-  import { SELECT_SM_CLASS } from "@/components/ui/inputStyles";
+  import Select from "@/components/ui/Select.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { formatDateTime } from "@/i18n/formatters";
   import { i18n, useTranslation } from "@/i18n/i18n.svelte";
@@ -38,11 +38,13 @@
 
 <div>
   <div class="mb-3 flex items-center gap-3">
-    <select class={SELECT_SM_CLASS} bind:value={source}>
-      {#each SOURCE_FILTERS as filter (filter.value)}
-        <option value={filter.value}>{t(filter.labelKey)}</option>
-      {/each}
-    </select>
+    <Select
+      size="sm"
+      class="w-44"
+      bind:value={source}
+      options={SOURCE_FILTERS.map((filter) => ({ value: filter.value, label: t(filter.labelKey) }))}
+      aria-label={t("admin.errors.column.source")}
+    />
     <span class="text-xs text-text-muted">
       {entries.loading ? t("common.loading") : t("admin.errors.entryCount", { count: rows.length })}
     </span>
