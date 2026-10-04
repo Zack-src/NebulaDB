@@ -16,7 +16,9 @@ questions) lives in [`docs/plan-schema-workbench.md`](plan-schema-workbench.md) 
 item below cites the section (`§n`) it comes from. The database console it builds on is
 described in `docs/plan-db-admin.md`.
 
-Before starting any phase, check the **Prerequisites** list just below.
+Before starting any phase, check the **Prerequisites** list just below — and the **Owner's
+checklist** after it: the decisions to take, the tests to run by hand and the checks owed
+before the next round of changes, gathered in one place.
 
 ---
 
@@ -108,6 +110,167 @@ rollback is still to do; 2026-10-04: lot 17's schema linter and data dictionary)
       gets its own migration, tested on a populated database (`infrastructure/migrations.test.ts`).
       Reminder from `memory`: saving `migrations.ts` while `npm run dev` runs migrates the real dev
       DB, one way — work on a copy.
+
+---
+
+## Owner's checklist — to decide, to test, to verify (as of 2026-10-05)
+
+Everything below waits for **the owner**, not for code. It gathers in one place what the phases
+further down say in passing, so nothing has to be found again before the next round of changes.
+Each line names the phase that has the detail. **Keep it current:** an item settled here is
+struck through with its date and its answer, and a new decision, an unverified path or a check
+owed goes here the day it appears — as well as in its phase.
+
+### A. Decisions to take
+
+Marked **(blocks)** when code is waiting on the answer; the others have a default in place that
+the answer may change.
+
+**Taken by default during the 2026-10-04 / 05 work — confirm or change:**
+
+- [ ] **Personal database accounts: option, default, or the only mode?** Built as an option per
+      connection; existing and new connections are `shared`. Choose: keep it an option · make
+      `personal` the default for new connections · remove the shared mode (then every existing
+      connection needs each user's account before anyone can use it). _Phase 27._
+- [ ] **Personal accounts: is a service account acceptable for unattended work?** The watch,
+      scheduled backups and the availability check run as the account stored on the connection,
+      so those reads are **not** attributed to a person in the database's logs — including a
+      watch check or a health check started by hand. Alternative: a hand-started check uses the
+      person's account (and fails without one). _Phase 27._
+- [ ] **Personal accounts: who may give one?** Today instance administrators and administrators
+      of a project the connection is attached to — the people who can act on the database at
+      all. Revisit if members with `edit` get SQL (next block). _Phase 27._
+- [ ] **Lint rule `personal-data-class`: its default level.** Warning in Standard, **error in
+      Strict** — so a Strict project that refuses deployments on errors is refused after
+      upgrading while a personal column sits in an unclassified table. Choose: keep · make it a
+      warning in Strict too · off by default. _Phase 36._
+- [ ] **Lint rules `column-description` and `fk-on-delete`:** off except in Strict (info).
+      Confirm, or raise them. _Phase 36._
+- [ ] **Webhook secret rotation: no grace period.** The old secret stops signing at once. A
+      window where both sign would avoid rejected deliveries during the switch, at the price of
+      a second stored secret. _Phase 21._
+- [ ] **Write-mode SQL on the production stage:** confirmed by a dialog, without retyping the
+      connection's name — unlike a deployment. Align them? _Phase 30 / 32._
+- [ ] **Capability levels per connection:** left unbuilt until something reads them, and until
+      a machine with the engines is available. Confirm that order. _Prerequisites._
+
+**Open since before — product and release:**
+
+- [ ] **Licence (blocks the release):** MIT or AGPL. Decide before any outside contribution.
+      _V1 checklist._
+- [ ] **Is there a hosted product?** Pulls billing, tenancy and an SLA into scope, and weighs on
+      the licence. _Open decisions._
+- [ ] **First tagged release:** when, and from which commit. _V1 checklist / Phase 25._
+- [ ] **Mobile / tablet:** desktop-only stated in writing, or responsive. _Phase 22._
+- [ ] **Language policy:** fr + en, both complete — written down as the rule. _V1 checklist._
+- [ ] **Out of V1, said plainly:** SSO, passkeys, offline mode, plugin marketplace — confirm the
+      list the user guide ends with. _V1 checklist._
+
+**Open since before — features (each blocks its item):**
+
+- [ ] **(blocks)** **SQL for members with `edit`:** read-only SQL on linked connections (READ
+      ONLY transaction, row and time caps, audited); a separate right for data writes;
+      structure never. Needs new server routes and a role. _Phase 31._
+- [ ] **(blocks)** **A relation pointing the "wrong" way:** is a heuristic wanted at all? A
+      false warning on a legitimate schema is worse than none. _Phase 29._
+- [ ] **(blocks)** **Waypoints on a relation line:** needs the owner's hands on the canvas, or a
+      steer, before a redesign. _Phase 29._
+- [ ] **Drift:** watch data too (rows of a locked table)? Refuse deployments while a drift is
+      open? Today: structure only, deployments not blocked. _Phase 34._
+- [ ] **History:** retention / compaction of detailed revisions; does undoing a deployed change
+      propose a new deployment? _Phase 31._
+- [ ] **Backups:** who pays for storage; legal retention of backups that hold personal data;
+      should a restore consult table locks; a dedicated `backup.restore` right; double approval
+      on production. _Phase 32._
+- [ ] **Pipeline:** what `review` protection means (required approval — today enforced like
+      `protected`); deployment windows and freeze. _Phase 32._
+- [ ] **Variants (Phase 35), before any code:** DBML export of a variant (resolved, or base +
+      patch); may a variant add a seed to a table locked in the base; hierarchy depth; do
+      variants cover "schema branches" (Phase 38 idea 31).
+- [ ] **AI features:** may a provider ever see anonymised samples? Today: structure only.
+      _Phase 33._
+- [ ] **Database-side logs:** default retention; syslog / SIEM export. **Traffic:** accept an
+      estimate for PostgreSQL's data volume? _Phase 34._
+- [ ] **`ATHANORDB_SQLITE_DIR` as the default:** a breaking change to schedule. A general
+      private-IP block: stays off by default? _Phase 27._
+- [ ] **Roles beyond view / edit / administrator:** only on real demand — say when. _Phase 20._
+- [ ] **Visual overhaul:** before the new features or alongside them; Figma mock-ups first?
+      _Phase 37._
+- [ ] **Phase 38:** some thirty candidate ideas, none arbitrated — cut or promote, one by one.
+
+### B. Tests to run by hand (the code is written, nobody has seen it work)
+
+**Needs real database servers** — the development machine has no Docker, so only SQLite was
+exercised. `docker-compose.test.yml`, `docker-compose.mssql.yml` and `docker-compose.oracle.yml`
+are in the repository for this.
+
+- [ ] **Personal accounts — a real login**, on PostgreSQL and MySQL at least (then SQL Server,
+      Oracle): give an account in "Mon compte SQL" → accepted and kept; a wrong password →
+      refused with the database's message; deploy, pull, compare and run SQL → the database's
+      own log shows **that** account; an account lacking a right → the database's refusal is
+      shown; scheduled backup and watch → the service account. This is the one path of the
+      feature no test covers. _Phase 27._
+- [ ] **Backups and restore** on PostgreSQL, MySQL, SQL Server, Oracle: `queryRows` and the
+      page query were only unit-tested as text. Check a 64-bit integer, a blob, NULL vs empty
+      string, dates (SQL Server / Oracle go through JavaScript dates), identity columns and
+      sequences after a restore. _Phase 32._
+- [ ] **"Reprendre les lignes de la base"** (seed from a database) on the same four engines;
+      Oracle dates through `NLS_DATE_FORMAT`. _Phase 33._
+- [ ] **`{{schema}}` variables** on an engine that has schemas (PostgreSQL, SQL Server).
+      _Phase 32._
+- [ ] **Compare environments across two engines:** only as good as `TYPE_ALIASES` — expect
+      false "different" and extend the aliases. _Phase 32._
+- [ ] **Destructive-change probes** on a very large table: a `COUNT(*)` may run until its 5 s
+      cut-off. _Phase 32._
+
+**Needs no database server:**
+
+- [ ] **E-mail through a real SMTP relay:** one manual send (invitation or password reset) —
+      never verified beyond the local test. _Phase 20._
+- [ ] **Importing a schema from the connection form** (Admin → Connexions → a connection → a
+      linked project → import): its confirmation dialog was type-checked, not clicked. _Phase 29._
+- [ ] **Two performance regressions** flagged by a single bench pass (`zoom-links-on` at full
+      detail, `delete-columns` at 500 tables): measure a second time. _Phase 23._
+- [ ] **Plugins against table locks:** no plugin was tried on a locked table. _Phase 30._
+
+### C. To verify before upgrading a real instance
+
+Take a backup first (`npm run backup -- <dir>`); migrations are one-way. Try the upgrade on a
+**copy** of the instance's database.
+
+- [ ] **Migrations 20 → 35 on a copy of the real database** — each is tested on a small
+      populated database, not on yours.
+- [ ] **Structure policy defaults to `schema-only`:** table DDL from the console is refused on
+      a connection attached to a project until an administrator relaxes it. _Phase 30._
+- [ ] **Pipeline:** every stage reads "en retard" until deployed to once, and a production
+      deployment is refused while an earlier stage of the same project lacks the schema.
+      _Phase 32._
+- [ ] **Lint:** see `personal-data-class` in block A — list the projects on Strict with
+      "refuse a deployment on an error" before upgrading. _Phase 36._
+- [ ] **`npm run rotate-secret`:** it now also re-encrypts personal accounts
+      (`db_connection_credentials`); run it once on a copy if a rotation is planned.
+- [ ] **One-off clean-up of orphan rows** from before the project-delete fix:
+      `DELETE … WHERE project_id NOT IN (SELECT id FROM projects)`. _Phase 27._
+- [ ] **The changelog's "read before upgrading" entries**, top to bottom.
+
+### D. Reviews owed (the Phase 27 rule: before the item is closed, not after)
+
+An **independent security review** — by someone who has not been staring at this code — is owed
+for each of these; none has been done.
+
+- [ ] Personal database accounts: which account every statement runs as; the request-scoped
+      actor (`infrastructure/actor.ts`); the route that tries an account. _Phase 27._
+- [ ] Table locks and their enforcement on every write path; the structure policy and its
+      interception. _Phase 30._
+- [ ] Environments and the production confirmation; pipeline and stage skip; per-environment
+      variables; destructive-change detection; logical backups; restore. _Phase 32._
+- [ ] Seeds and their deployment; reading a table as a seed. _Phase 33._
+- [ ] Database users and permissions from the console (Phase F); the Ref-direction change,
+      which altered deployment SQL — before the next real deployment. _Phase 27 / 28._
+- [ ] What `sampleData` and the risk probes can leak across a permission boundary. _Phase 27._
+- [ ] **Legal review** of `docs/legal/{cgu,confidentialite}.md` — now including §2.8 (personal
+      database accounts) and its retention line. _V1 checklist._
+- [ ] **Accessibility audit** of the Svelte UI: none has been run. _Phase 22._
 
 ---
 
