@@ -13,6 +13,8 @@
    */
   const RENDER_LOD_TABLE_THRESHOLD = 150;
 
+  const NO_FROZEN_TABLES: ReadonlySet<string> = new Set();
+
   function sameIds(a: string[], b: string[]): boolean {
     if (a.length !== b.length) return false;
     for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
@@ -321,6 +323,19 @@
       }));
     return [...structural, ...conventions];
   });
+  // Tables whose lock binds this user, by name: their blocks in the DBML buffer refuse edits.
+  const frozenTableNames = $derived.by((): ReadonlySet<string> => {
+    const frozen = tableLocks.view.frozen;
+    if (frozen.size === 0 || !liveProject) return NO_FROZEN_TABLES;
+    return new Set(liveProject.tables.filter((table) => frozen.has(table.id)).map((table) => table.name.toLowerCase()));
+  });
+  // One message per burst of keystrokes, not one per key.
+  let lastLockedEditToast = 0;
+  function tellLockedEdit(tableName: string) {
+    if (Date.now() - lastLockedEditToast < 3000) return;
+    lastLockedEditToast = Date.now();
+    toast.warning(t("locks.dbmlLocked", { table: tableName }));
+  }
   /** The same findings — `info` included — underlined in the DBML buffer. */
   const dbmlFindings = $derived(
     lintFindings.map((finding) => ({
@@ -758,6 +773,8 @@
         scrollToTable={dbmlScrollRequest}
         {onNavigateToCanvas}
         findings={dbmlFindings}
+        frozenTables={frozenTableNames}
+        onLockedEdit={tellLockedEdit}
       />
     {:else}
       <button

@@ -1616,5 +1616,6 @@
   "pipeline.state.never": "Never deployed",
   "pipeline.skipReason": "Reason for skipping the stage",
   "pipeline.skipReasonPlaceholder": "Reason (urgent fix…) — it will be logged",
-  "pipeline.skipAndDeploy": "Skip the stage and deploy"
+  "pipeline.skipAndDeploy": "Skip the stage and deploy",
+  "locks.dbmlLocked": "Table “{{table}}” is locked: its block cannot be changed."
 }

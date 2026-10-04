@@ -1,4 +1,4 @@
-import { Annotation, Compartment, EditorState, Facet, Prec, type Extension } from "@codemirror/state";
+import { Compartment, EditorState, Facet, Prec, type Extension } from "@codemirror/state";
 import {
   EditorView,
   crosshairCursor,
@@ -63,6 +63,7 @@ import { dbmlNavigation, goToDefinition, navigateBack, navigateForward } from "@
 import { canvasNavigateHandler, dbmlCanvasLink } from "@/features/editor/dbml/canvasLink";
 import { dbmlHover } from "@/features/editor/dbml/hover";
 import { dbmlLint } from "@/features/editor/dbml/lint";
+import { documentSync } from "@/features/editor/dbml/annotations";
 import { errorRuler } from "@/features/editor/dbml/errorRuler";
 import { formatDocument } from "@/features/editor/dbml/format";
 import { renameHandler, startRename } from "@/features/editor/dbml/rename";
@@ -165,11 +166,7 @@ export const dbmlKeymap = keymap.of([
   { key: "Mod-Shift-z", run: redo, preventDefault: true },
 ]);
 
-/**
- * Marks a transaction as "this text came from the project document, not from
- * the user" — see the `updateListener` in `createDbmlExtensions`.
- */
-export const documentSync = Annotation.define<boolean>();
+export { documentSync };
 
 export interface DbmlEditorOptions {
   lineWrap: boolean;

@@ -14,6 +14,9 @@
   import { minimalChange } from "@/features/editor/dbml/bufferSync";
   import { applyRename, type RenameRequest } from "@/features/editor/dbml/rename";
   import { applySchemaFindings, applyServerProblem } from "@/features/editor/dbml/lint";
+  import { applyFrozenTables, lockedTables, onLockedEdit } from "@/features/editor/dbml/lockedRanges";
+
+  const NO_FROZEN_TABLES: ReadonlySet<string> = new Set();
   import {
     bracketsCompartment,
     bracketsExtension,
@@ -150,6 +153,8 @@
         // transactions, `editable` also removes the caret and the "you can type
         // here" affordance.
         readOnly ? [EditorState.readOnly.of(true), EditorView.editable.of(false)] : [],
+        lockedTables,
+        onLockedEdit.of((tableName) => props.onLockedEdit?.(tableName)),
         EditorView.updateListener.of((update) => {
           if (update.docChanged || update.selectionSet || update.transactions.length > 0) {
             cursor = readCursorInfo(update.view);
@@ -193,6 +198,12 @@
     const problem = props.problem ?? null;
     const view = viewRef.current;
     if (view) applyServerProblem(view, problem);
+  });
+
+  $effect(() => {
+    const frozen = props.frozenTables ?? NO_FROZEN_TABLES;
+    const view = viewRef.current;
+    if (view) applyFrozenTables(view, frozen);
   });
 
   $effect(() => {

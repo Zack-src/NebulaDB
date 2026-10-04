@@ -1,3 +1,4 @@
+import { harmlessRewrite } from "@/features/editor/dbml/annotations";
 import { EditorSelection } from "@codemirror/state";
 import type { Command } from "@codemirror/view";
 import { formatDbml } from "@athanordb/dbml-engine";
@@ -14,6 +15,8 @@ export const formatDocument: Command = (view) => {
     changes: { from: 0, to: current.length, insert: formatted },
     selection: EditorSelection.cursor(0),
     scrollIntoView: true,
+    // Whitespace only: it may cross a locked table's block.
+    annotations: harmlessRewrite.of(true),
   });
   const target = view.state.doc.line(Math.min(lineNumber, view.state.doc.lines));
   view.dispatch({ selection: EditorSelection.cursor(target.from), scrollIntoView: true });

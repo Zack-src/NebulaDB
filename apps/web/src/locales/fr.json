@@ -1616,5 +1616,6 @@
   "pipeline.state.never": "Jamais déployé",
   "pipeline.skipReason": "Motif pour sauter l'étape",
   "pipeline.skipReasonPlaceholder": "Motif (correctif urgent…) — sera journalisé",
-  "pipeline.skipAndDeploy": "Sauter l'étape et déployer"
+  "pipeline.skipAndDeploy": "Sauter l'étape et déployer",
+  "locks.dbmlLocked": "La table « {{table}} » est verrouillée : son bloc ne peut pas être modifié."
 }

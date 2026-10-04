@@ -148,6 +148,18 @@ test(
       assert.equal(await tableNode(editor, "users").count(), 1);
       assert.equal(await tableNode(admin, "users").count(), 1);
 
+      // --- In the DBML buffer the locked table's block is marked, and refuses to be typed into ---
+      const lockedLines = editor.locator(".cm-lockedLine");
+      await lockedLines.first().waitFor();
+      const buffer = () => editor.locator(".cm-content").innerText();
+      const before = await buffer();
+      await lockedLines.filter({ hasText: "email" }).first().click();
+      await editor.keyboard.press("End");
+      await editor.keyboard.type(" oops");
+      await editor.getByText("La table « users » est verrouillée : son bloc ne peut pas être modifié.").waitFor();
+      assert.equal(await buffer(), before, "nothing was typed into the locked block");
+      assert.equal(await admin.locator(".cm-lockedLine").count(), 0, "the administrator's buffer is not frozen");
+
       // --- The project's locks in one place: read by the editor, managed by the administrator ---
       const listButton = { name: "1 table verrouillée — voir la liste" };
       await editor.getByRole("button", listButton).click();
@@ -169,6 +181,7 @@ test(
       await adminList.getByText("Aucune table n'est verrouillée.").waitFor();
       await admin.keyboard.press("Escape");
       await editor.getByRole("button", listButton).waitFor({ state: "detached", timeout: 10_000 });
+      await lockedLines.first().waitFor({ state: "detached" });
       await addColumn(editor, "users").waitFor({ timeout: 10_000 });
       assert.equal(await tableNode(editor, "users").getByRole("img", { name: "Table verrouillée" }).count(), 0);
     } finally {

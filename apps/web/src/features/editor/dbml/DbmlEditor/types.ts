@@ -53,6 +53,10 @@ export interface DbmlEditorProps {
   /** Omitted for a read-only buffer, which has nothing to send. */
   syncIndicator?: SyncIndicator;
   problem?: import("@/features/editor/dbml/lint").ServerProblem | null;
+  /** Lower-case names of the tables a lock forbids this user to alter: their blocks cannot be typed into. */
+  frozenTables?: ReadonlySet<string>;
+  /** An edit inside a locked table's block was refused. */
+  onLockedEdit?: (tableName: string) => void;
   /** The schema linter's findings, underlined on the table or column they are about. */
   findings?: readonly import("@/features/editor/dbml/lint").SchemaFinding[];
   scrollToTable?: { tableName: string; requestId: number } | null;

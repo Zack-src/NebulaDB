@@ -53,6 +53,9 @@
     onNavigateToCanvas?: (target: { tableName: string; fieldName?: string }) => void;
     /** The schema linter's findings, underlined in the buffer. */
     findings?: readonly SchemaFinding[];
+    /** Lower-case names of the tables a lock forbids this user to alter. */
+    frozenTables?: ReadonlySet<string>;
+    onLockedEdit?: (tableName: string) => void;
   } = $props();
 
   const { t } = useTranslation();
@@ -306,6 +309,8 @@
       onSave={handleSave}
       {problem}
       findings={props.findings}
+      frozenTables={props.frozenTables}
+      onLockedEdit={props.onLockedEdit}
       syncIndicator={readOnly ? undefined : syncIndicator}
       scrollToTable={props.scrollToTable}
       onNavigateToCanvas={props.onNavigateToCanvas}
