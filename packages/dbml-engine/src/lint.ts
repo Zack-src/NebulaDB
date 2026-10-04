@@ -1,4 +1,5 @@
 import type { Field, Project, Table } from "@athanordb/shared";
+import { parseNote } from "./dictionary.js";
 
 // Zero `@dbml/core` import, like validate.ts: the editor runs this on every
 // change and the server runs the very same function before a deployment.
@@ -303,7 +304,8 @@ export function lintProject(project: Project, settings: LintSettings = DEFAULT_L
       });
     }
 
-    if (!table.note?.replace(IGNORE_NOTE, "").trim()) {
+    // Neither the linter's own annotation nor the dictionary's (`[owner: …]`) says what the table is.
+    if (!parseNote(table.note).description.replace(IGNORE_NOTE, "").trim()) {
       report("table-description", `Table "${table.name}" has no description`);
     }
 
