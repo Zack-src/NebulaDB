@@ -1,5 +1,5 @@
 import type { Field, Project, Table } from "@athanordb/shared";
-import { parseNote } from "./dictionary.js";
+import { parseNote, type DataClassification } from "./dictionary.js";
 import { withoutVariables } from "./variables.js";
 
 // Zero `@dbml/core` import, like validate.ts: the editor runs this on every
@@ -23,6 +23,9 @@ export const LINT_RULES = [
   "table-description",
   "forbidden-type",
   "required-column",
+  "column-description",
+  "personal-data-class",
+  "fk-on-delete",
 ] as const;
 
 export type LintRuleId = (typeof LINT_RULES)[number];
@@ -44,6 +47,9 @@ const PROFILE_LEVELS: Record<Exclude<LintProfile, "custom">, Record<LintRuleId, 
     "table-description": "off",
     "forbidden-type": "warning",
     "required-column": "info",
+    "column-description": "off",
+    "personal-data-class": "off",
+    "fk-on-delete": "off",
   },
   standard: {
     "pk-required": "warning",
@@ -55,6 +61,9 @@ const PROFILE_LEVELS: Record<Exclude<LintProfile, "custom">, Record<LintRuleId, 
     "table-description": "info",
     "forbidden-type": "error",
     "required-column": "warning",
+    "column-description": "off",
+    "personal-data-class": "warning",
+    "fk-on-delete": "off",
   },
   strict: {
     "pk-required": "error",
@@ -66,6 +75,9 @@ const PROFILE_LEVELS: Record<Exclude<LintProfile, "custom">, Record<LintRuleId, 
     "table-description": "warning",
     "forbidden-type": "error",
     "required-column": "error",
+    "column-description": "info",
+    "personal-data-class": "error",
+    "fk-on-delete": "info",
   },
 };
 
@@ -206,6 +218,14 @@ function isIndexed(table: Table, field: Field): boolean {
   return Boolean(field.pk || field.unique) || table.indexes.some((idx) => idx.fieldIds[0] === field.id);
 }
 
+/** Columns whose name says what they are: the description rule does not ask for one. */
+const isSelfExplanatory = (field: Field) =>
+  (field.pk && field.name.toLowerCase() === "id") || TIMESTAMP_COLUMNS.includes(field.name.toLowerCase());
+
+/** `personal` and `sensitive` are the classes a table has to announce. */
+const isPersonal = (classification?: DataClassification) =>
+  classification === "personal" || classification === "sensitive";
+
 const SEVERITY_ORDER: Record<LintSeverity, number> = { error: 0, warning: 1, info: 2 };
 
 /** Every finding of the rules that are on, most severe first, then by table and rule. */
@@ -216,10 +236,17 @@ export function lintProject(project: Project, settings: LintSettings = DEFAULT_L
   const findings: LintFinding[] = [];
 
   const foreignKeysByTable = new Map<string, Set<string>>();
+  // Foreign-key columns whose relation does not say what deleting the referenced row does.
+  const withoutOnDelete = new Map<string, Set<string>>();
   for (const ref of project.refs) {
     const set = foreignKeysByTable.get(ref.from.tableId) ?? new Set<string>();
     set.add(ref.from.fieldId);
     foreignKeysByTable.set(ref.from.tableId, set);
+    if (!ref.onDelete) {
+      const undecided = withoutOnDelete.get(ref.from.tableId) ?? new Set<string>();
+      undecided.add(ref.from.fieldId);
+      withoutOnDelete.set(ref.from.tableId, undecided);
+    }
   }
 
   for (const table of project.tables) {
@@ -255,6 +282,18 @@ export function lintProject(project: Project, settings: LintSettings = DEFAULT_L
       const field = table.fields.find((f) => f.id === fieldId);
       if (field && !isIndexed(table, field)) {
         report("fk-indexed", `Foreign key "${table.name}.${field.name}" has no index`, {}, { field, fixable: true });
+      }
+    }
+
+    for (const fieldId of withoutOnDelete.get(table.id) ?? []) {
+      const field = table.fields.find((f) => f.id === fieldId);
+      if (field) {
+        report(
+          "fk-on-delete",
+          `Foreign key "${table.name}.${field.name}" does not say what a delete does`,
+          {},
+          { field },
+        );
       }
     }
 
@@ -309,6 +348,29 @@ export function lintProject(project: Project, settings: LintSettings = DEFAULT_L
     // Neither the linter's own annotation nor the dictionary's (`[owner: …]`) says what the table is.
     if (!parseNote(table.note).description.replace(IGNORE_NOTE, "").trim()) {
       report("table-description", `Table "${table.name}" has no description`);
+    }
+
+    const undescribed = table.fields.filter((field) => !isSelfExplanatory(field) && !parseNote(field.note).description);
+    if (undescribed.length > 0) {
+      const names = undescribed.map((field) => field.name).join(", ");
+      report("column-description", `Table "${table.name}" has column(s) without a description: ${names}`, {
+        columns: names,
+        count: String(undescribed.length),
+      });
+    }
+
+    if (!isPersonal(parseNote(table.note).classification)) {
+      for (const field of table.fields) {
+        const classification = parseNote(field.note).classification;
+        if (isPersonal(classification)) {
+          report(
+            "personal-data-class",
+            `"${table.name}.${field.name}" is ${classification} data in a table not classified as such`,
+            { classification: classification ?? "" },
+            { field },
+          );
+        }
+      }
     }
 
     const missingRequired = settings.requiredColumns.filter((name) => !hasColumn(table, name));

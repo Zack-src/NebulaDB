@@ -122,9 +122,10 @@ test("profiles change the level, overrides change one rule", () => {
     [
       ["pk-required", "error"],
       ["timestamps", "warning"],
+      ["column-description", "info"],
     ],
   );
-  assert.deepEqual(summarizeLint(strict), { error: 1, warning: 1, info: 0 });
+  assert.deepEqual(summarizeLint(strict), { error: 1, warning: 1, info: 1 });
 
   const custom = settings({ profile: "custom", rules: { "pk-required": "off", timestamps: "error" } });
   assert.equal(resolveLintLevels(custom)["fk-indexed"], "warning");
@@ -172,6 +173,57 @@ test("custom lists: forbidden types and required columns", () => {
       ["required-column", "warning", "tenant_id"],
     ],
   );
+});
+
+test("undescribed columns are one finding per table, and obvious columns are not asked for one", () => {
+  const t = cleanTable("t1", "users", [
+    field("f1", "email", "varchar(320)", { note: "Login address." }),
+    field("f2", "nickname", "varchar(40)"),
+    field("f3", "locale", "varchar(5)", { note: "[tags: i18n]" }),
+  ]);
+  const on = settings({ rules: { "column-description": "warning" } });
+  const findings = lintProject(project([t]), on);
+  // `id`, `created_at` and `updated_at` say what they are; an annotation alone is not a description.
+  assert.deepEqual(
+    findings.map((f) => [f.ruleId, f.params.columns, f.params.count]),
+    [["column-description", "nickname, locale", "2"]],
+  );
+  assert.deepEqual(rulesOf(project([t])), []);
+});
+
+test("personal data must sit in a table that says so", () => {
+  const leaking = cleanTable("t1", "orders", [
+    field("f1", "phone", "varchar(20)", { note: "Delivery contact. [class: personal]" }),
+    field("f2", "status", "varchar(20)", { note: "[class: internal]" }),
+  ]);
+  const declared = cleanTable("t2", "customers", [field("f3", "iban", "varchar(34)", { note: "[class: sensitive]" })]);
+  declared.note = "The customers. [class: personal]";
+  const findings = lintProject(project([leaking, declared]));
+  assert.deepEqual(
+    findings.map((f) => [f.ruleId, f.severity, f.tableName, f.fieldName, f.params.classification]),
+    [["personal-data-class", "warning", "orders", "phone", "personal"]],
+  );
+  assert.deepEqual(rulesOf(project([leaking, declared]), settings({ profile: "relaxed" })), []);
+});
+
+test("a foreign key that does not say what a delete does", () => {
+  const users = cleanTable("t1", "users");
+  const posts = cleanTable("t2", "posts", [field("a", "user_id"), field("b", "editor_id")]);
+  posts.indexes = [
+    { id: "i1", fieldIds: ["a"] },
+    { id: "i2", fieldIds: ["b"] },
+  ];
+  const refs = [
+    fk("r1", ["t2", "a"], ["t1", "t1-id"]),
+    { ...fk("r2", ["t2", "b"], ["t1", "t1-id"]), onDelete: "set null" as const },
+  ];
+  const on = settings({ rules: { "fk-on-delete": "warning" } });
+  // The finding is on the table that carries the key, not on the one it points at.
+  assert.deepEqual(
+    lintProject(project([users, posts], refs), on).map((f) => [f.ruleId, f.tableName, f.fieldName, f.fixable]),
+    [["fk-on-delete", "posts", "user_id", false]],
+  );
+  assert.deepEqual(rulesOf(project([users, posts], refs)), []);
 });
 
 test("the fixes add an id key and an index, and nothing else", () => {

@@ -151,9 +151,10 @@ test("lint: defaults, who may change the rules, what is refused, and the public 
       [
         ["pk-required", "error"],
         ["table-description", "warning"],
+        ["column-description", "info"],
       ],
     );
-    assert.deepEqual(report.summary, { error: 1, warning: 1, info: 0 });
+    assert.deepEqual(report.summary, { error: 1, warning: 1, info: 1 });
     assert.equal((await call(app, stranger.cookie, "GET", `/api/v1/projects/${project.id}/lint`)).statusCode, 403);
 
     // The settings go with the project.
