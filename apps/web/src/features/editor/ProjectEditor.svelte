@@ -119,6 +119,7 @@
   const tableLocks = new TableLocksState(() => project.id);
   let lockDialogTableId = $state<string | null>(null);
   const openLockDialog = (tableId: string) => (lockDialogTableId = tableId);
+  let showLocksList = $state(false);
   // Tables' initial rows (seeds): mirrored for the canvas icon; the dialog edits them.
   const seeds = new SeedsState(() => project.id);
   let seedDialogTableId = $state<string | null>(null);
@@ -630,6 +631,8 @@
     onConnectionChange={(id) => (connectionId = id)}
     {sqlOpen}
     onToggleSql={canUseSql && tab === "schema" ? () => setSqlOpen(!sqlOpen) : undefined}
+    lockCount={tableLocks.view.byTable.size}
+    onShowLocks={() => (showLocksList = true)}
   />
   {#each drift as entry (entry.connectionId)}
     <DriftBanner
@@ -853,6 +856,26 @@
         readOnly
         initialConnectionId={differencesFor}
         onClose={() => (differencesFor = null)}
+      />
+    {/await}
+  {/if}
+  {#if showLocksList && liveProject}
+    {#await import("@/features/editor/locks/TableLocksList.svelte") then { default: TableLocksList }}
+      <TableLocksList
+        projectId={project.id}
+        view={tableLocks.view}
+        tableNames={new Map(liveProject.tables.map((table) => [table.id, table.name]))}
+        onOpenTable={(tableName) => {
+          showLocksList = false;
+          setTab("schema");
+          focusRequest = { tableName };
+        }}
+        onManage={(tableId) => {
+          showLocksList = false;
+          openLockDialog(tableId);
+        }}
+        onChanged={() => void tableLocks.refresh()}
+        onClose={() => (showLocksList = false)}
       />
     {/await}
   {/if}

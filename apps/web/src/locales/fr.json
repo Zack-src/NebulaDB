@@ -1545,5 +1545,13 @@
   "seeds.fromDatabase.skipped": "Colonnes laissées de côté (absentes de la base, ou binaires) : {{columns}}.",
   "dbadmin.explorer.exportAsSeed": "Données initiales",
   "dbadmin.explorer.exportAsSeedHint": "Reprendre les lignes de cette table comme données initiales de la table du schéma",
-  "dbadmin.explorer.exportAsSeedUnavailable": "Le schéma n'a pas de table « {{table}} » dont vous puissiez modifier les données initiales."
+  "dbadmin.explorer.exportAsSeedUnavailable": "Le schéma n'a pas de table « {{table}} » dont vous puissiez modifier les données initiales.",
+  "locks.list.title": "Verrous du projet",
+  "locks.list.button_one": "{{count}} table verrouillée — voir la liste",
+  "locks.list.button_other": "{{count}} tables verrouillées — voir la liste",
+  "locks.list.empty": "Aucune table n'est verrouillée.",
+  "locks.list.instance": "Instance",
+  "locks.list.tableGone": "Table supprimée",
+  "locks.list.show": "Voir dans le schéma",
+  "locks.list.edit": "Modifier"
 }

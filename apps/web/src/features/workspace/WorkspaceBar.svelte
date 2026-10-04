@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { DatabaseConnectionSummary } from "@athanordb/shared";
   import Icon from "@/components/icons/Icon.svelte";
-  import { CodeIcon, DatabaseIcon } from "@/components/icons/Icons";
+  import { CodeIcon, DatabaseIcon, LockIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
   import Select from "@/components/ui/Select.svelte";
   import EnvironmentBadge from "@/features/environments/EnvironmentBadge.svelte";
@@ -27,6 +27,8 @@
     onConnectionChange,
     sqlOpen = false,
     onToggleSql,
+    lockCount = 0,
+    onShowLocks,
   }: {
     tabs: TabItem<WorkspaceTab>[];
     tab: WorkspaceTab;
@@ -37,6 +39,9 @@
     sqlOpen?: boolean;
     /** Present when the SQL drawer can be opened here: on the schema tab, for someone who may query the database. */
     onToggleSql?: () => void;
+    /** How many tables are locked; the button that lists them only shows when some are. */
+    lockCount?: number;
+    onShowLocks?: () => void;
   } = $props();
 
   const { t } = useTranslation();
@@ -56,8 +61,21 @@
 <div class="flex shrink-0 items-end justify-between gap-4 border-b border-border bg-surface px-4">
   <!-- `-mb-px`: the active tab's underline sits on the bar's own border instead of doubling it. -->
   <Tabs variant="line" {tabs} activeTab={tab} onChange={onTabChange} class="-mb-px !border-b-0 pt-2.5" />
-  {#if connections.length > 0}
+  {#if connections.length > 0 || (lockCount > 0 && onShowLocks)}
     <div class="flex items-center gap-2 py-1.5">
+      {#if lockCount > 0 && onShowLocks}
+        <Button
+          size="sm"
+          variant="ghost"
+          onclick={onShowLocks}
+          data-tooltip={t("locks.list.title")}
+          data-tooltip-pos="bottom"
+          aria-label={t("locks.list.button", { count: lockCount })}
+        >
+          <Icon icon={LockIcon} size={13} />
+          {lockCount}
+        </Button>
+      {/if}
       {#if onToggleSql}
         <Button
           size="sm"
@@ -74,14 +92,16 @@
       {#if current?.environment}
         <EnvironmentBadge name={current.environment} color={current.environmentColor} production={current.production} />
       {/if}
-      <Select
-        size="sm"
-        class="w-56"
-        aria-label={t("workspace.connection")}
-        value={connectionId ?? undefined}
-        {options}
-        onChange={onConnectionChange}
-      />
+      {#if connections.length > 0}
+        <Select
+          size="sm"
+          class="w-56"
+          aria-label={t("workspace.connection")}
+          value={connectionId ?? undefined}
+          {options}
+          onChange={onConnectionChange}
+        />
+      {/if}
     </div>
   {/if}
 </div>

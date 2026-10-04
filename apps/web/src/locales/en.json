@@ -1545,5 +1545,13 @@
   "seeds.fromDatabase.skipped": "Columns left out (absent from the database, or binary): {{columns}}.",
   "dbadmin.explorer.exportAsSeed": "Initial data",
   "dbadmin.explorer.exportAsSeedHint": "Take this table's rows as the initial data of the schema's table",
-  "dbadmin.explorer.exportAsSeedUnavailable": "The schema has no table “{{table}}” whose initial data you may change."
+  "dbadmin.explorer.exportAsSeedUnavailable": "The schema has no table “{{table}}” whose initial data you may change.",
+  "locks.list.title": "Project locks",
+  "locks.list.button_one": "{{count}} locked table — show the list",
+  "locks.list.button_other": "{{count}} locked tables — show the list",
+  "locks.list.empty": "No table is locked.",
+  "locks.list.instance": "Instance",
+  "locks.list.tableGone": "Table deleted",
+  "locks.list.show": "Show in the schema",
+  "locks.list.edit": "Edit"
 }

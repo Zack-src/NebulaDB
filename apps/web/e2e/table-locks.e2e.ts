@@ -148,10 +148,27 @@ test(
       assert.equal(await tableNode(editor, "users").count(), 1);
       assert.equal(await tableNode(admin, "users").count(), 1);
 
-      // --- Lifting the lock gives the editor the table back, again without a reload ---
-      await tableNode(admin, "users").getByRole("button", { name: "Table verrouillée — modifier le verrou…" }).click();
-      await admin.getByRole("dialog").getByRole("button", { name: "Déverrouiller" }).click();
+      // --- The project's locks in one place: read by the editor, managed by the administrator ---
+      const listButton = { name: "1 table verrouillée — voir la liste" };
+      await editor.getByRole("button", listButton).click();
+      const editorList = editor.getByRole("dialog", { name: "Verrous du projet" });
+      const editorRow = editorList.getByRole("listitem").filter({ hasText: "users" });
+      await editorRow.getByText("Table de référence RH").waitFor();
+      assert.equal(await editorRow.getByRole("button", { name: "Déverrouiller" }).count(), 0);
+      assert.equal(await editorRow.getByRole("button", { name: "Voir dans le schéma" }).count(), 1);
+      await editor.keyboard.press("Escape");
+      await editorList.waitFor({ state: "detached" });
+
+      // --- Lifting the lock, from that list, gives the editor the table back, again without a reload ---
+      await admin.getByRole("button", listButton).click();
+      const adminList = admin.getByRole("dialog", { name: "Verrous du projet" });
+      const adminRow = adminList.getByRole("listitem").filter({ hasText: "users" });
+      await adminRow.getByRole("button", { name: "Modifier" }).waitFor();
+      await adminRow.getByRole("button", { name: "Déverrouiller" }).click();
       await admin.getByText("Table « users » déverrouillée.").waitFor();
+      await adminList.getByText("Aucune table n'est verrouillée.").waitFor();
+      await admin.keyboard.press("Escape");
+      await editor.getByRole("button", listButton).waitFor({ state: "detached", timeout: 10_000 });
       await addColumn(editor, "users").waitFor({ timeout: 10_000 });
       assert.equal(await tableNode(editor, "users").getByRole("img", { name: "Table verrouillée" }).count(), 0);
     } finally {
