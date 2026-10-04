@@ -804,6 +804,7 @@
   "teams.visibilityNote": "A project with no team assigned is visible to everyone. Assigning a team restricts it to that team's members (plus its creator and administrators).",
   "teams.assignPlaceholder": "Assign a team…",
   "teams.assign": "Assign",
+  "teams.permission": "Access level",
   "teams.unassign": "Remove assignment",
   "teams.noneAssigned": "No team assigned — visible to everyone.",
 

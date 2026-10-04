@@ -21,7 +21,7 @@
   import ListMain from "@/components/ui/ListMain.svelte";
   import ListRow from "@/components/ui/ListRow.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
-  import { SELECT_CLASS, SELECT_SM_CLASS } from "@/components/ui/inputStyles";
+  import Select from "@/components/ui/Select.svelte";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
@@ -59,26 +59,20 @@
   const rows = $derived(grants.data ?? []);
   const assignableTeams = $derived((teams.data ?? []).filter((team) => !rows.some((grant) => grant.teamId === team.id)));
   const error = $derived(grants.error ?? assignTeam.error ?? unassignTeam.error);
+  const permissionOptions = $derived(PERMISSION_LEVELS.map((level) => ({ value: level, label: t(PERMISSION_LABEL_KEY[level]) })));
 </script>
-
-{#snippet permissionOptions()}
-  {#each PERMISSION_LEVELS as level (level)}
-    <option value={level}>{t(PERMISSION_LABEL_KEY[level])}</option>
-  {/each}
-{/snippet}
 
 <Modal title={t("teams.modalTitle", { name: project.name })} {onClose}>
   <Hint>{t("teams.visibilityNote")}</Hint>
   <div class="mb-7 flex max-w-[420px] gap-2">
-    <select class={SELECT_CLASS} bind:value={selectedTeamId}>
-      <option value="">{t("teams.assignPlaceholder")}</option>
-      {#each assignableTeams as team (team.id)}
-        <option value={team.id}>{team.name}</option>
-      {/each}
-    </select>
-    <select class={SELECT_CLASS} bind:value={selectedPermission}>
-      {@render permissionOptions()}
-    </select>
+    <Select
+      class="min-w-0 flex-1"
+      bind:value={selectedTeamId}
+      options={assignableTeams.map((team) => ({ value: team.id, label: team.name }))}
+      placeholder={t("teams.assignPlaceholder")}
+      aria-label={t("teams.assignPlaceholder")}
+    />
+    <Select class="w-40" bind:value={selectedPermission} options={permissionOptions} aria-label={t("teams.permission")} />
     <Button variant="primary" onclick={() => void handleAssign()} disabled={!selectedTeamId}>
       <Icon icon={PlusIcon} size={14} />
       {t("teams.assign")}
@@ -94,13 +88,14 @@
           <ListMain>
             <span>{grant.teamName}</span>
           </ListMain>
-          <select
-            class={SELECT_SM_CLASS}
+          <Select
+            size="sm"
+            class="w-36"
             value={grant.permission}
-            onchange={(event) => void assignTeam.run(grant.teamId, event.currentTarget.value as PermissionLevel)}
-          >
-            {@render permissionOptions()}
-          </select>
+            options={permissionOptions}
+            onChange={(permission) => void assignTeam.run(grant.teamId, permission)}
+            aria-label={t("teams.permission")}
+          />
           <Button
             variant="ghost"
             size="icon"

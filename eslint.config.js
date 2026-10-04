@@ -37,7 +37,6 @@ const NATIVE_CONTROLS_NOT_MIGRATED = [
   "plugins/dialog/StudioTab.svelte",
   "settings/ApiKeys.svelte",
   "settings/totp/BackupCodesModal.svelte",
-  "teams/ProjectTeamsModal.svelte",
 ].map((file) => `apps/web/src/features/${file}`);
 
 export default tseslint.config(

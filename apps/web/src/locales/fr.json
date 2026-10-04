@@ -804,6 +804,7 @@
   "teams.visibilityNote": "Un projet sans équipe assignée est visible par tout le monde. Assigner une équipe le restreint aux membres de cette équipe (plus son créateur et les administrateurs).",
   "teams.assignPlaceholder": "Assigner une équipe…",
   "teams.assign": "Assigner",
+  "teams.permission": "Niveau d'accès",
   "teams.unassign": "Retirer l'assignation",
   "teams.noneAssigned": "Aucune équipe assignée — visible par tout le monde.",
 
