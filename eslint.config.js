@@ -22,7 +22,6 @@ const NATIVE_CONTROLS_NOT_MIGRATED = [
   "admin/ErrorsTab.svelte",
   "admin/InvitationsTab.svelte",
   "admin/TeamDetailView.svelte",
-  "admin/connections/ConnectionEditModal.svelte",
   "admin/connections/ExplorerPanel.svelte",
   "admin/connections/UsersPanel.svelte",
   "auth/Login.svelte",

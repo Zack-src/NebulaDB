@@ -9,7 +9,7 @@
   import Hint from "@/components/ui/Hint.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { CheckCircleIcon, CheckIcon } from "@/components/icons/Icons";
-  import { CHECKBOX_CLASS, INPUT_CLASS } from "@/components/ui/inputStyles";
+  import { INPUT_CLASS } from "@/components/ui/inputStyles";
   import ConnectionFormFields, { DEFAULT_PORTS } from "@/features/connections/ConnectionFormFields.svelte";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
@@ -160,13 +160,9 @@
       <input class={`${INPUT_CLASS} w-full`} bind:value={tags} placeholder={t("admin.connections.tagsPlaceholder")} />
     </div>
 
-    <label class="flex cursor-pointer items-start gap-2 text-xs text-text">
-      <input type="checkbox" class={`${CHECKBOX_CLASS} mt-0.5`} bind:checked={readOnly} />
-      <span>
-        <span class="font-semibold">{t("admin.connections.readOnly")}</span>
-        <span class="block text-text-muted">{t("admin.connections.readOnlyHint")}</span>
-      </span>
-    </label>
+    <Checkbox bind:checked={readOnly} hint={t("admin.connections.readOnlyHint")}>
+      {t("admin.connections.readOnly")}
+    </Checkbox>
 
     {#if personalPossible}
       <div>
@@ -223,10 +219,14 @@
       <div class="max-h-44 space-y-0.5 overflow-y-auto rounded-md border border-border p-1.5">
         {#each activeProjects as project (project.id)}
           <div class="flex items-center gap-2 rounded-sm px-1.5 py-1 text-xs hover:bg-surface-hover">
-            <label class="flex min-w-0 flex-1 cursor-pointer items-center gap-2">
-              <input type="checkbox" class={CHECKBOX_CLASS} value={project.id} bind:group={projectIds} />
-              <span class="truncate">{project.name}</span>
-            </label>
+            <Checkbox
+              class="min-w-0 flex-1"
+              checked={projectIds.includes(project.id)}
+              onChange={(checked) =>
+                (projectIds = checked ? [...projectIds, project.id] : projectIds.filter((id) => id !== project.id))}
+            >
+              <span class="block truncate text-xs">{project.name}</span>
+            </Checkbox>
             <!-- Only for links that are already saved: the server refuses these for a project the connection isn't attached to yet. -->
             {#if initial && linkedIds.has(project.id)}
               <Button
