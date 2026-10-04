@@ -13,8 +13,6 @@
    */
   const RENDER_LOD_TABLE_THRESHOLD = 150;
 
-  const NO_FROZEN_TABLES: ReadonlySet<string> = new Set();
-
   function sameIds(a: string[], b: string[]): boolean {
     if (a.length !== b.length) return false;
     for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) return false;
@@ -27,7 +25,6 @@
   import { SvelteFlowProvider } from "@xyflow/svelte";
   import {
     getMetaMap,
-    getTablesMap,
     type DatabaseConnectionSummary,
     type Project,
     type ProjectDriftEntry,
@@ -38,19 +35,11 @@
   import { TableLocksState } from "@/features/editor/locks/tableLocks.svelte";
   import { SeedsState } from "@/features/editor/seeds/seeds.svelte";
   import Splitter from "@/components/ui/Splitter.svelte";
-  import { previewRowsStatement } from "@/features/sql/previewStatement";
-  import { readBoolean, readNumberInRange, writeBoolean, writeString } from "@/utils/storage";
-  import {
-    applyLintFix,
-    diffProjects,
-    lintProject,
-    validateProject,
-    type LintFinding,
-    type ValidationIssue,
-  } from "@athanordb/dbml-engine";
+  import { SqlDrawerState } from "@/features/sql/sqlDrawer.svelte";
+  import { diffProjects } from "@athanordb/dbml-engine";
   import { LintState } from "@/features/editor/lint/lint.svelte";
+  import { SchemaQuality } from "@/features/editor/lint/schemaQuality.svelte";
   import EditorTour, { editorTourSeen } from "@/features/onboarding/EditorTour.svelte";
-  import { generateId } from "@/utils/id";
   import type { RevisionSummary } from "@/services/projectsApi";
   import HistoryPreviewBanner from "@/features/editor/history/HistoryPreviewBanner.svelte";
   import type { HistoryDiffStatus } from "@/features/editor/hooks/useCanvasNodes/canvasNodes.svelte";
@@ -227,7 +216,7 @@
       id: "problems",
       label: t("workspace.tab.problems"),
       icon: AlertTriangleIcon,
-      badge: lintFindings.length > 0 ? lintFindings.length : undefined,
+      badge: quality.findings.length > 0 ? quality.findings.length : undefined,
     });
     list.push({ id: "dictionary", label: t("workspace.tab.dictionary"), icon: NoteIcon });
     return list;
@@ -309,86 +298,13 @@
     saveShowValidationIssues(value);
   }
 
-  // Recomputed on every doc update, like `refFieldIdsByTable` below — cheap
-  // (a handful of O(tables+refs) passes) next to the Yjs->Project rebuild that
-  // already happens on every change.
-  const lintFindings = $derived(liveProject ? lintProject(liveProject, lint.settings) : []);
-  // What the canvas marks on a table: what is structurally wrong, plus the
-  // linter's errors and warnings (its `info` findings stay in the problems
-  // tab). The missing key is the linter's to report, at the project's level.
-  const validationIssues = $derived.by((): ValidationIssue[] => {
-    if (!liveProject) return [];
-    const structural = validateProject(liveProject).filter((issue) => issue.code !== "no-primary-key");
-    const conventions = lintFindings
-      .filter((finding) => finding.severity !== "info")
-      .map((finding) => ({
-        severity: finding.severity as ValidationIssue["severity"],
-        message: t(`lint.rule.${finding.ruleId}.message` as "lint.rule.pk-required.message", finding.params),
-        tableId: finding.tableId,
-      }));
-    return [...structural, ...conventions];
-  });
-  // Tables whose lock binds this user, by name: their blocks in the DBML buffer refuse edits.
-  const frozenTableNames = $derived.by((): ReadonlySet<string> => {
-    const frozen = tableLocks.view.frozen;
-    if (frozen.size === 0 || !liveProject) return NO_FROZEN_TABLES;
-    return new Set(liveProject.tables.filter((table) => frozen.has(table.id)).map((table) => table.name.toLowerCase()));
-  });
-  // One message per burst of keystrokes, not one per key.
-  let lastLockedEditToast = 0;
-  function tellLockedEdit(tableName: string) {
-    if (Date.now() - lastLockedEditToast < 3000) return;
-    lastLockedEditToast = Date.now();
-    toast.warning(t("locks.dbmlLocked", { table: tableName }));
-  }
-  /** The same findings — `info` included — underlined in the DBML buffer. */
-  const dbmlFindings = $derived(
-    lintFindings.map((finding) => ({
-      severity: finding.severity,
-      message: t(`lint.rule.${finding.ruleId}.message` as "lint.rule.pk-required.message", finding.params),
-      tableName: finding.tableName,
-      fieldName: finding.fieldName,
-    })),
-  );
-  /** Applies one of the linter's two safe fixes — one change to the document, so one undo step. */
-  function fixLintFinding(finding: LintFinding) {
-    if (!liveProject || !writeDoc) return;
-    const fixed = applyLintFix(liveProject, finding, generateId)?.tables.find((table) => table.id === finding.tableId);
-    if (fixed) getTablesMap(writeDoc).set(fixed.id, fixed);
-  }
-  const canFixLintOn = (tableId: string) => canWrite && !tableLocks.view.frozen.has(tableId);
-  // The data dictionary writes notes — part of what a lock freezes, hence the same test.
-  function saveTableNote(tableId: string, note: string | undefined) {
-    const table = liveProject?.tables.find((candidate) => candidate.id === tableId);
-    if (table && writeDoc && table.note !== note) getTablesMap(writeDoc).set(tableId, { ...table, note });
-  }
-  function saveFieldNote(tableId: string, fieldId: string, note: string | undefined) {
-    const table = liveProject?.tables.find((candidate) => candidate.id === tableId);
-    if (!table || !writeDoc || table.fields.find((field) => field.id === fieldId)?.note === note) return;
-    getTablesMap(writeDoc).set(tableId, {
-      ...table,
-      fields: table.fields.map((field) => (field.id === fieldId ? { ...field, note } : field)),
-    });
-  }
-  const issuesByTable = $derived.by(() => {
-    const map = new Map<string, ValidationIssue[]>();
-    for (const issue of validationIssues) {
-      if (!issue.tableId) continue;
-      const list = map.get(issue.tableId);
-      if (list) list.push(issue);
-      else map.set(issue.tableId, [issue]);
-    }
-    return map;
-  });
-  const issuesByRef = $derived.by(() => {
-    const map = new Map<string, ValidationIssue[]>();
-    for (const issue of validationIssues) {
-      if (!issue.refId) continue;
-      const list = map.get(issue.refId);
-      if (list) list.push(issue);
-      else map.set(issue.refId, [issue]);
-    }
-    return map;
+  // Findings, canvas issues, frozen tables, safe fixes and dictionary notes — see `SchemaQuality`.
+  const quality = new SchemaQuality({
+    project: () => liveProject,
+    writeDoc: () => writeDoc,
+    canWrite: () => canWrite,
+    settings: () => lint.settings,
+    frozenTableIds: () => tableLocks.view.frozen,
   });
 
   // Populated by CanvasArea so ExportDialog (outside the canvas) can still
@@ -412,39 +328,13 @@
     return found;
   }
 
-  // ---- SQL drawer under the schema -------------------------------------------
-  // The console's SQL panel, within reach of the diagram. Offered to exactly
-  // those the console is offered to; open / closed and height are remembered
-  // per browser.
-  const SQL_OPEN_KEY = "athanordb.sqlDrawer.open";
-  const SQL_HEIGHT_KEY = "athanordb.sqlDrawer.height";
-  const SQL_MIN_HEIGHT = 140;
-  const SQL_MAX_HEIGHT = 640;
-  const canUseSql = $derived(props.session.isAdmin && activeConnection !== null);
-  let sqlOpen = $state(readBoolean(SQL_OPEN_KEY, false));
-  let sqlHeight = $state(readNumberInRange(SQL_HEIGHT_KEY, SQL_MIN_HEIGHT, SQL_MAX_HEIGHT, 300));
-  let sqlRequest = $state.raw<{ sql: string; token: number } | null>(null);
-  const setSqlOpen = (open: boolean) => {
-    sqlOpen = open;
-    writeBoolean(SQL_OPEN_KEY, open);
-  };
-  // Stable identity: it is part of what the table node cache compares.
-  const viewTableData = (table: Table) => {
-    if (!activeConnection) return;
-    setSqlOpen(true);
-    sqlRequest = { sql: previewRowsStatement(activeConnection.engine, table), token: (sqlRequest?.token ?? 0) + 1 };
-  };
-  $effect(() => {
-    if (!canUseSql || tab !== "schema") return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (!(event.ctrlKey || event.metaKey) || event.altKey || event.shiftKey || event.key.toLowerCase() !== "j") return;
-      // Deliberately also while typing: it is how one leaves the SQL editor for the diagram and comes back.
-      event.preventDefault();
-      setSqlOpen(!sqlOpen);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+  // The SQL drawer under the schema — see `SqlDrawerState`.
+  const sql = new SqlDrawerState({
+    connection: () => activeConnection,
+    allowed: () => props.session.isAdmin,
+    visible: () => tab === "schema",
   });
+  const canUseSql = $derived(sql.usable);
 
   // What the canvas should centre on as soon as it can: the table a search hit
   // or a link asked for when the project opened, or one requested later from
@@ -544,14 +434,14 @@
     selectedFieldId: () => selectedFieldId,
     onSelectField: setSelectedFieldId,
     canWrite: () => canWrite,
-    issuesByTable: () => issuesByTable,
+    issuesByTable: () => quality.issuesByTable,
     showValidationIssues: () => showValidationIssues,
     locks: () => tableLocks.view,
     onManageLock: openLockDialog,
     seeds: () => seeds.byTable,
     onManageSeed: openSeedDialog,
     onLockedTablesKept: tellLockedTablesKept,
-    viewData: () => (canUseSql ? viewTableData : null),
+    viewData: () => (canUseSql ? sql.viewTableData : null),
     historyDiff: () => (tab === "schema" ? historyDiffStatus : null),
   });
   const seedDialogTable = $derived(
@@ -598,7 +488,7 @@
     onPaletteChange,
     canWrite: () => canWrite,
     dragging: () => nodesState.dragging,
-    issuesByRef: () => issuesByRef,
+    issuesByRef: () => quality.issuesByRef,
     showValidationIssues: () => showValidationIssues,
     selectedTableIds: () => selectedTableIds,
   });
@@ -678,8 +568,8 @@
     {connections}
     {connectionId}
     onConnectionChange={(id) => (connectionId = id)}
-    {sqlOpen}
-    onToggleSql={canUseSql && tab === "schema" ? () => setSqlOpen(!sqlOpen) : undefined}
+    sqlOpen={sql.open}
+    onToggleSql={canUseSql && tab === "schema" ? () => sql.setOpen(!sql.open) : undefined}
     lockCount={tableLocks.view.byTable.size}
     onShowLocks={() => (showLocksList = true)}
   />
@@ -722,15 +612,15 @@
   {:else if tab === "problems"}
     {#await import("@/features/editor/lint/ProblemsPanel.svelte") then { default: ProblemsPanel }}
       <ProblemsPanel
-        findings={lintFindings}
+        findings={quality.findings}
         settings={lint.settings}
-        canFix={canFixLintOn}
+        canFix={quality.canEditTable}
         canManage={isProjectAdmin}
         onOpenTable={(tableName, fieldName) => {
           setTab("schema");
           focusRequest = { tableName, fieldName };
         }}
-        onFix={fixLintFinding}
+        onFix={quality.fix}
         onSaveSettings={lint.save}
       />
     {/await}
@@ -738,13 +628,13 @@
     {#await import("@/features/editor/dictionary/DictionaryPanel.svelte") then { default: DictionaryPanel }}
       <DictionaryPanel
         project={liveProject}
-        canEdit={canFixLintOn}
+        canEdit={quality.canEditTable}
         onOpenTable={(tableName, fieldName) => {
           setTab("schema");
           focusRequest = { tableName, fieldName };
         }}
-        onSaveTableNote={saveTableNote}
-        onSaveFieldNote={saveFieldNote}
+        onSaveTableNote={quality.saveTableNote}
+        onSaveFieldNote={quality.saveFieldNote}
       />
     {/await}
   {:else if tab === "history" && liveProject}
@@ -783,9 +673,9 @@
         onClose={() => (dbmlOpen = false)}
         scrollToTable={dbmlScrollRequest}
         {onNavigateToCanvas}
-        findings={dbmlFindings}
-        frozenTables={frozenTableNames}
-        onLockedEdit={tellLockedEdit}
+        findings={quality.dbmlFindings}
+        frozenTables={quality.frozenTableNames}
+        onLockedEdit={quality.tellLockedEdit}
       />
     {:else}
       <button
@@ -857,20 +747,20 @@
       {/key}
     </SvelteFlowProvider>
   </div>
-  {#if sqlOpen && canUseSql && activeConnection}
+  {#if sql.open && canUseSql && activeConnection}
     <Splitter
-      bind:size={sqlHeight}
-      min={SQL_MIN_HEIGHT}
-      max={SQL_MAX_HEIGHT}
+      bind:size={sql.height}
+      min={SqlDrawerState.MIN_HEIGHT}
+      max={SqlDrawerState.MAX_HEIGHT}
       edge="top"
       aria-label={t("workspace.sql.resize")}
-      onCommit={(height) => writeString(SQL_HEIGHT_KEY, String(height))}
+      onCommit={sql.rememberHeight}
     />
-    <div class="flex shrink-0 flex-col" style:height="{sqlHeight}px">
+    <div class="flex shrink-0 flex-col" style:height="{sql.height}px">
       {#await import("@/features/sql/EditorSqlDrawer.svelte") then { default: EditorSqlDrawer }}
         <!-- Keyed: the drawer and its history belong to one connection. -->
         {#key activeConnection.id}
-          <EditorSqlDrawer connection={activeConnection} request={sqlRequest} onClose={() => setSqlOpen(false)} />
+          <EditorSqlDrawer connection={activeConnection} request={sql.request} onClose={() => sql.setOpen(false)} />
         {/key}
       {/await}
     </div>
