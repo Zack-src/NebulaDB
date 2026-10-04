@@ -95,8 +95,12 @@ function isSchemaExplicitInSource(source: string, schemaName: string, tableName:
  * table's schema is treated as implicit whenever it's the default name.
  */
 export function toProject(database: any, projectName = "Untitled", source?: string): Project {
-  const schema = database.schemas?.[0];
-  const tables = (schema?.tables ?? []).map((table: any, index: number) => {
+  // Every schema, not only the first: a file with `Table sales.orders` next to
+  // `Table settings` has two (the named one and the implicit default), and
+  // reading `schemas[0]` alone silently dropped every table of the others.
+  const schemas: any[] = database.schemas ?? [];
+  const schemaTables = schemas.flatMap((schema) => (schema.tables ?? []).map((table: any) => ({ schema, table })));
+  const tables = schemaTables.map(({ schema, table }: { schema: any; table: any }, index: number) => {
     const fields = (table.fields ?? []).map((field: any) => ({
       id: String(field.id ?? `${table.name}.${field.name}`),
       name: field.name,
@@ -149,56 +153,62 @@ export function toProject(database: any, projectName = "Untitled", source?: stri
     };
   });
 
-  const refs = (schema?.refs ?? []).map((ref: any, i: number) => {
-    const [from, to] = orientEndpoints(ref.endpoints);
-    // @dbml/core endpoints carry tableName/fieldNames, not the numeric ids
-    // `toProject` assigns to tables/fields above — resolve through the
-    // endpoint's actual Field object (`endpoint.fields[0].table.id`/`.id`)
-    // instead, so refs point at the same ids the tables/fields use.
-    const fromField = from.fields?.[0];
-    const toField = to.fields?.[0];
-    return {
-      id: String(ref.id ?? `ref-${i}`),
-      name: ref.name ?? undefined,
-      from: {
-        tableId: String(fromField?.table?.id ?? from.tableId ?? from.tableName),
-        fieldId: String(fromField?.id ?? from.fieldId ?? from.fieldNames?.[0]),
-      },
-      to: {
-        tableId: String(toField?.table?.id ?? to.tableId ?? to.tableName),
-        fieldId: String(toField?.id ?? to.fieldId ?? to.fieldNames?.[0]),
-      },
-      cardinality: mapCardinality(ref.endpoints),
-      onDelete: normalizeRefAction(ref.onDelete),
-      onUpdate: normalizeRefAction(ref.onUpdate),
-    };
-  });
+  const refs = schemas
+    .flatMap((schema) => schema.refs ?? [])
+    .map((ref: any, i: number) => {
+      const [from, to] = orientEndpoints(ref.endpoints);
+      // @dbml/core endpoints carry tableName/fieldNames, not the numeric ids
+      // `toProject` assigns to tables/fields above — resolve through the
+      // endpoint's actual Field object (`endpoint.fields[0].table.id`/`.id`)
+      // instead, so refs point at the same ids the tables/fields use.
+      const fromField = from.fields?.[0];
+      const toField = to.fields?.[0];
+      return {
+        id: String(ref.id ?? `ref-${i}`),
+        name: ref.name ?? undefined,
+        from: {
+          tableId: String(fromField?.table?.id ?? from.tableId ?? from.tableName),
+          fieldId: String(fromField?.id ?? from.fieldId ?? from.fieldNames?.[0]),
+        },
+        to: {
+          tableId: String(toField?.table?.id ?? to.tableId ?? to.tableName),
+          fieldId: String(toField?.id ?? to.fieldId ?? to.fieldNames?.[0]),
+        },
+        cardinality: mapCardinality(ref.endpoints),
+        onDelete: normalizeRefAction(ref.onDelete),
+        onUpdate: normalizeRefAction(ref.onUpdate),
+      };
+    });
 
   // DBML has no notion of enum position (same as zones/sticky notes) — lay
   // fresh imports out in their own grid band below every table's, so a
   // first import doesn't stack every enum node on top of table id `0,0`.
   const enumGridStartRow = Math.ceil(tables.length / 6) + 1;
-  const enums = (schema?.enums ?? []).map((e: any, i: number) => ({
-    id: String(e.id ?? e.name),
-    name: e.name,
-    values: (e.values ?? []).map((v: any, vi: number) => ({
-      id: String(v.id ?? `${e.name}-${vi}`),
-      name: v.name,
-      note: v.note ?? undefined,
-    })),
-    position: { x: (i % 6) * 320, y: (enumGridStartRow + Math.floor(i / 6)) * 400 },
-  }));
+  const enums = schemas
+    .flatMap((schema) => schema.enums ?? [])
+    .map((e: any, i: number) => ({
+      id: String(e.id ?? e.name),
+      name: e.name,
+      values: (e.values ?? []).map((v: any, vi: number) => ({
+        id: String(v.id ?? `${e.name}-${vi}`),
+        name: v.name,
+        note: v.note ?? undefined,
+      })),
+      position: { x: (i % 6) * 320, y: (enumGridStartRow + Math.floor(i / 6)) * 400 },
+    }));
 
   // @dbml/core's own table-group tables carry the same declaration-order
   // `.id` the `tables` map above already keyed the AthanorDB `Table.id` on
   // (`String(table.id ?? table.name)`) — resolving through that instead of
   // re-deriving it keeps a group's member ids consistent with the tables array.
-  const tableGroups = (schema?.tableGroups ?? []).map((g: any) => ({
-    id: String(g.id ?? g.name),
-    name: g.name,
-    tableIds: (g.tables ?? []).map((t: any) => String(t.id ?? t.name)),
-    note: g.note || undefined,
-  }));
+  const tableGroups = schemas
+    .flatMap((schema) => schema.tableGroups ?? [])
+    .map((g: any) => ({
+      id: String(g.id ?? g.name),
+      name: g.name,
+      tableIds: (g.tables ?? []).map((t: any) => String(t.id ?? t.name)),
+      note: g.note || undefined,
+    }));
 
   return {
     id: crypto.randomUUID(),

@@ -305,11 +305,7 @@ Table commandes {
   assert.deepEqual(renamed.position, { x: 777, y: 888 }, "renamed table keeps its saved position");
   assert.deepEqual(renamed.style, { color: "#123456" }, "renamed table keeps its saved color/style");
   assert.equal(renamed.detailLevel, "full", "renamed table keeps its detail level");
-  assert.equal(
-    renamed.fields.find((f) => f.name === "id")?.id,
-    "f-id",
-    "field ids also carry over on a rename",
-  );
+  assert.equal(renamed.fields.find((f) => f.name === "id")?.id, "f-id", "field ids also carry over on a rename");
 });
 
 test("mergeProjectIntoExisting does not guess a rename when field overlap is weak (treated as delete+create instead)", () => {
@@ -783,4 +779,58 @@ test("mergeProjectIntoExisting matches refs by endpoint signature: existing styl
   assert.equal(ref.id, "existing-ref-id", "existing ref's id survives the reimport");
   assert.deepEqual(ref.style, { color: "#00ff00" }, "existing ref's style survives a resync with no sidecar");
   assert.deepEqual(ref.routingPoints, [{ x: 1, y: 1 }], "existing ref's routing points survive too");
+});
+
+test("tables of every schema are read, with the relations and enums that cross them", () => {
+  const source = `Table sales.orders {
+  id integer [pk]
+  customer_id integer
+  state hr.mood
+}
+
+Table settings {
+  id integer [pk]
+}
+
+Table hr.people {
+  id integer [pk]
+}
+
+Enum hr.mood {
+  happy
+  sad
+}
+
+Ref: sales.orders.customer_id > hr.people.id
+`;
+  const project = toProject(parseDbml(source), "Shop", source);
+  assert.deepEqual(
+    project.tables.map((table) => [table.schemaName, table.name]).sort(),
+    [
+      ["hr", "people"],
+      ["sales", "orders"],
+      [undefined, "settings"],
+    ].sort(),
+  );
+  // Ids stay unique across schemas, and the relation points at them.
+  assert.equal(new Set(project.tables.map((table) => table.id)).size, 3);
+  const byId = new Map(project.tables.map((table) => [table.id, table.name]));
+  assert.equal(project.refs.length, 1);
+  assert.deepEqual(
+    [byId.get(project.refs[0].from.tableId), byId.get(project.refs[0].to.tableId)],
+    ["orders", "people"],
+  );
+  assert.deepEqual(
+    project.enums.map((e) => e.name),
+    ["mood"],
+  );
+
+  // And back: nothing is lost on the way through the text.
+  const again = toProject(parseDbml(projectToDbml(project)), "Shop", projectToDbml(project));
+  assert.deepEqual(again.tables.map((table) => `${table.schemaName ?? ""}.${table.name}`).sort(), [
+    ".settings",
+    "hr.people",
+    "sales.orders",
+  ]);
+  assert.equal(again.refs.length, 1);
 });
