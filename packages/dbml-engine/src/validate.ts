@@ -8,17 +8,15 @@ export type ValidationSeverity = "error" | "warning";
 export interface ValidationIssue {
   severity: ValidationSeverity;
   message: string;
+  /** Set on the one finding the schema linter also reports (`pk-required`), so a caller showing both can drop this one. */
+  code?: "no-primary-key";
   tableId?: string;
   refId?: string;
 }
 
 /** `decimal(10,2)` -> `decimal`, `varchar[]` -> `varchar` — settings/precision differing across a ref's two sides isn't a modeling mistake, an outright different base type usually is. */
 function baseType(type: string): string {
-  return type
-    .replace(/\(.*$/, "")
-    .replace(/\[\]$/, "")
-    .trim()
-    .toLowerCase();
+  return type.replace(/\(.*$/, "").replace(/\[\]$/, "").trim().toLowerCase();
 }
 
 function findDuplicateNames<T>(items: T[], nameOf: (item: T) => string): string[] {
@@ -95,7 +93,12 @@ export function validateProject(project: Project): ValidationIssue[] {
     // per-field flag (DBML/SQL have no other way to say it) — either counts.
     const hasPk = table.fields.some((f) => f.pk) || table.indexes.some((idx) => idx.pk);
     if (!hasPk) {
-      issues.push({ severity: "warning", message: `Table "${table.name}" has no primary key`, tableId: table.id });
+      issues.push({
+        severity: "warning",
+        message: `Table "${table.name}" has no primary key`,
+        code: "no-primary-key",
+        tableId: table.id,
+      });
     }
   }
 
