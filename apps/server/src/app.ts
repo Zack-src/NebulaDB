@@ -273,13 +273,18 @@ export async function buildApp(): Promise<FastifyInstance> {
         // `null` (no permission at all) closes the socket instead of silently
         // downgrading it to read-only, which is what a user removed from a
         // project should experience.
-        room.join(socket, author, () => {
-          const level = getEffectivePermission(userId, projectId);
-          if (!level) return null;
-          const canWrite = level !== "view";
-          // A view-only socket cannot write at all, so its lock set is never consulted.
-          return { canWrite, lockedTableIds: canWrite ? lockedTableIdsFor(userId, projectId) : undefined };
-        });
+        room.join(
+          socket,
+          author,
+          () => {
+            const level = getEffectivePermission(userId, projectId);
+            if (!level) return null;
+            const canWrite = level !== "view";
+            // A view-only socket cannot write at all, so its lock set is never consulted.
+            return { canWrite, lockedTableIds: canWrite ? lockedTableIdsFor(userId, projectId) : undefined };
+          },
+          userId,
+        );
         // `req.log` rather than `app.log`: this is the one point in a
         // connection's life that maps to a single request (the WS upgrade),
         // so it's the one place a `reqId` can actually correlate — unlike

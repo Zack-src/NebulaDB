@@ -404,3 +404,23 @@ test("a lock binds only the connections it is resolved for, and lifting it takes
   room.announce({ type: "locks-changed" });
   assert.deepEqual(noticesSent(admin.sent).at(-1), { type: "locks-changed" });
 });
+
+test("a notice addressed to accounts reaches their connections only", (t) => {
+  const room = newRoom(t);
+  const ada = fakeSocket();
+  const adaOtherTab = fakeSocket();
+  const bob = fakeSocket();
+  const unidentified = fakeSocket();
+  room.join(ada.socket, "ada", () => ({ canWrite: true }), "user-ada");
+  room.join(adaOtherTab.socket, "ada", () => ({ canWrite: true }), "user-ada");
+  // Same display name as Ada: it is the account that is addressed, not the name.
+  room.join(bob.socket, "ada", () => ({ canWrite: true }), "user-bob");
+  room.join(unidentified.socket, "ada", () => ({ canWrite: true }));
+
+  room.announceTo(new Set(["user-ada", "user-nobody-connected"]), { type: "notification" });
+
+  assert.deepEqual(noticesSent(ada.sent), [{ type: "notification" }]);
+  assert.deepEqual(noticesSent(adaOtherTab.sent), [{ type: "notification" }]);
+  assert.deepEqual(noticesSent(bob.sent), []);
+  assert.deepEqual(noticesSent(unidentified.sent), []);
+});

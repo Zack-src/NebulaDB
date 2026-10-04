@@ -60,7 +60,13 @@ export type ServerNotice =
   /** A table's seed was set or removed — refetch `GET /api/projects/:id/seeds`. */
   | { type: "seeds-changed" }
   /** The linter's settings changed — refetch `GET /api/projects/:id/lint`. */
-  | { type: "lint-changed" };
+  | { type: "lint-changed" }
+  /**
+   * A notification was just stored for this connection's account — refetch
+   * `GET /api/notifications`. Sent to that account's connections only, never
+   * to the room: who follows what is nobody else's business.
+   */
+  | { type: "notification" };
 
 /** One database linked to a project, and whether it is known to have left the schema. `GET /api/projects/:id/drift`. */
 export interface ProjectDriftEntry {

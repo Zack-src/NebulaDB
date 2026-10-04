@@ -98,6 +98,8 @@ export type { RoomLogger };
 
 interface ConnMeta {
   author: string;
+  /** The account behind the connection — what `announceTo` matches on. `author` is a display name, and two accounts may share one. */
+  userId: string | undefined;
   awarenessClientIds: Set<number>;
   resolveAccess: AccessResolver;
   canWrite: boolean;
@@ -241,10 +243,12 @@ export class Room {
     this.broadcast(encoding.toUint8Array(encoder), origin as WebSocket | undefined);
   }
 
-  join(conn: WebSocket, author: string, resolveAccess: AccessResolver): void {
+  /** `userId` absent: a connection no account-addressed notice (`announceTo`) will ever reach. */
+  join(conn: WebSocket, author: string, resolveAccess: AccessResolver, userId?: string): void {
     const initial = resolveAccess();
     this.conns.set(conn, {
       author,
+      userId,
       awarenessClientIds: new Set(),
       resolveAccess,
       canWrite: initial?.canWrite ?? false,
@@ -453,6 +457,17 @@ export class Room {
   /** Pushes a notice to every connection — "refetch this", never the data itself. */
   announce(notice: ServerNotice): void {
     this.conns.forEach((_meta, conn) => this.sendNotice(conn, notice));
+  }
+
+  /**
+   * Pushes a notice to the connections of the given accounts and to nobody
+   * else — for what concerns an account rather than the project, where telling
+   * the whole room would tell it who was concerned.
+   */
+  announceTo(userIds: ReadonlySet<string>, notice: ServerNotice): void {
+    this.conns.forEach((meta, conn) => {
+      if (meta.userId !== undefined && userIds.has(meta.userId)) this.sendNotice(conn, notice);
+    });
   }
 
   private sendNotice(conn: WebSocket, notice: ServerNotice): void {

@@ -106,6 +106,14 @@ export function notifyProject(projectId: string, notice: ServerNotice): void {
   rooms.get(projectId)?.announce(notice);
 }
 
+/**
+ * Pushes a notice to the given accounts' connections on this project, and to
+ * no other connection of the room — see `Room.announceTo`.
+ */
+export function notifyProjectUsers(projectId: string, userIds: ReadonlySet<string>, notice: ServerNotice): void {
+  if (userIds.size > 0) rooms.get(projectId)?.announceTo(userIds, notice);
+}
+
 /** Tears down a project's in-memory room (if one is live) ahead of deleting its rows — see `Room.destroy`. */
 export function closeRoom(projectId: string): void {
   const room = rooms.get(projectId);

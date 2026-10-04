@@ -7,6 +7,7 @@ import {
   type UserNotification,
 } from "@athanordb/shared";
 import { db } from "../../infrastructure/db.js";
+import { notifyProjectUsers } from "../../realtime/roomRegistry.js";
 import { ApiError } from "../../shared/errors.js";
 import { getEffectivePermission, type PermissionLevel } from "../../shared/permissions.js";
 
@@ -104,7 +105,7 @@ export function notifyFollowers(
          (SELECT id FROM notifications WHERE user_id = ? ORDER BY rowid DESC LIMIT ${KEPT_PER_USER})`,
     );
     const needed = RANK[options.needs ?? "view"];
-    let told = 0;
+    const told = new Set<string>();
     for (const follower of followers) {
       if (!(JSON.parse(follower.events_json) as string[]).includes(event)) continue;
       if (options.actor?.id && follower.user_id === options.actor.id) continue;
@@ -113,9 +114,12 @@ export function notifyFollowers(
       if (!level || RANK[level] < needed) continue;
       insert.run(crypto.randomUUID(), follower.user_id, projectId, event, JSON.stringify(params));
       trim.run(follower.user_id, follower.user_id);
-      told += 1;
+      told.add(follower.user_id);
     }
-    return told;
+    // Those who have the project open learn it now rather than at their bell's
+    // next poll — they alone: the room at large is not to know who follows.
+    notifyProjectUsers(projectId, told, { type: "notification" });
+    return told.size;
   } catch (err) {
     console.error("[notifications] could not notify followers:", err);
     return 0;

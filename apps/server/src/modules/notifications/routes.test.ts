@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import * as decoding from "lib0/decoding.js";
 
 process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-notifications-${randomUUID()}.sqlite`);
 process.env.ATHANORDB_COOKIE_SECURE = "false";
@@ -13,7 +14,7 @@ process.env.ATHANORDB_LOG_LEVEL = "silent";
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
 const { hashPassword } = await import("../auth/password.js");
-const { closeAllRooms } = await import("../../realtime/roomRegistry.js");
+const { closeAllRooms, notifyProject } = await import("../../realtime/roomRegistry.js");
 
 const HOST = "localhost:3001";
 type App = Awaited<ReturnType<typeof buildApp>>;
@@ -177,6 +178,78 @@ test("notifications: followers are told what happened — not their own doing, n
       .get() as { s: number; n: number };
     assert.deepEqual(left, { s: 0, n: 0 });
   } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
+
+/** The project's socket as a browser opens it, and the server notices (WebSocket message type 2) it has received so far. */
+async function openProject(app: App, cookie: string, projectId: string) {
+  const notices: { type: string }[] = [];
+  const socket = await app.injectWS(
+    `/ws/${projectId}`,
+    { headers: headers({ cookie }) },
+    {
+      onInit: (ws) =>
+        ws.on("message", (data: Buffer) => {
+          const decoder = decoding.createDecoder(new Uint8Array(data));
+          if (decoding.readVarUint(decoder) === 2) notices.push(JSON.parse(decoding.readVarString(decoder)));
+        }),
+    },
+  );
+  return { socket, types: () => notices.map((notice) => notice.type) };
+}
+
+async function until(condition: () => boolean, what: string): Promise<void> {
+  const deadline = Date.now() + 2000;
+  while (!condition()) {
+    if (Date.now() > deadline) assert.fail(`timed out waiting for ${what}`);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+  }
+}
+
+test("notifications: a follower with the project open is told at once — and nobody else in the room is", async () => {
+  const app = await buildApp();
+  await app.ready();
+  const sockets: { terminate: () => void }[] = [];
+  try {
+    const owner = await login(app);
+    const follower = await login(app);
+    const bystander = await login(app);
+    const project = (await call(app, owner.cookie, "POST", "/api/projects", { name: "Shop" })).json() as { id: string };
+    const base = `/api/projects/${project.id}`;
+    await call(app, owner.cookie, "POST", `${base}/import`, { source: "Table customers {\n  id integer [pk]\n}\n" });
+    grant(project.id, follower.id, "edit");
+    grant(project.id, bystander.id, "edit");
+    const [table] = ((await call(app, owner.cookie, "GET", `${base}/content`)).json() as { tables: { id: string }[] })
+      .tables;
+    // The owner follows locks too: the one who acts gets no notification, so no notice either.
+    await call(app, owner.cookie, "PUT", `${base}/subscription`, { events: ["lock"] });
+    await call(app, follower.cookie, "PUT", `${base}/subscription`, { events: ["lock"] });
+
+    const ownerTab = await openProject(app, owner.cookie, project.id);
+    // Two tabs of the same account: both are told.
+    const followerTab = await openProject(app, follower.cookie, project.id);
+    const followerOtherTab = await openProject(app, follower.cookie, project.id);
+    const bystanderTab = await openProject(app, bystander.cookie, project.id);
+    sockets.push(ownerTab.socket, followerTab.socket, followerOtherTab.socket, bystanderTab.socket);
+
+    const locked = await call(app, owner.cookie, "PUT", `${base}/locks/${table.id}`, { level: "structure" });
+    assert.equal(locked.statusCode, 200, locked.body);
+    // Frames reach a socket in the order they were sent: once this last notice
+    // has arrived everywhere, nothing sent before it is still on its way.
+    notifyProject(project.id, { type: "lint-changed" });
+    for (const tab of [ownerTab, followerTab, followerOtherTab, bystanderTab]) {
+      await until(() => tab.types().includes("lint-changed"), "the closing notice");
+    }
+
+    assert.deepEqual(followerTab.types(), ["locks-changed", "notification", "lint-changed"]);
+    assert.deepEqual(followerOtherTab.types(), ["locks-changed", "notification", "lint-changed"]);
+    // Same room, same lock, both told the lock list changed — but not that someone was notified.
+    assert.deepEqual(bystanderTab.types(), ["locks-changed", "lint-changed"]);
+    assert.deepEqual(ownerTab.types(), ["locks-changed", "lint-changed"]);
+  } finally {
+    for (const socket of sockets) socket.terminate();
     closeAllRooms();
     await app.close();
   }
