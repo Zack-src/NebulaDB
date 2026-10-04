@@ -88,6 +88,7 @@ export const AUDIT_ACTIONS = [
   "seed.read_database",
   "project.monitoring",
   "project.lint",
+  "connection.deploy.stage_skipped",
   "backup.create",
   "backup.delete",
   "backup.download",

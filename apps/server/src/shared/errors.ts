@@ -90,6 +90,7 @@ export const ERROR_CATALOG = {
     status: 400,
     message: "monitoring: enabled (boolean), intervalMinutes (5, 15, 60, 360 or 1440), ignoreTables (names)",
   },
+  STAGE_SKIP_REASON_REQUIRED: { status: 400, message: "skipping a stage needs a reason (skipReason)" },
   COMPARISON_INVALID: { status: 400, message: "sourceId and targetId must be two different connections" },
   DICTIONARY_FORMAT_INVALID: { status: 400, message: "format must be one of json, markdown, csv, html" },
   LINT_INVALID: {
@@ -195,6 +196,12 @@ export const ERROR_CATALOG = {
   SEEDS_NOT_DEPLOYABLE: {
     status: 409,
     message: "a seed of this project has errors or its tables depend on each other in a cycle — fix it before deploying",
+  },
+  PIPELINE_STAGE_SKIPPED: {
+    status: 409,
+    message:
+      "this stage takes a schema only once the stage before it has it — deploy there first (an instance " +
+      "administrator may skip the stage, with a reason)",
   },
   VARIABLES_UNRESOLVED: {
     status: 409,

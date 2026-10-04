@@ -370,6 +370,12 @@ export const OPERATIONS: Operation[] = [
           description:
             "Back the database up before changing it. Default: true on the production stage, false elsewhere. If the backup does not complete, nothing is deployed (502 BACKUP_FAILED)",
         },
+        skipStageOrder: {
+          type: "boolean",
+          description:
+            "Deploy although the stage before this one does not have this schema yet (409 PIPELINE_STAGE_SKIPPED otherwise). Instance administrators only; needs skipReason; audited",
+        },
+        skipReason: { type: "string", maxLength: 300 },
       },
       [],
     ),

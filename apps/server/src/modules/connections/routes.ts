@@ -1,3 +1,4 @@
+import { stageSkipFor } from "../pipeline/routes.js";
 import type { FastifyInstance } from "fastify";
 import { readProjectFromDoc, type DatabaseConnectionConfig, type MigrationResolutionMap } from "@athanordb/shared";
 import { diffTargetAgainstLive, generateMigrationSql } from "@athanordb/dbml-engine";
@@ -255,13 +256,18 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
       riskNote?: string;
       skipSeeds?: boolean;
       backupBefore?: boolean;
+      skipStageOrder?: boolean;
+      skipReason?: string;
     };
+
+    const skipStageOrder = stageSkipFor(req, id, connId, body);
 
     const result = await deployToConnection(id, project.name, connId, body.resolutions || {}, user.email, {
       confirmName: body.confirmName,
       riskNote: body.riskNote,
       skipSeeds: body.skipSeeds === true,
       backupBefore: typeof body.backupBefore === "boolean" ? body.backupBefore : undefined,
+      skipStageOrder,
     });
 
     auditUser(

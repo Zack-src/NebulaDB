@@ -37,6 +37,7 @@ function assertProductionConfirmed(
 }
 import { getDeploymentHistoryEntry, recordDeployment } from "./deploymentHistory.js";
 import { schemaForConnection } from "../environments/variables.js";
+import { assertStageOrder, schemaHashOf } from "../pipeline/pipeline.js";
 import { assertLintAllowsDeployment } from "../lint/check.js";
 import { getLintSettings } from "../lint/repository.js";
 import { emitWebhookEvent } from "../webhooks/dispatcher.js";
@@ -125,6 +126,8 @@ export async function deployToConnection(
      * deploy to production without one.
      */
     backupBefore?: boolean;
+    /** Deploy although an earlier stage is not level — the caller has checked who asks and why. */
+    skipStageOrder?: boolean;
   } = {},
 ): Promise<DeployToConnectionResult> {
   const { confirmName } = options;
@@ -139,6 +142,8 @@ export async function deployToConnection(
   // know the schema breaks the project's own rules, or names a variable the
   // stage does not define.
   assertLintAllowsDeployment(writtenProject, getLintSettings(projectId));
+  const schemaHash = schemaHashOf(writtenProject);
+  assertStageOrder(projectId, conn, schemaHash, options.skipStageOrder === true);
   const canvasProject = schemaForConnection(writtenProject, conn);
 
   const driver = await createDatabaseDriver(conn);
@@ -204,6 +209,7 @@ export async function deployToConnection(
       riskNote: typeof options.riskNote === "string" ? options.riskNote.slice(0, RISK_NOTE_MAX) : null,
       seedReport,
       backupId: backup?.id ?? null,
+      schemaHash,
     });
     notifyDeployment(projectId, conn, "deploy", result, executedByEmail);
 
