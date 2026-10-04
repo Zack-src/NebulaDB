@@ -46,6 +46,7 @@ There are two axes, and no others.
 | Import DBML / SQL into the project                                           |      |  ✔   |       ✔       |
 | Set or remove a table's initial data (CSV seed); a `full` lock freezes it    |      |  ✔   |       ✔       |
 | Read the schema linter's rules and findings (`GET …/lint`, `/api/v1/…/lint`) |  ✔   |  ✔   |       ✔       |
+| Read the project's pipeline (`GET …/pipeline`)                               |      |      |       ✔       |
 | Use `{{variables}}` in table names (a schema edit)                           |      |  ✔   |       ✔       |
 | Compare two of the project's databases with each other                       |      |      |       ✔       |
 | Read or export the data dictionary (`/api/v1/…/dictionary`)                  |  ✔   |  ✔   |       ✔       |
@@ -75,6 +76,9 @@ Reading a table's rows from a linked database as a seed to review
 (`POST …/seeds/:tableId/from-database`) needs **instance administrator** as well as `edit`:
 it hands out every row of the table, like the console. Saving the result is the ordinary seed
 route above.
+
+Deploying to a stage before the one ahead of it has the schema (`skipStageOrder`) needs
+**instance administrator** on top of project `administrator`, and a reason; it is audited.
 
 ## Table locks
 

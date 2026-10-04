@@ -24,6 +24,27 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Changed (pipeline) — read before upgrading
+
+- **A protected stage no longer takes a schema the stage before it does not
+  have.** When a project has databases on several stages, deploying to a stage
+  whose protection is "Revue" or "Protégé" — the production stage always is —
+  is refused (`409 PIPELINE_STAGE_SKIPPED`) until the nearest earlier stage of
+  that project has received the same schema. **After upgrading, every stage
+  reads "en retard" until it is deployed to once**, because past deployments
+  did not record which schema they deployed: deploy to the earlier stage
+  first, or set its successor's protection to "Libre". A project with a single
+  database, and a database on no stage, are unaffected.
+- **Skipping a stage** is for instance administrators, needs a reason, and is
+  audited (`connection.deploy.stage_skipped`): in the deployment dialog once
+  the refusal is shown, or `{ skipStageOrder: true, skipReason }` on the API.
+- **A "Pipeline" card** on the Déploiements tab shows the project's databases
+  along the stages: level, behind, failed or never deployed, and which stage
+  one is waiting for.
+- The deployment dialog now shows a refused deployment in the interface's
+  language instead of the server's English message.
+- Migration 33 (`deployment_history.schema_hash`).
+
 ### Fixed (DBML with several schemas)
 
 - **Importing DBML whose tables are in more than one schema lost tables.** Only

@@ -100,7 +100,7 @@ rollback is still to do; 2026-10-04: lot 17's schema linter and data dictionary)
 - [ ] **Capability levels per connection** — **S**. Level 0 (catalogue read), 1 (supervision
       views), 2 (server-side audit configured) — detected at connection test and stored on
       `db_connections` (`plan §8.3`). Journal, traffic, advisor and drift attribution all branch on it.
-- [ ] **Migrations** — next migration number is **33** (29 is `backups`, 30 `backup_schedules`, 31 `lint_settings`, 32 `environments.variables_json`). Every item below that adds a table
+- [ ] **Migrations** — next migration number is **34** (29 is `backups`, 30 `backup_schedules`, 31 `lint_settings`, 32 `environments.variables_json`, 33 `deployment_history.schema_hash`). Every item below that adds a table
       gets its own migration, tested on a populated database (`infrastructure/migrations.test.ts`).
       Reminder from `memory`: saving `migrations.ts` while `npm run dev` runs migrates the real dev
       DB, one way — work on a copy.
@@ -511,19 +511,53 @@ here: each gets its own security review before it is closed.**
   production deploy + rollback refused without the name), `e2e/environments.e2e.ts`.
   **Still to do:**
   - Per-project override of the chain (`project_environments`) — not built.
-  - _Protection_ (`free` / `review` / `protected`) is stored, not enforced — the per-stage
-    guards belong to the pipeline item below.
+  - _Protection_: anything but `free` now enforces the stage order (the pipeline item below);
+    approval and windows are still to do.
   - Write-mode SQL and explorer drops in the console on a production connection do not ask for
     the name (the console has its own confirmations; align them).
   - Drag-and-drop reordering (arrows today); the security review of the Phase 27 rule.
 
-- [ ] **Pipeline tab and promotion** — **L**. Per project: stages with version, connection and
-      status; **Promote vN →** deploys the same schema version to the next stage with the **real**
-      diff of the target (introspection, not only what changed in the project); no stage skipping
-      without an explicit, audited right ("urgent fix"); each promotion is a deployment-history
-      entry and can alert. Per-stage guards: deployment windows / freeze, mandatory backup,
-      required approval, "must have succeeded on the previous stage".
-      **Blocked by:** pipeline stages; workspace shell for the tab.
+- [~] **Pipeline and promotion** — first slice done 2026-10-04: **no stage skipping**.
+  Migration 33 `deployment_history.schema_hash`: every deployment records which schema it
+  deployed (the strict fingerprint of the project as written, placeholders included, so one
+  schema has one hash on every stage). `modules/pipeline/`: `projectPipeline` lays the
+  project's databases along the chain — per database the last deployment and whether it is
+  **level** (the last thing done there is a successful deployment of the current schema, not
+  rolled back) — and `assertStageOrder`, called by `deployToConnection` before any connection
+  is opened: a stage whose **protection is not `free`** takes a schema only once the nearest
+  earlier stage _on which the project has a database_ is level (`409 PIPELINE_STAGE_SKIPPED`,
+  naming both stages). This is the first thing `protection` enforces. The way past:
+  `skipStageOrder: true` + `skipReason` — **instance administrators only**, audited
+  `connection.deploy.stage_skipped` — on the app's route and `/api/v1`.
+  `GET /api/projects/:id/pipeline`. UI: the "Pipeline" card at the top of the Déploiements tab
+  (`workspace/PipelineCard.svelte`: stages, state per database — à niveau / en retard / échec /
+  jamais déployé —, "Attend X", Deploy per database), and in the deployment dialog the refusal
+  in the reader's language with, for an instance administrator, a reason field and "Sauter
+  l'étape et déployer". **Decisions taken:**
+  - _A card, not a tab_: it is three boxes and belongs next to the history; a tab when
+    approvals and windows give it more to show.
+  - _"Promote" is "deploy the same schema to the next stage"_: the diff is always the target's
+    own (introspection), which the deployment already did. No separate promote action.
+  - _Stages the project has no database on are not part of its pipeline_; a database on no
+    stage is outside it and deployed freely.
+  - _Level is about the schema's structure_: a seed or a note changed since does not put a
+    stage behind.
+  - **Applies on upgrade**: entries from before have no hash, so every stage reads "behind"
+    until deployed to once; a production deployment of a project that also has an earlier
+    stage is refused until that stage has the schema. First line of the changelog entry.
+
+  **Verified:** `pipeline/routes.test.ts` (order, refusal, level after each deployment, behind
+  after a schema change, skip: rights, reason, audit; unstaged database), `openapi.test.ts`,
+  `e2e/pipeline.e2e.ts` (the card, a refused deployment, in-order deployments, the skip).
+  **Found on the way, fixed:** the deployment dialog showed the server's English message for
+  every refused deployment; it now goes through the translated error catalogue.
+  **Still to do:** versions (`vN` — needs Phase 35's published versions; today "the current
+  schema"); required approval for `review` (it is enforced like `protected` for now);
+  deployment windows / freeze; "mandatory backup" per stage (production only today); a
+  per-project chain; alerts on promotion; a rollback on stage N does not flag N+1 as ahead;
+  the card does not refresh by itself when the schema changes (button); the security review
+  of the Phase 27 rule.
+
 - [~] **Compare environments** — first slice done 2026-10-04. `compareSchemas` +
   `describeTableChange` (`dbml-engine/schemaHash.ts`): two structures by the **strict**
   fingerprint, tables only in one side, tables that differ with the detail (columns only on one

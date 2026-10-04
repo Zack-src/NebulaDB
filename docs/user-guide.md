@@ -352,6 +352,17 @@ régénère à volonté ; **Utiliser comme données initiales** passe les lignes
 l'onglet Fichier, où elles sont vérifiées et enregistrées comme un CSV, et
 **Exporter en CSV** les télécharge.
 
+**Pipeline.** En haut de l'onglet _Déploiements_, la carte **Pipeline** range
+les bases du projet dans l'ordre des étapes et dit, pour chacune, si elle est
+**à niveau** (le schéma actuel y a été déployé), **en retard**, en **échec** ou
+**jamais déployée**. Une étape dont la protection n'est pas « Libre » — la
+production l'est toujours — ne reçoit le schéma qu'une fois l'étape précédente
+du projet à niveau : la carte affiche « Attend DEV », et le déploiement est
+refusé tant que ce n'est pas fait. Un administrateur de l'instance peut passer
+outre pour un correctif urgent : après le refus, il saisit un motif et choisit
+**Sauter l'étape et déployer** ; le motif est journalisé. Une base sans étape
+est en dehors du pipeline.
+
 **Variables par environnement.** Un même schéma peut porter des noms différents
 selon l'étape : écrivez `{{variable}}` dans le nom ou le schéma d'une table —
 `Table "{{table_prefix}}commandes"` — et un administrateur de l'instance donne
