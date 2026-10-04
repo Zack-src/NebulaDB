@@ -73,8 +73,25 @@ export async function launchBrowser(): Promise<Browser> {
   throw lastError;
 }
 
+/**
+ * A fresh browser profile is a first visit, and a first visit gets the
+ * editor's guided tour — which the tests of everything else have no use for.
+ * Marks it as seen for every page this one loads. `onboarding.e2e.ts` is the
+ * test that wants it.
+ */
+export async function skipEditorTour(page: Page): Promise<void> {
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem("athanordb.tour.editor.seen", "true");
+    } catch {
+      // No storage on this page (about:blank): nothing to mark.
+    }
+  });
+}
+
 /** Logs the seeded admin in and waits for the dashboard to be interactive. */
 export async function login(page: Page, baseUrl: string): Promise<void> {
+  await skipEditorTour(page);
   await page.goto(baseUrl);
   await page.getByLabel("Adresse e-mail").fill(ADMIN_EMAIL);
   await page.getByLabel("Mot de passe").fill(ADMIN_PASSWORD);
