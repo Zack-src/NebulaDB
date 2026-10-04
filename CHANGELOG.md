@@ -57,6 +57,28 @@ this file has a dated entry for — not on every commit.
 - An API key acts as its owner, so `/api/v1` uses the owner's database account
   on such a connection.
 
+### Added (public API)
+
+- **Database backups**: `GET` / `POST /api/v1/connections/:id/backups` (list,
+  start — answers `202`), `GET /api/v1/backups/:id` (poll until done),
+  `POST …/cancel`, `DELETE`, `GET …/download` (the decrypted `.jsonl.gz`).
+  Instance administrators, scope `connections:manage`; a key restricted to one
+  project is refused. Restoring stays in the application.
+
+### Changed
+
+- **Notifications arrive at once** while the project they concern is open,
+  instead of at the next minute. Elsewhere the bell still refreshes every
+  minute.
+- The webhooks dialog, the connection form and the database users panel use the
+  application's own lists, checkboxes and switches instead of the browser's.
+
+### Fixed
+
+- **"Copier" in the deployment dialog copied the plan's first draft**, not the
+  SQL shown — which follows the answers given to the risks. It copies what is
+  shown.
+
 ### Added (webhooks)
 
 - **Regenerate a webhook's signing secret** without deleting the webhook: the

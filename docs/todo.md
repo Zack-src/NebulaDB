@@ -217,6 +217,23 @@ the answer may change.
       webhook changes and "send a test" behind `projects:write`. No dedicated scope was
       created. Confirm, or ask for `connections:manage` / a new scope. _Phase 21 / 34._
 
+**Taken by the 2026-10-05 parallel work (four sub-agents) — confirm or change:**
+
+- [ ] **Backups in `/api/v1` sit behind `connections:manage`.** With it, an instance
+      administrator's key can download every row of a connected database — more than the
+      scope's name says. Alternative: a dedicated `backups:manage` scope. Start and download
+      are limited to 10 a minute (the app's own routes allow 20). _Phase 32._
+- [ ] **Restore, the backup schedule and the pin are not in the API**, on purpose. Confirm, or
+      ask for them (a restore by API would need the target's name in the body). _Phase 32._
+- [ ] **Pushed notifications reach only the project that is open.** Someone on another
+      project or on the dashboard still waits up to a minute. The signal is a module-level
+      state every mounted bell listens to, and `Room.join` takes the user id as an optional
+      argument (a caller that forgets it gets no push — it fails closed). _Phase 34._
+- [ ] **Controls that changed when they left the native ones:** a webhook's "Actif" is a switch
+      (it acts at once); "Ajouter à un rôle…" in the database users panel is a placeholder,
+      so a picked role cannot be set back to "none"; the port field shows 0 as empty; several
+      pickers have a fixed width and get a search field past 8 options. _Phase 29._
+
 **Decided on the owner's behalf since 2026-10-02 — read once, object where needed.** Each is
 written up under "Decisions taken" in its phase; none was confirmed by the owner. Unticked means
 "not reviewed yet", not "to do".
@@ -293,6 +310,9 @@ are in the repository for this.
       end on SQLite only, as text elsewhere. _Phase 32 / 33._
 - [ ] **The watch and the drift check on a real engine:** the strict fingerprint depends on
       `TYPE_ALIASES`; a type spelling it does not know reads as a false "changed". _Phase 34._
+- [ ] **The database users panel** (Admin → Connexions → a database → Utilisateurs): its
+      five pickers were migrated without ever being displayed — SQLite has no users. Create a
+      user, grant and revoke on PostgreSQL or MySQL. _Phase 29._
 - [ ] **Destructive-change probes** on a very large table: a `COUNT(*)` may run until its 5 s
       cut-off. _Phase 32._
 
@@ -305,6 +325,12 @@ are in the repository for this.
 - [ ] **Two performance regressions** flagged by a single bench pass (`zoom-links-on` at full
       detail, `delete-columns` at 500 tables): measure a second time. _Phase 23._
 - [ ] **Plugins against table locks:** no plugin was tried on a locked table. _Phase 30._
+- [ ] **Forms migrated on 2026-10-05 that no browser test clicks:** in the webhooks dialog, the
+      event checkboxes and the on/off switch; in the connection form, port, URI, SSL, read-only
+      and the project checkboxes. Click through each once. _Phase 29._
+- [ ] **The deployment dialog after its split:** covered by ten browser tests, but nobody
+      looked at it — open it once on each step (differences, risks, SQL, result, history).
+      _Phase 23._
 
 - [ ] **Scheduled backups over a few days:** hours are the **server's local time**; one
       catch-up after downtime; the kept-count. Tested with a simulated clock only. _Phase 32._
@@ -348,11 +374,12 @@ Take a backup first (`npm run backup -- <dir>`); migrations are one-way. Try the
 
 ### C bis. Before pushing
 
-- [ ] **Every commit since `e0cde00` (2026-10-03) is on local `main` only** — some 140, see
+- [ ] **Every commit since `e0cde00` (2026-10-03) is on local `main` only** — some 150, see
       `git log origin/main..HEAD`: everything from Phase 29 on. Nothing of it is on the remote:
       a disk failure loses it. Push, or push to a branch, once blocks A–C have been read.
-- [ ] **Last full run, 2026-10-05, on the last code commit:** 577 unit tests pass, 6 skipped
-      (see block B), 33 browser tests pass, ESLint and the circular-import check clean. Run it
+- [ ] **Last full run, 2026-10-05, on the last code commit (`5ea382a`, after the four
+      sub-agents' work was integrated):** 581 unit tests pass, 6 skipped (see block B), 33
+      browser tests pass, ESLint and the circular-import check clean. Run it
       again if anything changes before the push: `npm run build`, `npm test`,
       `npm run test:e2e`, `npm run lint`.
 - [ ] **One commit is red on its own:** `541def6` (webhook secret rotation) carries a test
@@ -502,10 +529,17 @@ API have since shipped.
 - [~] **Forbid native controls** — rule in place 2026-10-02 (`eslint.config.js`): raw
   `<select>` and `<input type="checkbox|radio|number">` are an error in
   `apps/web/src/features/**` (`type="date"` is not in the rule yet — no component to point
-  to). The 27 files that still use them are listed in `NATIVE_CONTROLS_NOT_MIGRATED` in that
+  to). The files that still use them are listed in `NATIVE_CONTROLS_NOT_MIGRATED` in that
   file — the list only shrinks; migrate screen by screen (Phase 37) and delete the line.
-  Biggest: `admin/connections/UsersPanel` (5 selects, 2 inputs), `ConnectionFormFields`,
-  `ProjectTeamsModal`, `PluginSettingsModal`, `WebhooksModal`.
+  **23 left** (27 on 2026-10-02): `WebhooksModal`, `ConnectionFormFields`, the read-only and
+  project checkboxes of `ConnectionEditModal`, and `admin/connections/UsersPanel` were
+  migrated 2026-10-05 (`Select`, `Checkbox`, `Switch`, `NumberInput`). Biggest left:
+  `ProjectTeamsModal`, `PluginSettingsModal`. The deployment dialog's risk-strategy radio
+  (`deployment/DeploymentRisksStep.svelte`) carries an inline `eslint-disable` instead of a
+  line in the list, and `DeploymentModal` keeps its native `<select>`: both to migrate.
+  **Not driven by any browser test:** `UsersPanel` (the e2e target is SQLite, which has no
+  users), the webhook event checkboxes and its on/off switch, the port, URI and SSL fields,
+  the read-only and project checkboxes.
 - [x] **Copy / paste tables on the canvas** — done 2026-10-02. `Ctrl/Cmd+C` / `Ctrl/Cmd+V`
       and Copy / Paste in the canvas context menu (`canvas/tableClipboard.ts`,
       `hooks/canvasClipboard.svelte.ts`, `pasteTables` in `projectMutations.ts`). Colours, size,
@@ -1010,7 +1044,12 @@ here: each gets its own security review before it is closed.**
   with a note); `connectionBudget` is spent once per backup, not per page,
   and there is no per-page time limit; views, sequences and accounts are not in a backup;
   paging by `OFFSET` gets slow on very large tables (keyset on the primary key would not);
-  `/api/v1`; the security review of the Phase 27 rule. Open (unchanged): who pays for
+  ~~`/api/v1`~~ (done 2026-10-05: `GET` / `POST /api/v1/connections/:id/backups`,
+  `GET` / `DELETE /api/v1/backups/:id`, `POST …/cancel`, `GET …/download` —
+  `publicApi/backupRoutes.ts`, instance administrators, scope `connections:manage`, a
+  project-restricted key refused; the rules moved to `backups/service.ts`, shared with the
+  app's routes. **Restore, the schedule and the pin are left to the app** on purpose — a
+  restore empties tables and asks for the target's name to be retyped); the security review of the Phase 27 rule. Open (unchanged): who pays for
   storage, legal retention of backups holding personal data.
 
 - [~] **Restore** — first slice done 2026-10-03 (`modules/backups/restore.ts`,
@@ -1276,8 +1315,11 @@ ANALYZE`, **read-only statements only**, explicit confirmation, time cap) in the
   **Still to do:** e-mail and webhook channels and the daily digest (`sendMail` exists; the
   per-user opt-out is the subscription itself); following a **table**, a stage or a variant;
   events: structure change (digest), failed backup, comment replies and `@mentions` (the
-  Phase 20 / 21 items this one subsumes — not built); the bell polls, it is not pushed (the
-  project socket could carry it while a project is open); no notification preferences page;
+  Phase 20 / 21 items this one subsumes — not built); ~~the bell polls, it is not pushed~~ (pushed 2026-10-05 while the project is open:
+  `notifyFollowers` → `notifyProjectUsers` → `Room.announceTo`, a `notification` notice sent
+  only to the connections of the accounts that were told — a room connection now knows its
+  user id; the bell refetches on it (`notifications/inboxPush.svelte.ts`). Another project
+  open, or the dashboard, still waits for the one-minute poll); no notification preferences page;
   drift alerts and this centre are one list but drift has no acknowledge / mute yet.
 
 ## Phase 35 — Derived projects: base + variants (plan §10)
@@ -1570,7 +1612,9 @@ of the discussion. Cut or promote into a phase above.
   logic (`lint/schemaQuality.svelte.ts`) and the SQL drawer state (`sql/sqlDrawer.svelte.ts`)
   were moved out. Next candidates: the block of dialogs (one component taking a `dialogs`
   state object) and the history-preview state. · `features/connections/DeploymentModal.svelte`
-  **710 l.** (risks, seeds, backup, production confirmation, stage skip — split by step) ·
+  **363 l.** (742 before it was split by step on 2026-10-05 into
+  `connections/deployment/`: diff, risks, SQL, result, tabs, stage skip — the modal keeps the
+  state, the loading and the navigation) ·
   `features/plugins/communityTemplates.ts` 723 l. (mostly data) ·
   `features/editor/dbml/symbols.ts` 581 l. · `packages/dbml-engine/src/dbml.ts` 537 l. ·
   `features/editor/canvas/CanvasArea.svelte` 487 l. · `features/editor/canvas/autoLayout.ts`
