@@ -352,6 +352,17 @@ régénère à volonté ; **Utiliser comme données initiales** passe les lignes
 l'onglet Fichier, où elles sont vérifiées et enregistrées comme un CSV, et
 **Exporter en CSV** les télécharge.
 
+**Variables par environnement.** Un même schéma peut porter des noms différents
+selon l'étape : écrivez `{{variable}}` dans le nom ou le schéma d'une table —
+`Table "{{table_prefix}}commandes"` — et un administrateur de l'instance donne
+sa valeur sur chaque étape (Admin → Environnements, champ _Variables_ :
+`table_prefix=pp_, schema=ventes` ; une valeur vide est permise). Le plan, le
+déploiement, les données initiales et la vérification des différences
+utilisent les noms de l'étape de la connexion ; le projet, lui, garde les
+`{{…}}`. Si le schéma utilise une variable que l'étape ne définit pas — ou si
+la base n'a pas d'étape —, le déploiement est refusé avant de toucher la base.
+Les variables ne s'appliquent qu'aux noms et schémas de tables.
+
 **Comparer deux environnements.** Quand le projet a au moins deux bases,
 l'onglet _Déploiements_ propose de les comparer entre elles : choisissez les
 deux bases, **Comparer** lit leur structure et liste, table par table, ce qui

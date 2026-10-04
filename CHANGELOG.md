@@ -24,6 +24,28 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Fixed (DBML with several schemas)
+
+- **Importing DBML whose tables are in more than one schema lost tables.** Only
+  the first schema of the file was read, so `Table sales.orders` next to
+  `Table settings` kept one of the two — on import and on every sync of the
+  DBML editor. Every schema is read now.
+- **A relation between tables of a named schema made the DBML unreadable**: it
+  was written without the schema (`Ref: orders.x > people.id`), which the
+  parser refuses. Relations are written with their schema, quoted when needed.
+
+### Added (per-environment variables)
+
+- **`{{variables}}` in table names and schemas**, resolved per stage: write
+  `Table "{{table_prefix}}orders"` once, give `table_prefix` a value on each
+  stage (Admin → Environnements, `name=value, …`), and each database gets its
+  own name. Used by the deployment plan, the deployment (DDL and seeds), the
+  drift check and the pull. A deployment to a stage that does not define a
+  variable the schema uses is refused before anything runs
+  (`409 VARIABLES_UNRESOLVED`).
+- Migration 32 (`environments.variables_json`). Nothing changes for a schema
+  without placeholders.
+
 ### Added (compare environments)
 
 - **"Comparer deux environnements"** on a project's Déploiements tab, when it

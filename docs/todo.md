@@ -100,7 +100,7 @@ rollback is still to do; 2026-10-04: lot 17's schema linter and data dictionary)
 - [ ] **Capability levels per connection** — **S**. Level 0 (catalogue read), 1 (supervision
       views), 2 (server-side audit configured) — detected at connection test and stored on
       `db_connections` (`plan §8.3`). Journal, traffic, advisor and drift attribution all branch on it.
-- [ ] **Migrations** — next migration number is **32** (29 is `backups`, 30 `backup_schedules`, 31 `lint_settings`). Every item below that adds a table
+- [ ] **Migrations** — next migration number is **33** (29 is `backups`, 30 `backup_schedules`, 31 `lint_settings`, 32 `environments.variables_json`). Every item below that adds a table
       gets its own migration, tested on a populated database (`infrastructure/migrations.test.ts`).
       Reminder from `memory`: saving `migrations.ts` while `npm run dev` runs migrates the real dev
       DB, one way — work on a copy.
@@ -540,9 +540,40 @@ here: each gets its own security review before it is closed.**
   `TYPE_ALIASES` (not tried across engines); index and foreign-key differences are flagged,
   not itemised; `/api/v1`; `connectionBudget` is not consulted; views and other objects are
   outside the fingerprint.
-- [ ] **Per-environment variables** — **M**. `{{schema}}`, `{{table_prefix}}`, `{{tablespace}}`
-      per stage, substituted at DDL generation, with a check that blocks the deployment when a
-      variable is used but undefined. Open: encrypted secret variables.
+- [~] **Per-environment variables** — first slice done 2026-10-04. A table's **name** or
+  **schema** may hold `{{variable}}` placeholders (`Table "{{table_prefix}}orders"`,
+  `Table "{{schema}}".users`); each stage gives them values (migration 32
+  `environments.variables_json`, typed in Admin → Environnements as `name=value, …`).
+  `dbml-engine/variables.ts` (`variablesUsed`, `resolveVariables`, `parseVariableValues`);
+  server `environments/variables.ts#schemaForConnection`, called wherever the schema meets a
+  database: the deployment plan, the deployment itself (DDL **and** seeds — same table ids),
+  the drift check, the environment comparison's "hors schéma", and the pull, which finds a
+  templated table under the stage's name and **keeps its placeholders**.
+  **Refused before any connection is opened** (`409 VARIABLES_UNRESOLVED`, with the names): a
+  variable the stage does not define, a table left without a name, two tables resolving to one
+  name. **Decisions taken:**
+  - _Names and schemas only._ Not column names, types or defaults: a column that changes name
+    per stage is another schema, not a variable; `{{tablespace}}` waits for the DDL generator
+    to know tablespaces at all.
+  - _Values are identifier fragments_ (letters, digits, `_ $ . -`, 64 at most; empty allowed):
+    checked when saved, so nothing a stage holds can carry SQL into a statement.
+  - _A connection without a stage has no variables_: a schema with placeholders cannot be
+    deployed to it. The linter's naming rule ignores placeholders.
+  - _The project keeps the placeholders_ everywhere else: canvas, DBML, exports, history.
+
+  **Verified:** `variables.test.ts`, `environments/routes.test.ts` (SQLite: plan, deployment,
+  seed into the prefixed table, no drift afterwards, refusal, empty value, pull),
+  `e2e/variables.e2e.ts`. **Found on the way, fixed:** a DBML text with tables in **several
+  schemas** lost every table but the first schema's on import (`toProject` read
+  `schemas[0]`), and a relation between tables of a named schema was written without the
+  schema, which made the whole text unparseable — both in `dbml-engine`, with a regression
+  test. **Still to do:** per-project and per-connection overrides (two projects on one stage
+  share its values today); encrypted secret variables; the editor does not list the variables
+  a schema uses nor preview a stage's names; `{{tablespace}}`; rollback SQL is stored
+  resolved (fine) but the "check differences" dialog shows resolved names without saying so;
+  not tried on a schema-capable engine (`{{schema}}` on PostgreSQL / SQL Server — SQLite has
+  no schemas); the security review of the Phase 27 rule.
+
 - [~] **Destructive-change detection in the deployment plan** — first slice done 2026-10-03.
   One engine-agnostic analysis replaces the five `inspectRisks` (which disagreed — SQL Server
   and Oracle only checked dropped tables — and read sample rows): `planRiskProbes`
