@@ -29,6 +29,8 @@ function tableBoxOf(node: CanvasNode | undefined, table: { position: { x: number
   };
 }
 
+const NO_FROZEN_TABLES: ReadonlySet<string> = new Set();
+
 export interface CanvasEdgesInput {
   liveProject: () => Project | null;
   doc: () => Y.Doc | null;
@@ -47,6 +49,8 @@ export interface CanvasEdgesInput {
   onPaletteChange: (palette: string[]) => void;
   /** False for a `view` grant — the relation keeps its colour picker and waypoints hidden rather than writing changes the server discards. */
   canWrite: () => boolean;
+  /** Tables a lock forbids this user to alter: the relations they carry are not offered for editing. Absent: none. */
+  frozenTableIds?: () => ReadonlySet<string>;
   /**
    * True while a node is being dragged. Held only to freeze geometry (see
    * `geometryNodes`): the nodes array is replaced on every drag frame, and the
@@ -162,6 +166,7 @@ export class CanvasEdgesState {
     const onPaletteChange = this.input.onPaletteChange;
     const onSelectEdge = this.input.onSelectEdge;
     const canWrite = this.input.canWrite();
+    const frozen = this.input.frozenTableIds?.() ?? NO_FROZEN_TABLES;
     const issuesByRef = this.input.issuesByRef();
     const showValidationIssues = this.input.showValidationIssues();
     const selectedEdgeId = this.input.selectedEdgeId;
@@ -218,6 +223,13 @@ export class CanvasEdgesState {
           targetHandle = toCompact ? `header-${toSide}-target` : `${ref.to.fieldId}-${toSide}-target`;
         }
 
+        // A relation is part of the table that carries the foreign key: a lock
+        // on that table freezes it (colour and routing are how it looks, and
+        // stay). Reversing would hand the key to the other table, so that one
+        // must be free too.
+        const editable = canWrite && !frozen.has(ref.from.tableId);
+        const reversible = editable && !frozen.has(ref.to.tableId);
+
         const data: RefEdgeData = {
           cardinality: ref.cardinality,
           onDelete: ref.onDelete,
@@ -245,11 +257,13 @@ export class CanvasEdgesState {
           onColorChange: (color: string | undefined) =>
             writeRef(ref.id, (current) => ({ style: { ...current.style, color } })),
           onRoutingPointsChange: (routingPoints: RoutingPoint[] | undefined) => writeRef(ref.id, () => ({ routingPoints })),
-          onCardinalityChange: (cardinality: RefCardinality) => writeRef(ref.id, () => ({ cardinality })),
-          onDeleteActionChange: !canWrite
+          onCardinalityChange: !editable
+            ? undefined
+            : (cardinality: RefCardinality) => writeRef(ref.id, () => ({ cardinality })),
+          onDeleteActionChange: !editable
             ? undefined
             : (onDelete: RefAction | undefined) => writeRef(ref.id, () => ({ onDelete })),
-          onUpdateActionChange: !canWrite
+          onUpdateActionChange: !editable
             ? undefined
             : (onUpdate: RefAction | undefined) => writeRef(ref.id, () => ({ onUpdate })),
           // Swaps which table/field is "from" and which is "to" — the arrow
@@ -258,10 +272,10 @@ export class CanvasEdgesState {
           // read the same from either direction, and one-to-many's "1"/"n"
           // labels are derived from from/to position already, so swapping the
           // endpoints is the whole fix.
-          onReverseDirection: !canWrite
+          onReverseDirection: !reversible
             ? undefined
             : () => writeRef(ref.id, (current) => ({ from: current.to, to: current.from })),
-          onDeleteRef: !canWrite
+          onDeleteRef: !editable
             ? undefined
             : () => {
                 if (!doc) return;

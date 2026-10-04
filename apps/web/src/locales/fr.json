@@ -1655,5 +1655,6 @@
   "backups.scope.count": "{{count}} / {{total}}",
   "backups.scope.note": "Note (facultative) : pourquoi cette sauvegarde",
   "backups.scope.start_one": "Sauvegarder {{count}} table",
-  "backups.scope.start_other": "Sauvegarder {{count}} tables"
+  "backups.scope.start_other": "Sauvegarder {{count}} tables",
+  "locks.relationLocked": "Cette relation appartient à la table verrouillée « {{table}} » : elle ne peut être ni créée, ni modifiée, ni supprimée."
 }

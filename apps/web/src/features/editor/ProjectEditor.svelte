@@ -489,6 +489,7 @@
     canWrite: () => canWrite,
     dragging: () => nodesState.dragging,
     issuesByRef: () => quality.issuesByRef,
+    frozenTableIds: () => tableLocks.view.frozen,
     showValidationIssues: () => showValidationIssues,
     selectedTableIds: () => selectedTableIds,
   });
@@ -497,6 +498,10 @@
     () => liveProject,
     () => writeDoc,
     () => nodesState.nodes,
+    {
+      frozenTableIds: () => tableLocks.view.frozen,
+      onLockedRelation: (table) => toast.warning(t("locks.relationLocked", { table })),
+    },
   );
   const activeDetailLevel = $derived(activeDetailLevelOf(liveProject));
 

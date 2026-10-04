@@ -33,7 +33,18 @@ export function createProjectMutations(
   /** Null for a read-only grant — every mutator below then no-ops. */
   doc: () => Y.Doc | null,
   nodes: () => CanvasNode[],
+  /** Table locks, mirrored: a relation belongs to the table that carries its foreign key. */
+  locks: {
+    frozenTableIds?: () => ReadonlySet<string>;
+    /** A relation was left alone, or not drawn, because this table is locked. */
+    onLockedRelation?: (tableName: string) => void;
+  } = {},
 ) {
+  const frozenCarrier = (tableId: string): string | null => {
+    if (!locks.frozenTableIds?.().has(tableId)) return null;
+    return liveProject()?.tables.find((table) => table.id === tableId)?.name ?? tableId;
+  };
+
   const addTable = (position?: { x: number; y: number }) => {
     const current = doc();
     if (!current) return;
@@ -226,9 +237,17 @@ export function createProjectMutations(
     const current = doc();
     if (!current) return;
     const refs = getRefsMap(current);
+    let lockedTable: string | null = null;
     current.transact(() => {
-      for (const id of edgeIds) if (refs.has(id)) refs.delete(id);
+      for (const id of edgeIds) {
+        const ref = refs.get(id);
+        if (!ref) continue;
+        const carrier = frozenCarrier(ref.from.tableId);
+        if (carrier) lockedTable = carrier;
+        else refs.delete(id);
+      }
     });
+    if (lockedTable) locks.onLockedRelation?.(lockedTable);
   };
 
   // A handle id is either `${fieldId}-left|right-source|target` for a field
@@ -268,7 +287,14 @@ export function createProjectMutations(
     // key) to `posts.author_id`. When the drag clearly went key → plain
     // column, store it the right way round instead of making them reverse it.
     const tablesById = new Map((liveProject()?.tables ?? []).map((table) => [table.id, table]));
-    getRefsMap(current).set(id, isRefInverted(drawn, tablesById) ? reverseRef(drawn) : drawn);
+    const ref = isRefInverted(drawn, tablesById) ? reverseRef(drawn) : drawn;
+    // Drawing a relation adds a foreign key to the table it starts from: not onto a locked one.
+    const carrier = frozenCarrier(ref.from.tableId);
+    if (carrier) {
+      locks.onLockedRelation?.(carrier);
+      return;
+    }
+    getRefsMap(current).set(id, ref);
   };
 
   return {

@@ -1655,5 +1655,6 @@
   "backups.scope.count": "{{count}} / {{total}}",
   "backups.scope.note": "Note (optional): why this backup",
   "backups.scope.start_one": "Back up {{count}} table",
-  "backups.scope.start_other": "Back up {{count}} tables"
+  "backups.scope.start_other": "Back up {{count}} tables",
+  "locks.relationLocked": "This relation belongs to the locked table “{{table}}”: it cannot be created, changed or deleted."
 }
