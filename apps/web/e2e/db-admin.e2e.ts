@@ -48,7 +48,8 @@ test("admin: add a connection, explore it, query it and drop a table", { timeout
     await page.getByRole("button", { name: "Nouvelle connexion" }).click();
     const dialog = page.getByRole("dialog");
     await dialog.getByPlaceholder("ex: Production DB").fill("Boutique");
-    await dialog.locator("select").first().selectOption("sqlite");
+    await dialog.getByRole("combobox", { name: "Moteur de base de données" }).click();
+    await page.getByRole("option", { name: "SQLite" }).click();
     await dialog.getByPlaceholder("./data/app.sqlite").fill(targetFile);
     await dialog.getByPlaceholder("ex. client-a, europe (séparés par des virgules)").fill("demo, local");
     await dialog.getByRole("button", { name: "Tester la connexion" }).click();

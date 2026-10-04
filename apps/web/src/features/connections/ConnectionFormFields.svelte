@@ -8,12 +8,16 @@
     mssql: 1433,
     oracle: 1521,
   };
+
+  const ENGINES: DatabaseEngine[] = ["postgres", "mysql", "mssql", "oracle", "sqlite"];
 </script>
 
 <script lang="ts">
   import type { EnvironmentStage } from "@athanordb/shared";
+  import Checkbox from "@/components/ui/Checkbox.svelte";
   import Hint from "@/components/ui/Hint.svelte";
-  import { INPUT_CLASS, SELECT_CLASS } from "@/components/ui/inputStyles";
+  import { INPUT_CLASS } from "@/components/ui/inputStyles";
+  import NumberInput from "@/components/ui/NumberInput.svelte";
   import Select from "@/components/ui/Select.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { fetchEnvironments } from "@/services/environmentsApi";
@@ -93,18 +97,14 @@
 <div class="grid grid-cols-2 gap-3">
   <div class="col-span-2 sm:col-span-1">
     <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label class={LABEL}>{t("connections.engine")}</label>
-    <select
-      class={SELECT_CLASS}
+    <label id="connection-engine" class={LABEL}>{t("connections.engine")}</label>
+    <Select
+      class="w-full"
+      aria-labelledby="connection-engine"
       value={engine}
-      onchange={(e) => handleEngineChange(e.currentTarget.value as DatabaseEngine)}
-    >
-      <option value="postgres">{t("connections.engine.postgres")}</option>
-      <option value="mysql">{t("connections.engine.mysql")}</option>
-      <option value="mssql">{t("connections.engine.mssql")}</option>
-      <option value="oracle">{t("connections.engine.oracle")}</option>
-      <option value="sqlite">{t("connections.engine.sqlite")}</option>
-    </select>
+      options={ENGINES.map((value) => ({ value, label: t(`connections.engine.${value}`) }))}
+      onChange={handleEngineChange}
+    />
   </div>
 
   <div class="col-span-2">
@@ -129,10 +129,7 @@
   </div>
 {:else}
   <div class="flex items-center gap-2 pt-1">
-    <label class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-text">
-      <input type="checkbox" bind:checked={useUri} class="rounded border-border" />
-      {t("connections.useUri")}
-    </label>
+    <Checkbox bind:checked={useUri}><span class="text-xs">{t("connections.useUri")}</span></Checkbox>
   </div>
 
   {#if useUri}
@@ -151,8 +148,14 @@
         </div>
         <div>
           <!-- svelte-ignore a11y_label_has_associated_control -->
-          <label class={LABEL}>{t("connections.port")}</label>
-          <input class={INPUT_CLASS} type="number" bind:value={port} />
+          <label id="connection-port" class={LABEL}>{t("connections.port")}</label>
+          <!-- 0 is no port at all: it stands for the field left empty. -->
+          <NumberInput
+            class="w-full"
+            aria-labelledby="connection-port"
+            value={port || null}
+            onChange={(value) => (port = value ?? 0)}
+          />
         </div>
       </div>
 
@@ -175,10 +178,7 @@
       </div>
 
       <div>
-        <label class="inline-flex cursor-pointer items-center gap-1.5 text-xs text-text">
-          <input type="checkbox" bind:checked={ssl} class="rounded border-border" />
-          {t("connections.sslEnable")}
-        </label>
+        <Checkbox bind:checked={ssl}><span class="text-xs">{t("connections.sslEnable")}</span></Checkbox>
       </div>
     </div>
   {/if}

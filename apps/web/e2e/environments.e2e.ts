@@ -64,7 +64,8 @@ test(
       await page.getByRole("button", { name: "Nouvelle connexion" }).click();
       const dialog = page.getByRole("dialog");
       await dialog.getByPlaceholder("ex: Production DB").fill("Boutique live");
-      await dialog.locator("select").first().selectOption("sqlite");
+      await dialog.getByRole("combobox", { name: "Moteur de base de données" }).click();
+      await page.getByRole("option", { name: "SQLite" }).click();
       await dialog.getByPlaceholder("./data/app.sqlite").fill(targetFile);
       await dialog.getByRole("combobox", { name: "Environnement" }).click();
       await page.getByRole("option", { name: /^Prod/ }).click();

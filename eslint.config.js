@@ -26,7 +26,6 @@ const NATIVE_CONTROLS_NOT_MIGRATED = [
   "admin/connections/ExplorerPanel.svelte",
   "admin/connections/UsersPanel.svelte",
   "auth/Login.svelte",
-  "connections/ConnectionFormFields.svelte",
   "connections/DeploymentModal.svelte",
   "editor/ConvertTypesModal.svelte",
   "editor/compare/CompareProjectsModal.svelte",
