@@ -21,7 +21,6 @@ const NATIVE_CONTROLS_NOT_MIGRATED = [
   "auth/Login.svelte",
   "editor/edges/EdgeSettingsPopover.svelte",
   "editor/io/ExportDialog.svelte",
-  "editor/nodes/table/AddIndexForm.svelte",
   "editor/nodes/table/FieldEditorPanel.svelte",
   "plugins/dialog/InstalledTab.svelte",
   "plugins/dialog/MarketplaceTab.svelte",

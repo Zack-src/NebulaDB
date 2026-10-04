@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { Table } from "@athanordb/shared";
   import Button from "@/components/ui/Button.svelte";
+  import Checkbox from "@/components/ui/Checkbox.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { POPOVER_INPUT_CLASS, POPOVER_LABEL_CLASS } from "@/features/editor/nodes/table/tableStyles";
   import type { IndexOptions } from "./TableSettingsPopover.svelte";
@@ -44,26 +45,14 @@
   <label class={POPOVER_LABEL_CLASS}>{t("table.index.columns")}</label>
   <div class="flex max-h-32 flex-col gap-1 overflow-y-auto">
     {#each table.fields as field (field.id)}
-      <label class="flex items-center gap-1.5 text-xs text-text">
-        <input
-          type="checkbox"
-          class="accent-primary"
-          checked={selectedFieldIds.includes(field.id)}
-          onchange={() => toggleField(field.id)}
-        />
-        <span class="font-mono">{field.name}</span>
-      </label>
+      <Checkbox checked={selectedFieldIds.includes(field.id)} onChange={() => toggleField(field.id)}>
+        <span class="font-mono text-xs">{field.name}</span>
+      </Checkbox>
     {/each}
   </div>
   <div class="flex gap-3">
-    <label class="flex items-center gap-1.5 text-xs text-text">
-      <input type="checkbox" class="accent-primary" bind:checked={unique} />
-      {t("field.unique")}
-    </label>
-    <label class="flex items-center gap-1.5 text-xs text-text">
-      <input type="checkbox" class="accent-primary" bind:checked={primaryKey} />
-      {t("field.primaryKey")}
-    </label>
+    <Checkbox bind:checked={unique}><span class="text-xs">{t("field.unique")}</span></Checkbox>
+    <Checkbox bind:checked={primaryKey}><span class="text-xs">{t("field.primaryKey")}</span></Checkbox>
   </div>
   <input class={POPOVER_INPUT_CLASS} bind:value={indexName} placeholder={t("table.index.namePlaceholder")} />
   <div class="flex justify-end gap-2">
