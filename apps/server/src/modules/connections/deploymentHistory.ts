@@ -79,6 +79,8 @@ export interface RecordDeploymentInput {
   riskNote?: string | null;
   seedReport?: SeedResult[];
   backupId?: string | null;
+  /** The schema this deployment deployed (`pipeline.ts#schemaHashOf`); absent for a rollback. */
+  schemaHash?: string | null;
 }
 
 export function recordDeployment(input: RecordDeploymentInput): string {
@@ -87,8 +89,8 @@ export function recordDeployment(input: RecordDeploymentInput): string {
     `INSERT INTO deployment_history
        (id, project_id, connection_id, connection_name, environment, engine, sql, rollback_sql, rollback_of,
         success, executed_statements, total_statements, error, executed_by_email, accepted_risks, risk_note, seed_report,
-        backup_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        backup_id, schema_hash)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     input.projectId,
@@ -108,6 +110,7 @@ export function recordDeployment(input: RecordDeploymentInput): string {
     input.riskNote?.trim() || null,
     input.seedReport && input.seedReport.length > 0 ? JSON.stringify(input.seedReport) : null,
     input.backupId ?? null,
+    input.schemaHash ?? null,
   );
   return id;
 }

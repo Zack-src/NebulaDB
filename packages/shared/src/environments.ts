@@ -53,3 +53,36 @@ export interface EnvironmentStageInput {
   production?: boolean;
   variables?: Record<string, string>;
 }
+
+/** One of a project's databases on the pipeline — `GET /api/projects/:id/pipeline`. */
+export interface PipelineConnection {
+  id: string;
+  name: string;
+  engine: "postgres" | "mysql" | "sqlite" | "mssql" | "oracle";
+  /** The last deployment or rollback this project ran against it; `null`: never. */
+  lastDeployment: { at: string; by: string | null; success: boolean; rollback: boolean } | null;
+  /** The last thing done here was a successful deployment of the schema as it is now. */
+  level: boolean;
+}
+
+export interface PipelineStage {
+  id: string;
+  name: string;
+  color: EnvironmentColor;
+  production: boolean;
+  protection: EnvironmentProtection;
+  /** The project's databases on this stage; empty when it has none here. */
+  connections: PipelineConnection[];
+  /** The earlier stage that must be level before this one takes the schema; `null`: nothing to wait for. */
+  requires: string | null;
+  /** Whether a deployment to this stage would pass the order rule now. */
+  ready: boolean;
+}
+
+export interface ProjectPipeline {
+  /** Identity of the schema as written — what "level" is measured against. */
+  schemaHash: string;
+  stages: PipelineStage[];
+  /** Databases of the project that are on no stage: outside the pipeline, deployed freely. */
+  unstaged: PipelineConnection[];
+}

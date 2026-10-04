@@ -814,6 +814,19 @@ export const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 33,
+    name: "deployment_history.schema_hash",
+    up: (db) => {
+      // Which schema a deployment deployed: what tells the pipeline that a
+      // stage is level with the project. NULL on entries from before — those
+      // stages read "not level" until they are deployed to once more.
+      const columns = db.prepare("PRAGMA table_info(deployment_history)").all() as { name: string }[];
+      if (!columns.some((c) => c.name === "schema_hash")) {
+        db.exec("ALTER TABLE deployment_history ADD COLUMN schema_hash TEXT");
+      }
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */
