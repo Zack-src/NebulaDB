@@ -825,6 +825,10 @@
         }}
         initialConnectionId={activeConnection?.id}
         canSkipStage={props.session.isAdmin}
+        onShowProblems={() => {
+          showDeployment = false;
+          setTab("problems");
+        }}
       />
     {/await}
   {/if}

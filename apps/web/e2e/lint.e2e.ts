@@ -1,5 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { login, startE2eEnvironment } from "./harness.js";
 
@@ -113,6 +115,33 @@ test("lint: findings are listed, fixed, excepted and ruled by the project's prof
       left.join(),
     );
     assert.equal(report.summary.error, 2, "created_at / updated_at missing on both tables, now an error");
+
+    // The deployment dialog names what blocks it, and leads back here.
+    const file = join(mkdtempSync(join(tmpdir(), "athanordb-e2e-lint-")), "target.sqlite").replace(/\\/g, "/");
+    await page.evaluate(
+      async ({ id, filePath }) => {
+        await fetch(`/api/projects/${id}/connections`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name: "Local", engine: "sqlite", filePath }),
+        });
+      },
+      { id: projectId, filePath: file },
+    );
+    await page.goto(`${env.baseUrl}/project/${projectId}/deployments`);
+    await page.getByRole("button", { name: "Déployer" }).first().click();
+    const blockers = page.getByTestId("lint-blockers");
+    await blockers.getByText(/refuse de déployer/).waitFor();
+    assert.equal(await blockers.getByRole("listitem").count(), 2);
+    await blockers
+      .getByRole("listitem")
+      .filter({ hasText: "OrderLines" })
+      .getByText("Colonne(s) manquante(s)")
+      .waitFor();
+    await snap("blocked");
+    await blockers.getByRole("button", { name: "Ouvrir l'onglet Problèmes" }).click();
+    await page.waitForURL(`${env.baseUrl}/project/${projectId}/problems`);
+    await page.getByRole("dialog").waitFor({ state: "detached" });
 
     // A finding leads to its table on the canvas.
     await orderLines.getByRole("button", { name: "Ouvrir dans le schéma" }).click();

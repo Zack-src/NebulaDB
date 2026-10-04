@@ -48,6 +48,7 @@
     initialConnectionId,
     readOnly = false,
     canSkipStage = false,
+    onShowProblems,
   }: {
     projectId: string;
     onClose: () => void;
@@ -61,6 +62,8 @@
     readOnly?: boolean;
     /** Instance administrators may deploy to a stage before the one ahead of it is level — with a reason. */
     canSkipStage?: boolean;
+    /** Leaves the dialog for the schema's Problèmes tab — offered when lint errors block the deployment. */
+    onShowProblems?: () => void;
   } = $props();
 
   const { t } = useTranslation();
@@ -357,9 +360,33 @@
       <!-- The tables' initial data, inserted after the DDL -->
       {#if activeStep === "diff" && !analyzing && !readOnly && plan}
         {#if plan.blockers.lintErrors > 0}
-          <p class="m-0 mb-2 rounded-md border border-danger bg-danger-light px-3 py-2 text-xs text-danger" role="alert">
-            {t("deployment.blockedByLint", { count: plan.blockers.lintErrors })}
-          </p>
+          <div
+            class="mb-2 rounded-md border border-danger bg-danger-light px-3 py-2 text-xs text-danger"
+            role="alert"
+            data-testid="lint-blockers"
+          >
+            <p class="m-0">{t("deployment.blockedByLint", { count: plan.blockers.lintErrors })}</p>
+            <ul class="m-0 mt-1.5 list-disc pl-4">
+              {#each plan.blockers.lintFindings as finding (`${finding.ruleId}:${finding.tableName}:${finding.fieldName ?? ""}`)}
+                <li>
+                  <span class="font-mono font-semibold">{finding.tableName}</span>
+                  — {t(`lint.rule.${finding.ruleId}.message` as "lint.rule.pk-required.message", finding.params)}
+                </li>
+              {/each}
+            </ul>
+            {#if plan.blockers.lintErrors > plan.blockers.lintFindings.length}
+              <p class="m-0 mt-1">
+                {t("deployment.blockedByLintMore", {
+                  count: plan.blockers.lintErrors - plan.blockers.lintFindings.length,
+                })}
+              </p>
+            {/if}
+            {#if onShowProblems}
+              <Button size="sm" variant="outline" class="mt-2" onclick={onShowProblems}>
+                {t("deployment.showProblems")}
+              </Button>
+            {/if}
+          </div>
         {/if}
         {#if plan.blockers.waitsForStage}
           <p

@@ -125,8 +125,8 @@ test("pipeline: a guarded stage takes a schema only after the stage before it; a
     // The plan already says what the deployment would refuse.
     const plan = async (connId: string) =>
       (await call(app, owner.cookie, "POST", `${base}/connections/${connId}/plan-deployment`, {})).json().blockers;
-    assert.deepEqual(await plan(prod), { lintErrors: 0, waitsForStage: "Staging" });
-    assert.deepEqual(await plan(dev), { lintErrors: 0, waitsForStage: null });
+    assert.deepEqual(await plan(prod), { lintErrors: 0, lintFindings: [], waitsForStage: "Staging" });
+    assert.deepEqual(await plan(dev), { lintErrors: 0, lintFindings: [], waitsForStage: null });
 
     // Out of order: refused, with the stage that has to come first.
     const early = await deploy(owner.cookie, prod);

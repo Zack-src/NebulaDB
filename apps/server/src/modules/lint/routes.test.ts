@@ -196,9 +196,16 @@ test("lint: a deployment is refused on an error when the project asks for it, an
       (await call(app, owner.cookie, "POST", `${base}/connections/${connId}/plan-deployment`, {})).json().blockers;
     // Errors only count against a deployment when the project asked for that.
     await call(app, owner.cookie, "PUT", `${base}/lint`, { profile: "strict" });
-    assert.deepEqual(await blockers(), { lintErrors: 0, waitsForStage: null });
+    assert.deepEqual(await blockers(), { lintErrors: 0, lintFindings: [], waitsForStage: null });
     await call(app, owner.cookie, "PUT", `${base}/lint`, { profile: "strict", blockDeployment: true });
-    assert.deepEqual(await blockers(), { lintErrors: 1, waitsForStage: null });
+    // The plan names what blocks, so the dialog can say it before "Apply".
+    const blocked = await blockers();
+    assert.equal(blocked.lintErrors, 1);
+    assert.deepEqual(
+      blocked.lintFindings.map((finding: { ruleId: string; tableName: string }) => [finding.ruleId, finding.tableName]),
+      [["pk-required", "widgets"]],
+    );
+    assert.deepEqual(blocked.lintFindings[0].params, { table: "widgets" });
     const refused = await deploy();
     assert.equal(refused.statusCode, 409, refused.body);
     const body = refused.json() as { code: string; count: number; findings: { ruleId: string }[] };
