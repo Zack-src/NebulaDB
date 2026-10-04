@@ -5,6 +5,7 @@
 
 <script lang="ts">
   import { Handle, Position } from "@xyflow/svelte";
+  import { readableNote } from "@athanordb/dbml-engine";
   import { MAX_NAME_LENGTH, type Comment, type Field, type RefAction } from "@athanordb/shared";
   import { autofocus } from "@/actions/autofocus";
   import type { FieldRefInfo } from "@/features/editor/nodes/table/fieldRefInfo";
@@ -98,7 +99,7 @@
 <div
   class={`table-node-row ${ROW_CLASS} ${rowStateClass(isLinked, isForeignKey, isSelected)} ${rowDropIndicatorClass(dropSide)}`}
   data-tooltip={`${field.name} (${field.type})`}
-  data-tooltip-note={field.note || undefined}
+  data-tooltip-note={readableNote(field.note)}
   onclick={(event) => {
     event.stopPropagation();
     onSelect();
@@ -202,7 +203,7 @@
       <span
         class={`${KW_BADGE_CLASS} ${KW_BADGE_COLOR.note}`}
         data-tooltip={`${field.name} — note`}
-        data-tooltip-note={field.note}
+        data-tooltip-note={readableNote(field.note)}
       >
         <Icon icon={NoteIcon} size={16} />
       </span>

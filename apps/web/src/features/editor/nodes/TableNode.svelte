@@ -8,6 +8,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { Handle, Position, type NodeProps } from "@xyflow/svelte";
+  import { readableNote } from "@athanordb/dbml-engine";
   import { MAX_NAME_LENGTH, type Field } from "@athanordb/shared";
   import { autofocus } from "@/actions/autofocus";
   import Icon from "@/components/icons/Icon.svelte";
@@ -232,7 +233,7 @@
         data-tooltip={table.note || data.readOnly || data.structureLocked
           ? table.name
           : t("table.doubleClickToRename")}
-        data-tooltip-note={table.note || undefined}
+        data-tooltip-note={readableNote(table.note)}
       >
         {table.name}
       </span>

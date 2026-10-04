@@ -365,7 +365,12 @@ export const athanorEditorTheme = EditorView.theme(
       marginRight: "2px",
     },
     ".cm-dbml-hover-muted": { color: "var(--color-editor-muted)", fontSize: "11px" },
-    ".cm-dbml-hover-note": { color: "var(--color-syntax-string)", fontStyle: "italic", fontSize: "11.5px" },
+    ".cm-dbml-hover-note": {
+      color: "var(--color-syntax-string)",
+      fontStyle: "italic",
+      fontSize: "11.5px",
+      whiteSpace: "pre-line",
+    },
     ".cm-dbml-hover-fields": {
       display: "flex",
       flexDirection: "column",

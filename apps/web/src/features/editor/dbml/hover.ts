@@ -1,3 +1,4 @@
+import { readableNote } from "@athanordb/dbml-engine";
 import { hoverTooltip } from "@codemirror/view";
 import { getSymbols, tableAt, unquoteIdent, type EnumSymbol, type TableSymbol } from "@/features/editor/dbml/symbols";
 import { tokenAt } from "@/features/editor/dbml/navigation";
@@ -19,7 +20,7 @@ function tableCard(table: TableSymbol, highlightField?: string): HTMLElement {
   );
   if (table.alias) title.append(el("span", "cm-dbml-hover-muted", ` as ${table.alias}`));
   root.append(title);
-  if (table.note) root.append(el("div", "cm-dbml-hover-note", table.note));
+  if (table.note) root.append(el("div", "cm-dbml-hover-note", readableNote(table.note)));
 
   const list = el("div", "cm-dbml-hover-fields");
   for (const field of table.fields.slice(0, 24)) {
@@ -105,7 +106,7 @@ export const dbmlHover = hoverTooltip(
       );
       root.append(title, el("div", "cm-dbml-hover-type", field.type));
       if (field.settings) root.append(el("div", "cm-dbml-hover-muted", `[${field.settings}]`));
-      if (field.note) root.append(el("div", "cm-dbml-hover-note", field.note));
+      if (field.note) root.append(el("div", "cm-dbml-hover-note", readableNote(field.note)));
       const incoming = symbols.refs.filter(
         (r) =>
           (r.left.table.toLowerCase() === owner.name.toLowerCase() && r.left.fields.includes(field.name)) ||

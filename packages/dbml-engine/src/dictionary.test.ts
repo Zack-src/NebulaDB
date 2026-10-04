@@ -9,6 +9,7 @@ import {
   dictionaryToMarkdown,
   formatNote,
   parseNote,
+  readableNote,
 } from "./dictionary.js";
 import { projectToDbml } from "./serialize.js";
 import { parseDbml, toProject } from "./dbml.js";
@@ -139,4 +140,15 @@ test("exports: Markdown, CSV and a self-contained HTML page", () => {
   assert.ok(html.includes("=1+1 | &lt;b&gt;x&lt;/b&gt;"), "markup in a description is text");
   assert.ok(!html.includes("<script"));
   assert.ok(html.includes('<span class="c c-personal">personal</span>'));
+});
+
+test("a note is shown to a reader without the annotation syntax", () => {
+  assert.equal(
+    readableNote("Customer accounts. [owner: crm-team] [class: personal] [tags: rgpd, core]"),
+    "Customer accounts.\ncrm-team · personal · rgpd, core",
+  );
+  assert.equal(readableNote("Plain note."), "Plain note.");
+  assert.equal(readableNote("[class: sensitive]"), "sensitive");
+  assert.equal(readableNote(""), undefined);
+  assert.equal(readableNote(undefined), undefined);
 });

@@ -274,3 +274,15 @@ ${tables}
 </body></html>
 `;
 }
+
+/**
+ * A note as a reader should see it: the description, then what the
+ * annotations say on a line of its own — never the raw `[owner: …]` syntax.
+ * `undefined` for a note that says nothing.
+ */
+export function readableNote(note: string | undefined): string | undefined {
+  if (!note) return undefined;
+  const meta = parseNote(note);
+  const facts = [meta.owner, meta.classification, meta.tags.join(", ")].filter(Boolean).join(" · ");
+  return [meta.description, facts].filter(Boolean).join("\n") || undefined;
+}
