@@ -17,7 +17,6 @@ const HARD_CODED_TEXT = {
  * file is never added here.
  */
 const NATIVE_CONTROLS_NOT_MIGRATED = [
-  "admin/AuditTab.svelte",
   "editor/edges/EdgeSettingsPopover.svelte",
   "editor/io/ExportDialog.svelte",
   "editor/nodes/table/FieldEditorPanel.svelte",
