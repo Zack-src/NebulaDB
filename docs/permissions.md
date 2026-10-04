@@ -67,6 +67,11 @@ the credentials for, list the projects it can read, and search across them.
 A connection created in the admin console is managed there: a project administrator can use it
 when it is linked to the project, not edit or delete it (`CONNECTION_MANAGED_BY_ADMIN`).
 
+Reading a table's rows from a linked database as a seed to review
+(`POST …/seeds/:tableId/from-database`) needs **instance administrator** as well as `edit`:
+it hands out every row of the table, like the console. Saving the result is the ordinary seed
+route above.
+
 ## Table locks
 
 A lock freezes a table's **structure** — its name, columns, types, constraints, indexes, note,

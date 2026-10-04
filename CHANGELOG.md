@@ -24,6 +24,18 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Added (initial data from a database)
+
+- **A table's current rows can become its initial data.** In a project's
+  Données & SQL tab, a table's new "Données initiales" button — and "Reprendre
+  les lignes de la base" in the seed dialog — read the rows the table holds in
+  the current database and show them in the seed dialog, checked like a CSV
+  file. Nothing is saved until "Enregistrer". Instance administrators only
+  (it reads every row, like the console); audited as `seed.read_database`.
+  Columns the schema and the database do not share, and binary columns, are
+  left out and named; a table larger than a seed may be (50 000 rows, 2 MB)
+  gives its first rows, and says so.
+
 ### Added (schema linter)
 
 - **A "Problèmes" tab in every project.** The schema is checked against

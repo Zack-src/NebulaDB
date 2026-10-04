@@ -685,8 +685,23 @@ file_ref, options_json, updated_at)`; an abstract `SeedSource` interface (`csv` 
   dry-run lists `users : +248 lignes`. A seed inherits the `full` lock level (Phase 30).
   Open: size cap / streaming; mapping migration on column rename; DBML annotation syntax that
   stays valid DBML. **Blocked by:** locks (for the permission rule), workspace for the UI.
-- [ ] **Export current data as a seed** — **S**, console → table → "Exporter comme données
-      initiales" (CSV export already exists).
+- [x] **Export current data as a seed** — done 2026-10-04.
+      `POST /api/projects/:id/seeds/:tableId/from-database` (`seeds/fromDatabase.ts`): reads the table
+      of the chosen linked database page by page (the backup runner's `queryRows` + page query,
+      primary-key order) and returns it as a seed — CSV, mapping by field id — **without saving
+      it**: the seed dialog shows it checked like a file ("Reprendre les lignes de la base"), and
+      the console's explorer has a "Données initiales" button that opens that dialog when it is
+      a project's Données & SQL tab (`WorkspaceContext.seedFromDatabase`). **Decisions taken:**
+      _instance administrators only_ (every row of a table, like the console and the backups),
+      audited `seed.read_database`; _only the columns schema and database share_, by name; a
+      _binary column is left out_ (no CSV spelling) and named; past a seed's limits the _first
+      rows_ are returned with `truncated` rather than an error. **Verified:**
+      `seeds/routes.test.ts` (SQLite: key order, NULL vs empty string, quoting, blob column,
+      missing table, rights, nothing saved, audit), `e2e/seed-from-database.e2e.ts`. **Not
+      done:** the other four engines were not run live (it reuses the backup's page query —
+      same caveat); dates come out as ISO text, which Oracle reads through `NLS_DATE_FORMAT`;
+      no button in the admin console outside a project (no schema to map to); no `WHERE` /
+      row choice; `connectionBudget` is not consulted.
 - [~] **Test-data generation** — first slice done 2026-10-03. In-house, no Faker:
   `packages/shared/src/dataGenerator.ts` — seeded PRNG (mulberry32), 22 column generators, fr / en
   data, `suggestGenerator` (relation, increment, name, type), `generateRows` (NOT NULL, PK /

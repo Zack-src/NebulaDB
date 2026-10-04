@@ -308,6 +308,16 @@ ajouter »). Le plan indique `clients : +248 lignes` et permet de ne pas les
 insérer cette fois. Des données avec erreurs bloquent le déploiement tant
 qu'elles ne sont pas corrigées.
 
+Un administrateur de l'instance peut aussi partir de **ce que la base contient
+déjà** : dans le même dialogue, _Reprendre les lignes de la base_ lit la table
+dans la base courante ; depuis _Données & SQL_, le bouton _Données initiales_
+d'une table fait la même chose en ouvrant le dialogue. Les lignes sont montrées
+vérifiées comme un fichier et **rien n'est enregistré avant « Enregistrer »**.
+Seules les colonnes présentes à la fois dans le schéma et dans la base sont
+reprises ; une colonne binaire est laissée de côté ; au-delà de 50 000 lignes
+ou d'environ 2 Mo, seules les premières lignes sont reprises — dans les trois
+cas le dialogue le dit.
+
 **Générer des données de test.** L'onglet _Générer_ du même dialogue fabrique
 des lignes à partir de la seule structure de la table : un générateur par
 colonne, proposé d'après son nom et son type (e-mail, téléphone, prénom, ville,
