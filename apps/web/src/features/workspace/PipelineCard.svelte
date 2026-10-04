@@ -23,10 +23,13 @@
   let {
     projectId,
     refreshKey = 0,
+    schemaHash,
     canDeploy,
     onDeployTo,
   }: {
     projectId: string;
+    /** The fingerprint of the schema as this browser has it: when it moves, what the card shows is stale. */
+    schemaHash?: string;
     /** Changes when a deployment may have happened. */
     refreshKey?: number;
     canDeploy: boolean;
@@ -41,6 +44,20 @@
       seenKey = refreshKey;
       pipeline.reload();
     }
+  });
+
+  // The schema changed under the card (a colleague's edit, an import): ask
+  // again, once per schema and after a pause — a burst of edits is one request.
+  let askedFor: string | undefined;
+  $effect(() => {
+    const served = pipeline.data?.schemaHash;
+    if (!schemaHash || !served || served === schemaHash || askedFor === schemaHash || pipeline.loading) return;
+    const wanted = schemaHash;
+    const timer = setTimeout(() => {
+      askedFor = wanted;
+      pipeline.reload();
+    }, 800);
+    return () => clearTimeout(timer);
   });
 
   /** Only the stages the project has a database on: the others are not part of its pipeline. */

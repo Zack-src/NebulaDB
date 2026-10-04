@@ -24,6 +24,7 @@
     connections = [],
     onOpenTable = () => {},
     refreshKey = 0,
+    schemaHash,
     onDeployTo = () => {},
     canDeploy,
     onDeploy,
@@ -37,6 +38,8 @@
     onOpenTable?: (tableName: string) => void;
     /** Changes when a deployment dialog closes: what the pipeline shows may be stale. */
     refreshKey?: number;
+    /** The fingerprint of the schema as it is now: the pipeline follows it. */
+    schemaHash?: string;
     /** Opens the deployment dialog on one of the project's databases. */
     onDeployTo?: (connectionId: string) => void;
     /** False for a view-only project: comparing stays, deploying goes. */
@@ -69,7 +72,7 @@
           </Button>
         {/if}
       </div>
-      <PipelineCard {projectId} {refreshKey} canDeploy={canDeploy} {onDeployTo} />
+      <PipelineCard {projectId} {refreshKey} {schemaHash} canDeploy={canDeploy} {onDeployTo} />
       <!-- The watch covers all the project's databases, not only the current one. -->
       <MonitoringCard {projectId} canManage={canDeploy} />
       {#if connections.length > 1}

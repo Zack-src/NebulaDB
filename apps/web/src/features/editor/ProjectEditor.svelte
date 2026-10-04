@@ -36,7 +36,7 @@
   import { SeedsState } from "@/features/editor/seeds/seeds.svelte";
   import Splitter from "@/components/ui/Splitter.svelte";
   import { SqlDrawerState } from "@/features/sql/sqlDrawer.svelte";
-  import { diffProjects } from "@athanordb/dbml-engine";
+  import { diffProjects, fingerprintSchema } from "@athanordb/dbml-engine";
   import { LintState } from "@/features/editor/lint/lint.svelte";
   import { SchemaQuality } from "@/features/editor/lint/schemaQuality.svelte";
   import EditorTour, { editorTourSeen } from "@/features/onboarding/EditorTour.svelte";
@@ -606,6 +606,7 @@
         connection={activeConnection}
         {connections}
         refreshKey={deploymentsSeen}
+        schemaHash={liveProject ? fingerprintSchema(liveProject).hash : undefined}
         onDeployTo={(id) => {
           connectionId = id;
           showDeployment = true;

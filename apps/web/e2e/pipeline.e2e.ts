@@ -125,7 +125,7 @@ test("pipeline: stages in order, a refused skip, then a skip with a reason", { t
         body: JSON.stringify({ source: "Table customers {\n  id integer [pk]\n  email varchar(320)\n}\n" }),
       });
     }, projectId);
-    await card.getByRole("button", { name: "Actualiser" }).click();
+    // The card follows the schema by itself: no "Actualiser".
     await stage("Staging").getByText("Attend DEV").waitFor();
     assert.equal(await stateOf("Staging"), "behind");
 
