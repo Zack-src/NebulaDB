@@ -198,6 +198,69 @@ the answer may change.
       _Phase 37._
 - [ ] **Phase 38:** some thirty candidate ideas, none arbitrated — cut or promote, one by one.
 
+**Found on the 2026-10-05 re-read of the unpushed commits — also open:**
+
+- [ ] **Deployment safety extras:** pre-deploy impact analysis, deployment windows and one-click
+      freeze, review before deploy (1–2 approvers) — three small items nobody arbitrated.
+      _Phase 32 / 38._
+- [ ] **Seeds:** a size cap or streaming past 2 MB / 50 000 rows; what happens to a mapping when
+      a column is renamed in the DBML text; a DBML annotation for seeds that stays valid DBML
+      (today a seed is not in the DBML at all). _Phase 33._
+- [ ] **Field-level merge inside one table** (two people editing different columns of the same
+      table: last write wins) touches the same code as the lock enforcement — decide both
+      together, or leave both. _Phase 6 / 30._
+- [ ] **Query advisor, before any code:** a multi-dialect SQL parser (`node-sql-parser`) or an
+      in-house analyser limited to `SELECT`; may non-administrators see recommendations.
+      _Phase 36._
+- [ ] **`/api/v1` scopes of the routes added since 2026-10-04:** a watch check and a database
+      comparison are behind `projects:read` (they only read, but they open connections);
+      webhook changes and "send a test" behind `projects:write`. No dedicated scope was
+      created. Confirm, or ask for `connections:manage` / a new scope. _Phase 21 / 34._
+
+**Decided on the owner's behalf since 2026-10-02 — read once, object where needed.** Each is
+written up under "Decisions taken" in its phase; none was confirmed by the owner. Unticked means
+"not reviewed yet", not "to do".
+
+- [ ] _Phase 29:_ form components built in-house, no headless UI dependency. Canvas paste: a
+      relation to a table that was not copied is dropped; comments are not copied.
+- [ ] _Phase 30, locks:_ `structure` and `full` are enforced alike (deletion frozen at both);
+      a lock is per table, never per column; an `instance` lock can only be lifted by an
+      instance administrator; a project administrator may still edit a table under a project
+      lock.
+- [ ] _Phase 30, structure policy:_ per connection with an instance default; **the default is
+      `schema-only` and applies on upgrade**; only for a database a project models; views,
+      functions and triggers are not intercepted.
+- [ ] _Phase 31:_ URLs stay `/project/:id/:tab`; a tab the role may not see falls back to
+      Schéma; the other tabs replace the editor (the canvas selection is lost on a round trip).
+      History: edits grouped within 2 min / 15 min; on a partial restore a foreign key follows
+      the table that carries it.
+- [ ] _Phase 32, environments:_ at most one production stage (an instance may have none); a
+      free-text name from an older client is refused, not turned into a stage; a project
+      administrator may choose a connection's stage.
+- [ ] _Phase 32, pipeline:_ a card, not a tab; "promote" is "deploy the same schema to the next
+      stage"; a stage is level on structure alone (a changed seed or note does not put it
+      behind); skipping a stage is for instance administrators, with a reason.
+- [ ] _Phase 32, variables:_ table names and schemas only; values limited to identifier
+      characters; a connection without a stage cannot take a schema with placeholders.
+- [ ] _Phase 32, risks:_ on production every critical risk needs an explicit answer; a risk
+      left on "cancel" refuses the whole deployment.
+- [ ] _Phase 32, backups:_ instance administrators only; one JSON-Lines file, encrypted;
+      **not a consistent snapshot** (tables read one after another); a production deployment
+      backs up first and **is refused if the backup fails**; 512 MB ceiling before compression.
+- [ ] _Phase 32, restore:_ data only; the target's name retyped for every target, not only
+      production; a safety backup first; same engine only.
+- [ ] _Phase 33, seeds:_ stored in the app database, keyed by table id; `if-empty` by default;
+      reading a table as a seed is for instance administrators.
+- [ ] _Phase 33, generator:_ in-house (no Faker), 10 000 rows at most, no direct insertion into
+      a database.
+- [ ] _Phase 34:_ the Errors tab stays apart from Activité; the watch is structure only, off by
+      default, and does not block deployments; notifications are opt-in per project and per
+      event, never about one's own action, and a schema edit is not an event.
+- [ ] _Phase 36:_ lint exceptions and the dictionary live in the table's **note** (one line of
+      DBML); only `error` blocks a deployment, and only when the project asks; the dictionary's
+      owner is free text, not an account.
+- [ ] _V1, guided tour:_ no scrim, shown once per browser (not per account).
+
 ### B. Tests to run by hand (the code is written, nobody has seen it work)
 
 **Needs real database servers** — the development machine has no Docker, so only SQLite was
@@ -220,6 +283,16 @@ are in the repository for this.
       _Phase 32._
 - [ ] **Compare environments across two engines:** only as good as `TYPE_ALIASES` — expect
       false "different" and extend the aliases. _Phase 32._
+- [ ] **The 6 tests the suite skips.** `npm test` reports "6 skipped" on a machine without the
+      test containers: they are the live driver tests (PostgreSQL, MySQL… —
+      `connections/drivers/*.test.ts`, `dbAdmin/drivers/live.test.ts`). "The suite is green"
+      has meant "green without them" since 2026-10-02. Start `docker-compose.test.yml` (and the
+      SQL Server / Oracle ones) and run them — first thing, before the items below.
+- [ ] **Seed insertion (`insertRows`) and the deployment risk probes (`queryScalar`, one
+      aggregate query per dialect)** on PostgreSQL, MySQL, SQL Server, Oracle: verified end to
+      end on SQLite only, as text elsewhere. _Phase 32 / 33._
+- [ ] **The watch and the drift check on a real engine:** the strict fingerprint depends on
+      `TYPE_ALIASES`; a type spelling it does not know reads as a false "changed". _Phase 34._
 - [ ] **Destructive-change probes** on a very large table: a `COUNT(*)` may run until its 5 s
       cut-off. _Phase 32._
 
@@ -232,6 +305,11 @@ are in the repository for this.
 - [ ] **Two performance regressions** flagged by a single bench pass (`zoom-links-on` at full
       detail, `delete-columns` at 500 tables): measure a second time. _Phase 23._
 - [ ] **Plugins against table locks:** no plugin was tried on a locked table. _Phase 30._
+
+- [ ] **Scheduled backups over a few days:** hours are the **server's local time**; one
+      catch-up after downtime; the kept-count. Tested with a simulated clock only. _Phase 32._
+- [ ] **A backup past the size ceiling** (`ATHANORDB_DATABASE_BACKUP_MAX_MB`, 512): it must
+      fail, and a production deployment must then be refused — try it on a copy. _Phase 32._
 
 ### C. To verify before upgrading a real instance
 
@@ -251,7 +329,38 @@ Take a backup first (`npm run backup -- <dir>`); migrations are one-way. Try the
       (`db_connection_credentials`); run it once on a copy if a rotation is planned.
 - [ ] **One-off clean-up of orphan rows** from before the project-delete fix:
       `DELETE … WHERE project_id NOT IN (SELECT id FROM projects)`. _Phase 27._
+- [ ] **Environments (migration 23):** every free-text label became a stage, with a guessed
+      order and a guessed production flag. **Check Admin → Environnements** — the order, and
+      which stage is production. _Phase 32._
+- [ ] **API scripts that deploy to production** must now send `confirmName` (the connection's
+      name) and their `resolutions`: without them, `409 PRODUCTION_CONFIRMATION_REQUIRED` /
+      `409 DESTRUCTIVE_CHANGE_UNRESOLVED`. A script sending a free-text `environment` gets
+      `404 ENVIRONMENT_NOT_FOUND`. List the scripts and CI jobs concerned. _Phase 32._
+- [ ] **Production deployments now back the database up first** and are refused if that fails:
+      check the room on `ATHANORDB_DATABASE_BACKUP_DIR` (default: next to the app database),
+      the ceiling (`ATHANORDB_DATABASE_BACKUP_MAX_MB`) against the size of the production
+      databases, and the retention (`ATHANORDB_DATABASE_BACKUP_RETENTION_DAYS`). _Phase 32._
+- [ ] **"Annuler / Gérer manuellement" on a risk now really cancels** the deployment: tell the
+      people who used to click through it. _Phase 32._
+- [ ] **`ATHANORDB_SECRET`:** losing it now also loses the database backups, the personal
+      accounts and the webhook secrets — check it is itself backed up, outside the instance.
 - [ ] **The changelog's "read before upgrading" entries**, top to bottom.
+
+### C bis. Before pushing
+
+- [ ] **Every commit since `e0cde00` (2026-10-03) is on local `main` only** — some 140, see
+      `git log origin/main..HEAD`: everything from Phase 29 on. Nothing of it is on the remote:
+      a disk failure loses it. Push, or push to a branch, once blocks A–C have been read.
+- [ ] **Last full run, 2026-10-05, on the last code commit:** 577 unit tests pass, 6 skipped
+      (see block B), 33 browser tests pass, ESLint and the circular-import check clean. Run it
+      again if anything changes before the push: `npm run build`, `npm test`,
+      `npm run test:e2e`, `npm run lint`.
+- [ ] **One commit is red on its own:** `541def6` (webhook secret rotation) carries a test
+      that calls the `/api/v1` routes added by the next commit, `8450675`. Together they are
+      green; `git bisect` landing on the first one alone would see a failure. Squash the two
+      before pushing, or accept it.
+- [ ] **No tag, every workspace still `0.0.1`:** the changelog's "Unreleased" section now
+      covers Phases 29–36. Decide whether this push is the first tagged release (block A).
 
 ### D. Reviews owed (the Phase 27 rule: before the item is closed, not after)
 
