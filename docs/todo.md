@@ -328,9 +328,12 @@ features; the UI only mirrors it.
     from the list (it lists locks, not tables), and no entry point while nothing is locked.
   - Context-menu entries (lock; rename / delete shown disabled with the reason) — the
     padlock button covers the action, the menu does not mention locks yet.
-  - Editing or deleting a relation carried by a locked table is still _offered_ (edge
-    popover, Delete on an edge, drawing a new relation from it): the server puts it back
-    and a toast says so. Same for bulk actions (type conversion, canvas plugins).
+  - ~~Editing or deleting a relation carried by a locked table is still offered~~ — closed
+    2026-10-04 on the canvas: such a relation has no cardinality / action / reverse / delete in
+    its popover and context menu (colour and routing stay), `Delete` leaves it, and a relation
+    cannot be drawn onto a locked table's column — each with a toast naming the table
+    (`projectMutations.test.ts`). Still offered and then put back by the server: bulk actions
+    (type conversion, canvas plugins).
   - MCD view shows no padlock.- [x] **Structure policy per connection** — done 2026-10-02. Three policies (`schema-only`,
     `warn`, `free`) plus "also apply to free SQL"; an **instance default** (new
     `instance_settings` table, edited at the top of Admin → Connexions — there is no
