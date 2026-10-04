@@ -88,6 +88,12 @@ export const ERROR_CATALOG = {
     status: 400,
     message: "monitoring: enabled (boolean), intervalMinutes (5, 15, 60, 360 or 1440), ignoreTables (names)",
   },
+  LINT_INVALID: {
+    status: 400,
+    message:
+      "lint: profile (relaxed, standard, strict, custom), rules (rule id: off, info, warning, error), ignores " +
+      "({ruleId, tableId, tableName}), forbiddenTypes, requiredColumns (names), blockDeployment (boolean)",
+  },
   BACKUP_INVALID: {
     status: 400,
     message:
@@ -181,6 +187,10 @@ export const ERROR_CATALOG = {
   SEEDS_NOT_DEPLOYABLE: {
     status: 409,
     message: "a seed of this project has errors or its tables depend on each other in a cycle — fix it before deploying",
+  },
+  LINT_BLOCKS_DEPLOYMENT: {
+    status: 409,
+    message: "the schema has lint errors and this project refuses to deploy with them — fix them or relax the rules",
   },
   DEPLOYMENT_BLOCKED_BY_RISK: {
     status: 409,
