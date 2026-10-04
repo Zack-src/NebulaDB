@@ -100,6 +100,10 @@ rollback is still to do; 2026-10-04: lot 17's schema linter and data dictionary)
 - [ ] **Capability levels per connection** — **S**. Level 0 (catalogue read), 1 (supervision
       views), 2 (server-side audit configured) — detected at connection test and stored on
       `db_connections` (`plan §8.3`). Journal, traffic, advisor and drift attribution all branch on it.
+      **Left alone on purpose (2026-10-05):** detecting levels 1 and 2 is one probe per engine
+      (`pg_stat_activity`, `performance_schema`, DMVs, `V$SESSION`…), none of which can be
+      run on a machine with only SQLite — and nothing reads the level yet. Build it with its
+      first consumer, on a machine with the engines.
 - [ ] **Migrations** — next migration number is **36** (29 is `backups`, 30 `backup_schedules`, 31 `lint_settings`, 32 `environments.variables_json`, 33 `deployment_history.schema_hash`, 34 `subscriptions` + `notifications`, 35 `db_connections.auth_mode` + `db_connection_credentials`). Every item below that adds a table
       gets its own migration, tested on a populated database (`infrastructure/migrations.test.ts`).
       Reminder from `memory`: saving `migrations.ts` while `npm run dev` runs migrates the real dev
@@ -219,8 +223,10 @@ API have since shipped.
     the `title` used to stand in for); other files still have some — grep ` title={` under
     `features/`, most hits being a component's own `title` prop.
   - `toast` and `ConfirmDialog` have their first call sites (table locks, the structure
-    policy); `RollbackConfirmModal`, `StatementModal`, `DeleteUserModal` and the remaining
-    `window.confirm()` calls are the next candidates.
+    policy); the last two `window.confirm()` calls went 2026-10-05 (the write-mode SQL run,
+    the schema pull from the connection form — the pull's dialog is type-checked, not driven
+    by a browser test); `RollbackConfirmModal`, `StatementModal` and `DeleteUserModal` are
+    the next candidates.
 - [~] **Forbid native controls** — rule in place 2026-10-02 (`eslint.config.js`): raw
   `<select>` and `<input type="checkbox|radio|number">` are an error in
   `apps/web/src/features/**` (`type="date"` is not in the rule yet — no component to point
@@ -378,8 +384,12 @@ features; the UI only mirrors it.
       `dbAdmin/routes.test.ts` (4 scenarios), `e2e/structure-policy.e2e.ts`. **Not done:** like
       the read-only check it is a guard rail, not a parser — DDL built inside a procedure, a
       `DO` block or `EXEC('…')` is not seen; a quoted object name is reported without its name
-      (the redirect then opens the project without selecting a table); the write-mode run is
-      still confirmed by a native `confirm()`; the security review the Phase 27 rule asks for.- [x] **Drift banner after an out-of-schema action** — done 2026-10-02. A structural change
+      (the redirect then opens the project without selecting a table); ~~the write-mode run is
+      still confirmed by a native `confirm()`~~ (`ConfirmDialog` since 2026-10-05; it does not
+      ask for the connection's name on the production stage yet); the security review the
+      Phase 27 rule asks for.
+
+- [x] **Drift banner after an out-of-schema action** — done 2026-10-02. A structural change
       made from the console on a database a project models (policy `warn` or `free`, SQL or
       explorer) marks every project linked to it (`project_connection_links.out_of_schema_at`,
       migration 22). The editor shows "La base « X » a été modifiée en dehors du schéma", live
@@ -457,7 +467,8 @@ features; the UI only mirrors it.
     from a result row.
   - A **CodeMirror SQL editor** with completion fed by the project schema — the editor is
     still a `<textarea>` (also an open item of the console follow-ups, Phase 27).
-  - The write-mode run is still confirmed by a native `confirm()`.
+  - ~~The write-mode run is still confirmed by a native `confirm()`~~ — `ConfirmDialog` since
+    2026-10-05.
 - [~] **Undo / redo and visual history** — first slice done 2026-10-03.
   - _Per-user undo_ was already there: `Y.UndoManager` only tracks local origins, remote
     updates carry `yjsClient`'s remote origin. Now **capped at 200 steps** per session
@@ -1259,8 +1270,16 @@ of the discussion. Cut or promote into a phase above.
 - [ ] **Export to other ecosystems** (Prisma, TypeORM, GraphQL SDL, JSON Schema) — **M each**,
       as plugins, deliberately not core.
 - [ ] **Not done on the API:** per-key usage quotas, multi-project key scoping, request
-      validation from the OpenAPI schemas; webhooks: secret rotation (delete + recreate), webhooks
-      via `/api/v1`.
+      validation from the OpenAPI schemas. **Done 2026-10-05:** webhooks under `/api/v1` (list,
+      create, change, delete, test, deliveries — `publicApi/webhookRoutes.ts`, read behind
+      `projects:read`, the rest behind `projects:write`, project administrators only) and
+      **secret rotation** (`POST …/webhooks/:hookId/rotate-secret`, "Régénérer le secret" in
+      the dialog): a new secret for the same webhook, shown once; the old one stops signing at
+      once, also for a delivery waiting to be retried. The rules moved to
+      `webhooks/service.ts`, shared by both sets of routes. Verified in
+      `webhooks/routes.test.ts` (a real receiver checks the signature before and after),
+      `openapi.test.ts`, `e2e/webhooks.e2e.ts`. Not there: a grace period during which both
+      secrets sign.
 
 ### Phase 22 — UX
 

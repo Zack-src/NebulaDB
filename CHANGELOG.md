@@ -57,6 +57,23 @@ this file has a dated entry for — not on every commit.
 - An API key acts as its owner, so `/api/v1` uses the owner's database account
   on such a connection.
 
+### Added (webhooks)
+
+- **Regenerate a webhook's signing secret** without deleting the webhook: the
+  key button in the Webhooks dialog, or
+  `POST …/webhooks/:hookId/rotate-secret`. Its address, events and delivery
+  log stay; the new secret is shown once. **The old secret stops signing at
+  once** — also for a delivery still waiting to be retried.
+- **Webhooks in the public API**: `GET` / `POST /api/v1/projects/:id/webhooks`,
+  `PATCH` / `DELETE …/:hookId`, `POST …/:hookId/rotate-secret`,
+  `POST …/:hookId/test`, `GET …/:hookId/deliveries` — project administrators,
+  behind `projects:read` (list, deliveries) or `projects:write`.
+
+### Changed
+
+- A write-mode SQL run, and importing a database's schema from the connection
+  form, are confirmed in the application's own dialog instead of the browser's.
+
 ### Fixed
 
 - The deployment dialog showed the server's English message when the plan
