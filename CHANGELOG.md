@@ -24,6 +24,37 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Fixed (database connections) — check connections that were switched from a URI
+
+- **A connection saved with a connection string and later switched to host and
+  port kept the string**, and went on connecting to the old address (the
+  drivers prefer the string). Saving such a connection now drops it; the
+  reverse — a new string — drops the host fields. **A connection edited that
+  way before this fix still holds both:** open it and save it once.
+
+### Added (result grid)
+
+- **SQL results and the explorer's rows are shown in a new grid**: click a
+  header to sort (numbers by value, NULL last), drag a header's edge — or use
+  the arrow keys on it — to resize a column, and a 10 000-row result scrolls
+  without slowing the page. Columns take the width of their content instead of
+  stretching; widths are not remembered.
+
+### Added (public API)
+
+- **Personal database accounts**: `GET` / `PUT` /
+  `DELETE /api/v1/connections/:id/credentials` — the account of the key's
+  owner on a connection that asks each user for theirs, so a CI job can give
+  it. Scope `connections:manage`; a key restricted to one project only on that
+  project's connections.
+- **A CI example** in `docs/public-api.md`: lint, drift check, then deploy.
+
+### Changed
+
+- Fifteen more screens use the application's own lists, checkboxes and radio
+  buttons (deployment dialog, project teams, API keys, import, login…). In the
+  deployment dialog the risk strategies are plain radio buttons.
+
 ### Added (personal database accounts)
 
 - **A connection can ask each user for their own database account** instead of

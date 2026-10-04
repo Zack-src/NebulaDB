@@ -237,6 +237,32 @@ the answer may change.
       so a picked role cannot be set back to "none"; the port field shows 0 as empty; several
       pickers have a fixed width and get a search field past 8 options. _Phase 29._
 
+**Taken by the 2026-10-06 parallel work — confirm or change:**
+
+- [ ] **Plugins on a locked table say "done" when it was refused.** The lock holds everywhere,
+      but a plugin's own success message shows next to the refusal ("Timestamps ajoutés dans
+      2 table(s)" while nothing was added). And two behaviours coexist: a canvas plugin applies
+      the unlocked part and the server puts the locked part back; a DBML-editor plugin and an
+      importer are refused whole. Choose one behaviour, and whether a plugin's message is
+      shown when its change was reverted. _Phase 17 / 30._
+- [ ] **Risk strategies in the deployment dialog are plain radio buttons now**, with the
+      description under the label — they were bordered cards that lit up when chosen. Nobody
+      looked at the result. Keep, or ask for the cards back as a `RadioGroup` variant.
+      _Phase 29._
+- [ ] **Pickers with an empty first entry became placeholders** (team to assign, member to
+      add, project to compare): once a value is picked, "nothing" cannot be chosen again from
+      the list. _Phase 29._
+- [ ] **Result grid:** 28 px rows; columns sized to their content and no longer stretched;
+      widths not remembered; sort only on the page shown. Say which of these matter. _Phase 29._
+- [ ] **Personal accounts by API sit behind `connections:manage`**, the `GET` included, and a
+      project-restricted key is allowed on its own project's connections only (see Phase 27).
+      The app's route and the API's each allow 10 attempts a minute, so 20 through both.
+      _Phase 27._
+- [ ] **The CI example stops on an unreachable database and on a drift already known**, not
+      only on a new one: `result.changes` counts a change the first time it is seen and is 0
+      on the next check while the event is still open. Is that the behaviour wanted from
+      `result.changes`, or should the check also answer the number of open events? _Phase 34._
+
 **Decided on the owner's behalf since 2026-10-02 — read once, object where needed.** Each is
 written up under "Decisions taken" in its phase; none was confirmed by the owner. Unticked means
 "not reviewed yet", not "to do".
@@ -327,10 +353,25 @@ are in the repository for this.
       linked project → import): its confirmation dialog was type-checked, not clicked. _Phase 29._
 - [ ] **Two performance regressions** flagged by a single bench pass (`zoom-links-on` at full
       detail, `delete-columns` at 500 tables): measure a second time. _Phase 23._
-- [ ] **Plugins against table locks:** no plugin was tried on a locked table. _Phase 30._
-- [ ] **Forms migrated on 2026-10-05 that no browser test clicks:** in the webhooks dialog, the
-      event checkboxes and the on/off switch; in the connection form, port, URI, SSL, read-only
-      and the project checkboxes. Click through each once. _Phase 29._
+- [x] ~~**Plugins against table locks**~~ — automated 2026-10-06 (`e2e/plugins-locks.e2e.ts`:
+      a DBML-editor command, a canvas command, a sandboxed plugin and an importer, as a user
+      the lock binds, then as an administrator). The lock holds in all four; see block A for
+      the two things it showed.
+- [x] ~~**The connection form's fields, the schema import and its confirmation, a webhook's
+      event checkboxes and switch**~~ — automated 2026-10-06 (`e2e/connection-form.e2e.ts`,
+      `e2e/webhook-options.e2e.ts`). The first found a bug, fixed the same day: a connection
+      saved by URI then switched to host and port kept its URI, and went on connecting to the
+      old address.
+- [ ] **Screens migrated on 2026-10-06 that no browser test clicks:** project teams (three
+      pickers), delete user (transfer), errors filter, invitations ("Admin"), team members,
+      API key scopes, backup codes, convert types, the import format, add index, "remember
+      me" on the login page. Click through each once — or have the tests written (all can be
+      automated on this machine). _Phase 29._
+- [ ] **The result grid on a real result:** a wide table (30+ columns), a long text, a
+      10 000-row result — scroll, sort, resize, export CSV. Unit tests and the catalogue's
+      browser test cover the mechanism, nobody used it on real data. _Phase 29._
+- [ ] **The CI example of `docs/public-api.md`:** run it once with a real `jq`, and the GitHub
+      Actions job once in a repository. _Phase 36._
 - [ ] **The deployment dialog after its split:** covered by ten browser tests, but nobody
       looked at it — open it once on each step (differences, risks, SQL, result, history).
       _Phase 23._
@@ -377,12 +418,12 @@ Take a backup first (`npm run backup -- <dir>`); migrations are one-way. Try the
 
 ### C bis. Before pushing
 
-- [ ] **Every commit since `e0cde00` (2026-10-03) is on local `main` only** — some 150, see
+- [ ] **Every commit since `e0cde00` (2026-10-03) is on local `main` only** — some 180, see
       `git log origin/main..HEAD`: everything from Phase 29 on. Nothing of it is on the remote:
       a disk failure loses it. Push, or push to a branch, once blocks A–C have been read.
-- [ ] **Last full run, 2026-10-05, on the last code commit (`5ea382a`, after the four
-      sub-agents' work was integrated):** 581 unit tests pass, 6 skipped (see block B), 33
-      browser tests pass, ESLint and the circular-import check clean. Run it
+- [ ] **Last full run, 2026-10-06, on the last code commit (`6cbccab`, after the second
+      round of sub-agents' work was integrated):** 615 unit tests pass, 6 skipped (see block
+      B), 37 browser tests pass, ESLint and the circular-import check clean. Run it
       again if anything changes before the push: `npm run build`, `npm test`,
       `npm run test:e2e`, `npm run lint`.
 - [ ] **One commit is red on its own:** `541def6` (webhook secret rotation) carries a test
@@ -509,8 +550,14 @@ API have since shipped.
   `Switch`) and `SettingSwitch`. **Verified:** `e2e/component-catalogue.e2e.ts` drives each
   one by role and from the keyboard in a real browser; `e2e/dbml-editing.e2e.ts` covers the
   migrated settings. **Still to build:**
-  - `DataGrid` (virtualised, sort, column resize; replaces `ResultGrid.svelte`) — **L**,
-    needed by Phase 31 "Extract shared SQL components".
+  - ~~`DataGrid`~~ — built 2026-10-06 (`components/ui/DataGrid.svelte`, logic and 29 unit
+    tests in `dataGrid.ts`): rows virtualised (about 20 in the DOM for 10 000), sort by
+    header click (numbers by value, NULL last), column resize by drag or keyboard, `role="grid"`
+    with row and column indexes. In the catalogue, and behind every SQL result
+    (`ResultGrid.svelte` is now a thin wrapper keeping the count line and the CSV export).
+    **Not there:** column widths are kept nowhere (lost with the result); sort is per page in
+    the explorer; no cell-by-cell keyboard focus; two tab stops per column; columns no longer
+    stretch, so a narrow result leaves blank space on the right.
   - ~~`Splitter`~~ — built 2026-10-02 with the SQL drawer (`components/ui/Splitter.svelte`):
     pointer drag, arrow keys / Home / End, a real `separator` for assistive tech. The size is
     the caller's to persist; today that is per browser (`utils/storage`), not per account. The
@@ -534,15 +581,21 @@ API have since shipped.
   `apps/web/src/features/**` (`type="date"` is not in the rule yet — no component to point
   to). The files that still use them are listed in `NATIVE_CONTROLS_NOT_MIGRATED` in that
   file — the list only shrinks; migrate screen by screen (Phase 37) and delete the line.
-  **23 left** (27 on 2026-10-02): `WebhooksModal`, `ConnectionFormFields`, the read-only and
-  project checkboxes of `ConnectionEditModal`, and `admin/connections/UsersPanel` were
-  migrated 2026-10-05 (`Select`, `Checkbox`, `Switch`, `NumberInput`). Biggest left:
-  `ProjectTeamsModal`, `PluginSettingsModal`. The deployment dialog's risk-strategy radio
-  (`deployment/DeploymentRisksStep.svelte`) carries an inline `eslint-disable` instead of a
-  line in the list, and `DeploymentModal` keeps its native `<select>`: both to migrate.
-  **Not driven by any browser test:** `UsersPanel` (the e2e target is SQLite, which has no
-  users), the webhook event checkboxes and its on/off switch, the port, URI and SSL fields,
-  the read-only and project checkboxes.
+  **7 left** (27 on 2026-10-02, 23 on 2026-10-05): twenty screens were migrated on
+  2026-10-05 / 06 (`Select`, `Checkbox`, `Switch`, `RadioGroup`, `NumberInput`) — webhooks,
+  connection form and dialog, database users, the deployment dialog and its risk strategies,
+  project teams, delete user, errors, invitations, team members, explorer, API key scopes,
+  backup codes, convert types, compare projects, import, add index, login. **What is left,
+  and why:** `editor/edges/EdgeSettingsPopover` and `editor/nodes/table/FieldEditorPanel` —
+  their popover closes on any click outside itself, and `Select` draws its list outside
+  (in `document.body`), so picking an option would close the popover: fix
+  `useDismissablePopover` or `Select` first; `editor/io/ExportDialog` (driven by
+  `plugin-sandbox.e2e.ts` with a native `selectOption` — migrate both together); the four
+  `plugins/dialog/*` files. **Covered by a browser test since 2026-10-06:** the connection
+  form's fields and the webhook's event checkboxes and switch (`connection-form.e2e.ts`,
+  `webhook-options.e2e.ts`). **Still driven by none:** `UsersPanel` (SQLite has no users),
+  project teams, delete user, errors filter, invitations, team members, API key scopes,
+  backup codes, convert types, the import format, add index, "remember me".
 - [x] **Copy / paste tables on the canvas** — done 2026-10-02. `Ctrl/Cmd+C` / `Ctrl/Cmd+V`
       and Copy / Paste in the canvas context menu (`canvas/tableClipboard.ts`,
       `hooks/canvasClipboard.svelte.ts`, `pasteTables` in `projectMutations.ts`). Colours, size,
@@ -1415,7 +1468,10 @@ version, snapshot_json, notes)` — a version is an explicit **"Publier vN"**, n
     `ON DELETE` is `fk-on-delete`, above); `fk-indexed` only sees single-column foreign keys
     (so does the model). None of the three new rules has a one-click fix.
   - The MCD view shows no finding; the canvas badge of an unselected table was not re-checked.
-  - A `lint.changed` webhook / CI example in `docs/public-api.md`.
+  - ~~A CI example in `docs/public-api.md`~~ — added 2026-10-06 ("In a CI job": lint, drift
+    check, deploy; as a shell script and as a GitHub Actions job). Its `jq` filters were read,
+    not run (no `jq` on the machine), and the Actions job never ran. A `lint.changed` webhook
+    is still not there.
 
 - [~] **Data dictionary** — first slice done 2026-10-04. `packages/dbml-engine/src/dictionary.ts`
   (pure): a table's or column's note is its **description** followed by bracketed annotations —
@@ -1690,7 +1746,14 @@ PERSONAL_CREDENTIALS_REQUIRED`, before the target is touched.
     database) before the next action fails with the database's own message.
   - Creating the database accounts themselves is the DBA's (the console's "Utilisateurs"
     panel can, as whoever is connected); no "invite this user and create their account" flow.
-  - `/api/v1`: a key uses its owner's account, but there is no route to give one by API.
+  - ~~`/api/v1`: no route to give an account by API~~ — done 2026-10-06:
+    `GET` / `PUT` / `DELETE /api/v1/connections/:id/credentials`
+    (`publicApi/credentialRoutes.ts`, rules shared in `connections/credentialService.ts`),
+    scope `connections:manage`. A key restricted to one project is allowed only when the
+    connection is attached to that project **and** its owner's right to use the connection
+    comes from that project. Verified in `connections/credentialApi.test.ts` (with a key,
+    pull and deploy answer `409 PERSONAL_CREDENTIALS_REQUIRED` before the account is given
+    and no longer after).
   - External authentication (IAM tokens, Kerberos, client certificates) — passwords only.
   - The security review of the Phase 27 rule: this changes which account every statement runs
     as.
