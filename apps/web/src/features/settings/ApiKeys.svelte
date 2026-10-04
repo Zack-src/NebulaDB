@@ -25,7 +25,7 @@
   import Field from "@/components/ui/Field.svelte";
   import Badge from "@/components/ui/Badge.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
-  import { CHECKBOX_CLASS } from "@/components/ui/inputStyles";
+  import Checkbox from "@/components/ui/Checkbox.svelte";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { formatRelativeTime } from "@/i18n/formatters";
@@ -109,15 +109,9 @@
     />
     <div class="flex flex-col gap-1.5 mb-4">
       {#each API_KEY_SCOPES as scope (scope)}
-        <label class="flex items-center gap-2 text-xs text-text-secondary">
-          <input
-            type="checkbox"
-            class={CHECKBOX_CLASS}
-            checked={scopes.includes(scope)}
-            onchange={() => toggleScope(scope)}
-          />
-          {t(SCOPE_LABEL_KEY[scope])}
-        </label>
+        <Checkbox checked={scopes.includes(scope)} onChange={() => toggleScope(scope)}>
+          <span class="text-xs text-text-secondary">{t(SCOPE_LABEL_KEY[scope])}</span>
+        </Checkbox>
       {/each}
     </div>
     <Button
