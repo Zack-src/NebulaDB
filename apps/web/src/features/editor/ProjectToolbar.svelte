@@ -25,7 +25,7 @@
     LayersIcon,
     LayoutGridIcon,
     RedoIcon,
-    SettingsIcon,
+    InfoIcon, SettingsIcon,
     SparklesIcon,
     SwapHorizontalIcon,
     UndoIcon,
@@ -59,6 +59,8 @@
      */
     isProjectAdmin: boolean;
     onOpenSettings?: () => void;
+    /** Present where the guided tour exists: replays it. */
+    onShowTour?: () => void;
     localUser: string;
     localColor: string;
     remoteAwareness: Map<number, AwarenessState>;
@@ -170,6 +172,18 @@
 
     <PresenceList localName={props.localUser} localColor={props.localColor} remote={props.remoteAwareness} />
 
+    {#if props.onShowTour}
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onclick={props.onShowTour}
+        data-tooltip={t("tour.replay")}
+        data-tooltip-pos="bottom"
+        aria-label={t("tour.replay")}
+      >
+        <Icon icon={InfoIcon} size={15} />
+      </Button>
+    {/if}
     {#if props.onOpenSettings}
       <Button
         variant="ghost"

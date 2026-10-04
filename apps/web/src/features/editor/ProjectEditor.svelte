@@ -49,6 +49,7 @@
     type ValidationIssue,
   } from "@athanordb/dbml-engine";
   import { LintState } from "@/features/editor/lint/lint.svelte";
+  import EditorTour, { editorTourSeen } from "@/features/onboarding/EditorTour.svelte";
   import { generateId } from "@/utils/id";
   import type { RevisionSummary } from "@/services/projectsApi";
   import HistoryPreviewBanner from "@/features/editor/history/HistoryPreviewBanner.svelte";
@@ -108,6 +109,8 @@
     /** The workspace tab the URL names. Optional: the perf harness mounts the editor with no router. */
     tab?: WorkspaceTab;
     onTabChange?: (tab: WorkspaceTab) => void;
+    /** The real app: offer the guided tour on a first visit. Off in the perf harness, which must render nothing extra. */
+    guided?: boolean;
   } = $props();
 
   const { t } = useTranslation();
@@ -188,6 +191,8 @@
   let showPlugins = $state(false);
   let showSettings = $state(false);
   let showDeployment = $state(false);
+  // The guided tour: once per browser, on the first project opened, and again from the header.
+  let tourOpen = $state(untrack(() => props.guided === true) && !editorTourSeen());
   /** Counts deployment dialogs closed — the pipeline refetches on it. */
   let deploymentsSeen = $state(0);
   let viewMode = $state<EditorViewMode>("mld");
@@ -647,6 +652,12 @@
     onShowDeploy={() => (showDeployment = true)}
     {isProjectAdmin}
     onOpenSettings={() => (showSettings = true)}
+    onShowTour={props.guided
+      ? () => {
+          setTab("schema");
+          tourOpen = true;
+        }
+      : undefined}
     localUser={user}
     localColor={hashColor(user)}
     remoteAwareness={remoteAwareness.states}
@@ -925,6 +936,9 @@
         onClose={() => (differencesFor = null)}
       />
     {/await}
+  {/if}
+  {#if tourOpen && liveProject && tab === "schema"}
+    <EditorTour onClose={() => (tourOpen = false)} />
   {/if}
   {#if showLocksList && liveProject}
     {#await import("@/features/editor/locks/TableLocksList.svelte") then { default: TableLocksList }}

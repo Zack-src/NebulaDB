@@ -91,6 +91,7 @@
           initialFocus={routing.focusTarget}
           tab={routing.tab}
           onTabChange={routing.setTab}
+          guided
         />
       </ErrorBoundary>
     {/key}
