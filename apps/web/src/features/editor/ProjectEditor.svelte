@@ -54,7 +54,14 @@
   import { fetchProjectDrift, listProjectConnections } from "@/services/connectionsApi";
   import DriftBanner from "@/features/editor/drift/DriftBanner.svelte";
   import type { TabItem } from "@/components/ui/Tabs.svelte";
-  import { AlertTriangleIcon, ClockIcon, CodeIcon, DatabaseIcon, SparklesIcon } from "@/components/icons/Icons";
+  import {
+    AlertTriangleIcon,
+    ClockIcon,
+    CodeIcon,
+    DatabaseIcon,
+    NoteIcon,
+    SparklesIcon,
+  } from "@/components/icons/Icons";
   import type { WorkspaceTab } from "@/features/projects/projectRouting.svelte";
   import WorkspaceBar from "@/features/workspace/WorkspaceBar.svelte";
   import { provideWorkspace } from "@/features/workspace/workspaceContext";
@@ -213,6 +220,7 @@
       icon: AlertTriangleIcon,
       badge: lintFindings.length > 0 ? lintFindings.length : undefined,
     });
+    list.push({ id: "dictionary", label: t("workspace.tab.dictionary"), icon: NoteIcon });
     return list;
   });
   // A tab named by the URL but not offered to this user (a shared link, a
@@ -327,6 +335,19 @@
     if (fixed) getTablesMap(writeDoc).set(fixed.id, fixed);
   }
   const canFixLintOn = (tableId: string) => canWrite && !tableLocks.view.frozen.has(tableId);
+  // The data dictionary writes notes — part of what a lock freezes, hence the same test.
+  function saveTableNote(tableId: string, note: string | undefined) {
+    const table = liveProject?.tables.find((candidate) => candidate.id === tableId);
+    if (table && writeDoc && table.note !== note) getTablesMap(writeDoc).set(tableId, { ...table, note });
+  }
+  function saveFieldNote(tableId: string, fieldId: string, note: string | undefined) {
+    const table = liveProject?.tables.find((candidate) => candidate.id === tableId);
+    if (!table || !writeDoc || table.fields.find((field) => field.id === fieldId)?.note === note) return;
+    getTablesMap(writeDoc).set(tableId, {
+      ...table,
+      fields: table.fields.map((field) => (field.id === fieldId ? { ...field, note } : field)),
+    });
+  }
   const issuesByTable = $derived.by(() => {
     const map = new Map<string, ValidationIssue[]>();
     for (const issue of validationIssues) {
@@ -673,6 +694,19 @@
         }}
         onFix={fixLintFinding}
         onSaveSettings={lint.save}
+      />
+    {/await}
+  {:else if tab === "dictionary" && liveProject}
+    {#await import("@/features/editor/dictionary/DictionaryPanel.svelte") then { default: DictionaryPanel }}
+      <DictionaryPanel
+        project={liveProject}
+        canEdit={canFixLintOn}
+        onOpenTable={(tableName, fieldName) => {
+          setTab("schema");
+          focusRequest = { tableName, fieldName };
+        }}
+        onSaveTableNote={saveTableNote}
+        onSaveFieldNote={saveFieldNote}
       />
     {/await}
   {:else if tab === "history" && liveProject}
