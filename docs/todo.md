@@ -28,7 +28,7 @@ phase (2026-10-02: lot 1, the copy / paste item, lot 2's tokens + form component
 in-house; `DataGrid` and `Splitter` are still owed and block lot 6, not lots 3–5 — and lot 3:
 locks enforced on every write path, with a first editor UI; 2026-10-03: lot 18's timeline,
 diagram preview and per-table restore; lot 11's logical backups and restore — its deployment
-rollback is still to do).
+rollback is still to do; 2026-10-04: lot 17's schema linter — the data dictionary is still to do).
 
 | Order | Lot | Phase | What                                                             |
 | ----- | --- | ----- | ---------------------------------------------------------------- |
@@ -52,7 +52,7 @@ rollback is still to do).
 | 18    | 10  | 34    | Database-side logs (levels 1–2)                                  |
 | 19    | 12  | 35    | Derived projects (base + variants)                               |
 | 20    | 13  | 32    | Native backups, fine data rollback, unified timeline             |
-| 21    | 17  | 36    | Schema linter + data dictionary                                  |
+| ◐     | 17  | 36    | Schema linter + data dictionary                                  |
 | 22    | 21  | 36    | Index suggestions and clean-up                                   |
 | 23    | 22  | 36    | Query advisor (opt-in)                                           |
 | 24    | 23  | 37    | Visual overhaul, screen by screen (runs alongside everything)    |
@@ -100,7 +100,7 @@ rollback is still to do).
 - [ ] **Capability levels per connection** — **S**. Level 0 (catalogue read), 1 (supervision
       views), 2 (server-side audit configured) — detected at connection test and stored on
       `db_connections` (`plan §8.3`). Journal, traffic, advisor and drift attribution all branch on it.
-- [ ] **Migrations** — next migration number is **31** (29 is `backups`, 30 `backup_schedules`). Every item below that adds a table
+- [ ] **Migrations** — next migration number is **32** (29 is `backups`, 30 `backup_schedules`, 31 `lint_settings`). Every item below that adds a table
       gets its own migration, tested on a populated database (`infrastructure/migrations.test.ts`).
       Reminder from `memory`: saving `migrations.ts` while `npm run dev` runs migrates the real dev
       DB, one way — work on a copy.
@@ -871,14 +871,52 @@ version, snapshot_json, notes)` — a version is an explicit **"Publier vN"**, n
 
 ## Phase 36 — Schema quality and performance (plan §15, §16)
 
-- [ ] **Schema linter** — **L**. Extend `validateProject` (`dbml-engine`) and
-      `editor/dbml/lint.ts`: built-in rules (PK present, FK indexed, snake_case naming, no
-      `varchar` without length, `created_at`/`updated_at`, no `FLOAT` for money, table without
-      description) with severity, profile (Souple / Standard / Strict / Perso), custom rules
-      (name pattern, forbidden type, mandatory column), per-table exceptions (annotation
-      `// lint-ignore: pk-required` and list), **quick fixes** only where safe (add PK `id`,
-      create the FK index), "Problèmes" panel, squiggles + node badge, option to block deployment
-      on error, `GET /api/v1/projects/:id/lint`. Variants inherit and can tighten rules.
+- [~] **Schema linter** — first slice done 2026-10-04. `packages/dbml-engine/src/lint.ts` (pure,
+  shared by the editor and the server): nine rules — `pk-required`, `fk-indexed`,
+  `naming-snake-case`, `varchar-length`, `timestamps`, `no-float-money`, `table-description`,
+  and two fed by lists of the project's own, `forbidden-type` and `required-column` — each at a
+  level (`off` / `info` / `warning` / `error`) set by a profile (Souple / Standard / Strict) or
+  one by one (Perso, read against Standard). Exceptions per table: in the settings (keyed by
+  table id) or `lint-ignore: rule-id[, …]` / `lint-ignore: all` in the table's note. Two **safe
+  fixes** (`applyLintFix`): an `id` key on a table with neither a key nor an `id` column, a plain
+  index on a foreign-key column. Server: migration 31 `lint_settings` (one JSON document per
+  project, checked on the way out as on the way in), `GET/PUT /api/projects/:id/lint` (`view` to
+  read, project administrator to change, audited `project.lint`, live `lint-changed` notice),
+  `GET /api/v1/projects/:id/lint` (+ `openapi.ts`, `docs/public-api.md`), and **"an error stops a
+  deployment"** (off by default) enforced in `deployToConnection` before any connection is opened
+  (`409 LINT_BLOCKS_DEPLOYMENT`, app and `/api/v1`). Editor: the **Problèmes** workspace tab
+  (`features/editor/lint/`: findings by table, level filter, open in schema, fix, ignore, the
+  rules card), the count on the tab, errors and warnings on the node badge, every finding
+  underlined in the DBML buffer.
+  **Decisions taken:**
+  - _The linter owns "no primary key"._ `validateProject` still reports it (tagged
+    `code: "no-primary-key"`) for its other callers; the editor drops that one and shows the
+    rule's finding, at the project's level — so a Souple project can no longer be nagged about
+    it by a hard-coded warning in the DBML editor either (removed).
+  - _The annotation lives in the note, not in a `//` comment_: comments do not survive the DBML
+    round trip, the note does — and it follows history and, later, variants.
+  - _Exceptions and rules are the administrators'_; anyone with `edit` can still write the
+    annotation in a note. A fix is an ordinary schema edit: `edit`, and not on a table whose
+    lock binds you.
+  - _Only `error` blocks_, and only when asked; `info` findings stay off the node badge.
+
+  **Verified:** `lint.test.ts` (engine), `lint/routes.test.ts` (rights, invalid settings, the
+  public report, cascade on project delete, a SQLite deployment refused then allowed),
+  `openapi.test.ts`, `e2e/lint.e2e.ts` (real browser: list, both fixes, profile, exception,
+  custom rule, reload, squiggles, open in schema).
+  **Still to do:**
+  - Custom **name pattern** rules (a regular expression from a user runs on the server at every
+    deployment — needs a safe matcher or a restricted syntax first); pluralisation / prefix
+    conventions.
+  - Per-**column** exceptions and annotations (needs the column identity of the prerequisites).
+  - The deployment dialog shows the refusal as an error line; it does not list the findings or
+    link to the tab. The plan step could warn before "Deploy" is pressed.
+  - Instance-wide default profile; rules per variant (Phase 35: inherit and tighten).
+  - Findings on relations (e.g. FK without `ON DELETE`), enums, and types unknown to the target
+    engine; `fk-indexed` only sees single-column foreign keys (so does the model).
+  - The MCD view shows no finding; the canvas badge of an unselected table was not re-checked.
+  - A `lint.changed` webhook / CI example in `docs/public-api.md`.
+
 - [ ] **Data dictionary** — **M**. Description, owner (user or team), **classification**
       (public / internal / personal / sensitive) and tags per table and column, stored **in the
       schema** (DBML `Note`s) so history and variants follow; "Dictionnaire" page with completeness

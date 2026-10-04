@@ -24,6 +24,30 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Added (schema linter)
+
+- **A "Problèmes" tab in every project.** The schema is checked against
+  conventions as it is edited: primary key present, foreign keys indexed,
+  snake_case names, `varchar` with a length, `created_at` / `updated_at`, no
+  float for an amount, tables described — plus two lists of your own
+  (forbidden types, columns every table must have). Findings are listed table
+  by table, open their table in the schema, are underlined in the DBML editor,
+  and the errors and warnings show on the table in the diagram. Two of them
+  have a one-click fix (add an `id` key, create the foreign-key index).
+- **Rules per project.** Project administrators pick a profile (Souple,
+  Standard, Strict) or set each rule's level, and except a table from a rule;
+  a table can also except itself with `lint-ignore: rule-id` in its note.
+  Nothing changes for an existing project until someone does: the default is
+  the Standard profile, which blocks nothing.
+- **Optionally, an error stops a deployment** ("Refuser un déploiement tant
+  qu'une erreur est ouverte", off by default). Checked on the server, for the
+  app and `/api/v1` alike: `409 LINT_BLOCKS_DEPLOYMENT` with the findings.
+- `GET /api/v1/projects/:id/lint` (scope `projects:read`) returns the same
+  findings — a CI step can fail on `summary.error > 0`.
+- Migration 31 (`lint_settings`). The "no primary key" warning the diagram
+  already showed is now the linter's `pk-required` rule and follows the
+  project's profile.
+
 ### Added (database backups) — read before upgrading
 
 - **Backups of the connected databases.** In the database console (Admin →

@@ -37,26 +37,29 @@ There are two axes, and no others.
 
 ## Projects
 
-| Action                                                                    | view | edit | administrator |
-| ------------------------------------------------------------------------- | :--: | :--: | :-----------: |
-| Open the project, read schema, history, comments, team list               |  ✔   |  ✔   |       ✔       |
-| Export DBML / SQL / image; compare with another project you can read      |  ✔   |  ✔   |       ✔       |
-| See cursors and presence (realtime)                                       |  ✔   |  ✔   |       ✔       |
-| Edit the schema on the canvas or in the DBML editor (realtime)            |      |  ✔   |       ✔       |
-| Import DBML / SQL into the project                                        |      |  ✔   |       ✔       |
-| Set or remove a table's initial data (CSV seed); a `full` lock freezes it |      |  ✔   |       ✔       |
-| Label a revision; restore a revision (whole or some tables), the snapshot |      |  ✔   |       ✔       |
-| Rename, archive, trash, restore from trash, delete the project            |      |      |       ✔       |
-| Grant or revoke a team on the project                                     |      |      |       ✔       |
-| Webhooks: list, create, edit, delete, test, read deliveries               |      |      |       ✔       |
-| Database connections of the project: add, edit, remove, test              |      |      |       ✔       |
-| List the project's connections (names and hosts, never the password)      |  ✔   |  ✔   |       ✔       |
-| Pull a schema from a database; plan, apply and roll back a deployment     |      |      |       ✔       |
-| Deploy to / roll back on the production stage (connection name retyped)   |      |      |       ✔       |
-| Read deployment history                                                   |      |      |       ✔       |
-| See deployments and rollbacks on the history timeline                     |      |      |       ✔       |
-| See that a linked database was changed outside the schema (the banner)    |  ✔   |  ✔   |       ✔       |
-| Check what differs in the database; resynchronise; dismiss the banner     |      |      |       ✔       |
+| Action                                                                       | view | edit | administrator |
+| ---------------------------------------------------------------------------- | :--: | :--: | :-----------: |
+| Open the project, read schema, history, comments, team list                  |  ✔   |  ✔   |       ✔       |
+| Export DBML / SQL / image; compare with another project you can read         |  ✔   |  ✔   |       ✔       |
+| See cursors and presence (realtime)                                          |  ✔   |  ✔   |       ✔       |
+| Edit the schema on the canvas or in the DBML editor (realtime)               |      |  ✔   |       ✔       |
+| Import DBML / SQL into the project                                           |      |  ✔   |       ✔       |
+| Set or remove a table's initial data (CSV seed); a `full` lock freezes it    |      |  ✔   |       ✔       |
+| Read the schema linter's rules and findings (`GET …/lint`, `/api/v1/…/lint`) |  ✔   |  ✔   |       ✔       |
+| Apply a lint fix (it is a schema edit; locks apply)                          |      |  ✔   |       ✔       |
+| Choose the lint profile, rule levels, exceptions, "errors block deployment"  |      |      |       ✔       |
+| Label a revision; restore a revision (whole or some tables), the snapshot    |      |  ✔   |       ✔       |
+| Rename, archive, trash, restore from trash, delete the project               |      |      |       ✔       |
+| Grant or revoke a team on the project                                        |      |      |       ✔       |
+| Webhooks: list, create, edit, delete, test, read deliveries                  |      |      |       ✔       |
+| Database connections of the project: add, edit, remove, test                 |      |      |       ✔       |
+| List the project's connections (names and hosts, never the password)         |  ✔   |  ✔   |       ✔       |
+| Pull a schema from a database; plan, apply and roll back a deployment        |      |      |       ✔       |
+| Deploy to / roll back on the production stage (connection name retyped)      |      |      |       ✔       |
+| Read deployment history                                                      |      |      |       ✔       |
+| See deployments and rollbacks on the history timeline                        |      |      |       ✔       |
+| See that a linked database was changed outside the schema (the banner)       |  ✔   |  ✔   |       ✔       |
+| Check what differs in the database; resynchronise; dismiss the banner        |      |      |       ✔       |
 
 Any account can create a project (and becomes its owner), create one from a database it has
 the credentials for, list the projects it can read, and search across them.

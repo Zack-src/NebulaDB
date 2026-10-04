@@ -52,7 +52,9 @@ Un projet s'ouvre sur un **espace de travail** à onglets, sous l'en-tête :
 - **Déploiements** — ce qui a été déployé sur la base courante, le retour
   arrière, la comparaison schéma / base et le déploiement. Réservé aux
   administrateurs du projet ;
-- **Historique** — les versions du schéma (section 4).
+- **Historique** — les versions du schéma (section 4) ;
+- **Problèmes** — ce que le linter trouve dans le schéma, avec le nombre de
+  constats sur l'onglet (voir « Qualité du schéma » plus bas).
 
 Chaque onglet a sa propre adresse : on peut la partager, recharger la page ou
 utiliser les boutons précédent / suivant du navigateur. À droite de la barre, le
@@ -107,6 +109,39 @@ qui crée un `TableGroup` (cadre en pointillés autour des tables membres).
 La barre d'outils règle le **niveau de détail** (compact / standard / complet),
 la **taille du texte**, l'affichage de la minimap et la mise en évidence des
 relations. Ces réglages sont visuels et partagés par le projet.
+
+### Qualité du schéma (onglet Problèmes)
+
+Pendant que vous modélisez, le schéma est comparé à des **conventions** : clé
+primaire présente, clés étrangères indexées, noms en `snake_case`, `varchar`
+avec une longueur, colonnes `created_at` / `updated_at`, pas de flottant pour
+un montant, tables décrites. L'onglet **Problèmes** liste les constats table
+par table, par niveau (erreur, avertissement, info) ; les erreurs et
+avertissements apparaissent aussi sur la table dans le diagramme, et tous sont
+soulignés dans l'éditeur DBML.
+
+- **Ouvrir dans le schéma** / **Voir la colonne** amène sur la table concernée.
+- Deux constats se corrigent d'un clic, parce qu'il n'y a rien à décider :
+  **Ajouter une clé « id »** (table sans clé ni colonne `id`) et **Créer
+  l'index** (clé étrangère sans index). C'est une modification du schéma comme
+  une autre : elle s'annule avec `Ctrl+Z` et respecte les verrous.
+- Les **administrateurs du projet** choisissent les règles, en bas de l'onglet :
+  un profil (**Souple**, **Standard** — par défaut —, **Strict**) ou le niveau
+  de chaque règle (le projet passe alors en profil **Perso**), une liste de
+  **types interdits** et de **colonnes obligatoires** dans chaque table, et
+  les **exceptions** (« Ignorer pour cette table »).
+- Une table peut aussi s'exempter elle-même, dans sa note :
+  `lint-ignore: pk-required` (plusieurs règles séparées par des virgules, ou
+  `lint-ignore: all`). Cette mention suit le DBML ; elle ne compte pas comme
+  description.
+- **Refuser un déploiement tant qu'une erreur est ouverte** (désactivé par
+  défaut) : le serveur refuse alors de déployer un schéma qui a un constat de
+  niveau erreur, depuis l'application comme par l'API. Les avertissements et
+  les infos ne bloquent jamais.
+
+Ce que le linter ne fait pas : il ne regarde que la structure du schéma (pas
+les données ni la base déployée), et ses règles de nommage se limitent au
+`snake_case` — pas encore de motif de nom personnalisé.
 
 ### Vue conceptuelle (MCD)
 
