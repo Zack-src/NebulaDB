@@ -36,6 +36,8 @@ function assertProductionConfirmed(
   }
 }
 import { getDeploymentHistoryEntry, recordDeployment } from "./deploymentHistory.js";
+import { assertLintAllowsDeployment } from "../lint/check.js";
+import { getLintSettings } from "../lint/repository.js";
 import { emitWebhookEvent } from "../webhooks/dispatcher.js";
 
 /** `deployment.completed` for the project's webhooks — success or failure, deploy or rollback. */
@@ -132,6 +134,9 @@ export async function deployToConnection(
 
   const room = getRoom(projectId);
   const canvasProject = readProjectFromDoc(room.doc, projectId, projectName);
+  // Before a connection is even opened: nothing of the target is needed to
+  // know the schema breaks the project's own rules.
+  assertLintAllowsDeployment(canvasProject, getLintSettings(projectId));
 
   const driver = await createDatabaseDriver(conn);
   try {
