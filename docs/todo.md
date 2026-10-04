@@ -283,8 +283,12 @@ features; the UI only mirrors it.
   cascade on project delete). **Found on the way, fixed:** pulling a schema from a database
   left every relation pointing at ids no table had (`connections/pull.ts` gave tables fresh
   ids and kept the relations on the introspection's) — relations now follow their tables.
-  **Not done:** lock management under `/api/v1` (enforcement is there, the routes are not);
-  plugins need nothing special (they write through the realtime doc) but no plugin was
+  **Lock management under `/api/v1`** — added 2026-10-04: `GET /api/v1/projects/:id/locks`,
+  `PUT` / `DELETE …/locks/:table` (`publicApi/lockRoutes.ts`), the table named by id **or by
+  name**, behind `projects:read` / `projects:write`; the rules themselves moved to
+  `tableLocks/service.ts`, shared with the app's routes. Verified in `tableLocks/routes.test.ts`
+  (API keys, scopes, by name and by id, an instance lock out of reach).
+  **Not done:** plugins need nothing special (they write through the realtime doc) but no plugin was
   tested; the revert is a second revision in the history and briefly visible to other
   clients — merging it into the offending update before broadcast would hide both; the
   security review the Phase 27 rule asks for.

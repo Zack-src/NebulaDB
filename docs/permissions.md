@@ -91,7 +91,8 @@ A lock has an **authority**: `project` (the default) or `instance`.
 
 - The rule holds on every way of writing a schema: the canvas and DBML editor (realtime), DBML
   / SQL import, revision and snapshot restore, pull from a database, and the same routes under
-  `/api/v1`. A REST change that touches a locked table is **refused whole** (`TABLE_LOCKED`,
+  `/api/v1` — where the lock routes themselves exist too (`/api/v1/projects/:id/locks`), with
+  the rights of this table plus a `projects:write` scope. A REST change that touches a locked table is **refused whole** (`TABLE_LOCKED`,
   with the tables in cause); a realtime change is applied and immediately put back, since a
   shared document has no way to refuse one.
 - Another table gaining a foreign key **to** a locked table is allowed: it alters the other

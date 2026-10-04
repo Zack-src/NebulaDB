@@ -24,6 +24,14 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Added (public API)
+
+- **Table locks under `/api/v1`**: `GET /api/v1/projects/:id/locks`, and `PUT` /
+  `DELETE /api/v1/projects/:id/locks/:table` to lock a table or lift its lock —
+  the table named by its id or by its name. Same rules as in the app (project
+  administrators for `project` locks, instance administrators for `instance`
+  ones), behind the `projects:read` / `projects:write` scopes.
+
 ### Added (initial data from a database)
 
 - **A table's current rows can become its initial data.** In a project's
