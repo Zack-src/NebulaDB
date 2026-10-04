@@ -352,6 +352,15 @@ régénère à volonté ; **Utiliser comme données initiales** passe les lignes
 l'onglet Fichier, où elles sont vérifiées et enregistrées comme un CSV, et
 **Exporter en CSV** les télécharge.
 
+**Comparer deux environnements.** Quand le projet a au moins deux bases,
+l'onglet _Déploiements_ propose de les comparer entre elles : choisissez les
+deux bases, **Comparer** lit leur structure et liste, table par table, ce qui
+n'existe que d'un côté et ce qui diffère (colonnes en plus ou en moins, type,
+NOT NULL, valeur par défaut, clé, index, clés étrangères). Une table présente
+dans une base mais absente du schéma est marquée **Hors schéma**. Seule la
+structure est comparée, pas les données ; pour mettre deux bases au même
+niveau, déployez le schéma sur chacune.
+
 **Surveiller les modifications hors Athanor.** Dans l'onglet _Déploiements_,
 un administrateur du projet peut faire relire ses bases à intervalle régulier
 (de 5 minutes à une fois par jour) : chacune est comparée à l'état laissé par

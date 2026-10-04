@@ -24,6 +24,15 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Added (compare environments)
+
+- **"Comparer deux environnements"** on a project's Déploiements tab, when it
+  has at least two databases: both are read and set side by side — tables
+  only one of them has, and for a table that differs, the columns only on one
+  side and each column's type, nullability and default on both. A table that
+  exists in a database but not in the schema is marked "Hors schéma". Project
+  administrators; structure only, no data.
+
 ### Added (data dictionary)
 
 - **A "Dictionnaire" tab in every project.** Each table and column gets a

@@ -524,9 +524,22 @@ here: each gets its own security review before it is closed.**
       entry and can alert. Per-stage guards: deployment windows / freeze, mandatory backup,
       required approval, "must have succeeded on the previous stage".
       **Blocked by:** pipeline stages; workspace shell for the tab.
-- [ ] **Compare environments** — **M**. "PreProd ⇄ Prod" diff list with per-line "Promouvoir"
-      and flags for objects that exist only in the target ("hors schéma"). Reuse
-      `editor/compare/` and the fingerprint. **Blocked by:** fingerprint.
+- [~] **Compare environments** — first slice done 2026-10-04. `compareSchemas` +
+  `describeTableChange` (`dbml-engine/schemaHash.ts`): two structures by the **strict**
+  fingerprint, tables only in one side, tables that differ with the detail (columns only on one
+  side, a column's type / nullability / default before → after, key, indexes, foreign keys),
+  and whether the project's schema has the table at all. `POST
+/api/projects/:id/connections/compare` `{ sourceId, targetId }` (`connections/compare.ts`,
+  project administrators, the two databases read one after the other). UI: the "Comparer deux
+  environnements" card on the Déploiements tab when the project has two databases or more
+  (`CompareEnvironmentsCard.svelte`), with "Hors schéma" on what nobody modelled.
+  **Verified:** `schemaHash.test.ts`, `connections/compare.test.ts` (two SQLite files, rights,
+  identical once level), `e2e/compare-environments.e2e.ts`. **Still to do:** per-line
+  "Promouvoir" (needs the pipeline item above — today the way to level two stages is to deploy
+  the schema to each); two engines compare by canonical type names, which is only as good as
+  `TYPE_ALIASES` (not tried across engines); index and foreign-key differences are flagged,
+  not itemised; `/api/v1`; `connectionBudget` is not consulted; views and other objects are
+  outside the fingerprint.
 - [ ] **Per-environment variables** — **M**. `{{schema}}`, `{{table_prefix}}`, `{{tablespace}}`
       per stage, substituted at DDL generation, with a check that blocks the deployment when a
       variable is used but undefined. Open: encrypted secret variables.
