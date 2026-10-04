@@ -305,7 +305,13 @@ features; the UI only mirrors it.
   browser sessions. **Still to do:**
   - Read-only range for a locked table in the DBML editor (CodeMirror) — today the text can
     be typed and the sync is then refused with the table named.
-  - The "Verrous" list for administrators (all locks of a project in one place).
+  - ~~The "Verrous" list~~ — built 2026-10-04 (`locks/TableLocksList.svelte`): a padlock with
+    the count in the workspace bar, shown as soon as one table is locked, opens every lock of
+    the project (level, authority, who, when, why). Read by anyone who sees the project;
+    "Modifier" / "Déverrouiller" for those who may manage that lock; a lock whose table was
+    deleted is listed as such and can still be lifted. Covered by `e2e/table-locks.e2e.ts`
+    (editor reads, administrator lifts, the button goes away live). Not there: placing a lock
+    from the list (it lists locks, not tables), and no entry point while nothing is locked.
   - Context-menu entries (lock; rename / delete shown disabled with the reason) — the
     padlock button covers the action, the menu does not mention locks yet.
   - Editing or deleting a relation carried by a locked table is still _offered_ (edge

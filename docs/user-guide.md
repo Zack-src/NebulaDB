@@ -220,10 +220,14 @@ modifier.
 - Un administrateur de l'instance peut poser un verrou que seuls les
   administrateurs de l'instance pourront lever.
 - Dupliquer une table verrouillée donne une copie libre.
+- Dès qu'une table est verrouillée, un cadenas avec leur nombre apparaît dans la
+  barre des onglets : il ouvre **Verrous du projet**, la liste de toutes les
+  tables verrouillées (niveau, auteur, date, motif). Tout le monde peut la
+  lire et aller à la table ; ceux qui peuvent gérer un verrou le modifient ou
+  le lèvent depuis cette liste.
 
-Les deux niveaux, _Structure_ et _Complet_, ont aujourd'hui le même effet ;
-_Complet_ couvrira aussi les données initiales de la table quand elles
-existeront. Le détail de qui peut faire quoi est dans
+Les deux niveaux, _Structure_ et _Complet_, gèlent la structure de la même
+façon ; _Complet_ gèle en plus les données initiales de la table (§5). Le détail de qui peut faire quoi est dans
 [`permissions.md`](permissions.md).
 
 ### Commentaires

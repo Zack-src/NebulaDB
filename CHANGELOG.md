@@ -24,6 +24,13 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Added (table locks)
+
+- **"Verrous du projet".** As soon as a table is locked, a padlock with the
+  count appears in the workspace bar and opens the list of every lock: level,
+  who, when, why. Everyone who sees the project can read it and jump to the
+  table; whoever may manage a lock changes or lifts it from there.
+
 ### Added (public API)
 
 - **Table locks under `/api/v1`**: `GET /api/v1/projects/:id/locks`, and `PUT` /
