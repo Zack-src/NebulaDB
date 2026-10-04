@@ -20,7 +20,8 @@
   import Button from "@/components/ui/Button.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
-  import { INPUT_SM_CLASS, SELECT_SM_CLASS } from "@/components/ui/inputStyles";
+  import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
+  import Select from "@/components/ui/Select.svelte";
   import Tabs from "@/components/ui/Tabs.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { formatNumber } from "@/i18n/formatters";
@@ -153,11 +154,16 @@
   <div class="space-y-2 md:col-span-4 lg:col-span-3">
     {#if capabilities.multiDatabase}
       <div class="flex items-center gap-1">
-        <select class={`${SELECT_SM_CLASS} min-w-0 flex-1`} bind:value={database} aria-label={t("dbadmin.database")}>
-          {#each overview.databases as db (db.name)}
-            <option value={db.name}>{db.name}{db.sizeBytes !== null ? ` — ${formatBytes(db.sizeBytes)}` : ""}</option>
-          {/each}
-        </select>
+        <Select
+          size="sm"
+          class="min-w-0 flex-1"
+          bind:value={database}
+          options={overview.databases.map((db) => ({
+            value: db.name,
+            label: `${db.name}${db.sizeBytes !== null ? ` — ${formatBytes(db.sizeBytes)}` : ""}`,
+          }))}
+          aria-label={t("dbadmin.database")}
+        />
         {#if capabilities.dropDatabase}
           <Button
             variant="danger-ghost"
@@ -172,11 +178,13 @@
       </div>
     {/if}
     {#if capabilities.schemas}
-      <select class={`${SELECT_SM_CLASS} w-full`} bind:value={schema} aria-label={t("dbadmin.schema")}>
-        {#each schemas.data ?? [] as s (s.name)}
-          <option value={s.name}>{s.name}</option>
-        {/each}
-      </select>
+      <Select
+        size="sm"
+        class="w-full"
+        bind:value={schema}
+        options={(schemas.data ?? []).map((s) => ({ value: s.name, label: s.name }))}
+        aria-label={t("dbadmin.schema")}
+      />
     {/if}
     <input class={`${INPUT_SM_CLASS} w-full`} bind:value={filter} placeholder={t("dbadmin.explorer.filterTables")} />
 

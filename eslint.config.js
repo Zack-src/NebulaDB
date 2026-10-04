@@ -18,7 +18,6 @@ const HARD_CODED_TEXT = {
  */
 const NATIVE_CONTROLS_NOT_MIGRATED = [
   "admin/AuditTab.svelte",
-  "admin/connections/ExplorerPanel.svelte",
   "auth/Login.svelte",
   "editor/ConvertTypesModal.svelte",
   "editor/compare/CompareProjectsModal.svelte",
