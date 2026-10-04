@@ -87,6 +87,8 @@ const purgeUserAndBelongingsTx = db.transaction((userId: string, email: string, 
   db.prepare("UPDATE projects SET owner_id = ? WHERE owner_id = ?").run(transferTo, userId);
   db.prepare("DELETE FROM sessions WHERE user_id = ?").run(userId);
   db.prepare("DELETE FROM team_members WHERE user_id = ?").run(userId);
+  db.prepare("DELETE FROM subscriptions WHERE user_id = ?").run(userId);
+  db.prepare("DELETE FROM notifications WHERE user_id = ?").run(userId);
   db.prepare("DELETE FROM invitations WHERE invited_by = ? AND accepted_at IS NULL").run(userId);
   db.prepare("DELETE FROM login_attempts WHERE email = ?").run(email);
   db.prepare("DELETE FROM users WHERE id = ?").run(userId);

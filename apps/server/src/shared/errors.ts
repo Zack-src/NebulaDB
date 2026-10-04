@@ -91,6 +91,7 @@ export const ERROR_CATALOG = {
     message: "monitoring: enabled (boolean), intervalMinutes (5, 15, 60, 360 or 1440), ignoreTables (names)",
   },
   STAGE_SKIP_REASON_REQUIRED: { status: 400, message: "skipping a stage needs a reason (skipReason)" },
+  SUBSCRIPTION_INVALID: { status: 400, message: "events must be a list among deployment, lock, seed, drift" },
   COMPARISON_INVALID: { status: 400, message: "sourceId and targetId must be two different connections" },
   DICTIONARY_FORMAT_INVALID: { status: 400, message: "format must be one of json, markdown, csv, html" },
   LINT_INVALID: {

@@ -117,3 +117,30 @@ export interface DriftEvent {
   status: "open" | "resolved" | "ignored";
   resolvedAt: string | null;
 }
+
+/**
+ * What a project's follower can be told about. Each is something that
+ * happened *to the project*, said once — not every keystroke of an edit.
+ */
+export const NOTIFICATION_EVENTS = ["deployment", "lock", "seed", "drift"] as const;
+export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number];
+
+/** Short facts the client words in the reader's language: names, never free text from a database. */
+export type NotificationParams = Record<string, string | number | boolean | null>;
+
+/** `GET/PUT /api/projects/:id/subscription` — the events the signed-in user follows on the project. */
+export interface ProjectSubscription {
+  events: NotificationEvent[];
+}
+
+/** One entry of `GET /api/notifications`. */
+export interface UserNotification {
+  id: string;
+  /** `null` once the project is gone. */
+  projectId: string | null;
+  projectName: string | null;
+  event: NotificationEvent;
+  params: NotificationParams;
+  createdAt: string;
+  read: boolean;
+}

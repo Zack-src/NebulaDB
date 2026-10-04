@@ -827,6 +827,36 @@ export const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 34,
+    name: "subscriptions and notifications tables",
+    up: (db) => {
+      // What an account follows (a project today; `scope_type` leaves room for
+      // a table or a stage), and what it was told. Notifications are trimmed
+      // per account as they arrive — see `notifications/repository.ts`.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS subscriptions (
+          user_id TEXT NOT NULL,
+          scope_type TEXT NOT NULL,
+          scope_id TEXT NOT NULL,
+          events_json TEXT NOT NULL DEFAULT '[]',
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          PRIMARY KEY (user_id, scope_type, scope_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_subscriptions_scope ON subscriptions(scope_type, scope_id);
+        CREATE TABLE IF NOT EXISTS notifications (
+          id TEXT PRIMARY KEY,
+          user_id TEXT NOT NULL,
+          project_id TEXT,
+          event TEXT NOT NULL,
+          params_json TEXT NOT NULL DEFAULT '{}',
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          read_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, read_at);
+      `);
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */

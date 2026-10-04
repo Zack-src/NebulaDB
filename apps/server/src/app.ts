@@ -32,6 +32,7 @@ import { registerSeedRoutes } from "./modules/seeds/routes.js";
 import { registerGeneratorRoutes } from "./modules/generator/routes.js";
 import { registerMonitoringRoutes } from "./modules/monitoring/routes.js";
 import { registerLintRoutes } from "./modules/lint/routes.js";
+import { registerNotificationRoutes } from "./modules/notifications/routes.js";
 import { registerPipelineRoutes } from "./modules/pipeline/routes.js";
 import { registerBackupRoutes } from "./modules/backups/routes.js";
 import { lockedTableIdsFor } from "./modules/tableLocks/access.js";
@@ -198,6 +199,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerGeneratorRoutes(app);
   registerMonitoringRoutes(app);
   registerLintRoutes(app);
+  registerNotificationRoutes(app);
   registerPipelineRoutes(app);
   registerBackupRoutes(app);
   registerWebhookRoutes(app);
