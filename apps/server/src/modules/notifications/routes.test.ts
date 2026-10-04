@@ -101,6 +101,14 @@ test("notifications: followers are told what happened — not their own doing, n
     await follow(owner, ["lock", "seed"]);
     await follow(coAdmin, ["deployment"]);
 
+    // What an account follows is part of its personal-data export.
+    const exported = (await call(app, editor.cookie, "GET", "/api/users/me/export")).json() as {
+      subscriptions: { scopeType: string; scopeId: string; events: string[] }[];
+    };
+    assert.deepEqual(exported.subscriptions, [
+      { scopeType: "project", scopeId: project.id, events: ["deployment", "lock", "seed"] },
+    ]);
+
     // A lock: everyone who follows locks, except the one who placed it.
     await call(app, owner.cookie, "PUT", `${base}/locks/${table.id}`, { level: "structure" });
     assert.deepEqual(await events(owner), []);

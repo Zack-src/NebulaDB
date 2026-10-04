@@ -24,6 +24,21 @@ export function getProjectSubscription(userId: string, projectId: string): Proje
   return row ? { events: JSON.parse(row.events_json) as NotificationEvent[] } : null;
 }
 
+/** Everything an account follows — for its personal-data export. */
+export function listSubscriptionsOf(userId: string): { scopeType: string; scopeId: string; events: string[] }[] {
+  return (
+    db.prepare("SELECT scope_type, scope_id, events_json FROM subscriptions WHERE user_id = ?").all(userId) as {
+      scope_type: string;
+      scope_id: string;
+      events_json: string;
+    }[]
+  ).map((row) => ({
+    scopeType: row.scope_type,
+    scopeId: row.scope_id,
+    events: JSON.parse(row.events_json) as string[],
+  }));
+}
+
 /** Checks what a client sent: a list of known events, without repeats. Empty means "stop following". */
 export function parseSubscription(body: unknown): NotificationEvent[] {
   const events = (body as { events?: unknown } | null)?.events;
