@@ -368,6 +368,7 @@
   "ui.select.noResults": "Aucun résultat",
   "ui.number.increment": "Augmenter",
   "ui.number.decrement": "Diminuer",
+  "ui.dataGrid.resizeColumn": "Redimensionner la colonne {{column}}",
   "ui.password.show": "Afficher le mot de passe",
   "ui.password.hide": "Masquer le mot de passe",
   "ui.toast.region": "Notifications",
