@@ -81,6 +81,8 @@ test("notifications: follow a project, be told what a colleague did, read it", {
 
     // Follow the project's locks, from its header.
     await page.goto(`${env.baseUrl}/project/${projectId}`);
+    // The table on the canvas came through the project's socket: it is open, and what the server pushes will arrive.
+    await page.locator(".svelte-flow__node").filter({ hasText: "customers" }).waitFor();
     await page.getByRole("button", { name: "Suivre ce projet" }).click();
     await page.getByRole("menuitemcheckbox", { name: "Verrous posés ou levés" }).click();
     await page.getByRole("button", { name: "Vous suivez 1 type d'événement de ce projet" }).waitFor();
@@ -101,8 +103,13 @@ test("notifications: follow a project, be told what a colleague did, read it", {
     });
     assert.equal(locked.status(), 200, await locked.text());
 
-    // The bell reads the inbox again when it is opened.
-    await page.getByRole("button", { name: "Notifications", exact: true }).click();
+    // The open project is told at once: the count appears with no reload, no
+    // click, and long before the bell's one-minute poll would have found it.
+    await page.getByTestId("notification-count").waitFor({ timeout: 5_000 });
+    const unreadBell = page.getByRole("button", { name: "Notifications : 1 non lue", exact: true });
+    await unreadBell.waitFor();
+
+    await unreadBell.click();
     const centre = page.getByRole("dialog", { name: "Notifications" });
     const entry = centre.getByRole("listitem").filter({ hasText: "a verrouillé la table « customers »" });
     await entry.waitFor();
