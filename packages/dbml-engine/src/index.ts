@@ -13,3 +13,4 @@ export * from "./templates.js";
 export * from "./schemaHash.js";
 export * from "./partialRestore.js";
 export * from "./deploymentProbes.js";
+export * from "./lint.js";
