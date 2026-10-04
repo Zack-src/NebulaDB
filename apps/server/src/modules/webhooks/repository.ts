@@ -117,6 +117,11 @@ export function updateWebhook(
   }
 }
 
+/** Replaces the signing secret; whatever is sent from now on is signed with the new one. */
+export function setWebhookSecret(id: string, secretEncrypted: string): void {
+  db.prepare("UPDATE project_webhooks SET secret_encrypted = ? WHERE id = ?").run(secretEncrypted, id);
+}
+
 export function deleteWebhook(id: string): void {
   db.transaction(() => {
     db.prepare("DELETE FROM webhook_deliveries WHERE webhook_id = ?").run(id);

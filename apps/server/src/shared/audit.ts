@@ -74,6 +74,7 @@ export const AUDIT_ACTIONS = [
   "webhook.create",
   "webhook.update",
   "webhook.delete",
+  "webhook.rotate_secret",
   "dbconn.policy",
   "dbconn.auth_mode",
   "dbconn.credentials.set",

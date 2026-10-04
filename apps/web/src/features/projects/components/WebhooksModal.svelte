@@ -32,7 +32,8 @@
 
 <script lang="ts">
   import Icon from "@/components/icons/Icon.svelte";
-  import { PlusIcon, TrashIcon } from "@/components/icons/Icons";
+  import { KeyIcon, PlusIcon, TrashIcon } from "@/components/icons/Icons";
+  import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Modal from "@/components/overlays/Modal.svelte";
   import Badge from "@/components/ui/Badge.svelte";
   import Button from "@/components/ui/Button.svelte";
@@ -52,6 +53,7 @@
     deleteWebhook,
     fetchWebhookDeliveries,
     fetchWebhooks,
+    rotateWebhookSecret,
     setWebhookEnabled,
     testWebhook,
   } from "@/services/webhooksApi";
@@ -61,7 +63,7 @@
   /**
    * A project's outgoing webhooks — administrators only (the server enforces
    * it; the card only offers this button to them). The signing secret is
-   * shown once, right after creation, and never again.
+   * shown once, right after creation or after it is regenerated, and never again.
    */
   let { project, onClose }: { project: ProjectSummary; onClose: () => void } = $props();
 
@@ -90,6 +92,14 @@
     secretCopied = false;
     url = "";
     webhooks.reload();
+  });
+  /** The webhook whose secret is about to be replaced — asked first: the receiving service stops trusting Athanor until it has the new one. */
+  let rotating = $state<{ id: string; url: string } | null>(null);
+  const rotate = useAsyncAction(async (id: string) => {
+    const rotated = await rotateWebhookSecret(project.id, id);
+    newSecret = rotated.secret;
+    secretCopied = false;
+    rotating = null;
   });
   const toggle = useAsyncAction(async (id: string, enabled: boolean) => {
     await setWebhookEnabled(project.id, id, enabled);
@@ -213,6 +223,15 @@
             <Button
               variant="ghost"
               size="icon"
+              data-tooltip={t("webhooks.rotateSecret")}
+              aria-label={t("webhooks.rotateSecret")}
+              onclick={() => (rotating = { id: hook.id, url: hook.url })}
+            >
+              <Icon icon={KeyIcon} size={13} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon"
               data-tooltip={t("webhooks.delete")}
               aria-label={t("webhooks.delete")}
               onclick={() => void remove.run(hook.id)}
@@ -249,3 +268,16 @@
     {/if}
   </div>
 </Modal>
+
+{#if rotating}
+  <ConfirmDialog
+    title={t("webhooks.rotateTitle")}
+    message={t("webhooks.rotateMessage", { url: shortUrl(rotating.url) })}
+    confirmLabel={t("webhooks.rotateSecret")}
+    danger="warning"
+    pending={rotate.pending}
+    error={rotate.error}
+    onConfirm={() => rotating && void rotate.run(rotating.id)}
+    onCancel={() => (rotating = null)}
+  />
+{/if}

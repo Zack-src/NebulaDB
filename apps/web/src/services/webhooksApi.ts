@@ -42,6 +42,11 @@ export function createWebhook(
   return request<{ webhook: Webhook; secret: string }>(base(projectId), { method: "POST", body: input });
 }
 
+/** A new signing secret for the same webhook — returned once, like at creation; the old one stops signing. */
+export function rotateWebhookSecret(projectId: string, id: string): Promise<{ webhook: Webhook; secret: string }> {
+  return request<{ webhook: Webhook; secret: string }>(`${base(projectId)}/${id}/rotate-secret`, { method: "POST" });
+}
+
 export function setWebhookEnabled(projectId: string, id: string, enabled: boolean): Promise<Webhook> {
   return request<Webhook>(`${base(projectId)}/${id}`, { method: "PATCH", body: { enabled } });
 }

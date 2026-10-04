@@ -141,6 +141,94 @@ test("create → ping: the secret is shown once, and every request is signed wit
   }
 });
 
+test("a rotated secret signs from then on, the old one no longer does; the same rules hold under /api/v1", async () => {
+  received.length = 0;
+  const app = await buildApp();
+  try {
+    const cookie = await login(app);
+    const other = await login(app);
+    const projectId = await newProject(app, cookie);
+    const call = (method: "GET" | "POST" | "PATCH" | "DELETE", url: string, payload?: unknown, as = cookie) =>
+      app.inject({
+        method,
+        url,
+        headers: headers({ cookie: as }),
+        ...(payload === undefined ? {} : { payload: payload as object }),
+      });
+    const base = `/api/projects/${projectId}/webhooks`;
+    const created = (await call("POST", base, { url: receiverUrl })).json() as {
+      webhook: { id: string };
+      secret: string;
+    };
+    const hook = `${base}/${created.webhook.id}`;
+
+    assert.equal((await call("POST", `${hook}/rotate-secret`, undefined, other)).statusCode, 403);
+    assert.equal((await call("POST", `${base}/${randomUUID()}/rotate-secret`)).statusCode, 404);
+    const rotated = await call("POST", `${hook}/rotate-secret`);
+    assert.equal(rotated.statusCode, 200, rotated.body);
+    const { secret } = rotated.json() as { secret: string };
+    assert.match(secret, /^whsec_/);
+    assert.notEqual(secret, created.secret);
+    assert.doesNotMatch((await call("GET", base)).body, /whsec_/, "shown once, like the first");
+
+    assert.equal((await call("POST", `${hook}/test`)).json().status, "succeeded");
+    assert.ok(verifySignature(secret, received[0]), "signed with the new secret");
+    assert.ok(!verifySignature(created.secret, received[0]), "not with the old one");
+    assert.equal(
+      (db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'webhook.rotate_secret'").get() as { n: number })
+        .n,
+      1,
+    );
+
+    // /api/v1: a key's scopes on top of the same rules.
+    const key = async (scopes: string[]) =>
+      (await call("POST", "/api/keys", { name: "hooks", scopes })).json().plaintextKey as string;
+    const withKey = (plaintext: string, method: "GET" | "POST" | "PATCH" | "DELETE", url: string, payload?: unknown) =>
+      app.inject({
+        method,
+        url,
+        headers: { host: HOST, authorization: `Bearer ${plaintext}` },
+        ...(payload === undefined ? {} : { payload: payload as object }),
+      });
+    const readKey = await key(["projects:read"]);
+    const writeKey = await key(["projects:read", "projects:write"]);
+    const v1 = `/api/v1/projects/${projectId}/webhooks`;
+
+    const listed = await withKey(readKey, "GET", v1);
+    assert.equal(listed.statusCode, 200, listed.body);
+    assert.equal(listed.json().webhooks.length, 1);
+    assert.doesNotMatch(listed.body, /whsec_/);
+    assert.equal((await withKey(readKey, "POST", v1, { url: receiverUrl })).statusCode, 403);
+    assert.equal((await withKey(writeKey, "POST", v1, { url: "ftp://example.com" })).statusCode, 400);
+
+    const made = await withKey(writeKey, "POST", v1, { url: receiverUrl, format: "json", events: ["drift.detected"] });
+    assert.equal(made.statusCode, 201, made.body);
+    const second = made.json() as { webhook: { id: string; events: string[] }; secret: string };
+    assert.deepEqual(second.webhook.events, ["drift.detected"]);
+    const one = `${v1}/${second.webhook.id}`;
+
+    const off = await withKey(writeKey, "PATCH", one, { enabled: false });
+    assert.equal(off.json().enabled, false);
+    assert.equal((await withKey(readKey, "POST", `${one}/rotate-secret`)).statusCode, 403);
+    const again = (await withKey(writeKey, "POST", `${one}/rotate-secret`)).json() as { secret: string };
+    received.length = 0;
+    assert.equal((await withKey(writeKey, "POST", `${one}/test`)).json().status, "succeeded");
+    assert.ok(verifySignature(again.secret, received[0]));
+    const log = await withKey(readKey, "GET", `${one}/deliveries`);
+    assert.deepEqual(
+      (log.json().deliveries as { event: string; status: string }[]).map((d) => [d.event, d.status]),
+      [["ping", "succeeded"]],
+    );
+
+    assert.equal((await withKey(writeKey, "DELETE", one)).json().deleted, true);
+    assert.equal((await withKey(readKey, "GET", v1)).json().webhooks.length, 1);
+    assert.equal((await app.inject({ method: "GET", url: v1, headers: { host: HOST } })).statusCode, 401);
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
+
 test("schema.changed: a burst of edits becomes one notification with a summary; a table drag sends nothing", async () => {
   received.length = 0;
   resetWebhookState();

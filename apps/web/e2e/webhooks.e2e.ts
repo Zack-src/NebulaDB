@@ -57,6 +57,18 @@ test(
       assert.equal(received[0].headers["x-athanordb-event"], "ping");
       assert.match(String(received[0].headers["x-athanordb-signature"]), /^t=\d+,v1=[0-9a-f]{64}$/);
       assert.equal(JSON.parse(received[0].body).project.name, "Hooked");
+
+      // A new secret for the same webhook: asked first, then shown once like the first.
+      await page.getByRole("button", { name: "Régénérer le secret" }).click();
+      const confirm = page.getByRole("dialog", { name: "Régénérer le secret de signature ?" });
+      await confirm.getByText(/cesse de signer immédiatement/).waitFor();
+      await confirm.getByRole("button", { name: "Régénérer le secret" }).click();
+      await confirm.waitFor({ state: "detached" });
+      await page.waitForFunction(
+        (old) => document.querySelector('[data-testid="webhook-secret"]')?.textContent?.trim() !== old,
+        secret,
+      );
+      assert.match((await page.getByTestId("webhook-secret").innerText()).trim(), /^whsec_/);
     } finally {
       await env.teardown();
       await new Promise<void>((resolve) => receiver.close(() => resolve()));
