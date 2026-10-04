@@ -15,7 +15,7 @@ const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
 const { hashPassword } = await import("../auth/password.js");
 const { closeAllRooms, getRoom } = await import("../../realtime/roomRegistry.js");
-const { writeProjectToDoc } = await import("@athanordb/shared");
+const { getTablesMap, writeProjectToDoc } = await import("@athanordb/shared");
 
 const HOST = "localhost:3001";
 const ORIGIN = `http://${HOST}`;
@@ -787,6 +787,47 @@ test("/api/v1 IAM grant: a projects:write scope alone is not enough without proj
     });
     assert.equal(res.statusCode, 403);
     assert.equal(res.json().code, "FORBIDDEN");
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
+
+test("/api/v1 dictionary: the schema's notes as JSON or as a document, format checked", async () => {
+  const app = await buildApp();
+  try {
+    const owner = await makeUser();
+    const cookie = await loginAs(app, owner.email, owner.password);
+    const { project, plaintextKey } = await createProjectWithKey(app, cookie, ["projects:read"]);
+    const room = getRoom(project.id);
+    const table = getTablesMap(room.doc).get("t-widgets")!;
+    getTablesMap(room.doc).set("t-widgets", { ...table, note: "Things we sell. [owner: catalogue] [class: internal]" });
+    const get = (query = "") =>
+      app.inject({
+        method: "GET",
+        url: `/api/v1/projects/${project.id}/dictionary${query}`,
+        headers: bearer(plaintextKey),
+      });
+
+    const json = await get();
+    assert.equal(json.statusCode, 200, json.body);
+    assert.deepEqual(json.json().completeness, { tables: 1, describedTables: 1, columns: 1, describedColumns: 0 });
+    assert.equal(json.json().tables[0].owner, "catalogue");
+    assert.equal(json.json().tables[0].classification, "internal");
+
+    const markdown = await get("?format=markdown");
+    assert.match(markdown.headers["content-type"] as string, /^text\/markdown/);
+    assert.match(markdown.body, /## widgets\n\nThings we sell\./);
+    assert.match((await get("?format=csv")).body, /^table,column,type/);
+    assert.match((await get("?format=html")).body, /^<!doctype html>/);
+
+    const bad = await get("?format=pdf");
+    assert.equal(bad.statusCode, 400);
+    assert.equal(bad.json().code, "DICTIONARY_FORMAT_INVALID");
+    assert.equal(
+      (await app.inject({ method: "GET", url: `/api/v1/projects/${project.id}/dictionary` })).statusCode,
+      401,
+    );
   } finally {
     closeAllRooms();
     await app.close();

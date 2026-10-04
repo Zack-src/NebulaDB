@@ -2,6 +2,11 @@ import type { FastifyInstance } from "fastify";
 import { readProjectFromDoc, writeProjectToDoc } from "@athanordb/shared";
 import {
   applyVisualMetadata,
+  buildDictionary,
+  dictionaryToCsv,
+  dictionaryToHtml,
+  dictionaryToMarkdown,
+  type DataDictionary,
   mergeProjectIntoExisting,
   preserveConcurrentAdditions,
   projectToDbml,
@@ -28,6 +33,13 @@ import { registerPublicTeamRoutes } from "./teamRoutes.js";
 import { API_RATE_LIMIT } from "./rateLimits.js";
 import { buildOpenApiSpec } from "./openapi.js";
 import { config } from "../../config.js";
+
+const DICTIONARY_FORMATS: Record<string, { type: string; body: (dictionary: DataDictionary) => string }> = {
+  json: { type: "application/json", body: (dictionary) => JSON.stringify(dictionary) },
+  markdown: { type: "text/markdown", body: dictionaryToMarkdown },
+  csv: { type: "text/csv", body: dictionaryToCsv },
+  html: { type: "text/html", body: dictionaryToHtml },
+};
 
 /**
  * The stable, versioned, key-authable public surface (Phase 21). Deliberately
@@ -125,6 +137,19 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
     const { project } = requireProjectAccess(req, id, "view");
     requireScope(req, "projects:read", id);
     return lintReport(id, project.name);
+  });
+
+  // The data dictionary — what the schema's notes say each table and column is — as JSON or as a document.
+  app.get("/api/v1/projects/:id/dictionary", API_RATE_LIMIT, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const format = (req.query as { format?: string }).format ?? "json";
+    const { project } = requireProjectAccess(req, id, "view");
+    requireScope(req, "projects:read", id);
+    const render = DICTIONARY_FORMATS[format];
+    if (!render) throw new ApiError("DICTIONARY_FORMAT_INVALID");
+    const dictionary = buildDictionary(readProjectFromDoc(getRoom(id).doc, project.id, project.name));
+    if (format === "json") return dictionary;
+    return reply.type(`${render.type}; charset=utf-8`).send(render.body(dictionary));
   });
 
   app.get("/api/v1/projects/:id/export/dbml", API_RATE_LIMIT, async (req, reply) => {

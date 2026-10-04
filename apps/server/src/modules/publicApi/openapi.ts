@@ -106,6 +106,24 @@ export const OPERATIONS: Operation[] = [
   },
   {
     method: "get",
+    path: "/api/v1/projects/:id/dictionary",
+    tag: "Projects",
+    scope: "projects:read",
+    summary: "Data dictionary: descriptions, owners, classification and tags from the schema's notes",
+    description:
+      "JSON by default (`{ projectName, tables, completeness }`); `format=markdown`, `csv` or `html` returns the same content as a document.",
+    query: [{ name: "format", schema: { type: "string", enum: ["json", "markdown", "csv", "html"], default: "json" } }],
+    ok: {
+      status: 200,
+      schema: obj({
+        projectName: str,
+        tables: { type: "array", items: { type: "object" } },
+        completeness: obj({ tables: int, describedTables: int, columns: int, describedColumns: int }),
+      }),
+    },
+  },
+  {
+    method: "get",
     path: "/api/v1/projects/:id/locks",
     tag: "Projects",
     scope: "projects:read",

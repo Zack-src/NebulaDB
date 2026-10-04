@@ -88,6 +88,7 @@ export const ERROR_CATALOG = {
     status: 400,
     message: "monitoring: enabled (boolean), intervalMinutes (5, 15, 60, 360 or 1440), ignoreTables (names)",
   },
+  DICTIONARY_FORMAT_INVALID: { status: 400, message: "format must be one of json, markdown, csv, html" },
   LINT_INVALID: {
     status: 400,
     message:
