@@ -47,6 +47,10 @@ const flag = (name: string): Schema => obj({ [name]: { type: "boolean", const: t
 const PERMISSION: Schema = { type: "string", enum: ["view", "edit", "administrator"] };
 const DIALECT: Schema = { type: "string", enum: ["postgres", "mysql", "mssql"] };
 
+/** Who reaches a connection's personal-account routes — neither of the two notes `admin` writes. */
+const CREDENTIAL_ACCESS =
+  "Open to instance administrators and to the administrators of a project the connection is attached to; anyone else gets 404 CONNECTION_NOT_FOUND. A key restricted to one project works only on a connection attached to that project (403 API_KEY_PROJECT_RESTRICTED otherwise).";
+
 export const OPERATIONS: Operation[] = [
   // --- projects ---
   {
@@ -615,6 +619,39 @@ export const OPERATIONS: Operation[] = [
     ok: { status: 200, schema: obj({ success: bool, executedStatements: int }) },
   },
 
+  // --- personal database accounts (instance-level: a connection's id, no project) ---
+  {
+    method: "get",
+    path: "/api/v1/connections/:id/credentials",
+    tag: "Connections",
+    scope: "connections:manage",
+    summary: "The caller's own database account on a connection (never the password)",
+    description: `For a connection that asks each user for their own account (\`authMode: personal\`): what the key's owner does on that database through this API is done as that account. \`username\` is \`null\` when none has been given.\n\n${CREDENTIAL_ACCESS}`,
+    ok: { status: 200, schema: ref("PersonalCredentialStatus") },
+  },
+  {
+    method: "put",
+    path: "/api/v1/connections/:id/credentials",
+    tag: "Connections",
+    scope: "connections:manage",
+    summary: "Give the caller's own database account on a connection",
+    description: `The account is tried on the database before it is kept (400 PERSONAL_CREDENTIALS_REJECTED when the database refuses it: nothing is stored); its password is stored encrypted and never returned. 409 PERSONAL_CREDENTIALS_NOT_USED for a connection that uses one shared account. Until the key's owner has given an account, the routes that open such a database for them (pull, deploy, rollback, compare) answer 409 PERSONAL_CREDENTIALS_REQUIRED. Limited to 10 requests a minute.\n\n${CREDENTIAL_ACCESS}`,
+    body: obj({
+      username: { type: "string", maxLength: 128 },
+      password: { type: "string", maxLength: 1024, format: "password" },
+    }),
+    ok: { status: 200, schema: ref("PersonalCredentialStatus") },
+  },
+  {
+    method: "delete",
+    path: "/api/v1/connections/:id/credentials",
+    tag: "Connections",
+    scope: "connections:manage",
+    summary: "Remove the caller's own database account from a connection",
+    description: CREDENTIAL_ACCESS,
+    ok: { status: 200, schema: ref("PersonalCredentialStatus") },
+  },
+
   // --- backups (instance-level: a connection's id, no project) ---
   {
     method: "get",
@@ -947,6 +984,15 @@ const COMPONENTS: Record<string, Schema> = {
     ["id", "projectId", "connectionName", "engine", "sql", "success", "createdAt", "rolledBack"],
   ),
   TeamMember: obj({ id: str, email: str, isAdmin: bool, displayName: str }),
+  PersonalCredentialStatus: obj({
+    authMode: {
+      type: "string",
+      enum: ["shared", "personal"],
+      description: "`personal`: the connection asks each user for their own account",
+    },
+    username: { type: ["string", "null"], description: "`null` when the caller has given no account" },
+    updatedAt: { type: ["string", "null"] },
+  }),
 };
 
 const ERROR_RESPONSES = {
