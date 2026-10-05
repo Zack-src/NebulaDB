@@ -116,6 +116,21 @@ function readAuditRetentionDays(): number {
   return days;
 }
 
+/**
+ * How many days of per-statement figures (the "Requêtes" view of a
+ * connection's journal) are kept. Short by default: they are a working aid,
+ * not a record — the audit log is the record. `0` keeps them all.
+ */
+function readQueryStatsRetentionDays(): number {
+  const raw = process.env.ATHANORDB_QUERY_STATS_RETENTION_DAYS;
+  if (raw === undefined || raw.trim() === "") return 30;
+  const days = Number(raw);
+  if (!Number.isInteger(days) || days < 0 || days > 3650) {
+    fail(`ATHANORDB_QUERY_STATS_RETENTION_DAYS must be an integer between 0 and 3650 (got ${JSON.stringify(raw)})`);
+  }
+  return days;
+}
+
 /** Extra origins allowed to make state-changing requests, on top of the app's own host. */
 function readAllowedOrigins(): string[] {
   const raw = process.env.ATHANORDB_ALLOWED_ORIGINS;
@@ -272,6 +287,8 @@ export const config = {
   databaseBackupRetentionDays: readDatabaseBackupRetentionDays(),
   /** 0 keeps audit entries indefinitely. */
   auditRetentionDays: readAuditRetentionDays(),
+  /** 0 keeps the SQL console's per-statement figures indefinitely. */
+  queryStatsRetentionDays: readQueryStatsRetentionDays(),
   publicUrl,
   /**
    * When set, a SQLite connection may only open a file inside this directory.

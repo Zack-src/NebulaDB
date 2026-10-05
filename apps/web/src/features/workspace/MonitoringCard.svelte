@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { MONITOR_INTERVALS, type DriftEvent } from "@athanordb/shared";
+  import { MONITOR_INTERVALS, type AccountChange, type DriftEvent } from "@athanordb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { RestoreIcon } from "@/components/icons/Icons";
   import Badge from "@/components/ui/Badge.svelte";
@@ -9,18 +9,32 @@
   import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
   import Select from "@/components/ui/Select.svelte";
   import Switch from "@/components/ui/Switch.svelte";
+  import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import { parseServerTime } from "@/features/sql/format";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { formatDateTime, formatRelativeTime } from "@/i18n/formatters";
   import { i18n, useTranslation } from "@/i18n/i18n.svelte";
-  import { fetchMonitoring, runMonitoringCheck, saveMonitoring, type MonitoringState } from "@/services/monitoringApi";
+  import {
+    acceptAccountState,
+    fetchMonitoring,
+    runMonitoringCheck,
+    saveMonitoring,
+    setAccountWatch,
+    type MonitoringState,
+  } from "@/services/monitoringApi";
 
   /**
    * "Surveillance": whether the project's databases are read on a schedule
    * and compared with the state the last deployment or pull left them in. A
    * difference nothing in Athanor explains turns on the editor's drift banner,
    * is listed here, and goes to the project's webhooks.
+   *
+   * The accounts watch (instance administrators only — the server sends
+   * `accounts: null` to anyone else, and no account finding): the same
+   * databases' accounts, roles and privileges, compared with a reference
+   * that Athanor's own console changes move along. Not offered when no
+   * linked database has accounts (SQLite).
    */
   let { projectId, canManage }: { projectId: string; canManage: boolean } = $props();
 
@@ -42,6 +56,16 @@
   const check = useAsyncAction(async () => {
     override = await runMonitoringCheck(projectId);
   });
+  const watchAccounts = useAsyncAction(async (enabled: boolean) => {
+    override = await setAccountWatch(projectId, enabled);
+  });
+  /** The database whose current accounts are about to become the reference. */
+  let accepting = $state<{ connectionId: string; connectionName: string } | null>(null);
+  const accept = useAsyncAction(async () => {
+    if (!accepting) return;
+    override = await acceptAccountState(projectId, accepting.connectionId);
+    accepting = null;
+  });
 
   function saveIgnore() {
     if (ignoreDraft === null) return;
@@ -57,13 +81,22 @@
     MONITOR_INTERVALS.map((minutes) => ({ value: minutes, label: t(`monitoring.every.${minutes}` as "monitoring.every.5") })),
   );
   const STATUS_TONE = { open: "danger", resolved: "success", ignored: "muted" } as const;
+  const describeChange = (change: AccountChange) =>
+    t(`monitoring.accountChange.${change.type}`, {
+      principal: change.principal,
+      role: change.role ?? "",
+      privilege: change.privilege ?? "",
+      object: [change.scope, change.object].filter(Boolean).join(" "),
+    });
   const summary = (event: DriftEvent) =>
     event.kind === "unreachable"
       ? (event.error ?? "")
-      : [...event.added.map((n) => `+${n}`), ...event.changed.map((n) => `~${n}`), ...event.removed.map((n) => `−${n}`)].join(
+      : event.kind === "accounts"
+        ? (event.accountChanges ?? []).map(describeChange).join(" · ")
+        : [...event.added.map((n) => `+${n}`), ...event.changed.map((n) => `~${n}`), ...event.removed.map((n) => `−${n}`)].join(
           " ",
         );
-  const busy = $derived(save.pending || check.pending);
+  const busy = $derived(save.pending || check.pending || watchAccounts.pending);
 </script>
 
 <section class="rounded-md border border-border bg-surface p-3 text-xs" aria-labelledby="monitoring-title" data-testid="monitoring">
@@ -120,6 +153,57 @@
       />
     </div>
 
+    {#if current.accounts && current.accounts.connections.length > 0}
+      {@const accounts = current.accounts}
+      <div class="mt-3 border-t border-border/60 pt-2" data-testid="monitoring-accounts">
+        <span class="flex items-center gap-2">
+          <Switch
+            size="sm"
+            checked={accounts.enabled}
+            disabled={!accounts.canManage || busy}
+            onChange={(enabled) => void watchAccounts.run(enabled)}
+            aria-label={t("monitoring.accounts.enable")}
+          />
+          <span>{t("monitoring.accounts.enable")}</span>
+          <Badge tone="admin">{t("monitoring.accounts.adminOnly")}</Badge>
+        </span>
+        <Hint>{t(current.settings.enabled ? "monitoring.accounts.hint" : "monitoring.accounts.needsWatch")}</Hint>
+        {#if accounts.enabled}
+          <ul class="m-0 mt-1 list-none space-y-1 p-0" aria-label={t("monitoring.accounts.databases")}>
+            {#each accounts.connections as connection (connection.connectionId)}
+              <li class="flex flex-wrap items-center gap-2" data-testid="monitoring-accounts-connection">
+                <span class="font-semibold">{connection.connectionName}</span>
+                {#if connection.lastError}
+                  <Badge tone="warning">{t("monitoring.accounts.unreadable")}</Badge>
+                  <span class="min-w-0 flex-1 truncate text-text-muted" title={connection.lastError}>{connection.lastError}</span>
+                {:else if !connection.referenceAt}
+                  <span class="text-text-muted">{t("monitoring.accounts.noReference")}</span>
+                {:else}
+                  <Badge tone={connection.differs ? "danger" : "success"}>
+                    {t(connection.differs ? "monitoring.accounts.differs" : "monitoring.accounts.same")}
+                  </Badge>
+                  <span class="text-text-muted">
+                    {t("monitoring.accounts.referenceAt", {
+                      when: formatDateTime(parseServerTime(connection.referenceAt), i18n.locale),
+                    })}
+                  </span>
+                  {#if connection.differs && accounts.canManage}
+                    <Button
+                      size="xs"
+                      variant="outline"
+                      onclick={() => (accepting = { connectionId: connection.connectionId, connectionName: connection.connectionName })}
+                    >
+                      {t("monitoring.accounts.accept")}
+                    </Button>
+                  {/if}
+                {/if}
+              </li>
+            {/each}
+          </ul>
+        {/if}
+      </div>
+    {/if}
+
     {#if current.events.length > 0}
       <ul class="m-0 mt-3 list-none space-y-1 p-0" aria-label={t("monitoring.events")}>
         {#each current.events.slice(0, 10) as event (event.id)}
@@ -134,7 +218,19 @@
       </ul>
     {/if}
   {/if}
-  {#if monitoring.error ?? save.error ?? check.error}
-    <ErrorText>{monitoring.error ?? save.error ?? check.error}</ErrorText>
+  {#if monitoring.error ?? save.error ?? check.error ?? watchAccounts.error}
+    <ErrorText>{monitoring.error ?? save.error ?? check.error ?? watchAccounts.error}</ErrorText>
+  {/if}
+  {#if accepting}
+    <ConfirmDialog
+      title={t("monitoring.accounts.acceptTitle")}
+      message={t("monitoring.accounts.acceptMessage", { connection: accepting.connectionName })}
+      confirmLabel={t("monitoring.accounts.accept")}
+      danger="warning"
+      pending={accept.pending}
+      error={accept.error}
+      onConfirm={() => void accept.run()}
+      onCancel={() => (accepting = null)}
+    />
   {/if}
 </section>

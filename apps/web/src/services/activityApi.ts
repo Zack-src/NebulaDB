@@ -2,7 +2,7 @@ import type { AuditEntry } from "@/types";
 import { request } from "./httpClient";
 
 export type ActivityCategory =
-  "structure" | "data" | "deployments" | "accounts" | "sessions" | "projects" | "configuration";
+  "structure" | "data" | "deployments" | "accounts" | "sessions" | "monitoring" | "projects" | "configuration";
 
 export const ACTIVITY_CATEGORIES: readonly ActivityCategory[] = [
   "structure",
@@ -10,6 +10,7 @@ export const ACTIVITY_CATEGORIES: readonly ActivityCategory[] = [
   "deployments",
   "accounts",
   "sessions",
+  "monitoring",
   "projects",
   "configuration",
 ];

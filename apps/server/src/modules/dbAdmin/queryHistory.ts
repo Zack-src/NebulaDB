@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import type { DbAdminQueryHistoryEntry } from "@athanordb/shared";
 import { db } from "../../infrastructure/db.js";
+import { recordQueryStat } from "./queryStats.js";
 
 /** Per admin and per connection. A recall aid, not a record: the audit log is the accountable trail. */
 const MAX_ENTRIES = 200;
@@ -31,6 +32,8 @@ export interface QueryHistoryInput {
 }
 
 export function recordQuery(input: QueryHistoryInput): void {
+  // The per-statement figures of the connection's journal ("Requêtes"), literals masked.
+  recordQueryStat(input);
   try {
     db.prepare(
       `INSERT INTO admin_query_history

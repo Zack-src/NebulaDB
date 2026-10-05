@@ -106,6 +106,7 @@
     deployments: "text-primary",
     accounts: "text-text",
     sessions: "text-text-muted",
+    monitoring: "text-danger",
     projects: "text-success",
     configuration: "text-text-secondary",
   };

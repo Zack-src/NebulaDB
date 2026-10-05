@@ -108,13 +108,16 @@ export const MONITOR_INTERVALS: readonly number[] = [5, 15, 60, 360, 1440];
  * Something the watch found. `external`: the database changed since Athanor
  * last deployed or pulled, and no deployment explains it. `partial-deployment`:
  * the change matches a deployment that failed half-way. `unreachable`: the
- * database could not be read — never reported as a change.
+ * database could not be read — never reported as a change. `accounts`: the
+ * database's accounts or privileges changed and no Athanor action explains it
+ * (only shown to the project's administrators; `added` / `removed` are then
+ * canonical account lines and `accountChanges` says what they mean).
  */
 export interface DriftEvent {
   id: Id;
   connectionId: Id;
   connectionName: string | null;
-  kind: "external" | "partial-deployment" | "unreachable";
+  kind: "external" | "partial-deployment" | "unreachable" | "accounts";
   detectedAt: string;
   added: string[];
   removed: string[];
@@ -122,6 +125,59 @@ export interface DriftEvent {
   error: string | null;
   status: "open" | "resolved" | "ignored";
   resolvedAt: string | null;
+  /** Set on an `accounts` event. */
+  accountChanges?: AccountChange[];
+}
+
+/**
+ * One change to a database's accounts, as the accounts watch reads it. Names
+ * and privileges only — never a password or its hash.
+ */
+export interface AccountChange {
+  type:
+    | "created"
+    | "dropped"
+    | "locked"
+    | "unlocked"
+    | "login-granted"
+    | "login-removed"
+    | "superuser-granted"
+    | "superuser-removed"
+    | "role-granted"
+    | "role-revoked"
+    | "privilege-granted"
+    | "privilege-revoked";
+  /** The account or role, as the engine names it (`name@host` on MySQL, `database/name` for a SQL Server database user). */
+  principal: string;
+  /** The role, for `role-*`. */
+  role?: string;
+  /** For `privilege-*`: the privilege, the scope and the object it applies to. */
+  privilege?: string;
+  scope?: string;
+  object?: string;
+}
+
+/**
+ * The accounts watch of a project (`GET /api/projects/:id/monitoring`, for its
+ * administrators): whether it is on — only an instance administrator turns it
+ * on or off — and, per linked database that has accounts, the reference it
+ * compares with.
+ */
+export interface AccountWatchState {
+  enabled: boolean;
+  /** Whether the caller may switch it (instance administrator). */
+  canManage: boolean;
+  connections: {
+    connectionId: Id;
+    connectionName: string;
+    engine: string;
+    /** When the reference was taken; `null` before the first read. */
+    referenceAt: string | null;
+    /** The last read failed: why (the service account may lack the rights to list accounts). */
+    lastError: string | null;
+    /** The database differs from the reference right now. */
+    differs: boolean;
+  }[];
 }
 
 /**
@@ -130,6 +186,15 @@ export interface DriftEvent {
  */
 export const NOTIFICATION_EVENTS = ["deployment", "lock", "seed", "drift"] as const;
 export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number];
+
+/**
+ * Notifications addressed to one person rather than to a project's followers:
+ * they arrive whether or not the project is followed, since someone chose to
+ * write to that person — a comment that mentions them, a reply in a thread
+ * they wrote in.
+ */
+export const DIRECT_NOTIFICATION_EVENTS = ["mention", "reply"] as const;
+export type DirectNotificationEvent = (typeof DIRECT_NOTIFICATION_EVENTS)[number];
 
 /** Short facts the client words in the reader's language: names, never free text from a database. */
 export type NotificationParams = Record<string, string | number | boolean | null>;
@@ -145,7 +210,7 @@ export interface UserNotification {
   /** `null` once the project is gone. */
   projectId: string | null;
   projectName: string | null;
-  event: NotificationEvent;
+  event: NotificationEvent | DirectNotificationEvent;
   params: NotificationParams;
   createdAt: string;
   read: boolean;

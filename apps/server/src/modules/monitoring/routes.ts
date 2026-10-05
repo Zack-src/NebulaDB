@@ -1,7 +1,16 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import type { MonitorSettings } from "@athanordb/shared";
 import { auditUser } from "../../shared/audit.js";
-import { requireProjectAccess, requireProjectAdmin } from "../../shared/guards.js";
+import { ApiError } from "../../shared/errors.js";
+import { requireAdmin, requireProjectAccess, requireProjectAdmin, requireUser } from "../../shared/guards.js";
+import { getProjectRow } from "../projects/repository.js";
+import {
+  acceptAccountState,
+  accountWatchState,
+  isAccountWatchOn,
+  registerAccountWatchHooks,
+  setAccountWatch,
+} from "./accountWatch.js";
 import { checkProjectMonitoring } from "./monitor.js";
 import { getMonitorSettings, listDriftEvents, parseMonitorSettings, saveMonitorSettings } from "./repository.js";
 
@@ -35,10 +44,26 @@ export function saveMonitoringFor(
  * project (the banner already tells them).
  */
 export function registerMonitoringRoutes(app: FastifyInstance): void {
+  registerAccountWatchHooks(app);
+
+  /**
+   * The watch as the caller may see it. The accounts watch names the
+   * database's accounts — the console's "Utilisateurs" tab is the instance
+   * administrators' — so its state and findings are theirs only.
+   */
+  const monitoringView = (req: FastifyRequest, id: string) => {
+    const admin = requireUser(req).isAdmin;
+    return {
+      settings: getMonitorSettings(id),
+      events: listDriftEvents(id, 50, admin),
+      accounts: admin ? accountWatchState(id, true) : null,
+    };
+  };
+
   app.get("/api/projects/:id/monitoring", async (req) => {
     const { id } = req.params as { id: string };
     requireProjectAccess(req, id, "view");
-    return { settings: getMonitorSettings(id), events: listDriftEvents(id) };
+    return monitoringView(req, id);
   });
 
   app.put("/api/projects/:id/monitoring", async (req) => {
@@ -51,6 +76,35 @@ export function registerMonitoringRoutes(app: FastifyInstance): void {
     const { id } = req.params as { id: string };
     requireProjectAdmin(req, id);
     const result = await checkProjectMonitoring(id);
-    return { result, settings: getMonitorSettings(id), events: listDriftEvents(id) };
+    return { result, ...monitoringView(req, id) };
+  });
+
+  // Turning the accounts watch on or off: instance administrators only.
+  app.put("/api/projects/:id/monitoring/accounts", async (req) => {
+    const user = requireAdmin(req);
+    const { id } = req.params as { id: string };
+    if (!getProjectRow(id)) throw new ApiError("NOT_FOUND");
+    const { enabled } = (req.body ?? {}) as { enabled?: unknown };
+    if (typeof enabled !== "boolean") throw new ApiError("MONITORING_INVALID");
+    if (isAccountWatchOn(id) !== enabled) {
+      setAccountWatch(id, enabled);
+      auditUser(user, "monitoring.accounts.watch", { type: "project", id }, enabled ? "on" : "off", req);
+    }
+    return monitoringView(req, id);
+  });
+
+  // "This is how it should be": the state last read becomes the reference.
+  app.post("/api/projects/:id/monitoring/accounts/accept", CHECK_LIMIT, async (req) => {
+    const user = requireAdmin(req);
+    const { id } = req.params as { id: string };
+    if (!getProjectRow(id)) throw new ApiError("NOT_FOUND");
+    const { connectionId } = (req.body ?? {}) as { connectionId?: unknown };
+    if (typeof connectionId !== "string" || !acceptAccountState(id, connectionId)) {
+      throw new ApiError("MONITORING_INVALID");
+    }
+    auditUser(user, "monitoring.accounts.accept", { type: "connection", id: connectionId }, undefined, req, {
+      projectId: id,
+    });
+    return monitoringView(req, id);
   });
 }

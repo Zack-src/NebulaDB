@@ -80,6 +80,13 @@ function summarize(envelope: WebhookEnvelope): string {
     }
     case "drift.detected": {
       const target = `${data.connectionName}${data.environment ? ` [${data.environment}]` : ""}`;
+      if (data.kind === "accounts") {
+        const total = Object.values((data.accountChanges as Record<string, number> | undefined) ?? {}).reduce(
+          (sum, n) => sum + n,
+          0,
+        );
+        return `🔐 Comptes ou privilèges de la base ${target} (« ${name} ») modifiés en dehors d'Athanor (${total} changement(s))${link}`;
+      }
       const count = ["added", "removed", "changed"].reduce(
         (sum, key) => sum + ((data[key] as string[] | undefined)?.length ?? 0),
         0,

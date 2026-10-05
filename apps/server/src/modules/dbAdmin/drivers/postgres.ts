@@ -315,9 +315,13 @@ export class PostgresAdminDriver implements DatabaseAdminDriver {
     );
     for (const r of schemaRows) push({ scope: "schema", database, schema: r.name }, r.priv, r.grantable);
 
+    // A table nobody was ever granted anything on has a NULL ACL: its owner holds the default
+    // privileges, as for schemas and databases above — read as such, or they would seem to
+    // appear the first time anyone is granted something on it (the accounts watch saw that).
     const tableRows = await this.rows<{ schema: string; name: string; priv: string; grantable: boolean }>(
       `SELECT n.nspname AS schema, c.relname AS name, a.privilege_type AS priv, a.is_grantable AS grantable
-         FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace, aclexplode(c.relacl) a
+         FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace,
+              aclexplode(coalesce(c.relacl, acldefault('r', c.relowner))) a
         WHERE c.relkind IN ('r', 'p', 'v', 'm')
           AND a.grantee = (SELECT oid FROM pg_roles WHERE rolname = $1)
           AND n.nspname NOT IN ('pg_catalog', 'information_schema') ORDER BY 1, 2, 3`,

@@ -17,6 +17,7 @@ import { purgeExpiredSessions } from "./modules/auth/session.js";
 import { purgeExpiredMfaChallenges } from "./modules/auth/totpRepository.js";
 import { closeAllRooms, flushAllRooms } from "./realtime/roomRegistry.js";
 import { purgeOldAuditEntries } from "./shared/audit.js";
+import { purgeOldQueryStats } from "./modules/dbAdmin/queryStats.js";
 import { recordError, tallyErrorForMetrics } from "./shared/errorLog.js";
 
 const app = await buildApp();
@@ -46,6 +47,8 @@ const sweepSessions = () => {
     if (challenges > 0) app.log.info(`purged ${challenges} expired MFA challenge(s)`);
     const resetTokens = purgeExpiredResetTokens();
     if (resetTokens > 0) app.log.info(`purged ${resetTokens} expired/used password reset token(s)`);
+    const queryStats = purgeOldQueryStats(config.queryStatsRetentionDays);
+    if (queryStats > 0) app.log.info(`purged ${queryStats} SQL console statistic row(s)`);
     const deliveries = purgeOldDeliveries();
     if (deliveries > 0) app.log.info(`purged ${deliveries} webhook delivery log row(s) older than 30 days`);
   } catch (err) {

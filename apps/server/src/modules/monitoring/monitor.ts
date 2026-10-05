@@ -1,4 +1,5 @@
 import { asUnattended } from "../../infrastructure/actor.js";
+import { audit } from "../../shared/audit.js";
 import { notifyFollowers } from "../notifications/repository.js";
 import { diffFingerprints, fingerprintSchema } from "@athanordb/dbml-engine";
 import { db } from "../../infrastructure/db.js";
@@ -7,6 +8,7 @@ import { createDatabaseDriver } from "../connections/drivers/index.js";
 import { loadReference, markProjectOutOfSchema, referenceTakenAt } from "../connections/drift.js";
 import { getProjectConnection } from "../connections/repository.js";
 import { emitWebhookEvent } from "../webhooks/dispatcher.js";
+import { checkProjectAccounts, isAccountWatchOn } from "./accountWatch.js";
 import {
   alreadyReported,
   closeDriftEvents,
@@ -104,12 +106,16 @@ async function readWatchedDatabases(projectId: string): Promise<MonitorCheckResu
     } catch (err) {
       result.unreachable++;
       if (!hasOpenUnreachable(projectId, connectionId)) {
-        insertDriftEvent({
-          projectId,
-          connectionId,
-          kind: "unreachable",
-          error: err instanceof Error ? err.message : String(err),
-        });
+        const error = err instanceof Error ? err.message : String(err);
+        insertDriftEvent({ projectId, connectionId, kind: "unreachable", error });
+        audit(
+          { id: null, email: null },
+          "monitoring.unreachable",
+          { type: "connection", id: connectionId },
+          error,
+          undefined,
+          { projectId },
+        );
       }
       continue;
     }
@@ -144,6 +150,17 @@ async function readWatchedDatabases(projectId: string): Promise<MonitorCheckResu
       connectionId,
       `${kind === "external" ? "external change" : "partial deployment"}: ${summary}`,
     );
+    // The database's journal (Admin → Connexions → Journal) shows what the watch found.
+    audit(
+      { id: null, email: null },
+      "monitoring.drift",
+      { type: "connection", id: connectionId },
+      `${kind}: ${summary}`,
+      undefined,
+      {
+        projectId,
+      },
+    );
     notifyFollowers(projectId, "drift", {
       kind,
       connection: conn.name,
@@ -159,6 +176,8 @@ async function readWatchedDatabases(projectId: string): Promise<MonitorCheckResu
       changed,
     });
   }
+  // Accounts and privileges, when an instance administrator turned it on for this project.
+  if (isAccountWatchOn(projectId)) await checkProjectAccounts(projectId);
   markChecked(projectId);
   if (result.checked > 0) notifyProject(projectId, { type: "drift-changed" });
   return result;

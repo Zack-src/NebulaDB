@@ -98,6 +98,16 @@ export const AUDIT_ACTIONS = [
   "backup.download",
   "backup.restore",
   "backup.schedule",
+  "dbaccess.query",
+  "dbaccess.user.set",
+  "dbaccess.team.set",
+  "dbconn.test",
+  "dbconn.open",
+  "monitoring.drift",
+  "monitoring.unreachable",
+  "monitoring.accounts",
+  "monitoring.accounts.watch",
+  "monitoring.accounts.accept",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -107,7 +117,7 @@ export type AuditAction = (typeof AUDIT_ACTIONS)[number];
  * from the action, never stored: adding an action only needs a rule here.
  */
 export type ActivityCategory =
-  "structure" | "data" | "deployments" | "accounts" | "sessions" | "projects" | "configuration";
+  "structure" | "data" | "deployments" | "accounts" | "sessions" | "monitoring" | "projects" | "configuration";
 
 export const ACTIVITY_CATEGORIES: readonly ActivityCategory[] = [
   "structure",
@@ -115,20 +125,22 @@ export const ACTIVITY_CATEGORIES: readonly ActivityCategory[] = [
   "deployments",
   "accounts",
   "sessions",
+  "monitoring",
   "projects",
   "configuration",
 ];
 
 /** First match wins. */
 const CATEGORY_RULES: [RegExp, ActivityCategory][] = [
+  [/^monitoring\./, "monitoring"],
   [/^connection\.(deploy|rollback|pull|drift\.)/, "deployments"],
   [
     /^(table\.(lock|unlock)|dbadmin\.(drop|structure\.)|dbconn\.policy|instance\.structure_policy|project\.(import|revision\.restore))/,
     "structure",
   ],
-  [/^(dbadmin\.query|seed\.|backup\.|project\.export)/, "data"],
-  [/^(auth\.|dbadmin\.session|user\.sessions|user\.totp)/, "sessions"],
-  [/^(user\.|invitation\.|team\.|dbuser\.|dbconn\.credentials\.|project\.team\.|apikey\.)/, "accounts"],
+  [/^(dbadmin\.query|dbaccess\.query|seed\.|backup\.|project\.export)/, "data"],
+  [/^(auth\.|dbadmin\.session|dbconn\.(test|open)$|user\.sessions|user\.totp)/, "sessions"],
+  [/^(user\.|invitation\.|team\.|dbuser\.|dbconn\.credentials\.|dbaccess\.|project\.team\.|apikey\.)/, "accounts"],
   [/^project\./, "projects"],
 ];
 

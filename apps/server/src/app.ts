@@ -22,6 +22,8 @@ import { registerConnectionRoutes } from "./modules/connections/routes.js";
 import { registerCredentialRoutes } from "./modules/connections/credentialRoutes.js";
 import { runInActorScope, setActor } from "./infrastructure/actor.js";
 import { registerDbAdminRoutes } from "./modules/dbAdmin/routes.js";
+import { registerConnectionJournalRoutes } from "./modules/dbAdmin/journalRoutes.js";
+import { registerDbAccessRoutes } from "./modules/dbAccess/routes.js";
 import { registerEnvironmentRoutes } from "./modules/environments/routes.js";
 import { registerErrorRoutes } from "./modules/errors/routes.js";
 import { registerInvitationRoutes } from "./modules/invitations/routes.js";
@@ -216,6 +218,8 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerConnectionRoutes(app);
   registerCredentialRoutes(app);
   registerDbAdminRoutes(app);
+  registerConnectionJournalRoutes(app);
+  registerDbAccessRoutes(app);
   registerAuditRoutes(app);
   registerErrorRoutes(app);
   registerApiKeyRoutes(app);

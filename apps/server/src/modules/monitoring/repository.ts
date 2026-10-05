@@ -97,10 +97,11 @@ interface EventRow {
   error: string | null;
   status: DriftEvent["status"];
   resolved_at: string | null;
+  details_json: string | null;
 }
 
 function rowToEvent(row: EventRow): DriftEvent {
-  return {
+  const event: DriftEvent = {
     id: row.id,
     connectionId: row.connection_id,
     connectionName: row.connection_name,
@@ -113,15 +114,22 @@ function rowToEvent(row: EventRow): DriftEvent {
     status: row.status,
     resolvedAt: row.resolved_at,
   };
+  if (row.kind === "accounts") event.accountChanges = row.details_json ? JSON.parse(row.details_json) : [];
+  return event;
 }
 
-export function listDriftEvents(projectId: string, limit = 50): DriftEvent[] {
+/**
+ * A project's findings, newest first. Those of the accounts watch name the
+ * database's accounts: only listed when the caller may see them (`withAccounts`).
+ */
+export function listDriftEvents(projectId: string, limit = 50, withAccounts = false): DriftEvent[] {
   return (
     db
       .prepare(
         `SELECT e.*, c.name AS connection_name FROM drift_events e
            LEFT JOIN db_connections c ON c.id = e.connection_id
-          WHERE e.project_id = ? ORDER BY e.detected_at DESC, e.rowid DESC LIMIT ?`,
+          WHERE e.project_id = ? ${withAccounts ? "" : "AND e.kind <> 'accounts'"}
+          ORDER BY e.detected_at DESC, e.rowid DESC LIMIT ?`,
       )
       .all(projectId, limit) as EventRow[]
   ).map(rowToEvent);
@@ -158,11 +166,13 @@ export function insertDriftEvent(input: {
   removed?: string[];
   changed?: string[];
   error?: string | null;
+  /** What an `accounts` event means, as `AccountChange`s. */
+  details?: unknown;
 }): string {
   const id = crypto.randomUUID();
   db.prepare(
-    `INSERT INTO drift_events (id, project_id, connection_id, kind, live_hash, added_json, removed_json, changed_json, error)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO drift_events (id, project_id, connection_id, kind, live_hash, added_json, removed_json, changed_json, error, details_json)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     input.projectId,
@@ -173,6 +183,7 @@ export function insertDriftEvent(input: {
     JSON.stringify(input.removed ?? []),
     JSON.stringify(input.changed ?? []),
     input.error?.slice(0, 500) ?? null,
+    input.details === undefined ? null : JSON.stringify(input.details),
   );
   return id;
 }
