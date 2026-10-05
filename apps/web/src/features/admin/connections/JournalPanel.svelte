@@ -36,7 +36,15 @@
     type ActivityEntry,
     type ActivityFilters,
   } from "@/services/activityApi";
-  import { fetchJournalActors, fetchQueryStats } from "@/services/connectionJournalApi";
+  import Checkbox from "@/components/ui/Checkbox.svelte";
+  import {
+    fetchDbActivity,
+    fetchDbTraffic,
+    fetchJournalActors,
+    fetchQueryStats,
+    sampleDbActivity,
+    setDbActivityWatch,
+  } from "@/services/connectionJournalApi";
 
   /**
    * One database's journal, in its console: what was done to it through
@@ -50,7 +58,7 @@
   let { connectionId }: { connectionId: string } = $props();
 
   const { t } = useTranslation();
-  let view = $state<"events" | "queries">("events");
+  let view = $state<"events" | "queries" | "dbside">("events");
 
   // ---- Events ----------------------------------------------------------------
   let period = $state<Period>(24 * 7);
@@ -106,6 +114,38 @@
   const sortOptions = $derived(
     (["frequency", "slowest", "total"] as const).map((value) => ({ value, label: t(`journal.queries.sort.${value}`) })),
   );
+  // ---- Database-side activity -------------------------------------------------
+  let outsideOnly = $state(true);
+  let activityDays = $state<StatDays>(1);
+  const activity = useAsyncResource(() =>
+    view === "dbside"
+      ? fetchDbActivity(connectionId, { days: activityDays || 3650, outside: outsideOnly })
+      : Promise.resolve(null),
+  );
+  const traffic = useAsyncResource(() =>
+    view === "dbside" ? fetchDbTraffic(connectionId, activityDays === 1 ? 1 : activityDays === 7 ? 7 : 30) : Promise.resolve(null),
+  );
+  const sampleNow = useAsyncAction(async () => {
+    await sampleDbActivity(connectionId);
+    activity.reload();
+    traffic.reload();
+  });
+  const bytes = (value: number | null) => {
+    if (value === null) return "—";
+    if (value < 1024) return `${value} o`;
+    const units = ["Ko", "Mo", "Go", "To"];
+    let n = value / 1024;
+    let i = 0;
+    while (n >= 1024 && i < units.length - 1) {
+      n /= 1024;
+      i++;
+    }
+    return `${n.toLocaleString(i18n.locale, { maximumFractionDigits: 1 })} ${units[i]}`;
+  };
+  const toggleWatch = useAsyncAction(async (enabled: boolean) => {
+    await setDbActivityWatch(connectionId, enabled);
+    activity.reload();
+  });
   const ms = (value: number) =>
     value >= 1000 ? `${(value / 1000).toLocaleString(i18n.locale, { maximumFractionDigits: 1 })} s` : `${value} ms`;
 </script>
@@ -119,6 +159,7 @@
       options={[
         { value: "events" as const, label: t("journal.events") },
         { value: "queries" as const, label: t("journal.queries") },
+        { value: "dbside" as const, label: t("journal.dbside") },
       ]}
       onChange={(value) => (view = value)}
     />
@@ -222,6 +263,113 @@
       {/if}
     {/if}
     <Hint>{t("journal.scopeNote")}</Hint>
+  {:else if view === "dbside"}
+    <div class="mb-3 flex flex-wrap items-center gap-3">
+      <Select
+        size="sm"
+        class="w-40"
+        aria-label={t("activity.period")}
+        value={activityDays}
+        options={statDaysOptions}
+        onChange={(value) => (activityDays = value)}
+      />
+      <Checkbox checked={outsideOnly} onChange={(checked) => (outsideOnly = checked)}>
+        {t("journal.dbside.outsideOnly")}
+      </Checkbox>
+      <span class="flex-1"></span>
+      {#if activity.data}
+        <Checkbox
+          checked={activity.data.watch.enabled}
+          disabled={toggleWatch.pending}
+          onChange={(checked) => void toggleWatch.run(checked)}
+        >
+          {t("journal.dbside.watch")}
+        </Checkbox>
+      {/if}
+      <Button size="sm" variant="outline" onclick={() => void sampleNow.run()} disabled={sampleNow.pending}>
+        {sampleNow.pending ? t("common.loading") : t("journal.dbside.sampleNow")}
+      </Button>
+    </div>
+    {#if activity.error ?? sampleNow.error ?? toggleWatch.error}
+      <ErrorText>{activity.error ?? sampleNow.error ?? toggleWatch.error}</ErrorText>
+    {/if}
+    {#if activity.data?.watch.lastError}
+      <ErrorText>{t("journal.dbside.lastError", { error: activity.data.watch.lastError })}</ErrorText>
+    {/if}
+    {#if activity.data && activity.data.entries.length === 0}
+      <EmptyState>{t("journal.dbside.empty")}</EmptyState>
+    {:else if activity.data}
+      <div class="overflow-x-auto rounded-lg border border-border">
+        <table class="w-full border-collapse text-[12px]" aria-label={t("journal.dbside")}>
+          <thead class="bg-surface-raised text-left text-[11px] text-text-muted">
+            <tr>
+              <th class="px-3 py-1.5 font-semibold">{t("journal.dbside.account")}</th>
+              <th class="px-2 py-1.5 font-semibold">{t("journal.dbside.client")}</th>
+              <th class="px-2 py-1.5 font-semibold">{t("journal.queries.statement")}</th>
+              <th class="px-2 py-1.5 text-right font-semibold">{t("journal.dbside.seen")}</th>
+              <th class="px-2 py-1.5 text-right font-semibold">{t("journal.dbside.longest")}</th>
+              <th class="px-3 py-1.5 font-semibold">{t("journal.queries.last")}</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-border/60">
+            {#each activity.data.entries as entry (entry.fingerprint)}
+              <tr data-testid="db-activity" data-user={entry.user ?? ""}>
+                <td class="px-3 py-1.5">
+                  {entry.user ?? "—"}
+                  {#if entry.knownAccount}<Badge tone="muted">{t("journal.dbside.athanorAccount")}</Badge>{/if}
+                </td>
+                <td class="px-2 py-1.5 text-text-muted">{[entry.client, entry.database].filter(Boolean).join(" · ") || "—"}</td>
+                <td class="max-w-[360px] truncate px-2 py-1.5 font-mono text-[11.5px]" title={entry.sql}>
+                  {entry.sql || t("journal.dbside.noStatement")}
+                </td>
+                <td class="px-2 py-1.5 text-right tabular-nums">{entry.seen}</td>
+                <td class="px-2 py-1.5 text-right tabular-nums">{entry.maxSeconds} s</td>
+                <td class="px-3 py-1.5 text-text-muted">{formatDateTime(parseServerTime(entry.lastAt), i18n.locale)}</td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    {/if}
+    {#if traffic.data}
+      <div class="mt-4 mb-2 flex items-center gap-2">
+        <h4 class="m-0 text-xs font-bold text-text">{t("journal.dbside.traffic")}</h4>
+        {#if traffic.data.kind}
+          <span data-tooltip={t("journal.dbside.trafficHint")}>
+            <Badge tone="muted">{t(`journal.dbside.kind.${traffic.data.kind}`)}</Badge>
+          </span>
+        {/if}
+      </div>
+      {#if traffic.data.buckets.length === 0}
+        <EmptyState>{t("journal.dbside.trafficEmpty")}</EmptyState>
+      {:else}
+        <div class="overflow-x-auto rounded-lg border border-border">
+          <table class="w-full border-collapse text-[12px]" aria-label={t("journal.dbside.traffic")}>
+            <thead class="bg-surface-raised text-left text-[11px] text-text-muted">
+              <tr>
+                <th class="px-3 py-1.5 font-semibold">{t("journal.dbside.period")}</th>
+                <th class="px-2 py-1.5 text-right font-semibold">{t("journal.dbside.queries")}</th>
+                <th class="px-2 py-1.5 text-right font-semibold">{t("journal.dbside.sent")}</th>
+                <th class="px-2 py-1.5 text-right font-semibold">{t("journal.dbside.received")}</th>
+                <th class="px-2 py-1.5 text-right font-semibold">{t("journal.dbside.rowsRead")}</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-border/60">
+              {#each traffic.data.buckets as bucket (bucket.start)}
+                <tr data-testid="db-traffic">
+                  <td class="px-3 py-1.5 text-text-muted">{formatDateTime(parseServerTime(bucket.start), i18n.locale)}</td>
+                  <td class="px-2 py-1.5 text-right tabular-nums">{bucket.queries ?? "—"}</td>
+                  <td class="px-2 py-1.5 text-right tabular-nums">{bytes(bucket.bytesOut)}</td>
+                  <td class="px-2 py-1.5 text-right tabular-nums">{bytes(bucket.bytesIn)}</td>
+                  <td class="px-2 py-1.5 text-right tabular-nums">{bucket.rows ?? "—"}</td>
+                </tr>
+              {/each}
+            </tbody>
+          </table>
+        </div>
+      {/if}
+    {/if}
+    <Hint>{t("journal.dbside.note")}</Hint>
   {:else}
     <div class="mb-3 flex flex-wrap items-center gap-2">
       <Select

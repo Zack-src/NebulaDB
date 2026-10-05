@@ -1,4 +1,12 @@
-import type { DbQueryStat, DbQueryStatSort } from "@athanordb/shared";
+import type {
+  DbActivityEntry,
+  DbActivityWatch,
+  DbHealthBoard,
+  DbQueryStat,
+  DbQueryStatSort,
+  DbServerCounters,
+  DbTrafficBucket,
+} from "@athanordb/shared";
 import { request } from "./httpClient";
 
 /**
@@ -29,4 +37,36 @@ export async function fetchQueryStats(
       query: { sort: options.sort, ...(options.days ? { days: String(options.days) } : {}) },
     })
   ).stats;
+}
+
+/** What the database server itself shows (sessions, statements), sampled; `outside` leaves out the accounts Athanor uses. */
+export function fetchDbActivity(
+  connectionId: string,
+  options: { days: number; outside: boolean },
+): Promise<{ watch: DbActivityWatch; entries: DbActivityEntry[] }> {
+  return request(`${base(connectionId)}/activity`, {
+    query: { days: String(options.days), ...(options.outside ? { outside: "1" } : {}) },
+  });
+}
+
+/** Reads the server's sessions now. */
+export function sampleDbActivity(connectionId: string): Promise<{ sessions: number }> {
+  return request(`${base(connectionId)}/activity/sample`, { method: "POST" });
+}
+
+export function setDbActivityWatch(connectionId: string, enabled: boolean): Promise<DbActivityWatch> {
+  return request(`${base(connectionId)}/activity/watch`, { method: "PUT", body: { enabled } });
+}
+
+/** The server's own counters as differences between reads; `kind` says what "queries" counts. */
+export function fetchDbTraffic(
+  connectionId: string,
+  days: number,
+): Promise<{ kind: DbServerCounters["queriesKind"] | null; buckets: DbTrafficBucket[] }> {
+  return request(`${base(connectionId)}/activity/traffic`, { query: { days: String(days) } });
+}
+
+/** A fresh probe plus sizes, sessions and locks; a part the server cannot give is `null`. */
+export function fetchHealthBoard(connectionId: string): Promise<DbHealthBoard> {
+  return request(`${base(connectionId)}/health-board`);
 }

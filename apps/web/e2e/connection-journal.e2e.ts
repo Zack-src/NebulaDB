@@ -113,6 +113,14 @@ test(
       await select.waitFor();
       await snap("queries");
 
+      // --- Santé: SQLite answers, and says what it cannot give instead of showing zeros ---
+      await page.getByRole("tab", { name: "Santé" }).click();
+      const board = page.getByTestId("health-board");
+      await board.getByTestId("health-status").waitFor();
+      assert.equal(await board.getByTestId("health-status").getAttribute("data-ok"), "true");
+      await board.getByTestId("health-sessions").getByText("Non disponible").waitFor();
+      await snap("health");
+
       assert.deepEqual(errors, []);
     } finally {
       await env.teardown();

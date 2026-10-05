@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { AdminConnectionSummary, DatabaseConnectionSummary } from "@athanordb/shared";
   import Icon from "@/components/icons/Icon.svelte";
-  import { ArchiveIcon, ChevronLeftIcon, CodeIcon, TableIcon, UsersIcon, ClockIcon, NoteIcon } from "@/components/icons/Icons";
+  import { ArchiveIcon, ChevronLeftIcon, CodeIcon, TableIcon, UsersIcon, ClockIcon, NoteIcon, CheckCircleIcon } from "@/components/icons/Icons";
   import Badge from "@/components/ui/Badge.svelte";
   import Button from "@/components/ui/Button.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
@@ -11,6 +11,7 @@
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { fetchConnectionOverview } from "@/services/dbAdminApi";
   import ExplorerPanel from "./ExplorerPanel.svelte";
+  import HealthPanel from "./HealthPanel.svelte";
   import JournalPanel from "./JournalPanel.svelte";
   import SessionsPanel from "./SessionsPanel.svelte";
   import EnvironmentBadge from "@/features/environments/EnvironmentBadge.svelte";
@@ -18,7 +19,7 @@
   import UsersPanel from "./UsersPanel.svelte";
   import BackupsPanel from "@/features/backups/BackupsPanel.svelte";
 
-  type Section = "explorer" | "sql" | "users" | "sessions" | "backups" | "journal";
+  type Section = "explorer" | "sql" | "users" | "sessions" | "health" | "backups" | "journal";
 
   /**
    * Everything done *on* one connected server. The overview request doubles as
@@ -62,6 +63,7 @@
     if (overview.data?.access !== "admin") return list;
     if (overview.data.capabilities.users) list.push({ id: "users", label: t("dbadmin.tab.users"), icon: UsersIcon });
     if (overview.data.capabilities.sessions) list.push({ id: "sessions", label: t("dbadmin.tab.sessions"), icon: ClockIcon });
+    if (adminConnection) list.push({ id: "health", label: t("dbadmin.tab.health"), icon: CheckCircleIcon });
     if (adminConnection) list.push({ id: "backups", label: t("dbadmin.tab.backups"), icon: ArchiveIcon });
     // The database's journal is the audit log's: instance administrators only.
     if (adminConnection) list.push({ id: "journal", label: t("dbadmin.tab.journal"), icon: NoteIcon });
@@ -110,6 +112,8 @@
       <UsersPanel connectionId={connection.id} engine={connection.engine} overview={data} />
     {:else if section === "sessions" && data.access === "admin"}
       <SessionsPanel connectionId={connection.id} overview={data} />
+    {:else if section === "health" && adminConnection && data.access === "admin"}
+      <HealthPanel connectionId={connection.id} />
     {:else if section === "backups" && adminConnection && data.access === "admin"}
       <BackupsPanel connection={adminConnection} />
     {:else if section === "journal" && adminConnection && data.access === "admin"}
