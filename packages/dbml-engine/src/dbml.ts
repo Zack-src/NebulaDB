@@ -281,6 +281,27 @@ function withNativeTypes(project: Project, dialect: SqlDialect): Project {
   };
 }
 
+/**
+ * `project` with `unique` dropped from every primary-key column (flagged
+ * `pk` itself, or part of a `pk` index): a primary key is already unique, and
+ * @dbml/core would emit `UNIQUE PRIMARY KEY`, which SQL Server rejects as a
+ * redundant constraint. Same rule as the migration generator
+ * (`field.unique && !field.pk`). Export-only: neither the user's project nor
+ * the serialized DBML is touched.
+ */
+function withoutRedundantUnique(project: Project): Project {
+  return {
+    ...project,
+    tables: project.tables.map((t) => {
+      const pkIds = new Set(t.indexes.filter((i) => i.pk).flatMap((i) => i.fieldIds));
+      return {
+        ...t,
+        fields: t.fields.map((f) => (f.unique && (f.pk || pkIds.has(f.id)) ? { ...f, unique: false } : f)),
+      };
+    }),
+  };
+}
+
 export interface ExportTypeTranslation {
   table: string;
   column: string;
@@ -304,7 +325,7 @@ export function previewExportTypeTranslations(project: Project, dialect: SqlDial
 
 /** Convert internal `Project` directly to SQL DDL for a dialect, via DBML as the intermediate representation. */
 export function projectToSql(project: Project, dialect: SqlDialect): string {
-  const dbml = projectToDbml(withNativeTypes(project, dialect));
+  const dbml = projectToDbml(withoutRedundantUnique(withNativeTypes(project, dialect)));
   const database = parseDbml(dbml);
   return toSql(database, dialect);
 }

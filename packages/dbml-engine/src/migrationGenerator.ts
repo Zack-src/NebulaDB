@@ -22,7 +22,9 @@ export function effectiveType(
 ): string {
   const resKey = `column:${tableName.toLowerCase()}.${field.name.toLowerCase()}`;
   if (resolutions[resKey]?.strategy === "KEEP_AS_WRITTEN") return field.type || "text";
-  return translateType(field.type || "text", dialect).type;
+  // `decimal(18.6)` is a typo for `decimal(18,6)` that no engine accepts — repair it rather than emit invalid SQL.
+  const type = (field.type || "text").replace(/((d+).(d+))/, "($1,$2)");
+  return translateType(type, dialect).type;
 }
 
 export function q(ident: string, dialect: MigrationDialect): string {

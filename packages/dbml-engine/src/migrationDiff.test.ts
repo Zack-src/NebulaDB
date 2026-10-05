@@ -135,3 +135,30 @@ test("diffTargetAgainstLive ignores identical schema regardless of table casing 
   const diff = diffTargetAgainstLive(live, target);
   assert.equal(diff.hasChanges, false);
 });
+
+test("primary-key columns are implicitly NOT NULL: no nullability change, no redundant PK index", () => {
+  const live = makeProject("live", [
+    {
+      name: "link",
+      fields: [
+        { name: "a", type: "int", pk: true, notNull: true },
+        { name: "b", type: "int", pk: true, notNull: true },
+        { name: "amount", type: "decimal", notNull: false },
+      ],
+    },
+    { name: "solo", fields: [{ name: "id", type: "int", pk: true, notNull: true }] },
+  ]);
+  const target = makeProject("target", [
+    {
+      name: "link",
+      fields: [
+        { name: "a", type: "int" },
+        { name: "b", type: "int" },
+        { name: "amount", type: "decimal(18,6)" },
+      ],
+      indexes: [{ id: "pk1", fieldIds: ["link.a", "link.b"], pk: true }],
+    },
+    { name: "solo", fields: [{ name: "id", type: "int", pk: true }] },
+  ]);
+  assert.equal(diffTargetAgainstLive(live, target).hasChanges, false);
+});

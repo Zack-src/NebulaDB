@@ -834,3 +834,35 @@ Ref: sales.orders.customer_id > hr.people.id
   ]);
   assert.equal(again.refs.length, 1);
 });
+
+test("projectToSql never emits UNIQUE PRIMARY KEY, but keeps unique on a non-pk column", () => {
+  const source = `
+Table accounts {
+  id int [pk, unique]
+  email varchar(100) [unique]
+}
+Table links {
+  a int [unique]
+  b int
+  indexes {
+    (a, b) [pk]
+  }
+}
+`;
+  const project = toProject(parseDbml(source), "Test");
+  const before = JSON.stringify(project);
+  const dbmlBefore = projectToDbml(project);
+  for (const dialect of ["mssql", "postgres", "mysql"] as const) {
+    const sql = projectToSql(project, dialect);
+    assert.doesNotMatch(sql, /UNIQUE\s+PRIMARY\s+KEY/i, dialect);
+    const accounts = sql.split(/\n\n/).find((block) => /accounts/.test(block)) ?? "";
+    assert.match(accounts, /UNIQUE/i, `${dialect}: unique on a plain column is kept`);
+    assert.doesNotMatch(
+      sql.split(/\n\n/).find((block) => /links/.test(block)) ?? "",
+      /\ba\b[^\n]*UNIQUE/i,
+      `${dialect}: composite pk member loses unique`,
+    );
+  }
+  assert.equal(JSON.stringify(project), before, "the project is not modified");
+  assert.equal(projectToDbml(project), dbmlBefore, "the serialized DBML keeps unique");
+});

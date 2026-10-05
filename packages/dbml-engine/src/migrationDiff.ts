@@ -66,6 +66,8 @@ function typesMatch(a: string, b: string): boolean {
     smallint: ["int2", "smallint"],
     bool: ["boolean", "bool", "tinyint(1)"],
     text: ["varchar", "character varying", "text", "string", "nvarchar"],
+    // Live introspection reports the bare `decimal` (no precision/scale), like `varchar` without a length.
+    decimal: ["decimal", "numeric"],
     float: ["real", "float4", "float"],
     double: ["double precision", "float8", "double"],
     timestamp: ["timestamptz", "timestamp with time zone", "timestamp without time zone", "datetime"],
@@ -95,7 +97,22 @@ function defaultsMatch(a: string | undefined, b: string | undefined): boolean {
   return normalizeDefault(a) === normalizeDefault(b);
 }
 
-function diffFieldsByName(beforeFields: Field[], afterFields: Field[]): MigrationFieldChange[] {
+/**
+ * A primary-key column is implicitly NOT NULL on the database side, but the
+ * model doesn't always say so: a composite PK is only expressed through the
+ * table's `pk` index (its `fields` carry no per-field flag), and a single
+ * `id int [pk]` needn't spell out `not null`. Without folding that in, every
+ * PK column shows up as a NOT NULL -> NULL change, which the database rejects
+ * anyway (a PK column can't be made nullable).
+ */
+function withImplicitPkFlags(table: Table): Field[] {
+  const pkIds = new Set(table.indexes.filter((i) => i.pk).flatMap((i) => i.fieldIds));
+  return table.fields.map((f) => (pkIds.has(f.id) || f.pk ? { ...f, pk: true, notNull: true } : f));
+}
+
+function diffFieldsByName(beforeTable: Table, afterTable: Table): MigrationFieldChange[] {
+  const beforeFields = withImplicitPkFlags(beforeTable);
+  const afterFields = withImplicitPkFlags(afterTable);
   const beforeByName = new Map(beforeFields.map((f) => [f.name.toLowerCase(), f]));
   const afterByName = new Map(afterFields.map((f) => [f.name.toLowerCase(), f]));
   const names = new Set([...beforeByName.keys(), ...afterByName.keys()]);
@@ -156,8 +173,15 @@ function getIndexSignature(table: Table, idx: TableIndex): string {
 }
 
 function diffIndexes(beforeTable: Table, afterTable: Table): { added: TableIndex[]; dropped: TableIndex[] } {
-  const beforeSigs = new Map(beforeTable.indexes.map((idx) => [getIndexSignature(beforeTable, idx), idx]));
-  const afterSigs = new Map(afterTable.indexes.map((idx) => [getIndexSignature(afterTable, idx), idx]));
+  // A composite PK is already diffed field by field (see `withImplicitPkFlags`). As an index it would
+  // only ever show up as "added" (introspection reports the PK per column, never as an index) and
+  // generate a redundant plain CREATE INDEX on top of the real primary key.
+  const beforeSigs = new Map(
+    beforeTable.indexes.filter((idx) => !idx.pk).map((idx) => [getIndexSignature(beforeTable, idx), idx]),
+  );
+  const afterSigs = new Map(
+    afterTable.indexes.filter((idx) => !idx.pk).map((idx) => [getIndexSignature(afterTable, idx), idx]),
+  );
 
   const added: TableIndex[] = [];
   const dropped: TableIndex[] = [];
@@ -226,7 +250,7 @@ export function diffTargetAgainstLive(liveDbProject: Project, targetProject: Pro
         droppedIndexes: [],
       });
     } else if (live && target) {
-      const fieldChanges = diffFieldsByName(live.fields, target.fields);
+      const fieldChanges = diffFieldsByName(live, target);
       const indexChanges = diffIndexes(live, target);
 
       if (fieldChanges.length > 0 || indexChanges.added.length > 0 || indexChanges.dropped.length > 0) {
