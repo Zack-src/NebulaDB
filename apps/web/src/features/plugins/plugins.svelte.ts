@@ -65,14 +65,14 @@ export function useImporters(projectId: () => string): { readonly list: Resolved
   return useResolved<ResolvedContribution<ImporterContribution>>("importer", projectId);
 }
 
-export function useCanvasCommands(
-  projectId: () => string,
-): { readonly list: ResolvedContribution<CanvasCommandContribution>[] } {
+export function useCanvasCommands(projectId: () => string): {
+  readonly list: ResolvedContribution<CanvasCommandContribution>[];
+} {
   return useResolved<ResolvedContribution<CanvasCommandContribution>>("canvasCommand", projectId);
 }
 
-export function useEditorCommands(
-  projectId: () => string,
-): { readonly list: ResolvedContribution<EditorCommandContribution>[] } {
+export function useEditorCommands(projectId: () => string): {
+  readonly list: ResolvedContribution<EditorCommandContribution>[];
+} {
   return useResolved<ResolvedContribution<EditorCommandContribution>>("editorCommand", projectId);
 }

@@ -108,8 +108,16 @@ test("a nullable FK yields 0,1 on the child side instead of 1,1", () => {
 });
 
 test("a junction table (composite PK of exactly 2 FKs) collapses into an n,n association", () => {
-  const posts = table({ id: "posts", name: "posts", fields: [field({ id: "posts.id", name: "id", type: "int", pk: true })] });
-  const tags = table({ id: "tags", name: "tags", fields: [field({ id: "tags.id", name: "id", type: "int", pk: true })] });
+  const posts = table({
+    id: "posts",
+    name: "posts",
+    fields: [field({ id: "posts.id", name: "id", type: "int", pk: true })],
+  });
+  const tags = table({
+    id: "tags",
+    name: "tags",
+    fields: [field({ id: "tags.id", name: "id", type: "int", pk: true })],
+  });
   const postTags = table({
     id: "post_tags",
     name: "post_tags",
@@ -142,10 +150,7 @@ test("a junction table (composite PK of exactly 2 FKs) collapses into an n,n ass
   assert.equal(model.associations.length, 1);
   const assoc = model.associations[0];
   assert.equal(assoc.name, "post_tags");
-  assert.deepEqual(
-    assoc.members.map((m) => m.cardinality).sort(),
-    ["0,n", "0,n"],
-  );
+  assert.deepEqual(assoc.members.map((m) => m.cardinality).sort(), ["0,n", "0,n"]);
   assert.deepEqual(
     assoc.attributes.map((a) => a.name),
     ["added_at"],
@@ -168,9 +173,24 @@ test("a table with 3 FKs entirely composing its PK is flagged as a possible tern
     indexes: [{ id: "idx1", fieldIds: ["j.a_id", "j.b_id", "j.c_id"], pk: true }],
   });
   const refs = [
-    ref({ id: "r1", from: { tableId: "a", fieldId: "a.id" }, to: { tableId: "j", fieldId: "j.a_id" }, cardinality: "one-to-many" }),
-    ref({ id: "r2", from: { tableId: "b", fieldId: "b.id" }, to: { tableId: "j", fieldId: "j.b_id" }, cardinality: "one-to-many" }),
-    ref({ id: "r3", from: { tableId: "c", fieldId: "c.id" }, to: { tableId: "j", fieldId: "j.c_id" }, cardinality: "one-to-many" }),
+    ref({
+      id: "r1",
+      from: { tableId: "a", fieldId: "a.id" },
+      to: { tableId: "j", fieldId: "j.a_id" },
+      cardinality: "one-to-many",
+    }),
+    ref({
+      id: "r2",
+      from: { tableId: "b", fieldId: "b.id" },
+      to: { tableId: "j", fieldId: "j.b_id" },
+      cardinality: "one-to-many",
+    }),
+    ref({
+      id: "r3",
+      from: { tableId: "c", fieldId: "c.id" },
+      to: { tableId: "j", fieldId: "j.c_id" },
+      cardinality: "one-to-many",
+    }),
   ];
   const model = deriveMCD(project({ tables: [a, b, c, junction], refs }));
 
@@ -202,8 +222,16 @@ test("a self-referencing FK produces a reflexive association with both members o
 });
 
 test("many-to-many ref without a physical junction table becomes a direct n,n association", () => {
-  const students = table({ id: "students", name: "students", fields: [field({ id: "s.id", name: "id", type: "int", pk: true })] });
-  const courses = table({ id: "courses", name: "courses", fields: [field({ id: "c.id", name: "id", type: "int", pk: true })] });
+  const students = table({
+    id: "students",
+    name: "students",
+    fields: [field({ id: "s.id", name: "id", type: "int", pk: true })],
+  });
+  const courses = table({
+    id: "courses",
+    name: "courses",
+    fields: [field({ id: "c.id", name: "id", type: "int", pk: true })],
+  });
   const r = ref({
     id: "r1",
     from: { tableId: "students", fieldId: "s.id" },
@@ -224,7 +252,11 @@ test("a surrogate-keyed entity with 2 unrelated FKs to the same table is NOT fla
   // Regression: `Scenario_Comparaison` from a real schema — its own `id` PK
   // has no overlap at all with `id_scenario_1`/`id_scenario_2`, so this
   // should produce 2 ordinary binary associations and zero warnings.
-  const scenario = table({ id: "scenario", name: "Scenario", fields: [field({ id: "sc.id", name: "id", type: "int", pk: true })] });
+  const scenario = table({
+    id: "scenario",
+    name: "Scenario",
+    fields: [field({ id: "sc.id", name: "id", type: "int", pk: true })],
+  });
   const comparaison = table({
     id: "comparaison",
     name: "Scenario_Comparaison",
@@ -267,7 +299,11 @@ test("a ref written with the FK on the `from` side (reversed declaration order) 
   // is the referenced PK). Resolving direction from `ref.to` unconditionally
   // wrongly treated `Scenario_Comparaison.id` as an outgoing FK of its own
   // table, breaking the PK/FK overlap check used above.
-  const scenario = table({ id: "scenario", name: "Scenario", fields: [field({ id: "sc.id", name: "id", type: "int", pk: true })] });
+  const scenario = table({
+    id: "scenario",
+    name: "Scenario",
+    fields: [field({ id: "sc.id", name: "id", type: "int", pk: true })],
+  });
   const comparaison = table({
     id: "comparaison",
     name: "Scenario_Comparaison",
@@ -286,10 +322,25 @@ test("a ref written with the FK on the `from` side (reversed declaration order) 
     ],
   });
   const refs = [
-    ref({ id: "r1", from: { tableId: "scenario", fieldId: "sc.id" }, to: { tableId: "comparaison", fieldId: "cmp.s1" }, cardinality: "one-to-many" }),
-    ref({ id: "r2", from: { tableId: "scenario", fieldId: "sc.id" }, to: { tableId: "comparaison", fieldId: "cmp.s2" }, cardinality: "one-to-many" }),
+    ref({
+      id: "r1",
+      from: { tableId: "scenario", fieldId: "sc.id" },
+      to: { tableId: "comparaison", fieldId: "cmp.s1" },
+      cardinality: "one-to-many",
+    }),
+    ref({
+      id: "r2",
+      from: { tableId: "scenario", fieldId: "sc.id" },
+      to: { tableId: "comparaison", fieldId: "cmp.s2" },
+      cardinality: "one-to-many",
+    }),
     // Declared backwards: the FK (`other.other_id`) is on `from`, the referenced PK (`comparaison.id`) is on `to`.
-    ref({ id: "r3", from: { tableId: "other", fieldId: "o.other_id" }, to: { tableId: "comparaison", fieldId: "cmp.id" }, cardinality: "one-to-many" }),
+    ref({
+      id: "r3",
+      from: { tableId: "other", fieldId: "o.other_id" },
+      to: { tableId: "comparaison", fieldId: "cmp.id" },
+      cardinality: "one-to-many",
+    }),
   ];
   const model = deriveMCD(project({ tables: [scenario, comparaison, other], refs }));
 

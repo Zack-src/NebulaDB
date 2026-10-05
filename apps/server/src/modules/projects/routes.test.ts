@@ -25,7 +25,12 @@ function headers(extra: Record<string, string> = {}) {
 }
 
 async function loginAs(app: Awaited<ReturnType<typeof buildApp>>, email: string, password: string) {
-  const res = await app.inject({ method: "POST", url: "/api/auth/login", headers: headers(), payload: { email, password } });
+  const res = await app.inject({
+    method: "POST",
+    url: "/api/auth/login",
+    headers: headers(),
+    payload: { email, password },
+  });
   const sessionCookie = res.cookies.find((c) => c.name === "athanordb_sid");
   return `athanordb_sid=${sessionCookie!.value}`;
 }
@@ -44,7 +49,12 @@ async function makeUser(isAdmin: 0 | 1 = 0) {
 }
 
 async function makeProject(app: Awaited<ReturnType<typeof buildApp>>, cookie: string, name = "Test project") {
-  const res = await app.inject({ method: "POST", url: "/api/projects", headers: headers({ cookie }), payload: { name } });
+  const res = await app.inject({
+    method: "POST",
+    url: "/api/projects",
+    headers: headers({ cookie }),
+    payload: { name },
+  });
   return res.json() as { id: string; name: string };
 }
 
@@ -172,7 +182,11 @@ test("revisions: listed after an edit, labelable, restorable; a view grant can r
       payload: { source: SAMPLE_DBML },
     });
 
-    const list = await app.inject({ method: "GET", url: `/api/projects/${project.id}/revisions`, headers: headers({ cookie: viewerCookie }) });
+    const list = await app.inject({
+      method: "GET",
+      url: `/api/projects/${project.id}/revisions`,
+      headers: headers({ cookie: viewerCookie }),
+    });
     assert.equal(list.statusCode, 200);
     const revisions = list.json() as { id: string }[];
     assert.ok(revisions.length >= 1);
@@ -212,7 +226,11 @@ test("revisions: listed after an edit, labelable, restorable; a view grant can r
       headers: headers({ cookie: ownerCookie }),
       payload: { source: `${SAMPLE_DBML}\nTable orders {\n  id int [pk]\n}\n` },
     });
-    const beforeRestore = await app.inject({ method: "GET", url: `/api/projects/${project.id}/revisions`, headers: headers({ cookie: ownerCookie }) });
+    const beforeRestore = await app.inject({
+      method: "GET",
+      url: `/api/projects/${project.id}/revisions`,
+      headers: headers({ cookie: ownerCookie }),
+    });
     const revisionCountBeforeRestore = (beforeRestore.json() as unknown[]).length;
 
     const viewerRestore = await app.inject({
@@ -233,14 +251,19 @@ test("revisions: listed after an edit, labelable, restorable; a view grant can r
     // Restoring creates a new revision rather than rewriting history, and
     // brings the schema back to the labelled (`v1.0`) state — `orders` is
     // gone again.
-    const afterRestore = await app.inject({ method: "GET", url: `/api/projects/${project.id}/revisions`, headers: headers({ cookie: ownerCookie }) });
+    const afterRestore = await app.inject({
+      method: "GET",
+      url: `/api/projects/${project.id}/revisions`,
+      headers: headers({ cookie: ownerCookie }),
+    });
     assert.ok((afterRestore.json() as unknown[]).length > revisionCountBeforeRestore);
 
-    const snapshot = await app.inject({ method: "GET", url: `/api/projects/${project.id}/snapshot`, headers: headers({ cookie: ownerCookie }) });
-    assert.deepEqual(
-      (snapshot.json() as { tables: { name: string }[] }).tables.map((t) => t.name).sort(),
-      ["users"],
-    );
+    const snapshot = await app.inject({
+      method: "GET",
+      url: `/api/projects/${project.id}/snapshot`,
+      headers: headers({ cookie: ownerCookie }),
+    });
+    assert.deepEqual((snapshot.json() as { tables: { name: string }[] }).tables.map((t) => t.name).sort(), ["users"]);
   } finally {
     closeAllRooms();
     await app.close();
@@ -264,7 +287,13 @@ test("revisions: partial restore puts back only the tables asked for; the timeli
       });
     const snapshotTables = async () =>
       (
-        (await app.inject({ method: "GET", url: `/api/projects/${project.id}/snapshot`, headers: headers({ cookie: ownerCookie }) })).json() as {
+        (
+          await app.inject({
+            method: "GET",
+            url: `/api/projects/${project.id}/snapshot`,
+            headers: headers({ cookie: ownerCookie }),
+          })
+        ).json() as {
           tables: { id: string; name: string; fields: { name: string }[] }[];
         }
       ).tables;
@@ -278,7 +307,11 @@ Table orders {
 }
 `);
     const revisions = (
-      await app.inject({ method: "GET", url: `/api/projects/${project.id}/revisions`, headers: headers({ cookie: ownerCookie }) })
+      await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/revisions`,
+        headers: headers({ cookie: ownerCookie }),
+      })
     ).json() as { id: string; changes?: { tables: { name: string; status: string }[] } }[];
     const checkpoint = revisions[revisions.length - 1];
     assert.deepEqual(
@@ -327,7 +360,11 @@ Table orders {
     ).run(randomUUID(), project.id, owner.email);
 
     const ownerMarkers = (
-      await app.inject({ method: "GET", url: `/api/projects/${project.id}/history/markers`, headers: headers({ cookie: ownerCookie }) })
+      await app.inject({
+        method: "GET",
+        url: `/api/projects/${project.id}/history/markers`,
+        headers: headers({ cookie: ownerCookie }),
+      })
     ).json() as {
       kind: string;
       detail: string;
@@ -422,7 +459,11 @@ test("project-team routes: granting/revoking is project-admin-only, and an edit 
     });
     assert.equal(granted.statusCode, 200);
 
-    const listed = await app.inject({ method: "GET", url: `/api/projects/${project.id}/teams`, headers: headers({ cookie: ownerCookie }) });
+    const listed = await app.inject({
+      method: "GET",
+      url: `/api/projects/${project.id}/teams`,
+      headers: headers({ cookie: ownerCookie }),
+    });
     assert.equal(listed.statusCode, 200);
     assert.ok((listed.json() as { teamId: string }[]).some((t) => t.teamId === team.id));
 
@@ -453,7 +494,11 @@ test("GET /api/projects/:id/content returns the schema as JSON for a viewer, wit
     closeAllRooms();
 
     const { liveRoomCount } = await import("../../realtime/roomRegistry.js");
-    const res = await app.inject({ method: "GET", url: `/api/projects/${id}/content`, headers: headers({ cookie: ownerCookie }) });
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/projects/${id}/content`,
+      headers: headers({ cookie: ownerCookie }),
+    });
     assert.equal(res.statusCode, 200);
     const project = res.json() as { name: string; tables: { name: string }[] };
     assert.equal(project.name, "Auth");

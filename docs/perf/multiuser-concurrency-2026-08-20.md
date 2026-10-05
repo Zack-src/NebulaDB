@@ -45,7 +45,7 @@ tampon CodeMirror — y compris celles écrites par l'application elle-même qua
 le document change (le miroir document → tampon). Résultat : n'importe quelle
 édition au canvas, faite par n'importe qui, était interprétée par le panneau de
 **chaque** client connecté comme « l'utilisateur vient de taper », ce qui
-marquait le tampon *dirty* et déclenchait 600 ms plus tard un
+marquait le tampon _dirty_ et déclenchait 600 ms plus tard un
 `POST /api/projects/:id/import` renvoyant **tout le schéma**.
 
 Observé dans les logs réseau du test : à l'ouverture du projet, les deux
@@ -60,10 +60,10 @@ d'ajouter — et le fait supprimer.
 
 Reproduit et mesuré :
 
-| scénario | résultat avant correction |
-| --- | --- |
-| Bob ajoute une colonne au canvas, Alice tape dans le DBML | la colonne de Bob **disparaît** |
-| Alice renomme une table, Bob ajoute une colonne ailleurs | la colonne de Bob **disparaît** |
+| scénario                                                           | résultat avant correction                                                                |
+| ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------- |
+| Bob ajoute une colonne au canvas, Alice tape dans le DBML          | la colonne de Bob **disparaît**                                                          |
+| Alice renomme une table, Bob ajoute une colonne ailleurs           | la colonne de Bob **disparaît**                                                          |
 | Alice crée une table dans le DBML, le panneau de Bob resynchronise | la table d'Alice **disparaît** (`tables: 4` puis `tables: 3` dans les réponses d'import) |
 
 Autrement dit : à deux, chaque panneau DBML repoussait périodiquement sa
@@ -100,23 +100,23 @@ aux enums et aux groupes de tables. Un import **sans** baseline (dialogue
 d'import, script, client plus ancien) garde l'ancien comportement « le fichier
 remplace tout », qui est justement ce qu'on attend d'un import ponctuel.
 
-Les modifications concurrentes d'une *même* entité ne sont pas fusionnées : le
+Les modifications concurrentes d'une _même_ entité ne sont pas fusionnées : le
 tampon gagne, comme le document a toujours tranché pour un champ donné.
 
 ## 5. Après correction
 
-| vérification | résultat |
-| --- | --- |
-| déplacements simultanés, convergence des deux clients | OK |
-| renommage + ajout de colonne concurrents | OK (les deux survivent) |
-| DBML tapé + table créée au canvas en même temps | OK (les deux survivent) |
-| édition distante pendant un drag | OK (même position chez les deux) |
-| rechargement des deux clients | OK (4 tables → 4 tables) |
-| redémarrage du serveur | OK (4 tables → 4 tables) |
-| suppression d'une table depuis le DBML | toujours effective |
-| suppression d'une colonne depuis le DBML | toujours effective |
-| renommage depuis le DBML | toujours effectif |
-| import ponctuel sans baseline | remplace toujours tout |
+| vérification                                          | résultat                         |
+| ----------------------------------------------------- | -------------------------------- |
+| déplacements simultanés, convergence des deux clients | OK                               |
+| renommage + ajout de colonne concurrents              | OK (les deux survivent)          |
+| DBML tapé + table créée au canvas en même temps       | OK (les deux survivent)          |
+| édition distante pendant un drag                      | OK (même position chez les deux) |
+| rechargement des deux clients                         | OK (4 tables → 4 tables)         |
+| redémarrage du serveur                                | OK (4 tables → 4 tables)         |
+| suppression d'une table depuis le DBML                | toujours effective               |
+| suppression d'une colonne depuis le DBML              | toujours effective               |
+| renommage depuis le DBML                              | toujours effectif                |
+| import ponctuel sans baseline                         | remplace toujours tout           |
 
 Couverture automatisée ajoutée : `packages/dbml-engine/src/concurrentEdits.test.ts`
 (5 tests sur la fusion à trois côtés — ajouts concurrents conservés,
@@ -129,7 +129,7 @@ suppressions réellement appliquées).
   le comportement du document lui-même (granularité par entité), pas une
   régression.
 - **Le panneau DBML n'adopte pas les changements distants tant que le tampon
-  est *dirty*** : tant qu'un utilisateur a du texte non synchronisé, son
+  est _dirty_** : tant qu'un utilisateur a du texte non synchronisé, son
   panneau montre sa version. C'est voulu (ne pas écraser ce qu'il tape), mais
   cela veut dire qu'il ne voit pas immédiatement le travail des autres dans le
   texte — le canvas, lui, reste à jour.

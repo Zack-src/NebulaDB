@@ -192,9 +192,17 @@ async function main() {
 
   // --- item_prioritized_nba (strict 1:1 — pk is id_item_prioritized) ----
   const nbaCount = Math.floor(itemPrioritizedIds.length * NBA_FRACTION);
-  console.log(`\nSeeding item_prioritized_nba (${nbaCount} rows, ${Math.round(NBA_FRACTION * 100)}% of item_prioritized)...`);
+  console.log(
+    `\nSeeding item_prioritized_nba (${nbaCount} rows, ${Math.round(NBA_FRACTION * 100)}% of item_prioritized)...`,
+  );
   const shuffled = [...itemPrioritizedIds].sort(() => Math.random() - 0.5).slice(0, nbaCount);
-  const nbaColumns = ["id_item_prioritized", "criteria_number", "percent_contribution", "id_criteria_return", "id_perimeter_return"];
+  const nbaColumns = [
+    "id_item_prioritized",
+    "criteria_number",
+    "percent_contribution",
+    "id_criteria_return",
+    "id_perimeter_return",
+  ];
   for (let i = 0; i < shuffled.length; i += BATCH_SIZE) {
     const chunk = shuffled.slice(i, i + BATCH_SIZE);
     const values = [];

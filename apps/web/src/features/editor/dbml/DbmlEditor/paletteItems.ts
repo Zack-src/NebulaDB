@@ -41,7 +41,8 @@ export function buildPaletteItems(
     t: Translate;
   },
 ): PaletteItem[] {
-  const { run, runInPanel, wrap, toggleWrap, increaseFont, decreaseFont, pluginCommands, runPluginCommand, t } = options;
+  const { run, runInPanel, wrap, toggleWrap, increaseFont, decreaseFont, pluginCommands, runPluginCommand, t } =
+    options;
 
   if (palette === "commands") {
     const commands: Array<[string, string, (view: EditorView) => unknown, boolean?]> = [

@@ -89,9 +89,14 @@ function computeHighlightFlags(
   const fromFieldId = edge.data?.fromFieldId;
   const toFieldId = edge.data?.toFieldId;
   const isFieldHovered = Boolean(hoveredFieldId && (hoveredFieldId === fromFieldId || hoveredFieldId === toFieldId));
-  const isFieldSelected = Boolean(selectedFieldId && (selectedFieldId === fromFieldId || selectedFieldId === toFieldId));
+  const isFieldSelected = Boolean(
+    selectedFieldId && (selectedFieldId === fromFieldId || selectedFieldId === toFieldId),
+  );
   const isTableHovered = Boolean(
-    !hoveredFieldId && !selectedFieldId && hoveredTableId && (hoveredTableId === edge.source || hoveredTableId === edge.target),
+    !hoveredFieldId &&
+    !selectedFieldId &&
+    hoveredTableId &&
+    (hoveredTableId === edge.source || hoveredTableId === edge.target),
   );
   const isTableSelected = !selectedFieldId && (selectedTableIds.has(edge.source) || selectedTableIds.has(edge.target));
   const isEdgeSelected = edge.id === selectedEdgeId;
@@ -149,7 +154,8 @@ export class CanvasEdgesState {
     if (this.input.dragging() || selectionDrag.selecting) return this.stableNodes;
 
     let key = "";
-    for (const n of nodes) key += `${n.id}:${n.position.x},${n.position.y},${n.measured?.width ?? ""},${n.measured?.height ?? ""};`;
+    for (const n of nodes)
+      key += `${n.id}:${n.position.x},${n.position.y},${n.measured?.width ?? ""},${n.measured?.height ?? ""};`;
     if (key !== this.geometryKey || this.stableNodes.length !== nodes.length) {
       this.geometryKey = key;
       this.stableNodes = nodes;
@@ -256,7 +262,8 @@ export class CanvasEdgesState {
           onSelectEdge,
           onColorChange: (color: string | undefined) =>
             writeRef(ref.id, (current) => ({ style: { ...current.style, color } })),
-          onRoutingPointsChange: (routingPoints: RoutingPoint[] | undefined) => writeRef(ref.id, () => ({ routingPoints })),
+          onRoutingPointsChange: (routingPoints: RoutingPoint[] | undefined) =>
+            writeRef(ref.id, () => ({ routingPoints })),
           onCardinalityChange: !editable
             ? undefined
             : (cardinality: RefCardinality) => writeRef(ref.id, () => ({ cardinality })),

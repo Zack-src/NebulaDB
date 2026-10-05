@@ -237,7 +237,8 @@ export function deriveMCD(project: Project): McdModel {
     if (!fromTable || !toTable) continue;
 
     const isReflexive = ref.from.tableId === ref.to.tableId;
-    const { parent, child } = ref.cardinality === "many-to-many" ? { parent: ref.from, child: ref.to } : resolveDirection(ref, tablesById);
+    const { parent, child } =
+      ref.cardinality === "many-to-many" ? { parent: ref.from, child: ref.to } : resolveDirection(ref, tablesById);
 
     const parentMember: McdAssociationMember = {
       entityId: parent.tableId,

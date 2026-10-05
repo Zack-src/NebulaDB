@@ -48,11 +48,24 @@ test("no risk when the written type is already native for the target engine", ()
 
 test("ignores unchanged fields on a modified table, and dropped tables entirely", () => {
   const live = makeProject([
-    { name: "users", fields: [{ name: "id", type: "uuid", pk: true }, { name: "notes", type: "text" }] },
+    {
+      name: "users",
+      fields: [
+        { name: "id", type: "uuid", pk: true },
+        { name: "notes", type: "text" },
+      ],
+    },
     { name: "legacy", fields: [{ name: "id", type: "uuid", pk: true }] },
   ]);
   const target = makeProject([
-    { name: "users", fields: [{ name: "id", type: "uuid", pk: true }, { name: "notes", type: "text" }, { name: "extra", type: "json" }] },
+    {
+      name: "users",
+      fields: [
+        { name: "id", type: "uuid", pk: true },
+        { name: "notes", type: "text" },
+        { name: "extra", type: "json" },
+      ],
+    },
   ]);
   const diff = diffTargetAgainstLive(live, target);
 

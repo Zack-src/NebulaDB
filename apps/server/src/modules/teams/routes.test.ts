@@ -21,7 +21,12 @@ function headers(extra: Record<string, string> = {}) {
 }
 
 async function loginAs(app: Awaited<ReturnType<typeof buildApp>>, email: string, password: string) {
-  const res = await app.inject({ method: "POST", url: "/api/auth/login", headers: headers(), payload: { email, password } });
+  const res = await app.inject({
+    method: "POST",
+    url: "/api/auth/login",
+    headers: headers(),
+    payload: { email, password },
+  });
   const sessionCookie = res.cookies.find((c) => c.name === "athanordb_sid");
   return `athanordb_sid=${sessionCookie!.value}`;
 }
@@ -108,7 +113,11 @@ test("team lifecycle: create, add/remove a member, rename, delete — each step 
     });
     assert.equal(added.statusCode, 200);
 
-    const withMember = await app.inject({ method: "GET", url: `/api/teams/${id}`, headers: headers({ cookie: adminCookie }) });
+    const withMember = await app.inject({
+      method: "GET",
+      url: `/api/teams/${id}`,
+      headers: headers({ cookie: adminCookie }),
+    });
     assert.equal(withMember.json().members.length, 1);
     assert.equal(withMember.json().members[0].email, member.email);
 
@@ -128,10 +137,18 @@ test("team lifecycle: create, add/remove a member, rename, delete — each step 
     assert.equal(renamed.statusCode, 200);
     assert.equal(renamed.json().name, "Design & UX");
 
-    const deleted = await app.inject({ method: "DELETE", url: `/api/teams/${id}`, headers: headers({ cookie: adminCookie }) });
+    const deleted = await app.inject({
+      method: "DELETE",
+      url: `/api/teams/${id}`,
+      headers: headers({ cookie: adminCookie }),
+    });
     assert.equal(deleted.statusCode, 200);
 
-    const goneAfterDelete = await app.inject({ method: "GET", url: `/api/teams/${id}`, headers: headers({ cookie: adminCookie }) });
+    const goneAfterDelete = await app.inject({
+      method: "GET",
+      url: `/api/teams/${id}`,
+      headers: headers({ cookie: adminCookie }),
+    });
     assert.equal(goneAfterDelete.statusCode, 404);
   } finally {
     await app.close();

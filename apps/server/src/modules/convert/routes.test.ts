@@ -21,7 +21,12 @@ function headers(extra: Record<string, string> = {}) {
 }
 
 async function loginAs(app: Awaited<ReturnType<typeof buildApp>>, email: string, password: string) {
-  const res = await app.inject({ method: "POST", url: "/api/auth/login", headers: headers(), payload: { email, password } });
+  const res = await app.inject({
+    method: "POST",
+    url: "/api/auth/login",
+    headers: headers(),
+    payload: { email, password },
+  });
   const sessionCookie = res.cookies.find((c) => c.name === "athanordb_sid");
   return `athanordb_sid=${sessionCookie!.value}`;
 }

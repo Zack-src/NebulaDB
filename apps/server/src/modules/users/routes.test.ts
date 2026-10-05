@@ -21,7 +21,12 @@ function headers(extra: Record<string, string> = {}) {
 }
 
 async function loginAs(app: Awaited<ReturnType<typeof buildApp>>, email: string, password: string) {
-  const res = await app.inject({ method: "POST", url: "/api/auth/login", headers: headers(), payload: { email, password } });
+  const res = await app.inject({
+    method: "POST",
+    url: "/api/auth/login",
+    headers: headers(),
+    payload: { email, password },
+  });
   const sessionCookie = res.cookies.find((c) => c.name === "athanordb_sid");
   return `athanordb_sid=${sessionCookie!.value}`;
 }
@@ -47,7 +52,12 @@ test("PATCH /api/users/me changes the caller's own display name", async () => {
     const user = await makeUser();
     const cookie = await loginAs(app, user.email, user.password);
 
-    const unauth = await app.inject({ method: "PATCH", url: "/api/users/me", headers: headers(), payload: { displayName: "X" } });
+    const unauth = await app.inject({
+      method: "PATCH",
+      url: "/api/users/me",
+      headers: headers(),
+      payload: { displayName: "X" },
+    });
     assert.equal(unauth.statusCode, 401);
 
     const missing = await app.inject({
@@ -138,7 +148,11 @@ test("DELETE /api/users/me requires the password, and refuses to remove the last
     const soleAdmin = await makeUser(1);
     const adminCookie = await loginAs(app, soleAdmin.email, soleAdmin.password);
 
-    const noPassword = await app.inject({ method: "DELETE", url: "/api/users/me", headers: headers({ cookie: adminCookie }) });
+    const noPassword = await app.inject({
+      method: "DELETE",
+      url: "/api/users/me",
+      headers: headers({ cookie: adminCookie }),
+    });
     assert.equal(noPassword.statusCode, 400);
     assert.equal(noPassword.json().code, "PASSWORD_REQUIRED_FOR_DELETION");
 
@@ -176,7 +190,11 @@ test("GET /api/users and PATCH /api/users/:id/password are admin-only", async ()
     const plainCookie = await loginAs(app, plain.email, plain.password);
     const adminCookie = await loginAs(app, admin.email, admin.password);
 
-    const forbiddenList = await app.inject({ method: "GET", url: "/api/users", headers: headers({ cookie: plainCookie }) });
+    const forbiddenList = await app.inject({
+      method: "GET",
+      url: "/api/users",
+      headers: headers({ cookie: plainCookie }),
+    });
     assert.equal(forbiddenList.statusCode, 403);
 
     const list = await app.inject({ method: "GET", url: "/api/users", headers: headers({ cookie: adminCookie }) });
@@ -192,7 +210,11 @@ test("GET /api/users and PATCH /api/users/:id/password are admin-only", async ()
     assert.equal(reset.statusCode, 200);
 
     // The plain user's session is killed by the reset.
-    const revokedSession = await app.inject({ method: "GET", url: "/api/users/me/export", headers: headers({ cookie: plainCookie }) });
+    const revokedSession = await app.inject({
+      method: "GET",
+      url: "/api/users/me/export",
+      headers: headers({ cookie: plainCookie }),
+    });
     assert.equal(revokedSession.statusCode, 401);
   } finally {
     await app.close();

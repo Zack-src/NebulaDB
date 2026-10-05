@@ -2,7 +2,9 @@ import type { Awareness } from "y-protocols/awareness.js";
 import type { AwarenessState } from "@/features/collaboration/yjsClient";
 
 /** Live map of remote clients' awareness state (cursor, user info), excluding the local client. */
-export function useAwarenessStates(awareness: () => Awareness | null): { readonly states: Map<number, AwarenessState> } {
+export function useAwarenessStates(awareness: () => Awareness | null): {
+  readonly states: Map<number, AwarenessState>;
+} {
   let states = $state.raw<Map<number, AwarenessState>>(new Map());
   // Mirrors `states.size` outside the reactive graph: reading `states` itself
   // from inside the effect below would make the effect depend on what it writes.

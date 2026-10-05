@@ -145,7 +145,9 @@ async function launchBrowser() {
 
 /** The canvas transform, so a scenario can prove the gesture actually did something. */
 const readTransform = (page) =>
-  page.evaluate(() => document.querySelector(".svelte-flow__viewport, .react-flow__viewport")?.getAttribute("style") ?? "");
+  page.evaluate(
+    () => document.querySelector(".svelte-flow__viewport, .react-flow__viewport")?.getAttribute("style") ?? "",
+  );
 
 /** Opens a measurement window, runs `action`, then closes it on a real paint. */
 async function measure(page, label, action) {
@@ -227,13 +229,13 @@ async function runScenarios(page) {
   // 2. Drag one table.
   const first = await nodeCenter(page, "t0");
   await record("drag-single", async () => {
-      await page.mouse.move(first.x, first.y);
-      await page.mouse.down();
-      for (let i = 1; i <= 30; i++) {
-        await page.mouse.move(first.x + i * 4, first.y + i * 2);
-        await sleep(12);
-      }
-      await page.mouse.up();
+    await page.mouse.move(first.x, first.y);
+    await page.mouse.down();
+    for (let i = 1; i <= 30; i++) {
+      await page.mouse.move(first.x + i * 4, first.y + i * 2);
+      await sleep(12);
+    }
+    await page.mouse.up();
   });
 
   // 3. Multi-select: rubber-band over most of the visible canvas — the
@@ -242,7 +244,10 @@ async function runScenarios(page) {
     await page.mouse.move(pane.x + 30, pane.y + 30);
     await page.mouse.down();
     for (let step = 1; step <= 12; step++) {
-      await page.mouse.move(pane.x + 30 + (pane.width * 0.8 * step) / 12, pane.y + 30 + (pane.height * 0.8 * step) / 12);
+      await page.mouse.move(
+        pane.x + 30 + (pane.width * 0.8 * step) / 12,
+        pane.y + 30 + (pane.height * 0.8 * step) / 12,
+      );
       await sleep(20);
     }
     await page.mouse.up();

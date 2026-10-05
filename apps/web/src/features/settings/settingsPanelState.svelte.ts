@@ -22,10 +22,7 @@ export type { GridStyle, ThemePreset };
  * (`SettingsModal`) settings surfaces — same six tabs, same local
  * preferences, two different shells around them.
  */
-export function useSettingsPanelState(
-  session: () => Session,
-  onDisplayNameChange: (name: string) => Promise<void>,
-) {
+export function useSettingsPanelState(session: () => Session, onDisplayNameChange: (name: string) => Promise<void>) {
   let activeTab = $state<SettingsTab>("profile");
   let displayName = $state(session().displayName);
   let nameSavedSuccess = $state(false);

@@ -34,7 +34,10 @@ export function useMcdNodeDrag(baseNodes: () => McdNode[]) {
     const base = baseNodes();
     if (base === reconciledFrom) return;
     reconciledFrom = base;
-    nodes = preserveDraggedPositions(untrack(() => nodes), base);
+    nodes = preserveDraggedPositions(
+      untrack(() => nodes),
+      base,
+    );
   });
 
   let history: McdNode[][] = [];

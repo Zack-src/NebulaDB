@@ -114,7 +114,9 @@ async function benchQuery(pool, label, sql, paramsFn) {
   const min = Math.min(...timings);
   const max = Math.max(...timings);
   const avg = timings.reduce((a, b) => a + b, 0) / timings.length;
-  console.log(`  wall-clock over ${RUNS} runs: min=${fmtMs(min)} avg=${fmtMs(avg)} max=${fmtMs(max)}  (rows=${rowCount})`);
+  console.log(
+    `  wall-clock over ${RUNS} runs: min=${fmtMs(min)} avg=${fmtMs(avg)} max=${fmtMs(max)}  (rows=${rowCount})`,
+  );
 
   const params = paramsFn ? await paramsFn(pool) : undefined;
   const { planningMs, executionMs } = await explainAnalyze(pool, sql, params);

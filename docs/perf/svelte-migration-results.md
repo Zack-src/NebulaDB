@@ -10,15 +10,15 @@ Détail scénario par scénario : [`bench-react-vs-svelte.md`](bench-react-vs-sv
 
 ## Performance du canvas (18 configurations × 10 scénarios)
 
-| Indicateur | React | Svelte | Écart |
-| --- | ---: | ---: | ---: |
-| Temps bloquant cumulé (tâches > 50 ms) | 784 ms | 331 ms | **−58 %** |
-| … sur les 3 configs à 500 tables seulement | 702 ms | 284 ms | **−60 %** |
+| Indicateur                                  |     React |   Svelte |     Écart |
+| ------------------------------------------- | --------: | -------: | --------: |
+| Temps bloquant cumulé (tâches > 50 ms)      |    784 ms |   331 ms | **−58 %** |
+| … sur les 3 configs à 500 tables seulement  |    702 ms |   284 ms | **−60 %** |
 | Chargement + montage (somme des 18 configs) | 14 487 ms | 9 318 ms | **−36 %** |
-| Images perdues (> 33 ms), somme | 197 | 118 | **−40 %** |
-| … à 500 tables | 128 | 65 | −49 % |
-| Pire image, somme des 180 scénarios | 5 323 ms | 3 840 ms | −28 % |
-| p95 d'intervalle d'image, moyenne | 9,7 ms | 8,9 ms | −8 % |
+| Images perdues (> 33 ms), somme             |       197 |      118 | **−40 %** |
+| … à 500 tables                              |       128 |       65 |     −49 % |
+| Pire image, somme des 180 scénarios         |  5 323 ms | 3 840 ms |     −28 % |
+| p95 d'intervalle d'image, moyenne           |    9,7 ms |   8,9 ms |      −8 % |
 
 Points forts, à 500 tables :
 
@@ -39,13 +39,13 @@ blocage : la différence n'y est visible que sur le montage (−25 à −54 %).
 
 ## Taille du bundle (gzip, `vite build`)
 
-| Chunk | React | Svelte | Écart |
-| --- | ---: | ---: | ---: |
-| `index` (code applicatif + runtime du framework) | 186,7 Ko | 153,3 Ko | −33,5 Ko |
-| `xyflow` (moteur du canvas) | 76,3 Ko | 89,7 Ko | +13,4 Ko |
-| i18n | 15,0 Ko | 14,9 Ko | ≈ |
+| Chunk                                                        |        React |       Svelte |               Écart |
+| ------------------------------------------------------------ | -----------: | -----------: | ------------------: |
+| `index` (code applicatif + runtime du framework)             |     186,7 Ko |     153,3 Ko |            −33,5 Ko |
+| `xyflow` (moteur du canvas)                                  |      76,3 Ko |      89,7 Ko |            +13,4 Ko |
+| i18n                                                         |      15,0 Ko |      14,9 Ko |                   ≈ |
 | **Chemin critique d'une vue projet** (index + xyflow + i18n) | **278,1 Ko** | **257,9 Ko** | **−20,2 Ko (−7 %)** |
-| Tous les fichiers JS/CSS | 727,9 Ko | 714,5 Ko | −13,4 Ko |
+| Tous les fichiers JS/CSS                                     |     727,9 Ko |     714,5 Ko |            −13,4 Ko |
 
 Les boîtes de dialogue chargées à la demande (import, export, historique,
 plugins, déploiement…) prennent chacune 0,4 à 2,5 Ko gzip de plus : Svelte

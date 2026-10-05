@@ -63,7 +63,8 @@ test("every /api/v1 route declared in the source is in the OpenAPI catalogue", (
 test("docs/public-api.md lists exactly the documented operations", () => {
   const doc = readFileSync(join(REPO_ROOT, "docs/public-api.md"), "utf8");
   const inDoc = new Set<string>();
-  for (const m of doc.matchAll(/^\| `(GET|POST|PUT|PATCH|DELETE)` \| `(\/api\/v1[^`?]*)/gm)) {
+  // `\s*` around the cells: Prettier pads table columns to align them.
+  for (const m of doc.matchAll(/^\|\s*`(GET|POST|PUT|PATCH|DELETE)`\s*\|\s*`(\/api\/v1[^`?]*)/gm)) {
     inDoc.add(key(m[1], m[2]));
   }
   const missingFromDoc = [...specKeys].filter((k) => !inDoc.has(k));

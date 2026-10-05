@@ -30,7 +30,10 @@ test("a table someone else added while the buffer was open is kept", () => {
     ["orders", "users"],
     "the concurrently-added table must survive an import that never saw it",
   );
-  assert.deepEqual(result.tables.find((t) => t.name === "users")?.fields.map((f) => f.name), ["id", "email"]);
+  assert.deepEqual(
+    result.tables.find((t) => t.name === "users")?.fields.map((f) => f.name),
+    ["id", "email"],
+  );
 });
 
 test("a table the buffer's author deleted is still deleted", () => {
@@ -40,7 +43,11 @@ test("a table the buffer's author deleted is still deleted", () => {
 
   const result = preserveConcurrentAdditions(current, merged, baseline);
 
-  assert.deepEqual(result.tables.map((t) => t.name), ["users"], "a deletion the baseline confirms must go through");
+  assert.deepEqual(
+    result.tables.map((t) => t.name),
+    ["users"],
+    "a deletion the baseline confirms must go through",
+  );
 });
 
 test("a column someone else added is kept, one the author deleted is not", () => {
@@ -50,7 +57,10 @@ test("a column someone else added is kept, one the author deleted is not", () =>
 
   const result = preserveConcurrentAdditions(current, merged, baseline);
 
-  assert.deepEqual(result.tables[0].fields.map((f) => f.name), ["id", "added_by_peer"]);
+  assert.deepEqual(
+    result.tables[0].fields.map((f) => f.name),
+    ["id", "added_by_peer"],
+  );
 });
 
 test("refs added by someone else survive; the ones the buffer dropped do not", () => {
@@ -77,7 +87,10 @@ test("refs added by someone else survive; the ones the buffer dropped do not", (
 
   const result = preserveConcurrentAdditions(current, merged, baseline);
 
-  assert.deepEqual(result.refs.map((r) => r.id), ["r-carts"]);
+  assert.deepEqual(
+    result.refs.map((r) => r.id),
+    ["r-carts"],
+  );
 });
 
 test("an enum added by someone else is kept", () => {
@@ -90,5 +103,8 @@ test("an enum added by someone else is kept", () => {
 
   const result = preserveConcurrentAdditions(current, merged, baseline);
 
-  assert.deepEqual(result.enums.map((e) => e.name), ["status"]);
+  assert.deepEqual(
+    result.enums.map((e) => e.name),
+    ["status"],
+  );
 });

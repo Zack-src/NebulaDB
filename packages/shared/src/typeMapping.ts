@@ -260,7 +260,12 @@ const FAMILIES: Record<string, FamilyDef> = {
   },
   binary: {
     recognizedAs: ["blob", "bytea", "binary", "varbinary", "image", "raw"],
-    nativeOn: { postgres: ["bytea"], mysql: ["blob", "binary", "varbinary"], mssql: ["binary", "varbinary", "image"], sqlite: ["blob"] },
+    nativeOn: {
+      postgres: ["bytea"],
+      mysql: ["blob", "binary", "varbinary"],
+      mssql: ["binary", "varbinary", "image"],
+      sqlite: ["blob"],
+    },
     render: {
       postgres: () => "bytea",
       mysql: () => "blob",

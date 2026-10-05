@@ -4,7 +4,7 @@ import type { Page } from "playwright-core";
 import { login, startE2eEnvironment } from "./harness.js";
 
 /**
- * Copy / paste of tables on the canvas (docs/todo.md, Phase 29). The naming,
+ * Copy / paste of tables, enums, zones and sticky notes on the canvas (docs/todo.md, Phase 29). The naming,
  * id remapping and clipboard parsing are unit-tested in
  * `tableClipboard.test.ts`; what only a browser can show is that Ctrl+C /
  * Ctrl+V actually reach the canvas through the `copy` / `paste` events, that
@@ -37,16 +37,17 @@ async function openNewProject(page: Page): Promise<void> {
 }
 
 /** A viewport point where the bare canvas is on top — tables and toolbars move with every paste. */
-async function emptyCanvasPoint(page: Page): Promise<{ x: number; y: number }> {
-  const point = await page.evaluate(() => {
+async function emptyCanvasPoint(page: Page, fromBottom = false): Promise<{ x: number; y: number }> {
+  const point = await page.evaluate((reverse) => {
     const pane = document.querySelector(".svelte-flow__pane")!.getBoundingClientRect();
-    for (let y = pane.top + 30; y < pane.bottom - 30; y += 25) {
+    for (let row = 0; pane.top + 30 + row * 25 < pane.bottom - 30; row++) {
+      const y = reverse ? pane.bottom - 30 - row * 25 : pane.top + 30 + row * 25;
       for (let x = pane.left + 30; x < pane.right - 30; x += 25) {
         if (document.elementFromPoint(x, y)?.classList.contains("svelte-flow__pane")) return { x, y };
       }
     }
     return null;
-  });
+  }, fromBottom);
   assert.ok(point, "some empty canvas is visible");
   return point;
 }
@@ -77,7 +78,7 @@ test(
       await tableHeader(page, "users").click();
       await tableHeader(page, "orders").click({ modifiers: ["ControlOrMeta"] });
       await page.keyboard.press("ControlOrMeta+c");
-      await page.getByText("2 tables copiées").waitFor({ timeout: 5000 });
+      await page.getByText("2 éléments copiés").waitFor({ timeout: 5000 });
       await page.keyboard.press("ControlOrMeta+v");
       await tableNode(page, "users_copy").waitFor({ timeout: 10_000 });
       await tableNode(page, "orders_copy").waitFor({ timeout: 10_000 });
@@ -95,7 +96,10 @@ test(
       // Right-click ▸ Paste puts a third set where the menu was opened.
       const empty = await emptyCanvasPoint(page);
       await page.mouse.click(empty.x, empty.y, { button: "right" });
-      await page.getByRole("menu").getByRole("button", { name: /^Coller/ }).click();
+      await page
+        .getByRole("menu")
+        .getByRole("button", { name: /^Coller/ })
+        .click();
       await tableNode(page, "users_copy3").waitFor({ timeout: 10_000 });
 
       // The clipboard itself is plain DBML (plus one comment line) — what a text field receives.
@@ -115,6 +119,85 @@ test(
       await tableNode(page, "users_copy4").waitFor({ timeout: 10_000 });
       await page.keyboard.press("ControlOrMeta+z");
       await tableNode(page, "users_copy4").waitFor({ state: "detached", timeout: 10_000 });
+    } finally {
+      await env.teardown();
+    }
+  },
+);
+
+test(
+  "canvas: Ctrl+C / Ctrl+V copies enums, zones and sticky notes along with the tables",
+  { timeout: 90_000 },
+  async () => {
+    const env = await startE2eEnvironment(PORT);
+    try {
+      const context = await env.browser.newContext({ permissions: ["clipboard-read", "clipboard-write"] });
+      const page = await context.newPage();
+      await login(page, env.baseUrl);
+      await openNewProject(page);
+
+      await page.locator(".cm-content").click();
+      await page.keyboard.press("ControlOrMeta+a");
+      await page.keyboard.insertText("Enum status {\n  open\n  closed\n}\n\nTable users {\n  id int [pk]\n}");
+      await tableNode(page, "users").waitFor({ timeout: 10_000 });
+      await page.locator(".svelte-flow__node-enum").waitFor({ timeout: 10_000 });
+      await page.locator('[data-sync-state="synced"]').waitFor({ timeout: 10_000 });
+
+      // A zone and a sticky note, added from the context menu — each where the canvas is still empty.
+      const zone = page.locator(".svelte-flow__node-zone");
+      const note = page.locator(".svelte-flow__node-sticky");
+      const enumNode = page.locator(".svelte-flow__node-enum");
+      for (const [label, added, fromBottom] of [
+        [/^Ajouter une zone/, zone, false],
+        [/^Ajouter une note/, note, true],
+      ] as const) {
+        const empty = await emptyCanvasPoint(page, fromBottom);
+        await page.mouse.click(empty.x, empty.y, { button: "right" });
+        await page.getByRole("menu").getByRole("button", { name: label }).click();
+        await added.waitFor({ timeout: 10_000 });
+      }
+
+      // Select one of each kind, then copy. A zone or a note is clicked where nothing else is on top of it.
+      const clickNode = (selector: string) =>
+        page.evaluate((query) => {
+          const box = document.querySelector(query)!.getBoundingClientRect();
+          for (let y = box.bottom - 4; y > box.top; y -= 6) {
+            for (let x = box.right - 4; x > box.left; x -= 6) {
+              if (document.elementFromPoint(x, y)?.closest(query)) return { x, y };
+            }
+          }
+          return null;
+        }, selector);
+      await tableHeader(page, "users").click();
+      await enumNode.getByText("status", { exact: true }).click({ modifiers: ["ControlOrMeta"] });
+      for (const selector of [".svelte-flow__node-zone", ".svelte-flow__node-sticky"]) {
+        const point = await clickNode(selector);
+        assert.ok(point, `${selector} has a visible spot`);
+        await page.keyboard.down("ControlOrMeta");
+        await page.mouse.click(point.x, point.y);
+        await page.keyboard.up("ControlOrMeta");
+      }
+      await page.keyboard.press("ControlOrMeta+c");
+      await page.getByText("4 éléments copiés").waitFor({ timeout: 5000 });
+
+      // The clipboard reads as DBML: the enum as DBML, the zone as a comment.
+      const clipboard = await page.evaluate(() => navigator.clipboard.readText());
+      assert.match(clipboard, /Enum status \{/);
+      assert.match(clipboard, /\/\/ Zone: Zone/);
+
+      await page.keyboard.press("ControlOrMeta+v");
+      await tableNode(page, "users_copy").waitFor({ timeout: 10_000 });
+      await page.getByText("4 éléments collés").waitFor({ timeout: 5000 });
+      await enumNode.filter({ has: page.getByText("status_copy", { exact: true }) }).waitFor({ timeout: 10_000 });
+      assert.equal(await zone.count(), 2);
+      assert.equal(await note.count(), 2);
+      assert.equal(await enumNode.count(), 2);
+
+      // Persisted: the copies are in the document.
+      await page.reload();
+      await tableNode(page, "users_copy").waitFor({ timeout: 10_000 });
+      assert.equal(await zone.count(), 2);
+      assert.equal(await note.count(), 2);
     } finally {
       await env.teardown();
     }

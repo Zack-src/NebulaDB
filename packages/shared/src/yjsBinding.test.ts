@@ -162,8 +162,5 @@ test("a table added by a doc written before TABLE_ORDER_KEY existed still appear
 
   const result = readProjectFromDoc(doc, "fallback-id");
   assert.equal(result.tables.length, 2, "no table dropped just because tableOrder was never written");
-  assert.deepEqual(
-    result.tables.map((t) => t.id).sort(),
-    ["t1", "t2"],
-  );
+  assert.deepEqual(result.tables.map((t) => t.id).sort(), ["t1", "t2"]);
 });

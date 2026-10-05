@@ -1,10 +1,5 @@
 import type * as Y from "yjs";
-import {
-  COLLECTION_COUNT_LIMITS,
-  META_KEY,
-  clampCollectionValue,
-  clampMetaValue,
-} from "@athanordb/shared";
+import { COLLECTION_COUNT_LIMITS, META_KEY, clampCollectionValue, clampMetaValue } from "@athanordb/shared";
 import type { RoomLogger } from "./logger.js";
 
 /**
@@ -56,7 +51,8 @@ export function enforceLimits(
       const map = doc.getMap(collection);
       for (const id of ids) {
         const current = map.get(id);
-        const clamped = collection === META_KEY ? clampMetaValue(id, current) : clampCollectionValue(collection, current);
+        const clamped =
+          collection === META_KEY ? clampMetaValue(id, current) : clampCollectionValue(collection, current);
         if (clamped !== null) {
           log.warn({ room: projectId, collection, entityId: id }, "clamped over-length input");
           map.set(id, clamped);
