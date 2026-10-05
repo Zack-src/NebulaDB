@@ -887,6 +887,97 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 36,
+    name: "db_access_grants, db_account_hints and invitations.grants_json",
+    up: (db) => {
+      // Database access for members: an instance administrator grants a user
+      // or a team `read` or `write` on a connection. Nothing is granted on
+      // upgrade — the console stays the instance administrators' until someone
+      // grants it. `db_account_hints` is the database account *name* an
+      // administrator associated with a user, to pre-fill their personal
+      // account (never a password). `grants_json` carries what an invitation
+      // gives the account when it is accepted (teams, database access).
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS db_access_grants (
+          connection_id TEXT NOT NULL,
+          subject_type TEXT NOT NULL CHECK (subject_type IN ('user', 'team')),
+          subject_id TEXT NOT NULL,
+          level TEXT NOT NULL CHECK (level IN ('read', 'write')),
+          granted_by TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          PRIMARY KEY (connection_id, subject_type, subject_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_db_access_grants_subject ON db_access_grants(subject_type, subject_id);
+        CREATE TABLE IF NOT EXISTS db_account_hints (
+          connection_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          username TEXT NOT NULL,
+          set_by TEXT,
+          updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+          PRIMARY KEY (connection_id, user_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_db_account_hints_user ON db_account_hints(user_id);
+      `);
+      const columns = db.prepare("PRAGMA table_info(invitations)").all() as { name: string }[];
+      if (!columns.some((c) => c.name === "grants_json")) {
+        db.exec("ALTER TABLE invitations ADD COLUMN grants_json TEXT");
+      }
+    },
+  },
+  {
+    version: 37,
+    name: "accounts watch (monitor_settings.watch_accounts, account_baselines, drift_events.details_json) and query_stats",
+    up: (db) => {
+      // The accounts watch: off for every project until an instance
+      // administrator turns it on. `account_baselines` is, per project and
+      // database, the canonical list of accounts, memberships and privileges
+      // Athanor last agreed with (names and privileges only — never a password
+      // or a hash), and the last state read when it differed.
+      const monitor = db.prepare("PRAGMA table_info(monitor_settings)").all() as { name: string }[];
+      if (!monitor.some((c) => c.name === "watch_accounts")) {
+        db.exec("ALTER TABLE monitor_settings ADD COLUMN watch_accounts INTEGER NOT NULL DEFAULT 0");
+      }
+      const events = db.prepare("PRAGMA table_info(drift_events)").all() as { name: string }[];
+      if (!events.some((c) => c.name === "details_json")) {
+        db.exec("ALTER TABLE drift_events ADD COLUMN details_json TEXT");
+      }
+      // Per connection, statement shape and UTC day: how often a statement ran
+      // through the SQL console and how long it took as Athanor measured it.
+      // The text has its literals replaced by `?`; days past the retention go.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS account_baselines (
+          project_id TEXT NOT NULL,
+          connection_id TEXT NOT NULL,
+          hash TEXT NOT NULL,
+          lines_json TEXT NOT NULL,
+          taken_at TEXT NOT NULL DEFAULT (datetime('now')),
+          live_hash TEXT,
+          live_json TEXT,
+          last_read_at TEXT,
+          last_error TEXT,
+          PRIMARY KEY (project_id, connection_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_account_baselines_connection ON account_baselines(connection_id);
+        CREATE TABLE IF NOT EXISTS query_stats (
+          connection_id TEXT NOT NULL,
+          query_hash TEXT NOT NULL,
+          day TEXT NOT NULL,
+          normalized_sql TEXT NOT NULL,
+          executions INTEGER NOT NULL DEFAULT 0,
+          failures INTEGER NOT NULL DEFAULT 0,
+          total_ms INTEGER NOT NULL DEFAULT 0,
+          max_ms INTEGER NOT NULL DEFAULT 0,
+          rows_total INTEGER NOT NULL DEFAULT 0,
+          rows_counted INTEGER NOT NULL DEFAULT 0,
+          last_at TEXT NOT NULL,
+          last_user_id TEXT,
+          PRIMARY KEY (connection_id, query_hash, day)
+        );
+        CREATE INDEX IF NOT EXISTS idx_query_stats_day ON query_stats(day);
+      `);
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */

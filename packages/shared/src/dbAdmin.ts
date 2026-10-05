@@ -97,6 +97,29 @@ export interface DbAdminQueryHistoryEntry {
   createdAt: string;
 }
 
+/**
+ * One statement shape run through Athanor's SQL console on a connection,
+ * aggregated (`GET /api/admin/connections/:id/query-stats`). `sql` has every
+ * literal replaced by `?` — never a value, never a result. Durations are
+ * measured by Athanor around the call (opening the connection included), not
+ * read from the database server.
+ */
+export interface DbQueryStat {
+  hash: string;
+  sql: string;
+  executions: number;
+  failures: number;
+  avgMs: number;
+  maxMs: number;
+  totalMs: number;
+  /** Average rows returned or affected, over the executions that succeeded. */
+  avgRows: number | null;
+  lastAt: string;
+  lastUserName: string | null;
+}
+
+export type DbQueryStatSort = "frequency" | "slowest" | "total";
+
 export type DbPrincipalKind = "user" | "role";
 
 export interface DbPrincipal {
@@ -213,4 +236,60 @@ export interface StructurePolicyRefusal {
   policy: StructurePolicy;
   actions: StructuralAction[];
   projects: { id: string; name: string }[];
+}
+
+// ---- Database access for members (granted by an instance administrator) ----
+
+/**
+ * What an instance administrator grants a member (or a team) on one
+ * connection. `read`: the explorer and read-only SQL. `write`: also data
+ * writes (`INSERT` / `UPDATE` / `DELETE` / `MERGE`), each confirmed. Never
+ * structure, accounts, sessions, backups or drops — those stay the instance
+ * administrator's.
+ */
+export type DbAccessLevel = "read" | "write";
+export const DB_ACCESS_LEVELS: readonly DbAccessLevel[] = ["read", "write"];
+
+/** What the console may do on a connection for the person looking at it. */
+export type DbConsoleAccess = "admin" | DbAccessLevel;
+
+/** One connection in a grant list. `level: null` keeps only the database account name. */
+export interface DbAccessGrantInput {
+  connectionId: string;
+  level: DbAccessLevel | null;
+  /** The database account name proposed to the person (never a password). Users and invitations only. */
+  sqlUsername?: string | null;
+}
+
+export interface DbAccessGrant {
+  connectionId: string;
+  connectionName: string;
+  level: DbAccessLevel | null;
+  sqlUsername: string | null;
+}
+
+/** A level a user holds through one of their teams. */
+export interface InheritedDbAccess {
+  connectionId: string;
+  connectionName: string;
+  level: DbAccessLevel;
+  teamId: string;
+  teamName: string;
+}
+
+/** A user's own grants and those their teams give them — what Admin → Utilisateurs shows. */
+export interface UserDbAccess {
+  grants: DbAccessGrant[];
+  inherited: InheritedDbAccess[];
+}
+
+/** The connections a user may query, with the highest level they hold on each. */
+export interface MyDbAccess {
+  connections: { connectionId: string; level: DbAccessLevel }[];
+}
+
+/** What an invitation gives the account once it is accepted. */
+export interface InvitationGrants {
+  teamIds: string[];
+  databases: DbAccessGrantInput[];
 }

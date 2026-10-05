@@ -99,6 +99,10 @@ export const ERROR_CATALOG = {
   },
   STAGE_SKIP_REASON_REQUIRED: { status: 400, message: "skipping a stage needs a reason (skipReason)" },
   SUBSCRIPTION_INVALID: { status: 400, message: "events must be a list among deployment, lock, seed, drift" },
+  COMMENT_NOTICE_INVALID: {
+    status: 400,
+    message: "text, tableName (and optionally columnName, threadUserIds) are required",
+  },
   COMPARISON_INVALID: { status: 400, message: "sourceId and targetId must be two different connections" },
   DICTIONARY_FORMAT_INVALID: { status: 400, message: "format must be one of json, markdown, csv, html" },
   LINT_INVALID: {
@@ -236,6 +240,21 @@ export const ERROR_CATALOG = {
     message: "this connection uses personal accounts — give your own account on this database first",
   },
   PERSONAL_CREDENTIALS_NOT_USED: { status: 409, message: "this connection uses one shared account" },
+  DB_ACCESS_INVALID: { status: 400, message: "the database access list is invalid" },
+  DB_ACCESS_WRITE_FORBIDDEN: { status: 403, message: "your access to this database is read-only" },
+  DB_ACCESS_WRITE_CONFIRMATION_REQUIRED: {
+    status: 409,
+    message: "this statement writes data — confirm it (confirmWrite) to run it",
+  },
+  DB_ACCESS_STATEMENT_NOT_ALLOWED: {
+    status: 400,
+    message: "only data statements (INSERT, UPDATE, DELETE, MERGE) can be run with your access — never structure",
+  },
+  DB_ADMIN_CONNECTION_ACCOUNT_PROTECTED: {
+    status: 409,
+    message:
+      "this is the account the connection itself signs in with — dropping, locking it or changing its password would lock Athanor out of this database",
+  },
   PRODUCTION_CONFIRMATION_REQUIRED: {
     status: 409,
     message: "this connection is the production stage — send its name as confirmName to deploy or roll back",

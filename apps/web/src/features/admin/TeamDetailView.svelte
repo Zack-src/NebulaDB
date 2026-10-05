@@ -14,6 +14,10 @@
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { addTeamMember, fetchTeam, removeTeamMember } from "@/services/teamsApi";
   import { fetchUsers } from "@/services/usersApi";
+  import { toast } from "@/components/ui/toast.svelte";
+  import { fetchTeamDbAccess, saveTeamDbAccess } from "@/services/dbAccessApi";
+  import { listAdminConnections } from "@/services/dbAdminApi";
+  import DbAccessEditor, { draftFromGrants, grantsFromDraft, type DbAccessDraft } from "./DbAccessEditor.svelte";
 
   let { teamId, onClose, onChanged }: { teamId: string; onClose: () => void; onChanged: () => void } = $props();
 
@@ -42,7 +46,24 @@
   const assignableUsers = $derived(
     (users.data ?? []).filter((user) => !members.some((member) => member.id === user.id)),
   );
-  const error = $derived(team.error ?? addMember.error ?? removeMember.error);
+  // Database access every member of the team inherits — read or write, per connection.
+  const connections = useAsyncResource(listAdminConnections);
+  const dbAccess = useAsyncResource(() => fetchTeamDbAccess(teamId));
+  let accessDraft = $state<DbAccessDraft>({});
+  let accessSeeded = false;
+  $effect(() => {
+    if (accessSeeded || !dbAccess.data) return;
+    accessSeeded = true;
+    accessDraft = draftFromGrants(dbAccess.data);
+  });
+  const saveAccess = useAsyncAction(async () => {
+    await saveTeamDbAccess(teamId, grantsFromDraft(accessDraft, false));
+    toast.success(t("dbAccess.teamSaved"));
+  });
+
+  const error = $derived(
+    team.error ?? addMember.error ?? removeMember.error ?? connections.error ?? dbAccess.error ?? saveAccess.error,
+  );
 </script>
 
 <Modal title={team.data ? t("admin.teams.detailTitle", { name: team.data.name }) : t("admin.teams.one")} {onClose}>
@@ -83,5 +104,23 @@
         {/each}
       </List>
     {/if}
+    <section class="mt-7 border-t border-border pt-4" aria-label={t("dbAccess.teamTitle")}>
+      <h3 class="m-0 mb-2 text-body-sm font-semibold text-text">{t("dbAccess.teamTitle")}</h3>
+      {#if connections.data && dbAccess.data}
+        <DbAccessEditor
+          connections={connections.data}
+          bind:value={accessDraft}
+          withAccounts={false}
+          disabled={saveAccess.pending}
+        />
+        <div class="mt-3 flex justify-end">
+          <Button size="sm" variant="primary" onclick={() => void saveAccess.run()} disabled={saveAccess.pending}>
+            {t("dbAccess.teamSave")}
+          </Button>
+        </div>
+      {:else}
+        <p class="m-0 text-label text-text-muted">{t("common.loading")}</p>
+      {/if}
+    </section>
   {/if}
 </Modal>

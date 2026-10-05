@@ -28,6 +28,9 @@
   import { copyText } from "@/utils/clipboard";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { createInvitation, fetchInvitations, revokeInvitation } from "@/services/invitationsApi";
+  import { fetchTeams } from "@/services/teamsApi";
+  import { listAdminConnections } from "@/services/dbAdminApi";
+  import DbAccessEditor, { grantsFromDraft, type DbAccessDraft } from "./DbAccessEditor.svelte";
 
   const { t } = useTranslation();
   const invitations = useAsyncResource(fetchInvitations);
@@ -36,14 +39,33 @@
   let copiedToken = $state<string | null>(null);
   let lastInvite = $state<{ email: string; emailSent: boolean } | null>(null);
 
+  // What the account gets the moment the invitation is accepted: teams to
+  // join, and access to databases with the account name proposed on each.
+  const teams = useAsyncResource(fetchTeams);
+  const connections = useAsyncResource(listAdminConnections);
+  let showGrants = $state(false);
+  let teamIds = $state<string[]>([]);
+  let databases = $state<DbAccessDraft>({});
+  const grantCount = $derived(teamIds.length + grantsFromDraft(databases, true).length);
+
   const invite = useAsyncAction(async () => {
     lastInvite = null;
-    const created = await createInvitation(email.trim(), invitingAsAdmin);
+    const created = await createInvitation(email.trim(), invitingAsAdmin, {
+      teamIds,
+      databases: grantsFromDraft(databases, true),
+    });
     lastInvite = { email: created.email, emailSent: created.emailSent };
     email = "";
     invitingAsAdmin = false;
+    teamIds = [];
+    databases = {};
+    showGrants = false;
     invitations.reload();
   });
+
+  function toggleTeam(id: string, checked: boolean) {
+    teamIds = checked ? [...teamIds, id] : teamIds.filter((teamId) => teamId !== id);
+  }
 
   const revoke = useAsyncAction(async (token: string) => {
     await revokeInvitation(token);
@@ -67,7 +89,7 @@
   }
 
   const rows = $derived(invitations.data ?? []);
-  const error = $derived(invitations.error ?? invite.error ?? revoke.error);
+  const error = $derived(invitations.error ?? invite.error ?? revoke.error ?? teams.error ?? connections.error);
 </script>
 
 <div>
@@ -86,6 +108,41 @@
       {t("admin.invitations.invite")}
     </Button>
   </div>
+  <div class="-mt-5 mb-6">
+    <Button size="sm" variant="ghost" onclick={() => (showGrants = !showGrants)} aria-expanded={showGrants}>
+      {grantCount > 0 ? t("admin.invitations.grantsWithCount", { count: grantCount }) : t("admin.invitations.grants")}
+    </Button>
+    {#if showGrants}
+      <div class="mt-2 flex max-w-[720px] flex-col gap-4 rounded-md border border-border p-3" data-testid="invitation-grants">
+        <div>
+          <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
+            {t("admin.invitations.teams")}
+          </div>
+          {#if (teams.data ?? []).length === 0}
+            <p class="m-0 text-label text-text-muted">{teams.loading ? t("common.loading") : t("admin.invitations.noTeams")}</p>
+          {:else}
+            <div class="flex flex-wrap gap-x-4 gap-y-1.5">
+              {#each teams.data ?? [] as team (team.id)}
+                <Checkbox checked={teamIds.includes(team.id)} onChange={(checked) => toggleTeam(team.id, checked)}>
+                  <span class="text-[13px]">{team.name}</span>
+                </Checkbox>
+              {/each}
+            </div>
+          {/if}
+        </div>
+        <div>
+          <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
+            {t("admin.invitations.databases")}
+          </div>
+          {#if connections.data}
+            <DbAccessEditor connections={connections.data} bind:value={databases} withAccounts />
+          {:else}
+            <p class="m-0 text-label text-text-muted">{t("common.loading")}</p>
+          {/if}
+        </div>
+      </div>
+    {/if}
+  </div>
   {#if lastInvite}
     <p class="-mt-4 mb-5 text-xs text-text-muted" role="status">
       {lastInvite.emailSent
@@ -103,6 +160,18 @@
           <ListMain>
             <span>{invitation.email}</span>
             {#if invitation.isAdmin}<Badge tone="admin">{t("common.admin")}</Badge>{/if}
+            {#each invitation.teams ?? [] as team (team.id)}<Badge tone="muted">{team.name}</Badge>{/each}
+            {#each invitation.databases ?? [] as grant (grant.connectionId)}
+              <span
+                data-tooltip={grant.sqlUsername
+                  ? t("admin.invitations.databaseAccount", { account: grant.sqlUsername })
+                  : undefined}
+              >
+                <Badge tone="muted">
+                  {grant.connectionName}{grant.level ? ` · ${t(`dbAccess.level.${grant.level}`)}` : ""}
+                </Badge>
+              </span>
+            {/each}
           </ListMain>
           <Badge tone={STATUS_TONE[invitation.status]}>{t(STATUS_LABEL_KEY[invitation.status])}</Badge>
           {#if invitation.status === "pending"}

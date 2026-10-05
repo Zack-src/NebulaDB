@@ -48,6 +48,7 @@ export function updateTeamName(id: string, name: string): void {
 /** No FK cascade in this SQLite setup — dependents go first, same ordering the project hard-delete uses. */
 const deleteTeamCascadeTx = db.transaction((teamId: string) => {
   db.prepare("DELETE FROM project_teams WHERE team_id = ?").run(teamId);
+  db.prepare("DELETE FROM db_access_grants WHERE subject_type = 'team' AND subject_id = ?").run(teamId);
   db.prepare("DELETE FROM team_members WHERE team_id = ?").run(teamId);
   db.prepare("DELETE FROM teams WHERE id = ?").run(teamId);
 });

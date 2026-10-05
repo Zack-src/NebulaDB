@@ -11,6 +11,7 @@ import type {
   DbAdminStatementsResult,
   DbAdminTable,
   DbAdminTableDescription,
+  DbConsoleAccess,
   DbGrant,
   DbPrincipal,
   DbPrincipalRef,
@@ -27,6 +28,12 @@ import { request } from "./httpClient";
 export type AdminConnectionInput = Partial<Omit<DatabaseConnectionConfig, "id" | "projectId">>;
 
 export interface ConnectionOverview {
+  /**
+   * `admin`: an instance administrator, the whole console. `read` / `write`:
+   * a member granted this connection — the explorer and SQL only, and for
+   * `write` data statements each confirmed (`confirmWrite`).
+   */
+  access: DbConsoleAccess;
   capabilities: DbAdminCapabilities;
   privileges: DbPrivilegeCatalog;
   readOnly: boolean;
@@ -39,6 +46,12 @@ export interface ConnectionOverview {
 export type DropKind = "database" | "table" | "view" | "column";
 
 const base = (id: string) => `/api/admin/connections/${id}`;
+/**
+ * The explorer and SQL routes that also serve members granted the connection
+ * (the server checks the grant on every call); instance administrators keep
+ * the console's full rights on them.
+ */
+const consoleBase = (id: string) => `/api/connections/${id}`;
 
 // ---- Connections -----------------------------------------------------------
 
@@ -106,19 +119,20 @@ export async function saveInstanceStructurePolicy(setting: StructurePolicySettin
 // ---- Explorer --------------------------------------------------------------
 
 export function fetchConnectionOverview(id: string): Promise<ConnectionOverview> {
-  return request<ConnectionOverview>(`${base(id)}/overview`);
+  return request<ConnectionOverview>(`${consoleBase(id)}/overview`);
 }
 
 export async function fetchSchemas(id: string, database?: string): Promise<DbAdminSchema[]> {
-  return (await request<{ schemas: DbAdminSchema[] }>(`${base(id)}/schemas`, { query: { database } })).schemas;
+  return (await request<{ schemas: DbAdminSchema[] }>(`${consoleBase(id)}/schemas`, { query: { database } })).schemas;
 }
 
 export async function fetchTables(id: string, database?: string, schema?: string): Promise<DbAdminTable[]> {
-  return (await request<{ tables: DbAdminTable[] }>(`${base(id)}/tables`, { query: { database, schema } })).tables;
+  return (await request<{ tables: DbAdminTable[] }>(`${consoleBase(id)}/tables`, { query: { database, schema } }))
+    .tables;
 }
 
 export async function fetchTableDescription(id: string, ref: DbAdminObjectRef): Promise<DbAdminTableDescription> {
-  return (await request<{ description: DbAdminTableDescription }>(`${base(id)}/table`, { query: { ...ref } }))
+  return (await request<{ description: DbAdminTableDescription }>(`${consoleBase(id)}/table`, { query: { ...ref } }))
     .description;
 }
 
@@ -128,8 +142,9 @@ export async function fetchTableRows(
   limit: number,
   offset: number,
 ): Promise<DbAdminQueryResult> {
-  return (await request<{ result: DbAdminQueryResult }>(`${base(id)}/rows`, { query: { ...ref, limit, offset } }))
-    .result;
+  return (
+    await request<{ result: DbAdminQueryResult }>(`${consoleBase(id)}/rows`, { query: { ...ref, limit, offset } })
+  ).result;
 }
 
 // ---- SQL console -----------------------------------------------------------
@@ -138,15 +153,25 @@ export async function runAdminQuery(
   id: string,
   sql: string,
   /** `confirmStructural`: the user accepted running table / index DDL outside the schema (policy `warn`). */
-  options: { database?: string; readOnly: boolean; maxRows?: number; confirmStructural?: boolean },
+  /** `confirmWrite`: the user confirmed this write — required by the server from a member with `write` access. */
+  options: {
+    database?: string;
+    readOnly: boolean;
+    maxRows?: number;
+    confirmStructural?: boolean;
+    confirmWrite?: boolean;
+  },
 ): Promise<DbAdminQueryResult> {
   return (
-    await request<{ result: DbAdminQueryResult }>(`${base(id)}/query`, { method: "POST", body: { sql, ...options } })
+    await request<{ result: DbAdminQueryResult }>(`${consoleBase(id)}/query`, {
+      method: "POST",
+      body: { sql, ...options },
+    })
   ).result;
 }
 
 export async function fetchQueryHistory(id: string): Promise<DbAdminQueryHistoryEntry[]> {
-  return (await request<{ history: DbAdminQueryHistoryEntry[] }>(`${base(id)}/query-history`)).history;
+  return (await request<{ history: DbAdminQueryHistoryEntry[] }>(`${consoleBase(id)}/query-history`)).history;
 }
 
 // ---- Mutations: every one previews (`execute: false`) before it runs --------

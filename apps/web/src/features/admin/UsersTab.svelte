@@ -1,6 +1,6 @@
 <script lang="ts">
   import Icon from "@/components/icons/Icon.svelte";
-  import { KeyIcon, LogOutIcon, RestoreIcon, TrashIcon } from "@/components/icons/Icons";
+  import { DatabaseIcon, KeyIcon, LogOutIcon, RestoreIcon, TrashIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
   import Badge from "@/components/ui/Badge.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
@@ -16,11 +16,13 @@
   import type { UserSummary } from "@/types";
   import ResetPasswordModal from "@/features/admin/ResetPasswordModal.svelte";
   import DeleteUserModal from "@/features/admin/DeleteUserModal.svelte";
+  import UserDbAccessModal from "@/features/admin/UserDbAccessModal.svelte";
 
   const { t } = useTranslation();
   const users = useAsyncResource(fetchUsers);
   let resetTarget = $state.raw<UserSummary | null>(null);
   let deleteTarget = $state.raw<UserSummary | null>(null);
+  let accessTarget = $state.raw<UserSummary | null>(null);
   let pendingUserId = $state<string | null>(null);
 
   /**
@@ -61,6 +63,15 @@
           <Button
             variant="ghost"
             size="icon"
+            data-tooltip={t("dbAccess.button")}
+            aria-label={t("dbAccess.userTitle", { name: user.displayName })}
+            onclick={() => (accessTarget = user)}
+          >
+            <Icon icon={DatabaseIcon} size={13} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
             data-tooltip={t("admin.users.resetPassword")}
             onclick={() => (resetTarget = user)}
           >
@@ -89,6 +100,9 @@
   {/if}
   {#if resetTarget}
     <ResetPasswordModal targetUser={resetTarget} onClose={() => (resetTarget = null)} />
+  {/if}
+  {#if accessTarget}
+    <UserDbAccessModal targetUser={accessTarget} onClose={() => (accessTarget = null)} />
   {/if}
   {#if deleteTarget}
     <DeleteUserModal

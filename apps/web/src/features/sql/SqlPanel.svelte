@@ -46,6 +46,8 @@
 
   const { t } = useTranslation();
   const RUN_SHORTCUT = "Ctrl + Enter";
+  /** A member granted `read` has no write mode at all; the server would refuse it anyway. */
+  const canWrite = $derived(overview.access !== "read");
   let sql = $state("");
   let writeMode = $state(false);
   let result = $state.raw<DbAdminQueryResult | null>(null);
@@ -63,12 +65,17 @@
         database: database || undefined,
         readOnly: !writeMode,
         confirmStructural: confirmStructural || undefined,
+        // Only ever sent after the write dialog below: what the server asks of a member with `write` access.
+        confirmWrite: writeMode || undefined,
       });
     } catch (err) {
       if (err instanceof ApiError && err.code === "STRUCTURE_VIA_SCHEMA") {
         redirect = err.details as unknown as StructurePolicyRefusal;
       } else if (err instanceof ApiError && err.code === "STRUCTURE_CONFIRMATION_REQUIRED") {
         toConfirm = err.details as unknown as StructurePolicyRefusal;
+      } else if (err instanceof ApiError && err.code === "DB_ADMIN_WRITE_NOT_ALLOWED" && !canWrite) {
+        // "Switch to write mode" means nothing to someone who has none: say why instead.
+        throw new ApiError(err.status, "DB_ACCESS_WRITE_FORBIDDEN", err.message);
       } else throw err;
     } finally {
       history.reload();
@@ -119,6 +126,12 @@
         aria-label={t("dbadmin.database")}
       />
     {/if}
+    {#if overview.access !== "admin"}
+      <span class="text-xs text-text-muted" data-testid="sql-access">
+        {t(overview.access === "read" ? "dbAccess.console.read" : "dbAccess.console.write")}
+      </span>
+    {/if}
+    {#if canWrite}
     <!-- A switch, not a checkbox: it takes effect at once, on the next run. -->
     <label
       class={`inline-flex items-center gap-2 text-xs ${overview.readOnly ? "cursor-not-allowed text-text-muted" : "cursor-pointer text-text"}`}
@@ -130,6 +143,7 @@
     <span class={`text-xs ${writeMode ? "font-semibold text-danger" : "text-text-muted"}`}>
       {writeMode ? t("dbadmin.sql.writeModeHint") : t("dbadmin.sql.readOnlyHint")}
     </span>
+    {/if}
   </div>
 
   <textarea
@@ -180,7 +194,7 @@
 {#if confirmingWrite}
   <ConfirmDialog
     title={t("dbadmin.sql.confirmWriteTitle")}
-    message={t("dbadmin.sql.confirmWrite")}
+    message={overview.access === "write" ? t("dbAccess.console.confirmWrite") : t("dbadmin.sql.confirmWrite")}
     danger="danger"
     confirmLabel={t("dbadmin.sql.confirmWriteRun")}
     onCancel={() => (confirmingWrite = false)}

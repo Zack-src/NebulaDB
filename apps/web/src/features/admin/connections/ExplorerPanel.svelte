@@ -64,6 +64,12 @@
   const UNIQUE_LABEL = "UNIQUE";
   const { t } = useTranslation();
   const capabilities = $derived(overview.capabilities);
+  /**
+   * A member granted this connection reads data and structure, nothing more:
+   * dropping and "reprendre comme données initiales" (an administrator's
+   * route) are not offered. The server refuses them either way.
+   */
+  const isAdmin = $derived(overview.access === "admin");
   const currentDatabase = $derived(overview.databases.find((d) => d.name === database) ?? null);
   const databaseArg = $derived(capabilities.multiDatabase ? database || undefined : undefined);
 
@@ -236,7 +242,7 @@
             activeTab={view}
             onChange={(id) => (view = id)}
           />
-          {#if workspace && table.kind === "table"}
+          {#if workspace && isAdmin && table.kind === "table"}
             <Button
               variant="outline"
               size="sm"
@@ -251,16 +257,18 @@
               {t("dbadmin.explorer.exportAsSeed")}
             </Button>
           {/if}
-          <Button
-            variant="danger"
-            size="sm"
-            disabled={overview.readOnly}
-            data-tooltip={dropTooltip}
-            onclick={() => requestDrop({ kind: table.kind, ref: tableRef, name: table.name })}
-          >
-            <Icon icon={TrashIcon} size={12} />
-            {t("common.delete")}
-          </Button>
+          {#if isAdmin}
+            <Button
+              variant="danger"
+              size="sm"
+              disabled={overview.readOnly}
+              data-tooltip={dropTooltip}
+              onclick={() => requestDrop({ kind: table.kind, ref: tableRef, name: table.name })}
+            >
+              <Icon icon={TrashIcon} size={12} />
+              {t("common.delete")}
+            </Button>
+          {/if}
         </div>
       </div>
 
@@ -305,7 +313,7 @@
                     <td class="px-2 py-1">{column.nullable ? t("common.yes") : t("common.no")}</td>
                     <td class="max-w-[220px] truncate px-2 py-1 font-mono text-text-muted" title={column.defaultValue ?? ""}>{column.defaultValue ?? ""}</td>
                     <td class="px-1 py-0.5 text-right">
-                      {#if table.kind === "table"}
+                      {#if isAdmin && table.kind === "table"}
                         <Button
                           variant="danger-ghost"
                           size="icon-xs"

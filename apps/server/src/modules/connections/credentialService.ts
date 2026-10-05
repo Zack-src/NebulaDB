@@ -14,6 +14,7 @@ import {
   savePersonalCredentials,
 } from "./personalCredentials.js";
 import { getConnectionById } from "./repository.js";
+import { effectiveDbAccess } from "../dbAccess/repository.js";
 
 /**
  * What giving, reading and removing one's own database account does, whoever
@@ -50,8 +51,10 @@ export interface ConnectionUser {
 
 /**
  * Those who use a connection through Athanor: instance administrators (the
- * console) and the administrators of a project it is attached to (deploy,
- * pull, compare). Anyone else is told the connection does not exist.
+ * console), the administrators of a project it is attached to (deploy, pull,
+ * compare) and, from a browser session, the members an instance administrator
+ * granted access to it (explorer and SQL — see `dbAccess/`). Anyone else is
+ * told the connection does not exist.
  */
 export function requireConnectionUser(req: FastifyRequest, connectionId: string): ConnectionUser {
   const user: SessionUser = requireUser(req);
@@ -62,7 +65,8 @@ export function requireConnectionUser(req: FastifyRequest, connectionId: string)
       project_id: string;
     }[]
   ).map((link) => link.project_id);
-  if (!user.isAdmin && !projectIds.some((id) => getEffectivePermission(user.id, id) === "administrator")) {
+  const granted = !req.apiKey && effectiveDbAccess(user.id, connectionId) !== null;
+  if (!user.isAdmin && !granted && !projectIds.some((id) => getEffectivePermission(user.id, id) === "administrator")) {
     throw new ApiError("CONNECTION_NOT_FOUND");
   }
   return { user, connection, projectIds };

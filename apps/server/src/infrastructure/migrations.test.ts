@@ -18,6 +18,10 @@ function freshDbMissingColumns(): Database.Database {
     CREATE TABLE users (id TEXT PRIMARY KEY);
     CREATE TABLE projects (id TEXT PRIMARY KEY, name TEXT NOT NULL);
     CREATE TABLE sessions (id TEXT PRIMARY KEY, user_id TEXT NOT NULL, expires_at TEXT NOT NULL);
+    CREATE TABLE invitations (
+      token TEXT PRIMARY KEY, email TEXT NOT NULL, is_admin INTEGER NOT NULL DEFAULT 0, invited_by TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')), expires_at TEXT NOT NULL, accepted_at TEXT
+    );
   `);
   return db;
 }
@@ -90,6 +94,11 @@ test("a fresh database whose CREATE TABLE already has every current column (the 
       expires_at TEXT NOT NULL,
       user_agent TEXT,
       ip TEXT
+    );
+    CREATE TABLE invitations (
+      token TEXT PRIMARY KEY, email TEXT NOT NULL, is_admin INTEGER NOT NULL DEFAULT 0, invited_by TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')), expires_at TEXT NOT NULL, accepted_at TEXT,
+      grants_json TEXT
     );
   `);
   runMigrations(db);
@@ -249,4 +258,76 @@ test("migration 35 leaves every existing connection on its shared account and ad
   // Running it again changes nothing.
   MIGRATIONS.find((m) => m.version === 35)!.up(db);
   assert.equal((db.prepare("SELECT COUNT(*) AS n FROM db_connection_credentials").get() as { n: number }).n, 1);
+});
+
+test("migration 36 grants nothing on upgrade, keeps pending invitations, and adds the access tables", () => {
+  const db = freshDbMissingColumns();
+  for (const migration of MIGRATIONS.filter((m) => m.version < 36)) migration.up(db);
+  db.pragma("user_version = 35");
+  db.exec(`
+    INSERT INTO db_connections (id, name, engine, config_encrypted) VALUES ('c1', 'Main', 'postgres', 'b');
+    INSERT INTO invitations (token, email, is_admin, invited_by, expires_at)
+      VALUES ('t1', 'new@example.com', 0, 'admin', '2999-01-01T00:00:00.000Z');
+  `);
+
+  runMigrations(db);
+
+  assert.deepEqual(db.prepare("SELECT token, email, grants_json FROM invitations").all(), [
+    { token: "t1", email: "new@example.com", grants_json: null },
+  ]);
+  assert.equal((db.prepare("SELECT COUNT(*) AS n FROM db_access_grants").get() as { n: number }).n, 0);
+  assert.ok(tableExists(db, "db_account_hints"));
+  const grant = db.prepare(
+    "INSERT INTO db_access_grants (connection_id, subject_type, subject_id, level) VALUES ('c1', ?, ?, ?)",
+  );
+  grant.run("user", "u1", "read");
+  grant.run("team", "u1", "write");
+  // One level per subject and connection; nothing but the two levels and the two kinds of subject.
+  assert.throws(() => grant.run("user", "u1", "write"), /UNIQUE|PRIMARY KEY/);
+  assert.throws(() => grant.run("user", "u2", "admin"), /CHECK/);
+  assert.throws(() => grant.run("project", "p1", "read"), /CHECK/);
+  // Running it again changes nothing.
+  MIGRATIONS.find((m) => m.version === 36)!.up(db);
+  assert.equal((db.prepare("SELECT COUNT(*) AS n FROM db_access_grants").get() as { n: number }).n, 2);
+});
+
+test("migration 37 keeps every watch and finding as it was, with the accounts watch off", () => {
+  const db = freshDbMissingColumns();
+  for (const migration of MIGRATIONS.filter((m) => m.version < 37)) migration.up(db);
+  db.pragma("user_version = 36");
+  db.exec(`
+    INSERT INTO monitor_settings (project_id, enabled, interval_minutes, ignore_json) VALUES
+      ('p1', 1, 15, '["scratch"]'),
+      ('p2', 0, 60, '[]');
+    INSERT INTO drift_events (id, project_id, connection_id, kind, live_hash, added_json) VALUES
+      ('e1', 'p1', 'c1', 'external', 'h1', '["orders"]');
+  `);
+
+  runMigrations(db);
+
+  assert.deepEqual(
+    db
+      .prepare(
+        "SELECT project_id, enabled, interval_minutes, ignore_json, watch_accounts FROM monitor_settings ORDER BY 1",
+      )
+      .all(),
+    [
+      { project_id: "p1", enabled: 1, interval_minutes: 15, ignore_json: '["scratch"]', watch_accounts: 0 },
+      { project_id: "p2", enabled: 0, interval_minutes: 60, ignore_json: "[]", watch_accounts: 0 },
+    ],
+  );
+  assert.deepEqual(db.prepare("SELECT id, kind, added_json, details_json FROM drift_events").all(), [
+    { id: "e1", kind: "external", added_json: '["orders"]', details_json: null },
+  ]);
+  assert.ok(tableExists(db, "account_baselines"));
+  assert.ok(tableExists(db, "query_stats"));
+  // One bucket per connection, statement shape and day.
+  const insert = db.prepare(
+    "INSERT INTO query_stats (connection_id, query_hash, day, normalized_sql, last_at) VALUES ('c1', 'q', '2026-10-05', 'SELECT ?', '2026-10-05 10:00:00')",
+  );
+  insert.run();
+  assert.throws(() => insert.run(), /UNIQUE/);
+  // Running it again changes nothing.
+  MIGRATIONS.find((m) => m.version === 37)!.up(db);
+  assert.equal((db.prepare("SELECT COUNT(*) AS n FROM monitor_settings").get() as { n: number }).n, 2);
 });

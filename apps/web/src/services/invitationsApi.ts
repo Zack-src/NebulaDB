@@ -1,3 +1,4 @@
+import type { InvitationGrants } from "@athanordb/shared";
 import type { InvitationSummary } from "@/types";
 import { request } from "./httpClient";
 
@@ -14,8 +15,13 @@ export function fetchInvitations(): Promise<InvitationSummary[]> {
   return request<InvitationSummary[]>("/api/invitations");
 }
 
-export function createInvitation(email: string, isAdmin: boolean): Promise<CreatedInvitation> {
-  return request<CreatedInvitation>("/api/invitations", { method: "POST", body: { email, isAdmin } });
+/** `grants`: teams to join and database access, applied by the server the moment the invitation is accepted. */
+export function createInvitation(
+  email: string,
+  isAdmin: boolean,
+  grants: InvitationGrants = { teamIds: [], databases: [] },
+): Promise<CreatedInvitation> {
+  return request<CreatedInvitation>("/api/invitations", { method: "POST", body: { email, isAdmin, ...grants } });
 }
 
 export function revokeInvitation(token: string): Promise<void> {

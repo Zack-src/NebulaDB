@@ -10,6 +10,7 @@ import {
 } from "./credentialService.js";
 import { listCredentialHolders } from "./personalCredentials.js";
 import { getConnectionById } from "./repository.js";
+import { getAccountHint } from "../dbAccess/repository.js";
 
 // Where the tests replace the one step that needs a live server; the object itself lives with the rules.
 export { credentialCheck } from "./credentialService.js";
@@ -20,7 +21,11 @@ const READ_LIMIT = { config: { rateLimit: { max: 120, timeWindow: "1 minute" } }
 export function registerCredentialRoutes(app: FastifyInstance): void {
   app.get("/api/connections/:id/credentials", READ_LIMIT, async (req) => {
     const { id } = req.params as { id: string };
-    return ownCredentials(requireConnectionUser(req, id));
+    const caller = requireConnectionUser(req, id);
+    // The account name an administrator associated with this person, to pre-fill
+    // the dialog — a name only; the password is theirs to type.
+    const suggestedUsername = getAccountHint(id, caller.user.id);
+    return { ...ownCredentials(caller), ...(suggestedUsername ? { suggestedUsername } : {}) };
   });
 
   app.put("/api/connections/:id/credentials", CREDENTIAL_SAVE_LIMIT, async (req) => {

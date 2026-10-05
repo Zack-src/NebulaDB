@@ -366,6 +366,10 @@ export function deleteConnection(id: string): boolean {
     db.prepare("DELETE FROM admin_query_history WHERE connection_id = ?").run(id);
     db.prepare("DELETE FROM schema_fingerprints WHERE connection_id = ?").run(id);
     db.prepare("DELETE FROM db_connection_credentials WHERE connection_id = ?").run(id);
+    db.prepare("DELETE FROM db_access_grants WHERE connection_id = ?").run(id);
+    db.prepare("DELETE FROM db_account_hints WHERE connection_id = ?").run(id);
+    db.prepare("DELETE FROM account_baselines WHERE connection_id = ?").run(id);
+    db.prepare("DELETE FROM query_stats WHERE connection_id = ?").run(id);
     return db.prepare("DELETE FROM db_connections WHERE id = ?").run(id).changes > 0;
   })();
 }
@@ -385,6 +389,7 @@ export function unlinkProjectConnection(projectId: string, connectionId: string)
       projectId,
       connectionId,
     );
+    db.prepare("DELETE FROM account_baselines WHERE project_id = ? AND connection_id = ?").run(projectId, connectionId);
     pruneOrphanProjectConnections();
     return true;
   })();
@@ -397,6 +402,8 @@ function pruneOrphanProjectConnections(): void {
         AND NOT EXISTS (SELECT 1 FROM project_connection_links l WHERE l.connection_id = db_connections.id)`,
   ).run();
   db.prepare("DELETE FROM db_connection_credentials WHERE connection_id NOT IN (SELECT id FROM db_connections)").run();
+  db.prepare("DELETE FROM db_access_grants WHERE connection_id NOT IN (SELECT id FROM db_connections)").run();
+  db.prepare("DELETE FROM db_account_hints WHERE connection_id NOT IN (SELECT id FROM db_connections)").run();
 }
 
 function rowToAdminSummary(row: ConnectionRow): AdminConnectionSummary {

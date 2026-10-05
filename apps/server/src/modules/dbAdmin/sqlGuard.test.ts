@@ -8,8 +8,62 @@ import { join } from "node:path";
 // this, importing it would open — and migrate — the developer's real `./data` database.
 process.env.ATHANORDB_DB_PATH ??= join(tmpdir(), `athanordb-test-sqlguard-${randomUUID()}.sqlite`);
 
-const { assertReadOnlyStatement, findStructuralStatements, isRowReturningQuery, stripSqlNoise } =
+const { assertDataStatement, assertReadOnlyStatement, findStructuralStatements, isRowReturningQuery, stripSqlNoise } =
   await import("./sqlGuard.js");
+const { accountInConnectionString } = await import("./connectionAccount.js");
+
+test("a member's write may only be one data statement — never structure, accounts or the server", () => {
+  const engines = ["postgres", "mysql", "mssql", "oracle", "sqlite"] as const;
+  for (const engine of engines) {
+    for (const sql of [
+      "INSERT INTO customers (name) VALUES ('a')",
+      "UPDATE customers SET name = 'drop table x' WHERE id = 1",
+      "DELETE FROM customers WHERE id = 1;",
+      "SELECT * FROM customers",
+    ]) {
+      assert.doesNotThrow(() => assertDataStatement(sql, engine), `${engine}: ${sql}`);
+    }
+    for (const sql of [
+      "CREATE TABLE t (id int)",
+      "DROP TABLE customers",
+      "ALTER TABLE customers ADD x int",
+      "TRUNCATE TABLE customers",
+      "DELETE FROM a; DROP TABLE b",
+      "UPDATE a SET x = 1 CREATE TABLE b (id int)",
+      "GRANT SELECT ON a TO bob",
+      "CALL wipe()",
+      "EXEC sp_who",
+      "SELECT * INTO copy FROM customers",
+      "INSERT INTO a SELECT * INTO b FROM c",
+      "DELETE FROM customers WHERE id IN (SELECT 1) INTO OUTFILE '/tmp/x'",
+      "COMMIT",
+      "",
+    ]) {
+      assert.throws(
+        () => assertDataStatement(sql, engine),
+        (err: { code?: string }) =>
+          err.code === "DB_ACCESS_STATEMENT_NOT_ALLOWED" || err.code === "DB_ADMIN_WRITE_NOT_ALLOWED",
+        `${engine}: ${sql}`,
+      );
+    }
+  }
+  // An upsert is a data statement.
+  assert.doesNotThrow(() =>
+    assertDataStatement("INSERT INTO t (id) VALUES (1) ON CONFLICT (id) DO UPDATE SET id = 2", "postgres"),
+  );
+  assert.doesNotThrow(() => assertDataStatement("REPLACE INTO t (id) VALUES (1)", "mysql"));
+  assert.throws(() => assertDataStatement("INSERT INTO t VALUES (1) /*! ; DROP TABLE t */", "mysql"));
+  assert.throws(() => assertDataStatement("ATTACH DATABASE 'x' AS y", "sqlite"));
+});
+
+test("the account a connection signs in with is read from its fields or its connection string", () => {
+  assert.equal(accountInConnectionString("postgres://deployer:secret@db:5432/shop"), "deployer");
+  assert.equal(accountInConnectionString("mysql://app%40corp:x@db/shop"), "app@corp");
+  assert.equal(accountInConnectionString("Server=db;Database=shop;User Id=sa_app;Password=x"), "sa_app");
+  assert.equal(accountInConnectionString("Server=db;UID=svc;PWD=x"), "svc");
+  assert.equal(accountInConnectionString(undefined), null);
+  assert.equal(accountInConnectionString("db.example.com:1521/ORCL"), null);
+});
 
 const rejects = (sql: string, engine: Parameters<typeof assertReadOnlyStatement>[1]) =>
   assert.throws(() => assertReadOnlyStatement(sql, engine), { code: "DB_ADMIN_WRITE_NOT_ALLOWED" }, sql);

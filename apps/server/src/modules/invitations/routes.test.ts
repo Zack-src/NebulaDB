@@ -23,7 +23,12 @@ function headers(extra: Record<string, string> = {}) {
 }
 
 async function loginAs(app: Awaited<ReturnType<typeof buildApp>>, email: string, password: string) {
-  const res = await app.inject({ method: "POST", url: "/api/auth/login", headers: headers(), payload: { email, password } });
+  const res = await app.inject({
+    method: "POST",
+    url: "/api/auth/login",
+    headers: headers(),
+    payload: { email, password },
+  });
   const sessionCookie = res.cookies.find((c) => c.name === "athanordb_sid");
   return `athanordb_sid=${sessionCookie!.value}`;
 }
@@ -67,7 +72,11 @@ test("POST /api/invitations is admin-only, and creates a listable, revocable inv
     const { token, email } = created.json();
     assert.equal(email, "new-hire@example.com"); // normalized
 
-    const listed = await app.inject({ method: "GET", url: "/api/invitations", headers: headers({ cookie: adminCookie }) });
+    const listed = await app.inject({
+      method: "GET",
+      url: "/api/invitations",
+      headers: headers({ cookie: adminCookie }),
+    });
     assert.equal(listed.statusCode, 200);
     const entry = (listed.json() as { token: string; status: string }[]).find((e) => e.token === token);
     assert.equal(entry?.status, "pending");

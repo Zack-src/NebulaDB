@@ -81,6 +81,9 @@ export function deleteProjectCascade(id: string): void {
         WHERE origin = 'project'
           AND NOT EXISTS (SELECT 1 FROM project_connection_links l WHERE l.connection_id = db_connections.id)`,
     ).run();
+    // What was granted on a connection that just went with the project.
+    db.prepare("DELETE FROM db_access_grants WHERE connection_id NOT IN (SELECT id FROM db_connections)").run();
+    db.prepare("DELETE FROM db_account_hints WHERE connection_id NOT IN (SELECT id FROM db_connections)").run();
     db.prepare("DELETE FROM api_keys WHERE project_id = ?").run(id);
     db.prepare("DELETE FROM table_locks WHERE project_id = ?").run(id);
     db.prepare("DELETE FROM table_seeds WHERE project_id = ?").run(id);
@@ -90,6 +93,7 @@ export function deleteProjectCascade(id: string): void {
     db.prepare("DELETE FROM subscriptions WHERE scope_type = 'project' AND scope_id = ?").run(id);
     db.prepare("DELETE FROM notifications WHERE project_id = ?").run(id);
     db.prepare("DELETE FROM drift_events WHERE project_id = ?").run(id);
+    db.prepare("DELETE FROM account_baselines WHERE project_id = ?").run(id);
     db.prepare("DELETE FROM schema_fingerprints WHERE project_id = ?").run(id);
     db.prepare("DELETE FROM project_teams WHERE project_id = ?").run(id);
     db.prepare("DELETE FROM revisions WHERE project_id = ?").run(id);

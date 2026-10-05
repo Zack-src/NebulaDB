@@ -1,3 +1,4 @@
+import type { DbAccessGrant } from "@athanordb/shared";
 import type {
   EnumNodeType,
   StickyNoteNodeType,
@@ -91,6 +92,10 @@ export interface InvitationSummary {
   createdAt: string;
   expiresAt: string;
   status: "pending" | "accepted" | "expired";
+  /** Teams the account joins on acceptance (absent from an older server). */
+  teams?: { id: string; name: string }[];
+  /** Database access the account gets on acceptance, with the account name proposed on each. */
+  databases?: DbAccessGrant[];
 }
 
 export interface TeamSummary {

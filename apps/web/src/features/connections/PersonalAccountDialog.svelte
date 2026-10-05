@@ -35,8 +35,10 @@
 
   const i18n = useTranslation();
   const { t } = i18n;
+  // The name an instance administrator associated with this person comes first
+  // when they have none yet; the password is always theirs to type.
   // svelte-ignore state_referenced_locally
-  let username = $state(status.username ?? "");
+  let username = $state(status.username ?? status.suggestedUsername ?? "");
   let password = $state("");
 
   const save = useAsyncAction(async () => {
@@ -62,6 +64,11 @@
     }}
   >
     <Hint>{t("personalAccount.intro")}</Hint>
+    {#if !status.username && status.suggestedUsername}
+      <p class="m-0 text-label text-text-muted" data-testid="personal-account-suggested">
+        {t("personalAccount.suggested", { username: status.suggestedUsername })}
+      </p>
+    {/if}
     {#if status.username && status.updatedAt}
       <p class="m-0 text-label text-text-muted">
         {t("personalAccount.current", {

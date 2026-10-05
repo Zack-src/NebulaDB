@@ -134,6 +134,109 @@ export function assertReadOnlyStatement(sql: string, engine: DatabaseEngine): vo
   if (hit) throw writeNotAllowed(`${hit} is not allowed`);
 }
 
+// ---- Data writes by a member (database access granted at `write`) -------------
+
+/** What a member with `write` access may start a statement with. */
+const DATA_WRITE_KEYWORDS = new Set(["INSERT", "UPDATE", "DELETE", "MERGE", "WITH", "REPLACE"]);
+
+/**
+ * Words that have no business in a data write, anywhere in it: structure,
+ * accounts and permissions, procedure calls (which can do any of those),
+ * server-side files and session or server control. A column that happens to
+ * carry one of these names has to be quoted.
+ */
+const DATA_WRITE_FORBIDDEN = [
+  "CREATE",
+  "ALTER",
+  "DROP",
+  "TRUNCATE",
+  "RENAME",
+  "COMMENT",
+  "GRANT",
+  "REVOKE",
+  "DENY",
+  "EXEC",
+  "EXECUTE",
+  "CALL",
+  "COPY",
+  "LOAD",
+  "OUTFILE",
+  "DUMPFILE",
+  "ATTACH",
+  "DETACH",
+  "PRAGMA",
+  "VACUUM",
+  "REINDEX",
+  "ANALYZE",
+  "BACKUP",
+  "RESTORE",
+  "SHUTDOWN",
+  "KILL",
+  "DBCC",
+  "USE",
+  "BULK",
+  "OPENROWSET",
+  "OPENQUERY",
+  "OPENDATASOURCE",
+  "RECONFIGURE",
+  "WAITFOR",
+  "LOCK",
+  "HANDLER",
+  "COMMIT",
+  "ROLLBACK",
+  "SAVEPOINT",
+  "BEGIN",
+];
+
+function dataWriteNotAllowed(reason: string): ApiError {
+  return new ApiError("DB_ACCESS_STATEMENT_NOT_ALLOWED", {
+    message: `only one data statement (INSERT, UPDATE, DELETE, MERGE) can be run with your access: ${reason}`,
+  });
+}
+
+/**
+ * Throws unless `sql` is one statement that writes **data** — what a member
+ * granted `write` on a database may run. Stricter than the administrator's
+ * write mode on purpose: one statement, a known first keyword, no word that
+ * could change structure, accounts or the server, and no `SELECT … INTO`
+ * (which creates a table). Structure goes through the schema, for them always.
+ *
+ * Like the read-only check, a guard rail and not a sandbox: a function the
+ * database lets the account call can still do what that function does. The
+ * database's own permissions — the person's own account, in `personal` mode —
+ * are what really bounds a member.
+ */
+export function assertDataStatement(sql: string, engine: DatabaseEngine): void {
+  if (engine === "mysql" && sql.includes("/*!")) throw dataWriteNotAllowed("executable comments are not allowed");
+
+  const stripped = stripSqlNoise(sql, engine);
+  const body = stripped.replace(/[;\s]+$/, "");
+  if (body.includes(";")) throw dataWriteNotAllowed("one statement at a time");
+
+  const keyword = firstKeyword(body);
+  if (READ_KEYWORDS.has(keyword) && keyword !== "WITH") {
+    // A read sent in write mode: held to the read-only rules.
+    assertReadOnlyStatement(sql, engine);
+    return;
+  }
+  if (!DATA_WRITE_KEYWORDS.has(keyword) || (keyword === "REPLACE" && engine !== "mysql")) {
+    throw dataWriteNotAllowed(keyword ? `${keyword} statements are not allowed` : "the statement is empty");
+  }
+
+  const tokens = body.toUpperCase().match(/[A-Z_]+/g) ?? [];
+  const words = new Set(tokens);
+  const hit = DATA_WRITE_FORBIDDEN.find((word) => words.has(word));
+  if (hit) throw dataWriteNotAllowed(`${hit} is not allowed`);
+
+  // `INSERT INTO` / `MERGE INTO` / `REPLACE INTO` take one `INTO`; a second,
+  // or one in an `UPDATE` / `DELETE`, is a `SELECT … INTO` making a table.
+  const intos = tokens.filter((token) => token === "INTO").length;
+  const allowedIntos = tokens.some((token) => token === "INSERT" || token === "MERGE" || token === "REPLACE") ? 1 : 0;
+  if (intos > allowedIntos) throw dataWriteNotAllowed("SELECT … INTO is not allowed");
+
+  if (findStructuralStatements(sql, engine).length > 0) throw dataWriteNotAllowed("structure goes through the schema");
+}
+
 // ---- Structural statements ---------------------------------------------------
 
 /** Words that may sit between `CREATE` and `TABLE` / `INDEX`. */

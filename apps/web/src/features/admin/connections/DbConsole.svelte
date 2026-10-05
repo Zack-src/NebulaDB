@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { AdminConnectionSummary } from "@athanordb/shared";
+  import type { AdminConnectionSummary, DatabaseConnectionSummary } from "@athanordb/shared";
   import Icon from "@/components/icons/Icon.svelte";
-  import { ArchiveIcon, ChevronLeftIcon, CodeIcon, TableIcon, UsersIcon, ClockIcon } from "@/components/icons/Icons";
+  import { ArchiveIcon, ChevronLeftIcon, CodeIcon, TableIcon, UsersIcon, ClockIcon, NoteIcon } from "@/components/icons/Icons";
   import Badge from "@/components/ui/Badge.svelte";
   import Button from "@/components/ui/Button.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
@@ -11,24 +11,30 @@
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { fetchConnectionOverview } from "@/services/dbAdminApi";
   import ExplorerPanel from "./ExplorerPanel.svelte";
+  import JournalPanel from "./JournalPanel.svelte";
   import SessionsPanel from "./SessionsPanel.svelte";
   import EnvironmentBadge from "@/features/environments/EnvironmentBadge.svelte";
   import SqlPanel from "@/features/sql/SqlPanel.svelte";
   import UsersPanel from "./UsersPanel.svelte";
   import BackupsPanel from "@/features/backups/BackupsPanel.svelte";
 
-  type Section = "explorer" | "sql" | "users" | "sessions" | "backups";
+  type Section = "explorer" | "sql" | "users" | "sessions" | "backups" | "journal";
 
   /**
    * Everything done *on* one connected server. The overview request doubles as
    * the reachability check and tells the console what this engine supports, so
    * a section that doesn't apply (accounts on SQLite) is simply not offered.
+   *
+   * It also says who is looking: an instance administrator gets every section;
+   * a member granted this connection (`read` / `write`) gets the explorer and
+   * SQL only — the server answers nothing else to them.
    */
   let {
     connection,
     onClose,
   }: {
-    connection: AdminConnectionSummary;
+    /** The admin console's listing, or — for a member — the project's own listing of its connections. */
+    connection: AdminConnectionSummary | DatabaseConnectionSummary;
     /** Absent when the console is a tab of a project's workspace: there is no list to go back to. */
     onClose?: () => void;
   } = $props();
@@ -46,14 +52,19 @@
     database = (preferred ?? data.databases[0])?.name ?? "";
   });
 
+  /** Backups need the admin listing's shape — and are an administrator's anyway. */
+  const adminConnection = $derived("health" in connection ? connection : null);
   const tabs = $derived.by(() => {
     const list: TabItem<Section>[] = [
       { id: "explorer", label: t("dbadmin.tab.explorer"), icon: TableIcon },
       { id: "sql", label: t("dbadmin.tab.sql"), icon: CodeIcon },
     ];
-    if (overview.data?.capabilities.users) list.push({ id: "users", label: t("dbadmin.tab.users"), icon: UsersIcon });
-    if (overview.data?.capabilities.sessions) list.push({ id: "sessions", label: t("dbadmin.tab.sessions"), icon: ClockIcon });
-    list.push({ id: "backups", label: t("dbadmin.tab.backups"), icon: ArchiveIcon });
+    if (overview.data?.access !== "admin") return list;
+    if (overview.data.capabilities.users) list.push({ id: "users", label: t("dbadmin.tab.users"), icon: UsersIcon });
+    if (overview.data.capabilities.sessions) list.push({ id: "sessions", label: t("dbadmin.tab.sessions"), icon: ClockIcon });
+    if (adminConnection) list.push({ id: "backups", label: t("dbadmin.tab.backups"), icon: ArchiveIcon });
+    // The database's journal is the audit log's: instance administrators only.
+    if (adminConnection) list.push({ id: "journal", label: t("dbadmin.tab.journal"), icon: NoteIcon });
     return list;
   });
 </script>
@@ -69,7 +80,10 @@
     <span class="text-[14px] font-semibold">{connection.name}</span>
     <Badge tone="admin">{t(`connections.engine.${connection.engine}`)}</Badge>
     {#if connection.environment}<EnvironmentBadge name={connection.environment} color={connection.environmentColor} production={connection.production} />{/if}
-    {#if connection.readOnly}<Badge tone="warning">{t("dbadmin.readOnly")}</Badge>{/if}
+    {#if overview.data?.readOnly}<Badge tone="warning">{t("dbadmin.readOnly")}</Badge>{/if}
+    {#if overview.data && overview.data.access !== "admin"}
+      <Badge tone="muted">{t(`dbAccess.level.${overview.data.access}`)}</Badge>
+    {/if}
     {#if overview.data && overview.data.structurePolicy.projects.length > 0}
       {@const policy = overview.data.structurePolicy}
       <span data-tooltip={t(`dbadmin.structure.policyHint.${policy.policy}`)}>
@@ -92,12 +106,14 @@
       <ExplorerPanel connectionId={connection.id} overview={data} bind:database onDatabaseDropped={() => overview.reload()} />
     {:else if section === "sql"}
       <SqlPanel connectionId={connection.id} overview={data} bind:database />
-    {:else if section === "users"}
+    {:else if section === "users" && data.access === "admin"}
       <UsersPanel connectionId={connection.id} engine={connection.engine} overview={data} />
-    {:else if section === "sessions"}
+    {:else if section === "sessions" && data.access === "admin"}
       <SessionsPanel connectionId={connection.id} overview={data} />
-    {:else}
-      <BackupsPanel {connection} />
+    {:else if section === "backups" && adminConnection && data.access === "admin"}
+      <BackupsPanel connection={adminConnection} />
+    {:else if section === "journal" && adminConnection && data.access === "admin"}
+      <JournalPanel connectionId={connection.id} />
     {/if}
   {/if}
 </div>
