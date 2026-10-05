@@ -79,6 +79,8 @@
     edges: RefEdgeType[];
     /** Ids of the selected table nodes, derived once in `ProjectEditor`. */
     selectedTableIds: string[];
+    /** Tables, enums, zones and notes selected — what Copy would take. */
+    selectedCopyCount: number;
     /** tableId -> the remote collaborators who currently have that table selected. */
     remoteSelections: Map<string, RemoteSelector[]>;
     /** Deletes refs — the relation half of the Delete key. */
@@ -478,7 +480,7 @@
       onAddZone={props.onAddZone}
       onAddNote={props.onAddNote}
       onAddEnum={props.onAddEnum}
-      copyCount={props.selectedTableIds.length}
+      copyCount={props.selectedCopyCount}
       onCopy={props.onCopyTables}
       onPaste={props.onPasteTables}
       onClose={closeContextMenu}

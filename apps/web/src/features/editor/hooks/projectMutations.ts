@@ -15,10 +15,11 @@ import {
 import type { CanvasNode } from "@/types/index";
 import { generateId } from "@/utils/id";
 import {
+  clipboardSize,
   instantiateClipboard,
   uniqueCopyName,
   type PasteTarget,
-  type TableClipboard,
+  type CanvasClipboard,
 } from "@/features/editor/canvas/tableClipboard";
 
 /**
@@ -219,18 +220,33 @@ export function createProjectMutations(
     });
   };
 
-  /** Adds copied tables (see `tableClipboard.ts`) in one undoable step; returns how many landed. */
-  const pasteTables = (clipboard: TableClipboard, target: PasteTarget): number => {
+  /**
+   * Adds copied elements (see `tableClipboard.ts`) in one undoable step; returns how many landed.
+   * Every pasted table is a new, unlocked one, and a relation only ever joins two pasted tables,
+   * so no lock is touched.
+   */
+  const pasteElements = (clipboard: CanvasClipboard, target: PasteTarget): number => {
     const current = doc();
     if (!current) return 0;
     const tables = getTablesMap(current);
-    const pasted = instantiateClipboard(clipboard, [...tables.values()], target, generateId);
+    const enums = getEnumsMap(current);
+    const pasted = instantiateClipboard(
+      clipboard,
+      { tables: [...tables.values()], enums: [...enums.values()] },
+      target,
+      generateId,
+    );
     current.transact(() => {
       for (const table of pasted.tables) tables.set(table.id, table);
       const refs = getRefsMap(current);
       for (const ref of pasted.refs) refs.set(ref.id, ref);
+      for (const entry of pasted.enums) enums.set(entry.id, entry);
+      const zones = getZonesMap(current);
+      for (const zone of pasted.zones) zones.set(zone.id, zone);
+      const notes = getStickyNotesMap(current);
+      for (const note of pasted.stickyNotes) notes.set(note.id, note);
     });
-    return pasted.tables.length;
+    return clipboardSize(pasted);
   };
 
   const deleteEdges = (edgeIds: string[]) => {
@@ -306,7 +322,7 @@ export function createProjectMutations(
     setTablesColor,
     convertFieldTypes,
     duplicateSelected,
-    pasteTables,
+    pasteElements,
     deleteEdges,
     onConnect,
   };

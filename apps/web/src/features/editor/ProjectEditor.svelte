@@ -26,6 +26,7 @@
   import {
     getMetaMap,
     type DatabaseConnectionSummary,
+    type DbAccessLevel,
     type Project,
     type ProjectDriftEntry,
     type ServerNotice,
@@ -44,6 +45,7 @@
   import HistoryPreviewBanner from "@/features/editor/history/HistoryPreviewBanner.svelte";
   import type { HistoryDiffStatus } from "@/features/editor/hooks/useCanvasNodes/canvasNodes.svelte";
   import { fetchProjectDrift, listProjectConnections } from "@/services/connectionsApi";
+  import { fetchMyDbAccess } from "@/services/dbAccessApi";
   import DriftBanner from "@/features/editor/drift/DriftBanner.svelte";
   import type { TabItem } from "@/components/ui/Tabs.svelte";
   import {
@@ -83,6 +85,7 @@
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { useCanvasCommands } from "@/features/plugins/plugins.svelte";
   import { inboxPush } from "@/features/notifications/inboxPush.svelte";
+  import { commentsSession } from "@/features/editor/comments/commentsSession";
   import McdCanvas from "@/features/editor/mcd/McdCanvas.svelte";
   import type { EditorViewMode } from "@/features/editor/mcd/ViewModeToggle.svelte";
   import DbmlPanel from "@/features/editor/dbml/DbmlPanel.svelte";
@@ -108,6 +111,11 @@
   const { t } = useTranslation();
   const project = $derived(props.project);
   const user = $derived(props.session.displayName);
+  // What comment composers need and are far from: the project to ask who can be mentioned, the account to stamp.
+  $effect(() => {
+    commentsSession.set({ projectId: project.id, userId: props.session.id });
+    return () => commentsSession.set(null);
+  });
   /**
    * A `view` grant is enforced by the server, which simply drops the Yjs
    * updates it receives from a read-only connection — silently, with no
@@ -204,14 +212,28 @@
       .catch(() => {});
   });
 
+  // Databases an instance administrator granted this user (read / write), by
+  // connection id. Being in the project grants none of them; the server checks
+  // the grant on every console request, this only decides what is offered.
+  let dbAccess = $state.raw<ReadonlyMap<string, DbAccessLevel>>(new Map());
+  $effect(() => {
+    void project.id;
+    if (props.session.isAdmin) return;
+    fetchMyDbAccess()
+      .then((answer) => (dbAccess = new Map(answer.connections.map((entry) => [entry.connectionId, entry.level]))))
+      .catch(() => {});
+  });
+  const mayQuery = (id: string | null | undefined) => props.session.isAdmin || (id ? dbAccess.has(id) : false);
+
   // ---- Workspace tabs --------------------------------------------------------
   // The schema editor is one section of the project among several. Which ones
   // are offered follows what the server would allow: the database console is
-  // for instance administrators, deployments for the project's administrators.
+  // for instance administrators and for members granted one of the project's
+  // databases, deployments for the project's administrators.
   const isProjectAdmin = $derived(project.permission === "administrator");
   const workspaceTabs = $derived.by(() => {
     const list: TabItem<WorkspaceTab>[] = [{ id: "schema", label: t("workspace.tab.schema"), icon: CodeIcon }];
-    if (props.session.isAdmin && connections.length > 0) {
+    if (connections.some((connection) => mayQuery(connection.id))) {
       list.push({ id: "data", label: t("workspace.tab.data"), icon: DatabaseIcon });
     }
     if (isProjectAdmin) list.push({ id: "deployments", label: t("workspace.tab.deployments"), icon: SparklesIcon });
@@ -335,7 +357,7 @@
   // The SQL drawer under the schema — see `SqlDrawerState`.
   const sql = new SqlDrawerState({
     connection: () => activeConnection,
-    allowed: () => props.session.isAdmin,
+    allowed: () => mayQuery(activeConnection?.id),
     visible: () => tab === "schema",
   });
   const canUseSql = $derived(sql.usable);
@@ -522,14 +544,25 @@
 
   // Copy / paste of tables through the system clipboard — see `tableClipboard.ts`.
   const clipboardStatus = useFlashMessage(3000);
+  const COPYABLE_NODE_TYPES = new Set(["table", "enum", "zone", "sticky"]);
+  const selectedNodeIds = (type: string) =>
+    nodesState.nodes.filter((n) => n.type === type && n.selected).map((n) => n.id);
+  const selectedCopyCount = $derived(
+    nodesState.nodes.filter((n) => n.selected && COPYABLE_NODE_TYPES.has(n.type ?? "")).length,
+  );
   const clipboard = useCanvasClipboard({
     project: () => liveProject,
-    selectedTableIds: () => selectedTableIds,
+    selection: () => ({
+      tableIds: selectedNodeIds("table"),
+      enumIds: selectedNodeIds("enum"),
+      zoneIds: selectedNodeIds("zone"),
+      noteIds: selectedNodeIds("sticky"),
+    }),
     canCopy: () => viewMode === "mld" && tab === "schema",
     canPaste: () => canWrite && viewMode === "mld" && tab === "schema",
-    paste: mutations.pasteTables,
-    onCopied: (count) => clipboardStatus.flash(t("canvas.tablesCopied", { count })),
-    onPasted: (count) => clipboardStatus.flash(t("canvas.tablesPasted", { count })),
+    paste: mutations.pasteElements,
+    onCopied: (count) => clipboardStatus.flash(t("canvas.elementsCopied", { count })),
+    onPasted: (count) => clipboardStatus.flash(t("canvas.elementsPasted", { count })),
     onNothingToPaste: () => clipboardStatus.flash(t("canvas.nothingToPaste")),
   });
 </script>
@@ -599,7 +632,7 @@
        on by accident. The document connection lives above, so nothing is lost. -->
   {#if tab === "data"}
     {#await import("@/features/workspace/DataTab.svelte") then { default: DataTab }}
-      <DataTab {connectionId} />
+      <DataTab {connectionId} {connections} isAdmin={props.session.isAdmin} access={dbAccess} />
     {/await}
   {:else if tab === "deployments"}
     {#await import("@/features/workspace/DeploymentsTab.svelte") then { default: DeploymentsTab }}
@@ -712,6 +745,7 @@
               {nodesState}
               edges={edgesState.edges}
               {selectedTableIds}
+              {selectedCopyCount}
               remoteSelections={remoteSelections.selections}
               onDeleteEdges={mutations.deleteEdges}
               onConnect={mutations.onConnect}

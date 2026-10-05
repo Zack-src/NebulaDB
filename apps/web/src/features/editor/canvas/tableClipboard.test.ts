@@ -3,7 +3,8 @@ import assert from "node:assert/strict";
 import type { Project, Table } from "@athanordb/shared";
 import { parseDbml, toProject } from "@athanordb/dbml-engine";
 import {
-  copyTables,
+  clipboardSize,
+  copySelection,
   instantiateClipboard,
   parseClipboard,
   serializeClipboard,
@@ -50,9 +51,27 @@ const project: Project = {
       cardinality: "one-to-many",
     },
   ],
-  enums: [],
-  zones: [],
-  stickyNotes: [],
+  enums: [
+    {
+      id: "e1",
+      name: "status",
+      values: [
+        { id: "e1-a", name: "open" },
+        { id: "e1-b", name: "closed", note: "done" },
+      ],
+      position: { x: 40, y: 400 },
+    },
+  ],
+  zones: [
+    {
+      id: "z1",
+      label: "Billing",
+      position: { x: 20, y: 30 },
+      size: { width: 600, height: 400 },
+      style: { color: "#00ff00" },
+    },
+  ],
+  stickyNotes: [{ id: "n1", text: "check\nthis", position: { x: 700, y: 50 }, size: { width: 180, height: 90 } }],
   tableGroups: [],
 };
 
@@ -62,7 +81,7 @@ function counter() {
 }
 
 test("copy keeps the selected tables and only the relations between them", () => {
-  const clipboard = copyTables(project, ["u", "o"]);
+  const clipboard = copySelection(project, { tableIds: ["u", "o"] });
   assert.deepEqual(
     clipboard?.tables.map((t) => t.name),
     ["users", "orders"],
@@ -73,12 +92,12 @@ test("copy keeps the selected tables and only the relations between them", () =>
     "the relation to `invoices`, which was not copied, is left out",
   );
   assert.equal(clipboard?.tables[1].comments, undefined);
-  assert.equal(copyTables(project, []), null);
-  assert.equal(copyTables(project, ["nope"]), null);
+  assert.equal(copySelection(project, { tableIds: [] }), null);
+  assert.equal(copySelection(project, { tableIds: ["nope"] }), null);
 });
 
 test("the clipboard text is valid DBML and round-trips colours, sizes and settings", () => {
-  const clipboard = copyTables(project, ["u", "o"])!;
+  const clipboard = copySelection(project, { tableIds: ["u", "o"] })!;
   const text = serializeClipboard(clipboard);
 
   // what lands in the DBML editor (or any text field)
@@ -98,8 +117,8 @@ test("the clipboard text is valid DBML and round-trips colours, sizes and settin
 });
 
 test("paste gives new ids and `_copy` names, retargets relations, and keeps everything else", () => {
-  const clipboard = copyTables(project, ["u", "o"])!;
-  const pasted = instantiateClipboard(clipboard, project.tables, {}, counter());
+  const clipboard = copySelection(project, { tableIds: ["u", "o"] })!;
+  const pasted = instantiateClipboard(clipboard, { tables: project.tables }, {}, counter());
 
   assert.deepEqual(
     pasted.tables.map((t) => t.name),
@@ -132,9 +151,14 @@ test("paste gives new ids and `_copy` names, retargets relations, and keeps ever
 });
 
 test("names stay unique across repeated pastes, and a right-click paste lands at the cursor", () => {
-  const clipboard = copyTables(project, ["u", "o"])!;
-  const first = instantiateClipboard(clipboard, project.tables, {}, counter());
-  const second = instantiateClipboard(clipboard, [...project.tables, ...first.tables], { repeat: 1 }, counter());
+  const clipboard = copySelection(project, { tableIds: ["u", "o"] })!;
+  const first = instantiateClipboard(clipboard, { tables: project.tables }, {}, counter());
+  const second = instantiateClipboard(
+    clipboard,
+    { tables: [...project.tables, ...first.tables] },
+    { repeat: 1 },
+    counter(),
+  );
   assert.deepEqual(
     second.tables.map((t) => t.name),
     ["users_copy2", "orders_copy2"],
@@ -145,7 +169,7 @@ test("names stay unique across repeated pastes, and a right-click paste lands at
   assert.equal(uniqueCopyName("users_copy2", new Set(["users", "users_copy", "users_copy2"])), "users_copy3");
   assert.equal(uniqueCopyName("Users", new Set(["users", "users_copy"])), "Users_copy2");
 
-  const atCursor = instantiateClipboard(clipboard, [], { at: { x: 1000, y: 1000 } }, counter());
+  const atCursor = instantiateClipboard(clipboard, { tables: [] }, { at: { x: 1000, y: 1000 } }, counter());
   assert.deepEqual(
     atCursor.tables.map((t) => t.position),
     [
@@ -194,4 +218,112 @@ test("a clipboard written by something else is rebuilt field by field, or refuse
     [["f"]],
   );
   assert.deepEqual(parsed.refs, [], "a relation pointing outside the clipboard is dropped");
+});
+
+test("enums, zones and notes are copied with the tables, and pasted as fresh copies", () => {
+  const clipboard = copySelection(project, {
+    tableIds: ["u", "o"],
+    enumIds: ["e1"],
+    zoneIds: ["z1"],
+    noteIds: ["n1"],
+  })!;
+  assert.equal(clipboardSize(clipboard), 5);
+  assert.equal(copySelection(project, { tableIds: [], enumIds: ["e1"] })?.tables.length, 0);
+  assert.equal(copySelection(project, { tableIds: [], zoneIds: ["nope"] }), null);
+
+  const text = serializeClipboard(clipboard);
+  // what the DBML editor receives: the enum as DBML, the others as readable comments
+  const parsed = toProject(parseDbml(text), "p", text);
+  assert.deepEqual(
+    parsed.enums.map((e) => [e.name, e.values.map((v) => v.name)]),
+    [["status", ["open", "closed"]]],
+  );
+  assert.ok(text.split("\n").includes("// Zone: Billing"));
+  assert.ok(text.split("\n").includes("// Note: check this"));
+
+  const back = parseClipboard(text)!;
+  assert.deepEqual({ ...back, refs: [] }, { ...clipboard, refs: [] });
+
+  const taken = { tables: project.tables, enums: project.enums };
+  const pasted = instantiateClipboard(back, taken, {}, counter());
+  assert.equal(pasted.enums[0].name, "status_copy");
+  assert.deepEqual(
+    pasted.enums[0].values.map((v) => [v.name, v.note]),
+    [
+      ["open", undefined],
+      ["closed", "done"],
+    ],
+  );
+  assert.deepEqual(pasted.zones[0], {
+    id: pasted.zones[0].id,
+    label: "Billing",
+    position: { x: 44, y: 54 },
+    size: { width: 600, height: 400 },
+    style: { color: "#00ff00" },
+  });
+  assert.deepEqual(pasted.stickyNotes[0].position, { x: 724, y: 74 });
+  assert.deepEqual(
+    pasted.enums[0].position,
+    { x: 64, y: 424 },
+    "the group keeps its shape: origin is the zone's corner",
+  );
+  const ids = [
+    ...pasted.tables.map((t) => t.id),
+    ...pasted.enums.flatMap((e) => [e.id, ...e.values.map((v) => v.id)]),
+    pasted.zones[0].id,
+    pasted.stickyNotes[0].id,
+  ];
+  assert.equal(new Set(ids).size, ids.length);
+  assert.ok(ids.every((id) => id.startsWith("new-")));
+
+  // a second paste into a project that already holds the first: next free enum name
+  const again = instantiateClipboard(
+    back,
+    { tables: project.tables, enums: [...project.enums, ...pasted.enums] },
+    { repeat: 1 },
+    counter(),
+  );
+  assert.equal(again.enums[0].name, "status_copy2");
+});
+
+test("a relation to a table that was not selected is left out, whatever else is copied", () => {
+  const clipboard = copySelection(project, { tableIds: ["o"], enumIds: ["e1"] })!;
+  assert.deepEqual(clipboard.refs, []);
+  const pasted = instantiateClipboard(clipboard, { tables: [] }, {}, counter());
+  assert.equal(pasted.refs.length, 0);
+});
+
+test("a clipboard from before enums, zones and notes was copyable still pastes; hostile extras are rebuilt", () => {
+  const old = parseClipboard(
+    `// athanordb-clipboard:v1 ${JSON.stringify({ tables: [{ id: "a", name: "a", fields: [{ id: "f", name: "id" }] }], refs: [] })}`,
+  )!;
+  assert.deepEqual([old.enums, old.zones, old.stickyNotes], [[], [], []]);
+
+  const onlyOthers = parseClipboard(
+    `// athanordb-clipboard:v1 ${JSON.stringify({
+      enums: [
+        { id: "e", name: "e", values: [{ id: "v", name: "x", note: 5 }, "junk", { name: "no id" }], extra: 1 },
+        { id: "e2" },
+      ],
+      zones: [
+        { id: "z", label: 3, position: { x: "a" }, size: { width: 10 }, style: { color: "#fff", x: 1 }, extra: 1 },
+        "junk",
+      ],
+      stickyNotes: [{ id: "n", text: "t".repeat(5000), __proto__: { polluted: 1 } }, {}],
+    })}`,
+  )!;
+  assert.deepEqual(onlyOthers.tables, []);
+  assert.deepEqual(onlyOthers.enums, [
+    { id: "e", name: "e", values: [{ id: "v", name: "x" }], position: { x: 0, y: 0 } },
+  ]);
+  assert.deepEqual(onlyOthers.zones, [
+    { id: "z", label: "", position: { x: 0, y: 0 }, size: { width: 10, height: 120 }, style: { color: "#fff" } },
+  ]);
+  assert.equal(onlyOthers.stickyNotes.length, 1);
+  assert.equal(onlyOthers.stickyNotes[0].text.length, 2000);
+  assert.equal(parseClipboard(`// athanordb-clipboard:v1 ${JSON.stringify({ zones: [], enums: [{}] })}`), null);
+
+  // instantiating a clipboard without any table must not choke on the empty table list
+  const pasted = instantiateClipboard(onlyOthers, { tables: [] }, {}, counter());
+  assert.equal(pasted.zones.length, 1);
 });

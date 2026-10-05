@@ -1,11 +1,13 @@
 import type { Position, Project } from "@athanordb/shared";
 import { isTypingTarget } from "@/utils/dom";
 import {
-  copyTables,
+  clipboardSize,
+  copySelection,
   parseClipboard,
   serializeClipboard,
+  type CanvasClipboard,
+  type CanvasSelection,
   type PasteTarget,
-  type TableClipboard,
 } from "@/features/editor/canvas/tableClipboard";
 
 /**
@@ -18,7 +20,7 @@ import {
 let lastCopied: string | null = null;
 
 /**
- * Ctrl/Cmd+C and Ctrl/Cmd+V for tables on the canvas, plus the two entry
+ * Ctrl/Cmd+C and Ctrl/Cmd+V for tables, enums, zones and notes on the canvas, plus the two entry
  * points the context menu uses.
  *
  * Bound to the `copy` / `paste` DOM events rather than to keydown: they carry
@@ -28,11 +30,11 @@ let lastCopied: string | null = null;
  */
 export function useCanvasClipboard(options: {
   project: () => Project | null;
-  selectedTableIds: () => string[];
+  selection: () => CanvasSelection;
   /** Copying is reading: allowed on a read-only project, but not from the MCD view, whose nodes are not the project's tables. */
   canCopy: () => boolean;
   canPaste: () => boolean;
-  paste: (clipboard: TableClipboard, target: PasteTarget) => number;
+  paste: (clipboard: CanvasClipboard, target: PasteTarget) => number;
   onCopied: (count: number) => void;
   onPasted: (count: number) => void;
   onNothingToPaste: () => void;
@@ -43,8 +45,8 @@ export function useCanvasClipboard(options: {
   function selectionAsText(): { text: string; count: number } | null {
     const project = options.project();
     if (!project || !options.canCopy()) return null;
-    const clipboard = copyTables(project, options.selectedTableIds());
-    return clipboard ? { text: serializeClipboard(clipboard), count: clipboard.tables.length } : null;
+    const clipboard = copySelection(project, options.selection());
+    return clipboard ? { text: serializeClipboard(clipboard), count: clipboardSize(clipboard) } : null;
   }
 
   function pasteText(text: string, at?: Position): boolean {
