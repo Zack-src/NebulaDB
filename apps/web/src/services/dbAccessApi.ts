@@ -33,3 +33,19 @@ export async function saveTeamDbAccess(teamId: string, grants: DbAccessGrantInpu
     })
   ).grants;
 }
+
+export interface ProvisionResult {
+  userId: string;
+  connectionId: string;
+  status: "created" | "existing" | "failed";
+  username?: string;
+}
+export function provisionDbAccounts(type: "teams" | "users", id: string): Promise<{ results: ProvisionResult[] }> {
+  return request(`/api/admin/${type}/${id}/db-accounts`, { method: "POST" });
+}
+export function assignDbCredentials(userId: string, connectionId: string, username: string, password: string) {
+  return request<import("@athanordb/shared").PersonalCredentialStatus>(
+    `/api/admin/users/${userId}/connections/${connectionId}/credentials`,
+    { method: "PUT", body: { username, password } },
+  );
+}

@@ -3,6 +3,7 @@ import { asUnattended } from "../../infrastructure/actor.js";
 import { createDatabaseDriver } from "../connections/drivers/index.js";
 import {
   getAdminConnection,
+  connectionOwner,
   getConnectionById,
   listAllConnections,
   recordConnectionHealth,
@@ -19,7 +20,11 @@ import {
  * administrator who clicked has no personal account on it.
  */
 export function checkConnectionHealth(id: string): Promise<AdminConnectionSummary | null> {
-  return asUnattended(() => probeConnection(id));
+  if (connectionOwner(id)) return Promise.resolve(null);
+  const connection = getConnectionById(id);
+  return connection?.authMode === "personal" && !connection.user
+    ? probeConnection(id)
+    : asUnattended(() => probeConnection(id));
 }
 
 async function probeConnection(id: string): Promise<AdminConnectionSummary | null> {
@@ -63,7 +68,10 @@ export function startConnectionHealthChecks(intervalMinutes: number): void {
     if (running) return;
     running = true;
     try {
-      for (const connection of listAllConnections()) await checkConnectionHealth(connection.id);
+      for (const connection of listAllConnections()) {
+        if (connection.authMode === "personal" && !connection.user) continue;
+        await checkConnectionHealth(connection.id);
+      }
     } catch (err) {
       console.error("[dbAdmin] health check pass failed:", err);
     } finally {

@@ -1,7 +1,6 @@
 <script lang="ts">
   import Icon from "@/components/icons/Icon.svelte";
-  import type { ProjectTemplateId } from "@athanordb/dbml-engine";
-  import { DatabaseIcon, FolderIcon, LayoutGridIcon, PlusIcon, TrashIcon } from "@/components/icons/Icons";
+  import { DatabaseIcon, FolderIcon, PlusIcon, TrashIcon } from "@/components/icons/Icons";
   import { useDraftValue } from "@/hooks/draftValue.svelte";
   import ProjectTeamsModal from "@/features/teams/ProjectTeamsModal.svelte";
   import ProjectTabs from "@/features/projects/components/ProjectTabs.svelte";
@@ -9,10 +8,8 @@
   import ProjectCard from "@/features/projects/components/ProjectCard.svelte";
   import DeleteProjectModal from "@/features/projects/components/DeleteProjectModal.svelte";
   import EmptyTrashModal from "@/features/projects/components/EmptyTrashModal.svelte";
-  import TemplatePickerModal from "@/features/projects/components/TemplatePickerModal.svelte";
   import NewProjectFromDatabaseModal from "@/features/projects/NewProjectFromDatabaseModal.svelte";
   import WebhooksModal from "@/features/projects/components/WebhooksModal.svelte";
-  import { TEMPLATE_COPY } from "@/features/projects/components/templateCopy";
   import GlobalSearchResults from "@/features/projects/components/GlobalSearchResults.svelte";
   import type { SearchHit } from "@/services/searchApi";
   import type { CreateProjectFromDatabaseResponse } from "@/services/connectionsApi";
@@ -39,7 +36,7 @@
   }: {
     projects: ProjectSummary[];
     loaded: boolean;
-    onCreateProject: (name: string, template?: ProjectTemplateId) => Promise<CreateProjectResult>;
+    onCreateProject: (name: string) => Promise<CreateProjectResult>;
     onOpen: (project: ProjectSummary) => void;
     onOpenSearchHit: (hit: SearchHit) => void;
     onRename: (project: ProjectSummary, name: string) => void;
@@ -71,8 +68,6 @@
   let emptyTrashPending = $state(false);
   let createError = $state<string | null>(null);
   let creating = $state(false);
-  let templatePickerOpen = $state(false);
-  let templateError = $state<string | null>(null);
   let newFromDatabaseOpen = $state(false);
 
   function commitRename() {
@@ -136,48 +131,10 @@
     if (section !== "active") section = "active";
     renamingId = result.id;
   }
-
-  /** Same instant-create-then-rename flow, named after the template rather than "New schema N". */
-  async function handleCreateFromTemplate(template: ProjectTemplateId) {
-    if (creating) return;
-    templateError = null;
-    creating = true;
-    const result = await onCreateProject(t(TEMPLATE_COPY[template].name), template);
-    creating = false;
-    if ("error" in result) {
-      templateError = result.error;
-      return;
-    }
-    templatePickerOpen = false;
-    if (section !== "active") section = "active";
-    renamingId = result.id;
-  }
-
-  function openTemplatePicker() {
-    templateError = null;
-    templatePickerOpen = true;
-  }
 </script>
 
 <div class="flex h-full min-h-0">
-  <!-- Left rail — Figma-style section nav -->
-  <aside class="hidden w-56 shrink-0 flex-col gap-4 border-r border-border/60 bg-surface/40 p-4 sm:flex">
-    <Button variant="primary" onclick={handleCreate} disabled={creating} class="w-full gap-2 text-xs">
-      <Icon icon={PlusIcon} size={14} />
-      {creating ? t("projects.creating") : t("projects.newProject")}
-    </Button>
-    <Button onclick={openTemplatePicker} disabled={creating} class="-mt-2 w-full gap-2 text-xs">
-      <Icon icon={LayoutGridIcon} size={14} />
-      {t("projects.fromTemplate")}
-    </Button>
-    <Button onclick={() => (newFromDatabaseOpen = true)} class="-mt-2 w-full gap-2 text-xs">
-      <Icon icon={DatabaseIcon} size={14} />
-      {t("projects.newFromDatabase")}
-    </Button>
-    <ProjectTabs {projects} {section} onSectionChange={(next) => (section = next)} />
-  </aside>
-
-  <div class="min-h-0 flex-1 overflow-y-auto px-6 py-8">
+  <div class="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-6 md:px-6">
     <div class="mx-auto max-w-[1040px]">
       <div class="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div class="flex items-center gap-2.5">
@@ -185,24 +142,24 @@
             <Icon icon={FolderIcon} size={18} />
           </span>
           <div>
-            <h1 class="text-xl font-extrabold tracking-tight">{t("projects.title")}</h1>
+            <h1 class="text-xl font-semibold tracking-tight">{t("projects.title")}</h1>
             <p class="text-xs text-text-muted">{t("projects.subtitle")}</p>
           </div>
         </div>
 
-        <div class="flex items-center gap-3">
-          <Input wrapperClassName="w-full sm:w-56" placeholder={t("projects.searchPlaceholder")} bind:value={searchQuery} />
-          <Button variant="primary" onclick={handleCreate} disabled={creating} class="shrink-0 gap-2 text-xs sm:hidden">
+        <div class="flex flex-wrap items-center gap-2">
+          <Input
+            wrapperClassName="w-full sm:w-56"
+            placeholder={t("projects.searchPlaceholder")}
+            bind:value={searchQuery}
+          />
+          <Button variant="primary" onclick={handleCreate} disabled={creating} class="shrink-0 gap-2 text-xs">
             <Icon icon={PlusIcon} size={14} />
-            {t("projects.new")}
-          </Button>
-          <Button onclick={openTemplatePicker} disabled={creating} class="shrink-0 gap-2 text-xs sm:hidden">
-            <Icon icon={LayoutGridIcon} size={14} />
-            {t("projects.fromTemplate")}
+            {creating ? t("projects.creating") : t("projects.newProject")}
           </Button>
           <Button
             onclick={() => (newFromDatabaseOpen = true)}
-            class="shrink-0 gap-2 text-xs sm:hidden"
+            class="shrink-0 gap-2 text-xs"
             aria-label={t("projects.newFromDatabase")}
           >
             <Icon icon={DatabaseIcon} size={14} />
@@ -210,8 +167,7 @@
         </div>
       </div>
 
-      <!-- Section nav collapses here on narrow viewports, where the rail is hidden -->
-      <div class="mb-4 sm:hidden">
+      <div class="mb-4">
         <ProjectTabs {projects} {section} onSectionChange={(next) => (section = next)} />
       </div>
 
@@ -280,14 +236,6 @@
       error={emptyTrashError}
       onConfirm={confirmEmptyTrash}
       onClose={() => (emptyTrashOpen = false)}
-    />
-  {/if}
-  {#if templatePickerOpen}
-    <TemplatePickerModal
-      busy={creating}
-      error={templateError}
-      onPick={handleCreateFromTemplate}
-      onClose={() => (templatePickerOpen = false)}
     />
   {/if}
   {#if newFromDatabaseOpen}

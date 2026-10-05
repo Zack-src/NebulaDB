@@ -108,7 +108,7 @@ export function createProjectMutations(
     });
   };
 
-  // Figma-style grouping (select 2+ tables, group them) and auto-layout are
+  // Figma-style grouping (select 2+ tables, group them) is
   // the `athanordb.core-canvas` plugin's canvasCommands (see coreCanvas.ts),
   // not plain doc mutations here — consistent with how every other
   // schema-transform command in the app is wired.

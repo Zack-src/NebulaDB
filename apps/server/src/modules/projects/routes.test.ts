@@ -124,48 +124,6 @@ test("import/export round-trip: DBML in, DBML/SQL out, a view grant can't import
   }
 });
 
-test("create from a template: the project starts seeded and survives a room reload; an unknown template creates nothing", async () => {
-  const app = await buildApp();
-  try {
-    const owner = await makeUser();
-    const cookie = await loginAs(app, owner.email, owner.password);
-
-    const created = await app.inject({
-      method: "POST",
-      url: "/api/projects",
-      headers: headers({ cookie }),
-      payload: { name: "Shop", template: "ecommerce" },
-    });
-    assert.equal(created.statusCode, 201);
-    const { id } = created.json() as { id: string };
-
-    // Drop the in-memory room so the export below has to come from what was persisted.
-    closeAllRooms();
-    const exported = await app.inject({
-      method: "GET",
-      url: `/api/projects/${id}/export/dbml`,
-      headers: headers({ cookie }),
-    });
-    assert.equal(exported.statusCode, 200);
-    assert.match(exported.body, /Table "?order_items"?/);
-    assert.match(exported.body, /Enum "?order_status"?/);
-
-    const countBefore = (db.prepare("SELECT COUNT(*) AS n FROM projects").get() as { n: number }).n;
-    const bogus = await app.inject({
-      method: "POST",
-      url: "/api/projects",
-      headers: headers({ cookie }),
-      payload: { name: "Nope", template: "does-not-exist" },
-    });
-    assert.equal(bogus.statusCode, 400);
-    assert.equal(bogus.json().code, "PROJECT_TEMPLATE_INVALID");
-    assert.equal((db.prepare("SELECT COUNT(*) AS n FROM projects").get() as { n: number }).n, countBefore);
-  } finally {
-    closeAllRooms();
-    await app.close();
-  }
-});
-
 test("revisions: listed after an edit, labelable, restorable; a view grant can read but not label or restore", async () => {
   const app = await buildApp();
   try {
@@ -488,9 +446,16 @@ test("GET /api/projects/:id/content returns the schema as JSON for a viewer, wit
       method: "POST",
       url: "/api/projects",
       headers: headers({ cookie: ownerCookie }),
-      payload: { name: "Auth", template: "auth" },
+      payload: { name: "Auth" },
     });
     const { id } = created.json() as { id: string };
+    await app.inject({
+      method: "POST",
+      url: `/api/projects/${id}/import`,
+      headers: headers({ cookie: ownerCookie }),
+      payload: { source: "Table password_reset_tokens {\n id int [pk]\n}" },
+    });
+    (await import("../../realtime/roomRegistry.js")).getRoom(id).flush();
     closeAllRooms();
 
     const { liveRoomCount } = await import("../../realtime/roomRegistry.js");

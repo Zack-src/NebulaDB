@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Page } from "playwright-core";
-import { login, skipEditorTour, startE2eEnvironment } from "./harness.js";
+import { login, startE2eEnvironment } from "./harness.js";
 
 /**
  * Table locks, end to end, with two people in the same project: an
@@ -103,7 +103,6 @@ test(
       // The editor, in a separate browser context (its own cookies), with the project open.
       const editorContext = await env.browser.newContext();
       const editor = await editorContext.newPage();
-      await skipEditorTour(editor);
       await editor.goto(env.baseUrl);
       await editor.getByLabel("Adresse e-mail").fill(EDITOR_EMAIL);
       await editor.getByLabel("Mot de passe").fill(EDITOR_PASSWORD);

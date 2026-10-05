@@ -1,4 +1,12 @@
-import { CreditCardIcon, InfoIcon, PaletteIcon, SlidersIcon, UserIcon, UsersIcon } from "@/components/icons/Icons";
+import {
+  DatabaseIcon,
+  CreditCardIcon,
+  InfoIcon,
+  PaletteIcon,
+  SlidersIcon,
+  UserIcon,
+  UsersIcon,
+} from "@/components/icons/Icons";
 import type { IconDefinition } from "@/components/icons/iconDefinition";
 import type { TranslationKeyOf } from "@/types";
 import type { SettingsTab } from "./settingsPanelState.svelte";
@@ -17,6 +25,7 @@ export interface SettingsSection {
  */
 export const SETTINGS_SECTIONS: SettingsSection[] = [
   { id: "profile", labelKey: "settings.section.profile", icon: UserIcon },
+  { id: "databases", labelKey: "personalConnections.section", icon: DatabaseIcon },
   { id: "appearance", labelKey: "settings.section.appearance", icon: PaletteIcon },
   { id: "editor", labelKey: "settings.section.editor", icon: SlidersIcon },
   { id: "team", labelKey: "settings.section.team", icon: UsersIcon },

@@ -1,3 +1,4 @@
+import { registerPrivateConnectionRoutes } from "./modules/connections/privateRoutes.js";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import path from "node:path";
@@ -219,6 +220,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerEnvironmentRoutes(app);
   registerConnectionRoutes(app);
   registerCredentialRoutes(app);
+  registerPrivateConnectionRoutes(app);
   registerDbAdminRoutes(app);
   registerConnectionJournalRoutes(app);
   registerDbAccessRoutes(app);

@@ -15,6 +15,7 @@ import { createDatabaseDriver } from "../connections/drivers/index.js";
 import { isValidEngine } from "../connections/engines.js";
 import {
   createGlobalConnection,
+  connectionOwner,
   deleteConnection,
   getAdminConnection,
   getConnectionById,
@@ -61,7 +62,7 @@ function clamp(value: unknown, fallback: number, max: number): number {
 
 function loadConnection(id: string): DatabaseConnectionConfig {
   const connection = getConnectionById(id);
-  if (!connection) throw new ApiError("CONNECTION_NOT_FOUND");
+  if (!connection || connectionOwner(id)) throw new ApiError("CONNECTION_NOT_FOUND");
   return connection;
 }
 
@@ -141,6 +142,13 @@ async function previewOrExecute(
  * administering any one project.
  */
 export function registerDbAdminRoutes(app: FastifyInstance): void {
+  // A private database is never an administrative connection, including on
+  // monitoring routes registered by other modules. Its actions stay in audit.
+  app.addHook("preHandler", async (req) => {
+    if (!req.routeOptions.url?.startsWith("/api/admin/connections/:id")) return;
+    const { id } = req.params as { id: string };
+    if (connectionOwner(id)) throw new ApiError("CONNECTION_NOT_FOUND");
+  });
   // ---- Connections ---------------------------------------------------------
 
   app.get("/api/admin/connections", READ_LIMIT, async (req) => {
@@ -229,7 +237,7 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
     if (!isValidEngine(body.engine)) throw new ApiError("CONNECTION_ENGINE_INVALID");
     // Editing an existing connection: the form never has the stored password,
     // so an empty one means "the one already saved".
-    const stored = body.id ? getConnectionById(body.id) : null;
+    const stored = body.id ? loadConnection(body.id) : null;
     const config = { ...body, password: body.password || stored?.password } as DatabaseConnectionConfig;
     if (stored?.connectionString && body.connectionString?.includes("***"))
       config.connectionString = stored.connectionString;
@@ -364,6 +372,7 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
         sql?: unknown;
         database?: unknown;
         readOnly?: unknown;
+        editor?: unknown;
         confirmStructural?: unknown;
         confirmWrite?: unknown;
         maxRows?: unknown;
@@ -374,8 +383,8 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
       }
       const sql = body.sql;
       // Read-only unless explicitly switched off — a missing flag must never mean "write".
-      const readOnly = body.readOnly !== false;
-      const database = optionalName(body.database, "database");
+      const readOnly = body.editor === true || body.readOnly !== false;
+      const database = body.editor === true ? connection.database : optionalName(body.database, "database");
       if (!readOnly && access === "read") throw new ApiError("DB_ACCESS_WRITE_FORBIDDEN");
       if (!readOnly) assertWritable(connection);
       // A member's write is confirmed in the request itself, not only by a dialog the client may skip.

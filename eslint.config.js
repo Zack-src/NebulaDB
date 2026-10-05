@@ -6,7 +6,7 @@ import globals from "globals";
 import eslintConfigPrettier from "eslint-config-prettier";
 
 const HARD_CODED_TEXT = {
-  selector: "SvelteText[value=/[A-Za-zÀ-ÿ]{4,}/]",
+  selector: "SvelteText[value=/[A-Za-zÀ-ÿ]{4,}/]:not(SvelteStyleElement > SvelteText)",
   message: "Hard-coded UI text. Add the string to src/locales/fr.json + en.json and render it with t('key').",
 };
 

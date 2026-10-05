@@ -31,10 +31,19 @@ test("compare two projects: name-matched diff, direction, and migration SQL", { 
     // `__name(...)` call that doesn't exist in the page.
     const projectBId = await page.evaluate(async (dbml) => {
       const json = { "content-type": "application/json" };
-      await fetch("/api/projects", {
+      const first = await fetch("/api/projects", {
         method: "POST",
         headers: json,
-        body: JSON.stringify({ name: "Blog A", template: "blog" }),
+        body: JSON.stringify({ name: "Blog A" }),
+      });
+      const { id: firstId } = await first.json();
+      await fetch(`/api/projects/${firstId}/import`, {
+        method: "POST",
+        headers: json,
+        body: JSON.stringify({
+          source:
+            "Table users {\n id integer [pk, increment]\n username varchar(50) [not null, unique]\n email varchar(255) [not null, unique]\n created_at timestamp\n}",
+        }),
       });
       const created = await fetch("/api/projects", {
         method: "POST",

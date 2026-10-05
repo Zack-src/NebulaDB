@@ -86,7 +86,7 @@
   <ProjectThumbnail id={project.id} {accent} />
 
   <div class="p-3">
-    <div class="flex items-start justify-between gap-2">
+    <div class="flex flex-wrap items-start gap-2">
       {#if isRenaming}
         <input
           use:autofocus
@@ -107,7 +107,7 @@
       {:else}
         <!-- svelte-ignore a11y_no_static_element_interactions -->
         <div
-          class="mb-0.5 overflow-hidden text-ellipsis whitespace-nowrap text-sm font-semibold text-text"
+          class="mb-0.5 min-w-0 w-full overflow-hidden text-ellipsis whitespace-nowrap text-sm font-semibold text-text"
           data-tooltip={openable ? t("projects.card.doubleClickToRename") : undefined}
           ondblclick={(event) => {
             if (!openable) return;
@@ -121,9 +121,7 @@
 
       <!-- Server re-checks every mutating call regardless — this is UX only, never the security boundary. -->
       {#if project.permission === "administrator"}
-        <div
-          class="flex shrink-0 gap-0.5 opacity-0 transition-opacity duration-150 group-hover:opacity-100 group-focus-within:opacity-100"
-        >
+        <div class="mb-1 flex shrink-0 gap-0.5">
           {#if section === "trashed"}
             <Button
               variant="ghost"

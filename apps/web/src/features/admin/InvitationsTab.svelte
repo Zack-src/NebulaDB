@@ -43,7 +43,7 @@
   // join, and access to databases with the account name proposed on each.
   const teams = useAsyncResource(fetchTeams);
   const connections = useAsyncResource(listAdminConnections);
-  let showGrants = $state(false);
+  let showGrants = $state(true);
   let teamIds = $state<string[]>([]);
   let databases = $state<DbAccessDraft>({});
   const grantCount = $derived(teamIds.length + grantsFromDraft(databases, true, true).length);
@@ -59,7 +59,7 @@
     invitingAsAdmin = false;
     teamIds = [];
     databases = {};
-    showGrants = false;
+    showGrants = true;
     invitations.reload();
   });
 
@@ -93,7 +93,7 @@
 </script>
 
 <div>
-  <div class="mb-7 flex max-w-[420px] items-center gap-2">
+  <div class="mb-7 flex max-w-[720px] flex-wrap items-center gap-2">
     <input
       class={`${INPUT_CLASS} flex-1`}
       placeholder={t("admin.invitations.emailPlaceholder")}
@@ -113,13 +113,18 @@
       {grantCount > 0 ? t("admin.invitations.grantsWithCount", { count: grantCount }) : t("admin.invitations.grants")}
     </Button>
     {#if showGrants}
-      <div class="mt-2 flex max-w-[720px] flex-col gap-4 rounded-md border border-border p-3" data-testid="invitation-grants">
+      <div
+        class="mt-2 flex max-w-[720px] flex-col gap-4 rounded-md border border-border p-3"
+        data-testid="invitation-grants"
+      >
         <div>
           <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
             {t("admin.invitations.teams")}
           </div>
           {#if (teams.data ?? []).length === 0}
-            <p class="m-0 text-label text-text-muted">{teams.loading ? t("common.loading") : t("admin.invitations.noTeams")}</p>
+            <p class="m-0 text-label text-text-muted">
+              {teams.loading ? t("common.loading") : t("admin.invitations.noTeams")}
+            </p>
           {:else}
             <div class="flex flex-wrap gap-x-4 gap-y-1.5">
               {#each teams.data ?? [] as team (team.id)}

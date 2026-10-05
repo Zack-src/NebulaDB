@@ -13,7 +13,7 @@ import {
   personalCredentialStatus,
   savePersonalCredentials,
 } from "./personalCredentials.js";
-import { getConnectionById } from "./repository.js";
+import { connectionOwner, getConnectionById } from "./repository.js";
 import { effectiveDbAccess, getAccountHint } from "../dbAccess/repository.js";
 
 /**
@@ -59,7 +59,8 @@ export interface ConnectionUser {
 export function requireConnectionUser(req: FastifyRequest, connectionId: string): ConnectionUser {
   const user: SessionUser = requireUser(req);
   const connection = getConnectionById(connectionId);
-  if (!connection) throw new ApiError("CONNECTION_NOT_FOUND");
+  if (!connection || (connectionOwner(connectionId) && connectionOwner(connectionId) !== user.id))
+    throw new ApiError("CONNECTION_NOT_FOUND");
   const projectIds = (
     db.prepare("SELECT project_id FROM project_connection_links WHERE connection_id = ?").all(connectionId) as {
       project_id: string;
@@ -140,7 +141,9 @@ export function removeOwnCredentials(
 export function listOwnAccounts(user: SessionUser, viaApiKey: boolean): MySqlAccount[] {
   if (viaApiKey) return [];
   const rows = db
-    .prepare("SELECT id FROM db_connections WHERE auth_mode = 'personal' ORDER BY name COLLATE NOCASE, created_at")
+    .prepare(
+      "SELECT id FROM db_connections WHERE auth_mode = 'personal' AND owner_user_id IS NULL ORDER BY name COLLATE NOCASE, created_at",
+    )
     .all() as { id: string }[];
   const links = db.prepare("SELECT project_id FROM project_connection_links WHERE connection_id = ?");
   const accounts: MySqlAccount[] = [];

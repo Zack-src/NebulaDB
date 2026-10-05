@@ -50,7 +50,7 @@ test(
         const created = await fetch("/api/projects", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ name: "Options", template: "blog" }),
+          body: JSON.stringify({ name: "Options" }),
         });
         return ((await created.json()) as { id: string }).id;
       });

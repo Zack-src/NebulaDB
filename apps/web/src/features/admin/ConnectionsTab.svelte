@@ -52,7 +52,9 @@
     (connections.data ?? []).filter((c) => {
       const needle = filter.trim().toLowerCase();
       if (!needle) return true;
-      return [c.name, c.engine, c.environment ?? "", c.host ?? "", ...c.tags].some((v) => v.toLowerCase().includes(needle));
+      return [c.name, c.engine, c.environment ?? "", c.host ?? "", ...c.tags].some((v) =>
+        v.toLowerCase().includes(needle),
+      );
     }),
   );
 
@@ -97,13 +99,17 @@
     if (!c.health.status || !c.health.checkedAt) return t("admin.connections.health.unknown");
     const when = formatRelativeTime(parseServerTime(c.health.checkedAt), i18n.locale);
     return c.health.status === "online"
-      ? t("admin.connections.health.online", { when, latency: c.health.latencyMs ?? 0, version: c.health.version ?? "" })
+      ? t("admin.connections.health.online", {
+          when,
+          latency: c.health.latencyMs ?? 0,
+          version: c.health.version ?? "",
+        })
       : t("admin.connections.health.offline", { when, error: c.health.error ?? "" });
   }
 </script>
 
 {#if consoleFor}
-  <DbConsole connection={consoleFor} onClose={() => (consoleFor = null)} />
+  <DbConsole mode="monitoring" connection={consoleFor} onClose={() => (consoleFor = null)} />
 {:else}
   <div>
     <p class="mb-4 max-w-[640px] text-xs text-text-muted">{t("admin.connections.hint")}</p>
@@ -118,7 +124,9 @@
 
     {#if defaultPolicy.data}
       {@const current = defaultPolicy.data}
-      <div class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border border-border bg-surface px-3 py-2">
+      <div
+        class="mb-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border border-border bg-surface px-3 py-2"
+      >
         <span id="default-structure-policy" class="text-xs font-semibold text-text">
           {t("dbadmin.structure.defaultTitle")}
         </span>
@@ -152,7 +160,11 @@
           <ListRow>
             <span
               class={`h-2 w-2 shrink-0 rounded-full ${
-                c.health.status === "online" ? "bg-success" : c.health.status === "offline" ? "bg-danger" : "bg-border-strong"
+                c.health.status === "online"
+                  ? "bg-success"
+                  : c.health.status === "offline"
+                    ? "bg-danger"
+                    : "bg-border-strong"
               }`}
               data-tooltip={healthLabel(c)}
               role="img"
@@ -161,12 +173,19 @@
             <ListMain>
               <span class="font-semibold">{c.name}</span>
               <Badge tone="admin">{t(`connections.engine.${c.engine}`)}</Badge>
-              {#if c.environment}<EnvironmentBadge name={c.environment} color={c.environmentColor} production={c.production} />{/if}
+              {#if c.environment}<EnvironmentBadge
+                  name={c.environment}
+                  color={c.environmentColor}
+                  production={c.production}
+                />{/if}
               {#if c.readOnly}<Badge tone="warning">{t("dbadmin.readOnly")}</Badge>{/if}
               {#each c.tags as tag (tag)}<Badge tone="muted">{tag}</Badge>{/each}
               <span class="block truncate font-mono text-[11px] text-text-muted">{target(c)}</span>
             </ListMain>
-            <span class="shrink-0 text-xs text-text-muted" data-tooltip={c.projects.map((p) => p.name).join(", ") || undefined}>
+            <span
+              class="shrink-0 text-xs text-text-muted"
+              data-tooltip={c.projects.map((p) => p.name).join(", ") || undefined}
+            >
               {t("admin.connections.projectCount", { count: c.projects.length })}
             </span>
             <PersonalAccountButton connection={c} />
@@ -213,13 +232,22 @@
 
 {#if diff}
   {#await import("@/features/connections/DeploymentModal.svelte") then { default: DeploymentModal }}
-    <DeploymentModal projectId={diff.projectId} initialConnectionId={diff.connectionId} readOnly onClose={() => (diff = null)} />
+    <DeploymentModal
+      projectId={diff.projectId}
+      initialConnectionId={diff.connectionId}
+      readOnly
+      onClose={() => (diff = null)}
+    />
   {/await}
 {/if}
 
 {#if deleting}
   {@const connection = deleting}
-  <Modal title={t("admin.connections.deleteTitle", { name: connection.name })} onClose={() => (deleting = null)} dismissable={!remove.pending}>
+  <Modal
+    title={t("admin.connections.deleteTitle", { name: connection.name })}
+    onClose={() => (deleting = null)}
+    dismissable={!remove.pending}
+  >
     <Hint>{t("admin.connections.deleteHint")}</Hint>
     {#if connection.projects.length > 0}
       <p class="mb-3 text-[12.5px] text-warning">
@@ -227,7 +255,9 @@
       </p>
     {/if}
     <div class="flex items-center justify-end gap-2">
-      <Button variant="ghost" size="sm" onclick={() => (deleting = null)} disabled={remove.pending}>{t("common.cancel")}</Button>
+      <Button variant="ghost" size="sm" onclick={() => (deleting = null)} disabled={remove.pending}
+        >{t("common.cancel")}</Button
+      >
       <Button variant="danger" size="sm" onclick={() => void remove.run(connection)} disabled={remove.pending}>
         {remove.pending ? t("common.deleting") : t("common.delete")}
       </Button>

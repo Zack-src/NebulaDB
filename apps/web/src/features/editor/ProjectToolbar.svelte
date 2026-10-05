@@ -25,9 +25,11 @@
     ChevronLeftIcon,
     DownloadIcon,
     LayersIcon,
-    LayoutGridIcon,
     RedoIcon,
-    InfoIcon, SettingsIcon,
+    CheckCircleIcon,
+    AlertTriangleIcon,
+    RestoreIcon,
+    SettingsIcon,
     SparklesIcon,
     SwapHorizontalIcon,
     UndoIcon,
@@ -44,7 +46,6 @@
     onBack: () => void;
     onUndo: () => void;
     onRedo: () => void;
-    onAutoLayout: () => void;
     onShowImport: () => void;
     onShowExport: () => void;
     onShowConvertTypes?: () => void;
@@ -63,8 +64,6 @@
     onOpenSettings?: () => void;
     /** Present in the real app: the project to follow, and where a notification about another one leads. */
     follow?: { projectId: string; onOpenProject: (projectId: string) => void };
-    /** Present where the guided tour exists: replays it. */
-    onShowTour?: () => void;
     localUser: string;
     localColor: string;
     remoteAwareness: Map<number, AwarenessState>;
@@ -91,7 +90,6 @@
       : [
           { icon: UndoIcon, labelKey: "editor.undo", onClick: props.onUndo },
           { icon: RedoIcon, labelKey: "editor.redo", onClick: props.onRedo },
-          { icon: LayoutGridIcon, labelKey: "editor.autoLayout", onClick: props.onAutoLayout },
         ],
   );
 
@@ -163,34 +161,24 @@
 
     <span class={`${DIVIDER_CLASS} hidden md:block`}></span>
 
-    {#if showConnection}
-      <span class="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-text-muted">
-        <span
-          class={`h-[7px] w-[7px] shrink-0 rounded-full ${
-            reconnecting ? "bg-danger shadow-[0_0_0_3px_var(--color-danger-light)]" : "bg-text-muted"
-          }`}
-        ></span>
-        {t(reconnecting ? "editor.reconnecting" : "editor.connecting")}
-      </span>
-    {/if}
+    <span
+      class="inline-flex items-center"
+      role="img"
+      aria-label={t(showConnection ? (reconnecting ? "editor.reconnecting" : "editor.connecting") : "editor.synced")}
+      data-tooltip={t(showConnection ? (reconnecting ? "editor.reconnecting" : "editor.connecting") : "editor.synced")}
+    >
+      <Icon
+        icon={showConnection ? (reconnecting ? AlertTriangleIcon : RestoreIcon) : CheckCircleIcon}
+        size={16}
+        class={showConnection ? "text-warning" : "text-success"}
+      />
+    </span>
 
     <PresenceList localName={props.localUser} localColor={props.localColor} remote={props.remoteAwareness} />
 
     {#if props.follow}
       <FollowMenu projectId={props.follow.projectId} />
       <NotificationBell onOpenProject={props.follow.onOpenProject} />
-    {/if}
-    {#if props.onShowTour}
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onclick={props.onShowTour}
-        data-tooltip={t("tour.replay")}
-        data-tooltip-pos="bottom"
-        aria-label={t("tour.replay")}
-      >
-        <Icon icon={InfoIcon} size={15} />
-      </Button>
     {/if}
     {#if props.onOpenSettings}
       <Button

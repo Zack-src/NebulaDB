@@ -38,7 +38,7 @@ test(
         await fetch("/api/projects", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ name: "Hooked", template: "blog" }),
+          body: JSON.stringify({ name: "Hooked" }),
         });
       });
       await page.reload();

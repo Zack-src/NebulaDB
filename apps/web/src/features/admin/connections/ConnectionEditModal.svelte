@@ -65,7 +65,7 @@
   let useUri = $state(Boolean(initial?.connectionString));
   let tags = $state((initial?.tags ?? []).join(", "));
   let readOnly = $state(Boolean(initial?.readOnly));
-  let authMode = $state<ConnectionAuthMode>(initial?.authMode ?? "shared");
+  let authMode = $state<ConnectionAuthMode>(initial?.authMode ?? "personal");
   /** A personal account replaces a user and a password: there are none in a SQLite file or a connection string. */
   const personalPossible = $derived(engine !== "sqlite" && !useUri);
   // Who has already given an account: what tells an administrator the switch will not lock everyone out.
@@ -88,13 +88,16 @@
       host: network ? host : undefined,
       port: network ? Number(port) : undefined,
       database: network ? database : undefined,
-      user: network ? user : undefined,
-      password: network ? password || undefined : undefined,
+      user: network && authMode === "shared" ? user : undefined,
+      password: network && authMode === "shared" ? password || undefined : undefined,
       ssl: network ? ssl : undefined,
       // Empty rather than left out: an update that does not mention it would keep the stored one.
       connectionString: useUri && engine !== "sqlite" ? connectionString : "",
       filePath: engine === "sqlite" ? filePath : undefined,
-      tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+      tags: tags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean),
       readOnly,
       authMode: personalPossible ? authMode : "shared",
       structurePolicy:
@@ -108,7 +111,10 @@
     try {
       const res = await testAdminConnection(payload(), initial?.id);
       testResult = res.ok
-        ? { ok: true, message: `${t("connections.testSuccess")}: ${res.version ?? ""} ${res.database ? `(${res.database})` : ""}` }
+        ? {
+            ok: true,
+            message: `${t("connections.testSuccess")}: ${res.version ?? ""} ${res.database ? `(${res.database})` : ""}`,
+          }
         : { ok: false, message: res.error || t("connections.testFailed") };
     } catch (err) {
       testResult = { ok: false, message: describeApiError(err, t) };
@@ -132,7 +138,12 @@
   });
 </script>
 
-<Modal title={initial ? t("connections.editConnection") : t("connections.newConnection")} {onClose} wide dismissable={!save.pending}>
+<Modal
+  title={initial ? t("connections.editConnection") : t("connections.newConnection")}
+  {onClose}
+  wide
+  dismissable={!save.pending}
+>
   <div class="space-y-4">
     <div>
       <!-- svelte-ignore a11y_label_has_associated_control -->
@@ -141,6 +152,7 @@
     </div>
 
     <ConnectionFormFields
+      showCredentials={!personalPossible || authMode === "shared"}
       bind:environmentId
       bind:engine
       bind:host
@@ -201,7 +213,11 @@
         aria-labelledby="structure-policy-label"
         options={[
           { value: "inherit", label: t("dbadmin.structure.inherit"), hint: t("dbadmin.structure.inheritHint") },
-          { value: "schema-only", label: t("dbadmin.structure.policy.schema-only"), hint: t("dbadmin.structure.policyHint.schema-only") },
+          {
+            value: "schema-only",
+            label: t("dbadmin.structure.policy.schema-only"),
+            hint: t("dbadmin.structure.policyHint.schema-only"),
+          },
           { value: "warn", label: t("dbadmin.structure.policy.warn"), hint: t("dbadmin.structure.policyHint.warn") },
           { value: "free", label: t("dbadmin.structure.policy.free"), hint: t("dbadmin.structure.policyHint.free") },
         ]}

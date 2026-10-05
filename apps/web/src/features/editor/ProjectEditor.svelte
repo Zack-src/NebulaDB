@@ -40,7 +40,6 @@
   import { diffProjects, fingerprintSchema } from "@athanordb/dbml-engine";
   import { LintState } from "@/features/editor/lint/lint.svelte";
   import { SchemaQuality } from "@/features/editor/lint/schemaQuality.svelte";
-  import EditorTour, { editorTourSeen } from "@/features/onboarding/EditorTour.svelte";
   import type { RevisionSummary } from "@/services/projectsApi";
   import HistoryPreviewBanner from "@/features/editor/history/HistoryPreviewBanner.svelte";
   import type { HistoryDiffStatus } from "@/features/editor/hooks/useCanvasNodes/canvasNodes.svelte";
@@ -96,6 +95,7 @@
     session: Session;
     onDisplayNameChange: (name: string) => Promise<void>;
     onLogout: () => void;
+    onOpenSettings?: () => void;
     onBack: () => void;
     /** Table (and optionally column) to centre on once the document has loaded — from a cross-project search hit. */
     initialFocus?: { tableName: string; fieldName?: string } | null;
@@ -104,8 +104,6 @@
     onTabChange?: (tab: WorkspaceTab) => void;
     /** Opens another project by id — where a notification leads. */
     onOpenProject?: (projectId: string) => void;
-    /** The real app: offer the guided tour on a first visit. Off in the perf harness, which must render nothing extra. */
-    guided?: boolean;
   } = $props();
 
   const { t } = useTranslation();
@@ -192,8 +190,6 @@
   let showPlugins = $state(false);
   let showSettings = $state(false);
   let showDeployment = $state(false);
-  // The guided tour: once per browser, on the first project opened, and again from the header.
-  let tourOpen = $state(untrack(() => props.guided === true) && !editorTourSeen());
   /** Counts deployment dialogs closed — the pipeline refetches on it. */
   let deploymentsSeen = $state(0);
   let viewMode = $state<EditorViewMode>("mld");
@@ -576,22 +572,15 @@
     onBack={props.onBack}
     onUndo={() => docHandle.undoManager?.undo()}
     onRedo={() => docHandle.undoManager?.redo()}
-    onAutoLayout={commandRunner.onAutoLayout}
     onShowImport={() => (showImport = true)}
     onShowExport={() => (showExport = true)}
     onShowConvertTypes={canWrite ? () => (showConvertTypes = true) : undefined}
     onShowCompare={() => (showCompare = true)}
     onShowDeploy={() => (showDeployment = true)}
     {isProjectAdmin}
-    onOpenSettings={() => (showSettings = true)}
-    follow={props.guided && props.onOpenProject
+    onOpenSettings={props.onOpenSettings ?? (() => (showSettings = true))}
+    follow={props.onOpenProject
       ? { projectId: project.id, onOpenProject: props.onOpenProject }
-      : undefined}
-    onShowTour={props.guided
-      ? () => {
-          setTab("schema");
-          tourOpen = true;
-        }
       : undefined}
     localUser={user}
     localColor={hashColor(user)}
@@ -712,7 +701,7 @@
       onClose={() => (historyPreview = null)}
     />
   {/if}
-  <div class="flex min-h-0 min-w-0 flex-1 flex-col">
+  <div class="flex min-h-0 min-w-0 flex-1 flex-row">
   <div class="relative flex min-h-0 min-w-0 flex-1">
     {#if dbmlOpen && liveProject}
       <DbmlPanel
@@ -800,14 +789,14 @@
   </div>
   {#if sql.open && canUseSql && activeConnection}
     <Splitter
-      bind:size={sql.height}
-      min={SqlDrawerState.MIN_HEIGHT}
-      max={SqlDrawerState.MAX_HEIGHT}
-      edge="top"
+      bind:size={sql.width}
+      min={SqlDrawerState.MIN_WIDTH}
+      max={SqlDrawerState.MAX_WIDTH}
+      edge="left"
       aria-label={t("workspace.sql.resize")}
-      onCommit={sql.rememberHeight}
+      onCommit={sql.rememberWidth}
     />
-    <div class="flex shrink-0 flex-col" style:height="{sql.height}px">
+    <div class="flex min-h-0 max-w-[85%] shrink-0 flex-col border-l border-border" style:width="{sql.width}px">
       {#await import("@/features/sql/EditorSqlDrawer.svelte") then { default: EditorSqlDrawer }}
         <!-- Keyed: the drawer and its history belong to one connection. -->
         {#key activeConnection.id}
@@ -881,9 +870,6 @@
         onClose={() => (differencesFor = null)}
       />
     {/await}
-  {/if}
-  {#if tourOpen && liveProject && tab === "schema"}
-    <EditorTour onClose={() => (tourOpen = false)} />
   {/if}
   {#if showLocksList && liveProject}
     {#await import("@/features/editor/locks/TableLocksList.svelte") then { default: TableLocksList }}

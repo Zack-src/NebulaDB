@@ -13,7 +13,7 @@
  * reads as a button, which is precisely the wrong affordance.
  */
 const INPUT_BASE =
-  "rounded-md border border-border bg-surface text-text caret-primary " +
+  "rounded-md border border-border-control bg-surface-raised text-text caret-primary " +
   "placeholder:text-text-muted " +
   "transition-[border-color,box-shadow] duration-150 ease-out " +
   "enabled:hover:border-border-strong " +

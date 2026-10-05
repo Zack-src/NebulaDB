@@ -7,7 +7,7 @@
   import { untrack } from "svelte";
   import type { UserNotification } from "@athanordb/shared";
   import Icon from "@/components/icons/Icon.svelte";
-  import { CommentIcon } from "@/components/icons/Icons";
+  import { BellIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
   import Popover from "@/components/ui/Popover.svelte";
   import { inboxPush } from "@/features/notifications/inboxPush.svelte";
@@ -106,7 +106,7 @@
     aria-haspopup="dialog"
     aria-expanded={open}
   >
-    <Icon icon={CommentIcon} size={15} />
+    <Icon icon={BellIcon} size={15} />
   </Button>
   {#if inbox.unread > 0}
     <span
@@ -118,7 +118,14 @@
   {/if}
 </span>
 
-<Popover {open} {anchor} onClose={() => (open = false)} class="w-[340px] p-0" role="dialog" aria-label={t("notifications.title")}>
+<Popover
+  {open}
+  {anchor}
+  onClose={() => (open = false)}
+  class="w-[340px] p-0"
+  role="dialog"
+  aria-label={t("notifications.title")}
+>
   <div class="flex items-center gap-2 border-b border-border px-3 py-2">
     <h2 class="m-0 flex-1 text-body-sm font-semibold text-text">{t("notifications.title")}</h2>
     {#if inbox.unread > 0}
@@ -130,7 +137,11 @@
   {:else}
     <ul class="m-0 max-h-[360px] list-none overflow-y-auto p-0" aria-label={t("notifications.title")}>
       {#each inbox.notifications as notification (notification.id)}
-        <li class="border-b border-border last:border-b-0" data-event={notification.event} data-read={notification.read}>
+        <li
+          class="border-b border-border last:border-b-0"
+          data-event={notification.event}
+          data-read={notification.read}
+        >
           <button
             type="button"
             class="flex w-full cursor-pointer flex-col gap-0.5 border-0 bg-transparent px-3 py-2 text-left text-xs hover:bg-surface-hover"

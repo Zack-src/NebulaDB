@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
-import { login, skipEditorTour, startE2eEnvironment } from "./harness.js";
+import { login, startE2eEnvironment } from "./harness.js";
 
 /**
  * Mentions in comments, with two accounts: typing `@` offers the people who
@@ -91,7 +91,6 @@ test(
       const colleaguePage = await colleagueContext.newPage();
       colleaguePage.setDefaultTimeout(15_000);
       colleaguePage.on("pageerror", (err) => errors.push(String(err)));
-      await skipEditorTour(colleaguePage);
       await colleaguePage.goto(`${env.baseUrl}/project/${projectId}`);
       await colleaguePage.locator(".svelte-flow__node").filter({ hasText: "customers" }).waitFor();
 

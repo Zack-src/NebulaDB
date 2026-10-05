@@ -11,7 +11,7 @@ import { db } from "../../infrastructure/db.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireUser } from "../../shared/guards.js";
 import type { SessionUser } from "../auth/session.js";
-import { getConnectionById } from "../connections/repository.js";
+import { connectionOwner, getConnectionById } from "../connections/repository.js";
 import { effectiveDbAccess } from "./repository.js";
 
 const MAX_ENTRIES = 500;
@@ -36,6 +36,11 @@ export interface DbConsoleUser {
  */
 export function requireDbConsoleUser(req: FastifyRequest, connectionId: string): DbConsoleUser {
   const user = requireUser(req);
+  const owner = connectionOwner(connectionId);
+  if (owner) {
+    if (req.apiKey || owner !== user.id) throw new ApiError("CONNECTION_NOT_FOUND");
+    return { user, connection: getConnectionById(connectionId)!, access: "write" };
+  }
   if (user.isAdmin) {
     const connection = getConnectionById(connectionId);
     if (!connection) throw new ApiError("CONNECTION_NOT_FOUND");
@@ -81,7 +86,7 @@ export function parseGrantEntries(raw: unknown, withAccounts: boolean, withProvi
   for (const item of raw) {
     if (typeof item !== "object" || item === null) throw invalid("each grant must be an object");
     const { connectionId, level, sqlUsername, createAccount } = item as Record<string, unknown>;
-    if (typeof connectionId !== "string" || !getConnectionById(connectionId)) {
+    if (typeof connectionId !== "string" || !getConnectionById(connectionId) || connectionOwner(connectionId)) {
       throw new ApiError("CONNECTION_NOT_FOUND");
     }
     if (seen.has(connectionId)) throw invalid("a connection is listed twice");

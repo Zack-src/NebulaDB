@@ -10,15 +10,7 @@
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { fetchConnectionOverview } from "@/services/dbAdminApi";
 
-  /**
-   * The SQL console as a drawer under the schema: write a query while looking
-   * at the diagram it is about, on the workspace's current connection.
-   *
-   * It is the console's own panel — same server routes, same read-only
-   * default, same audit, same structure policy — in a smaller frame. Nothing
-   * here widens who may run SQL: the drawer is only offered to those the
-   * console is offered to.
-   */
+  /** Read-only SQL beside the diagram, scoped to its active database. */
   let {
     connection,
     request,
@@ -40,10 +32,7 @@
   $effect(() => {
     const data = overview.data;
     if (!data || data.databases.some((candidate) => candidate.name === database)) return;
-    const preferred =
-      data.databases.find((candidate) => candidate.name === data.defaultDatabase) ??
-      data.databases.find((candidate) => !candidate.system);
-    database = (preferred ?? data.databases[0])?.name ?? "";
+    database = connection.database ?? data.defaultDatabase ?? "";
   });
 </script>
 
@@ -53,7 +42,11 @@
     <span class="text-body-sm font-semibold text-text">{t("workspace.sql.title")}</span>
     <span class="truncate text-label text-text-muted">{connection.name}</span>
     {#if connection.environment}
-      <EnvironmentBadge name={connection.environment} color={connection.environmentColor} production={connection.production} />
+      <EnvironmentBadge
+        name={connection.environment}
+        color={connection.environmentColor}
+        production={connection.production}
+      />
     {/if}
     <span class="flex-1"></span>
     <kbd class="font-sans text-caption text-text-muted">{TOGGLE_SHORTCUT}</kbd>
@@ -67,7 +60,7 @@
     {:else if !overview.data}
       <p class="m-0 text-label text-text-muted">{t("dbadmin.connecting")}</p>
     {:else}
-      <SqlPanel connectionId={connection.id} overview={overview.data} bind:database {request} compact />
+      <SqlPanel connectionId={connection.id} overview={overview.data} bind:database {request} readOnly fixedDatabase />
     {/if}
   </div>
 </section>

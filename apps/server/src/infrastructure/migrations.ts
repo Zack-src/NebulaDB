@@ -1075,6 +1075,16 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 42,
+    name: "private connection ownership",
+    up: (db) => {
+      const columns = db.prepare("PRAGMA table_info(db_connections)").all() as { name: string }[];
+      if (!columns.some((c) => c.name === "owner_user_id"))
+        db.exec("ALTER TABLE db_connections ADD COLUMN owner_user_id TEXT");
+      db.exec("CREATE INDEX IF NOT EXISTS idx_connections_owner ON db_connections(owner_user_id)");
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */

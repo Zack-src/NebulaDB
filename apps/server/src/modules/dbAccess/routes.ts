@@ -3,7 +3,9 @@ import type { MyDbAccess, UserDbAccess } from "@athanordb/shared";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireAdmin, requireUser } from "../../shared/guards.js";
-import { getTeam } from "../teams/repository.js";
+import { getTeam, listTeamMembers } from "../teams/repository.js";
+import { db } from "../../infrastructure/db.js";
+import { provisionAccounts } from "./provision.js";
 import { userExists } from "../users/repository.js";
 import {
   getTeamDbAccess,
@@ -24,6 +26,27 @@ const WRITE_LIMIT = { config: { rateLimit: { max: 60, timeWindow: "1 minute" } }
  * (`/api/connections/:id/…`).
  */
 export function registerDbAccessRoutes(app: FastifyInstance): void {
+  app.post("/api/admin/teams/:id/db-accounts", WRITE_LIMIT, async (req) => {
+    const admin = requireAdmin(req);
+    const { id } = req.params as { id: string };
+    if (!getTeam(id)) throw new ApiError("NOT_FOUND");
+    const entries = getTeamDbAccess(id).map((g) => ({ connectionId: g.connectionId, level: g.level }));
+    const users = listTeamMembers(id);
+    if (users.length * entries.length > 500)
+      throw new ApiError("DB_ADMIN_INPUT_INVALID", { message: "at most 500 accounts per batch" });
+    return { results: await provisionAccounts(admin, users, entries) };
+  });
+  app.post("/api/admin/users/:id/db-accounts", WRITE_LIMIT, async (req) => {
+    const admin = requireAdmin(req);
+    const { id } = req.params as { id: string };
+    const user = db.prepare("SELECT id, email FROM users WHERE id = ?").get(id) as
+      { id: string; email: string } | undefined;
+    if (!user) throw new ApiError("NOT_FOUND");
+    const access = getUserDbAccess(id);
+    const entries = [...access.grants, ...access.inherited].filter((g) => g.level);
+    const unique = [...new Map(entries.map((g) => [g.connectionId, g])).values()];
+    return { results: await provisionAccounts(admin, [user], unique) };
+  });
   // The connections the caller may query — how the workspace knows to offer "Données & SQL".
   app.get("/api/me/db-access", READ_LIMIT, async (req): Promise<MyDbAccess> => {
     const user = requireUser(req);

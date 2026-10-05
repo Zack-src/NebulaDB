@@ -27,7 +27,6 @@
   "common.name": "Nom",
   "common.saving": "Enregistrement…",
   "common.deleting": "Suppression…",
-
   "errors.network": "Le serveur est injoignable. Vérifiez votre connexion.",
   "errors.unexpected": "Une erreur inattendue est survenue.",
   "errors.internal": "Erreur interne du serveur.",
@@ -36,7 +35,6 @@
   "errors.nameTooLong": "Le nom ne doit pas dépasser 200 caractères.",
   "errors.nameOrStatusRequired": "Un nom ou un statut est requis.",
   "errors.projectStatusInvalid": "Statut de projet invalide.",
-  "errors.projectTemplateInvalid": "Modèle de projet inconnu.",
   "errors.permissionInvalid": "La permission doit être « lecture », « édition » ou « administrateur ».",
   "errors.sourceRequired": "Le contenu source est obligatoire.",
   "errors.sqlDialectInvalid": "Le dialecte SQL doit être PostgreSQL, MySQL ou SQL Server.",
@@ -182,7 +180,6 @@
   "errors.connectionAuthModeInvalid": "Les comptes personnels demandent un hôte, un utilisateur et un mot de passe : ni fichier SQLite, ni chaîne de connexion.",
   "errors.productionConfirmationRequired": "Cette connexion est l'étape de production : saisissez son nom pour confirmer.",
   "errors.connectionTargetForbidden": "Cette adresse est interdite (point d'accès aux métadonnées du fournisseur cloud).",
-
   "login.tagline": "Plateforme d'édition de schémas DBML et de collaboration",
   "login.tab.signIn": "Connexion",
   "login.tab.invite": "Rejoindre via invitation",
@@ -204,7 +201,6 @@
   "login.forgot.send": "Envoyer le lien",
   "login.forgot.sending": "Envoi…",
   "login.forgot.sent": "Si un compte existe pour {{email}}, un e-mail vient de lui être envoyé. Le lien est valable une heure.",
-
   "acceptInvite.title": "Définissez votre mot de passe",
   "acceptInvite.subtitle": "Terminez la création de votre compte pour accepter cette invitation.",
   "acceptInvite.confirmPassword": "Confirmer le mot de passe",
@@ -217,7 +213,6 @@
   "resetPassword.newPassword": "Nouveau mot de passe",
   "resetPassword.save": "Enregistrer le mot de passe",
   "resetPassword.saving": "Enregistrement…",
-
   "changePassword.title": "Modifier le mot de passe",
   "changePassword.currentLabel": "Mot de passe actuel",
   "changePassword.newLabel": "Nouveau mot de passe",
@@ -225,25 +220,13 @@
   "changePassword.submitting": "Modification…",
   "changePassword.success": "Mot de passe modifié.",
   "changePassword.tooShort": "Le nouveau mot de passe doit faire au moins {{min}} caractères.",
-
-  "projects.title": "Mes schémas DBML",
+  "projects.title": "Projets",
   "projects.subtitle": "Diagrammes de bases de données versionnés et synchronisés en direct.",
   "projects.searchPlaceholder": "Rechercher un schéma…",
   "projects.newProject": "Nouveau projet",
   "projects.new": "Nouveau",
   "projects.creating": "Création…",
   "projects.newSchemaName": "Nouveau schéma {{index}}",
-  "projects.fromTemplate": "Depuis un modèle",
-  "projects.templates.title": "Démarrer depuis un modèle",
-  "projects.templates.hint": "Un schéma de départ, déjà relié et disposé sur le canevas. Tout reste modifiable ensuite.",
-  "projects.templates.blog.name": "Blog",
-  "projects.templates.blog.description": "Utilisateurs, articles, commentaires et tags — la relation plusieurs-à-plusieurs classique.",
-  "projects.templates.ecommerce.name": "E-commerce",
-  "projects.templates.ecommerce.description": "Clients, adresses, catalogue hiérarchique, commandes et lignes de commande.",
-  "projects.templates.saas.name": "SaaS multi-tenant",
-  "projects.templates.saas.description": "Organisations, membres et rôles, abonnement, factures et journal d'audit.",
-  "projects.templates.auth.name": "Authentification",
-  "projects.templates.auth.description": "Comptes, sessions, rôles et jetons de réinitialisation de mot de passe.",
   "projects.newFromDatabase": "Nouveau projet depuis une base",
   "projects.newFromDatabaseDesc": "Connectez-vous à une base de données existante — Athanor analyse son schéma et crée un nouveau projet pré-rempli avec celui-ci.",
   "projects.projectName": "Nom du projet",
@@ -261,14 +244,12 @@
   "projects.linkForbidden": "Vous n'avez pas accès à ce projet.",
   "projects.emptyTrashPartialFailure_one": "{{count}} projet n'a pas pu être supprimé.",
   "projects.emptyTrashPartialFailure_other": "{{count}} projets n'ont pas pu être supprimés.",
-
   "projects.section.active": "Projets actifs",
   "projects.section.activeEmpty": "Aucun projet actif pour le moment — créez-en un pour commencer.",
   "projects.section.archived": "Archives",
   "projects.section.archivedEmpty": "Les archives sont vides.",
   "projects.section.trashed": "Corbeille",
   "projects.section.trashedEmpty": "La corbeille est vide.",
-
   "projects.card.doubleClickToRename": "Double-cliquer pour renommer",
   "projects.card.restore": "Restaurer",
   "projects.card.manageTeams": "Gérer les équipes",
@@ -277,11 +258,9 @@
   "projects.card.moveToTrash": "Mettre à la corbeille",
   "projects.card.createdOn": "Créé le {{date}}",
   "projects.card.readOnly": "Lecture seule",
-
   "projects.deleteForever.title": "Supprimer définitivement le projet",
   "projects.deleteForever.action": "Supprimer définitivement",
   "projects.deleteForever.confirmation": "Supprimer définitivement « {{name}} » ? Tout son historique de versions disparaît également, et cette action est irréversible.",
-
   "projects.emptyTrash.title": "Vider la corbeille",
   "projects.emptyTrash.action": "Vider la corbeille",
   "projects.emptyTrash.button_one": "Vider la corbeille ({{count}})",
@@ -317,9 +296,7 @@
   "webhooks.delivery.pending": "En attente",
   "webhooks.attempts_one": "{{count}} tentative",
   "webhooks.attempts_other": "{{count}} tentatives",
-
   "navbar.accountSettings": "Paramètres du compte",
-
   "dbml.problemAt": "Ligne {{line}}, col {{column}}",
   "plugins.commandApplied": "{{command}} : appliqué",
   "plugins.errorPrefix": "Erreur de plugin : {{message}}",
@@ -382,16 +359,13 @@
   "dbml.cursorCount_other": "{{count}} curseurs",
   "dbml.renameSummary_one": "Renommer {{kind}} {{owner}} — {{count}} occurrence",
   "dbml.renameSummary_other": "Renommer {{kind}} {{owner}} — {{count}} occurrences",
-
   "export.download": "Télécharger",
   "export.rendering": "Rendu du canvas…",
   "export.previewAlt": "Aperçu de la capture du canvas",
   "export.pdfHint": "Téléchargé sous forme de PDF d'une page, la capture occupant toute la page.",
   "export.generatedByPlugin": "Généré par le plugin « {{name}} ».",
-
   "import.mergeHint": "Les tables et champs sont appariés par nom : les positions et niveaux de détail existants sont conservés, et tout ce qui ne figure plus dans la source est supprimé.",
   "import.parsedByPlugin": "Analysé par le plugin « {{name}} ».",
-
   "dbml.lineColumn": "Ligne, colonne",
   "dbml.currentTable": "Table courante",
   "dbml.showProblems": "Afficher les problèmes (Ctrl+Maj+M)",
@@ -424,10 +398,8 @@
   "dbml.settings.syncDelay": "Synchroniser avec le diagramme",
   "dbml.settings.syncDelayValue": "{{seconds}} s",
   "dbml.settings.syncManual": "Ctrl+S",
-
   "export.copyFailed": "Impossible de copier dans le presse-papiers.",
   "export.title": "Exporter le schéma",
-
   "edge.deleteWaypoint": "Supprimer ce point",
   "edge.insertWaypoint": "Insérer un point ici",
   "edge.resetPathShort": "Réinitialiser le tracé",
@@ -454,7 +426,6 @@
   "edge.action.setDefault": "Valeur par défaut",
   "edge.action.noAction": "Aucune action",
   "edge.addPoint": "Ajouter un point",
-
   "table.goToDbml": "Aller au DBML",
   "table.doubleClickToRename": "Double-cliquer pour renommer",
   "table.comments": "Commentaires de la table",
@@ -464,7 +435,6 @@
   "table.addColumnTooltip": "Ajouter une colonne à la table",
   "enum.addValue": "Ajouter une valeur",
   "comments.post": "Publier",
-
   "node.doubleClickToRename": "Double-cliquer pour renommer",
   "enum.moveUp": "Monter",
   "enum.moveDown": "Descendre",
@@ -486,7 +456,6 @@
   "comments.empty": "Aucun commentaire.",
   "comments.delete": "Supprimer le commentaire",
   "comments.placeholder": "Ajouter un commentaire… (@ pour mentionner quelqu'un)",
-
   "plugins.securityNote": "Les plugins s'exécutent dans un Web Worker isolé, sans DOM ni accès réseau, et sont stockés uniquement dans ce navigateur — rien n'est envoyé au serveur ni partagé avec votre équipe. Installer un plugin exécute tout de même le code de son auteur : n'installez que des sources de confiance.",
   "plugins.add": "Ajouter un plugin",
   "plugins.install": "Installer",
@@ -539,7 +508,6 @@
   "plugins.validationSuccess": "Plugin valide et prêt à être installé !",
   "plugins.noResults": "Aucun plugin ne correspond à votre recherche",
   "plugins.noLogs": "Aucun log enregistré",
-
   "editor.import": "Importer",
   "editor.export": "Exporter",
   "editor.compare": "Comparer",
@@ -558,12 +526,10 @@
   "editor.viewOnlyHint": "Vous avez un accès en lecture seule à ce projet : l'édition est désactivée.",
   "editor.undo": "Annuler (Ctrl+Z)",
   "editor.redo": "Rétablir (Ctrl+Maj+Z)",
-  "editor.autoLayout": "Réorganiser automatiquement",
   "editor.connecting": "connexion…",
   "editor.reconnecting": "reconnexion…",
   "editor.showDbmlEditor": "Afficher l'éditeur DBML",
   "editor.canvasNotReady": "Le canvas n'est pas encore prêt.",
-
   "history.title": "Historique",
   "history.empty": "Aucune version pour le moment.",
   "history.noChanges": "Aucune modification de schéma depuis cette version.",
@@ -605,7 +571,6 @@
   "historyPreview.back": "Retour à l'historique",
   "historyPreview.close": "Fermer l'aperçu",
   "historyPreview.restored": "Version du {{date}} restaurée",
-
   "field.dragToReorder": "Glisser pour réordonner la colonne",
   "field.editTooltip": "Modifier les propriétés de la colonne",
   "field.propertiesTitle": "Propriétés de la colonne",
@@ -628,7 +593,6 @@
   "field.defaultPlaceholder": "ex. `now()`, 0, 'active'",
   "field.noteLabel": "Note / description",
   "field.notePlaceholder": "Description",
-
   "table.settingsTooltip": "Paramètres de la table",
   "table.settingsTitle": "Paramètres de la table",
   "table.duplicate": "Dupliquer la table",
@@ -642,7 +606,6 @@
   "table.index.toggleUnique": "Basculer unique",
   "table.index.uniqueShort": "Uniq",
   "table.index.delete": "Supprimer l'index",
-
   "canvas.insertTool.tooltip": "Insérer un élément",
   "canvas.addTable": "Ajouter une table",
   "canvas.addZone": "Ajouter une zone",
@@ -668,17 +631,14 @@
   "canvas.closeSearch": "Fermer la recherche",
   "canvas.resetLinkRouting": "Réinitialiser le tracé des liens",
   "canvas.findTable": "Rechercher une table (Ctrl+F)",
-
   "canvas.selection.tablesSelected_one": "{{count}} table sélectionnée",
   "canvas.selection.tablesSelected_other": "{{count}} tables sélectionnées",
   "canvas.selection.group": "Grouper",
   "canvas.selection.groupTooltip": "Regrouper dans un TableGroup",
-
   "canvas.search.placeholder": "Rechercher une table…",
   "canvas.search.previous": "Occurrence précédente (Maj+Entrée)",
   "canvas.search.next": "Occurrence suivante (Entrée)",
   "canvas.search.close": "Fermer (Échap)",
-
   "canvas.detail.tooltip": "Niveau de détail",
   "canvas.detail.label": "Détail",
   "canvas.detail.compact": "Compact",
@@ -687,29 +647,24 @@
   "canvas.detail.compactHint": "N'afficher que les champs clés",
   "canvas.detail.standardHint": "Afficher les clés primaires et étrangères",
   "canvas.detail.fullHint": "Afficher tous les champs",
-
   "canvas.view.tooltip": "Vue du diagramme",
   "canvas.view.mld": "MLD",
   "canvas.view.mldHint": "Tables, colonnes et clés — le schéma éditable",
   "canvas.view.mcd": "MCD",
   "canvas.view.mcdHint": "Entités et associations, dérivées en lecture seule du MLD",
-
   "mcd.readOnlyNotice": "Vue dérivée — déplacez les éléments pour aérer la vue, mais rien n'est sauvegardé ici. Modifiez le canvas MLD ou le DBML pour changer le schéma.",
   "mcd.resetPositions": "Réinitialiser sur l'agencement MLD",
   "mcd.warning.title": "Certaines tables n'ont pas pu être converties en association",
   "mcd.warning.ternary": "3 clés étrangères ou plus composent sa clé primaire — ressemble à une association ternaire, non reconstruite automatiquement",
   "mcd.warning.ambiguousJunction": "a 2 clés étrangères ou plus mais sa clé primaire ne les recouvre pas exactement, elle a donc été gardée comme entité simple",
-
   "canvas.zoom.label": "Zoom",
   "canvas.zoom.in": "Zoom avant",
   "canvas.zoom.out": "Zoom arrière",
   "canvas.zoom.toFit": "Ajuster à la vue",
   "canvas.zoom.toSelection": "Zoomer sur la sélection",
-
   "canvas.plugins.tooltip": "Commandes de plugins",
   "canvas.plugins.none": "Aucune commande de canvas installée",
   "canvas.plugins.manage": "Gérer les plugins…",
-
   "settings.modalTitle": "Paramètres et configuration",
   "settings.navHeading": "Configuration",
   "settings.section.profile": "Profil et compte",
@@ -718,7 +673,6 @@
   "settings.section.team": "Équipe et espaces",
   "settings.section.billing": "Licence et offres",
   "settings.section.about": "À propos et système",
-
   "settings.profile.title": "Informations du profil",
   "settings.profile.subtitle": "Gérez vos identifiants d'accès et votre nom d'affichage.",
   "settings.profile.emailLabel": "Adresse e-mail (identifiant)",
@@ -726,7 +680,6 @@
   "settings.profile.save": "Enregistrer les modifications",
   "settings.profile.securityTitle": "Sécurité de l'accès",
   "settings.profile.securitySubtitle": "Modifiez votre mot de passe pour sécuriser votre compte.",
-
   "settings.sessions.title": "Sessions actives",
   "settings.sessions.description": "Les appareils actuellement connectés à ce compte. Révoquez une session si vous ne la reconnaissez pas ou si l'appareil ne vous appartient plus.",
   "settings.sessions.unknownDevice": "Appareil inconnu",
@@ -736,7 +689,6 @@
   "settings.sessions.revoke": "Révoquer",
   "settings.sessions.revokeOthers_one": "Déconnecter l'autre session",
   "settings.sessions.revokeOthers_other": "Déconnecter les {{count}} autres sessions",
-
   "settings.personalData.title": "Vos données",
   "settings.personalData.description": "Récupérez une copie de ce que cette instance conserve à votre sujet, ou supprimez définitivement votre compte.",
   "settings.personalData.export": "Exporter mes données (JSON)",
@@ -744,7 +696,6 @@
   "settings.personalData.deleteConfirm": "Supprimer définitivement mon compte",
   "settings.personalData.deleteConsequences": "Action définitive. Votre compte, vos sessions et vos appartenances aux équipes sont supprimés. Les projets dont vous êtes propriétaire ne sont pas détruits — ils sont conservés sans propriétaire et restent gérables par un administrateur, car ils peuvent être partagés avec toute une équipe. Vos modifications de schéma gardent votre nom dans l'historique des projets.",
   "settings.personalData.confirmWithPassword": "Confirmez avec votre mot de passe",
-
   "settings.appearance.title": "Apparence et thèmes visuels",
   "settings.appearance.subtitle": "Personnalisez l'esthétique globale d'AthanorDB.",
   "settings.appearance.colorPreset": "Préréglage de couleur",
@@ -758,18 +709,15 @@
   "settings.appearance.grid.dots": "Points",
   "settings.appearance.grid.lines": "Lignes",
   "settings.appearance.grid.cross": "Croix",
-
   "settings.editor.title": "Préférences de l'éditeur DBML",
   "settings.editor.subtitle": "Ajustez le comportement du canvas et de la réorganisation visuelle.",
   "settings.editor.gridSnapping": "Aimantage des tables sur la grille",
   "settings.editor.gridSnappingHint": "Aligne automatiquement les tables sur la grille lors des déplacements.",
   "settings.editor.foreignKeyHighlight": "Surlignage des clés étrangères",
   "settings.editor.foreignKeyHighlightHint": "Met en surbrillance les relations au survol des colonnes.",
-
   "settings.team.title": "Équipe et collaborateurs",
   "settings.team.subtitle": "Gérez les permissions et l'accès à vos schémas depuis la liste de projets (icône équipe sur chaque carte).",
   "settings.team.owner": "Propriétaire",
-
   "settings.billing.title": "Licence et monétisation",
   "settings.billing.subtitle": "Détails de l'offre AthanorDB et statut de votre espace.",
   "settings.billing.plan": "Offre : Community Open-Core",
@@ -790,18 +738,15 @@
   "settings.billing.apiKeys.scope.deploy": "Déploiement",
   "settings.billing.apiKeys.scope.connections": "Connexions",
   "settings.billing.apiKeys.scope.teams": "Équipes",
-
   "settings.about.title": "À propos et système",
   "settings.about.subtitle": "Informations sur la version et le statut opérationnel.",
   "settings.about.version": "Version produit :",
   "settings.about.license": "Licence globale :",
   "settings.about.syncStatus": "Statut serveur sync :",
   "settings.about.operational": "Opérationnel",
-
   "permission.view": "Lecture",
   "permission.edit": "Édition",
   "permission.administrator": "Administrateur",
-
   "teams.modalTitle": "Équipes — {{name}}",
   "teams.visibilityNote": "Un projet sans équipe assignée est visible par tout le monde. Assigner une équipe le restreint aux membres de cette équipe (plus son créateur et les administrateurs).",
   "teams.assignPlaceholder": "Assigner une équipe…",
@@ -809,7 +754,6 @@
   "teams.permission": "Niveau d'accès",
   "teams.unassign": "Retirer l'assignation",
   "teams.noneAssigned": "Aucune équipe assignée — visible par tout le monde.",
-
   "admin.title": "Console d'administration",
   "admin.backToProjects": "Retour aux projets",
   "admin.section.invitations": "Invitations",
@@ -818,16 +762,13 @@
   "admin.section.errors": "Erreurs",
   "admin.section.connections": "Connexions base de données",
   "admin.section.environments": "Environnements",
-
   "admin.connections.noProjects": "Aucun projet actif pour le moment.",
-
   "admin.users.empty": "Aucun utilisateur.",
   "admin.users.disabled": "Désactivé",
   "admin.users.resetPassword": "Réinitialiser le mot de passe",
   "admin.users.enable": "Réactiver ce compte",
   "admin.users.disable": "Désactiver ce compte",
   "admin.users.deleteForever": "Supprimer définitivement ce compte",
-
   "admin.teams.one": "Équipe",
   "admin.teams.create": "Créer l'équipe",
   "admin.teams.namePlaceholder": "Nom de la nouvelle équipe",
@@ -839,7 +780,6 @@
   "admin.teams.addMemberPlaceholder": "Ajouter un membre…",
   "admin.teams.noMembers": "Aucun membre pour le moment.",
   "admin.teams.removeMember": "Retirer de l'équipe",
-
   "admin.invitations.emailPlaceholder": "Adresse e-mail à inviter",
   "admin.invitations.invite": "Inviter",
   "admin.invitations.empty": "Aucune invitation pour le moment.",
@@ -850,7 +790,6 @@
   "admin.invitations.status.expired": "Expirée",
   "admin.invitations.emailSent": "Invitation envoyée par e-mail à {{email}}.",
   "admin.invitations.emailNotSent": "Aucun e-mail envoyé à {{email}} : copiez le lien ci-dessous et transmettez-le vous-même.",
-
   "admin.deleteUser.title": "Supprimer {{email}}",
   "admin.deleteUser.consequences": "Supprime définitivement le compte, ses sessions, ses appartenances aux équipes et les invitations qu'il a envoyées. Les modifications qu'il a faites gardent son nom dans l'historique des projets — cet enregistrement n'est pas réécrit. Si vous pourriez en avoir encore besoin, désactivez le compte plutôt que de le supprimer.",
   "admin.deleteUser.ownedProjects": "Projets dont il est propriétaire",
@@ -859,11 +798,9 @@
   "admin.deleteUser.typeToConfirmPrefix": "Saisissez",
   "admin.deleteUser.typeToConfirmSuffix": "pour confirmer",
   "admin.deleteUser.confirm": "Supprimer définitivement",
-
   "admin.resetPassword.title": "Réinitialiser le mot de passe — {{email}}",
   "admin.resetPassword.submitting": "Réinitialisation…",
   "admin.resetPassword.success": "Mot de passe réinitialisé — {{email}} a été déconnecté partout et devra utiliser le nouveau mot de passe pour se reconnecter.",
-
   "admin.errors.filter.all": "Toutes les sources",
   "admin.errors.filter.server": "Serveur",
   "admin.errors.filter.client": "Client",
@@ -876,18 +813,15 @@
   "admin.errors.column.user": "Utilisateur",
   "admin.errors.column.context": "Contexte",
   "admin.errors.scopeNote": "Cliquez une ligne pour voir la pile d'appels si elle a été capturée. Erreurs serveur non gérées et plantages de rendu côté client (limité à 2000 entrées, les plus anciennes sont purgées) — pas un journal de conformité comme le journal d'audit, un outil de diagnostic.",
-
   "errorBoundary.title": "Une erreur inattendue s'est produite",
   "errorBoundary.body": "L'interface s'est arrêtée pour éviter d'afficher un état incohérent. Vos données ne sont pas perdues : le schéma est enregistré côté serveur, y compris les modifications faites juste avant l'erreur.",
   "errorBoundary.reload": "Recharger la page",
   "errorBoundary.goBack": "Revenir en arrière",
   "errorBoundary.projectTitle": "Ce projet n'a pas pu s'afficher",
   "errorBoundary.backToProjects": "Retour à mes projets",
-
   "language.label": "Langue",
   "language.fr": "Français",
   "language.en": "English",
-
   "connections.database": "Base de données",
   "connections.newConnection": "Nouvelle connexion",
   "connections.editConnection": "Modifier la connexion",
@@ -935,7 +869,6 @@
   "connections.strategy.useTranslatedTypeDesc": "Remplacer le type écrit par son équivalent natif sur ce moteur.",
   "connections.strategy.keepAsWritten": "Conserver tel quel",
   "connections.strategy.keepAsWrittenDesc": "Déployer le type exactement tel qu'écrit dans le canvas.",
-
   "deployment.title": "Déployer vers la Base de Données",
   "deployment.checkDifferencesTitle": "Vérifier les différences",
   "deployment.deploy": "Déployer",
@@ -1039,7 +972,6 @@
   "deployment.rollbackSuccessTitle": "Retour en arrière terminé",
   "deployment.rollbackSuccessDesc": "{{count}} instruction(s) exécutée(s) sur {{name}}.",
   "deployment.viewSql": "Voir le SQL",
-
   "editor.convertTypes": "Convertir les types",
   "convertTypes.title": "Convertir les types de colonnes",
   "convertTypes.targetEngine": "Moteur cible",
@@ -1051,7 +983,7 @@
   "admin.connections.hint": "Les connexions sont gérées ici, au niveau de l'instance : ajoutez une base, rattachez-la aux projets qui peuvent y déployer, puis ouvrez-la pour explorer ses tables, exécuter du SQL et gérer ses utilisateurs.",
   "admin.connections.filter": "Filtrer par nom, moteur, tag…",
   "admin.connections.empty": "Aucune connexion pour le moment.",
-  "admin.connections.open": "Ouvrir",
+  "admin.connections.open": "Monitoring",
   "admin.connections.checkHealth": "Vérifier la connexion",
   "admin.connections.projectCount": "{{count}} projet(s)",
   "admin.connections.health.unknown": "Jamais vérifiée",
@@ -1064,7 +996,7 @@
   "admin.connections.authShared": "Un compte partagé",
   "admin.connections.authSharedHint": "Tout le monde passe par le compte enregistré ci-dessus.",
   "admin.connections.authPersonal": "Le compte de chacun",
-  "admin.connections.authPersonalHint": "Chaque utilisateur donne son propre compte sur cette base : ses journaux disent qui a fait quoi, et ses permissions décident de ce que chacun peut faire. Le compte ci-dessus ne sert plus qu'aux tâches sans personne derrière (surveillance, sauvegardes planifiées, test de disponibilité) : il peut être en lecture seule.",
+  "admin.connections.authPersonalHint": "Chaque personne configure son identifiant et son mot de passe dans Paramètres → Bases de données. Votre compte SQL sert aussi au monitoring et à la création de comptes.",
   "admin.connections.authHolders_one": "{{count}} personne a donné son compte : {{people}}.",
   "admin.connections.authHolders_other": "{{count}} personnes ont donné leur compte : {{people}}.",
   "admin.connections.authNoHolder": "Personne n'a encore donné son compte : tant que ce n'est pas fait, personne ne peut utiliser cette base depuis Athanor.",
@@ -1846,27 +1778,6 @@
   "deployment.showProblems": "Ouvrir l'onglet Problèmes",
   "deployment.waitsForStage": "Cette étape attend {{stage}} : le schéma actuel doit d'abord y être déployé.",
   "deployment.waitsForStageAdmin": "Cette étape attend {{stage}} : le schéma actuel doit d'abord y être déployé. Vous pourrez sauter l'étape, avec un motif, après le refus.",
-  "tour.replay": "Visite guidée",
-  "tour.progress": "Visite guidée · {{current}} / {{total}}",
-  "tour.skip": "Passer",
-  "tour.previous": "Précédent",
-  "tour.next": "Suivant",
-  "tour.done": "Terminer",
-  "tour.canvas.title": "Le diagramme",
-  "tour.canvas.body": "Chaque table est un bloc que vous déplacez librement. Double-cliquez sur un nom pour le changer, tirez d'une colonne à une autre pour créer une relation, et faites un clic droit sur le fond pour ajouter une table, une zone ou une note.",
-  "tour.dbml.title": "Le même schéma, en texte",
-  "tour.dbml.body": "Ce panneau montre le schéma en DBML. Ce que vous tapez ici met à jour le diagramme, et l'inverse : collez-y un schéma existant ou éditez à plusieurs lignes à la fois. Double-cliquez sur une table du texte pour la retrouver sur le diagramme.",
-  "tour.toolbar.title": "Affichage et outils",
-  "tour.toolbar.body": "Zoom, niveau de détail, vue conceptuelle (MCD), mise en évidence des relations, problèmes du schéma, minimap, recherche et plugins : tout ce qui règle la vue du diagramme est ici.",
-  "tour.shortcuts.title": "Quelques raccourcis",
-  "tour.shortcuts.body": "Les plus utiles sur le diagramme (⌘ à la place de Ctrl sur Mac) :",
-  "tour.shortcut.search": "chercher une table ou une colonne",
-  "tour.shortcut.duplicate": "dupliquer la sélection",
-  "tour.shortcut.copyPaste": "copier / coller des tables, y compris vers un autre projet",
-  "tour.shortcut.undo": "annuler / rétablir vos modifications",
-  "tour.shortcut.delete": "supprimer la sélection",
-  "tour.workspace.title": "Le reste du projet",
-  "tour.workspace.body": "Les onglets mènent à l'historique des versions, aux problèmes relevés dans le schéma, au dictionnaire de données et, selon vos droits, aux déploiements et aux données des bases rattachées. En haut à droite : import, export et cette visite, à rejouer quand vous voulez.",
   "activity.showActor": "Voir toute son activité",
   "activity.onlyActor": "Seulement l'activité de {{name}}.",
   "activity.allActors": "Tous les auteurs",
@@ -1945,5 +1856,30 @@
   "errors.dbAccessWriteForbidden": "Votre accès à cette base est en lecture seule.",
   "errors.dbAccessWriteConfirmationRequired": "Cette instruction modifie des données : confirmez-la pour l'exécuter.",
   "errors.dbAccessStatementNotAllowed": "Avec votre accès, seule une instruction de données (INSERT, UPDATE, DELETE, MERGE) peut être exécutée, une à la fois — jamais un changement de structure.",
-  "errors.dbAdminConnectionAccountProtected": "C'est le compte avec lequel la connexion elle-même se connecte : le supprimer, le verrouiller ou changer son mot de passe d'ici couperait Athanor de cette base. Faites-le depuis la base, après avoir changé le compte de la connexion."
+  "errors.dbAdminConnectionAccountProtected": "C'est le compte avec lequel la connexion elle-même se connecte : le supprimer, le verrouiller ou changer son mot de passe d'ici couperait Athanor de cette base. Faites-le depuis la base, après avoir changé le compte de la connexion.",
+  "shell.bases": "Bases",
+  "shell.navigation": "Navigation principale",
+  "shell.breadcrumb": "Fil d’Ariane",
+  "shell.skipToContent": "Aller au contenu",
+  "shell.allProjects": "Tous les projets",
+  "shell.activeProjects": "Projets actifs",
+  "shell.noProjects": "Vous n’avez aucun projet actif pour le moment.",
+  "shell.openProject": "Ouvrir le projet",
+  "shell.people": "Personnes",
+  "shell.quality": "Qualité",
+  "shell.logs": "Journaux",
+  "editor.synced": "Synchronisé",
+  "databaseWorkspace.empty": "Aucune base accessible. Configurez vos accès dans Paramètres → Bases de données.",
+  "databaseWorkspace.select": "Sélectionnez une base pour explorer ses données ou ouvrir la console SQL.",
+  "databaseWorkspace.adminHint": "Les connexions et le monitoring sont disponibles dans Admin → Connexions.",
+  "databaseWorkspace.memberHint": "Vos accès et vos bases privées sont disponibles dans vos paramètres.",
+  "personalConnections.section": "Bases de données",
+  "personalConnections.title": "Mes bases privées",
+  "personalConnections.hint": "Ajoutez vos bases de test ou privées. Seul votre compte peut les utiliser. Les actions restent visibles dans les journaux administrateur. localhost désigne le serveur AthanorDB.",
+  "personalConnections.add": "Ajouter une base privée",
+  "personalConnections.delete": "Retirer la connexion {{name}} ? La base et ses données sont conservées.",
+  "dbAccess.provision": "Générer les comptes SQL manquants",
+  "dbAccess.provisionHint": "Utilise votre propre compte SQL administrateur sur les bases sélectionnées. Les comptes existants sont conservés. Les permissions SQL se règlent ensuite dans le monitoring.",
+  "dbAccess.provisionResult": "{{created}} compte(s) créé(s), {{skipped}} existant(s), {{failed}} échec(s).",
+  "dbAccess.assign": "Attribuer un compte · {{name}}"
 }

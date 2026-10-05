@@ -15,7 +15,9 @@
    */
   let {
     connection,
+    onChanged,
   }: {
+    onChanged?: () => void;
     connection: { id: string; name: string; authMode: "shared" | "personal" };
   } = $props();
 
@@ -60,7 +62,10 @@
       connectionId={connection.id}
       connectionName={connection.name}
       {status}
-      onChanged={(next) => (status = next)}
+      onChanged={(next) => {
+        status = next;
+        onChanged?.();
+      }}
       onClose={() => (open = false)}
     />
   {/if}

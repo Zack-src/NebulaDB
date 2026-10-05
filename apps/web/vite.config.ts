@@ -51,13 +51,7 @@ export default defineConfig({
 
           // @xyflow/svelte and its own dependency tree (the @xyflow/system
           // helper package plus the d3-* modules it uses for zoom/drag/pan)
-          // and @dagrejs/dagre, which the canvas only imports for
-          // auto-layout alongside Svelte Flow.
-          if (
-            id.includes("node_modules/@xyflow") ||
-            id.includes("node_modules/@dagrejs/dagre") ||
-            id.includes("/node_modules/d3-")
-          ) {
+          if (id.includes("node_modules/@xyflow") || id.includes("/node_modules/d3-")) {
             return "xyflow";
           }
 

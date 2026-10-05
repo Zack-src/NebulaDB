@@ -102,7 +102,7 @@ test(
       await page.getByText("Prod", { exact: true }).waitFor();
       await snap("schema");
 
-      // --- SQL drawer under the schema ---
+      // --- SQL panel beside the schema ---
       const drawer = page.getByRole("region", { name: "SQL" });
       assert.equal(await drawer.count(), 0, "closed until asked for");
       await canvasTable("customers").hover();
@@ -113,8 +113,16 @@ test(
         "SELECT * FROM customers LIMIT 100",
       );
       await drawer.getByRole("gridcell", { name: "Ada" }).waitFor();
-      // The diagram is still there above it.
+      // The diagram remains beside the read-only panel.
       await canvasTable("invoices").waitFor();
+      const panelBox = await drawer.boundingBox();
+      const canvasBox = await page.locator(".svelte-flow__pane").boundingBox();
+      assert.ok(
+        panelBox && canvasBox && panelBox.x >= canvasBox.x + canvasBox.width - 2,
+        "SQL opens to the right of the diagram",
+      );
+      assert.equal(await drawer.getByRole("switch").count(), 0);
+      assert.equal(await drawer.getByRole("combobox").count(), 0);
       await snap("sql-drawer");
       // Ctrl+J closes and reopens it, from wherever the focus is; the handle is a real separator.
       await page.getByRole("separator", { name: "Redimensionner le panneau SQL" }).waitFor();

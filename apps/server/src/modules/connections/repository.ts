@@ -17,6 +17,7 @@ import { getEnvironment, resolveConnectionEnvironment } from "../environments/re
 
 interface ConnectionRow {
   id: string;
+  owner_user_id: string | null;
   name: string;
   engine: string;
   environment: string | null;
@@ -398,7 +399,7 @@ export function unlinkProjectConnection(projectId: string, connectionId: string)
 function pruneOrphanProjectConnections(): void {
   db.prepare(
     `DELETE FROM db_connections
-      WHERE origin = 'project'
+      WHERE origin = 'project' AND owner_user_id IS NULL
         AND NOT EXISTS (SELECT 1 FROM project_connection_links l WHERE l.connection_id = db_connections.id)`,
   ).run();
   db.prepare("DELETE FROM db_connection_credentials WHERE connection_id NOT IN (SELECT id FROM db_connections)").run();
@@ -433,14 +434,14 @@ function rowToAdminSummary(row: ConnectionRow): AdminConnectionSummary {
 
 export function listAllConnections(): AdminConnectionSummary[] {
   const rows = db
-    .prepare("SELECT * FROM db_connections ORDER BY name COLLATE NOCASE, created_at")
+    .prepare("SELECT * FROM db_connections WHERE owner_user_id IS NULL ORDER BY name COLLATE NOCASE, created_at")
     .all() as ConnectionRow[];
   return rows.map(rowToAdminSummary);
 }
 
 export function getAdminConnection(id: string): AdminConnectionSummary | null {
   const row = getRow(id);
-  return row ? rowToAdminSummary(row) : null;
+  return row && !row.owner_user_id ? rowToAdminSummary(row) : null;
 }
 
 /** Replaces the set of projects a connection is attached to. Unknown project ids are ignored. */
@@ -486,4 +487,26 @@ export function recordConnectionHealth(id: string, result: HealthResult): void {
     Math.round(result.latencyMs),
   );
   db.prepare("DELETE FROM db_health_samples WHERE connection_id = ? AND at < datetime('now', '-7 days')").run(id);
+}
+
+export function connectionOwner(id: string): string | null {
+  return getRow(id)?.owner_user_id ?? null;
+}
+export function listPrivateConnections(userId: string): DatabaseConnectionSummary[] {
+  return (
+    db
+      .prepare("SELECT * FROM db_connections WHERE owner_user_id = ? ORDER BY name COLLATE NOCASE")
+      .all(userId) as ConnectionRow[]
+  ).map((row) => rowToSummary(row, ""));
+}
+export function createPrivateConnection(config: ConnectionInput, userId: string): DatabaseConnectionSummary {
+  return db.transaction(() => {
+    const id = insertConnection({ ...config, authMode: "shared" }, "project", userId);
+    db.prepare("UPDATE db_connections SET owner_user_id = ? WHERE id = ?").run(userId, id);
+    return rowToSummary(getRow(id)!, "");
+  })();
+}
+export function connectionSummary(id: string): DatabaseConnectionSummary | null {
+  const row = getRow(id);
+  return row ? rowToSummary(row, "") : null;
 }

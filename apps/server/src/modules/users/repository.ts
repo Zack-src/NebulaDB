@@ -1,3 +1,4 @@
+import { deleteConnection } from "../connections/repository.js";
 import { db } from "../../infrastructure/db.js";
 
 export interface UserRow {
@@ -89,6 +90,8 @@ const purgeUserAndBelongingsTx = db.transaction((userId: string, email: string, 
   db.prepare("DELETE FROM team_members WHERE user_id = ?").run(userId);
   db.prepare("DELETE FROM subscriptions WHERE user_id = ?").run(userId);
   db.prepare("DELETE FROM notifications WHERE user_id = ?").run(userId);
+  for (const row of db.prepare("SELECT id FROM db_connections WHERE owner_user_id = ?").all(userId) as { id: string }[])
+    deleteConnection(row.id);
   db.prepare("DELETE FROM db_connection_credentials WHERE user_id = ?").run(userId);
   db.prepare("DELETE FROM db_access_grants WHERE subject_type = 'user' AND subject_id = ?").run(userId);
   db.prepare("DELETE FROM db_account_hints WHERE user_id = ?").run(userId);

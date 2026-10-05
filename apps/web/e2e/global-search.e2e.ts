@@ -22,16 +22,22 @@ test(
 
       // Seed two projects through the real API, with the logged-in session.
       await page.evaluate(async () => {
-        for (const [name, template] of [
-          ["Boutique", "ecommerce"],
-          ["Comptes", "auth"],
+        for (const [name, source] of [
+          ["Boutique", "Table orders {\n id int [pk]\n customer_id int\n}"],
+          ["Comptes", "Table users {\n id int [pk]\n}"],
         ]) {
           const res = await fetch("/api/projects", {
             method: "POST",
             headers: { "content-type": "application/json" },
-            body: JSON.stringify({ name, template }),
+            body: JSON.stringify({ name }),
           });
           if (!res.ok) throw new Error(`seed failed: ${res.status}`);
+          const { id } = await res.json();
+          await fetch(`/api/projects/${id}/import`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ source }),
+          });
         }
       });
       await page.reload();

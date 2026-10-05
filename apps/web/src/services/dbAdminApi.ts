@@ -157,6 +157,7 @@ export async function runAdminQuery(
   options: {
     database?: string;
     readOnly: boolean;
+    editor?: boolean;
     maxRows?: number;
     confirmStructural?: boolean;
     confirmWrite?: boolean;

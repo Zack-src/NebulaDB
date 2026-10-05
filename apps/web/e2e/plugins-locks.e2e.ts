@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Page } from "playwright-core";
-import { login, skipEditorTour, startE2eEnvironment } from "./harness.js";
+import { login, startE2eEnvironment } from "./harness.js";
 
 /**
  * Plugins against a locked table. A plugin is the one way to change a schema
@@ -160,7 +160,6 @@ test(
       const editorContext = await env.browser.newContext({ viewport });
       const editor = await editorContext.newPage();
       editor.setDefaultTimeout(15_000);
-      await skipEditorTour(editor);
       await editor.goto(env.baseUrl);
       await editor.getByLabel("Adresse e-mail").fill(EDITOR_EMAIL);
       await editor.getByLabel("Mot de passe").fill(EDITOR_PASSWORD);

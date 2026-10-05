@@ -21,6 +21,17 @@
 
   let { teamId, onClose, onChanged }: { teamId: string; onClose: () => void; onChanged: () => void } = $props();
 
+  import { provisionDbAccounts } from "@/services/dbAccessApi";
+  let provisionSummary = $state("");
+  const provision = useAsyncAction(async () => {
+    await saveTeamDbAccess(teamId, grantsFromDraft(accessDraft, false));
+    const { results } = await provisionDbAccounts("teams", teamId);
+    provisionSummary = t("dbAccess.provisionResult", {
+      created: results.filter((r) => r.status === "created").length,
+      skipped: results.filter((r) => r.status === "existing").length,
+      failed: results.filter((r) => r.status === "failed").length,
+    });
+  });
   const { t } = useTranslation();
   const team = useAsyncResource(() => fetchTeam(teamId));
   const users = useAsyncResource(fetchUsers);
@@ -67,6 +78,16 @@
 </script>
 
 <Modal title={team.data ? t("admin.teams.detailTitle", { name: team.data.name }) : t("admin.teams.one")} {onClose}>
+  <p class="mb-2 text-xs text-text-muted">{t("dbAccess.provisionHint")}</p>
+  <Button
+    size="sm"
+    class="mb-3"
+    onclick={() => void provision.run()}
+    disabled={provision.pending || !dbAccess.data || !connections.data || saveAccess.pending}
+    >{t("dbAccess.provision")}</Button
+  >
+  {#if provisionSummary}<p class="mb-3 text-xs" role="status">{provisionSummary}</p>{/if}
+  {#if provision.error}<ErrorText>{provision.error}</ErrorText>{/if}
   {#if error}<ErrorText>{error}</ErrorText>{/if}
   {#if team.data}
     <div class="mb-7 flex max-w-[420px] gap-2">

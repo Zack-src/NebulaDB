@@ -11,6 +11,7 @@
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { formatDateTime } from "@/i18n/formatters";
   import { useTranslation } from "@/i18n/i18n.svelte";
+  import { assignDbCredentials } from "@/services/dbAccessApi";
   import { deletePersonalCredentials, savePersonalCredentials } from "@/services/connectionsApi";
 
   /**
@@ -22,6 +23,7 @@
     connectionId,
     connectionName,
     status,
+    targetUserId,
     onChanged,
     onClose,
   }: {
@@ -29,6 +31,7 @@
     connectionName: string;
     /** What the server last said about this user's account on the connection. */
     status: PersonalCredentialStatus;
+    targetUserId?: string;
     onChanged: (status: PersonalCredentialStatus) => void;
     onClose: () => void;
   } = $props();
@@ -42,7 +45,11 @@
   let password = $state("");
 
   const save = useAsyncAction(async () => {
-    onChanged(await savePersonalCredentials(connectionId, username.trim(), password));
+    onChanged(
+      await (targetUserId
+        ? assignDbCredentials(targetUserId, connectionId, username.trim(), password)
+        : savePersonalCredentials(connectionId, username.trim(), password)),
+    );
     toast.success(t("personalAccount.saved", { connection: connectionName }));
     onClose();
   });
@@ -90,7 +97,7 @@
     {#if save.error || remove.error}<ErrorText>{save.error ?? remove.error}</ErrorText>{/if}
 
     <div class="flex items-center gap-2 border-t border-border pt-3">
-      {#if status.username}
+      {#if status.username && !targetUserId}
         <Button size="sm" variant="danger-ghost" onclick={() => void remove.run()} disabled={pending}>
           {t("personalAccount.remove")}
         </Button>
