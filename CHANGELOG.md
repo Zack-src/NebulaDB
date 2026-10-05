@@ -24,6 +24,39 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Added — a "Santé" tab on each connection
+
+- Admin → Connexions → Ouvrir → **Santé**: a fresh probe on opening (status, latency, version), a
+  latency series from the last probes (migration 41, `db_health_samples`, a week kept — every
+  probe adds a point, the background check included), databases and sizes, session counts
+  (active / idle, longest), and the sessions **waiting on a lock** with the one holding it
+  (`DatabaseAdminDriver.listBlocking`: `pg_blocking_pids`, `sys.innodb_lock_waits`,
+  `sys.dm_exec_requests`, `v$session`). A part the engine or the account cannot give reads "Non
+  disponible", never zero. `GET /api/admin/connections/:id/health-board`.
+
+### Added — traffic measured by the database server
+
+- Migration 40: `db_counter_samples`. Each activity sample (manual or every 5 min) also reads the
+  server's cumulative counters (`DatabaseAdminDriver.readCounters`): PostgreSQL transactions and
+  rows read (no byte totals, and transactions are not queries — labelled so), MySQL `Questions`
+  and `Bytes_sent` / `Bytes_received`, SQL Server batch requests, Oracle user calls and SQL*Net
+  bytes. A field the engine or the account lacks is empty, never estimated.
+- Journal → Côté base → **Trafic mesuré par le serveur**: differences between reads, per hour (up to
+  3 days) or per day; a restart (negative difference) is skipped. `GET …/activity/traffic?days=`.
+
+### Added — database-side sessions (level 1 of the database-side logs)
+
+- Migration 39: `db_activity` (per connection, session fingerprint and UTC day: account, database,
+  client, state, statement shape with literals masked, times seen, longest) and `db_activity_watch`.
+- Admin → Connexions → Ouvrir → Journal → **Côté base**: "Relever maintenant" reads the server's
+  sessions (`pg_stat_activity`, `PROCESSLIST`, DMVs, `V$SESSION`, through the console's session
+  list), and "Relever toutes les 5 min" does it on a schedule per connection. Accounts Athanor signs
+  in with (by name) are flagged and can be left out. A snapshot: a statement shorter than the
+  interval can be missed. Athanor configures no audit on the server.
+- `GET /api/admin/connections/:id/activity`, `POST …/activity/sample`, `PUT …/activity/watch`;
+  audit `dbconn.activity.sample` / `dbconn.activity.watch`.
+- `ATHANORDB_DB_ACTIVITY_RETENTION_DAYS` (default 14, `0` keeps all).
+
 ### Added — create the database account with the invitation
 
 - An invitation entry on a personal-account, writable connection can carry `createAccount: true`

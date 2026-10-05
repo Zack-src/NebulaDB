@@ -151,26 +151,27 @@ schéma ».
 
 ## 8. Journaux ★
 
-| Fonctionnalité                                                | État | Reste / remarque                                                                      |
-| ------------------------------------------------------------- | :--: | ------------------------------------------------------------------------------------- |
-| Journal d'activité (filtres, export CSV/JSON, non modifiable) |  ✅  |                                                                                       |
-| ★ Journal d'une base précise (onglet « Journal » de la base)  |  ✅  | Ce qui passe par Athanor : ouverture, tests, requêtes, déploiements, comptes, alertes |
-| ★ Journal de la modélisation                                  |  🟡  | Dans l'historique du projet, pas dans Activité                                        |
-| Journal des erreurs                                           |  ✅  |                                                                                       |
-| ★ Logs côté base (connexions et requêtes faites hors Athanor) |  ❌  |                                                                                       |
-| Export syslog / SIEM                                          |  ❌  |                                                                                       |
+| Fonctionnalité                                                | État | Reste / remarque                                                                                                                             |
+| ------------------------------------------------------------- | :--: | -------------------------------------------------------------------------------------------------------------------------------------------- |
+| Journal d'activité (filtres, export CSV/JSON, non modifiable) |  ✅  |                                                                                                                                              |
+| ★ Journal d'une base précise (onglet « Journal » de la base)  |  ✅  | Ce qui passe par Athanor : ouverture, tests, requêtes, déploiements, comptes, alertes                                                        |
+| ★ Journal de la modélisation                                  |  🟡  | Dans l'historique du projet, pas dans Activité                                                                                               |
+| Journal des erreurs                                           |  ✅  |                                                                                                                                              |
+| ★ Logs côté base (connexions et requêtes faites hors Athanor) |  🟡  | Niveau 1 : sessions relevées toutes les 5 min (instantané, requêtes courtes manquées), vérifié sur PostgreSQL ; pas d'audit natif (niveau 2) |
+| Export syslog / SIEM                                          |  ❌  |                                                                                                                                              |
 
 Le texte SQL est gardé tel quel dans l'audit : un `IDENTIFIED BY '…'` y apparaît (comportement
 antérieur, maintenant bien visible dans l'onglet Journal).
 
 ## 9. Performance et conseils ★
 
-| Fonctionnalité                                        | État | Reste / remarque                                                                            |
-| ----------------------------------------------------- | :--: | ------------------------------------------------------------------------------------------- |
-| ★ Temps et fréquence d'utilisation par requête        |  🟡  | Requêtes lancées depuis Athanor seulement, regroupées par forme ; rien côté serveur de base |
-| Tableau de santé, trafic par connexion                |  ❌  |                                                                                             |
-| Suggestions d'index                                   |  ❌  |                                                                                             |
-| ★ Conseiller de requêtes et de schéma, IA optionnelle |  ❌  | Dépend de la collecte côté serveur de base                                                  |
+| Fonctionnalité                                        | État | Reste / remarque                                                                                                                                                           |
+| ----------------------------------------------------- | :--: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ★ Temps et fréquence d'utilisation par requête        |  🟡  | Requêtes lancées depuis Athanor seulement, regroupées par forme ; rien côté serveur de base                                                                                |
+| Tableau de santé (onglet « Santé »)                   |  🟡  | Sonde, latence, tailles, sessions, verrous bloquants ; vérifié sur PostgreSQL (blocage compris), pas de croissance par table ni de carte sur la liste des connexions       |
+| Trafic par connexion (compteurs du serveur)           |  🟡  | Requêtes, octets, lignes selon le moteur (PostgreSQL : transactions, pas d'octets) ; vérifié sur PostgreSQL, MySQL, SQL Server ; pas de ventilation par compte ni d'alerte |
+| Suggestions d'index                                   |  ❌  |                                                                                                                                                                            |
+| ★ Conseiller de requêtes et de schéma, IA optionnelle |  ❌  | Dépend de la collecte côté serveur de base                                                                                                                                 |
 
 ## 10. Modifications faites hors Athanor ★
 
@@ -206,9 +207,8 @@ antérieur, maintenant bien visible dans l'onglet Journal).
   enrichie, surveillance des comptes et permissions, journal d'une base, temps et fréquence
   des requêtes lancées depuis Athanor.
 - **Demandes du propriétaire encore absentes :**
-  1. logs côté base (connexions et requêtes faites hors Athanor) ;
-  2. mesure côté serveur de base, puis conseiller de requêtes et IA ;
-  3. projet racine et déclinaisons.
+  1. conseiller de requêtes et IA (aucune décision prise sur l'analyseur SQL) ;
+  2. projet racine et déclinaisons.
 - **Limite du droit d'accès aux bases :** deux niveaux seulement par connexion (pas de droit par
   base, schéma ou table). En compte partagé, le membre agit sous le compte stocké sur la
   connexion : seul le filtre d'Athanor le borne.
