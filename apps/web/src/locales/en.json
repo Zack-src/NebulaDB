@@ -1879,6 +1879,7 @@
   "dbAccess.level.read": "Read",
   "dbAccess.level.write": "Write data",
   "dbAccess.levelFor": "Access to “{{connection}}”",
+  "dbAccess.createAccount": "Create this account on acceptance",
   "dbAccess.accountPlaceholder": "Proposed SQL account",
   "dbAccess.accountFor": "Proposed SQL account on “{{connection}}”",
   "dbAccess.hintUser": "Read: the explorer and read-only SQL. Write: also data writes (INSERT, UPDATE, DELETE), each confirmed. Never structure, accounts, sessions or backups. The SQL account is a name proposed in “My SQL account”: the person types their own password.",

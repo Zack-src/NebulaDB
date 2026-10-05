@@ -1879,6 +1879,7 @@
   "dbAccess.level.read": "Lecture",
   "dbAccess.level.write": "Écriture des données",
   "dbAccess.levelFor": "Accès à « {{connection}} »",
+  "dbAccess.createAccount": "Créer ce compte à l'acceptation",
   "dbAccess.accountPlaceholder": "Compte SQL proposé",
   "dbAccess.accountFor": "Compte SQL proposé sur « {{connection}} »",
   "dbAccess.hintUser": "Lecture : explorateur et SQL en lecture seule. Écriture : en plus, des écritures de données (INSERT, UPDATE, DELETE), chacune confirmée. Jamais la structure, les comptes, les sessions ni les sauvegardes. Le compte SQL est un nom proposé dans « Mon compte SQL » : la personne saisit elle-même son mot de passe.",

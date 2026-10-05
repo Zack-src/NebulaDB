@@ -3,6 +3,7 @@ import type { InvitationGrants } from "@athanordb/shared";
 import { auditUser } from "../../shared/audit.js";
 import { getConnectionById } from "../connections/repository.js";
 import { addUserGrantsInTransaction } from "../dbAccess/repository.js";
+import { provisionInvitedAccounts } from "../dbAccess/provision.js";
 import { describeGrants, parseInvitationGrants } from "../dbAccess/service.js";
 import { getTeam } from "../teams/repository.js";
 import { db } from "../../infrastructure/db.js";
@@ -227,6 +228,8 @@ export function registerInvitationRoutes(app: FastifyInstance): void {
         : undefined,
       req,
     );
+    // After the account exists: this talks to databases, which a transaction must not wait for.
+    await provisionInvitedAccounts({ id, email: invitation.email }, granted.databases, req.log);
     return { email: invitation.email };
   });
 }

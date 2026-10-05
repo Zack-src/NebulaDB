@@ -24,6 +24,14 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Added — create the database account with the invitation
+
+- An invitation entry on a personal-account, writable connection can carry `createAccount: true`
+  (with the proposed account name). When the invitation is accepted, the connection's service
+  account creates that account with a random password, which is kept as the person's own
+  personal account: nobody sees it. The new account has no privilege yet. A failure is audited
+  (`dbuser.create_failed`) and changes nothing else. Refused outside invitations.
+
 ### Added — "Mes comptes SQL" in Settings
 
 - `GET /api/me/sql-accounts` lists every personal-account connection the caller may use (instance

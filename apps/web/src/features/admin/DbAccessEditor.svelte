@@ -11,6 +11,8 @@
   export interface DbAccessDraftLine {
     level: DbAccessLevel | null;
     sqlUsername: string;
+    /** Invitations: create that account on the database once the invitation is accepted. */
+    createAccount?: boolean;
   }
   export type DbAccessDraft = Record<string, DbAccessDraftLine>;
 
@@ -22,11 +24,18 @@
   }
 
   /** What the server is sent: only the lines that grant something or name an account. */
-  export function grantsFromDraft(draft: DbAccessDraft, withAccounts: boolean): DbAccessGrantInput[] {
+  export function grantsFromDraft(draft: DbAccessDraft, withAccounts: boolean, withCreate = false): DbAccessGrantInput[] {
     return Object.entries(draft).flatMap(([connectionId, line]) => {
       const sqlUsername = withAccounts ? line.sqlUsername.trim() : "";
       if (!line.level && !sqlUsername) return [];
-      return [{ connectionId, level: line.level, ...(withAccounts ? { sqlUsername: sqlUsername || null } : {}) }];
+      return [
+        {
+          connectionId,
+          level: line.level,
+          ...(withAccounts ? { sqlUsername: sqlUsername || null } : {}),
+          ...(withCreate && sqlUsername && line.createAccount ? { createAccount: true } : {}),
+        },
+      ];
     });
   }
 </script>
@@ -35,6 +44,7 @@
   import { DatabaseIcon } from "@/components/icons/Icons";
   import Icon from "@/components/icons/Icon.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
+  import Checkbox from "@/components/ui/Checkbox.svelte";
   import Hint from "@/components/ui/Hint.svelte";
   import Input from "@/components/ui/Input.svelte";
   import Select from "@/components/ui/Select.svelte";
@@ -52,13 +62,16 @@
     connections,
     value = $bindable(),
     withAccounts,
+    withCreate = false,
     inherited = [],
     disabled = false,
   }: {
-    connections: readonly { id: string; name: string; engine: DatabaseEngine }[];
+    connections: readonly { id: string; name: string; engine: DatabaseEngine; authMode?: string; readOnly?: boolean }[];
     value: DbAccessDraft;
     /** Users and invitations carry an account name per database; a team does not. */
     withAccounts: boolean;
+    /** Invitations: offer to create the account on a personal-account database, instead of only proposing its name. */
+    withCreate?: boolean;
     /** What the person already holds through a team — shown, not editable here. */
     inherited?: readonly InheritedDbAccess[];
     disabled?: boolean;
@@ -85,6 +98,10 @@
 
   function setAccount(id: string, sqlUsername: string) {
     value[id] = { ...line(id), sqlUsername };
+  }
+
+  function setCreate(id: string, createAccount: boolean) {
+    value[id] = { ...line(id), createAccount };
   }
 </script>
 
@@ -127,6 +144,15 @@
             autocomplete="off"
             {disabled}
           />
+          {#if withCreate && connection.authMode === "personal" && !connection.readOnly && current.sqlUsername.trim()}
+            <Checkbox
+              checked={current.createAccount ?? false}
+              onChange={(checked) => setCreate(connection.id, checked)}
+              {disabled}
+            >
+              {t("dbAccess.createAccount")}
+            </Checkbox>
+          {/if}
         {/if}
       </div>
     {/each}

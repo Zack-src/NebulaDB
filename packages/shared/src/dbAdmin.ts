@@ -259,6 +259,8 @@ export interface DbAccessGrantInput {
   level: DbAccessLevel | null;
   /** The database account name proposed to the person (never a password). Users and invitations only. */
   sqlUsername?: string | null;
+  /** Invitations only: create that account on the database when the invitation is accepted. */
+  createAccount?: boolean;
 }
 
 export interface DbAccessGrant {

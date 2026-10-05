@@ -46,13 +46,13 @@
   let showGrants = $state(false);
   let teamIds = $state<string[]>([]);
   let databases = $state<DbAccessDraft>({});
-  const grantCount = $derived(teamIds.length + grantsFromDraft(databases, true).length);
+  const grantCount = $derived(teamIds.length + grantsFromDraft(databases, true, true).length);
 
   const invite = useAsyncAction(async () => {
     lastInvite = null;
     const created = await createInvitation(email.trim(), invitingAsAdmin, {
       teamIds,
-      databases: grantsFromDraft(databases, true),
+      databases: grantsFromDraft(databases, true, true),
     });
     lastInvite = { email: created.email, emailSent: created.emailSent };
     email = "";
@@ -135,7 +135,7 @@
             {t("admin.invitations.databases")}
           </div>
           {#if connections.data}
-            <DbAccessEditor connections={connections.data} bind:value={databases} withAccounts />
+            <DbAccessEditor connections={connections.data} bind:value={databases} withAccounts withCreate />
           {:else}
             <p class="m-0 text-label text-text-muted">{t("common.loading")}</p>
           {/if}

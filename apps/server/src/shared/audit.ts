@@ -63,6 +63,7 @@ export const AUDIT_ACTIONS = [
   "dbadmin.query",
   "dbadmin.drop",
   "dbuser.create",
+  "dbuser.create_failed",
   "dbuser.drop",
   "dbuser.alter",
   "dbuser.password",

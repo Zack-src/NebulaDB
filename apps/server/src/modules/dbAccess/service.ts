@@ -74,13 +74,13 @@ function parseSqlUsername(value: unknown): string | null {
  * whether a database account name may come with each entry (users and
  * invitations — a team has no account).
  */
-export function parseGrantEntries(raw: unknown, withAccounts: boolean): DbAccessGrantInput[] {
+export function parseGrantEntries(raw: unknown, withAccounts: boolean, withProvisioning = false): DbAccessGrantInput[] {
   if (!Array.isArray(raw) || raw.length > MAX_ENTRIES) throw invalid("grants must be an array");
   const seen = new Set<string>();
   const entries: DbAccessGrantInput[] = [];
   for (const item of raw) {
     if (typeof item !== "object" || item === null) throw invalid("each grant must be an object");
-    const { connectionId, level, sqlUsername } = item as Record<string, unknown>;
+    const { connectionId, level, sqlUsername, createAccount } = item as Record<string, unknown>;
     if (typeof connectionId !== "string" || !getConnectionById(connectionId)) {
       throw new ApiError("CONNECTION_NOT_FOUND");
     }
@@ -89,6 +89,15 @@ export function parseGrantEntries(raw: unknown, withAccounts: boolean): DbAccess
     const entry: DbAccessGrantInput = { connectionId, level: parseLevel(level) };
     if (withAccounts) entry.sqlUsername = parseSqlUsername(sqlUsername);
     else if (sqlUsername !== undefined && sqlUsername !== null) throw invalid("a team has no database account");
+    if (createAccount === true) {
+      if (!withProvisioning) throw invalid("an account can only be created from an invitation");
+      const connection = getConnectionById(connectionId);
+      if (!entry.sqlUsername) throw invalid("creating an account needs its name");
+      if (connection?.authMode !== "personal" || connection.readOnly) {
+        throw invalid("accounts are created only on personal-account connections that are not read-only");
+      }
+      entry.createAccount = true;
+    }
     // An entry that grants nothing and names no account is simply "nothing for this connection".
     if (entry.level || entry.sqlUsername) entries.push(entry);
   }
@@ -104,7 +113,7 @@ export function parseInvitationGrants(body: Record<string, unknown>): Invitation
   const teamIds = [...new Set(rawTeams as string[])];
   const exists = db.prepare("SELECT 1 FROM teams WHERE id = ?");
   if (teamIds.some((id) => !exists.get(id))) throw new ApiError("NOT_FOUND", { message: "no such team" });
-  return { teamIds, databases: parseGrantEntries(body.databases ?? [], true) };
+  return { teamIds, databases: parseGrantEntries(body.databases ?? [], true, true) };
 }
 
 /** One line for the audit trail: `Shop: write (as ada), Stats: read`. */

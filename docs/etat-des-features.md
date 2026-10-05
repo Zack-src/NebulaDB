@@ -130,7 +130,7 @@ schéma ».
 | ★ Compte SQL personnel par utilisateur et par base                    |  🧪  | Aucune vraie connexion testée ; option par connexion                                                                                   |
 | ★ Accès à une base accordé par l'admin, par utilisateur ou par groupe |  🧪  | Deux niveaux (lecture, écriture de données) par connexion ; vérifié sur PostgreSQL et MySQL en compte partagé, pas en compte personnel |
 | ★ L'admin associe un compte de base à un compte Athanor               |  🟡  | L'admin fixe le nom du compte proposé ; la personne saisit le mot de passe                                                             |
-| ★ Créer le compte de base en même temps que l'invitation              |  ❌  | Le compte se crée dans la console « Utilisateurs », pas dans le même geste                                                             |
+| ★ Créer le compte de base en même temps que l'invitation              |  🟡  | Créé à l'acceptation (mot de passe aléatoire gardé par Athanor), vérifié sur PostgreSQL ; compte sans privilège, à accorder ensuite    |
 | ★ Gestion de ses comptes SQL depuis ses Paramètres                    |  🧪  | Bloc « Mes comptes SQL » (Paramètres › Profil), testé serveur et navigateur ; jamais utilisé à la main                                 |
 | Privilèges au niveau colonne                                          |  🟡  | Lisibles, pas attribuables depuis l'interface                                                                                          |
 | Protection du compte de la connexion elle-même                        |  ✅  | Supprimer, verrouiller, changer le mot de passe refusés ; retirer ses privilèges n'est pas intercepté                                  |
@@ -206,10 +206,9 @@ antérieur, maintenant bien visible dans l'onglet Journal).
   enrichie, surveillance des comptes et permissions, journal d'une base, temps et fréquence
   des requêtes lancées depuis Athanor.
 - **Demandes du propriétaire encore absentes :**
-  1. création du compte de base dans le même geste que l'invitation ;
-  2. logs côté base (connexions et requêtes faites hors Athanor) ;
-  3. mesure côté serveur de base, puis conseiller de requêtes et IA ;
-  4. projet racine et déclinaisons.
+  1. logs côté base (connexions et requêtes faites hors Athanor) ;
+  2. mesure côté serveur de base, puis conseiller de requêtes et IA ;
+  3. projet racine et déclinaisons.
 - **Limite du droit d'accès aux bases :** deux niveaux seulement par connexion (pas de droit par
   base, schéma ou table). En compte partagé, le membre agit sous le compte stocké sur la
   connexion : seul le filtre d'Athanor le borne.

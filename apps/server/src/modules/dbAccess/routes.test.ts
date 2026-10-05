@@ -518,3 +518,64 @@ test("an invitation's teams and database access are in place the moment it is ac
     await app.close();
   }
 });
+
+test("an invitation can ask for the database account to be created, and a failure there costs nothing", async () => {
+  const app = await buildApp();
+  try {
+    resetConnectionBudgets();
+    const admin = await makeUser(app, 1);
+    const file = await sqliteConnection(app, admin.cookie);
+    const personal = (
+      await call(app, admin.cookie, "POST", "/api/admin/connections", {
+        ...UNREACHABLE,
+        name: "Shop",
+        authMode: "personal",
+      })
+    ).json().connection as { id: string };
+    const email = `${randomUUID()}@example.com`;
+
+    // Only on a personal-account connection, and only with a name to give it.
+    for (const databases of [
+      [{ connectionId: file.id, level: "read", sqlUsername: "ada", createAccount: true }],
+      [{ connectionId: personal.id, level: "read", createAccount: true }],
+    ]) {
+      assert.equal((await call(app, admin.cookie, "POST", "/api/invitations", { email, databases })).statusCode, 400);
+    }
+    // Not from the user screen: only an invitation creates accounts.
+    const user = await makeUser(app);
+    const put = await call(app, admin.cookie, "PUT", `/api/admin/users/${user.id}/db-access`, {
+      grants: [{ connectionId: personal.id, level: "read", sqlUsername: "ada", createAccount: true }],
+    });
+    assert.equal(put.statusCode, 400);
+
+    const created = await call(app, admin.cookie, "POST", "/api/invitations", {
+      email,
+      databases: [{ connectionId: personal.id, level: "read", sqlUsername: "ada", createAccount: true }],
+    });
+    assert.equal(created.statusCode, 201, created.body);
+    const { token } = created.json() as { token: string };
+    // Nothing answers behind this connection: the account cannot be created, the invitation is accepted all the same.
+    const accepted = await app.inject({
+      method: "POST",
+      url: `/api/invitations/${token}/accept`,
+      headers: headers(),
+      payload: { password: PASSWORD },
+    });
+    assert.equal(accepted.statusCode, 200, accepted.body);
+    const cookie = await signIn(app, email);
+    assert.deepEqual((await call(app, cookie, "GET", "/api/me/db-access")).json().connections, [
+      { connectionId: personal.id, level: "read" },
+    ]);
+    const status = (await call(app, cookie, "GET", `/api/connections/${personal.id}/credentials`)).json();
+    assert.equal(status.username, null);
+    assert.equal(status.suggestedUsername, "ada");
+    const trail = db.prepare("SELECT detail FROM audit_log WHERE action = 'dbuser.create_failed'").all() as {
+      detail: string;
+    }[];
+    assert.equal(trail.length, 1);
+    assert.equal(trail[0].detail.includes(PASSWORD), false);
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
