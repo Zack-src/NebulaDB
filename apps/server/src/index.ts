@@ -9,6 +9,7 @@ import { purgeExpiredResetTokens } from "./modules/auth/passwordReset.js";
 import { startWebhookWorker } from "./modules/webhooks/dispatcher.js";
 import { startConnectionHealthChecks } from "./modules/dbAdmin/health.js";
 import { runDueMonitoring } from "./modules/monitoring/monitor.js";
+import { purgeOldActivity, runDueActivitySamples } from "./modules/dbMonitor/activity.js";
 import { failInterruptedBackups, purgeExpiredBackups } from "./modules/backups/repository.js";
 import { runDueBackupSchedules } from "./modules/backups/schedule.js";
 import { scheduleJob, stopAllJobs } from "./infrastructure/scheduler.js";
@@ -49,6 +50,8 @@ const sweepSessions = () => {
     if (resetTokens > 0) app.log.info(`purged ${resetTokens} expired/used password reset token(s)`);
     const queryStats = purgeOldQueryStats(config.queryStatsRetentionDays);
     if (queryStats > 0) app.log.info(`purged ${queryStats} SQL console statistic row(s)`);
+    const activity = purgeOldActivity(config.dbActivityRetentionDays);
+    if (activity > 0) app.log.info(`purged ${activity} database-side activity row(s)`);
     const deliveries = purgeOldDeliveries();
     if (deliveries > 0) app.log.info(`purged ${deliveries} webhook delivery log row(s) older than 30 days`);
   } catch (err) {
@@ -65,6 +68,8 @@ startWebhookWorker();
 startConnectionHealthChecks(config.connectionHealthIntervalMinutes);
 // The watch over projects' databases: each project says how often; this only looks for who is due.
 scheduleJob("drift-monitor", 60_000, runDueMonitoring);
+// Database-side sessions of the connections an administrator asked to sample.
+scheduleJob("db-activity-samples", 60_000, runDueActivitySamples);
 // Backups of connected databases: whatever a restart cut short is marked failed, and what is past its retention goes.
 const interrupted = failInterruptedBackups();
 if (interrupted > 0) app.log.warn(`${interrupted} database backup(s) were interrupted by the restart`);

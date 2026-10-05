@@ -5,9 +5,18 @@ import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireAdmin } from "../../shared/guards.js";
 import { getConnectionById } from "../connections/repository.js";
+import {
+  getActivityWatch,
+  listActivity,
+  listTraffic,
+  sampleActivity,
+  setActivityWatch,
+} from "../dbMonitor/activity.js";
+import { buildHealthBoard } from "../dbMonitor/healthBoard.js";
 import { listQueryStats } from "./queryStats.js";
 
 const READ_LIMIT = { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } };
+const WRITE_LIMIT = { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } };
 const SORTS: readonly DbQueryStatSort[] = ["frequency", "slowest", "total"];
 
 /** Console routes whose use is written to the database's journal, and how. */
@@ -73,6 +82,68 @@ export function registerConnectionJournalRoutes(app: FastifyInstance): void {
       )
       .all(id) as { id: string; name: string | null; email: string | null }[];
     return { actors };
+  });
+
+  // The "Santé" tab: a fresh probe, sizes, sessions, locks.
+  app.get(
+    "/api/admin/connections/:id/health-board",
+    { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } },
+    async (req) => {
+      requireAdmin(req);
+      const { id } = req.params as { id: string };
+      const board = await buildHealthBoard(id);
+      if (!board) throw new ApiError("CONNECTION_NOT_FOUND");
+      return board;
+    },
+  );
+
+  // What the database server itself shows: sessions and statements, whoever opened them.
+  app.get("/api/admin/connections/:id/activity", READ_LIMIT, async (req) => {
+    requireAdmin(req);
+    const { id } = req.params as { id: string };
+    const connection = getConnectionById(id);
+    if (!connection) throw new ApiError("CONNECTION_NOT_FOUND");
+    const query = req.query as { days?: string; outside?: string };
+    const days = query.days ? Number(query.days) : 1;
+    if (!Number.isInteger(days) || days < 1 || days > 3650) throw new ApiError("ACTIVITY_QUERY_INVALID");
+    return {
+      watch: getActivityWatch(id),
+      entries: listActivity(connection, { sinceDays: days, outsideOnly: query.outside === "1" }),
+    };
+  });
+
+  // The server's own counters, as differences between reads. `kind` says what "queries" counts.
+  app.get("/api/admin/connections/:id/activity/traffic", READ_LIMIT, async (req) => {
+    requireAdmin(req);
+    const { id } = req.params as { id: string };
+    if (!getConnectionById(id)) throw new ApiError("CONNECTION_NOT_FOUND");
+    const days = Number((req.query as { days?: string }).days ?? 1);
+    if (!Number.isInteger(days) || days < 1 || days > 90) throw new ApiError("ACTIVITY_QUERY_INVALID");
+    return listTraffic(id, days);
+  });
+
+  app.post("/api/admin/connections/:id/activity/sample", WRITE_LIMIT, async (req) => {
+    const user = requireAdmin(req);
+    const { id } = req.params as { id: string };
+    const connection = getConnectionById(id);
+    if (!connection) throw new ApiError("CONNECTION_NOT_FOUND");
+    try {
+      const sessions = await sampleActivity(connection);
+      auditUser(user, "dbconn.activity.sample", { type: "connection", id }, `${sessions} session(s)`, req);
+      return { sessions };
+    } catch (err) {
+      throw new ApiError("DB_ADMIN_QUERY_FAILED", { message: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  app.put("/api/admin/connections/:id/activity/watch", WRITE_LIMIT, async (req) => {
+    const user = requireAdmin(req);
+    const { id } = req.params as { id: string };
+    if (!getConnectionById(id)) throw new ApiError("CONNECTION_NOT_FOUND");
+    const enabled = (req.body as { enabled?: unknown } | undefined)?.enabled === true;
+    setActivityWatch(id, enabled);
+    auditUser(user, "dbconn.activity.watch", { type: "connection", id }, enabled ? "on" : "off", req);
+    return getActivityWatch(id);
   });
 
   // Per statement shape: how often, how long — measured by Athanor, literals masked.

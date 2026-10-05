@@ -108,6 +108,8 @@ export const AUDIT_ACTIONS = [
   "dbaccess.user.set",
   "dbaccess.team.set",
   "dbconn.test",
+  "dbconn.activity.sample",
+  "dbconn.activity.watch",
   "dbconn.open",
   "monitoring.drift",
   "monitoring.unreachable",

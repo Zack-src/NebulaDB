@@ -479,4 +479,11 @@ export function recordConnectionHealth(id: string, result: HealthResult): void {
     result.ok ? null : (result.error ?? "unreachable").slice(0, 500),
     id,
   );
+  // A short series for the "Santé" tab; a week is kept.
+  db.prepare("INSERT INTO db_health_samples (connection_id, ok, latency_ms) VALUES (?, ?, ?)").run(
+    id,
+    result.ok ? 1 : 0,
+    Math.round(result.latencyMs),
+  );
+  db.prepare("DELETE FROM db_health_samples WHERE connection_id = ? AND at < datetime('now', '-7 days')").run(id);
 }

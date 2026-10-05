@@ -131,6 +131,17 @@ function readQueryStatsRetentionDays(): number {
   return days;
 }
 
+/** How many days of database-side session figures are kept; `0` keeps them all. */
+function readDbActivityRetentionDays(): number {
+  const raw = process.env.ATHANORDB_DB_ACTIVITY_RETENTION_DAYS;
+  if (raw === undefined || raw.trim() === "") return 14;
+  const days = Number(raw);
+  if (!Number.isInteger(days) || days < 0 || days > 3650) {
+    fail(`ATHANORDB_DB_ACTIVITY_RETENTION_DAYS must be an integer between 0 and 3650 (got ${JSON.stringify(raw)})`);
+  }
+  return days;
+}
+
 /** Extra origins allowed to make state-changing requests, on top of the app's own host. */
 function readAllowedOrigins(): string[] {
   const raw = process.env.ATHANORDB_ALLOWED_ORIGINS;
@@ -289,6 +300,8 @@ export const config = {
   auditRetentionDays: readAuditRetentionDays(),
   /** 0 keeps the SQL console's per-statement figures indefinitely. */
   queryStatsRetentionDays: readQueryStatsRetentionDays(),
+  /** 0 keeps the database-side session figures indefinitely. */
+  dbActivityRetentionDays: readDbActivityRetentionDays(),
   publicUrl,
   /**
    * When set, a SQLite connection may only open a file inside this directory.
