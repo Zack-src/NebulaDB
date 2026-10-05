@@ -37,37 +37,42 @@ There are two axes, and no others.
 
 ## Projects
 
-| Action                                                                       | view | edit | administrator |
-| ---------------------------------------------------------------------------- | :--: | :--: | :-----------: |
-| Open the project, read schema, history, comments, team list                  |  ✔   |  ✔   |       ✔       |
-| Export DBML / SQL / image; compare with another project you can read         |  ✔   |  ✔   |       ✔       |
-| See cursors and presence (realtime)                                          |  ✔   |  ✔   |       ✔       |
-| Edit the schema on the canvas or in the DBML editor (realtime)               |      |  ✔   |       ✔       |
-| Import DBML / SQL into the project                                           |      |  ✔   |       ✔       |
-| Set or remove a table's initial data (CSV seed); a `full` lock freezes it    |      |  ✔   |       ✔       |
-| Read the schema linter's rules and findings (`GET …/lint`, `/api/v1/…/lint`) |  ✔   |  ✔   |       ✔       |
-| Follow the project, read one's own notifications about it                    |  ✔   |  ✔   |       ✔       |
-| Be notified of a deployment or rollback (when following them)                |      |      |       ✔       |
-| Read the project's pipeline (`GET …/pipeline`)                               |      |      |       ✔       |
-| Use `{{variables}}` in table names (a schema edit)                           |      |  ✔   |       ✔       |
-| Compare two of the project's databases with each other                       |      |      |       ✔       |
-| Read or export the data dictionary (`/api/v1/…/dictionary`)                  |  ✔   |  ✔   |       ✔       |
-| Fill in the data dictionary (it writes notes: a schema edit; locks apply)    |      |  ✔   |       ✔       |
-| Apply a lint fix (it is a schema edit; locks apply)                          |      |  ✔   |       ✔       |
-| Choose the lint profile, rule levels, exceptions, "errors block deployment"  |      |      |       ✔       |
-| Label a revision; restore a revision (whole or some tables), the snapshot    |      |  ✔   |       ✔       |
-| Rename, archive, trash, restore from trash, delete the project               |      |      |       ✔       |
-| Grant or revoke a team on the project                                        |      |      |       ✔       |
-| Webhooks: list, create, edit, delete, test, read deliveries                  |      |      |       ✔       |
-| Database connections of the project: add, edit, remove, test                 |      |      |       ✔       |
-| List the project's connections (names and hosts, never the password)         |  ✔   |  ✔   |       ✔       |
-| Give, change, remove one's own account on a connection that asks for it      |      |      |       ✔       |
-| Pull a schema from a database; plan, apply and roll back a deployment        |      |      |       ✔       |
-| Deploy to / roll back on the production stage (connection name retyped)      |      |      |       ✔       |
-| Read deployment history                                                      |      |      |       ✔       |
-| See deployments and rollbacks on the history timeline                        |      |      |       ✔       |
-| See that a linked database was changed outside the schema (the banner)       |  ✔   |  ✔   |       ✔       |
-| Check what differs in the database; resynchronise; dismiss the banner        |      |      |       ✔       |
+| Action                                                                              | view | edit | administrator |
+| ----------------------------------------------------------------------------------- | :--: | :--: | :-----------: |
+| Open the project, read schema, history, comments, team list                         |  ✔   |  ✔   |       ✔       |
+| Export DBML / SQL / image; compare with another project you can read                |  ✔   |  ✔   |       ✔       |
+| See cursors and presence (realtime)                                                 |  ✔   |  ✔   |       ✔       |
+| Edit the schema on the canvas or in the DBML editor (realtime)                      |      |  ✔   |       ✔       |
+| Import DBML / SQL into the project                                                  |      |  ✔   |       ✔       |
+| Set or remove a table's initial data (CSV seed); a `full` lock freezes it           |      |  ✔   |       ✔       |
+| Read the schema linter's rules and findings (`GET …/lint`, `/api/v1/…/lint`)        |  ✔   |  ✔   |       ✔       |
+| Follow the project, read one's own notifications about it                           |  ✔   |  ✔   |       ✔       |
+| Be notified of a deployment or rollback (when following them)                       |      |      |       ✔       |
+| Write a comment that mentions someone / be offered `@` suggestions                  |      |  ✔   |       ✔       |
+| Be told one was mentioned, or replied to, in a comment (followed or not)            |  ✔   |  ✔   |       ✔       |
+| Read the project's pipeline (`GET …/pipeline`)                                      |      |      |       ✔       |
+| Use `{{variables}}` in table names (a schema edit)                                  |      |  ✔   |       ✔       |
+| Compare two of the project's databases with each other                              |      |      |       ✔       |
+| Read or export the data dictionary (`/api/v1/…/dictionary`)                         |  ✔   |  ✔   |       ✔       |
+| Fill in the data dictionary (it writes notes: a schema edit; locks apply)           |      |  ✔   |       ✔       |
+| Apply a lint fix (it is a schema edit; locks apply)                                 |      |  ✔   |       ✔       |
+| Choose the lint profile, rule levels, exceptions, "errors block deployment"         |      |      |       ✔       |
+| Label a revision; restore a revision (whole or some tables), the snapshot           |      |  ✔   |       ✔       |
+| Rename, archive, trash, restore from trash, delete the project                      |      |      |       ✔       |
+| Grant or revoke a team on the project                                               |      |      |       ✔       |
+| Webhooks: list, create, edit, delete, test, read deliveries                         |      |      |       ✔       |
+| Database connections of the project: add, edit, remove, test                        |      |      |       ✔       |
+| List the project's connections (names and hosts, never the password)                |  ✔   |  ✔   |       ✔       |
+| Give, change, remove one's own account on a connection that asks for it             |      |      |       ✔       |
+| Pull a schema from a database; plan, apply and roll back a deployment               |      |      |       ✔       |
+| Deploy to / roll back on the production stage (connection name retyped)             |      |      |       ✔       |
+| Read deployment history                                                             |      |      |       ✔       |
+| See deployments and rollbacks on the history timeline                               |      |      |       ✔       |
+| See that a linked database was changed outside the schema (the banner)              |  ✔   |  ✔   |       ✔       |
+| Check what differs in the database; resynchronise; dismiss the banner               |      |      |       ✔       |
+| Watch (Déploiements → Surveillance): turn on / off, pace, ignored tables, check now |      |      |       ✔       |
+| See what the watch found about the structure                                        |  ✔   |  ✔   |       ✔       |
+| Be told the watch found accounts changed (database name and count, no names)        |      |      |       ✔       |
 
 Any account can create a project (and becomes its owner), create one from a database it has
 the credentials for, list the projects it can read, and search across them.
@@ -117,14 +122,26 @@ A lock has an **authority**: `project` (the default) or `instance`.
 
 Instance administrator only (`requireAdmin`) — a project `administrator` has none of these:
 
-- Accounts: list, reset a password, disable / enable, delete; invitations: create, list,
-  revoke.
+- Accounts: list, reset a password, disable / enable, delete; invitations: create (with the
+  teams to join and the database access to give on acceptance), list, revoke.
 - Teams: create, rename, delete, add and remove members, read a team's members. (Any account
   can read the list of team names, to grant one on a project it administers.)
 - Audit log and error log.
-- The database console, entirely: instance-level connections (create, edit, delete, link to
-  projects, health), explorer, free SQL, drops, database users and permissions, sessions and
-  kill, query history.
+- The database console, except what a database access grant opens below: instance-level
+  connections (create, edit, delete, link to projects, health), drops, database users and
+  permissions, sessions and kill, write-mode SQL that changes structure. The explorer, SQL and
+  query history are theirs on every connection, and a member's on the connections granted.
+- Database access grants: give, change, remove (per user, per team, in an invitation), and
+  the database account name proposed to a person.
+- A database's **journal** (console → Journal): its entries in the audit log and their export,
+  the people who appear in it, and the SQL console's figures per statement shape
+  (`GET /api/admin/connections/:id/journal/actors`, `…/query-stats`). Opening the console and
+  testing a connection are written to it — a member's opening too.
+- The **accounts watch** of a project (Déploiements → Surveillance): turning it on or off
+  (`PUT /api/projects/:id/monitoring/accounts`), its state and findings — they name the
+  database's accounts, so `GET …/monitoring` leaves them out for everyone else, project
+  administrators included — and accepting the accounts as last read as the new reference
+  (`POST …/monitoring/accounts/accept`). Its reads use the connection's stored account.
 - Backups of a connected database: take, list, download, pin, delete, restore. A project
   `administrator` deploying to the production stage _causes_ a backup (taken before the
   deployment) and sees in the deployment history that one exists, but cannot list, download or
@@ -132,8 +149,10 @@ Instance administrator only (`requireAdmin`) — a project `administrator` has n
 
 **Whose database account.** A connection is used with the one account stored on it, or — when
 an instance administrator sets it to personal accounts — with the account each user gave
-(`PUT /api/connections/:id/credentials`: instance administrators, and administrators of a
-project the connection is attached to; anyone else is answered `404`). In that mode Athanor's
+(`PUT /api/connections/:id/credentials`: instance administrators, administrators of a
+project the connection is attached to, and members granted access to it below, from a browser
+session; anyone else is answered `404`). The name an administrator proposed (`suggestedUsername`)
+pre-fills that dialog; the password is always the person's own. In that mode Athanor's
 roles decide who may _ask_ for an action, and the database's own permissions, on that person's
 account, decide whether it happens. A person with no account is refused
 (`PERSONAL_CREDENTIALS_REQUIRED`), never connected as the stored account, which only unattended
@@ -146,8 +165,44 @@ database attached to a project, table and index changes follow the **structure p
 and sent to the schema by default, allowed after confirmation, or free), which only an instance
 administrator can set — for the instance, or per connection.
 
+The console refuses to drop, lock or change the password of **the account the connection
+signs in with** (its stored account, one named in its connection string, and — in personal
+mode — the caller's own), on the preview already: `409 DB_ADMIN_CONNECTION_ACCOUNT_PROTECTED`.
+
 Every account can manage itself: display name, password, two-factor authentication, its own
 sessions, its own API keys, export of its data, deletion of its account.
+
+## Database access (members)
+
+An instance administrator grants a **user** or a **team** (its members inherit) a level on one
+connection: `read` or `write` (`db_access_grants`, `modules/dbAccess/`). Nothing else gives it —
+being a member, an editor or an administrator of a project the database is attached to does not.
+Checked on the server at every request (`requireDbConsoleUser`), so removing a grant, a team
+membership or the team applies to the next request. A member's grant works from a browser
+session only; with an API key the connection does not exist (`404`). Several grants: the
+highest level wins. The routes are `/api/connections/:id/{overview,schemas,tables,table,rows,
+query,query-history}`, shared with instance administrators (who keep their full rights there).
+
+| Action on a granted connection                                                  | read | write | instance administrator |
+| ------------------------------------------------------------------------------- | :--: | :---: | :--------------------: |
+| Explorer: databases, schemas, tables, a table's rows and structure              |  ✔   |   ✔   |           ✔            |
+| SQL, read-only (one reading statement, READ ONLY transaction, 1 000 rows, 30 s) |  ✔   |   ✔   |           ✔            |
+| Own query history                                                               |  ✔   |   ✔   |           ✔            |
+| SQL data write (`INSERT` / `UPDATE` / `DELETE` / `MERGE`, one, `confirmWrite`)  |      |   ✔   |           ✔            |
+| SQL changing structure, accounts, permissions; procedures; `SELECT … INTO`      |      |       |  ✔ (structure policy)  |
+| Drops from the explorer; database users and permissions; sessions; backups      |      |       |           ✔            |
+| Raise the row / time ceilings (5 000 rows, 120 s)                               |      |       |           ✔            |
+| Give one's own account on the connection when it asks for personal accounts     |  ✔   |   ✔   |           ✔            |
+
+- A member's SQL is screened before it reaches the database: `read` with the read-only rules,
+  `write` with a stricter data-only rule (`sqlGuard.ts#assertDataStatement`); a refusal is
+  recorded in the history and the audit trail like any attempt. Every query is audited
+  (`dbaccess.query`, with the level), the statement text, never the result.
+- The structure policy is not consulted for a member: structure is refused whatever it says.
+- A connection marked read-only stays so (`CONNECTION_READ_ONLY`).
+- In personal-account mode the member runs as **their own** database account, and without one
+  is refused (`PERSONAL_CREDENTIALS_REQUIRED`). In shared mode they run as the connection's
+  stored account — whose own permissions are then the real bound (see `docs/todo.md`).
 
 ## API keys (`/api/v1`)
 
@@ -171,8 +226,9 @@ exposed under `/api/v1` yet.
 Listed so that the features planned in `docs/todo.md` add to this page rather than invent
 their own rules:
 
-- No level between `edit` and `administrator` ("can deploy but not manage teams", "can run
-  read-only SQL"). Phase 31's SQL panel for non-admins and Phase 32's promotion rights need one.
-- No per-table or per-column **read** restriction: who can open a project can read all of it.
-- The database console is all-or-nothing on the instance flag; there is no per-connection
-  grant.
+- No level between `edit` and `administrator` ("can deploy but not manage teams"). Phase 32's
+  promotion rights need one. (SQL for members is a per-connection grant, above — not a project
+  level.)
+- No per-table or per-column **read** restriction: who can open a project can read all of it;
+  who is granted a database can read all of what its account can.
+- Database access is per connection only: not per database, schema or table on that server.

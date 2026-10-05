@@ -36,7 +36,7 @@ rollback is still to do; 2026-10-04: lot 17's schema linter and data dictionary)
 | ----- | --- | ----- | ---------------------------------------------------------------- |
 | ✔     | 1   | 29    | Fix the DBML editor "rollback" bug and the auto-format behaviour |
 | ◐     | 2   | 29    | UI foundations: tokens + custom form components                  |
-| ✔     | —   | 29    | Canvas copy / paste of tables                                    |
+| ✔     | —   | 29    | Canvas copy / paste (tables, enums, zones, notes)                |
 | ◐     | 3   | 30    | Table locks and roles                                            |
 | ✔     | 4   | 30    | "Structure goes through the schema" policy                       |
 | ◐     | 5   | 31    | Workspace shell with tabs                                        |
@@ -140,9 +140,9 @@ the answer may change.
       so those reads are **not** attributed to a person in the database's logs — including a
       watch check or a health check started by hand. Alternative: a hand-started check uses the
       person's account (and fails without one). _Phase 27._
-- [ ] **Personal accounts: who may give one?** Today instance administrators and administrators
-      of a project the connection is attached to — the people who can act on the database at
-      all. Revisit if members with `edit` get SQL (next block). _Phase 27._
+- [ ] **Personal accounts: who may give one?** Today instance administrators, administrators
+      of a project the connection is attached to, and (since 2026-10-06) members granted access
+      to that database — the people who can act on the database at all. _Phase 27 / 31._
 - [ ] **Lint rule `personal-data-class`: its default level.** Warning in Standard, **error in
       Strict** — so a Strict project that refuses deployments on errors is refused after
       upgrading while a personal column sits in an unclassified table. Choose: keep · make it a
@@ -171,9 +171,10 @@ the answer may change.
 
 **Open since before — features (each blocks its item):**
 
-- [ ] **(blocks)** **SQL for members with `edit`:** read-only SQL on linked connections (READ
-      ONLY transaction, row and time caps, audited); a separate right for data writes;
-      structure never. Needs new server routes and a role. _Phase 31._
+- [x] ~~**(blocks)** **SQL for members with `edit`**~~ — answered 2026-10-06 by the owner,
+      differently: not a project role but **database access granted by an instance
+      administrator**, per user or per team, `read` or `write` (data only), structure never.
+      Built; its defaults are the next block. _Phase 31._
 - [ ] **(blocks)** **A relation pointing the "wrong" way:** is a heuristic wanted at all? A
       false warning on a legitimate schema is worse than none. _Phase 29._
 - [ ] **(blocks)** **Waypoints on a relation line:** needs the owner's hands on the canvas, or a
@@ -236,6 +237,25 @@ the answer may change.
       (it acts at once); "Ajouter à un rôle…" in the database users panel is a placeholder,
       so a picked role cannot be set back to "none"; the port field shows 0 as empty; several
       pickers have a fixed width and get a search field past 8 options. _Phase 29._
+
+**Taken by default with database access for members (2026-10-06) — confirm or change:**
+
+- [ ] **Two levels per connection**, `read` and `write` (data only), for a user or a team; the
+      highest wins; never derived from a project. Not per database / schema / table on the
+      server; no "structure" level. _Phase 31._
+- [ ] **A grant on a shared-account connection** runs as the connection's stored account: only
+      Athanor's own screening (read-only rules; data statements only) bounds the member, not the
+      database's permissions. Alternative: allow `write` (or any grant) only on connections in
+      personal-account mode. _Phase 31 / 27._
+- [ ] **Where a member reaches it:** from a project the database is attached to (Données & SQL,
+      `Ctrl+J`), from a browser session only — not with an API key, not from a page of its own;
+      fixed ceilings (1 000 rows, 30 s). _Phase 31._
+- [ ] **Member writes:** one data statement at a time, confirmed (`confirmWrite`); `TRUNCATE`,
+      procedure calls, `SELECT … INTO` and any DDL refused even under the `free` structure
+      policy; no name to retype on the production stage (as for the administrator, item above).
+      _Phase 31._
+- [ ] **The connection's own account is protected** from drop / lock / password change in the
+      console, for administrators too, with no override. _Phase 27._
 
 **Taken by the 2026-10-06 parallel work — confirm or change:**
 
@@ -386,7 +406,7 @@ are in the repository for this.
 Take a backup first (`npm run backup -- <dir>`); migrations are one-way. Try the upgrade on a
 **copy** of the instance's database.
 
-- [ ] **Migrations 20 → 35 on a copy of the real database** — each is tested on a small
+- [ ] **Migrations 20 → 36 on a copy of the real database** — each is tested on a small
       populated database, not on yours.
 - [ ] **Structure policy defaults to `schema-only`:** table DDL from the console is refused on
       a connection attached to a project until an administrator relaxes it. _Phase 30._
@@ -448,6 +468,10 @@ for each of these; none has been done.
 - [ ] Database users and permissions from the console (Phase F); the Ref-direction change,
       which altered deployment SQL — before the next real deployment. _Phase 27 / 28._
 - [ ] What `sampleData` and the risk probes can leak across a permission boundary. _Phase 27._
+- [ ] Database access for members: `requireDbConsoleUser` on every console route, the data-only
+      screening (`sqlGuard.ts#assertDataStatement`), which account a member runs as on a shared
+      connection, invitations granting on acceptance, the connection-account protection — before
+      anyone is given `write`. _Phase 31._
 - [ ] **Legal review** of `docs/legal/{cgu,confidentialite}.md` — now including §2.8 (personal
       database accounts) and its retention line. _V1 checklist._
 - [ ] **Accessibility audit** of the Svelte UI: none has been run. _Phase 22._
@@ -610,9 +634,14 @@ API have since shipped.
       context-menu Paste puts the group at the cursor; comments are not copied. The clipboard
       is untrusted input: rebuilt field by field, capped at 200 tables.
       **Verified:** `tableClipboard.test.ts`, `e2e/canvas-clipboard.e2e.ts` (real browser: copy,
-      paste ×3, clipboard text, reload, undo). **Not done:** enums / zones / notes are not
-      copied (still `Ctrl+D` only) — an enum-typed column pasted into another project keeps the
-      type name without the enum; plain DBML from elsewhere cannot be pasted onto the canvas
+      paste ×3, clipboard text, reload, undo). **Extended 2026-10-05: enums, zones and sticky
+      notes** are copied and pasted by the same rules (`CanvasClipboard`: `_copy` names for
+      enums, a zone or note keeps its label / text like `Ctrl+D`; the clipboard text holds the
+      enums as DBML and each zone / note as a one-line `//` comment; an older clipboard with
+      tables only still pastes; the pasted copies are always new, unlocked tables, so no lock is
+      touched). Verified: `tableClipboard.test.ts`, second test of `canvas-clipboard.e2e.ts`.
+      **Not done:** an enum-typed column pasted into another project keeps the
+      type name without the enum (the enum is only copied if it was selected too); plain DBML from elsewhere cannot be pasted onto the canvas
       (needs the parser, i.e. a server round-trip — paste it in the DBML editor); the pasted
       tables are not selected afterwards; context-menu Paste outside a secure context only
       knows this tab's last copy. When Phase 30 lands: a copy of a locked table is not locked
@@ -789,10 +818,10 @@ features; the UI only mirrors it.
   - _The other tabs replace the editor, they do not cover it_: an unmounted canvas has no
     shortcuts or clipboard handlers to fire by accident. The price: the canvas selection is
     lost on a round trip (viewport and document are not).
-  - _Who sees what follows the server_: Données & SQL for instance administrators (the
-    console's rule, unchanged), Déploiements for project administrators, Historique for
-    everyone (label / restore need `edit`). A tab named by the URL but not offered falls
-    back to Schéma.
+  - _Who sees what follows the server_: Données & SQL for instance administrators and, since
+    2026-10-06, for members granted one of the project's databases (explorer and SQL only),
+    Déploiements for project administrators, Historique for everyone (label / restore need
+    `edit`). A tab named by the URL but not offered falls back to Schéma.
 
   **Verified:** `e2e/workspace.e2e.ts`. **Still to do:**
   - Collaborators and Deploy are still in the header, not in the workspace bar: the plan's
@@ -817,12 +846,33 @@ features; the UI only mirrors it.
   and runs the engine's own "first 100 rows" (`previewStatement.ts`: `LIMIT`, `TOP`,
   `FETCH FIRST`; identifiers quoted only when they have to be). **Verified:**
   `previewStatement.test.ts`, `e2e/workspace.e2e.ts`. **Still to do:**
-  - **The permission decision — untouched, and the owner's.** The drawer is offered to
-    exactly those the console is offered to: instance administrators. The proposal stands:
-    members with `edit` get **read-only** SQL on linked connections (READ ONLY transaction,
-    row / time caps, `connectionBudget`, audited); data writes need an explicit right;
-    structure never. It needs new server routes (the console's are `requireAdmin`), a role
-    for "may write data", and the security review of the Phase 27 rule.
+  - ~~The permission decision~~ — done 2026-10-06, as the owner asked: **database access
+    granted by an instance administrator** (migration 36 `db_access_grants`, module
+    `modules/dbAccess/`), per user or per team (members inherit), `read` or `write`, on one
+    connection. `read`: explorer + read-only SQL (driver READ ONLY transaction, plus the
+    read-only screening before the driver, 1 000 rows / 30 s, `connectionBudget`); `write`:
+    also one data statement at a time (`sqlGuard.ts#assertDataStatement`), with
+    `confirmWrite` required by the server; structure never, whatever the structure policy;
+    drops, accounts, sessions, backups stay `requireAdmin`. The explorer and SQL routes are
+    registered a second time under `/api/connections/:id/…` behind `requireDbConsoleUser`
+    (admins unchanged there); the grant is read on every request, so revocation is immediate.
+    Every member query, refused ones included, is audited `dbaccess.query`. Personal mode:
+    the member's own account, `PERSONAL_CREDENTIALS_REQUIRED` without one. Granting: Admin →
+    Utilisateurs (`UserDbAccessModal`), Admin → Équipes (team detail), Admin → Invitations
+    (teams + databases + proposed SQL account name, applied in the acceptance transaction).
+    The proposed name pre-fills "Mon compte SQL" (`suggestedUsername`, app route only — not in
+    `/api/v1`). **Verified:** `dbAccess/routes.test.ts` (7 scenarios: not granted, read cannot
+    write, write confirmed and never structure, team inherited and revoked, cascades, personal
+    mode, invitation applied on acceptance, connection account protected), `sqlGuard.test.ts`,
+    `migrations.test.ts`, `e2e/db-access.e2e.ts` (admin grants in the UI, member reads, a
+    `DELETE` refused). Also run once by hand (a throwaway script, not in the suite) against
+    the local PostgreSQL 55432 and MySQL 53306 test containers, shared account: before grant
+    404, read select / write refused, write insert / update ok, `DROP` / `TRUNCATE` refused,
+    connection account protected. **Not verified:** a member on a personal-account connection
+    with a real login; SQL Server and Oracle; the write path in a browser; the team and
+    invitation screens were type-checked, not clicked. **Not done:** no page outside
+    a project, so a grant on a connection attached to no project the member can open has no
+    entry point in the UI; no API-key access; the independent security review.
   - "Voir les données" is a header button, not a context-menu entry (tables have no context
     menu yet — see the `Menu` migration in Phase 29).
   - Clicking a table name in a result to select it in the graph; following a foreign key
@@ -1253,7 +1303,16 @@ file_ref, options_json, updated_at)`; an abstract `SeedSource` interface (`csv` 
   **Verified:** `audit/routes.test.ts` (categories, filters, paging, export, admin-only),
   `e2e/activity.e2e.ts`. **Still to do:** source "Base" (lot 10, database-side logs) and the "hors
   Athanor uniquement" filter that needs it; ~~per-user filter~~ (done 2026-10-04: "Voir toute son activité" in an entry's detail sets
-  `actorId`, kept in the export links); duration / rows affected for SQL entries; hash-chain for a tamper-evident log;
+  `actorId`, kept in the export links); ~~duration / rows affected for SQL entries~~ (they were
+  already in the `dbadmin.query` detail); ~~one database's journal~~ (done 2026-10-05: console →
+  **Journal**, `features/admin/connections/JournalPanel.svelte` — the activity routes with
+  `connectionId` fixed, period / type / author filters (`GET /api/admin/connections/:id/journal/actors`),
+  paging, export; new entries `dbconn.open` (console opened, by an administrator or a member)
+  and `dbconn.test` (form test of a saved connection, health check), written by an `onSend`
+  hook in `dbAdmin/journalRoutes.ts` so `dbAdmin/routes.ts` stays as it was; new category
+  _Surveillance_ (`monitoring.drift`, `monitoring.unreachable`, `monitoring.accounts*`): the
+  watch now writes what it finds to the journal. Verified: `dbAdmin/queryStats.test.ts`,
+  `e2e/connection-journal.e2e.ts`); hash-chain for a tamper-evident log;
   editor-SQL vs console-SQL told apart. The original item: **L**. One filterable view (source Athanor / Base; connection;
   user; type — structure · data · accounts · sessions · deployments; period; "hors Athanor
   uniquement"; search; CSV export) merging today's `AuditTab.svelte` and `ErrorsTab.svelte`;
@@ -1303,6 +1362,36 @@ file_ref, options_json, updated_at)`; an abstract `SeedSource` interface (`csv` 
   drift. Honours `connectionBudget` and `hostGuard`.
   **Open:** first scope = structure only; watch data (e.g. rows of a locked table)?; block
   deployments automatically while a drift is unresolved?
+  **Accounts and permissions — done 2026-10-05.** An option of the watch, switched by an
+  **instance administrator** only (`PUT /api/projects/:id/monitoring/accounts`; migration 37
+  `monitor_settings.watch_accounts`, `account_baselines`, `drift_events.details_json`). Each
+  linked database with accounts (not SQLite) is read through the administration driver's
+  listing calls (`listPrincipals` / `listGrants`, SQL Server logins + the connection database's
+  users, grants of built-in accounts not read, at most 300 accounts' grants per read) as the
+  connection's service account under the `admin` connection budget, and turned into canonical
+  lines (`monitoring/accountFingerprint.ts`: account, flags login / locked / superuser,
+  memberships, one line per privilege; sorted, so the hash ignores listing order). First read =
+  reference; a difference = event `accounts` (once per state), audit `monitoring.accounts`,
+  `notifyFollowers("drift", { kind: "accounts", connection, changes })` to project
+  administrators only, webhook `drift.detected` with `kind: "accounts"` and counts by change
+  type. **Athanor's own changes:** a `preHandler` / `onResponse` pair on
+  `POST /api/admin/connections/:id/users` (executed, by an instance administrator) reads the
+  accounts before and after; what changed in between is applied to the reference
+  (`applyAccountDelta`), so a pending outside change stays reported. **Accepter l'état actuel**
+  (`POST …/monitoring/accounts/accept`) takes the last state read as the reference.
+  **Decisions taken:** the findings name accounts, so `GET …/monitoring` gives them (and the
+  watch's state) to instance administrators only; notifications and webhooks carry counts, not
+  names; the option only runs while the project's watch is on; reading fails → kept as
+  `lastError` on the card, never an alert. **Verified:** `monitoring/accountFingerprint.test.ts`
+  (stable, order-insensitive, privilege / role / lock / create / drop, Athanor delta),
+  `monitoring/accountWatch.test.ts` (rights, SQLite hidden, alert once, notification without
+  names, Athanor's console change not alerted while the outside one stays, accept, cascade),
+  `monitoring/accountReader.live.test.ts` against the PostgreSQL, MySQL and SQL Server
+  containers. **Found on the way, fixed:** PostgreSQL `listGrants` did not read a table's
+  default (NULL ACL) owner privileges, so they seemed to appear on the first grant.
+  **Not done:** views / functions / procedures; Oracle checked by code only (no container);
+  the window between the two reads around a console change attributes to Athanor anything
+  done elsewhere in those milliseconds; `/api/v1` does not expose the accounts watch.
 - [ ] **Drift UI** — **L**. Editor banner ("modifiée en dehors d'Athanor — n différences" with
       Voir / Mettre à jour le schéma / Réappliquer le schéma / Ignorer), differences page reusing
       `editor/compare/` with per-line Import / Revert / Ignore (ignore list = exceptions), "divergent"
@@ -1324,7 +1413,15 @@ file_ref, options_json, updated_at)`; an abstract `SeedSource` interface (`csv` 
       version, uptime, size and growth per table, sessions, blocking locks (link to the sessions
       panel and its existing **kill**), slow statements (link to Phase 36). Short aggregated
       series kept server-side, rate-limited sampling.
-- [ ] **Traffic: queries and data volume** — **L**, admin only, "if possible". Per connection:
+- [ ] **Traffic: queries and data volume** — first piece of "Athanor's own traffic" done
+      2026-10-05: per connection, the SQL console's statements grouped by shape
+      (`dbAdmin/sqlShape.ts`: comments dropped, every literal → `?`, lists collapsed), counted per
+      UTC day in `query_stats` (migration 37; runs, failures, total / max ms, rows, last author),
+      kept `ATHANORDB_QUERY_STATS_RETENTION_DAYS` (30), shown in console → Journal → **Requêtes**
+      (frequency / slowest / total, badge "Mesuré par Athanor"; the duration includes opening the
+      connection). Fed by `recordQuery`, so the members' console (`/api/connections/…`) counts too.
+      Verified: `dbAdmin/queryStats.test.ts`, `e2e/connection-journal.e2e.ts`. The rest below is
+      still to do. **L**, admin only, "if possible". Per connection:
       query count (by type), data **sent** (download) and **received** (upload), rows, per
       user / application / host (per-account breakdown off by default — it exposes account names).
       Sources by engine: MySQL `Questions`/`Com_*` + `Bytes_sent/received`
@@ -1370,8 +1467,8 @@ ANALYZE`, **read-only statements only**, explicit confirmation, time cap) in the
   unsubscribe, revoked grant, cascade), `e2e/notifications.e2e.ts` (two accounts).
   **Still to do:** e-mail and webhook channels and the daily digest (`sendMail` exists; the
   per-user opt-out is the subscription itself); following a **table**, a stage or a variant;
-  events: structure change (digest), failed backup, comment replies and `@mentions` (the
-  Phase 20 / 21 items this one subsumes — not built); ~~the bell polls, it is not pushed~~ (pushed 2026-10-05 while the project is open:
+  events: structure change (digest), failed backup; ~~comment replies and `@mentions`~~ (done
+  2026-10-05 as direct notifications `mention` / `reply`, Phase 21); ~~the bell polls, it is not pushed~~ (pushed 2026-10-05 while the project is open:
   `notifyFollowers` → `notifyProjectUsers` → `Room.announceTo`, a `notification` notice sent
   only to the connections of the accounts that were told — a room connection now knows its
   user id; the bell refetches on it (`notifications/inboxPush.svelte.ts`). Another project
@@ -1630,16 +1727,35 @@ of the discussion. Cut or promote into a phase above.
 ### Phase 20 — Accounts
 
 - [ ] **Notifications** — **M**. Nobody is told they were added to a project/team or that a
-      comment got a reply (`CommentThread.svelte` has no `@mention`). `sendMail` and
-      `shared/emailTemplates.ts` exist; what's left is which events notify and a per-user opt-out.
-      **Folded into Phase 34 "Subscription notifications"** — do it there.
+      comment got a reply. `sendMail` and `shared/emailTemplates.ts` exist; what's left is
+      which events notify and a per-user opt-out. **Folded into Phase 34 "Subscription
+      notifications"**. Comment replies and `@mentions` are done in-app (2026-10-05, see Phase 21
+      "Comment mentions"); still open: being added to a project/team, e-mail, opt-out.
 - [ ] **Per-project/team roles beyond view/edit/administrator** — **M**, only on real demand.
       **Related:** the role matrix prerequisite and Phase 30 locks may force this earlier.
 
 ### Phase 21 — Product
 
-- [ ] **Comment mentions / notifications** — **M**. Threads exist, `@user` doesn't; depends on
-      the Phase 20 / 34 notifications decision.
+- [x] **Comment mentions / notifications** — **M**. Done 2026-10-05. `@` in a comment box
+      (`MentionTextArea.svelte`, keyboard, filtered as you type) offers the accounts that can see
+      the project (`GET /api/projects/:id/mentionable`, filtered server side with
+      `getEffectivePermission`, never the author, no e-mail address given). A mention is stored
+      as `@[Name](account-id)` in the comment text (`shared/commentMentions.ts`; comments also
+      carry `authorId`), shown highlighted. The client says a comment was written
+      (`POST …/comment-notices`, needs `edit`; the server reads the mentions from the text) and
+      `notifyCommentAddressees` decides: events `mention` and `reply` (a reply in a thread the
+      person wrote in; a mention wins), **never own comment, never someone who cannot see the
+      project now**, pushed through `Room.announceTo`.
+      **Decisions:** a mention reaches its person **even without following the project** (it is
+      an address); no migration (the notification payload is JSON); the payload is `{by, table,
+column}` — names, never the comment text; a mention of someone without access is dropped
+      silently (no oracle on who exists); the notice is trusted for table/column names and for
+      the thread's author ids (an editor could ping any account that can see the project —
+      equivalent to mentioning it). **Verified:** `notifications/comments.test.ts`,
+      `shared/commentMentions.test.ts`, `commentNotice.test.ts`, `e2e/comment-mentions.e2e.ts`.
+      **Not done:** mentions in sticky notes / column notes; e-mail; editing a comment (there is
+      none); a deleted account's mentions keep its old name; a thread's authors are known only
+      for comments written since `authorId` exists.
 - [ ] **Export to other ecosystems** (Prisma, TypeORM, GraphQL SDL, JSON Schema) — **M each**,
       as plugins, deliberately not core.
 - [ ] **Not done on the API:** per-key usage quotas, multi-project key scoping, request
@@ -1773,7 +1889,12 @@ PERSONAL_CREDENTIALS_REQUIRED`, before the target is touched.
   - Orphan rows from before the project-delete fix: one-off cleanup `DELETE … WHERE project_id
 NOT IN (SELECT id FROM projects)` is worth running on existing instances (migration 18
     already drops connections whose project is gone).
-  - Nothing stops an admin from locking or dropping the connection's **own** account (Phase F).
+  - ~~Nothing stops an admin from locking or dropping the connection's **own** account~~ —
+    closed 2026-10-06: drop, lock and password change of the account the connection signs in
+    with (stored, in its connection string, or the caller's own in personal mode) are refused
+    on the preview already, `DB_ADMIN_CONNECTION_ACCOUNT_PROTECTED`
+    (`dbAdmin/connectionAccount.ts`, `dbAccess/routes.test.ts`). Revoking its privileges or
+    roles is not intercepted.
   - Column-level grants are readable but not grantable from the UI (Phase F); declaring intended
     grants in the project so drift covers permissions is still open.
 - [ ] **Phase E — CI/CD automation** — **L**. The `/api/v1` deploy-trigger endpoint is the

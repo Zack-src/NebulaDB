@@ -6,12 +6,12 @@ project can have up to 10.
 
 ## Events
 
-| Event                  | Sent when                                                                                                                                                                                      |
-| ---------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schema.changed`       | The schema changed, once the project has seen **30 seconds without an edit**. A burst of edits becomes one notification listing every author. Moving tables or changing colours doesn't count. |
-| `deployment.completed` | A deployment or a rollback to a connected database finished — successfully or not.                                                                                                             |
-| `drift.detected`       | The project's watch (Déploiements → Surveillance) found a database changed outside Athanor since the last deployment or pull. Once per state of the database.                                  |
-| `ping`                 | Only when someone clicks **Tester** — never subscribed to.                                                                                                                                     |
+| Event                  | Sent when                                                                                                                                                                                                                                               |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `schema.changed`       | The schema changed, once the project has seen **30 seconds without an edit**. A burst of edits becomes one notification listing every author. Moving tables or changing colours doesn't count.                                                          |
+| `deployment.completed` | A deployment or a rollback to a connected database finished — successfully or not.                                                                                                                                                                      |
+| `drift.detected`       | The project's watch (Déploiements → Surveillance) found a database changed outside Athanor since the last deployment or pull — or, with the accounts watch on, its accounts or privileges changed (`kind: "accounts"`). Once per state of the database. |
+| `ping`                 | Only when someone clicks **Tester** — never subscribed to.                                                                                                                                                                                              |
 
 ## Formats
 
@@ -48,6 +48,19 @@ For `drift.detected`, `data` is `{ kind: "external" | "partial-deployment",
 connectionName, environment, added, removed, changed }` — the last three are
 table names. `partial-deployment` means a deployment failed half-way since the
 reference and explains the change.
+
+When an instance administrator turned on the project's **accounts watch**,
+`drift.detected` is also sent with `kind: "accounts"`: the database's accounts,
+roles or privileges changed and no action in Athanor's console explains it.
+`data` is then `{ kind: "accounts", connectionName, environment, added: [],
+removed: [], changed: [], accountChanges }`, where `accountChanges` counts the
+changes by type (`{ "created": 1, "privilege-granted": 2 }`; the types are
+`created`, `dropped`, `locked`, `unlocked`, `login-granted`, `login-removed`,
+`superuser-granted`, `superuser-removed`, `role-granted`, `role-revoked`,
+`privilege-granted`, `privilege-revoked`). Account names are deliberately left
+out of the webhook: the webhook's address is chosen by a project administrator,
+the names are for the instance administrators, in the app. A receiver that
+only expects tables should check `kind`.
 
 `id` is the same for every retry of one delivery: use it to ignore duplicates.
 

@@ -24,6 +24,112 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Added — accounts watch, a database's journal, SQL console figures
+
+**Read before upgrading:** migration **37** adds `monitor_settings.watch_accounts` (off for
+every project), `drift_events.details_json`, and the tables `account_baselines` and
+`query_stats`. Nothing is read from any database until an instance administrator turns the
+accounts watch on for a project. New setting `ATHANORDB_QUERY_STATS_RETENTION_DAYS` (30 by
+default, `0` keeps everything): how long the SQL console's per-statement figures are kept —
+they hold the last author of each statement shape, so mention it in your privacy policy if
+you publish one (`docs/legal/confidentialite.md` is updated).
+
+- **Accounts and privileges changed outside Athanor** (Déploiements → Surveillance, instance
+  administrators). An option of the watch reads, on each linked database that has accounts,
+  the accounts and roles, their locks, role memberships and privileges (the administration
+  drivers' listing calls, the connection's stored account, under the connection budget), as a
+  canonical fingerprint compared with a reference. A change made through the console's
+  _Utilisateurs et permissions_ tab moves the reference (the accounts are read just before and
+  just after it); any other difference is an alert: listed in the card, written to the
+  database's journal (`monitoring.accounts`), told to the project's followers who administer it
+  (without the accounts' names) and sent to its webhooks as `drift.detected` with
+  `kind: "accounts"` — see `docs/webhooks.md`. **Accepter l'état actuel** takes what was read as
+  the new reference. Names and privileges only: no password or hash is ever read. Not offered
+  on SQLite. Checked against real PostgreSQL, MySQL and SQL Server servers.
+- **A database's journal** (Admin → Connexions → Ouvrir → **Journal**): the audit log filtered
+  on that database — console opened (`dbconn.open`), connection tested (`dbconn.test`), SQL
+  statements, deployments and rollbacks, account changes, what the watch found (new type
+  _Surveillance_, also in Admin → Activité: `monitoring.drift`, `monitoring.unreachable`,
+  `monitoring.accounts`) — with period, type and author filters, paging and CSV / JSON export.
+- **Requêtes**, in the same tab: the statements run through the SQL console, grouped by shape
+  (every literal replaced by `?`, no value and no result kept): runs, failures, average / max /
+  total duration, average rows, last run and author; sorted by frequency, slowness or total
+  time. Durations are measured by Athanor around the call and labelled as such.
+
+### Fixed
+
+- PostgreSQL, Users & permissions: a table nobody had been granted anything on showed no
+  privileges for its owner; they appeared the first time anyone was granted something on it.
+  The owner's default privileges are now read, as they already were for schemas and databases.
+
+### Added — database access for members (explorer and SQL, granted per connection)
+
+**Read before upgrading:** migration **36** adds `db_access_grants`, `db_account_hints` and
+`invitations.grants_json`. Nothing is granted on upgrade: the console stays the instance
+administrators' until one of them grants a connection. The explorer and SQL calls of the web
+app moved to `/api/connections/:id/…` (the `/api/admin/connections/:id/…` routes still exist,
+unchanged, for instance administrators) — a reverse proxy that only lets `/api/admin` through to
+administrators' networks must let these through as well.
+
+- **An instance administrator grants a user or a team `read` or `write` on a connection**
+  (Admin → Utilisateurs, icon on the person's line; Admin → Équipes, a team; Admin →
+  Invitations). `read`: the explorer and read-only SQL (one reading statement, READ ONLY
+  transaction, 1 000 rows, 30 s). `write`: also `INSERT` / `UPDATE` / `DELETE` / `MERGE`, one at a
+  time, each confirmed — the server requires `confirmWrite`. **Never structure**, whatever the
+  connection's structure policy, and never drops, database accounts, sessions or backups.
+  Being in a project gives no access to its database; the grant is checked on every request, so
+  a revocation (or leaving the team) applies at once. Every query a member runs, refused ones
+  included, is audited (`dbaccess.query`). Grants work from a browser session only, not with an
+  API key. On a personal-accounts connection the member runs as their own account and is refused
+  without one.
+- **Données & SQL and the SQL drawer (`Ctrl+J`)** are offered to a member on the project's
+  connections they were granted; the console shows their level and hides what they cannot do.
+- **Invitations carry teams and database access**, with the database account name proposed on
+  each connection: all applied the moment the invitation is accepted. The same name can be set
+  for an existing user ("associate a database account"): it pre-fills **Mon compte SQL**; the
+  password is always typed by the person, never stored in clear nor sent back.
+- **The console protects the connection's own account**: dropping, locking or changing the
+  password of the account the connection signs in with (stored, in its connection string, or —
+  in personal mode — one's own) is refused, already on the preview
+  (`DB_ADMIN_CONNECTION_ACCOUNT_PROTECTED`).
+
+### Added (canvas) — copy / paste of enums, zones and notes
+
+- **`Ctrl/Cmd+C` / `Ctrl/Cmd+V` now also copy the selected enums, zones and sticky
+  notes**, not only tables, with the same rules: across projects, `_copy` names for
+  tables and enums (a zone or note keeps its label), a relation to a table that was not
+  copied is left out, a copy of a locked table is a new, unlocked table. Pasted into
+  the DBML editor, the clipboard gives the tables and enums as DBML (a zone or note as a
+  `//` comment line). The status message now counts elements ("4 éléments copiés").
+
+### Fixed (SQL export, schema diff)
+
+- **SQL export no longer writes `UNIQUE PRIMARY KEY`** for a column flagged both `pk`
+  and `unique` (also for a primary key declared by a composite index): SQL Server
+  rejected it as a redundant constraint. `unique` is dropped from primary-key columns
+  for the export only; the project and its DBML are untouched.
+- **Less noise when comparing with a real database** (deployment, monitoring):
+  `decimal` and `numeric` are one type when the live column reports no precision;
+  primary-key columns count as NOT NULL (composite keys included); a composite
+  primary key no longer shows up as an "added" index. A migration repairs the typo
+  `decimal(18.6)` to `decimal(18,6)` instead of emitting invalid SQL.
+
+### Added (comments) — mentions and notifications
+
+- **`@` in a comment offers the people who can see the project** — and only
+  them — filtered as you type, with arrows / Enter / Esc. A mention is stored
+  in the comment as `@[Name](account-id)` and shown highlighted. Comments now
+  also carry their author's account id (`authorId`); older comments have none
+  and do not count as "someone who wrote in the thread".
+- **Mentioned, or replied to, you are told in the notification centre**, and
+  at once when the project is open — even if you do not follow it (a mention
+  is an address, not a subscription). Never for your own comment, never when you
+  can no longer see the project. The notification holds names only (author,
+  table, column), never the comment's text.
+- New routes: `GET /api/projects/:id/mentionable?q=` and
+  `POST /api/projects/:id/comment-notices` (both need `edit`). **No database
+  migration.**
+
 ### Fixed (database connections) — check connections that were switched from a URI
 
 - **A connection saved with a connection string and later switched to host and

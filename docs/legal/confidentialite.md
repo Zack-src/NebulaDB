@@ -77,10 +77,15 @@ supprimés lorsqu'un compte l'est (voir §6).
 
 Les projets que vous choisissez de suivre et les événements retenus pour chacun,
 puis les notifications qui en découlent : le projet, le type d'événement, les
-noms concernés (table, connexion, auteur de l'action), la date, et si vous
-l'avez lue. Rien n'est suivi sans que vous l'ayez demandé, et aucune
-notification n'est envoyée hors de l'application. **Finalité :** vous informer
-de ce que vous avez demandé à suivre. **Base légale :** exécution du contrat.
+noms concernés (table, colonne, connexion, auteur de l'action), la date, et si
+vous l'avez lue. Rien n'est suivi sans que vous l'ayez demandé, et aucune
+notification n'est envoyée hors de l'application. S'y ajoutent les
+notifications adressées à vous directement : être mentionné ou recevoir une
+réponse dans un commentaire (le nom de l'auteur, la table et la colonne — pas le
+texte du commentaire). Dans le commentaire lui-même, partagé avec le projet, la
+mention porte l'identifiant de votre compte et le nom affiché à ce moment-là ;
+elle y reste, comme le commentaire, après la suppression du compte. **Finalité :**
+vous informer de ce que vous avez demandé à suivre et de ce qui vous est adressé. **Base légale :** exécution du contrat.
 
 ### 2.7 Journaux techniques
 
@@ -110,18 +115,19 @@ particulière au sens de l'article 9 du RGPD.
 Ces durées correspondent à la **configuration par défaut** du logiciel.
 Vérifiez-les contre la vôtre avant publication.
 
-| Donnée                             | Conservation                                                                                                                                                                                                       | Réglage                          |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------- |
-| Compte                             | Jusqu'à sa suppression par l'utilisateur ou un administrateur                                                                                                                                                      | —                                |
-| Session                            | 30 jours glissants, ou 12 h si « rester connecté » a été décoché. Les sessions expirées sont purgées automatiquement toutes les heures                                                                             | —                                |
-| Tentatives de connexion échouées   | Blocage 15 minutes ; les compteurs sans échec récent sont purgés au bout de 24 h                                                                                                                                   | —                                |
-| Journal d'audit                    | **365 jours**, purge automatique toutes les heures                                                                                                                                                                 | `ATHANORDB_AUDIT_RETENTION_DAYS` |
-| Contenus et historique des projets | Jusqu'à suppression définitive du projet                                                                                                                                                                           | —                                |
-| Abonnements et notifications       | Abonnements : jusqu'à ce que vous cessiez de suivre le projet, ou jusqu'à la suppression du projet ou du compte. Notifications : les **200** plus récentes par compte, les plus anciennes sont supprimées à mesure | —                                |
-| Comptes personnels sur les bases   | Jusqu'à ce que vous retiriez le compte, ou jusqu'à la suppression de la connexion ou de votre compte utilisateur                                                                                                   | —                                |
-| Invitations                        | Lien valable 7 jours ; l'enregistrement (email, date) subsiste jusqu'à révocation ou remplacement par une nouvelle invitation pour la même adresse                                                                 | —                                |
-| Sauvegardes                        | Si activées : les **7** dernières exécutions sont conservées, les plus anciennes sont supprimées                                                                                                                   | `ATHANORDB_BACKUP_KEEP`          |
-| Journaux techniques                | Selon la politique de journalisation de [ENTITÉ] — à compléter                                                                                                                                                     | —                                |
+| Donnée                             | Conservation                                                                                                                                                                                                       | Réglage                                |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- |
+| Compte                             | Jusqu'à sa suppression par l'utilisateur ou un administrateur                                                                                                                                                      | —                                      |
+| Session                            | 30 jours glissants, ou 12 h si « rester connecté » a été décoché. Les sessions expirées sont purgées automatiquement toutes les heures                                                                             | —                                      |
+| Tentatives de connexion échouées   | Blocage 15 minutes ; les compteurs sans échec récent sont purgés au bout de 24 h                                                                                                                                   | —                                      |
+| Journal d'audit                    | **365 jours**, purge automatique toutes les heures                                                                                                                                                                 | `ATHANORDB_AUDIT_RETENTION_DAYS`       |
+| Statistiques de la console SQL     | **30 jours** par jour d'exécution, purge automatique toutes les heures : forme de la requête (valeurs remplacées par `?`), nombre, durées, dernier auteur                                                          | `ATHANORDB_QUERY_STATS_RETENTION_DAYS` |
+| Contenus et historique des projets | Jusqu'à suppression définitive du projet                                                                                                                                                                           | —                                      |
+| Abonnements et notifications       | Abonnements : jusqu'à ce que vous cessiez de suivre le projet, ou jusqu'à la suppression du projet ou du compte. Notifications : les **200** plus récentes par compte, les plus anciennes sont supprimées à mesure | —                                      |
+| Comptes personnels sur les bases   | Jusqu'à ce que vous retiriez le compte, ou jusqu'à la suppression de la connexion ou de votre compte utilisateur                                                                                                   | —                                      |
+| Invitations                        | Lien valable 7 jours ; l'enregistrement (email, date) subsiste jusqu'à révocation ou remplacement par une nouvelle invitation pour la même adresse                                                                 | —                                      |
+| Sauvegardes                        | Si activées : les **7** dernières exécutions sont conservées, les plus anciennes sont supprimées                                                                                                                   | `ATHANORDB_BACKUP_KEEP`                |
+| Journaux techniques                | Selon la politique de journalisation de [ENTITÉ] — à compléter                                                                                                                                                     | —                                      |
 
 **Conséquence à connaître :** un compte supprimé peut subsister dans les
 sauvegardes jusqu'à ce que celles-ci soient renouvelées. C'est une limite

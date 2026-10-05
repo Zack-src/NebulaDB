@@ -203,17 +203,21 @@ ou **Passer**), et la rejouer avec le bouton ⓘ en haut à droite.
 | `Ctrl`/`Cmd` + `Z`                         | Annuler                                          |
 | `Ctrl`/`Cmd` + `Maj` + `Z` ou `Ctrl` + `Y` | Rétablir                                         |
 | `Ctrl`/`Cmd` + `D`                         | Dupliquer la sélection                           |
-| `Ctrl`/`Cmd` + `C` puis `Ctrl`/`Cmd` + `V` | Copier / coller les tables sélectionnées         |
+| `Ctrl`/`Cmd` + `C` puis `Ctrl`/`Cmd` + `V` | Copier / coller la sélection (tables, enums…)    |
 | `Ctrl`/`Cmd` + `F`                         | Rechercher une table sur le canvas               |
 | `Entrée` / `Maj`+`Entrée`                  | Résultat suivant / précédent (dans la recherche) |
 | `Échap`                                    | Fermer la recherche ou le panneau ouvert         |
 
 Le copier / coller passe par le presse-papiers du système : il fonctionne
-d'un projet à l'autre, et coller dans l'éditeur DBML donne le texte des tables.
-Les copies gardent couleurs, colonnes, index et réglages ; seul le nom change
-(`clients_copy`, puis `clients_copy2`…). Les relations entre deux tables
-copiées suivent les copies ; celles vers une table non copiée sont laissées de
-côté. Le clic droit sur une zone vide propose aussi _Copier_ et _Coller_ (à
+d'un projet à l'autre, et coller dans l'éditeur DBML donne le texte des tables
+et des énumérations (une zone ou une note autocollante y apparaît comme une
+simple ligne de commentaire). Le copier / coller prend les tables, les
+énumérations, les zones et les notes autocollantes sélectionnées. Les copies
+gardent couleurs, colonnes, index et réglages ; seul le nom d'une table ou d'une
+énumération change (`clients_copy`, puis `clients_copy2`…) — une zone ou une
+note garde son texte. Les relations entre deux tables copiées suivent les
+copies ; celles vers une table non copiée sont laissées de côté. Une copie de
+table verrouillée n'est pas verrouillée. Le clic droit sur une zone vide propose aussi _Copier_ et _Coller_ (à
 l'endroit du clic).
 
 Les raccourcis du canvas sont ignorés pendant que vous tapez dans un champ ou
@@ -291,8 +295,27 @@ l'application : aucun e-mail n'est envoyé.
 
 ### Commentaires
 
-Une table ou une colonne peut porter un fil de discussion. Il n'y a pas encore
-de mentions ni de notifications : les réponses se découvrent en ouvrant le fil.
+Une table ou une colonne peut porter un fil de discussion.
+
+**Mentionner quelqu'un.** Dans le champ d'un commentaire, tapez `@` : la liste
+propose les personnes qui peuvent voir le projet — et elles seules, jamais le
+reste de l'annuaire — et se resserre à mesure que vous tapez. Flèches haut et
+bas pour choisir, Entrée ou Tab pour valider, Échap pour fermer la liste.
+La mention s'affiche en surbrillance (plus marquée pour la personne visée) ;
+elle est enregistrée avec le compte de la personne, pas seulement son nom.
+Seules les personnes qui peuvent écrire dans le projet (droit `edit`) peuvent
+commenter, donc mentionner.
+
+**Ce que cela déclenche.** La personne mentionnée reçoit une notification
+dans la bulle (§ « Suivre un projet et notifications »), **même si elle ne suit
+pas le projet** : une mention est une adresse directe. Elle est poussée à
+l'instant si la personne a le projet ouvert. Répondre dans un fil où quelqu'un
+a déjà écrit le prévient aussi (« a répondu dans un fil où vous avez écrit »).
+Personne n'est prévenu de son propre commentaire, ni d'un projet qu'il ne peut
+plus voir au moment du commentaire ; mentionner quelqu'un qui n'y a pas accès
+ne lui envoie rien. La notification ne contient que des noms (qui, quelle
+table, quelle colonne), jamais le texte du commentaire : cliquez pour ouvrir
+le projet et lire le fil.
 
 ---
 
@@ -434,6 +457,21 @@ bandeau de l'éditeur et part aux webhooks du projet. Une base illisible est
 signalée « injoignable », jamais comme une modification. Un déploiement ou un
 import règle ce qui a été trouvé ; **Ignorer** l'écarte définitivement.
 
+**Surveiller aussi les comptes et privilèges** (administrateurs de l'instance
+seulement). Sous la surveillance, une deuxième option fait relire, sur chaque
+base du projet qui a des comptes (pas SQLite), les comptes et rôles, leurs
+verrous, leurs appartenances à des rôles et leurs privilèges, avec le compte de
+service de la connexion. La première lecture devient la **référence** ; ensuite,
+une modification faite par l'onglet _Utilisateurs et permissions_ de la console
+d'Athanor met la référence à jour, et toute autre différence (un compte créé,
+supprimé, verrouillé, un rôle ou un privilège accordé ou retiré avec un autre
+outil) est une **alerte** : listée dans la carte, écrite au journal de la base,
+envoyée aux abonnés du projet qui l'administrent (« les comptes de la base X ont
+changé », sans les noms) et aux webhooks (`drift.detected`, `kind: "accounts"`).
+**Accepter l'état actuel** fait de ce qui a été lu la nouvelle référence. Seuls
+des noms et des privilèges sont lus et gardés — jamais un mot de passe ni son
+empreinte.
+
 Chaque connexion est placée sur une **étape** de la chaîne de déploiement
 (DEV › Staging › Prod par défaut — voir « Environnements » plus bas). Sur
 l'étape marquée **production**, déployer ou annuler un déploiement demande de
@@ -472,6 +510,19 @@ type, projet, base, recherche libre ; une ligne s'ouvre sur son détail (auteur,
 détail complet, projet avec un lien, base, IP, requête). **Exporter en CSV /
 JSON** télécharge tout ce que les filtres retiennent. Les entrées ne peuvent
 être ni modifiées ni supprimées.
+
+**Le journal d'une base.** Dans **Admin → Connexions base de données → Ouvrir**,
+l'onglet **Journal** montre la même chose pour cette seule base : console
+ouverte, connexion testée, requêtes SQL (texte tronqué, durée, lignes, auteur),
+déploiements et retours arrière, changements de comptes, ce que la surveillance
+a trouvé. Filtres : période, type, auteur ; pagination ; export CSV / JSON.
+La vue **Requêtes** regroupe les requêtes lancées depuis la console SQL
+d'Athanor par forme (chaque valeur remplacée par `?`, aucun résultat gardé) :
+nombre d'exécutions, durée moyenne, maximale et totale, lignes, dernière
+exécution, triées par fréquence, lenteur ou temps total. Les durées sont
+**mesurées par Athanor** autour de l'appel (ouverture de la connexion comprise),
+pas par le serveur de base. Ces chiffres sont gardés 30 jours par défaut
+(`ATHANORDB_QUERY_STATS_RETENTION_DAYS`, `0` pour tout garder).
 
 ### Administrer les bases connectées (administrateurs de l'instance)
 
@@ -607,7 +658,50 @@ dans une procédure ou un bloc `DO` n'est pas détectée.
 
 Le compte utilisé par la connexion doit lui-même avoir les droits nécessaires
 (lire le catalogue, créer des rôles…) : sinon la base refuse, et son message
-est affiché tel quel.
+est affiché tel quel. Ce compte-là est protégé : la console refuse de le
+supprimer, de le verrouiller ou de changer son mot de passe (ni le vôtre, sur
+une connexion en « compte de chacun ») — Athanor se couperait lui-même de la
+base. Faites-le depuis la base, après avoir changé le compte de la connexion.
+
+### Donner accès à une base à un membre (administrateurs de l'instance)
+
+Par défaut, seule l'administration de l'instance utilise la console. Un
+administrateur peut ouvrir l'**explorateur** et le **SQL** d'une base à
+d'autres comptes, base par base :
+
+- **Admin → Utilisateurs**, icône base de données sur la ligne d'une personne :
+  pour chaque connexion, **Aucun accès**, **Lecture** ou **Écriture des
+  données**, et le **compte SQL proposé** (un nom de compte sur la base, jamais
+  un mot de passe). Les accès que la personne tient d'une équipe sont affichés à
+  côté.
+- **Admin → Équipes**, une équipe : _Accès aux bases de l'équipe_ ; chaque
+  membre en hérite, et les perd en quittant l'équipe.
+- **Admin → Invitations** : _Équipes et accès aux bases…_ sous le champ
+  d'adresse. Les équipes à rejoindre, les accès et les comptes SQL proposés
+  sont en place dès que la personne accepte l'invitation.
+
+Ce que chaque niveau permet :
+
+- **Lecture** — l'explorateur (données et structure) et la console SQL en
+  lecture seule : une seule instruction de lecture, transaction en lecture
+  seule, 1 000 lignes et 30 secondes au plus.
+- **Écriture des données** — en plus, `INSERT`, `UPDATE`, `DELETE` ou `MERGE`,
+  une instruction à la fois, chacune confirmée. **Jamais la structure** (même
+  quand la politique de la connexion est « Libre ») : pas de `CREATE`, `ALTER`,
+  `DROP`, `TRUNCATE`, ni de droits, de procédures ou de `SELECT … INTO`.
+- Dans les deux cas : ni suppression depuis l'explorateur, ni comptes, ni
+  sessions, ni sauvegardes. Une connexion **Lecture seule** le reste pour tout
+  le monde.
+
+La personne y accède depuis un projet rattaché à la base : onglet **Données &
+SQL** et panneau SQL (`Ctrl+J`) sous le schéma. Être membre du projet ne donne
+aucun accès à la base : seul l'administrateur l'accorde, et un accès retiré
+l'est à la requête suivante. Toutes ses requêtes, refusées comprises, sont
+inscrites au journal d'audit (texte de la requête, jamais les résultats). Sur
+une connexion en « compte de chacun », elle travaille avec **son** compte : la
+fenêtre **Mon compte SQL** propose le nom choisi par l'administrateur, elle
+saisit son mot de passe ; sans compte, elle est refusée. L'accès ne fonctionne
+que depuis le navigateur, pas avec une clé d'API.
 
 ## 6. Import et export
 
@@ -694,7 +788,8 @@ Toujours dans _Paramètres → Profil_, section **Vos données** :
   sont exclues volontairement.
 - **Supprimer mon compte** est définitif et demande votre mot de passe. Vos
   sessions, vos appartenances aux équipes, vos abonnements et vos notifications
-  disparaissent ; les projets dont
+  (dont celles de mention et de réponse) disparaissent ; vos commentaires, eux,
+  restent dans le projet sous votre nom, comme vos modifications de schéma ; les projets dont
   vous êtes propriétaire ne sont **pas** détruits — ils peuvent être partagés
   avec toute une équipe et restent gérables par un administrateur. Vos
   modifications de schéma gardent votre nom dans l'historique des projets :
@@ -717,8 +812,7 @@ détail figure dans la politique de confidentialité de votre instance — voir
 Dit explicitement pour éviter de le chercher :
 
 - pas de notifications par e-mail — celles des projets suivis restent dans
-  l'application (§3), et rien ne prévient d'un ajout à un projet ou d'une
-  réponse à un commentaire ; les seuls e-mails envoyés sont les invitations et
+  l'application (§3), et rien ne prévient d'un ajout à un projet ; les seuls e-mails envoyés sont les invitations et
   les réinitialisations de mot de passe ;
 - pas de SSO ni de passkeys ;
 - pas de sauvegarde des bases connectées par l'outil natif du moteur, ni vers un
