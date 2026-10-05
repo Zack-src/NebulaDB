@@ -1912,6 +1912,104 @@ NOT IN (SELECT id FROM projects)` is worth running on existing instances (migrat
   review it before the next real deployment, even though every path is tested. The remaining open
   items of this phase (waypoints, wrong-way relation, copy / paste) moved to Phase 29.
 
+### Audit 2026-10-05 — 14 defects confirmed in code
+
+Found by an external audit, each one re-checked by reading the code on 2026-10-05 (none fixed
+yet; reproductions used throw-away databases). Fix in the order below; every fix needs a
+regression test that fails before it. Items 1-9 are the priority list. Re-run the typecheck /
+lint / tests before closing the group: the audit also saw 13 web TypeScript errors
+(`DbAccessEditor.svelte`, `MonitoringCard.svelte`) and one ESLint complexity error
+(`queryStats.ts`), possibly transient — re-check. Not done by the audit: E2E, real
+PostgreSQL / MySQL / SQL Server / Oracle servers, `npm audit` (needs the owner's go-ahead).
+
+- [ ] **1. API key escalates to a full session — CRITICAL — M.** The global `onRequest` hook in
+      `apps/server/src/app.ts` (~l.123) resolves `Authorization: Bearer` for every route, but the
+      internal `/api/*` routes use `requireUser` and never check scopes: a `projects:read` key
+      locked to project A can edit project B, then read a session id from `GET /api/auth/sessions`
+      (`modules/auth/routes.ts` ~l.168, `listSessions` in `modules/auth/session.ts` returns the
+      raw cookie value as `id`), replay it as a cookie and mint a stronger key. **How:** make
+      `requireUser` reject `req.apiKey` by default (use `requireSessionUser`, already in
+      `modules/apiKeys/auth.ts`, for every non-`/api/v1` route; only `/api/v1` accepts keys), and
+      stop returning the session credential: expose a separate opaque id, store/compare a hash.
+      **Test:** a key gets 401 on `/api/auth/sessions`, `/api/projects/*`, key routes.
+- [ ] **2. Project restriction incomplete on `/api/v1` — HIGH — S.** `GET /api/v1/projects`
+      (`modules/publicApi/index.ts` ~l.76) lists every project of the owner for a key locked to A;
+      `POST /api/v1/projects` lets a restricted key with `projects:write` create projects.
+      **How:** filter the list on `req.apiKey.projectId`; refuse creation when `projectId` is set
+      (`requireGlobalScope`-style). Audit the other list endpoints for the same gap.
+- [ ] **3. Disabled account keeps collaborating over WebSocket — HIGH — S.** The resolver in
+      `app.ts` (~l.284) only calls `getEffectivePermission` (`shared/permissions.ts`), which never
+      looks at `disabled_at`, nor at whether the session/key behind the socket is still valid; the
+      `Room` comment promises "account disabled" closes the socket. **How:** in the resolver
+      return `null` if `getUserAccount(userId).disabled_at` is set or the session was revoked/expired
+      (keep the session id in the connection); add a test: disable → `revalidateAllRooms()` → a
+      schema write is refused and the socket closed.
+- [ ] **4. Restore can empty tables then abort — HIGH (data loss) — M.** `emptyTables` in
+      `modules/backups/restore.ts` (~l.114) runs one `DELETE` per table through
+      `executeMigration`, each taking a slot of the 5 / minute `write` budget
+      (`modules/connections/connectionBudget.ts` ~l.27): with 6+ tables the 6th is refused after 5
+      tables are already empty and before any insert. **How:** count a restore as one logical
+      operation (take the budget once, run the inner statements unmetered); check the budget and
+      all preconditions before the first `DELETE`; wrap delete + insert in one transaction where
+      the engine allows it, otherwise document and test the failure path (what is left, how to
+      resume).
+- [ ] **5. Backup-code regeneration bypasses TOTP — HIGH — S.** `POST
+      /api/auth/totp/regenerate-backup-codes` (`modules/auth/totpRoutes.ts` ~l.98) needs only the
+      session + password; a fresh backup code then disables 2FA. **How:** require a valid TOTP or
+      backup code (same check as `/totp/disable`) in addition to the password; test with a stolen
+      session + password.
+- [ ] **6. MySQL TLS option ignored — HIGH — S.** `mysqlPoolConfig`
+      (`modules/connections/drivers/mysql.ts` ~l.41) never forwards `config.ssl` in field mode.
+      **How:** pass `ssl: { rejectUnauthorized: true }` (plus a CA when Phase 27's custom-CA item
+      lands) when `ssl` is on; also honour `ssl` for the URL form; same check in `admin/mysql.ts`.
+- [ ] **7. Same-named tables in several schemas are merged — HIGH — L.** `postgres.ts` (~l.121)
+      and `mssql.ts` (~l.132) group columns by `table_name` only and build ids as
+      `table.column`: `public.same` and `sales.same` collapse into one table with mixed columns.
+      **How:** group and id by `schema.table` (keep the schema on `Table`, in refs, in generated
+      SQL and in `q()` quoting); test with two schemas holding the same table name. Check
+      MySQL / Oracle for the equivalent. Touches the DBML schema model — see the namespace /
+      schema item of Phase 27 before choosing the id format.
+- [ ] **8. MySQL introspects the wrong database — HIGH — S.** With a URL ending `/business` and
+      no `database` field, the pool connects to `business` but `MysqlDriver`
+      (`mysql.ts` ~l.66, `this.databaseName = config.database || "mysql"`) queries metadata for
+      `mysql`. **How:** derive the effective database from the URL, or `SELECT DATABASE()` once
+      after connecting; test URL-only and field-only configs.
+- [ ] **9. Migrations split in the middle of string literals — HIGH — M.** MySQL (~l.244), SQL
+      Server (`mssql.ts` ~l.257) and Oracle (`oracle.ts` ~l.237) do `sql.split(";")`, but the
+      generator legitimately emits `DEFAULT 'a;b'`: the statement is cut, and a deployment can
+      stop half-applied. **How:** one shared splitter in `packages/dbml-engine` or the drivers
+      folder that understands `'…'`, `"…"`, `` `…` ``, `[…]`, `--` and `/* */`, used by all three
+      drivers (and the restore path); unit-test with `;` in defaults, comments and identifiers.
+- [ ] **10. SQL Server connection string passed as an object — MEDIUM — S.**
+      `mssqlPoolConfig` (`mssql.ts` ~l.42) returns `{ connectionString }` cast to `sql.config`;
+      the pool has no `server` and `connect()` fails. **How:** pass the string itself to
+      `new sql.ConnectionPool(str)` (and apply `database` by parsing / appending); test against
+      the Docker SQL Server of `docker-compose.mssql.yml`.
+- [ ] **11. Rooms created by REST are never evicted — MEDIUM — S.** `getRoom`
+      (`realtime/roomRegistry.ts` ~l.29) creates a `Room` whose `onEmpty` only fires from
+      `leave()` (`realtime/room.ts` ~l.348); an export or other REST call that never opens a
+      socket leaves the document and its timers resident. **How:** after a REST use (or on a
+      timer) evict rooms with zero connections — snapshot first — or use `peekRoom` / the
+      read-only path (`realtime/readOnlyProject.ts`) for REST readers; test 4 REST exports then
+      assert `rooms.size === 0`.
+- [ ] **12. Malformed WebSocket frame throws globally — MEDIUM — S.** The `message` handler in
+      `app.ts` (~l.299) calls `room.receive` without a try / catch; an empty frame throws in
+      `decoding.readVarUint`, reaching the `uncaughtException` handler in `index.ts`, which then
+      `flushAllRooms()` (write amplification, one frame = a flush of everything). **How:**
+      try / catch around `receive`, log, close that socket with code 1003 / 1008; add a frame-size
+      cap; test an empty frame and random bytes.
+- [ ] **13. SQLite identifiers insufficiently escaped — LOW — S.** `sqlite.ts` ~l.98 builds
+      `PRAGMA table_info("${tableName}")`; a table named `a"b` breaks introspection (and any
+      other `PRAGMA` / query built the same way). **How:** use the existing quoting helper
+      (`q(name, "sqlite")`) everywhere in the driver; test a table named `a"b`.
+- [ ] **14. Decimal repair regex is wrong — LOW — S.**
+      `packages/dbml-engine/src/migrationGenerator.ts` ~l.26:
+      `/((d+).(d+))/` matches letters `d`, so `decimal(18.6)` is never repaired to
+      `decimal(18,6)`. **How:** `/\((\d+)\.(\d+)\)/` → `"($1,$2)"`; unit test `decimal(18.6)`,
+      `numeric(10.2)` and that `decimal(18,6)` / `varchar(255)` stay untouched.
+- [ ] **Owed by the audit — dependency audit.** `npm audit` was not run (it sends the dependency
+      metadata to the npm registry). Ask the owner, or run it from CI, and record the result here.
+
 ---
 
 ## Done (condensed)
