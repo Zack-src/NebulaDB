@@ -120,6 +120,19 @@ test(
       await dialog.getByRole("button", { name: "Annuler" }).click();
       await dialog.waitFor({ state: "detached" });
 
+      // --- Settings → Mes comptes SQL: the same connection, with the account still missing ---
+      await page.goto(env.baseUrl);
+      await page.locator('[data-tooltip="Paramètres du compte"]').click();
+      const row = page.getByTestId("sql-account-row");
+      await row.getByText("Boutique live").waitFor();
+      assert.equal(await row.getAttribute("data-account"), "");
+      await row.getByRole("button", { name: "Renseigner" }).click();
+      await page.getByRole("dialog", { name: "Mon compte sur « Boutique live »" }).waitFor();
+      await snap("settings");
+      await page.keyboard.press("Escape");
+      await page.getByRole("dialog").waitFor({ state: "detached" });
+      await page.goto(`${env.baseUrl}/project/${projectId}/deployments`);
+
       // --- Back to one shared account: the button goes away ---
       await page.evaluate(async (id) => {
         await fetch(`/api/admin/connections/${id}`, {

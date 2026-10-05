@@ -24,6 +24,14 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Added — "Mes comptes SQL" in Settings
+
+- `GET /api/me/sql-accounts` lists every personal-account connection the caller may use (instance
+  administrator, project administrator of a linked project, or granted access), with their account
+  name, its date and the name an administrator proposed. Never a password; an API key sees none.
+- Settings → Profil has a "Mes comptes SQL" block: one row per connection, add or change the
+  account in the same dialog as the workspace button. Hidden when there is none.
+
 ### Added — a library of lint presets, a default for every project, custom rules
 
 **Read before upgrading:** migration **38** adds the table `lint_presets` and the columns

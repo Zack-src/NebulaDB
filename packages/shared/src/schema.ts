@@ -200,6 +200,13 @@ export interface PersonalCredentialStatus {
   suggestedUsername?: string;
 }
 
+/** One line of "Mes comptes SQL": a personal-account connection the user can use, and their account on it. */
+export interface MySqlAccount extends PersonalCredentialStatus {
+  connectionId: string;
+  connectionName: string;
+  engine: string;
+}
+
 /** Someone who has given an account on a connection — what its administrators see. */
 export interface PersonalCredentialHolder {
   userId: string;

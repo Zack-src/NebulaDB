@@ -1,5 +1,5 @@
 import type { FastifyRequest } from "fastify";
-import type { DatabaseConnectionConfig, PersonalCredentialStatus } from "@athanordb/shared";
+import type { DatabaseConnectionConfig, MySqlAccount, PersonalCredentialStatus } from "@athanordb/shared";
 import { db } from "../../infrastructure/db.js";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
@@ -14,7 +14,7 @@ import {
   savePersonalCredentials,
 } from "./personalCredentials.js";
 import { getConnectionById } from "./repository.js";
-import { effectiveDbAccess } from "../dbAccess/repository.js";
+import { effectiveDbAccess, getAccountHint } from "../dbAccess/repository.js";
 
 /**
  * What giving, reading and removing one's own database account does, whoever
@@ -129,4 +129,39 @@ export function removeOwnCredentials(
     );
   }
   return personalCredentialStatus(connection, user.id);
+}
+
+/**
+ * Every personal-account connection this user may use, with their account on
+ * each — the one place they manage them all, instead of connection by
+ * connection. Same audience as `requireConnectionUser`; an API key sees none,
+ * as the explorer and SQL are browser-only.
+ */
+export function listOwnAccounts(user: SessionUser, viaApiKey: boolean): MySqlAccount[] {
+  if (viaApiKey) return [];
+  const rows = db
+    .prepare("SELECT id FROM db_connections WHERE auth_mode = 'personal' ORDER BY name COLLATE NOCASE, created_at")
+    .all() as { id: string }[];
+  const links = db.prepare("SELECT project_id FROM project_connection_links WHERE connection_id = ?");
+  const accounts: MySqlAccount[] = [];
+  for (const { id } of rows) {
+    const connection = getConnectionById(id);
+    if (!connection) continue;
+    const usable =
+      user.isAdmin ||
+      effectiveDbAccess(user.id, id) !== null ||
+      (links.all(id) as { project_id: string }[]).some(
+        (link) => getEffectivePermission(user.id, link.project_id) === "administrator",
+      );
+    if (!usable) continue;
+    const suggestedUsername = getAccountHint(id, user.id);
+    accounts.push({
+      ...personalCredentialStatus(connection, user.id),
+      ...(suggestedUsername ? { suggestedUsername } : {}),
+      connectionId: id,
+      connectionName: connection.name,
+      engine: connection.engine,
+    });
+  }
+  return accounts;
 }

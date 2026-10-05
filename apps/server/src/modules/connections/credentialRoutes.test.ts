@@ -326,3 +326,42 @@ test("personal accounts: a person connects as themselves or not at all; unattend
     await app.close();
   }
 });
+
+test("personal accounts: one list of the caller's own, limited to the connections they may use", async () => {
+  const app = await buildApp();
+  const verify = mock.method(credentialCheck, "verify", async () => {});
+  try {
+    resetConnectionBudgets();
+    const admin = await makeUser(app, 1);
+    const owner = await makeUser(app);
+    const stranger = await makeUser(app);
+    const { connectionId } = await personalConnection(app, admin.cookie, owner.cookie);
+    // A shared connection never shows up in it.
+    await call(app, admin.cookie, "POST", "/api/admin/connections", { ...UNREACHABLE, name: "Shared" });
+
+    assert.equal((await call(app, stranger.cookie, "GET", "/api/me/sql-accounts")).statusCode, 200);
+    assert.deepEqual((await call(app, stranger.cookie, "GET", "/api/me/sql-accounts")).json(), { accounts: [] });
+
+    const before = (await call(app, owner.cookie, "GET", "/api/me/sql-accounts")).json().accounts;
+    assert.deepEqual(
+      before.map((a: { connectionId: string; username: string | null }) => [a.connectionId, a.username]),
+      [[connectionId, null]],
+    );
+
+    await call(app, owner.cookie, "PUT", `/api/connections/${connectionId}/credentials`, {
+      username: "ada",
+      password: "ada-password",
+    });
+    const after = await call(app, owner.cookie, "GET", "/api/me/sql-accounts");
+    assert.equal(after.json().accounts[0].username, "ada");
+    assert.equal(after.json().accounts[0].connectionName, "Shop");
+    assert.equal(after.body.includes("ada-password"), false);
+
+    // Someone else's account is not theirs: the list is per caller.
+    assert.equal((await call(app, admin.cookie, "GET", "/api/me/sql-accounts")).json().accounts[0].username, null);
+  } finally {
+    verify.mock.restore();
+    closeAllRooms();
+    await app.close();
+  }
+});

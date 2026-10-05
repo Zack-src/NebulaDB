@@ -1,9 +1,10 @@
 import type { FastifyInstance } from "fastify";
 import { ApiError } from "../../shared/errors.js";
-import { requireAdmin } from "../../shared/guards.js";
+import { requireAdmin, requireUser } from "../../shared/guards.js";
 import {
   CREDENTIAL_SAVE_LIMIT,
   giveOwnCredentials,
+  listOwnAccounts,
   ownCredentials,
   removeOwnCredentials,
   requireConnectionUser,
@@ -19,6 +20,11 @@ const READ_LIMIT = { config: { rateLimit: { max: 120, timeWindow: "1 minute" } }
 
 /** One's own account on a database whose connection asks each user for theirs. */
 export function registerCredentialRoutes(app: FastifyInstance): void {
+  // All of the caller's accounts at once, for their Settings.
+  app.get("/api/me/sql-accounts", READ_LIMIT, async (req) => ({
+    accounts: listOwnAccounts(requireUser(req), Boolean(req.apiKey)),
+  }));
+
   app.get("/api/connections/:id/credentials", READ_LIMIT, async (req) => {
     const { id } = req.params as { id: string };
     const caller = requireConnectionUser(req, id);

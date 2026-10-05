@@ -10,6 +10,7 @@ import type {
   SchemaRisk,
   SeedPlanEntry,
   SeedResult,
+  MySqlAccount,
   PersonalCredentialStatus,
 } from "@athanordb/shared";
 import type { LintRuleKey, MigrationDiff, SchemaComparisonEntry } from "@athanordb/dbml-engine";
@@ -250,4 +251,9 @@ export function checkProjectDrift(projectId: string, connId: string): Promise<Dr
 
 export async function dismissProjectDrift(projectId: string, connId: string): Promise<void> {
   await request<unknown>(`/api/projects/${projectId}/connections/${connId}/drift/dismiss`, { method: "POST" });
+}
+
+/** Every personal-account connection this user may use, with their account on each. */
+export async function fetchMySqlAccounts(): Promise<MySqlAccount[]> {
+  return (await request<{ accounts: MySqlAccount[] }>("/api/me/sql-accounts")).accounts;
 }

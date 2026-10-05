@@ -50,6 +50,7 @@
   import type { GridStyle } from "@/utils/preferences";
   import ActiveSessions from "@/features/settings/ActiveSessions.svelte";
   import ApiKeys from "@/features/settings/ApiKeys.svelte";
+  import SqlAccounts from "@/features/settings/SqlAccounts.svelte";
   import PersonalData from "@/features/settings/PersonalData.svelte";
   import TwoFactorAuth from "@/features/settings/TwoFactorAuth.svelte";
   import SettingSwitch from "@/features/settings/SettingSwitch.svelte";
@@ -105,6 +106,7 @@
 
     <TwoFactorAuth />
     <ActiveSessions />
+    <SqlAccounts />
     <PersonalData />
   </div>
 {:else if tab === "appearance"}
