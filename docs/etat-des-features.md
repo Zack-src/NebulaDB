@@ -37,27 +37,28 @@ utilisé ».
 
 ## 1. Modélisation ★
 
-| Fonctionnalité                                                                  | État | Reste / remarque                                                                             |
-| ------------------------------------------------------------------------------- | :--: | -------------------------------------------------------------------------------------------- |
-| Éditeur DBML et canvas synchronisés                                             |  ✅  |                                                                                              |
-| Tables, colonnes, relations, enums, zones, notes, groupes, index/PK composites  |  ✅  |                                                                                              |
-| Réglages de l'éditeur DBML (formatage, complétion, délai de synchronisation)    |  ✅  |                                                                                              |
-| Copier/coller de tables, enums, zones et notes ; duplication ; annuler/rétablir |  ✅  | Une colonne typée par un enum, collée sans l'enum, perd la définition                        |
-| Vue conceptuelle MCD (Merise)                                                   |  ✅  |                                                                                              |
-| Import DBML/SQL, export DBML/SQL/PNG/SVG/PDF                                    |  ✅  | Bug `UNIQUE PRIMARY KEY` corrigé                                                             |
-| Modèles de départ, projet créé depuis une base existante                        |  ✅  |                                                                                              |
-| Recherche dans tous les projets                                                 |  ✅  |                                                                                              |
-| Conversion de types entre moteurs                                               |  🧪  | Écran jamais cliqué par un test                                                              |
-| Linter de schéma (profils, corrections, blocage de déploiement)                 |  🟡  | Pas de motif de nommage personnalisé                                                         |
-| Dictionnaire de données                                                         |  🟡  | Pas d'export PDF ; description sur une seule ligne                                           |
-| Verrous de table                                                                |  🟡  | Un plugin annonce « fait » alors que le verrou a refusé                                      |
-| Historique, aperçu sur le graphe, restauration d'une seule table                |  🟡  | Rétention et compaction des révisions non décidées                                           |
-| Comparaison de deux projets, avec SQL de migration                              |  ✅  | Le diff contre une base réelle ne signale plus `decimal` ni les clés primaires à tort        |
-| Collaboration temps réel, présence, commentaires                                |  ✅  |                                                                                              |
-| Mentions `@` dans les commentaires                                              |  ✅  | Ancien commentaire sans identifiant d'auteur ; nom d'une mention non mis à jour au renommage |
-| Fusion par champ (deux personnes sur la même table)                             |  ❌  |                                                                                              |
-| Points de passage des relations, détection d'une relation inversée              |  ❌  | Attend une décision du propriétaire                                                          |
-| Export Prisma / TypeORM / GraphQL / JSON Schema                                 |  ❌  | Prévu sous forme de plugins                                                                  |
+| Fonctionnalité                                                                                     | État | Reste / remarque                                                                             |
+| -------------------------------------------------------------------------------------------------- | :--: | -------------------------------------------------------------------------------------------- |
+| Éditeur DBML et canvas synchronisés                                                                |  ✅  |                                                                                              |
+| Tables, colonnes, relations, enums, zones, notes, groupes, index/PK composites                     |  ✅  |                                                                                              |
+| Réglages de l'éditeur DBML (formatage, complétion, délai de synchronisation)                       |  ✅  |                                                                                              |
+| Copier/coller de tables, enums, zones et notes ; duplication ; annuler/rétablir                    |  ✅  | Une colonne typée par un enum, collée sans l'enum, perd la définition                        |
+| Vue conceptuelle MCD (Merise)                                                                      |  ✅  |                                                                                              |
+| Import DBML/SQL, export DBML/SQL/PNG/SVG/PDF                                                       |  ✅  | Bug `UNIQUE PRIMARY KEY` corrigé                                                             |
+| Modèles de départ, projet créé depuis une base existante                                           |  ✅  |                                                                                              |
+| Recherche dans tous les projets                                                                    |  ✅  |                                                                                              |
+| Conversion de types entre moteurs                                                                  |  🧪  | Écran jamais cliqué par un test                                                              |
+| Linter de schéma (profils, corrections, blocage de déploiement)                                    |  ✅  | Le motif de nommage se règle en règle personnalisée                                          |
+| Lint : bibliothèque de modèles, modèle par défaut, version propre au projet, règles personnalisées |  🧪  | Testé côté serveur et en navigateur ; jamais utilisé à la main                               |
+| Dictionnaire de données                                                                            |  🟡  | Pas d'export PDF ; description sur une seule ligne                                           |
+| Verrous de table                                                                                   |  🟡  | Un plugin annonce « fait » alors que le verrou a refusé                                      |
+| Historique, aperçu sur le graphe, restauration d'une seule table                                   |  🟡  | Rétention et compaction des révisions non décidées                                           |
+| Comparaison de deux projets, avec SQL de migration                                                 |  ✅  | Le diff contre une base réelle ne signale plus `decimal` ni les clés primaires à tort        |
+| Collaboration temps réel, présence, commentaires                                                   |  ✅  |                                                                                              |
+| Mentions `@` dans les commentaires                                                                 |  ✅  | Ancien commentaire sans identifiant d'auteur ; nom d'une mention non mis à jour au renommage |
+| Fusion par champ (deux personnes sur la même table)                                                |  ❌  |                                                                                              |
+| Points de passage des relations, détection d'une relation inversée                                 |  ❌  | Attend une décision du propriétaire                                                          |
+| Export Prisma / TypeORM / GraphQL / JSON Schema                                                    |  ❌  | Prévu sous forme de plugins                                                                  |
 
 ## 2. Projet racine et déclinaisons ★
 

@@ -2,17 +2,18 @@ import { lintProject, summarizeLint, type LintSettings } from "@athanordb/dbml-e
 import type { Project } from "@athanordb/shared";
 import { readProjectReadOnly } from "../../realtime/readOnlyProject.js";
 import { ApiError } from "../../shared/errors.js";
-import { getLintSettings } from "./repository.js";
+import { resolveProjectLint } from "./repository.js";
 
 /** Findings named in a refused deployment — enough to see what is wrong, not a second report. */
 const MAX_REPORTED = 20;
 
 /** What the linter says about a project as it is stored now. */
 export function lintReport(projectId: string, projectName: string) {
-  const settings = getLintSettings(projectId);
+  const { settings, source } = resolveProjectLint(projectId);
   const findings = lintProject(readProjectReadOnly(projectId, projectName), settings);
   return {
     profile: settings.profile,
+    source,
     blockDeployment: settings.blockDeployment,
     summary: summarizeLint(findings),
     findings,

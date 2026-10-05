@@ -149,9 +149,40 @@ soulignés dans l'éditeur DBML.
   colonne classée _personnel_ ou _sensible_ (voir le dictionnaire) dans une
   table qui ne l'est pas.
 
+**D'où viennent les règles d'un projet.** En haut de l'onglet Problèmes, un
+encadré dit si le projet suit un **modèle** de la bibliothèque de l'instance,
+le **modèle par défaut** de l'instance, les règles intégrées (aucun modèle par
+défaut) ou **sa propre version**. Les administrateurs du projet changent cette
+origine dans la liste de l'encadré. Modifier une règle d'un projet qui suit un
+modèle crée sa version propre, à partir des règles en vigueur ; choisir un
+modèle abandonne cette version.
+
+**Règles personnalisées.** Sous les réglages, un administrateur écrit ses
+propres règles : des noms de **tables** ou de **colonnes** qui doivent (ou ne
+doivent pas) correspondre à un motif — une expression régulière insensible à
+la casse, de 200 caractères au plus —, éventuellement limités aux tables dont
+le nom correspond à un autre motif, avec un niveau (erreur, avertissement,
+info, désactivée) et un message où `{table}` et `{column}` sont remplacés.
+Rien de ce qui est saisi n'est exécuté comme du code. Une règle personnalisée
+s'exempte comme une règle intégrée (« Ignorer pour cette table », ou
+`lint-ignore: custom:<identifiant>` dans la note de la table) et peut bloquer
+un déploiement si son niveau est erreur. Vingt règles au plus par jeu de
+réglages.
+
+**Bibliothèque de modèles (administrateurs de l'instance).** **Admin → Lint**
+liste les modèles : nom, description, nombre de projets qui le suivent. On y
+crée un modèle (les mêmes réglages et règles personnalisées qu'un projet, sans
+exceptions par table), on le modifie — les projets qui le suivent le voient
+aussitôt —, on le **définit par défaut** (il s'applique alors à tous les
+projets qui n'ont rien choisi), on l'**applique à des projets** (leur version
+propre est alors abandonnée) ou on le supprime (les projets qui le suivaient
+passent au modèle par défaut). Les projets qui avaient déjà des réglages avant
+l'arrivée des modèles gardent exactement les leurs, comme version propre.
+
 Ce que le linter ne fait pas : il ne regarde que la structure du schéma (pas
-les données ni la base déployée), et ses règles de nommage se limitent au
-`snake_case` — pas encore de motif de nom personnalisé.
+les données ni la base déployée), et ses règles intégrées de nommage se
+limitent au `snake_case` — un autre motif de nom s'écrit en règle
+personnalisée.
 
 ### Dictionnaire de données (onglet Dictionnaire)
 

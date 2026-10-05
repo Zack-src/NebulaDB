@@ -29,6 +29,9 @@ export const LINT_RULES = [
 ] as const;
 
 export type LintRuleId = (typeof LINT_RULES)[number];
+/** A rule written by an administrator rather than built in: `custom:<its id>`. */
+export type CustomLintRuleKey = `custom:${string}`;
+export type LintRuleKey = LintRuleId | CustomLintRuleKey;
 export type LintSeverity = "info" | "warning" | "error";
 export type LintLevel = LintSeverity | "off";
 export const LINT_LEVELS: readonly LintLevel[] = ["off", "info", "warning", "error"];
@@ -81,9 +84,31 @@ const PROFILE_LEVELS: Record<Exclude<LintProfile, "custom">, Record<LintRuleId, 
   },
 };
 
+/**
+ * A rule an administrator declares instead of coding it: names of tables or
+ * columns that must (or must not) match a pattern. Declarative on purpose —
+ * a setting never runs code. Patterns are case-insensitive regular
+ * expressions run against one name (255 characters at most), so a pathological
+ * pattern can only cost so much; they are also capped in length.
+ */
+export interface CustomLintRule {
+  /** Slug, unique in one set of settings; the rule's key is `custom:<id>`. */
+  id: string;
+  /** The title shown in the problems panel. */
+  label: string;
+  target: "table" | "column";
+  /** Limits the rule to tables whose name matches. Absent: every table. */
+  appliesTo?: string;
+  must: "match" | "not-match";
+  pattern: string;
+  level: LintLevel;
+  /** Template with `{table}` and `{column}`; the label when absent. */
+  message?: string;
+}
+
 /** One table excepted from one rule. Keyed by table id (stable across renames); the name is what the list shows. */
 export interface LintIgnore {
-  ruleId: LintRuleId;
+  ruleId: LintRuleKey;
   tableId: string;
   tableName: string;
 }
@@ -99,6 +124,8 @@ export interface LintSettings {
   requiredColumns: string[];
   /** Refuse a deployment while a finding of level `error` is open. */
   blockDeployment: boolean;
+  /** Rules written for this set of settings (at most `MAX_CUSTOM_RULES`). */
+  customRules: CustomLintRule[];
 }
 
 export const DEFAULT_LINT_SETTINGS: LintSettings = {
@@ -108,10 +135,11 @@ export const DEFAULT_LINT_SETTINGS: LintSettings = {
   forbiddenTypes: [],
   requiredColumns: [],
   blockDeployment: false,
+  customRules: [],
 };
 
 export interface LintFinding {
-  ruleId: LintRuleId;
+  ruleId: LintRuleKey;
   severity: LintSeverity;
   tableId: string;
   tableName: string;
@@ -127,6 +155,64 @@ export interface LintFinding {
 const MAX_LIST = 50;
 const MAX_IGNORES = 500;
 const MAX_NAME = 128;
+export const MAX_CUSTOM_RULES = 20;
+const MAX_PATTERN = 200;
+const MAX_LABEL = 80;
+const MAX_MESSAGE = 200;
+const CUSTOM_ID = /^[a-z0-9][a-z0-9-]{0,39}$/;
+
+/** Compiles an administrator's pattern; `null` when it is not a valid regular expression or is too long. */
+export function compileLintPattern(pattern: string): RegExp | null {
+  if (pattern.length === 0 || pattern.length > MAX_PATTERN) return null;
+  try {
+    return new RegExp(pattern, "i");
+  } catch {
+    return null;
+  }
+}
+
+/** `null` when `raw` is not a usable list of custom rules. */
+function parseCustomRules(raw: unknown): CustomLintRule[] | null {
+  if (raw === undefined) return [];
+  if (!Array.isArray(raw) || raw.length > MAX_CUSTOM_RULES) return null;
+  const rules: CustomLintRule[] = [];
+  const seen = new Set<string>();
+  for (const item of raw) {
+    const rule = (item ?? {}) as Record<string, unknown>;
+    if (typeof rule.id !== "string" || !CUSTOM_ID.test(rule.id) || seen.has(rule.id)) return null;
+    seen.add(rule.id);
+    if (typeof rule.label !== "string" || !rule.label.trim() || rule.label.length > MAX_LABEL) return null;
+    if (rule.target !== "table" && rule.target !== "column") return null;
+    if (rule.must !== "match" && rule.must !== "not-match") return null;
+    if (typeof rule.pattern !== "string" || !compileLintPattern(rule.pattern)) return null;
+    if (!LINT_LEVELS.includes(rule.level as LintLevel)) return null;
+    let appliesTo: string | undefined;
+    if (rule.appliesTo !== undefined && rule.appliesTo !== "") {
+      if (typeof rule.appliesTo !== "string" || !compileLintPattern(rule.appliesTo)) return null;
+      appliesTo = rule.appliesTo;
+    }
+    let message: string | undefined;
+    if (rule.message !== undefined && rule.message !== "") {
+      if (typeof rule.message !== "string" || rule.message.length > MAX_MESSAGE) return null;
+      message = rule.message;
+    }
+    rules.push({
+      id: rule.id,
+      label: rule.label.trim(),
+      target: rule.target,
+      ...(appliesTo ? { appliesTo } : {}),
+      must: rule.must,
+      pattern: rule.pattern,
+      level: rule.level as LintLevel,
+      ...(message ? { message } : {}),
+    });
+  }
+  return rules;
+}
+
+const isRuleKey = (value: unknown): value is LintRuleKey =>
+  typeof value === "string" &&
+  (LINT_RULES.includes(value as LintRuleId) || /^custom:[a-z0-9][a-z0-9-]{0,39}$/.test(value));
 
 function isStringList(value: unknown): value is string[] {
   return (
@@ -157,11 +243,11 @@ export function parseLintSettings(raw: unknown): LintSettings | null {
   const ignores = new Map<string, LintIgnore>();
   for (const item of rawIgnores) {
     const entry = (item ?? {}) as Record<string, unknown>;
-    if (!LINT_RULES.includes(entry.ruleId as LintRuleId)) return null;
+    if (!isRuleKey(entry.ruleId)) return null;
     if (typeof entry.tableId !== "string" || !entry.tableId || entry.tableId.length > MAX_NAME) return null;
     if (typeof entry.tableName !== "string" || entry.tableName.length > MAX_NAME) return null;
     ignores.set(`${entry.ruleId}:${entry.tableId}`, {
-      ruleId: entry.ruleId as LintRuleId,
+      ruleId: entry.ruleId,
       tableId: entry.tableId,
       tableName: entry.tableName,
     });
@@ -171,6 +257,8 @@ export function parseLintSettings(raw: unknown): LintSettings | null {
   const requiredColumns = body.requiredColumns ?? [];
   if (!isStringList(forbiddenTypes) || !isStringList(requiredColumns)) return null;
   if (body.blockDeployment !== undefined && typeof body.blockDeployment !== "boolean") return null;
+  const customRules = parseCustomRules(body.customRules);
+  if (!customRules) return null;
 
   return {
     profile: body.profile as LintProfile,
@@ -179,6 +267,7 @@ export function parseLintSettings(raw: unknown): LintSettings | null {
     forbiddenTypes: uniqueTrimmed(forbiddenTypes),
     requiredColumns: uniqueTrimmed(requiredColumns),
     blockDeployment: body.blockDeployment === true,
+    customRules,
   };
 }
 
@@ -199,7 +288,7 @@ const FLOAT_TYPES = new Set(["float", "float4", "float8", "real", "double", "dou
 const MONEY_NAME =
   /(^|_)(price|amount|total|subtotal|cost|balance|salary|fee|tax|vat|montant|prix|solde|tarif|tva)(_|$)/i;
 const TIMESTAMP_COLUMNS = ["created_at", "updated_at"];
-const IGNORE_NOTE = /lint-ignore:\s*([a-z0-9,\s-]+)/gi;
+const IGNORE_NOTE = /lint-ignore:\s*([a-z0-9,\s:-]+)/gi;
 
 /** Rules a table's own note excepts it from: `lint-ignore: pk-required, timestamps` (or `all`). */
 function rulesIgnoredByNote(table: Table): Set<string> {
@@ -226,7 +315,63 @@ const isSelfExplanatory = (field: Field) =>
 const isPersonal = (classification?: DataClassification) =>
   classification === "personal" || classification === "sensitive";
 
+/** Built-in rules in their declared order, custom ones after them. */
+const ruleOrder = (ruleId: LintRuleKey) => {
+  const index = LINT_RULES.indexOf(ruleId as LintRuleId);
+  return index < 0 ? LINT_RULES.length : index;
+};
+
 const SEVERITY_ORDER: Record<LintSeverity, number> = { error: 0, warning: 1, info: 2 };
+
+interface CompiledCustomRule {
+  rule: CustomLintRule;
+  pattern: RegExp;
+  appliesTo?: RegExp;
+}
+
+/** Custom rules compiled once; one that is off, or no longer compiles (a hand-edited row), is skipped, not fatal. */
+function compileCustomRules(rules: CustomLintRule[]): CompiledCustomRule[] {
+  const compiled: CompiledCustomRule[] = [];
+  for (const rule of rules) {
+    if (rule.level === "off") continue;
+    const pattern = compileLintPattern(rule.pattern);
+    const appliesTo = rule.appliesTo ? compileLintPattern(rule.appliesTo) : null;
+    if (!pattern || (rule.appliesTo && !appliesTo)) continue;
+    compiled.push({ rule, pattern, appliesTo: appliesTo ?? undefined });
+  }
+  return compiled;
+}
+
+/** What the custom rules find in one table; `excepted` says whether a rule's key is silenced for this table. */
+function customRuleFindings(
+  table: Table,
+  rules: CompiledCustomRule[],
+  excepted: (key: CustomLintRuleKey) => boolean,
+): LintFinding[] {
+  const findings: LintFinding[] = [];
+  for (const { rule, pattern, appliesTo } of rules) {
+    if (appliesTo && !appliesTo.test(table.name)) continue;
+    const key: CustomLintRuleKey = `custom:${rule.id}`;
+    if (excepted(key)) continue;
+    for (const field of rule.target === "table" ? [undefined] : table.fields) {
+      if (pattern.test(field ? field.name : table.name) === (rule.must === "match")) continue;
+      findings.push({
+        ruleId: key,
+        severity: rule.level as LintSeverity,
+        tableId: table.id,
+        tableName: table.name,
+        fieldId: field?.id,
+        fieldName: field?.name,
+        message: (rule.message ?? rule.label)
+          .replaceAll("{table}", table.name)
+          .replaceAll("{column}", field?.name ?? ""),
+        params: { table: table.name, ...(field ? { column: field.name } : {}), label: rule.label },
+        fixable: false,
+      });
+    }
+  }
+  return findings;
+}
 
 /** Every finding of the rules that are on, most severe first, then by table and rule. */
 export function lintProject(project: Project, settings: LintSettings = DEFAULT_LINT_SETTINGS): LintFinding[] {
@@ -234,6 +379,7 @@ export function lintProject(project: Project, settings: LintSettings = DEFAULT_L
   const ignoredInSettings = new Set(settings.ignores.map((ignore) => `${ignore.ruleId}:${ignore.tableId}`));
   const forbidden = new Set(settings.forbiddenTypes.map((type) => baseType(type)));
   const findings: LintFinding[] = [];
+  const customRules = compileCustomRules(settings.customRules);
 
   const foreignKeysByTable = new Map<string, Set<string>>();
   // Foreign-key columns whose relation does not say what deleting the referenced row does.
@@ -379,13 +525,22 @@ export function lintProject(project: Project, settings: LintSettings = DEFAULT_L
         columns: missingRequired.join(", "),
       });
     }
+
+    findings.push(
+      ...customRuleFindings(
+        table,
+        customRules,
+        (key) => ignoredInNote.has(key) || ignoredInNote.has("all") || ignoredInSettings.has(`${key}:${table.id}`),
+      ),
+    );
   }
 
   return findings.sort(
     (a, b) =>
       SEVERITY_ORDER[a.severity] - SEVERITY_ORDER[b.severity] ||
       a.tableName.localeCompare(b.tableName) ||
-      LINT_RULES.indexOf(a.ruleId) - LINT_RULES.indexOf(b.ruleId),
+      ruleOrder(a.ruleId) - ruleOrder(b.ruleId) ||
+      a.ruleId.localeCompare(b.ruleId),
   );
 }
 

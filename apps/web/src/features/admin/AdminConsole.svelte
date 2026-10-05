@@ -9,6 +9,7 @@
     { key: "errors", labelKey: "admin.section.errors" },
     { key: "connections", labelKey: "admin.section.connections" },
     { key: "environments", labelKey: "admin.section.environments" },
+    { key: "lint", labelKey: "admin.section.lint" },
   ] as const satisfies readonly { key: string; labelKey: TranslationKeyOf }[];
 
   type Section = (typeof SECTIONS)[number]["key"];
@@ -22,6 +23,7 @@
   import EnvironmentsTab from "@/features/admin/EnvironmentsTab.svelte";
   import ErrorsTab from "@/features/admin/ErrorsTab.svelte";
   import InvitationsTab from "@/features/admin/InvitationsTab.svelte";
+  import LintPresetsTab from "@/features/admin/lint/LintPresetsTab.svelte";
   import TeamsTab from "@/features/admin/TeamsTab.svelte";
   import UsersTab from "@/features/admin/UsersTab.svelte";
   import Button from "@/components/ui/Button.svelte";
@@ -65,6 +67,7 @@
       {#if section === "errors"}<ErrorsTab />{/if}
       {#if section === "connections"}<ConnectionsTab />{/if}
       {#if section === "environments"}<EnvironmentsTab />{/if}
+      {#if section === "lint"}<LintPresetsTab />{/if}
     </div>
   </div>
 </div>

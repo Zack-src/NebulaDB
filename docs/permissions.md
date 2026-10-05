@@ -37,42 +37,45 @@ There are two axes, and no others.
 
 ## Projects
 
-| Action                                                                              | view | edit | administrator |
-| ----------------------------------------------------------------------------------- | :--: | :--: | :-----------: |
-| Open the project, read schema, history, comments, team list                         |  ✔   |  ✔   |       ✔       |
-| Export DBML / SQL / image; compare with another project you can read                |  ✔   |  ✔   |       ✔       |
-| See cursors and presence (realtime)                                                 |  ✔   |  ✔   |       ✔       |
-| Edit the schema on the canvas or in the DBML editor (realtime)                      |      |  ✔   |       ✔       |
-| Import DBML / SQL into the project                                                  |      |  ✔   |       ✔       |
-| Set or remove a table's initial data (CSV seed); a `full` lock freezes it           |      |  ✔   |       ✔       |
-| Read the schema linter's rules and findings (`GET …/lint`, `/api/v1/…/lint`)        |  ✔   |  ✔   |       ✔       |
-| Follow the project, read one's own notifications about it                           |  ✔   |  ✔   |       ✔       |
-| Be notified of a deployment or rollback (when following them)                       |      |      |       ✔       |
-| Write a comment that mentions someone / be offered `@` suggestions                  |      |  ✔   |       ✔       |
-| Be told one was mentioned, or replied to, in a comment (followed or not)            |  ✔   |  ✔   |       ✔       |
-| Read the project's pipeline (`GET …/pipeline`)                                      |      |      |       ✔       |
-| Use `{{variables}}` in table names (a schema edit)                                  |      |  ✔   |       ✔       |
-| Compare two of the project's databases with each other                              |      |      |       ✔       |
-| Read or export the data dictionary (`/api/v1/…/dictionary`)                         |  ✔   |  ✔   |       ✔       |
-| Fill in the data dictionary (it writes notes: a schema edit; locks apply)           |      |  ✔   |       ✔       |
-| Apply a lint fix (it is a schema edit; locks apply)                                 |      |  ✔   |       ✔       |
-| Choose the lint profile, rule levels, exceptions, "errors block deployment"         |      |      |       ✔       |
-| Label a revision; restore a revision (whole or some tables), the snapshot           |      |  ✔   |       ✔       |
-| Rename, archive, trash, restore from trash, delete the project                      |      |      |       ✔       |
-| Grant or revoke a team on the project                                               |      |      |       ✔       |
-| Webhooks: list, create, edit, delete, test, read deliveries                         |      |      |       ✔       |
-| Database connections of the project: add, edit, remove, test                        |      |      |       ✔       |
-| List the project's connections (names and hosts, never the password)                |  ✔   |  ✔   |       ✔       |
-| Give, change, remove one's own account on a connection that asks for it             |      |      |       ✔       |
-| Pull a schema from a database; plan, apply and roll back a deployment               |      |      |       ✔       |
-| Deploy to / roll back on the production stage (connection name retyped)             |      |      |       ✔       |
-| Read deployment history                                                             |      |      |       ✔       |
-| See deployments and rollbacks on the history timeline                               |      |      |       ✔       |
-| See that a linked database was changed outside the schema (the banner)              |  ✔   |  ✔   |       ✔       |
-| Check what differs in the database; resynchronise; dismiss the banner               |      |      |       ✔       |
-| Watch (Déploiements → Surveillance): turn on / off, pace, ignored tables, check now |      |      |       ✔       |
-| See what the watch found about the structure                                        |  ✔   |  ✔   |       ✔       |
-| Be told the watch found accounts changed (database name and count, no names)        |      |      |       ✔       |
+| Action                                                                                                                           | view | edit | administrator |
+| -------------------------------------------------------------------------------------------------------------------------------- | :--: | :--: | :-----------: |
+| Open the project, read schema, history, comments, team list                                                                      |  ✔   |  ✔   |       ✔       |
+| Export DBML / SQL / image; compare with another project you can read                                                             |  ✔   |  ✔   |       ✔       |
+| See cursors and presence (realtime)                                                                                              |  ✔   |  ✔   |       ✔       |
+| Edit the schema on the canvas or in the DBML editor (realtime)                                                                   |      |  ✔   |       ✔       |
+| Import DBML / SQL into the project                                                                                               |      |  ✔   |       ✔       |
+| Set or remove a table's initial data (CSV seed); a `full` lock freezes it                                                        |      |  ✔   |       ✔       |
+| Read the schema linter's rules and findings (`GET …/lint`, `/api/v1/…/lint`)                                                     |  ✔   |  ✔   |       ✔       |
+| Follow the project, read one's own notifications about it                                                                        |  ✔   |  ✔   |       ✔       |
+| Be notified of a deployment or rollback (when following them)                                                                    |      |      |       ✔       |
+| Write a comment that mentions someone / be offered `@` suggestions                                                               |      |  ✔   |       ✔       |
+| Be told one was mentioned, or replied to, in a comment (followed or not)                                                         |  ✔   |  ✔   |       ✔       |
+| Read the project's pipeline (`GET …/pipeline`)                                                                                   |      |      |       ✔       |
+| Use `{{variables}}` in table names (a schema edit)                                                                               |      |  ✔   |       ✔       |
+| Compare two of the project's databases with each other                                                                           |      |      |       ✔       |
+| Read or export the data dictionary (`/api/v1/…/dictionary`)                                                                      |  ✔   |  ✔   |       ✔       |
+| Fill in the data dictionary (it writes notes: a schema edit; locks apply)                                                        |      |  ✔   |       ✔       |
+| Apply a lint fix (it is a schema edit; locks apply)                                                                              |      |  ✔   |       ✔       |
+| Choose the lint profile, rule levels, exceptions, custom rules, "errors block deployment" (this makes the project's own version) |      |      |       ✔       |
+| Follow a lint preset of the library, or the instance default (drops the project's own version)                                   |      |      |       ✔       |
+| See which lint preset a project follows (`GET …/lint` `source`)                                                                  |  ✔   |  ✔   |       ✔       |
+| List the presets on offer (`GET …/lint` `presets`)                                                                               |      |      |       ✔       |
+| Label a revision; restore a revision (whole or some tables), the snapshot                                                        |      |  ✔   |       ✔       |
+| Rename, archive, trash, restore from trash, delete the project                                                                   |      |      |       ✔       |
+| Grant or revoke a team on the project                                                                                            |      |      |       ✔       |
+| Webhooks: list, create, edit, delete, test, read deliveries                                                                      |      |      |       ✔       |
+| Database connections of the project: add, edit, remove, test                                                                     |      |      |       ✔       |
+| List the project's connections (names and hosts, never the password)                                                             |  ✔   |  ✔   |       ✔       |
+| Give, change, remove one's own account on a connection that asks for it                                                          |      |      |       ✔       |
+| Pull a schema from a database; plan, apply and roll back a deployment                                                            |      |      |       ✔       |
+| Deploy to / roll back on the production stage (connection name retyped)                                                          |      |      |       ✔       |
+| Read deployment history                                                                                                          |      |      |       ✔       |
+| See deployments and rollbacks on the history timeline                                                                            |      |      |       ✔       |
+| See that a linked database was changed outside the schema (the banner)                                                           |  ✔   |  ✔   |       ✔       |
+| Check what differs in the database; resynchronise; dismiss the banner                                                            |      |      |       ✔       |
+| Watch (Déploiements → Surveillance): turn on / off, pace, ignored tables, check now                                              |      |      |       ✔       |
+| See what the watch found about the structure                                                                                     |  ✔   |  ✔   |       ✔       |
+| Be told the watch found accounts changed (database name and count, no names)                                                     |      |      |       ✔       |
 
 Any account can create a project (and becomes its owner), create one from a database it has
 the credentials for, list the projects it can read, and search across them.
@@ -126,6 +129,9 @@ Instance administrator only (`requireAdmin`) — a project `administrator` has n
   teams to join and the database access to give on acceptance), list, revoke.
 - Teams: create, rename, delete, add and remove members, read a team's members. (Any account
   can read the list of team names, to grant one on a project it administers.)
+- The library of lint presets (Admin → Lint): create, edit, delete, make one the default, apply one to
+  projects (`/api/admin/lint-presets`). A preset's settings are rules only; an administrator who applies it
+  to a project replaces that project's own version.
 - Audit log and error log.
 - The database console, except what a database access grant opens below: instance-level
   connections (create, edit, delete, link to projects, health), drops, database users and

@@ -1,0 +1,3041 @@
+{
+  "criteria": {
+    "columns": [
+      {
+        "name": "id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": true
+      },
+      {
+        "name": "is_usable_prioritization",
+        "dataType": "nvarchar",
+        "maxLength": 255,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_type",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_nature",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "id"
+    ],
+    "foreignKeys": []
+  },
+  "criteria_hyperparameter_qualitative": {
+    "columns": [
+      {
+        "name": "id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": true
+      },
+      {
+        "name": "id_criteria_source",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_criteria_target",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "id"
+    ],
+    "foreignKeys": []
+  },
+  "criteria_hyperparameter_qualitative_backup": {
+    "columns": [
+      {
+        "name": "id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": true
+      },
+      {
+        "name": "id_criteria_source",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_criteria_target",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "criteria_hyperparameter_quantitative": {
+    "columns": [
+      {
+        "name": "id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": true
+      },
+      {
+        "name": "description",
+        "dataType": "nvarchar",
+        "maxLength": 255,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_group_criteria_target",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_group_criteria_source",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_model",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "id"
+    ],
+    "foreignKeys": []
+  },
+  "criteria_nature": {
+    "columns": [
+      {
+        "name": "id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": true
+      },
+      {
+        "name": "name",
+        "dataType": "nvarchar",
+        "maxLength": 255,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "id"
+    ],
+    "foreignKeys": []
+  },
+  "criteria_theme_list": {
+    "columns": [
+      {
+        "name": "id_theme",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "id_criteria",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "id_theme",
+      "id_criteria"
+    ],
+    "foreignKeys": []
+  },
+  "criteria_translation": {
+    "columns": [
+      {
+        "name": "id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": true
+      },
+      {
+        "name": "name",
+        "dataType": "nvarchar",
+        "maxLength": 255,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "description",
+        "dataType": "nvarchar",
+        "maxLength": 255,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "short_label",
+        "dataType": "nvarchar",
+        "maxLength": 255,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_language",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_criteria",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "id"
+    ],
+    "foreignKeys": []
+  },
+  "criteria_type": {
+    "columns": [
+      {
+        "name": "id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": true
+      },
+      {
+        "name": "name",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "id"
+    ],
+    "foreignKeys": []
+  },
+  "DbtQueryLog": {
+    "columns": [
+      {
+        "name": "log_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": true
+      },
+      {
+        "name": "model_name",
+        "dataType": "nvarchar",
+        "maxLength": 255,
+        "precision": null,
+        "scale": null,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "session_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "request_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "database_name",
+        "dataType": "nvarchar",
+        "maxLength": 128,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "start_time",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "end_time",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "duration_sec",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 6,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "duration_ms",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 3,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "cpu_sec",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 6,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "cpu_ms",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 3,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "wait_sec",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 6,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "wait_ms",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 3,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "requested_memory_MB",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 2,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "granted_memory_MB",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 2,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "used_memory_MB",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 2,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "max_used_memory_MB",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 2,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "requested_memory_GB",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 4,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "granted_memory_GB",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 4,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "used_memory_GB",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 4,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "max_used_memory_GB",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 4,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "degree_of_parallelism",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "wait_type",
+        "dataType": "nvarchar",
+        "maxLength": 60,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "blocking_session_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "tempdb_user_MB",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 2,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "tempdb_internal_MB",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 2,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "logical_reads",
+        "dataType": "bigint",
+        "maxLength": null,
+        "precision": 19,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "writes",
+        "dataType": "bigint",
+        "maxLength": null,
+        "precision": 19,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "row_count",
+        "dataType": "bigint",
+        "maxLength": null,
+        "precision": 19,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "query_status",
+        "dataType": "nvarchar",
+        "maxLength": 50,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "command_type",
+        "dataType": "nvarchar",
+        "maxLength": 50,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "query_text",
+        "dataType": "nvarchar",
+        "maxLength": -1,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "created_date",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "log_id"
+    ],
+    "foreignKeys": []
+  },
+  "group_criteria": {
+    "columns": [
+      {
+        "name": "id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": true
+      },
+      {
+        "name": "name",
+        "dataType": "nvarchar",
+        "maxLength": 255,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "id"
+    ],
+    "foreignKeys": []
+  },
+  "group_criteria_list": {
+    "columns": [
+      {
+        "name": "id_group_criteria",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "id_criteria",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "id_group_criteria",
+      "id_criteria"
+    ],
+    "foreignKeys": []
+  },
+  "hyperparameter": {
+    "columns": [
+      {
+        "name": "id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": true
+      },
+      {
+        "name": "class_name",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "id"
+    ],
+    "foreignKeys": []
+  },
+  "hyperparameter_backup": {
+    "columns": [
+      {
+        "name": "id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": true
+      },
+      {
+        "name": "class_name",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "hyperparameter_qualitative_list": {
+    "columns": [
+      {
+        "name": "id_hyperparameter",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "id_criteria_hyperparameter_qualitative",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "inferior_threshold",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 6,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "superior_threshold",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 6,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "id_hyperparameter",
+      "id_criteria_hyperparameter_qualitative"
+    ],
+    "foreignKeys": []
+  },
+  "hyperparameter_qualitative_list_backup": {
+    "columns": [
+      {
+        "name": "id_hyperparameter",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "id_criteria_hyperparameter_qualitative",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "inferior_threshold",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 6,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "superior_threshold",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 6,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "hyperparameter_quantitative": {
+    "columns": [
+      {
+        "name": "id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": true
+      },
+      {
+        "name": "name",
+        "dataType": "nvarchar",
+        "maxLength": 255,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "id"
+    ],
+    "foreignKeys": []
+  },
+  "hyperparameter_quantitative_list": {
+    "columns": [
+      {
+        "name": "id_hyperparameter_quantitative",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "id_criteria_hyperparameter_quantitative",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "value_dec",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "value_varchar",
+        "dataType": "nvarchar",
+        "maxLength": 255,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "id_hyperparameter_quantitative",
+      "id_criteria_hyperparameter_quantitative"
+    ],
+    "foreignKeys": []
+  },
+  "model": {
+    "columns": [
+      {
+        "name": "id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": true
+      },
+      {
+        "name": "name",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "number_input_criteria",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "number_output_criteria",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "id"
+    ],
+    "foreignKeys": []
+  },
+  "PAR01": {
+    "columns": [
+      {
+        "name": "month",
+        "dataType": "varchar",
+        "maxLength": 3,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "active",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "creator",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "tracker_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "last_updated_date",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR02": {
+    "columns": [
+      {
+        "name": "month",
+        "dataType": "varchar",
+        "maxLength": 3,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "active",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_trackers_package",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "tracker_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "last_updated_date",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR03": {
+    "columns": [
+      {
+        "name": "creator",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "description",
+        "dataType": "nvarchar",
+        "maxLength": -1,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "dimension_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_trackers_package",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "parameter",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "tag",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "threshold_value",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "last_updated_date",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR04": {
+    "columns": [
+      {
+        "name": "group_id",
+        "dataType": "bigint",
+        "maxLength": null,
+        "precision": 19,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "perimeter_id",
+        "dataType": "bigint",
+        "maxLength": null,
+        "precision": 19,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "year",
+        "dataType": "bigint",
+        "maxLength": null,
+        "precision": 19,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "month",
+        "dataType": "varchar",
+        "maxLength": -1,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR05": {
+    "columns": [
+      {
+        "name": "creator",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "default_indicator",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "description",
+        "dataType": "nvarchar",
+        "maxLength": -1,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "dimension_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "parameter",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "ref_perimeter_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "scenario_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "tag",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "threshold_set_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "threshold_type",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "threshold_value",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "last_updated_date",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR06": {
+    "columns": [
+      {
+        "name": "filter_value",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_filter",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "indicator_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "operator",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "rule_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "scenario_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "tracker_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "last_updated_date",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR06_bis": {
+    "columns": [
+      {
+        "name": "filter_value",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_filter",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "indicator_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "operator",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "rule_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "scenario_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "tracker_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "last_updated_date",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR07": {
+    "columns": [
+      {
+        "name": "id_criteria",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_function",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_params",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "indicator_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "priorisation_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "scenario_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "last_updated_date",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR08": {
+    "columns": [
+      {
+        "name": "creator",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "description",
+        "dataType": "nvarchar",
+        "maxLength": -1,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "historic_priorisation_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_algo",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "priorisation_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "statut",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "tag",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "last_updated_date",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR09": {
+    "columns": [
+      {
+        "name": "id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "is_active",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "type",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "last_updated_date",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR10": {
+    "columns": [
+      {
+        "name": "group_id",
+        "dataType": "bigint",
+        "maxLength": null,
+        "precision": 19,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "criteria_name",
+        "dataType": "varchar",
+        "maxLength": -1,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "training_id",
+        "dataType": "bigint",
+        "maxLength": null,
+        "precision": 19,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR11": {
+    "columns": [
+      {
+        "name": "comparable_perimeter",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_trackers_package",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "pod",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "priorisation_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "study",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "zone_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "last_updated_date",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR12": {
+    "columns": [
+      {
+        "name": "month",
+        "dataType": "varchar",
+        "maxLength": -1,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "year",
+        "dataType": "bigint",
+        "maxLength": null,
+        "precision": 19,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "training_id",
+        "dataType": "bigint",
+        "maxLength": null,
+        "precision": 19,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "perimeter_id",
+        "dataType": "bigint",
+        "maxLength": null,
+        "precision": 19,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR13": {
+    "columns": [
+      {
+        "name": "depth",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_config",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "ponderation",
+        "dataType": "numeric",
+        "maxLength": null,
+        "precision": 20,
+        "scale": 5,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "last_updated_date",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR14": {
+    "columns": [
+      {
+        "name": "creator",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_params",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "pos",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "value",
+        "dataType": "numeric",
+        "maxLength": null,
+        "precision": 20,
+        "scale": 5,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "last_updated_date",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR15": {
+    "columns": [
+      {
+        "name": "creator",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_algo",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_function",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "last_updated_date",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR16": {
+    "columns": [
+      {
+        "name": "perimeter_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "col_code",
+        "dataType": "varchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "config_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "default_indicator",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "hierarchy_table_name",
+        "dataType": "varchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "item_table_name",
+        "dataType": "varchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "model_outlier",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "threshold_outliers",
+        "dataType": "varchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "last_updated_date",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR18": {
+    "columns": [
+      {
+        "name": "id_target",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "target",
+        "dataType": "nvarchar",
+        "maxLength": 153,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "tracker_or_model",
+        "dataType": "varchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "last_updated_date",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR19": {
+    "columns": [
+      {
+        "name": "critical_threshold",
+        "dataType": "numeric",
+        "maxLength": null,
+        "precision": 20,
+        "scale": 5,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_kci",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "target_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "warning_threshold",
+        "dataType": "numeric",
+        "maxLength": null,
+        "precision": 20,
+        "scale": 5,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "last_updated_date",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR20": {
+    "columns": [
+      {
+        "name": "model_outlier",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "perimeter_train",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "last_updated_date",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR21": {
+    "columns": [
+      {
+        "name": "perimeter_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "default_indicator",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "dimension_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "par_value",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "parameter",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "scenario_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "script",
+        "dataType": "varchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "last_updated_date",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR22": {
+    "columns": [
+      {
+        "name": "source_tracker",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "tracker_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR23": {
+    "columns": [
+      {
+        "name": "criteria",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "description",
+        "dataType": "nvarchar",
+        "maxLength": -1,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_model",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "last_updated_date",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR27": {
+    "columns": [
+      {
+        "name": "active",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "main_perimeter_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "priorisation_active",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "tracker_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "last_updated_date",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR28": {
+    "columns": [
+      {
+        "name": "calibration_id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "mat_value",
+        "dataType": "numeric",
+        "maxLength": null,
+        "precision": 20,
+        "scale": 5,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "max_perf",
+        "dataType": "numeric",
+        "maxLength": null,
+        "precision": 20,
+        "scale": 5,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "min_perf",
+        "dataType": "numeric",
+        "maxLength": null,
+        "precision": 20,
+        "scale": 5,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "seuil_1",
+        "dataType": "numeric",
+        "maxLength": null,
+        "precision": 20,
+        "scale": 5,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "seuil_2",
+        "dataType": "numeric",
+        "maxLength": null,
+        "precision": 20,
+        "scale": 5,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "seuil_acc",
+        "dataType": "numeric",
+        "maxLength": null,
+        "precision": 20,
+        "scale": 5,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "seuil_cr",
+        "dataType": "numeric",
+        "maxLength": null,
+        "precision": 20,
+        "scale": 5,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "seuil_grav",
+        "dataType": "numeric",
+        "maxLength": null,
+        "precision": 20,
+        "scale": 5,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "seuil_mat",
+        "dataType": "numeric",
+        "maxLength": null,
+        "precision": 20,
+        "scale": 5,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "seuil_season",
+        "dataType": "numeric",
+        "maxLength": null,
+        "precision": 20,
+        "scale": 5,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "last_updated_date",
+        "dataType": "datetime",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR29": {
+    "columns": [
+      {
+        "name": "hyperparameters_id",
+        "dataType": "bigint",
+        "maxLength": null,
+        "precision": 19,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "class",
+        "dataType": "varchar",
+        "maxLength": -1,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "threshold_inf",
+        "dataType": "float",
+        "maxLength": null,
+        "precision": 53,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "threshold_up",
+        "dataType": "float",
+        "maxLength": null,
+        "precision": 53,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "creator",
+        "dataType": "varchar",
+        "maxLength": -1,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "last_updated_date",
+        "dataType": "date",
+        "maxLength": null,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR30": {
+    "columns": [
+      {
+        "name": "hyperparameters_id",
+        "dataType": "bigint",
+        "maxLength": null,
+        "precision": 19,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "training_id",
+        "dataType": "bigint",
+        "maxLength": null,
+        "precision": 19,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "class",
+        "dataType": "varchar",
+        "maxLength": -1,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "threshold_inf",
+        "dataType": "float",
+        "maxLength": null,
+        "precision": 53,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "threshold_up",
+        "dataType": "float",
+        "maxLength": null,
+        "precision": 53,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "PAR31": {
+    "columns": [
+      {
+        "name": "id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "critere",
+        "dataType": "nvarchar",
+        "maxLength": 200,
+        "precision": null,
+        "scale": null,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "id"
+    ],
+    "foreignKeys": []
+  },
+  "PAR32": {
+    "columns": [
+      {
+        "name": "id_group",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "id_critere",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "id_group",
+      "id_critere"
+    ],
+    "foreignKeys": [
+      {
+        "column": "id_critere",
+        "refTable": "PAR31",
+        "refColumn": "id"
+      }
+    ]
+  },
+  "PAR33": {
+    "columns": [
+      {
+        "name": "id_new_crit",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "id_used_crits",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "description",
+        "dataType": "nvarchar",
+        "maxLength": 400,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "id_new_crit"
+    ],
+    "foreignKeys": [
+      {
+        "column": "id_new_crit",
+        "refTable": "PAR31",
+        "refColumn": "id"
+      }
+    ]
+  },
+  "parameter_qualitative_list": {
+    "columns": [
+      {
+        "name": "id_hyperparameter",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "id_criteria_hyperparameter_qualitative",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "id_training",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "inferior_threshold",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 6,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "superior_threshold",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 6,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "parameter_qualitative_list_backup": {
+    "columns": [
+      {
+        "name": "id_hyperparameter",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "id_criteria_hyperparameter_qualitative",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "id_training",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "inferior_threshold",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 6,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "superior_threshold",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 6,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "parameter_quantitative_list": {
+    "columns": [
+      {
+        "name": "id_hyperparameter_quantitative",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "id_criteria_hyperparameter_quantitative",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "id_training",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "value_dec",
+        "dataType": "decimal",
+        "maxLength": null,
+        "precision": 18,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "value_varchar",
+        "dataType": "nvarchar",
+        "maxLength": 255,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "id_hyperparameter_quantitative",
+      "id_criteria_hyperparameter_quantitative",
+      "id_training"
+    ],
+    "foreignKeys": []
+  },
+  "period_perimeter": {
+    "columns": [
+      {
+        "name": "id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": true
+      },
+      {
+        "name": "year",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_period",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "id_perimeter",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "month",
+        "dataType": "varchar",
+        "maxLength": 3,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "id"
+    ],
+    "foreignKeys": []
+  },
+  "period_perimeter_backup": {
+    "columns": [
+      {
+        "name": "id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": true
+      },
+      {
+        "name": "year",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_period",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      },
+      {
+        "name": "id_perimeter",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "theme_criteria": {
+    "columns": [
+      {
+        "name": "id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": true
+      },
+      {
+        "name": "name",
+        "dataType": "nvarchar",
+        "maxLength": 255,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "id"
+    ],
+    "foreignKeys": []
+  },
+  "training": {
+    "columns": [
+      {
+        "name": "id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": true
+      },
+      {
+        "name": "name",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "id"
+    ],
+    "foreignKeys": []
+  },
+  "training_application_list": {
+    "columns": [
+      {
+        "name": "id_training",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "id_period_perimeter_apply",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "id_training",
+      "id_period_perimeter_apply"
+    ],
+    "foreignKeys": []
+  },
+  "training_application_list_backup": {
+    "columns": [
+      {
+        "name": "id_training",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "id_period_perimeter_apply",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "training_backup": {
+    "columns": [
+      {
+        "name": "id",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": true
+      },
+      {
+        "name": "name",
+        "dataType": "nvarchar",
+        "maxLength": 150,
+        "precision": null,
+        "scale": null,
+        "nullable": true,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  },
+  "training_train_list": {
+    "columns": [
+      {
+        "name": "id_period_perimeter_train",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "id_training",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [
+      "id_period_perimeter_train",
+      "id_training"
+    ],
+    "foreignKeys": []
+  },
+  "training_train_list_backup": {
+    "columns": [
+      {
+        "name": "id_period_perimeter_train",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      },
+      {
+        "name": "id_training",
+        "dataType": "int",
+        "maxLength": null,
+        "precision": 10,
+        "scale": 0,
+        "nullable": false,
+        "identity": false
+      }
+    ],
+    "primaryKey": [],
+    "foreignKeys": []
+  }
+}

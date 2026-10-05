@@ -12,7 +12,7 @@ import type {
   SeedResult,
   PersonalCredentialStatus,
 } from "@athanordb/shared";
-import type { LintRuleId, MigrationDiff, SchemaComparisonEntry } from "@athanordb/dbml-engine";
+import type { LintRuleKey, MigrationDiff, SchemaComparisonEntry } from "@athanordb/dbml-engine";
 import { request } from "./httpClient";
 
 export interface TestConnectionResponse {
@@ -36,7 +36,14 @@ export interface PlanDeploymentResponse {
     /** Lint findings of level error, when the project refuses to deploy with them; 0 otherwise. */
     lintErrors: number;
     /** The first of those findings — what the dialog names; `lintErrors` is the full count. */
-    lintFindings: { ruleId: LintRuleId; tableName: string; fieldName?: string; params: Record<string, string> }[];
+    lintFindings: {
+      ruleId: LintRuleKey;
+      tableName: string;
+      fieldName?: string;
+      /** The server's own sentence — the wording of a rule an administrator wrote. */
+      message: string;
+      params: Record<string, string>;
+    }[];
     /** The earlier stage that has to receive this schema first; `null` when none. */
     waitsForStage: string | null;
   };

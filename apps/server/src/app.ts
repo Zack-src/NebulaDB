@@ -35,6 +35,7 @@ import { registerSearchRoutes } from "./modules/search/routes.js";
 import { registerSeedRoutes } from "./modules/seeds/routes.js";
 import { registerGeneratorRoutes } from "./modules/generator/routes.js";
 import { registerMonitoringRoutes } from "./modules/monitoring/routes.js";
+import { registerLintPresetRoutes } from "./modules/lint/presetRoutes.js";
 import { registerLintRoutes } from "./modules/lint/routes.js";
 import { registerNotificationRoutes } from "./modules/notifications/routes.js";
 import { registerPipelineRoutes } from "./modules/pipeline/routes.js";
@@ -209,6 +210,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerGeneratorRoutes(app);
   registerMonitoringRoutes(app);
   registerLintRoutes(app);
+  registerLintPresetRoutes(app);
   registerNotificationRoutes(app);
   registerPipelineRoutes(app);
   registerBackupRoutes(app);

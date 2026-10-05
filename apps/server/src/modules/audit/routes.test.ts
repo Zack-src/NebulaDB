@@ -73,8 +73,11 @@ test("every audited action has a category on purpose", () => {
   assert.equal(activityCategory("dbuser.grant"), "accounts");
   assert.equal(activityCategory("project.delete"), "projects");
   assert.equal(activityCategory("environment.create"), "configuration");
+  assert.equal(activityCategory("lint.preset.create"), "configuration");
   assert.ok(
-    (byCategory.get("configuration") ?? []).every((a) => /^(connection|dbconn|environment|webhook|instance)\./.test(a)),
+    (byCategory.get("configuration") ?? []).every((a) =>
+      /^(connection|dbconn|environment|webhook|instance|lint)\./.test(a),
+    ),
     [...(byCategory.get("configuration") ?? [])].join(", "),
   );
 });

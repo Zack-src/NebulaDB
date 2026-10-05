@@ -24,6 +24,25 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Added — a library of lint presets, a default for every project, custom rules
+
+**Read before upgrading:** migration **38** adds the table `lint_presets` and the columns
+`lint_settings.preset_id` and `lint_settings.use_own`. Every project that already had lint
+settings keeps exactly those (they become its own version, `use_own = 1`); the library
+starts empty and no preset is the default, so nothing changes for anyone until an instance
+administrator creates one. `GET /api/projects/:id/lint` now answers `{ settings, source,
+presets }` (it answered `{ settings }`); `PUT` accepts `{ settings }` or `{ presetId }` and
+still accepts the settings as the whole body. `/api/v1/projects/:id/lint` adds `source`.
+
+Instance administrators manage a library of lint presets (Admin → Lint), mark one as the
+default for every project that chose none, and apply one to projects. A project follows a
+preset, the default, or keeps a version of its own (editing a rule makes it). Settings can
+carry up to 20 **custom rules**: declarative checks of table or column names against a
+case-insensitive regular expression (200 characters at most), optionally limited to some
+tables, with a level and a message. They are never run as code; they can block a
+deployment like any rule at level `error`, and be excepted per table
+(`lint-ignore: custom:<id>` in a note).
+
 ### Added — accounts watch, a database's journal, SQL console figures
 
 **Read before upgrading:** migration **37** adds `monitor_settings.watch_accounts` (off for

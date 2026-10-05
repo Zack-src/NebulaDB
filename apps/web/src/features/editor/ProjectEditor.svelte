@@ -660,6 +660,8 @@
       <ProblemsPanel
         findings={quality.findings}
         settings={lint.settings}
+        source={lint.source}
+        presets={lint.presets}
         canFix={quality.canEditTable}
         canManage={isProjectAdmin}
         onOpenTable={(tableName, fieldName) => {
@@ -668,6 +670,7 @@
         }}
         onFix={quality.fix}
         onSaveSettings={lint.save}
+        onChoosePreset={lint.choosePreset}
       />
     {/await}
   {:else if tab === "dictionary" && liveProject}

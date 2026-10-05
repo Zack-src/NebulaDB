@@ -4,6 +4,7 @@
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { CheckCircleIcon } from "@/components/icons/Icons";
+  import { lintMessage } from "@/features/editor/lint/lintText";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import type { PlanDeploymentResponse } from "@/services/connectionsApi";
 
@@ -106,7 +107,7 @@
         {#each plan.blockers.lintFindings as finding (`${finding.ruleId}:${finding.tableName}:${finding.fieldName ?? ""}`)}
           <li>
             <span class="font-mono font-semibold">{finding.tableName}</span>
-            — {t(`lint.rule.${finding.ruleId}.message` as "lint.rule.pk-required.message", finding.params)}
+            — {lintMessage(t, finding)}
           </li>
         {/each}
       </ul>

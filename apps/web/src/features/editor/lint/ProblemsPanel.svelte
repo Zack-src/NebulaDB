@@ -9,7 +9,10 @@
   import SegmentedControl from "@/components/ui/SegmentedControl.svelte";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
+  import type { LintPresetChoice, LintSource } from "@/services/lintApi";
   import LintSettingsCard from "./LintSettingsCard.svelte";
+  import LintSourceBar from "./LintSourceBar.svelte";
+  import { lintMessage, lintTitle } from "./lintText";
 
   /**
    * "Problèmes": what the schema linter finds, table by table, with the
@@ -20,14 +23,20 @@
   let {
     findings,
     settings,
+    source,
+    presets,
     canFix,
     canManage,
     onOpenTable,
     onFix,
     onSaveSettings,
+    onChoosePreset,
   }: {
     findings: LintFinding[];
     settings: LintSettings;
+    /** Where `settings` come from, and the presets a project administrator may pick. */
+    source: LintSource;
+    presets: LintPresetChoice[];
     /** Whether this table may be changed by this user: `edit` on the project, and no lock that binds them. */
     canFix: (tableId: string) => boolean;
     /** Project administrators choose the rules and the exceptions. */
@@ -35,6 +44,7 @@
     onOpenTable: (tableName: string, fieldName?: string) => void;
     onFix: (finding: LintFinding) => void;
     onSaveSettings: (settings: LintSettings) => Promise<void>;
+    onChoosePreset: (presetId: string | null) => Promise<void>;
   } = $props();
 
   const { t } = useTranslation();
@@ -62,9 +72,8 @@
     return [...byTable.values()];
   });
 
-  const message = (finding: LintFinding) =>
-    t(`lint.rule.${finding.ruleId}.message` as "lint.rule.pk-required.message", finding.params);
-  const ruleTitle = (finding: LintFinding) => t(`lint.rule.${finding.ruleId}.title` as "lint.rule.pk-required.title");
+  const message = (finding: LintFinding) => lintMessage(t, finding);
+  const ruleTitle = (finding: LintFinding) => lintTitle(t, finding);
 
   const save = useAsyncAction((next: LintSettings) => onSaveSettings(next));
   const ignore = (finding: LintFinding) =>
@@ -147,6 +156,7 @@
     {/if}
     {#if save.error}<ErrorText>{save.error}</ErrorText>{/if}
 
+    <LintSourceBar {source} {presets} {settings} {canManage} {onChoosePreset} onSaveOwn={onSaveSettings} />
     <LintSettingsCard {settings} {canManage} onSave={onSaveSettings} />
   </div>
 </div>

@@ -6,8 +6,10 @@
     resolveLintLevels,
     type LintIgnore,
     type LintLevel,
+    type CustomLintRule,
     type LintProfile,
     type LintRuleId,
+    type LintRuleKey,
     type LintSettings,
   } from "@athanordb/dbml-engine";
   import Icon from "@/components/icons/Icon.svelte";
@@ -21,6 +23,8 @@
   import Switch from "@/components/ui/Switch.svelte";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
+  import CustomRulesEditor from "./CustomRulesEditor.svelte";
+  import { isCustomRule } from "./lintText";
 
   /**
    * The linter's rules for this project: a profile, the level of each rule,
@@ -94,7 +98,11 @@
         (entry) => !(entry.ruleId === ignore.ruleId && entry.tableId === ignore.tableId),
       ),
     });
-  const ruleTitle = (ruleId: LintRuleId) => t(`lint.rule.${ruleId}.title` as "lint.rule.pk-required.title");
+  const ruleTitle = (ruleId: LintRuleKey) =>
+    isCustomRule(ruleId)
+      ? (settings.customRules.find((rule) => `custom:${rule.id}` === ruleId)?.label ?? ruleId.slice("custom:".length))
+      : t(`lint.rule.${ruleId}.title` as "lint.rule.pk-required.title");
+  const saveCustomRules = (customRules: CustomLintRule[]) => save.run({ ...settings, customRules }).then(() => {});
 </script>
 
 <section
@@ -181,6 +189,8 @@
     />
     <span>{t("lint.settings.blockDeployment")}</span>
   </div>
+
+  <CustomRulesEditor rules={settings.customRules} disabled={locked} onSave={async (rules) => void (await saveCustomRules(rules))} />
 
   {#if settings.ignores.length > 0}
     <h4 class="m-0 mt-3 text-label font-semibold text-text-secondary">{t("lint.settings.exceptions")}</h4>

@@ -331,3 +331,44 @@ test("migration 37 keeps every watch and finding as it was, with the accounts wa
   MIGRATIONS.find((m) => m.version === 37)!.up(db);
   assert.equal((db.prepare("SELECT COUNT(*) AS n FROM monitor_settings").get() as { n: number }).n, 2);
 });
+
+test("migration 38 keeps each project's lint settings as its own version, with an empty library", () => {
+  const db = freshDbMissingColumns();
+  for (const migration of MIGRATIONS.filter((m) => m.version < 38)) migration.up(db);
+  db.pragma("user_version = 37");
+  db.exec(`
+    INSERT INTO lint_settings (project_id, settings_json, updated_by_name) VALUES
+      ('p1', '{"profile":"strict","rules":{},"ignores":[],"forbiddenTypes":[],"requiredColumns":[],"blockDeployment":true}', 'Ana'),
+      ('p2', '{"profile":"relaxed"}', 'Bob');
+  `);
+
+  runMigrations(db);
+
+  // Until now a stored row was always the project's own version: it still is.
+  assert.deepEqual(db.prepare("SELECT project_id, preset_id, use_own FROM lint_settings ORDER BY 1").all(), [
+    { project_id: "p1", preset_id: null, use_own: 1 },
+    { project_id: "p2", preset_id: null, use_own: 1 },
+  ]);
+  assert.equal(
+    (
+      db.prepare("SELECT settings_json FROM lint_settings WHERE project_id = 'p1'").get() as { settings_json: string }
+    ).settings_json.includes("strict"),
+    true,
+  );
+  assert.ok(tableExists(db, "lint_presets"));
+  assert.equal((db.prepare("SELECT COUNT(*) AS n FROM lint_presets").get() as { n: number }).n, 0);
+
+  // Preset names are unique whatever the case.
+  const insert = (name: string) =>
+    db.prepare("INSERT INTO lint_presets (id, name, settings_json) VALUES (?, ?, '{}')").run(name, name);
+  insert("Company");
+  assert.throws(() => insert("company"), /UNIQUE/);
+
+  // Running it again changes nothing: a project that since chose a preset keeps it.
+  db.prepare("UPDATE lint_settings SET use_own = 0, preset_id = 'Company' WHERE project_id = 'p2'").run();
+  MIGRATIONS.find((m) => m.version === 38)!.up(db);
+  assert.deepEqual(db.prepare("SELECT project_id, preset_id, use_own FROM lint_settings ORDER BY 1").all(), [
+    { project_id: "p1", preset_id: null, use_own: 1 },
+    { project_id: "p2", preset_id: "Company", use_own: 0 },
+  ]);
+});

@@ -121,6 +121,7 @@ test("lint: defaults, who may change the rules, what is refused, and the public 
       forbiddenTypes: [],
       requiredColumns: [],
       blockDeployment: false,
+      customRules: [],
     });
     assert.equal((await call(app, viewer.cookie, "GET", url)).statusCode, 200);
     assert.equal((await call(app, stranger.cookie, "GET", url)).statusCode, 403);
@@ -223,6 +224,206 @@ test("lint: a deployment is refused on an error when the project asks for it, an
     const allowed = await deploy();
     assert.equal(allowed.statusCode, 200, allowed.body);
     assert.deepEqual(tablesInTarget(), ["widgets"]);
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
+
+async function loginAdmin(app: App) {
+  const session = await login(app);
+  db.prepare("UPDATE users SET is_admin = 1 WHERE id = ?").run(session.id);
+  return session;
+}
+
+const appPrefix = {
+  id: "app-prefix",
+  label: "Tables start with app_",
+  target: "table",
+  must: "match",
+  pattern: "^app_",
+  level: "error",
+};
+
+const orderPreset = (extra: Record<string, unknown> = {}) => ({
+  profile: "relaxed",
+  customRules: [appPrefix],
+  blockDeployment: true,
+  ...extra,
+});
+
+interface LintState {
+  settings: { profile: string; customRules: { id: string }[]; blockDeployment: boolean };
+  source: { kind: string; presetId?: string; presetName?: string };
+  presets: { id: string; name: string; isDefault: boolean }[];
+}
+
+test("lint presets: the library is for instance administrators, one is the default, a project follows or keeps its own", async () => {
+  const app = await buildApp();
+  try {
+    const admin = await loginAdmin(app);
+    const owner = await login(app);
+    const member = await login(app);
+    const project = await createProject(app, owner.cookie);
+    grant(project.id, member.id, "edit");
+    const url = `/api/projects/${project.id}/lint`;
+    const state = async (cookie = owner.cookie) => (await call(app, cookie, "GET", url)).json() as LintState;
+    const presetsUrl = "/api/admin/lint-presets";
+
+    // Not the project administrators', not members': only instance administrators.
+    assert.equal((await call(app, owner.cookie, "GET", presetsUrl)).statusCode, 403);
+    const forbidden = await call(app, owner.cookie, "POST", presetsUrl, { name: "x", settings: orderPreset() });
+    assert.equal(forbidden.statusCode, 403);
+
+    // Without any preset: the built-in defaults.
+    assert.equal((await state()).source.kind, "builtin");
+    assert.deepEqual((await state()).presets, []);
+
+    // Invalid settings are refused; a good preset is created, with a unique name.
+    const badRule = { ...appPrefix, pattern: "(" };
+    const refused = await call(app, admin.cookie, "POST", presetsUrl, {
+      name: "Bad",
+      settings: orderPreset({ customRules: [badRule] }),
+    });
+    assert.equal(refused.statusCode, 400);
+    assert.equal((refused.json() as { code: string }).code, "LINT_INVALID");
+    const created = await call(app, admin.cookie, "POST", presetsUrl, {
+      name: "Company",
+      description: "Our conventions",
+      settings: orderPreset(),
+    });
+    assert.equal(created.statusCode, 201);
+    const preset = (created.json() as { preset: { id: string; isDefault: boolean } }).preset;
+    assert.equal(preset.isDefault, false);
+    const same = await call(app, admin.cookie, "POST", presetsUrl, { name: "company", settings: orderPreset() });
+    assert.equal((same.json() as { code: string }).code, "LINT_PRESET_NAME_TAKEN");
+
+    // Not the default yet: the project keeps the built-in rules; only its administrators are offered the preset.
+    assert.equal((await state()).source.kind, "builtin");
+    assert.deepEqual(
+      (await state()).presets.map((p) => p.name),
+      ["Company"],
+    );
+    assert.deepEqual((await state(member.cookie)).presets, []);
+
+    // The default applies to every project that chose nothing.
+    const made = await call(app, admin.cookie, "PUT", `${presetsUrl}/default`, { id: preset.id });
+    assert.equal(made.statusCode, 200);
+    const viaDefault = await state();
+    assert.equal(viaDefault.source.kind, "default");
+    assert.equal(viaDefault.source.presetName, "Company");
+    assert.equal(viaDefault.settings.blockDeployment, true);
+    const report = (await call(app, member.cookie, "GET", `/api/v1/projects/${project.id}/lint`)).json() as Report & {
+      source: { kind: string };
+    };
+    assert.equal(report.source.kind, "default");
+    assert.ok(
+      report.findings.some((f) => f.ruleId === "custom:app-prefix" && f.severity === "error"),
+      "the custom rule runs",
+    );
+
+    // A project's own version wins, and is the project's alone.
+    const own = await call(app, owner.cookie, "PUT", url, { settings: { profile: "relaxed", customRules: [] } });
+    assert.equal((own.json() as LintState).source.kind, "own");
+    assert.equal((await state()).settings.customRules.length, 0);
+    assert.equal((await call(app, member.cookie, "PUT", url, { settings: { profile: "relaxed" } })).statusCode, 403);
+
+    // Back to the default, or to a chosen preset (which drops the own version).
+    const backToDefault = await call(app, owner.cookie, "PUT", url, { presetId: null });
+    assert.equal((backToDefault.json() as LintState).source.kind, "default");
+    const second = (
+      (
+        await call(app, admin.cookie, "POST", presetsUrl, { name: "Strict shop", settings: { profile: "strict" } })
+      ).json() as {
+        preset: { id: string };
+      }
+    ).preset;
+    const chosen = (await call(app, owner.cookie, "PUT", url, { presetId: second.id })).json() as LintState;
+    assert.equal(chosen.source.kind, "preset");
+    assert.equal(chosen.settings.profile, "strict");
+    assert.equal((await call(app, owner.cookie, "PUT", url, { presetId: "nope" })).statusCode, 404);
+    assert.equal((await call(app, owner.cookie, "PUT", url, { presetId: 3 })).statusCode, 400);
+
+    // Editing a preset reaches the projects that follow it; the list counts them.
+    await call(app, admin.cookie, "PUT", `${presetsUrl}/${second.id}`, { settings: { profile: "relaxed" } });
+    assert.equal((await state()).settings.profile, "relaxed");
+    const listed = (await call(app, admin.cookie, "GET", presetsUrl)).json() as {
+      presets: { id: string; projectCount: number }[];
+      defaultId: string;
+    };
+    assert.equal(listed.defaultId, preset.id);
+    assert.equal(listed.presets.find((p) => p.id === second.id)?.projectCount, 1);
+
+    // Deleting a preset detaches its projects, which fall back to the default.
+    const removed = (await call(app, admin.cookie, "DELETE", `${presetsUrl}/${second.id}`)).json() as {
+      detached: number;
+    };
+    assert.equal(removed.detached, 1);
+    assert.equal((await state()).source.kind, "default");
+    assert.equal((await call(app, admin.cookie, "DELETE", `${presetsUrl}/${second.id}`)).statusCode, 404);
+
+    // No default any more: the built-in rules.
+    await call(app, admin.cookie, "PUT", `${presetsUrl}/default`, { id: null });
+    assert.equal((await state()).source.kind, "builtin");
+
+    // Applying a preset to projects; unknown ids are skipped.
+    const applied = (
+      await call(app, admin.cookie, "POST", `${presetsUrl}/${preset.id}/apply`, { projectIds: [project.id, "ghost"] })
+    ).json();
+    assert.deepEqual(applied, { applied: 1, skipped: ["ghost"] });
+    assert.equal((await state()).source.kind, "preset");
+
+    const actions = (
+      db.prepare("SELECT action FROM audit_log WHERE action LIKE 'lint.preset.%'").all() as { action: string }[]
+    ).map((row) => row.action);
+    for (const action of ["create", "default", "update", "delete", "apply"]) {
+      assert.ok(actions.includes(`lint.preset.${action}`), action);
+    }
+
+    // What the project followed goes with the project.
+    assert.equal((await call(app, owner.cookie, "DELETE", `/api/projects/${project.id}`)).statusCode, 200);
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
+
+test("lint presets: a deployment is refused on the default preset's rules", async () => {
+  const app = await buildApp();
+  const file = join(mkdtempSync(join(tmpdir(), "athanordb-lint-preset-")), "target.sqlite");
+  try {
+    const admin = await loginAdmin(app);
+    const owner = await login(app);
+    const project = await createProject(app, owner.cookie);
+    const base = `/api/projects/${project.id}`;
+    const created = await call(app, owner.cookie, "POST", `${base}/connections`, {
+      name: "Local",
+      engine: "sqlite",
+      filePath: file,
+    });
+    const connId = (created.json() as { connection: { id: string } }).connection.id;
+    const blockers = async () =>
+      (await call(app, owner.cookie, "POST", `${base}/connections/${connId}/plan-deployment`, {})).json().blockers;
+
+    assert.equal((await blockers()).lintErrors, 0, "no preset: no refusal");
+    const preset = (
+      (
+        await call(app, admin.cookie, "POST", "/api/admin/lint-presets", { name: "Blocking", settings: orderPreset() })
+      ).json() as {
+        preset: { id: string };
+      }
+    ).preset;
+    await call(app, admin.cookie, "PUT", "/api/admin/lint-presets/default", { id: preset.id });
+    assert.equal((await blockers()).lintErrors, 1, "'widgets' lacks the app_ prefix: an error, and the default blocks");
+    const refused = await call(app, owner.cookie, "POST", `${base}/connections/${connId}/apply-deployment`, {});
+    assert.equal((refused.json() as { code: string }).code, "LINT_BLOCKS_DEPLOYMENT");
+    const target = new Database(file, { readonly: true });
+    try {
+      const tables = target.prepare("SELECT name FROM sqlite_master WHERE type = 'table'").all();
+      assert.deepEqual(tables, [], "nothing was deployed");
+    } finally {
+      target.close();
+    }
   } finally {
     closeAllRooms();
     await app.close();

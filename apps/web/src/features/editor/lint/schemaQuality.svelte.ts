@@ -11,6 +11,7 @@ import { getTablesMap, type Project } from "@athanordb/shared";
 import { toast } from "@/components/ui/toast.svelte";
 import type { SchemaFinding } from "@/features/editor/dbml/lint";
 import { i18n } from "@/i18n/i18n.svelte";
+import { lintMessage } from "./lintText";
 import { generateId } from "@/utils/id";
 
 const NO_FROZEN_TABLES: ReadonlySet<string> = new Set();
@@ -52,8 +53,7 @@ function groupBy(issues: ValidationIssue[], key: "tableId" | "refId"): Map<strin
 export class SchemaQuality {
   constructor(private readonly input: SchemaQualityInput) {}
 
-  private message = (finding: LintFinding) =>
-    i18n.t(`lint.rule.${finding.ruleId}.message` as "lint.rule.pk-required.message", finding.params);
+  private message = (finding: LintFinding) => lintMessage(i18n.t, finding);
 
   readonly findings = $derived.by((): LintFinding[] => {
     const project = this.input.project();

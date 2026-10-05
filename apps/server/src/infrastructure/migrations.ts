@@ -978,6 +978,35 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 38,
+    name: "lint_presets and lint_settings.preset_id / use_own",
+    up: (db) => {
+      // A library of lint rule sets, one of them the instance default. A
+      // project follows a preset, or the default, or keeps a version of its
+      // own: until now a project's row was always its own version, so every
+      // existing row becomes `use_own = 1` and nothing changes for them.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS lint_presets (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          description TEXT NOT NULL DEFAULT '',
+          settings_json TEXT NOT NULL,
+          is_default INTEGER NOT NULL DEFAULT 0,
+          created_by TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_lint_presets_name ON lint_presets(name COLLATE NOCASE);
+      `);
+      const columns = db.prepare("PRAGMA table_info(lint_settings)").all() as { name: string }[];
+      if (!columns.some((c) => c.name === "preset_id")) {
+        db.exec("ALTER TABLE lint_settings ADD COLUMN preset_id TEXT");
+        db.exec("ALTER TABLE lint_settings ADD COLUMN use_own INTEGER NOT NULL DEFAULT 0");
+        db.exec("UPDATE lint_settings SET use_own = 1");
+      }
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */

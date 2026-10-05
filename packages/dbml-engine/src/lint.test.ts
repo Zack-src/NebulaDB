@@ -295,6 +295,105 @@ test("settings from outside are checked", () => {
       forbiddenTypes: ["json"],
       requiredColumns: [],
       blockDeployment: true,
+      customRules: [],
     },
   );
+});
+
+const customSettings = (customRules: NonNullable<LintSettings["customRules"]>): LintSettings => ({
+  ...DEFAULT_LINT_SETTINGS,
+  customRules,
+});
+
+test("a custom rule flags a table name that does not match its pattern", () => {
+  const findings = lintProject(
+    project([cleanTable("t1", "app_users"), cleanTable("t2", "orders")]),
+    customSettings([
+      {
+        id: "app-prefix",
+        label: "Tables start with app_",
+        target: "table",
+        must: "match",
+        pattern: "^app_",
+        level: "warning",
+      },
+    ]),
+  ).filter((f) => f.ruleId === "custom:app-prefix");
+  assert.deepEqual(
+    findings.map((f) => [f.tableName, f.severity, f.message, f.fixable]),
+    [["orders", "warning", "Tables start with app_", false]],
+  );
+});
+
+test("a custom column rule can forbid a name, scoped to some tables, with a message template", () => {
+  const users = cleanTable("t1", "users", [field("t1-p", "password")]);
+  const logs = cleanTable("t2", "logs", [field("t2-p", "password")]);
+  const findings = lintProject(
+    project([users, logs]),
+    customSettings([
+      {
+        id: "no-password",
+        label: "No password column",
+        target: "column",
+        appliesTo: "^users$",
+        must: "not-match",
+        pattern: "^password$",
+        level: "error",
+        message: "{table}.{column} must not store a password",
+      },
+    ]),
+  ).filter((f) => f.ruleId === "custom:no-password");
+  assert.equal(findings.length, 1);
+  assert.equal(findings[0].tableName, "users");
+  assert.equal(findings[0].fieldName, "password");
+  assert.equal(findings[0].severity, "error");
+  assert.equal(findings[0].message, "users.password must not store a password");
+});
+
+test("a custom rule is silenced by a setting exception, by the table's note, and by level off", () => {
+  const rule = {
+    id: "app-prefix",
+    label: "Prefix",
+    target: "table" as const,
+    must: "match" as const,
+    pattern: "^app_",
+    level: "warning" as const,
+  };
+  const orders = cleanTable("t2", "orders");
+  const run = (settings: LintSettings, tables = [orders]) =>
+    lintProject(project(tables), settings).filter((f) => f.ruleId === "custom:app-prefix").length;
+
+  assert.equal(run(customSettings([rule])), 1);
+  assert.equal(run(customSettings([{ ...rule, level: "off" }])), 0);
+  assert.equal(
+    run({ ...customSettings([rule]), ignores: [{ ruleId: "custom:app-prefix", tableId: "t2", tableName: "orders" }] }),
+    0,
+  );
+  assert.equal(run(customSettings([rule]), [{ ...orders, note: "The orders. lint-ignore: custom:app-prefix" }]), 0);
+});
+
+test("custom rules are validated: pattern, duplicate id, limit, level, and settings stored before they existed", () => {
+  const base = { profile: "standard" };
+  const rule = { id: "r1", label: "R", target: "table", must: "match", pattern: "^a", level: "info" };
+  assert.deepEqual(parseLintSettings(base)?.customRules, [], "an older stored row has none");
+  assert.equal(parseLintSettings({ ...base, customRules: [rule] })?.customRules.length, 1);
+  assert.equal(
+    parseLintSettings({ ...base, customRules: [{ ...rule, pattern: "(" }] }),
+    null,
+    "invalid regular expression",
+  );
+  assert.equal(parseLintSettings({ ...base, customRules: [{ ...rule, pattern: "a".repeat(201) }] }), null, "too long");
+  assert.equal(parseLintSettings({ ...base, customRules: [{ ...rule, appliesTo: "[" }] }), null, "invalid scope");
+  assert.equal(parseLintSettings({ ...base, customRules: [rule, rule] }), null, "duplicate id");
+  assert.equal(parseLintSettings({ ...base, customRules: [{ ...rule, id: "Not A Slug" }] }), null, "bad id");
+  assert.equal(parseLintSettings({ ...base, customRules: [{ ...rule, level: "fatal" }] }), null, "bad level");
+  assert.equal(parseLintSettings({ ...base, customRules: [{ ...rule, target: "index" }] }), null, "bad target");
+  const many = Array.from({ length: 21 }, (_, i) => ({ ...rule, id: `r${i}` }));
+  assert.equal(parseLintSettings({ ...base, customRules: many }), null, "more than 20");
+  assert.equal(
+    parseLintSettings({ ...base, ignores: [{ ruleId: "custom:r1", tableId: "t1", tableName: "a" }] })?.ignores.length,
+    1,
+    "an exception can name a custom rule",
+  );
+  assert.equal(parseLintSettings({ ...base, ignores: [{ ruleId: "nope", tableId: "t1", tableName: "a" }] }), null);
 });

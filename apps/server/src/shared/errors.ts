@@ -109,8 +109,13 @@ export const ERROR_CATALOG = {
     status: 400,
     message:
       "lint: profile (relaxed, standard, strict, custom), rules (rule id: off, info, warning, error), ignores " +
-      "({ruleId, tableId, tableName}), forbiddenTypes, requiredColumns (names), blockDeployment (boolean)",
+      "({ruleId, tableId, tableName}), forbiddenTypes, requiredColumns (names), blockDeployment (boolean), " +
+      "customRules (at most 20: id slug, label, target table|column, optional appliesTo, must match|not-match, " +
+      "pattern — valid regular expressions of 200 characters at most —, level, optional message)",
   },
+  LINT_PRESET_NOT_FOUND: { status: 404, message: "no such lint preset" },
+  LINT_PRESET_NAME_TAKEN: { status: 409, message: "a lint preset already has that name" },
+  LINT_PRESET_LIMIT: { status: 409, message: "the library holds 100 lint presets at most" },
   BACKUP_INVALID: {
     status: 400,
     message:

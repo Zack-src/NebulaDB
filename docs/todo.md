@@ -1550,17 +1550,40 @@ version, snapshot_json, notes)` — a version is an explicit **"Publier vN"**, n
   public report, cascade on project delete, a SQLite deployment refused then allowed),
   `openapi.test.ts`, `e2e/lint.e2e.ts` (real browser: list, both fixes, profile, exception,
   custom rule, reload, squiggles, open in schema).
+  **Presets and custom rules — done 2026-10-05** (the owner's request: a library of lint
+  configurations managed by administrators, one applied to a project, one default for every
+  project that chose none, and a version each project may edit for its own exceptions and rules).
+  Migration 38: `lint_presets`, `lint_settings.preset_id` and `use_own` (every project that
+  had settings keeps them as its own version). `modules/lint/repository.ts#resolveProjectLint` is
+  the one place that decides a project's rules — own version, else its preset, else the instance
+  default preset, else the built-in ones — and the editor, `/api/v1` and the deployment check all
+  read it. `/api/admin/lint-presets` (instance administrators): list, create, edit, delete,
+  `PUT …/default`, `POST …/:id/apply`; `GET|PUT /api/projects/:id/lint` answers `{ settings,
+source, presets }` and takes `{ settings }` (own version) or `{ presetId }`. UI: Admin → Lint
+  (`features/admin/lint/`), the origin bar and the custom-rules editor in the Problèmes tab.
+  **Custom rules** are declarative — a case-insensitive regular expression (200 characters, 20
+  rules per settings) on a table or column name, an optional scope on the table name, a level
+  and a message with `{table}` / `{column}` — so a setting never runs code; the pattern runs
+  against names of 255 characters at most. They can block a deployment and be excepted
+  (`custom:<id>` in the settings' exceptions or in a note's `lint-ignore`). **Verified:**
+  `lint.test.ts` (engine), `lint/routes.test.ts` (rights, library, default, own version,
+  apply, deletion, deployment refused on the default's rules), `migrations.test.ts`,
+  `e2e/lint-presets.e2e.ts`. **Not verified by hand:** nobody has used the admin screen.
+  **Still to do:** a preset cannot hold per-table exceptions (they name one project's tables);
+  `applying` a preset drops a project's own version without asking its administrators (the
+  audit log keeps who did it); a regular expression can still be slow on a pathological
+  pattern (bounded by name length, not by time); no import / export of a preset between
+  instances; no `lint.changed` webhook.
   **Still to do:**
-  - Custom **name pattern** rules (a regular expression from a user runs on the server at every
-    deployment — needs a safe matcher or a restricted syntax first); pluralisation / prefix
-    conventions.
+  - Pluralisation / prefix conventions as built-in rules (a prefix is now a custom rule).
   - Per-**column** exceptions and annotations (needs the column identity of the prerequisites).
   - ~~The plan step could warn before "Deploy" is pressed~~ — done 2026-10-04: the plan answers
     `blockers` (`lintErrors`, `waitsForStage`) and the dialog shows them on its first step —
     and, since later that day, names the blocking findings (`lintFindings`, the first 20) with
     a button to the Problèmes tab (`lint/check.ts#blockingLintFindings`, covered by
     `e2e/lint.e2e.ts`). The read-only "check differences" dialog shows neither.
-  - Instance-wide default profile; rules per variant (Phase 35: inherit and tighten).
+  - ~~Instance-wide default profile~~ — the default preset (2026-10-05, above); rules per
+    variant (Phase 35: inherit and tighten).
   - Findings on enums and on types unknown to the target engine (a relation without
     `ON DELETE` is `fk-on-delete`, above); `fk-indexed` only sees single-column foreign keys
     (so does the model). None of the three new rules has a one-click fix.
