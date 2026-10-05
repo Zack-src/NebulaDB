@@ -1,14 +1,17 @@
 <script lang="ts">
-  import { MAX_TEXT_LENGTH, type Comment } from "@athanordb/shared";
+  import { MAX_TEXT_LENGTH, storeMentions, type Comment } from "@athanordb/shared";
   import { anchoredPlacement, provisionalPopoverStyle } from "@/actions/placement";
   import { portal } from "@/actions/portal";
   import Icon from "@/components/icons/Icon.svelte";
   import { CloseIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
-  import { TEXTAREA_SM_CLASS } from "@/components/ui/inputStyles";
+  import MentionTextArea, { type MentionCandidate } from "@/components/ui/MentionTextArea.svelte";
   import { useDismissablePopover } from "@/hooks/dismissablePopover.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { formatTimestamp } from "./formatTimestamp";
+  import CommentText from "./CommentText.svelte";
+  import { commentDraftLimit } from "./commentNotice";
+  import { searchMentionable } from "./mentionSearch";
 
   let {
     comments,
@@ -30,6 +33,7 @@
 
   const { t } = useTranslation();
   let draft = $state("");
+  let picked = $state<MentionCandidate[]>([]);
   let popover: HTMLDivElement | undefined = $state();
 
   useDismissablePopover(
@@ -41,8 +45,9 @@
   function submit() {
     const text = draft.trim();
     if (!text) return;
-    onAdd(text);
+    onAdd(storeMentions(text, picked));
     draft = "";
+    picked = [];
   }
 </script>
 
@@ -73,20 +78,20 @@
             </button>
           {/if}
         </div>
-        <div class="whitespace-pre-wrap break-words text-[12.5px] leading-[1.4] text-text-secondary">{c.text}</div>
+        <div class="whitespace-pre-wrap break-words text-[12.5px] leading-[1.4] text-text-secondary"><CommentText text={c.text} /></div>
       </div>
     {/each}
   </div>
   <div class="flex gap-1.5 border-t border-border p-2">
-    <textarea
-      class={`${TEXTAREA_SM_CLASS} flex-1`}
+    <MentionTextArea
+      variant="sm"
       bind:value={draft}
+      bind:picked
+      search={searchMentionable}
+      onsubmit={submit}
       placeholder={t("comments.placeholder")}
-      maxlength={MAX_TEXT_LENGTH}
-      onkeydown={(event) => {
-        if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) submit();
-      }}
-    ></textarea>
+      maxlength={commentDraftLimit(MAX_TEXT_LENGTH, picked.length)}
+    />
     <Button variant="primary" size="sm" onclick={submit} disabled={!draft.trim()}>{t("comments.post")}</Button>
   </div>
 </div>

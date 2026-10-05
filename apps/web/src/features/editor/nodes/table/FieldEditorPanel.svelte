@@ -9,6 +9,7 @@
     MAX_NOTE_LENGTH,
     MAX_TEXT_LENGTH,
     MAX_TYPE_LENGTH,
+    storeMentions,
     type Comment,
     type Field,
     type RefAction,
@@ -29,8 +30,11 @@
     TrashIcon,
   } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
-  import { TEXTAREA_SM_CLASS } from "@/components/ui/inputStyles";
   import { formatTimestamp } from "@/features/editor/comments/formatTimestamp";
+  import CommentText from "@/features/editor/comments/CommentText.svelte";
+  import { commentDraftLimit } from "@/features/editor/comments/commentNotice";
+  import { searchMentionable } from "@/features/editor/comments/mentionSearch";
+  import MentionTextArea, { type MentionCandidate } from "@/components/ui/MentionTextArea.svelte";
   import { useCloseOnViewportChange } from "@/hooks/closeOnViewportChange.svelte";
   import { useDismissablePopover } from "@/hooks/dismissablePopover.svelte";
   import { useDraftValue } from "@/hooks/draftValue.svelte";
@@ -85,6 +89,7 @@
 
   const { t } = useTranslation();
   let commentDraft = $state("");
+  let commentPicked = $state<MentionCandidate[]>([]);
   let popover: HTMLDivElement | undefined = $state();
 
   const update = (updates: Partial<Field> | ((current: Field) => Partial<Field>)) => onUpdateField?.(field.id, updates);
@@ -117,8 +122,9 @@
   function submitComment() {
     const text = commentDraft.trim();
     if (!text) return;
-    onAddComment(text);
+    onAddComment(storeMentions(text, commentPicked));
     commentDraft = "";
+    commentPicked = [];
   }
 
   useDismissablePopover(
@@ -372,21 +378,21 @@
                 </button>
               {/if}
             </div>
-            <div class="whitespace-pre-wrap break-words text-[12.5px] leading-[1.4] text-text-secondary">{comment.text}</div>
+            <div class="whitespace-pre-wrap break-words text-[12.5px] leading-[1.4] text-text-secondary"><CommentText text={comment.text} /></div>
           </div>
         {/each}
       </div>
     {/if}
     <div class="flex gap-1.5">
-      <textarea
-        class={`${TEXTAREA_SM_CLASS} flex-1`}
+      <MentionTextArea
+        variant="sm"
         bind:value={commentDraft}
+        bind:picked={commentPicked}
+        search={searchMentionable}
+        onsubmit={submitComment}
         placeholder={t("comments.placeholder")}
-        maxlength={MAX_TEXT_LENGTH}
-        onkeydown={(event) => {
-          if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) submitComment();
-        }}
-      ></textarea>
+        maxlength={commentDraftLimit(MAX_TEXT_LENGTH, commentPicked.length)}
+      />
       <Button variant="primary" size="sm" onclick={submitComment} disabled={!commentDraft.trim()}>
         {t("comments.post")}
       </Button>

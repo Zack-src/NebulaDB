@@ -73,8 +73,11 @@
         return t(params.locked ? "notifications.lock.placed" : "notifications.lock.lifted", values);
       case "seed":
         return t(params.removed ? "notifications.seed.removed" : "notifications.seed.set", values);
+      case "mention":
+      case "reply":
+        return t(`notifications.${event}.${params.column ? "column" : "table"}`, values);
       default:
-        return t("notifications.drift", values);
+        return t(params.kind === "accounts" ? "notifications.driftAccounts" : "notifications.drift", values);
     }
   }
 

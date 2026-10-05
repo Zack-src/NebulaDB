@@ -15,6 +15,9 @@ import type { ValidationIssue } from "@athanordb/dbml-engine";
 import type { TableNodeType } from "@/features/editor/nodes/nodeTypes";
 import type { FieldRefInfo } from "@/features/editor/nodes/table/fieldRefInfo";
 import { NO_TABLE_LOCKS, canOverrideLock, type TableLocksView } from "@/features/editor/locks/tableLocks.svelte";
+import { buildCommentNotice } from "@/features/editor/comments/commentNotice";
+import { commentsSession } from "@/features/editor/comments/commentsSession";
+import { postCommentNotice } from "@/services/commentsApi";
 import { generateId } from "@/utils/id";
 import { DEFAULT_TABLE_HEIGHT, DEFAULT_TABLE_WIDTH } from "@/features/editor/edges/refGeometry";
 import { readCachedTableNode, type TableNodeCache } from "./tableNodeCache";
@@ -221,11 +224,16 @@ export function buildTableNodes(
           const comment: Comment = {
             id: generateId(),
             author: user,
+            authorId: commentsSession.get()?.userId,
             text,
             createdAt: new Date().toISOString(),
             fieldId,
           };
           tables_.set(table.id, { ...current, comments: [...(current.comments ?? []), comment] });
+          // Comments live in the document, which the server does not read for them: say who it is addressed to.
+          const session = commentsSession.get();
+          const notice = buildCommentNotice(current, comment, session?.userId);
+          if (session && notice) void postCommentNotice(session.projectId, notice).catch(() => {});
         },
         onDeleteComment: (commentId: string) => {
           const tables_ = getTablesMap(doc);

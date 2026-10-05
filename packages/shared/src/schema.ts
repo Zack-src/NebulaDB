@@ -79,6 +79,9 @@ export function defaultDetailLevelForNewTable(existingTables: Table[]): DetailLe
 export interface Comment {
   id: Id;
   author: string;
+  /** The author's account, so a reply can tell who wrote in the thread. Absent on older comments. */
+  authorId?: string;
+  /** May hold `@[Name](account-id)` mentions — see `commentMentions.ts`. */
   text: string;
   createdAt: string;
   /** Present -> comment on that field; absent -> comment on the table itself. */
@@ -189,6 +192,12 @@ export interface PersonalCredentialStatus {
   /** `null` when the user has given no account. */
   username: string | null;
   updatedAt: string | null;
+  /**
+   * The account name an instance administrator associated with this user on
+   * this connection, to pre-fill "Mon compte SQL". Present only when one was
+   * set; the password is always the person's own to type.
+   */
+  suggestedUsername?: string;
 }
 
 /** Someone who has given an account on a connection — what its administrators see. */
