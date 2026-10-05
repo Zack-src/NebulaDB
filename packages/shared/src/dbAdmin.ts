@@ -118,6 +118,68 @@ export interface DbQueryStat {
   lastUserName: string | null;
 }
 
+/**
+ * The server's own cumulative counters, as one read. A field is `null` when
+ * the engine has no such counter (or the account may not read it) — never
+ * an estimate. `queriesKind` says what "queries" counts here.
+ */
+export interface DbServerCounters {
+  queries: number | null;
+  queriesKind: "statements" | "transactions" | "batches" | "calls";
+  bytesOut: number | null;
+  bytesIn: number | null;
+  rows: number | null;
+}
+
+/** A session waiting for a lock another one holds. */
+export interface DbBlocking {
+  blocked: string;
+  blocker: string;
+}
+
+/** The "Santé" tab of a connection: every part is `null` when the engine or the account cannot give it. */
+export interface DbHealthBoard {
+  status: { ok: boolean; version: string | null; latencyMs: number | null; checkedAt: string | null; error: string | null };
+  /** Latency of the last probes, oldest first (7 days kept). */
+  history: { at: string; ok: boolean; latencyMs: number }[];
+  databases: { name: string; sizeBytes: number | null; system: boolean }[] | null;
+  sessions: { total: number; active: number; idle: number; longestSeconds: number | null; longestUser: string | null } | null;
+  blocking: DbBlocking[] | null;
+}
+
+/** One period of traffic, the difference between two reads of the counters. */
+export interface DbTrafficBucket {
+  start: string;
+  queries: number | null;
+  bytesOut: number | null;
+  bytesIn: number | null;
+  rows: number | null;
+}
+
+/** One session fingerprint the database server showed, summed over the period. */
+export interface DbActivityEntry {
+  fingerprint: string;
+  user: string | null;
+  database: string | null;
+  client: string | null;
+  state: string | null;
+  /** Literals masked; empty for a connection seen with no statement. */
+  sql: string;
+  /** In how many samples it appeared. */
+  seen: number;
+  maxSeconds: number;
+  firstAt: string;
+  lastAt: string;
+  /** The account is one Athanor signs in with here (by name only). */
+  knownAccount: boolean;
+}
+
+export interface DbActivityWatch {
+  enabled: boolean;
+  lastSampledAt: string | null;
+  lastError: string | null;
+}
+
 export type DbQueryStatSort = "frequency" | "slowest" | "total";
 
 export type DbPrincipalKind = "user" | "role";

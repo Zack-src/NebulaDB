@@ -6,6 +6,8 @@ import type {
   DbAdminQueryResult,
   DbAdminSchema,
   DbAdminSession,
+  DbBlocking,
+  DbServerCounters,
   DbAdminTable,
   DbAdminTableDescription,
   DbGrant,
@@ -433,6 +435,28 @@ export class OracleAdminDriver implements DatabaseAdminDriver {
       query: r.SQL_TEXT ? r.SQL_TEXT.slice(0, 2000) : null,
       durationSeconds: toNumber(r.SECONDS),
     }));
+  }
+
+  async listBlocking(): Promise<DbBlocking[]> {
+    const rows = await this.rows<{ BLOCKED: number; BLOCKER: number }>(
+      "SELECT sid AS blocked, blocking_session AS blocker FROM v$session WHERE blocking_session IS NOT NULL",
+    ).catch(() => []);
+    return rows.map((r) => ({ blocked: String(r.BLOCKED), blocker: String(r.BLOCKER) }));
+  }
+
+  async readCounters(): Promise<DbServerCounters> {
+    const rows = await this.rows<{ NAME: string; VALUE: number | string }>(
+      `SELECT name, value FROM v$sysstat
+        WHERE name IN ('user calls', 'bytes sent via SQL*Net to client', 'bytes received via SQL*Net from client')`,
+    ).catch(() => []);
+    const value = (name: string) => toNumber(rows.find((r) => r.NAME === name)?.VALUE);
+    return {
+      queries: value("user calls"),
+      queriesKind: "calls",
+      bytesOut: value("bytes sent via SQL*Net to client"),
+      bytesIn: value("bytes received via SQL*Net from client"),
+      rows: null,
+    };
   }
 
   killSessionStatements(id: string): AdminStatement[] {

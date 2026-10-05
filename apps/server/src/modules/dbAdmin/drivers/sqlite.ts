@@ -6,6 +6,8 @@ import type {
   DbAdminQueryResult,
   DbAdminSchema,
   DbAdminSession,
+  DbBlocking,
+  DbServerCounters,
   DbAdminTable,
   DbAdminTableDescription,
   DbGrant,
@@ -169,6 +171,14 @@ export class SqliteAdminDriver implements DatabaseAdminDriver {
 
   userStatements(): AdminStatement[] {
     throw unsupported("user management");
+  }
+
+  async listBlocking(): Promise<DbBlocking[]> {
+    throw unsupported("lock monitoring");
+  }
+
+  async readCounters(): Promise<DbServerCounters> {
+    throw unsupported("server counters");
   }
 
   async listSessions(): Promise<DbAdminSession[]> {

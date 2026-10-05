@@ -5,6 +5,8 @@ import type {
   DbAdminQueryResult,
   DbAdminSchema,
   DbAdminSession,
+  DbBlocking,
+  DbServerCounters,
   DbAdminTable,
   DbAdminTableDescription,
   DbGrant,
@@ -57,6 +59,10 @@ export interface DatabaseAdminDriver {
   userStatements(action: DbUserAction): AdminStatement[];
 
   listSessions(): Promise<DbAdminSession[]>;
+  /** Sessions waiting on a lock, with the session holding it; empty where the engine cannot say. */
+  listBlocking(): Promise<DbBlocking[]>;
+  /** The server's cumulative traffic counters; fields the engine does not have are `null`. */
+  readCounters(): Promise<DbServerCounters>;
   killSessionStatements(id: string): AdminStatement[];
 
   execute(statements: AdminStatement[], database?: string): Promise<void>;

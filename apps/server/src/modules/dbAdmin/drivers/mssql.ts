@@ -6,6 +6,8 @@ import type {
   DbAdminQueryResult,
   DbAdminSchema,
   DbAdminSession,
+  DbBlocking,
+  DbServerCounters,
   DbAdminTable,
   DbAdminTableDescription,
   DbGrant,
@@ -493,6 +495,22 @@ export class MssqlAdminDriver implements DatabaseAdminDriver {
           : [plain(`REVOKE ${privileges}${on} FROM ${who} CASCADE`)];
       }
     }
+  }
+
+  async listBlocking(): Promise<DbBlocking[]> {
+    const rows = await this.rows<{ blocked: number; blocker: number }>(
+      "SELECT session_id AS blocked, blocking_session_id AS blocker FROM sys.dm_exec_requests WHERE blocking_session_id <> 0",
+    ).catch(() => []);
+    return rows.map((r) => ({ blocked: String(r.blocked), blocker: String(r.blocker) }));
+  }
+
+  async readCounters(): Promise<DbServerCounters> {
+    // Needs VIEW SERVER STATE; without it the counters are simply unavailable. No cumulative byte totals exist.
+    const rows = await this.rows<{ v: string | number }>(
+      `SELECT cntr_value AS v FROM sys.dm_os_performance_counters
+        WHERE counter_name LIKE 'Batch Requests/sec%' AND object_name LIKE '%SQL Statistics%'`,
+    ).catch(() => []);
+    return { queries: toNumber(rows[0]?.v), queriesKind: "batches", bytesOut: null, bytesIn: null, rows: null };
   }
 
   async listSessions(): Promise<DbAdminSession[]> {

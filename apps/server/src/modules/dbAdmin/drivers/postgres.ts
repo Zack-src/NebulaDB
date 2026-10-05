@@ -6,6 +6,8 @@ import type {
   DbAdminQueryResult,
   DbAdminSchema,
   DbAdminSession,
+  DbBlocking,
+  DbServerCounters,
   DbAdminTable,
   DbAdminTableDescription,
   DbGrant,
@@ -413,6 +415,29 @@ export class PostgresAdminDriver implements DatabaseAdminDriver {
       query: r.query ? r.query.slice(0, 2000) : null,
       durationSeconds: r.seconds === null ? null : Math.round(Number(r.seconds)),
     }));
+  }
+
+  async listBlocking(): Promise<DbBlocking[]> {
+    const rows = await this.rows<{ blocked: number; blocker: number }>(
+      `SELECT pid AS blocked, unnest(pg_blocking_pids(pid)) AS blocker
+         FROM pg_stat_activity WHERE cardinality(pg_blocking_pids(pid)) > 0`,
+    );
+    return rows.map((r) => ({ blocked: String(r.blocked), blocker: String(r.blocker) }));
+  }
+
+  async readCounters(): Promise<DbServerCounters> {
+    // This database's own counters: PostgreSQL counts transactions, not statements, and has no byte totals.
+    const [row] = await this.rows<{ q: string | null; r: string | null }>(
+      `SELECT xact_commit + xact_rollback AS q, tup_returned + tup_fetched AS r
+         FROM pg_stat_database WHERE datname = current_database()`,
+    );
+    return {
+      queries: toNumber(row?.q),
+      queriesKind: "transactions",
+      bytesOut: null,
+      bytesIn: null,
+      rows: toNumber(row?.r),
+    };
   }
 
   killSessionStatements(id: string): AdminStatement[] {

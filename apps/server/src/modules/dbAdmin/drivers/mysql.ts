@@ -6,6 +6,8 @@ import type {
   DbAdminQueryResult,
   DbAdminSchema,
   DbAdminSession,
+  DbBlocking,
+  DbServerCounters,
   DbAdminTable,
   DbAdminTableDescription,
   DbGrant,
@@ -486,6 +488,28 @@ export class MysqlAdminDriver implements DatabaseAdminDriver {
       query: r.INFO ? String(r.INFO).slice(0, 2000) : null,
       durationSeconds: toNumber(r.TIME),
     }));
+  }
+
+  async listBlocking(): Promise<DbBlocking[]> {
+    // The `sys` schema may be missing or unreadable: then nothing can be said.
+    const rows = await this.rows<{ blocked: string | number; blocker: string | number }>(
+      "SELECT waiting_pid AS blocked, blocking_pid AS blocker FROM sys.innodb_lock_waits",
+    ).catch(() => []);
+    return rows.map((r) => ({ blocked: String(r.blocked), blocker: String(r.blocker) }));
+  }
+
+  async readCounters(): Promise<DbServerCounters> {
+    const rows = await this.rows<{ Variable_name: string; Value: string }>(
+      "SHOW GLOBAL STATUS WHERE Variable_name IN ('Questions', 'Bytes_sent', 'Bytes_received')",
+    );
+    const value = (name: string) => toNumber(rows.find((r) => r.Variable_name === name)?.Value);
+    return {
+      queries: value("Questions"),
+      queriesKind: "statements",
+      bytesOut: value("Bytes_sent"),
+      bytesIn: value("Bytes_received"),
+      rows: null,
+    };
   }
 
   killSessionStatements(id: string): AdminStatement[] {

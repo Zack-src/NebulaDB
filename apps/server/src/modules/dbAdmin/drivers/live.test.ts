@@ -226,6 +226,8 @@ for (const engine of ["postgres", "mysql", "mssql"] as const) {
       assert.equal((await driver.listPrincipals()).find((p) => p.name === user.name)?.canLogin, true);
 
       assert.ok(Array.isArray(await driver.listSessions()));
+      const counters = await driver.readCounters();
+      assert.ok(counters.queries === null || counters.queries >= 0, "queries counter");
       assert.throws(() => driver.killSessionStatements("1; DROP TABLE items"), { code: "DB_ADMIN_INPUT_INVALID" });
 
       // Drops, smallest first.
@@ -338,6 +340,8 @@ test("oracle admin driver: explore, query with the read-only guard, manage a use
     assert.equal(principals.find((p) => p.name === "SYS")?.system, true);
 
     assert.ok(Array.isArray(await driver.listSessions()));
+    const counters = await driver.readCounters();
+    assert.ok(counters.queries === null || counters.queries >= 0, "queries counter");
     assert.throws(() => driver.killSessionStatements("12"), { code: "DB_ADMIN_INPUT_INVALID" });
 
     await driver.execute(driver.dropStatements("column", { ...table, column: "NOTE" }));

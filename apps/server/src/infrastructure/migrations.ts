@@ -1007,6 +1007,74 @@ export const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 39,
+    name: "db_activity and db_activity_watch (database-side sessions)",
+    up: (db) => {
+      // What a database server says is connected and running, per connection,
+      // session fingerprint and UTC day (statement shapes only, literals
+      // masked), and which connections are sampled on a schedule.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS db_activity (
+          connection_id TEXT NOT NULL,
+          fingerprint TEXT NOT NULL,
+          day TEXT NOT NULL,
+          db_user TEXT,
+          database_name TEXT,
+          client TEXT,
+          state TEXT,
+          normalized_sql TEXT NOT NULL DEFAULT '',
+          seen INTEGER NOT NULL DEFAULT 1,
+          max_seconds INTEGER NOT NULL DEFAULT 0,
+          first_at TEXT NOT NULL,
+          last_at TEXT NOT NULL,
+          PRIMARY KEY (connection_id, fingerprint, day)
+        );
+        CREATE INDEX IF NOT EXISTS idx_db_activity_day ON db_activity(day);
+        CREATE TABLE IF NOT EXISTS db_activity_watch (
+          connection_id TEXT PRIMARY KEY,
+          enabled INTEGER NOT NULL DEFAULT 0,
+          last_sampled_at TEXT,
+          last_error TEXT
+        );
+      `);
+    },
+  },
+  {
+    version: 40,
+    name: "db_counter_samples (server-side traffic counters)",
+    up: (db) => {
+      // Cumulative counters as the server reported them at each sample;
+      // traffic is the difference between two reads. NULL: not available.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS db_counter_samples (
+          connection_id TEXT NOT NULL,
+          taken_at TEXT NOT NULL,
+          queries INTEGER,
+          queries_kind TEXT NOT NULL,
+          bytes_out INTEGER,
+          bytes_in INTEGER,
+          rows_read INTEGER,
+          PRIMARY KEY (connection_id, taken_at)
+        );
+      `);
+    },
+  },
+  {
+    version: 41,
+    name: "db_health_samples (latency of the last probes)",
+    up: (db) => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS db_health_samples (
+          connection_id TEXT NOT NULL,
+          at TEXT NOT NULL DEFAULT (datetime('now')),
+          ok INTEGER NOT NULL,
+          latency_ms INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_db_health_samples ON db_health_samples(connection_id, at);
+      `);
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */
