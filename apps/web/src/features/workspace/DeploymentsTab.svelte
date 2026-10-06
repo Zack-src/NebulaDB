@@ -1,23 +1,17 @@
 <script lang="ts">
   import type { DatabaseConnectionSummary } from "@athanordb/shared";
   import Icon from "@/components/icons/Icon.svelte";
-  import { DatabaseIcon, SparklesIcon } from "@/components/icons/Icons";
+  import { DatabaseIcon } from "@/components/icons/Icons";
   import Badge from "@/components/ui/Badge.svelte";
-  import Button from "@/components/ui/Button.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
-  import DeploymentHistoryPanel from "@/features/connections/DeploymentHistoryPanel.svelte";
+  import DeploymentPanel from "@/features/connections/DeploymentPanel.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import EnvironmentBadge from "@/features/environments/EnvironmentBadge.svelte";
   import CompareEnvironmentsCard from "./CompareEnvironmentsCard.svelte";
   import PipelineCard from "./PipelineCard.svelte";
   import MonitoringCard from "./MonitoringCard.svelte";
 
-  /**
-   * What was deployed to the current connection, and the two ways to act on
-   * it: compare the schema with the database, or deploy. The history itself —
-   * and its rollback — is the panel the deployment dialog already had; here it
-   * has a page of its own instead of being the fifth step of a wizard.
-   */
+  /** Deployment planning, application, pipeline and monitoring for the project. */
   let {
     projectId,
     connection,
@@ -27,8 +21,9 @@
     schemaHash,
     onDeployTo = () => {},
     canDeploy,
-    onDeploy,
-    onShowDifferences,
+    canSkipStage = false,
+    onDeployed = () => {},
+    onShowProblems,
   }: {
     projectId: string;
     /** The workspace's current connection; `null` when the project has none. */
@@ -36,16 +31,17 @@
     /** Every database of the project — two or more can be compared with each other. */
     connections?: DatabaseConnectionSummary[];
     onOpenTable?: (tableName: string) => void;
-    /** Changes when a deployment dialog closes: what the pipeline shows may be stale. */
+    /** Changes when a deployment completes: what the pipeline shows may be stale. */
     refreshKey?: number;
     /** The fingerprint of the schema as it is now: the pipeline follows it. */
     schemaHash?: string;
-    /** Opens the deployment dialog on one of the project's databases. */
+    /** Selects one of the project's databases for deployment. */
     onDeployTo?: (connectionId: string) => void;
     /** False for a view-only project: comparing stays, deploying goes. */
     canDeploy: boolean;
-    onDeploy: () => void;
-    onShowDifferences: () => void;
+    canSkipStage?: boolean;
+    onDeployed?: () => void;
+    onShowProblems?: () => void;
   } = $props();
 
   const { t } = useTranslation();
@@ -61,33 +57,29 @@
         <h2 class="m-0 text-heading font-bold text-text">{connection.name}</h2>
         <Badge tone="admin">{t(`connections.engine.${connection.engine}`)}</Badge>
         {#if connection.environment}
-          <EnvironmentBadge name={connection.environment} color={connection.environmentColor} production={connection.production} />
+          <EnvironmentBadge
+            name={connection.environment}
+            color={connection.environmentColor}
+            production={connection.production}
+          />
         {/if}
         <span class="flex-1"></span>
-        <Button size="sm" variant="outline" onclick={onShowDifferences}>{t("connections.checkDifferences")}</Button>
-        {#if canDeploy}
-          <Button size="sm" variant="primary" onclick={onDeploy}>
-            <Icon icon={SparklesIcon} size={13} />
-            {t("deployment.deploy")}
-          </Button>
-        {/if}
       </div>
-      <PipelineCard {projectId} {refreshKey} {schemaHash} canDeploy={canDeploy} {onDeployTo} />
+      <DeploymentPanel
+        {projectId}
+        {schemaHash}
+        initialConnectionId={connection.id}
+        readOnly={!canDeploy}
+        {canSkipStage}
+        {onDeployed}
+        {onShowProblems}
+      />
+      <PipelineCard {projectId} {refreshKey} {schemaHash} {canDeploy} {onDeployTo} />
       <!-- The watch covers all the project's databases, not only the current one. -->
       <MonitoringCard {projectId} canManage={canDeploy} />
       {#if connections.length > 1}
         <CompareEnvironmentsCard {projectId} {connections} currentId={connection.id} {onOpenTable} />
       {/if}
-      <!-- Keyed: the panel fetches once for the connection it was created with. -->
-      {#key connection.id}
-        <DeploymentHistoryPanel
-          {projectId}
-          connId={connection.id}
-          engine={connection.engine}
-          production={connection.production}
-          connectionName={connection.name}
-        />
-      {/key}
     {/if}
   </div>
 </div>

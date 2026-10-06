@@ -7,13 +7,11 @@
     MigrationResolutionMap,
     SchemaRisk,
   } from "@athanordb/shared";
-  import Modal from "@/components/overlays/Modal.svelte";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { CheckIcon, DatabaseIcon } from "@/components/icons/Icons";
-  import Select from "@/components/ui/Select.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import {
     applyDeployment,
@@ -34,21 +32,23 @@
   import { riskKey, type DeploymentStep } from "./deployment/deploymentModel";
 
   /**
-   * The deployment dialog: picks a connection, plans the deployment against
+   * The deployment panel: picks a connection, plans the deployment against
    * it, and walks through the steps — diff, risks, SQL, result, history. It
    * keeps the state, the loading and the navigation; each step's display
    * lives in `./deployment/`.
    */
   let {
     projectId,
-    onClose,
+    schemaHash,
+    onDeployed = () => {},
     initialConnectionId,
     readOnly = false,
     canSkipStage = false,
     onShowProblems,
   }: {
     projectId: string;
-    onClose: () => void;
+    schemaHash?: string;
+    onDeployed?: () => void;
     initialConnectionId?: string | null;
     /**
      * "Check Differences" entry point: same diff/risks/SQL preview as a real
@@ -64,7 +64,6 @@
   } = $props();
 
   const { t } = useTranslation();
-  const modalTitle = $derived(readOnly ? t("deployment.checkDifferencesTitle") : t("deployment.title"));
   let connections = $state.raw<DatabaseConnectionSummary[]>([]);
   let selectedConnId = $state<string>("");
   let loading = $state(true);
@@ -105,7 +104,9 @@
   });
 
   // Run analysis whenever the selected connection changes
+  let analysisVersion = 0;
   async function runAnalysis(connId: string) {
+    const version = ++analysisVersion;
     if (!connId) return;
     analyzing = true;
     error = null;
@@ -113,6 +114,7 @@
     deployResult = null;
     try {
       const res = await planDeployment(projectId, connId);
+      if (version !== analysisVersion) return;
       plan = res;
 
       // Initialize resolutions from risks
@@ -126,16 +128,16 @@
       resolutions = initialRes;
       activeStep = res.risks.length > 0 ? "risks" : "diff";
     } catch (err) {
-      error = describeApiError(err, t);
+      if (version === analysisVersion) error = describeApiError(err, t);
     } finally {
-      analyzing = false;
+      if (version === analysisVersion) analyzing = false;
     }
   }
 
   $effect(() => {
     const connId = selectedConnId;
     if (!connId) return;
-    void runAnalysis(connId);
+    if (schemaHash || connId) void runAnalysis(connId);
   });
 
   function handleStrategyChange(risk: SchemaRisk, strategy: ConflictResolutionStrategy, value?: string) {
@@ -183,6 +185,7 @@
       });
       stageBlocked = false;
       activeStep = "done";
+      onDeployed();
     } catch (err) {
       // In the reader's language, like every other refusal of the server.
       error = describeApiError(err, t);
@@ -215,37 +218,31 @@
 </script>
 
 {#if loading}
-  <Modal title={modalTitle} {onClose}>
+  <section data-testid="deployment-panel" class="rounded-md border border-border bg-surface p-4">
     <div class="flex h-48 items-center justify-center text-xs text-text-muted">{t("common.loading")}</div>
-  </Modal>
+  </section>
 {:else if connections.length === 0}
-  <Modal title={modalTitle} {onClose}>
+  <section data-testid="deployment-panel" class="rounded-md border border-border bg-surface p-4">
     <div class="space-y-4 py-4 text-center">
       <Icon icon={DatabaseIcon} size={32} class="mx-auto text-text-muted" />
       <div>
         <h3 class="text-sm font-bold text-text">{t("deployment.noConnectionTitle")}</h3>
         <p class="mt-1 text-xs text-text-muted">{t("deployment.noConnectionDesc")}</p>
       </div>
-      <div class="flex justify-center gap-2 pt-2">
-        <Button size="sm" variant="ghost" onclick={onClose}>{t("common.cancel")}</Button>
-      </div>
+      <div class="flex justify-center gap-2 pt-2"></div>
     </div>
-  </Modal>
+  </section>
 {:else}
-  <Modal title={modalTitle} {onClose} wide>
+  <section data-testid="deployment-panel" class="rounded-md border border-border bg-surface p-4">
     <div class="space-y-4">
       <!-- Header toolbar: connection selection -->
-      <div class="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-border bg-surface-raised p-2.5">
+      <div
+        class="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-border bg-surface-raised p-2.5"
+      >
         <div class="flex items-center gap-2">
           <Icon icon={DatabaseIcon} size={16} class="text-accent" />
           <span class="text-xs font-semibold text-text">{t("deployment.targetDatabase")}:</span>
-          <Select
-            size="sm"
-            class="min-w-48"
-            bind:value={selectedConnId}
-            options={connections.map((c) => ({ value: c.id, label: `${c.name} (${c.engine})` }))}
-            aria-label={t("deployment.targetDatabase")}
-          />
+          <strong class="text-xs">{selectedConn?.name}</strong>
         </div>
 
         <div class="flex items-center gap-2">
@@ -263,7 +260,15 @@
       />
 
       {#if activeStep === "diff"}
-        <DeploymentDiffStep {plan} {analyzing} {readOnly} {canSkipStage} {seedsToInsert} bind:skipSeeds {onShowProblems} />
+        <DeploymentDiffStep
+          {plan}
+          {analyzing}
+          {readOnly}
+          {canSkipStage}
+          {seedsToInsert}
+          bind:skipSeeds
+          {onShowProblems}
+        />
       {/if}
 
       {#if activeStep === "risks"}
@@ -327,8 +332,6 @@
         </div>
 
         <div class="flex items-center gap-2">
-          <Button size="sm" variant="ghost" onclick={onClose}>{t("common.close")}</Button>
-
           {#if activeStep === "diff" && hasWork}
             <Button size="sm" variant="primary" onclick={() => (activeStep = risks.length > 0 ? "risks" : "sql")}>
               {risks.length > 0 ? t("deployment.reviewRisks") : t("deployment.previewSql")}
@@ -336,11 +339,16 @@
           {/if}
 
           {#if activeStep === "risks"}
-            <Button size="sm" variant="primary" onclick={() => (activeStep = "sql")}>{t("deployment.previewSql")}</Button>
+            <Button size="sm" variant="primary" onclick={() => (activeStep = "sql")}
+              >{t("deployment.previewSql")}</Button
+            >
           {/if}
 
           {#if activeStep === "sql" && !readOnly}
-            <Button size="sm" variant="primary" onclick={() => void handleApplyDeployment()}
+            <Button
+              size="sm"
+              variant="primary"
+              onclick={() => void handleApplyDeployment()}
               disabled={deploying || !hasWork || blockingRisks.length > 0 || seedsBroken}
             >
               <Icon icon={CheckIcon} size={13} />
@@ -350,7 +358,7 @@
         </div>
       </div>
     </div>
-  </Modal>
+  </section>
 {/if}
 
 {#if confirmingProduction && selectedConn}

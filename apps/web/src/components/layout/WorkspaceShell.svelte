@@ -49,7 +49,7 @@
   );
 </script>
 
-<div class="workspace-shell">
+<div class="workspace-shell" class:project-open={Boolean(projectName)}>
   <a
     class="skip-link"
     href="#workspace-content"
@@ -58,40 +58,43 @@
       document.getElementById("workspace-content")?.focus();
     }}>{t("shell.skipToContent")}</a
   >
-  <aside class="workspace-sidebar" aria-label={t("shell.navigation")}>
-    <button class="workspace-brand" onclick={() => onNavigate("app")} aria-label="AthanorDB">
-      <span class="brand-monogram" aria-hidden="true">A</span><span class="sidebar-label">{APP_NAME}</span>
-    </button>
-    <nav class="workspace-nav" aria-label={t("shell.navigation")}>
-      {#each navigation as item (item.id)}
-        <button
-          onclick={() => onNavigate(item.id)}
-          aria-current={active === item.id ? "page" : undefined}
-          aria-label={item.label}
-          title={item.label}
-        >
-          <Icon icon={item.icon} size={17} /><span class="sidebar-label">{item.label}</span>
-        </button>
-      {/each}
-    </nav>
-    <div class="sidebar-spacer"></div>
-    <button
-      class="workspace-account"
-      onclick={() => onNavigate("settings")}
-      aria-current={view === "settings" ? "page" : undefined}
-      aria-label={t("navbar.accountSettings")}
-      title={t("navbar.accountSettings")}
-    >
-      <AccountAvatar name={session.displayName} />
-      <span class="sidebar-label account-copy"
-        ><strong>{session.displayName}</strong><small>{session.isAdmin ? t("admin.title") : session.email}</small></span
+  {#if !projectName}
+    <aside class="workspace-sidebar" aria-label={t("shell.navigation")}>
+      <button class="workspace-brand" onclick={() => onNavigate("app")} aria-label="AthanorDB">
+        <span class="brand-monogram" aria-hidden="true">A</span><span class="sidebar-label">{APP_NAME}</span>
+      </button>
+      <nav class="workspace-nav" aria-label={t("shell.navigation")}>
+        {#each navigation as item (item.id)}
+          <button
+            onclick={() => onNavigate(item.id)}
+            aria-current={active === item.id ? "page" : undefined}
+            aria-label={item.label}
+            title={item.label}
+          >
+            <Icon icon={item.icon} size={17} /><span class="sidebar-label">{item.label}</span>
+          </button>
+        {/each}
+      </nav>
+      <div class="sidebar-spacer"></div>
+      <button
+        class="workspace-account"
+        onclick={() => onNavigate("settings")}
+        aria-current={view === "settings" ? "page" : undefined}
+        aria-label={t("navbar.accountSettings")}
+        title={t("navbar.accountSettings")}
       >
-      <span class="sidebar-label"><Icon icon={SettingsIcon} size={15} /></span>
-    </button>
-    <button class="workspace-logout" onclick={onLogout} aria-label={t("common.logout")} title={t("common.logout")}>
-      <Icon icon={LogOutIcon} size={15} /><span class="sidebar-label">{t("common.logout")}</span>
-    </button>
-  </aside>
+        <AccountAvatar name={session.displayName} />
+        <span class="sidebar-label account-copy"
+          ><strong>{session.displayName}</strong><small>{session.isAdmin ? t("admin.title") : session.email}</small
+          ></span
+        >
+        <span class="sidebar-label"><Icon icon={SettingsIcon} size={15} /></span>
+      </button>
+      <button class="workspace-logout" onclick={onLogout} aria-label={t("common.logout")} title={t("common.logout")}>
+        <Icon icon={LogOutIcon} size={15} /><span class="sidebar-label">{t("common.logout")}</span>
+      </button>
+    </aside>
+  {/if}
   <div class="workspace-main">
     {#if !projectName}
       <header class="workspace-header">
@@ -114,6 +117,9 @@
     background: var(--color-bg);
     color: var(--color-text);
     font-size: 13px;
+  }
+  .workspace-shell.project-open {
+    grid-template-columns: minmax(0, 1fr);
   }
   .workspace-sidebar {
     display: flex;

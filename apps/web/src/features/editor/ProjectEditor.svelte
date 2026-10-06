@@ -51,7 +51,6 @@
     AlertTriangleIcon,
     ClockIcon,
     CodeIcon,
-    DatabaseIcon,
     NoteIcon,
     SparklesIcon,
   } from "@/components/icons/Icons";
@@ -144,7 +143,6 @@
     toast.warning(t("locks.keptToast", { tables: tables.join(", "), count: tables.length }));
   // Linked databases known to have been changed outside the schema — see `DriftBanner`.
   let drift = $state.raw<ProjectDriftEntry[]>([]);
-  let differencesFor = $state<string | null>(null);
   const refreshDrift = () =>
     fetchProjectDrift(project.id)
       .then((entries) => (drift = entries.filter((entry) => entry.outOfSchemaAt)))
@@ -184,12 +182,10 @@
   let showImport = $state(false);
   let showExport = $state(false);
   let showConvertTypes = $state(false);
-  let showCompare = $state(false);
   let dbmlOpen = $state(true);
   let showPlugins = $state(false);
   let showSettings = $state(false);
-  let showDeployment = $state(false);
-  /** Counts deployment dialogs closed — the pipeline refetches on it. */
+  /** Counts completed deployments — the pipeline refetches on it. */
   let deploymentsSeen = $state(0);
   let viewMode = $state<EditorViewMode>("mld");
   // Connections themselves are managed from the admin console now — this
@@ -228,9 +224,6 @@
   const isProjectAdmin = $derived(project.permission === "administrator");
   const workspaceTabs = $derived.by(() => {
     const list: TabItem<WorkspaceTab>[] = [{ id: "schema", label: t("workspace.tab.schema"), icon: CodeIcon }];
-    if (connections.some((connection) => mayQuery(connection.id))) {
-      list.push({ id: "data", label: t("workspace.tab.data"), icon: DatabaseIcon });
-    }
     if (isProjectAdmin) list.push({ id: "deployments", label: t("workspace.tab.deployments"), icon: SparklesIcon });
     list.push({ id: "history", label: t("workspace.tab.history"), icon: ClockIcon });
     list.push({
@@ -571,10 +564,6 @@
     onRedo={() => docHandle.undoManager?.redo()}
     onShowImport={() => (showImport = true)}
     onShowExport={() => (showExport = true)}
-    onShowConvertTypes={canWrite ? () => (showConvertTypes = true) : undefined}
-    onShowCompare={() => (showCompare = true)}
-    onShowDeploy={() => (showDeployment = true)}
-    {isProjectAdmin}
     onOpenSettings={props.onOpenSettings ?? (() => (showSettings = true))}
     follow={props.onOpenProject
       ? { projectId: project.id, onOpenProject: props.onOpenProject }
@@ -608,18 +597,14 @@
       projectId={project.id}
       {entry}
       canManage={isProjectAdmin}
-      onShowDifferences={(connectionId) => (differencesFor = connectionId)}
+      onShowDifferences={(id) => { connectionId = id; setTab("deployments"); }}
     />
   {/each}
 
   <!-- The other tabs replace the editor rather than cover it: an unmounted
        canvas has no keyboard shortcuts, clipboard handlers or selection to act
        on by accident. The document connection lives above, so nothing is lost. -->
-  {#if tab === "data"}
-    {#await import("@/features/workspace/DataTab.svelte") then { default: DataTab }}
-      <DataTab {connectionId} {connections} isAdmin={props.session.isAdmin} access={dbAccess} />
-    {/await}
-  {:else if tab === "deployments"}
+  {#if tab === "deployments"}
     {#await import("@/features/workspace/DeploymentsTab.svelte") then { default: DeploymentsTab }}
       <DeploymentsTab
         projectId={project.id}
@@ -629,15 +614,15 @@
         schemaHash={liveProject ? fingerprintSchema(liveProject).hash : undefined}
         onDeployTo={(id) => {
           connectionId = id;
-          showDeployment = true;
         }}
         onOpenTable={(tableName) => {
           setTab("schema");
           focusRequest = { tableName };
         }}
         canDeploy={canWrite}
-        onDeploy={() => (showDeployment = true)}
-        onShowDifferences={() => (differencesFor = connectionId)}
+        canSkipStage={props.session.isAdmin}
+        onDeployed={() => (deploymentsSeen += 1)}
+        onShowProblems={() => setTab("problems")}
       />
     {/await}
   {:else if tab === "problems"}
@@ -705,6 +690,7 @@
         projectId={project.id}
         readOnly={!canWrite}
         onClose={() => (dbmlOpen = false)}
+        onConvertTypes={canWrite ? () => (showConvertTypes = true) : undefined}
         scrollToTable={dbmlScrollRequest}
         {onNavigateToCanvas}
         findings={quality.dbmlFindings}
@@ -830,41 +816,9 @@
       />
     {/await}
   {/if}
-  {#if showCompare && liveProject}
-    {#await import("@/features/editor/compare/CompareProjectsModal.svelte") then { default: CompareProjectsModal }}
-      <CompareProjectsModal currentProject={liveProject} onClose={() => (showCompare = false)} />
-    {/await}
-  {/if}
   {#if showPlugins}
     {#await import("@/features/plugins/PluginManagerDialog.svelte") then { default: PluginManagerDialog }}
       <PluginManagerDialog onClose={() => (showPlugins = false)} />
-    {/await}
-  {/if}
-  {#if showDeployment}
-    {#await import("@/features/connections/DeploymentModal.svelte") then { default: DeploymentModal }}
-      <DeploymentModal
-        projectId={project.id}
-        onClose={() => {
-          showDeployment = false;
-          deploymentsSeen += 1;
-        }}
-        initialConnectionId={activeConnection?.id}
-        canSkipStage={props.session.isAdmin}
-        onShowProblems={() => {
-          showDeployment = false;
-          setTab("problems");
-        }}
-      />
-    {/await}
-  {/if}
-  {#if differencesFor}
-    {#await import("@/features/connections/DeploymentModal.svelte") then { default: DeploymentModal }}
-      <DeploymentModal
-        projectId={project.id}
-        readOnly
-        initialConnectionId={differencesFor}
-        onClose={() => (differencesFor = null)}
-      />
     {/await}
   {/if}
   {#if showLocksList && liveProject}

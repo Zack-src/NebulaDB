@@ -24,11 +24,8 @@
   import {
     ChevronLeftIcon,
     DownloadIcon,
-    LayersIcon,
     RedoIcon,
     SettingsIcon,
-    SparklesIcon,
-    SwapHorizontalIcon,
     UndoIcon,
     UploadIcon,
   } from "@/components/icons/Icons";
@@ -42,19 +39,6 @@
     onRedo: () => void;
     onShowImport: () => void;
     onShowExport: () => void;
-    onShowConvertTypes?: () => void;
-    onShowCompare: () => void;
-    onShowDeploy?: () => void;
-    /**
-     * `edit` is enough to change the schema, but a deployment reaches a live
-     * database — a network host or local file the connection (now managed only
-     * from the admin console) points at — and executes arbitrary generated SQL
-     * against it, a materially larger blast radius than a canvas edit. The
-     * connections/deployment routes already enforce project `administrator`
-     * server-side; this hides the button for anyone who'd just get a 403
-     * clicking it, rather than leaving that as the only signal they lack access.
-     */
-    isProjectAdmin: boolean;
     onOpenSettings?: () => void;
     /** Present in the real app: the project to follow, and where a notification about another one leads. */
     follow?: { projectId: string; onOpenProject: (projectId: string) => void };
@@ -71,10 +55,6 @@
   const panelActions = $derived<ToolbarAction[]>([
     ...(props.viewOnly ? [] : [{ icon: UploadIcon, labelKey: "editor.import", onClick: props.onShowImport } as const]),
     { icon: DownloadIcon, labelKey: "editor.export", onClick: props.onShowExport },
-    ...(!props.viewOnly && props.onShowConvertTypes
-      ? [{ icon: SwapHorizontalIcon, labelKey: "editor.convertTypes", onClick: props.onShowConvertTypes } as const]
-      : []),
-    { icon: LayersIcon, labelKey: "editor.compare", onClick: props.onShowCompare },
   ]);
 
   const historyActions = $derived<ToolbarAction[]>(
@@ -135,13 +115,6 @@
           <span class="hidden lg:inline">{t(action.labelKey)}</span>
         </Button>
       {/each}
-
-      {#if props.onShowDeploy && !props.viewOnly && props.isProjectAdmin}
-        <Button size="sm" variant="primary" onclick={props.onShowDeploy}>
-          <Icon icon={SparklesIcon} size={13} />
-          <span class="hidden sm:inline">{t("deployment.deploy")}</span>
-        </Button>
-      {/if}
     </div>
 
     <span class={`${DIVIDER_CLASS} hidden md:block`}></span>

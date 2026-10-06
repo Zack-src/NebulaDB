@@ -231,11 +231,10 @@
 {/if}
 
 {#if diff}
-  {#await import("@/features/connections/DeploymentModal.svelte") then { default: DeploymentModal }}
-    <DeploymentModal
+  {#await import("@/features/connections/DatabaseDifferencesDialog.svelte") then { default: DatabaseDifferencesDialog }}
+    <DatabaseDifferencesDialog
       projectId={diff.projectId}
       initialConnectionId={diff.connectionId}
-      readOnly
       onClose={() => (diff = null)}
     />
   {/await}

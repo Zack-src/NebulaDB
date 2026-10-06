@@ -33,7 +33,7 @@
   /**
    * Past deployments (and rollbacks of them) for one connection, with a rollback
    * action on any entry that still has one available. Split out of
-   * `DeploymentModal.svelte` rather than added inline — that file is already a
+   * `DeploymentPanel.svelte` rather than added inline — that file is already a
    * four-step wizard; this is a fifth, self-contained step with its own
    * fetch/confirm/execute state, not more branches threaded through the
    * existing ones.

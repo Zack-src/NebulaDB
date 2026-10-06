@@ -81,19 +81,18 @@ test("pipeline: stages in order, a refused skip, then a skip with a reason", { t
     assert.equal(await stage("DEV").getByText("Attend").count(), 0);
     await snap("start");
 
-    /** Opens the deployment dialog from a stage of the card and applies the plan. */
+    /** Selects the inline deployment panel from a stage of the card and applies the plan. */
     const deployFrom = async (name: string, notice?: RegExp) => {
       await stage(name).getByRole("button", { name: "Déployer" }).click();
-      const modal = page.getByRole("dialog").first();
+      const modal = page.getByTestId("deployment-panel");
       // The plan says what would refuse the deployment, before "Apply".
       if (notice) await modal.getByRole("alert").filter({ hasText: notice }).waitFor();
       await modal.getByRole("button", { name: "Prévisualiser le SQL" }).click();
       await modal.getByRole("button", { name: "Appliquer les modifications en base" }).click();
       return modal;
     };
-    const close = async (modal: ReturnType<Page["getByRole"]>) => {
-      await page.keyboard.press("Escape");
-      await modal.waitFor({ state: "detached" });
+    const close = async (_modal: ReturnType<Page["getByRole"]>) => {
+      assert.equal(await page.getByRole("dialog").count(), 0);
     };
 
     // Out of order: refused, in words.

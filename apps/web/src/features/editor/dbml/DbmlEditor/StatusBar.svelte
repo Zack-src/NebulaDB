@@ -88,14 +88,6 @@
     {/if}
     <button
       type="button"
-      onclick={onToggleWrap}
-      class="rounded px-1 hover:bg-surface-hover"
-      data-tooltip={t("dbml.toggleWrap")}
-    >
-      {t(wrap ? "dbml.wrapOn" : "dbml.wrapOff")}
-    </button>
-    <button
-      type="button"
       onclick={onDecreaseFont}
       class="rounded px-1 hover:bg-surface-hover"
       data-tooltip={t("dbml.fontDecrease")}
@@ -130,7 +122,7 @@
       bind:this={settingsPopover}
       class="absolute bottom-full right-1 z-30 mb-1 whitespace-normal rounded-md border border-border bg-surface-raised p-3 shadow-lg"
     >
-      <BehaviourSettings />
+      <BehaviourSettings {wrap} {onToggleWrap} />
     </div>
   {/if}
 </div>

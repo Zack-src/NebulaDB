@@ -33,7 +33,7 @@ Table invoices {
 `;
 
 test(
-  "workspace: tabs are addresses, the editor survives a detour, and the console hands structure back to the schema",
+  "workspace: tabs are addresses, the editor survives a detour, and project actions stay in their dedicated panels",
   { timeout: 90_000 },
   async () => {
     const targetDir = mkdtempSync(join(tmpdir(), "athanordb-e2e-workspace-"));
@@ -95,11 +95,28 @@ test(
       const tab = (name: string) => page.getByRole("tab", { name, exact: true });
       const canvasTable = (name: string) => page.locator(".svelte-flow__node").filter({ hasText: name });
       await canvasTable("invoices").waitFor();
-      for (const name of ["Schéma", "Données & SQL", "Déploiements", "Historique"]) await tab(name).waitFor();
+      for (const name of ["Schéma", "Déploiements", "Historique"]) await tab(name).waitFor();
       assert.equal(await tab("Schéma").getAttribute("aria-selected"), "true");
       const avatars = page.locator(".account-avatar");
-      assert.equal(await avatars.count(), 2);
-      assert.equal(await avatars.nth(0).textContent(), await avatars.nth(1).textContent());
+      assert.equal(await avatars.count(), 1);
+      assert.equal(await page.locator(".workspace-sidebar").count(), 0);
+      assert.equal(await tab("Données & SQL").count(), 0);
+      assert.equal(await page.getByRole("button", { name: "Comparer", exact: true }).count(), 0);
+      assert.equal(await page.locator("header").getByRole("button", { name: "Déployer", exact: true }).count(), 0);
+      const convert = page.getByRole("button", { name: "Convertir les types", exact: true });
+      assert.equal((await convert.textContent())?.trim(), "");
+      await convert.click();
+      await page.getByRole("dialog").waitFor();
+      await page.keyboard.press("Escape");
+      await page.getByRole("dialog").waitFor({ state: "detached" });
+      const settings = page.getByRole("button", { name: "Comportement de l'éditeur", exact: true });
+      await settings.click();
+      const wrap = page.getByRole("switch", { name: "Basculer le retour à la ligne" });
+      const checked = await wrap.getAttribute("aria-checked");
+      await wrap.click();
+      assert.notEqual(await wrap.getAttribute("aria-checked"), checked);
+      await settings.click();
+      assert.equal(await wrap.count(), 0);
       assert.equal(await page.locator("header [role=img]").count(), 0);
       await page.locator("[data-sync-state]").waitFor();
       assert.equal(await page.locator("[data-sync-state]").count(), 1);
@@ -165,8 +182,8 @@ test(
       await tab("Déploiements").click();
       await page.waitForURL(`**/project/${projectId}/deployments`);
       await page.getByRole("heading", { name: "Base boutique" }).waitFor();
-      await page.getByRole("button", { name: "Vérifier les différences" }).waitFor();
-      await page.getByRole("button", { name: "Déployer" }).first().waitFor();
+      await page.getByTestId("deployment-panel").getByRole("button", { name: "Actualiser", exact: true }).waitFor();
+      assert.equal(await page.getByRole("dialog").count(), 0);
       await snap("deployments");
       // …and back / forward walk the tabs.
       await page.goBack();
@@ -174,29 +191,7 @@ test(
       await page.goForward();
       await page.getByRole("heading", { name: "Base boutique" }).waitFor();
 
-      // --- Data & SQL: the console, on the workspace's connection ---
-      await tab("Données & SQL").click();
-      await page.waitForURL(`**/project/${projectId}/data`);
-      await page.getByRole("button", { name: /customers/ }).click();
-      await page.getByRole("gridcell", { name: "Ada" }).waitFor();
-      await snap("data");
-
-      // A structural change typed here is handed to the schema tab — same page, table selected.
-      await page.getByRole("tab", { name: "Console SQL" }).click();
-      await page.getByRole("switch", { name: "Mode écriture" }).click();
-      await page.getByRole("textbox", { name: "Console SQL" }).fill("ALTER TABLE invoices ADD COLUMN note TEXT");
-      await page.evaluate(() => ((window as unknown as { __marker: boolean }).__marker = true));
-      await page.getByRole("button", { name: "Exécuter", exact: true }).click();
-      await page.getByRole("dialog").getByRole("button", { name: "Exécuter en écriture" }).click();
-      await page.getByRole("link", { name: "Ouvrir dans le schéma « Boutique »" }).click();
-      await page.locator(".svelte-flow__node.selected").filter({ hasText: "invoices" }).waitFor();
-      assert.equal(await tab("Schéma").getAttribute("aria-selected"), "true");
-      assert.equal(new URL(page.url()).pathname, `/project/${projectId}`);
-      assert.equal(
-        await page.evaluate(() => (window as unknown as { __marker?: boolean }).__marker),
-        true,
-        "a tab change, not a page load",
-      );
+      await tab("Schéma").click();
       // The editor is whole again: the DBML panel is back with the schema in it.
       await page.locator(".cm-content").getByText("customer_id").first().waitFor();
 
