@@ -1,6 +1,6 @@
 import type { Readable } from "node:stream";
 import type { FastifyRequest } from "fastify";
-import type { BackupList, BackupSummary, DatabaseConnectionConfig } from "@athanordb/shared";
+import type { BackupList, BackupSummary, DatabaseConnectionConfig } from "@nebuladb/shared";
 import { config } from "../../config.js";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";

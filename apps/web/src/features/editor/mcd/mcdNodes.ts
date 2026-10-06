@@ -8,7 +8,7 @@ import type {
   Project,
   Table,
   TableLock,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 
 export interface EntityNodeData {
   entity: McdEntity;

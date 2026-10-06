@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import type { InvitationGrants } from "@athanordb/shared";
+import type { InvitationGrants } from "@nebuladb/shared";
 import { auditUser } from "../../shared/audit.js";
 import { getConnectionById } from "../connections/repository.js";
 import { addUserGrantsInTransaction } from "../dbAccess/repository.js";

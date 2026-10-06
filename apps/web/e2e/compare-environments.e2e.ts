@@ -26,7 +26,7 @@ Table orders {
 `;
 
 test("compare environments: differences listed table by table, then none once level", { timeout: 90_000 }, async () => {
-  const dir = mkdtempSync(join(tmpdir(), "athanordb-e2e-compare-"));
+  const dir = mkdtempSync(join(tmpdir(), "nebuladb-e2e-compare-"));
   const database = (name: string, ddl: string) => {
     const file = join(dir, `${name}.sqlite`);
     const handle = new Database(file);

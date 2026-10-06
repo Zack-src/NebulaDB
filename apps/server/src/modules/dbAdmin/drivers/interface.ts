@@ -14,7 +14,7 @@ import type {
   DbPrincipalRef,
   DbPrivilegeCatalog,
   DbUserAction,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 
 export interface RunQueryOptions {
   database?: string;

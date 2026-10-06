@@ -6,16 +6,16 @@ import { join } from "node:path";
 
 // Same rationale as `app.test.ts`: env vars must land before anything
 // transitively imports `db.ts`/`shared/crypto.ts`.
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-publicapi-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-publicapi-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
 const { hashPassword } = await import("../auth/password.js");
 const { closeAllRooms, getRoom } = await import("../../realtime/roomRegistry.js");
-const { getTablesMap, writeProjectToDoc } = await import("@athanordb/shared");
+const { getTablesMap, writeProjectToDoc } = await import("@nebuladb/shared");
 
 const HOST = "localhost:3001";
 const ORIGIN = `http://${HOST}`;
@@ -35,8 +35,8 @@ async function loginAs(app: Awaited<ReturnType<typeof buildApp>>, email: string,
     headers: headers(),
     payload: { email, password },
   });
-  const sessionCookie = res.cookies.find((c) => c.name === "athanordb_sid");
-  return `athanordb_sid=${sessionCookie!.value}`;
+  const sessionCookie = res.cookies.find((c) => c.name === "nebuladb_sid");
+  return `nebuladb_sid=${sessionCookie!.value}`;
 }
 
 async function makeUser() {
@@ -281,7 +281,7 @@ test("/api/v1 deploy: a deployments:trigger-scoped key runs the same pipeline as
     const cookie = await loginAs(app, owner.email, owner.password);
     const { project, plaintextKey } = await createProjectWithKey(app, cookie, ["deployments:trigger", "projects:read"]);
 
-    const targetFile = join(tmpdir(), `athanordb-test-v1target-${randomUUID()}.sqlite`);
+    const targetFile = join(tmpdir(), `nebuladb-test-v1target-${randomUUID()}.sqlite`);
     const connRes = await app.inject({
       method: "POST",
       url: `/api/projects/${project.id}/connections`,
@@ -319,7 +319,7 @@ test("/api/v1 rollback: a deployments:trigger-scoped key can roll back a past de
     const cookie = await loginAs(app, owner.email, owner.password);
     const { project, plaintextKey } = await createProjectWithKey(app, cookie, ["deployments:trigger", "projects:read"]);
 
-    const targetFile = join(tmpdir(), `athanordb-test-v1rollback-${randomUUID()}.sqlite`);
+    const targetFile = join(tmpdir(), `nebuladb-test-v1rollback-${randomUUID()}.sqlite`);
     const connRes = await app.inject({
       method: "POST",
       url: `/api/projects/${project.id}/connections`,
@@ -541,7 +541,7 @@ test("/api/v1 connections: CRUD, test, and pull all work with a connections:mana
       "projects:write",
     ]);
 
-    const targetFile = join(tmpdir(), `athanordb-test-v1conn-${randomUUID()}.sqlite`);
+    const targetFile = join(tmpdir(), `nebuladb-test-v1conn-${randomUUID()}.sqlite`);
     const created = await app.inject({
       method: "POST",
       url: `/api/v1/projects/${project.id}/connections`,

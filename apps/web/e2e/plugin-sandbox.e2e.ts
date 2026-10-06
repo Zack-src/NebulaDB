@@ -6,7 +6,7 @@ import { login, startE2eEnvironment } from "./harness.js";
  * Closes the plugin-sandbox piece of `docs/todo.md`'s Phase 11/16/23
  * browser-test gap. Installs the community "SQLite & Naming Toolkit"
  * template (`communityTemplates.ts`) — real plugin source calling
- * `athanor.plugin(...)`/`athanor.registerExporter(...)` — through the actual
+ * `nebula.plugin(...)`/`nebula.registerExporter(...)` — through the actual
  * Plugin Manager UI, then runs its exporter through the real Export dialog.
  *
  * What this proves that no unit test can: `PluginHost.ts` really does spin

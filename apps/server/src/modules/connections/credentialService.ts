@@ -1,5 +1,5 @@
 import type { FastifyRequest } from "fastify";
-import type { DatabaseConnectionConfig, MySqlAccount, PersonalCredentialStatus } from "@athanordb/shared";
+import type { DatabaseConnectionConfig, MySqlAccount, PersonalCredentialStatus } from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
@@ -68,7 +68,7 @@ export interface ConnectionUser {
 }
 
 /**
- * Those who use a connection through Athanor: instance administrators (the
+ * Those who use a connection through Nebula: instance administrators (the
  * console), the administrators of a project it is attached to (deploy, pull,
  * compare) and, from a browser session, the members an instance administrator
  * granted access to it (explorer and SQL — see `dbAccess/`). Anyone else is

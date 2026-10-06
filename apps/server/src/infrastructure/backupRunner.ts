@@ -1,7 +1,7 @@
 import { mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { readProjectFromDoc } from "@athanordb/shared";
-import { projectToDbml } from "@athanordb/dbml-engine";
+import { readProjectFromDoc } from "@nebuladb/shared";
+import { projectToDbml } from "@nebuladb/dbml-engine";
 import { db } from "./db.js";
 import { listRevisions, reconstructDocAtRevision } from "../realtime/persistence.js";
 

@@ -23,7 +23,7 @@ const MEMBER_EMAIL = "analyste@example.com";
 const MEMBER_PASSWORD = "correct horse battery staple analyst";
 
 test("admin grants a member read access; the member queries the database read-only", { timeout: 120_000 }, async () => {
-  const targetDir = mkdtempSync(join(tmpdir(), "athanordb-e2e-access-"));
+  const targetDir = mkdtempSync(join(tmpdir(), "nebuladb-e2e-access-"));
   const targetFile = join(targetDir, "shop.sqlite");
   const target = new Database(targetFile);
   target.exec(`

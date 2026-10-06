@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Project, Table } from "@athanordb/shared";
+import type { Project, Table } from "@nebuladb/shared";
 import { parseVariableValues, resolveVariables, variablesUsed } from "./variables.js";
 import { parseDbml, toProject } from "./dbml.js";
 import { projectToDbml } from "./serialize.js";

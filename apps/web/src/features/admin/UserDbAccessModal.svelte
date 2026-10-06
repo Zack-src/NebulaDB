@@ -1,6 +1,6 @@
 <script lang="ts">
   import PersonalAccountDialog from "@/features/connections/PersonalAccountDialog.svelte";
-  import type { AdminConnectionSummary } from "@athanordb/shared";
+  import type { AdminConnectionSummary } from "@nebuladb/shared";
   let assigning = $state<AdminConnectionSummary | null>(null);
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";

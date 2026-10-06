@@ -1,4 +1,4 @@
-/* AthanorDB stylesheet entry point.
+/* NebulaDB stylesheet entry point.
    Cascade layers are declared up front because layer order is fixed by first
    appearance, and the reset must lose to the utilities even though it is
    imported after them. Without the explicit declaration `base` would be

@@ -1,4 +1,4 @@
-import type { TableLock, TableLockAuthority } from "@athanordb/shared";
+import type { TableLock, TableLockAuthority } from "@nebuladb/shared";
 import { fetchTableLocks } from "@/services/tableLocksApi";
 
 /** What the canvas needs to know about locks: which tables carry one, and which of those *this user* cannot alter. */

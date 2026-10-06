@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { MONITOR_INTERVALS, type AccountChange, type DriftEvent } from "@athanordb/shared";
+  import { MONITOR_INTERVALS, type AccountChange, type DriftEvent } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { RestoreIcon } from "@/components/icons/Icons";
   import Badge from "@/components/ui/Badge.svelte";
@@ -27,13 +27,13 @@
   /**
    * "Surveillance": whether the project's databases are read on a schedule
    * and compared with the state the last deployment or pull left them in. A
-   * difference nothing in Athanor explains turns on the editor's drift banner,
+   * difference nothing in Nebula explains turns on the editor's drift banner,
    * is listed here, and goes to the project's webhooks.
    *
    * The accounts watch (instance administrators only — the server sends
    * `accounts: null` to anyone else, and no account finding): the same
    * databases' accounts, roles and privileges, compared with a reference
-   * that Athanor's own console changes move along. Not offered when no
+   * that Nebula's own console changes move along. Not offered when no
    * linked database has accounts (SQLite).
    */
   let { projectId, canManage }: { projectId: string; canManage: boolean } = $props();

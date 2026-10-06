@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { AdminConnectionSummary, BackupSummary, RestoreResult } from "@athanordb/shared";
+  import type { AdminConnectionSummary, BackupSummary, RestoreResult } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { AlertTriangleIcon, DatabaseIcon } from "@/components/icons/Icons";
   import Modal from "@/components/overlays/Modal.svelte";

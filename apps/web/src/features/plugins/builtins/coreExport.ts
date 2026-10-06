@@ -1,4 +1,4 @@
-import type { Project } from "@athanordb/shared";
+import type { Project } from "@nebuladb/shared";
 import { exportDbml, exportSql } from "@/services/projectsApi";
 import {
   generateSqlite,
@@ -179,10 +179,10 @@ const runners: Record<string, BuiltinRunner> = {
 
 export const coreExportPlugin: BuiltinPlugin = {
   manifest: {
-    id: "athanordb.core-export",
+    id: "nebuladb.core-export",
     name: "Exporteurs Natifs",
     version: "1.0.0",
-    author: "AthanorDB",
+    author: "NebulaDB",
     category: "export",
     description:
       "Exportez vos schémas en DBML, SQL (Postgres, MySQL, SQL Server, SQLite), TypeScript, Prisma, Mermaid, ainsi qu'en image PNG/SVG ou PDF.",

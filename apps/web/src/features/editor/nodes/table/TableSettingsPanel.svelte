@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { MAX_NAME_LENGTH, type Table, type TableIndex } from "@athanordb/shared";
+  import { MAX_NAME_LENGTH, type Table, type TableIndex } from "@nebuladb/shared";
   import { anchoredPlacement, provisionalPopoverStyle } from "@/actions/placement";
   import { portal } from "@/actions/portal";
   import Icon from "@/components/icons/Icon.svelte";

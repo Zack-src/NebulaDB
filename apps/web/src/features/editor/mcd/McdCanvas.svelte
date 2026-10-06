@@ -11,7 +11,7 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { Background, BackgroundVariant, Panel, SvelteFlow } from "@xyflow/svelte";
-  import { deriveMCD, type Project, type TableLock } from "@athanordb/shared";
+  import { deriveMCD, type Project, type TableLock } from "@nebuladb/shared";
   import { loadGridStyle } from "@/utils/preferences";
   import {
     CANVAS_VIEWPORT_PROPS,

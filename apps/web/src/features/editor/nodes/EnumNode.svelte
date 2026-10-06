@@ -4,7 +4,7 @@
 
 <script lang="ts">
   import type { NodeProps } from "@xyflow/svelte";
-  import { MAX_NAME_LENGTH } from "@athanordb/shared";
+  import { MAX_NAME_LENGTH } from "@nebuladb/shared";
   import { autofocus } from "@/actions/autofocus";
   import Icon from "@/components/icons/Icon.svelte";
   import { PlusIcon, TagIcon } from "@/components/icons/Icons";

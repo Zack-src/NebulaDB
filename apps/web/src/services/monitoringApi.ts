@@ -1,4 +1,4 @@
-import type { AccountWatchState, DriftEvent, MonitorSettings } from "@athanordb/shared";
+import type { AccountWatchState, DriftEvent, MonitorSettings } from "@nebuladb/shared";
 import { request } from "./httpClient";
 
 export interface MonitoringState {

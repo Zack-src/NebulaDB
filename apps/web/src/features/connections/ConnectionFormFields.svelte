@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { DatabaseEngine } from "@athanordb/shared";
+  import type { DatabaseEngine } from "@nebuladb/shared";
 
   export const DEFAULT_PORTS: Record<DatabaseEngine, number> = {
     postgres: 5432,
@@ -13,7 +13,7 @@
 </script>
 
 <script lang="ts">
-  import type { EnvironmentStage } from "@athanordb/shared";
+  import type { EnvironmentStage } from "@nebuladb/shared";
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import Hint from "@/components/ui/Hint.svelte";
   import { INPUT_CLASS } from "@/components/ui/inputStyles";

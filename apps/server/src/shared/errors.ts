@@ -274,7 +274,7 @@ export const ERROR_CATALOG = {
   DB_ADMIN_CONNECTION_ACCOUNT_PROTECTED: {
     status: 409,
     message:
-      "this is the account the connection itself signs in with — dropping, locking it or changing its password would lock Athanor out of this database",
+      "this is the account the connection itself signs in with — dropping, locking it or changing its password would lock Nebula out of this database",
   },
   PRODUCTION_CONFIRMATION_REQUIRED: {
     status: 409,
@@ -303,7 +303,7 @@ export const ERROR_CATALOG = {
   DATABASE_UNAVAILABLE: { status: 503, message: "database unavailable" },
   CONNECTION_SECRET_MISSING: {
     status: 503,
-    message: "ATHANORDB_SECRET must be configured before a database connection can be stored",
+    message: "NEBULADB_SECRET must be configured before a database connection can be stored",
   },
   PASSWORD_RESET_UNAVAILABLE: {
     status: 503,

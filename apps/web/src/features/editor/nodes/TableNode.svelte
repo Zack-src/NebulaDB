@@ -8,8 +8,8 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import { Handle, Position, type NodeProps } from "@xyflow/svelte";
-  import { readableNote } from "@athanordb/dbml-engine";
-  import { MAX_NAME_LENGTH, type Field } from "@athanordb/shared";
+  import { readableNote } from "@nebuladb/dbml-engine";
+  import { MAX_NAME_LENGTH, type Field } from "@nebuladb/shared";
   import { autofocus } from "@/actions/autofocus";
   import Icon from "@/components/icons/Icon.svelte";
   import {

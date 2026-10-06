@@ -32,16 +32,16 @@ await new Promise<void>((resolve) => receiver.listen(0, "127.0.0.1", resolve));
 const receiverUrl = `http://127.0.0.1:${(receiver.address() as AddressInfo).port}/hook`;
 after(() => new Promise<void>((resolve) => receiver.close(() => resolve())));
 
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-webhooks-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-webhooks-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
 const { hashPassword } = await import("../auth/password.js");
 const { closeAllRooms, getRoom } = await import("../../realtime/roomRegistry.js");
-const { getTablesMap } = await import("@athanordb/shared");
+const { getTablesMap } = await import("@nebuladb/shared");
 const { processDueDeliveries, setSchemaChangeQuietPeriod, resetWebhookState, flushSchemaChange } =
   await import("./dispatcher.js");
 
@@ -65,7 +65,7 @@ async function login(app: App, isAdmin: 0 | 1 = 0) {
     headers: headers(),
     payload: { email, password },
   });
-  return `athanordb_sid=${res.cookies.find((c) => c.name === "athanordb_sid")!.value}`;
+  return `nebuladb_sid=${res.cookies.find((c) => c.name === "nebuladb_sid")!.value}`;
 }
 
 async function newProject(app: App, cookie: string) {
@@ -89,7 +89,7 @@ async function waitFor<T>(check: () => T | undefined, ms = 3000): Promise<T> {
 }
 
 function verifySignature(secret: string, r: Received): boolean {
-  const header = String(r.headers["x-athanordb-signature"]);
+  const header = String(r.headers["x-nebuladb-signature"]);
   const [, t, v1] = /^t=(\d+),v1=([0-9a-f]{64})$/.exec(header) ?? [];
   const expected = crypto.createHmac("sha256", secret).update(`${t}.${r.body}`).digest("hex");
   return Boolean(v1) && crypto.timingSafeEqual(Buffer.from(v1), Buffer.from(expected));
@@ -130,11 +130,11 @@ test("create → ping: the secret is shown once, and every request is signed wit
     assert.equal(ping.json().status, "succeeded");
     assert.equal(received.length, 1);
     const [r] = received;
-    assert.equal(r.headers["x-athanordb-event"], "ping");
+    assert.equal(r.headers["x-nebuladb-event"], "ping");
     assert.ok(verifySignature(secret, r), "HMAC over `<t>.<body>` with the secret");
     const envelope = JSON.parse(r.body);
     assert.equal(envelope.project.name, "Shop");
-    assert.equal(envelope.id, r.headers["x-athanordb-delivery"]);
+    assert.equal(envelope.id, r.headers["x-nebuladb-delivery"]);
   } finally {
     closeAllRooms();
     await app.close();

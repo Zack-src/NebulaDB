@@ -9,7 +9,7 @@ const DB_PATH = config.dbPath;
 try {
   mkdirSync(dirname(DB_PATH), { recursive: true });
 } catch (err) {
-  console.error(`[db] cannot create the directory for ATHANORDB_DB_PATH (${DB_PATH}):`, err);
+  console.error(`[db] cannot create the directory for NEBULADB_DB_PATH (${DB_PATH}):`, err);
   process.exit(1);
 }
 

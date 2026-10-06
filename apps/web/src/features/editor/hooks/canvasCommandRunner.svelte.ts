@@ -1,5 +1,5 @@
 import type * as Y from "yjs";
-import { writeProjectToDoc, type Project } from "@athanordb/shared";
+import { writeProjectToDoc, type Project } from "@nebuladb/shared";
 import { useTranslation } from "@/i18n/i18n.svelte";
 import { useFlashMessage } from "@/hooks/flashMessage.svelte";
 import { matchShortcut } from "@/features/plugins/shortcuts";

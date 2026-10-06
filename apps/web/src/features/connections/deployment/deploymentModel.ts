@@ -1,4 +1,4 @@
-import type { SchemaRisk } from "@athanordb/shared";
+import type { SchemaRisk } from "@nebuladb/shared";
 
 /** The tabs of the deployment dialog — `done` only exists once a deployment went through. */
 export type DeploymentStep = "diff" | "risks" | "sql" | "done" | "history";

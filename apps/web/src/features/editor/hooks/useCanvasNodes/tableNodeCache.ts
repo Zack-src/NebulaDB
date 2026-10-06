@@ -1,4 +1,4 @@
-import type { Table, TableLock, TableSeedSummary } from "@athanordb/shared";
+import type { Table, TableLock, TableSeedSummary } from "@nebuladb/shared";
 import type { TableNodeType } from "@/features/editor/nodes/nodeTypes";
 import { setsEqual } from "@/utils/setsEqual";
 

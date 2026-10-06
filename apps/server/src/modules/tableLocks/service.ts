@@ -9,7 +9,7 @@ import {
   type TableLockAuthority,
   type TableLockLevel,
   type TableLocksResponse,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { getRoom, notifyLocksChanged } from "../../realtime/roomRegistry.js";
 import { readProjectReadOnly } from "../../realtime/readOnlyProject.js";
 import { auditUser } from "../../shared/audit.js";

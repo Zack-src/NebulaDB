@@ -1,5 +1,5 @@
 import * as Y from "yjs";
-import { getRefsMap, getTablesMap, type Field } from "@athanordb/shared";
+import { getRefsMap, getTablesMap, type Field } from "@nebuladb/shared";
 import { getPerfReport, resetPerfReport, setPerfEnabled, setPerfQuiet, type PerfReportRow } from "@/utils/perfMonitor";
 import type { BenchConfig } from "./benchProject";
 
@@ -129,7 +129,7 @@ export interface BenchApi {
 
 declare global {
   interface Window {
-    __athanorBench?: BenchApi;
+    __nebulaBench?: BenchApi;
   }
 }
 
@@ -157,7 +157,7 @@ export function installBenchRunner(doc: Y.Doc, config: BenchConfig): void {
     edges: document.querySelectorAll(".svelte-flow__edge").length,
   });
 
-  window.__athanorBench = {
+  window.__nebulaBench = {
     config,
     start(label) {
       session = new BenchSession(label);

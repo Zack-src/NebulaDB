@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { MAX_TEXT_LENGTH, storeMentions, type Comment } from "@athanordb/shared";
+  import { MAX_TEXT_LENGTH, storeMentions, type Comment } from "@nebuladb/shared";
   import { anchoredPlacement, provisionalPopoverStyle } from "@/actions/placement";
   import { portal } from "@/actions/portal";
   import Icon from "@/components/icons/Icon.svelte";

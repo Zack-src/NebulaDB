@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { parseCommentText } from "@athanordb/shared";
+  import { parseCommentText } from "@nebuladb/shared";
   import { commentsSession } from "./commentsSession";
 
   /**

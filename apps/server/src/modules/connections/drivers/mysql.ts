@@ -1,7 +1,7 @@
 import mysql from "mysql2/promise";
-import { q } from "@athanordb/dbml-engine";
+import { q } from "@nebuladb/dbml-engine";
 import type { RowDataPacket } from "mysql2/promise";
-import type { Project, Ref, Table, TableIndex } from "@athanordb/shared";
+import type { Project, Ref, Table, TableIndex } from "@nebuladb/shared";
 import type {
   DatabaseDriver,
   DriverConnectionConfig,

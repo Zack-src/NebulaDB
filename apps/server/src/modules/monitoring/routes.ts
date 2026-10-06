@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import type { MonitorSettings } from "@athanordb/shared";
+import type { MonitorSettings } from "@nebuladb/shared";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireAdmin, requireProjectAccess, requireProjectAdmin, requireUser } from "../../shared/guards.js";

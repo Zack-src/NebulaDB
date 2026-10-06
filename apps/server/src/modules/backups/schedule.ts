@@ -6,7 +6,7 @@ import {
   type BackupFrequency,
   type BackupSchedule,
   type BackupStatus,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { ApiError } from "../../shared/errors.js";
 import { getConnectionById } from "../connections/repository.js";

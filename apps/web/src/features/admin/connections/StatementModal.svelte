@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { DbAdminStatementsResult } from "@athanordb/shared";
+  import type { DbAdminStatementsResult } from "@nebuladb/shared";
   import { autofocus } from "@/actions/autofocus";
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";

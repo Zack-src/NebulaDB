@@ -10,7 +10,7 @@ test(
   "private database settings, global data workspace, monitoring and teams at invitation",
   { timeout: 90_000 },
   async () => {
-    const dir = mkdtempSync(join(tmpdir(), "athanor-private-ui-"));
+    const dir = mkdtempSync(join(tmpdir(), "nebula-private-ui-"));
     const filePath = join(dir, "sandbox.sqlite");
     const database = new Database(filePath);
     database.exec("CREATE TABLE examples (name TEXT); INSERT INTO examples VALUES ('Private data works');");

@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import type { DatabaseConnectionConfig } from "@athanordb/shared";
+import type { DatabaseConnectionConfig } from "@nebuladb/shared";
 import { requireUser } from "../../shared/guards.js";
 import { ApiError } from "../../shared/errors.js";
 import { auditUser } from "../../shared/audit.js";

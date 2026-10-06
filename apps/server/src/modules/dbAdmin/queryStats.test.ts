@@ -5,10 +5,10 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-querystats-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-querystats-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
@@ -62,7 +62,7 @@ async function login(app: App, admin: boolean) {
     headers: { host: HOST, origin: ORIGIN },
     payload: { email, password },
   });
-  return `athanordb_sid=${res.cookies.find((c) => c.name === "athanordb_sid")!.value}`;
+  return `nebuladb_sid=${res.cookies.find((c) => c.name === "nebuladb_sid")!.value}`;
 }
 
 function call(app: App, cookie: string, method: "GET" | "POST", url: string, payload?: unknown) {
@@ -94,7 +94,7 @@ test("a database's journal: console opened, statements counted by shape without 
       await call(app, admin, "POST", "/api/admin/connections", {
         name: "Local",
         engine: "sqlite",
-        filePath: join(mkdtempSync(join(tmpdir(), "athanordb-stats-")), "shop.sqlite"),
+        filePath: join(mkdtempSync(join(tmpdir(), "nebuladb-stats-")), "shop.sqlite"),
       })
     ).json().connection.id as string;
     const run = (sql: string, readOnly = true) =>

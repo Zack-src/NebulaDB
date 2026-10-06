@@ -24,7 +24,7 @@ const PG_CONFIG = {
   host: "localhost",
   port: Number(process.env.PG_PORT || 55432),
   user: process.env.PG_USER || "postgres",
-  password: process.env.PG_PASSWORD || "AthanorTest123!",
+  password: process.env.PG_PASSWORD || "NebulaTest123!",
   database: process.env.PG_DATABASE || "deepdetect",
 };
 
@@ -68,7 +68,7 @@ const QUERIES = {
 };
 
 // FK columns this query actually joins on. None of these are indexed by a
-// plain Athanor deploy today — a `Ref:` only becomes a FOREIGN KEY constraint,
+// plain Nebula deploy today — a `Ref:` only becomes a FOREIGN KEY constraint,
 // which Postgres does NOT auto-index (unlike the PK/unique side of it). Every
 // join above does a seq scan + hash/merge join without these.
 const FK_INDEX_COLUMNS = [
@@ -150,7 +150,7 @@ async function main() {
     await pool.query(`ANALYZE`);
   } else {
     console.log(
-      "\nNo indexes on the FK columns this join uses (that's what a plain Athanor deploy produces today — " +
+      "\nNo indexes on the FK columns this join uses (that's what a plain Nebula deploy produces today — " +
         "a Ref: becomes a FOREIGN KEY constraint, which Postgres doesn't auto-index). Pass --with-indexes to compare.",
     );
   }

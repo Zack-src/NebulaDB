@@ -40,12 +40,12 @@ Table des matières
 Tout le SQL de l'application passe par un seul composant, `features/sql/SqlPanel.svelte` (221 lignes,
 une `<textarea>` + un bouton + un `ResultGrid`). Il est monté à trois endroits différents :
 
-| # | Endroit | Fichiers | Qui y accède | Particularité |
-|---|---------|----------|--------------|---------------|
-| 1 | Admin > Connexions > « Ouvrir » > onglet « SQL » | `admin/ConnectionsTab.svelte` (l.17 et l.106) > `admin/connections/DbConsole.svelte` > `SqlPanel` | Administrateurs d'instance | Console complète : explorateur, SQL, utilisateurs, sessions, santé, sauvegardes, journal (7 sections dans `DbConsole`) |
-| 2 | Onglet « Données » d'un projet | `editor/ProjectEditor.svelte` (l.634) > `workspace/DataTab.svelte` > `DbConsole` | Admin, et membres **si la connexion est rattachée au projet** | Seul chemin d'un membre. `DataTab` cherche la connexion dans la liste du projet (`connections.find`) : une connexion accordée mais non rattachée à un projet est introuvable |
-| 3 | Tiroir SQL sous le diagramme (Ctrl+J) | `sql/sqlDrawer.svelte.ts`, `sql/EditorSqlDrawer.svelte` > `SqlPanel compact` | Idem 2, sur la connexion active du projet | Hauteur 140 à 640 px, mémorisée en `localStorage` ; reçoit les requêtes « Voir les données » du diagramme via `request = {sql, token}` |
-| 4 | « Voir les données » dans l'explorateur | `connections/ExplorerPanel.svelte` (379 lignes) + `ResultGrid` | Idem 1 | Grille paginée côté serveur (`GET :id/rows`, 100 par page, 500 max), séparée du SQL |
+| #   | Endroit                                          | Fichiers                                                                                          | Qui y accède                                                  | Particularité                                                                                                                                                                |
+| --- | ------------------------------------------------ | ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Admin > Connexions > « Ouvrir » > onglet « SQL » | `admin/ConnectionsTab.svelte` (l.17 et l.106) > `admin/connections/DbConsole.svelte` > `SqlPanel` | Administrateurs d'instance                                    | Console complète : explorateur, SQL, utilisateurs, sessions, santé, sauvegardes, journal (7 sections dans `DbConsole`)                                                       |
+| 2   | Onglet « Données » d'un projet                   | `editor/ProjectEditor.svelte` (l.634) > `workspace/DataTab.svelte` > `DbConsole`                  | Admin, et membres **si la connexion est rattachée au projet** | Seul chemin d'un membre. `DataTab` cherche la connexion dans la liste du projet (`connections.find`) : une connexion accordée mais non rattachée à un projet est introuvable |
+| 3   | Tiroir SQL sous le diagramme (Ctrl+J)            | `sql/sqlDrawer.svelte.ts`, `sql/EditorSqlDrawer.svelte` > `SqlPanel compact`                      | Idem 2, sur la connexion active du projet                     | Hauteur 140 à 640 px, mémorisée en `localStorage` ; reçoit les requêtes « Voir les données » du diagramme via `request = {sql, token}`                                       |
+| 4   | « Voir les données » dans l'explorateur          | `connections/ExplorerPanel.svelte` (379 lignes) + `ResultGrid`                                    | Idem 1                                                        | Grille paginée côté serveur (`GET :id/rows`, 100 par page, 500 max), séparée du SQL                                                                                          |
 
 Constat : ce n'est pas « trois SQL différents » mais **un panneau minimal re-cadré trois fois**, sans
 espace propre. Il n'existe aucune entrée « Requêtes » dans la navigation (`app/App.svelte` ne connaît
@@ -102,7 +102,7 @@ que projets / paramètres / admin / projet ouvert).
   (`queryStats.ts`) ; politique de structure (`structurePolicy.ts`) ; compte protégé ; mode `readOnly`
   par connexion ; comptes personnels (`PERSONAL_CREDENTIALS_REQUIRED`).
 - **Routes explorateur déjà partagées** : `/api/connections/:id/{overview,schemas,tables,table,rows,query,
-  query-history}` doublées en `/api/admin/connections/...` par la boucle `consoleRoutes`
+query-history}` doublées en `/api/admin/connections/...` par la boucle `consoleRoutes`
   (`dbAdmin/routes.ts` l.284-467). L'espace Requêtes se bâtit sur `/api/connections/:id/...` pour tous.
 - **Grille virtualisée** : `components/ui/DataGrid.svelte` fait déjà du fenêtrage (`rowHeight = 28`,
   `overscan = 8`) ; elle suffit pour 5000 lignes et se réutilise telle quelle.
@@ -126,7 +126,7 @@ que projets / paramètres / admin / projet ouvert).
 3. **Lecture par défaut, écriture volontaire et visible.** Le mode ne se cache pas dans une case
    discrète : il colore l'éditeur, la barre d'état et le bouton Exécuter (déjà le principe de `SqlPanel` :
    bordure `danger` en écriture). L'indicateur de production double cette signalétique.
-4. **Les droits de la base sont la vraie limite.** Le filtre d'Athanor (`sqlGuard.ts`) est un garde-fou,
+4. **Les droits de la base sont la vraie limite.** Le filtre d'Nebula (`sqlGuard.ts`) est un garde-fou,
    pas un analyseur (`etat-des-features.md` l.233). L'interface ne promet jamais « sûr » ; elle dit
    « vous exécutez avec le compte X, ses droits décident ».
 5. **Moins de popups.** Les confirmations d'écriture, de politique de structure et de compte personnel
@@ -208,7 +208,7 @@ comme les serveurs d'un explorateur d'objets SSMS.
 - La racine de l'arbre liste **les connexions épinglées** (étoile dans le sélecteur), pas toutes celles du
   serveur. À la première visite : toutes les connexions accessibles si moins de 5, sinon les 5 plus
   récemment utilisées.
-- Épinglage et ordre : `localStorage` en V1 (clé `athanordb.queries.pinned.<userId>`), table serveur
+- Épinglage et ordre : `localStorage` en V1 (clé `nebuladb.queries.pinned.<userId>`), table serveur
   en V2 si la question ouverte Q9 le demande.
 - **Pas de connexion ad hoc** (host/port/mot de passe saisis par un membre) : ce serait de la création de
   connexion, qui est un pouvoir d'administrateur (`ConnectionEditModal`, `hostGuard.ts` contre le SSRF).
@@ -243,12 +243,12 @@ Connexions épinglées
 
 Règles par moteur (selon `DbAdminCapabilities`, `packages/shared/src/dbAdmin.ts`) :
 
-| Capacité | Effet sur l'arbre |
-|----------|-------------------|
-| `multiDatabase = false` (SQLite) | pas de niveau « Bases de données » |
-| `schemas = false` (MySQL : base = schéma ; SQLite) | pas de niveau « Schémas » |
-| `users`, `sessions` | pas d'entrée « Sécurité » / « Sessions » dans l'arbre ; ces liens n'existent que pour un administrateur |
-| `dropDatabase` | menu contextuel « Supprimer la base » (administrateur seulement) |
+| Capacité                                           | Effet sur l'arbre                                                                                       |
+| -------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
+| `multiDatabase = false` (SQLite)                   | pas de niveau « Bases de données »                                                                      |
+| `schemas = false` (MySQL : base = schéma ; SQLite) | pas de niveau « Schémas »                                                                               |
+| `users`, `sessions`                                | pas d'entrée « Sécurité » / « Sessions » dans l'arbre ; ces liens n'existent que pour un administrateur |
+| `dropDatabase`                                     | menu contextuel « Supprimer la base » (administrateur seulement)                                        |
 
 ### 4.2 Chargement paresseux et volume
 
@@ -270,14 +270,15 @@ Règles par moteur (selon `DbAdminCapabilities`, `packages/shared/src/dbAdmin.ts
 
 ### 4.3 Interactions (clic, double-clic, menu contextuel)
 
-| Geste | Sur une table / vue | Sur une colonne | Sur une procédure |
-|-------|---------------------|-----------------|-------------------|
-| Clic | sélectionne ; le volet de droite peut montrer la fiche (4.4) | idem | idem |
-| Double-clic | ouvre la **fiche de la table** dans un onglet (sans fermer l'éditeur) | insère le nom de la colonne à la position du curseur de l'éditeur actif | ouvre la définition dans un nouvel onglet (lecture seule) |
-| Glisser-déposer | insère le nom qualifié dans l'éditeur | insère `table.colonne` | insère le nom |
-| Menu contextuel | voir ci-dessous | Copier le nom · Filtrer par... | Copier le nom · Générer `EXEC` (écriture, admin seulement) |
+| Geste           | Sur une table / vue                                                   | Sur une colonne                                                         | Sur une procédure                                          |
+| --------------- | --------------------------------------------------------------------- | ----------------------------------------------------------------------- | ---------------------------------------------------------- |
+| Clic            | sélectionne ; le volet de droite peut montrer la fiche (4.4)          | idem                                                                    | idem                                                       |
+| Double-clic     | ouvre la **fiche de la table** dans un onglet (sans fermer l'éditeur) | insère le nom de la colonne à la position du curseur de l'éditeur actif | ouvre la définition dans un nouvel onglet (lecture seule)  |
+| Glisser-déposer | insère le nom qualifié dans l'éditeur                                 | insère `table.colonne`                                                  | insère le nom                                              |
+| Menu contextuel | voir ci-dessous                                                       | Copier le nom · Filtrer par...                                          | Copier le nom · Générer `EXEC` (écriture, admin seulement) |
 
 Menu contextuel d'une table (tous niveaux d'accès) :
+
 - **Sélectionner les 100 premières lignes** : ouvre un nouvel onglet avec `previewRowsStatement`
   (`sql/previewStatement.ts`, `LIMIT` / `TOP` selon le moteur) et l'exécute en lecture. Reprend le
   comportement de « Voir les données » (`PREVIEW_ROWS = 100`).
@@ -294,14 +295,14 @@ Menu contextuel d'une table (tous niveaux d'accès) :
 
 Ouverte dans un onglet de type « objet » (icône différente, pas d'éditeur). Sous-onglets :
 
-| Sous-onglet | Contenu | Source |
-|-------------|---------|--------|
-| Données | grille paginée (100/page), tri par colonne par **génération de SQL** (voir note), bouton « Ouvrir en requête » | `GET :id/rows` existant ; tri/filtre : lot 6 |
-| Colonnes | nom, type, nullable, défaut, clé primaire, clé étrangère | `DbAdminColumn` (existant) |
-| Index | nom, colonnes, unique, type | `DbAdminIndex` |
-| Contraintes | PK, FK (cible cliquable), CHECK, UNIQUE | `DbAdminConstraint` |
-| DDL | `CREATE TABLE` reconstitué + bouton Copier / Ouvrir dans un onglet | nouveau `GET :id/ddl` (13.3) |
-| Statistiques | lignes estimées, taille, date de dernière analyse (si le moteur la donne) | `DbAdminTable.rowEstimate/sizeBytes` ; reste en V2 |
+| Sous-onglet  | Contenu                                                                                                        | Source                                             |
+| ------------ | -------------------------------------------------------------------------------------------------------------- | -------------------------------------------------- |
+| Données      | grille paginée (100/page), tri par colonne par **génération de SQL** (voir note), bouton « Ouvrir en requête » | `GET :id/rows` existant ; tri/filtre : lot 6       |
+| Colonnes     | nom, type, nullable, défaut, clé primaire, clé étrangère                                                       | `DbAdminColumn` (existant)                         |
+| Index        | nom, colonnes, unique, type                                                                                    | `DbAdminIndex`                                     |
+| Contraintes  | PK, FK (cible cliquable), CHECK, UNIQUE                                                                        | `DbAdminConstraint`                                |
+| DDL          | `CREATE TABLE` reconstitué + bouton Copier / Ouvrir dans un onglet                                             | nouveau `GET :id/ddl` (13.3)                       |
+| Statistiques | lignes estimées, taille, date de dernière analyse (si le moteur la donne)                                      | `DbAdminTable.rowEstimate/sizeBytes` ; reste en V2 |
 
 Note sur le tri/filtre : plutôt que d'ajouter `orderBy` / `where` à `browseRows` (injection à surveiller
 dans 5 drivers), la grille de la fiche **génère l'instruction** (`SELECT * FROM t WHERE c = ... ORDER BY
@@ -322,7 +323,7 @@ L'arbre et la complétion partagent le même cache de métadonnées (`metadataCa
 ### 5.1 Onglets de requêtes
 
 - Onglet = `{ id, titre, sql, connectionId, database, mode: 'read'|'write', savedQueryId?, dirty,
-  resultats[], dernierPlan?, viewState (curseur, scroll) }`. Les résultats ne sont jamais persistés (ils
+resultats[], dernierPlan?, viewState (curseur, scroll) }`. Les résultats ne sont jamais persistés (ils
   peuvent contenir des données sensibles).
 - Création : bouton « + » (Alt+T), double-clic sur la barre d'onglets, ou toute action « ouvrir dans un
   nouvel onglet » (menu contextuel d'une table, historique, requête enregistrée).
@@ -330,7 +331,7 @@ L'arbre et la complétion partagent le même cache de métadonnées (`metadataCa
   icône cadenas rouge si l'onglet est en mode Écriture ; pastille rouge « PROD » si la connexion est en
   production.
 - **Persistance des brouillons** : texte des onglets en `localStorage` par utilisateur
-  (`athanordb.queries.tabs.<userId>`, jusqu'à 20 onglets, 200 Ko chacun) pour survivre à un
+  (`nebuladb.queries.tabs.<userId>`, jusqu'à 20 onglets, 200 Ko chacun) pour survivre à un
   rechargement ; côté serveur seulement via « Enregistrer » (section 8). Le stockage local est enveloppé
   de `try/catch` (déjà la règle de `utils/storage`).
 - Fermeture d'un onglet modifié : pas de popup ; l'onglet se ferme et reste récupérable via « Rouvrir
@@ -342,19 +343,19 @@ L'arbre et la complétion partagent le même cache de métadonnées (`metadataCa
 Composant `SqlEditor.svelte` (pattern de `editor/dbml/DbmlEditor/DbmlEditor.svelte`, chargé en `import()`
 dynamique comme `DataTab`/`EditorSqlDrawer` le sont déjà, pour ne pas alourdir le bundle principal).
 
-| Fonction | Choix | Remarque |
-|----------|-------|----------|
-| Coloration par dialecte | `@codemirror/lang-sql` : `PostgreSQL`, `MySQL`, `MariaDB`, `MSSQL`, `SQLite`, `PLSQL` ; dialecte choisi par `connection.engine`, `Compartment` reconfigurable | nouvelle dépendance, à ajouter dans `apps/web/package.json` |
-| Complétion | `autocompletion()` + source maison depuis le cache de métadonnées (5.3) ; mots-clés du dialecte fournis par `lang-sql` | |
-| Formatage | `sql-formatter` (dialectes `postgresql`, `mysql`, `mariadb`, `transactsql`, `plsql`, `sqlite`), Ctrl+Shift+F, sur la sélection ou tout le tampon | nouvelle dépendance, chargée à la demande |
-| Snippets | `snippetCompletion` de `@codemirror/autocomplete` : `sel` (SELECT ... FROM ... WHERE), `selt` (SELECT TOP/LIMIT), `ins`, `upd`, `del`, `cte`, `join`, `cnt` | liste dans `snippets.ts`, par dialecte |
-| Historique d'édition | `history()` de `@codemirror/commands` (annuler/rétablir par onglet) | |
-| Recherche | `@codemirror/search` déjà présent (Ctrl+F) | |
-| Commentaires | Ctrl+/ bascule `--` ; Ctrl+Shift+/ bloc `/* */` | |
-| Diagnostics | `@codemirror/lint` : soulignement des objets inconnus (table absente du cache) en avertissement, des instructions d'écriture dans un onglet en lecture en information | pas un analyseur : règles simples sur le jeton |
-| Mise en évidence de l'instruction courante | décoration de fond léger entre deux `;` (sert à « Exécuter l'instruction courante ») | |
-| Marquage du mode | bordure de l'éditeur `danger` en écriture (reprise de `SqlPanel`) | |
-| Thème | sombre/clair via les variables du design system ; contraste ≥ 4,5:1 pour tous les jetons de coloration (exigence de la refonte) | voir 12 |
+| Fonction                                   | Choix                                                                                                                                                                 | Remarque                                                    |
+| ------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Coloration par dialecte                    | `@codemirror/lang-sql` : `PostgreSQL`, `MySQL`, `MariaDB`, `MSSQL`, `SQLite`, `PLSQL` ; dialecte choisi par `connection.engine`, `Compartment` reconfigurable         | nouvelle dépendance, à ajouter dans `apps/web/package.json` |
+| Complétion                                 | `autocompletion()` + source maison depuis le cache de métadonnées (5.3) ; mots-clés du dialecte fournis par `lang-sql`                                                |                                                             |
+| Formatage                                  | `sql-formatter` (dialectes `postgresql`, `mysql`, `mariadb`, `transactsql`, `plsql`, `sqlite`), Ctrl+Shift+F, sur la sélection ou tout le tampon                      | nouvelle dépendance, chargée à la demande                   |
+| Snippets                                   | `snippetCompletion` de `@codemirror/autocomplete` : `sel` (SELECT ... FROM ... WHERE), `selt` (SELECT TOP/LIMIT), `ins`, `upd`, `del`, `cte`, `join`, `cnt`           | liste dans `snippets.ts`, par dialecte                      |
+| Historique d'édition                       | `history()` de `@codemirror/commands` (annuler/rétablir par onglet)                                                                                                   |                                                             |
+| Recherche                                  | `@codemirror/search` déjà présent (Ctrl+F)                                                                                                                            |                                                             |
+| Commentaires                               | Ctrl+/ bascule `--` ; Ctrl+Shift+/ bloc `/* */`                                                                                                                       |                                                             |
+| Diagnostics                                | `@codemirror/lint` : soulignement des objets inconnus (table absente du cache) en avertissement, des instructions d'écriture dans un onglet en lecture en information | pas un analyseur : règles simples sur le jeton              |
+| Mise en évidence de l'instruction courante | décoration de fond léger entre deux `;` (sert à « Exécuter l'instruction courante »)                                                                                  |                                                             |
+| Marquage du mode                           | bordure de l'éditeur `danger` en écriture (reprise de `SqlPanel`)                                                                                                     |                                                             |
+| Thème                                      | sombre/clair via les variables du design system ; contraste ≥ 4,5:1 pour tous les jetons de coloration (exigence de la refonte)                                       | voir 12                                                     |
 
 Les limites de `lang-sql` (pas d'analyse sémantique, dialecte Oracle partiel) sont acceptées : la
 complétion et la coloration sont une aide, jamais une validation. Seul le serveur (garde-fous + base)
@@ -385,20 +386,20 @@ Comportement attendu :
 Contrainte : Ctrl+N, Ctrl+T, Ctrl+W (et leurs variantes Maj) sont réservés au navigateur et ne peuvent pas
 être interceptés de façon fiable ; je n'en utilise aucun.
 
-| Action | Raccourci | Remarque |
-|--------|-----------|----------|
-| Exécuter la sélection, sinon l'instruction courante | Ctrl+Entrée | Reprend le raccourci actuel de `SqlPanel` (`Ctrl + Enter`) |
-| Exécuter tout le script | F5 ou Ctrl+Maj+Entrée | F5 = convention SSMS |
-| Annuler l'exécution | Ctrl+. (ou bouton Stop) | |
-| Expliquer (plan estimé) | Ctrl+Alt+E | 7.5 |
-| Formater | Ctrl+Maj+F | |
-| Enregistrer la requête | Ctrl+S (`preventDefault`) | ouvre le champ de nom en ligne, pas une popup |
-| Nouvel onglet / fermer l'onglet | Alt+T / Alt+W | |
-| Onglet suivant / précédent | Ctrl+PageSuiv / Ctrl+PagePréc | natif navigateur sur certaines plateformes : à vérifier |
-| Bascule tiroir sous le diagramme | Ctrl+J | existant, inchangé |
-| Aller à l'objet (palette) | Ctrl+K | seulement si la refonte prévoit une palette globale |
-| Rechercher dans l'historique | Ctrl+Alt+H | |
-| Rechercher dans les résultats | Ctrl+F dans la grille | |
+| Action                                              | Raccourci                     | Remarque                                                   |
+| --------------------------------------------------- | ----------------------------- | ---------------------------------------------------------- |
+| Exécuter la sélection, sinon l'instruction courante | Ctrl+Entrée                   | Reprend le raccourci actuel de `SqlPanel` (`Ctrl + Enter`) |
+| Exécuter tout le script                             | F5 ou Ctrl+Maj+Entrée         | F5 = convention SSMS                                       |
+| Annuler l'exécution                                 | Ctrl+. (ou bouton Stop)       |                                                            |
+| Expliquer (plan estimé)                             | Ctrl+Alt+E                    | 7.5                                                        |
+| Formater                                            | Ctrl+Maj+F                    |                                                            |
+| Enregistrer la requête                              | Ctrl+S (`preventDefault`)     | ouvre le champ de nom en ligne, pas une popup              |
+| Nouvel onglet / fermer l'onglet                     | Alt+T / Alt+W                 |                                                            |
+| Onglet suivant / précédent                          | Ctrl+PageSuiv / Ctrl+PagePréc | natif navigateur sur certaines plateformes : à vérifier    |
+| Bascule tiroir sous le diagramme                    | Ctrl+J                        | existant, inchangé                                         |
+| Aller à l'objet (palette)                           | Ctrl+K                        | seulement si la refonte prévoit une palette globale        |
+| Rechercher dans l'historique                        | Ctrl+Alt+H                    |                                                            |
+| Rechercher dans les résultats                       | Ctrl+F dans la grille         |                                                            |
 
 Une aide « Raccourcis » (bouton `?` de la barre d'état) s'ouvre en popover, pas en modale.
 
@@ -408,13 +409,13 @@ Une aide « Raccourcis » (bouton `?` de la barre d'état) s'ouvre en popover, p
 
 ### 6.1 Que lance chaque geste
 
-| Geste | Texte envoyé | Mode de découpage |
-|-------|--------------|-------------------|
-| Ctrl+Entrée avec sélection | la sélection | séparée en instructions |
-| Ctrl+Entrée sans sélection | l'instruction sous le curseur (entre deux `;`, ou bloc séparé par ligne vide si pas de `;`) | une instruction |
-| F5 / Ctrl+Maj+Entrée | tout le tampon | séparée en instructions (script) |
-| « Exécuter ce lot » (SQL Server) | texte jusqu'au prochain `GO` autour du curseur | lot unique, `GO` retiré |
-| Menu de l'historique ou d'une requête enregistrée « Exécuter » | le texte entier, dans un nouvel onglet | script |
+| Geste                                                          | Texte envoyé                                                                                | Mode de découpage                |
+| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------- | -------------------------------- |
+| Ctrl+Entrée avec sélection                                     | la sélection                                                                                | séparée en instructions          |
+| Ctrl+Entrée sans sélection                                     | l'instruction sous le curseur (entre deux `;`, ou bloc séparé par ligne vide si pas de `;`) | une instruction                  |
+| F5 / Ctrl+Maj+Entrée                                           | tout le tampon                                                                              | séparée en instructions (script) |
+| « Exécuter ce lot » (SQL Server)                               | texte jusqu'au prochain `GO` autour du curseur                                              | lot unique, `GO` retiré          |
+| Menu de l'historique ou d'une requête enregistrée « Exécuter » | le texte entier, dans un nouvel onglet                                                      | script                           |
 
 « Lot » (SQL Server) : un lot `GO`-séparé est envoyé tel quel (une requête), car les variables
 (`DECLARE @x`) ne survivent pas d'un lot à l'autre ; le garde de lecture de SQL Server regarde déjà
@@ -435,12 +436,12 @@ le client a une copie légère pour déterminer « l'instruction courante » (le
 
 Chaque instruction passe par le garde du rôle, indépendamment :
 
-| Rôle / mode | Garde appliqué à chaque instruction | Nombre max. d'instructions | Transaction |
-|-------------|--------------------------------------|----------------------------|-------------|
-| `read` (ou lecture pour tous) | `assertReadOnlyStatement` | 20 | une transaction `READ ONLY` par instruction (PostgreSQL, MySQL, Oracle) ; rien sur SQL Server |
-| `write`, mode écriture | `assertDataStatement` + `confirmWrite` | 10 | **obligatoirement une transaction unique « tout ou rien »** : un échec annule tout |
-| Administrateur, lecture | `assertReadOnlyStatement` | 200 | idem `read` |
-| Administrateur, écriture | politique de structure sur l'ensemble des instructions (`findStructuralStatements`) | 200 | option « tout ou rien » (cochée par défaut), non transactionnelle pour le DDL MySQL/Oracle (message explicite) |
+| Rôle / mode                   | Garde appliqué à chaque instruction                                                 | Nombre max. d'instructions | Transaction                                                                                                    |
+| ----------------------------- | ----------------------------------------------------------------------------------- | -------------------------- | -------------------------------------------------------------------------------------------------------------- |
+| `read` (ou lecture pour tous) | `assertReadOnlyStatement`                                                           | 20                         | une transaction `READ ONLY` par instruction (PostgreSQL, MySQL, Oracle) ; rien sur SQL Server                  |
+| `write`, mode écriture        | `assertDataStatement` + `confirmWrite`                                              | 10                         | **obligatoirement une transaction unique « tout ou rien »** : un échec annule tout                             |
+| Administrateur, lecture       | `assertReadOnlyStatement`                                                           | 200                        | idem `read`                                                                                                    |
+| Administrateur, écriture      | politique de structure sur l'ensemble des instructions (`findStructuralStatements`) | 200                        | option « tout ou rien » (cochée par défaut), non transactionnelle pour le DDL MySQL/Oracle (message explicite) |
 
 Les plafonds 1000 lignes (membre) / 5000 (admin) et 30 s / 120 s restent **par exécution entière** pour
 les membres : le temps restant est réparti (une instruction qui dépasse coupe le script). Le plafond de
@@ -459,13 +460,13 @@ administrateur seulement (comportement `SQLCMD`/SSMS « continuer »).
   peut annuler ; réponse `204` même si le run est déjà fini (idempotent).
 - Mécanisme par moteur :
 
-| Moteur | Annulation | Remarque |
-|--------|------------|----------|
-| PostgreSQL | seconde connexion : `SELECT pg_cancel_backend(pid)` (pid lu au début du run) | droit de s'annuler soi-même, sans rôle spécial |
-| MySQL / MariaDB | seconde connexion : `KILL QUERY <connection_id>` | |
-| SQL Server | `request.cancel()` (déjà utilisé dans `mssql.ts` l.261-274) | |
-| Oracle | `connection.break()` d'`oracledb` | à vérifier sur le driver en place |
-| SQLite | **non annulable** (`better-sqlite3` est synchrone ; à vérifier dans `sqlite.ts`) | bouton Stop désactivé, durée max réduite à 30 s |
+| Moteur          | Annulation                                                                       | Remarque                                        |
+| --------------- | -------------------------------------------------------------------------------- | ----------------------------------------------- |
+| PostgreSQL      | seconde connexion : `SELECT pg_cancel_backend(pid)` (pid lu au début du run)     | droit de s'annuler soi-même, sans rôle spécial  |
+| MySQL / MariaDB | seconde connexion : `KILL QUERY <connection_id>`                                 |                                                 |
+| SQL Server      | `request.cancel()` (déjà utilisé dans `mssql.ts` l.261-274)                      |                                                 |
+| Oracle          | `connection.break()` d'`oracledb`                                                | à vérifier sur le driver en place               |
+| SQLite          | **non annulable** (`better-sqlite3` est synchrone ; à vérifier dans `sqlite.ts`) | bouton Stop désactivé, durée max réduite à 30 s |
 
 - Après annulation : message « Exécution annulée après 4,2 s », le résultat partiel déjà reçu est
   conservé.
@@ -499,7 +500,7 @@ navigateur oublié).
 ### 6.6 Variables et paramètres
 
 Les variables natives des moteurs (`@x` MySQL/SQL Server, `:x` Oracle, `\set` psql) ne sont pas
-portables et pour la plupart refusées par les gardes. Athanor propose donc ses **paramètres** :
+portables et pour la plupart refusées par les gardes. Nebula propose donc ses **paramètres** :
 
 - Syntaxe `{{nom}}` dans le texte, par exemple `WHERE created_at >= {{depuis}}` (même notation que les
   variables de modèle du projet, cf. `permissions.md` l.54 : cohérence de langage, objets distincts).
@@ -563,13 +564,21 @@ interface RunResponse {
   runId: string;
   status: "done" | "error" | "cancelled";
   durationMs: number;
-  items: RunItem[];           // dans l'ordre des instructions
+  items: RunItem[]; // dans l'ordre des instructions
 }
 type RunItem =
-  | { kind: "rows"; index: number; sql: string; columns: DbAdminColumnMeta[]; rows: unknown[][];
-      rowCount: number; truncated: boolean; durationMs: number }
+  | {
+      kind: "rows";
+      index: number;
+      sql: string;
+      columns: DbAdminColumnMeta[];
+      rows: unknown[][];
+      rowCount: number;
+      truncated: boolean;
+      durationMs: number;
+    }
   | { kind: "affected"; index: number; sql: string; rowCount: number; durationMs: number }
-  | { kind: "message"; index: number; level: "info" | "warning"; text: string }   // NOTICE, PRINT
+  | { kind: "message"; index: number; level: "info" | "warning"; text: string } // NOTICE, PRINT
   | { kind: "error"; index: number; sql: string; message: string; code?: string; position?: number };
 ```
 
@@ -613,7 +622,7 @@ politique de structure (6.7 / 10.6), avec leurs boutons, au lieu de popups :
 Bouton « Expliquer » (Ctrl+Alt+E) sur l'instruction courante. Résultat dans l'onglet **Plan** :
 
 - Arbre de nœuds normalisé (`PlanNode { id, label, relation?, cost?, estRows?, actualRows?, timeMs?,
-  warnings[], children[] }`) rendu comme un arbre indenté avec une barre de coût relatif par nœud, les
+warnings[], children[] }`) rendu comme un arbre indenté avec une barre de coût relatif par nœud, les
   nœuds les plus chers surlignés, et les avertissements (parcours séquentiel d'une grande table, estimation
   de lignes très éloignée du réel).
 - Bascule « Arbre / Texte brut / JSON ou XML ». Le brut est toujours disponible (le plan SQL Server est un
@@ -623,13 +632,13 @@ Bouton « Expliquer » (Ctrl+Alt+E) sur l'instruction courante. Résultat dans l
   aux membres `write`, en mode Écriture armé (confirmation en ligne), et exécuté dans une transaction
   annulée (`ROLLBACK`) pour les instructions de données. Un `read` n'a que l'estimé.
 
-| Moteur | Estimé | Réel | Format | Remarque |
-|--------|--------|------|--------|----------|
-| PostgreSQL | `EXPLAIN (FORMAT JSON)` | `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` dans `BEGIN ... ROLLBACK` | JSON | arbre complet |
-| MySQL 8 / MariaDB | `EXPLAIN FORMAT=JSON` | `EXPLAIN ANALYZE` (MySQL 8.0.18+) | JSON / texte | MariaDB : `ANALYZE FORMAT=JSON` ; à vérifier par version |
-| SQL Server | `SET SHOWPLAN_XML ON` | `SET STATISTICS XML ON` | XML | **jamais tapé par l'utilisateur** : le serveur l'enveloppe lui-même (le garde de lecture interdit `SET`) |
-| Oracle | `EXPLAIN PLAN FOR` + `DBMS_XPLAN.DISPLAY` | `DBMS_XPLAN.DISPLAY_CURSOR` | texte | écrit dans `PLAN_TABLE` : hors transaction `READ ONLY` ; texte brut seulement en V1 |
-| SQLite | `EXPLAIN QUERY PLAN` | non | texte | arbre simple |
+| Moteur            | Estimé                                    | Réel                                                                | Format       | Remarque                                                                                                 |
+| ----------------- | ----------------------------------------- | ------------------------------------------------------------------- | ------------ | -------------------------------------------------------------------------------------------------------- |
+| PostgreSQL        | `EXPLAIN (FORMAT JSON)`                   | `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` dans `BEGIN ... ROLLBACK` | JSON         | arbre complet                                                                                            |
+| MySQL 8 / MariaDB | `EXPLAIN FORMAT=JSON`                     | `EXPLAIN ANALYZE` (MySQL 8.0.18+)                                   | JSON / texte | MariaDB : `ANALYZE FORMAT=JSON` ; à vérifier par version                                                 |
+| SQL Server        | `SET SHOWPLAN_XML ON`                     | `SET STATISTICS XML ON`                                             | XML          | **jamais tapé par l'utilisateur** : le serveur l'enveloppe lui-même (le garde de lecture interdit `SET`) |
+| Oracle            | `EXPLAIN PLAN FOR` + `DBMS_XPLAN.DISPLAY` | `DBMS_XPLAN.DISPLAY_CURSOR`                                         | texte        | écrit dans `PLAN_TABLE` : hors transaction `READ ONLY` ; texte brut seulement en V1                      |
+| SQLite            | `EXPLAIN QUERY PLAN`                      | non                                                                 | texte        | arbre simple                                                                                             |
 
 Le pilote ajoute une méthode `explain(sql, { analyze, database })` à `DatabaseAdminDriver` (13.4).
 SQL Server et Oracle restent en « texte/XML brut » en V1 ; seuls PostgreSQL, MySQL et SQLite produisent
@@ -637,13 +646,13 @@ l'arbre normalisé (lot 8), les deux autres suivent.
 
 ### 7.6 Export et copie
 
-| Format | Source | Détail |
-|--------|--------|--------|
-| CSV | client (existant : `toCsv`, BOM UTF-8) | séparateur configurable `,` / `;` (Excel français) ; en-têtes optionnels |
-| JSON | client | tableau d'objets, valeurs déjà JSON-sûres (`DbAdminQueryResult`) |
-| Excel `.xlsx` | client, bibliothèque légère chargée à la demande (`write-excel-file`, à vérifier ; éviter `exceljs`, trop lourde) | types respectés (nombres, dates), en-têtes figés |
-| TSV dans le presse-papiers | client | Ctrl+C |
-| Export complet (au-delà du plafond d'affichage) | serveur : `POST :id/export` en flux | plafond 50 000 lignes, formats CSV/JSON, même garde que la requête, audité `dbaccess.export` ; **lot 7 optionnel**, voir Q6 |
+| Format                                          | Source                                                                                                            | Détail                                                                                                                      |
+| ----------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------- |
+| CSV                                             | client (existant : `toCsv`, BOM UTF-8)                                                                            | séparateur configurable `,` / `;` (Excel français) ; en-têtes optionnels                                                    |
+| JSON                                            | client                                                                                                            | tableau d'objets, valeurs déjà JSON-sûres (`DbAdminQueryResult`)                                                            |
+| Excel `.xlsx`                                   | client, bibliothèque légère chargée à la demande (`write-excel-file`, à vérifier ; éviter `exceljs`, trop lourde) | types respectés (nombres, dates), en-têtes figés                                                                            |
+| TSV dans le presse-papiers                      | client                                                                                                            | Ctrl+C                                                                                                                      |
+| Export complet (au-delà du plafond d'affichage) | serveur : `POST :id/export` en flux                                                                               | plafond 50 000 lignes, formats CSV/JSON, même garde que la requête, audité `dbaccess.export` ; **lot 7 optionnel**, voir Q6 |
 
 L'export client ne contient que les lignes **reçues** (≤ plafond) et l'interface l'écrit : « Export de
 1 000 lignes sur un résultat tronqué ».
@@ -669,7 +678,7 @@ Aujourd'hui `EnvironmentBadge` (nom, couleur, `production`). Dans l'espace :
 ### 8.1 Modèle
 
 - **Requête enregistrée** : `{ id, connectionId, database?, folderId?, name, description?, sql, params[],
-  visibility: 'private' | 'connection', kind: 'read'|'write'|'structure', ownerId, createdAt, updatedAt }`.
+visibility: 'private' | 'connection', kind: 'read'|'write'|'structure', ownerId, createdAt, updatedAt }`.
 - **Dossier** : `{ id, connectionId, ownerId, visibility, parentId?, name }`, deux niveaux maximum.
 - **Visibilité** : `private` (moi seul) ou `connection` (toutes les personnes ayant un accès actif à cette
   connexion : administrateurs, membres `read`/`write`). Pas de partage par équipe en V1 (une grant peut déjà
@@ -680,14 +689,14 @@ Aujourd'hui `EnvironmentBadge` (nom, couleur, `production`). Dans l'espace :
 
 ### 8.2 Droits
 
-| Action | Propriétaire | Autre ayant accès à la connexion | Administrateur d'instance |
-|--------|:------------:|:--------------------------------:|:-------------------------:|
-| Lire une requête `private` | oui | non | non (la vie privée prime ; le journal d'audit garde les exécutions) |
-| Lire une requête `connection` | oui | oui | oui |
-| Créer / modifier / supprimer les siennes | oui | | |
-| Modifier / supprimer celle d'un autre | non | non | supprimer oui (modération) |
-| Passer en `connection` | oui, s'il a accès à la connexion | | |
-| Exécuter une requête partagée | selon **son** niveau (`read` ne lance jamais une écriture) | | |
+| Action                                   |                        Propriétaire                        | Autre ayant accès à la connexion |                      Administrateur d'instance                      |
+| ---------------------------------------- | :--------------------------------------------------------: | :------------------------------: | :-----------------------------------------------------------------: |
+| Lire une requête `private`               |                            oui                             |               non                | non (la vie privée prime ; le journal d'audit garde les exécutions) |
+| Lire une requête `connection`            |                            oui                             |               oui                |                                 oui                                 |
+| Créer / modifier / supprimer les siennes |                            oui                             |                                  |                                                                     |
+| Modifier / supprimer celle d'un autre    |                            non                             |               non                |                     supprimer oui (modération)                      |
+| Passer en `connection`                   |              oui, s'il a accès à la connexion              |                                  |                                                                     |
+| Exécuter une requête partagée            | selon **son** niveau (`read` ne lance jamais une écriture) |                                  |                                                                     |
 
 Retirer l'accès à la connexion à quelqu'un fait disparaître pour lui les requêtes partagées au prochain
 appel (jointure sur `effectiveDbAccess`, comme tout le reste). Les requêtes `private` d'un utilisateur
@@ -769,59 +778,59 @@ la fiche de la table cible dans un onglet.
 Source : `docs/permissions.md` (« Database access (members) »), `dbAccess/service.ts#requireDbConsoleUser`,
 `dbAdmin/routes.ts`.
 
-| Rôle | Comment on l'obtient | Notes |
-|------|----------------------|-------|
-| Administrateur d'instance | `users.is_admin` | accès à toute connexion, `access = "admin"` |
-| Membre `write` | grant `write` sur la connexion (utilisateur ou équipe) | données seulement : `INSERT/UPDATE/DELETE/MERGE`, une instruction, `confirmWrite` |
-| Membre `read` | grant `read` | une instruction de lecture, `READ ONLY`, 1000 lignes, 30 s |
-| Sans accès | aucune grant | `404 CONNECTION_NOT_FOUND` (même réponse que « inexistante ») |
-| Clé d'API | quelle que soit la personne | refusée sur ces routes (`404`) : l'espace est une affaire de navigateur |
+| Rôle                      | Comment on l'obtient                                   | Notes                                                                             |
+| ------------------------- | ------------------------------------------------------ | --------------------------------------------------------------------------------- |
+| Administrateur d'instance | `users.is_admin`                                       | accès à toute connexion, `access = "admin"`                                       |
+| Membre `write`            | grant `write` sur la connexion (utilisateur ou équipe) | données seulement : `INSERT/UPDATE/DELETE/MERGE`, une instruction, `confirmWrite` |
+| Membre `read`             | grant `read`                                           | une instruction de lecture, `READ ONLY`, 1000 lignes, 30 s                        |
+| Sans accès                | aucune grant                                           | `404 CONNECTION_NOT_FOUND` (même réponse que « inexistante »)                     |
+| Clé d'API                 | quelle que soit la personne                            | refusée sur ces routes (`404`) : l'espace est une affaire de navigateur           |
 
 Deux dimensions de **compte de base** se combinent avec le niveau, par connexion
 (`connection.authMode` : `shared` / `personal`) :
 
 - **Compte partagé** : tout membre exécute avec le compte stocké sur la connexion ; seul le filtre
-  d'Athanor le borne (`etat-des-features.md` l.213-214). Le droit réel dépend du compte, souvent très
+  d'Nebula le borne (`etat-des-features.md` l.213-214). Le droit réel dépend du compte, souvent très
   privilégié : c'est le point de faiblesse connu.
 - **Compte personnel** : la personne exécute avec le compte qu'elle a donné (`PUT
-  /api/connections/:id/credentials`) ; sans compte, `PERSONAL_CREDENTIALS_REQUIRED`. Les droits de la base
-  s'ajoutent aux filtres d'Athanor.
+/api/connections/:id/credentials`) ; sans compte, `PERSONAL_CREDENTIALS_REQUIRED`. Les droits de la base
+  s'ajoutent aux filtres d'Nebula.
 
 ### 10.2 Matrice « fonction × rôle » dans l'espace Requêtes
 
 Légende : **✔** disponible ; **—** invisible (masqué) ; **◐** visible mais désactivé avec explication ;
 **(A)** fonctionnalité administrateur uniquement.
 
-| Fonction de l'espace | Admin | Membre `write` | Membre `read` | Sans accès |
-|----------------------|:-----:|:--------------:|:-------------:|:----------:|
-| Voir l'entrée « Requêtes » | ✔ | ✔ | ✔ | — (écran 11.6 par lien direct) |
-| Liste des connexions accessibles | toutes | accordées | accordées | vide |
-| Arbre : bases, schémas, tables, vues, colonnes, index | ✔ | ✔ | ✔ | — |
-| Bases système dans l'arbre | ✔ (case) | — | — | — |
-| Fiche de table, DDL, données paginées | ✔ | ✔ | ✔ | — |
-| Définition de procédure / fonction / vue | ✔ | ✔ | ✔ | — |
-| Éditeur, onglets, complétion, formatage, snippets | ✔ | ✔ | ✔ | — |
-| Lecture (SELECT, EXPLAIN estimé, SHOW) | ✔ | ✔ | ✔ | — |
-| Script de lectures (jusqu'à 20 instructions) | ✔ (200) | ✔ (20) | ✔ (20) | — |
-| Interrupteur Écriture | ✔ | ✔ | — | — |
-| Écriture de données (INSERT/UPDATE/DELETE/MERGE) | ✔ | ✔ (10, transaction unique) | ◐ « Votre accès est en lecture seule. Demandez l'accès en écriture à un administrateur. » | — |
-| Structure (CREATE/ALTER/DROP/TRUNCATE) | ✔ (politique de structure) | ◐ « La structure se modifie dans le schéma du projet. » (jamais autorisée) | ◐ idem | — |
-| Procédures (`EXEC`/`CALL`), `SELECT ... INTO` | ✔ (A) | ◐ refusées par le filtre | ◐ | — |
-| Comptes, droits (GRANT/REVOKE/CREATE USER) | ✔ (A, politique) | ◐ refusés | ◐ | — |
-| EXPLAIN réel (`ANALYZE`) | ✔ | ✔ (mode écriture armé) | — (estimé seulement) | — |
-| Annuler sa propre exécution | ✔ | ✔ | ✔ | — |
-| Annuler l'exécution d'un autre | ✔ (A) via Sessions | — | — | — |
-| Historique perso, recherche, épingler | ✔ | ✔ | ✔ | — |
-| Requêtes enregistrées perso | ✔ | ✔ | ✔ | — |
-| Partager une requête avec la connexion | ✔ | ✔ | ✔ | — |
-| Supprimer la requête partagée d'un autre | ✔ (A) | — | — | — |
-| Export CSV / JSON / Excel / copie | ✔ | ✔ | ✔ | — |
-| Export complet serveur (> plafond) | ✔ | ✔ | ◐ à décider (Q6) | — |
-| Relever les plafonds (5000 lignes, 120 s) | ✔ (A) | — | — | — |
-| Supprimer base/table/colonne depuis l'arbre | ✔ (A) | — | — | — |
-| Utilisateurs, sessions, sauvegardes, santé, journal de la base | lien vers l'administration (A) | — | — | — |
-| Voir le projet modélisant la table | ✔ | ✔ si lisible | ✔ si lisible | — |
-| Donner son compte (mode personnel) | ✔ | ✔ | ✔ | — |
+| Fonction de l'espace                                           |             Admin              |                               Membre `write`                               |                                       Membre `read`                                       |           Sans accès           |
+| -------------------------------------------------------------- | :----------------------------: | :------------------------------------------------------------------------: | :---------------------------------------------------------------------------------------: | :----------------------------: |
+| Voir l'entrée « Requêtes »                                     |               ✔                |                                     ✔                                      |                                             ✔                                             | — (écran 11.6 par lien direct) |
+| Liste des connexions accessibles                               |             toutes             |                                 accordées                                  |                                         accordées                                         |              vide              |
+| Arbre : bases, schémas, tables, vues, colonnes, index          |               ✔                |                                     ✔                                      |                                             ✔                                             |               —                |
+| Bases système dans l'arbre                                     |            ✔ (case)            |                                     —                                      |                                             —                                             |               —                |
+| Fiche de table, DDL, données paginées                          |               ✔                |                                     ✔                                      |                                             ✔                                             |               —                |
+| Définition de procédure / fonction / vue                       |               ✔                |                                     ✔                                      |                                             ✔                                             |               —                |
+| Éditeur, onglets, complétion, formatage, snippets              |               ✔                |                                     ✔                                      |                                             ✔                                             |               —                |
+| Lecture (SELECT, EXPLAIN estimé, SHOW)                         |               ✔                |                                     ✔                                      |                                             ✔                                             |               —                |
+| Script de lectures (jusqu'à 20 instructions)                   |            ✔ (200)             |                                   ✔ (20)                                   |                                          ✔ (20)                                           |               —                |
+| Interrupteur Écriture                                          |               ✔                |                                     ✔                                      |                                             —                                             |               —                |
+| Écriture de données (INSERT/UPDATE/DELETE/MERGE)               |               ✔                |                         ✔ (10, transaction unique)                         | ◐ « Votre accès est en lecture seule. Demandez l'accès en écriture à un administrateur. » |               —                |
+| Structure (CREATE/ALTER/DROP/TRUNCATE)                         |   ✔ (politique de structure)   | ◐ « La structure se modifie dans le schéma du projet. » (jamais autorisée) |                                          ◐ idem                                           |               —                |
+| Procédures (`EXEC`/`CALL`), `SELECT ... INTO`                  |             ✔ (A)              |                          ◐ refusées par le filtre                          |                                             ◐                                             |               —                |
+| Comptes, droits (GRANT/REVOKE/CREATE USER)                     |        ✔ (A, politique)        |                                 ◐ refusés                                  |                                             ◐                                             |               —                |
+| EXPLAIN réel (`ANALYZE`)                                       |               ✔                |                           ✔ (mode écriture armé)                           |                                   — (estimé seulement)                                    |               —                |
+| Annuler sa propre exécution                                    |               ✔                |                                     ✔                                      |                                             ✔                                             |               —                |
+| Annuler l'exécution d'un autre                                 |       ✔ (A) via Sessions       |                                     —                                      |                                             —                                             |               —                |
+| Historique perso, recherche, épingler                          |               ✔                |                                     ✔                                      |                                             ✔                                             |               —                |
+| Requêtes enregistrées perso                                    |               ✔                |                                     ✔                                      |                                             ✔                                             |               —                |
+| Partager une requête avec la connexion                         |               ✔                |                                     ✔                                      |                                             ✔                                             |               —                |
+| Supprimer la requête partagée d'un autre                       |             ✔ (A)              |                                     —                                      |                                             —                                             |               —                |
+| Export CSV / JSON / Excel / copie                              |               ✔                |                                     ✔                                      |                                             ✔                                             |               —                |
+| Export complet serveur (> plafond)                             |               ✔                |                                     ✔                                      |                                     ◐ à décider (Q6)                                      |               —                |
+| Relever les plafonds (5000 lignes, 120 s)                      |             ✔ (A)              |                                     —                                      |                                             —                                             |               —                |
+| Supprimer base/table/colonne depuis l'arbre                    |             ✔ (A)              |                                     —                                      |                                             —                                             |               —                |
+| Utilisateurs, sessions, sauvegardes, santé, journal de la base | lien vers l'administration (A) |                                     —                                      |                                             —                                             |               —                |
+| Voir le projet modélisant la table                             |               ✔                |                                ✔ si lisible                                |                                       ✔ si lisible                                        |               —                |
+| Donner son compte (mode personnel)                             |               ✔                |                                     ✔                                      |                                             ✔                                             |               —                |
 
 Règles d'affichage :
 
@@ -852,11 +861,11 @@ ce chantier ; à noter en Q8.
 
 ### 10.5 Compte actif : ce que la personne voit
 
-| Mode | Affichage dans la barre de contexte | Action |
-|------|-------------------------------------|--------|
-| Partagé (membre) | « Compte partagé » + info-bulle « Vos droits sont ceux du compte de la connexion. » | aucune |
-| Partagé (admin) | « Compte partagé : `svc_app` » | lien vers la connexion |
-| Personnel, compte donné | « Votre compte : `ada` » + `⋯` > Changer / Retirer | |
+| Mode                       | Affichage dans la barre de contexte                                                                                                                                             | Action                                                                    |
+| -------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------- |
+| Partagé (membre)           | « Compte partagé » + info-bulle « Vos droits sont ceux du compte de la connexion. »                                                                                             | aucune                                                                    |
+| Partagé (admin)            | « Compte partagé : `svc_app` »                                                                                                                                                  | lien vers la connexion                                                    |
+| Personnel, compte donné    | « Votre compte : `ada` » + `⋯` > Changer / Retirer                                                                                                                              |                                                                           |
 | Personnel, compte manquant | « Compte requis » en orange et **panneau en ligne dans la zone de travail** : champs identifiant (pré-rempli par `suggestedUsername`) et mot de passe + bouton « Se connecter » | remplace la popup `PersonalAccountDialog` ; mêmes routes `connectionsApi` |
 
 Le panneau « compte requis » est affiché à la place des résultats **et** à la place de l'arbre de la
@@ -868,24 +877,24 @@ stocké à un membre (Q10).
 Le principe : dire **ce qui s'est passé, pourquoi, et quoi faire**, dans l'onglet Messages (7.4) et la
 barre d'état, sans jargon de code. Les codes existent déjà côté serveur (`shared/errors.ts`).
 
-| Code / situation | Texte proposé (fr) | Action proposée |
-|------------------|--------------------|-----------------|
-| `CONNECTION_NOT_FOUND` (404) | « Cette connexion n'existe pas ou vous n'y avez plus accès. » | Retour à la liste ; rafraîchir les accès |
-| `DB_ACCESS_WRITE_FORBIDDEN` | « Votre accès à cette base est en lecture seule. Demandez l'accès en écriture à un administrateur. » | Lien « Voir qui administre » (si utile) |
-| `DB_ACCESS_WRITE_CONFIRMATION_REQUIRED` | (ne doit pas se produire : le bandeau envoie la confirmation) | Rafraîchir l'onglet |
-| `DB_ADMIN_WRITE_NOT_ALLOWED` (membre, structure/autre) | « Cette instruction n'est pas autorisée depuis cet espace (`DROP`, procédures et comptes sont réservés). Les changements de structure se font dans le schéma du projet. » | [Ouvrir le projet] si lié |
-| `DB_ADMIN_WRITE_NOT_ALLOWED` (lecture, plusieurs instructions, avant lot 4) | « Une seule instruction à la fois en lecture. » | disparaît avec les scripts |
-| `CONNECTION_READ_ONLY` | « Cette connexion est en lecture seule (réglage de l'administrateur). » | |
-| `PERSONAL_CREDENTIALS_REQUIRED` | « Cette connexion utilise des comptes personnels. Saisissez votre identifiant de base pour continuer. » | panneau 10.5 |
-| `STRUCTURE_VIA_SCHEMA` (admin) | voir 7.4 | [Ouvrir le projet] |
-| `STRUCTURE_CONFIRMATION_REQUIRED` (admin) | voir 7.4 | [Exécuter quand même] |
-| `DB_ADMIN_QUERY_FAILED` (502) | afficher **le message de la base tel quel** (« permission denied for table orders ») sous un en-tête « La base a refusé l'instruction » + position cliquable | si « permission denied » : « Votre compte (`ada`) n'a pas ce droit sur la base. Demandez-le au propriétaire de la base. » |
-| Timeout | « Interrompu après 30 s (limite de votre accès). » | « Ajouter un filtre ou un LIMIT » ; admin : relever la limite |
-| Annulation | « Exécution annulée après 4,2 s. » | |
-| Résultat tronqué | « Affichage limité à 1 000 lignes. Affinez la requête ou exportez. » | |
-| Connexion hors ligne | « Impossible de joindre le serveur. Dernière vérification il y a 3 min. » | Réessayer ; lien vers la santé (A) |
-| Limite de débit (429) | « Trop de requêtes en peu de temps. Réessayez dans quelques secondes. » | |
-| Budget de la cible (`takeConnectionBudget`) | « Trop de connexions en cours vers ce serveur. Réessayez. » | |
+| Code / situation                                                            | Texte proposé (fr)                                                                                                                                                        | Action proposée                                                                                                           |
+| --------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| `CONNECTION_NOT_FOUND` (404)                                                | « Cette connexion n'existe pas ou vous n'y avez plus accès. »                                                                                                             | Retour à la liste ; rafraîchir les accès                                                                                  |
+| `DB_ACCESS_WRITE_FORBIDDEN`                                                 | « Votre accès à cette base est en lecture seule. Demandez l'accès en écriture à un administrateur. »                                                                      | Lien « Voir qui administre » (si utile)                                                                                   |
+| `DB_ACCESS_WRITE_CONFIRMATION_REQUIRED`                                     | (ne doit pas se produire : le bandeau envoie la confirmation)                                                                                                             | Rafraîchir l'onglet                                                                                                       |
+| `DB_ADMIN_WRITE_NOT_ALLOWED` (membre, structure/autre)                      | « Cette instruction n'est pas autorisée depuis cet espace (`DROP`, procédures et comptes sont réservés). Les changements de structure se font dans le schéma du projet. » | [Ouvrir le projet] si lié                                                                                                 |
+| `DB_ADMIN_WRITE_NOT_ALLOWED` (lecture, plusieurs instructions, avant lot 4) | « Une seule instruction à la fois en lecture. »                                                                                                                           | disparaît avec les scripts                                                                                                |
+| `CONNECTION_READ_ONLY`                                                      | « Cette connexion est en lecture seule (réglage de l'administrateur). »                                                                                                   |                                                                                                                           |
+| `PERSONAL_CREDENTIALS_REQUIRED`                                             | « Cette connexion utilise des comptes personnels. Saisissez votre identifiant de base pour continuer. »                                                                   | panneau 10.5                                                                                                              |
+| `STRUCTURE_VIA_SCHEMA` (admin)                                              | voir 7.4                                                                                                                                                                  | [Ouvrir le projet]                                                                                                        |
+| `STRUCTURE_CONFIRMATION_REQUIRED` (admin)                                   | voir 7.4                                                                                                                                                                  | [Exécuter quand même]                                                                                                     |
+| `DB_ADMIN_QUERY_FAILED` (502)                                               | afficher **le message de la base tel quel** (« permission denied for table orders ») sous un en-tête « La base a refusé l'instruction » + position cliquable              | si « permission denied » : « Votre compte (`ada`) n'a pas ce droit sur la base. Demandez-le au propriétaire de la base. » |
+| Timeout                                                                     | « Interrompu après 30 s (limite de votre accès). »                                                                                                                        | « Ajouter un filtre ou un LIMIT » ; admin : relever la limite                                                             |
+| Annulation                                                                  | « Exécution annulée après 4,2 s. »                                                                                                                                        |                                                                                                                           |
+| Résultat tronqué                                                            | « Affichage limité à 1 000 lignes. Affinez la requête ou exportez. »                                                                                                      |                                                                                                                           |
+| Connexion hors ligne                                                        | « Impossible de joindre le serveur. Dernière vérification il y a 3 min. »                                                                                                 | Réessayer ; lien vers la santé (A)                                                                                        |
+| Limite de débit (429)                                                       | « Trop de requêtes en peu de temps. Réessayez dans quelques secondes. »                                                                                                   |                                                                                                                           |
+| Budget de la cible (`takeConnectionBudget`)                                 | « Trop de connexions en cours vers ce serveur. Réessayez. »                                                                                                               |                                                                                                                           |
 
 Les textes vont dans `locales/fr.json` et `en.json` sous `queries.*` ; les clés `dbadmin.*` /
 `dbAccess.*` existantes sont réutilisées quand elles couvrent le cas.
@@ -901,7 +910,7 @@ chapitre design system ; ici, structure et états.
 
 ```
 +--------------------------------------------------------------------------------------------------------+
-| Athanor   Projets   Requêtes*   Administration                                      [?]  [cloche]  [ada v] |
+| Nebula   Projets   Requêtes*   Administration                                      [?]  [cloche]  [ada v] |
 +--------------------------------------------------------------------------------------------------------+
 | Connexion [* Shop prod  v] [PROD]  Base [shop v]  Compte: partagé   Mode [ Lecture | Ecriture ]     [Etat]|
 +========================================= PRODUCTION · Shop prod =======================================+
@@ -1079,8 +1088,8 @@ Remplace, pour l'espace, la dépendance à la liste des connexions du projet.
 - Réponse : pour chaque connexion accessible (administrateur : toutes ; membre : celles des grants,
   `listAccessibleConnections`) :
   `{ id, name, engine, level: "admin"|"read"|"write", environment?, environmentColor?, production?,
-  readOnly, authMode, personalAccount?: { hasCredentials: boolean, suggestedUsername?: string },
-  health: { status, checkedAt }, projects: [{ id, name }] }`.
+readOnly, authMode, personalAccount?: { hasCredentials: boolean, suggestedUsername?: string },
+health: { status, checkedAt }, projects: [{ id, name }] }`.
 - Aucune information réseau (`host`, `port`, `user`, `connectionString`) pour un membre : ce qu'il lui faut
   pour travailler, rien de plus. `projects` ne contient que les projets que la personne peut lire.
 - Fichiers : `dbAccess/routes.ts` (route), `dbAccess/repository.ts` (requête jointe `db_connections`),
@@ -1121,7 +1130,7 @@ Ajouté dans la boucle `consoleRoutes` de `dbAdmin/routes.ts` pour hériter des 
    l'historique reçoit l'exécution entière (nouveau paramètre `statementCount`).
 7. Réponse `RunResponse` (7.2). Les erreurs de la base ne sont plus des `502` de toute la route : une
    instruction en erreur est un `RunItem { kind: "error" }` dans une réponse `200`, avec le message natif ;
-   les refus d'Athanor (garde, droit, confirmation) restent des erreurs HTTP avant exécution.
+   les refus d'Nebula (garde, droit, confirmation) restent des erreurs HTTP avant exécution.
 
 `POST :id/query` reste tel quel (clients, tests existants `routes.test.ts`). Il est réimplémenté au
 dessus de `run` en lot 3 ou laissé intact (décision de l'implémenteur ; l'important est qu'il n'y ait
@@ -1133,12 +1142,12 @@ au-delà `429 DB_ADMIN_TOO_MANY_RUNS` (nouveau code).
 
 ### 13.3 Métadonnées, objets, DDL
 
-| Route | Rôle | Garde |
-|-------|------|-------|
-| `GET :id/completion-metadata?database=` | schémas, tables, vues, colonnes (nom, type, PK, FK cible) pour la complétion ; ETag | `requireDbConsoleUser` |
-| `GET :id/routines?database=&schema=` | procédures et fonctions (nom, type, signature) | idem |
-| `GET :id/definition?database=&schema=&name=&kind=` | définition d'une vue, procédure, fonction | idem |
-| `GET :id/ddl?database=&schema=&table=` | `CREATE TABLE` reconstitué | idem |
+| Route                                              | Rôle                                                                                | Garde                  |
+| -------------------------------------------------- | ----------------------------------------------------------------------------------- | ---------------------- |
+| `GET :id/completion-metadata?database=`            | schémas, tables, vues, colonnes (nom, type, PK, FK cible) pour la complétion ; ETag | `requireDbConsoleUser` |
+| `GET :id/routines?database=&schema=`               | procédures et fonctions (nom, type, signature)                                      | idem                   |
+| `GET :id/definition?database=&schema=&name=&kind=` | définition d'une vue, procédure, fonction                                           | idem                   |
+| `GET :id/ddl?database=&schema=&table=`             | `CREATE TABLE` reconstitué                                                          | idem                   |
 
 Implémentation : trois méthodes ajoutées à `DatabaseAdminDriver` (`drivers/interface.ts`) et implémentées
 dans les 5 drivers : `listColumns(database, schema?)` (une requête `information_schema.columns` /
@@ -1165,7 +1174,7 @@ Corps : `{ sql, database?, analyze?: boolean, confirmWrite?: boolean }`. Garde :
   jamais d'`EXPLAIN` à la main pour cette route (les `EXPLAIN` tapés dans l'éditeur restent possibles dans
   `run`, comme aujourd'hui).
 - Réponse : `{ engine, mode: "estimated"|"actual", format: "json"|"xml"|"text", raw: string,
-  tree?: PlanNode[], totalCost?: number }`. Méthode `explain()` ajoutée à `DatabaseAdminDriver` ;
+tree?: PlanNode[], totalCost?: number }`. Méthode `explain()` ajoutée à `DatabaseAdminDriver` ;
   normalisation dans `dbAdmin/plans/{postgres,mysql,sqlite}.ts` (fonctions pures, testables sans base).
 - Audit `dbaccess.explain` / `dbadmin.explain` (texte de l'instruction, mode).
 
@@ -1314,14 +1323,14 @@ Objectif : un membre voit ses connexions sans passer par un projet.
 Le plus gros lot, le plus risqué pour la sécurité.
 
 - Serveur : `sqlSplit.ts` (+ copie `packages/shared`), `POST :id/run`, `runRegistry.ts`, `POST
-  :id/run/:runId/cancel`, `runStatement` et `cancelCurrent` par driver, audit par instruction, plafonds,
+:id/run/:runId/cancel`, `runStatement` et `cancelCurrent` par driver, audit par instruction, plafonds,
   historique étendu (migration 39 partielle : colonnes d'historique).
 - Web : `ResultsPane.svelte` (onglets Résultats / Messages), gestion de `runId`, bouton Stop, bandeau de
   confirmation en ligne (remplace `ConfirmDialog`), traitement des deux réponses de politique de structure
   en ligne, messages d'erreur 10.6.
 - Fichiers : `dbAdmin/{routes,sqlSplit,runRegistry,queryHistory}.ts`, `drivers/*.ts`,
   `migrations.ts`, `packages/shared/src/{dbAdmin,sqlSplit}.ts`, `features/queries/{ResultsPane,
-  ConfirmBar,Messages,runClient}`.
+ConfirmBar,Messages,runClient}`.
 - Acceptation : un script de 4 `SELECT` produit 4 jeux ; une erreur à l'instruction 3 arrête et le
   dit (position cliquable) ; en écriture membre, 2 `UPDATE` sont tout-ou-rien (le 2e échoue = le 1er
   annulé, vérifié par un `SELECT` ensuite) ; Stop interrompt un `pg_sleep(30)` en moins de 2 s ; un
@@ -1416,20 +1425,20 @@ tests de fuite (compteur de connexions ouvertes avant/après).
 
 ### Récapitulatif
 
-| Lot | Contenu | Taille | Dépend de |
-|-----|---------|:------:|-----------|
-| 0 | Entrée, découverte des connexions | S | - |
-| 1 | Éditeur CM6 + onglets | M | 0 |
-| 2 | Arbre + fiche de table + DDL | M | 0 |
-| 3 | Moteur d'exécution (scripts, multi-résultats, annulation) | L | 1 |
-| 4 | Complétion depuis le schéma | M | 1, 2 |
-| 5 | Requêtes enregistrées + historique | M | 1 |
-| 6 | Résultats, export, copie | M | 3 |
-| 7 | EXPLAIN | M | 3 |
-| 8 | Liens avec le modèle, tiroir, onglet Données | S/M | 1, 2 |
-| 9 | Production, paramètres, finitions | S/M | 3 |
-| 10 | Retrait des doublons, doc | S | 8 |
-| 11 | Transactions manuelles (optionnel) | L | 3, décision Q5 |
+| Lot | Contenu                                                   | Taille | Dépend de      |
+| --- | --------------------------------------------------------- | :----: | -------------- |
+| 0   | Entrée, découverte des connexions                         |   S    | -              |
+| 1   | Éditeur CM6 + onglets                                     |   M    | 0              |
+| 2   | Arbre + fiche de table + DDL                              |   M    | 0              |
+| 3   | Moteur d'exécution (scripts, multi-résultats, annulation) |   L    | 1              |
+| 4   | Complétion depuis le schéma                               |   M    | 1, 2           |
+| 5   | Requêtes enregistrées + historique                        |   M    | 1              |
+| 6   | Résultats, export, copie                                  |   M    | 3              |
+| 7   | EXPLAIN                                                   |   M    | 3              |
+| 8   | Liens avec le modèle, tiroir, onglet Données              |  S/M   | 1, 2           |
+| 9   | Production, paramètres, finitions                         |  S/M   | 3              |
+| 10  | Retrait des doublons, doc                                 |   S    | 8              |
+| 11  | Transactions manuelles (optionnel)                        |   L    | 3, décision Q5 |
 
 Total indicatif sans le lot 11 : environ 30 à 45 jours-personne. Livrables à valeur autonome : 0 (accès
 des membres), 0+1 (un vrai éditeur), 0+1+2 (explorateur complet), puis 3.
@@ -1464,25 +1473,25 @@ des membres), 0+1 (un vrai éditeur), 0+1+2 (explorateur complet), puis 3.
 
 ### 16.1 Risques
 
-| # | Risque | Gravité | Parade |
-|---|--------|:-------:|--------|
-| R1 | Les scripts élargissent la surface d'attaque du filtre SQL (il « n'est pas un analyseur », `etat-des-features.md` l.233) : un découpage faux laisse passer une instruction que le garde n'a pas vue | haute | Le garde s'applique au **texte complet reçu** ET à chaque instruction ; le découpeur est testé sur un corpus d'évasions (chaînes, `$$`, commentaires MySQL `/*!`) ; en cas de doute, refus ; plafonds d'instructions ; revue de sécurité (déjà due avant tout usage réel) |
-| R2 | Compte partagé très privilégié : l'espace rend l'accès plus facile et plus visible, donc plus utilisé | haute | Messages « vos droits sont ceux du compte de la connexion » ; recommander les comptes personnels ; Q1 |
-| R3 | Annulation : chaque moteur a ses pièges (permissions de `KILL QUERY`, `pg_cancel_backend` sur un autre rôle, SQLite non annulable) | moyenne | Annuler **sa propre** session par pid connu ; test par moteur ; Stop désactivé honnêtement sur SQLite |
-| R4 | Sessions épinglées (lot 11) : fuites de connexion, verrous tenus | haute | Lot optionnel, plafonds, rollback automatique, tests de fuite |
-| R5 | Volume : arbre de milliers de tables, complétion de dizaines de milliers de colonnes | moyenne | Virtualisation, plafonds serveur, chargement par table au-delà |
-| R6 | Le texte SQL (avec secrets) est gardé tel quel dans l'audit et l'historique | moyenne | Avertissement 13.7 point 8 ; Q2 pour un masquage serveur |
-| R7 | Les requêtes partagées deviennent un vecteur de « piège » (ex. `DELETE` partagé) | moyenne | Étiquette de nature, double-clic non exécutant, droits de l'exécutant, confirmation en ligne |
-| R8 | `lang-sql` et `sql-formatter` : poids du bundle et dialectes incomplets (Oracle) | basse | Import dynamique ; repli sur le dialecte standard ; le formatage peut être désactivé par moteur |
-| R9 | Registres en mémoire (annulation, budget) : non partagés si l'instance passe en plusieurs processus | basse | Documenté comme la limite actuelle de `connectionBudget` |
-| R10 | Rattrapage de la navigation : l'espace dépend d'une destination de premier niveau qui relève d'un autre chapitre | moyenne | Lot 0 livrable avec une entrée provisoire (lien depuis l'écran des projets, à côté de « Admin ») |
-| R11 | Contrastes et accessibilité : bandeaux rouge/orange, coloration d'éditeur | moyenne | Jetons validés au chapitre design system ; audit en fin de lots 3 et 9 |
+| #   | Risque                                                                                                                                                                                              | Gravité | Parade                                                                                                                                                                                                                                                                    |
+| --- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | :-----: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| R1  | Les scripts élargissent la surface d'attaque du filtre SQL (il « n'est pas un analyseur », `etat-des-features.md` l.233) : un découpage faux laisse passer une instruction que le garde n'a pas vue |  haute  | Le garde s'applique au **texte complet reçu** ET à chaque instruction ; le découpeur est testé sur un corpus d'évasions (chaînes, `$$`, commentaires MySQL `/*!`) ; en cas de doute, refus ; plafonds d'instructions ; revue de sécurité (déjà due avant tout usage réel) |
+| R2  | Compte partagé très privilégié : l'espace rend l'accès plus facile et plus visible, donc plus utilisé                                                                                               |  haute  | Messages « vos droits sont ceux du compte de la connexion » ; recommander les comptes personnels ; Q1                                                                                                                                                                     |
+| R3  | Annulation : chaque moteur a ses pièges (permissions de `KILL QUERY`, `pg_cancel_backend` sur un autre rôle, SQLite non annulable)                                                                  | moyenne | Annuler **sa propre** session par pid connu ; test par moteur ; Stop désactivé honnêtement sur SQLite                                                                                                                                                                     |
+| R4  | Sessions épinglées (lot 11) : fuites de connexion, verrous tenus                                                                                                                                    |  haute  | Lot optionnel, plafonds, rollback automatique, tests de fuite                                                                                                                                                                                                             |
+| R5  | Volume : arbre de milliers de tables, complétion de dizaines de milliers de colonnes                                                                                                                | moyenne | Virtualisation, plafonds serveur, chargement par table au-delà                                                                                                                                                                                                            |
+| R6  | Le texte SQL (avec secrets) est gardé tel quel dans l'audit et l'historique                                                                                                                         | moyenne | Avertissement 13.7 point 8 ; Q2 pour un masquage serveur                                                                                                                                                                                                                  |
+| R7  | Les requêtes partagées deviennent un vecteur de « piège » (ex. `DELETE` partagé)                                                                                                                    | moyenne | Étiquette de nature, double-clic non exécutant, droits de l'exécutant, confirmation en ligne                                                                                                                                                                              |
+| R8  | `lang-sql` et `sql-formatter` : poids du bundle et dialectes incomplets (Oracle)                                                                                                                    |  basse  | Import dynamique ; repli sur le dialecte standard ; le formatage peut être désactivé par moteur                                                                                                                                                                           |
+| R9  | Registres en mémoire (annulation, budget) : non partagés si l'instance passe en plusieurs processus                                                                                                 |  basse  | Documenté comme la limite actuelle de `connectionBudget`                                                                                                                                                                                                                  |
+| R10 | Rattrapage de la navigation : l'espace dépend d'une destination de premier niveau qui relève d'un autre chapitre                                                                                    | moyenne | Lot 0 livrable avec une entrée provisoire (lien depuis l'écran des projets, à côté de « Admin »)                                                                                                                                                                          |
+| R11 | Contrastes et accessibilité : bandeaux rouge/orange, coloration d'éditeur                                                                                                                           | moyenne | Jetons validés au chapitre design system ; audit en fin de lots 3 et 9                                                                                                                                                                                                    |
 
 ### 16.2 Questions ouvertes
 
 1. **Q1 - Compte partagé ou personnel par défaut ?** Faut-il, pour une connexion où des membres ont des
    grants, **recommander** (ou imposer, par un réglage d'instance) les comptes personnels, sachant que le
-   filtre d'Athanor ne remplace pas les droits de la base ? Et doit-on afficher aux membres le nom du
+   filtre d'Nebula ne remplace pas les droits de la base ? Et doit-on afficher aux membres le nom du
    compte partagé utilisé (Q10) ?
 2. **Q2 - Secrets dans l'audit.** Masquer côté serveur les motifs `IDENTIFIED BY '…'` / `PASSWORD '…'`
    dans l'audit et l'historique (changement de comportement documenté comme « antérieur » dans
@@ -1499,7 +1508,7 @@ des membres), 0+1 (un vrai éditeur), 0+1+2 (explorateur complet), puis 3.
    un état serveur long (connexions pinnées). Recommandation : ne pas le faire tant qu'un cas d'usage
    concret n'est pas posé.
 6. **Q6 - Export massif.** Un membre `read` peut-il exporter jusqu'à 50 000 lignes (aujourd'hui :
-   1 000), ce qui change la nature de ce qu'on peut sortir de la base via Athanor ? Réservé aux `write`
+   1 000), ce qui change la nature de ce qu'on peut sortir de la base via Nebula ? Réservé aux `write`
    et administrateurs, ou à tous, ou jamais (export limité à l'affichage) ? Pas de restriction par
    colonne existe aujourd'hui (`permissions.md` fin).
 7. **Q7 - Partage des requêtes.** Seulement « tout le monde ayant accès à la connexion », ou aussi par

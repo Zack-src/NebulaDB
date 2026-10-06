@@ -4,7 +4,7 @@ import type {
   BackupTableInfo,
   BackupTrigger,
   DatabaseConnectionConfig,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { config } from "../../config.js";
 import { ApiError } from "../../shared/errors.js";
 import { createDatabaseDriver } from "../connections/drivers/index.js";
@@ -59,7 +59,7 @@ async function run(id: string, request: BackupRequest, job: { cancelled: boolean
 
     writer = openBackupWriter(id);
     const header: BackupFileHeader = {
-      format: "athanordb-backup",
+      format: "nebuladb-backup",
       version: 1,
       engine: connection.engine,
       connectionName: connection.name,
@@ -83,7 +83,7 @@ async function run(id: string, request: BackupRequest, job: { cancelled: boolean
         if (writer.bytes > config.databaseBackupMaxBytes) {
           throw new Error(
             `the database holds more than the ${Math.round(config.databaseBackupMaxBytes / (1024 * 1024))} MB a logical ` +
-              "backup may read (ATHANORDB_DATABASE_BACKUP_MAX_MB) — back up fewer tables, or use the engine's own tool",
+              "backup may read (NEBULADB_DATABASE_BACKUP_MAX_MB) — back up fewer tables, or use the engine's own tool",
           );
         }
         if (page.length < PAGE_ROWS) break;

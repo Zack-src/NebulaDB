@@ -14,8 +14,8 @@
 
 <script lang="ts">
   import { untrack } from "svelte";
-  import type { Project } from "@athanordb/shared";
-  import { projectToDbml } from "@athanordb/dbml-engine";
+  import type { Project } from "@nebuladb/shared";
+  import { projectToDbml } from "@nebuladb/dbml-engine";
   import { ChevronLeftIcon, CodeIcon, LayoutGridIcon, SettingsIcon } from "@/components/icons/Icons";
   import { SwapHorizontalIcon } from "@/components/icons/Icons";
   import Icon from "@/components/icons/Icon.svelte";

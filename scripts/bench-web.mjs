@@ -151,11 +151,11 @@ const readTransform = (page) =>
 
 /** Opens a measurement window, runs `action`, then closes it on a real paint. */
 async function measure(page, label, action) {
-  await page.evaluate((name) => window.__athanorBench.start(name), label);
+  await page.evaluate((name) => window.__nebulaBench.start(name), label);
   await action();
-  await page.evaluate(() => window.__athanorBench.frames(3));
+  await page.evaluate(() => window.__nebulaBench.frames(3));
   await sleep(400);
-  return page.evaluate(() => window.__athanorBench.stop());
+  return page.evaluate(() => window.__nebulaBench.stop());
 }
 
 /**
@@ -277,15 +277,15 @@ async function runScenarios(page) {
   //      whole selection and then for a single table.
   const selectedIndexes = selectableIds.map((id) => Number(id.slice(1)));
   await record("recolor-multi", async () => {
-    await page.evaluate((indexes) => window.__athanorBench.setTablesColor(indexes, "#ef4444"), selectedIndexes);
+    await page.evaluate((indexes) => window.__nebulaBench.setTablesColor(indexes, "#ef4444"), selectedIndexes);
   });
   await record("recolor-single", async () => {
-    await page.evaluate(() => window.__athanorBench.setTablesColor([0], "#22c55e"));
+    await page.evaluate(() => window.__nebulaBench.setTablesColor([0], "#22c55e"));
   });
 
   // 7. Column property flip (pk), the popover's own write.
   await record("column-flag", async () => {
-    await page.evaluate(() => window.__athanorBench.toggleFieldFlag(0, 2, "pk"));
+    await page.evaluate(() => window.__nebulaBench.toggleFieldFlag(0, 2, "pk"));
   });
 
   // 8. Link/cardinality highlight toggle — the real toolbar button.
@@ -297,7 +297,7 @@ async function runScenarios(page) {
 
   // 9. Column deletion (3 columns off one table, each removing its refs).
   await record("delete-columns", async () => {
-    await page.evaluate(() => window.__athanorBench.deleteColumns(1, 3));
+    await page.evaluate(() => window.__nebulaBench.deleteColumns(1, 3));
   });
 
   return results;
@@ -308,8 +308,8 @@ async function benchConfig(browser, config) {
   const page = await context.newPage();
   await page.addInitScript(
     ([viewport]) => {
-      localStorage.setItem("athanordb.viewport.bench-local.bench-user", JSON.stringify(viewport));
-      localStorage.setItem("athanor:perf", "1");
+      localStorage.setItem("nebuladb.viewport.bench-local.bench-user", JSON.stringify(viewport));
+      localStorage.setItem("nebula:perf", "1");
     },
     [VIEWPORT],
   );
@@ -317,8 +317,8 @@ async function benchConfig(browser, config) {
   const url = `${BASE_URL}/#bench?tables=${config.tables}&columns=${config.columns}&detail=${config.detail}`;
   const loadStart = Date.now();
   await page.goto(url, { waitUntil: "load" });
-  await page.waitForFunction(() => Boolean(window.__athanorBench), null, { timeout: 60_000 });
-  const ready = await page.evaluate((expected) => window.__athanorBench.ready(expected), config.tables);
+  await page.waitForFunction(() => Boolean(window.__nebulaBench), null, { timeout: 60_000 });
+  const ready = await page.evaluate((expected) => window.__nebulaBench.ready(expected), config.tables);
   const loadMs = Date.now() - loadStart;
   // Let the initial mount, DBML serialization and edge routing settle before
   // the first measured gesture.

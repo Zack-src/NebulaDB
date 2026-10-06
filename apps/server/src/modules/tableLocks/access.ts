@@ -1,4 +1,4 @@
-import { findLockViolations, type LockableSchema, type TableLock, type TableLockAuthority } from "@athanordb/shared";
+import { findLockViolations, type LockableSchema, type TableLock, type TableLockAuthority } from "@nebuladb/shared";
 import { ApiError } from "../../shared/errors.js";
 import { getEffectivePermission, isGlobalAdmin } from "../../shared/permissions.js";
 import { listTableLocks, projectHasTableLocks } from "./repository.js";

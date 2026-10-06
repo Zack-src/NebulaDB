@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  export const APP_NAME = "AthanorDB";
+  export const APP_NAME = "NebulaDB";
 </script>
 
 <script lang="ts">

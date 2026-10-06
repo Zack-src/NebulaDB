@@ -1,4 +1,4 @@
-import type { Project, EnumDef } from "@athanordb/shared";
+import type { Project, EnumDef } from "@nebuladb/shared";
 import { toPascalCase, toCamelCase } from "@/utils/case";
 
 export interface PrismaExportSettings {

@@ -22,14 +22,14 @@ import {
   type Ref,
   type ServerNotice,
   type Table,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { appendRevision, saveSnapshot, loadSnapshot } from "./persistence.js";
 import { timeSync } from "../infrastructure/perf.js";
 import { LIMIT_ORIGIN, enforceLimits } from "./room/limits.js";
 import type { RoomLogger } from "./room/logger.js";
 
 /** Transaction origin — and so the revision's author in the history panel — for `repairRefOrientation`. */
-const REF_REPAIR_ORIGIN = "AthanorDB (sens des relations corrigé)";
+const REF_REPAIR_ORIGIN = "NebulaDB (sens des relations corrigé)";
 
 /**
  * Told about every persisted doc change, with its author — how outgoing
@@ -48,7 +48,7 @@ export function setRoomDocChangeListener(listener: DocChangeListener | null): vo
  * Transaction origin — and so the revision's author in the history panel — for
  * the change that puts a locked table back after a connection altered it.
  */
-const LOCK_REVERT_ORIGIN = "AthanorDB (table verrouillée rétablie)";
+const LOCK_REVERT_ORIGIN = "NebulaDB (table verrouillée rétablie)";
 
 const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;

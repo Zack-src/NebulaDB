@@ -374,7 +374,7 @@ mode sombre de première classe, `prefers-reduced-motion` respecté.
 ## 8. Journal d'activité et logs (admin)
 
 **Objectif** : une interface admin pour voir **tout ce qui s'est passé**, de deux sources :
-(A) ce qui a été fait **depuis Athanor**, (B) ce que la **base elle-même** a enregistré.
+(A) ce qui a été fait **depuis Nebula**, (B) ce que la **base elle-même** a enregistré.
 
 **Existant** : `shared/audit.ts` (journal append-only des actions sensibles), `modules/audit/routes.ts`,
 `features/admin/AuditTab.svelte`, `ErrorsTab.svelte`, historique de déploiement (`deployment_history`),
@@ -389,21 +389,21 @@ Activité        Source: [ Toutes ▾ ]  Connexion: [ postgres-prod ▾ ]  Utili
                 Type: [ Structure · Données · Comptes · Sessions · Déploiements ]  Période: [ 24 h ▾ ]
                 🔎 Rechercher…                                                        [Exporter CSV]
 ─────────────────────────────────────────────────────────────────────────────────────────────────
- ● 14:32  Athanor   alice   DÉPLOIEMENT  Boutique-prod → postgres-prod   +2 tables, 1 colonne   ›
- ● 14:10  Athanor   bob     SQL (écriture) UPDATE users SET … (12 lignes)                         ›
+ ● 14:32  Nebula   alice   DÉPLOIEMENT  Boutique-prod → postgres-prod   +2 tables, 1 colonne   ›
+ ● 14:10  Nebula   bob     SQL (écriture) UPDATE users SET … (12 lignes)                         ›
  ▲ 13:58  Base      app_etl DDL           ALTER TABLE orders ADD COLUMN note text      ⚠ externe ›
- ● 13:40  Athanor   alice   VERROU        users verrouillée (structure)                           ›
+ ● 13:40  Nebula   alice   VERROU        users verrouillée (structure)                           ›
  ○ 13:05  Base      —       CONNEXION     12 sessions ouvertes (pic)                              ›
 ─────────────────────────────────────────────────────────────────────────────────────────────────
- ● Athanor   ▲ Base (détecté)   ⚠ hors Athanor           Détail ▸ SQL complet, durée, IP, corrélation
+ ● Nebula   ▲ Base (détecté)   ⚠ hors Nebula           Détail ▸ SQL complet, durée, IP, corrélation
 ```
 
 - Clic sur une ligne : panneau de détail (SQL complet, durée, lignes affectées, IP, projet, lien
   « Ouvrir dans le schéma » ou « Voir le déploiement »).
-- Filtre « Hors Athanor uniquement » en un clic ; tri chronologique, pagination par curseur.
-- Les entrées Athanor sont liées au même identifiant de corrélation que les lignes de log base (§8.3).
+- Filtre « Hors Nebula uniquement » en un clic ; tri chronologique, pagination par curseur.
+- Les entrées Nebula sont liées au même identifiant de corrélation que les lignes de log base (§8.3).
 
-### 8.2 Journal Athanor (A)
+### 8.2 Journal Nebula (A)
 
 - Étendre `shared/audit.ts` : types d'événements ajoutés (verrous, politique de structure, seeds,
   SQL de l'éditeur, détection de dérive), champs communs `connection_id, project_id, correlation_id`.
@@ -433,9 +433,9 @@ Surveillance de la base
            └ « Créez un event trigger ddl_audit… » (script fourni, à exécuter par votre DBA)
 ```
 
-- Athanor **ne configure jamais** l'audit côté serveur sans accord explicite : il fournit le script et
+- Nebula **ne configure jamais** l'audit côté serveur sans accord explicite : il fournit le script et
   vérifie ensuite qu'il fonctionne.
-- Collecte : tâche de fond légère (réutilise l'intervalle de santé, `ATHANORDB_CONNECTION_HEALTH_INTERVAL_MINUTES`),
+- Collecte : tâche de fond légère (réutilise l'intervalle de santé, `NEBULADB_CONNECTION_HEALTH_INTERVAL_MINUTES`),
   respecte `connectionBudget`, jamais de polling agressif. Lignes stockées dans `db_activity_log`
   (rétention courte, plafonnée) ; contenu des requêtes tronqué et masqué (littéraux sensibles).
 - Nouveau module serveur `modules/dbMonitor/` (collecteurs par moteur dans `drivers/`, même schéma que `dbAdmin/drivers`).
@@ -447,8 +447,8 @@ export vers un SIEM (syslog/webhook) ?
 
 ## 9. Détection des modifications externes et alertes
 
-**Objectif** : si la base est modifiée autrement que par un déploiement Athanor, Athanor le **détecte** et
-**alerte**, pour les projets configurés en mode « détecter les modifications externes à Athanor ».
+**Objectif** : si la base est modifiée autrement que par un déploiement Nebula, Nebula le **détecte** et
+**alerte**, pour les projets configurés en mode « détecter les modifications externes à Nebula ».
 
 ### 9.1 Configuration (par projet, avec connexion liée)
 
@@ -456,14 +456,14 @@ Dans les paramètres du projet, onglet **Surveillance** :
 
 ```
 Surveillance de la base                                 Connexion : postgres-prod
- [✓] Détecter les modifications externes à Athanor
+ [✓] Détecter les modifications externes à Nebula
  Vérifier              [ toutes les 15 min ▾ ]     (5 min · 15 min · 1 h · 6 h · quotidien)
  Portée                (•) Structure (tables, colonnes, index, contraintes)
                        ( ) Structure + vues/fonctions/procédures
                        ( ) + comptes et permissions (admins)
  Ignorer               [ schémas techniques : pg_*, information_schema ▾ ] [ + tables… ]
  Quand une différence est trouvée
-   Alerter via   [✓] Dans Athanor   [✓] E-mail (admins du projet)   [ ] Webhook   [ ] Slack*
+   Alerter via   [✓] Dans Nebula   [✓] E-mail (admins du projet)   [ ] Webhook   [ ] Slack*
    Gravité       ( ) Info   (•) Avertissement   ( ) Critique si connexion PROD
    Action auto   (•) Aucune   ( ) Marquer le projet « divergent » et bloquer les déploiements
                                                                   [Enregistrer]
@@ -473,12 +473,12 @@ Surveillance de la base                                 Connexion : postgres-pro
 
 ### 9.2 Comment ça marche (principe)
 
-1. **Empreinte de référence** : après chaque déploiement réussi ou « pull », Athanor introspecte la base
+1. **Empreinte de référence** : après chaque déploiement réussi ou « pull », Nebula introspecte la base
    (`introspectSchema`, déjà présent) et stocke une **empreinte normalisée** (hash par table + détail).
    C'est l'état « attendu ».
 2. **Contrôle périodique** (tâche de fond, même mécanique que la santé des connexions) : nouvelle
    introspection, comparaison avec la référence.
-3. **Attribution** : si différence, on regarde si un déploiement Athanor récent l'explique
+3. **Attribution** : si différence, on regarde si un déploiement Nebula récent l'explique
    (`deployment_history`). Sinon → **modification externe**. Avec le niveau 2 (§8.3), on ajoute
    l'auteur et l'heure exacts ; sinon « auteur inconnu (détecté à 14:30) ».
 4. **Événement** `drift.detected` : entrée de journal (§8), alerte, mise à jour de l'état du projet.
@@ -492,7 +492,7 @@ valeurs par défaut équivalentes) pour éviter les faux positifs (ex. `varchar(
 **a) Bandeau dans l'éditeur de schéma** :
 
 ```
-⚠ La base « postgres-prod » a été modifiée en dehors d'Athanor (détecté à 14:30) — 3 différences
+⚠ La base « postgres-prod » a été modifiée en dehors d'Nebula (détecté à 14:30) — 3 différences
   [ Voir les différences ]   [ Mettre à jour le schéma ]   [ Réappliquer le schéma ]   [ Ignorer ]
 ```
 
@@ -516,13 +516,13 @@ sur les tables concernées dans le graphe (en plus du cadenas §3).
 
 ### 9.4 Alertes
 
-- **Canaux** : dans Athanor (cloche), **e-mail** (SMTP déjà configuré, `config.ts`/`nodemailer`),
+- **Canaux** : dans Nebula (cloche), **e-mail** (SMTP déjà configuré, `config.ts`/`nodemailer`),
   **webhook** (`modules/webhooks/` : nouvel événement `drift.detected`, signature et reprises existantes).
 - Anti-bruit : regroupement (une alerte par détection, pas par table), délai de grâce, mise en sourdine,
   accusé de réception, rappel si non traité sous N heures.
 - **Dérive connue** : si l'utilisateur choisit « Ignorer », la différence est ajoutée à une liste
   d'exceptions et ne ré-alerte pas.
-- **Lien avec §4** : la politique « structure via le schéma » évite la dérive côté Athanor ; la détection
+- **Lien avec §4** : la politique « structure via le schéma » évite la dérive côté Nebula ; la détection
   couvre le reste (DBA, scripts, autres outils).
 
 ### 9.5 Données et API
@@ -667,7 +667,7 @@ seed** sur une table verrouillée de la base ? versionnement : automatique ou «
 
 ## 11. Sauvegardes, rollback de déploiement et de données
 
-**Besoin** : gérer les sauvegardes d'une base depuis Athanor, et pouvoir **revenir en arrière** sur un
+**Besoin** : gérer les sauvegardes d'une base depuis Nebula, et pouvoir **revenir en arrière** sur un
 déploiement (structure) ou sur des données.
 
 ### 11.1 Sauvegardes — où et visuel
@@ -697,15 +697,15 @@ Sauvegardes · postgres-prod                  [ ▶ Sauvegarder maintenant ]   [
 
 ### 11.2 Comment (par niveau de capacité, comme §8.3)
 
-| Niveau                       | Principe                                                                             | Prérequis                           | Moteurs                       |
-| ---------------------------- | ------------------------------------------------------------------------------------ | ----------------------------------- | ----------------------------- |
-| **Logique** (V1)             | Athanor exporte structure + données **via le pilote** (SQL / CSV par table), en flux | droits de lecture                   | tous, y compris SQLite        |
-| **Natif** (V2)               | Lance l'outil du moteur (`pg_dump`, `mysqldump`, `BACKUP DATABASE`, Data Pump)       | binaire accessible ou accès serveur | PG, MySQL, SQL Server, Oracle |
-| **Point dans le temps** (V3) | Archive des journaux (WAL, binlog…)                                                  | configuré par le DBA                | PG, MySQL, SQL Server, Oracle |
+| Niveau                       | Principe                                                                            | Prérequis                           | Moteurs                       |
+| ---------------------------- | ----------------------------------------------------------------------------------- | ----------------------------------- | ----------------------------- |
+| **Logique** (V1)             | Nebula exporte structure + données **via le pilote** (SQL / CSV par table), en flux | droits de lecture                   | tous, y compris SQLite        |
+| **Natif** (V2)               | Lance l'outil du moteur (`pg_dump`, `mysqldump`, `BACKUP DATABASE`, Data Pump)      | binaire accessible ou accès serveur | PG, MySQL, SQL Server, Oracle |
+| **Point dans le temps** (V3) | Archive des journaux (WAL, binlog…)                                                 | configuré par le DBA                | PG, MySQL, SQL Server, Oracle |
 
-- V1 suffit pour les bases petites/moyennes ; Athanor **affiche une limite de taille** et propose le
+- V1 suffit pour les bases petites/moyennes ; Nebula **affiche une limite de taille** et propose le
   natif au-delà. Les sauvegardes sont **chiffrées** (clé dérivée du secret, rotation compatible avec §
-  rotation existante), stockées hors de la base d'Athanor, avec somme de contrôle.
+  rotation existante), stockées hors de la base d'Nebula, avec somme de contrôle.
 - Exécution **en tâche de fond** avec suivi de progression, annulation, et respect de `connectionBudget`.
 - **Vérification** : restauration périodique dans une base temporaire + comptage de lignes, résultat affiché.
 
@@ -758,7 +758,7 @@ Dans l'historique de déploiements (`deployment_history`, `DeploymentModal.svelt
 - **Table par table** depuis une sauvegarde (§11.3) ; aperçu des lignes qui changeraient (diff de données).
 - **Restaurer une ligne ou une plage** (option V2) : « récupérer les lignes supprimées entre X et Y ».
 - Pour les tables suivies, journal des modifications via le niveau 2 (§8.3) pour annuler une requête
-  d'écriture précise (UPDATE/DELETE exécuté depuis Athanor : on **mémorise les lignes avant** quand la
+  d'écriture précise (UPDATE/DELETE exécuté depuis Nebula : on **mémorise les lignes avant** quand la
   portée est petite, seuil configurable), proposé comme « Annuler cette requête ».
 
 ### 11.6 Chronologie unifiée
@@ -779,7 +779,7 @@ un point de retour possible à chaque étape :
 encrypted, verified_at, retention_until, pinned)`, `backup_schedules`, `restore_jobs`, `storage_targets`.
 - Module serveur `modules/backups/` (collecteurs par moteur dans `drivers/`, tâches planifiées avec le
   mécanisme de santé existant), routes `…/backups`, `…/restore`, `…/deployments/:id/rollback`.
-- Config d'instance : dossier de stockage, quotas, `ATHANORDB_BACKUP_*`.
+- Config d'instance : dossier de stockage, quotas, `NEBULADB_BACKUP_*`.
 
 **Questions ouvertes** : taille maximale du mode logique ? où stocker (volume local, S3) et qui paie
 l'espace ? rétention légale (RGPD : durée max d'une sauvegarde contenant des données personnelles) ?
@@ -838,7 +838,7 @@ Dans l'espace de travail (§0), un onglet **Pipeline** :
   ✕ tmp_import              absent en PreProd, présent en Prod  ⚠ hors schéma
 ```
 
-Réutilise `editor/compare/` et `introspectSchema`. Détecte aussi les écarts **hors Athanor** (lien avec §9).
+Réutilise `editor/compare/` et `introspectSchema`. Détecte aussi les écarts **hors Nebula** (lien avec §9).
 
 ### 12.4 Garde-fous par étape
 
@@ -1099,7 +1099,7 @@ Liste classée par **impact estimé**, issue de l'analyse des requêtes (§16.4)
 ```
 Conseiller de requêtes                                                           [ ○ Désactivé ]
  Sources  [✓] Statistiques du moteur (pg_stat_statements, Query Store…)   état : ✓ disponible
-          [✓] Requêtes exécutées depuis Athanor (console / éditeur)
+          [✓] Requêtes exécutées depuis Nebula (console / éditeur)
           [ ] Journal de requêtes lentes du moteur (nécessite configuration DBA)
  Échantillonnage  toutes les [ 15 min ▾ ]    Rétention [ 14 j ▾ ]    Seuil « lente » [ 200 ms ]
  Confidentialité  [✓] Remplacer les valeurs littérales par ?   [✓] Ne jamais stocker les paramètres
@@ -1114,7 +1114,7 @@ Conseiller de requêtes                                                         
 | MySQL/MariaDB | `performance_schema.events_statements_summary_by_digest` |
 | SQL Server    | Query Store / `sys.dm_exec_query_stats`                  |
 | Oracle        | `V$SQL` / `V$SQLSTATS`                                   |
-| SQLite        | seulement les requêtes passées par Athanor               |
+| SQLite        | seulement les requêtes passées par Nebula                |
 
 Chaque requête est **normalisée** (valeurs → `?`), empreinte, puis agrégée : appels, temps total/moyen,
 lignes, plan. Aucune valeur de paramètre n'est conservée.
@@ -1157,9 +1157,9 @@ Conseiller · postgres-prod                      Analysé : 1 204 requêtes · 9
 
 ### 16.5 Appliquer une recommandation
 
-- **Sur la requête** : si la requête est **dans Athanor** (historique/console, ou requêtes enregistrées si
+- **Sur la requête** : si la requête est **dans Nebula** (historique/console, ou requêtes enregistrées si
   l'idée 13 est retenue), « Remplacer par la version proposée » ; si elle vient d'une application externe,
-  « Copier » avec le diff (Athanor n'a pas accès au code de l'application).
+  « Copier » avec le diff (Nebula n'a pas accès au code de l'application).
 - **Sur la base** : jamais un `CREATE INDEX` direct. **« Proposer dans le schéma »** ouvre le projet, ajoute
   l'index/la modification en **changement en attente** (visuel « ＋ proposé » comme les variantes §10), puis suit
   le circuit normal : revue, plan de déploiement avec risques (§13), promotion (§12), sauvegarde. Le DDL généré
@@ -1173,7 +1173,7 @@ Conseiller · postgres-prod                      Analysé : 1 204 requêtes · 9
 - **Charge** : lecture des vues statistiques uniquement, budget et intervalle bornés, `connectionBudget`
   respecté ; `EXPLAIN ANALYZE` seulement sur demande, en lecture seule, avec délai maximal.
 - **Confidentialité** : les requêtes peuvent contenir des données personnelles ; normalisation à la collecte,
-  rétention courte, accès **admin uniquement**, tout est audité (§8) ; les statistiques ne quittent pas Athanor.
+  rétention courte, accès **admin uniquement**, tout est audité (§8) ; les statistiques ne quittent pas Nebula.
 - **IA optionnelle** (même principe que §14.3) : interface `QueryAdvisorProvider` ; si activée, elle ne reçoit que
   la requête **normalisée** + la structure des tables concernées + le plan, jamais de valeurs ni de données. Ses
   propositions sont **re-validées** (analyse syntaxique, équivalence de résultat sur échantillon quand c'est
@@ -1189,7 +1189,7 @@ limité à `SELECT`) ? quelle durée de rétention par défaut ? afficher les re
 ## 17. Tableau de santé des connexions (validé : point 34)
 
 **Où** : onglet **Santé** de l'espace de travail et vignette sur la liste des connexions (Admin → Connexions,
-qui montre déjà l'état et la latence grâce à `ATHANORDB_CONNECTION_HEALTH_INTERVAL_MINUTES`).
+qui montre déjà l'état et la latence grâce à `NEBULADB_CONNECTION_HEALTH_INTERVAL_MINUTES`).
 
 ```
 Santé · postgres-prod        PostgreSQL 16.3 · en ligne 41 j        Période : [ 24 h ▾ ]   ↻ il y a 2 min
@@ -1203,7 +1203,7 @@ Santé · postgres-prod        PostgreSQL 16.3 · en ligne 41 j        Période 
 
 - Métriques par niveau de capacité (§8.3) : **niveau 0** latence/version/disponibilité/taille ; **niveau 1**
   sessions, verrous bloquants, requêtes lentes, réplication si disponible.
-- Séries courtes conservées côté Athanor (agrégées, rétention réglable), échantillonnage léger.
+- Séries courtes conservées côté Nebula (agrégées, rétention réglable), échantillonnage léger.
 - Liens directs : session bloquante → onglet Sessions (§console) avec **kill** (existant) ; requête lente →
   Conseiller (§16.4) ; croissance → historique de taille (idée 36, à arbitrer).
 - Seuils d'alerte (idée 35) : hors périmètre validé pour l'instant, mais le modèle d'alerte du §9.4 sert déjà.
@@ -1216,7 +1216,7 @@ est reçu (upload : client → base) et envoyé (download : base → client).
 **Visuel** (dans l'onglet Santé, bloc « Trafic ») :
 
 ```
-Trafic · postgres-prod                           Période : [ 24 h ▾ ]   Source : [ Toute la base ▾ ]  (Toute la base · Via Athanor)
+Trafic · postgres-prod                           Période : [ 24 h ▾ ]   Source : [ Toute la base ▾ ]  (Toute la base · Via Nebula)
  ┌ Requêtes ─────────────────────────┐ ┌ Données ──────────────────────────────┐
  │ 1,24 M           pic 310/s à 11:42│ │ ↓ 18,4 Go envoyées   ↑ 2,1 Go reçues  │
  │ ▁▂▃▅▇▆▄▃▂▂▃▄▅▆▅▃▂▁                │ │ ▁▂▂▃▆▇▅▃▂▂▃▃▄▅▃▂▂▁  (↓ plein / ↑ trait)│
@@ -1225,12 +1225,12 @@ Trafic · postgres-prod                           Période : [ 24 h ▾ ]   Sour
  Par utilisateur / application                 Requêtes     ↓ Envoyé     ↑ Reçu      Exactitude
   app_shop (api-01…03)                          1,05 M      15,9 Go      1,4 Go       ● exacte
   app_etl  (10.0.4.12)                          0,11 M       2,1 Go      0,6 Go       ● exacte
-  athanor_admin (via Athanor)                   0,00 M       0,4 Go      0,0 Go       ● mesurée par Athanor
+  nebula_admin (via Nebula)                   0,00 M       0,4 Go      0,0 Go       ● mesurée par Nebula
  ⓘ PostgreSQL n'expose pas les octets réseau : volume estimé d'après les lignes et blocs lus (± 20 %)
 ```
 
 - Pastille d'**exactitude** par métrique : _exacte_ (compteur du moteur), _estimée_ (déduite, avec marge),
-  _indisponible_ (le moteur ne l'expose pas), _mesurée par Athanor_ (trafic qui passe par Athanor).
+  _indisponible_ (le moteur ne l'expose pas), _mesurée par Nebula_ (trafic qui passe par Nebula).
   On **n'affiche jamais une estimation comme une mesure**.
 - Filtres : connexion, utilisateur base, application, hôte client, base/schéma, période ; export CSV.
 - Lien avec le journal (§8) : clic sur un pic → liste des requêtes/sessions de ce créneau.
@@ -1243,15 +1243,15 @@ Trafic · postgres-prod                           Période : [ 24 h ▾ ]   Sour
 | **Oracle**          | `user calls`, `execute count` (`V$SYSSTAT`)                   | ✅ exact : `bytes sent via SQL*Net to client` / `bytes received via SQL*Net from client`          | par session (`V$SESSTAT`)                           |
 | **SQL Server**      | `Batch Requests/sec` (compteurs de performance)               | ⚠ partiel : lectures/écritures par connexion (`sys.dm_exec_connections`), paquets réseau          | par session / login                                 |
 | **PostgreSQL**      | `xact_commit + xact_rollback`, `calls` (`pg_stat_statements`) | ⚠ estimé : lignes retournées (`tup_returned/fetched`), blocs lus ; **pas d'octets réseau natifs** | par base et par rôle (`pg_stat_statements`)         |
-| **SQLite**          | seulement via Athanor                                         | seulement via Athanor                                                                             | —                                                   |
+| **SQLite**          | seulement via Nebula                                          | seulement via Nebula                                                                              | —                                                   |
 
-**Trafic passant par Athanor** (toujours exact) : Athanor compte lui-même requêtes, lignes et octets des
+**Trafic passant par Nebula** (toujours exact) : Nebula compte lui-même requêtes, lignes et octets des
 résultats de la console, de l'éditeur SQL, des déploiements et de l'introspection. Il est affiché **à part**
-(« Via Athanor ») pour distinguer la charge qu'il génère de celle des applications.
+(« Via Nebula ») pour distinguer la charge qu'il génère de celle des applications.
 
 **Collecte**
 
-- Compteurs **cumulatifs** lus à intervalle régulier ; Athanor calcule les **deltas**, gère la
+- Compteurs **cumulatifs** lus à intervalle régulier ; Nebula calcule les **deltas**, gère la
   **remise à zéro** (redémarrage du serveur : on ignore le delta négatif plutôt que d'afficher un pic faux).
 - Même tâche de fond que la santé (§17) ; respect de `connectionBudget` ; une lecture de vues système par
   intervalle, négligeable pour la base.
@@ -1280,7 +1280,7 @@ Centre de notifications dans la barre du haut (partagé avec les alertes du §9.
   Me prévenir quand :  [✓] la structure change   [✓] elle est verrouillée / déverrouillée
                        [ ] ses données initiales changent   [✓] une dérive externe la touche
                        [✓] un déploiement la modifie (avec l'étape : [ Prod ▾ ])
-  Par :  [✓] Dans Athanor   [✓] E-mail   [ ] Webhook        Fréquence :  ( ) Immédiat  (•) Résumé quotidien
+  Par :  [✓] Dans Nebula   [✓] E-mail   [ ] Webhook        Fréquence :  ( ) Immédiat  (•) Résumé quotidien
 ```
 
 - Abonnement à une **table**, un **projet**, une **étape**, une **variante**, ou à « tout ce qui concerne la Prod ».
@@ -1335,7 +1335,7 @@ d'un changement déjà déployé propose-t-elle directement un nouveau déploiem
 | 5   | Espace de travail à onglets (§0)                                                        | 2                      | navigation fluide                  |
 | 6   | SQL dans l'éditeur (§6)                                                                 | 4, 5                   | expérience demandée                |
 | 7   | Seeds CSV (§5)                                                                          | 3                      | déploiement avec données           |
-| 8   | Journal d'activité Athanor (§8.1-8.2)                                                   | 2                      | traçabilité admin                  |
+| 8   | Journal d'activité Nebula (§8.1-8.2)                                                    | 2                      | traçabilité admin                  |
 | 9   | Détection des modifications externes + alertes, niveau 0 (§9)                           | 8                      | cœur « sécurité »                  |
 | 10  | Logs côté base niveaux 1-2 (§8.3)                                                       | 8, 9                   | attribution de l'auteur            |
 | 11  | Sauvegardes logiques + restauration + rollback de déploiement (§11.1-11.4)              | 8                      | filet de sécurité                  |

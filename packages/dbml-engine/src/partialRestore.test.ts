@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Project, Ref, Table } from "@athanordb/shared";
+import type { Project, Ref, Table } from "@nebuladb/shared";
 import { restoreTables } from "./partialRestore.js";
 
 function table(id: string, name: string, fieldIds: string[] = ["id"]): Table {

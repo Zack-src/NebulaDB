@@ -1,3 +1,4 @@
+import { readEnv } from "./brandMigration.js";
 import crypto from "node:crypto";
 import { ApiError } from "./errors.js";
 
@@ -5,7 +6,7 @@ const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;
 
 /**
- * Generic at-rest encryption keyed by `ATHANORDB_SECRET`, shared by every
+ * Generic at-rest encryption keyed by `NEBULADB_SECRET`, shared by every
  * caller that needs to store something more sensitive than a hash: a live
  * database connection's credentials (`modules/connections`, the first thing
  * this app ever encrypted at rest — see `docs/todo.md` Phase 27) and a TOTP
@@ -30,7 +31,7 @@ function deriveKey(secret: string): Buffer {
 }
 
 function encryptionKey(): Buffer {
-  const secret = process.env.ATHANORDB_SECRET;
+  const secret = readEnv("NEBULADB_SECRET");
   if (!secret || secret.trim() === "") {
     // An `ApiError`, not a plain `Error`: the generic error handler masks any
     // other throw behind a bare "internal server error" (an internal message
@@ -40,7 +41,7 @@ function encryptionKey(): Buffer {
     // end that only shows up in the server's own log.
     throw new ApiError("CONNECTION_SECRET_MISSING", {
       message:
-        "ATHANORDB_SECRET must be set before this can be stored — it is the encryption key for sensitive data at " +
+        "NEBULADB_SECRET must be set before this can be stored — it is the encryption key for sensitive data at " +
         "rest (database connection credentials, two-factor secrets). Generate one with `openssl rand -hex 32` and " +
         "set it before using either feature.",
     });
@@ -49,14 +50,14 @@ function encryptionKey(): Buffer {
 }
 
 /**
- * The key being rotated *away from*, if any. While `ATHANORDB_SECRET_PREVIOUS`
+ * The key being rotated *away from*, if any. While `NEBULADB_SECRET_PREVIOUS`
  * is set, anything still encrypted with it stays readable, so a rotation is
  * "set the new secret, keep the old one as PREVIOUS, run `npm run
  * rotate-secret`, then drop PREVIOUS" rather than a flag day that leaves every
  * stored connection undecryptable.
  */
 function previousEncryptionKey(): Buffer | null {
-  const secret = process.env.ATHANORDB_SECRET_PREVIOUS;
+  const secret = readEnv("NEBULADB_SECRET_PREVIOUS");
   if (!secret || secret.trim() === "") return null;
   return deriveKey(secret);
 }

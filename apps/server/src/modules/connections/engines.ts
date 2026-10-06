@@ -1,4 +1,4 @@
-import type { DatabaseEngine } from "@athanordb/shared";
+import type { DatabaseEngine } from "@nebuladb/shared";
 
 export const VALID_ENGINES: ReadonlySet<string> = new Set<DatabaseEngine>([
   "postgres",

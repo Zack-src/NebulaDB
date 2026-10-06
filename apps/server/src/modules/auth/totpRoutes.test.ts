@@ -6,10 +6,10 @@ import { join } from "node:path";
 
 // Same rationale as `app.test.ts`: env vars must land before anything
 // transitively imports `db.ts`/`shared/crypto.ts`.
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-totp-routes-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-totp-routes-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
@@ -38,8 +38,8 @@ async function makeUser(app: Awaited<ReturnType<typeof buildApp>>) {
     headers: headers(),
     payload: { email, password },
   });
-  const sessionCookie = loginRes.cookies.find((c) => c.name === "athanordb_sid");
-  return { id, email, password, cookie: `athanordb_sid=${sessionCookie!.value}` };
+  const sessionCookie = loginRes.cookies.find((c) => c.name === "nebuladb_sid");
+  return { id, email, password, cookie: `nebuladb_sid=${sessionCookie!.value}` };
 }
 
 /** Enrolls 2FA for an already-logged-in user, returning the secret and issued backup codes. */
@@ -147,13 +147,13 @@ test("full lifecycle: enable 2FA, login now requires it, a valid code completes 
       payload: { mfaToken: loginBody.mfaToken, code: totp(secret) },
     });
     assert.equal(rightTotp.statusCode, 200);
-    const sessionCookie = rightTotp.cookies.find((c) => c.name === "athanordb_sid");
+    const sessionCookie = rightTotp.cookies.find((c) => c.name === "nebuladb_sid");
     assert.ok(sessionCookie);
 
     const me = await app.inject({
       method: "GET",
       url: "/api/auth/me",
-      headers: headers({ cookie: `athanordb_sid=${sessionCookie!.value}` }),
+      headers: headers({ cookie: `nebuladb_sid=${sessionCookie!.value}` }),
     });
     assert.equal(me.statusCode, 200);
     assert.equal(me.json().id, user.id);

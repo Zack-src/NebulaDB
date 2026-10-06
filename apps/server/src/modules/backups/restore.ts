@@ -1,4 +1,4 @@
-import { q, type MigrationDialect } from "@athanordb/dbml-engine";
+import { q, type MigrationDialect } from "@nebuladb/dbml-engine";
 import {
   seedInsertOrder,
   type BackupCell,
@@ -8,7 +8,7 @@ import {
   type RestoreResult,
   type RestoreTableResult,
   type Table,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { ApiError } from "../../shared/errors.js";
 import { createDatabaseDriver } from "../connections/drivers/index.js";
 import type { DatabaseDriver } from "../connections/drivers/interface.js";

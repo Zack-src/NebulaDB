@@ -27,7 +27,7 @@
 
 <script lang="ts">
   import { untrack } from "svelte";
-  import type { Project } from "@athanordb/shared";
+  import type { Project } from "@nebuladb/shared";
   import { DownloadIcon } from "@/components/icons/Icons";
   import Icon from "@/components/icons/Icon.svelte";
   import Modal from "@/components/overlays/Modal.svelte";
@@ -44,7 +44,7 @@
 
   /**
    * Every format in this dialog — text and image/PDF alike — comes from an
-   * exporter *contribution*, supplied by the built-in `athanordb.core-export`
+   * exporter *contribution*, supplied by the built-in `nebuladb.core-export`
    * plugin (a user plugin adding one more shows up here with no change to this
    * file). The image/PDF ones still capture the live Svelte Flow canvas rather
    * than generating anything from project data: `useExporters`'s second
@@ -66,7 +66,7 @@
   const exporters = useExporters(() => props.projectId, {
     captureCanvasImage: (format) => props.captureCanvasImage(format),
   });
-  let selection = $state("athanordb.core-export:dbml");
+  let selection = $state("nebuladb.core-export:dbml");
   let result = $state.raw<ExportResult | null>(null);
   let busy = $state(false);
   let copied = $state(false);

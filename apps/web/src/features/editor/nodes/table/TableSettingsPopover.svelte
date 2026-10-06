@@ -3,7 +3,7 @@
 </script>
 
 <script lang="ts">
-  import type { Table, TableIndex } from "@athanordb/shared";
+  import type { Table, TableIndex } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { SettingsIcon } from "@/components/icons/Icons";
   import { useTranslation } from "@/i18n/i18n.svelte";

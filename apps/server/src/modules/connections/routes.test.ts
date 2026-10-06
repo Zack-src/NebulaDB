@@ -6,16 +6,16 @@ import { join } from "node:path";
 
 // Same rationale as `app.test.ts`: env vars must land before anything
 // transitively imports `db.ts`/`shared/crypto.ts`.
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-connroutes-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-connroutes-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
 const { hashPassword } = await import("../auth/password.js");
 const { closeAllRooms, getRoom } = await import("../../realtime/roomRegistry.js");
-const { writeProjectToDoc } = await import("@athanordb/shared");
+const { writeProjectToDoc } = await import("@nebuladb/shared");
 
 const HOST = "localhost:3001";
 const ORIGIN = `http://${HOST}`;
@@ -31,8 +31,8 @@ async function loginAs(app: Awaited<ReturnType<typeof buildApp>>, email: string,
     headers: headers(),
     payload: { email, password },
   });
-  const sessionCookie = res.cookies.find((c) => c.name === "athanordb_sid");
-  return `athanordb_sid=${sessionCookie!.value}`;
+  const sessionCookie = res.cookies.find((c) => c.name === "nebuladb_sid");
+  return `nebuladb_sid=${sessionCookie!.value}`;
 }
 
 async function makeUser(isAdmin: 0 | 1 = 0) {
@@ -76,7 +76,7 @@ function seedCanvasTable(projectId: string, projectName: string) {
 
 test("deployment history + rollback: full lifecycle against a real SQLite target file", async () => {
   const app = await buildApp();
-  const targetFile = join(tmpdir(), `athanordb-test-target-${randomUUID()}.sqlite`);
+  const targetFile = join(tmpdir(), `nebuladb-test-target-${randomUUID()}.sqlite`);
   try {
     const owner = await makeUser();
     const cookie = await loginAs(app, owner.email, owner.password);
@@ -205,7 +205,7 @@ test("deployment history + rollback: full lifecycle against a real SQLite target
 
 test("plan-deployment surfaces a type-translation risk for a column type the target engine has no equivalent for", async () => {
   const app = await buildApp();
-  const targetFile = join(tmpdir(), `athanordb-test-target-${randomUUID()}.sqlite`);
+  const targetFile = join(tmpdir(), `nebuladb-test-target-${randomUUID()}.sqlite`);
   try {
     const owner = await makeUser();
     const cookie = await loginAs(app, owner.email, owner.password);
@@ -419,13 +419,13 @@ test("per-target rate limit: hammering one database through the test route gets 
         payload: { engine: "sqlite", filePath },
       });
 
-    const target = join(tmpdir(), `athanordb-budget-${randomUUID()}.sqlite`);
+    const target = join(tmpdir(), `nebuladb-budget-${randomUUID()}.sqlite`);
     for (let i = 0; i < 30; i++) assert.equal((await probe(target)).statusCode, 200);
     const refused = await probe(target);
     assert.equal(refused.statusCode, 429);
     assert.equal(refused.json().code, "CONNECTION_RATE_LIMITED");
 
-    const elsewhere = await probe(join(tmpdir(), `athanordb-budget-${randomUUID()}.sqlite`));
+    const elsewhere = await probe(join(tmpdir(), `nebuladb-budget-${randomUUID()}.sqlite`));
     assert.equal(elsewhere.statusCode, 200);
   } finally {
     resetConnectionBudgets();
@@ -434,7 +434,7 @@ test("per-target rate limit: hammering one database through the test route gets 
 
 test("from-database creates a project pre-populated with the live schema, no separate project/connection step needed", async () => {
   const app = await buildApp();
-  const targetFile = join(tmpdir(), `athanordb-test-fromdb-${randomUUID()}.sqlite`);
+  const targetFile = join(tmpdir(), `nebuladb-test-fromdb-${randomUUID()}.sqlite`);
   try {
     const { SqliteDriver } = await import("./drivers/sqlite.js");
     const seedDriver = new SqliteDriver({
@@ -500,14 +500,14 @@ test("from-database rolls back the project (and its connection) if introspection
     const cookie = await loginAs(app, owner.email, owner.password);
     const projectName = `Should not survive ${randomUUID()}`;
 
-    // Pointing at AthanorDB's own database file trips `assertNotAppDatabase`
+    // Pointing at NebulaDB's own database file trips `assertNotAppDatabase`
     // in the SQLite driver's constructor — a deterministic, realistic
     // introspection failure to verify the rollback against.
     const res = await app.inject({
       method: "POST",
       url: "/api/projects/from-database",
       headers: headers({ cookie }),
-      payload: { projectName, engine: "sqlite", filePath: process.env.ATHANORDB_DB_PATH },
+      payload: { projectName, engine: "sqlite", filePath: process.env.NEBULADB_DB_PATH },
     });
     assert.equal(res.statusCode, 400);
     assert.equal(res.json().code, "CONNECTION_TARGET_FORBIDDEN");

@@ -3,12 +3,12 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { DatabaseConnectionConfig } from "@athanordb/shared";
+import type { DatabaseConnectionConfig } from "@nebuladb/shared";
 
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-credentials-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-credentials-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
@@ -41,7 +41,7 @@ async function makeUser(app: App, isAdmin: 0 | 1 = 0) {
     headers: headers(),
     payload: { email, password },
   });
-  return { id, email, cookie: `athanordb_sid=${res.cookies.find((c) => c.name === "athanordb_sid")!.value}` };
+  return { id, email, cookie: `nebuladb_sid=${res.cookies.find((c) => c.name === "nebuladb_sid")!.value}` };
 }
 
 function call(app: App, cookie: string, method: "GET" | "POST" | "PUT" | "DELETE", url: string, payload?: unknown) {
@@ -60,7 +60,7 @@ const UNREACHABLE = {
   host: "127.0.0.1",
   port: 1,
   database: "shop",
-  user: "athanor_service",
+  user: "nebula_service",
   password: "service-password",
 };
 
@@ -298,7 +298,7 @@ test("personal accounts: a person connects as themselves or not at all; unattend
     assert.equal(currentActorId(), null, "a request's actor does not outlive the request");
     assert.deepEqual(
       [configForActor(stored).user, configForActor(stored).password],
-      ["athanor_service", "service-password"],
+      ["nebula_service", "service-password"],
     );
     // A shared connection is everybody's, as before.
     const shared = { ...stored, authMode: "shared" as const };
@@ -307,7 +307,7 @@ test("personal accounts: a person connects as themselves or not at all; unattend
         setActor(admin.id);
         return configForActor(shared);
       }).user,
-      "athanor_service",
+      "nebula_service",
     );
 
     // The accounts go with the user, and with the connection.
@@ -426,7 +426,7 @@ test("personal accounts: an account an administrator associated is found in one'
     }
     assert.equal(apply.mock.callCount(), 0);
 
-    // The database refuses: the password Athanor keeps is still the one that works.
+    // The database refuses: the password Nebula keeps is still the one that works.
     apply.mock.mockImplementationOnce(async () => {
       throw new Error("password does not meet the policy");
     });

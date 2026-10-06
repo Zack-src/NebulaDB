@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { DriftCheckResult, ProjectDriftEntry } from "@athanordb/shared";
+  import type { DriftCheckResult, ProjectDriftEntry } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { AlertTriangleIcon } from "@/components/icons/Icons";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";

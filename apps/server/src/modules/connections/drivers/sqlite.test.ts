@@ -6,10 +6,10 @@ import { join } from "node:path";
 
 // The module under test reaches `infrastructure/db.ts` through `shared/errors.ts`. Without
 // this, importing it would open — and migrate — the developer's real `./data` database.
-process.env.ATHANORDB_DB_PATH ??= join(tmpdir(), `athanordb-test-sqlitedriver-${randomUUID()}.sqlite`);
+process.env.NEBULADB_DB_PATH ??= join(tmpdir(), `nebuladb-test-sqlitedriver-${randomUUID()}.sqlite`);
 
-import { diffTargetAgainstLive } from "@athanordb/dbml-engine";
-import type { Project } from "@athanordb/shared";
+import { diffTargetAgainstLive } from "@nebuladb/dbml-engine";
+import type { Project } from "@nebuladb/shared";
 
 const { SqliteDriver } = await import("./sqlite.js");
 const { analyzeDeploymentRisks } = await import("../riskAnalysis.js");

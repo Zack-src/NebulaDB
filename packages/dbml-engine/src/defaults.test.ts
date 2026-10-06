@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Field, Project } from "@athanordb/shared";
+import type { Field, Project } from "@nebuladb/shared";
 import { parseDbml, projectToSql, toProject } from "./dbml.js";
 import { diffTargetAgainstLive } from "./migrationDiff.js";
 import { formatColumnDef, generateMigrationSql } from "./migrationGenerator.js";

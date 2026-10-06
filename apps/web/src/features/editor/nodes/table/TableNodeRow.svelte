@@ -1,12 +1,12 @@
 <script lang="ts" module>
   /** Custom drag MIME so a column drag is never mistaken for some other drag-and-drop the browser/OS might offer over the canvas (e.g. dropping a file). */
-  const FIELD_DRAG_MIME = "application/x-athanordb-field";
+  const FIELD_DRAG_MIME = "application/x-nebuladb-field";
 </script>
 
 <script lang="ts">
   import { Handle, Position } from "@xyflow/svelte";
-  import { readableNote } from "@athanordb/dbml-engine";
-  import { MAX_NAME_LENGTH, type Comment, type Field, type RefAction } from "@athanordb/shared";
+  import { readableNote } from "@nebuladb/dbml-engine";
+  import { MAX_NAME_LENGTH, type Comment, type Field, type RefAction } from "@nebuladb/shared";
   import { autofocus } from "@/actions/autofocus";
   import type { FieldRefInfo } from "@/features/editor/nodes/table/fieldRefInfo";
   import CommentThread from "@/features/editor/comments/CommentThread.svelte";

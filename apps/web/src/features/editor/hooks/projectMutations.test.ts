@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import * as Y from "yjs";
-import { getRefsMap, readProjectFromDoc, writeProjectToDoc, type Project, type Table } from "@athanordb/shared";
+import { getRefsMap, readProjectFromDoc, writeProjectToDoc, type Project, type Table } from "@nebuladb/shared";
 import { createProjectMutations } from "@/features/editor/hooks/projectMutations";
 
 const table = (id: string, fields: string[]): Table => ({

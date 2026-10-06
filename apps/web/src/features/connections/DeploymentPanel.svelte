@@ -6,7 +6,7 @@
     DatabaseConnectionSummary,
     MigrationResolutionMap,
     SchemaRisk,
-  } from "@athanordb/shared";
+  } from "@nebuladb/shared";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
@@ -21,7 +21,7 @@
     type PlanDeploymentResponse,
   } from "@/services/connectionsApi";
   import { copyText } from "@/utils/clipboard";
-  import { DATA_LOSS_STRATEGIES, generateMigrationSql, type MigrationDialect } from "@athanordb/dbml-engine";
+  import { DATA_LOSS_STRATEGIES, generateMigrationSql, type MigrationDialect } from "@nebuladb/dbml-engine";
   import DeploymentHistoryPanel from "./DeploymentHistoryPanel.svelte";
   import DeploymentDiffStep from "./deployment/DeploymentDiffStep.svelte";
   import DeploymentResultStep from "./deployment/DeploymentResultStep.svelte";

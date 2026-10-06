@@ -104,13 +104,13 @@ export async function startE2eEnvironment(
   extraEnv: NodeJS.ProcessEnv = {},
 ): Promise<E2eEnvironment> {
   const baseUrl = `http://127.0.0.1:${port}`;
-  const dataDir = mkdtempSync(join(tmpdir(), "athanordb-e2e-"));
+  const dataDir = mkdtempSync(join(tmpdir(), "nebuladb-e2e-"));
   const env: NodeJS.ProcessEnv = {
     ...process.env,
-    ATHANORDB_DB_PATH: join(dataDir, "athanordb.sqlite"),
-    ATHANORDB_COOKIE_SECURE: "false",
-    ATHANORDB_SECRET: "e2e-test-secret-do-not-use-in-production",
-    ATHANORDB_LOG_LEVEL: "silent",
+    NEBULADB_DB_PATH: join(dataDir, "nebuladb.sqlite"),
+    NEBULADB_COOKIE_SECURE: "false",
+    NEBULADB_SECRET: "e2e-test-secret-do-not-use-in-production",
+    NEBULADB_LOG_LEVEL: "silent",
     PORT: String(port),
     NODE_ENV: "production",
     ...extraEnv,

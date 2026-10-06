@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { DEFAULT_LINT_SETTINGS, parseLintSettings, type LintSettings } from "@athanordb/dbml-engine";
+import { DEFAULT_LINT_SETTINGS, parseLintSettings, type LintSettings } from "@nebuladb/dbml-engine";
 import { db } from "../../infrastructure/db.js";
 import { ApiError } from "../../shared/errors.js";
 

@@ -1,10 +1,10 @@
-import { readProjectFromDoc } from "@athanordb/shared";
+import { readProjectFromDoc } from "@nebuladb/shared";
 import { getRoom } from "../../realtime/roomRegistry.js";
 import { compareConnections } from "../connections/compare.js";
 import { projectPipeline, schemaHashOf } from "../pipeline/pipeline.js";
 import { stageSkipFor } from "../pipeline/routes.js";
 import type { FastifyInstance } from "fastify";
-import type { DatabaseConnectionConfig, MigrationResolutionMap } from "@athanordb/shared";
+import type { DatabaseConnectionConfig, MigrationResolutionMap } from "@nebuladb/shared";
 import { requireScope } from "../apiKeys/auth.js";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";

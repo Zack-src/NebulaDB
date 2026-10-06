@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { ConflictResolutionStrategy } from "@athanordb/shared";
+  import type { ConflictResolutionStrategy } from "@nebuladb/shared";
   import type { TranslationKeyOf } from "@/types";
 
   /** The words the plan used for each answer, so the history reads the same. */
@@ -18,7 +18,7 @@
 </script>
 
 <script lang="ts">
-  import type { DatabaseEngine, DeploymentHistoryEntry } from "@athanordb/shared";
+  import type { DatabaseEngine, DeploymentHistoryEntry } from "@nebuladb/shared";
   import Button from "@/components/ui/Button.svelte";
   import Badge from "@/components/ui/Badge.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";

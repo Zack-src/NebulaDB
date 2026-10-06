@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import type { DbQueryStatSort } from "@athanordb/shared";
+import type { DbQueryStatSort } from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
@@ -146,7 +146,7 @@ export function registerConnectionJournalRoutes(app: FastifyInstance): void {
     return getActivityWatch(id);
   });
 
-  // Per statement shape: how often, how long — measured by Athanor, literals masked.
+  // Per statement shape: how often, how long — measured by Nebula, literals masked.
   app.get("/api/admin/connections/:id/query-stats", READ_LIMIT, async (req) => {
     requireAdmin(req);
     const { id } = req.params as { id: string };

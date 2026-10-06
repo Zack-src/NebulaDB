@@ -20,7 +20,7 @@ import type {
   EffectiveStructurePolicy,
   StructurePolicySetting,
   PersonalCredentialHolder,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import type { TestConnectionResponse } from "./connectionsApi";
 import { request } from "./httpClient";
 

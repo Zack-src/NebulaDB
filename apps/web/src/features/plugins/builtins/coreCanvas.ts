@@ -1,4 +1,4 @@
-import type { Project, Field } from "@athanordb/shared";
+import type { Project, Field } from "@nebuladb/shared";
 import {
   toSnakeCase,
   toCamelCase,
@@ -241,10 +241,10 @@ const runners: Record<string, BuiltinRunner> = {
 
 export const coreCanvasPlugin: BuiltinPlugin = {
   manifest: {
-    id: "athanordb.core-canvas",
+    id: "nebuladb.core-canvas",
     name: "Commandes Canvas & Schéma",
     version: "1.0.0",
-    author: "AthanorDB",
+    author: "NebulaDB",
     category: "canvas",
     description:
       "Outils d'édition de canvas : réinitialisation du routage, conversions de casse, timestamps, audit et statistiques.",

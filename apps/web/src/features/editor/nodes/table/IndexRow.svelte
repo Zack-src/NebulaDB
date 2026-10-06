@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Table, TableIndex } from "@athanordb/shared";
+  import type { Table, TableIndex } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { KeyIcon, TrashIcon } from "@/components/icons/Icons";
   import Badge from "@/components/ui/Badge.svelte";

@@ -6,7 +6,7 @@
 
 **Éditeur du service :** [ENTITÉ], [ADRESSE]
 **Contact :** [CONTACT]
-**Service concerné :** l'instance AthanorDB accessible à l'adresse [URL]
+**Service concerné :** l'instance NebulaDB accessible à l'adresse [URL]
 **Version en vigueur depuis le :** [DATE]
 
 ---
@@ -14,14 +14,14 @@
 ## 1. Objet
 
 Les présentes conditions régissent l'accès et l'utilisation de l'instance
-AthanorDB exploitée par [ENTITÉ] (« le Service »).
+NebulaDB exploitée par [ENTITÉ] (« le Service »).
 
-AthanorDB est un éditeur de schémas de bases de données : il permet de modéliser
+NebulaDB est un éditeur de schémas de bases de données : il permet de modéliser
 des structures de données sous forme de diagrammes et de texte DBML, de
 collaborer en temps réel sur ces modèles, d'en conserver l'historique et
 d'exporter du SQL.
 
-Le logiciel AthanorDB est distribué séparément sous licence MIT. Ces conditions
+Le logiciel NebulaDB est distribué séparément sous licence MIT. Ces conditions
 portent sur **le service exploité par [ENTITÉ]**, pas sur le logiciel lui-même :
 l'utilisation, la copie et la modification du code source relèvent de la licence
 MIT et non du présent document.

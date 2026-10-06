@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import type { TableLocksResponse } from "@athanordb/shared";
+import type { TableLocksResponse } from "@nebuladb/shared";
 import { requireProjectAccess } from "../../shared/guards.js";
 import { liftLock, listLocksFor, placeLock } from "./service.js";
 

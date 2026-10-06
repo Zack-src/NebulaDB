@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import type { Project, Ref } from "@athanordb/shared";
+import type { Project, Ref } from "@nebuladb/shared";
 import { diffTargetAgainstLive } from "./migrationDiff.js";
 
 interface ShorthandField {

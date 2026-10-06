@@ -1,5 +1,5 @@
 import type * as Y from "yjs";
-import { COLLECTION_COUNT_LIMITS, META_KEY, clampCollectionValue, clampMetaValue } from "@athanordb/shared";
+import { COLLECTION_COUNT_LIMITS, META_KEY, clampCollectionValue, clampMetaValue } from "@nebuladb/shared";
 import type { RoomLogger } from "./logger.js";
 
 /**

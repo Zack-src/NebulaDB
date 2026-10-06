@@ -6,16 +6,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-seeds-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-seeds-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
 const { hashPassword } = await import("../auth/password.js");
 const { closeAllRooms, getRoom } = await import("../../realtime/roomRegistry.js");
-const { writeProjectToDoc } = await import("@athanordb/shared");
+const { writeProjectToDoc } = await import("@nebuladb/shared");
 
 const HOST = "localhost:3001";
 const ORIGIN = `http://${HOST}`;
@@ -40,7 +40,7 @@ async function userCookie(app: App, isAdmin: 0 | 1) {
     headers: headers(),
     payload: { email, password },
   });
-  return `athanordb_sid=${res.cookies.find((c) => c.name === "athanordb_sid")!.value}`;
+  return `nebuladb_sid=${res.cookies.find((c) => c.name === "nebuladb_sid")!.value}`;
 }
 
 function call(app: App, cookie: string, method: "GET" | "POST" | "PUT" | "DELETE", url: string, payload?: unknown) {
@@ -107,7 +107,7 @@ test("seeds: set and listed, validated before the deployment, inserted parents f
     const owner = await userCookie(app, 1);
     const project = (await call(app, owner, "POST", "/api/projects", { name: "Shop" })).json() as { id: string };
     seedCanvas(project.id);
-    const targetFile = join(mkdtempSync(join(tmpdir(), "athanordb-seeds-")), "shop.sqlite");
+    const targetFile = join(mkdtempSync(join(tmpdir(), "nebuladb-seeds-")), "shop.sqlite");
     const connId = (
       await call(app, owner, "POST", `/api/projects/${project.id}/connections`, {
         name: "Shop db",
@@ -256,7 +256,7 @@ test("seeds: a table's rows are read from a database as a seed to review — ins
     const project = (await call(app, owner, "POST", "/api/projects", { name: "Shop" })).json() as { id: string };
     seedCanvas(project.id);
     const base = `/api/projects/${project.id}`;
-    const dir = mkdtempSync(join(tmpdir(), "athanordb-seed-source-"));
+    const dir = mkdtempSync(join(tmpdir(), "nebuladb-seed-source-"));
     const targetFile = join(dir, "shop.sqlite");
     const target = new Database(targetFile);
     // `nickname` is not in the schema; `orders.customer_id` holds bytes.

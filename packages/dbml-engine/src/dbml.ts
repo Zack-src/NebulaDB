@@ -8,7 +8,7 @@ import {
   type Ref,
   type RefAction,
   type Table,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { projectToDbml, refSignature } from "./serialize.js";
 
 export type SqlDialect = "postgres" | "mysql" | "mssql";
@@ -83,7 +83,7 @@ function isSchemaExplicitInSource(source: string, schemaName: string, tableName:
 }
 
 /**
- * Convert @dbml/core's raw Database model into AthanorDB's internal Project
+ * Convert @dbml/core's raw Database model into NebulaDB's internal Project
  * shape. Visual metadata (position/color/detail level) is not present in
  * DBML/SQL and is defaulted here; the editor fills it in on first layout.
  *
@@ -198,7 +198,7 @@ export function toProject(database: any, projectName = "Untitled", source?: stri
     }));
 
   // @dbml/core's own table-group tables carry the same declaration-order
-  // `.id` the `tables` map above already keyed the AthanorDB `Table.id` on
+  // `.id` the `tables` map above already keyed the NebulaDB `Table.id` on
   // (`String(table.id ?? table.name)`) — resolving through that instead of
   // re-deriving it keeps a group's member ids consistent with the tables array.
   const tableGroups = schemas
@@ -233,7 +233,7 @@ function normalizeRefAction(action: unknown): RefAction | undefined {
 
 /**
  * Puts the endpoints in model order: `[FK owner, referenced]` (see
- * `refOrientation.ts` in `@athanordb/shared`). @dbml/core keeps them in
+ * `refOrientation.ts` in `@nebuladb/shared`). @dbml/core keeps them in
  * *syntax* order, which differs per form — an inline `author_id [ref: > users.id]`
  * comes out as `[users, posts]`, an explicit `Ref: posts.author_id > users.id`
  * as `[posts, users]`, and `users.id [ref: < posts.author_id]` as

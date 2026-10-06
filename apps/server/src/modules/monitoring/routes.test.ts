@@ -6,16 +6,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-monitoring-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-monitoring-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
 const { hashPassword } = await import("../auth/password.js");
 const { closeAllRooms, getRoom } = await import("../../realtime/roomRegistry.js");
-const { writeProjectToDoc } = await import("@athanordb/shared");
+const { writeProjectToDoc } = await import("@nebuladb/shared");
 const { runDueMonitoring } = await import("./monitor.js");
 
 const HOST = "localhost:3001";
@@ -40,7 +40,7 @@ async function login(app: App) {
     headers: headers(),
     payload: { email, password },
   });
-  return `athanordb_sid=${res.cookies.find((c) => c.name === "athanordb_sid")!.value}`;
+  return `nebuladb_sid=${res.cookies.find((c) => c.name === "nebuladb_sid")!.value}`;
 }
 
 function call(app: App, cookie: string, method: "GET" | "POST" | "PUT", url: string, payload?: unknown) {
@@ -58,7 +58,7 @@ interface Monitoring {
   result?: { checked: number; changes: number; unreachable: number };
 }
 
-test("monitoring: a change made outside Athanor is found once, marked, waved off, and settled by a deployment", async () => {
+test("monitoring: a change made outside Nebula is found once, marked, waved off, and settled by a deployment", async () => {
   const app = await buildApp();
   try {
     const owner = await login(app);
@@ -88,7 +88,7 @@ test("monitoring: a change made outside Athanor is found once, marked, waved off
         tableGroups: [],
       });
     }, "test-seed");
-    const targetFile = join(mkdtempSync(join(tmpdir(), "athanordb-monitor-")), "shop.sqlite");
+    const targetFile = join(mkdtempSync(join(tmpdir(), "nebuladb-monitor-")), "shop.sqlite");
     const connId = (
       await call(app, owner, "POST", `/api/projects/${project.id}/connections`, {
         name: "Shop db",
@@ -176,7 +176,7 @@ test("monitoring: an unreachable database is reported once, never as a change; o
     const owner = await login(app);
     const stranger = await login(app);
     const project = (await call(app, owner, "POST", "/api/projects", { name: "Lab" })).json() as { id: string };
-    const targetFile = join(mkdtempSync(join(tmpdir(), "athanordb-monitor-")), "lab.sqlite");
+    const targetFile = join(mkdtempSync(join(tmpdir(), "nebuladb-monitor-")), "lab.sqlite");
     const connId = (
       await call(app, owner, "POST", `/api/projects/${project.id}/connections`, {
         name: "Lab db",

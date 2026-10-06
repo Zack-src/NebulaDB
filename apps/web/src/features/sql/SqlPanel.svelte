@@ -2,7 +2,7 @@
   import Icon from "@/components/icons/Icon.svelte";
   import { ChevronRightIcon } from "@/components/icons/Icons";
   import { untrack } from "svelte";
-  import type { DbAdminQueryHistoryEntry, DbAdminQueryResult, StructurePolicyRefusal } from "@athanordb/shared";
+  import type { DbAdminQueryHistoryEntry, DbAdminQueryResult, StructurePolicyRefusal } from "@nebuladb/shared";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";

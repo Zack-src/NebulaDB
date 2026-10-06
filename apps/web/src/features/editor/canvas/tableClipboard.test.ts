@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Project, Table } from "@athanordb/shared";
-import { parseDbml, toProject } from "@athanordb/dbml-engine";
+import type { Project, Table } from "@nebuladb/shared";
+import { parseDbml, toProject } from "@nebuladb/dbml-engine";
 import {
   clipboardSize,
   copySelection,
@@ -109,6 +109,7 @@ test("the clipboard text is valid DBML and round-trips colours, sizes and settin
   assert.equal(parsed.refs.length, 1);
 
   const back = parseClipboard(text)!;
+  assert.deepEqual(parseClipboard(text.replace("nebuladb-clipboard:v1", "athanordb-clipboard:v1")), back);
   assert.deepEqual(back.tables, clipboard.tables);
   assert.equal(back.tables[0].style?.color, "#ff0000");
   assert.equal(back.refs[0].onDelete, "cascade");
@@ -182,8 +183,8 @@ test("names stay unique across repeated pastes, and a right-click paste lands at
 
 test("a clipboard written by something else is rebuilt field by field, or refused", () => {
   assert.equal(parseClipboard("Table users {\n  id int\n}"), null, "plain DBML is not pasteable on the canvas");
-  assert.equal(parseClipboard("// athanordb-clipboard:v1 {not json"), null);
-  assert.equal(parseClipboard('// athanordb-clipboard:v1 {"tables":[{"id":"a","name":"a","fields":[]}]}'), null);
+  assert.equal(parseClipboard("// nebuladb-clipboard:v1 {not json"), null);
+  assert.equal(parseClipboard('// nebuladb-clipboard:v1 {"tables":[{"id":"a","name":"a","fields":[]}]}'), null);
 
   const hostile = {
     tables: [
@@ -204,7 +205,7 @@ test("a clipboard written by something else is rebuilt field by field, or refuse
       { from: { tableId: "a", fieldId: "f" }, to: { tableId: "elsewhere", fieldId: "f" }, cardinality: "one-to-many" },
     ],
   };
-  const parsed = parseClipboard(`// athanordb-clipboard:v1 ${JSON.stringify(hostile)}`)!;
+  const parsed = parseClipboard(`// nebuladb-clipboard:v1 ${JSON.stringify(hostile)}`)!;
   assert.equal(parsed.tables.length, 1);
   const [only] = parsed.tables;
   assert.equal(only.name.length, 200);
@@ -295,12 +296,12 @@ test("a relation to a table that was not selected is left out, whatever else is 
 
 test("a clipboard from before enums, zones and notes was copyable still pastes; hostile extras are rebuilt", () => {
   const old = parseClipboard(
-    `// athanordb-clipboard:v1 ${JSON.stringify({ tables: [{ id: "a", name: "a", fields: [{ id: "f", name: "id" }] }], refs: [] })}`,
+    `// nebuladb-clipboard:v1 ${JSON.stringify({ tables: [{ id: "a", name: "a", fields: [{ id: "f", name: "id" }] }], refs: [] })}`,
   )!;
   assert.deepEqual([old.enums, old.zones, old.stickyNotes], [[], [], []]);
 
   const onlyOthers = parseClipboard(
-    `// athanordb-clipboard:v1 ${JSON.stringify({
+    `// nebuladb-clipboard:v1 ${JSON.stringify({
       enums: [
         { id: "e", name: "e", values: [{ id: "v", name: "x", note: 5 }, "junk", { name: "no id" }], extra: 1 },
         { id: "e2" },
@@ -321,7 +322,7 @@ test("a clipboard from before enums, zones and notes was copyable still pastes; 
   ]);
   assert.equal(onlyOthers.stickyNotes.length, 1);
   assert.equal(onlyOthers.stickyNotes[0].text.length, 2000);
-  assert.equal(parseClipboard(`// athanordb-clipboard:v1 ${JSON.stringify({ zones: [], enums: [{}] })}`), null);
+  assert.equal(parseClipboard(`// nebuladb-clipboard:v1 ${JSON.stringify({ zones: [], enums: [{}] })}`), null);
 
   // instantiating a clipboard without any table must not choke on the empty table list
   const pasted = instantiateClipboard(onlyOthers, { tables: [] }, {}, counter());

@@ -82,7 +82,7 @@
     class={`${TEXTAREA_CODE_CLASS} h-72 w-full font-mono text-xs leading-relaxed`}
     value={code}
     oninput={(e) => onChangeCode(e.currentTarget.value)}
-    placeholder={"athanor.plugin({ id: 'me.custom', name: 'Mon Plugin' });\\n..."}
+    placeholder={"nebula.plugin({ id: 'me.custom', name: 'Mon Plugin' });\\n..."}
   ></textarea>
 
   <!-- Validation & Actions Footer -->

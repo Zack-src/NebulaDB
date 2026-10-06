@@ -8,17 +8,17 @@ import { join } from "node:path";
 // Database(DB_PATH)`), so the env var has to be set before anything that
 // transitively imports it — a static `import` at the top of this file would
 // already have run by then. A fresh temp path per test run also means this
-// suite never touches the real dev/prod database, and `ATHANORDB_SECRET` is
+// suite never touches the real dev/prod database, and `NEBULADB_SECRET` is
 // set once here so any test that happens to exercise the connections module
 // doesn't have to know that's a prerequisite. See `session.test.ts` for the
 // same pattern.
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-app-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-app-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 // Otherwise every request this suite makes (dozens, across 8 tests) logs a
 // full request/response line to stdout — real signal for a running server,
 // pure noise in a test run.
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("./app.js");
 const { db } = await import("./infrastructure/db.js");
@@ -65,8 +65,8 @@ async function login(app: Awaited<ReturnType<typeof buildApp>>, email: string, p
     headers: headers(),
     payload: { email, password },
   });
-  const sessionCookie = res.cookies.find((c) => c.name === "athanordb_sid");
-  return { res, cookie: sessionCookie ? `athanordb_sid=${sessionCookie.value}` : undefined, body: res.json() };
+  const sessionCookie = res.cookies.find((c) => c.name === "nebuladb_sid");
+  return { res, cookie: sessionCookie ? `nebuladb_sid=${sessionCookie.value}` : undefined, body: res.json() };
 }
 
 test("GET /api/health reports ok with a working database", async () => {
@@ -307,11 +307,11 @@ test("GET /api/metrics returns Prometheus text with the expected gauges, no auth
     const res = await app.inject({ method: "GET", url: "/api/metrics" });
     assert.equal(res.statusCode, 200);
     assert.match(res.headers["content-type"] as string, /^text\/plain/);
-    assert.match(res.body, /^# HELP athanordb_uptime_seconds/m);
-    assert.match(res.body, /^athanordb_rooms_active \d+$/m);
-    assert.match(res.body, /^athanordb_ws_connections_active \d+$/m);
-    assert.match(res.body, /^athanordb_errors_total\{source="server"\} \d+$/m);
-    assert.match(res.body, /^athanordb_errors_total\{source="client"\} \d+$/m);
+    assert.match(res.body, /^# HELP nebuladb_uptime_seconds/m);
+    assert.match(res.body, /^nebuladb_rooms_active \d+$/m);
+    assert.match(res.body, /^nebuladb_ws_connections_active \d+$/m);
+    assert.match(res.body, /^nebuladb_errors_total\{source="server"\} \d+$/m);
+    assert.match(res.body, /^nebuladb_errors_total\{source="client"\} \d+$/m);
   } finally {
     await app.close();
   }

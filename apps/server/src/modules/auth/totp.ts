@@ -117,7 +117,7 @@ export function verifyTotp(
   return false;
 }
 
-export function otpauthUrl(secretBase32: string, accountEmail: string, issuer = "AthanorDB"): string {
+export function otpauthUrl(secretBase32: string, accountEmail: string, issuer = "NebulaDB"): string {
   const label = encodeURIComponent(`${issuer}:${accountEmail}`);
   const params = new URLSearchParams({
     secret: secretBase32,

@@ -7,7 +7,7 @@
     DbPrincipal,
     DbPrincipalRef,
     DbUserAction,
-  } from "@athanordb/shared";
+  } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { CloseIcon, KeyIcon, PlusIcon, TrashIcon, UserIcon, UsersIcon } from "@/components/icons/Icons";
   import Badge from "@/components/ui/Badge.svelte";
@@ -35,7 +35,7 @@
    * each button builds a `DbUserAction` and hands it to `StatementModal`.
    *
    * On a connection that asks each person for their own account, a new account
-   * can be handed to an Athanor user as it is created: it becomes their account
+   * can be handed to an Nebula user as it is created: it becomes their account
    * on this database ("Mes comptes SQL"), with a password they change there.
    */
   let {
@@ -101,14 +101,14 @@
   /** SQL Server database users are mapped to an existing login and carry no password of their own. */
   const createNeedsPassword = $derived(newKind === "user" && !principalDatabase);
 
-  // ---- Hand the new account to an Athanor user ----
+  // ---- Hand the new account to an Nebula user ----
   const NOBODY = "";
-  const athanorUsers = useAsyncResource(() => (personalAccounts ? fetchUsers() : Promise.resolve([])));
+  const nebulaUsers = useAsyncResource(() => (personalAccounts ? fetchUsers() : Promise.resolve([])));
   let associateWith = $state(NOBODY);
   let associateLevel = $state<DbAccessLevel>("read");
   const canAssociate = $derived(personalAccounts && createNeedsPassword);
   const associateTarget = $derived(
-    canAssociate ? ((athanorUsers.data ?? []).find((user) => user.id === associateWith) ?? null) : null,
+    canAssociate ? ((nebulaUsers.data ?? []).find((user) => user.id === associateWith) ?? null) : null,
   );
 
   /**
@@ -286,7 +286,7 @@
               bind:value={associateWith}
               options={[
                 { value: NOBODY, label: t("dbadmin.users.associateNobody") },
-                ...(athanorUsers.data ?? [])
+                ...(nebulaUsers.data ?? [])
                   .filter((user) => !user.disabledAt)
                   .map((user) => ({ value: user.id, label: user.displayName, hint: user.email })),
               ]}
@@ -315,7 +315,7 @@
       </div>
     {/if}
 
-    {#if athanorUsers.error}<ErrorText>{athanorUsers.error}</ErrorText>{/if}
+    {#if nebulaUsers.error}<ErrorText>{nebulaUsers.error}</ErrorText>{/if}
     {#if associate.error}
       <ErrorText>{t("dbadmin.users.associateFailed", { reason: associate.error })}</ErrorText>
     {/if}

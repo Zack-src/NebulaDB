@@ -1,7 +1,7 @@
 import { stageSkipFor } from "../pipeline/routes.js";
 import type { FastifyInstance } from "fastify";
-import { readProjectFromDoc, type DatabaseConnectionConfig, type MigrationResolutionMap } from "@athanordb/shared";
-import { diffTargetAgainstLive, generateMigrationSql } from "@athanordb/dbml-engine";
+import { readProjectFromDoc, type DatabaseConnectionConfig, type MigrationResolutionMap } from "@nebuladb/shared";
+import { diffTargetAgainstLive, generateMigrationSql } from "@nebuladb/dbml-engine";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireProjectAccess, requireProjectAdmin, requireUser } from "../../shared/guards.js";

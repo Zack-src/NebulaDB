@@ -36,7 +36,7 @@ test(
   "workspace: tabs are addresses, the editor survives a detour, and project actions stay in their dedicated panels",
   { timeout: 90_000 },
   async () => {
-    const targetDir = mkdtempSync(join(tmpdir(), "athanordb-e2e-workspace-"));
+    const targetDir = mkdtempSync(join(tmpdir(), "nebuladb-e2e-workspace-"));
     const targetFile = join(targetDir, "shop.sqlite");
     const target = new Database(targetFile);
     target.exec(`

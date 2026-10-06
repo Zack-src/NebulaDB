@@ -1,4 +1,4 @@
-import type { MigrationResolutionMap } from "@athanordb/shared";
+import type { MigrationResolutionMap } from "@nebuladb/shared";
 import type { MigrationDiff, MigrationFieldChange, MigrationTableChange } from "./migrationDiff.js";
 import {
   fkFallbackName,

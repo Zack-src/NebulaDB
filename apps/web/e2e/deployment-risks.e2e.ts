@@ -21,7 +21,7 @@ test(
   "deployment risks: counted, cancel blocks, accepted loss recorded with its reason",
   { timeout: 90_000 },
   async () => {
-    const targetFile = join(mkdtempSync(join(tmpdir(), "athanordb-e2e-risks-")), "shop.sqlite");
+    const targetFile = join(mkdtempSync(join(tmpdir(), "nebuladb-e2e-risks-")), "shop.sqlite");
     const target = new Database(targetFile);
     target.exec(`
     CREATE TABLE customers (id INTEGER PRIMARY KEY, name TEXT, note TEXT);

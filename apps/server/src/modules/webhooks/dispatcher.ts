@@ -1,5 +1,5 @@
-import { diffProjects } from "@athanordb/dbml-engine";
-import type { Project } from "@athanordb/shared";
+import { diffProjects } from "@nebuladb/dbml-engine";
+import type { Project } from "@nebuladb/shared";
 import { config } from "../../config.js";
 import { db } from "../../infrastructure/db.js";
 import { readProjectReadOnly, readSnapshotProject } from "../../realtime/readOnlyProject.js";
@@ -69,7 +69,7 @@ export function emitWebhookEvent(
 /** The "send a test" button: queues a `ping` for one webhook and delivers it right away, returning the outcome. */
 export async function sendPing(webhook: WebhookRow): Promise<DeliveryRow> {
   const project = projectInfo(webhook.project_id)!;
-  const id = enqueue(webhook, "ping", project, { message: "Test depuis AthanorDB" });
+  const id = enqueue(webhook, "ping", project, { message: "Test depuis NebulaDB" });
   await attempt(getDelivery(id)!);
   return getDelivery(id)!;
 }
@@ -98,15 +98,20 @@ async function attempt(delivery: DeliveryRow): Promise<void> {
       status: "failed",
       attempts,
       nextAttemptAt: null,
-      error: "signing secret unreadable (was ATHANORDB_SECRET changed?)",
+      error: "signing secret unreadable (was NEBULADB_SECRET changed?)",
       responseStatus: null,
     });
     return;
   }
+  const signature = signBody(secret, body, Math.floor(Date.now() / 1000));
   const result = await deliver(webhook.url, body, {
+    "x-nebuladb-event": envelope.event,
+    "x-nebuladb-delivery": envelope.id,
+    "x-nebuladb-signature": signature,
+    // Keep existing webhook consumers working during the name transition.
     "x-athanordb-event": envelope.event,
     "x-athanordb-delivery": envelope.id,
-    "x-athanordb-signature": signBody(secret, body, Math.floor(Date.now() / 1000)),
+    "x-athanordb-signature": signature,
   });
 
   if (result.ok) {

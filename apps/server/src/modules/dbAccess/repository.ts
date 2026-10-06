@@ -4,7 +4,7 @@ import type {
   DbAccessLevel,
   InheritedDbAccess,
   UserDbAccess,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 
 /**

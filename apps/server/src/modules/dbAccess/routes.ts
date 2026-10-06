@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import type { MyDbAccess, UserDbAccess } from "@athanordb/shared";
+import type { MyDbAccess, UserDbAccess } from "@nebuladb/shared";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireAdmin, requireUser } from "../../shared/guards.js";

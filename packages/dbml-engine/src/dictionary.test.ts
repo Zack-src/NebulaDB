@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Project } from "@athanordb/shared";
+import type { Project } from "@nebuladb/shared";
 import {
   buildDictionary,
   completenessPercent,

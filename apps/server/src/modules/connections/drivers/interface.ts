@@ -1,4 +1,4 @@
-import type { DatabaseConnectionConfig, Project } from "@athanordb/shared";
+import type { DatabaseConnectionConfig, Project } from "@nebuladb/shared";
 
 export interface TestConnectionResult {
   ok: boolean;

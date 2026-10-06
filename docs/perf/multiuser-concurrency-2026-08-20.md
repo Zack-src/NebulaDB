@@ -7,7 +7,7 @@ le chemin de synchronisation du panneau DBML. Corrigée et re-testée.
 
 ## 1. Comment ça a été vérifié
 
-Banc de test réel (scripts jetables, hors dépôt) : serveur AthanorDB lancé sur
+Banc de test réel (scripts jetables, hors dépôt) : serveur NebulaDB lancé sur
 une base SQLite neuve, deux comptes (`alice`, `bob`), deux contextes de
 navigateur pilotés en parallèle par Playwright, sur **le même projet**. Chaque
 scénario vérifie trois choses : ce que voit chaque client, ce que contient le

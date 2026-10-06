@@ -1,4 +1,4 @@
-import type { Project } from "@athanordb/shared";
+import type { Project } from "@nebuladb/shared";
 
 // Zero `@dbml/core` import, like validate.ts: the editor lists the variables a
 // schema uses, the server resolves them before it compares or deploys.

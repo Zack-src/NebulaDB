@@ -6,7 +6,7 @@ import { join } from "node:path";
 
 // The module under test reaches `infrastructure/db.ts` through `shared/errors.ts`. Without
 // this, importing it would open — and migrate — the developer's real `./data` database.
-process.env.ATHANORDB_DB_PATH ??= join(tmpdir(), `athanordb-test-sqlguard-${randomUUID()}.sqlite`);
+process.env.NEBULADB_DB_PATH ??= join(tmpdir(), `nebuladb-test-sqlguard-${randomUUID()}.sqlite`);
 
 const { assertDataStatement, assertReadOnlyStatement, findStructuralStatements, isRowReturningQuery, stripSqlNoise } =
   await import("./sqlGuard.js");

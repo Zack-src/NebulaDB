@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { ChangeStatus } from "@athanordb/dbml-engine";
+  import type { ChangeStatus } from "@nebuladb/dbml-engine";
 
   const DIFF_ROW_CLASS: Record<ChangeStatus, string> = {
     added: "text-success",
@@ -10,7 +10,7 @@
 </script>
 
 <script lang="ts">
-  import type { ProjectDiff } from "@athanordb/dbml-engine";
+  import type { ProjectDiff } from "@nebuladb/dbml-engine";
   import Icon from "@/components/icons/Icon.svelte";
   import { RestoreIcon } from "@/components/icons/Icons";
   import { useTranslation } from "@/i18n/i18n.svelte";

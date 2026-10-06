@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import type { DbAccessGrantInput } from "@athanordb/shared";
+import type { DbAccessGrantInput } from "@nebuladb/shared";
 import { asUnattended } from "../../infrastructure/actor.js";
 import { auditUser } from "../../shared/audit.js";
 import { savePersonalCredentials, personalCredentialStatus } from "../connections/personalCredentials.js";
@@ -74,7 +74,7 @@ export async function provisionAccounts(
  * person will use there, and keeps it as their personal account — so they
  * never see or choose a database password. The connection's service account
  * does the creating; the new account has no privilege yet (an administrator
- * grants them in "Utilisateurs"). A failure leaves the Athanor account and
+ * grants them in "Utilisateurs"). A failure leaves the Nebula account and
  * its access as they are and is only audited: the person can still give an
  * account of their own.
  */

@@ -9,14 +9,14 @@ import { readBoolean, readJson, readNumberInRange, readString, writeBoolean, wri
  */
 
 const KEY = {
-  fontScale: "athanordb.canvasFontScale",
-  highlightLinks: "athanordb.highlightLinks",
-  showMinimap: "athanordb.showMinimap",
-  showValidationIssues: "athanordb.showValidationIssues",
-  locale: "athanordb.locale",
-  dbmlPanelWidth: "athanordb.dbmlPanelWidth",
-  gridStyle: "athanordb.gridStyle",
-  snapToGrid: "athanordb.snapToGrid",
+  fontScale: "nebuladb.canvasFontScale",
+  highlightLinks: "nebuladb.highlightLinks",
+  showMinimap: "nebuladb.showMinimap",
+  showValidationIssues: "nebuladb.showValidationIssues",
+  locale: "nebuladb.locale",
+  dbmlPanelWidth: "nebuladb.dbmlPanelWidth",
+  gridStyle: "nebuladb.gridStyle",
+  snapToGrid: "nebuladb.snapToGrid",
 } as const;
 
 /** The three backgrounds Svelte Flow can draw. */
@@ -78,7 +78,7 @@ export function saveFontScale(scale: number): void {
  * display name) so renaming yourself doesn't lose it.
  */
 export function viewportKey(projectId: string, userId: string): string {
-  return `athanordb.viewport.${projectId}.${userId}`;
+  return `nebuladb.viewport.${projectId}.${userId}`;
 }
 
 export function loadViewport(projectId: string, userId: string): Viewport | null {

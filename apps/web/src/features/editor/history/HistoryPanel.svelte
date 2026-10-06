@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { HistoryMarker } from "@athanordb/shared";
+  import type { HistoryMarker } from "@nebuladb/shared";
   import type { IconDefinition } from "@/components/icons/iconDefinition";
   import { LockIcon, LockOpenIcon, RestoreIcon, SparklesIcon, UndoIcon } from "@/components/icons/Icons";
 
@@ -16,8 +16,8 @@
 
 <script lang="ts">
   import { untrack } from "svelte";
-  import type { Project } from "@athanordb/shared";
-  import { diffProjects, type ProjectDiff } from "@athanordb/dbml-engine";
+  import type { Project } from "@nebuladb/shared";
+  import { diffProjects, type ProjectDiff } from "@nebuladb/dbml-engine";
   import Icon from "@/components/icons/Icon.svelte";
   import { ChevronRightIcon, EyeIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";

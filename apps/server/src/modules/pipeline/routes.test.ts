@@ -5,12 +5,12 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-pipeline-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-pipeline-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 // Not what is under test here, and it would write a file per production deployment.
-process.env.ATHANORDB_DATABASE_BACKUP_DIR = mkdtempSync(join(tmpdir(), "athanordb-pipeline-backups-"));
+process.env.NEBULADB_DATABASE_BACKUP_DIR = mkdtempSync(join(tmpdir(), "nebuladb-pipeline-backups-"));
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
@@ -37,7 +37,7 @@ async function login(app: App, isAdmin: 0 | 1 = 0) {
     headers: headers(),
     payload: { email, password },
   });
-  return { id, cookie: `athanordb_sid=${res.cookies.find((c) => c.name === "athanordb_sid")!.value}` };
+  return { id, cookie: `nebuladb_sid=${res.cookies.find((c) => c.name === "nebuladb_sid")!.value}` };
 }
 
 const call = (app: App, cookie: string, method: "GET" | "POST" | "PATCH", url: string, payload?: unknown) =>
@@ -86,7 +86,7 @@ test("pipeline: a guarded stage takes a schema only after the stage before it; a
       teamId,
     );
 
-    const dir = mkdtempSync(join(tmpdir(), "athanordb-pipeline-"));
+    const dir = mkdtempSync(join(tmpdir(), "nebuladb-pipeline-"));
     const connect = async (name: string, environmentId: string | null) =>
       (
         await call(app, owner.cookie, "POST", `${base}/connections`, {

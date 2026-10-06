@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Field, Project, Table } from "@athanordb/shared";
+import type { Field, Project, Table } from "@nebuladb/shared";
 import { diffTargetAgainstLive } from "./migrationDiff.js";
 import { declaredLength, planRiskProbes, riskFromProbe } from "./deploymentProbes.js";
 

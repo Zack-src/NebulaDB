@@ -1,4 +1,4 @@
-import type { Field, Project, Ref, Table } from "@athanordb/shared";
+import type { Field, Project, Ref, Table } from "@nebuladb/shared";
 import { refSignature } from "./serialize.js";
 
 /**

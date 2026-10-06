@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { DatabaseConnectionSummary } from "@athanordb/shared";
+  import type { DatabaseConnectionSummary } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { DatabaseIcon } from "@/components/icons/Icons";
   import Badge from "@/components/ui/Badge.svelte";

@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { DbGrant, DbPrincipal } from "@athanordb/shared";
+import type { DbGrant, DbPrincipal } from "@nebuladb/shared";
 import {
   applyAccountDelta,
   canonicalAccountLines,
@@ -96,13 +96,13 @@ test("account fingerprint: an account created, dropped, locked or given a role i
   assert.equal(principalKey(principal("app", { host: "10.%" })), "app@10.%");
 });
 
-test("account fingerprint: a change Athanor made moves the reference, one made elsewhere stays a difference", () => {
+test("account fingerprint: a change Nebula made moves the reference, one made elsewhere stays a difference", () => {
   const reference = canonicalAccountLines(listing());
-  // Someone else revoked INSERT before Athanor acted.
+  // Someone else revoked INSERT before Nebula acted.
   const outside = listing();
   outside[0] = { ...outside[0], grants: [grant(["SELECT"])] };
   const before = canonicalAccountLines(outside);
-  // Athanor then created a role.
+  // Nebula then created a role.
   const after = canonicalAccountLines([
     ...outside,
     { key: "auditors", principal: principal("auditors", { kind: "role", canLogin: false }), grants: [] },

@@ -1,3 +1,4 @@
+import { readEnv, defaultDbPath } from "./shared/brandMigration.js";
 /**
  * Single place where environment configuration is read, validated and
  * documented. Everything else imports `config` rather than touching
@@ -25,27 +26,27 @@ function readPort(): number {
 }
 
 function readCookieSecure(): boolean {
-  const raw = process.env.ATHANORDB_COOKIE_SECURE;
+  const raw = readEnv("NEBULADB_COOKIE_SECURE");
   if (raw === undefined || raw.trim() === "") {
     // Self-hosted deployments may legitimately run plain HTTP on a LAN, so this
     // can't just default to true — but silently shipping non-`Secure` session
     // cookies in production is exactly the kind of thing nobody notices.
     if (isProduction) {
       console.warn(
-        "[config] ATHANORDB_COOKIE_SECURE is not set — session cookies will NOT be marked Secure. " +
-          "Set ATHANORDB_COOKIE_SECURE=true when running behind TLS, or =false to silence this warning.",
+        "[config] NEBULADB_COOKIE_SECURE is not set — session cookies will NOT be marked Secure. " +
+          "Set NEBULADB_COOKIE_SECURE=true when running behind TLS, or =false to silence this warning.",
       );
     }
     return false;
   }
   if (raw !== "true" && raw !== "false") {
-    fail(`ATHANORDB_COOKIE_SECURE must be "true" or "false" (got ${JSON.stringify(raw)})`);
+    fail(`NEBULADB_COOKIE_SECURE must be "true" or "false" (got ${JSON.stringify(raw)})`);
   }
   return raw === "true";
 }
 
 function readSizeMb(name: string, fallbackMb: number): number {
-  const raw = process.env[name];
+  const raw = readEnv(name);
   if (raw === undefined || raw.trim() === "") return fallbackMb * 1024 * 1024;
   const mb = Number(raw);
   if (!Number.isFinite(mb) || mb <= 0 || mb > 512) {
@@ -63,11 +64,11 @@ type LogLevel = (typeof LOG_LEVELS)[number];
  * editing code and redeploying.
  */
 function readLogLevel(): LogLevel {
-  const raw = process.env.ATHANORDB_LOG_LEVEL;
+  const raw = readEnv("NEBULADB_LOG_LEVEL");
   if (raw === undefined || raw.trim() === "") return "info";
   const level = raw.trim().toLowerCase();
   if (!(LOG_LEVELS as readonly string[]).includes(level)) {
-    fail(`ATHANORDB_LOG_LEVEL must be one of ${LOG_LEVELS.join(", ")} (got ${JSON.stringify(raw)})`);
+    fail(`NEBULADB_LOG_LEVEL must be one of ${LOG_LEVELS.join(", ")} (got ${JSON.stringify(raw)})`);
   }
   return level as LogLevel;
 }
@@ -78,22 +79,22 @@ function readLogLevel(): LogLevel {
  * unasked-for one writing into the container.
  */
 function readBackupIntervalHours(): number {
-  const raw = process.env.ATHANORDB_BACKUP_INTERVAL_HOURS;
+  const raw = readEnv("NEBULADB_BACKUP_INTERVAL_HOURS");
   if (raw === undefined || raw.trim() === "") return 0;
   const hours = Number(raw);
   if (!Number.isFinite(hours) || hours < 0 || hours > 24 * 30) {
-    fail(`ATHANORDB_BACKUP_INTERVAL_HOURS must be a number of hours between 0 and 720 (got ${JSON.stringify(raw)})`);
+    fail(`NEBULADB_BACKUP_INTERVAL_HOURS must be a number of hours between 0 and 720 (got ${JSON.stringify(raw)})`);
   }
   return hours;
 }
 
 /** How many timestamped backup directories to keep. Unbounded backups fill the disk the database lives on. */
 function readBackupKeep(): number {
-  const raw = process.env.ATHANORDB_BACKUP_KEEP;
+  const raw = readEnv("NEBULADB_BACKUP_KEEP");
   if (raw === undefined || raw.trim() === "") return 7;
   const keep = Number(raw);
   if (!Number.isInteger(keep) || keep < 1 || keep > 1000) {
-    fail(`ATHANORDB_BACKUP_KEEP must be an integer between 1 and 1000 (got ${JSON.stringify(raw)})`);
+    fail(`NEBULADB_BACKUP_KEEP must be an integer between 1 and 1000 (got ${JSON.stringify(raw)})`);
   }
   return keep;
 }
@@ -107,11 +108,11 @@ function readBackupKeep(): number {
  * whose own rules require keeping everything.
  */
 function readAuditRetentionDays(): number {
-  const raw = process.env.ATHANORDB_AUDIT_RETENTION_DAYS;
+  const raw = readEnv("NEBULADB_AUDIT_RETENTION_DAYS");
   if (raw === undefined || raw.trim() === "") return 365;
   const days = Number(raw);
   if (!Number.isInteger(days) || days < 0 || days > 3650) {
-    fail(`ATHANORDB_AUDIT_RETENTION_DAYS must be an integer between 0 and 3650 (got ${JSON.stringify(raw)})`);
+    fail(`NEBULADB_AUDIT_RETENTION_DAYS must be an integer between 0 and 3650 (got ${JSON.stringify(raw)})`);
   }
   return days;
 }
@@ -122,29 +123,29 @@ function readAuditRetentionDays(): number {
  * not a record — the audit log is the record. `0` keeps them all.
  */
 function readQueryStatsRetentionDays(): number {
-  const raw = process.env.ATHANORDB_QUERY_STATS_RETENTION_DAYS;
+  const raw = readEnv("NEBULADB_QUERY_STATS_RETENTION_DAYS");
   if (raw === undefined || raw.trim() === "") return 30;
   const days = Number(raw);
   if (!Number.isInteger(days) || days < 0 || days > 3650) {
-    fail(`ATHANORDB_QUERY_STATS_RETENTION_DAYS must be an integer between 0 and 3650 (got ${JSON.stringify(raw)})`);
+    fail(`NEBULADB_QUERY_STATS_RETENTION_DAYS must be an integer between 0 and 3650 (got ${JSON.stringify(raw)})`);
   }
   return days;
 }
 
 /** How many days of database-side session figures are kept; `0` keeps them all. */
 function readDbActivityRetentionDays(): number {
-  const raw = process.env.ATHANORDB_DB_ACTIVITY_RETENTION_DAYS;
+  const raw = readEnv("NEBULADB_DB_ACTIVITY_RETENTION_DAYS");
   if (raw === undefined || raw.trim() === "") return 14;
   const days = Number(raw);
   if (!Number.isInteger(days) || days < 0 || days > 3650) {
-    fail(`ATHANORDB_DB_ACTIVITY_RETENTION_DAYS must be an integer between 0 and 3650 (got ${JSON.stringify(raw)})`);
+    fail(`NEBULADB_DB_ACTIVITY_RETENTION_DAYS must be an integer between 0 and 3650 (got ${JSON.stringify(raw)})`);
   }
   return days;
 }
 
 /** Extra origins allowed to make state-changing requests, on top of the app's own host. */
 function readAllowedOrigins(): string[] {
-  const raw = process.env.ATHANORDB_ALLOWED_ORIGINS;
+  const raw = readEnv("NEBULADB_ALLOWED_ORIGINS");
   if (!raw) return [];
   return raw
     .split(",")
@@ -161,16 +162,16 @@ function readAllowedOrigins(): string[] {
  * domain of their choosing (host-header poisoning).
  */
 function readPublicUrl(): string | null {
-  const raw = process.env.ATHANORDB_PUBLIC_URL?.trim();
+  const raw = readEnv("NEBULADB_PUBLIC_URL")?.trim();
   if (!raw) return null;
   let url: URL;
   try {
     url = new URL(raw);
   } catch {
-    fail(`ATHANORDB_PUBLIC_URL must be an absolute http(s) URL (got ${JSON.stringify(raw)})`);
+    fail(`NEBULADB_PUBLIC_URL must be an absolute http(s) URL (got ${JSON.stringify(raw)})`);
   }
   if (url.protocol !== "http:" && url.protocol !== "https:") {
-    fail(`ATHANORDB_PUBLIC_URL must use http or https (got ${JSON.stringify(raw)})`);
+    fail(`NEBULADB_PUBLIC_URL must use http or https (got ${JSON.stringify(raw)})`);
   }
   return url.origin + url.pathname.replace(/\/+$/, "");
 }
@@ -186,7 +187,7 @@ export interface SmtpConfig {
 }
 
 /**
- * Outgoing email. Entirely optional: unset `ATHANORDB_SMTP_HOST` means no
+ * Outgoing email. Entirely optional: unset `NEBULADB_SMTP_HOST` means no
  * email at all — invitations fall back to a link the admin copies by hand,
  * and "forgot password" isn't offered — rather than a boot failure for an
  * instance that never wanted email. Once a host *is* set, everything it needs
@@ -194,31 +195,31 @@ export interface SmtpConfig {
  * request.
  */
 function readSmtp(publicUrl: string | null): SmtpConfig | null {
-  const host = process.env.ATHANORDB_SMTP_HOST?.trim();
+  const host = readEnv("NEBULADB_SMTP_HOST")?.trim();
   if (!host) return null;
 
-  const rawPort = process.env.ATHANORDB_SMTP_PORT?.trim();
+  const rawPort = readEnv("NEBULADB_SMTP_PORT")?.trim();
   const port = rawPort ? Number(rawPort) : 587;
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    fail(`ATHANORDB_SMTP_PORT must be an integer between 1 and 65535 (got ${JSON.stringify(rawPort)})`);
+    fail(`NEBULADB_SMTP_PORT must be an integer between 1 and 65535 (got ${JSON.stringify(rawPort)})`);
   }
 
-  const rawSecure = process.env.ATHANORDB_SMTP_SECURE?.trim();
+  const rawSecure = readEnv("NEBULADB_SMTP_SECURE")?.trim();
   if (rawSecure && rawSecure !== "true" && rawSecure !== "false") {
-    fail(`ATHANORDB_SMTP_SECURE must be "true" or "false" (got ${JSON.stringify(rawSecure)})`);
+    fail(`NEBULADB_SMTP_SECURE must be "true" or "false" (got ${JSON.stringify(rawSecure)})`);
   }
   const secure = rawSecure ? rawSecure === "true" : port === 465;
 
-  const user = process.env.ATHANORDB_SMTP_USER?.trim() || null;
-  const password = process.env.ATHANORDB_SMTP_PASSWORD ?? null;
-  if (user && !password) fail("ATHANORDB_SMTP_USER is set but ATHANORDB_SMTP_PASSWORD is not");
+  const user = readEnv("NEBULADB_SMTP_USER")?.trim() || null;
+  const password = readEnv("NEBULADB_SMTP_PASSWORD") ?? null;
+  if (user && !password) fail("NEBULADB_SMTP_USER is set but NEBULADB_SMTP_PASSWORD is not");
 
-  const from = process.env.ATHANORDB_SMTP_FROM?.trim();
+  const from = readEnv("NEBULADB_SMTP_FROM")?.trim();
   if (!from)
-    fail('ATHANORDB_SMTP_FROM is required when ATHANORDB_SMTP_HOST is set (e.g. "AthanorDB <noreply@example.com>")');
+    fail('NEBULADB_SMTP_FROM is required when NEBULADB_SMTP_HOST is set (e.g. "NebulaDB <noreply@example.com>")');
 
   if (!publicUrl) {
-    fail("ATHANORDB_PUBLIC_URL is required when ATHANORDB_SMTP_HOST is set — emails need absolute links");
+    fail("NEBULADB_PUBLIC_URL is required when NEBULADB_SMTP_HOST is set — emails need absolute links");
   }
   return { host, port, secure, user, password: user ? password : null, from };
 }
@@ -229,12 +230,12 @@ function readSmtp(publicUrl: string | null): SmtpConfig | null {
  * connection per pass; `0` turns it off and leaves only the manual check.
  */
 function readConnectionHealthIntervalMinutes(): number {
-  const raw = process.env.ATHANORDB_CONNECTION_HEALTH_INTERVAL_MINUTES;
+  const raw = readEnv("NEBULADB_CONNECTION_HEALTH_INTERVAL_MINUTES");
   if (raw === undefined || raw.trim() === "") return 15;
   const minutes = Number(raw);
   if (!Number.isFinite(minutes) || minutes < 0 || minutes > 24 * 60) {
     fail(
-      `ATHANORDB_CONNECTION_HEALTH_INTERVAL_MINUTES must be a number of minutes between 0 and 1440 (got ${JSON.stringify(raw)})`,
+      `NEBULADB_CONNECTION_HEALTH_INTERVAL_MINUTES must be a number of minutes between 0 and 1440 (got ${JSON.stringify(raw)})`,
     );
   }
   return minutes;
@@ -247,12 +248,12 @@ function readConnectionHealthIntervalMinutes(): number {
  * own (`pg_dump`, `mysqldump`…) is. The limit says so instead of filling the disk.
  */
 function readDatabaseBackupMaxBytes(): number {
-  const raw = process.env.ATHANORDB_DATABASE_BACKUP_MAX_MB;
+  const raw = readEnv("NEBULADB_DATABASE_BACKUP_MAX_MB");
   if (raw === undefined || raw.trim() === "") return 512 * 1024 * 1024;
   const mb = Number(raw);
   if (!Number.isFinite(mb) || mb < 1 || mb > 102_400) {
     fail(
-      `ATHANORDB_DATABASE_BACKUP_MAX_MB must be a size in megabytes between 1 and 102400 (got ${JSON.stringify(raw)})`,
+      `NEBULADB_DATABASE_BACKUP_MAX_MB must be a size in megabytes between 1 and 102400 (got ${JSON.stringify(raw)})`,
     );
   }
   return Math.round(mb * 1024 * 1024);
@@ -260,16 +261,16 @@ function readDatabaseBackupMaxBytes(): number {
 
 /** Days a backup of a connected database is kept, unless pinned. `0` keeps them until someone deletes them. */
 function readDatabaseBackupRetentionDays(): number {
-  const raw = process.env.ATHANORDB_DATABASE_BACKUP_RETENTION_DAYS;
+  const raw = readEnv("NEBULADB_DATABASE_BACKUP_RETENTION_DAYS");
   if (raw === undefined || raw.trim() === "") return 30;
   const days = Number(raw);
   if (!Number.isInteger(days) || days < 0 || days > 3650) {
-    fail(`ATHANORDB_DATABASE_BACKUP_RETENTION_DAYS must be an integer between 0 and 3650 (got ${JSON.stringify(raw)})`);
+    fail(`NEBULADB_DATABASE_BACKUP_RETENTION_DAYS must be an integer between 0 and 3650 (got ${JSON.stringify(raw)})`);
   }
   return days;
 }
 
-const dbPath = process.env.ATHANORDB_DB_PATH ?? "./data/athanordb.sqlite";
+const dbPath = readEnv("NEBULADB_DB_PATH") ?? defaultDbPath();
 const publicUrl = readPublicUrl();
 
 export const config = {
@@ -278,22 +279,22 @@ export const config = {
   dbPath,
   cookieSecure: readCookieSecure(),
   /** Max REST body — DBML/SQL imports are the big ones. */
-  bodyLimit: readSizeMb("ATHANORDB_MAX_BODY_MB", 4),
+  bodyLimit: readSizeMb("NEBULADB_MAX_BODY_MB", 4),
   /** Max single WebSocket frame — a Yjs sync/update for a large schema. */
-  wsMaxPayload: readSizeMb("ATHANORDB_MAX_WS_FRAME_MB", 8),
+  wsMaxPayload: readSizeMb("NEBULADB_MAX_WS_FRAME_MB", 8),
   allowedOrigins: readAllowedOrigins(),
   logLevel: readLogLevel(),
   /** 0 disables scheduled backups entirely. */
   backupIntervalHours: readBackupIntervalHours(),
-  backupDir: process.env.ATHANORDB_BACKUP_DIR ?? "./backups",
+  backupDir: readEnv("NEBULADB_BACKUP_DIR") ?? "./backups",
   backupKeep: readBackupKeep(),
   /**
    * Backups of the *connected* databases (the "Sauvegardes" tab), not of
-   * AthanorDB's own data above. Next to the app database by default, so the
+   * NebulaDB's own data above. Next to the app database by default, so the
    * volume that persists one persists the other.
    */
   databaseBackupDir:
-    process.env.ATHANORDB_DATABASE_BACKUP_DIR?.trim() || path.join(path.dirname(dbPath), "database-backups"),
+    readEnv("NEBULADB_DATABASE_BACKUP_DIR")?.trim() || path.join(path.dirname(dbPath), "database-backups"),
   databaseBackupMaxBytes: readDatabaseBackupMaxBytes(),
   databaseBackupRetentionDays: readDatabaseBackupRetentionDays(),
   /** 0 keeps audit entries indefinitely. */
@@ -310,7 +311,7 @@ export const config = {
    */
   /** 0 disables the background checks. */
   connectionHealthIntervalMinutes: readConnectionHealthIntervalMinutes(),
-  sqliteAllowedDir: process.env.ATHANORDB_SQLITE_DIR?.trim() || null,
+  sqliteAllowedDir: readEnv("NEBULADB_SQLITE_DIR")?.trim() || null,
   /** `null` means email is off — see `readSmtp`. */
   smtp: readSmtp(publicUrl),
 } as const;

@@ -21,9 +21,9 @@
 - Les secrets sont chiffrés ; les mots de passe ne sont jamais renvoyés au navigateur. La génération conserve les comptes configurés et fournit un bilan des échecs.
 - Migration SQLite 42 additive : propriété des bases privées. Aucun changement aux connexions existantes.
 
-La génération exige que l’administrateur ait configuré son propre compte SQL avec les droits de création sur la base. Les comptes nouvellement créés n’obtiennent pas de privilèges SQL automatiquement : ceux-ci se règlent dans Monitoring → Utilisateurs et permissions. Les droits Athanor (lecture/écriture) restent distincts des droits du moteur SQL.
+La génération exige que l’administrateur ait configuré son propre compte SQL avec les droits de création sur la base. Les comptes nouvellement créés n’obtiennent pas de privilèges SQL automatiquement : ceux-ci se règlent dans Monitoring → Utilisateurs et permissions. Les droits Nebula (lecture/écriture) restent distincts des droits du moteur SQL.
 
-`localhost` dans une connexion désigne le serveur AthanorDB, y compris pour une base Docker. Une base sur le poste de l’utilisateur doit être joignable depuis ce serveur.
+`localhost` dans une connexion désigne le serveur NebulaDB, y compris pour une base Docker. Une base sur le poste de l’utilisateur doit être joignable depuis ce serveur.
 
 Le monitoring manuel des nouvelles bases utilise le compte personnel de l’administrateur. Les sondes automatiques nécessitent un compte de service existant ; une base personnelle sans compte de service n’est pas sondée en arrière-plan.
 

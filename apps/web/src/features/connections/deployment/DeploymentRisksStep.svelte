@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ConflictResolutionStrategy, MigrationResolutionMap, SchemaRisk } from "@athanordb/shared";
+  import type { ConflictResolutionStrategy, MigrationResolutionMap, SchemaRisk } from "@nebuladb/shared";
   import Badge from "@/components/ui/Badge.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { AlertTriangleIcon, CheckCircleIcon } from "@/components/icons/Icons";

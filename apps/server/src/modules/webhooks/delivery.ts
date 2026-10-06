@@ -24,7 +24,7 @@ import type { WebhookEvent, WebhookFormat } from "./repository.js";
  */
 
 export const DELIVERY_TIMEOUT_MS = 10_000;
-export const USER_AGENT = "AthanorDB-Webhooks/1";
+export const USER_AGENT = "NebulaDB-Webhooks/1";
 
 export interface WebhookEnvelope {
   id: string;
@@ -63,7 +63,7 @@ function summarize(envelope: WebhookEnvelope): string {
   const data = envelope.data;
   switch (envelope.event) {
     case "ping":
-      return `🔔 Test du webhook AthanorDB pour « ${name} »${link}`;
+      return `🔔 Test du webhook NebulaDB pour « ${name} »${link}`;
     case "schema.changed": {
       const authors = (data.authors as string[] | undefined)?.join(", ") || "quelqu'un";
       const c = data.changes as { tablesAdded: number; tablesRemoved: number; tablesChanged: number } | null;
@@ -85,13 +85,13 @@ function summarize(envelope: WebhookEnvelope): string {
           (sum, n) => sum + n,
           0,
         );
-        return `🔐 Comptes ou privilèges de la base ${target} (« ${name} ») modifiés en dehors d'Athanor (${total} changement(s))${link}`;
+        return `🔐 Comptes ou privilèges de la base ${target} (« ${name} ») modifiés en dehors d'Nebula (${total} changement(s))${link}`;
       }
       const count = ["added", "removed", "changed"].reduce(
         (sum, key) => sum + ((data[key] as string[] | undefined)?.length ?? 0),
         0,
       );
-      return `⚠️ La base ${target} de « ${name} » a été modifiée en dehors d'Athanor (${count} table(s))${link}`;
+      return `⚠️ La base ${target} de « ${name} » a été modifiée en dehors d'Nebula (${count} table(s))${link}`;
     }
   }
 }

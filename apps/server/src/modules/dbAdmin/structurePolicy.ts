@@ -5,7 +5,7 @@ import {
   type StructurePolicy,
   type StructurePolicyRefusal,
   type StructurePolicySetting,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { ApiError } from "../../shared/errors.js";
 import { connectionOwner, getAdminConnection } from "../connections/repository.js";

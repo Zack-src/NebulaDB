@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { TableLock } from "@athanordb/shared";
+  import type { TableLock } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { LockIcon } from "@/components/icons/Icons";
   import { useTranslation } from "@/i18n/i18n.svelte";

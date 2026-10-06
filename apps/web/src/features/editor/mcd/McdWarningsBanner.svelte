@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { McdWarning } from "@athanordb/shared";
+  import type { McdWarning } from "@nebuladb/shared";
   import type { TranslationKeyOf } from "@/types";
 
   const REASON_KEY: Record<McdWarning["reason"], TranslationKeyOf> = {

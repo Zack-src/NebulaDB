@@ -1,6 +1,6 @@
 <script lang="ts">
   import BackupScopeDialog from "./BackupScopeDialog.svelte";
-  import type { AdminConnectionSummary, BackupSchedule, BackupSummary } from "@athanordb/shared";
+  import type { AdminConnectionSummary, BackupSchedule, BackupSummary } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { ArchiveIcon, CloseIcon, DownloadIcon, LockIcon, LockOpenIcon, RestoreIcon, TrashIcon } from "@/components/icons/Icons";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";

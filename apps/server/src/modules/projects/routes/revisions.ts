@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import * as Y from "yjs";
-import { readProjectFromDoc, writeProjectToDoc } from "@athanordb/shared";
-import { restoreTables } from "@athanordb/dbml-engine";
+import { readProjectFromDoc, writeProjectToDoc } from "@nebuladb/shared";
+import { restoreTables } from "@nebuladb/dbml-engine";
 import { auditUser } from "../../../shared/audit.js";
 import { ApiError } from "../../../shared/errors.js";
 import { requireProjectAccess } from "../../../shared/guards.js";

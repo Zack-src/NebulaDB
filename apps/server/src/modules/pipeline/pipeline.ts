@@ -1,5 +1,5 @@
-import { fingerprintSchema } from "@athanordb/dbml-engine";
-import type { DatabaseEngine, EnvironmentStage, PipelineConnection, Project, ProjectPipeline } from "@athanordb/shared";
+import { fingerprintSchema } from "@nebuladb/dbml-engine";
+import type { DatabaseEngine, EnvironmentStage, PipelineConnection, Project, ProjectPipeline } from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { ApiError } from "../../shared/errors.js";
 import { listEnvironments } from "../environments/repository.js";

@@ -1,4 +1,4 @@
-import type { DatabaseConnectionConfig, DatabaseConnectionSummary } from "@athanordb/shared";
+import type { DatabaseConnectionConfig, DatabaseConnectionSummary } from "@nebuladb/shared";
 import { request } from "./httpClient";
 export interface MyConnections {
   shared: DatabaseConnectionSummary[];

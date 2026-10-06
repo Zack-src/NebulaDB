@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Table } from "@athanordb/shared";
+  import type { Table } from "@nebuladb/shared";
   import Button from "@/components/ui/Button.svelte";
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";

@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { login, startE2eEnvironment } from "./harness.js";
 
 /**
- * Admin → Activité: what was done through Athanor, filtered by type and
+ * Admin → Activité: what was done through Nebula, filtered by type and
  * project, one entry opened to its detail and its project, the export link
  * carrying the same filters.
  *

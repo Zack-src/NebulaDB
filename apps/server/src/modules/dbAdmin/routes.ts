@@ -5,7 +5,7 @@ import type {
   DbAdminStatementsResult,
   DbUserAction,
   StructuralAction,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireAdmin } from "../../shared/guards.js";
@@ -649,7 +649,7 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
     const execute = body.execute === true;
     const connection = loadConnection(id);
     // Refused on the preview already, before anything connects: the account
-    // Athanor itself signs in with cannot be dropped, locked or given a new
+    // Nebula itself signs in with cannot be dropped, locked or given a new
     // password from here — that would lock the console out of the database.
     const locksOut =
       action.type === "drop" || action.type === "password" || (action.type === "lock" && action.locked !== false);

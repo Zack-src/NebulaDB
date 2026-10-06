@@ -13,7 +13,7 @@
 </script>
 
 <script lang="ts">
-  import type { DbQueryStatSort } from "@athanordb/shared";
+  import type { DbQueryStatSort } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { ChevronRightIcon, DownloadIcon } from "@/components/icons/Icons";
   import Badge from "@/components/ui/Badge.svelte";
@@ -48,12 +48,12 @@
 
   /**
    * One database's journal, in its console: what was done to it through
-   * Athanor — the console opened, connections tested, statements run (their
+   * Nebula — the console opened, connections tested, statements run (their
    * text cut, duration, rows, author), deployments and rollbacks, account
    * changes, what the watch found. The audit log filtered on this database
    * (the same entries and export as Admin → Activité), and, under
    * "Requêtes", the statements of the SQL console counted by shape — timed
-   * by Athanor, never by the database server.
+   * by Nebula, never by the database server.
    */
   let { connectionId }: { connectionId: string } = $props();
 
@@ -316,7 +316,7 @@
               <tr data-testid="db-activity" data-user={entry.user ?? ""}>
                 <td class="px-3 py-1.5">
                   {entry.user ?? "—"}
-                  {#if entry.knownAccount}<Badge tone="muted">{t("journal.dbside.athanorAccount")}</Badge>{/if}
+                  {#if entry.knownAccount}<Badge tone="muted">{t("journal.dbside.nebulaAccount")}</Badge>{/if}
                 </td>
                 <td class="px-2 py-1.5 text-text-muted">{[entry.client, entry.database].filter(Boolean).join(" · ") || "—"}</td>
                 <td class="max-w-[360px] truncate px-2 py-1.5 font-mono text-[11.5px]" title={entry.sql}>

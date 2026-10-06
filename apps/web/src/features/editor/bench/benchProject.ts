@@ -1,4 +1,4 @@
-import type { DetailLevel, Field, Project, Ref, Table } from "@athanordb/shared";
+import type { DetailLevel, Field, Project, Ref, Table } from "@nebuladb/shared";
 
 /**
  * Synthetic schema generator for the canvas perf harness (see `BenchHarness`).

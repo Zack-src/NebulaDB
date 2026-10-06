@@ -1,4 +1,4 @@
-import type { DbAccessGrant, DbAccessGrantInput, MyDbAccess, UserDbAccess } from "@athanordb/shared";
+import type { DbAccessGrant, DbAccessGrantInput, MyDbAccess, UserDbAccess } from "@nebuladb/shared";
 import { request } from "./httpClient";
 
 /**
@@ -44,7 +44,7 @@ export function provisionDbAccounts(type: "teams" | "users", id: string): Promis
   return request(`/api/admin/${type}/${id}/db-accounts`, { method: "POST" });
 }
 export function assignDbCredentials(userId: string, connectionId: string, username: string, password: string) {
-  return request<import("@athanordb/shared").PersonalCredentialStatus>(
+  return request<import("@nebuladb/shared").PersonalCredentialStatus>(
     `/api/admin/users/${userId}/connections/${connectionId}/credentials`,
     { method: "PUT", body: { username, password } },
   );

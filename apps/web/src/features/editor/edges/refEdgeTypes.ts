@@ -1,5 +1,5 @@
 import type { Edge } from "@xyflow/svelte";
-import type { RefAction, RefCardinality, RoutingPoint } from "@athanordb/shared";
+import type { RefAction, RefCardinality, RoutingPoint } from "@nebuladb/shared";
 
 export interface RefEdgeData {
   cardinality: RefCardinality;

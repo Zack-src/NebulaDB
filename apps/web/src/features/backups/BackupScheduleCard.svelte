@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { BACKUP_FREQUENCIES, BACKUP_KEEP_MAX, type BackupSchedule } from "@athanordb/shared";
+  import { BACKUP_FREQUENCIES, BACKUP_KEEP_MAX, type BackupSchedule } from "@nebuladb/shared";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import NumberInput from "@/components/ui/NumberInput.svelte";
   import Select from "@/components/ui/Select.svelte";

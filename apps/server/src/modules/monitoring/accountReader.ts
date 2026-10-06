@@ -1,4 +1,4 @@
-import type { DbPrincipal } from "@athanordb/shared";
+import type { DbPrincipal } from "@nebuladb/shared";
 import type { DatabaseAdminDriver } from "../dbAdmin/drivers/index.js";
 import { canonicalAccountLines, principalKey, type AccountListing } from "./accountFingerprint.js";
 

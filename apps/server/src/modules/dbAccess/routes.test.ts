@@ -7,10 +7,10 @@ import Database from "better-sqlite3";
 
 // Same rationale as `app.test.ts`: env vars must land before anything
 // transitively imports `db.ts`/`shared/crypto.ts`.
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-dbaccess-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-dbaccess-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
@@ -33,7 +33,7 @@ async function signIn(app: App, email: string) {
     headers: headers(),
     payload: { email, password: PASSWORD },
   });
-  return `athanordb_sid=${res.cookies.find((c) => c.name === "athanordb_sid")!.value}`;
+  return `nebuladb_sid=${res.cookies.find((c) => c.name === "nebuladb_sid")!.value}`;
 }
 
 async function makeUser(app: App, isAdmin: 0 | 1 = 0) {
@@ -49,7 +49,7 @@ async function makeUser(app: App, isAdmin: 0 | 1 = 0) {
 }
 
 function call(app: App, auth: string, method: Method, url: string, payload?: unknown) {
-  const credentials: Record<string, string> = auth.startsWith("adb_")
+  const credentials: Record<string, string> = auth.startsWith("ndb_")
     ? { authorization: `Bearer ${auth}` }
     : { cookie: auth };
   return app.inject({
@@ -62,7 +62,7 @@ function call(app: App, auth: string, method: Method, url: string, payload?: unk
 
 /** A real SQLite file — the one engine the console can be tested against without a server. */
 function seedTarget(): string {
-  const file = join(tmpdir(), `athanordb-test-dbaccess-target-${randomUUID()}.sqlite`);
+  const file = join(tmpdir(), `nebuladb-test-dbaccess-target-${randomUUID()}.sqlite`);
   const target = new Database(file);
   target.exec(`
     CREATE TABLE customers (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
@@ -543,7 +543,7 @@ const UNREACHABLE = {
   host: "127.0.0.1",
   port: 1,
   database: "shop",
-  user: "athanor_service",
+  user: "nebula_service",
   password: "service-password",
 };
 
@@ -599,8 +599,8 @@ test("the console refuses to drop, lock or re-password the account the connectio
     const act = (connectionId: string, action: unknown, execute = false) =>
       call(app, admin.cookie, "POST", `/api/admin/connections/${connectionId}/users`, { action, execute });
     for (const [connectionId, name] of [
-      [byFields.id, "athanor_service"],
-      [byFields.id, "ATHANOR_SERVICE"],
+      [byFields.id, "nebula_service"],
+      [byFields.id, "NEBULA_SERVICE"],
       [byString.id, "deployer"],
     ]) {
       for (const action of [
@@ -616,7 +616,7 @@ test("the console refuses to drop, lock or re-password the account the connectio
       }
     }
     // Unlocking it, or acting on another account, goes on to the database (unreachable here).
-    const unlock = await act(byFields.id, { type: "lock", principal: { name: "athanor_service" }, locked: false });
+    const unlock = await act(byFields.id, { type: "lock", principal: { name: "nebula_service" }, locked: false });
     assert.notEqual(unlock.json().code, "DB_ADMIN_CONNECTION_ACCOUNT_PROTECTED");
     const other = await act(byFields.id, { type: "drop", principal: { name: "someone_else" } });
     assert.notEqual(other.json().code, "DB_ADMIN_CONNECTION_ACCOUNT_PROTECTED");
@@ -765,7 +765,11 @@ test("clearing SQL recall history is scoped to the caller and connection and kee
       { connectionId: second.id, level: "read" },
     ]);
     assert.equal(granted.statusCode, 200, granted.body);
-    for (const [cookie, id] of [[admin.cookie, first.id], [member.cookie, first.id], [member.cookie, second.id]]) {
+    for (const [cookie, id] of [
+      [admin.cookie, first.id],
+      [member.cookie, first.id],
+      [member.cookie, second.id],
+    ]) {
       const res = await query(app, cookie, id, { sql: "SELECT * FROM customers", readOnly: true });
       assert.equal(res.statusCode, 200, res.body);
     }
@@ -775,7 +779,11 @@ test("clearing SQL recall history is scoped to the caller and connection and kee
     const cleared = await call(app, member.cookie, "DELETE", `/api/connections/${first.id}/query-history`);
     assert.equal(cleared.statusCode, 200, cleared.body);
     assert.equal(cleared.json().cleared, 1);
-    for (const [cookie, id, expected] of [[member.cookie, first.id, 0], [admin.cookie, first.id, 1], [member.cookie, second.id, 1]] as const) {
+    for (const [cookie, id, expected] of [
+      [member.cookie, first.id, 0],
+      [admin.cookie, first.id, 1],
+      [member.cookie, second.id, 1],
+    ] as const) {
       const res = await call(app, cookie, "GET", `/api/connections/${id}/query-history`);
       assert.equal(res.json().history.length, expected);
     }

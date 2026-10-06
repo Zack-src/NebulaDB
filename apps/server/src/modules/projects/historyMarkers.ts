@@ -1,4 +1,4 @@
-import type { HistoryMarker } from "@athanordb/shared";
+import type { HistoryMarker } from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 
 /** Newest markers kept per kind of source — the timeline is for recent history, the audit log has the rest. */

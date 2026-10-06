@@ -1,15 +1,16 @@
+import { readEnv } from "./shared/brandMigration.js";
 import { db } from "./infrastructure/db.js";
 import { reencryptPayload } from "./shared/crypto.js";
 
 /**
- * Re-encrypts everything stored at rest with the current `ATHANORDB_SECRET`.
+ * Re-encrypts everything stored at rest with the current `NEBULADB_SECRET`.
  *
  * Rotation, start to finish:
- *   1. set `ATHANORDB_SECRET_PREVIOUS` to the secret in use, and
- *      `ATHANORDB_SECRET` to the new one (the server keeps working: it reads
+ *   1. set `NEBULADB_SECRET_PREVIOUS` to the secret in use, and
+ *      `NEBULADB_SECRET` to the new one (the server keeps working: it reads
  *      with either);
  *   2. run `npm run rotate-secret`;
- *   3. remove `ATHANORDB_SECRET_PREVIOUS`.
+ *   3. remove `NEBULADB_SECRET_PREVIOUS`.
  *
  * Safe to re-run: a value already under the current key is simply rewritten.
  * All-or-nothing — one value that neither key can read aborts the whole run
@@ -25,8 +26,8 @@ const TARGETS = [
 ];
 
 function main(): void {
-  if (!process.env.ATHANORDB_SECRET?.trim()) {
-    console.error("ATHANORDB_SECRET must be set to the new secret.");
+  if (!readEnv("NEBULADB_SECRET")?.trim()) {
+    console.error("NEBULADB_SECRET must be set to the new secret.");
     process.exit(1);
   }
   let total = 0;
@@ -47,13 +48,13 @@ function main(): void {
     })();
   } catch (err) {
     console.error(
-      "Rotation aborted, nothing was changed. A stored value could not be decrypted with ATHANORDB_SECRET or " +
-        "ATHANORDB_SECRET_PREVIOUS:",
+      "Rotation aborted, nothing was changed. A stored value could not be decrypted with NEBULADB_SECRET or " +
+        "NEBULADB_SECRET_PREVIOUS:",
       err instanceof Error ? err.message : err,
     );
     process.exit(1);
   }
-  console.log(`Done: ${total} value(s). ATHANORDB_SECRET_PREVIOUS can now be removed.`);
+  console.log(`Done: ${total} value(s). NEBULADB_SECRET_PREVIOUS can now be removed.`);
 }
 
 main();

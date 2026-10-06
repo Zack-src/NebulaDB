@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { DbAdminSession } from "@athanordb/shared";
+  import type { DbAdminSession } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { CloseIcon, RestoreIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";

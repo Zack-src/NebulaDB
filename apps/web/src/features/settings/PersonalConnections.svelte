@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { DatabaseConnectionSummary, DatabaseEngine } from "@athanordb/shared";
+  import type { DatabaseConnectionSummary, DatabaseEngine } from "@nebuladb/shared";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";

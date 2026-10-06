@@ -96,7 +96,7 @@
     url = "";
     webhooks.reload();
   });
-  /** The webhook whose secret is about to be replaced — asked first: the receiving service stops trusting Athanor until it has the new one. */
+  /** The webhook whose secret is about to be replaced — asked first: the receiving service stops trusting Nebula until it has the new one. */
   let rotating = $state<{ id: string; url: string } | null>(null);
   const rotate = useAsyncAction(async (id: string) => {
     const rotated = await rotateWebhookSecret(project.id, id);

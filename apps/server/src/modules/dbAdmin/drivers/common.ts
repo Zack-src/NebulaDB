@@ -1,4 +1,4 @@
-import type { DbAdminQueryResult, DbGrantScope, DbPrivilegeCatalog } from "@athanordb/shared";
+import type { DbAdminQueryResult, DbGrantScope, DbPrivilegeCatalog } from "@nebuladb/shared";
 import { ApiError } from "../../../shared/errors.js";
 import type { AdminStatement } from "./interface.js";
 

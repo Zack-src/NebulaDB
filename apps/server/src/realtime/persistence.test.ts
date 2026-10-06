@@ -5,15 +5,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as Y from "yjs";
 
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-persistence-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-persistence-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { appendRevision, listRevisions, listMeaningfulRevisions, setRevisionLabel } = await import("./persistence.js");
-const { writeProjectToDoc } = await import("@athanordb/shared");
+const { writeProjectToDoc } = await import("@nebuladb/shared");
 const { db } = await import("../infrastructure/db.js");
-type Project = import("@athanordb/shared").Project;
+type Project = import("@nebuladb/shared").Project;
 
 function makeProject(overrides: Partial<Project> = {}): Project {
   return {

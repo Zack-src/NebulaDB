@@ -1,12 +1,12 @@
 import { schemaForConnection } from "../environments/variables.js";
-import { readProjectFromDoc, type DriftCheckResult, type Project, type ProjectDriftEntry } from "@athanordb/shared";
+import { readProjectFromDoc, type DriftCheckResult, type Project, type ProjectDriftEntry } from "@nebuladb/shared";
 import {
   FINGERPRINT_VERSION,
   diffFingerprints,
   diffTargetAgainstLive,
   fingerprintSchema,
   type SchemaFingerprint,
-} from "@athanordb/dbml-engine";
+} from "@nebuladb/dbml-engine";
 import { db } from "../../infrastructure/db.js";
 import { getRoom, notifyProject } from "../../realtime/roomRegistry.js";
 import { ApiError } from "../../shared/errors.js";
@@ -21,7 +21,7 @@ import { closeDriftEvents } from "../monitoring/repository.js";
  * Two things are recorded per (project, connection):
  *
  * - a **reference fingerprint** — the database's structure right after the
- *   last deployment or pull, the two moments Athanor knows schema and database
+ *   last deployment or pull, the two moments Nebula knows schema and database
  *   agree (or has just read the difference);
  * - an **out-of-schema mark** — set when a structural change was made to that
  *   database from the console, outside the schema. It is what makes the editor
@@ -152,7 +152,7 @@ export function listProjectDrift(projectId: string): ProjectDriftEntry[] {
  * Reads the database now and says how it differs — from the schema in the
  * editor (the number the banner shows, by the same lenient comparison as the
  * deployment plan, so the two never disagree) and from the reference (what
- * changed since Athanor last touched it, by the strict fingerprint).
+ * changed since Nebula last touched it, by the strict fingerprint).
  */
 export async function checkDrift(
   projectId: string,

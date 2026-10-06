@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { DatabaseEngine } from "@athanordb/shared";
+  import type { DatabaseEngine } from "@nebuladb/shared";
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
@@ -10,7 +10,7 @@
   import { createProjectFromDatabase, type CreateProjectFromDatabaseResponse } from "@/services/connectionsApi";
 
   /**
-   * "New Project from Database": the counterpart to Athanor's existing
+   * "New Project from Database": the counterpart to Nebula's existing
    * project-to-database deploy flow. There is no project to attach a
    * connection to yet, so unlike the admin console's `ConnectionEditModal` this has no separate
    * "Test Connection" step against `/api/projects/:id/connections/test` (that

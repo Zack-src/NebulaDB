@@ -76,10 +76,10 @@ const runners: Record<string, BuiltinRunner> = {
 
 export const coreEditorPlugin: BuiltinPlugin = {
   manifest: {
-    id: "athanordb.core-editor",
+    id: "nebuladb.core-editor",
     name: "Commandes Éditeur DBML",
     version: "1.0.0",
-    author: "AthanorDB",
+    author: "NebulaDB",
     category: "editor",
     description: "Améliorations de l'éditeur DBML : tri alphabétique des tables et injection de code.",
     tags: ["editor", "dbml", "sort", "format"],

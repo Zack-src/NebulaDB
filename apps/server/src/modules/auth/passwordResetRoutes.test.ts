@@ -38,17 +38,17 @@ await new Promise<void>((resolve) => smtp.listen(0, "127.0.0.1", resolve));
 const smtpPort = (smtp.server.address() as AddressInfo).port;
 after(() => new Promise<void>((resolve) => smtp.close(() => resolve())));
 
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-reset-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
-process.env.ATHANORDB_PUBLIC_URL = "https://schemas.example.test/";
-process.env.ATHANORDB_SMTP_HOST = "127.0.0.1";
-process.env.ATHANORDB_SMTP_PORT = String(smtpPort);
-process.env.ATHANORDB_SMTP_SECURE = "false";
-process.env.ATHANORDB_SMTP_USER = "mailer";
-process.env.ATHANORDB_SMTP_PASSWORD = "smtp-secret";
-process.env.ATHANORDB_SMTP_FROM = "AthanorDB <noreply@example.test>";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-reset-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
+process.env.NEBULADB_PUBLIC_URL = "https://schemas.example.test/";
+process.env.NEBULADB_SMTP_HOST = "127.0.0.1";
+process.env.NEBULADB_SMTP_PORT = String(smtpPort);
+process.env.NEBULADB_SMTP_SECURE = "false";
+process.env.NEBULADB_SMTP_USER = "mailer";
+process.env.NEBULADB_SMTP_PASSWORD = "smtp-secret";
+process.env.NEBULADB_SMTP_FROM = "NebulaDB <noreply@example.test>";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
@@ -101,7 +101,7 @@ test("forgot password: generic answer, a real email with an absolute link, singl
       headers: headers(),
       payload: { email: user.email, password: user.password },
     });
-    const oldCookie = `athanordb_sid=${login.cookies.find((c) => c.name === "athanordb_sid")!.value}`;
+    const oldCookie = `nebuladb_sid=${login.cookies.find((c) => c.name === "nebuladb_sid")!.value}`;
 
     // Unknown address: same answer, nothing sent.
     const unknown = await app.inject({
@@ -124,7 +124,7 @@ test("forgot password: generic answer, a real email with an absolute link, singl
     const mail = await waitForMail(user.email);
     assert.equal(inbox.filter((m) => m.to.includes("nobody-here@example.com")).length, 0);
     assert.match(mail, /Subject: =\?UTF-8\?|Subject: R/);
-    // The link is built from ATHANORDB_PUBLIC_URL, never the request's Host.
+    // The link is built from NEBULADB_PUBLIC_URL, never the request's Host.
     const token = mail.match(/https:\/\/schemas\.example\.test\/reset-password\/([A-Za-z0-9_-]+)/)?.[1];
     assert.ok(token, "email carries an absolute reset link");
     assert.doesNotMatch(mail, /localhost:3001/);
@@ -239,7 +239,7 @@ test("an invitation is emailed to the invitee, with a link that works", async ()
       headers: headers(),
       payload: { email: admin.email, password: admin.password },
     });
-    const cookie = `athanordb_sid=${login.cookies.find((c) => c.name === "athanordb_sid")!.value}`;
+    const cookie = `nebuladb_sid=${login.cookies.find((c) => c.name === "nebuladb_sid")!.value}`;
 
     const inviteeEmail = `invitee-${randomUUID()}@example.com`;
     const created = await app.inject({

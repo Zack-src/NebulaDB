@@ -1,5 +1,5 @@
 import { getSmoothStepPath, useSvelteFlow, type Position } from "@xyflow/svelte";
-import type { RoutingPoint } from "@athanordb/shared";
+import type { RoutingPoint } from "@nebuladb/shared";
 import {
   closestPointOnSegment,
   closestSegmentIndex,

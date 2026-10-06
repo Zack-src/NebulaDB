@@ -11,8 +11,8 @@ import {
   type Project,
   type Table,
   type TableSeedSummary,
-} from "@athanordb/shared";
-import type { ValidationIssue } from "@athanordb/dbml-engine";
+} from "@nebuladb/shared";
+import type { ValidationIssue } from "@nebuladb/dbml-engine";
 import { DEFAULT_PALETTE } from "@/components/inputs/colorSwatches";
 import { DEFAULT_TABLE_HEIGHT, DEFAULT_TABLE_WIDTH } from "@/features/editor/edges/refGeometry";
 import { NO_TABLE_LOCKS, type TableLocksView } from "@/features/editor/locks/tableLocks.svelte";

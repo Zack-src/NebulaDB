@@ -1,17 +1,17 @@
 import crypto from "node:crypto";
-import type { DbQueryStat, DbQueryStatSort } from "@athanordb/shared";
+import type { DbQueryStat, DbQueryStatSort } from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { normalizeSql } from "./sqlShape.js";
 
 /**
- * How often each statement shape runs through Athanor's SQL console on a
- * connection, and how long it takes *as Athanor measures it* — around the
+ * How often each statement shape runs through Nebula's SQL console on a
+ * connection, and how long it takes *as Nebula measures it* — around the
  * call, opening the connection included. Not the database server's own
  * statistics (`pg_stat_statements` and the like are another feature), and
  * never shown as such.
  *
  * Kept per UTC day, so a period can be summed and old days dropped
- * (`ATHANORDB_QUERY_STATS_RETENTION_DAYS`). The statement is stored with
+ * (`NEBULADB_QUERY_STATS_RETENTION_DAYS`). The statement is stored with
  * every literal replaced by `?` — no value typed in a statement, and no row
  * it returned, is kept here.
  */

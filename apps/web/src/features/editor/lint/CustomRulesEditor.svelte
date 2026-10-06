@@ -4,7 +4,7 @@
     compileLintPattern,
     type CustomLintRule,
     type LintLevel,
-  } from "@athanordb/dbml-engine";
+  } from "@nebuladb/dbml-engine";
   import Icon from "@/components/icons/Icon.svelte";
   import { PlusIcon, TrashIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";

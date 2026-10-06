@@ -1,4 +1,4 @@
-import type { DatabaseEngine, StructuralAction } from "@athanordb/shared";
+import type { DatabaseEngine, StructuralAction } from "@nebuladb/shared";
 import { ApiError } from "../../shared/errors.js";
 
 /**

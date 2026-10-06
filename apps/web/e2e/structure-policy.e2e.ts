@@ -54,7 +54,7 @@ test(
   "console: a table change is sent to the schema by default, and runs after confirmation under `warn`",
   { timeout: 90_000 },
   async () => {
-    const targetDir = mkdtempSync(join(tmpdir(), "athanordb-e2e-policy-"));
+    const targetDir = mkdtempSync(join(tmpdir(), "nebuladb-e2e-policy-"));
     const targetFile = join(targetDir, "shop.sqlite");
     const target = new Database(targetFile);
     target.exec(`

@@ -186,7 +186,7 @@ an instance administrator sets it to personal accounts — with the account each
 (`PUT /api/connections/:id/credentials`: instance administrators, administrators of a
 project the connection is attached to, and members granted access to it below, from a browser
 session; anyone else is answered `404`). The name an administrator proposed (`suggestedUsername`)
-pre-fills that dialog; the password is always the person's own. In that mode Athanor's
+pre-fills that dialog; the password is always the person's own. In that mode Nebula's
 roles decide who may _ask_ for an action, and the database's own permissions, on that person's
 account, decide whether it happens. A person with no account is refused
 (`PERSONAL_CREDENTIALS_REQUIRED`), never connected as the stored account, which only unattended
@@ -198,9 +198,9 @@ An instance administrator can also **give a person their account**: an existing 
 (`PUT /api/admin/users/:userId/connections/:id/credentials`, tried before it is kept; the person
 must have access to the database, or be an instance administrator), one created for each missing
 account (`POST /api/admin/users/:id/db-accounts`, `…/teams/:id/db-accounts`), or — in the console's
-Utilisateurs section — the account being created, handed to an Athanor user in the same step. The
+Utilisateurs section — the account being created, handed to an Nebula user in the same step. The
 person finds it in Paramètres → Bases de données and gives it a password of their own
-(`PUT /api/connections/:id/credentials/password`): Athanor changes it on the database, signed in as
+(`PUT /api/connections/:id/credentials/password`): Nebula changes it on the database, signed in as
 that account, so the old password is never asked for and no other account can be reached. Browser
 session only; refused on a connection marked read-only.
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { RefAction, RefCardinality } from "@athanordb/shared";
+  import type { RefAction, RefCardinality } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { RestoreIcon, SettingsIcon } from "@/components/icons/Icons";
   import { EDGE_CHROME_Z } from "@/features/editor/edges/canvasLayers";

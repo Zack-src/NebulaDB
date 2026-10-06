@@ -6,8 +6,8 @@ import {
   type LintFinding,
   type LintSettings,
   type ValidationIssue,
-} from "@athanordb/dbml-engine";
-import { getTablesMap, type Project } from "@athanordb/shared";
+} from "@nebuladb/dbml-engine";
+import { getTablesMap, type Project } from "@nebuladb/shared";
 import { toast } from "@/components/ui/toast.svelte";
 import type { SchemaFinding } from "@/features/editor/dbml/lint";
 import { i18n } from "@/i18n/i18n.svelte";

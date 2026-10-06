@@ -50,9 +50,9 @@ function build(
 export function invitationEmail(to: string, url: string, invitedBy: string, expiresAt: Date): OutgoingMail {
   return build(
     to,
-    "Invitation à rejoindre AthanorDB",
+    "Invitation à rejoindre NebulaDB",
     [
-      `${invitedBy} vous invite à créer un compte sur AthanorDB, l'éditeur de schémas de bases de données de votre équipe.`,
+      `${invitedBy} vous invite à créer un compte sur NebulaDB, l'éditeur de schémas de bases de données de votre équipe.`,
       `Ce lien est valable jusqu'au ${formatDate(expiresAt)} et ne peut servir qu'une fois.`,
     ],
     { label: "Créer mon compte", url },
@@ -63,9 +63,9 @@ export function invitationEmail(to: string, url: string, invitedBy: string, expi
 export function passwordResetEmail(to: string, url: string, ttlMinutes: number): OutgoingMail {
   return build(
     to,
-    "Réinitialisation de votre mot de passe AthanorDB",
+    "Réinitialisation de votre mot de passe NebulaDB",
     [
-      "Une réinitialisation du mot de passe de votre compte AthanorDB a été demandée.",
+      "Une réinitialisation du mot de passe de votre compte NebulaDB a été demandée.",
       `Ce lien est valable ${ttlMinutes} minutes et ne peut servir qu'une fois. Choisir un nouveau mot de passe déconnectera toutes vos sessions ouvertes.`,
     ],
     { label: "Choisir un nouveau mot de passe", url },

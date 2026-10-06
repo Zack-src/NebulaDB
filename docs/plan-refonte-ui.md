@@ -1,17 +1,17 @@
-# Plan de refonte UI/UX d'AthanorDB
+# Plan de refonte UI/UX d'NebulaDB
 
 Synthèse des cinq études détaillées de [`refonte-ui/`](./refonte-ui/), écrites par cinq sous-agents après lecture du
 code. Ce document tranche ce qui peut l'être, signale les contradictions entre études et liste les décisions qui
 reviennent au propriétaire. Le détail (schémas, tableaux feature par feature, lots, fichiers) reste dans chaque étude.
 
-| Étude                                                                                           | Contenu                                                               |
-| ----------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| [01 — Architecture de l'information](./refonte-ui/01-architecture-information.md)              | Navigation, classement de toutes les features, URL, rôles             |
-| [02 — Canvas et contrôle des tables](./refonte-ui/02-canvas-et-controle-tables.md)              | Le header trop long, barre flottante, inspecteur, clic droit          |
-| [03 — Espace SQL](./refonte-ui/03-espace-sql.md)                                                | Un espace « Requêtes » type SSMS pour tous les utilisateurs           |
-| [04 — Administration unifiée](./refonte-ui/04-administration-unifiee.md)                        | **Non écrite** (voir « Trou du plan »)                                |
-| [05 — Design system et thèmes](./refonte-ui/05-design-system-et-themes.md)                      | Palette, contrastes calculés, composants, migration                   |
-| [06 — Parcours, popups, feuille de route](./refonte-ui/06-parcours-popups-et-feuille-de-route.md) | Audit des dialogues, 12 parcours, phases, tests, estimation          |
+| Étude                                                                                             | Contenu                                                      |
+| ------------------------------------------------------------------------------------------------- | ------------------------------------------------------------ |
+| [01 — Architecture de l'information](./refonte-ui/01-architecture-information.md)                 | Navigation, classement de toutes les features, URL, rôles    |
+| [02 — Canvas et contrôle des tables](./refonte-ui/02-canvas-et-controle-tables.md)                | Le header trop long, barre flottante, inspecteur, clic droit |
+| [03 — Espace SQL](./refonte-ui/03-espace-sql.md)                                                  | Un espace « Requêtes » type SSMS pour tous les utilisateurs  |
+| [04 — Administration unifiée](./refonte-ui/04-administration-unifiee.md)                          | **Non écrite** (voir « Trou du plan »)                       |
+| [05 — Design system et thèmes](./refonte-ui/05-design-system-et-themes.md)                        | Palette, contrastes calculés, composants, migration          |
+| [06 — Parcours, popups, feuille de route](./refonte-ui/06-parcours-popups-et-feuille-de-route.md) | Audit des dialogues, 12 parcours, phases, tests, estimation  |
 
 Réserve générale : les études lisent le code mais n'ont pas lancé l'application. Les chiffres de clics, de largeurs
 et de durées sont des estimations à mesurer avant la phase 1.
@@ -128,15 +128,15 @@ fournit `StatementModal`.
 
 ## 8. Feuille de route
 
-| Phase | Contenu                                                                                  | Dépend de |
-| ----- | ---------------------------------------------------------------------------------------- | --------- |
-| 0     | Fondations : tokens, nouvelle palette, composants de base, test de contraste, routeur    | —         |
-| 1     | Navigation : coque, URL, repli serveur générique, palette `Ctrl+K`                       | 0         |
-| 2     | Canvas : header court, dock, inspecteur, clic droit (jalons A/B/C)                       | 1         |
-| 3     | Espace Requêtes (12 lots)                                                                | 1         |
-| 4     | Administration unifiée                                                                   | 1         |
-| 5     | Projets et déploiement, retrait des anciennes modales                                    | 2, 3, 4   |
-| 6     | Polissage, accessibilité, recette avec le propriétaire                                   | toutes    |
+| Phase | Contenu                                                                               | Dépend de |
+| ----- | ------------------------------------------------------------------------------------- | --------- |
+| 0     | Fondations : tokens, nouvelle palette, composants de base, test de contraste, routeur | —         |
+| 1     | Navigation : coque, URL, repli serveur générique, palette `Ctrl+K`                    | 0         |
+| 2     | Canvas : header court, dock, inspecteur, clic droit (jalons A/B/C)                    | 1         |
+| 3     | Espace Requêtes (12 lots)                                                             | 1         |
+| 4     | Administration unifiée                                                                | 1         |
+| 5     | Projets et déploiement, retrait des anciennes modales                                 | 2, 3, 4   |
+| 6     | Polissage, accessibilité, recette avec le propriétaire                                | toutes    |
 
 Les phases 2 et 3 peuvent avancer en parallèle après la 1. Si le budget est contraint : phases 0, 1, 4, 5 d'abord
 (~19 semaines), canvas en dernier, polissage non négociable.
@@ -151,20 +151,20 @@ est à relever avant la phase 1.
 
 ## 9. Contradictions entre études, à trancher
 
-| Sujet                         | Écart                                                                                                                                                           | Proposition                                                                                         |
-| ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Nombre de modales             | 33 (01), 38 (05), 48 (06), 28 popups dont 13 modales sur le canvas seul (02)                                                                                    | Retenir 48 (06, comptage le plus large) ; refaire un décompte unique par script avant la phase 1    |
-| Menu « Projet » / « Fichier » | 02 garde les modales existantes d'import/export/comparaison ; 01 veut des panneaux                                                                              | Panneaux (cohérent avec la règle anti-popups) ; les modales actuelles servent de transition         |
-| Migrations                    | 03 annonce la migration 39 pour les requêtes enregistrées                                                                                                       | 39 à 41 existent déjà (activité, compteurs, santé) : renuméroter à 42                               |
-| Routeur                       | 01 propose des URL ; 06 laisse le choix de la bibliothèque ouvert                                                                                               | À décider avant la phase 1 (question 2)                                                             |
-| Surveillance                  | Par projet (existant) ou par base (proposé par 01, question 12)                                                                                                 | À décider                                                                                           |
+| Sujet                         | Écart                                                                              | Proposition                                                                                      |
+| ----------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| Nombre de modales             | 33 (01), 38 (05), 48 (06), 28 popups dont 13 modales sur le canvas seul (02)       | Retenir 48 (06, comptage le plus large) ; refaire un décompte unique par script avant la phase 1 |
+| Menu « Projet » / « Fichier » | 02 garde les modales existantes d'import/export/comparaison ; 01 veut des panneaux | Panneaux (cohérent avec la règle anti-popups) ; les modales actuelles servent de transition      |
+| Migrations                    | 03 annonce la migration 39 pour les requêtes enregistrées                          | 39 à 41 existent déjà (activité, compteurs, santé) : renuméroter à 42                            |
+| Routeur                       | 01 propose des URL ; 06 laisse le choix de la bibliothèque ouvert                  | À décider avant la phase 1 (question 2)                                                          |
+| Surveillance                  | Par projet (existant) ou par base (proposé par 01, question 12)                    | À décider                                                                                        |
 
 ## 10. Trou du plan : l'administration unifiée
 
 L'étude 04 n'a pas été produite : le lancement de son agent a été refusé par le classificateur de permissions
 (motif donné : « Auto-Mode Bypass »), refus non contourné. L'étude 01 pose déjà la structure (4 familles, la matrice
 d'accès aux bases, les fiches), mais il manque la conception détaillée demandée en premier par le propriétaire : la
-**fiche personne unifiée** (profil Athanor + groupes + projets + accès aux bases + comptes SQL sur chaque base +
+**fiche personne unifiée** (profil Nebula + groupes + projets + accès aux bases + comptes SQL sur chaque base +
 activité + sécurité), la **fiche base** (vue d'ensemble, accès et comptes, objets, sessions, sauvegardes, surveillance,
 journal, paramètres), les listes avec filtres et actions en masse, et le tableau « onglet actuel → nouvel emplacement »
 pour toute l'administration. Les phases 4 et 5 ne devraient pas démarrer sans cette étude.

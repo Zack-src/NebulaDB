@@ -22,8 +22,8 @@ import {
   type TableIndex,
   type VisualStyle,
   type Zone,
-} from "@athanordb/shared";
-import { projectToDbml } from "@athanordb/dbml-engine";
+} from "@nebuladb/shared";
+import { projectToDbml } from "@nebuladb/dbml-engine";
 
 /**
  * Copy / paste of tables, enums, zones and sticky notes, through the *system*
@@ -41,7 +41,8 @@ import { projectToDbml } from "@athanordb/dbml-engine";
  * treated as untrusted: rebuilt field by field, never spread into the document.
  */
 
-const MARKER = "// athanordb-clipboard:v1 ";
+const MARKER = "// nebuladb-clipboard:v1 ";
+const LEGACY_MARKER = "// athanordb-clipboard:v1 ";
 /** Far above any real selection; keeps a crafted clipboard from flooding the document in one keystroke. */
 const MAX_PASTED_TABLES = 200;
 const MAX_PASTED_OTHERS = 200;
@@ -281,11 +282,13 @@ function readRef(raw: unknown, tables: Table[]): Ref | null {
 
 /** Elements found in a clipboard text, or null when it is not one of ours (or carries nothing usable). */
 export function parseClipboard(clipboardText: string): CanvasClipboard | null {
-  const line = clipboardText.split("\n").find((candidate) => candidate.startsWith(MARKER));
+  const line = clipboardText
+    .split("\n")
+    .find((candidate) => candidate.startsWith(MARKER) || candidate.startsWith(LEGACY_MARKER));
   if (!line) return null;
   let raw: unknown;
   try {
-    raw = JSON.parse(line.slice(MARKER.length));
+    raw = JSON.parse(line.slice(line.startsWith(MARKER) ? MARKER.length : LEGACY_MARKER.length));
   } catch {
     return null;
   }

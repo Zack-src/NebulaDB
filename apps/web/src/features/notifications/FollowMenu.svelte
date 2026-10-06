@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { NOTIFICATION_EVENTS, type NotificationEvent } from "@athanordb/shared";
+  import { NOTIFICATION_EVENTS, type NotificationEvent } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { EyeIcon, EyeOffIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";

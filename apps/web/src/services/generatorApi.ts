@@ -1,4 +1,4 @@
-import type { TableGeneratorConfig } from "@athanordb/shared";
+import type { TableGeneratorConfig } from "@nebuladb/shared";
 import { request } from "./httpClient";
 
 const base = (projectId: string, tableId: string) =>

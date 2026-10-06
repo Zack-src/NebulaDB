@@ -4,7 +4,7 @@
 
 <script lang="ts">
   import { NodeResizer, type NodeProps } from "@xyflow/svelte";
-  import { MAX_NAME_LENGTH } from "@athanordb/shared";
+  import { MAX_NAME_LENGTH } from "@nebuladb/shared";
   import { autofocus } from "@/actions/autofocus";
   import ColorSwatchPicker from "@/components/inputs/ColorSwatchPicker.svelte";
   import { INPUT_XS_CLASS } from "@/components/ui/inputStyles";

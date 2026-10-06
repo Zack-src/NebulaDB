@@ -1,5 +1,5 @@
-import type { AcceptedRisk, DatabaseEngine, MigrationResolutionMap, SchemaRisk } from "@athanordb/shared";
-import { detectTypeTranslationRisks, planRiskProbes, riskFromProbe, type MigrationDiff } from "@athanordb/dbml-engine";
+import type { AcceptedRisk, DatabaseEngine, MigrationResolutionMap, SchemaRisk } from "@nebuladb/shared";
+import { detectTypeTranslationRisks, planRiskProbes, riskFromProbe, type MigrationDiff } from "@nebuladb/dbml-engine";
 import { ApiError } from "../../shared/errors.js";
 import type { DatabaseDriver } from "./drivers/interface.js";
 

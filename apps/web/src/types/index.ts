@@ -1,4 +1,4 @@
-import type { DbAccessGrant } from "@athanordb/shared";
+import type { DbAccessGrant } from "@nebuladb/shared";
 import type {
   EnumNodeType,
   StickyNoteNodeType,

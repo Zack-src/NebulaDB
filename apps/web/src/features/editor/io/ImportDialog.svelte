@@ -24,7 +24,7 @@
   const { t } = useTranslation();
   const importers = useImporters(() => props.projectId);
   let source = $state("");
-  let selection = $state("athanordb.core-import:dbml");
+  let selection = $state("nebuladb.core-import:dbml");
   let error = $state<string | null>(null);
   let busy = $state(false);
   let fileName = $state<string | null>(null);

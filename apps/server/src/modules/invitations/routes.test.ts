@@ -6,10 +6,10 @@ import { join } from "node:path";
 
 // Same rationale as `app.test.ts`: env vars must land before anything
 // transitively imports `db.ts`.
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-invitations-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-invitations-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
@@ -29,8 +29,8 @@ async function loginAs(app: Awaited<ReturnType<typeof buildApp>>, email: string,
     headers: headers(),
     payload: { email, password },
   });
-  const sessionCookie = res.cookies.find((c) => c.name === "athanordb_sid");
-  return `athanordb_sid=${sessionCookie!.value}`;
+  const sessionCookie = res.cookies.find((c) => c.name === "nebuladb_sid");
+  return `nebuladb_sid=${sessionCookie!.value}`;
 }
 
 async function makeUser(isAdmin: 0 | 1 = 0) {
@@ -122,7 +122,7 @@ test("accepting an invitation creates an account but no session (the user logs i
     });
     assert.equal(accepted.statusCode, 200);
     assert.deepEqual(accepted.json(), { email });
-    assert.ok(!accepted.cookies.some((c) => c.name === "athanordb_sid"));
+    assert.ok(!accepted.cookies.some((c) => c.name === "nebuladb_sid"));
 
     // The account works with a real login right after.
     const loginRes = await app.inject({
@@ -132,7 +132,7 @@ test("accepting an invitation creates an account but no session (the user logs i
       payload: { email, password: "a perfectly fine password" },
     });
     assert.equal(loginRes.statusCode, 200);
-    assert.ok(loginRes.cookies.some((c) => c.name === "athanordb_sid"));
+    assert.ok(loginRes.cookies.some((c) => c.name === "nebuladb_sid"));
 
     // Sequential reuse: the invitation's status is already "accepted" by the
     // time this second call's own status check runs, so it's refused as an

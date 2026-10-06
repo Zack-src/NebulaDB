@@ -12,8 +12,8 @@ import {
   type SeedResult,
   type Table,
   type TableSeed,
-} from "@athanordb/shared";
-import { q, type MigrationDialect } from "@athanordb/dbml-engine";
+} from "@nebuladb/shared";
+import { q, type MigrationDialect } from "@nebuladb/dbml-engine";
 import { ApiError } from "../../shared/errors.js";
 import type { DatabaseDriver } from "../connections/drivers/interface.js";
 import { listSeedsWithContent } from "./repository.js";

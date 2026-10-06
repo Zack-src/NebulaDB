@@ -1,4 +1,4 @@
-import type { Field, Project, Ref, Table } from "@athanordb/shared";
+import type { Field, Project, Ref, Table } from "@nebuladb/shared";
 
 // Own module, same reasoning as serialize.ts: zero `@dbml/core` import, so
 // pulling in SVG export never drags the parser along for a caller (the

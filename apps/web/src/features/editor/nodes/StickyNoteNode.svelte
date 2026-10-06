@@ -4,7 +4,7 @@
 
 <script lang="ts">
   import { NodeResizer, type NodeProps } from "@xyflow/svelte";
-  import { MAX_TEXT_LENGTH } from "@athanordb/shared";
+  import { MAX_TEXT_LENGTH } from "@nebuladb/shared";
   import ColorSwatchPicker from "@/components/inputs/ColorSwatchPicker.svelte";
   import type { StickyNoteNodeType } from "@/features/editor/nodes/nodeTypes";
   import { useTranslation } from "@/i18n/i18n.svelte";

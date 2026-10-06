@@ -1,4 +1,4 @@
-import type { DbHealthBoard } from "@athanordb/shared";
+import type { DbHealthBoard } from "@nebuladb/shared";
 import { asUnattended } from "../../infrastructure/actor.js";
 import { db } from "../../infrastructure/db.js";
 import { getConnectionById } from "../connections/repository.js";

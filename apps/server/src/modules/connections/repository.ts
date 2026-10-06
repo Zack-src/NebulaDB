@@ -8,7 +8,7 @@ import type {
   DatabaseEngine,
   StructurePolicy,
   StructurePolicySetting,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { decryptPayload, encryptPayload } from "../../shared/crypto.js";
 import { ApiError } from "../../shared/errors.js";

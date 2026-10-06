@@ -2,8 +2,8 @@ import { readdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import * as Y from "yjs";
-import { writeProjectToDoc } from "@athanordb/shared";
-import { applyVisualMetadata, describeDbmlParseError, parseDbml, toProject } from "@athanordb/dbml-engine";
+import { writeProjectToDoc } from "@nebuladb/shared";
+import { applyVisualMetadata, describeDbmlParseError, parseDbml, toProject } from "@nebuladb/dbml-engine";
 import { db } from "./db.js";
 import { saveSnapshot } from "../realtime/persistence.js";
 
@@ -18,7 +18,7 @@ import { saveSnapshot } from "../realtime/persistence.js";
  * hand-written `.dbml` file restores fine, just without that layout.
  *
  * Usage: `npm run restore -w apps/server -- <backupDir> [--owner email@example.com]`.
- * Respects `ATHANORDB_DB_PATH` the same as the server itself.
+ * Respects `NEBULADB_DB_PATH` the same as the server itself.
  *
  * Ownership: without `--owner`, restored projects have no owner — under
  * `permissions.ts`'s rules that leaves them readable by any logged-in user

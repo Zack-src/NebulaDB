@@ -1,4 +1,4 @@
-import type { LintSettings } from "@athanordb/dbml-engine";
+import type { LintSettings } from "@nebuladb/dbml-engine";
 import { request } from "./httpClient";
 
 /** Where a project's rules come from: its own version, a preset chosen for it, the instance default, or the built-in ones. */

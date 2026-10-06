@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { DatabaseEngine } from "@athanordb/shared";
+  import type { DatabaseEngine } from "@nebuladb/shared";
 
   const ENGINES: DatabaseEngine[] = ["postgres", "mysql", "mssql", "sqlite", "oracle"];
 
@@ -16,7 +16,7 @@
 
 <script lang="ts">
   import { SvelteSet } from "svelte/reactivity";
-  import { translateType, type Project } from "@athanordb/shared";
+  import { translateType, type Project } from "@nebuladb/shared";
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";
   import Hint from "@/components/ui/Hint.svelte";
@@ -27,7 +27,7 @@
   /**
    * Project-wide "convert column types" action — walks every field currently
    * on the canvas and offers to rewrite the ones `translateType` (see
-   * `@athanordb/shared/typeMapping`) finds incompatible with a chosen target
+   * `@nebuladb/shared/typeMapping`) finds incompatible with a chosen target
    * engine, the same logic the deploy/export type-translation risk uses. This
    * is a plain, one-off canvas edit: it goes through `convertFieldTypes` (a
    * single Yjs transaction, same shape as `setTablesColor`), not the

@@ -1,10 +1,12 @@
 services:
-  athanordb:
+  nebuladb:
     build: .
     ports:
       - "3001:3001"
+    environment:
+      NEBULADB_DB_PATH: ${NEBULADB_DB_PATH:-/data/nebuladb.sqlite}
     volumes:
-      - athanordb-data:/data
+      - nebuladb-data:/data
     restart: unless-stopped
     # The app logs structured JSON to stdout and never rotates or deletes
     # anything itself — that's the container runtime's job, and Docker's own
@@ -19,4 +21,6 @@ services:
         max-file: "5"
 
 volumes:
-  athanordb-data:
+  nebuladb-data:
+    # Set this to the existing volume's physical name when upgrading.
+    name: ${NEBULADB_DATA_VOLUME:-nebuladb-data}

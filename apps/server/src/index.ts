@@ -81,7 +81,7 @@ scheduleJob("database-backup-retention", 60 * 60 * 1000, () => {
 });
 
 /**
- * Scheduled backups, off unless `ATHANORDB_BACKUP_INTERVAL_HOURS` is set.
+ * Scheduled backups, off unless `NEBULADB_BACKUP_INTERVAL_HOURS` is set.
  *
  * `backup.ts` has always worked, but nothing in a running deployment ever
  * called it — a backup that depends on someone remembering the command is a

@@ -1,4 +1,4 @@
-import type { HistoryMarker, Project, RevisionChanges } from "@athanordb/shared";
+import type { HistoryMarker, Project, RevisionChanges } from "@nebuladb/shared";
 import type { PermissionLevel, ProjectStatus, ProjectSummary, ProjectTeamGrant } from "@/types";
 import { request, requestText } from "./httpClient";
 import type { SqlDialect } from "./convertApi";

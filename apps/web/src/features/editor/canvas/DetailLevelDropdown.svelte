@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { DetailLevel } from "@athanordb/shared";
+  import type { DetailLevel } from "@nebuladb/shared";
   import type { TranslationKeyOf } from "@/types";
 
   const DETAIL_LEVELS = ["compact", "standard", "full"] as const;

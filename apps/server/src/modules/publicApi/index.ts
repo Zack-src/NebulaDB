@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { readProjectFromDoc, writeProjectToDoc } from "@athanordb/shared";
+import { readProjectFromDoc, writeProjectToDoc } from "@nebuladb/shared";
 import {
   applyVisualMetadata,
   buildDictionary,
@@ -12,7 +12,7 @@ import {
   projectToDbml,
   projectToSvg,
   toProject,
-} from "@athanordb/dbml-engine";
+} from "@nebuladb/dbml-engine";
 import { assertLocksAllow } from "../tableLocks/access.js";
 import { lintReport } from "../lint/check.js";
 import { requireScope } from "../apiKeys/auth.js";

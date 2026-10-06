@@ -5,10 +5,10 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-accountwatch-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-accountwatch-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
@@ -37,7 +37,7 @@ async function login(app: App, admin: boolean) {
     headers: { host: HOST, origin: ORIGIN },
     payload: { email, password },
   });
-  return `athanordb_sid=${res.cookies.find((c) => c.name === "athanordb_sid")!.value}`;
+  return `nebuladb_sid=${res.cookies.find((c) => c.name === "nebuladb_sid")!.value}`;
 }
 
 function call(app: App, cookie: string, method: "GET" | "POST" | "PUT" | "DELETE", url: string, payload?: unknown) {
@@ -77,7 +77,7 @@ const role = (name: string, grants: string[] = []) => ({
     : [],
 });
 
-test("accounts watch: an outside change is an alert, a change through Athanor is not, and only instance administrators see it", async () => {
+test("accounts watch: an outside change is an alert, a change through Nebula is not, and only instance administrators see it", async () => {
   const app = await buildApp();
   let reads = 0;
   let state = canonicalAccountLines([role("app", ["SELECT"])]);
@@ -107,7 +107,7 @@ test("accounts watch: an outside change is an alert, a change through Athanor is
       await call(app, admin, "POST", "/api/admin/connections", {
         name: "Local file",
         engine: "sqlite",
-        filePath: join(mkdtempSync(join(tmpdir(), "athanordb-accounts-")), "x.sqlite"),
+        filePath: join(mkdtempSync(join(tmpdir(), "nebuladb-accounts-")), "x.sqlite"),
       })
     ).json().connection.id as string;
     for (const id of [conn, sqliteConn]) {
@@ -154,7 +154,7 @@ test("accounts watch: an outside change is an alert, a change through Athanor is
       [],
     );
 
-    // Someone grants DELETE outside Athanor: one alert, said once.
+    // Someone grants DELETE outside Nebula: one alert, said once.
     state = canonicalAccountLines([role("app", ["SELECT", "DELETE"])]);
     view = (await call(app, admin, "POST", `${base}/check`)).json() as View;
     let accountEvents = view.events.filter((e) => e.kind === "accounts");
@@ -198,7 +198,7 @@ test("accounts watch: an outside change is an alert, a change through Athanor is
       [],
     );
 
-    // Athanor's console creates a role: read before and after; the reference follows Athanor's change,
+    // Nebula's console creates a role: read before and after; the reference follows Nebula's change,
     // the outside DELETE stays open — and is not reported again.
     const withAuditors = canonicalAccountLines([role("app", ["SELECT", "DELETE"]), role("auditors")]);
     queue.push(state, withAuditors);
@@ -212,7 +212,7 @@ test("accounts watch: an outside change is an alert, a change through Athanor is
     state = withAuditors;
     view = (await call(app, admin, "POST", `${base}/check`)).json() as View;
     accountEvents = view.events.filter((e) => e.kind === "accounts");
-    assert.equal(accountEvents.length, 1, "creating a role through Athanor is not an alert");
+    assert.equal(accountEvents.length, 1, "creating a role through Nebula is not an alert");
     assert.equal(accountEvents[0].status, "open", "the outside change is still there");
     // A preview (not executed) reads nothing.
     const before = reads;

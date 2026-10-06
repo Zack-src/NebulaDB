@@ -7,11 +7,11 @@ import { backupTimestamp, runBackup } from "./backupRunner.js";
  * running.
  *
  * Usage: `npm run backup -w apps/server -- [outputDir]` (defaults to
- * `./backups/<timestamp>/`). Respects `ATHANORDB_DB_PATH` the same as the
+ * `./backups/<timestamp>/`). Respects `NEBULADB_DB_PATH` the same as the
  * server itself, so it reads whichever database the server is actually using.
  *
  * The same function runs on a schedule inside the server when
- * `ATHANORDB_BACKUP_INTERVAL_HOURS` is set — see `index.ts`.
+ * `NEBULADB_BACKUP_INTERVAL_HOURS` is set — see `index.ts`.
  */
 function main(): void {
   const outDir = process.argv[2] ?? path.join("backups", backupTimestamp());

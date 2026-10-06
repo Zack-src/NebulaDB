@@ -1,4 +1,4 @@
-import { readableNote } from "@athanordb/dbml-engine";
+import { readableNote } from "@nebuladb/dbml-engine";
 import { hoverTooltip } from "@codemirror/view";
 import { getSymbols, tableAt, unquoteIdent, type EnumSymbol, type TableSymbol } from "@/features/editor/dbml/symbols";
 import { tokenAt } from "@/features/editor/dbml/navigation";

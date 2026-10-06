@@ -1,4 +1,4 @@
-import type { EnvironmentStage, EnvironmentStageInput } from "@athanordb/shared";
+import type { EnvironmentStage, EnvironmentStageInput } from "@nebuladb/shared";
 import { request } from "./httpClient";
 
 /** The instance's deployment chain, in order — readable by anyone signed in. */

@@ -23,7 +23,7 @@
     { id: "community", labelKey: "plugins.filterCommunity" },
   ];
 
-  const DEFAULT_STARTER_CODE = `athanor.plugin({
+  const DEFAULT_STARTER_CODE = `nebula.plugin({
   id: "me.custom-action",
   name: "Action Personnalisée",
   version: "1.0.0",
@@ -40,7 +40,7 @@
   ],
 });
 
-athanor.on("canvasCommand:my-action", (project) => {
+nebula.on("canvasCommand:my-action", (project) => {
   console.log("Exécution sur le projet :", project.name);
   return { message: "Action exécutée avec succès !" };
 });
@@ -149,7 +149,7 @@ athanor.on("canvasCommand:my-action", (project) => {
         id: r.manifest.id,
         name: r.manifest.name,
         version: r.manifest.version ?? "1.0.0",
-        author: r.manifest.author ?? "AthanorDB",
+        author: r.manifest.author ?? "NebulaDB",
         category: r.manifest.category ?? "tools",
         description: r.manifest.description ?? "",
         tags: r.manifest.tags ?? [],

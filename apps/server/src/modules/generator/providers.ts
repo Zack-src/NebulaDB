@@ -4,12 +4,12 @@ import {
   type GeneratorContext,
   type Table,
   type TableGeneratorConfig,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { ApiError } from "../../shared/errors.js";
 
 /**
  * Where generated rows come from. `builtin` (the seeded generator in
- * `@athanordb/shared`) is the only one today; another — an AI service, say —
+ * `@nebuladb/shared`) is the only one today; another — an AI service, say —
  * registers here without the routes changing.
  *
  * The contract every provider keeps: it receives the table's **structure

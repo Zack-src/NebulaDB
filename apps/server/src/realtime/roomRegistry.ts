@@ -1,4 +1,4 @@
-import type { ServerNotice } from "@athanordb/shared";
+import type { ServerNotice } from "@nebuladb/shared";
 import { Room, type RoomLogger } from "./room.js";
 
 /**

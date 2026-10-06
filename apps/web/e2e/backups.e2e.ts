@@ -17,7 +17,7 @@ import { login, startE2eEnvironment } from "./harness.js";
 const PORT = Number(process.env.E2E_PORT) || 4416;
 
 test("backups: back up, lose rows, restore them", { timeout: 90_000 }, async () => {
-  const targetFile = join(mkdtempSync(join(tmpdir(), "athanordb-e2e-backups-")), "shop.sqlite");
+  const targetFile = join(mkdtempSync(join(tmpdir(), "nebuladb-e2e-backups-")), "shop.sqlite");
   const env = await startE2eEnvironment(PORT);
   try {
     const page = await env.browser.newPage({ viewport: { width: 1400, height: 900 } });
@@ -31,7 +31,7 @@ test("backups: back up, lose rows, restore them", { timeout: 90_000 }, async () 
     };
     await login(page, env.baseUrl);
 
-    const projectId = await page.evaluate(
+    await page.evaluate(
       async ({ filePath }) => {
         const json = { "content-type": "application/json" };
         const created = await fetch("/api/projects", {
@@ -75,7 +75,13 @@ test("backups: back up, lose rows, restore them", { timeout: 90_000 }, async () 
     };
     write("INSERT INTO customers (id, name) VALUES (1, 'Ada'), (2, 'Grace');");
 
-    await page.goto(`${env.baseUrl}/project/${projectId}/data`);
+    await page.goto(env.baseUrl);
+    await page
+      .getByRole("navigation", { name: "Navigation principale", exact: true })
+      .getByRole("button", { name: "Admin", exact: true })
+      .click();
+    await page.getByRole("button", { name: "Connexions base de données", exact: true }).click();
+    await page.getByRole("button", { name: "Monitoring", exact: true }).click();
     await page.getByRole("tab", { name: "Sauvegardes", exact: true }).click();
     const panel = page.getByTestId("backups");
     await panel.getByText("Aucune sauvegarde de cette base.").waitFor();
@@ -124,6 +130,12 @@ test("backups: back up, lose rows, restore them", { timeout: 90_000 }, async () 
     await schedule.getByRole("combobox", { name: "Jour de la semaine" }).waitFor();
     await snap("schedule");
     await page.reload();
+    await page
+      .getByRole("navigation", { name: "Navigation principale", exact: true })
+      .getByRole("button", { name: "Admin", exact: true })
+      .click();
+    await page.getByRole("button", { name: "Connexions base de données", exact: true }).click();
+    await page.getByRole("button", { name: "Monitoring", exact: true }).click();
     await page.getByRole("tab", { name: "Sauvegardes", exact: true }).click();
     const reloaded = page.getByTestId("backup-schedule");
     await reloaded.getByRole("combobox", { name: "Jour de la semaine" }).waitFor();

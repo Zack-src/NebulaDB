@@ -1,4 +1,4 @@
-# AthanorDB — guide d'utilisation
+# NebulaDB — guide d'utilisation
 
 Ce guide s'adresse aux **utilisateurs** de l'application. Pour installer,
 configurer et exploiter un serveur, voir le [README](../README.md) ; pour
@@ -10,7 +10,7 @@ contribuer au code, [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ### Se connecter
 
-AthanorDB n'a pas d'inscription libre : un administrateur crée une invitation,
+NebulaDB n'a pas d'inscription libre : un administrateur crée une invitation,
 et vous recevez un lien `/invite/<token>`, valable 7 jours, sur lequel vous
 choisissez votre mot de passe — par e-mail si l'instance en envoie, sinon
 transmis à la main par l'administrateur. **Ce lien vaut création de compte** —
@@ -313,7 +313,7 @@ façon ; _Complet_ gèle en plus les données initiales de la table (§5). Le d�
 
 L'**œil** de l'en-tête d'un projet ouvre la liste de ce que vous pouvez suivre :
 déploiements et retours arrière, verrous posés ou levés, données initiales
-modifiées, base modifiée hors Athanor. Cochez ce qui vous intéresse — rien
+modifiées, base modifiée hors Nebula. Cochez ce qui vous intéresse — rien
 n'est suivi par défaut, et tout décocher arrête le suivi.
 
 La **bulle** à côté (présente aussi sur le tableau de bord) est le centre de
@@ -479,10 +479,10 @@ dans une base mais absente du schéma est marquée **Hors schéma**. Seule la
 structure est comparée, pas les données ; pour mettre deux bases au même
 niveau, déployez le schéma sur chacune.
 
-**Surveiller les modifications hors Athanor.** Dans l'onglet _Déploiements_,
+**Surveiller les modifications hors Nebula.** Dans l'onglet _Déploiements_,
 un administrateur du projet peut faire relire ses bases à intervalle régulier
 (de 5 minutes à une fois par jour) : chacune est comparée à l'état laissé par
-le dernier déploiement ou import. Une différence qu'Athanor n'explique pas
+le dernier déploiement ou import. Une différence qu'Nebula n'explique pas
 (quelqu'un a modifié la base avec un autre outil) est listée, allume le
 bandeau de l'éditeur et part aux webhooks du projet. Une base illisible est
 signalée « injoignable », jamais comme une modification. Un déploiement ou un
@@ -494,7 +494,7 @@ base du projet qui a des comptes (pas SQLite), les comptes et rôles, leurs
 verrous, leurs appartenances à des rôles et leurs privilèges, avec le compte de
 service de la connexion. La première lecture devient la **référence** ; ensuite,
 une modification faite par l'onglet _Utilisateurs et permissions_ de la console
-d'Athanor met la référence à jour, et toute autre différence (un compte créé,
+d'Nebula met la référence à jour, et toute autre différence (un compte créé,
 supprimé, verrouillé, un rôle ou un privilège accordé ou retiré avec un autre
 outil) est une **alerte** : listée dans la carte, écrite au journal de la base,
 envoyée aux abonnés du projet qui l'administrent (« les comptes de la base X ont
@@ -534,7 +534,7 @@ connexions sans étape ; leur historique de déploiement garde le nom.
 
 ### Activité (administrateurs de l'instance)
 
-**Admin → Activité** liste ce qui a été fait depuis Athanor et qui compte plus
+**Admin → Activité** liste ce qui a été fait depuis Nebula et qui compte plus
 tard : déploiements, changements de structure et de données sur les bases,
 comptes et permissions, sessions, projets, configuration. Filtres : période,
 type, projet, base, recherche libre ; une ligne s'ouvre sur son détail (auteur,
@@ -548,12 +548,12 @@ ouverte, connexion testée, requêtes SQL (texte tronqué, durée, lignes, auteu
 déploiements et retours arrière, changements de comptes, ce que la surveillance
 a trouvé. Filtres : période, type, auteur ; pagination ; export CSV / JSON.
 La vue **Requêtes** regroupe les requêtes lancées depuis la console SQL
-d'Athanor par forme (chaque valeur remplacée par `?`, aucun résultat gardé) :
+d'Nebula par forme (chaque valeur remplacée par `?`, aucun résultat gardé) :
 nombre d'exécutions, durée moyenne, maximale et totale, lignes, dernière
 exécution, triées par fréquence, lenteur ou temps total. Les durées sont
-**mesurées par Athanor** autour de l'appel (ouverture de la connexion comprise),
+**mesurées par Nebula** autour de l'appel (ouverture de la connexion comprise),
 pas par le serveur de base. Ces chiffres sont gardés 30 jours par défaut
-(`ATHANORDB_QUERY_STATS_RETENTION_DAYS`, `0` pour tout garder).
+(`NEBULADB_QUERY_STATS_RETENTION_DAYS`, `0` pour tout garder).
 
 ### Administrer les bases connectées (administrateurs de l'instance)
 
@@ -561,7 +561,7 @@ pas par le serveur de base. Ces chiffres sont gardés 30 jours par défaut
 l'instance, avec leur état (pastille verte : la base a répondu à la dernière
 vérification), leurs tags et les projets rattachés. On y ajoute, modifie et
 supprime une connexion ; les identifiants sont chiffrés et ne sont jamais
-réaffichés. Cocher **Lecture seule** interdit toute écriture d'Athanor par
+réaffichés. Cocher **Lecture seule** interdit toute écriture d'Nebula par
 cette connexion (déploiement compris).
 
 **Un compte partagé, ou le compte de chacun.** Par défaut, tout le monde passe
@@ -570,7 +570,7 @@ chacun** dans sa fenêtre de modification, chaque utilisateur doit donner **son
 propre compte sur la base** : bouton **Mon compte SQL**, à côté de la base
 dans un projet et dans cette liste. Le compte est essayé avant d'être
 enregistré, son mot de passe est chiffré et n'est plus jamais affiché. Tout ce
-que la personne fait ensuite sur cette base depuis Athanor — plan et
+que la personne fait ensuite sur cette base depuis Nebula — plan et
 déploiement, retour arrière, import du schéma, comparaison, console,
 sauvegarde ou restauration qu'elle lance — est fait sous son compte : les
 journaux de la base disent qui a fait quoi, et ce sont ses permissions qui
@@ -604,13 +604,13 @@ avec le compte de celui-ci.
   de s'exécuter. Les différences entre moteurs sont respectées : comptes
   `utilisateur@hôte` sur MySQL, logins serveur et utilisateurs de base sur SQL
   Server, rôles sur PostgreSQL ; SQLite n'a pas de comptes. Un mot de passe
-  saisi ou généré n'est ni stocké ni journalisé par Athanor : notez-le.
+  saisi ou généré n'est ni stocké ni journalisé par Nebula : notez-le.
 - **Sessions** — qui est connecté et ce qui s'exécute, avec la possibilité de
   terminer une session bloquée.
 - **Sauvegardes** — voir ci-dessous.
 
 **Sauvegarder et restaurer une base.** L'onglet **Sauvegardes** liste les
-sauvegardes de la base ouverte. **Sauvegarder maintenant** en lance une : Athanor
+sauvegardes de la base ouverte. **Sauvegarder maintenant** en lance une : Nebula
 lit la structure puis toutes les lignes, table par table, et les range dans un
 fichier compressé et chiffré sur le serveur. La liste montre l'avancement, puis
 la taille, le nombre de lignes et la date jusqu'à laquelle la sauvegarde est
@@ -651,7 +651,7 @@ affichée ; si le serveur était arrêté à l'heure prévue, la sauvegarde manq
 est faite une fois à son retour. Un échec est signalé sur cette ligne et dans
 la liste, mais n'envoie pas encore d'alerte.
 
-**Avant un déploiement en production**, Athanor sauvegarde la base
+**Avant un déploiement en production**, Nebula sauvegarde la base
 automatiquement (case « Sauvegarder la base avant de déployer », cochée par
 défaut sur l'environnement de production). Si la sauvegarde n'aboutit pas, rien
 n'est déployé. L'historique des déploiements indique qu'une sauvegarde a été
@@ -691,7 +691,7 @@ Le compte utilisé par la connexion doit lui-même avoir les droits nécessaires
 (lire le catalogue, créer des rôles…) : sinon la base refuse, et son message
 est affiché tel quel. Ce compte-là est protégé : la console refuse de le
 supprimer, de le verrouiller ou de changer son mot de passe (ni le vôtre, sur
-une connexion en « compte de chacun ») — Athanor se couperait lui-même de la
+une connexion en « compte de chacun ») — Nebula se couperait lui-même de la
 base. Faites-le depuis la base, après avoir changé le compte de la connexion.
 
 ### Donner accès à une base à un membre (administrateurs de l'instance)
@@ -848,7 +848,7 @@ Dit explicitement pour éviter de le chercher :
 - pas de SSO ni de passkeys ;
 - pas de sauvegarde des bases connectées par l'outil natif du moteur, ni vers un
   stockage externe (S3…) — les sauvegardes sont logiques et restent sur le
-  serveur d'Athanor (§5) ;
+  serveur d'Nebula (§5) ;
 - pas de mode hors-ligne — un onglet fermé pendant une coupure perd les
   modifications non synchronisées ;
 - interface pensée pour un écran large, non adaptée au tactile.

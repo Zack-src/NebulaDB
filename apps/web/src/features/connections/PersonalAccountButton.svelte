@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { PersonalCredentialStatus } from "@athanordb/shared";
+  import type { PersonalCredentialStatus } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { KeyIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";

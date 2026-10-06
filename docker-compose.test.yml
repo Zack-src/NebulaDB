@@ -12,33 +12,33 @@
 # if these aren't running — only the sqlite driver test (in-memory, no Docker
 # needed) always runs.
 services:
-  athanordb-test-postgres:
+  nebuladb-test-postgres:
     image: postgres:16-alpine
     environment:
-      POSTGRES_USER: athanordb_test
-      POSTGRES_PASSWORD: athanordb_test
-      POSTGRES_DB: athanordb_test
+      POSTGRES_USER: nebuladb_test
+      POSTGRES_PASSWORD: nebuladb_test
+      POSTGRES_DB: nebuladb_test
     ports:
       - "55432:5432"
     tmpfs:
       - /var/lib/postgresql/data # scratch data — never needs to survive a restart
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U athanordb_test"]
+      test: ["CMD-SHELL", "pg_isready -U nebuladb_test"]
       interval: 2s
       timeout: 3s
       retries: 15
 
-  athanordb-test-mysql:
+  nebuladb-test-mysql:
     image: mysql:8.4
     environment:
-      MYSQL_ROOT_PASSWORD: athanordb_test
-      MYSQL_DATABASE: athanordb_test
+      MYSQL_ROOT_PASSWORD: nebuladb_test
+      MYSQL_DATABASE: nebuladb_test
     ports:
       - "53306:3306"
     tmpfs:
       - /var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pathanordb_test"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-pnebuladb_test"]
       interval: 2s
       timeout: 3s
       retries: 30

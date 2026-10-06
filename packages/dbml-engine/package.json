@@ -1,6 +1,6 @@
 {
-  "name": "@athanordb/dbml-engine",
-  "version": "0.0.1",
+  "name": "@nebuladb/dbml-engine",
+  "version": "1.0.0",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -14,7 +14,7 @@
     "check:circular": "madge --circular --extensions ts src/index.ts"
   },
   "dependencies": {
-    "@athanordb/shared": "*",
+    "@nebuladb/shared": "*",
     "@dbml/core": "^10.1.0"
   },
   "devDependencies": {

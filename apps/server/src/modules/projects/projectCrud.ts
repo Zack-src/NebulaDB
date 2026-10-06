@@ -20,7 +20,7 @@ import { invalidateWebhookCache } from "../webhooks/dispatcher.js";
  * supplies its own permission check, audit call, and response shape.
  */
 
-/** Ceiling on projects owned by one account. An abuse backstop in the same spirit as the per-project entity caps in `@athanordb/shared` — generous enough that no real user meets it, low enough that a scripted loop can't fill the disk with empty projects. */
+/** Ceiling on projects owned by one account. An abuse backstop in the same spirit as the per-project entity caps in `@nebuladb/shared` — generous enough that no real user meets it, low enough that a scripted loop can't fill the disk with empty projects. */
 export const MAX_PROJECTS_PER_USER = 500;
 export const MAX_PROJECT_NAME_LENGTH = 200;
 

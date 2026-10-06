@@ -60,7 +60,7 @@
   >
   {#if !projectName}
     <aside class="workspace-sidebar" aria-label={t("shell.navigation")}>
-      <button class="workspace-brand" onclick={() => onNavigate("app")} aria-label="AthanorDB">
+      <button class="workspace-brand" onclick={() => onNavigate("app")} aria-label="NebulaDB">
         <span class="brand-monogram" aria-hidden="true">A</span><span class="sidebar-label">{APP_NAME}</span>
       </button>
       <nav class="workspace-nav" aria-label={t("shell.navigation")}>

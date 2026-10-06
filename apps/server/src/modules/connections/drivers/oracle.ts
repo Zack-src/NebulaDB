@@ -1,6 +1,6 @@
 import oracledb from "oracledb";
-import { q } from "@athanordb/dbml-engine";
-import type { Project, Ref, Table, TableIndex } from "@athanordb/shared";
+import { q } from "@nebuladb/dbml-engine";
+import type { Project, Ref, Table, TableIndex } from "@nebuladb/shared";
 import type {
   DatabaseDriver,
   DriverConnectionConfig,

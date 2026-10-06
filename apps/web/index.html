@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>AthanorDB</title>
+    <title>NebulaDB</title>
     <!--
       Applies the saved theme before the first paint. Deliberately not a
       module import (`utils/theme.ts`'s `loadThemePreset`/`applyThemePreset`
@@ -18,7 +18,8 @@
     <script>
       (function () {
         try {
-          if (localStorage.getItem("athanordb.theme") === "light") {
+          const theme = localStorage.getItem("nebuladb.theme") ?? localStorage.getItem("athanordb.theme");
+          if (theme === "light") {
             document.documentElement.setAttribute("data-theme", "light");
           }
         } catch (e) {}

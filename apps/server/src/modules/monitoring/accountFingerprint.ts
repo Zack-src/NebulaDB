@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import type { AccountChange, DbGrant, DbPrincipal } from "@athanordb/shared";
+import type { AccountChange, DbGrant, DbPrincipal } from "@nebuladb/shared";
 
 /**
  * The accounts of a database as one canonical, comparable value: a sorted set
@@ -76,7 +76,7 @@ export function diffAccountLines(
 }
 
 /**
- * Moves a reference along with a change Athanor made itself: what Athanor's
+ * Moves a reference along with a change Nebula made itself: what Nebula's
  * action added (`after` − `before`) is added to the reference, what it took
  * away is taken away. A difference the reference already had with the
  * database — a change made elsewhere, not yet accepted — stays a difference.

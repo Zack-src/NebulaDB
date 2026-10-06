@@ -6,7 +6,7 @@ import type {
   DbAdminSession,
   DbServerCounters,
   DbTrafficBucket,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { asUnattended } from "../../infrastructure/actor.js";
 import { db } from "../../infrastructure/db.js";
 import { getConnectionById } from "../connections/repository.js";
@@ -17,12 +17,12 @@ import { normalizeSql } from "../dbAdmin/sqlShape.js";
  * Level 1 of the database-side logs: what the database server itself says
  * is connected and running (`pg_stat_activity`, `PROCESSLIST`, DMVs,
  * `V$SESSION` — read through the console's `listSessions`), whoever opened
- * the session, Athanor or not. A sample is a snapshot: a statement that
+ * the session, Nebula or not. A sample is a snapshot: a statement that
  * starts and ends between two samples is not seen, and the page says so.
  *
  * Kept per connection, session fingerprint (account, database, client,
  * statement shape) and UTC day — not one row per sample. The statement has
- * every literal replaced by `?`. Athanor reads, never configures anything on
+ * every literal replaced by `?`. Nebula reads, never configures anything on
  * the server (level 2, an audit trail, stays the administrator's to set up).
  */
 
@@ -106,8 +106,8 @@ export async function sampleActivity(connection: DatabaseConnectionConfig): Prom
   return sessions.length;
 }
 
-/** The accounts Athanor itself signs in with on this connection: the service account and the personal ones given. */
-function accountsKnownToAthanor(connection: DatabaseConnectionConfig): Set<string> {
+/** The accounts Nebula itself signs in with on this connection: the service account and the personal ones given. */
+function accountsKnownToNebula(connection: DatabaseConnectionConfig): Set<string> {
   const names = new Set<string>();
   if (connection.user) names.add(connection.user);
   const rows = db
@@ -134,7 +134,7 @@ export function listActivity(
   connection: DatabaseConnectionConfig,
   options: { sinceDays?: number; outsideOnly?: boolean },
 ): DbActivityEntry[] {
-  const known = accountsKnownToAthanor(connection);
+  const known = accountsKnownToNebula(connection);
   const rows = db
     .prepare(
       `SELECT fingerprint, db_user, database_name, client, state, normalized_sql,
@@ -155,7 +155,7 @@ export function listActivity(
     maxSeconds: row.max_seconds,
     firstAt: row.first_at,
     lastAt: row.last_at,
-    // By name only: another application using the same account looks like Athanor here.
+    // By name only: another application using the same account looks like Nebula here.
     knownAccount: row.db_user !== null && known.has(row.db_user),
   }));
   return (options.outsideOnly ? entries.filter((entry) => !entry.knownAccount) : entries).slice(0, MAX_ROWS);

@@ -166,7 +166,7 @@ export function useProjectRouting(
   });
 
   $effect(() => {
-    document.title = openProject ? `${openProject.name} · AthanorDB` : "AthanorDB";
+    document.title = openProject ? `${openProject.name} · NebulaDB` : "NebulaDB";
   });
 
   return {

@@ -38,7 +38,7 @@
   import { fetchProjects } from "@/services/projectsApi";
 
   /**
-   * Admin → Activité: everything done through Athanor that the audit trail
+   * Admin → Activité: everything done through Nebula that the audit trail
    * keeps — deployments, structure, data writes, accounts, sessions,
    * configuration — in one list, filtered by period, type, project, database
    * and text, a page at a time, exportable. Read-only: there is no way to

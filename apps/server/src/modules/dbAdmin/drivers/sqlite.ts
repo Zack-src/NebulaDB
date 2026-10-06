@@ -13,7 +13,7 @@ import type {
   DbGrant,
   DbPrincipal,
   DbPrivilegeCatalog,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import type { DriverConnectionConfig } from "../../connections/drivers/interface.js";
 import { assertSqlitePathAllowed } from "../../connections/drivers/sqlite.js";
 import { assertReadOnlyStatement } from "../sqlGuard.js";

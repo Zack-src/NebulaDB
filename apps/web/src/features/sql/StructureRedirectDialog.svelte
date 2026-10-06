@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { StructuralAction } from "@athanordb/shared";
+  import type { StructuralAction } from "@nebuladb/shared";
   import type { Translator } from "@/i18n/serverErrorMessages";
 
   /** "supprimer la table orders", "modifier la table orders (colonne note)" — shared with the `warn` confirmation. */
@@ -12,7 +12,7 @@
 </script>
 
 <script lang="ts">
-  import type { StructurePolicyRefusal } from "@athanordb/shared";
+  import type { StructurePolicyRefusal } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { AlertTriangleIcon, ChevronRightIcon } from "@/components/icons/Icons";
   import Modal from "@/components/overlays/Modal.svelte";

@@ -17,7 +17,7 @@ import { login, startE2eEnvironment } from "./harness.js";
 const PORT = Number(process.env.E2E_PORT) || 4422;
 
 test("pipeline: stages in order, a refused skip, then a skip with a reason", { timeout: 120_000 }, async () => {
-  const dir = mkdtempSync(join(tmpdir(), "athanordb-e2e-pipeline-"));
+  const dir = mkdtempSync(join(tmpdir(), "nebuladb-e2e-pipeline-"));
   const env = await startE2eEnvironment(PORT);
   try {
     const page = await env.browser.newPage({ viewport: { width: 1400, height: 900 } });

@@ -1,4 +1,4 @@
-import type { Project } from "@athanordb/shared";
+import type { Project } from "@nebuladb/shared";
 
 export function generateMermaid(project: Project): string {
   const lines: string[] = ["erDiagram"];

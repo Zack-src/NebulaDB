@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { MySqlAccount } from "@athanordb/shared";
+  import type { MySqlAccount } from "@nebuladb/shared";
   import PersonalAccountDialog from "@/features/connections/PersonalAccountDialog.svelte";
   import Badge from "@/components/ui/Badge.svelte";
   import Button from "@/components/ui/Button.svelte";

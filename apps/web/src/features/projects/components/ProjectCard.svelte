@@ -3,7 +3,7 @@
 </script>
 
 <script lang="ts">
-  import { MAX_NAME_LENGTH } from "@athanordb/shared";
+  import { MAX_NAME_LENGTH } from "@nebuladb/shared";
   import { autofocus } from "@/actions/autofocus";
   import Icon from "@/components/icons/Icon.svelte";
   import { ArchiveIcon, LinkIcon, PencilIcon, RestoreIcon, TrashIcon, UsersIcon } from "@/components/icons/Icons";

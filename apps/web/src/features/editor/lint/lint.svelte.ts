@@ -1,4 +1,4 @@
-import { DEFAULT_LINT_SETTINGS, type LintSettings } from "@athanordb/dbml-engine";
+import { DEFAULT_LINT_SETTINGS, type LintSettings } from "@nebuladb/dbml-engine";
 import {
   chooseLintPreset,
   fetchLintState,

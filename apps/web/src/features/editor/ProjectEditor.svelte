@@ -31,13 +31,13 @@
     type ProjectDriftEntry,
     type ServerNotice,
     type Table,
-  } from "@athanordb/shared";
+  } from "@nebuladb/shared";
   import { toast } from "@/components/ui/toast.svelte";
   import { TableLocksState } from "@/features/editor/locks/tableLocks.svelte";
   import { SeedsState } from "@/features/editor/seeds/seeds.svelte";
   import Splitter from "@/components/ui/Splitter.svelte";
   import { SqlDrawerState } from "@/features/sql/sqlDrawer.svelte";
-  import { diffProjects, fingerprintSchema } from "@athanordb/dbml-engine";
+  import { diffProjects, fingerprintSchema } from "@nebuladb/dbml-engine";
   import { LintState } from "@/features/editor/lint/lint.svelte";
   import { SchemaQuality } from "@/features/editor/lint/schemaQuality.svelte";
   import type { RevisionSummary } from "@/services/projectsApi";

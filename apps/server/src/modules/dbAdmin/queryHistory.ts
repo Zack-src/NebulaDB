@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import type { DbAdminQueryHistoryEntry } from "@athanordb/shared";
+import type { DbAdminQueryHistoryEntry } from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { recordQueryStat } from "./queryStats.js";
 

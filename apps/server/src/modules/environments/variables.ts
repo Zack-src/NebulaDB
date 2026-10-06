@@ -1,5 +1,5 @@
-import { resolveVariables, type VariableValues } from "@athanordb/dbml-engine";
-import type { Project } from "@athanordb/shared";
+import { resolveVariables, type VariableValues } from "@nebuladb/dbml-engine";
+import type { Project } from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { ApiError } from "../../shared/errors.js";
 

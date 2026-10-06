@@ -1,4 +1,4 @@
-import type { InvitationGrants } from "@athanordb/shared";
+import type { InvitationGrants } from "@nebuladb/shared";
 import type { InvitationSummary } from "@/types";
 import { request } from "./httpClient";
 

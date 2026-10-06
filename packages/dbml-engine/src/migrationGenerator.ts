@@ -1,5 +1,5 @@
-import type { Field, MigrationResolutionMap, Ref, RefAction, Table } from "@athanordb/shared";
-import { translateType } from "@athanordb/shared";
+import type { Field, MigrationResolutionMap, Ref, RefAction, Table } from "@nebuladb/shared";
+import { translateType } from "@nebuladb/shared";
 import type { MigrationDiff, MigrationFieldChange, MigrationTableChange } from "./migrationDiff.js";
 
 export type MigrationDialect = "postgres" | "mysql" | "sqlite" | "mssql" | "oracle";

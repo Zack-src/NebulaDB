@@ -17,7 +17,7 @@ import { login, startE2eEnvironment } from "./harness.js";
 const PORT = Number(process.env.E2E_PORT) || 4418;
 
 test("seeds: a table's rows in the database become its initial data, after review", { timeout: 90_000 }, async () => {
-  const targetFile = join(mkdtempSync(join(tmpdir(), "athanordb-e2e-seed-db-")), "shop.sqlite");
+  const targetFile = join(mkdtempSync(join(tmpdir(), "nebuladb-e2e-seed-db-")), "shop.sqlite");
   const env = await startE2eEnvironment(PORT);
   try {
     const page = await env.browser.newPage({ viewport: { width: 1400, height: 900 } });
@@ -63,7 +63,7 @@ test("seeds: a table's rows in the database become its initial data, after revie
       { filePath: targetFile },
     );
 
-    // The reference rows were typed into the database, not into Athanor.
+    // The reference rows were typed into the database, not into Nebula.
     const target = new Database(targetFile);
     target.exec(
       "INSERT INTO countries VALUES ('FR', 'France', NULL), ('BE', 'Belgique', ''), ('CH', 'Suisse', 'hors UE')",

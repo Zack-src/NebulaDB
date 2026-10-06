@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import type { PipelineConnection, PipelineStage } from "@athanordb/shared";
+  import type { PipelineConnection, PipelineStage } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { ChevronRightIcon, LockIcon, RestoreIcon } from "@/components/icons/Icons";
   import Badge, { type BadgeTone } from "@/components/ui/Badge.svelte";

@@ -1,4 +1,4 @@
-import type { AdminConnectionSummary } from "@athanordb/shared";
+import type { AdminConnectionSummary } from "@nebuladb/shared";
 import { asUnattended } from "../../infrastructure/actor.js";
 import { createDatabaseDriver } from "../connections/drivers/index.js";
 import {

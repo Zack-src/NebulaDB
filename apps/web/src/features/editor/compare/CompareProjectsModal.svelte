@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { MigrationChangeStatus, MigrationDialect, MigrationFieldChange } from "@athanordb/dbml-engine";
+  import type { MigrationChangeStatus, MigrationDialect, MigrationFieldChange } from "@nebuladb/dbml-engine";
 
   const SIGN: Record<MigrationChangeStatus, string> = { added: "+", dropped: "-", modified: "~" };
   const TONE: Record<MigrationChangeStatus, string> = {
@@ -31,8 +31,8 @@
 </script>
 
 <script lang="ts">
-  import type { Project } from "@athanordb/shared";
-  import { diffTargetAgainstLive, generateMigrationSql } from "@athanordb/dbml-engine";
+  import type { Project } from "@nebuladb/shared";
+  import { diffTargetAgainstLive, generateMigrationSql } from "@nebuladb/dbml-engine";
   import Icon from "@/components/icons/Icon.svelte";
   import { SwapHorizontalIcon } from "@/components/icons/Icons";
   import Modal from "@/components/overlays/Modal.svelte";

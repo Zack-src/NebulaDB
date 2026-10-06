@@ -1,5 +1,5 @@
 import * as Y from "yjs";
-import { getTableGroupsMap, type Table, type TableGroup } from "@athanordb/shared";
+import { getTableGroupsMap, type Table, type TableGroup } from "@nebuladb/shared";
 import type { TableGroupNodeType } from "@/features/editor/nodes/nodeTypes";
 
 // A group's box is derived, not stored — position/size come from wherever

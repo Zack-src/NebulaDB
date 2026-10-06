@@ -91,7 +91,7 @@ export const SANDBOX_PREFIX = `"use strict";
   function normalizeSettings(list) {
     if (!Array.isArray(list)) return undefined;
     return list.map(function (setting) {
-      if (!setting || typeof setting !== "object") throw new Error("athanor.plugin: each setting must be an object");
+      if (!setting || typeof setting !== "object") throw new Error("nebula.plugin: each setting must be an object");
       var key = requireString(setting.key, "key", "setting");
       var type = requireString(setting.type, "type", "setting " + key);
       if (SETTING_TYPES.indexOf(type) === -1) {
@@ -114,12 +114,12 @@ export const SANDBOX_PREFIX = `"use strict";
     });
   }
 
-  self.athanor = {
+  self.nebula = {
     plugin: function (meta) {
-      if (!meta || typeof meta !== "object") throw new Error("athanor.plugin: expected an object");
+      if (!meta || typeof meta !== "object") throw new Error("nebula.plugin: expected an object");
       manifest = {
-        id: requireString(meta.id, "id", "athanor.plugin"),
-        name: requireString(meta.name, "name", "athanor.plugin"),
+        id: requireString(meta.id, "id", "nebula.plugin"),
+        name: requireString(meta.name, "name", "nebula.plugin"),
         version: typeof meta.version === "string" ? meta.version : undefined,
         description: typeof meta.description === "string" ? meta.description : undefined,
         author: typeof meta.author === "string" ? meta.author : undefined,
@@ -145,6 +145,9 @@ export const SANDBOX_PREFIX = `"use strict";
     },
   };
 
+  // Saved plugins written before the rename retain their source unchanged.
+  self.athanor = self.nebula;
+
   // console inside a worker goes nowhere useful for a plugin author, so relay
   // it to the host, which surfaces it in the plugin manager.
   ["log", "warn", "error"].forEach(function (level) {
@@ -160,9 +163,9 @@ export const SANDBOX_PREFIX = `"use strict";
     };
   });
 
-  self.__athanorFinish = function () {
+  self.__nebulaFinish = function () {
     if (!manifest) {
-      self.postMessage({ type: "load-error", message: "plugin never called athanor.plugin({ id, name })" });
+      self.postMessage({ type: "load-error", message: "plugin never called nebula.plugin({ id, name })" });
       return;
     }
     if (contributions.length === 0) {
@@ -197,7 +200,7 @@ export const SANDBOX_SUFFIX = `
 } catch (err) {
   self.postMessage({ type: "load-error", message: String((err && err.message) || err) });
 }
-self.__athanorFinish();
+self.__nebulaFinish();
 `;
 
 export function buildWorkerSource(pluginCode: string): string {

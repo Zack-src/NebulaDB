@@ -1,6 +1,6 @@
 # Changelog
 
-Notable changes to AthanorDB. The project is pre-1.0 and self-hosted: this file
+Notable changes to NebulaDB. The project is self-hosted: this file
 exists so an operator upgrading an instance can tell, before pulling, whether a
 release changes the database, the configuration, or anything they have to do by
 hand.
@@ -13,16 +13,24 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## Versioning
 
-[Semantic Versioning](https://semver.org/), staying on `0.y.z` — every workspace
-`package.json` shares one version number — until the "V1 checklist" in
-[`docs/todo.md`](docs/todo.md) clears, at which point the next
-release is tagged `1.0.0`. Chosen over calendar versioning: this project ships
-when something is ready, not on a schedule, and `0.x` already signals
-"pre-1.0, breaking changes possible between minors" without needing a second
-convention layered on top. Releases are tagged (`vX.Y.Z`) on `main` at points
-this file has a dated entry for — not on every commit.
+[Semantic Versioning](https://semver.org/): every workspace `package.json` shares
+one version number. Releases are tagged (`vX.Y.Z`) on `main` at points this file
+has a dated entry for. Version 1.0.0 is the first release under the NebulaDB name.
 
 ## [Unreleased]
+
+## [1.0.0] — 2026-10-06
+
+### Changed — NebulaDB and the new workspace
+
+- Renamed AthanorDB to **NebulaDB**, including packages, configuration, interface,
+  documentation and the GitHub repository. Existing settings, credentials,
+  sessions, plugins and backups remain usable; see
+  [the migration guide](docs/renommage-nebuladb.md).
+- Redesigned the workspace, navigation, project views and database access.
+- Simplified project deployments, unified avatars and added SQL history controls.
+- Consolidated administrator users and invitations and added management of teams,
+  individual project roles and per-project databases.
 
 ### Added — access managed from the administrator's side
 
@@ -72,12 +80,12 @@ this file has a dated entry for — not on every commit.
   client, state, statement shape with literals masked, times seen, longest) and `db_activity_watch`.
 - Admin → Connexions → Ouvrir → Journal → **Côté base**: "Relever maintenant" reads the server's
   sessions (`pg_stat_activity`, `PROCESSLIST`, DMVs, `V$SESSION`, through the console's session
-  list), and "Relever toutes les 5 min" does it on a schedule per connection. Accounts Athanor signs
+  list), and "Relever toutes les 5 min" does it on a schedule per connection. Accounts Nebula signs
   in with (by name) are flagged and can be left out. A snapshot: a statement shorter than the
-  interval can be missed. Athanor configures no audit on the server.
+  interval can be missed. Nebula configures no audit on the server.
 - `GET /api/admin/connections/:id/activity`, `POST …/activity/sample`, `PUT …/activity/watch`;
   audit `dbconn.activity.sample` / `dbconn.activity.watch`.
-- `ATHANORDB_DB_ACTIVITY_RETENTION_DAYS` (default 14, `0` keeps all).
+- `NEBULADB_DB_ACTIVITY_RETENTION_DAYS` (default 14, `0` keeps all).
 
 ### Added — create the database account with the invitation
 
@@ -119,12 +127,12 @@ deployment like any rule at level `error`, and be excepted per table
 **Read before upgrading:** migration **37** adds `monitor_settings.watch_accounts` (off for
 every project), `drift_events.details_json`, and the tables `account_baselines` and
 `query_stats`. Nothing is read from any database until an instance administrator turns the
-accounts watch on for a project. New setting `ATHANORDB_QUERY_STATS_RETENTION_DAYS` (30 by
+accounts watch on for a project. New setting `NEBULADB_QUERY_STATS_RETENTION_DAYS` (30 by
 default, `0` keeps everything): how long the SQL console's per-statement figures are kept —
 they hold the last author of each statement shape, so mention it in your privacy policy if
 you publish one (`docs/legal/confidentialite.md` is updated).
 
-- **Accounts and privileges changed outside Athanor** (Déploiements → Surveillance, instance
+- **Accounts and privileges changed outside Nebula** (Déploiements → Surveillance, instance
   administrators). An option of the watch reads, on each linked database that has accounts,
   the accounts and roles, their locks, role memberships and privileges (the administration
   drivers' listing calls, the connection's stored account, under the connection budget), as a
@@ -144,7 +152,7 @@ you publish one (`docs/legal/confidentialite.md` is updated).
 - **Requêtes**, in the same tab: the statements run through the SQL console, grouped by shape
   (every literal replaced by `?`, no value and no result kept): runs, failures, average / max /
   total duration, average rows, last run and author; sorted by frequency, slowness or total
-  time. Durations are measured by Athanor around the call and labelled as such.
+  time. Durations are measured by Nebula around the call and labelled as such.
 
 ### Fixed
 
@@ -256,7 +264,7 @@ administrators' networks must let these through as well.
 - **A connection can ask each user for their own database account** instead of
   sharing one: Admin → Connexions → a connection → "Compte utilisé pour se
   connecter" → **Le compte de chacun**. Whatever a person then does on that
-  database through Athanor — deployment plan, deployment, rollback, pull,
+  database through Nebula — deployment plan, deployment, rollback, pull,
   comparison, drift check, the console (explorer, SQL, users, sessions),
   backups and restores they start, reading a table as initial data — is done
   as their own account: the database's logs say who did what, and its
@@ -279,7 +287,7 @@ administrators' networks must let these through as well.
   own), `GET /api/admin/connections/:id/credentials` (who has given one).
   Migration 35 (`db_connections.auth_mode`, `db_connection_credentials`);
   `npm run rotate-secret` re-encrypts the new table too. The personal-data
-  export lists the accounts given (names); deleting an Athanor account or a
+  export lists the accounts given (names); deleting an Nebula account or a
   connection deletes them.
 - An API key acts as its owner, so `/api/v1` uses the owner's database account
   on such a connection.
@@ -378,7 +386,7 @@ administrators' networks must let these through as well.
 
 - **Follow a project.** The eye in a project's header lets each account choose
   what it wants to be told about: deployments and rollbacks, locks placed or
-  lifted, initial data changed, a database changed outside Athanor. Nobody
+  lifted, initial data changed, a database changed outside Nebula. Nobody
   follows anything until they choose to.
 - **A notification centre** in the project header and on the dashboard, with
   the unread count; opening a notification marks it read and goes to its
@@ -558,16 +566,16 @@ administrators' networks must let these through as well.
   every day, every week (on a weekday) or every month (on a day from 1 to 28),
   at an hour of the **server's clock**, keeping the last N. Off by default.
   Scheduled backups are kept by that count, not by
-  `ATHANORDB_DATABASE_BACKUP_RETENTION_DAYS`. A server that was down at the
+  `NEBULADB_DATABASE_BACKUP_RETENTION_DAYS`. A server that was down at the
   hour runs the missed backup once when it is back.
-- **Configuration:** `ATHANORDB_DATABASE_BACKUP_DIR` (default: a
+- **Configuration:** `NEBULADB_DATABASE_BACKUP_DIR` (default: a
   `database-backups` folder next to the app database — make sure that volume
-  has the room), `ATHANORDB_DATABASE_BACKUP_MAX_MB` (512),
-  `ATHANORDB_DATABASE_BACKUP_RETENTION_DAYS` (30, `0` keeps everything; pinned
-  backups are never removed). These are separate from `ATHANORDB_BACKUP_*`,
-  which still concern AthanorDB's own data.
+  has the room), `NEBULADB_DATABASE_BACKUP_MAX_MB` (512),
+  `NEBULADB_DATABASE_BACKUP_RETENTION_DAYS` (30, `0` keeps everything; pinned
+  backups are never removed). These are separate from `NEBULADB_BACKUP_*`,
+  which still concern NebulaDB's own data.
 - **Secret rotation** (`npm run rotate-secret`) now also covers the backups'
-  keys. Losing `ATHANORDB_SECRET` makes the stored backups unreadable, like
+  keys. Losing `NEBULADB_SECRET` makes the stored backups unreadable, like
   the stored connections.
 - Migrations 29 (`backups`, `deployment_history.backup_id`) and 30
   (`backup_schedules`). Deleting a
@@ -596,10 +604,10 @@ administrators' networks must let these through as well.
 ### Added (watch for outside changes)
 
 - **A project can watch its databases.** Déploiements → "Surveiller les
-  modifications hors Athanor": on, how often (5 minutes to daily), tables to
+  modifications hors Nebula": on, how often (5 minutes to daily), tables to
   ignore, "Vérifier maintenant". Each database that was deployed to or pulled
   from is read again and compared with the state that left it; a difference
-  nothing in Athanor explains is recorded once, turns on the editor's drift
+  nothing in Nebula explains is recorded once, turns on the editor's drift
   banner, and is sent to the project's webhooks (new event `drift.detected`).
   A deployment that failed half-way is named as the likely cause. A database
   that cannot be read is reported "injoignable", never as a change. A
@@ -614,7 +622,7 @@ administrators' networks must let these through as well.
 ### Changed (admin activity)
 
 - **Admin → Activité replaces the audit tab.** One list of what was done
-  through Athanor — structure, data, deployments, accounts, sessions,
+  through Nebula — structure, data, deployments, accounts, sessions,
   projects, configuration — filtered by period, type, project, database and
   text, paged ("Entrées plus anciennes"), each entry opening on its detail
   (actor, full detail, project with a link, database, IP, request id), and
@@ -830,13 +838,13 @@ ENVIRONMENT_NOT_FOUND` instead of being stored as typed.
   connection can serve several projects. Oracle joins PostgreSQL,
   MySQL/MariaDB, SQL Server and SQLite in the form. Each connection has tags,
   a reachability status (checked on demand and in the background) and an
-  optional **read-only** flag that makes AthanorDB refuse to write through it.
+  optional **read-only** flag that makes NebulaDB refuse to write through it.
   **Database:** migration 18 moves `project_connections` to `db_connections`
   - `project_connection_links` (ids preserved, deployment history kept).
     **Behaviour change:** through a project (web or `/api/v1`), deleting a
     connection now detaches it, and a connection created by an instance admin
     can be used but not edited. **Config:**
-    `ATHANORDB_CONNECTION_HEALTH_INTERVAL_MINUTES` (default 15, `0` = off).
+    `NEBULADB_CONNECTION_HEALTH_INTERVAL_MINUTES` (default 15, `0` = off).
 - **Database console** for each connection (instance administrators only):
   an explorer (databases, schemas, tables, paged data with CSV export,
   structure), a SQL console (read-only by default; write mode is explicit,
@@ -865,9 +873,9 @@ ENVIRONMENT_NOT_FOUND` instead of being stored as typed.
   knowing its id (update, delete, pull, plan, deploy). Project routes now
   only resolve connections attached to that project.
 - **Encryption key rotation.** Stored secrets carry a format version, and
-  `ATHANORDB_SECRET_PREVIOUS` + `npm run rotate-secret` re-encrypt everything
-  under a new `ATHANORDB_SECRET`. Existing data stays readable as is.
-- **`ATHANORDB_SQLITE_DIR`** restricts SQLite connections to one directory
+  `NEBULADB_SECRET_PREVIOUS` + `npm run rotate-secret` re-encrypt everything
+  under a new `NEBULADB_SECRET`. Existing data stays readable as is.
+- **`NEBULADB_SQLITE_DIR`** restricts SQLite connections to one directory
   (opt-in; symlinks are resolved).
 - The connection routes of the web UI now also have a per-caller rate limit.
 
@@ -885,7 +893,7 @@ ENVIRONMENT_NOT_FOUND` instead of being stored as typed.
   retried for about 9 hours. Managed by project administrators from the
   project card. See [`docs/webhooks.md`](docs/webhooks.md). **Database:**
   migration 17 adds `project_webhooks` and `webhook_deliveries`. Requires
-  `ATHANORDB_SECRET` (signing secrets are stored encrypted).
+  `NEBULADB_SECRET` (signing secrets are stored encrypted).
 
 ### Security
 
@@ -915,9 +923,9 @@ ENVIRONMENT_NOT_FOUND` instead of being stored as typed.
   swapped for relations written the explicit way. Every DBML spelling now
   means the same thing. **Existing projects are repaired automatically** the
   first time they are opened after upgrading — the fix appears in the project's
-  history as "AthanorDB (sens des relations corrigé)". Only relations that are
+  history as "NebulaDB (sens des relations corrigé)". Only relations that are
   unambiguously inverted are touched. **If you deployed a schema from
-  AthanorDB before this release, check its foreign keys.**
+  NebulaDB before this release, check its foreign keys.**
 
 ### Added
 
@@ -929,7 +937,7 @@ ENVIRONMENT_NOT_FOUND` instead of being stored as typed.
   dialects, either direction).
 
 - **Email, self-service password reset, emailed invitations.** Optional SMTP
-  configuration (`ATHANORDB_SMTP_*`, plus `ATHANORDB_PUBLIC_URL` for the links —
+  configuration (`NEBULADB_SMTP_*`, plus `NEBULADB_PUBLIC_URL` for the links —
   see the README's configuration table). With it set, invitations are emailed
   to the invitee, and the login page offers _Forgot your password?_: a
   single-use link valid for one hour, whose use signs out every session of the
@@ -967,8 +975,8 @@ ENVIRONMENT_NOT_FOUND` instead of being stored as typed.
 - **Per-account project cap** (500) as an abuse backstop, alongside the existing
   per-project entity limits.
 - **Scheduled backups.** The server can now run the existing backup itself
-  (`ATHANORDB_BACKUP_INTERVAL_HOURS`, off by default), keeping the newest
-  `ATHANORDB_BACKUP_KEEP` runs and pruning the rest. The backup → restore round
+  (`NEBULADB_BACKUP_INTERVAL_HOURS`, off by default), keeping the newest
+  `NEBULADB_BACKUP_KEEP` runs and pruning the rest. The backup → restore round
   trip is now covered by tests, so it runs in CI rather than being first tried
   during an incident.
 - **Personal data export and self-service account deletion.** _Settings →
@@ -978,10 +986,10 @@ ENVIRONMENT_NOT_FOUND` instead of being stored as typed.
 - **Choosable session length.** "Stay signed in for 30 days" is on by default;
   unchecking it gives a 12-hour session in a cookie the browser drops when it
   closes.
-- `ATHANORDB_LOG_LEVEL`, plus redaction of session cookies and `Authorization`
+- `NEBULADB_LOG_LEVEL`, plus redaction of session cookies and `Authorization`
   headers from logs.
 - Loading placeholders on the dashboard.
-- **Audit log retention.** `ATHANORDB_AUDIT_RETENTION_DAYS` (365 by default,
+- **Audit log retention.** `NEBULADB_AUDIT_RETENTION_DAYS` (365 by default,
   `0` to keep everything) purges old entries on the hourly sweep. The audit
   table was the only one with no ceiling.
 - **Legal templates** in `docs/legal/`: terms of service and a privacy policy
@@ -1040,8 +1048,8 @@ ENVIRONMENT_NOT_FOUND` instead of being stored as typed.
   `sessions.user_agent`/`sessions.ip`/`sessions.ttl_ms`, and the new
   `login_attempts` and `audit_log` tables. No manual step is required.
 - New optional environment variables, all with safe defaults that preserve
-  current behaviour: `ATHANORDB_LOG_LEVEL`, `ATHANORDB_BACKUP_INTERVAL_HOURS`
-  (backups stay off unless set), `ATHANORDB_BACKUP_DIR`, `ATHANORDB_BACKUP_KEEP`.
+  current behaviour: `NEBULADB_LOG_LEVEL`, `NEBULADB_BACKUP_INTERVAL_HOURS`
+  (backups stay off unless set), `NEBULADB_BACKUP_DIR`, `NEBULADB_BACKUP_KEEP`.
 
 ## [0.0.1]
 

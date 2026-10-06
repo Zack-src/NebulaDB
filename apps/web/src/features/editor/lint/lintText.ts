@@ -1,4 +1,4 @@
-import type { LintFinding } from "@athanordb/dbml-engine";
+import type { LintFinding } from "@nebuladb/dbml-engine";
 import type { TranslateOptions, TranslationKey } from "@/i18n/translate";
 
 type Translate = (key: TranslationKey, params?: TranslateOptions) => string;

@@ -1,4 +1,4 @@
-import type { Project, EnumDef } from "@athanordb/shared";
+import type { Project, EnumDef } from "@nebuladb/shared";
 import { toCamelCase, toPascalCase } from "@/utils/case";
 
 export interface TypeScriptExportSettings {
@@ -60,8 +60,8 @@ function mapToTypeScriptType(typeStr: string, enums: EnumDef[]): string {
 export function generateTypeScript(project: Project, settings: TypeScriptExportSettings = {}): string {
   const lines: string[] = [];
   lines.push(`/**`);
-  lines.push(` * TypeScript models generated from AthanorDB`);
-  lines.push(` * Project: ${project.name || "AthanorDB Schema"}`);
+  lines.push(` * TypeScript models generated from NebulaDB`);
+  lines.push(` * Project: ${project.name || "NebulaDB Schema"}`);
   lines.push(` * Generated at: ${new Date().toISOString()}`);
   lines.push(` */`);
   lines.push(``);

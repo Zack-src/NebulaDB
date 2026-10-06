@@ -11,7 +11,7 @@ project they can see, or restricted to a single one — or via the
 session-authed management endpoints below. Every `/api/v1` request needs it:
 
 ```
-Authorization: Bearer adb_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+Authorization: Bearer ndb_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 The key authenticates **as the user who created it** — it can do anything
@@ -175,9 +175,9 @@ to one project. The schedule and the pin are set in the app.
 above — public, no key needed — for Postman, Swagger UI, Insomnia or a client
 generator (`npx @openapitools/openapi-generator-cli generate -i
 https://your-instance/api/v1/openapi.json -g typescript-fetch -o client/`).
-Each operation carries its required scope as `x-athanordb-scope`, and every
+Each operation carries its required scope as `x-nebuladb-scope`, and every
 error response documents the stable `code` values. `servers` is filled in
-when `ATHANORDB_PUBLIC_URL` is set.
+when `NEBULADB_PUBLIC_URL` is set.
 
 The tables on this page, the OpenAPI document and the routes actually
 registered are checked against each other by
@@ -187,7 +187,7 @@ not the others fails the build.
 ## Example
 
 ```bash
-KEY="adb_..."
+KEY="ndb_..."
 PROJECT="proj_..."
 
 # Pull the current schema as DBML
@@ -217,20 +217,20 @@ The key belongs to a project `administrator` and carries `projects:read`
 
 ```bash
 #!/usr/bin/env bash
-# ci/athanor-deploy.sh
+# ci/nebula-deploy.sh
 set -euo pipefail
 
-: "${ATHANOR_URL:?}" "${ATHANOR_KEY:?}" "${PROJECT:?}" "${CONN_ID:?}"
+: "${NEBULA_URL:?}" "${NEBULA_KEY:?}" "${PROJECT:?}" "${CONN_ID:?}"
 CONN_NAME="${CONN_NAME:-}"     # the connection's name: needed on the production stage
 RESOLUTIONS="${RESOLUTIONS:-}" # answers to the risks of this deployment (JSON), see below
 [ -n "$RESOLUTIONS" ] || RESOLUTIONS='{}'
-API="$ATHANOR_URL/api/v1/projects/$PROJECT"
+API="$NEBULA_URL/api/v1/projects/$PROJECT"
 
 # Prints the answer; on an error status, prints it ({ error, code, ... }) to stderr and fails.
 call() {
   local body
   if ! body=$(curl --silent --show-error --fail-with-body \
-    -H "Authorization: Bearer $ATHANOR_KEY" "$@"); then
+    -H "Authorization: Bearer $NEBULA_KEY" "$@"); then
     echo "$body" >&2
     return 1
   fi
@@ -276,12 +276,12 @@ jobs:
       - uses: actions/checkout@v4
       - name: Lint, check and deploy the schema
         env:
-          ATHANOR_URL: https://your-instance
-          ATHANOR_KEY: ${{ secrets.ATHANOR_KEY }}
-          PROJECT: ${{ vars.ATHANOR_PROJECT }}
-          CONN_ID: ${{ vars.ATHANOR_CONNECTION }}
+          NEBULA_URL: https://your-instance
+          NEBULA_KEY: ${{ secrets.NEBULA_KEY }}
+          PROJECT: ${{ vars.NEBULA_PROJECT }}
+          CONN_ID: ${{ vars.NEBULA_CONNECTION }}
           CONN_NAME: Production
-        run: bash ci/athanor-deploy.sh
+        run: bash ci/nebula-deploy.sh
 ```
 
 What the deployment step meets on its way:

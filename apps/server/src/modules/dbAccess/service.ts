@@ -6,7 +6,7 @@ import {
   type DbAccessLevel,
   type DbConsoleAccess,
   type InvitationGrants,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireUser } from "../../shared/guards.js";

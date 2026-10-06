@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { LintSettings } from "@athanordb/dbml-engine";
+  import type { LintSettings } from "@nebuladb/dbml-engine";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
   import Select from "@/components/ui/Select.svelte";

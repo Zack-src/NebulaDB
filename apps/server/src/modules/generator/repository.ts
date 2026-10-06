@@ -6,7 +6,7 @@ import {
   type ColumnGeneratorKind,
   type GeneratorLocale,
   type TableGeneratorConfig,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { ApiError } from "../../shared/errors.js";
 

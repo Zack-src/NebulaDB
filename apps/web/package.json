@@ -1,6 +1,6 @@
 {
-  "name": "@athanordb/web",
-  "version": "0.0.1",
+  "name": "@nebuladb/web",
+  "version": "1.0.0",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -14,8 +14,8 @@
     "check": "svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {
-    "@athanordb/dbml-engine": "*",
-    "@athanordb/shared": "*",
+    "@nebuladb/dbml-engine": "*",
+    "@nebuladb/shared": "*",
     "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/commands": "^6.10.4",
     "@codemirror/language": "^6.12.4",

@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from "svelte";
-  import { DEFAULT_LINT_SETTINGS, type LintSettings } from "@athanordb/dbml-engine";
+  import { DEFAULT_LINT_SETTINGS, type LintSettings } from "@nebuladb/dbml-engine";
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";

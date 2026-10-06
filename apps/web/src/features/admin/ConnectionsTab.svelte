@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { AdminConnectionSummary } from "@athanordb/shared";
+  import type { AdminConnectionSummary } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { CodeIcon, PencilIcon, PlusIcon, RestoreIcon, TrashIcon } from "@/components/icons/Icons";
   import Modal from "@/components/overlays/Modal.svelte";
@@ -28,7 +28,7 @@
     listAdminConnections,
     saveInstanceStructurePolicy,
   } from "@/services/dbAdminApi";
-  import type { StructurePolicy, StructurePolicySetting } from "@athanordb/shared";
+  import type { StructurePolicy, StructurePolicySetting } from "@nebuladb/shared";
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import Select from "@/components/ui/Select.svelte";
   import { toast } from "@/components/ui/toast.svelte";

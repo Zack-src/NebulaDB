@@ -10,8 +10,8 @@ import {
   type TableIndex,
   type TableLock,
   type TableSeedSummary,
-} from "@athanordb/shared";
-import type { ValidationIssue } from "@athanordb/dbml-engine";
+} from "@nebuladb/shared";
+import type { ValidationIssue } from "@nebuladb/dbml-engine";
 import type { TableNodeType } from "@/features/editor/nodes/nodeTypes";
 import type { FieldRefInfo } from "@/features/editor/nodes/table/fieldRefInfo";
 import { NO_TABLE_LOCKS, canOverrideLock, type TableLocksView } from "@/features/editor/locks/tableLocks.svelte";

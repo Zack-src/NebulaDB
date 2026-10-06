@@ -1,7 +1,7 @@
 import { asUnattended } from "../../infrastructure/actor.js";
 import { audit } from "../../shared/audit.js";
 import { notifyFollowers } from "../notifications/repository.js";
-import { diffFingerprints, fingerprintSchema } from "@athanordb/dbml-engine";
+import { diffFingerprints, fingerprintSchema } from "@nebuladb/dbml-engine";
 import { db } from "../../infrastructure/db.js";
 import { notifyProject } from "../../realtime/roomRegistry.js";
 import { createDatabaseDriver } from "../connections/drivers/index.js";
@@ -67,10 +67,10 @@ export interface MonitorCheckResult {
 /**
  * Reads each watched database of a project and compares its structure with
  * the reference — the fingerprint taken at the last deployment or pull, the
- * last moment Athanor knew the two agreed.
+ * last moment Nebula knew the two agreed.
  *
  * A difference no successful deployment explains is a change made outside
- * Athanor: it is recorded once per state of the database (the same change is
+ * Nebula: it is recorded once per state of the database (the same change is
  * not reported at every pass, nor after someone waved it off), the project's
  * link is marked so the editor shows its banner, and `drift.detected` goes to
  * the project's webhooks. A database that cannot be read is "unreachable" —

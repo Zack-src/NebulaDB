@@ -33,7 +33,7 @@ export function registerAccountRoutes(app: FastifyInstance): void {
 
   app.get("/api/users/me/export", async (req, reply) => {
     const user = requireUser(req);
-    reply.header("Content-Disposition", `attachment; filename="athanordb-${user.email}.json"`);
+    reply.header("Content-Disposition", `attachment; filename="nebuladb-${user.email}.json"`);
     return buildPersonalDataExport(user.id, req);
   });
 

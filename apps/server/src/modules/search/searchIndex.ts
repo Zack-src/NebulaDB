@@ -1,4 +1,4 @@
-import type { Project } from "@athanordb/shared";
+import type { Project } from "@nebuladb/shared";
 import { peekRoom } from "../../realtime/roomRegistry.js";
 import { readProjectReadOnly, snapshotVersion } from "../../realtime/readOnlyProject.js";
 

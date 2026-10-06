@@ -104,7 +104,7 @@ export function createSearchPanel(view: EditorView): Panel {
   const initial = getSearchQuery(view.state);
 
   const dom = document.createElement("div");
-  dom.className = "cm-athanor-search";
+  dom.className = "cm-nebula-search";
   dom.onkeydown = (event) => {
     if (event.key === "Escape") {
       event.preventDefault();
@@ -294,7 +294,7 @@ export function createSearchPanel(view: EditorView): Panel {
 
 export const searchPanelTheme = EditorView.theme({
   // float the search panel over the content instead of pushing it down
-  ".cm-panels.cm-panels-top:has(.cm-athanor-search)": {
+  ".cm-panels.cm-panels-top:has(.cm-nebula-search)": {
     position: "absolute",
     top: "6px",
     right: "14px",
@@ -303,7 +303,7 @@ export const searchPanelTheme = EditorView.theme({
     border: "none",
     backgroundColor: "transparent",
   },
-  ".cm-athanor-search": {
+  ".cm-nebula-search": {
     display: "flex",
     alignItems: "flex-start",
     gap: "2px",

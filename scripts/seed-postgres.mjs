@@ -19,7 +19,7 @@
  *
  * Config (env var overrides in parens) — same postgres-docker target the
  * multi-db-redeploy-test.mjs script resets (port 55432, db `deepdetect`).
- * Assumes the schema is already deployed there (via Athanor).
+ * Assumes the schema is already deployed there (via Nebula).
  */
 
 import { createRequire } from "node:module";
@@ -31,7 +31,7 @@ const PG_CONFIG = {
   host: "localhost",
   port: Number(process.env.PG_PORT || 55432),
   user: process.env.PG_USER || "postgres",
-  password: process.env.PG_PASSWORD || "AthanorTest123!",
+  password: process.env.PG_PASSWORD || "NebulaTest123!",
   database: process.env.PG_DATABASE || "deepdetect",
 };
 
@@ -72,7 +72,7 @@ function randName(prefix, i) {
  * returning them in order.
  *
  * `RETURNING id` off a real `SERIAL`/`IDENTITY` column would be the natural
- * way to do this, but Athanor's migration generator currently drops
+ * way to do this, but Nebula's migration generator currently drops
  * `[increment]` entirely when emitting `CREATE TABLE` (a real bug, tracked
  * separately) — every deployed table's PK is a plain `int` with no identity
  * behind it. Assigning ids explicitly here is the workaround, not a stylistic

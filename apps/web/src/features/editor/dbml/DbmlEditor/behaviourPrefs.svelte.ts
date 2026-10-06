@@ -18,7 +18,7 @@ export interface DbmlBehaviourPrefs {
 
 export const SYNC_DELAY_CHOICES = [400, 600, 1000, 2000, 0] as const;
 
-const PREF_BEHAVIOUR = "athanordb_dbml_behaviour";
+const PREF_BEHAVIOUR = "nebuladb_dbml_behaviour";
 
 const DEFAULTS: DbmlBehaviourPrefs = { formatMode: "never", autoComplete: true, closeBrackets: true, syncDelayMs: 600 };
 

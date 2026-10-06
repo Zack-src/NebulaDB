@@ -1,5 +1,5 @@
 import * as Y from "yjs";
-import { getStickyNotesMap, type StickyNote } from "@athanordb/shared";
+import { getStickyNotesMap, type StickyNote } from "@nebuladb/shared";
 import type { StickyNoteNodeType } from "@/features/editor/nodes/nodeTypes";
 
 export function buildStickyNodes(

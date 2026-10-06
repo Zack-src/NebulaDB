@@ -6,14 +6,14 @@
 
 **Responsable de traitement :** [ENTITÉ], [ADRESSE]
 **Contact :** [CONTACT] — [DPO le cas échéant]
-**Service concerné :** l'instance AthanorDB accessible à l'adresse [URL]
+**Service concerné :** l'instance NebulaDB accessible à l'adresse [URL]
 **Version en vigueur depuis le :** [DATE]
 
 ---
 
 ## 1. Principe : tout reste sur cette instance
 
-AthanorDB est auto-hébergé. Les données décrites ci-dessous sont stockées dans
+NebulaDB est auto-hébergé. Les données décrites ci-dessous sont stockées dans
 un fichier de base de données sur le serveur de [ENTITÉ], et **ne sont
 transmises à aucun tiers**.
 
@@ -26,7 +26,7 @@ Concrètement, l'application :
   un fournisseur de polices ;
 - ne dépose qu'**un seul cookie**, celui de session (voir §4).
 
-Le projet AthanorDB lui-même (l'éditeur du logiciel) ne reçoit aucune donnée et
+Le projet NebulaDB lui-même (l'éditeur du logiciel) ne reçoit aucune donnée et
 n'a aucun accès à cette instance.
 
 ## 2. Données traitées et pourquoi
@@ -115,19 +115,19 @@ particulière au sens de l'article 9 du RGPD.
 Ces durées correspondent à la **configuration par défaut** du logiciel.
 Vérifiez-les contre la vôtre avant publication.
 
-| Donnée                             | Conservation                                                                                                                                                                                                       | Réglage                                |
-| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------- |
-| Compte                             | Jusqu'à sa suppression par l'utilisateur ou un administrateur                                                                                                                                                      | —                                      |
-| Session                            | 30 jours glissants, ou 12 h si « rester connecté » a été décoché. Les sessions expirées sont purgées automatiquement toutes les heures                                                                             | —                                      |
-| Tentatives de connexion échouées   | Blocage 15 minutes ; les compteurs sans échec récent sont purgés au bout de 24 h                                                                                                                                   | —                                      |
-| Journal d'audit                    | **365 jours**, purge automatique toutes les heures                                                                                                                                                                 | `ATHANORDB_AUDIT_RETENTION_DAYS`       |
-| Statistiques de la console SQL     | **30 jours** par jour d'exécution, purge automatique toutes les heures : forme de la requête (valeurs remplacées par `?`), nombre, durées, dernier auteur                                                          | `ATHANORDB_QUERY_STATS_RETENTION_DAYS` |
-| Contenus et historique des projets | Jusqu'à suppression définitive du projet                                                                                                                                                                           | —                                      |
-| Abonnements et notifications       | Abonnements : jusqu'à ce que vous cessiez de suivre le projet, ou jusqu'à la suppression du projet ou du compte. Notifications : les **200** plus récentes par compte, les plus anciennes sont supprimées à mesure | —                                      |
-| Comptes personnels sur les bases   | Jusqu'à ce que vous retiriez le compte, ou jusqu'à la suppression de la connexion ou de votre compte utilisateur                                                                                                   | —                                      |
-| Invitations                        | Lien valable 7 jours ; l'enregistrement (email, date) subsiste jusqu'à révocation ou remplacement par une nouvelle invitation pour la même adresse                                                                 | —                                      |
-| Sauvegardes                        | Si activées : les **7** dernières exécutions sont conservées, les plus anciennes sont supprimées                                                                                                                   | `ATHANORDB_BACKUP_KEEP`                |
-| Journaux techniques                | Selon la politique de journalisation de [ENTITÉ] — à compléter                                                                                                                                                     | —                                      |
+| Donnée                             | Conservation                                                                                                                                                                                                       | Réglage                               |
+| ---------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------- |
+| Compte                             | Jusqu'à sa suppression par l'utilisateur ou un administrateur                                                                                                                                                      | —                                     |
+| Session                            | 30 jours glissants, ou 12 h si « rester connecté » a été décoché. Les sessions expirées sont purgées automatiquement toutes les heures                                                                             | —                                     |
+| Tentatives de connexion échouées   | Blocage 15 minutes ; les compteurs sans échec récent sont purgés au bout de 24 h                                                                                                                                   | —                                     |
+| Journal d'audit                    | **365 jours**, purge automatique toutes les heures                                                                                                                                                                 | `NEBULADB_AUDIT_RETENTION_DAYS`       |
+| Statistiques de la console SQL     | **30 jours** par jour d'exécution, purge automatique toutes les heures : forme de la requête (valeurs remplacées par `?`), nombre, durées, dernier auteur                                                          | `NEBULADB_QUERY_STATS_RETENTION_DAYS` |
+| Contenus et historique des projets | Jusqu'à suppression définitive du projet                                                                                                                                                                           | —                                     |
+| Abonnements et notifications       | Abonnements : jusqu'à ce que vous cessiez de suivre le projet, ou jusqu'à la suppression du projet ou du compte. Notifications : les **200** plus récentes par compte, les plus anciennes sont supprimées à mesure | —                                     |
+| Comptes personnels sur les bases   | Jusqu'à ce que vous retiriez le compte, ou jusqu'à la suppression de la connexion ou de votre compte utilisateur                                                                                                   | —                                     |
+| Invitations                        | Lien valable 7 jours ; l'enregistrement (email, date) subsiste jusqu'à révocation ou remplacement par une nouvelle invitation pour la même adresse                                                                 | —                                     |
+| Sauvegardes                        | Si activées : les **7** dernières exécutions sont conservées, les plus anciennes sont supprimées                                                                                                                   | `NEBULADB_BACKUP_KEEP`                |
+| Journaux techniques                | Selon la politique de journalisation de [ENTITÉ] — à compléter                                                                                                                                                     | —                                     |
 
 **Conséquence à connaître :** un compte supprimé peut subsister dans les
 sauvegardes jusqu'à ce que celles-ci soient renouvelées. C'est une limite
@@ -136,7 +136,7 @@ et complet.
 
 ## 4. Cookies
 
-Un seul cookie est déposé : **`athanordb_sid`**, le cookie de session. Il est
+Un seul cookie est déposé : **`nebuladb_sid`**, le cookie de session. Il est
 `HttpOnly`, `SameSite=Lax`, et marqué `Secure` lorsque l'instance est servie en
 HTTPS. Sa durée correspond à la durée de session choisie à la connexion (30
 jours, ou aucune durée — cookie de session supprimé à la fermeture du navigateur

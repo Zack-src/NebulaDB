@@ -65,11 +65,11 @@ test("verifyTotp rejects garbage input without throwing", () => {
 });
 
 test("otpauthUrl embeds the secret, issuer and account label", () => {
-  const url = otpauthUrl("JBSWY3DPEHPK3PXP", "alice@example.com", "AthanorDB");
-  assert.ok(url.startsWith("otpauth://totp/AthanorDB%3Aalice%40example.com?"));
+  const url = otpauthUrl("JBSWY3DPEHPK3PXP", "alice@example.com", "NebulaDB");
+  assert.ok(url.startsWith("otpauth://totp/NebulaDB%3Aalice%40example.com?"));
   const params = new URL(url).searchParams;
   assert.equal(params.get("secret"), "JBSWY3DPEHPK3PXP");
-  assert.equal(params.get("issuer"), "AthanorDB");
+  assert.equal(params.get("issuer"), "NebulaDB");
   assert.equal(params.get("digits"), "6");
   assert.equal(params.get("period"), "30");
 });

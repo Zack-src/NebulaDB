@@ -12,8 +12,8 @@ import type {
   SeedResult,
   MySqlAccount,
   PersonalCredentialStatus,
-} from "@athanordb/shared";
-import type { LintRuleKey, MigrationDiff, SchemaComparisonEntry } from "@athanordb/dbml-engine";
+} from "@nebuladb/shared";
+import type { LintRuleKey, MigrationDiff, SchemaComparisonEntry } from "@nebuladb/dbml-engine";
 import { request } from "./httpClient";
 
 export interface TestConnectionResponse {

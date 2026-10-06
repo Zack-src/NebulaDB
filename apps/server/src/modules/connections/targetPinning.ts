@@ -1,5 +1,5 @@
 import net from "node:net";
-import type { DatabaseConnectionConfig } from "@athanordb/shared";
+import type { DatabaseConnectionConfig } from "@nebuladb/shared";
 import type { DriverConnectionConfig } from "./drivers/interface.js";
 import { resolveAllowedHost } from "./hostGuard.js";
 

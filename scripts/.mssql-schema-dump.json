@@ -38,9 +38,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "id"
-    ],
+    "primaryKey": ["id"],
     "foreignKeys": []
   },
   "criteria_hyperparameter_qualitative": {
@@ -73,9 +71,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "id"
-    ],
+    "primaryKey": ["id"],
     "foreignKeys": []
   },
   "criteria_hyperparameter_qualitative_backup": {
@@ -159,9 +155,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "id"
-    ],
+    "primaryKey": ["id"],
     "foreignKeys": []
   },
   "criteria_nature": {
@@ -185,9 +179,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "id"
-    ],
+    "primaryKey": ["id"],
     "foreignKeys": []
   },
   "criteria_theme_list": {
@@ -211,10 +203,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "id_theme",
-      "id_criteria"
-    ],
+    "primaryKey": ["id_theme", "id_criteria"],
     "foreignKeys": []
   },
   "criteria_translation": {
@@ -274,9 +263,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "id"
-    ],
+    "primaryKey": ["id"],
     "foreignKeys": []
   },
   "criteria_type": {
@@ -300,9 +287,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "id"
-    ],
+    "primaryKey": ["id"],
     "foreignKeys": []
   },
   "DbtQueryLog": {
@@ -605,9 +590,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "log_id"
-    ],
+    "primaryKey": ["log_id"],
     "foreignKeys": []
   },
   "group_criteria": {
@@ -631,9 +614,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "id"
-    ],
+    "primaryKey": ["id"],
     "foreignKeys": []
   },
   "group_criteria_list": {
@@ -657,10 +638,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "id_group_criteria",
-      "id_criteria"
-    ],
+    "primaryKey": ["id_group_criteria", "id_criteria"],
     "foreignKeys": []
   },
   "hyperparameter": {
@@ -684,9 +662,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "id"
-    ],
+    "primaryKey": ["id"],
     "foreignKeys": []
   },
   "hyperparameter_backup": {
@@ -752,10 +728,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "id_hyperparameter",
-      "id_criteria_hyperparameter_qualitative"
-    ],
+    "primaryKey": ["id_hyperparameter", "id_criteria_hyperparameter_qualitative"],
     "foreignKeys": []
   },
   "hyperparameter_qualitative_list_backup": {
@@ -821,9 +794,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "id"
-    ],
+    "primaryKey": ["id"],
     "foreignKeys": []
   },
   "hyperparameter_quantitative_list": {
@@ -865,10 +836,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "id_hyperparameter_quantitative",
-      "id_criteria_hyperparameter_quantitative"
-    ],
+    "primaryKey": ["id_hyperparameter_quantitative", "id_criteria_hyperparameter_quantitative"],
     "foreignKeys": []
   },
   "model": {
@@ -910,9 +878,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "id"
-    ],
+    "primaryKey": ["id"],
     "foreignKeys": []
   },
   "PAR01": {
@@ -2529,9 +2495,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "id"
-    ],
+    "primaryKey": ["id"],
     "foreignKeys": []
   },
   "PAR32": {
@@ -2555,10 +2519,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "id_group",
-      "id_critere"
-    ],
+    "primaryKey": ["id_group", "id_critere"],
     "foreignKeys": [
       {
         "column": "id_critere",
@@ -2597,9 +2558,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "id_new_crit"
-    ],
+    "primaryKey": ["id_new_crit"],
     "foreignKeys": [
       {
         "column": "id_new_crit",
@@ -2758,11 +2717,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "id_hyperparameter_quantitative",
-      "id_criteria_hyperparameter_quantitative",
-      "id_training"
-    ],
+    "primaryKey": ["id_hyperparameter_quantitative", "id_criteria_hyperparameter_quantitative", "id_training"],
     "foreignKeys": []
   },
   "period_perimeter": {
@@ -2813,9 +2768,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "id"
-    ],
+    "primaryKey": ["id"],
     "foreignKeys": []
   },
   "period_perimeter_backup": {
@@ -2881,9 +2834,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "id"
-    ],
+    "primaryKey": ["id"],
     "foreignKeys": []
   },
   "training": {
@@ -2907,9 +2858,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "id"
-    ],
+    "primaryKey": ["id"],
     "foreignKeys": []
   },
   "training_application_list": {
@@ -2933,10 +2882,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "id_training",
-      "id_period_perimeter_apply"
-    ],
+    "primaryKey": ["id_training", "id_period_perimeter_apply"],
     "foreignKeys": []
   },
   "training_application_list_backup": {
@@ -3008,10 +2954,7 @@
         "identity": false
       }
     ],
-    "primaryKey": [
-      "id_period_perimeter_train",
-      "id_training"
-    ],
+    "primaryKey": ["id_period_perimeter_train", "id_training"],
     "foreignKeys": []
   },
   "training_train_list_backup": {

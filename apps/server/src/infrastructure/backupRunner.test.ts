@@ -5,19 +5,19 @@ import { mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as Y from "yjs";
-import type { Project } from "@athanordb/shared";
+import type { Project } from "@nebuladb/shared";
 
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-backup-test-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-backup-test-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
 
 const { db } = await import("./db.js");
 const { runBackup, pruneOldBackups, backupTimestamp, sanitizeFilename } = await import("./backupRunner.js");
 const { appendRevision } = await import("../realtime/persistence.js");
-const { writeProjectToDoc, readProjectFromDoc } = await import("@athanordb/shared");
-const { parseDbml, toProject, applyVisualMetadata } = await import("@athanordb/dbml-engine");
+const { writeProjectToDoc, readProjectFromDoc } = await import("@nebuladb/shared");
+const { parseDbml, toProject, applyVisualMetadata } = await import("@nebuladb/dbml-engine");
 
 function scratch(): string {
-  return mkdtempSync(join(tmpdir(), "athanordb-backup-"));
+  return mkdtempSync(join(tmpdir(), "nebuladb-backup-"));
 }
 
 /** Creates a project whose revision log contains one table, the way a real edit would. */

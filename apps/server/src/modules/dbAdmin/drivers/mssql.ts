@@ -15,7 +15,7 @@ import type {
   DbPrincipalRef,
   DbPrivilegeCatalog,
   DbUserAction,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import type { DriverConnectionConfig } from "../../connections/drivers/interface.js";
 import { mssqlPoolConfig } from "../../connections/drivers/mssql.js";
 import { assertReadOnlyStatement } from "../sqlGuard.js";

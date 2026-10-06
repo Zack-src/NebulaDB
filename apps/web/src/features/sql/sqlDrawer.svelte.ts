@@ -1,9 +1,9 @@
-import type { DatabaseConnectionSummary, Table } from "@athanordb/shared";
+import type { DatabaseConnectionSummary, Table } from "@nebuladb/shared";
 import { previewRowsStatement } from "@/features/sql/previewStatement";
 import { readBoolean, readNumberInRange, writeBoolean, writeString } from "@/utils/storage";
 
-const OPEN_KEY = "athanordb.sqlDrawer.open";
-const WIDTH_KEY = "athanordb.sqlDrawer.width";
+const OPEN_KEY = "nebuladb.sqlDrawer.open";
+const WIDTH_KEY = "nebuladb.sqlDrawer.width";
 
 interface SqlDrawerInput {
   /** The workspace's current connection. */

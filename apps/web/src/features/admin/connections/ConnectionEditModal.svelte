@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { AdminConnectionSummary, ConnectionAuthMode, DatabaseEngine, StructurePolicy } from "@athanordb/shared";
+  import type { AdminConnectionSummary, ConnectionAuthMode, DatabaseEngine, StructurePolicy } from "@nebuladb/shared";
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import RadioGroup from "@/components/ui/RadioGroup.svelte";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";

@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { diffTargetAgainstLive } from "./migrationDiff.js";
 import { generateMigrationSql } from "./migrationGenerator.js";
-import type { Project, Ref } from "@athanordb/shared";
+import type { Project, Ref } from "@nebuladb/shared";
 
 interface ShorthandField {
   name: string;

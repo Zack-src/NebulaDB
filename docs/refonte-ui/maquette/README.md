@@ -1,4 +1,4 @@
-# Maquette de refonte AthanorDB
+# Maquette de refonte NebulaDB
 
 Ouvrir **index.html** dans un navigateur. Le fichier contient le CSS et le JavaScript : il peut être copié et partagé seul. Seules les polices Google Fonts sont externes ; des polices système prennent le relais hors ligne.
 
@@ -57,7 +57,7 @@ L’inventaire de référence est `docs/etat-des-features.md`, complété par le
 - Création locale d’index, objets et déclinaisons ; formulaires et confirmations des parcours associés.
 - Validation du mot de passe et du format de code MFA dans les écrans d’authentification.
 
-Le modèle, les commentaires, les plugins, les brouillons SQL et les enregistrements de démonstration sont conservés dans `localStorage`, clé `athanor-mock-v2`. **Réinitialiser** efface cette clé. Aucun mot de passe saisi dans les nouveaux parcours n’est enregistré par cette extension.
+Le modèle, les commentaires, les plugins, les brouillons SQL et les enregistrements de démonstration sont conservés dans `localStorage`, clé `nebula-mock-v2`. **Réinitialiser** efface cette clé. Aucun mot de passe saisi dans les nouveaux parcours n’est enregistré par cette extension.
 
 ## Limites de la simulation
 

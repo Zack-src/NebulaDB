@@ -5,7 +5,7 @@
 
 <script lang="ts">
   import { untrack } from "svelte";
-  import type { UserNotification } from "@athanordb/shared";
+  import type { UserNotification } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { BellIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
