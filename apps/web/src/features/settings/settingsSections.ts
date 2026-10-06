@@ -2,6 +2,7 @@ import {
   DatabaseIcon,
   CreditCardIcon,
   InfoIcon,
+  KeyIcon,
   PaletteIcon,
   SlidersIcon,
   UserIcon,
@@ -29,6 +30,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   { id: "appearance", labelKey: "settings.section.appearance", icon: PaletteIcon },
   { id: "editor", labelKey: "settings.section.editor", icon: SlidersIcon },
   { id: "team", labelKey: "settings.section.team", icon: UsersIcon },
+  { id: "apiKeys", labelKey: "settings.section.apiKeys", icon: KeyIcon },
   { id: "billing", labelKey: "settings.section.billing", icon: CreditCardIcon },
   { id: "about", labelKey: "settings.section.about", icon: InfoIcon },
 ];

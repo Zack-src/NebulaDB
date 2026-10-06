@@ -465,6 +465,20 @@ export class OracleAdminDriver implements DatabaseAdminDriver {
     return [plain(`ALTER SYSTEM KILL SESSION '${id}' IMMEDIATE`)];
   }
 
+  // Oracle has no "current user" in ALTER USER, and the name a session signed in with may differ
+  // in case from the account's own: the statement is built from `USER`, on the server.
+  ownPasswordStatements(password: string, currentPassword: string): AdminStatement[] {
+    const clause = (next: string, current: string) => `IDENTIFIED BY ${next} REPLACE ${current}`;
+    const inString = (text: string) => text.replace(/'/g, "''");
+    const alter = (tail: string) => `BEGIN EXECUTE IMMEDIATE 'ALTER USER "' || USER || '" ${tail}'; END;`;
+    return [
+      {
+        sql: alter(inString(clause(passwordToken(password), passwordToken(currentPassword)))),
+        display: alter(clause(`"${MASK}"`, `"${MASK}"`)),
+      },
+    ];
+  }
+
   async execute(statements: AdminStatement[]): Promise<void> {
     // Every one of these is DDL, which Oracle commits on its own.
     await this.withConnection(async (conn) => {

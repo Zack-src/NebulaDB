@@ -444,6 +444,15 @@ export class PostgresAdminDriver implements DatabaseAdminDriver {
     return [plain(`SELECT pg_terminate_backend(${requireInteger(id, "session id")})`)];
   }
 
+  ownPasswordStatements(password: string): AdminStatement[] {
+    return [
+      {
+        sql: `ALTER ROLE CURRENT_USER PASSWORD ${literal(requirePassword(password))}`,
+        display: `ALTER ROLE CURRENT_USER PASSWORD '${MASK}'`,
+      },
+    ];
+  }
+
   async execute(statements: AdminStatement[], database?: string): Promise<void> {
     // `DROP DATABASE` can't run inside a transaction, nor from a connection to
     // the database being dropped — it goes through the connection's own database.

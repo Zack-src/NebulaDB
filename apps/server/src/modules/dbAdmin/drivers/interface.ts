@@ -57,6 +57,12 @@ export interface DatabaseAdminDriver {
   listPrincipals(database?: string): Promise<DbPrincipal[]>;
   listGrants(principal: DbPrincipalRef): Promise<DbGrant[]>;
   userStatements(action: DbUserAction): AdminStatement[];
+  /**
+   * The statements by which the account this driver is signed in with gives itself a new
+   * password — written so they can only ever reach that account, and so an account with no
+   * privilege but its own can run them.
+   */
+  ownPasswordStatements(password: string, currentPassword: string): AdminStatement[];
 
   listSessions(): Promise<DbAdminSession[]>;
   /** Sessions waiting on a lock, with the session holding it; empty where the engine cannot say. */

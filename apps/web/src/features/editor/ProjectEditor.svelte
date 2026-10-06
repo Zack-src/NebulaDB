@@ -574,6 +574,7 @@
   {#if showSettings}
     <SettingsModal
       session={props.session}
+      projectId={project.id}
       onClose={() => (showSettings = false)}
       onDisplayNameChange={props.onDisplayNameChange}
       onLogout={props.onLogout}

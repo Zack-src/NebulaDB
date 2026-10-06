@@ -3,6 +3,7 @@ import { ApiError } from "../../shared/errors.js";
 import { requireAdmin, requireUser } from "../../shared/guards.js";
 import {
   CREDENTIAL_SAVE_LIMIT,
+  changeOwnPassword,
   giveOwnCredentials,
   listOwnAccounts,
   ownCredentials,
@@ -19,7 +20,7 @@ import { parsePersonalCredentials, savePersonalCredentials, personalCredentialSt
 import { auditUser } from "../../shared/audit.js";
 
 // Where the tests replace the one step that needs a live server; the object itself lives with the rules.
-export { credentialCheck } from "./credentialService.js";
+export { credentialCheck, ownPasswordChange } from "./credentialService.js";
 
 const READ_LIMIT = { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } };
 
@@ -35,7 +36,14 @@ export function registerCredentialRoutes(app: FastifyInstance): void {
     if (!target.is_admin && !effectiveDbAccess(userId, id)) throw new ApiError("FORBIDDEN");
     if (connection.authMode !== "personal") throw new ApiError("PERSONAL_CREDENTIALS_NOT_USED");
     const { username, password } = parsePersonalCredentials(req.body);
-    await accountCheck.verify({ ...connection, authMode: "shared", user: username, password });
+    try {
+      await accountCheck.verify({ ...connection, authMode: "shared", user: username, password });
+    } catch (err) {
+      if (err instanceof ApiError) throw err;
+      throw new ApiError("PERSONAL_CREDENTIALS_REJECTED", {
+        details: { reason: err instanceof Error ? err.message : String(err) },
+      });
+    }
     savePersonalCredentials(id, userId, username, password);
     auditUser(
       admin,
@@ -63,6 +71,12 @@ export function registerCredentialRoutes(app: FastifyInstance): void {
   app.put("/api/connections/:id/credentials", CREDENTIAL_SAVE_LIMIT, async (req) => {
     const { id } = req.params as { id: string };
     return giveOwnCredentials(requireConnectionUser(req, id), req.body, req);
+  });
+
+  // A new password for the account one already holds, set on the database itself.
+  app.put("/api/connections/:id/credentials/password", CREDENTIAL_SAVE_LIMIT, async (req) => {
+    const { id } = req.params as { id: string };
+    return changeOwnPassword(requireConnectionUser(req, id), req.body, req);
   });
 
   app.delete("/api/connections/:id/credentials", READ_LIMIT, async (req) => {

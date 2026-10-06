@@ -15,8 +15,10 @@
     onClose,
     onDisplayNameChange,
     onLogout,
+    projectId,
   }: {
     session: Session;
+    projectId?: string;
     onClose: () => void;
     onDisplayNameChange: (name: string) => Promise<void>;
     onLogout?: () => void;
@@ -58,7 +60,7 @@
     </div>
 
     <div class="flex-1 overflow-y-auto max-h-[500px] pr-1 text-xs text-text-secondary">
-      <SettingsTabContent tab={state.activeTab} {session} {state} />
+      <SettingsTabContent tab={state.activeTab} {session} {state} {projectId} />
     </div>
   </div>
 </Modal>

@@ -166,6 +166,16 @@ work uses: the watch (also when a check is asked for by hand), scheduled backups
 check. Only an instance administrator changes the mode, and can see who gave an account — never
 the passwords.
 
+An instance administrator can also **give a person their account**: an existing one
+(`PUT /api/admin/users/:userId/connections/:id/credentials`, tried before it is kept; the person
+must have access to the database, or be an instance administrator), one created for each missing
+account (`POST /api/admin/users/:id/db-accounts`, `…/teams/:id/db-accounts`), or — in the console's
+Utilisateurs section — the account being created, handed to an Athanor user in the same step. The
+person finds it in Paramètres → Bases de données and gives it a password of their own
+(`PUT /api/connections/:id/credentials/password`): Athanor changes it on the database, signed in as
+that account, so the old password is never asked for and no other account can be reached. Browser
+session only; refused on a connection marked read-only.
+
 Being an instance administrator does not by itself mean "anything goes" in the console: on a
 database attached to a project, table and index changes follow the **structure policy** (refused
 and sent to the schema by default, allowed after confirmation, or free), which only an instance
@@ -199,6 +209,7 @@ query,query-history}`, shared with instance administrators (who keep their full 
 | Drops from the explorer; database users and permissions; sessions; backups      |      |       |           ✔            |
 | Raise the row / time ceilings (5 000 rows, 120 s)                               |      |       |           ✔            |
 | Give one's own account on the connection when it asks for personal accounts     |  ✔   |   ✔   |           ✔            |
+| Change the password of one's own account there, on the database itself          |  ✔   |   ✔   |           ✔            |
 
 - A member's SQL is screened before it reaches the database: `read` with the read-only rules,
   `write` with a stricter data-only rule (`sqlGuard.ts#assertDataStatement`); a refusal is

@@ -63,7 +63,18 @@
    * Only the `tab` prop changes what's rendered; the surrounding chrome
    * (sidebar nav, header) stays with each caller since it differs on purpose.
    */
-  let { tab, session, state }: { tab: SettingsTab; session: Session; state: SettingsPanelState } = $props();
+  let {
+    tab,
+    session,
+    state,
+    projectId,
+  }: {
+    tab: SettingsTab;
+    session: Session;
+    state: SettingsPanelState;
+    /** The project open behind the in-editor modal — what a new API key is offered for by default. */
+    projectId?: string;
+  } = $props();
 
   const { t, setLocale } = useTranslation();
 </script>
@@ -238,9 +249,9 @@
 
       <p class="text-xs text-text-secondary leading-relaxed">{t("settings.billing.description")}</p>
     </Card>
-
-    <ApiKeys />
   </div>
+{:else if tab === "apiKeys"}
+  <ApiKeys {projectId} />
 {:else}
   <div class="space-y-6">
     <div>

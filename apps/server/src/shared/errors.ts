@@ -51,6 +51,7 @@ export const ERROR_CATALOG = {
   },
   PERSONAL_CREDENTIALS_INVALID: { status: 400, message: "username and password are required" },
   PERSONAL_CREDENTIALS_REJECTED: { status: 400, message: "the database refused this account" },
+  PERSONAL_PASSWORD_REJECTED: { status: 400, message: "the database refused the new password" },
   CONNECTION_TARGET_FORBIDDEN: { status: 400, message: "this connection target is not allowed" },
   DB_ADMIN_INPUT_INVALID: {
     status: 400,

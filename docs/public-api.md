@@ -6,8 +6,9 @@ stay cookie-session-only and are not a stable contract).
 
 ## Authentication
 
-Create a key in **Settings → Billing → API keys**, or via the session-authed
-management endpoints below. Every `/api/v1` request needs it:
+Any user can create their own keys in **Settings → API keys** — for every
+project they can see, or restricted to a single one — or via the
+session-authed management endpoints below. Every `/api/v1` request needs it:
 
 ```
 Authorization: Bearer adb_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx

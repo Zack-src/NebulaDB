@@ -12,12 +12,22 @@
   import { formatDateTime } from "@/i18n/formatters";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { assignDbCredentials } from "@/services/dbAccessApi";
-  import { deletePersonalCredentials, savePersonalCredentials } from "@/services/connectionsApi";
+  import Tabs from "@/components/ui/Tabs.svelte";
+  import {
+    changePersonalPassword,
+    deletePersonalCredentials,
+    savePersonalCredentials,
+  } from "@/services/connectionsApi";
 
   /**
    * One's own account on a database whose connection asks each user for
    * theirs. The server tries the account before keeping it, and never sends
    * the password back: the field is empty every time the dialog opens.
+   *
+   * Someone who already has an account — given by themselves, or created for
+   * them by an administrator with a password nobody was shown — can instead
+   * give it a new password: the server changes it on the database, signed in
+   * as that account.
    */
   let {
     connectionId,
@@ -43,8 +53,18 @@
   // svelte-ignore state_referenced_locally
   let username = $state(status.username ?? status.suggestedUsername ?? "");
   let password = $state("");
+  /** Only one's own, already held account has a password to change; an administrator assigning one gives it whole. */
+  // svelte-ignore state_referenced_locally
+  const canChangePassword = Boolean(status.username) && !targetUserId;
+  let mode = $state<"password" | "account">(canChangePassword ? "password" : "account");
 
   const save = useAsyncAction(async () => {
+    if (mode === "password") {
+      onChanged(await changePersonalPassword(connectionId, password));
+      toast.success(t("personalAccount.passwordChanged", { connection: connectionName }));
+      onClose();
+      return;
+    }
     onChanged(
       await (targetUserId
         ? assignDbCredentials(targetUserId, connectionId, username.trim(), password)
@@ -59,7 +79,7 @@
     onClose();
   });
   const pending = $derived(save.pending || remove.pending);
-  const ready = $derived(username.trim().length > 0 && password.length > 0);
+  const ready = $derived((mode === "password" || username.trim().length > 0) && password.length > 0);
 </script>
 
 <Modal title={t("personalAccount.title", { connection: connectionName })} {onClose} narrow dismissable={!pending}>
@@ -70,7 +90,21 @@
       if (!pending && ready) void save.run();
     }}
   >
-    <Hint>{t("personalAccount.intro")}</Hint>
+    {#if canChangePassword}
+      <Tabs
+        variant="boxed"
+        tabs={[
+          { id: "password", label: t("personalAccount.mode.password") },
+          { id: "account", label: t("personalAccount.mode.account") },
+        ]}
+        activeTab={mode}
+        onChange={(next) => {
+          mode = next as typeof mode;
+          password = "";
+        }}
+      />
+    {/if}
+    <Hint>{mode === "password" ? t("personalAccount.passwordIntro") : t("personalAccount.intro")}</Hint>
     {#if !status.username && status.suggestedUsername}
       <p class="m-0 text-label text-text-muted" data-testid="personal-account-suggested">
         {t("personalAccount.suggested", { username: status.suggestedUsername })}
@@ -85,12 +119,16 @@
       </p>
     {/if}
 
+    {#if mode === "account"}
+      <label class="flex flex-col gap-1.5">
+        <span class={LABEL_CLASS}>{t("personalAccount.username")}</span>
+        <Input bind:value={username} autocomplete="off" disabled={pending} wrapperClassName="w-full" />
+      </label>
+    {/if}
     <label class="flex flex-col gap-1.5">
-      <span class={LABEL_CLASS}>{t("personalAccount.username")}</span>
-      <Input bind:value={username} autocomplete="off" disabled={pending} wrapperClassName="w-full" />
-    </label>
-    <label class="flex flex-col gap-1.5">
-      <span class={LABEL_CLASS}>{t("personalAccount.password")}</span>
+      <span class={LABEL_CLASS}>
+        {mode === "password" ? t("personalAccount.newPassword") : t("personalAccount.password")}
+      </span>
       <PasswordInput bind:value={password} disabled={pending} wrapperClassName="w-full" />
     </label>
 
@@ -105,7 +143,7 @@
       <span class="flex-1"></span>
       <Button size="sm" variant="ghost" onclick={onClose} disabled={pending}>{t("common.cancel")}</Button>
       <Button size="sm" variant="primary" type="submit" disabled={pending || !ready}>
-        {t("personalAccount.save")}
+        {mode === "password" ? t("personalAccount.changePassword") : t("personalAccount.save")}
       </Button>
     </div>
   </form>

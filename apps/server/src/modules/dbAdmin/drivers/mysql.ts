@@ -516,6 +516,15 @@ export class MysqlAdminDriver implements DatabaseAdminDriver {
     return [plain(`KILL ${requireInteger(id, "session id")}`)];
   }
 
+  ownPasswordStatements(password: string): AdminStatement[] {
+    return [
+      {
+        sql: `ALTER USER CURRENT_USER() IDENTIFIED BY ${lit(requirePassword(password))}`,
+        display: `ALTER USER CURRENT_USER() IDENTIFIED BY '${MASK}'`,
+      },
+    ];
+  }
+
   async execute(statements: AdminStatement[], database?: string): Promise<void> {
     // No transaction: MySQL commits implicitly around every DDL and account statement anyway.
     const conn = await this.pool.getConnection();

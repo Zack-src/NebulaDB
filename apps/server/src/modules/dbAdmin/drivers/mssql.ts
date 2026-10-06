@@ -546,6 +546,17 @@ export class MssqlAdminDriver implements DatabaseAdminDriver {
     return [plain(`KILL ${requireInteger(id, "session id")}`)];
   }
 
+  // `OLD_PASSWORD` is what lets a login without ALTER ANY LOGIN change its own password.
+  ownPasswordStatements(password: string, currentPassword: string): AdminStatement[] {
+    const who = q(requireName(this.config.user, "account"));
+    return [
+      {
+        sql: `ALTER LOGIN ${who} WITH PASSWORD = ${nlit(requirePassword(password))} OLD_PASSWORD = ${nlit(requirePassword(currentPassword))}`,
+        display: `ALTER LOGIN ${who} WITH PASSWORD = N'${MASK}' OLD_PASSWORD = N'${MASK}'`,
+      },
+    ];
+  }
+
   async execute(statements: AdminStatement[], database?: string): Promise<void> {
     // No wrapping transaction: several of these (CREATE/DROP DATABASE, some
     // login changes) are refused inside one. `DROP DATABASE` runs from the

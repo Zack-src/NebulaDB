@@ -69,6 +69,16 @@ export function personalCredentialStatus(
   };
 }
 
+/** The account itself, password included — for the one caller that has to sign in as it to change that password. */
+export function readPersonalCredentials(
+  connectionId: string,
+  userId: string,
+): { username: string; password: string } | null {
+  const row = getRow(connectionId, userId);
+  if (!row) return null;
+  return { username: row.username, password: decryptPayload<{ password: string }>(row.secret_encrypted).password };
+}
+
 export function savePersonalCredentials(
   connectionId: string,
   userId: string,

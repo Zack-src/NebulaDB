@@ -90,6 +90,14 @@ export function savePersonalCredentials(
   });
 }
 
+/** A new password for the account already held, set on the database itself — the old one need not be known. */
+export function changePersonalPassword(connectionId: string, password: string): Promise<PersonalCredentialStatus> {
+  return request<PersonalCredentialStatus>(`/api/connections/${connectionId}/credentials/password`, {
+    method: "PUT",
+    body: { password },
+  });
+}
+
 export function deletePersonalCredentials(connectionId: string): Promise<PersonalCredentialStatus> {
   return request<PersonalCredentialStatus>(`/api/connections/${connectionId}/credentials`, { method: "DELETE" });
 }

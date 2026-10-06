@@ -6,11 +6,13 @@ import { ApiError } from "../../shared/errors.js";
 import { requireUser } from "../../shared/guards.js";
 import { getEffectivePermission } from "../../shared/permissions.js";
 import type { SessionUser } from "../auth/session.js";
+import { createAdminDriver } from "../dbAdmin/drivers/index.js";
 import { createDatabaseDriver } from "./drivers/index.js";
 import {
   deletePersonalCredentials,
   parsePersonalCredentials,
   personalCredentialStatus,
+  readPersonalCredentials,
   savePersonalCredentials,
 } from "./personalCredentials.js";
 import { connectionOwner, getConnectionById } from "./repository.js";
@@ -36,6 +38,22 @@ export const credentialCheck = {
     try {
       const result = await driver.testConnection();
       if (!result.ok) throw new Error(result.error ?? "connection refused");
+    } finally {
+      await driver.close().catch(() => {});
+    }
+  },
+};
+
+/**
+ * Gives the caller's own database account a new password, signed in as that
+ * account — so it needs no privilege beyond its own, and can reach no other.
+ * An object for the same reason as `credentialCheck`.
+ */
+export const ownPasswordChange = {
+  async apply(connection: DatabaseConnectionConfig, password: string, currentPassword: string): Promise<void> {
+    const driver = await createAdminDriver(connection, "adminWrite");
+    try {
+      await driver.execute(driver.ownPasswordStatements(password, currentPassword), undefined);
     } finally {
       await driver.close().catch(() => {});
     }
@@ -109,6 +127,51 @@ export async function giveOwnCredentials(
     "dbconn.credentials.set",
     { type: "connection", id: connection.id },
     `${connection.name}: ${username}${via}`,
+    req,
+  );
+  return personalCredentialStatus(connection, user.id);
+}
+
+/**
+ * Changes, on the database itself, the password of the account the caller
+ * holds on this connection, then keeps the new one. This is how someone whose
+ * account an administrator created — with a password nobody was shown — makes
+ * it their own. Browser session only, like the rest of "Mes comptes SQL".
+ */
+export async function changeOwnPassword(
+  { user, connection }: ConnectionUser,
+  body: unknown,
+  req: FastifyRequest,
+): Promise<PersonalCredentialStatus> {
+  if (req.apiKey) throw new ApiError("FORBIDDEN");
+  if (connection.authMode !== "personal") throw new ApiError("PERSONAL_CREDENTIALS_NOT_USED");
+  const current = readPersonalCredentials(connection.id, user.id);
+  if (!current) {
+    throw new ApiError("PERSONAL_CREDENTIALS_REQUIRED", {
+      details: { connectionId: connection.id, connectionName: connection.name },
+    });
+  }
+  if (connection.readOnly) throw new ApiError("CONNECTION_READ_ONLY");
+  const { password } = parsePersonalCredentials({
+    username: current.username,
+    password: (body as { password?: unknown } | null)?.password,
+  });
+
+  try {
+    await ownPasswordChange.apply(connection, password, current.password);
+  } catch (err) {
+    if (err instanceof ApiError) throw err;
+    throw new ApiError("PERSONAL_PASSWORD_REJECTED", {
+      details: { reason: err instanceof Error ? err.message : String(err) },
+    });
+  }
+
+  savePersonalCredentials(connection.id, user.id, current.username, password);
+  auditUser(
+    user,
+    "dbconn.credentials.password",
+    { type: "connection", id: connection.id },
+    `${connection.name}: ${current.username}`,
     req,
   );
   return personalCredentialStatus(connection, user.id);

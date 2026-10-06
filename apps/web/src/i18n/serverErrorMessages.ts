@@ -98,6 +98,7 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   PERSONAL_CREDENTIALS_NOT_USED: "errors.personalCredentialsNotUsed",
   PERSONAL_CREDENTIALS_INVALID: "errors.personalCredentialsInvalid",
   PERSONAL_CREDENTIALS_REJECTED: "errors.personalCredentialsRejected",
+  PERSONAL_PASSWORD_REJECTED: "errors.personalPasswordRejected",
   DB_ACCESS_INVALID: "errors.dbAccessInvalid",
   DB_ACCESS_WRITE_FORBIDDEN: "errors.dbAccessWriteForbidden",
   DB_ACCESS_WRITE_CONFIRMATION_REQUIRED: "errors.dbAccessWriteConfirmationRequired",
@@ -162,7 +163,9 @@ export function describeApiError(error: unknown, t: Translator): string {
       return t(key, { connection: String(error.details.connectionName ?? "") });
     }
     // The database's own words are the useful part: "password authentication failed for user …".
-    if (error.code === "PERSONAL_CREDENTIALS_REJECTED") return t(key, { reason: String(error.details.reason ?? "") });
+    if (error.code === "PERSONAL_CREDENTIALS_REJECTED" || error.code === "PERSONAL_PASSWORD_REJECTED") {
+      return t(key, { reason: String(error.details.reason ?? "") });
+    }
     const tables = error.details.tables;
     return error.code === "TABLE_LOCKED" && Array.isArray(tables) ? t(key, { tables: tables.join(", ") }) : t(key);
   }

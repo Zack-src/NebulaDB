@@ -173,6 +173,10 @@ export class SqliteAdminDriver implements DatabaseAdminDriver {
     throw unsupported("user management");
   }
 
+  ownPasswordStatements(): AdminStatement[] {
+    throw unsupported("user management");
+  }
+
   async listBlocking(): Promise<DbBlocking[]> {
     throw unsupported("lock monitoring");
   }

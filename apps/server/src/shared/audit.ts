@@ -80,6 +80,7 @@ export const AUDIT_ACTIONS = [
   "dbconn.auth_mode",
   "dbconn.credentials.set",
   "dbconn.credentials.remove",
+  "dbconn.credentials.password",
   "instance.structure_policy",
   "dbadmin.structure.out_of_schema",
   "table.lock",

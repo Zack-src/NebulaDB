@@ -135,7 +135,12 @@
     {:else if section === "sql"}
       <SqlPanel connectionId={connection.id} overview={data} bind:database />
     {:else if section === "users" && data.access === "admin"}
-      <UsersPanel connectionId={connection.id} engine={connection.engine} overview={data} />
+      <UsersPanel
+        connectionId={connection.id}
+        engine={connection.engine}
+        overview={data}
+        personalAccounts={connection.authMode === "personal"}
+      />
     {:else if section === "sessions" && data.access === "admin"}
       <SessionsPanel connectionId={connection.id} overview={data} />
     {:else if section === "health" && adminConnection && data.access === "admin"}
