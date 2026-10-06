@@ -82,3 +82,9 @@ export function listQueryHistory(connectionId: string, userId: string, limit = 5
     createdAt: r.created_at,
   }));
 }
+
+/** Clear only the caller’s recall history; query statistics and audit records remain. */
+export function clearQueryHistory(connectionId: string, userId: string): number {
+  return db.prepare("DELETE FROM admin_query_history WHERE connection_id = ? AND user_id = ?").run(connectionId, userId)
+    .changes;
+}

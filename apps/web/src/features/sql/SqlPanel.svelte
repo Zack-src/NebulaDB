@@ -1,4 +1,6 @@
 <script lang="ts">
+  import Icon from "@/components/icons/Icon.svelte";
+  import { ChevronRightIcon } from "@/components/icons/Icons";
   import { untrack } from "svelte";
   import type { DbAdminQueryHistoryEntry, DbAdminQueryResult, StructurePolicyRefusal } from "@athanordb/shared";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
@@ -13,7 +15,7 @@
   import { formatRelativeTime } from "@/i18n/formatters";
   import { i18n, useTranslation } from "@/i18n/i18n.svelte";
   import { ApiError } from "@/services/ApiError";
-  import { fetchQueryHistory, runAdminQuery, type ConnectionOverview } from "@/services/dbAdminApi";
+  import { clearQueryHistory, fetchQueryHistory, runAdminQuery, type ConnectionOverview } from "@/services/dbAdminApi";
   import { parseServerTime } from "./format";
   import ResultGrid from "./ResultGrid.svelte";
   import StructureRedirectDialog, { describeStructuralAction } from "./StructureRedirectDialog.svelte";
@@ -56,6 +58,12 @@
   let writeMode = $state(false);
   let result = $state.raw<DbAdminQueryResult | null>(null);
   const history = useAsyncResource(() => fetchQueryHistory(connectionId));
+  const historyId = $props.id();
+  let historyOpen = $state(false);
+  const clearHistory = useAsyncAction(async () => {
+    await clearQueryHistory(connectionId);
+    history.reload();
+  });
 
   // The two answers of the structure policy are not errors to print under the
   // editor: one sends the user to the schema, the other asks a question.
@@ -176,25 +184,49 @@
   {#if result}<ResultGrid {result} fileName="query" />{/if}
 
   <div class="border-t border-border pt-3">
-    <div class="mb-1.5 text-xs font-semibold uppercase tracking-wider text-text-muted">{t("dbadmin.sql.history")}</div>
-    {#if (history.data ?? []).length === 0}
-      <Hint>{history.loading ? t("common.loading") : t("dbadmin.sql.historyEmpty")}</Hint>
-    {:else}
-      <div class="max-h-56 space-y-1 overflow-y-auto">
-        {#each history.data ?? [] as entry (entry.id)}
-          <button
-            type="button"
-            class="flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left text-xs hover:bg-surface-hover"
-            onclick={() => recall(entry)}
-          >
-            <span class={`h-1.5 w-1.5 shrink-0 rounded-full ${entry.success ? "bg-success" : "bg-danger"}`}></span>
-            <span class="min-w-0 flex-1 truncate font-mono text-text">{entry.sql}</span>
-            {#if !entry.readOnly}<span class="shrink-0 font-semibold text-danger">{t("dbadmin.sql.write")}</span>{/if}
-            <span class="shrink-0 text-text-muted"
-              >{formatRelativeTime(parseServerTime(entry.createdAt), i18n.locale)}</span
-            >
-          </button>
-        {/each}
+    <div class="mb-1.5 flex items-center justify-between gap-2">
+      <button
+        type="button"
+        class="flex items-center gap-1 text-xs font-semibold text-text-secondary hover:text-text"
+        aria-expanded={historyOpen}
+        aria-controls={historyId}
+        onclick={() => (historyOpen = !historyOpen)}
+      >
+        <Icon icon={ChevronRightIcon} size={14} class={historyOpen ? "rotate-90" : ""} />
+        {t("dbadmin.sql.history")}
+      </button>
+      <Button
+        variant="ghost"
+        size="sm"
+        disabled={clearHistory.pending || execute.pending || history.loading || !history.data?.length}
+        onclick={() => void clearHistory.run()}>{t("dbadmin.sql.clearHistory")}</Button
+      >
+    </div>
+    {#if clearHistory.error}<ErrorText>{clearHistory.error}</ErrorText>{/if}
+    {#if historyOpen}
+      <div id={historyId}>
+        {#if history.error}<ErrorText>{history.error}</ErrorText>{/if}
+        {#if (history.data ?? []).length === 0}
+          <Hint>{history.loading ? t("common.loading") : t("dbadmin.sql.historyEmpty")}</Hint>
+        {:else}
+          <div class="max-h-56 space-y-1 overflow-y-auto">
+            {#each history.data ?? [] as entry (entry.id)}
+              <button
+                type="button"
+                class="flex w-full items-center gap-2 rounded-sm px-2 py-1 text-left text-xs hover:bg-surface-hover"
+                onclick={() => recall(entry)}
+              >
+                <span class={`h-1.5 w-1.5 shrink-0 rounded-full ${entry.success ? "bg-success" : "bg-danger"}`}></span>
+                <span class="min-w-0 flex-1 truncate font-mono text-text">{entry.sql}</span>
+                {#if !entry.readOnly}<span class="shrink-0 font-semibold text-danger">{t("dbadmin.sql.write")}</span
+                  >{/if}
+                <span class="shrink-0 text-text-muted"
+                  >{formatRelativeTime(parseServerTime(entry.createdAt), i18n.locale)}</span
+                >
+              </button>
+            {/each}
+          </div>
+        {/if}
       </div>
     {/if}
   </div>

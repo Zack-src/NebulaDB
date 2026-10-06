@@ -26,7 +26,7 @@ import {
 import { optionalName, requireName } from "./drivers/common.js";
 import { createAdminDriver, type AdminStatement, type DatabaseAdminDriver, type DropKind } from "./drivers/index.js";
 import { checkConnectionHealth } from "./health.js";
-import { listQueryHistory, recordQuery } from "./queryHistory.js";
+import { clearQueryHistory, listQueryHistory, recordQuery } from "./queryHistory.js";
 import { requireDbConsoleUser, type DbConsoleUser } from "../dbAccess/service.js";
 import { isConnectionAccount } from "./connectionAccount.js";
 import { assertDataStatement, assertReadOnlyStatement, findStructuralStatements } from "./sqlGuard.js";
@@ -472,6 +472,12 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
       const { id } = req.params as { id: string };
       const { user } = guard(req, id);
       return { history: listQueryHistory(id, user.id) };
+    });
+
+    app.delete(`${prefix}/:id/query-history`, WRITE_LIMIT, async (req) => {
+      const { id } = req.params as { id: string };
+      const { user } = guard(req, id);
+      return { cleared: clearQueryHistory(id, user.id) };
     });
   }
 

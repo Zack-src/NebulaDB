@@ -97,6 +97,12 @@ test(
       await canvasTable("invoices").waitFor();
       for (const name of ["Schéma", "Données & SQL", "Déploiements", "Historique"]) await tab(name).waitFor();
       assert.equal(await tab("Schéma").getAttribute("aria-selected"), "true");
+      const avatars = page.locator(".account-avatar");
+      assert.equal(await avatars.count(), 2);
+      assert.equal(await avatars.nth(0).textContent(), await avatars.nth(1).textContent());
+      assert.equal(await page.locator("header [role=img]").count(), 0);
+      await page.locator("[data-sync-state]").waitFor();
+      assert.equal(await page.locator("[data-sync-state]").count(), 1);
       // The current connection and its environment are in view on every tab.
       await page.getByRole("combobox", { name: "Connexion courante" }).getByText("Base boutique").waitFor();
       await page.getByText("Prod", { exact: true }).waitFor();
@@ -123,6 +129,17 @@ test(
       );
       assert.equal(await drawer.getByRole("switch").count(), 0);
       assert.equal(await drawer.getByRole("combobox").count(), 0);
+      const historyToggle = drawer.getByRole("button", { name: "Historique", exact: true });
+      assert.equal(await historyToggle.getAttribute("aria-expanded"), "false");
+      await historyToggle.click();
+      const recalled = drawer.getByRole("button", { name: /SELECT \* FROM customers LIMIT 100/ });
+      await recalled.waitFor();
+      await historyToggle.click();
+      await recalled.waitFor({ state: "detached" });
+      await historyToggle.click();
+      await drawer.getByRole("button", { name: "Effacer l’historique" }).click();
+      await drawer.getByText("Aucune requête", { exact: false }).waitFor();
+      await recalled.waitFor({ state: "detached" });
       await snap("sql-drawer");
       // Ctrl+J closes and reopens it, from wherever the focus is; the handle is a real separator.
       await page.getByRole("separator", { name: "Redimensionner le panneau SQL" }).waitFor();

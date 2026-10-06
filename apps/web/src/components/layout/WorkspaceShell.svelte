@@ -1,4 +1,5 @@
 <script lang="ts">
+  import AccountAvatar from "@/components/ui/AccountAvatar.svelte";
   import type { Snippet } from "svelte";
   import type { Session } from "@/types";
   import type { ShellView } from "@/app/shellNavigation";
@@ -81,7 +82,7 @@
       aria-label={t("navbar.accountSettings")}
       title={t("navbar.accountSettings")}
     >
-      <span class="account-avatar" aria-hidden="true">{session.displayName.charAt(0).toUpperCase()}</span>
+      <AccountAvatar name={session.displayName} />
       <span class="sidebar-label account-copy"
         ><strong>{session.displayName}</strong><small>{session.isAdmin ? t("admin.title") : session.email}</small></span
       >
@@ -179,18 +180,7 @@
     min-width: 0;
     border-radius: 7px;
   }
-  .account-avatar {
-    flex: none;
-    width: 28px;
-    height: 28px;
-    display: grid;
-    place-items: center;
-    border-radius: 50%;
-    background: var(--color-primary-light);
-    color: var(--color-primary-text);
-    font-size: 11px;
-    font-weight: 600;
-  }
+
   .account-copy {
     min-width: 0;
     flex: 1;

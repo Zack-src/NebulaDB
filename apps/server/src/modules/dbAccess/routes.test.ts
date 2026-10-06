@@ -750,3 +750,38 @@ test("an invitation can ask for the database account to be created, and a failur
     await app.close();
   }
 });
+
+test("clearing SQL recall history is scoped to the caller and connection and keeps the journal", async () => {
+  const app = await buildApp();
+  try {
+    resetConnectionBudgets();
+    const admin = await makeUser(app, 1);
+    const member = await makeUser(app);
+    const stranger = await makeUser(app);
+    const first = await sqliteConnection(app, admin.cookie);
+    const second = await sqliteConnection(app, admin.cookie);
+    const granted = await grantUser(app, admin.cookie, member.id, [
+      { connectionId: first.id, level: "read" },
+      { connectionId: second.id, level: "read" },
+    ]);
+    assert.equal(granted.statusCode, 200, granted.body);
+    for (const [cookie, id] of [[admin.cookie, first.id], [member.cookie, first.id], [member.cookie, second.id]]) {
+      const res = await query(app, cookie, id, { sql: "SELECT * FROM customers", readOnly: true });
+      assert.equal(res.statusCode, 200, res.body);
+    }
+    const journalBefore = db.prepare("SELECT COUNT(*) AS n FROM audit_log").get();
+    const denied = await call(app, stranger.cookie, "DELETE", `/api/connections/${first.id}/query-history`);
+    assert.equal(denied.statusCode, 404);
+    const cleared = await call(app, member.cookie, "DELETE", `/api/connections/${first.id}/query-history`);
+    assert.equal(cleared.statusCode, 200, cleared.body);
+    assert.equal(cleared.json().cleared, 1);
+    for (const [cookie, id, expected] of [[member.cookie, first.id, 0], [admin.cookie, first.id, 1], [member.cookie, second.id, 1]] as const) {
+      const res = await call(app, cookie, "GET", `/api/connections/${id}/query-history`);
+      assert.equal(res.json().history.length, expected);
+    }
+    assert.deepEqual(db.prepare("SELECT COUNT(*) AS n FROM audit_log").get(), journalBefore);
+  } finally {
+    await app.close();
+    closeAllRooms();
+  }
+});

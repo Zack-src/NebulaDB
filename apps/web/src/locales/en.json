@@ -1056,6 +1056,7 @@
   "dbadmin.sql.confirmWrite": "Run this statement in write mode? It can change or delete data.",
   "dbadmin.sql.run": "Run",
   "dbadmin.sql.running": "Running…",
+  "dbadmin.sql.clearHistory": "Clear history",
   "dbadmin.sql.history": "History",
   "dbadmin.sql.historyEmpty": "No query run on this connection yet.",
   "dbadmin.sql.write": "write",

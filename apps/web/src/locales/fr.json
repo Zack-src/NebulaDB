@@ -1056,6 +1056,7 @@
   "dbadmin.sql.confirmWrite": "Exécuter cette instruction en mode écriture ? Elle peut modifier ou supprimer des données.",
   "dbadmin.sql.run": "Exécuter",
   "dbadmin.sql.running": "Exécution…",
+  "dbadmin.sql.clearHistory": "Effacer l’historique",
   "dbadmin.sql.history": "Historique",
   "dbadmin.sql.historyEmpty": "Aucune requête exécutée sur cette connexion.",
   "dbadmin.sql.write": "écriture",

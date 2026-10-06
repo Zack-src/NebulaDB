@@ -60,7 +60,6 @@
   import { provideWorkspace } from "@/features/workspace/workspaceContext";
   import { useProjectDoc } from "@/features/collaboration/projectDoc.svelte";
   import { useAwarenessStates, useRemoteSelections } from "@/features/collaboration/awarenessStates.svelte";
-  import { hashColor } from "@/features/collaboration/awarenessColor";
   import CanvasArea from "@/features/editor/canvas/CanvasArea.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { ChevronRightIcon } from "@/components/icons/Icons";
@@ -567,8 +566,6 @@
   <ProjectToolbar
     projectName={project.name}
     viewOnly={!canWrite}
-    connection={docHandle.connection}
-    synced={Boolean(liveProject)}
     onBack={props.onBack}
     onUndo={() => docHandle.undoManager?.undo()}
     onRedo={() => docHandle.undoManager?.redo()}
@@ -583,7 +580,6 @@
       ? { projectId: project.id, onOpenProject: props.onOpenProject }
       : undefined}
     localUser={user}
-    localColor={hashColor(user)}
     remoteAwareness={remoteAwareness.states}
   />
   {#if showSettings}

@@ -175,6 +175,10 @@ export async function fetchQueryHistory(id: string): Promise<DbAdminQueryHistory
   return (await request<{ history: DbAdminQueryHistoryEntry[] }>(`${consoleBase(id)}/query-history`)).history;
 }
 
+export function clearQueryHistory(id: string): Promise<{ cleared: number }> {
+  return request(`${consoleBase(id)}/query-history`, { method: "DELETE" });
+}
+
 // ---- Mutations: every one previews (`execute: false`) before it runs --------
 
 export function dropObject(
