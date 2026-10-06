@@ -35,6 +35,27 @@ test(
         teams: { name: string }[];
       }[];
       assert.equal(invitations[0].teams[0].name, "Équipe tests");
+      const members = page.getByRole("table", { name: "Utilisateurs", exact: true });
+      assert.equal(await page.getByRole("table").count(), 1);
+      const memberRow = members.locator('tr[data-email="new-member@example.com"]');
+      await memberRow.getByText("En attente", { exact: true }).waitFor();
+      await memberRow.getByRole("button", { name: "Copier le lien" }).waitFor();
+      const rawInvitations = await (await page.request.get(env.baseUrl + "/api/invitations")).json();
+      const accepted = await page.request.post(
+        env.baseUrl + "/api/invitations/" + rawInvitations[0].token + "/accept",
+        { data: { password: "correct horse battery staple e2e" } },
+      );
+      assert.ok(accepted.ok(), await accepted.text());
+      await page.reload();
+      await memberRow.getByText("Acceptée", { exact: true }).waitFor();
+      assert.equal(await memberRow.count(), 1, "accepted invite and account become one row");
+      assert.equal(await memberRow.getByRole("button", { name: "Copier le lien" }).count(), 0);
+      await memberRow.getByRole("button", { name: "Réinitialiser le mot de passe" }).waitFor();
+      await page.getByPlaceholder("Adresse e-mail à inviter").fill("revoked-member@example.com");
+      await page.getByRole("button", { name: "Inviter", exact: true }).click();
+      const revokedRow = members.locator('tr[data-email="revoked-member@example.com"]');
+      await revokedRow.getByRole("button", { name: "Révoquer", exact: true }).click();
+      await revokedRow.waitFor({ state: "detached" });
       const adminNav = page.getByRole("navigation", { name: "Console d'administration", exact: true });
       assert.equal(await adminNav.getByRole("button", { name: "Invitations", exact: true }).count(), 0);
 

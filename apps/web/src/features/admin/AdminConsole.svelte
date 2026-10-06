@@ -21,7 +21,6 @@
   import ConnectionsTab from "@/features/admin/ConnectionsTab.svelte";
   import EnvironmentsTab from "@/features/admin/EnvironmentsTab.svelte";
   import ErrorsTab from "@/features/admin/ErrorsTab.svelte";
-  import InvitationsTab from "@/features/admin/InvitationsTab.svelte";
   import LintPresetsTab from "@/features/admin/lint/LintPresetsTab.svelte";
   import TeamsTab from "@/features/admin/TeamsTab.svelte";
   import UsersTab from "@/features/admin/UsersTab.svelte";
@@ -80,10 +79,6 @@
         {#if section === "users"}
           <h2 class="mb-4 text-lg font-semibold">{t("admin.section.users")}</h2>
           <UsersTab />
-          <section class="mt-8 border-t border-border pt-6">
-            <h2 class="mb-4 text-lg font-semibold">{t("admin.section.invitations")}</h2>
-            <InvitationsTab />
-          </section>
         {/if}
         {#if section === "audit"}<ActivityTab />{/if}
         {#if section === "errors"}<ErrorsTab />{/if}

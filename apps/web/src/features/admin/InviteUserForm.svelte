@@ -1,42 +1,22 @@
-<script lang="ts" module>
-  import type { InvitationSummary, TranslationKeyOf } from "@/types";
-
-  const STATUS_TONE = { pending: "warning", accepted: "success", expired: "danger" } as const;
-  const STATUS_LABEL_KEY = {
-    pending: "admin.invitations.status.pending",
-    accepted: "admin.invitations.status.accepted",
-    expired: "admin.invitations.status.expired",
-  } as const satisfies Record<InvitationSummary["status"], TranslationKeyOf>;
-
-  const COPIED_FEEDBACK_MS = 1500;
-</script>
-
 <script lang="ts">
   import Icon from "@/components/icons/Icon.svelte";
-  import { LinkIcon, PlusIcon, TrashIcon } from "@/components/icons/Icons";
+  import { PlusIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
-  import Badge from "@/components/ui/Badge.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
-  import List from "@/components/ui/List.svelte";
-  import ListMain from "@/components/ui/ListMain.svelte";
-  import ListRow from "@/components/ui/ListRow.svelte";
-  import EmptyState from "@/components/ui/EmptyState.svelte";
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import { INPUT_CLASS } from "@/components/ui/inputStyles";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
-  import { copyText } from "@/utils/clipboard";
   import { useTranslation } from "@/i18n/i18n.svelte";
-  import { createInvitation, fetchInvitations, revokeInvitation } from "@/services/invitationsApi";
+  import { createInvitation } from "@/services/invitationsApi";
   import { fetchTeams } from "@/services/teamsApi";
   import { listAdminConnections } from "@/services/dbAdminApi";
   import DbAccessEditor, { grantsFromDraft, type DbAccessDraft } from "./DbAccessEditor.svelte";
 
   const { t } = useTranslation();
-  const invitations = useAsyncResource(fetchInvitations);
+  let { onCreated }: { onCreated: () => void } = $props();
   let email = $state("");
   let invitingAsAdmin = $state(false);
-  let copiedToken = $state<string | null>(null);
   let lastInvite = $state<{ email: string; emailSent: boolean } | null>(null);
 
   // What the account gets the moment the invitation is accepted: teams to
@@ -60,36 +40,18 @@
     teamIds = [];
     databases = {};
     showGrants = true;
-    invitations.reload();
+    onCreated();
   });
 
   function toggleTeam(id: string, checked: boolean) {
     teamIds = checked ? [...teamIds, id] : teamIds.filter((teamId) => teamId !== id);
   }
 
-  const revoke = useAsyncAction(async (token: string) => {
-    await revokeInvitation(token);
-    invitations.reload();
-  });
-
   function handleInvite() {
     if (email.trim()) void invite.run();
   }
 
-  function copyInviteLink(invitation: InvitationSummary) {
-    void copyText(`${location.origin}/invite/${invitation.token}`).then((ok) => {
-      if (!ok) return;
-      copiedToken = invitation.token;
-      // Only clears its own feedback: copying a second link before the first
-      // timer fires must not blank the newer confirmation.
-      setTimeout(() => {
-        if (copiedToken === invitation.token) copiedToken = null;
-      }, COPIED_FEEDBACK_MS);
-    });
-  }
-
-  const rows = $derived(invitations.data ?? []);
-  const error = $derived(invitations.error ?? invite.error ?? revoke.error ?? teams.error ?? connections.error);
+  const error = $derived(invite.error ?? teams.error ?? connections.error);
 </script>
 
 <div>
@@ -156,45 +118,4 @@
     </p>
   {/if}
   {#if error}<ErrorText>{error}</ErrorText>{/if}
-  {#if rows.length === 0}
-    <EmptyState>{invitations.loading ? t("common.loading") : t("admin.invitations.empty")}</EmptyState>
-  {:else}
-    <List>
-      {#each rows as invitation (invitation.token)}
-        <ListRow>
-          <ListMain>
-            <span>{invitation.email}</span>
-            {#if invitation.isAdmin}<Badge tone="admin">{t("common.admin")}</Badge>{/if}
-            {#each invitation.teams ?? [] as team (team.id)}<Badge tone="muted">{team.name}</Badge>{/each}
-            {#each invitation.databases ?? [] as grant (grant.connectionId)}
-              <span
-                data-tooltip={grant.sqlUsername
-                  ? t("admin.invitations.databaseAccount", { account: grant.sqlUsername })
-                  : undefined}
-              >
-                <Badge tone="muted">
-                  {grant.connectionName}{grant.level ? ` · ${t(`dbAccess.level.${grant.level}`)}` : ""}
-                </Badge>
-              </span>
-            {/each}
-          </ListMain>
-          <Badge tone={STATUS_TONE[invitation.status]}>{t(STATUS_LABEL_KEY[invitation.status])}</Badge>
-          {#if invitation.status === "pending"}
-            <Button size="sm" onclick={() => copyInviteLink(invitation)}>
-              <Icon icon={LinkIcon} size={12} />
-              {copiedToken === invitation.token ? t("common.copied") : t("admin.invitations.copyLink")}
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              data-tooltip={t("admin.invitations.revoke")}
-              onclick={() => void revoke.run(invitation.token)}
-            >
-              <Icon icon={TrashIcon} size={13} />
-            </Button>
-          {/if}
-        </ListRow>
-      {/each}
-    </List>
-  {/if}
 </div>
