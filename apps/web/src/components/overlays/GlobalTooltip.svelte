@@ -20,20 +20,11 @@
 <script lang="ts">
   import { portal } from "@/actions/portal";
 
-  /**
-   * Single delegated tooltip for every `data-tooltip` element in the app.
-   * Portaled to `document.body` and positioned with `position: fixed` from the
-   * hovered element's own rect, so it never gets clipped by an ancestor's
-   * `overflow: hidden`/`auto` (the header's horizontal scroll area, the canvas
-   * panels, etc.) the way a CSS `::after` on the element itself would be. Mount
-   * once near the app root.
-   *
-   * `data-tooltip-note` adds a second block under the label for free text
-   * (column/table notes): wider, left-aligned, wrapped in full rather than
-   * truncated. Because such a box can be tall, placement is measured after
-   * render — it flips below the target and clamps to the viewport instead of
-   * running off the top of the screen.
-   */
+    /**
+     * Single delegated tooltip for every `data-tooltip` element, portaled to `document.body` and
+     * placed with `position: fixed` so no ancestor's overflow clips it. `data-tooltip-note` adds a
+     * wrapped free-text block; placement is measured after render and flips/clamps to the viewport.
+     */
   let tooltip = $state.raw<TooltipState | null>(null);
   let box: HTMLDivElement | undefined = $state();
   let timer: number | undefined;

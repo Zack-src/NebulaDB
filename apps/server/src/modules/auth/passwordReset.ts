@@ -9,7 +9,7 @@ import { db } from "../../infrastructure/db.js";
 
 export const RESET_TOKEN_TTL_MINUTES = 60;
 /** A second request for the same account inside this window sends nothing — stops the form being used to flood someone's inbox. */
-export const RESET_REQUEST_COOLDOWN_MS = 60_000;
+const RESET_REQUEST_COOLDOWN_MS = 60_000;
 
 function hashToken(token: string): string {
   return crypto.createHash("sha256").update(token).digest("hex");

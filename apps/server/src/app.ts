@@ -105,19 +105,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     timeWindow: "1 minute",
   });
 
-  // Resolves the session cookie into `req.user` for every request but never
-  // rejects here — public routes (login, health, invite-accept once it exists)
-  // need to stay reachable. Each route that requires a user calls
-  // `requireUser`/`requireAdmin` itself (see auth/session.ts).
-  //
-  // A request with no session cookie (any non-browser `/api/v1` caller) falls
-  // back to `Authorization: Bearer` API-key resolution — see
-  // `modules/apiKeys/auth.ts`. A cookie takes priority when both are somehow
-  // present; this never runs for a request that already resolved a session.
-  //
-  // The hook before it opens the request's actor scope: whoever the request
-  // turns out to act for is who a `personal` database connection is opened as
-  // (see `infrastructure/actor.ts`).
+  // Resolves the session cookie (or, without one, an `Authorization: Bearer` API key)
+  // into `req.user`. Never rejects: routes call `requireUser`/`requireAdmin` themselves.
+  // The hook before it opens the request's actor scope, which decides who a `personal`
+  // database connection is opened as (`infrastructure/actor.ts`).
   app.addHook("onRequest", (_req, _reply, done) => runInActorScope(done));
   app.addHook("onRequest", async (req, reply) => {
     req.user = resolveSession(req, reply);
@@ -132,16 +123,9 @@ export async function buildApp(): Promise<FastifyInstance> {
   const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
   /**
-   * Second layer of CSRF defence. Sessions are cookie-based and the cookie is
-   * `SameSite=Lax`, which already blocks cross-site POSTs from a page — but that
-   * is the *only* thing standing between a hostile page and a state-changing
-   * request, and it depends entirely on browser behaviour. So: when a
-   * state-changing request carries an `Origin`, that origin must match the host
-   * the request was made to (or be listed in NEBULADB_ALLOWED_ORIGINS).
-   *
-   * A missing `Origin` is allowed through — non-browser clients (curl, scripts,
-   * the backup tooling) don't send one, and browsers always do for cross-origin
-   * state-changing requests, which is the case that matters.
+   * CSRF defence on top of `SameSite=Lax`: a state-changing request carrying an `Origin`
+   * must match the request's host or be listed in NEBULADB_ALLOWED_ORIGINS. A missing
+   * `Origin` is allowed (curl, scripts, backup tooling).
    */
   app.addHook("onRequest", async (req) => {
     if (SAFE_METHODS.has(req.method)) return;

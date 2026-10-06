@@ -2,18 +2,10 @@ import { getSelectedWaypoint } from "@/features/editor/edges/waypointSelection";
 import { isTypingTarget } from "@/utils/dom";
 
 /**
- * Delete/Backspace, owned here instead of by the flow's own `deleteKey`.
- *
- * The flow binds that key itself and deletes the whole selection without
- * asking anyone else — so pressing Delete with an edge waypoint selected
- * removed the entire relation from the schema, while the waypoint's own
- * handler ran too. One handler with an explicit order of precedence is the
- * only way to make "delete this corner" and "delete this table" the same key:
- * the waypoint claims the keystroke first, and everything else falls through
- * to the normal selection delete.
- *
- * `canWrite` is read at keydown time rather than re-binding the listener on
- * every permission re-evaluation — it only needs the *current* value.
+ * Delete/Backspace, owned here instead of by the flow's `deleteKey`, which deleted the whole
+ * selection regardless (a selected edge waypoint removed the entire relation). One handler with
+ * an explicit order: the waypoint claims the key first, the rest falls through to the normal
+ * selection delete. `canWrite` is read at keydown time.
  */
 export function useCanvasDeleteKey(options: {
   canWrite: () => boolean;

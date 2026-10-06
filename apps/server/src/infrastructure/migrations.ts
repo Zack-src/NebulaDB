@@ -7,23 +7,9 @@ export interface Migration {
 }
 
 /**
- * Ordered, one-way migrations applied on top of the baseline schema (the
- * `CREATE TABLE IF NOT EXISTS` block in `db.ts`, itself idempotent and safe
- * to run unconditionally on every boot — a brand-new install gets the full
- * current shape for free and simply has nothing pending here).
- *
- * Tracked via SQLite's built-in `PRAGMA user_version` rather than a separate
- * migrations table: one integer, set atomically in the same transaction as
- * the schema change it corresponds to, with no per-row bookkeeping needed
- * for what is — and is expected to stay — a short linear list. Replaces the
- * two one-off `PRAGMA table_info` + guarded `ALTER TABLE` checks that used
- * to live directly in `db.ts`; the next schema change is a new entry here
- * instead of another hand-rolled check that's easy to forget.
- *
- * Each `up` still guards its own `ALTER` (checking the column doesn't
- * already exist) rather than trusting `user_version` alone — belt and
- * suspenders against a database that reached the current shape some other
- * way (e.g. restored from an old backup that predates this file existing).
+ * Ordered, one-way migrations applied on top of the idempotent baseline schema in `db.ts`.
+ * Tracked with `PRAGMA user_version`, set in the same transaction as the change. Each `up`
+ * still guards its own `ALTER`, in case the database reached its shape another way.
  */
 export const MIGRATIONS: Migration[] = [
   {

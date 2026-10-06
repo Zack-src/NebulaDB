@@ -65,20 +65,12 @@ export function assertProjectMayEditConnection(user: SessionUser, projectId: str
 }
 
 /**
- * Everything here but the list route requires project `administrator`, not
- * the `edit` a normal schema change needs. That's deliberate, not an
- * oversight: unlike editing the canvas, these routes make the *server* open
- * a connection to a host/file the caller supplies (`test`/`pull`/the
- * deployment pair) or execute arbitrary generated SQL against it
- * (`apply-deployment`) — a materially larger blast radius than anything else
- * a project `edit` grant allows today. `hostGuard.ts` and the SQLite driver's
- * own-database guard narrow *where* that can point; this narrows *who* can
- * trigger it at all.
+ * Everything but the list route requires project `administrator`, not `edit`: these routes
+ * make the *server* open connections to a caller-supplied host/file or execute generated SQL.
+ * `hostGuard.ts` and the SQLite own-database guard narrow *where*; this narrows *who*.
  *
- * `from-database` is the one exception: there is no project yet to require
- * `administrator` on, so it only requires an authenticated user — the same
- * bar `POST /api/projects` already sets, since the caller becomes that new
- * project's administrator regardless of which route created it.
+ * `from-database` only requires an authenticated user, like `POST /api/projects`: the caller
+ * becomes the new project's administrator.
  */
 export function registerConnectionRoutes(app: FastifyInstance): void {
   // 0. Create a brand-new project from a live database's introspected schema

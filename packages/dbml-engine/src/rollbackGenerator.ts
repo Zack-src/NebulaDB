@@ -19,31 +19,17 @@ export interface RollbackResult {
 }
 
 /**
- * Generates a best-effort inverse of `generateMigrationSql`'s output for the
- * same `(diff, resolutions)` pair — restoring structure where the forward
- * migration only changed structure, and flagging every place where it also
- * destroyed data, which no generated SQL can bring back.
+ * Generates a best-effort inverse of `generateMigrationSql`'s output for the same
+ * `(diff, resolutions)`: structure is restored, and every place where the forward migration also
+ * destroyed data is flagged. Deliberately not a full undo:
  *
- * This is deliberately not sold as a full undo. Three engine/data realities
- * make that impossible in general, and this function is honest about all
- * three rather than generating SQL that pretends otherwise:
- *
- * 1. **Dropped data is gone.** A `DROP TABLE`/`DROP COLUMN` (or a
- *    `DROP_DATA_CONFIRMED` resolution) removes rows the database engine
- *    cannot hand back — rollback can recreate the empty structure, never the
- *    data. The only real recovery path is a backup taken before the
- *    deployment ran.
- * 2. **Resolution-driven data mutations aren't tracked row-by-row.**
- *    `BACKFILL_DEFAULT`/`CLEAR_COLUMN_DATA`/`DELETE_OFFENDING_ROWS` change or
- *    remove existing values; this function has no record of what those
- *    values were, so it cannot undo the mutation, only flag that it
- *    happened.
- * 3. **MySQL's DDL isn't transactional at all** (see `migrationGenerator.ts`'s
- *    own note on this) — a MySQL migration that failed partway through has
- *    already permanently applied its earlier statements, and this function's
- *    output describes reversing the *complete* diff, not whichever prefix of
- *    it actually landed. The caller (`connections/routes.ts`) is responsible
- *    for only offering a rollback when it knows what actually executed.
+ * 1. **Dropped data is gone.** `DROP TABLE`/`DROP COLUMN` (or `DROP_DATA_CONFIRMED`) lose rows;
+ *    only a backup taken before deployment recovers them.
+ * 2. **Resolution-driven data mutations aren't tracked.** `BACKFILL_DEFAULT`, `CLEAR_COLUMN_DATA`
+ *    and `DELETE_OFFENDING_ROWS` keep no record of the old values; they are flagged only.
+ * 3. **MySQL DDL isn't transactional**: a failed migration has applied its prefix, while this
+ *    output reverses the *complete* diff. The caller (`connections/routes.ts`) only offers a
+ *    rollback when it knows what executed.
  */
 export function generateRollbackSql(
   diff: MigrationDiff,

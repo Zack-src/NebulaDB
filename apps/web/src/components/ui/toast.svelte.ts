@@ -1,11 +1,11 @@
 export type ToastTone = "info" | "success" | "warning" | "danger";
 
-export interface ToastAction {
+interface ToastAction {
   label: string;
   run: () => void;
 }
 
-export interface ToastOptions {
+interface ToastOptions {
   tone?: ToastTone;
   /** One button on the toast — "Annuler" after a delete, "Voir" after an import. Running it dismisses the toast. */
   action?: ToastAction;
@@ -13,7 +13,7 @@ export interface ToastOptions {
   durationMs?: number;
 }
 
-export interface ToastEntry {
+interface ToastEntry {
   id: number;
   message: string;
   tone: ToastTone;

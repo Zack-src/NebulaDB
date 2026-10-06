@@ -65,7 +65,7 @@ export const DBML_TYPES = [
   "array",
 ];
 
-export const DBML_KEYWORDS = ["Table", "Ref", "Enum", "Note", "Project", "TableGroup", "indexes", "as"];
+const DBML_KEYWORDS = ["Table", "Ref", "Enum", "Note", "Project", "TableGroup", "indexes", "as"];
 
 const DBML_SETTINGS = [
   "pk",
@@ -93,7 +93,7 @@ const TYPES = new Set(DBML_TYPES);
  * Stream lexer for DBML. Token names are mapped to concrete highlight tags via
  * `tokenTable` so the colours below apply regardless of the base theme.
  */
-export const dbmlLanguage = StreamLanguage.define<{ inCommentBlock: boolean; inNoteBlock: boolean }>({
+const dbmlLanguage = StreamLanguage.define<{ inCommentBlock: boolean; inNoteBlock: boolean }>({
   name: "dbml",
   startState() {
     return { inCommentBlock: false, inNoteBlock: false };
@@ -192,7 +192,7 @@ export const dbmlLanguage = StreamLanguage.define<{ inCommentBlock: boolean; inN
  * (deepened, not inverted — several of these read fine on near-black but fail
  * contrast on white at the same lightness).
  */
-export const dbmlHighlightStyle = HighlightStyle.define([
+const dbmlHighlightStyle = HighlightStyle.define([
   { tag: t.comment, color: "var(--color-syntax-comment)", fontStyle: "italic" },
   { tag: t.keyword, color: "var(--color-syntax-keyword)", fontWeight: "600" },
   { tag: t.modifier, color: "var(--color-syntax-modifier)" },

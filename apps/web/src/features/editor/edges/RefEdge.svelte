@@ -17,18 +17,13 @@
   import { ENDPOINT_CARDINALITY } from "./EdgeCardinalityLabels.svelte";
   import RefEdgeOverlay from "./RefEdgeOverlay.svelte";
 
-  /**
-   * One relation on the canvas: a dimmed baseline stroke, an animated dashed
-   * overlay while highlighted, a hand-drawn arrowhead, a fat invisible hit
-   * stroke, and — only while it has something to show — the cardinality
-   * chips, waypoint dots, midpoint toolbar and context menu in the flow's
-   * edge-label layer.
-   *
-   * A schema can have a few hundred (or few thousand) of these. No memo
-   * comparator is needed: the edge overlay in `canvasEdges` hands back the
-   * same `data` object for every ref whose highlight didn't change, and a
-   * Svelte component only re-evaluates the expressions reading what did.
-   */
+    /**
+     * One relation: a dimmed baseline stroke, an animated dashed overlay while highlighted, a
+     * hand-drawn arrowhead, a wide invisible hit stroke, and, only while it has something to show,
+     * the cardinality chips, waypoint dots, midpoint toolbar and context menu in the edge-label
+     * layer. No memo comparator: `canvasEdges` hands back the same `data` object for every ref whose
+     * highlight didn't change.
+     */
   let {
     id,
     sourceX,

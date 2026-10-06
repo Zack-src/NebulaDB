@@ -8,24 +8,12 @@ import { db } from "./db.js";
 import { saveSnapshot } from "../realtime/persistence.js";
 
 /**
- * Bulk-imports a directory of `.dbml` files — the counterpart to backup.ts,
- * which is the only thing that ever produces this shape. Each file becomes a
- * brand-new project (never overwrites an existing one; the single-project
- * paste/upload route already covers "reimport into a project that already
- * exists"). If the file carries backup.ts's visual-metadata sidecar comment
- * (`projectToDbml(..., { includeVisualMetadata: true })`, which the backup
- * always requests), position/zones/sticky notes come back too — a plain
- * hand-written `.dbml` file restores fine, just without that layout.
+ * Bulk-imports a directory of `.dbml` files produced by `backup.ts`. Each file becomes a new
+ * project (never overwrites). The visual-metadata comment, when present, restores positions,
+ * zones and notes.
  *
- * Usage: `npm run restore -w apps/server -- <backupDir> [--owner email@example.com]`.
- * Respects `NEBULADB_DB_PATH` the same as the server itself.
- *
- * Ownership: without `--owner`, restored projects have no owner — under
- * `permissions.ts`'s rules that leaves them readable by any logged-in user
- * (the "zero teams assigned" default) but manageable by nobody except a
- * global admin, since there's no "reassign owner" route to fix that up
- * afterward. Pass `--owner` (an existing user's email) to make that user the
- * owner immediately, same as if they'd created the project themselves.
+ * Usage: `npm run restore -- <backupDir> [--owner email@example.com]`. Without `--owner`,
+ * projects have no owner: readable by any logged-in user, manageable only by a global admin.
  */
 export function parseArgs(argv: string[]): { backupDir: string; ownerEmail?: string } {
   const positional: string[] = [];

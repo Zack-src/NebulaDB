@@ -2,30 +2,17 @@ import type { Field, Project, Ref, Table } from "@nebuladb/shared";
 import { refSignature } from "./serialize.js";
 
 /**
- * Protects edits made by *other* people while one client was holding a DBML
- * buffer.
+ * Protects edits made by *other* people while one client held a DBML buffer. The panel syncs by
+ * posting its whole buffer, which overwrites the document, so anything created meanwhile by
+ * someone else would be deleted.
  *
- * The DBML panel syncs by posting its whole buffer, which the server turns
- * into a full project and writes over the document — so anything created
- * since that buffer was generated, by anyone else, is absent from the buffer
- * and gets deleted. On a single-user project that is invisible (the buffer is
- * always current). With two people editing, a table or column added on the
- * canvas disappears a second later, silently, because someone else happened
- * to be typing.
+ * The client also sends the **baseline**, the exact text the buffer was derived from. Three-way,
+ * name-keyed, case-insensitive:
  *
- * The buffer alone can't distinguish "the user deleted this" from "the user
- * never saw this", so the client also sends the **baseline**: the exact text
- * its buffer was derived from. Three-way, name-keyed and case-insensitive
- * like the rest of this engine:
+ *  - absent from the buffer **and** the baseline: created by someone else since: keep it.
+ *  - absent from the buffer but in the baseline: the author deleted it: let it through.
  *
- *  - absent from the incoming buffer **and** absent from the baseline ->
- *    someone else created it after the buffer was made: keep it.
- *  - absent from the incoming buffer but present in the baseline -> the
- *    author of this buffer really did delete it: let the deletion through.
- *
- * Concurrent *modifications* of the same entity are not merged — the incoming
- * buffer still wins there, the same last-writer-wins the document itself has
- * always had for a single field.
+ * Concurrent *modifications* of the same entity aren't merged: the incoming buffer wins.
  */
 
 const byName = <T extends { name: string }>(items: T[]): Map<string, T> =>

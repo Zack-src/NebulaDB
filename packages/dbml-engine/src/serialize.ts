@@ -131,20 +131,11 @@ function legacyRefSignatures(tables: Table[], ref: Ref): string[] {
 }
 
 /**
- * DBML has no native field for position/color/detail-level/zones/sticky
- * notes, so a plain `.dbml` export/reimport round trip used to drop all of
- * it. `mergeProjectIntoExisting` already covers the common case (reimporting
- * into the *same* project preserves its live state by matching names) but
- * that's no help for a standalone file leaving the app and coming back into
- * a fresh project later, or being handed to someone else's instance.
- *
- * This sidecar is a single trailing `//`-comment line holding a compact JSON
- * blob, keyed by table *name* (the same stable key `mergeProjectIntoExisting`
- * already uses) — a plain comment, so any DBML/SQL tool that doesn't know
- * about it just ignores it. Opt-in on export (see `projectToDbml`'s
- * `includeVisualMetadata` option) so the live-editing DBML panel's text stays
- * clean; always attempted on import, since a pasted-in file either has it or
- * it's a harmless no-op.
+ * DBML has no field for position/colour/detail level/zones/sticky notes. This sidecar is a single
+ * trailing `//` comment line holding a compact JSON blob keyed by table *name* (the key
+ * `mergeProjectIntoExisting` uses), so a standalone `.dbml` file can come back into a fresh
+ * project with its layout. Tools that don't know it ignore it. Opt-in on export
+ * (`includeVisualMetadata`) to keep the live DBML panel clean; always attempted on import.
  */
 const VISUAL_METADATA_MARKER = "// nebuladb:visual ";
 

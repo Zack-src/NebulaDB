@@ -23,7 +23,7 @@ import type { FieldRefInfo } from "@/features/editor/nodes/table/fieldRefInfo";
  * import them without pulling a component in.
  */
 
-export interface TableNodeData {
+interface TableNodeData {
   table: Table;
   /** Field ids that are either endpoint of some ref touching this table — always shown outside compact, even if not PK. */
   refFieldIds: Set<string>;
@@ -76,7 +76,7 @@ export interface TableNodeData {
 
 export type TableNodeType = Node<TableNodeData, "table">;
 
-export interface ZoneNodeData {
+interface ZoneNodeData {
   zone: Zone;
   palette: string[];
   /** True for a `view` grant — every editing affordance on this node is withheld. */
@@ -90,7 +90,7 @@ export interface ZoneNodeData {
 
 export type ZoneNodeType = Node<ZoneNodeData, "zone">;
 
-export interface StickyNoteNodeData {
+interface StickyNoteNodeData {
   note: StickyNote;
   palette: string[];
   /** True for a `view` grant — every editing affordance on this node is withheld. */
@@ -104,7 +104,7 @@ export interface StickyNoteNodeData {
 
 export type StickyNoteNodeType = Node<StickyNoteNodeData, "sticky">;
 
-export interface EnumNodeData {
+interface EnumNodeData {
   enumDef: EnumDef;
   /** True for a `view` grant — every editing affordance on this node is withheld. */
   readOnly?: boolean;
@@ -118,7 +118,7 @@ export interface EnumNodeData {
 
 export type EnumNodeType = Node<EnumNodeData, "enum">;
 
-export interface TableGroupNodeData {
+interface TableGroupNodeData {
   group: TableGroup;
   memberCount: number;
   /** True for a `view` grant — every editing affordance on this node is withheld. */

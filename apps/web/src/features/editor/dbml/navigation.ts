@@ -34,7 +34,7 @@ export function tokenAt(text: string, pos: number): { text: string; from: number
   return { text: text.slice(from, to), from, to };
 }
 
-export interface DefinitionTarget {
+interface DefinitionTarget {
   /** document offset to jump to */
   pos: number;
   /** the clickable source range */
@@ -47,7 +47,7 @@ export interface DefinitionTarget {
  * bare table names (in `Ref` lines, `TableGroup` members or inline settings),
  * enum names used as a column type, and index members inside `indexes { }`.
  */
-export function resolveDefinition(state: EditorState, pos: number): DefinitionTarget | null {
+function resolveDefinition(state: EditorState, pos: number): DefinitionTarget | null {
   const symbols = getSymbols(state);
   const line = state.doc.lineAt(pos);
   const tok = tokenAt(line.text, pos - line.from);

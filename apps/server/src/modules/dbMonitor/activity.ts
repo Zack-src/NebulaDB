@@ -14,16 +14,12 @@ import { createAdminDriver } from "../dbAdmin/drivers/index.js";
 import { normalizeSql } from "../dbAdmin/sqlShape.js";
 
 /**
- * Level 1 of the database-side logs: what the database server itself says
- * is connected and running (`pg_stat_activity`, `PROCESSLIST`, DMVs,
- * `V$SESSION` — read through the console's `listSessions`), whoever opened
- * the session, Nebula or not. A sample is a snapshot: a statement that
- * starts and ends between two samples is not seen, and the page says so.
+ * Level 1 of the database-side logs: what the server itself reports as connected and running
+ * (`pg_stat_activity`, `PROCESSLIST`, DMVs, `V$SESSION`), whoever opened the session. A sample
+ * is a snapshot: statements shorter than the interval are missed.
  *
- * Kept per connection, session fingerprint (account, database, client,
- * statement shape) and UTC day — not one row per sample. The statement has
- * every literal replaced by `?`. Nebula reads, never configures anything on
- * the server (level 2, an audit trail, stays the administrator's to set up).
+ * Kept per connection, session fingerprint and UTC day, with literals replaced by `?`.
+ * Nebula only reads; it never configures auditing on the server.
  */
 
 /** What reads the sessions; an object so a test can replace the one step that needs a live server. */
@@ -52,7 +48,7 @@ export const activityReader = {
   },
 };
 
-export const SAMPLE_EVERY_MINUTES = 5;
+const SAMPLE_EVERY_MINUTES = 5;
 const MAX_ROWS = 500;
 
 /** Adds what the server shows right now to today's rows; returns how many sessions it saw. */

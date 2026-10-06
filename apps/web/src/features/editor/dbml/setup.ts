@@ -80,9 +80,9 @@ import {
 } from "@/features/editor/dbml/commands";
 
 /** Ctrl+S — ask the panel to push the document to the backend right away. */
-export const saveHandler = Facet.define<() => void>();
+const saveHandler = Facet.define<() => void>();
 /** Ctrl+P / Ctrl+Shift+O / Ctrl+Shift+P — open the panel's command palette. */
-export const paletteHandler = Facet.define<(mode: "symbols" | "commands") => void>();
+const paletteHandler = Facet.define<(mode: "symbols" | "commands") => void>();
 
 export const wrapCompartment = new Compartment();
 export const fontCompartment = new Compartment();
@@ -116,7 +116,7 @@ function callFacet<T extends (...args: never[]) => void>(
   return true;
 }
 
-export const dbmlKeymap = keymap.of([
+const dbmlKeymap = keymap.of([
   smartTab,
   // multi-cursor
   { key: "Mod-d", run: selectNextOccurrence, preventDefault: true },

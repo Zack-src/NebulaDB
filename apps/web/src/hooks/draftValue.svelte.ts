@@ -13,19 +13,10 @@ export interface DraftValueHandle {
 }
 
 /**
- * A text input bound to a value owned elsewhere (a shared Yjs document).
- *
- * The property editors each carried hand-written copies of this — a draft
- * state, a re-seed when the underlying entity changed, and a commit that
- * trimmed and compared before writing. They disagreed on the empty case, which
- * is why some fields could be blanked and others silently reverted.
- *
- * The draft re-seeds itself whenever the underlying value changes (a DBML
- * edit, a remote change): it is a writable `$derived` of the source string, so
- * an assignment overrides it until the source moves again. The source is its
- * own `$derived` on purpose — it only notifies the draft when the *string*
- * changes, so a collaborator editing another column of the same table (a new
- * `table` object, same name) doesn't wipe what the user is typing.
+ * A text input bound to a value owned elsewhere (a shared Yjs document): a draft that re-seeds
+ * when the underlying value changes (a DBML edit, a remote change), and a commit that trims and
+ * compares before writing. The draft is a writable `$derived` of a source `$derived` string, so
+ * a collaborator editing another column of the same table doesn't wipe what the user types.
  */
 export function useDraftValue(
   current: () => string,

@@ -2,24 +2,17 @@ import crypto from "node:crypto";
 import type { AccountChange, DbGrant, DbPrincipal } from "@nebuladb/shared";
 
 /**
- * The accounts of a database as one canonical, comparable value: a sorted set
- * of lines, each saying one thing — an account exists, it is locked, it is a
- * member of a role, it holds a privilege on an object. Two reads of the same
- * state give the same lines whatever order the engine listed them in, so the
- * hash of the lines is the fingerprint and the difference between two sets
- * of lines is exactly what changed.
+ * The accounts of a database as one canonical, comparable value: a sorted set of lines, each
+ * saying one thing (an account exists, is locked, belongs to a role, holds a privilege). The
+ * hash of the lines is the fingerprint; the difference between two sets is what changed.
+ * Passwords and hashes are never read.
  *
- * Built from what the administration drivers already list (`listPrincipals`,
- * `listGrants`): names, flags and privileges. A password or its hash is never
- * read, so it can never end up here.
- *
- * Each line is a JSON array, so a name holding a space or a quote cannot be
- * mistaken for two fields:
+ * Each line is a JSON array:
  *   ["account", key]
  *   ["flag", key, "login" | "locked" | "superuser"]
  *   ["member", key, role]
  *   ["grant", key, scope, object, privilege, "" | "grantable" | "denied"]
- *   ["unread", count]           — principals whose grants were not read (over the cap)
+ *   ["unread", count]           principals whose grants were not read (over the cap)
  */
 
 export interface AccountListing {

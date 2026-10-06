@@ -1,33 +1,19 @@
 import type { Field, Project, Ref, RefAction, Table } from "@nebuladb/shared";
 
 /**
- * A schema reduced to what makes it *this* schema, in one canonical form, with
- * a hash per table and one for the whole.
+ * A schema reduced to what makes it *this* schema, in one canonical form, with a hash per table
+ * and one for the whole: the single answer to "has this database changed?" for drift detection,
+ * deployment before/after and environment comparison.
  *
- * It exists so that "has this database changed?" has a single answer shared by
- * everything that asks it — drift detection, the before / after of a
- * deployment, comparing two environments — instead of each of them normalising
- * types and ordering in its own slightly different way.
+ * Kept: tables, columns (type, nullability, default, auto-increment), primary key, unique and
+ * plain indexes (by columns), foreign keys (columns, target, referential actions). Left out:
+ * visuals and notes; **order** (engines disagree); **index and constraint names** (auto-generated
+ * ones differ); **letter case** of identifiers.
  *
- * What is kept: tables, columns (type, nullability, default, auto-increment),
- * primary key, unique and plain indexes (by their columns), foreign keys
- * (columns, target, referential actions). What is deliberately left out:
- *
- * - everything visual, and notes — documentation is not structure;
- * - **order**, of tables, columns and indexes: engines and drivers do not
- *   agree on one, and a schema read twice must hash the same;
- * - **names of indexes and constraints**: auto-generated ones differ from one
- *   database to the next for the same structure;
- * - **letter case** of identifiers, like the migration diff.
- *
- * It is strict on purpose where `diffTargetAgainstLive` is lenient: that diff
- * treats `varchar(255)` and `text` as the same type because it compares a
- * hand-written schema with what an engine reports; a fingerprint compares a
- * database with *itself* at another moment (or with its twin in another
- * environment), where `varchar(255)` becoming `varchar(320)` is exactly the
- * kind of change that must not be missed. Only spellings an engine itself uses
- * interchangeably are unified (`int4` / `integer`, `character varying` /
- * `varchar`…).
+ * Stricter than `diffTargetAgainstLive`, which treats `varchar(255)` and `text` as equal: a
+ * fingerprint compares a database with itself over time, where `varchar(255)` -> `varchar(320)`
+ * must not be missed. Only an engine's own interchangeable spellings are unified (`int4` /
+ * `integer`, `character varying` / `varchar`).
  */
 export interface SchemaFingerprint {
   /** Bumped whenever the canonical form changes: fingerprints of different versions must not be compared. */

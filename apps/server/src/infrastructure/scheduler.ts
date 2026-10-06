@@ -8,7 +8,7 @@
  * (one SQLite file, one process): no queue, no lock table.
  */
 
-export interface JobStatus {
+interface JobStatus {
   name: string;
   everyMs: number;
   running: boolean;
@@ -52,10 +52,6 @@ export function scheduleJob(name: string, everyMs: number, run: () => Promise<vo
       job.lastFinishedAt = new Date().toISOString();
     }
   }
-}
-
-export function listJobs(): JobStatus[] {
-  return [...jobs.values()].map(({ timer: _timer, ...status }) => status);
 }
 
 export function stopAllJobs(): void {

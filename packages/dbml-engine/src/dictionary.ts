@@ -4,13 +4,9 @@ import type { Project } from "@nebuladb/shared";
 // dictionary page and the server's export run the same functions.
 
 /**
- * Data dictionary: what a table or a column *means* — a description, who
- * owns it, how sensitive it is, free tags.
- *
- * All of it lives in the element's DBML `Note`, so it follows the schema
- * wherever the schema goes (history, export, a pull request on the `.dbml`
- * file) with no second store to keep in step. The description is the note's
- * text; the rest are bracketed annotations after it:
+ * Data dictionary: what a table or column *means* (description, owner, sensitivity, tags). All of
+ * it lives in the element's DBML `Note`, so it follows the schema everywhere with no second store.
+ * The description is the note's text; the rest are bracketed annotations after it:
  *
  *   'Customer accounts. [owner: crm-team] [class: personal] [tags: rgpd, core]'
  *

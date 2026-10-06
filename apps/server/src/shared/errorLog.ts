@@ -2,17 +2,9 @@ import { randomUUID } from "node:crypto";
 import { db } from "../infrastructure/db.js";
 
 /**
- * Aggregated unexpected errors — server-side unhandled throws and Fastify
- * 500s, plus client-side render crashes `ErrorBoundary` reports — in one
- * place an operator can actually look at. Before this, `uncaughtException`
- * was logged and survived (see `index.ts`) but nothing *aggregated* it
- * anywhere, and the client side reported nothing at all: a real incident was
- * knowable only by reading process logs live or grepping them after the
- * fact.
- *
- * Deliberately not a compliance trail like `audit.ts` — it's a debugging
- * aid, so it's capped by row count (see `recordError`'s trim) rather than
- * dated retention, and needs no new configuration to work.
+ * Unexpected errors in one place: server unhandled throws and 500s, plus client render crashes
+ * reported by `ErrorBoundary`. A debugging aid, not a compliance trail like `audit.ts`: capped
+ * by row count rather than dated retention.
  */
 
 export type ErrorSource = "server" | "client";

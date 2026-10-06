@@ -35,11 +35,6 @@ const builtin: DataGeneratorProvider = {
 
 const providers = new Map<string, DataGeneratorProvider>([[builtin.id, builtin]]);
 
-/** Adds a provider. Enabling one for an instance or a project is the caller's decision — nothing here turns it on. */
-export function registerDataGeneratorProvider(provider: DataGeneratorProvider): void {
-  providers.set(provider.id, provider);
-}
-
 export function getDataGeneratorProvider(id = "builtin"): DataGeneratorProvider {
   const provider = providers.get(id);
   if (!provider) throw new ApiError("GENERATOR_INVALID", { message: `unknown generator provider: ${id}` });

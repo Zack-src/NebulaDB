@@ -1,17 +1,9 @@
 import { time } from "@/utils/perfMonitor";
 
 /**
- * Coalesces every "re-measure this node's handles" request raised in the same
- * tick into one batched call, instead of one call per table.
- *
- * `TableNode` asks the flow to re-measure a table's handle bounds whenever its
- * own field order changes — each table decides this for itself, independently.
- * The flow's own `updateNodeInternals` accepts a batch, but N separate
- * single-id calls (one per table) still cost N separate absolute-position
- * passes over *every* node — O(tables²) for anything that touches every
- * table's field order at once (the detail-level toggle chief among them). One
- * shared place collects what every table asked for and does the real work
- * exactly once.
+ * Coalesces every "re-measure this node's handles" request raised in one tick into a single
+ * batched call. Separate single-id `updateNodeInternals` calls each cost a pass over every node
+ * (O(tables^2) when every table's field order changes at once, e.g. the detail-level toggle).
  */
 
 let pending = new Set<string>();

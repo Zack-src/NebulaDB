@@ -26,7 +26,7 @@ const KEY_PREFIX = "ndb";
 /** 10 chars of the plaintext key kept for display (`ndb_3f9a2b81…`), never enough to guess the rest. */
 const DISPLAY_PREFIX_LENGTH = 10;
 
-export interface ApiKeyRow {
+interface ApiKeyRow {
   id: string;
   user_id: string;
   name: string;

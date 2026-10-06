@@ -3,22 +3,12 @@ import type { TableNodeType } from "@/features/editor/nodes/nodeTypes";
 import { setsEqual } from "@/utils/setsEqual";
 
 /**
- * Reuses the previous node object for every table whose inputs are unchanged.
+ * Reuses the previous node object for every table whose inputs are unchanged. The Yjs layer
+ * hands back a whole new `Project` on every doc update, and rebuilding each table's `data`
+ * (fifteen closures) at 500 tables is ~7500 allocations for a one-column edit.
  *
- * `buildTableNodes` rebuilds each table's `data` — fifteen fresh closures per
- * table — on *any* project change, because the Yjs layer hands back a whole
- * new `Project` on every doc update, even one editing a single unrelated
- * table. At 500 tables that is ~7500 closures allocated for a one-column
- * edit, and a `data` object whose identity always changes, so Svelte Flow's
- * own node diffing and `TableNode`'s `memo` comparator both have to do their
- * full per-table work every time instead of bailing out on `a === b`.
- *
- * The cache turns that into "rebuild the one table that actually changed".
- * Everything the node's `data` closes over is compared: the Yjs-stable
- * `table` object by reference, `refFieldIds` by content (the Map it comes
- * from is rebuilt every project change by design), and the rest — palette,
- * permissions, the per-table slice of the field selection, and the callback
- * identities — by reference.
+ * Compared: the Yjs-stable `table` by reference, `refFieldIds` by content, and the rest
+ * (palette, permissions, the table's slice of the field selection, callbacks) by reference.
  */
 export interface TableNodeCacheEntry {
   node: TableNodeType;

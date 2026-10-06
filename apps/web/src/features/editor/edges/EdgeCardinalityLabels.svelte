@@ -21,25 +21,13 @@
 <script lang="ts">
   import { endpointLabelAnchor, polylineLength, type Point } from "@/features/editor/edges/pathMath";
 
-  /**
-   * The "1"/"n" markers at each end of a ref, dbdiagram-style — shown alongside
-   * (not instead of) the midpoint pill, which is this app's own addition and
-   * stays because it's also where the edge's colour/reset/settings controls live.
-   *
-   * Three things make them readable where a bare span was not:
-   *  - they sit *beside* the line (perpendicular offset), not centred on it;
-   *  - they're opaque chips, so a line crossing behind one doesn't run through
-   *    the glyph the way it did through a text-shadow halo;
-   *  - only the first ref at a given handle (slot 0, assigned in `canvasEdges`)
-   *    draws that end's chip at all. Several refs sharing a column handle all
-   *    mean the exact same thing there ("1" on that column, every time) —
-   *    showing it once per ref used to stagger a run of identical "1"s down the
-   *    table's edge instead of reporting the one fact once.
-   *
-   * Sizes are divided by zoom because the edge-label layer rides the viewport
-   * transform: without it a chip is illegibly small zoomed out and absurd
-   * zoomed in, while the stroke it annotates stays constant.
-   */
+    /**
+     * The "1"/"n" markers at each end of a ref, dbdiagram-style, beside the midpoint pill (which
+     * also holds the edge's colour/reset/settings controls). They sit beside the line, as opaque
+     * chips; only the first ref at a handle (slot 0, assigned in `canvasEdges`) draws its end's chip,
+     * since refs sharing a column all mean the same thing there. Sizes are divided by zoom because
+     * the edge-label layer rides the viewport transform.
+     */
   let {
     points,
     sourceLabel,

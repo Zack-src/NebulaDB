@@ -6,36 +6,18 @@ import { INPUT_XS_CLASS, LABEL_XS_CLASS } from "@/components/ui/inputStyles";
 export const DEFAULT_HEADER_COLOR = "#334155";
 
 /**
- * `nodrag`: Svelte Flow's own node-selection gesture and its drag-the-node
- * gesture are the same pointerdown-driven system, gated by this one class —
- * without it, clicking a row to select *that column* also selected the whole
- * table underneath it (Svelte Flow resolves selection at the start of the
- * gesture, before it can tell a click from a drag), which was why a link kept
- * glowing long after the column stopped being hovered: the table stayed
- * "selected" until something else was clicked. Dragging the table by grabbing
- * a row is lost as a side effect, which is the right trade — a row is already
- * busy with its own click-to-select and button interactions, and the header
- * remains a clear, unambiguous drag handle.
+ * `nodrag`: Svelte Flow's node selection and node drag share one pointerdown-driven gesture gated
+ * by this class. Without it, clicking a row to select *that column* also selected the whole table.
+ * Dragging a table by a row is lost, which is the right trade: the header stays the drag handle.
  */
 export const ROW_CLASS =
   "group relative flex h-[calc(27px_*_var(--canvas-font-scale))] cursor-pointer items-center gap-[7px] " +
   "whitespace-nowrap border-t border-border px-2.5 transition-colors duration-100 hover:bg-surface-hover nodrag";
 /**
- * Row state markers, styled in `styles/canvas.css` rather than returned as
- * utility classes here.
- *
- * The "highlight every relation" toggle used to reach each row as a
- * prop (`highlightLinks` on every table node's data), so flipping it rebuilt
- * every node's data and re-rendered every table and every column on the
- * canvas — 53s of blocking time on a 500-table schema at full detail, for
- * what is a pure change of colour. It is now a single class on the canvas
- * root (`canvas-links-highlighted`, see `CanvasArea`) that CSS combines with
- * each row's own `is-fk` marker, so the toggle costs one class mutation and
- * no component work at all.
- *
- * `is-linked` stays component state: unlike the global toggle it is per
- * row (this column is on the selected/hovered relation) and changes with the
- * data the row already re-renders for.
+ * Row state markers, styled in `styles/canvas.css` rather than as utility classes. The "highlight
+ * every relation" toggle is a single class on the canvas root (`canvas-links-highlighted`) that
+ * CSS combines with each row's `is-fk`; passing it as a prop re-rendered every row on the canvas.
+ * `is-linked` stays component state: it is per row and changes with data the row re-renders for.
  */
 export function rowStateClass(isLinked: boolean, isForeignKey: boolean, isSelected: boolean): string {
   return [isLinked ? "is-linked" : "", isForeignKey ? "is-fk" : "", isSelected ? "is-selected" : ""]
@@ -58,8 +40,7 @@ export const ROW_TYPE_CLASS =
  * Hidden with `invisible`, not `opacity-0`: an element at opacity 0 is still
  * painted, through an effect node of its own in the browser's property tree.
  * Several of those per column row, on every row of every table, is what the
- * compositor spent most of a pan or zoom frame sorting through (see
- * `docs/perf/canvas-perf-2026-10-06.md`). An invisible element paints nothing.
+ * compositor spent most of a pan or zoom frame sorting through). An invisible element paints nothing.
  */
 export const ROW_DRAG_HANDLE_CLASS =
   "invisible flex h-5 w-3.5 shrink-0 cursor-grab items-center justify-center rounded-sm text-text-muted " +
@@ -91,22 +72,13 @@ export const ROW_ACTION_BTN_CLASS =
   "hover:bg-surface-hover hover:text-text [&.has-comments]:bg-surface-hover [&.has-comments]:text-text " +
   "[&.has-open-popover]:bg-surface-hover [&.has-open-popover]:text-text";
 
-// `content-visibility: auto` lets the browser skip layout/paint for a table
-// currently scrolled out of the viewport, without unmounting it the way
-// Svelte Flow's own `onlyRenderVisibleElements` does — that flag was measured
-// and deliberately left off (see `CanvasArea.svelte`'s comment on it) because
-// the mount/unmount churn it caused cost more than the paint work it saved.
-// `content-visibility` gets the same skip without that churn: the DOM node
-// stays put. `contain-intrinsic-size` gives the browser a placeholder box to
-// lay out while a table is skipped — set to this app's own existing
-// "unmeasured table" guess (`DEFAULT_TABLE_WIDTH`/`HEIGHT` in
-// `refGeometry.ts`) so an edge terminating at a currently-skipped table still
-// gets a reasonable box instead of collapsing to zero. `auto` makes that guess
-// a first-time fallback only: once a table has been rendered, its real size is
-// what it keeps while skipped. Without it every table snapped back to 220×120
-// on leaving the viewport and to its real size on coming back — a resize the
-// flow answers by re-measuring the table and all its handles, which is what a
-// zoom-out spent a third of its script time doing.
+// `content-visibility: auto` lets the browser skip layout/paint for tables scrolled out of view
+// without unmounting them (Svelte Flow's `onlyRenderVisibleElements` was measured and left off:
+// the mount/unmount churn cost more). `contain-intrinsic-size` is the placeholder box while
+// skipped: the app's own "unmeasured table" guess (`refGeometry.ts`), so an edge ending at a
+// skipped table still gets a reasonable box. `auto` makes it a first-time fallback only: once
+// rendered, a table keeps its real size, so leaving and re-entering the viewport doesn't trigger a
+// resize that makes the flow re-measure the table and all its handles.
 export const TABLE_NODE_CLASS =
   "min-w-[190px] overflow-hidden rounded-sm [transition:box-shadow_0.12s_ease,border-color_0.12s_ease] " +
   "border border-border bg-surface text-[calc(12.5px_*_var(--canvas-font-scale))] shadow-sm " +

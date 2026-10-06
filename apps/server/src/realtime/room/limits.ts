@@ -14,28 +14,15 @@ import type { RoomLogger } from "./logger.js";
 export const LIMIT_ORIGIN = "system";
 
 /**
- * Re-applies the shared per-field length/array-length limits to everything
- * `pending` says changed, truncating anything over its cap, then — for
- * collections with a top-level count limit — deletes back down to it.
- * Mutates `pending`'s entries away as it goes (the caller's map is cleared by
- * the caller itself; this only reads it) and writes via `doc.transact` under
- * `LIMIT_ORIGIN`, so the same collection observer that fed `pending` won't
- * re-queue the correction.
+ * Re-applies the shared length limits to everything `pending` says changed, truncating what is
+ * over its cap, then deletes collections back down to their count limit. Writes via
+ * `doc.transact` under `LIMIT_ORIGIN` so the observer that fed `pending` doesn't re-queue it.
  *
- * The client's `maxLength` attributes (and the fact the UI has no "add
- * table #2001" button) are UX only: a WS frame is raw Yjs ops, so a
- * non-browser client (or a patched one) can put a megabyte in a table name,
- * or just keep inserting tables forever, and `Room.receive()` would happily
- * apply either — the permission check is the only thing that ever looked at
- * these frames. Clamping/deleting here rather than rejecting the frame keeps
- * the CRDT convergent: the offender's ops stay in the log, and the
- * correction is just another edit everyone (including the offender)
- * receives.
+ * Client `maxLength` is UX only: a WS frame is raw Yjs ops, so non-browser clients could insert
+ * unbounded data. Clamping rather than rejecting keeps the CRDT convergent.
  *
- * The count cap only ever removes entities from *this transaction's own*
- * newly-touched set, never pre-existing ones — a burst that pushes a
- * project over the limit loses its own excess, a legitimate project that
- * happens to already be large is never touched by a later unrelated edit.
+ * The count cap only removes entities from *this transaction's* newly-touched set, so an
+ * already-large legitimate project is never trimmed by an unrelated edit.
  */
 export function enforceLimits(
   doc: Y.Doc,

@@ -1,14 +1,7 @@
 /**
- * Copy text to the clipboard, everywhere.
- *
- * `navigator.clipboard` only exists in a secure context — which a self-hosted
- * install reached over plain HTTP on a LAN address is not — so every direct
- * call site was a `TypeError` waiting for the first deployment without TLS.
- * The modern path is also permission-gated and can reject, so it is wrapped
- * too, with the legacy `execCommand` route as the fallback.
- *
- * Returns whether the text made it, so callers can show a confirmation only
- * when there is something to confirm.
+ * Copy text to the clipboard, everywhere. `navigator.clipboard` only exists in a secure context
+ * (not plain HTTP on a LAN) and can reject, so `execCommand` is the fallback. Returns whether the
+ * text made it, so callers confirm only when there is something to confirm.
  */
 export async function copyText(text: string): Promise<boolean> {
   try {

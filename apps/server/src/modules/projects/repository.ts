@@ -2,7 +2,7 @@ import { db } from "../../infrastructure/db.js";
 
 export type ProjectStatus = "active" | "archived" | "trashed";
 
-export const PROJECT_STATUSES: ProjectStatus[] = ["active", "archived", "trashed"];
+const PROJECT_STATUSES: ProjectStatus[] = ["active", "archived", "trashed"];
 
 export function isProjectStatus(value: unknown): value is ProjectStatus {
   return typeof value === "string" && (PROJECT_STATUSES as string[]).includes(value);

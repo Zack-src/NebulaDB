@@ -30,7 +30,7 @@ export default tseslint.config(
   {
     // Static design references contain script fragments assembled by the mockup,
     // rather than standalone application modules.
-    ignores: ["**/dist/**", "**/node_modules/**", "**/data/**", "docs/refonte-ui/maquette/**"],
+    ignores: ["**/dist/**", "**/node_modules/**", "**/data/**"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

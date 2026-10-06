@@ -3,20 +3,12 @@ import type { DatabaseConnectionConfig } from "@nebuladb/shared";
 import { ApiError } from "../../shared/errors.js";
 
 /**
- * Per-*target-database* rate limiting (Phase 27 residual gap). The per-IP
- * route limits don't cover this: the session UI's connection routes had
- * none, `/api/v1` counts per caller, and nothing stopped one project — or
- * several connections pointing at the same server — from opening connection
- * after connection against somebody's real database through this app.
+ * Per-*target-database* rate limiting, on top of the per-IP route limits: one project, or
+ * several connections to the same server, must not open connection after connection against
+ * somebody's real database.
  *
- * Keyed by where the traffic actually lands (engine + host + port + database,
- * or the SQLite file), not by connection id, so the ad-hoc "test connection"
- * route and two saved connections to the same server share one budget. The
- * key is a hash: a connection string can carry a password, and a rate-limit
- * table is no place to keep one.
- *
- * In-memory and per process, like the rest of the app's rate limiting — a
- * single-instance deployment is the supported topology (docker-compose).
+ * Keyed by a hash of where traffic lands (engine + host + port + database, or the SQLite
+ * file), not by connection id. In-memory, per process.
  */
 
 export type BudgetKind = "connect" | "write" | "admin" | "adminWrite";

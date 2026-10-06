@@ -21,11 +21,11 @@ import { invalidateWebhookCache } from "../webhooks/dispatcher.js";
  */
 
 /** Ceiling on projects owned by one account. An abuse backstop in the same spirit as the per-project entity caps in `@nebuladb/shared` — generous enough that no real user meets it, low enough that a scripted loop can't fill the disk with empty projects. */
-export const MAX_PROJECTS_PER_USER = 500;
-export const MAX_PROJECT_NAME_LENGTH = 200;
+const MAX_PROJECTS_PER_USER = 500;
+const MAX_PROJECT_NAME_LENGTH = 200;
 
 /** Validates and normalises a submitted project name, throwing the right 400 on failure. */
-export function parseProjectName(name: unknown): string {
+function parseProjectName(name: unknown): string {
   const trimmed = typeof name === "string" ? name.trim() : "";
   if (!trimmed) throw new ApiError("NAME_REQUIRED");
   if (trimmed.length > MAX_PROJECT_NAME_LENGTH) throw new ApiError("NAME_TOO_LONG");

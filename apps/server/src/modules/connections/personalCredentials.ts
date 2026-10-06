@@ -6,20 +6,13 @@ import { decryptPayload, encryptPayload } from "../../shared/crypto.js";
 import { ApiError } from "../../shared/errors.js";
 
 /**
- * Personal database accounts.
+ * Personal database accounts. In `personal` mode each user gives their own account, and
+ * everything done through Nebula (deploy, pull, compare, browse, SQL, backup) runs as it, so
+ * the database's own logs and permissions apply.
  *
- * A connection in `personal` mode is not used with one shared account: each
- * Nebula user gives their own account on that database, and whatever they do
- * through Nebula — deploy, pull, compare, browse, run SQL, back up — is done
- * as that account. The database's own logs then say who did what, and its own
- * permissions decide what each person may do.
- *
- * The connection's own account stays as the **service account**: the one
- * unattended work uses (the watch, scheduled backups, health checks), since no
- * person is behind it. It can be a read-only account.
- *
- * The rule that matters: a person never falls back to the service account. No
- * personal account, no connection — `PERSONAL_CREDENTIALS_REQUIRED`.
+ * The connection's own account stays the **service account** for unattended work (watch,
+ * scheduled backups, health checks). A person never falls back to it:
+ * no personal account, no connection (`PERSONAL_CREDENTIALS_REQUIRED`).
  */
 
 interface CredentialRow {

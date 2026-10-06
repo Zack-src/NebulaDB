@@ -43,7 +43,7 @@ export const MINIMAP_PAN_DURATION_MS = 350;
  * stricter floor on one side would clamp that shared value up the moment it
  * mounts, silently overwriting what the other side had saved.
  */
-export const CANVAS_MIN_ZOOM = 0.05;
+const CANVAS_MIN_ZOOM = 0.05;
 
 /** Viewport-behavior props common to both canvases — spread onto `<SvelteFlow>` rather than repeated. */
 export const CANVAS_VIEWPORT_PROPS = {

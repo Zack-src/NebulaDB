@@ -10,7 +10,7 @@ import type {
   TableLock,
 } from "@nebuladb/shared";
 
-export interface EntityNodeData {
+interface EntityNodeData {
   entity: McdEntity;
   /** The table this entity was derived from — read only for its header colour, same as `TableNode`. */
   sourceTable?: Table;
@@ -22,7 +22,7 @@ export interface EntityNodeData {
 
 export type EntityNodeType = Node<EntityNodeData, "entity">;
 
-export interface AssociationNodeData {
+interface AssociationNodeData {
   association: McdAssociation;
   /** Set when this association was collapsed from a junction table — carries that table's own colour, same as any other table. */
   sourceTable?: Table;
@@ -33,7 +33,7 @@ export interface AssociationNodeData {
 
 export type AssociationNodeType = Node<AssociationNodeData, "association">;
 
-export interface McdEdgeData {
+interface McdEdgeData {
   /** The Merise `min,max` pair for this leg — shown as a chip at the midpoint of the line. */
   cardinality: McdCardinality;
   [key: string]: unknown;

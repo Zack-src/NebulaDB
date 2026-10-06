@@ -1,288 +1,125 @@
 # NebulaDB
 
-Previously AthanorDB. See [the rename migration guide](docs/renommage-nebuladb.md) for existing installations.
+Self-hosted DBML schema editor with real-time collaboration, history, and a workbench for the databases it models. Your data stays on your server.
 
-Self-hosted, DBML-native database schema diagramming — think dbdiagram.io, but running entirely on your own machine or LAN, with real-time multi-user editing and full history built in.
+## Run it
 
-Your data stays on your server; nothing is sent anywhere else. Note that this is _not_ local-first in the technical sense: state lives on the server, and the browser needs a connection to it. An open tab survives a network blip and resyncs on reconnect (see the reconnect logic in `yjsClient.ts`), but there is no offline persistence — closing the tab mid-outage loses unsynced edits.
-
-## Installation
-
-Requires Node 22-25 (`engines` in `package.json`; `.nvmrc`/`.node-version` pin **22**, the
-version this project is developed and tested against — also verified working on Node 24).
-The server's SQLite driver (`better-sqlite3`) is a native addon; recent 13.x releases ship
-prebuilt binaries for these Node versions, so a plain `npm install` works without a C++
-toolchain. If you need to match the pinned version exactly (e.g. to rule out a
-version-specific issue) and don't have admin rights to install Node normally:
-
-1. Download the "Windows Binary (.zip)" for Node 22 LTS from [nodejs.org](https://nodejs.org/en/download).
-2. Unzip it anywhere in your user profile (e.g. `C:\Users\<you>\node22`).
-3. Point your shell at it for this project, e.g. in PowerShell: `$env:PATH = "C:\Users\<you>\node22;$env:PATH"` (do this once per terminal session, or add it to your PowerShell profile).
-4. Confirm with `node -v` (should print `v22.x`), then proceed below as normal.
+Node 22–25 required.
 
 ```bash
 npm install
-npm run dev          # server (:3001) + web (:5173) together, with hot reload
+npm run bootstrap-admin -- you@example.com 'a-strong-password'   # first admin, once
+npm run dev                                                       # server :3001 + web :5173
 ```
 
-Production (single process, single port — the server serves the built web app itself):
+Production (one process, one port; the server also serves the web app):
 
 ```bash
 npm run build
-npm start             # http://localhost:3001
+npm start                                                         # http://localhost:3001
 ```
 
-### Configuration
-
-Every value is validated at startup — a malformed one exits immediately with a `[config]` message rather than silently falling back.
-
-| Variable                                        | Default                                     | Purpose                                                                                                                                                                                                                                                                                                                                                                                    |
-| ----------------------------------------------- | ------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `NEBULADB_DB_PATH`                              | `./data/nebuladb.sqlite`                    | SQLite file. Its directory is created if missing.                                                                                                                                                                                                                                                                                                                                          |
-| `PORT`                                          | `3001`                                      | HTTP/WS port.                                                                                                                                                                                                                                                                                                                                                                              |
-| `NEBULADB_SECRET`                               | unset                                       | Encryption key (AES-256-GCM) for sensitive data at rest: live database connection credentials and TOTP secrets. Not required to boot — only enforced the moment either feature is actually used, so a fresh install that uses neither isn't refused a start over an unrelated env var. Generate one with `openssl rand -hex 32` before setting up a database connection or turning on 2FA. |
-| `NEBULADB_COOKIE_SECURE`                        | unset (= `false`)                           | Marks the session cookie `Secure`. **Set to `true` when running behind TLS** — with `NODE_ENV=production` and this unset, the server warns loudly at boot.                                                                                                                                                                                                                                 |
-| `NEBULADB_ALLOWED_ORIGINS`                      | unset                                       | Comma-separated extra origins allowed to make state-changing requests. The app's own host is always allowed; this is only needed if the UI is served from a different origin than the API.                                                                                                                                                                                                 |
-| `NEBULADB_MAX_BODY_MB`                          | `4`                                         | Max REST request body (DBML/SQL imports are the large ones).                                                                                                                                                                                                                                                                                                                               |
-| `NEBULADB_MAX_WS_FRAME_MB`                      | `8`                                         | Max size of a single WebSocket frame (one Yjs update).                                                                                                                                                                                                                                                                                                                                     |
-| `NEBULADB_LOG_LEVEL`                            | `info`                                      | One of `fatal`, `error`, `warn`, `info`, `debug`, `trace`, `silent`. Session cookies and `Authorization` headers are redacted from logs at every level.                                                                                                                                                                                                                                    |
-| `NEBULADB_BACKUP_INTERVAL_HOURS`                | `0` (off)                                   | Hours between automatic backups. Off by default so an operator with their own volume-snapshot strategy doesn't get a second, unasked-for one.                                                                                                                                                                                                                                              |
-| `NEBULADB_BACKUP_DIR`                           | `./backups`                                 | Where scheduled backups are written, one timestamped directory per run.                                                                                                                                                                                                                                                                                                                    |
-| `NEBULADB_BACKUP_KEEP`                          | `7`                                         | How many backup directories to keep. Older ones are pruned after each run — unbounded backups fill the disk the database lives on.                                                                                                                                                                                                                                                         |
-| `NEBULADB_DATABASE_BACKUP_DIR`                  | `database-backups` next to the app database | Where backups of the _connected_ databases are stored (the console's Sauvegardes tab): one encrypted file each. Unrelated to `NEBULADB_BACKUP_DIR`, which holds NebulaDB's own data.                                                                                                                                                                                                       |
-| `NEBULADB_DATABASE_BACKUP_MAX_MB`               | `512`                                       | Ceiling on the data one backup of a connected database may read, before compression. Over it the backup fails and says so: a logical backup is for small and medium databases, the engine's own tool for the rest.                                                                                                                                                                         |
-| `NEBULADB_DATABASE_BACKUP_RETENTION_DAYS`       | `30`                                        | Days a backup of a connected database is kept before the hourly sweep deletes it. `0` keeps them until someone deletes them; a pinned backup is never swept.                                                                                                                                                                                                                               |
-| `NEBULADB_AUDIT_RETENTION_DAYS`                 | `365`                                       | How long audit entries are kept before the hourly sweep deletes them. `0` keeps them indefinitely. If you change this, update your privacy policy to match.                                                                                                                                                                                                                                |
-| `NEBULADB_QUERY_STATS_RETENTION_DAYS`           | `30`                                        | How many days of the SQL console's per-statement figures (a connection's Journal → Requêtes: statement shape with values replaced by `?`, run count, durations, last author) are kept. `0` keeps them indefinitely.                                                                                                                                                                        |
-| `NEBULADB_SECRET_PREVIOUS`                      | unset                                       | The previous `NEBULADB_SECRET`, set only while rotating it: data still encrypted with the old key stays readable. Rotation: put the old value here, the new one in `NEBULADB_SECRET`, run `npm run rotate-secret`, then remove this variable.                                                                                                                                              |
-| `NEBULADB_SQLITE_DIR`                           | unset                                       | When set, a SQLite database connection may only open a file inside this directory. Unset, any file the server process can read is accepted (except NebulaDB's own database). Recommended on a shared host.                                                                                                                                                                                 |
-| `NEBULADB_CONNECTION_HEALTH_INTERVAL_MINUTES`   | `15`                                        | Minutes between background connectivity checks of the saved database connections (the status dot in the admin console). One light probe per connection; `0` disables it.                                                                                                                                                                                                                   |
-| `NEBULADB_PUBLIC_URL`                           | unset                                       | The URL users reach the app at (e.g. `https://schemas.example.com`), used for the links in emails. Required when email is on. Never derived from the request's `Host` header, so a forged header can't redirect a reset link.                                                                                                                                                              |
-| `NEBULADB_SMTP_HOST`                            | unset (= email off)                         | SMTP server. Unset, no email is sent: invitation links are copied by hand from the admin console and "forgot password" isn't offered. Set, invitations are emailed and self-service password reset is enabled.                                                                                                                                                                             |
-| `NEBULADB_SMTP_PORT`                            | `587`                                       | SMTP port.                                                                                                                                                                                                                                                                                                                                                                                 |
-| `NEBULADB_SMTP_SECURE`                          | `true` on port 465                          | Implicit TLS. With `false`, the connection still upgrades via STARTTLS when the server offers it.                                                                                                                                                                                                                                                                                          |
-| `NEBULADB_SMTP_USER` / `NEBULADB_SMTP_PASSWORD` | unset                                       | SMTP credentials, if your server requires them. Setting the user without the password fails at boot.                                                                                                                                                                                                                                                                                       |
-| `NEBULADB_SMTP_FROM`                            | unset                                       | Sender, e.g. `NebulaDB <noreply@example.com>`. Required when `NEBULADB_SMTP_HOST` is set.                                                                                                                                                                                                                                                                                                  |
-
-`SIGTERM`/`SIGINT` shut down gracefully: connections stop, every live document is snapshotted to SQLite, then the database is closed — so `docker stop` doesn't drop the last few seconds of edits.
-
-### Observability
-
-- `GET /api/health` — `{status, projects, rooms, uptimeSeconds}`; `503` if the database is unreachable. Point a container healthcheck or uptime monitor at this.
-- `GET /api/metrics` — Prometheus text format: room/connection counts, hot-path timing (snapshot-write latency included), error counts since boot. No auth, same reasoning as `/api/health` — put it behind the reverse proxy if that's wrong for your deployment.
-- `GET /api/errors` (admin-only, also in _Admin console → Errors_) and `POST /api/errors/client` — unhandled server errors and reported client-side render crashes, capped at the most recent 2000 rows. A debugging aid, not a compliance trail like the audit log below.
-
-### Logs
-
-Structured JSON to stdout (Pino, via Fastify's built-in logger), level set by `NEBULADB_LOG_LEVEL`; session cookies and `Authorization` headers are redacted at every level. Every `Room`'s own logs (revision/snapshot write failures, over-length input clamped, a connection losing access) go through the same logger, tagged with a `room` field — see `realtime/room/logger.ts` for why that's a room id, not a per-request id, on those specific lines.
-
-The app never rotates or deletes its own log output — that's the container runtime's or process manager's job:
-
-- **Docker**: `docker-compose.yml` sets the `json-file` driver with `max-size: 10m` / `max-file: 5` (50 MB max, oldest dropped first). Docker's own default has no cap and grows the host disk unbounded, so this isn't optional if you edited the driver away.
-- **Bare process / systemd**: stdout under a systemd unit already goes through journald, which has its own rotation (`journald.conf`'s `SystemMaxUse`, etc.) — nothing extra needed. Redirecting to a file yourself (`> nebuladb.log`) means you own rotation too; `logrotate` is the standard tool.
-
-If you run an instance other people use, you are the service operator and the data controller — see [`docs/legal/`](docs/legal/README.md) for terms-of-service and privacy-policy templates written against what this software actually stores and for how long.
-
-Most configuration is plain environment variables, no secret-management integration needed — with one exception: `NEBULADB_SECRET` above, required the moment you connect a project to a live database or turn on two-factor authentication. Set it before either feature is used; nothing here needs it before that.
-
-### Docker
+Docker (data in the `nebuladb-data` volume):
 
 ```bash
 docker compose up --build
 ```
 
-Serves on `:3001`, with project data persisted in a named volume (`nebuladb-data`) rather than the container's own filesystem.
+Other accounts are created by invitation from the admin console.
 
-> **One process per database.** State lives in SQLite plus in-memory collaboration rooms held by the server process. Running two containers against the same volume will corrupt data — this does not scale horizontally by adding replicas. Scale up (a bigger box), not out.
+## Configuration
 
-### Running behind a reverse proxy
+Environment variables, or `apps/server/.env` (see [`.env.example`](apps/server/.env.example)). Invalid values stop the server at boot with a `[config]` message.
 
-The single-process deployment serves the API, the WebSocket and the built web app on one port, so a proxy needs to do three things:
+| Variable                                                                     | Default                  | What it does                                                                                                |
+| ---------------------------------------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------- |
+| `PORT`                                                                       | `3001`                   | HTTP and WebSocket port.                                                                                    |
+| `NEBULADB_DB_PATH`                                                           | `./data/nebuladb.sqlite` | SQLite file for all app data.                                                                               |
+| `NEBULADB_SECRET`                                                            | —                        | Encrypts stored database credentials and 2FA secrets. Required before using either. `openssl rand -hex 32`. |
+| `NEBULADB_SECRET_PREVIOUS`                                                   | —                        | Old secret, only while rotating (`npm run rotate-secret`).                                                  |
+| `NEBULADB_COOKIE_SECURE`                                                     | `false`                  | Set `true` behind TLS.                                                                                      |
+| `NEBULADB_ALLOWED_ORIGINS`                                                   | —                        | Extra allowed origins, comma-separated.                                                                     |
+| `NEBULADB_PUBLIC_URL`                                                        | —                        | Public URL, used in emails. Required with SMTP.                                                             |
+| `NEBULADB_SMTP_HOST` / `_PORT` / `_SECURE` / `_USER` / `_PASSWORD` / `_FROM` | — / `587`                | Email for invitations and password reset. Off when no host.                                                 |
+| `NEBULADB_LOG_LEVEL`                                                         | `info`                   | `fatal` … `trace`, `silent`.                                                                                |
+| `NEBULADB_MAX_BODY_MB`                                                       | `4`                      | Max request body.                                                                                           |
+| `NEBULADB_MAX_WS_FRAME_MB`                                                   | `8`                      | Max WebSocket frame.                                                                                        |
+| `NEBULADB_BACKUP_INTERVAL_HOURS`                                             | `0` (off)                | Automatic backups of every project.                                                                         |
+| `NEBULADB_BACKUP_DIR`                                                        | `./backups`              | Where they go.                                                                                              |
+| `NEBULADB_BACKUP_KEEP`                                                       | `7`                      | How many to keep.                                                                                           |
+| `NEBULADB_DATABASE_BACKUP_DIR`                                               | next to the app database | Backups of connected databases.                                                                             |
+| `NEBULADB_DATABASE_BACKUP_MAX_MB`                                            | `512`                    | Max data read by one backup.                                                                                |
+| `NEBULADB_DATABASE_BACKUP_RETENTION_DAYS`                                    | `30`                     | Days kept; `0` = forever.                                                                                   |
+| `NEBULADB_AUDIT_RETENTION_DAYS`                                              | `365`                    | Audit log retention; `0` = forever.                                                                         |
+| `NEBULADB_QUERY_STATS_RETENTION_DAYS`                                        | `30`                     | SQL console statistics retention.                                                                           |
+| `NEBULADB_DB_ACTIVITY_RETENTION_DAYS`                                        | `14`                     | Database activity history retention.                                                                        |
+| `NEBULADB_CONNECTION_HEALTH_INTERVAL_MINUTES`                                | `15`                     | Connection health checks; `0` = off.                                                                        |
+| `NEBULADB_SQLITE_DIR`                                                        | —                        | Restrict SQLite connections to this folder.                                                                 |
 
-1. **Terminate TLS and set `NEBULADB_COOKIE_SECURE=true`.** Sessions are cookie-based; without this the cookie is not marked `Secure`.
-2. **Forward the WebSocket upgrade** on `/ws/`. A proxy that drops `Upgrade`/`Connection` headers leaves the app loading normally and then silently never syncing — the client will show `reconnecting…` forever.
-3. **Preserve `Host`, or set `NEBULADB_ALLOWED_ORIGINS`.** State-changing requests are rejected when the browser's `Origin` doesn't match the request's `Host` (a CSRF defence). A proxy that rewrites `Host` to its upstream target breaks every login until the browser-facing origin is listed explicitly.
+## Features
 
-nginx, for example:
+| Area            | What you get                                                                                                              |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------- |
+| Editing         | DBML text and visual canvas, synced both ways. Tables, zones, notes, enums, groups.                                       |
+| Views           | Logical (tables), conceptual (Merise MCD), three detail levels per table, auto-layout.                                    |
+| Collaboration   | Live cursors and edits (Yjs), comments with @mentions, undo/redo.                                                         |
+| History         | Every change is a revision: timeline, labels, diff, non-destructive restore.                                              |
+| Import / export | DBML and SQL (Postgres, MySQL, MSSQL); PNG, SVG, PDF.                                                                     |
+| Live databases  | Connect PostgreSQL, MySQL/MariaDB, SQL Server, Oracle or SQLite; pull the schema, diff, deploy with preview and rollback. |
+| SQL space       | Query console, data browser, journal, statistics, health, account watch.                                                  |
+| Governance      | Table locks, structure policy, environments chain, deployment risk checks.                                                |
+| Data            | Seeds from CSV or a database, test-data generator.                                                                        |
+| Quality         | Schema linter with presets, validation panel.                                                                             |
+| Access          | Invitations, teams, per-project roles, 2FA, API keys, [public API](docs/public-api.md), [webhooks](docs/webhooks.md).     |
+| Extensibility   | Sandboxed browser plugins: exporters, importers, canvas and editor commands.                                              |
+| Operations      | Backups, audit log, `/api/health`, `/api/metrics`, French and English UI.                                                 |
+
+Docs: [feature status](docs/etat-des-features.md) · [roadmap](docs/todo.md) · [public API](docs/public-api.md) · [webhooks](docs/webhooks.md)
+
+## Operations
+
+**Single process.** State lives in SQLite and in-memory rooms: never run two instances on the same data.
+
+**Reverse proxy.** Terminate TLS and set `NEBULADB_COOKIE_SECURE=true`, forward the WebSocket on `/ws/`, and keep the `Host` header (or set `NEBULADB_ALLOWED_ORIGINS`).
 
 ```nginx
 location / {
     proxy_pass http://127.0.0.1:3001;
-    proxy_set_header Host $host;              # keeps the Origin check happy
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header Host $host;
     proxy_set_header X-Forwarded-Proto $scheme;
-    proxy_http_version 1.1;                   # required for the WS upgrade
+    proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
-    proxy_read_timeout 3600s;                 # idle editing sessions hold the socket open
+    proxy_read_timeout 3600s;
 }
 ```
 
-### Backup
-
-Dump every project to a `.dbml` file (defaults to `./backups/<timestamp>/`):
+**Backup / restore.**
 
 ```bash
-npm run backup [-- <outputDir>]
+npm run backup [-- <dir>]                       # every project to .dbml files
+npm run restore -- <dir> [--owner <email>]      # each file becomes a new project
 ```
 
-Each project is replayed from its revision log rather than read from the periodic snapshot, so a backup taken mid-edit contains that edit.
+**Logs** are JSON on stdout; rotation is up to Docker (`docker-compose.yml` caps them) or your process manager.
 
-To have the server do this on a schedule instead, set `NEBULADB_BACKUP_INTERVAL_HOURS` (see the configuration table). Runs are written to `NEBULADB_BACKUP_DIR`, one timestamped directory each, and older ones beyond `NEBULADB_BACKUP_KEEP` are pruned. Directories that don't look like a backup timestamp are never touched, so the folder is safe to share with your own files. Nothing runs at boot — a crash-looping container would otherwise produce a backup per restart and prune away the good ones.
+**Upgrading from AthanorDB:** see [`docs/renommage-nebuladb.md`](docs/renommage-nebuladb.md).
 
-The backup → restore round trip (schema, primary keys and canvas positions) is covered by `backupRunner.test.ts`, so it is exercised on every CI run rather than only when someone tries it in an emergency.
+## Develop
 
-### Restore
-
-Bulk-import a directory of `.dbml` files (as produced by `npm run backup` above) back in. Each file becomes a **new** project — this never overwrites an existing one, so restoring the same backup twice creates duplicates rather than risking data loss:
-
-```bash
-npm run restore -- <backupDir> [--owner <email>]
-```
-
-Without `--owner`, restored projects have no owner: any logged-in user can view them (the same default an ownerless project always gets), but only a global admin can manage or delete them — there's no "reassign owner" route yet to fix that up afterward. Pass `--owner` with an existing user's email to make that user the owner immediately.
-
-### First admin account
-
-Every account besides the first is created by accepting an admin-issued invitation, so bootstrap the first global admin directly:
-
-```bash
-npm run bootstrap-admin -- <email> <password>
-```
-
-Password must be 8–128 characters. Respects `NEBULADB_DB_PATH` same as the server. Fails if that email already exists — run once, then invite everyone else from the admin console.
-
-### Accounts, teams and invitations
-
-- **Login** is email + password, with a server-side session cookie (`httpOnly`, `SameSite=Lax`, 30-day rolling expiry). Passwords are scrypt-hashed; login is rate limited to 10 attempts/minute per IP, plus a per-account lockout after 10 failed attempts.
-- **Two-factor authentication** (TOTP) is optional, per account, from _Settings → Profile_ — any authenticator app, with one-time backup codes issued at enrollment.
-- **Invitations** are the only way to create further accounts: an admin issues one from the admin console and gets back an `/invite/<token>` URL, valid 7 days. **There is no email delivery** — the admin relays that link themselves, so treat it as a live credential and send it over a channel you trust.
-- **Teams** scope project visibility. A project with no team assigned is visible to everyone; assigning a team restricts it to that team's members plus the creator and admins, at `view` / `edit` / `administrator` level.
-- **Admins** manage users, teams and invitations, and can reset any password (which also kills that user's sessions).
-
-## Features
-
-- **DBML-native**: the schema's source of truth is DBML text. A live Monaco editor panel sits next to the canvas and syncs both ways — edit the diagram visually, or edit the DBML directly, changes apply to the other side automatically (~600ms debounce).
-- **Visual canvas editor** (Svelte Flow): drag tables/zones/sticky notes around, resize zones and notes, pan/zoom, minimap. No "Add Table" toolbar button — right-click empty canvas to add a table, zone, or sticky note.
-- **Conceptual view (MCD)**: a one-click, read-only Merise-notation view derived automatically from the schema — tables become entities, refs become associations, with junction tables collapsed into n,n associations where the shape allows it (and flagged, not silently mis-converted, when it doesn't).
-- **Detail levels per table**: `compact` (key fields only), `standard` (PK/FK), `full` (every field) — switch one table or all of them at once.
-- **Auto-layout**: one-click layout of the whole diagram (dagre), following FK direction.
-- **Styling**: color picker (preset swatches + custom hex) for table headers, zones, and sticky notes.
-- **Comments**: attach threaded comments to a table or a specific field.
-- **Real-time collaboration**: multiple people can open the same project at once (Yjs CRDT sync over WebSocket) — live cursors, colored presence list, no lock-step required.
-- **Undo/redo** (Ctrl+Z / Ctrl+Shift+Z) and **duplicate** (Ctrl+D) for canvas edits.
-- **Manual reference routing**: double-click a ref line to add a waypoint and route it around tables; lines animate in the direction of cardinality (both directions for many-to-many).
-- **Import**: DBML or raw SQL DDL (Postgres/MySQL/MSSQL), via paste or file upload. Re-importing merges by name, so existing positions/styling/detail levels are preserved rather than reset.
-- **Export**: DBML, SQL (Postgres/MySQL/MSSQL), or a canvas snapshot as PNG/SVG/PDF.
-- **Live database connection**: connect a project to a real PostgreSQL, MySQL/MariaDB or SQLite database — pull its schema in, or deploy the modeled schema to it through a diff → conflict-resolution → SQL-preview → apply wizard, with per-connection deployment history and best-effort rollback. See [`docs/user-guide.md`](docs/user-guide.md) for the full flow.
-- **Plugins**: add your own export dialects, import parsers, canvas commands and DBML-editor commands without touching the app. Plugin code runs in a sandboxed Web Worker — see [Plugins](#plugins).
-- **Validation panel**: flags circular references, missing FK targets, and duplicate table/field names (informational — never blocks editing).
-- **History**: every change is a revision. Browse the timeline, label checkpoints (e.g. `v1.0`), preview a past revision's DBML, see a schema-level diff against the current state, and restore non-destructively (restoring creates a new revision, it never rewrites history).
-- **Per-user preferences**: canvas text size and last pan/zoom position are remembered per person, not shared.
-- **Backup & restore scripts**: dump every project to a `.dbml` file on disk (`npm run backup`), and bulk-import a backup directory back in as new projects (`npm run restore`).
-- **Theming**: dark (default) and light, switchable in Settings; single unified header, no cloud dependency — everything (fonts, editor, icons) is bundled, nothing loads from a CDN. Two further dark presets are visible in the picker but disabled ("coming soon") — no CSS backs them yet.
-
-## Stack
-
-| Layer               | Choice                                                            | Why                                                                                 |
-| ------------------- | ----------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| Monorepo            | npm workspaces                                                    | no extra global tool                                                                |
-| Frontend            | Svelte 5 + TypeScript + Vite                                      | compiled fine-grained reactivity (no virtual DOM), small runtime, fast dev loop     |
-| Canvas              | Svelte Flow (`@xyflow/svelte`)                                    | node/edge graph primitive, zoom/pan/minimap, custom node renderers per detail level |
-| DBML editor         | Monaco (`@monaco-editor/react`), self-hosted                      | same editor as VS Code; self-hosted worker/assets, no CDN                           |
-| Auto-layout         | `@dagrejs/dagre`                                                  | directed-graph layout, used to lay tables out by FK direction                       |
-| Canvas export       | `html-to-image` + `jsPDF`                                         | PNG/SVG snapshot of the canvas, wrapped into a PDF                                  |
-| Backend             | Node + TypeScript + Fastify                                       | lightweight server, native WS plugin                                                |
-| Realtime collab     | Yjs CRDT, hand-rolled WS protocol (`y-protocols` + `lib0`)        | multi-user editing and undo/history almost for free, no `y-websocket` dependency    |
-| Persistence         | SQLite (`better-sqlite3`)                                         | zero-config, single file, fits a single-server self-hosted deploy                   |
-| Live DB connections | `pg` / `mysql2` / `node:sqlite` drivers behind a common interface | introspection, drift detection, diff-based migration and rollback (§ Features)      |
-| DBML parse/gen      | `@dbml/core`                                                      | official parser, handles DBML <-> SQL (Postgres/MySQL/MSSQL) both ways              |
-| Diagram state model | custom schema layered on the Yjs doc                              | tables/fields/refs/notes/zones + visual metadata (position, color, detail level)    |
-| Packaging           | plain Node process, optional Docker                               | `npm run dev` or `docker compose up`, no cloud dependency                           |
-
-## Plugins
-
-The **Plugins** button in the project header opens the manager: install, enable/disable, remove, and read a plugin's console output. A one-click example plugin (a SQLite DDL exporter plus two commands) is included to copy from.
-
-**How it works.** Every export format, import format and command in the app is a _contribution_, and the built-in DBML/SQL formats are themselves plugins (`nebuladb.core-export`, `nebuladb.core-import`, `nebuladb.core-canvas`) — so a plugin that adds SQLite sits next to Postgres with no special casing. Four kinds are supported:
-
-| Contribution            | Input                               | Returns                 | Appears in                         |
-| ----------------------- | ----------------------------------- | ----------------------- | ---------------------------------- |
-| `registerExporter`      | the `Project`                       | text (+ file extension) | Export dialog                      |
-| `registerImporter`      | the pasted/uploaded text            | DBML source             | Import dialog                      |
-| `registerCanvasCommand` | the `Project`                       | the modified `Project`  | Canvas toolbar → plugin menu       |
-| `registerEditorCommand` | `{ text, selection, selectedText }` | the replacement buffer  | DBML editor palette (Ctrl+Shift+P) |
-
-Every `run` also receives a second argument: `{ settings, selection: { tableIds } }` — the plugin's own configured settings, and which tables are selected on the canvas.
-
-```js
-nebula.plugin({
-  id: "me.json-export",
-  name: "JSON export",
-  version: "1.0.0",
-  settings: [{ key: "pretty", label: "Pretty-print", type: "boolean", default: true }],
-});
-
-nebula.registerExporter({
-  id: "json",
-  label: "JSON",
-  extension: "json",
-  run: function (project, context) {
-    return JSON.stringify(project, null, context.settings.pretty ? 2 : 0);
-  },
-});
-
-nebula.registerCanvasCommand({
-  id: "drop-notes",
-  label: "Clear notes on selected tables",
-  shortcut: "Ctrl+Alt+N",
-  run: function (project, context) {
-    var selected = context.selection.tableIds;
-    return Object.assign({}, project, {
-      tables: project.tables.map(function (t) {
-        return selected.indexOf(t.id) === -1 ? t : Object.assign({}, t, { note: undefined });
-      }),
-    });
-  },
-});
-```
-
-**Settings** are declared as data (`string` / `number` / `boolean` / `select`) and rendered by the app — a plugin never draws its own UI. Values are stored per plugin and passed to every call. **Shortcuts** are optional per command: canvas commands bind globally (never while typing), DBML-editor commands bind only while the editor has focus, and the first plugin to claim a combination keeps it. A user plugin's source can be downloaded again from the manager.
-
-An importer returns DBML because the server's existing merge-by-name import route then applies it — your plugin only has to understand its own input format. A canvas command returns the whole project; the app diffs it into the Yjs document, so the change syncs to everyone with the project open, and only the entities that really changed produce an update.
-
-**Security and scope.**
-
-- Plugin code runs in a Web Worker built from a Blob URL: no DOM, no app state, no access to the page's memory. The worker's `fetch`, `XMLHttpRequest`, `WebSocket`, `importScripts`, `indexedDB` and `caches` are removed before the plugin body runs, so a plugin cannot call the API as you or send your schema anywhere.
-- Loading is bounded (5s) and every call is bounded (10s); a plugin that hangs is terminated and restarted on the next call rather than freezing the app.
-- This is isolation, not a trust boundary against a determined author: **only install plugin code you trust.**
-- Plugins are stored in **your browser's** `localStorage` only. Nothing is uploaded, and nothing is shared with your team or other users of the same server — installing one is a decision that affects only you.
-
-## Repo layout
+| Command                           | Does                                              |
+| --------------------------------- | ------------------------------------------------- |
+| `npm run dev`                     | Server and web with hot reload.                   |
+| `npm run build`                   | Build everything.                                 |
+| `npm test` / `npm run test:e2e`   | Unit / browser tests.                             |
+| `npm run lint` / `npm run format` | ESLint / Prettier.                                |
+| `npm run bench:web -- --cpu 6`    | Canvas benchmark; results go to `bench-results/`. |
 
 ```
-apps/
-  web/      Svelte app (canvas editor, DBML/SQL panels, MCD view)
-    src/plugins/   plugin registry, Worker sandbox host, built-in plugins, example plugin
-  server/   Fastify + WS server, SQLite storage, Yjs doc host, live DB connections/drivers
-packages/
-  dbml-engine/  DBML <-> SQL <-> internal-model conversion, diff, validation
-  shared/       shared TS types (schema model, DTOs, protocol messages), Yjs doc <-> Project binding, input length limits
-docs/
-  todo.md          line-item project plan and progress log — the most current source for "what's left"
-  plan-db-admin.md          design of the database administration console (phases 0–3 shipped)
-  plan-schema-workbench.md  design of the schema ↔ database workbench roadmap (mock-ups, data model, open questions)
-  user-guide.md    end-user guide (not this file, which is for operators/contributors)
-  perf/            performance and concurrency investigation write-ups, with the benchmark data behind them
-  legal/           terms-of-service and privacy-policy templates for self-hosted operators
+apps/server     Fastify + WebSocket server, SQLite, database drivers
+apps/web        Svelte 5 app: canvas (Svelte Flow), DBML editor, SQL space, admin
+packages/shared       Schema model, protocol, Yjs binding
+packages/dbml-engine  DBML ⇄ SQL ⇄ model conversion, diff, validation, lint
 ```
 
-## Status
-
-Actively developed. See `docs/todo.md` for the full plan, current progress, and known limitations.
-
-CI (`.github/workflows/ci.yml`) runs lint, build and tests on every push to `main` and every pull request.
-
-## License
-
-MIT — see [LICENSE](LICENSE).
+Tests that talk to real databases skip themselves unless `docker compose -f docker-compose.test.yml up -d` is running.

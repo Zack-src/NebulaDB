@@ -30,7 +30,7 @@ export interface CanvasContext {
 }
 
 /** 5% zoom steps are visually indistinguishable in stroke width/arrow size. */
-export const ZOOM_STEP = 0.05;
+const ZOOM_STEP = 0.05;
 
 export function quantizeZoom(zoom: number): number {
   return Math.round(zoom / ZOOM_STEP) * ZOOM_STEP;

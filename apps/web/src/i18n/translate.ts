@@ -27,7 +27,7 @@ export function isSupportedLocale(value: unknown): value is Locale {
   return typeof value === "string" && (SUPPORTED_LOCALES as readonly string[]).includes(value);
 }
 
-export type InterpolationValues = Record<string, string | number>;
+type InterpolationValues = Record<string, string | number>;
 
 /**
  * Values a message can interpolate. `count` is special: when present it also

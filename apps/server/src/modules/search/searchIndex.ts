@@ -3,29 +3,21 @@ import { peekRoom } from "../../realtime/roomRegistry.js";
 import { readProjectReadOnly, snapshotVersion } from "../../realtime/readOnlyProject.js";
 
 /**
- * Cross-project search over schema *names* — tables, columns, enums — for
- * "where is `customer_id` used across everything I can see?".
+ * Cross-project search over schema *names* (tables, columns, enums).
  *
- * Reads each project's content without side effects: a live room's doc if
- * one is already resident (it's the freshest copy, and costs nothing), else
- * the stored snapshot decoded into a throwaway `Y.Doc` — never `getRoom()`,
- * which would spin up a room (and its timers) per project per search.
- *
- * Decoding every snapshot on every keystroke would be the expensive part, so
- * the extracted names are cached per project, keyed by the snapshot's
- * `updated_at`: a project nobody has touched costs one indexed SQLite read
- * per search. Live rooms are read directly and never cached (their content
- * moves faster than the snapshot does).
+ * Reads content without side effects: a resident room's doc if any, else the stored snapshot
+ * decoded into a throwaway `Y.Doc` (never `getRoom()`). Extracted names are cached per project
+ * by the snapshot's `updated_at`; live rooms are read directly.
  */
 
-export interface IndexedTable {
+interface IndexedTable {
   id: string;
   name: string;
   note: string;
   fields: { name: string; type: string }[];
 }
 
-export interface ProjectNameIndex {
+interface ProjectNameIndex {
   tables: IndexedTable[];
   enums: string[];
 }
@@ -44,7 +36,7 @@ function extract(project: Project): ProjectNameIndex {
   };
 }
 
-export function getProjectNameIndex(projectId: string): ProjectNameIndex {
+function getProjectNameIndex(projectId: string): ProjectNameIndex {
   if (peekRoom(projectId)) return extract(readProjectReadOnly(projectId, ""));
 
   const version = snapshotVersion(projectId);
@@ -61,7 +53,7 @@ export function forgetProjectIndex(projectId: string): void {
   cache.delete(projectId);
 }
 
-export type SearchHitKind = "table" | "field" | "enum";
+type SearchHitKind = "table" | "field" | "enum";
 
 export interface SearchHit {
   projectId: string;
@@ -86,7 +78,7 @@ function rankOf(name: string, needle: string): number | null {
 }
 
 export const MIN_QUERY_LENGTH = 2;
-export const MAX_HITS = 100;
+const MAX_HITS = 100;
 
 export function searchProjects(
   projects: { id: string; name: string }[],

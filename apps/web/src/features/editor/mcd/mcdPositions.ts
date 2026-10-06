@@ -1,17 +1,10 @@
 import type { McdModel, Position, Project } from "@nebuladb/shared";
 
 /**
- * Positions the MCD graph from the *existing* MLD layout instead of running
- * a fresh auto-layout — the whole point of switching views is to recognize
- * the same schema, not to re-solve its geometry from scratch every time.
- *
- *  - An entity keeps its source table's own canvas position.
- *  - An association collapsed from a junction table keeps that table's own
- *    position too (it already sat between the tables it joined).
- *  - An association derived from a plain ref (no physical table) has no
- *    position of its own, so it's placed at the midpoint of the two entities
- *    it connects, staggered when several associations would land on the
- *    exact same spot.
+ * Positions the MCD graph from the *existing* MLD layout, so switching views keeps the schema
+ * recognizable. An entity keeps its table's position; an association collapsed from a junction
+ * table keeps that table's position; one derived from a plain ref goes to the midpoint of its two
+ * entities, staggered when several land on the same spot.
  */
 export function computeMcdPositions(model: McdModel, project: Project): Map<string, Position> {
   const positions = new Map<string, Position>();

@@ -29,9 +29,9 @@ import {
  */
 
 /** Waits before attempts 2..6 — about 9 hours end to end before a delivery is abandoned. */
-export const RETRY_DELAYS_MS = [60_000, 5 * 60_000, 30 * 60_000, 2 * 3_600_000, 6 * 3_600_000];
+const RETRY_DELAYS_MS = [60_000, 5 * 60_000, 30 * 60_000, 2 * 3_600_000, 6 * 3_600_000];
 /** After this many abandoned deliveries in a row, the webhook is switched off rather than retried forever. */
-export const AUTO_DISABLE_AFTER = 20;
+const AUTO_DISABLE_AFTER = 20;
 const BATCH = 20;
 
 function projectInfo(projectId: string): { id: string; name: string; url: string | null } | null {

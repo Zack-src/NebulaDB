@@ -15,21 +15,14 @@ import { getProjectConnection } from "./repository.js";
 import { closeDriftEvents } from "../monitoring/repository.js";
 
 /**
- * Keeps track of whether a project's database still is what the project last
- * knew it to be.
+ * Tracks whether a project's database still is what the project last knew it to be, per
+ * (project, connection):
  *
- * Two things are recorded per (project, connection):
+ * - a **reference fingerprint**: the database structure right after the last deployment or pull;
+ * - an **out-of-schema mark**: set when a structural change was made from the console, which
+ *   shows the editor banner without opening any connection.
  *
- * - a **reference fingerprint** — the database's structure right after the
- *   last deployment or pull, the two moments Nebula knows schema and database
- *   agree (or has just read the difference);
- * - an **out-of-schema mark** — set when a structural change was made to that
- *   database from the console, outside the schema. It is what makes the editor
- *   show its banner, and it costs nothing to read: no connection is opened
- *   until someone asks what actually differs.
- *
- * Periodic detection of changes made by *other* tools compares against the
- * same reference: see `modules/monitoring/`.
+ * Changes made by other tools are detected against the same reference (`modules/monitoring/`).
  */
 
 export type FingerprintSource = "deploy" | "rollback" | "pull";

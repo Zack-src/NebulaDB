@@ -6,16 +6,10 @@ import type { Field, Project, Ref, Table } from "@nebuladb/shared";
 // already on the canvas.
 
 /**
- * Deterministic, server-side SVG rendering of a project's schema, built
- * directly from the layout data already stored on `Table.position`/`.size`
- * — no browser involved. This deliberately does not attempt to reproduce the
- * live canvas pixel-for-pixel (Svelte Flow's own styling, in
- * `apps/web/src/features/editor/nodes/TableNode.svelte`, is not duplicated
- * here): the app's own PNG/SVG export
- * (`apps/web/.../canvasImageExport.ts`) already does that from the real
- * DOM for anyone using the app. This renderer exists so `/api/v1` callers
- * (CI, scripts) can get a diagram without driving a browser — a fast, simple
- * schema, not a canvas screenshot.
+ * Deterministic, server-side SVG rendering of a project's schema from the stored
+ * `Table.position`/`.size`, with no browser, for `/api/v1` callers (CI, scripts). A simple schema
+ * diagram, not a pixel copy of the canvas; the app's own PNG/SVG export (`canvasImageExport.ts`)
+ * renders the real DOM.
  */
 
 const HEADER_HEIGHT = 32;

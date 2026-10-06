@@ -37,18 +37,10 @@ export function wouldRemoveLastAdmin(userId: string): boolean {
 }
 
 /**
- * Removes an account and everything that belongs to it alone, in one
- * transaction. Shared by the admin route and the self-service one so the two
- * can't drift on what gets cleaned up — the failure mode of a divergence here
- * is orphaned rows nobody notices for months.
- *
- * `transferTo` reassigns owned projects; `null` leaves them ownerless (still
- * readable by every logged-in user, manageable only by global admins). Returns
- * how many projects were affected either way.
- *
- * Revision authorship is untouched on purpose: it's a display name captured at
- * edit time, and rewriting history to erase who changed what is the opposite
- * of what an audit trail is for.
+ * Removes an account and everything that belongs to it alone, in one transaction. Shared by
+ * the admin and self-service routes. `transferTo` reassigns owned projects; `null` leaves them
+ * ownerless. Returns how many projects were affected. Revision authorship is left untouched:
+ * it is a display name captured at edit time.
  */
 export function deleteUserAccount(userId: string, email: string, transferTo: string | null): number {
   const owned = countProjectsOwnedBy(userId);

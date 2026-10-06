@@ -26,19 +26,15 @@ import {
 import { projectToDbml } from "@nebuladb/dbml-engine";
 
 /**
- * Copy / paste of tables, enums, zones and sticky notes, through the *system*
- * clipboard so it works between two projects, two tabs, and into the DBML editor.
+ * Copy / paste of tables, enums, zones and sticky notes through the *system* clipboard, so it
+ * works across projects, tabs and into the DBML editor.
  *
- * What goes on the clipboard is plain DBML — pasting it into the DBML editor,
- * or anywhere else, gives the tables and enums as text (a zone or a sticky
- * note has no DBML form: each is one `//` comment line) — followed by one
- * comment line carrying the elements as the canvas knows them (colours, size,
- * detail level, column ids). DBML alone cannot be pasted back onto the canvas: reading it
- * needs the parser, which the web bundle deliberately does not ship (see
- * CONTRIBUTING.md), and it has no place for colours anyway.
+ * The clipboard holds plain DBML (zones and notes become one `//` comment line each) followed by
+ * one comment line carrying the elements as the canvas knows them (colours, size, detail level,
+ * column ids). DBML alone can't be pasted back: the web bundle doesn't ship the parser.
  *
- * The comment is read back from a clipboard anyone can write to, so it is
- * treated as untrusted: rebuilt field by field, never spread into the document.
+ * That comment is read from a clipboard anyone can write to, so it is untrusted: rebuilt field
+ * by field, never spread into the document.
  */
 
 const MARKER = "// nebuladb-clipboard:v1 ";

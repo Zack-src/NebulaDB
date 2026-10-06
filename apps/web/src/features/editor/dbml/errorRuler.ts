@@ -2,18 +2,9 @@ import { EditorView, ViewPlugin, type ViewUpdate } from "@codemirror/view";
 import { forEachDiagnostic, setDiagnosticsEffect } from "@codemirror/lint";
 
 /**
- * A thin strip of red ticks laid over the editor's scrollbar track, one per
- * line carrying an "error"-severity diagnostic — a scaled-down version of
- * VS Code's "overview ruler". Each mark sits at the diagnostic's line number
- * as a fraction of the whole document, not the current viewport, so it stays
- * put while scrolling and points straight at "where's the error" without
- * opening the lint panel.
- *
- * `.cm-editor` (this plugin's `view.dom`) is `position: relative` by
- * CodeMirror's own base theme, so an absolutely-positioned child spans the
- * editor's full height regardless of scroll position — appending here rather
- * than inside `.cm-scroller` is what keeps the ruler from scrolling away
- * with the content it's summarizing.
+ * A strip of red ticks over the editor's scrollbar track, one per line with an "error"
+ * diagnostic (like VS Code's overview ruler), positioned as a fraction of the whole document.
+ * Appended to `.cm-editor`, not `.cm-scroller`, so it doesn't scroll away.
  */
 class ErrorRuler {
   dom: HTMLElement;

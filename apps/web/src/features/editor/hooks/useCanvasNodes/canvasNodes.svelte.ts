@@ -78,32 +78,16 @@ type DerivedFrom = WeakMap<CanvasNode, CanvasNode>;
 type ZoneMembers = Map<string, { x: number; y: number }>;
 
 /**
- * The canvas's node array and everything that writes to it.
+ * The canvas's node array and everything that writes to it. Builds the flow's nodes (zones,
+ * tables, notes, enums, groups, in that paint order) from the live Yjs project, wiring `data`
+ * callbacks to doc mutations, and owns the local state the flow binds to, which shows live drag
+ * position (the doc learns it on commit).
  *
- * Builds the flow's node array (zones, tables, sticky notes, enums, groups —
- * in that paint order so tables/notes drag on top of zones) from the live Yjs
- * project, wiring each node's `data` callbacks straight to doc mutations, and
- * owns the local node state the flow is bound to (`nodes`), which is what
- * shows live drag position: the doc only learns a position once the drag
- * commits, so without a local copy the node would visually snap around
- * mid-drag.
+ * Rebuilds are merged into local state, carrying across what the doc doesn't know:
  *
- * Every rebuild is merged into the local state rather than replacing it,
- * carrying across two things the doc knows nothing about:
- *
- *  - **`selected`**, which is local UI state. A rebuild (any doc mutation,
- *    including a bulk colour change applied *from* the current selection)
- *    would otherwise wipe it, dropping the selection and closing whatever UI
- *    depends on it (the multi-select colour toolbar) mid-use.
- *
- *  - **`measured`**, the flow's own measurement of the rendered node box. A
- *    node object rebuilt without it makes `adoptUserNodes` treat the *whole
- *    canvas* as un-measured, which re-measures every node:
- *    `getBoundingClientRect` on every handle of every table — 16k forced
- *    layouts on a 500-table schema at full detail. Carrying the previous box
- *    forward keeps the canvas "initialized"; a node whose size really did
- *    change still gets corrected by the flow's own ResizeObserver, for that
- *    one node instead of all of them.
+ *  - **`selected`**: local UI state, otherwise wiped by any doc mutation;
+ *  - **`measured`**: without it `adoptUserNodes` treats the whole canvas as un-measured and
+ *    re-measures every handle of every table (16k forced layouts at 500 tables).
  */
 export class CanvasNodesState {
   /** The flow's node array — bound two-way to `<SvelteFlow bind:nodes>`. */

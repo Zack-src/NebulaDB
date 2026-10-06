@@ -8,7 +8,7 @@ export interface LoginPayload {
 }
 
 /** The password step was correct but the account has 2FA enabled — `mfaToken` identifies the pending challenge for `verifyTotpLogin`. */
-export interface MfaRequired {
+interface MfaRequired {
   mfaRequired: true;
   mfaToken: string;
 }

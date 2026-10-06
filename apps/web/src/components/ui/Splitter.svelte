@@ -1,20 +1,15 @@
 <script lang="ts">
-  /**
-   * The draggable edge between two stacked or side-by-side panes. It owns no
-   * layout: it reports the size the *controlled* pane should take, and the
-   * parent applies it — so the same handle resizes a bottom drawer, a side
-   * panel, or anything else that has a pixel size.
-   *
-   *   <Splitter bind:size={panelHeight} min={160} max={600} edge="top" aria-label="…" />
-   *   <div style:height="{panelHeight}px">…</div>
-   *
-   * `edge` says which edge of the controlled pane the handle sits on, which is
-   * what decides the direction: on a pane's top edge, dragging *up* enlarges it.
-   *
-   * A real `separator`: focusable, arrow keys move it by 16px (Shift: 64px),
-   * Home / End go to the bounds, and the value is exposed to assistive tech.
-   * Persisting the size is the caller's business (`utils/storage`).
-   */
+    /**
+     * The draggable edge between two panes. It owns no layout: it reports the size the
+     * *controlled* pane should take.
+     *
+     *   <Splitter bind:size={panelHeight} min={160} max={600} edge="top" aria-label="..." />
+     *   <div style:height="{panelHeight}px">...</div>
+     *
+     * `edge` is the controlled pane's edge the handle sits on (on a top edge, dragging *up*
+     * enlarges). A real `separator`: arrows move 16px (Shift: 64px), Home/End go to the bounds.
+     * Persisting the size is the caller's.
+     */
   let {
     size = $bindable(),
     min,

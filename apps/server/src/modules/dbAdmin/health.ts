@@ -80,8 +80,3 @@ export function startConnectionHealthChecks(intervalMinutes: number): void {
   }, intervalMinutes * 60_000);
   timer.unref();
 }
-
-export function stopConnectionHealthChecks(): void {
-  if (timer) clearInterval(timer);
-  timer = null;
-}

@@ -13,23 +13,16 @@
   import { LABEL_CLASS } from "@/components/ui/inputStyles";
   import { useTranslation } from "@/i18n/i18n.svelte";
 
-  /**
-   * The one "are you sure?" dialog — in place of `window.confirm()` and of the
-   * near-identical modals each feature had grown.
-   *
-   * `danger` sets how much friction there is, not just the colour:
-   *  - `none`: a plain question, the confirm button is the primary action;
-   *  - `warning`: something will be lost but can be redone; amber, still one click;
-   *  - `danger`: irreversible; red, and focus starts on **Cancel** so Enter
-   *    held from the previous screen cannot confirm it.
-   * `requireText` adds the "retype the name" step for the cases where a
-   * mis-click costs a table or a database: the confirm button stays disabled
-   * until the text matches exactly.
-   *
-   * The dialog does not close itself: `onConfirm` may be async, so the caller
-   * passes `pending` (which also locks Escape and the backdrop) and `error`,
-   * and unmounts the dialog when the work is done.
-   */
+    /**
+     * The one "are you sure?" dialog. `danger` sets the friction:
+     *  - `none`: a plain question;
+     *  - `warning`: something is lost but can be redone; amber;
+     *  - `danger`: irreversible; red, focus starts on **Cancel**.
+     * `requireText` makes the user retype a name before the confirm button enables.
+     *
+     * It does not close itself: the caller passes `pending` (locks Escape and the backdrop) and
+     * `error`, and unmounts it when the work is done.
+     */
   let {
     title,
     message,

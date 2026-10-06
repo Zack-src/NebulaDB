@@ -13,10 +13,6 @@ export function createTeam(name: string): Promise<TeamSummary> {
   return request<TeamSummary>("/api/teams", { method: "POST", body: { name } });
 }
 
-export function renameTeam(teamId: string, name: string): Promise<TeamSummary> {
-  return request<TeamSummary>(`/api/teams/${teamId}`, { method: "PATCH", body: { name } });
-}
-
 export function deleteTeam(teamId: string): Promise<void> {
   return request<void>(`/api/teams/${teamId}`, { method: "DELETE" });
 }

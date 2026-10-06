@@ -87,19 +87,12 @@ export function parseCommentNotice(body: unknown): CommentNotice {
 }
 
 /**
- * Tells the people a comment is addressed to: those it mentions, and those who
- * already wrote in its thread. Decided once, here:
+ * Tells the people a comment is addressed to: those it mentions and those already in its
+ * thread. Nobody is told about their own comment or a project they cannot see now; a mention
+ * reaches its person whether or not they follow the project, and wins over thread membership.
  *
- * - nobody is told about their own comment;
- * - nobody is told about a project they cannot see *now* — a mention of someone
- *   without access is dropped, and says nothing about whether they exist;
- * - a mention reaches its person whether or not they follow the project (it is
- *   an address, not a subscription); a person both mentioned and in the thread
- *   gets the mention alone.
- *
- * The notification holds names (author, table, column), never the comment's
- * text. Never throws: a notification is a courtesy, not part of the comment.
- * Answers how many people were told.
+ * The notification holds names, never the comment text. Never throws. Returns how many people
+ * were told.
  */
 export function notifyCommentAddressees(
   projectId: string,

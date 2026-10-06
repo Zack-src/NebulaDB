@@ -1,16 +1,10 @@
 <script lang="ts" module>
-  /**
-   * Above this many tables, every table renders at "compact" — a display
-   * override only, never written to the doc (`liveProject` itself, and
-   * everything derived from it, keeps each table's real setting; only
-   * `renderProject`, fed to the two rendering passes, is touched). "Full"
-   * detail means every field row plus its four handles, per table — measured
-   * at 500 tables it was ~66% of a selection-drag's wall-clock time spent in
-   * the flow's own hit-testing and the browser's layout/paint for that much
-   * DOM, collapsing to a fraction of that at "compact". The threshold is a
-   * guess at "more than a screenful even zoomed out", not a measured knee —
-   * revisit with the bench harness if it turns out wrong in either direction.
-   */
+    /**
+     * Above this many tables, every table renders at "compact": a display override only, never
+     * written to the doc (`renderProject` is touched, `liveProject` keeps each table's real
+     * setting). "Full" means every field row plus four handles per table, which at 500 tables
+     * dominated selection-drag time. The threshold is a guess, not a measured knee.
+     */
   const RENDER_LOD_TABLE_THRESHOLD = 150;
 
   function sameIds(a: string[], b: string[]): boolean {
@@ -25,10 +19,7 @@
   import { SvelteFlowProvider } from "@xyflow/svelte";
   import {
     getMetaMap,
-    type DatabaseConnectionSummary,
-    type DbAccessLevel,
     type Project,
-    type ProjectDriftEntry,
     type ServerNotice,
     type Table,
   } from "@nebuladb/shared";
@@ -37,14 +28,13 @@
   import { SeedsState } from "@/features/editor/seeds/seeds.svelte";
   import Splitter from "@/components/ui/Splitter.svelte";
   import { SqlDrawerState } from "@/features/sql/sqlDrawer.svelte";
-  import { diffProjects, fingerprintSchema } from "@nebuladb/dbml-engine";
+  import { fingerprintSchema } from "@nebuladb/dbml-engine";
   import { LintState } from "@/features/editor/lint/lint.svelte";
+  import { ProjectConnectionsState } from "@/features/editor/projectConnections.svelte";
+  import { HistoryPreviewState } from "@/features/editor/history/historyPreview.svelte";
   import { SchemaQuality } from "@/features/editor/lint/schemaQuality.svelte";
   import type { RevisionSummary } from "@/services/projectsApi";
   import HistoryPreviewBanner from "@/features/editor/history/HistoryPreviewBanner.svelte";
-  import type { HistoryDiffStatus } from "@/features/editor/hooks/useCanvasNodes/canvasNodes.svelte";
-  import { fetchProjectDrift, listProjectConnections } from "@/services/connectionsApi";
-  import { fetchMyDbAccess } from "@/services/dbAccessApi";
   import DriftBanner from "@/features/editor/drift/DriftBanner.svelte";
   import type { TabItem } from "@/components/ui/Tabs.svelte";
   import {
@@ -141,21 +131,13 @@
   const lint = new LintState(() => project.id);
   const tellLockedTablesKept = (tables: string[]) =>
     toast.warning(t("locks.keptToast", { tables: tables.join(", "), count: tables.length }));
-  // Linked databases known to have been changed outside the schema — see `DriftBanner`.
-  let drift = $state.raw<ProjectDriftEntry[]>([]);
-  const refreshDrift = () =>
-    fetchProjectDrift(project.id)
-      .then((entries) => (drift = entries.filter((entry) => entry.outOfSchemaAt)))
-      // Offline or the perf harness: no banner is better than a broken editor.
-      .catch(() => {});
-  $effect(() => {
-    void project.id;
-    drift = [];
-    void refreshDrift();
-  });
+  const databases = new ProjectConnectionsState(
+    () => project.id,
+    () => props.session.isAdmin,
+  );
 
   function handleServerNotice(notice: ServerNotice) {
-    if (notice.type === "drift-changed") void refreshDrift();
+    if (notice.type === "drift-changed") void databases.refreshDrift();
     else if (notice.type === "locks-changed") void tableLocks.refresh();
     else if (notice.type === "seeds-changed") void seeds.refresh();
     else if (notice.type === "lint-changed") void lint.refresh();
@@ -188,34 +170,6 @@
   /** Counts completed deployments — the pipeline refetches on it. */
   let deploymentsSeen = $state(0);
   let viewMode = $state<EditorViewMode>("mld");
-  // Connections themselves are managed from the admin console now — this
-  // just needs to know which one to preselect when Deploy opens.
-  let connections = $state.raw<DatabaseConnectionSummary[]>([]);
-  let connectionId = $state<string | null>(null);
-  const activeConnection = $derived(connections.find((connection) => connection.id === connectionId) ?? null);
-
-  $effect(() => {
-    listProjectConnections(project.id)
-      .then((list) => {
-        connections = list;
-        if (!list.some((connection) => connection.id === connectionId)) connectionId = list[0]?.id ?? null;
-      })
-      .catch(() => {});
-  });
-
-  // Databases an instance administrator granted this user (read / write), by
-  // connection id. Being in the project grants none of them; the server checks
-  // the grant on every console request, this only decides what is offered.
-  let dbAccess = $state.raw<ReadonlyMap<string, DbAccessLevel>>(new Map());
-  $effect(() => {
-    void project.id;
-    if (props.session.isAdmin) return;
-    fetchMyDbAccess()
-      .then((answer) => (dbAccess = new Map(answer.connections.map((entry) => [entry.connectionId, entry.level]))))
-      .catch(() => {});
-  });
-  const mayQuery = (id: string | null | undefined) => props.session.isAdmin || (id ? dbAccess.has(id) : false);
-
   // ---- Workspace tabs --------------------------------------------------------
   // The schema editor is one section of the project among several. Which ones
   // are offered follows what the server would allow: the database console is
@@ -245,36 +199,15 @@
     props.onTabChange?.(next);
   };
 
-  // ---- History preview -------------------------------------------------------
-  // "Aperçu sur le graphe" from the history tab: the schema tab with the tables
-  // added or changed since that revision outlined. Recomputed against the live
-  // project, so the outline follows edits made meanwhile.
-  let historyPreview = $state.raw<{ revision: RevisionSummary; project: Project } | null>(null);
-  /** The revision the history tab shows when it is opened again — the one last previewed. */
-  let historyRevisionId = $state<string | null>(null);
-  const historyPreviewDiff = $derived(
-    historyPreview && liveProject ? diffProjects(historyPreview.project, liveProject) : null,
+  const history = new HistoryPreviewState(
+    () => project.id,
+    () => liveProject,
   );
-  const historyDiffStatus = $derived.by((): ReadonlyMap<string, HistoryDiffStatus> | null => {
-    if (!historyPreviewDiff) return null;
-    const marks = new Map<string, HistoryDiffStatus>();
-    for (const table of historyPreviewDiff.tables) {
-      if (table.status !== "removed") marks.set(table.id, table.status);
-    }
-    return marks;
-  });
   function previewRevision(revision: RevisionSummary, revisionProject: Project) {
-    historyPreview = { revision, project: revisionProject };
-    historyRevisionId = revision.id;
+    history.show(revision, revisionProject);
     viewMode = "mld";
     setTab("schema");
   }
-  // Leaving the project ends the preview; so does a revision from another one.
-  $effect(() => {
-    void project.id;
-    historyPreview = null;
-    historyRevisionId = null;
-  });
 
   const canvasCommands = useCanvasCommands(() => project.id);
   const fontScale = useCanvasFontScale();
@@ -360,8 +293,8 @@
 
   // The SQL drawer under the schema — see `SqlDrawerState`.
   const sql = new SqlDrawerState({
-    connection: () => activeConnection,
-    allowed: () => mayQuery(activeConnection?.id),
+    connection: () => databases.activeConnection,
+    allowed: () => databases.mayQuery(databases.activeConnection?.id),
     visible: () => tab === "schema",
   });
   const canUseSql = $derived(sql.usable);
@@ -472,7 +405,7 @@
     onManageSeed: openSeedDialog,
     onLockedTablesKept: tellLockedTablesKept,
     viewData: () => (canUseSql ? sql.viewTableData : null),
-    historyDiff: () => (tab === "schema" ? historyDiffStatus : null),
+    historyDiff: () => (tab === "schema" ? history.diffStatus : null),
   });
   const seedDialogTable = $derived(
     seedDialogTableId ? (liveProject?.tables.find((table) => table.id === seedDialogTableId) ?? null) : null,
@@ -601,20 +534,23 @@
     tabs={workspaceTabs}
     {tab}
     onTabChange={setTab}
-    {connections}
-    {connectionId}
-    onConnectionChange={(id) => (connectionId = id)}
+    connections={databases.connections}
+    connectionId={databases.connectionId}
+    onConnectionChange={(id) => (databases.connectionId = id)}
     sqlOpen={sql.open}
     onToggleSql={canUseSql && tab === "schema" ? () => sql.setOpen(!sql.open) : undefined}
     lockCount={tableLocks.view.byTable.size}
     onShowLocks={() => (showLocksList = true)}
   />
-  {#each drift as entry (entry.connectionId)}
+  {#each databases.drift as entry (entry.connectionId)}
     <DriftBanner
       projectId={project.id}
       {entry}
       canManage={isProjectAdmin}
-      onShowDifferences={(id) => { connectionId = id; setTab("deployments"); }}
+      onShowDifferences={(id) => {
+        databases.connectionId = id;
+        setTab("deployments");
+      }}
     />
   {/each}
 
@@ -625,12 +561,12 @@
     {#await import("@/features/workspace/DeploymentsTab.svelte") then { default: DeploymentsTab }}
       <DeploymentsTab
         projectId={project.id}
-        connection={activeConnection}
-        {connections}
+        connection={databases.activeConnection}
+        connections={databases.connections}
         refreshKey={deploymentsSeen}
         schemaHash={liveProject ? fingerprintSchema(liveProject).hash : undefined}
         onDeployTo={(id) => {
-          connectionId = id;
+          databases.connectionId = id;
         }}
         onOpenTable={(tableName) => {
           setTab("schema");
@@ -679,24 +615,24 @@
         projectId={project.id}
         currentProject={liveProject}
         currentUser={user}
-        initialRevisionId={historyRevisionId}
+        initialRevisionId={history.revisionId}
         canRestore={canWrite}
         onPreview={previewRevision}
         onClose={() => {
-          historyPreview = null;
+          history.close();
           setTab("schema");
         }}
       />
     {/await}
   {:else}
-  {#if historyPreview && historyPreviewDiff}
+  {#if history.preview && history.diff}
     <HistoryPreviewBanner
       projectId={project.id}
-      revision={historyPreview.revision}
-      diff={historyPreviewDiff}
+      revision={history.preview.revision}
+      diff={history.diff}
       canRestore={canWrite}
       onBack={() => setTab("history")}
-      onClose={() => (historyPreview = null)}
+      onClose={history.close}
     />
   {/if}
   <div class="flex min-h-0 min-w-0 flex-1 flex-row">
@@ -787,7 +723,7 @@
       {/key}
     </SvelteFlowProvider>
   </div>
-  {#if sql.open && canUseSql && activeConnection}
+  {#if sql.open && canUseSql && databases.activeConnection}
     <Splitter
       bind:size={sql.width}
       min={SqlDrawerState.MIN_WIDTH}
@@ -799,8 +735,8 @@
     <div class="flex min-h-0 max-w-[85%] shrink-0 flex-col border-l border-border" style:width="{sql.width}px">
       {#await import("@/features/sql/EditorSqlDrawer.svelte") then { default: EditorSqlDrawer }}
         <!-- Keyed: the drawer and its history belong to one connection. -->
-        {#key activeConnection.id}
-          <EditorSqlDrawer connection={activeConnection} request={sql.request} onClose={() => sql.setOpen(false)} />
+        {#key databases.activeConnection.id}
+          <EditorSqlDrawer connection={databases.activeConnection} request={sql.request} onClose={() => sql.setOpen(false)} />
         {/key}
       {/await}
     </div>
@@ -882,8 +818,8 @@
           refs={liveProject?.refs ?? []}
           existing={seeds.byTable.get(seedDialogTable.id) ?? null}
           canEdit={seedEditable(seedDialogTable.id)}
-          database={props.session.isAdmin && activeConnection
-            ? { id: activeConnection.id, name: activeConnection.name }
+          database={props.session.isAdmin && databases.activeConnection
+            ? { id: databases.activeConnection.id, name: databases.activeConnection.name }
             : null}
           loadFromDatabase={seedFromDatabase}
           onClose={() => {

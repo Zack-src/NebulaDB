@@ -7,21 +7,14 @@
   import { BENCH_PROJECT_ID, buildBenchProject, parseBenchConfig } from "./benchProject";
   import { installBenchRunner } from "./benchRunner";
 
-  /**
-   * The canvas perf harness: the **real** editor (same `ProjectEditor`, same
-   * doc-sync/node/edge pipeline, same components) over a synthetic schema of a
-   * chosen size, with the WebSocket transport swapped for a local pre-seeded
-   * Y.Doc so a run measures the editor rather than the network or the server.
-   *
-   * Reached at `/#bench?tables=200&columns=8&detail=full`, code-split so none
-   * of it is in the bundle any normal route loads. Driven by
-   * `scripts/bench-web.mjs`; see `benchRunner.ts` for what the page exposes.
-   *
-   * Module scope on purpose: the connection has to be registered before
-   * `ProjectEditor` first renders (it connects during its own first effect),
-   * and the doc must survive mount/unmount cycles unchanged so two scenarios
-   * in one run see the same schema.
-   */
+    /**
+     * The canvas perf harness: the **real** editor over a synthetic schema, with the WebSocket
+     * swapped for a local pre-seeded Y.Doc, so a run measures the editor, not the network.
+     *
+     * Reached at `/#bench?tables=200&columns=8&detail=full`, code-split; driven by
+     * `scripts/bench-web.mjs`. Module scope on purpose: the connection must be registered before
+     * `ProjectEditor` first renders, and the doc must survive remounts so scenarios share a schema.
+     */
   const config = parseBenchConfig(window.location.hash);
 
   const doc = new Y.Doc();

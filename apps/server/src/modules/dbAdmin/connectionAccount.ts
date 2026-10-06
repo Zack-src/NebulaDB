@@ -9,7 +9,7 @@ import { personalCredentialStatus } from "../connections/personalCredentials.js"
  * Doing any of those from here would lock Nebula (or this person) out of
  * the database, with no way back from the console.
  */
-export function protectedAccountNames(connection: DatabaseConnectionConfig, actorId: string | null): string[] {
+function protectedAccountNames(connection: DatabaseConnectionConfig, actorId: string | null): string[] {
   const names = new Set<string>();
   if (connection.user) names.add(connection.user);
   const fromString = accountInConnectionString(connection.connectionString);

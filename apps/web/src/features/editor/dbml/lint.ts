@@ -12,9 +12,9 @@ export interface ServerProblem {
   endColumn?: number;
 }
 
-export const setServerProblem = StateEffect.define<ServerProblem | null>();
+const setServerProblem = StateEffect.define<ServerProblem | null>();
 
-export const serverProblemField = StateField.define<ServerProblem | null>({
+const serverProblemField = StateField.define<ServerProblem | null>({
   create: () => null,
   update(value, tr) {
     for (const e of tr.effects) if (e.is(setServerProblem)) return e.value;
@@ -37,9 +37,9 @@ export interface SchemaFinding {
 }
 
 const NO_FINDINGS: readonly SchemaFinding[] = [];
-export const setSchemaFindings = StateEffect.define<readonly SchemaFinding[]>();
+const setSchemaFindings = StateEffect.define<readonly SchemaFinding[]>();
 
-export const schemaFindingsField = StateField.define<readonly SchemaFinding[]>({
+const schemaFindingsField = StateField.define<readonly SchemaFinding[]>({
   create: () => NO_FINDINGS,
   update(value, tr) {
     for (const e of tr.effects) if (e.is(setSchemaFindings)) return e.value;
@@ -83,7 +83,7 @@ function spanOfFinding(tableByName: Map<string, TableSymbol>, finding: SchemaFin
  * last error reported by the backend importer, and the schema linter's
  * findings (the project's conventions, e.g. a missing primary key).
  */
-export const dbmlLinter = linter(
+const dbmlLinter = linter(
   (view) => {
     const diagnostics: Diagnostic[] = [];
     const state = view.state;

@@ -15,7 +15,7 @@ import { db } from "../../infrastructure/db.js";
 export const MAX_FAILED_ATTEMPTS = 10;
 
 /** How long the lock lasts once tripped. */
-export const LOCKOUT_MS = 15 * 60 * 1000;
+const LOCKOUT_MS = 15 * 60 * 1000;
 
 /**
  * Failure rows for accounts that are no longer locked and haven't failed
@@ -39,17 +39,11 @@ export interface LockState {
 }
 
 /**
- * Whether login is currently blocked for this account, clearing the lock if it
- * has expired.
+ * Whether login is currently blocked for this account, clearing the lock if it has expired.
  *
- * Note the deliberate enumeration tradeoff: `recordFailure` only ever writes a
- * row for an email that actually has an account, so a caller who can trip a
- * lock learns that the address is registered. That is accepted here — this is
- * a self-hosted team tool where colleagues' addresses aren't secret, and the
- * alternative (a generic "invalid credentials" for a locked account) leaves a
- * legitimate user with a correct password locked out and no explanation for
- * fifteen minutes. It also keeps the table bounded by the number of real
- * accounts instead of by the number of addresses an attacker can invent.
+ * Deliberate tradeoff: only real accounts get a lock row, so tripping a lock reveals that an
+ * address is registered. Accepted for a self-hosted team tool, in exchange for telling a
+ * legitimate user why they are locked out.
  */
 export function checkLock(email: string): LockState {
   const row = db.prepare("SELECT failures, locked_until FROM login_attempts WHERE email = ?").get(email) as

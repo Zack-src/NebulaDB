@@ -51,7 +51,7 @@ export function getEnvironment(id: string): EnvironmentStage | null {
 }
 
 /** A stage by its name, ignoring case and surrounding spaces — how a free-text `environment` sent by an older client is resolved. */
-export function findEnvironmentByName(name: string): EnvironmentStage | null {
+function findEnvironmentByName(name: string): EnvironmentStage | null {
   const row = db.prepare(`${SELECT_STAGES} WHERE e.name = ? COLLATE NOCASE`).get(name.trim()) as
     EnvironmentRow | undefined;
   return row ? rowToStage(row) : null;

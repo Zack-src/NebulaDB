@@ -27,18 +27,11 @@
   import { useTranslation } from "@/i18n/i18n.svelte";
   import ToolbarMenu from "./ToolbarMenu.svelte";
 
-  /**
-   * The four insert tools (table, zone, note, enum), collapsed into one dropdown
-   * — the same shape as the detail-level control — instead of four permanent
-   * icon buttons crowding the toolbar.
-   *
-   * Picking an entry arms that tool and closes the menu (`CanvasArea` then
-   * places it wherever the canvas is next clicked, as many times as clicked —
-   * this component only shows which tool, if any, is armed). Picking the
-   * already-armed tool again disarms it, mirroring the toggle every other
-   * canvas tool uses; `CanvasArea`'s `onSelectTool` already implements that
-   * flip, so this component just calls it unconditionally.
-   */
+    /**
+     * The four insert tools (table, zone, note, enum) in one dropdown. Picking one arms it
+     * (`CanvasArea` places it on each canvas click); picking the armed one again disarms it, which
+     * `onSelectTool` already implements.
+     */
   let {
     activeTool,
     onSelectTool,

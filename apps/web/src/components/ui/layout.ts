@@ -12,5 +12,3 @@
 export const APP_SHELL = "flex h-screen w-screen flex-col bg-bg";
 export const APP_HEADER =
   "z-30 flex h-12 shrink-0 select-none items-center gap-2.5 border-b border-border bg-surface px-4 sm:px-6";
-/** Hairline separating groups of controls inside a header. */
-export const HEADER_DIVIDER = "mx-1 h-5 w-px shrink-0 bg-border";

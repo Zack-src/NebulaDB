@@ -21,9 +21,9 @@ import { chromium, type Browser, type Locator, type Page } from "playwright-core
  * for the ones already taken).
  */
 
-export const REPO_ROOT = fileURLToPath(new URL("../../..", import.meta.url));
+const REPO_ROOT = fileURLToPath(new URL("../../..", import.meta.url));
 export const ADMIN_EMAIL = "e2e-admin@example.com";
-export const ADMIN_PASSWORD = "correct horse battery staple e2e";
+const ADMIN_PASSWORD = "correct horse battery staple e2e";
 const STARTUP_TIMEOUT_MS = 15_000;
 
 function sleep(ms: number): Promise<void> {
@@ -60,7 +60,7 @@ async function waitForHealth(baseUrl: string): Promise<void> {
   throw new Error(`server never became healthy at ${baseUrl}: ${lastErr}`);
 }
 
-export async function launchBrowser(): Promise<Browser> {
+async function launchBrowser(): Promise<Browser> {
   const candidates = [{ channel: "chrome" }, { channel: "msedge" }];
   let lastError: unknown;
   for (const candidate of candidates) {

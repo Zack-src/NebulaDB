@@ -10,7 +10,7 @@ import { generateId } from "@/utils/id";
 import type { Contribution, InvokeResult } from "@/features/plugins/types";
 import type { BuiltinPlugin, BuiltinRunner } from "./types";
 
-export const RESET_LINK_ROUTING_ID = "reset-link-routing";
+const RESET_LINK_ROUTING_ID = "reset-link-routing";
 export const GROUP_TABLES_ID = "group-tables";
 
 const contributions: Contribution[] = [

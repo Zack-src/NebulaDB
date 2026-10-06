@@ -3,25 +3,13 @@
   import type { Awareness } from "y-protocols/awareness.js";
   import { useAwarenessStates } from "@/features/collaboration/awarenessStates.svelte";
 
-  /**
-   * Renders every other participant's live cursor directly into the flow's
-   * viewport-portal layer, instead of as an entry in the `nodes` array.
-   *
-   * Cursors used to be plain canvas nodes so they'd inherit pan/zoom "for
-   * free". That looked free, but wasn't: a remote peer's mouse move fires tens
-   * of times a second, and every one of them pushed a brand-new `nodes` array
-   * through the flow's node reconciliation — which walks *every* node on the
-   * canvas, not just the cursor.
-   *
-   * `ViewportPortal` renders into the layer the flow keeps pinned to the
-   * current pan/zoom, so cursors inherit that same free pan/zoom, but a cursor
-   * moving only ever updates this one small subtree — never the tables, edges,
-   * or anything else on the canvas.
-   *
-   * Mounted once, isolated from the rest of the tree: `awareness` is read here
-   * rather than threaded down as an already-derived prop, so a cursor moving
-   * doesn't also touch `ProjectEditor`/`CanvasArea` on its way here.
-   */
+    /**
+     * Renders every other participant's live cursor in the flow's viewport-portal layer rather
+     * than as `nodes`: a peer's mouse move fires tens of times a second, and each would push a new
+     * `nodes` array through the flow's reconciliation of every node. Here a moving cursor only
+     * updates this subtree. `awareness` is read here, not threaded down, so it doesn't touch
+     * `ProjectEditor`/`CanvasArea`.
+     */
   let { awareness }: { awareness: Awareness | null } = $props();
 
   const remote = useAwarenessStates(() => awareness);

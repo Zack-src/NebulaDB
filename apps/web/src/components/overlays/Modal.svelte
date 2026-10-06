@@ -18,22 +18,11 @@
   import { useEscapeKey } from "@/hooks/escapeKey.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
 
-  /**
-   * The app's one dialog shell.
-   *
-   * Three things it does that a `role="dialog"` div does not get for free:
-   *
-   *  - focus moves into the dialog on open and back to whatever opened it on
-   *    close, so a keyboard user is not dumped at the top of the page;
-   *  - Tab is trapped inside, so tabbing does not walk off into the page behind
-   *    the scrim;
-   *  - the page behind stops scrolling, so a wheel over the backdrop no longer
-   *    scrolls the list the dialog is about.
-   *
-   * Backdrop dismissal requires the press *and* the release to land on the
-   * backdrop. Checking only the click target closed the dialog whenever a text
-   * selection started inside and ended outside it.
-   */
+    /**
+     * The app's one dialog shell: focus moves in on open and back to the opener on close, Tab is
+     * trapped, the page behind stops scrolling. Backdrop dismissal needs the press *and* the
+     * release on the backdrop, so a text selection ending outside doesn't close it.
+     */
   let {
     title,
     onClose,

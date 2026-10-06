@@ -4,22 +4,15 @@ import { documentSync, harmlessRewrite } from "@/features/editor/dbml/annotation
 import { getSymbols } from "@/features/editor/dbml/symbols";
 
 /**
- * Locked tables in the DBML buffer: the block of a table whose lock binds
- * this user cannot be typed into.
- *
- * The server would refuse the sync anyway (and say which table) — but only
- * after the edit was made, leaving a buffer that no longer matches the schema
- * and will not sync until the edit is taken back by hand. Refusing the
- * keystroke is the same rule, told at the moment it matters.
- *
- * What is frozen is the `Table … { … }` block, first line to closing brace.
- * A standalone `Ref:` line is not: which table carries a relation is the
- * server's to decide.
+ * Locked tables in the DBML buffer: the `Table ... { ... }` block of a table whose lock binds
+ * this user can't be typed into. The server would refuse the sync anyway, but only after the
+ * edit left a buffer that no longer matches the schema. A standalone `Ref:` line isn't frozen:
+ * which table carries a relation is the server's to decide.
  */
 const NO_TABLES: ReadonlySet<string> = new Set();
 
 /** Names (lower-case) of the tables this user may not alter. */
-export const setFrozenTables = StateEffect.define<ReadonlySet<string>>();
+const setFrozenTables = StateEffect.define<ReadonlySet<string>>();
 
 const frozenTablesField = StateField.define<ReadonlySet<string>>({
   create: () => NO_TABLES,

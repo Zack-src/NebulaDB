@@ -73,7 +73,7 @@ export function requirePassword(value: unknown): string {
 }
 
 /** Whatever a driver hands back for a cell, as something JSON can carry and a grid can show. */
-export function toJsonCell(value: unknown): unknown {
+function toJsonCell(value: unknown): unknown {
   if (value === null || value === undefined) return null;
   if (typeof value === "string") return value.length > MAX_CELL_CHARS ? `${value.slice(0, MAX_CELL_CHARS)}…` : value;
   if (typeof value === "number") return Number.isFinite(value) ? value : String(value);

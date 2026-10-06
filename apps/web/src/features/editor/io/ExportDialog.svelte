@@ -42,18 +42,12 @@
   import { triggerDownload } from "@/utils/download";
   import { useTranslation } from "@/i18n/i18n.svelte";
 
-  /**
-   * Every format in this dialog — text and image/PDF alike — comes from an
-   * exporter *contribution*, supplied by the built-in `nebuladb.core-export`
-   * plugin (a user plugin adding one more shows up here with no change to this
-   * file). The image/PDF ones still capture the live Svelte Flow canvas rather
-   * than generating anything from project data: `useExporters`'s second
-   * argument threads `captureCanvasImage` through to `PluginRunContext`
-   * (builtins only — a sandboxed user plugin never gets a function reference
-   * across its worker boundary, see `builtins/types.ts`), so those three
-   * runners can call it. PDF packaging itself (jsPDF) stays here at download
-   * time — it's presentation, not export logic.
-   */
+    /**
+     * Every format here comes from an exporter *contribution* (built-in `nebuladb.core-export`; a
+     * user plugin's shows up too). Image/PDF formats capture the live canvas through
+     * `captureCanvasImage`, passed to builtins only (a sandboxed plugin can't receive a function).
+     * PDF packaging (jsPDF) stays here at download time.
+     */
   let props: {
     projectId: string;
     projectName: string;

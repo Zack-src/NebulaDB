@@ -7,24 +7,17 @@ import { isBlockedAddress } from "../connections/hostGuard.js";
 import type { WebhookEvent, WebhookFormat } from "./repository.js";
 
 /**
- * One HTTP delivery of one webhook payload.
+ * One HTTP delivery of one webhook payload, via `node:http`/`https` rather than `fetch`:
+ * - **No redirects**: a 3xx is a failed delivery.
+ * - **The address is checked at connect time** (`lookup` hook, `isBlockedAddress`), so DNS
+ *   can't answer differently a second time.
  *
- * `node:http`/`https` rather than `fetch`, for two SSRF reasons:
- * - **No redirects.** `fetch` follows them by default, so a harmless-looking
- *   URL could bounce the server anywhere; a 3xx here is just a failed
- *   delivery.
- * - **The address is checked at connect time.** The `lookup` hook below sees
- *   the exact IP the socket is about to use and refuses the cloud metadata
- *   endpoints (`isBlockedAddress`) — unlike a resolve-then-connect check,
- *   there's no window for DNS to answer differently the second time.
- *
- * Like database connections, private/LAN targets stay allowed on purpose: a
- * self-hosted instance posting to an internal chat or CI server is the
- * normal case. Only project administrators can register a webhook.
+ * Private/LAN targets stay allowed, as for database connections. Only project administrators
+ * can register a webhook.
  */
 
-export const DELIVERY_TIMEOUT_MS = 10_000;
-export const USER_AGENT = "NebulaDB-Webhooks/1";
+const DELIVERY_TIMEOUT_MS = 10_000;
+const USER_AGENT = "NebulaDB-Webhooks/1";
 
 export interface WebhookEnvelope {
   id: string;

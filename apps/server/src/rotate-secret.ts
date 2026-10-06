@@ -5,16 +5,11 @@ import { reencryptPayload } from "./shared/crypto.js";
 /**
  * Re-encrypts everything stored at rest with the current `NEBULADB_SECRET`.
  *
- * Rotation, start to finish:
- *   1. set `NEBULADB_SECRET_PREVIOUS` to the secret in use, and
- *      `NEBULADB_SECRET` to the new one (the server keeps working: it reads
- *      with either);
- *   2. run `npm run rotate-secret`;
- *   3. remove `NEBULADB_SECRET_PREVIOUS`.
+ * 1. Set `NEBULADB_SECRET_PREVIOUS` to the old secret and `NEBULADB_SECRET` to the new one.
+ * 2. Run `npm run rotate-secret`.
+ * 3. Remove `NEBULADB_SECRET_PREVIOUS`.
  *
- * Safe to re-run: a value already under the current key is simply rewritten.
- * All-or-nothing — one value that neither key can read aborts the whole run
- * before anything is changed.
+ * Safe to re-run. All-or-nothing: a value neither key can read aborts before any change.
  */
 const TARGETS = [
   { table: "db_connections", key: "id", column: "config_encrypted" },

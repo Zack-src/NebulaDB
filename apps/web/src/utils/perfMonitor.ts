@@ -1,21 +1,13 @@
 /**
- * Lightweight, dependency-free perf instrumentation for hunting editor
- * stutter/freezes. Disabled by default in production so it costs nothing for
- * real users; flip it on with `localStorage.setItem("nebula:perf", "1")` and
- * reload (works in a prod build too, so a reported freeze can be reproduced
- * and measured without a dev rebuild). Always on in `import.meta.env.DEV`.
+ * Lightweight perf instrumentation for hunting editor stutter. Off by default in production; turn
+ * it on with `localStorage.setItem("nebula:perf", "1")` and reload. Always on in dev.
  *
- * Three pieces:
- *  - `time`/`timeAsync` wrap a hot function, recording how long it took.
- *  - a `longtask` PerformanceObserver flags any >50ms main-thread block even
- *    if it isn't inside one of the wrapped spots above (Svelte itself, a
- *    third-party lib, GC, layout thrashing...).
- *  - `logPerfReport()` (also reachable as `window.__nebulaPerf.report()`
- *    from devtools) prints a table of every measured label, worst offenders
- *    first.
+ *  - `time` wraps a hot function, recording how long it took.
+ *  - a `longtask` PerformanceObserver flags any >50ms main-thread block, wrapped or not.
+ *  - `window.__nebulaPerf.report()` prints every measured label, worst first.
  */
 
-export const PERF_LOG_THRESHOLD_MS = 16; // one dropped frame at 60fps
+const PERF_LOG_THRESHOLD_MS = 16; // one dropped frame at 60fps
 
 function readEnabledFlag(): boolean {
   if (import.meta.env.DEV) return true;
@@ -84,17 +76,6 @@ export function time<T>(label: string, fn: () => T): T {
   }
 }
 
-/** Same as `time`, for an async hot path — measures wall time including any awaited work. */
-export async function timeAsync<T>(label: string, fn: () => Promise<T>): Promise<T> {
-  if (!enabled) return fn();
-  const start = performance.now();
-  try {
-    return await fn();
-  } finally {
-    finishSpan(label, start);
-  }
-}
-
 /** Records a duration measured elsewhere (e.g. an event timestamp), rather than timing a call this module makes itself. */
 export function recordDuration(label: string, durationMs: number): void {
   if (!enabled) return;
@@ -129,7 +110,7 @@ export function getPerfReport(): PerfReportRow[] {
     .sort((a, b) => b.totalMs - a.totalMs);
 }
 
-export function logPerfReport(): void {
+function logPerfReport(): void {
   console.table(getPerfReport());
 }
 

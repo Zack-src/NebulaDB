@@ -100,7 +100,7 @@ export function stripSqlNoise(sql: string, engine: DatabaseEngine): string {
   return out;
 }
 
-export function firstKeyword(stripped: string): string {
+function firstKeyword(stripped: string): string {
   return /^[\s(]*([A-Za-z]+)/.exec(stripped)?.[1]?.toUpperCase() ?? "";
 }
 
@@ -195,16 +195,11 @@ function dataWriteNotAllowed(reason: string): ApiError {
 }
 
 /**
- * Throws unless `sql` is one statement that writes **data** — what a member
- * granted `write` on a database may run. Stricter than the administrator's
- * write mode on purpose: one statement, a known first keyword, no word that
- * could change structure, accounts or the server, and no `SELECT … INTO`
- * (which creates a table). Structure goes through the schema, for them always.
+ * Throws unless `sql` is one statement that writes **data**: what a member granted `write`
+ * may run. Stricter than the administrator's write mode: one statement, a known first keyword,
+ * nothing that changes structure, accounts or the server, no `SELECT ... INTO`.
  *
- * Like the read-only check, a guard rail and not a sandbox: a function the
- * database lets the account call can still do what that function does. The
- * database's own permissions — the person's own account, in `personal` mode —
- * are what really bounds a member.
+ * A guard rail, not a sandbox: the database's own permissions are the real bound.
  */
 export function assertDataStatement(sql: string, engine: DatabaseEngine): void {
   if (engine === "mysql" && sql.includes("/*!")) throw dataWriteNotAllowed("executable comments are not allowed");

@@ -4,7 +4,7 @@ import { db } from "../../infrastructure/db.js";
 import { ApiError } from "../../shared/errors.js";
 
 /** At most this many presets in the library: a guard against abuse, not a product limit. */
-export const MAX_LINT_PRESETS = 100;
+const MAX_LINT_PRESETS = 100;
 const MAX_NAME = 100;
 const MAX_DESCRIPTION = 300;
 
@@ -84,7 +84,7 @@ export function listLintPresets(): { presets: LintPreset[]; defaultId: string | 
   return { presets, defaultId: presets.find((preset) => preset.isDefault)?.id ?? null };
 }
 
-export function getLintPreset(id: string): LintPreset {
+function getLintPreset(id: string): LintPreset {
   const row = presetRow(id);
   if (!row) throw new ApiError("LINT_PRESET_NOT_FOUND");
   return toPreset(row, followerCount(id));

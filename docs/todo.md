@@ -12,9 +12,8 @@ day or two), **L** (about a week), **XL** (a project of its own).
 docs refer to them, e.g. "the Phase 27 rule"); finished work in them is condensed to one
 line — `git log --follow -p -- docs/todo.md` recovers the detail. **Phases 29–38 are new**:
 the schema ↔ database workbench roadmap, whose design (mock-ups, data model, open
-questions) lives in [`docs/plan-schema-workbench.md`](plan-schema-workbench.md) — every
-item below cites the section (`§n`) it comes from. The database console it builds on is
-described in `docs/plan-db-admin.md`.
+questions) was kept in a plan document that has since been removed — every
+item below cites the section (`§n`) it came from. The database console it builds on has shipped.
 
 Before starting any phase, check the **Prerequisites** list just below — and the **Owner's
 checklist** after it: the decisions to take, the tests to run by hand and the checks owed
@@ -61,7 +60,7 @@ rollback is still to do; 2026-10-04: lot 17's schema linter and data dictionary)
 
 ### Prerequisites to settle before coding (cross-cutting)
 
-- [x] **Role / permission matrix** — written 2026-10-02: [`docs/permissions.md`](permissions.md),
+- [x] **Role / permission matrix** — written 2026-10-02 (the document has since been removed),
       role × action, taken from the guards in the code. It also lists what no role covers today
       (no level between `edit` and `administrator`, no read restriction inside a project, an
       all-or-nothing database console) — the gaps Phases 31, 32 and 35 will have to fill. Keep
@@ -114,9 +113,6 @@ rollback is still to do; 2026-10-04: lot 17's schema linter and data dictionary)
 ---
 
 ## Owner's checklist — to decide, to test, to verify (as of 2026-10-05)
-
-**The same list in French, on one page, with what can be automated for each test:**
-[`a-decider-et-a-tester.md`](a-decider-et-a-tester.md) — keep the two in step.
 
 Everything below waits for **the owner**, not for code. It gathers in one place what the phases
 further down say in passing, so nothing has to be found again before the next round of changes.
@@ -472,7 +468,7 @@ for each of these; none has been done.
       screening (`sqlGuard.ts#assertDataStatement`), which account a member runs as on a shared
       connection, invitations granting on acceptance, the connection-account protection — before
       anyone is given `write`. _Phase 31._
-- [ ] **Legal review** of `docs/legal/{cgu,confidentialite}.md` — now including §2.8 (personal
+- [ ] **Legal review** of the terms-of-service and privacy-policy templates — now including §2.8 (personal
       database accounts) and its retention line. _V1 checklist._
 - [ ] **Accessibility audit** of the Svelte UI: none has been run. _Phase 22._
 
@@ -488,8 +484,8 @@ API have since shipped.
 
 - [ ] **First tagged release** — **S**, a deliberate release action (see Phase 25): every
       workspace is still `0.0.1`, `git tag -l` is empty.
-- [ ] **Legal review of the templates** — not code. `docs/legal/{cgu,confidentialite}.md` are
-      templates written from the code's verified behaviour; the operator fills the `[…]` markers and
+- [ ] **Legal review of the templates** — not code. The terms-of-service and privacy-policy
+      templates are written from the code's verified behaviour; the operator fills the `[…]` markers and
       has a lawyer read them. Remember: the instance operator, not this project, is publisher and
       data controller.
 - [ ] **Decide the licence** — **S**, but decide **early**: MIT lets anyone host and resell the
@@ -512,8 +508,7 @@ API have since shipped.
 - [ ] **Written decisions** (cost one sentence if assumed): mobile / tablet (Phase 22), and
       the language policy (fr + en, see open decisions).
 - [ ] **Out of V1, stated plainly rather than implied:** SSO, passkeys (TOTP 2FA is done), real
-      offline mode, plugin marketplace. The user guide ends with the list of what the product does
-      not do yet — keep it in sync with this file (`docs/user-guide.md`).
+      offline mode, plugin marketplace. Keep this list in sync with the product.
 
 ---
 
@@ -1820,7 +1815,7 @@ column}` — names, never the comment text; a mention of someone without access 
   `apps/server/src/modules/connections/repository.ts` has grown a lot with instance-level
   connections — worth a look.
 - [ ] **Confirm two perf regressions flagged by the Svelte migration bench** — **S**
-      (`docs/perf/svelte-migration-results.md`, single pass): `zoom-links-on` at "complet" detail
+      (single pass): `zoom-links-on` at "complet" detail
       0→29 ms blocking at 100 tables and 4→40 ms at 500; `delete-columns` at 500 tables +~6 ms. Small
       in absolute terms; needs a second measurement pass.
 
@@ -1922,7 +1917,7 @@ NOT IN (SELECT id FROM projects)` is worth running on existing instances (migrat
     grants in the project so drift covers permissions is still open.
 - [ ] **Phase E — CI/CD automation** — **L**. The `/api/v1` deploy-trigger endpoint is the
       primitive; the GitHub Action, CLI wrapper and docs aren't built. Overlaps Phase 38 idea 25.
-- [ ] **Database console follow-ups** — from `docs/plan-db-admin.md` phase 4: data **import**,
+- [ ] **Database console follow-ups** — from the console plan's phase 4: data **import**,
       schema comparison **between two connections** (now covered by Phase 32 environment
       comparison), SSH tunnel and custom CA for TLS (drivers connect with
       `rejectUnauthorized: false` unless a PostgreSQL URL says otherwise), CodeMirror SQL editor with
@@ -1987,8 +1982,7 @@ DIR`; project-scoped connection access fixed; per-target rate limiting (`connect
 - **Auth model** — resolved: e-mail / password with sessions, per-project / team permissions,
   invitations, admin console. No external IdP.
 - **Canvas library** — resolved 2026-09-22: React Flow → **Svelte Flow** with the full Svelte 5
-  rewrite (−58 % blocking time, −36 % mount time, −7 % critical-path bundle; see
-  `docs/perf/svelte-migration-results.md`).
+  rewrite (−58 % blocking time, −36 % mount time, −7 % critical-path bundle).
 - **History storage** — Yjs update log + periodic SQLite snapshots.
 - **SQLite as a SQL import / export dialect** — `@dbml/core` can't import it; export ships as the
   example plugin; import would need a dedicated DDL parser — not planned unless asked.
@@ -2001,7 +1995,7 @@ DIR`; project-scoped connection access fixed; per-target rate limiting (`connect
 - **i18n** — now French **and English** (`apps/web/src/locales/{fr,en}.json`; the console work
   added both); keep both complete for every new string. _(Earlier text said "all-French, no i18n
   library" — superseded.)_
-- **New (2026-10-02), see `docs/plan-schema-workbench.md`:** environments and variants are two
+- **New (2026-10-02):** environments and variants are two
   orthogonal axes (variant = _for whom_, environment = _where in the life cycle_); structure goes
   through the schema by default and the admin may relax it; AI features are optional, off by
   default, and only ever see structure or normalised statements — never real data.

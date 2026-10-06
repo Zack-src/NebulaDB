@@ -65,20 +65,14 @@ export interface MonitorCheckResult {
 }
 
 /**
- * Reads each watched database of a project and compares its structure with
- * the reference — the fingerprint taken at the last deployment or pull, the
- * last moment Nebula knew the two agreed.
+ * Reads each watched database of a project and compares its structure with the reference
+ * (the fingerprint of the last deployment or pull).
  *
- * A difference no successful deployment explains is a change made outside
- * Nebula: it is recorded once per state of the database (the same change is
- * not reported at every pass, nor after someone waved it off), the project's
- * link is marked so the editor shows its banner, and `drift.detected` goes to
- * the project's webhooks. A database that cannot be read is "unreachable" —
- * reported once, closed when it answers again, never taken for a change.
+ * A difference no deployment explains is recorded once per database state, marks the project's
+ * link (editor banner) and fires `drift.detected`. An unreadable database is "unreachable":
+ * reported once, closed when it answers, never taken for a change.
  *
- * Read as each connection's service account, also when a person asks for the
- * check: the watch's findings are the project's, and a missing personal
- * account must not be recorded as a database that cannot be reached.
+ * Read as each connection's service account, even for a user-requested check.
  */
 export function checkProjectMonitoring(projectId: string): Promise<MonitorCheckResult> {
   return asUnattended(() => readWatchedDatabases(projectId));

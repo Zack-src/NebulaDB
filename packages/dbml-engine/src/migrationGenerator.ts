@@ -359,21 +359,12 @@ function generateFieldAlterations(
 }
 
 /**
- * Generates an incremental SQL migration script from a MigrationDiff, applying
- * user conflict resolution strategies and wrapping the statements in a transaction.
+ * Generates an incremental SQL migration script from a MigrationDiff, applying the user's conflict
+ * strategies and wrapping the statements in a transaction.
  *
- * That wrapping is a genuine safety net for Postgres and SQLite, whose DDL
- * participates in a transaction like any other statement — a failure
- * partway through leaves nothing applied once the driver rolls back. It is
- * **not** one for MySQL: every DDL statement there causes an implicit commit
- * regardless of `START TRANSACTION`/`COMMIT` wrapping it, so a MySQL
- * migration that fails on statement 3 of 5 has already permanently applied
- * statements 1–2, with no automatic way back. This is an engine limitation,
- * not something this function (or the driver calling it) can fix by
- * generating different SQL — the wrapping is kept for MySQL anyway because a
- * `START TRANSACTION`/`COMMIT` pair is at least harmless there and keeps the
- * three dialects' output shape consistent, but nothing should read its
- * presence as a MySQL atomicity guarantee.
+ * That wrapping is a safety net for Postgres and SQLite, whose DDL is transactional. It is **not**
+ * one for MySQL: each DDL statement implicitly commits, so a failure on statement 3 of 5 has
+ * already applied 1-2. The wrapping is kept there only for consistent output across dialects.
  */
 export function generateMigrationSql(
   diff: MigrationDiff,

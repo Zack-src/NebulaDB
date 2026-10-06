@@ -7,8 +7,7 @@ corrections moteur, correctif CI).
 Ce document liste tout ce que l'outil doit permettre, fonctionnalité par fonctionnalité, avec
 son état. Il réunit le besoin exprimé par le propriétaire du produit, ce que le code fait déjà
 et ce que [`todo.md`](./todo.md) prévoit. Le détail technique de chaque point reste dans
-`todo.md` ; les décisions en attente sont dans
-[`a-decider-et-a-tester.md`](./a-decider-et-a-tester.md).
+`todo.md`, qui porte aussi les décisions en attente.
 
 ## Légende
 

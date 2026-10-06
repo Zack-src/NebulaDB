@@ -8,19 +8,13 @@
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { HEX_RE, SWATCH_CELL_ACTIVE_CLASS, SWATCH_CELL_CLASS, SWATCH_GRID_CLASS } from "./colorSwatches";
 
-  /**
-   * Small circular swatch button that opens a preset-color popover (+ custom
-   * hex) instead of the OS native color picker. Portaled to `document.body`
-   * since every caller lives inside a canvas node — nodes clip overflow and
-   * get CSS-transformed for pan/zoom, so an absolutely-positioned child
-   * popover would either be clipped or scaled/misplaced with the canvas.
-   *
-   * `palette` is per-project (persisted in the doc's meta map, shared by every
-   * table/zone/note picker in that project) rather than a fixed global list —
-   * callers fall back to `DEFAULT_PALETTE` when the project hasn't customized
-   * one yet. Right-click a swatch to remove it; the "+" cell adds whatever the
-   * current value is.
-   */
+    /**
+     * Circular swatch button opening a preset-colour popover (plus custom hex). Portaled to
+     * `document.body`: canvas nodes clip overflow and are CSS-transformed.
+     *
+     * `palette` is per-project (the doc's meta map); callers fall back to `DEFAULT_PALETTE`.
+     * Right-click a swatch to remove it; "+" adds the current value.
+     */
   let {
     value,
     onChange,

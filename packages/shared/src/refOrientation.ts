@@ -1,16 +1,12 @@
 import type { Field, Project, Ref, Table } from "./schema.js";
 
 /**
- * Which way a `Ref` points. The rule every SQL path already follows (both
- * migration/export generators, the live-database drivers, the Prisma/SQLite
- * plugins): **`from` is the column that carries the foreign key, `to` is the
- * column it references.** A `one-to-many` ref therefore reads "many `from`
- * rows point at one `to` row", and `ALTER TABLE <from> ADD FOREIGN KEY`.
+ * Which way a `Ref` points. The rule every SQL path follows: **`from` is the column that carries
+ * the foreign key, `to` the column it references**; a `one-to-many` reads "many `from` rows point
+ * at one `to` row" and becomes `ALTER TABLE <from> ADD FOREIGN KEY`.
  *
- * Refs written before this was enforced everywhere can be stored the other
- * way round (an inline DBML `[ref: > …]` used to be parsed backwards), so
- * this module also decides when a stored ref is *certainly* inverted and can
- * be flipped without asking anyone.
+ * Older refs can be stored backwards (inline DBML `[ref: > ...]` was once parsed backwards), so
+ * this module also decides when a stored ref is *certainly* inverted and can be flipped.
  */
 
 function isKey(field: Field | undefined, table: Table | undefined): boolean {
@@ -31,15 +27,10 @@ function endpointField(tablesById: Map<string, Table>, tableId: string, fieldId:
 
 /**
  * True when `ref` is stored backwards beyond doubt:
- * - `one-to-many`: a referenced column must be a key (SQL requires it), and
- *   the owning side of a to-many can't be. So `from` a key and `to` not →
- *   the two are swapped. Nothing legitimate looks like that.
- * - `one-to-one`: both sides are usually keys, so only the classic inverted
- *   shape is caught — `from` a primary key, `to` a unique non-PK column (the
- *   `subscriptions.organization_id [unique]` → `organizations.id` pattern
- *   stored the wrong way). A one-to-one whose *owning* column is itself the
- *   PK and whose target is only `unique` would be misread; that design is
- *   rare enough to accept rather than never repairing the common case.
+ * - `one-to-many`: a referenced column must be a key and the owning side of a to-many can't be, so
+ *   `from` a key and `to` not means swapped.
+ * - `one-to-one`: only the classic shape is caught (`from` a primary key, `to` a unique non-PK
+ *   column). An owning PK with a merely `unique` target would be misread; rare enough to accept.
  * - `many-to-many` has no owning side: never flipped.
  */
 export function isRefInverted(ref: Ref, tablesById: Map<string, Table>): boolean {

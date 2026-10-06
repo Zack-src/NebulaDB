@@ -3,20 +3,13 @@ import type { Project, Ref } from "@nebuladb/shared";
 // Pure Project → Project, no `@dbml/core` import: safe client-side, like diff.ts.
 
 /**
- * The current project with only some tables put back as they stood in an
- * older revision — "restore only this table" from the history.
+ * The current project with only some tables put back as they stood in an older revision ("restore
+ * only this table"). Per table id: present in the revision -> its version replaces or re-adds it;
+ * absent from the revision (created since) -> removed.
  *
- * Per table id asked for:
- *  - present in the revision → the revision's version replaces (or re-adds) it;
- *  - absent from the revision (created since) → it is removed.
- *
- * Relations follow the rule table locks use (`findLockViolations`): a foreign
- * key belongs to the table that **carries** it (`from`). So the refs carried
- * by a restored table are the revision's; refs carried by the other tables
- * stay as they are now — except those whose target no longer exists, which
- * are dropped rather than left pointing at nothing. Everything else (other
- * tables, enums, zones, notes, groups) is the current project untouched; a
- * group loses the ids of tables the restore removed.
+ * A foreign key belongs to the table that **carries** it (`from`, as in `findLockViolations`): refs
+ * carried by a restored table are the revision's, refs carried by others stay as they are unless
+ * their target no longer exists. Everything else is untouched; a group loses removed table ids.
  */
 export function restoreTables(current: Project, revision: Project, tableIds: readonly string[]): Project {
   const selected = new Set(tableIds);

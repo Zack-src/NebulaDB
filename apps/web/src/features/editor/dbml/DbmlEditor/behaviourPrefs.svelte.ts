@@ -23,7 +23,7 @@ const PREF_BEHAVIOUR = "nebuladb_dbml_behaviour";
 const DEFAULTS: DbmlBehaviourPrefs = { formatMode: "never", autoComplete: true, closeBrackets: true, syncDelayMs: 600 };
 
 /** Stored values are untrusted (hand-edited, or written by another version): anything unexpected falls back to its default. */
-export function sanitizeBehaviourPrefs(stored: unknown): DbmlBehaviourPrefs {
+function sanitizeBehaviourPrefs(stored: unknown): DbmlBehaviourPrefs {
   const raw = (stored && typeof stored === "object" ? stored : {}) as Partial<
     Record<keyof DbmlBehaviourPrefs, unknown>
   >;

@@ -214,30 +214,12 @@ export class MysqlDriver implements DatabaseDriver {
   }
 
   /**
-   * Unlike the Postgres/SQLite drivers, there is deliberately no catch-block
-   * ROLLBACK here: MySQL's DDL statements each cause an implicit commit
-   * regardless of the `START TRANSACTION`/`COMMIT` the generated SQL wraps
-   * them in (see `migrationGenerator.ts`), so a failure partway through has
-   * already permanently applied everything before it — a ROLLBACK at that
-   * point would roll back nothing and imply a safety this call can't
-   * actually provide.
+   * No catch-block ROLLBACK, unlike Postgres/SQLite: each MySQL DDL statement implicitly
+   * commits, so a failure has already applied everything before it.
    *
-   * Executed **statement by statement** rather than as one multi-statement
-   * blob (the previous shape, which needed `multipleStatements: true` on the
-   * pool — removed above). That change is what makes `executedStatements`
-   * honest on failure: this used to always report 0 regardless of how much
-   * of the batch actually landed, which was flagged in this same comment as
-   * a real, unresolved gap. Now it's an exact count, and `error` names which
-   * statement (1-indexed, matching what a human counting semicolons in the
-   * SQL preview would call it) failed.
-   *
-   * The split itself is the same naive `split(";")` every driver already
-   * uses just to *count* statements for the success path — extending it to
-   * also *execute* individually inherits the same known limitation: SQL
-   * containing a semicolon inside a string literal (a table/column default
-   * value, say) would be split incorrectly. `migrationGenerator.ts` doesn't
-   * currently produce such a default, so this isn't a change in what's
-   * supported today, only a documented edge this driver doesn't yet handle.
+   * Executed statement by statement so `executedStatements` is exact and `error` names the
+   * failing statement (1-indexed). The `split(";")` is naive: a semicolon inside a string
+   * literal (a default value, say) would be split wrongly; `migrationGenerator.ts` produces none.
    */
   async executeMigration(sql: string): Promise<MigrationExecutionResult> {
     const statements = sql

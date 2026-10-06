@@ -30,30 +30,21 @@
     type GridSort,
   } from "./dataGrid";
 
-  /**
-   * A read-only table of values that stays usable with tens of thousands of
-   * rows: only the rows in view are in the DOM (fixed row height, sticky
-   * header), a click on a header sorts, a header's right edge resizes its
-   * column.
-   *
-   *   <DataGrid columns={result.columns} rows={result.rows} aria-label="…" emptyLabel="…" />
-   *
-   * Sorting is done here, on the rows that were given — it never asks for
-   * more. NULL is last in both directions; numbers, and text that reads as a
-   * number, compare by value.
-   *
-   * Column widths start from the content of the first rows. Once the user
-   * changes one they are the caller's: `bind:widths`, or `onWidthsCommit` at
-   * the end of a drag or a key press — the moment to persist. The grid stores
-   * nothing.
-   *
-   * ARIA `grid`, with the row and column counts and each rendered row's index,
-   * since most rows are not in the DOM. The grid itself is a tab stop: arrows,
-   * Page Up / Down, Home and End scroll by whole rows. Each header is a button
-   * (sort); each resize handle a focusable `separator` — arrows resize (Shift:
-   * larger steps), Home is the minimum, Enter or a double-click fits the
-   * content.
-   */
+    /**
+     * A read-only table of values that stays usable with tens of thousands of rows: only rows in
+     * view are in the DOM (fixed row height, sticky header), a header click sorts, a header's right
+     * edge resizes.
+     *
+     *   <DataGrid columns={result.columns} rows={result.rows} aria-label="..." emptyLabel="..." />
+     *
+     * Sorting is local; NULL is last in both directions; numeric text compares by value. Widths
+     * start from the first rows; once the user changes one they are the caller's (`bind:widths`,
+     * or `onWidthsCommit` at the end of a drag or key press). The grid stores nothing.
+     *
+     * ARIA `grid` with row/column counts and each rendered row's index. The grid is a tab stop
+     * (arrows, Page Up/Down, Home, End); headers are sort buttons; resize handles are focusable
+     * `separator`s (arrows resize, Shift larger steps, Home minimum, Enter/double-click fits).
+     */
   let {
     columns,
     rows,

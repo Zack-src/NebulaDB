@@ -13,18 +13,10 @@ import {
 import { API_RATE_LIMIT } from "./rateLimits.js";
 
 /**
- * The app's guard (`requireConnectionUser`: instance administrators and the
- * administrators of a project the connection is attached to; anyone else is
- * told it does not exist), then the scope `connections:manage`.
+ * The app's guard (`requireConnectionUser`), then the scope `connections:manage`.
  *
- * A connection is an instance-level object, so there is no project in the
- * path to hold a restricted key to. Rather than refuse such a key outright
- * (`requireGlobalScope`, as the backups do — but a job that deploys one
- * project is exactly who needs this route) or let it through unscoped
- * (`requireScope` with no project, which checks nothing), the key is held to
- * its project here: the connection must be attached to that project, and the
- * owner's right to use it must come from that project — not from another one
- * the connection happens to be attached to as well.
+ * A connection is instance-level, so a project-restricted key is held to its project here:
+ * the connection must be attached to it, and the owner's right to use it must come from it.
  */
 function requireCredentialAccess(req: FastifyRequest, connectionId: string): ConnectionUser {
   const access = requireConnectionUser(req, connectionId);

@@ -24,18 +24,15 @@
     type MonitoringState,
   } from "@/services/monitoringApi";
 
-  /**
-   * "Surveillance": whether the project's databases are read on a schedule
-   * and compared with the state the last deployment or pull left them in. A
-   * difference nothing in Nebula explains turns on the editor's drift banner,
-   * is listed here, and goes to the project's webhooks.
-   *
-   * The accounts watch (instance administrators only — the server sends
-   * `accounts: null` to anyone else, and no account finding): the same
-   * databases' accounts, roles and privileges, compared with a reference
-   * that Nebula's own console changes move along. Not offered when no
-   * linked database has accounts (SQLite).
-   */
+    /**
+     * "Surveillance": whether the project's databases are read on a schedule and compared with the
+     * state left by the last deployment or pull. An unexplained difference turns on the editor's
+     * drift banner, is listed here and goes to the project's webhooks.
+     *
+     * The accounts watch is for instance administrators (the server sends `accounts: null`
+     * otherwise): accounts, roles and privileges against a reference the console's own changes move.
+     * Not offered when no linked database has accounts (SQLite).
+     */
   let { projectId, canManage }: { projectId: string; canManage: boolean } = $props();
 
   const { t } = useTranslation();

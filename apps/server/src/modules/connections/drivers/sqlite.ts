@@ -22,21 +22,10 @@ function realPath(target: string): string {
 }
 
 /**
- * Refuses to open NebulaDB's own database file as a "live" SQLite target.
- *
- * Every other engine's SSRF surface (see `hostGuard.ts`) is bounded by *who*
- * can reach this feature — but for SQLite the equivalent risk isn't a
- * network host, it's the local filesystem: a project administrator (the
- * permission level every connections route already requires) pointing this
- * at the app's own `nebuladb.sqlite` would read and, via `apply-deployment`,
- * write arbitrary SQL against the table holding every password hash, session
- * token and audit entry the app has. That's a strictly worse outcome than
- * anything a misconfigured *live* database connection could cause, so it's
- * worth a dedicated guard rather than leaving it to the admin-only bar alone.
- *
- * On its own this is deliberately narrow: nothing stops opening some *other*
- * file the process can write to unless the operator sets
- * `NEBULADB_SQLITE_DIR`, which turns it into a real path allowlist.
+ * Refuses to open NebulaDB's own database file as a "live" SQLite target: a project
+ * administrator could otherwise read and write the table holding every password hash,
+ * session token and audit entry. Narrow on its own; `NEBULADB_SQLITE_DIR` turns it into a
+ * real path allowlist.
  */
 export function assertSqlitePathAllowed(requestedPath: string): void {
   if (requestedPath === ":memory:") return;

@@ -59,7 +59,6 @@ export function saveDbmlPanelWidth(width: number): void {
 // Canvas text size (accessibility).
 export const FONT_SCALE_MIN = 0.85;
 export const FONT_SCALE_MAX = 1.6;
-export const FONT_SCALE_STEP = 0.15;
 const FONT_SCALE_DEFAULT = 1;
 
 export function loadFontScale(): number {
@@ -77,7 +76,7 @@ export function saveFontScale(scale: number): void {
  * different project. Keyed by the session's stable user id (not the editable
  * display name) so renaming yourself doesn't lose it.
  */
-export function viewportKey(projectId: string, userId: string): string {
+function viewportKey(projectId: string, userId: string): string {
   return `nebuladb.viewport.${projectId}.${userId}`;
 }
 

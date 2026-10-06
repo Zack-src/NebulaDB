@@ -7,21 +7,12 @@
   import EdgeCardinalityLabels from "./EdgeCardinalityLabels.svelte";
   import EdgeContextMenu from "./EdgeContextMenu.svelte";
 
-  /**
-   * The cardinality chips, waypoint dots, midpoint toolbar and context menu
-   * for one relation — everything `RefEdge` portals into the flow's
-   * edge-label layer.
-   *
-   * Pulled out into its own component (rather than an inline `<div
-   * use:portal>` in `RefEdge.svelte`) because a literal HTML tag written
-   * directly in an edge component's top-level markup makes Svelte fall back
-   * to the HTML namespace for that *whole* shared template — including the
-   * unrelated SVG `<path>` elements sitting next to it. Svelte Flow's own
-   * `EdgeLabel.svelte` uses the exact same "opaque child component" shape for
-   * the same reason; an inline `<div>` here reproduced the same bug (see the
-   * fixed regression: a relation stayed highlighted after a click elsewhere,
-   * because the flow's own click-to-select never reached a real SVG element).
-   */
+    /**
+     * The cardinality chips, waypoint dots, midpoint toolbar and context menu for one relation,
+     * portaled into the edge-label layer. A separate component because a literal HTML tag in an
+     * edge component's top-level markup makes Svelte use the HTML namespace for the whole template,
+     * including the sibling SVG `<path>`s (as in Svelte Flow's own `EdgeLabel.svelte`).
+     */
   let {
     sourceX,
     sourceY,

@@ -1,14 +1,5 @@
 import type { EditorView } from "@codemirror/view";
 
-export interface DbmlEditorHandle {
-  format: () => void;
-  openPalette: (mode: "symbols" | "commands") => void;
-  search: () => void;
-  foldAll: () => void;
-  unfoldAll: () => void;
-  focus: () => void;
-}
-
 /**
  * An editor command contributed by a plugin. It never touches CodeMirror: it
  * receives the buffer plus the current selection and returns the replacement

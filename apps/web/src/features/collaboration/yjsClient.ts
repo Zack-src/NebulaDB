@@ -14,7 +14,7 @@ const MESSAGE_NOTICE = 2;
 const RECONNECT_BASE_MS = 1000;
 const RECONNECT_MAX_MS = 30000;
 
-export interface CursorPosition {
+interface CursorPosition {
   x: number;
   y: number;
 }
@@ -68,20 +68,12 @@ export function setOfflineConnectionFactory(factory: OfflineConnectionFactory | 
 }
 
 /**
- * Client-side half of the raw sync/awareness protocol implemented by the
- * server's `Room` (apps/server/src/yjs/room.ts) — mirrors its message
- * framing since we hand-roll the WS transport instead of using `y-websocket`.
+ * Client side of the raw sync/awareness protocol implemented by the server's `Room`, hand-rolled
+ * instead of `y-websocket`.
  *
- * The socket is re-established with exponential backoff on any drop: a server
- * restart, a sleeping laptop or a flaky network otherwise left the editor
- * silently desynced until the user happened to reload. Yjs makes recovery
- * cheap — reconnecting just replays sync step 1/2, and any edits made while
- * offline merge in on the way back.
- *
- * `user` here is purely cosmetic (the awareness cursor's display name/color)
- * — the server independently resolves the authoritative identity from the
- * session cookie (sent automatically on same-origin WS upgrades), so it's no
- * longer passed on the URL at all.
+ * The socket reconnects with exponential backoff on any drop; reconnecting replays sync step 1/2
+ * and offline edits merge in. `user` is cosmetic (awareness name/colour): the server resolves
+ * identity from the session cookie.
  */
 export function connectProject(
   projectId: string,

@@ -1,6 +1,6 @@
 import type { Project } from "@nebuladb/shared";
 
-export type PluginCategory = "export" | "import" | "canvas" | "editor" | "tools" | "community";
+type PluginCategory = "export" | "import" | "canvas" | "editor" | "tools" | "community";
 
 /**
  * What a plugin declares about itself. Authored inside the plugin source via
@@ -119,7 +119,7 @@ export interface EditorCommandResult {
   message?: string;
 }
 
-export interface EditorCommandInput {
+interface EditorCommandInput {
   text: string;
   selection: { from: number; to: number };
   selectedText: string;
@@ -140,7 +140,7 @@ export interface InvokeContext {
 }
 
 /** Where a plugin came from — built-ins ship with the app and can't be uninstalled. */
-export type PluginSource = "builtin" | "user";
+type PluginSource = "builtin" | "user";
 
 export interface PluginRecord {
   manifest: PluginManifest;

@@ -14,7 +14,7 @@ export type WorkspaceTab = "schema" | "deployments" | "history" | "problems" | "
 const TAB_SEGMENTS: readonly WorkspaceTab[] = ["deployments", "history", "problems", "dictionary"];
 
 /** Where to centre the canvas once a project opens — set by a cross-project search hit. */
-export interface CanvasFocusTarget {
+interface CanvasFocusTarget {
   tableName: string;
   fieldName?: string;
 }

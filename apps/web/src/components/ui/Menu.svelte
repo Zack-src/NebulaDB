@@ -21,20 +21,18 @@
   import { setContext, tick, type Snippet } from "svelte";
   import Popover from "@/components/ui/Popover.svelte";
 
-  /**
-   * A dropdown menu: any button as the trigger, `MenuItem`s as the content.
-   *
-   *   <Menu aria-label="Actions">
-   *     {#snippet trigger(props)}<Button {...props}>Actions</Button>{/snippet}
-   *     <MenuItem onSelect={rename}>Renommer</MenuItem>
-   *   </Menu>
-   *
-   * Keyboard follows the ARIA menu-button pattern: Enter / Space / ArrowDown on
-   * the trigger open it on the first entry (ArrowUp on the last), arrows and
-   * Home / End move, a letter jumps to the next entry starting with it, Escape
-   * and Tab close and hand focus back to the trigger. Opened with the mouse,
-   * nothing is highlighted until an arrow key is pressed.
-   */
+    /**
+     * A dropdown menu: any button as the trigger, `MenuItem`s as the content.
+     *
+     *   <Menu aria-label="Actions">
+     *     {#snippet trigger(props)}<Button {...props}>Actions</Button>{/snippet}
+     *     <MenuItem onSelect={rename}>Renommer</MenuItem>
+     *   </Menu>
+     *
+     * Follows the ARIA menu-button pattern: Enter/Space/ArrowDown opens on the first entry
+     * (ArrowUp on the last), arrows and Home/End move, a letter jumps, Escape and Tab close and
+     * return focus to the trigger.
+     */
   let {
     trigger,
     children,

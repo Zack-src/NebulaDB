@@ -11,16 +11,6 @@ import type {
 export type { TranslationKey as TranslationKeyOf } from "@/i18n/translate";
 
 export type CanvasNode = TableNodeType | ZoneNodeType | StickyNoteNodeType | EnumNodeType | TableGroupNodeType;
-/**
- * Historically `CanvasNode | CursorNodeType` — remote cursors moved out of
- * the flow's `nodes` array into a `ViewportPortal` overlay (see
- * `RemoteCursorsLayer`) so a peer's mouse movement no longer forces the flow
- * to re-diff every node on the canvas. Kept as an alias, not inlined, so the
- * intent ("this is the flow's nodes array") still reads clearly at the call
- * site.
- */
-export type AllNodes = CanvasNode;
-
 export type ProjectStatus = "active" | "archived" | "trashed";
 export type PermissionLevel = "view" | "edit" | "administrator";
 

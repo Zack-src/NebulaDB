@@ -1,18 +1,13 @@
 import type { Field, Project, Ref, RefEndpoint, Table } from "./schema.js";
 
 /**
- * MCD (Merise conceptual model) derived from the existing MLD (`Table`/
- * `Field`/`Ref`). This is a pure, read-only *projection* — nothing here is
- * persisted or editable. DBML/`Project` stays the single source of truth;
- * `deriveMCD` just reads it through a different lens.
+ * MCD (Merise conceptual model) derived from the MLD (`Table`/`Field`/`Ref`): a read-only
+ * *projection*, nothing persisted or editable; DBML/`Project` stays the source of truth.
  *
- * The derivation is retro-engineering, and retro-engineering a conceptual
- * model out of a relational one is inherently lossy: it can reconstruct
- * binary associations (including many-to-many via join-table collapse), but
- * it cannot recover the modeler's original intent for ambiguous shapes
- * (ternary associations, a join table that's secretly a real entity, min
- * cardinalities beyond what a foreign key can enforce). Those cases are
- * reported in `warnings` and left as plain entities rather than guessed at.
+ * Retro-engineering a conceptual model is lossy: binary associations (including many-to-many by
+ * join-table collapse) are recovered, but ternary associations, a join table that is really an
+ * entity, or min cardinalities beyond what a foreign key enforces are reported in `warnings` and
+ * left as plain entities.
  */
 
 export type McdCardinality = "0,1" | "1,1" | "0,n" | "1,n";

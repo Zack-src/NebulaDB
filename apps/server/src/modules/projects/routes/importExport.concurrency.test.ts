@@ -6,8 +6,7 @@ import { join } from "node:path";
 
 /**
  * Committed regression coverage for the 2026-08-20 data-loss bug (see
- * `docs/perf/multiuser-concurrency-2026-08-20.md` and `docs/todo.md` Phase
- * 6): two users on the same project, one editing the canvas while the
+ * `docs/todo.md` Phase 6): two users on the same project, one editing the canvas while the
  * other's DBML panel resyncs with a stale buffer, used to have the stale
  * buffer's `/import` delete whatever the other person had just added.
  *

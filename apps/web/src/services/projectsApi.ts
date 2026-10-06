@@ -142,8 +142,3 @@ export function exportSql(projectId: string, dialect: SqlDialect): Promise<strin
 export function exportRevisionDbml(projectId: string, revisionId: string): Promise<string> {
   return requestText(`${projectPath(projectId)}/revisions/${revisionId}/export/dbml`);
 }
-
-/** Another project's current schema, for the cross-project compare. Requires only `view` on it. */
-export function fetchProjectContent(projectId: string): Promise<Project> {
-  return request<Project>(`${projectPath(projectId)}/content`);
-}

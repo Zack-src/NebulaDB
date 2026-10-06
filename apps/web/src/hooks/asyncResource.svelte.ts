@@ -11,16 +11,9 @@ export interface AsyncResource<T> {
 }
 
 /**
- * Fetch-on-mount with loading and (translated) error state.
- *
- * Six components had their own `refresh()` doing exactly this, each formatting
- * failures its own way — which is how English server messages ended up on
- * screen in a French UI. Errors go through `describeApiError`, so every screen
- * reports a failure the same way and in the reader's language.
- *
- * Dependencies are tracked automatically: whatever reactive value `fetcher`
- * reads synchronously (a prop, a filter select's state) re-runs the fetch when
- * it changes — what the explicit `deps` array used to spell out.
+ * Fetch-on-mount with loading and translated error state, so every screen reports failures the
+ * same way and in the reader's language (`describeApiError`). Dependencies are tracked
+ * automatically: whatever reactive value `fetcher` reads synchronously re-runs the fetch.
  */
 export function useAsyncResource<T>(fetcher: () => Promise<T>): AsyncResource<T> {
   const { t } = useTranslation();

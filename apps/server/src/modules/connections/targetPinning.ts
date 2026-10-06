@@ -41,16 +41,9 @@ function oracleStringHost(connectString: string): string | undefined {
 }
 
 /**
- * Turns a stored config into the one a driver connects with: every network
- * target is resolved and checked exactly once (`resolveAllowedHost`) and the
- * driver is handed that address, closing the check-then-connect gap a second
- * DNS lookup would reopen.
- *
- * Where the target lives inside an opaque connection string that can't be
- * rewritten without losing options (a SQL Server or Oracle string, a
- * Postgres/MySQL URL carrying its own TLS settings) the host is still checked
- * but not pinned — narrower than the general case, and said so here rather
- * than silently.
+ * Turns a stored config into the one a driver connects with: each network target is resolved
+ * and checked once (`resolveAllowedHost`) and the driver gets that address. Where the target
+ * sits inside an opaque connection string, the host is checked but not pinned.
  */
 export async function pinConnectionTarget(config: DatabaseConnectionConfig): Promise<DriverConnectionConfig> {
   if (config.engine === "sqlite") return config;

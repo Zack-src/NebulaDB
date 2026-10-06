@@ -6,25 +6,12 @@ const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;
 
 /**
- * Generic at-rest encryption keyed by `NEBULADB_SECRET`, shared by every
- * caller that needs to store something more sensitive than a hash: a live
- * database connection's credentials (`modules/connections`, the first thing
- * this app ever encrypted at rest — see `docs/todo.md` Phase 27) and a TOTP
- * secret (`modules/auth/totp.ts`) both go through this one file rather than
- * each rolling their own AES call. Originally lived under
- * `modules/connections/` and moved here once a second, unrelated caller
- * needed the same primitive — a module named after one feature is the wrong
- * home for a cross-cutting one.
+ * At-rest encryption keyed by `NEBULADB_SECRET`, shared by everything stored encrypted
+ * (database connection credentials, TOTP secrets).
  *
- * There is deliberately no fallback key derived from something already on
- * disk (the DB path, a hardcoded string): this file is public — MIT-licensed,
- * on GitHub — so any fallback baked into it is not a secret, and encrypting
- * with it would be worse than not encrypting at all (it *looks* protected).
- * Failing loudly here, at the point a feature actually needs it, matches
- * `config.ts`'s "fail fast on a missing secret" policy for the cookie
- * signing key — just scoped to the one request path that needs it, so a
- * fresh install that never configures a live DB connection or 2FA isn't
- * refused a boot over an unrelated env var.
+ * No fallback key: the source is public, so any baked-in key would only *look* protected. It
+ * fails loudly when a feature actually needs the secret, so a fresh install that uses neither
+ * connections nor 2FA still boots.
  */
 function deriveKey(secret: string): Buffer {
   return crypto.createHash("sha256").update(secret).digest();

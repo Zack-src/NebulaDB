@@ -4,18 +4,8 @@ import { liveRoomCount, totalConnectionCount } from "../realtime/roomRegistry.js
 import { getErrorCountsSinceBoot } from "../shared/errorLog.js";
 
 /**
- * `/api/metrics` in Prometheus text exposition format — everything the
- * server already tracks in memory (`Room`, `perf.ts`, `errorLog.ts`), turned
- * into something a scraper can read. Filled a real gap: nothing exposed
- * connection counts, room counts, or snapshot-write latency before this, and
- * this service's characteristic failure mode is "sync silently stopped" —
- * exactly the case a human doesn't notice without a metric to alert on.
- *
- * No authentication, matching `/api/health` — typical Prometheus deployments
- * scrape without sending a session cookie, and network-level access control
- * (not application auth) is the usual boundary for a metrics endpoint. If
- * that stops being true for a given deployment, put it behind the reverse
- * proxy the README already documents.
+ * `/api/metrics` in Prometheus text format, built from what the server already tracks in
+ * memory. No authentication, like `/api/health`: put it behind the reverse proxy if needed.
  */
 
 function escapeLabelValue(value: string): string {

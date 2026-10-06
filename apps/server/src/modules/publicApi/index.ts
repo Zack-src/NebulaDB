@@ -46,22 +46,13 @@ const DICTIONARY_FORMATS: Record<string, { type: string; body: (dictionary: Data
 };
 
 /**
- * The stable, versioned, key-authable public surface (Phase 21). Deliberately
- * separate from `/api/projects/*` (the internal, session-only, web-app
- * surface) even though several handlers here are thin wrappers over the same
- * `dbml-engine`/repository functions those routes use — `/api/v1` is a
- * contract external callers depend on, so it shouldn't move just because the
- * app's own internal routes do.
+ * The stable, versioned, key-authable public surface. Separate from the internal
+ * `/api/projects/*` routes because external callers depend on it as a contract.
  *
- * Every route runs through the normal `requireProjectAccess`/
- * `requireProjectAdmin`/`requireAdmin` permission checks unchanged (an API
- * key authenticates *as* its owning user — see `apiKeys/auth.ts`) plus
- * `requireScope`/`requireGlobalScope`, which are no-ops for a
- * cookie-authenticated request and only narrow what a key can do beyond
- * that. Split across this file (project CRUD/export/import/history) and
- * `iamRoutes.ts`, `connectionRoutes.ts`, `teamRoutes.ts` — the same
- * per-resource split `modules/projects/index.ts` already uses for the
- * internal routes.
+ * Routes use the normal permission checks (an API key authenticates as its owner) plus
+ * `requireScope`/`requireGlobalScope`, which only narrow what a key can do. Split across this
+ * file (project CRUD/export/import/history), `iamRoutes.ts`, `connectionRoutes.ts` and
+ * `teamRoutes.ts`.
  */
 export function registerPublicApiRoutes(app: FastifyInstance): void {
   /**

@@ -17,7 +17,7 @@ export interface RenameRequest {
 export const renameHandler = Facet.define<(request: RenameRequest) => void>();
 
 /** What would be renamed at `pos`, or null when the symbol under the cursor isn't renameable. */
-export function prepareRename(state: EditorState, pos: number): RenameRequest | null {
+function prepareRename(state: EditorState, pos: number): RenameRequest | null {
   const symbols = getSymbols(state);
   const line = state.doc.lineAt(pos);
   const tok = tokenAt(line.text, pos - line.from);
@@ -65,7 +65,7 @@ function withCount(state: EditorState, request: RenameRequest): RenameRequest {
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 /** Every edit needed to rename `request` to `newName`, across declarations, relationships, groups and indexes. */
-export function renameChanges(state: EditorState, request: RenameRequest, newName: string): ChangeSpec[] {
+function renameChanges(state: EditorState, request: RenameRequest, newName: string): ChangeSpec[] {
   const symbols = getSymbols(state);
   const changes: ChangeSpec[] = [];
   const insert = /^[A-Za-z_][A-Za-z0-9_]*$/.test(newName) ? newName : `"${newName.replace(/"/g, "")}"`;

@@ -22,7 +22,7 @@ const WRITE_LIMIT = { config: { rateLimit: { max: 60, timeWindow: "1 minute" } }
 /**
  * Database access for members: who may use the explorer and SQL of which
  * connection, granted by an instance administrator to a user or a team.
- * The console routes that honour these grants are in `dbAdmin/routes.ts`
+ * The console routes that honour these grants are in `dbAdmin/explorerRoutes.ts`
  * (`/api/connections/:id/…`).
  */
 export function registerDbAccessRoutes(app: FastifyInstance): void {

@@ -8,8 +8,7 @@ import { login, startE2eEnvironment } from "./harness.js";
  * real browser, not jsdom. Everything else in this repo's test suites is
  * `node:test` over pure logic or `.inject()` against Fastify directly; this
  * is deliberately the odd one out, and deliberately not folded into `npm
- * test` — see `test:e2e` in `package.json` and CONTRIBUTING.md's "Tests"
- * section for why.
+ * test` — see `test:e2e` in `package.json`.
  *
  * What this proves that the REST-level integration tests (`app.test.ts` and
  * siblings) don't: the actual persistence *pipeline* — a real browser tab,

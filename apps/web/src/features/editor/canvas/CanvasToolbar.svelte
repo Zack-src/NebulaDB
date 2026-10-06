@@ -23,18 +23,11 @@
   import PluginMenu from "./PluginMenu.svelte";
   import type { CanvasInsertTool } from "./types";
 
-  /**
-   * The bottom-centre pill: inserts, display options and plugin commands. Zoom
-   * lives in its own pill bottom-left (`CanvasZoomBar`), mirroring dbdiagram —
-   * the two are used at different moments and were previously crowded into one
-   * bar wide enough to reach the middle of the canvas.
-   *
-   * Insert buttons arm a tool rather than dropping a node immediately — pick
-   * "Table", then click the canvas as many times as there are tables to add,
-   * the way Figma's shape tools work. `CanvasArea` owns the actual placement
-   * (it has the flow-space click coordinate); this component only shows which
-   * tool, if any, is armed.
-   */
+    /**
+     * The bottom-centre pill: inserts, display options and plugin commands (zoom is
+     * `CanvasZoomBar`, bottom-left). Insert buttons arm a tool, then clicks on the canvas place it
+     * as many times as wanted; `CanvasArea` owns the placement, this only shows what is armed.
+     */
   let props: {
     /** False for a `view` grant — the insert group disappears; the display toggles stay, they only change what you see. */
     canWrite: boolean;

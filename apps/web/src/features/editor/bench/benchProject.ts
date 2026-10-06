@@ -23,7 +23,7 @@ export interface BenchConfig {
   dbml: boolean;
 }
 
-export const DEFAULT_BENCH_CONFIG: BenchConfig = {
+const DEFAULT_BENCH_CONFIG: BenchConfig = {
   tables: 100,
   columns: 8,
   detail: "standard",

@@ -1,27 +1,13 @@
 import type { DatabaseEngine } from "./schema.js";
 
 /**
- * Cross-engine column type translation. `Field.type` is a free-text string
- * with no notion of which engine it was written for — this module maps a
- * recognized type spelling to its native equivalent on each of the five
- * supported engines, so a schema authored against one engine's vocabulary
- * (or a generic DBML type) can be deployed/exported to another without the
- * raw string surviving verbatim into invalid or missing SQL.
+ * Cross-engine column type translation: maps a recognized type spelling to its native equivalent
+ * on each of the five engines, so a schema written for one engine can be deployed or exported to
+ * another.
  *
- * Deliberately conservative: a type is only translated when it is genuinely
- * unusable on `targetEngine` (no native type of that name/meaning exists
- * there) — never merely to force one "preferred" spelling among several
- * that are all valid. `varchar(255)` deployed to SQL Server, for instance,
- * is left alone (SQL Server does accept `varchar`), even though `nvarchar`
- * is often the more idiomatic choice; that's a style opinion, not a
- * compatibility problem, and this module only fixes the latter. This also
- * keeps round-tripping a schema through the same engine byte-stable — a
- * type this table doesn't need to touch is never rewritten, not even to
- * normalize its casing.
- *
- * Unknown/unrecognized types are left untouched (`changed: false`) rather
- * than guessed at — better to pass a type through as-authored than to
- * silently mangle something this table doesn't know about.
+ * Conservative: a type is translated only when unusable on `targetEngine`, never to force a
+ * preferred spelling (`varchar(255)` on SQL Server is left alone). Same-engine round trips stay
+ * byte-stable, and unrecognized types pass through untouched (`changed: false`).
  */
 
 /** `"varchar(255)"` -> `{name:"varchar", args:["255"]}`; `"int"` -> `{name:"int", args:[]}`. */

@@ -18,23 +18,18 @@ import { readAccountLines } from "./accountReader.js";
 import { alreadyReported, insertDriftEvent } from "./repository.js";
 
 /**
- * The accounts watch: a database's accounts, role memberships and privileges,
- * compared with the reference Nebula agreed with. A change made through the
- * console's "Utilisateurs" tab moves the reference along (see
- * `registerAccountWatchHooks`); any other difference is an alert — an
- * `accounts` finding, a notification to the project's followers and
- * `drift.detected` to its webhooks.
+ * The accounts watch: a database's accounts, memberships and privileges compared with the
+ * agreed reference. Changes made through the console move the reference; any other difference
+ * is an alert (finding, notification, `drift.detected` webhook).
  *
- * Off for every project until an instance administrator turns it on, and
- * only read while the project's watch itself is on. Read as the connection's
- * service account, through the administration driver's listing calls, under
- * the connection budget.
+ * Off until an instance administrator enables it. Read as the connection's service account,
+ * under the connection budget.
  */
 
 const READ_TIMEOUT_MS = 60_000;
 const SYSTEM = { id: null, email: null };
 
-export function engineHasAccounts(engine: string): boolean {
+function engineHasAccounts(engine: string): boolean {
   return engine !== "sqlite";
 }
 
@@ -196,14 +191,14 @@ export function accountWatchState(projectId: string, canManage: boolean): Accoun
 
 // ---- Comparing -----------------------------------------------------------------
 
-export type AccountCheckOutcome = "reference" | "same" | "changed" | "known";
+type AccountCheckOutcome = "reference" | "same" | "changed" | "known";
 
 /**
  * Compares what was just read with the project's reference. The first read
  * becomes the reference (nothing to compare with yet); a state already
  * reported is not reported again.
  */
-export function compareAccounts(
+function compareAccounts(
   projectId: string,
   connection: DatabaseConnectionConfig,
   lines: string[],
@@ -311,7 +306,7 @@ export function acceptAccountState(projectId: string, connectionId: string): boo
  * change made elsewhere — and not folded into Nebula's own. `null` when no
  * project watches this database's accounts (nothing is read then).
  */
-export async function beforeNebulaAccountChange(connectionId: string): Promise<string[] | null> {
+async function beforeNebulaAccountChange(connectionId: string): Promise<string[] | null> {
   const projects = projectsWatchingAccountsOf(connectionId);
   const connection = getConnectionById(connectionId);
   if (projects.length === 0 || !connection || !engineHasAccounts(connection.engine)) return null;
@@ -329,7 +324,7 @@ export async function beforeNebulaAccountChange(connectionId: string): Promise<s
  * difference that was already there stays — still open, now compared with
  * the state just read.
  */
-export async function afterNebulaAccountChange(connectionId: string, before: string[]): Promise<void> {
+async function afterNebulaAccountChange(connectionId: string, before: string[]): Promise<void> {
   const connection = getConnectionById(connectionId);
   if (!connection) return;
   const after = await readAccounts(connection);
@@ -358,7 +353,7 @@ export async function afterNebulaAccountChange(connectionId: string, before: str
 const ACCOUNT_ROUTE = "/api/admin/connections/:id/users";
 
 /**
- * Wraps the console's account route (in `dbAdmin/routes.ts`, left untouched):
+ * Wraps the console's account route (in `dbAdmin/accountRoutes.ts`, left untouched):
  * an executed change by an instance administrator is read around, so the
  * reference follows it. Anything else — a preview, someone the route will
  * refuse — reads nothing. Never fails the request: a read that fails leaves

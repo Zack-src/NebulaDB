@@ -31,8 +31,6 @@
   const LOCALE_LABEL_KEY = { fr: "language.fr", en: "language.en" } as const satisfies Record<string, TranslationKeyOf>;
 
   const PRODUCT_VERSION = "v0.0.1-open-core";
-  /** Licence identifier, not prose — never translated. */
-  const PRODUCT_LICENSE = "MIT Open Source";
 </script>
 
 <script lang="ts">
@@ -263,10 +261,6 @@
       <div class="flex justify-between">
         <span class="text-text-muted">{t("settings.about.version")}</span>
         <span class="text-text font-bold">{PRODUCT_VERSION}</span>
-      </div>
-      <div class="flex justify-between">
-        <span class="text-text-muted">{t("settings.about.license")}</span>
-        <span class="text-success font-bold">{PRODUCT_LICENSE}</span>
       </div>
       <div class="flex justify-between">
         <span class="text-text-muted">{t("settings.about.syncStatus")}</span>

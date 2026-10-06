@@ -1,16 +1,8 @@
 /**
- * Shared visual language for every text field, select and textarea.
- *
- * One base recipe, three sizes, on the same 24/28/32 height ramp as `Button` —
- * so a field and a button side by side in a toolbar or form row share a
- * baseline. Callers pass only layout classes (width/flex) — never their own
- * padding or height, so sizing stays consistent and Tailwind class ordering
- * can't fight the base.
- *
- * Fields read as a quiet well: a flat darker fill, a hairline border that
- * firms up on hover, and a primary border plus a soft ring on focus. The fill
- * itself does not change on hover — a field that lights up under the cursor
- * reads as a button, which is precisely the wrong affordance.
+ * Shared visual language for text fields, selects and textareas: one base recipe, three sizes
+ * on the same 24/28/32 height ramp as `Button`. Callers pass only layout classes, never their
+ * own padding or height. A quiet well that firms up on hover and rings on focus; the fill
+ * doesn't change on hover, which would read as a button.
  */
 const INPUT_BASE =
   "rounded-md border border-border-control bg-surface-raised text-text caret-primary " +
@@ -32,18 +24,11 @@ export const INPUT_INVALID_CLASS = "!border-danger focus:!ring-danger/25";
 
 /** `.app-select` (styles/utilities.css) draws the chevron; the reset hides the native one. */
 export const SELECT_CLASS = `${INPUT_CLASS} app-select cursor-pointer pr-7`;
-export const SELECT_SM_CLASS = `${INPUT_SM_CLASS} app-select cursor-pointer pr-6`;
-
 export const TEXTAREA_CLASS = `${INPUT_BASE} block min-h-[84px] px-2.5 py-2 text-[13px] leading-relaxed`;
 /** Compact multi-line field — comment composer, inline notes. */
 export const TEXTAREA_SM_CLASS = `${INPUT_BASE} block min-h-[44px] resize-none px-2 py-1.5 text-[12.5px] leading-normal`;
 /** Monospace code-editing textarea (DBML/SQL source panes) — no resize handle. */
 export const TEXTAREA_CODE_CLASS = `${TEXTAREA_CLASS} resize-none font-mono text-[12.5px] leading-normal`;
-
-/** Native checkbox, tinted to the accent colour instead of the UA blue. */
-export const CHECKBOX_CLASS =
-  "h-[15px] w-[15px] shrink-0 cursor-pointer accent-primary " +
-  "focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary";
 
 /** Label sitting above a field. */
 export const LABEL_CLASS = "text-[12px] font-medium text-text-secondary";

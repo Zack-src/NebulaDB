@@ -1,6 +1,6 @@
 import type { PermissionLevel, TranslationKeyOf } from "@/types";
 
-export const PERMISSION_LEVELS: PermissionLevel[] = ["view", "edit", "administrator"];
+const PERMISSION_LEVELS: PermissionLevel[] = ["view", "edit", "administrator"];
 
 const PERMISSION_LABEL_KEY = {
   view: "permission.view",

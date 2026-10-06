@@ -32,20 +32,10 @@ function setsEqual(a: Set<string>, b: Set<string>): boolean {
 }
 
 /**
- * The rubber-band select, in place of the flow's own `selectionOnDrag`.
- *
- * The rectangle's on-screen position updates by mutating a plain DOM node
- * directly (`rect()`, no reactive state, so moving the mouse never touches the
- * component tree at all), and the selection — the one thing that *does* reach
- * reactive state — is only written when the actual selected-id set changes,
- * diffed once per animation frame rather than once per pointermove. It also
- * only ever selects nodes: the flow's built-in box selects every edge touching
- * a selected node too, which would put each of them into edit mode (waypoints,
- * midpoint toolbar) the moment the box swept over its table.
- *
- * The hit-test itself is a plain O(nodes) scan: at the table counts this
- * canvas reaches (hundreds, not tens of thousands) that's sub-millisecond even
- * at 60 times a second.
+ * The rubber-band select, in place of the flow's `selectionOnDrag`. The rectangle is painted by
+ * mutating a plain DOM node (no reactive state); the selection is written once per animation
+ * frame, only when the selected-id set changes. It selects nodes only: the flow's box also
+ * selects touching edges, which would put each in edit mode. The hit-test is a plain O(nodes) scan.
  */
 export function createLassoSelection(options: {
   nodes: () => CanvasNode[];

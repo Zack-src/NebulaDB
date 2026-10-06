@@ -1,16 +1,7 @@
 /**
- * `crypto.randomUUID()` is gated behind `window.isSecureContext` in every
- * browser — it throws/`is not a function` on a plain `http://` origin that
- * isn't `localhost`. NebulaDB is explicitly meant to be reached over plain
- * HTTP on a LAN (see README), so every id generated on the canvas (tables,
- * fields, indexes, zones, notes, enums, refs, comments, groups) went through
- * this instead of the raw global, once that surfaced from a LAN deployment.
- *
- * Falls back to building a v4 UUID from `crypto.getRandomValues` (available
- * in insecure contexts, unlike `randomUUID`), and finally to `Math.random`
- * for environments with no `crypto` at all (very old browsers, some test
- * runners). Not cryptographically significant here — these ids only need to
- * be unique within a project's Yjs doc, never security tokens.
+ * `crypto.randomUUID()` is unavailable on a non-`localhost` plain `http://` origin, which NebulaDB
+ * is meant to be reached over on a LAN. Falls back to a v4 UUID from `crypto.getRandomValues`,
+ * then `Math.random`. Not security-relevant: ids only need to be unique within a project's doc.
  */
 export function generateId(): string {
   if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {

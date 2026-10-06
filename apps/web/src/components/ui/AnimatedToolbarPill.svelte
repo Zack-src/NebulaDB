@@ -16,23 +16,12 @@
   import { untrack } from "svelte";
   import { CANVAS_TOOLBAR_CLASS } from "./canvasToolbarStyles";
 
-  /**
-   * The `CANVAS_TOOLBAR_CLASS` pill, but its width morphs from whatever it
-   * measured last time to its new natural width instead of snapping straight
-   * to it — an MLD/MCD switch swaps in a whole different toolbar (different
-   * buttons, different count), not just one button toggling, so the pill can
-   * visibly grow or shrink rather than jump-cutting to its new size.
-   *
-   * FLIP technique: render pinned to the previous width, measure this mount's
-   * actual (natural) content width, then transition to it. The cache write
-   * happens unconditionally on mount rather than on `transitionend` — waiting
-   * for that event would mean the very first mount (nothing cached yet, so old
-   * width === new width, nothing to actually transition) never seeds the
-   * cache. Releasing the fixed width back to `auto` is on a timeout for the
-   * same reason: a `transitionend` that never fires would otherwise leave the
-   * pill pinned to a stale width indefinitely, which is what could clip a
-   * trailing button (e.g. Plugins) after a bad measurement.
-   */
+    /**
+     * The `CANVAS_TOOLBAR_CLASS` pill whose width morphs from its last measured width to its new
+     * natural width (FLIP), so an MLD/MCD toolbar swap grows or shrinks instead of jump-cutting.
+     * The cache is written on mount and the fixed width released on a timeout, not on
+     * `transitionend`, which may never fire.
+     */
   let { pillId, class: className = "", children }: { pillId: string; class?: string; children: Snippet } = $props();
 
   let element: HTMLDivElement;

@@ -131,19 +131,10 @@
     { id: "three", label: "Avancé" },
   ];
 
-  /**
-   * A visual gallery of every `components/ui/` primitive — one screen, every
-   * variant, both themes reachable from the same toggle at the top.
-   *
-   * Deliberately not Storybook: this app already has an established pattern
-   * for exactly this need (`features/editor/bench`'s `/#bench` route — a real,
-   * lazy-loaded page mounted outside auth) rather than a second build
-   * toolchain and dev server bolted on for one page. Keeping it in-repo, in the
-   * same stack as everything else, is the same call `#bench` made — see
-   * `docs/todo.md`'s "Component catalogue" item for why this exists.
-   *
-   * Routed at `/#components` from `main.ts`, same shape as `/#bench`.
-   */
+    /**
+     * A visual gallery of every `components/ui/` primitive, every variant, with a theme toggle.
+     * Routed at `/#components` from `main.ts`, like `/#bench`.
+     */
   const { t } = useTranslation();
   let theme = $state<ThemePreset>("obsidian");
   let tab = $state<string>("one");

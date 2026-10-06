@@ -8,20 +8,11 @@ const scrypt = promisify(scryptCallback) as (
   options: { N: number; r: number; p: number; maxmem: number },
 ) => Promise<Buffer>;
 
-// Encoding N/r/p into the stored hash (rather than hardcoding them at verify
-// time) means a future tuning change doesn't invalidate every existing
-// password. Node's built-in scrypt avoids adding a native-binding dependency
-// (bcrypt/argon2) on top of the one this project already carries for
-// better-sqlite3.
-//
-// Cost: N=65536, r=8, p=1 -> 64MB and ~100ms per hash on a modern desktop
-// (measured), i.e. roughly 250-500ms on the small VPS/NAS hardware this is
-// typically self-hosted on. That's a deliberate step below OWASP's current
-// N=2^17 recommendation: 2^17 needs 128MB *per concurrent hash*, which is a
-// real memory-exhaustion lever on a 1-2GB box. The gap is covered on the other
-// side instead — login is rate limited and passwords are length-capped, so an
-// attacker can't cheaply force many expensive hashes. Revisit if this ever runs
-// somewhere with memory to spare.
+// N/r/p are stored in the hash so tuning later doesn't invalidate existing passwords.
+// Node's scrypt avoids a native bcrypt/argon2 dependency.
+// Cost: N=65536, r=8, p=1 -> 64MB, ~100ms per hash. Deliberately below OWASP's N=2^17
+// (128MB per concurrent hash is a memory lever on small hosts); login rate limiting and
+// length-capped passwords cover the gap.
 const N = 65536;
 const r = 8;
 const p = 1;

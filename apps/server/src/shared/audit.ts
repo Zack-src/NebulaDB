@@ -3,22 +3,12 @@ import type { FastifyRequest } from "fastify";
 import { db } from "../infrastructure/db.js";
 
 /**
- * Append-only record of the actions nobody can afford to be unable to explain
- * later: who deleted a project, who changed who could see what, who reset
- * whose password, who took an account away.
+ * Append-only record of actions that must stay explainable: project deletions, permission
+ * changes, password resets, account removals. Deliberately narrow: the Yjs revision log already
+ * records schema edits.
  *
- * Deliberately narrow. This is not analytics and not a change feed — the Yjs
- * revision log already records every schema edit with its author, and
- * duplicating that here would bury the handful of events that matter under
- * thousands that don't. Only irreversible or permission-shaped actions are
- * recorded.
- *
- * Never modified or deleted by application code: there is no update path and
- * no delete route, so a compromised *application* account cannot rewrite the
- * trail. Someone with filesystem access to the SQLite file obviously can —
- * shipping tamper-evident logging (append-only external sink, hash chaining)
- * would be a different feature, and pretending otherwise would be worse than
- * saying so.
+ * No update or delete path in application code. Someone with filesystem access to the SQLite
+ * file can still rewrite it: this is not tamper-evident logging.
  */
 export const AUDIT_ACTIONS = [
   "project.create",
@@ -346,7 +336,7 @@ interface ActivityRow extends AuditRow {
   actor_name: string | null;
 }
 
-export const ACTIVITY_PAGE_MAX = 200;
+const ACTIVITY_PAGE_MAX = 200;
 export const ACTIVITY_EXPORT_MAX = 10_000;
 
 /**

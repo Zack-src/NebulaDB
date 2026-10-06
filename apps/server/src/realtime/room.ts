@@ -59,16 +59,9 @@ const SNAPSHOT_DEBOUNCE_MS = 2000;
 const COLLECTION_KEYS = [META_KEY, TABLES_KEY, REFS_KEY, ENUMS_KEY, ZONES_KEY, STICKY_NOTES_KEY, TABLE_GROUPS_KEY];
 
 /**
- * How long a connection's resolved access is trusted before being looked up
- * again. Bounds how long a revoked permission can stay effective when nothing
- * calls `revalidate()` explicitly — the routes that change grants do call it,
- * so this is the backstop for paths that don't (a direct SQL edit, the
- * `bootstrap-admin` script, a future route that forgets).
- *
- * Not zero: `receive()` runs per WebSocket frame, and dragging a table emits
- * dozens a second, each of which would otherwise cost a fresh permission
- * lookup (up to four SQLite reads). Five seconds keeps that at negligible
- * cost while being far below any human-meaningful window.
+ * How long a connection's resolved access is trusted before being looked up again. The
+ * backstop for paths that don't call `revalidate()` (a direct SQL edit, `bootstrap-admin`).
+ * Not zero: `receive()` runs per WebSocket frame, and dragging emits dozens a second.
  */
 const ACCESS_TTL_MS = 5000;
 
@@ -87,7 +80,7 @@ const ACCESS_TTL_MS = 5000;
  * alter — every locked table of the project, minus those its user has the
  * authority to change. Absent or empty for the common case of no lock at all.
  */
-export interface ConnectionAccess {
+interface ConnectionAccess {
   canWrite: boolean;
   lockedTableIds?: ReadonlySet<string>;
 }
@@ -417,19 +410,12 @@ export class Room {
   }
 
   /**
-   * Undoes what a connection's update did to tables locked against it.
+   * Undoes what a connection's update did to tables locked against it. A realtime update
+   * can't be refused before it is merged (a CRDT has no "un-apply"), so locked tables are
+   * written back as they were, in a change every client receives. Backstop for hand-crafted
+   * frames, outdated clients and plugins: the UI never sends such an update.
    *
-   * A REST write is refused before it happens (`assertLocksAllow`); a realtime
-   * update cannot be: by the time its effect on a table is known it has been
-   * merged into the shared document, and a CRDT has no "un-apply". So the
-   * locked tables are written back as they were, in a change of their own that
-   * every client — the offender included — receives like any other. The
-   * app's own UI never sends such an update (locked tables are read-only
-   * there); this is what stands behind the UI for a hand-crafted frame, an
-   * outdated client, or a plugin.
-   *
-   * Only the structure is restored: a move, a recolour or a comment made in
-   * the same update is kept, as is everything it did to unlocked tables.
+   * Only structure is restored: a move, recolour or comment in the same update is kept.
    */
   private revertLockedChanges(conn: WebSocket, before: LockableSchema, locked: ReadonlySet<string>): void {
     const after = this.lockableSchema();
@@ -496,18 +482,9 @@ export class Room {
   }
 
   /**
-   * Releases what the room holds outside its own object graph.
-   *
-   * `Awareness` starts a `setInterval` in its constructor to expire stale
-   * presence entries, and nothing was ever clearing it: dropping the room from
-   * the `rooms` map (the eviction in `leave()`) removed the only reference the
-   * server kept, but the live timer kept its own — so the Awareness, the
-   * Y.Doc, and the whole project's contents stayed resident for the life of
-   * the process, for every project ever opened. That is precisely the leak the
-   * eviction exists to prevent.
-   *
-   * Idempotent: `destroy()` closes the connections, whose own close handlers
-   * then call `leave()`, which reaches the eviction path again.
+   * Releases what the room holds outside its own object graph: `Awareness` starts a
+   * `setInterval` that otherwise keeps the room, its Y.Doc and the whole project resident for
+   * the life of the process. Idempotent: closing connections calls `leave()` again.
    */
   private dispose(): void {
     if (this.disposed) return;

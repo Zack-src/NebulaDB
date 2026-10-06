@@ -1,21 +1,13 @@
 /**
- * Source of the sandbox a user plugin runs inside.
+ * Source of the sandbox a user plugin runs inside: the plugin body is concatenated between
+ * `SANDBOX_PREFIX` and `SANDBOX_SUFFIX` and turned into a Blob-URL Web Worker, with no DOM or
+ * app memory, reaching the app only through the `postMessage` protocol in `types.ts`. Plugin
+ * code is third-party and is never evaluated where the session cookie and Y.Doc are in reach.
  *
- * The plugin body is concatenated between `SANDBOX_PREFIX` and
- * `SANDBOX_SUFFIX` and turned into a Blob-URL Web Worker: no DOM, no Svelte
- * state, no access to the page's memory — it can only reach the app through
- * the `postMessage` protocol in `types.ts`. That is the whole point of the
- * design: plugin code is third-party code, and it is never evaluated in the
- * document's realm where it would have the session cookie, the Y.Doc and
- * every DOM API within reach.
- *
- * The prefix additionally deletes the worker's network/storage globals. A
- * worker inherits same-origin `fetch` *with credentials*, so without this a
- * plugin could call `/api/...` as the logged-in user or POST the schema
- * somewhere. Treat it as defense in depth, not a hard boundary: users should
- * still only install plugin code they trust.
+ * The prefix also deletes the worker's network/storage globals (a worker inherits same-origin
+ * `fetch` with credentials). Defense in depth, not a hard boundary: only install plugins you trust.
  */
-export const SANDBOX_PREFIX = `"use strict";
+const SANDBOX_PREFIX = `"use strict";
 (function () {
   var BLOCKED = [
     "fetch",
@@ -196,7 +188,7 @@ export const SANDBOX_PREFIX = `"use strict";
 try {
 `;
 
-export const SANDBOX_SUFFIX = `
+const SANDBOX_SUFFIX = `
 } catch (err) {
   self.postMessage({ type: "load-error", message: String((err && err.message) || err) });
 }

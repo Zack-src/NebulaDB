@@ -1,17 +1,9 @@
 <script lang="ts">
-  /**
-   * Placeholder blocks shown while first-load data is in flight.
-   *
-   * The problem this solves isn't cosmetic. Lists here derive "empty" from an
-   * array being empty, and an array is also empty before its fetch resolves —
-   * so a user with twenty projects was briefly told they had none, then watched
-   * the message be replaced. A wrong statement is worse than a blank space;
-   * these make the difference between "nothing here" and "not known yet"
-   * visible.
-   *
-   * `aria-hidden` because there is nothing to read: the live region that
-   * matters is the content that replaces it.
-   */
+    /**
+     * Placeholder blocks for first-load data: an empty array is also what a list holds before its
+     * fetch resolves, and telling someone they have no projects is worse than a blank.
+     * `aria-hidden`: the content that replaces it is the live region.
+     */
   let { class: className = "" }: { class?: string } = $props();
 </script>
 

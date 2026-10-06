@@ -31,11 +31,6 @@ export function orthogonalPolylinePoints(points: Point[]): Point[] {
   return result;
 }
 
-export function orthogonalPolylinePath(points: Point[]): string {
-  if (points.length < 2) return "";
-  return polylinePath(orthogonalPolylinePoints(points));
-}
-
 /**
  * Cuts a polyline in two at the halfway point of its own length, returning the
  * exact split point plus both halves as point lists.
@@ -90,7 +85,7 @@ export function polylineLength(points: Point[]): number {
  * one. Without pinning, two mirror-image edges would push their labels to
  * opposite sides of the line and the diagram would read inconsistently.
  */
-export function perpendicular(from: Point, to: Point): Point {
+function perpendicular(from: Point, to: Point): Point {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const length = Math.hypot(dx, dy) || 1;
@@ -175,7 +170,7 @@ export function simplifyRoutingPoints(points: Point[], source: Point, target: Po
 }
 
 /** A point `distance` px from `from`, along the `from` -> `to` direction — used to plant a cardinality label just off an edge's endpoint. */
-export function offsetAlong(from: Point, to: Point, distance: number): Point {
+function offsetAlong(from: Point, to: Point, distance: number): Point {
   const dx = to.x - from.x;
   const dy = to.y - from.y;
   const length = Math.hypot(dx, dy) || 1;

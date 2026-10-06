@@ -386,4 +386,3 @@ class PluginRegistry {
 }
 
 export const pluginRegistry = new PluginRegistry();
-export type { Contribution, PluginRecord, ResolvedContribution };

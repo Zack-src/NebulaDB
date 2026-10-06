@@ -62,10 +62,8 @@ export function mssqlPoolConfig(config: DriverConnectionConfig, database?: strin
 export class MssqlDriver implements DatabaseDriver {
   private pool: sql.ConnectionPool;
   private ready: Promise<sql.ConnectionPool>;
-  private databaseName: string;
 
   constructor(config: DriverConnectionConfig) {
-    this.databaseName = config.database || "master";
     this.pool = new sql.ConnectionPool(mssqlPoolConfig(config));
     this.ready = this.pool.connect();
   }

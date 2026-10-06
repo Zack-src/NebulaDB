@@ -6,16 +6,9 @@ const ANCHOR_GAP = 6;
 const MIN_PANEL_HEIGHT = 160;
 
 /**
- * Places a `position: fixed` menu at a click point without letting it run off
- * screen: it flips to the other side of the cursor when there isn't room, and
- * clamps as a last resort. Right-clicking near the bottom-right of the window
- * is completely ordinary, and an unclamped menu simply puts half its items
- * where they cannot be reached.
- *
- * An action rather than state: it measures and writes `left`/`top` straight
- * onto the element after it is inserted and before the browser paints, so the
- * first painted frame is already in the right place — no visible jump, and no
- * second render pass.
+ * Places a `position: fixed` menu at a click point, flipping to the other side of the cursor
+ * when there isn't room and clamping as a last resort. Runs after insertion and before paint,
+ * so the first painted frame is already placed.
  */
 export function menuPlacement(node: HTMLElement, point: { x: number; y: number }) {
   const place = ({ x, y }: { x: number; y: number }) => {
@@ -44,24 +37,12 @@ export interface AnchoredPlacementParams {
 }
 
 /**
- * Places a popover against the control that opened it, rather than at a bare
- * point: below by default, flipped above when there is more room there, always
- * inside the window, and always with a `maxHeight` so a long list scrolls
- * inside itself instead of running off the screen.
+ * Places a popover against the control that opened it: below by default, flipped above when
+ * there is more room there, always inside the window, with a `maxHeight` derived from the
+ * trigger's real rect so long lists scroll inside themselves.
  *
- * `side: "right"` anchors instead to the right of `rect` (flipping to the
- * left when there isn't room), top-aligned with `rect` — used for popovers
- * that should sit beside the thing they edit rather than drop down over it.
- * `side: "top"` is the mirror of the default for controls at the bottom of
- * the window: above, flipped below only when it cannot fit above.
- *
- * The height cap is the part the hand-rolled versions all got wrong — each
- * clamped its position against a *guessed* height constant while the element
- * itself was free to grow to `80vh`, so tall popovers hung off the bottom
- * anyway. Deriving the cap from the trigger's real rect removes the guess.
- *
- * The element is expected to start `visibility: hidden` at a provisional
- * position; this reveals it once placed.
+ * `side: "right"` anchors to the right of `rect` (flipping left), top-aligned; `side: "top"` is
+ * the mirror of the default. The element starts `visibility: hidden`; this reveals it.
  */
 export function anchoredPlacement(node: HTMLElement, params: AnchoredPlacementParams) {
   const place = ({ rect, side = "bottom", matchWidth = false }: AnchoredPlacementParams) => {

@@ -1,19 +1,7 @@
 /**
- * Lightweight, dependency-free perf instrumentation for the server's hot
- * paths — same intent as `apps/web/src/utils/perfMonitor.ts` on the client
- * side, sized for a Node process instead of a browser tab.
- *
- * Node is single-threaded: a synchronous call that blocks the event loop
- * (a `better-sqlite3` write, JSON-heavy work) doesn't just slow the request
- * that triggered it — it stalls *every* connected client's WebSocket frame
- * until it returns. `timeSync` exists specifically to catch that: it keeps
- * rolling stats so a slow spot that only shows up under real load (many
- * tables, many collaborators) is visible without attaching a profiler.
- *
- * Near-zero overhead (one `Date.now()` per call, no console output) — stats
- * accumulate cheaply so `getPerfReport()` (wired into the
- * health-check-adjacent `/api/_debug/perf` route in dev) is useful without
- * any extra flag.
+ * Lightweight perf instrumentation for the server's hot paths. A synchronous call that
+ * blocks the event loop stalls every client's WebSocket, so `timeSync` keeps rolling stats
+ * to spot it under load without a profiler. One `Date.now()` per call, no console output.
  */
 
 interface Stat {

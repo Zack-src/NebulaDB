@@ -3,25 +3,14 @@ import net from "node:net";
 import { ApiError } from "../../shared/errors.js";
 
 /**
- * Blocks the server from being pointed at the cloud provider metadata
- * endpoint — the one network destination a "connect to a database" feature
- * has zero legitimate reason to ever reach, and the single most damaging
- * SSRF target there is (it hands back the *host's* cloud credentials, not
- * anything belonging to this app).
+ * Blocks the cloud metadata endpoint, the one destination a "connect to a database" feature
+ * never legitimately needs and the most damaging SSRF target.
  *
- * Deliberately narrow, not a general private-IP blocklist: unlike a
- * multi-tenant SaaS, a self-hosted deployment's own database is routinely on
- * `localhost`, a docker-compose service name, or a private LAN address —
- * blocking those by default would break the feature for the exact case it
- * was built for. The real boundary this relies on instead is *who* can reach
- * this code at all: every route in `routes.ts` requires project
- * `administrator`, not just `edit` — see the routes file for that reasoning.
+ * Deliberately not a private-IP blocklist: a self-hosted database is routinely on localhost
+ * or a LAN address. The real boundary is who can reach this code (project `administrator`).
  *
- * DNS rebinding is closed by `resolveAllowedHost`: the name is resolved once,
- * every address is checked, and the driver then connects to that exact
- * address instead of resolving the name a second time. What this still does
- * **not** attempt: IPv6 metadata variants beyond the one listed below, and
- * general private-range restriction.
+ * DNS rebinding is closed by `resolveAllowedHost`: the name is resolved once, every address
+ * is checked, and the driver connects to that exact address.
  */
 const BLOCKED_HOSTS = new Set([
   "169.254.169.254", // AWS / GCP / Azure / DigitalOcean instance metadata

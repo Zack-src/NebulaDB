@@ -28,18 +28,12 @@
   import { useMcdNodeDrag } from "./mcdNodeDrag.svelte";
   import type { EditorViewMode } from "./ViewModeToggle.svelte";
 
-  /**
-   * A self-contained, read-only-*data* Merise MCD view, derived on the fly
-   * from the live `Project` — never the other way around. Its own small flow
-   * instance rather than a mode grafted onto `CanvasArea`: nothing here writes
-   * to Yjs, is undoable through the app's own history, or collaborative — but
-   * it reuses the same `CanvasZoomBar`/minimap/panel chrome as the MLD canvas,
-   * and the viewport and its behavior (zoom bounds, scroll/pan gestures) come
-   * from `canvasViewport`, shared verbatim with it — not just for less
-   * duplication: a `minZoom` mismatch between the two would let one canvas
-   * clamp the other's saved zoom the moment it mounts, corrupting the value
-   * they both read from.
-   */
+    /**
+     * A self-contained Merise MCD view, derived from the live `Project`, never the reverse. Its own
+     * small flow rather than a mode of `CanvasArea`; nothing here writes to Yjs. It shares the zoom
+     * bar, minimap and viewport behaviour (`canvasViewport`): a `minZoom` mismatch would let one
+     * canvas clamp the other's saved zoom on mount.
+     */
   let {
     project,
     projectId,

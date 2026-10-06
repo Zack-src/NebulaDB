@@ -83,16 +83,11 @@ function isSchemaExplicitInSource(source: string, schemaName: string, tableName:
 }
 
 /**
- * Convert @dbml/core's raw Database model into NebulaDB's internal Project
- * shape. Visual metadata (position/color/detail level) is not present in
- * DBML/SQL and is defaulted here; the editor fills it in on first layout.
+ * Converts @dbml/core's raw Database model into NebulaDB's `Project`. Visual metadata isn't in
+ * DBML/SQL and is defaulted here.
  *
- * `source`, if given, is the raw DBML/SQL text that was parsed — used only
- * to detect whether a table's "public" schema was actually typed by the
- * user (kept) or is just @dbml/core's silent default (dropped), so a schema
- * never round-trips into text that never asked for it. Without `source`
- * (e.g. tests constructing a `Project` directly from a parsed model), a
- * table's schema is treated as implicit whenever it's the default name.
+ * `source`, if given, is the raw text parsed: it tells a typed `public` schema (kept) from
+ * @dbml/core's silent default (dropped). Without it, a default-named schema is treated as implicit.
  */
 export function toProject(database: any, projectName = "Untitled", source?: string): Project {
   // Every schema, not only the first: a file with `Table sales.orders` next to
@@ -331,24 +326,12 @@ export function projectToSql(project: Project, dialect: SqlDialect): string {
 }
 
 /**
- * Reconciles a freshly-parsed `incoming` project (from `toProject`, whose ids
- * are just @dbml/core's parse-order assignments, optionally already overlaid
- * with sidecar visual metadata via `applyVisualMetadata`) into `existing`,
- * matching tables/fields by *name* so ids survive a reimport instead of
- * resetting every time. `existing`'s own position/size/style/detail-level/
- * comments win when a table already has them; `incoming`'s (grid-default, or
- * sidecar-restored if the source carried one; comments are DBML-native never,
- * so always `undefined` on `incoming`) only fill in for genuinely new tables.
- * Same idea for zones/sticky notes, which have no per-table anchor to match
- * by: `existing`'s take priority, `incoming`'s (sidecar-only, never
- * DBML-native) only seed a project that doesn't have any yet. Enums are
- * matched by name like tables (a field's `type` names an enum by string,
- * never by id, so there's no cross-reference to remap) and keep the same
- * existing-position-wins/reserve-a-free-slot treatment. Refs are matched by
- * `refSignature` (their endpoint table/field names — a ref's `id` is never
- * DBML-native): a match keeps `existing`'s id/style/routingPoints, same
- * existing-wins pattern as everything else here; a genuinely new ref is
- * taken wholesale from `incoming`.
+ * Reconciles a freshly-parsed `incoming` project into `existing`, matching tables/fields by
+ * *name* so ids survive a reimport. `existing`'s position/size/style/detail level/comments win;
+ * `incoming`'s only fill in genuinely new tables. Zones and sticky notes (no anchor to match by)
+ * are taken from `incoming` only when `existing` has none. Enums match by name like tables. Refs
+ * match by `refSignature` (endpoint names): a match keeps `existing`'s id/style/routingPoints; a
+ * new ref is taken wholesale from `incoming`.
  */
 const GRID_COL_WIDTH = 320;
 const GRID_ROW_HEIGHT = 400;

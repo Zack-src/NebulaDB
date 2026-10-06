@@ -61,16 +61,10 @@ function findCycles(adjacency: Map<string, string[]>): string[][] {
 }
 
 /**
- * Structural validation of a `Project`: duplicate table/field names, tables
- * with no primary key, ref endpoints that don't resolve to a real
- * table+field ("missing FK target"), a ref whose two sides have different
- * base column types, and circular ref chains among 2+ distinct tables.
- * Informational only —
- * nothing here blocks import or editing, since a schema mid-edit or one with
- * an intentional circular dependency (e.g. a bidirectional hub) is still a
- * valid thing to have open; SQL export already emits FKs as separate `ALTER
- * TABLE` statements after all `CREATE TABLE`s, so a cycle doesn't actually
- * break generation, it's just usually worth a human's attention.
+ * Structural validation of a `Project`: duplicate table/field names, tables with no primary key,
+ * ref endpoints that don't resolve ("missing FK target"), refs whose sides have different base
+ * types, and circular ref chains among 2+ tables. Informational only: it never blocks import or
+ * editing, and a cycle doesn't break SQL export (FKs are emitted as separate `ALTER TABLE`s).
  */
 export function validateProject(project: Project): ValidationIssue[] {
   const issues: ValidationIssue[] = [];

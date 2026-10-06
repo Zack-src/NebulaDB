@@ -22,16 +22,9 @@ export function saveThemePreset(preset: ThemePreset): void {
 }
 
 /**
- * Sets (or clears) `data-theme` on `<html>`. Only `"light"` has a CSS block
- * to match today (`tokens.css`'s `[data-theme="light"]`) — every other
- * preset clears the attribute, which is exactly what falling back to the
- * dark default requires.
- *
- * Kept intentionally framework-free: `index.html`'s inline boot script calls
- * the same logic (duplicated there, since that script runs before any module
- * has loaded — see its own comment) to paint the right theme before first
- * paint, and this is what every later change (the settings picker) goes
- * through so the two stay in sync.
+ * Sets (or clears) `data-theme` on `<html>`. Only `"light"` has a CSS block today; every other
+ * preset clears the attribute, falling back to dark. Framework-free: `index.html`'s boot script
+ * duplicates this logic to paint the right theme before first paint.
  */
 export function applyThemePreset(preset: ThemePreset): void {
   if (preset === "light") {

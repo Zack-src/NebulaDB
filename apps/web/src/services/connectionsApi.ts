@@ -147,43 +147,6 @@ export async function listProjectConnections(projectId: string): Promise<Databas
   return res.connections;
 }
 
-export async function createProjectConnection(
-  projectId: string,
-  config: Omit<DatabaseConnectionConfig, "id">,
-): Promise<DatabaseConnectionSummary> {
-  const res = await request<{ connection: DatabaseConnectionSummary }>(`/api/projects/${projectId}/connections`, {
-    method: "POST",
-    body: config,
-  });
-  return res.connection;
-}
-
-export async function updateProjectConnection(
-  projectId: string,
-  connId: string,
-  updates: Partial<DatabaseConnectionConfig>,
-): Promise<DatabaseConnectionSummary> {
-  const res = await request<{ connection: DatabaseConnectionSummary }>(
-    `/api/projects/${projectId}/connections/${connId}`,
-    { method: "PUT", body: updates },
-  );
-  return res.connection;
-}
-
-export async function deleteProjectConnection(projectId: string, connId: string): Promise<void> {
-  await request<void>(`/api/projects/${projectId}/connections/${connId}`, { method: "DELETE" });
-}
-
-export async function testConnectionConfig(
-  projectId: string,
-  config: Partial<DatabaseConnectionConfig>,
-): Promise<TestConnectionResponse> {
-  return request<TestConnectionResponse>(`/api/projects/${projectId}/connections/test`, {
-    method: "POST",
-    body: config,
-  });
-}
-
 export async function pullDatabaseSchema(
   projectId: string,
   connId: string,

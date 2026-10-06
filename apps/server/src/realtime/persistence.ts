@@ -63,31 +63,12 @@ export function listRevisions(projectId: string): RevisionMeta[] {
 }
 
 /**
- * `listRevisions`, but with entries dropped when they made no schema change
- * over the one before them — dragging a table alone commits a revision on
- * every mouse-up (see `appendRevision`'s comment), so an active editing
- * session can leave a project with long runs of revisions that only ever
- * differ from their neighbour by table/note position. That's noise for a
- * human scanning "what changed and when", even though each row is a
- * perfectly real point in the CRDT history — restoring to any of them still
- * works, this only decides what the history *list* surfaces.
+ * `listRevisions`, minus entries that made no schema change over the one before them
+ * (dragging a table commits a revision on every mouse-up). Restoring any revision still works;
+ * only the *list* is filtered. A labeled revision is always kept.
  *
- * A revision that was explicitly labeled (a checkpoint like "v1.0") is
- * always kept even if it didn't change anything — the user pointed at that
- * exact moment on purpose, so second-guessing it here would be wrong.
- *
- * "Changed" reuses `diffProjects`'s notion of schema change (tables/fields/
- * refs), the same one `HistoryPanel`'s "No schema changes since this
- * revision" already uses — so a revision that only moved a table around
- * canvas, without touching the schema, does not count as a change here
- * either.
- *
- * Each kept revision carries `changes`, the short form of that diff, for the
- * history line ("orders, customers · 2 relations").
- *
- * Replays the whole log exactly once, incrementally, into a single scratch
- * doc — O(revisions), not O(revisions²) like reconstructing each one from
- * scratch would be.
+ * "Changed" is `diffProjects`'s notion (tables/fields/refs). Each kept revision carries
+ * `changes`, the short form of that diff. Replays the log once into a scratch doc: O(revisions).
  */
 export function listMeaningfulRevisions(projectId: string): RevisionMeta[] {
   const rows = db
@@ -140,7 +121,7 @@ function summarizeChanges(diff: ProjectDiff): RevisionChanges {
  * and including `revisionId`, in application order. Returns `null` if no
  * revision with that id exists for the project.
  */
-export function getRevisionUpdatesUpTo(projectId: string, revisionId: string): Uint8Array[] | null {
+function getRevisionUpdatesUpTo(projectId: string, revisionId: string): Uint8Array[] | null {
   const rows = db
     .prepare(`SELECT id, yjs_update FROM revisions WHERE project_id = ? ORDER BY rowid ASC`)
     .all(projectId) as { id: string; yjs_update: Buffer }[];

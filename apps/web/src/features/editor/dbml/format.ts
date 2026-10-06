@@ -3,8 +3,6 @@ import { EditorSelection } from "@codemirror/state";
 import type { Command } from "@codemirror/view";
 import { formatDbml } from "@nebuladb/dbml-engine";
 
-export { formatDbml };
-
 /** Shift+Alt+F — reformat the document, keeping the cursor on the same line. */
 export const formatDocument: Command = (view) => {
   const current = view.state.doc.toString();

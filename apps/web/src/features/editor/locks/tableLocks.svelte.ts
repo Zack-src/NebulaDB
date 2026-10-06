@@ -16,16 +16,9 @@ export function canOverrideLock(held: TableLockAuthority | null, lock: Pick<Tabl
 }
 
 /**
- * The project's table locks, as the server last reported them.
- *
- * A mirror, never the authority: the server refuses or reverts a change to a
- * locked table whatever this says. What it buys is an editor that does not
- * *offer* such a change — no rename field, no "add column" — instead of one
- * that lets the user make it and then takes it back.
- *
- * Refetched when the project changes and whenever the server announces
- * `locks-changed` on the project's socket (see `ServerNotice`), so a padlock
- * placed by a colleague appears without a reload.
+ * The project's table locks as the server last reported them: a mirror, never the authority
+ * (the server refuses or reverts changes to a locked table). It lets the editor not *offer* such
+ * changes. Refetched on project change and on `locks-changed` over the socket.
  */
 export class TableLocksState {
   view = $state.raw<TableLocksView>(NO_TABLE_LOCKS);

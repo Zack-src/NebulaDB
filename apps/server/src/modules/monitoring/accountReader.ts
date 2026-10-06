@@ -7,7 +7,7 @@ import { canonicalAccountLines, principalKey, type AccountListing } from "./acco
  * account): the watch must stay a light read. Said in the lines (`unread`),
  * so the fingerprint stays honest about what it covers.
  */
-export const MAX_GRANT_READS = 300;
+const MAX_GRANT_READS = 300;
 
 /**
  * Reads a database's accounts, memberships and privileges through its

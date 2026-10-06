@@ -42,7 +42,7 @@ function connectionOf(req: FastifyRequest): string | null {
  * routes (`/api/admin/activity?connectionId=…`, export included); this file
  * adds what those lack: who appears in it, the statement figures of the SQL
  * console, and the journal entries for a connection tested or a console
- * opened — written here, around routes `dbAdmin/routes.ts` keeps unchanged.
+ * opened — written here, around routes `dbAdmin/explorerRoutes.ts` keeps unchanged.
  * Everything is for instance administrators.
  */
 export function registerConnectionJournalRoutes(app: FastifyInstance): void {

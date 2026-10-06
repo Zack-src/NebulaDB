@@ -3,16 +3,10 @@ import { translateType } from "@nebuladb/shared";
 import type { MigrationDiff } from "./migrationDiff.js";
 
 /**
- * Surfaces a `TYPE_TRANSLATION_SUGGESTED` risk for every new/changed column
- * whose written type isn't `targetEngine`'s native spelling (see
- * `translateType`). Only columns the diff already touches (new tables, and
- * added/modified fields on changed tables) are considered — a field the
- * diff leaves alone is already live on `targetEngine` in whatever form a
- * prior deployment gave it, so there's nothing new to confirm.
- *
- * Purely computed from the diff (no live DB access), unlike the row-count
- * risks each `DatabaseDriver.inspectRisks()` emits — callers merge both
- * lists for the deployment-preview wizard.
+ * Surfaces a `TYPE_TRANSLATION_SUGGESTED` risk for every new or changed column whose written type
+ * isn't `targetEngine`'s native spelling (`translateType`). Only columns the diff touches count.
+ * Computed from the diff alone (no live DB), unlike the row-count risks of
+ * `DatabaseDriver.inspectRisks()`; callers merge both for the deployment preview.
  */
 export function detectTypeTranslationRisks(diff: MigrationDiff, targetEngine: DatabaseEngine): SchemaRisk[] {
   const risks: SchemaRisk[] = [];

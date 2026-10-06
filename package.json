@@ -2,7 +2,6 @@
   "name": "nebuladb",
   "private": true,
   "version": "1.0.0",
-  "license": "MIT",
   "type": "module",
   "description": "Self-hosted DBML schema diagram editor with multi-user editing and history.",
   "workspaces": [
@@ -16,6 +15,7 @@
     "dev:server": "npm run dev -w apps/server",
     "build": "npm run build -w packages/shared && npm run build -w packages/dbml-engine && npm run build -w apps/server && npm run build -w apps/web",
     "start": "node apps/server/dist/index.js",
+    "bench:web": "node scripts/bench-web.mjs",
     "bench:server": "npm run bench -w apps/server --",
     "backup": "npm run backup -w apps/server --",
     "restore": "npm run restore -w apps/server --",
@@ -41,15 +41,11 @@
     "madge": "^8.0.0",
     "playwright-core": "^1.62.1",
     "prettier": "^3.9.6",
-    "svelte-eslint-parser": "^1.8.1",
     "typescript-eslint": "^8.67.0"
   },
   "allowScripts": {
     "better-sqlite3@13.0.3": true,
     "core-js@3.50.0": true,
     "esbuild@0.28.2": true
-  },
-  "dependencies": {
-    "i": "^0.3.7"
   }
 }

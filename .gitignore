@@ -11,6 +11,7 @@ build/
 .turbo/
 coverage/
 backups/
-# …but not source folders that happen to be called that.
+
 !apps/*/src/**/backups/
 .claude/worktrees/
+

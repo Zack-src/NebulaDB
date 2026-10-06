@@ -6,7 +6,7 @@ export interface Span {
   to: number;
 }
 
-export interface InlineRef {
+interface InlineRef {
   /** `>`, `<`, `-` or `<>` */
   relation: string;
   table: string;
@@ -55,14 +55,14 @@ export interface EnumSymbol {
   values: Array<{ name: string; line: number }>;
 }
 
-export interface RefEndpoint {
+interface RefEndpoint {
   table: string;
   fields: string[];
   tableSpan: Span;
   fieldSpan: Span;
 }
 
-export interface RefSymbol {
+interface RefSymbol {
   name?: string;
   line: number;
   relation: string;
@@ -70,7 +70,7 @@ export interface RefSymbol {
   right: RefEndpoint;
 }
 
-export interface GroupSymbol {
+interface GroupSymbol {
   name: string;
   line: number;
   endLine: number;
@@ -483,19 +483,12 @@ export function findField(table: TableSymbol, name: string): FieldSymbol | undef
 }
 
 /**
- * A canonical fingerprint of what a DBML document *declares*, ignoring layout,
- * comments, settings order and block order.
+ * A canonical fingerprint of what a DBML document *declares*, ignoring layout, comments and
+ * ordering. The panel compares the buffer against `projectToDbml` on every update; comparing
+ * signatures instead of strings keeps the user's formatted text when the schema didn't change.
  *
- * The panel compares the buffer against the engine's re-serialization of the
- * project (`projectToDbml`) on every project update. Comparing the raw strings
- * meant any locally formatted/commented buffer was replaced by the canonical
- * output moments after each sync; comparing signatures keeps the user's text
- * whenever nothing actually changed in the schema.
- *
- * Only what `projectToDbml` can actually emit is compared — tables, columns,
- * enums and relationships. Aliases, `headercolor`, `TableGroup` and `Project`
- * blocks are excluded: the serializer drops them, so comparing them would
- * report a change on every single sync for documents that use them.
+ * Only what `projectToDbml` emits is compared (tables, columns, enums, relationships): aliases,
+ * `headercolor`, `TableGroup` and `Project` blocks are dropped by the serializer.
  */
 export function dbmlSignature(source: string | Text): string {
   const doc = typeof source === "string" ? Text.of(source.split("\n")) : source;

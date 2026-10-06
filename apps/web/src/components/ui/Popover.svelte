@@ -5,18 +5,11 @@
   import { portal } from "@/actions/portal";
   import { useDismissablePopover } from "@/hooks/dismissablePopover.svelte";
 
-  /**
-   * A floating panel hung off the control that opened it — the one positioning
-   * and dismissal engine under `Menu`, `Select` and any ad-hoc popover.
-   *
-   * Portalled to `document.body`, so it is never clipped by a scrolling parent
-   * or scaled with the canvas; it follows its anchor when the page scrolls or
-   * the window resizes, and closes on Escape or a click outside (the anchor
-   * counts as inside, so the control that opened it can also close it).
-   *
-   * Focus is the caller's business: a menu moves it into the panel, a select
-   * keeps it on the trigger.
-   */
+    /**
+     * A floating panel hung off the control that opened it: the positioning and dismissal engine
+     * under `Menu`, `Select` and ad-hoc popovers. Portalled to `document.body`, follows its anchor,
+     * closes on Escape or an outside click (the anchor counts as inside). Focus is the caller's.
+     */
   interface Props extends Omit<HTMLAttributes<HTMLDivElement>, "class" | "style"> {
     open: boolean;
     anchor: HTMLElement | null | undefined;

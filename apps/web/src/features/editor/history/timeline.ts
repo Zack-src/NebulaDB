@@ -26,7 +26,7 @@ export interface RevisionEntry {
   refs: number;
 }
 
-export interface MarkerEntry {
+interface MarkerEntry {
   kind: "marker";
   id: string;
   marker: HistoryMarker;

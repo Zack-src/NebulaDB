@@ -1,31 +1,17 @@
 /**
- * Who wins between the DBML buffer and the project document, and when.
+ * Who wins between the DBML buffer and the project document, and when. Done naively the two
+ * directions fight and the user's text is "rolled back" while typing. Three rules:
  *
- * The panel posts its buffer to `/import` and mirrors the document back into
- * the buffer. Done naively, those two directions fight, and the user sees
- * their text "rolled back" while typing. Three rules keep that from happening:
+ *  1. **A newer buffer is never replaced by an older document.** Each edit bumps a revision; the
+ *     document is mirrored back only once the server acknowledged *that* revision.
+ *  2. **The baseline only advances on success.** The server uses it to tell "deleted here" from
+ *     "added by someone else" (`preserveConcurrentAdditions`); advancing it on a merely *sent*,
+ *     transiently invalid buffer brought back relations the user had just retargeted. Imports
+ *     are sent one at a time for the same reason.
+ *  3. **The document is not trusted right after an import**: the HTTP answer and the realtime
+ *     update travel separately, so mirroring then is a visible rollback.
  *
- *  1. **A newer buffer is never replaced by an older document.** Every edit
- *     bumps a revision; the document is only mirrored back once the server has
- *     acknowledged *that* revision. An import answering for revision 3 does
- *     not make revision 5 clean.
- *  2. **The baseline only advances on success.** The baseline is what the
- *     server uses to tell "deleted here" from "added by someone else" (see
- *     `preserveConcurrentAdditions`). Advancing it when an import was merely
- *     *sent* meant one transiently invalid buffer — half a table name, mid-
- *     keystroke — became the baseline of the next import; the server could not
- *     parse it, treated everything as someone else's addition, and brought
- *     back the very relation the user had just retargeted. For the same
- *     reason imports are sent one at a time: a second one leaving before the
- *     first is acknowledged would carry a baseline that is already out of date.
- *  3. **The document is not trusted right after an import.** The HTTP answer
- *     and the realtime update travel separately; for a moment the project the
- *     panel holds can still be the one from *before* the import. Mirroring it
- *     then is a visible rollback, undone a moment later.
- *
- * Pure and timer-free on purpose — the panel owns the debounce and re-offers
- * the document when asked to (`retryInMs`), so all of this runs under
- * `node:test`.
+ * Pure and timer-free: the panel owns the debounce and re-offers the document (`retryInMs`).
  */
 
 /** No document is mirrored into the buffer this soon after a keystroke. */
@@ -33,7 +19,7 @@ export const TYPING_QUIET_MS = 1500;
 /** How long an unchanged document is assumed to be the pre-import one. */
 export const ECHO_GRACE_MS = 2000;
 
-export type BufferSyncStatus = "synced" | "pending" | "error";
+type BufferSyncStatus = "synced" | "pending" | "error";
 
 export interface BufferSyncOptions<SendOptions = undefined> {
   initialText: string;
@@ -45,7 +31,7 @@ export interface BufferSyncOptions<SendOptions = undefined> {
   now?: () => number;
 }
 
-export interface DocumentOffer {
+interface DocumentOffer {
   /** Replace the buffer with this text. */
   adopt?: string;
   /** Nothing decided yet — offer the document again after this long. */

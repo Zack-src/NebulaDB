@@ -8,20 +8,11 @@ import type {
 import { db } from "../../infrastructure/db.js";
 
 /**
- * Who may use a connection's console without being an instance administrator.
+ * Who may use a connection's console without being an instance administrator. A grant names
+ * a connection, a subject (user, or team) and a level; project membership gives nothing.
  *
- * A grant names a connection, a subject (a user, or a team whose members all
- * inherit it) and a level. Nothing here is derived from project membership:
- * being in a project a connection is attached to gives no access to the
- * database itself — only a row in `db_access_grants` does.
- *
- * Read on every request (`effectiveDbAccess`), never cached: revoking a grant,
- * removing someone from a team or deleting the team takes effect on the next
- * request.
- *
- * `PRAGMA foreign_keys` is off in this database: the user, team, connection
- * and project deletions remove these rows themselves (`purgeUserAndBelongings`,
- * `deleteTeamCascade`, `deleteConnection`, `deleteProjectCascade`).
+ * Read on every request, never cached, so revocations apply immediately. Foreign keys are off
+ * in this database: user, team, connection and project deletions remove these rows themselves.
  */
 
 const RANK: Record<DbAccessLevel, number> = { read: 1, write: 2 };

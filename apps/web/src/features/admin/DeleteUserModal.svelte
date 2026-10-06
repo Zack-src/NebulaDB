@@ -11,18 +11,11 @@
   import { deleteUser } from "@/services/usersApi";
   import type { UserSummary } from "@/types";
 
-  /**
-   * Deleting an account is the one irreversible action in the admin console, and
-   * it has a consequence that isn't obvious from the button: projects the person
-   * owns have to go somewhere. The server's default is to leave them ownerless —
-   * readable by everyone, manageable only by global admins — and there is no
-   * route to re-assign an owner afterwards, so this dialog puts the transfer
-   * choice in front of the decision rather than after it.
-   *
-   * Typing the email to confirm is deliberate friction: the list rows are one
-   * click apart and the two neighbouring actions (reset password, disable) are
-   * both recoverable.
-   */
+    /**
+     * Deleting an account is irreversible, and the projects the person owns have to go somewhere:
+     * the server default leaves them ownerless, with no route to reassign, so the transfer choice
+     * is put before the decision. Typing the email is deliberate friction.
+     */
   let {
     targetUser,
     users,

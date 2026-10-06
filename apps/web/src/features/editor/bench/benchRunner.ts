@@ -4,22 +4,13 @@ import { getPerfReport, resetPerfReport, setPerfEnabled, setPerfQuiet, type Perf
 import type { BenchConfig } from "./benchProject";
 
 /**
- * In-page half of the canvas perf harness.
- *
- * The driver (`scripts/bench-web.mjs`) owns everything a real user does with
- * a mouse — wheel zoom, node drags, toolbar clicks — because only real
- * (CDP-level) input goes through Svelte Flow's own d3-zoom/d3-drag handlers.
- * What lives here is the part a driver can't do from outside the page:
- *
- *  - frame/long-task sampling around a measured window;
- *  - the schema mutations whose UI path is a popover click but whose *cost*
- *    is entirely in the doc-update pipeline that follows (recolour, column
- *    flags, column deletion). Each one performs byte-for-byte the same Yjs
- *    write the corresponding handler in `buildTableNodes`/`useProjectMutations`
- *    performs, so the measured work downstream is the real thing.
+ * In-page half of the canvas perf harness. The driver (`scripts/bench-web.mjs`) sends the real
+ * CDP-level input (wheel, drags, clicks); this half does what it can't from outside: frame and
+ * long-task sampling, and the schema mutations (recolour, column flags, column deletion), each
+ * performing the same Yjs write as the real handler.
  */
 
-export interface BenchFrameStats {
+interface BenchFrameStats {
   count: number;
   avgMs: number;
   p95Ms: number;
@@ -29,7 +20,7 @@ export interface BenchFrameStats {
   fps: number;
 }
 
-export interface BenchMetrics {
+interface BenchMetrics {
   label: string;
   durationMs: number;
   frames: BenchFrameStats;
@@ -113,7 +104,7 @@ function round(value: number): number {
   return Math.round(value * 10) / 10;
 }
 
-export interface BenchApi {
+interface BenchApi {
   config: BenchConfig;
   start(label: string): void;
   stop(): BenchMetrics;

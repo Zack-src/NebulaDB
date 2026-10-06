@@ -137,19 +137,9 @@ export class CanvasEdgesState {
   private overlayResult: RefEdgeType[] = [];
 
   /**
-   * `nodes` by geometry alone: same array reference until some node's
-   * `id`/`position`/`measured` size actually changes — a plain (de)selection
-   * or hover, which replaces the whole `nodes` array reference without moving
-   * or resizing anything, leaves this returning the *previous* array.
-   *
-   * Taking the raw `nodes` as a dependency for this geometry meant clicking to
-   * select a table rebuilt every edge's data object and its six closures from
-   * scratch — on a canvas with hundreds of tables and thousands of relations
-   * that was "select a table, everything freezes for a moment".
-   *
-   * Frozen entirely during a drag or a lasso: `nodes` is replaced on every
-   * frame of both, and geometry only needs to catch up once, on drop (a lasso
-   * never moves anything at all).
+   * `nodes` by geometry alone: the same array reference until some node's id, position or
+   * measured size changes, so a plain (de)selection or hover doesn't rebuild every edge. Frozen
+   * during a drag or a lasso (the array is replaced every frame; geometry catches up on drop).
    */
   private readonly geometryNodes = $derived.by((): CanvasNode[] => {
     const nodes = this.input.nodes();
