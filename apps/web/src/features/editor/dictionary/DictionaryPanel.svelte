@@ -11,8 +11,8 @@
     type DataClassification,
     type DictionaryTable,
     type NoteMeta,
-  } from "@athanordb/dbml-engine";
-  import type { Project } from "@athanordb/shared";
+  } from "@nebuladb/dbml-engine";
+  import type { Project } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { DownloadIcon, TableIcon } from "@/components/icons/Icons";
   import Badge, { type BadgeTone } from "@/components/ui/Badge.svelte";

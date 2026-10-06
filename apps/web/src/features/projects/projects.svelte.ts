@@ -1,4 +1,3 @@
-import type { ProjectTemplateId } from "@athanordb/dbml-engine";
 import { describeApiError } from "@/i18n/serverErrorMessages";
 import { useTranslation } from "@/i18n/i18n.svelte";
 import * as projectsApi from "@/services/projectsApi";
@@ -16,7 +15,7 @@ export interface ProjectsHandle {
    */
   readonly loaded: boolean;
   refreshProjects: () => void;
-  createProject: (name: string, template?: ProjectTemplateId) => Promise<CreateProjectResult>;
+  createProject: (name: string) => Promise<CreateProjectResult>;
   renameProject: (project: ProjectSummary, name: string) => Promise<void>;
   setProjectStatus: (project: ProjectSummary, status: ProjectStatus) => Promise<void>;
   deleteProjectForever: (project: ProjectSummary) => Promise<string | null>;
@@ -61,9 +60,9 @@ export function useProjects(active: () => boolean): ProjectsHandle {
     if (loggedIn) refreshProjects();
   });
 
-  const createProject = async (name: string, template?: ProjectTemplateId): Promise<CreateProjectResult> => {
+  const createProject = async (name: string): Promise<CreateProjectResult> => {
     try {
-      const created = await projectsApi.createProject(name, template);
+      const created = await projectsApi.createProject(name);
       refreshProjects();
       return { id: created.id };
     } catch (err) {

@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import type { AccountChange, AccountWatchState, DatabaseConnectionConfig } from "@athanordb/shared";
+import type { AccountChange, AccountWatchState, DatabaseConnectionConfig } from "@nebuladb/shared";
 import { asUnattended } from "../../infrastructure/actor.js";
 import { db } from "../../infrastructure/db.js";
 import { audit } from "../../shared/audit.js";
@@ -19,7 +19,7 @@ import { alreadyReported, insertDriftEvent } from "./repository.js";
 
 /**
  * The accounts watch: a database's accounts, role memberships and privileges,
- * compared with the reference Athanor agreed with. A change made through the
+ * compared with the reference Nebula agreed with. A change made through the
  * console's "Utilisateurs" tab moves the reference along (see
  * `registerAccountWatchHooks`); any other difference is an alert — an
  * `accounts` finding, a notification to the project's followers and
@@ -303,15 +303,15 @@ export function acceptAccountState(projectId: string, connectionId: string): boo
   return true;
 }
 
-// ---- Changes made through Athanor -----------------------------------------------
+// ---- Changes made through Nebula -----------------------------------------------
 
 /**
  * Before the console changes accounts: reads them, so that whatever differs
- * from the reference *before* Athanor acts is reported as what it is — a
- * change made elsewhere — and not folded into Athanor's own. `null` when no
+ * from the reference *before* Nebula acts is reported as what it is — a
+ * change made elsewhere — and not folded into Nebula's own. `null` when no
  * project watches this database's accounts (nothing is read then).
  */
-export async function beforeAthanorAccountChange(connectionId: string): Promise<string[] | null> {
+export async function beforeNebulaAccountChange(connectionId: string): Promise<string[] | null> {
   const projects = projectsWatchingAccountsOf(connectionId);
   const connection = getConnectionById(connectionId);
   if (projects.length === 0 || !connection || !engineHasAccounts(connection.engine)) return null;
@@ -325,11 +325,11 @@ export async function beforeAthanorAccountChange(connectionId: string): Promise<
 
 /**
  * After the console changed accounts: what changed between the two reads is
- * Athanor's doing, and moves each watching project's reference along. A
+ * Nebula's doing, and moves each watching project's reference along. A
  * difference that was already there stays — still open, now compared with
  * the state just read.
  */
-export async function afterAthanorAccountChange(connectionId: string, before: string[]): Promise<void> {
+export async function afterNebulaAccountChange(connectionId: string, before: string[]): Promise<void> {
   const connection = getConnectionById(connectionId);
   if (!connection) return;
   const after = await readAccounts(connection);
@@ -346,7 +346,7 @@ export async function afterAthanorAccountChange(connectionId: string, before: st
       closeAccountEvents(projectId, connectionId);
     } else {
       recordLive(projectId, connectionId, after);
-      // The same outside change, now seen next to Athanor's: not a new one.
+      // The same outside change, now seen next to Nebula's: not a new one.
       db.prepare(
         `UPDATE drift_events SET live_hash = ?
           WHERE project_id = ? AND connection_id = ? AND kind = 'accounts' AND status = 'open'`,
@@ -372,7 +372,7 @@ export function registerAccountWatchHooks(app: FastifyInstance): void {
     if (!req.user?.isAdmin || (req.body as { execute?: unknown } | null)?.execute !== true) return;
     const { id } = req.params as { id: string };
     try {
-      const before = await beforeAthanorAccountChange(id);
+      const before = await beforeNebulaAccountChange(id);
       if (before) pending.set(req, { connectionId: id, before });
     } catch (err) {
       req.log.warn({ err }, "accounts watch: could not read the accounts before a change");
@@ -383,7 +383,7 @@ export function registerAccountWatchHooks(app: FastifyInstance): void {
     if (!entry) return;
     pending.delete(req);
     try {
-      await afterAthanorAccountChange(entry.connectionId, entry.before);
+      await afterNebulaAccountChange(entry.connectionId, entry.before);
     } catch (err) {
       req.log.warn({ err }, "accounts watch: could not read the accounts after a change");
     }

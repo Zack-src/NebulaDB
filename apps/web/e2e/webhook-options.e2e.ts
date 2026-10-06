@@ -50,7 +50,7 @@ test(
         const created = await fetch("/api/projects", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ name: "Options", template: "blog" }),
+          body: JSON.stringify({ name: "Options" }),
         });
         return ((await created.json()) as { id: string }).id;
       });
@@ -63,7 +63,7 @@ test(
       // --- The event checkboxes: all ticked to begin with, one unticked before adding ---
       const schemaChanges = dialog.getByRole("checkbox", { name: "Modifications du schéma" });
       const deployments = dialog.getByRole("checkbox", { name: "Déploiements" });
-      const drift = dialog.getByRole("checkbox", { name: "Modifications hors Athanor" });
+      const drift = dialog.getByRole("checkbox", { name: "Modifications hors Nebula" });
       assert.equal(await schemaChanges.isChecked(), true);
       assert.equal(await deployments.isChecked(), true);
       assert.equal(await drift.isChecked(), true);

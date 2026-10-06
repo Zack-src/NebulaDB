@@ -1,4 +1,4 @@
-import type { RefAction } from "@athanordb/shared";
+import type { RefAction } from "@nebuladb/shared";
 import type { TranslationKey } from "@/i18n/translate";
 
 /** Every value the DBML/SQL-standard `[delete: ...]`/`[update: ...]` action vocabulary supports — shared between `EdgeSettingsPopover` (the relation's own settings) and `FieldEditorPopover` (the same setting, reachable from the FK column itself). `undefined` means "unset", left to the database's own default. */

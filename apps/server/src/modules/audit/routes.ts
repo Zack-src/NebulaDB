@@ -49,12 +49,12 @@ export function registerAuditRoutes(app: FastifyInstance): void {
     );
     const stamp = new Date().toISOString().slice(0, 10);
     if (format === "json") {
-      reply.header("content-disposition", `attachment; filename="athanordb-activity-${stamp}.json"`);
+      reply.header("content-disposition", `attachment; filename="nebuladb-activity-${stamp}.json"`);
       return entries;
     }
     reply
       .header("content-type", "text/csv; charset=utf-8")
-      .header("content-disposition", `attachment; filename="athanordb-activity-${stamp}.csv"`);
+      .header("content-disposition", `attachment; filename="nebuladb-activity-${stamp}.csv"`);
     return activityCsv(entries);
   });
 }

@@ -5,7 +5,7 @@
     ENVIRONMENT_PROTECTIONS,
     type EnvironmentStage,
     type EnvironmentStageInput,
-  } from "@athanordb/shared";
+  } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { ChevronRightIcon, PlusIcon, TrashIcon } from "@/components/icons/Icons";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";

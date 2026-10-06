@@ -11,7 +11,7 @@
     type LintRuleId,
     type LintRuleKey,
     type LintSettings,
-  } from "@athanordb/dbml-engine";
+  } from "@nebuladb/dbml-engine";
   import Icon from "@/components/icons/Icon.svelte";
   import { CloseIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";

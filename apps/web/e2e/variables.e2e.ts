@@ -20,7 +20,7 @@ const SOURCE = `Table "{{table_prefix}}orders" {
 `;
 
 test("variables: typed on a stage, kept, and used by a deployment to that stage", { timeout: 90_000 }, async () => {
-  const targetFile = join(mkdtempSync(join(tmpdir(), "athanordb-e2e-vars-")), "dev.sqlite");
+  const targetFile = join(mkdtempSync(join(tmpdir(), "nebuladb-e2e-vars-")), "dev.sqlite");
   const env = await startE2eEnvironment(PORT);
   try {
     const page = await env.browser.newPage({ viewport: { width: 1400, height: 900 } });

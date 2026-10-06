@@ -14,9 +14,10 @@
 
 <script lang="ts">
   import { untrack } from "svelte";
-  import type { Project } from "@athanordb/shared";
-  import { projectToDbml } from "@athanordb/dbml-engine";
+  import type { Project } from "@nebuladb/shared";
+  import { projectToDbml } from "@nebuladb/dbml-engine";
   import { ChevronLeftIcon, CodeIcon, LayoutGridIcon, SettingsIcon } from "@/components/icons/Icons";
+  import { SwapHorizontalIcon } from "@/components/icons/Icons";
   import Icon from "@/components/icons/Icon.svelte";
   import DbmlEditor from "@/features/editor/dbml/DbmlEditor/DbmlEditor.svelte";
   import type { PluginEditorCommand, SyncIndicator } from "@/features/editor/dbml/DbmlEditor/types";
@@ -49,6 +50,7 @@
     /** True for a `view` grant — the buffer still shows the live schema, but nothing typed into it is sent. */
     readOnly?: boolean;
     onClose: () => void;
+    onConvertTypes?: () => void;
     scrollToTable?: { tableName: string; requestId: number } | null;
     onNavigateToCanvas?: (target: { tableName: string; fieldName?: string }) => void;
     /** The schema linter's findings, underlined in the buffer. */
@@ -258,15 +260,13 @@
 
   /** Plugin editor commands, adapted to what `DbmlEditor` needs (text in, text out). */
   const pluginCommands = $derived(
-    editorCommands.list.map(
-      (command): PluginEditorCommand => ({
-        key: command.key,
-        label: command.contribution.label,
-        detail: command.source === "user" ? command.plugin.name : undefined,
-        shortcut: command.contribution.shortcut,
-        run: async (input) => (await command.run(input)) as EditorCommandResult,
-      }),
-    ),
+    editorCommands.list.map((command): PluginEditorCommand => ({
+      key: command.key,
+      label: command.contribution.label,
+      detail: command.source === "user" ? command.plugin.name : undefined,
+      shortcut: command.contribution.shortcut,
+      run: async (input) => (await command.run(input)) as EditorCommandResult,
+    })),
   );
 
   function handlePluginMessage(message: string, isError?: boolean) {
@@ -287,10 +287,29 @@
     <span class="text-[13px] font-semibold text-text">{DBML_LABEL}</span>
     {#if flashMessage.message}<span class="truncate text-[11.5px] text-text-muted">{flashMessage.message}</span>{/if}
     <span class="ml-auto"></span>
-    <Button variant="ghost" size="icon-sm" onclick={() => editor?.openPalette("symbols")} data-tooltip={t("dbml.goToSymbol")}>
+    {#if props.onConvertTypes}
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onclick={props.onConvertTypes}
+        aria-label={t("editor.convertTypes")}
+        data-tooltip={t("editor.convertTypes")}><Icon icon={SwapHorizontalIcon} size={14} /></Button
+      >
+    {/if}
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      onclick={() => editor?.openPalette("symbols")}
+      data-tooltip={t("dbml.goToSymbol")}
+    >
       <Icon icon={LayoutGridIcon} size={14} />
     </Button>
-    <Button variant="ghost" size="icon-sm" onclick={() => editor?.openPalette("commands")} data-tooltip={t("dbml.commandPalette")}>
+    <Button
+      variant="ghost"
+      size="icon-sm"
+      onclick={() => editor?.openPalette("commands")}
+      data-tooltip={t("dbml.commandPalette")}
+    >
       <Icon icon={SettingsIcon} size={14} />
     </Button>
     <Button variant="ghost" size="sm" onclick={() => editor?.format()} data-tooltip={t("dbml.formatDocument")}>

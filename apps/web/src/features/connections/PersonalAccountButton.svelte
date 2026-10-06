@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { PersonalCredentialStatus } from "@athanordb/shared";
+  import type { PersonalCredentialStatus } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { KeyIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
@@ -15,7 +15,9 @@
    */
   let {
     connection,
+    onChanged,
   }: {
+    onChanged?: () => void;
     connection: { id: string; name: string; authMode: "shared" | "personal" };
   } = $props();
 
@@ -60,7 +62,10 @@
       connectionId={connection.id}
       connectionName={connection.name}
       {status}
-      onChanged={(next) => (status = next)}
+      onChanged={(next) => {
+        status = next;
+        onChanged?.();
+      }}
       onClose={() => (open = false)}
     />
   {/if}

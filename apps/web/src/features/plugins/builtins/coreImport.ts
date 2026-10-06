@@ -74,10 +74,10 @@ const runners: Record<string, BuiltinRunner> = {
 
 export const coreImportPlugin: BuiltinPlugin = {
   manifest: {
-    id: "athanordb.core-import",
+    id: "nebuladb.core-import",
     name: "Importeurs Natifs",
     version: "1.0.0",
-    author: "AthanorDB",
+    author: "NebulaDB",
     category: "import",
     description: "Importez vos schémas depuis DBML, SQL (Postgres, MySQL, MSSQL, SQLite) et JSON Schema.",
     tags: ["import", "sql", "sqlite", "json-schema"],

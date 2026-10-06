@@ -9,7 +9,7 @@ import {
   type SeedSeparator,
   type TableSeed,
   type TableSeedSummary,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { ApiError } from "../../shared/errors.js";
 

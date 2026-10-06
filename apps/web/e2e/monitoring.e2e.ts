@@ -16,8 +16,8 @@ import { login, startE2eEnvironment } from "./harness.js";
 
 const PORT = Number(process.env.E2E_PORT) || 4415;
 
-test("monitoring: a change made outside Athanor is found and shown", { timeout: 90_000 }, async () => {
-  const targetFile = join(mkdtempSync(join(tmpdir(), "athanordb-e2e-monitor-")), "shop.sqlite");
+test("monitoring: a change made outside Nebula is found and shown", { timeout: 90_000 }, async () => {
+  const targetFile = join(mkdtempSync(join(tmpdir(), "nebuladb-e2e-monitor-")), "shop.sqlite");
   const env = await startE2eEnvironment(PORT);
   try {
     const page = await env.browser.newPage({ viewport: { width: 1400, height: 900 } });

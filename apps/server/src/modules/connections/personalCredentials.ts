@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import type { DatabaseConnectionConfig, PersonalCredentialHolder, PersonalCredentialStatus } from "@athanordb/shared";
+import type { DatabaseConnectionConfig, PersonalCredentialHolder, PersonalCredentialStatus } from "@nebuladb/shared";
 import { currentActorId } from "../../infrastructure/actor.js";
 import { db } from "../../infrastructure/db.js";
 import { decryptPayload, encryptPayload } from "../../shared/crypto.js";
@@ -9,8 +9,8 @@ import { ApiError } from "../../shared/errors.js";
  * Personal database accounts.
  *
  * A connection in `personal` mode is not used with one shared account: each
- * Athanor user gives their own account on that database, and whatever they do
- * through Athanor — deploy, pull, compare, browse, run SQL, back up — is done
+ * Nebula user gives their own account on that database, and whatever they do
+ * through Nebula — deploy, pull, compare, browse, run SQL, back up — is done
  * as that account. The database's own logs then say who did what, and its own
  * permissions decide what each person may do.
  *
@@ -69,6 +69,16 @@ export function personalCredentialStatus(
   };
 }
 
+/** The account itself, password included — for the one caller that has to sign in as it to change that password. */
+export function readPersonalCredentials(
+  connectionId: string,
+  userId: string,
+): { username: string; password: string } | null {
+  const row = getRow(connectionId, userId);
+  if (!row) return null;
+  return { username: row.username, password: decryptPayload<{ password: string }>(row.secret_encrypted).password };
+}
+
 export function savePersonalCredentials(
   connectionId: string,
   userId: string,
@@ -102,7 +112,7 @@ export function listCredentialHolders(connectionId: string): PersonalCredentialH
     .all(connectionId) as PersonalCredentialHolder[];
 }
 
-/** The database accounts an Athanor account has given — for its personal-data export. */
+/** The database accounts an Nebula account has given — for its personal-data export. */
 export function listPersonalCredentialsOf(
   userId: string,
 ): { connection: string; username: string; updatedAt: string }[] {

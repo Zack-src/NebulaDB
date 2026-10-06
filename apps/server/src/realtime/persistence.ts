@@ -1,7 +1,7 @@
 import * as Y from "yjs";
-import type { RevisionChanges, RevisionMeta } from "@athanordb/shared";
-import { readProjectFromDoc } from "@athanordb/shared";
-import { diffProjects, type ProjectDiff } from "@athanordb/dbml-engine";
+import type { RevisionChanges, RevisionMeta } from "@nebuladb/shared";
+import { readProjectFromDoc } from "@nebuladb/shared";
+import { diffProjects, type ProjectDiff } from "@nebuladb/dbml-engine";
 import { db } from "../infrastructure/db.js";
 import { timeSync } from "../infrastructure/perf.js";
 

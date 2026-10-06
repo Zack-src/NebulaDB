@@ -1,4 +1,4 @@
-import type { Project } from "@athanordb/shared";
+import type { Project } from "@nebuladb/shared";
 
 // Own module with zero `@dbml/core` import, same reasoning as diff.ts — safe
 // to use client-side without dragging the parser library into the bundle.

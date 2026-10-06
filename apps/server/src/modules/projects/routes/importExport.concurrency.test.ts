@@ -19,17 +19,17 @@ import { join } from "node:path";
  * was two live browser tabs and a throwaway Playwright script; this is that
  * scenario, committed.
  */
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-concurrency-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-concurrency-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../../app.js");
 const { db } = await import("../../../infrastructure/db.js");
 const { hashPassword } = await import("../../auth/password.js");
 const { getRoom, closeAllRooms } = await import("../../../realtime/roomRegistry.js");
-const { writeProjectToDoc, readProjectFromDoc } = await import("@athanordb/shared");
-const { projectToDbml } = await import("@athanordb/dbml-engine");
+const { writeProjectToDoc, readProjectFromDoc } = await import("@nebuladb/shared");
+const { projectToDbml } = await import("@nebuladb/dbml-engine");
 
 const HOST = "localhost:3001";
 const ORIGIN = `http://${HOST}`;
@@ -45,8 +45,8 @@ async function loginAs(app: Awaited<ReturnType<typeof buildApp>>, email: string,
     headers: headers(),
     payload: { email, password },
   });
-  const sessionCookie = res.cookies.find((c) => c.name === "athanordb_sid");
-  return `athanordb_sid=${sessionCookie!.value}`;
+  const sessionCookie = res.cookies.find((c) => c.name === "nebuladb_sid");
+  return `nebuladb_sid=${sessionCookie!.value}`;
 }
 
 async function makeUser() {

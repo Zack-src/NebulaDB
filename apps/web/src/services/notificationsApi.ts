@@ -1,4 +1,4 @@
-import type { NotificationEvent, ProjectSubscription, UserNotification } from "@athanordb/shared";
+import type { NotificationEvent, ProjectSubscription, UserNotification } from "@nebuladb/shared";
 import { request } from "./httpClient";
 
 export interface Inbox {

@@ -1,4 +1,4 @@
-import type { Field, Project, Ref, Table, TableIndex } from "@athanordb/shared";
+import type { Field, Project, Ref, Table, TableIndex } from "@nebuladb/shared";
 
 export type MigrationChangeStatus = "added" | "dropped" | "modified";
 

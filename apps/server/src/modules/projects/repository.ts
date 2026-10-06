@@ -96,6 +96,7 @@ export function deleteProjectCascade(id: string): void {
     db.prepare("DELETE FROM account_baselines WHERE project_id = ?").run(id);
     db.prepare("DELETE FROM schema_fingerprints WHERE project_id = ?").run(id);
     db.prepare("DELETE FROM project_teams WHERE project_id = ?").run(id);
+    db.prepare("DELETE FROM project_members WHERE project_id = ?").run(id);
     db.prepare("DELETE FROM revisions WHERE project_id = ?").run(id);
     db.prepare("DELETE FROM snapshots WHERE project_id = ?").run(id);
     db.prepare("DELETE FROM projects WHERE id = ?").run(id);
@@ -126,4 +127,75 @@ export function grantTeamPermission(projectId: string, teamId: string, permissio
 
 export function revokeTeamPermission(projectId: string, teamId: string): void {
   db.prepare("DELETE FROM project_teams WHERE project_id = ? AND team_id = ?").run(projectId, teamId);
+}
+
+export interface ProjectMemberGrantRow {
+  userId: string;
+  email: string;
+  displayName: string;
+  permission: string;
+}
+
+/** The people given a level on the project themselves — not through a team. */
+export function listProjectMembers(projectId: string): ProjectMemberGrantRow[] {
+  return db
+    .prepare(
+      `SELECT pm.user_id AS userId, u.email AS email,
+              COALESCE(NULLIF(TRIM(u.display_name), ''), u.email) AS displayName, pm.permission AS permission
+       FROM project_members pm JOIN users u ON u.id = pm.user_id
+       WHERE pm.project_id = ?
+       ORDER BY u.email ASC`,
+    )
+    .all(projectId) as ProjectMemberGrantRow[];
+}
+
+export function grantMemberPermission(projectId: string, userId: string, permission: string, grantedBy: string): void {
+  db.prepare(
+    `INSERT INTO project_members (project_id, user_id, permission, granted_by) VALUES (?, ?, ?, ?)
+     ON CONFLICT(project_id, user_id) DO UPDATE SET permission = excluded.permission, granted_by = excluded.granted_by`,
+  ).run(projectId, userId, permission, grantedBy);
+}
+
+export function revokeMemberPermission(projectId: string, userId: string): void {
+  db.prepare("DELETE FROM project_members WHERE project_id = ? AND user_id = ?").run(projectId, userId);
+}
+
+export interface TeamProjectGrantRow {
+  projectId: string;
+  projectName: string;
+  permission: string;
+}
+
+/** The projects a team opens, and at what level — the team's side of `listProjectTeams`. */
+export function listTeamProjects(teamId: string): TeamProjectGrantRow[] {
+  return db
+    .prepare(
+      `SELECT pt.project_id AS projectId, p.name AS projectName, pt.permission AS permission
+       FROM project_teams pt JOIN projects p ON p.id = pt.project_id
+       WHERE pt.team_id = ?
+       ORDER BY p.name COLLATE NOCASE`,
+    )
+    .all(teamId) as TeamProjectGrantRow[];
+}
+
+export interface UserProjectAccessRow {
+  projectId: string;
+  projectName: string;
+  /** The level given to the person themselves, if any. */
+  permission: string | null;
+  owner: boolean;
+}
+
+/** The projects a person owns or was given a level on themselves; what their teams give is listed with the teams. */
+export function listUserProjects(userId: string): UserProjectAccessRow[] {
+  const rows = db
+    .prepare(
+      `SELECT p.id AS projectId, p.name AS projectName, pm.permission AS permission,
+              CASE WHEN p.owner_id = ? THEN 1 ELSE 0 END AS owner
+       FROM projects p LEFT JOIN project_members pm ON pm.project_id = p.id AND pm.user_id = ?
+       WHERE p.owner_id = ? OR pm.user_id IS NOT NULL
+       ORDER BY p.name COLLATE NOCASE`,
+    )
+    .all(userId, userId, userId) as (Omit<UserProjectAccessRow, "owner"> & { owner: number })[];
+  return rows.map((row) => ({ ...row, owner: row.owner === 1 }));
 }

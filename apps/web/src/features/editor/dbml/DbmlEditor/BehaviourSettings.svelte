@@ -6,11 +6,16 @@
 
   /** The list of everything the editor does without being asked, each with its switch. */
   const { t } = useTranslation();
+  let { wrap, onToggleWrap }: { wrap: boolean; onToggleWrap: () => void } = $props();
 </script>
 
 <div class="flex w-[330px] flex-col gap-2 text-[11.5px] text-text">
   <div class="font-semibold">{t("dbml.settings.title")}</div>
   <p class="text-text-muted">{t("dbml.settings.intro")}</p>
+  <label class="flex items-center justify-between gap-3">
+    <span>{t("dbml.toggleWrap")}</span>
+    <Switch size="sm" checked={wrap} onChange={onToggleWrap} aria-label={t("dbml.toggleWrap")} />
+  </label>
   <div class="flex items-center justify-between gap-3">
     <span id="dbml-setting-format">{t("dbml.settings.format")}</span>
     <SegmentedControl
@@ -55,7 +60,8 @@
       value={behaviourPrefs.syncDelayMs}
       options={SYNC_DELAY_CHOICES.map((value) => ({
         value,
-        label: value === 0 ? t("dbml.settings.syncManual") : t("dbml.settings.syncDelayValue", { seconds: value / 1000 }),
+        label:
+          value === 0 ? t("dbml.settings.syncManual") : t("dbml.settings.syncDelayValue", { seconds: value / 1000 }),
       }))}
       onChange={(syncDelayMs) => updateBehaviourPrefs({ syncDelayMs })}
     />

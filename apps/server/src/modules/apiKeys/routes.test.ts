@@ -6,10 +6,10 @@ import { join } from "node:path";
 
 // Same rationale as `app.test.ts`: env vars must land before anything
 // transitively imports `db.ts`/`shared/crypto.ts`.
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-apikeys-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-apikeys-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
@@ -30,8 +30,8 @@ async function loginAs(app: Awaited<ReturnType<typeof buildApp>>, email: string,
     headers: headers(),
     payload: { email, password },
   });
-  const sessionCookie = res.cookies.find((c) => c.name === "athanordb_sid");
-  return `athanordb_sid=${sessionCookie!.value}`;
+  const sessionCookie = res.cookies.find((c) => c.name === "nebuladb_sid");
+  return `nebuladb_sid=${sessionCookie!.value}`;
 }
 
 async function makeUser() {
@@ -62,7 +62,7 @@ test("API key management: create, list (redacted), revoke, and ownership scoping
     });
     assert.equal(created.statusCode, 201);
     const body = created.json();
-    assert.match(body.plaintextKey, /^adb_/);
+    assert.match(body.plaintextKey, /^ndb_/);
     assert.equal(body.summary.name, "CI pipeline");
     assert.deepEqual(body.summary.scopes, ["projects:read", "projects:write"]);
 

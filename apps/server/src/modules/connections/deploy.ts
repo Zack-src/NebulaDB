@@ -1,6 +1,6 @@
 import { notifyFollowers } from "../notifications/repository.js";
-import { readProjectFromDoc, type MigrationResolutionMap } from "@athanordb/shared";
-import { diffTargetAgainstLive, generateMigrationSql, generateRollbackSql } from "@athanordb/dbml-engine";
+import { readProjectFromDoc, type MigrationResolutionMap } from "@nebuladb/shared";
+import { diffTargetAgainstLive, generateMigrationSql, generateRollbackSql } from "@nebuladb/dbml-engine";
 import { ApiError } from "../../shared/errors.js";
 import { getRoom } from "../../realtime/roomRegistry.js";
 import { createDatabaseDriver } from "./drivers/index.js";
@@ -10,7 +10,7 @@ import { getProjectConnection } from "./repository.js";
 import { getEnvironment } from "../environments/repository.js";
 import { analyzeDeploymentRisks, settleRisks } from "./riskAnalysis.js";
 import { applySeeds, assertSeedsDeployable, prepareSeeds } from "../seeds/deploySeeds.js";
-import type { SeedResult } from "@athanordb/shared";
+import type { SeedResult } from "@nebuladb/shared";
 import { backupOrRefuse } from "../backups/runner.js";
 
 const RISK_NOTE_MAX = 1000;
@@ -72,7 +72,7 @@ function notifyDeployment(
 
 /**
  * After a successful deployment or rollback the database is, by construction,
- * what Athanor made it: read it back and keep that as the reference later
+ * what Nebula made it: read it back and keep that as the reference later
  * drift is measured against. Best effort — the deployment has already
  * happened, and failing it now over a bookkeeping read would be a lie.
  */

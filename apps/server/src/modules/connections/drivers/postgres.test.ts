@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import { PostgresDriver } from "./postgres.js";
 import { analyzeDeploymentRisks, resolutionKeyOf } from "../riskAnalysis.js";
 import { TEST_DB_HINT } from "./testDbAvailability.js";
-import { diffTargetAgainstLive, generateMigrationSql } from "@athanordb/dbml-engine";
-import type { Project } from "@athanordb/shared";
+import { diffTargetAgainstLive, generateMigrationSql } from "@nebuladb/dbml-engine";
+import type { Project } from "@nebuladb/shared";
 
-// Matches docker-compose.test.yml's `athanordb-test-postgres` service.
+// Matches docker-compose.test.yml's `nebuladb-test-postgres` service.
 // Override via env if you're pointing this at a differently-configured
 // throwaway instance.
 const config = {
@@ -14,11 +14,11 @@ const config = {
   projectId: "p1",
   name: "Test Postgres",
   engine: "postgres" as const,
-  host: process.env.ATHANORDB_TEST_PG_HOST || "localhost",
-  port: Number(process.env.ATHANORDB_TEST_PG_PORT || 55432),
-  database: process.env.ATHANORDB_TEST_PG_DATABASE || "athanordb_test",
-  user: process.env.ATHANORDB_TEST_PG_USER || "athanordb_test",
-  password: process.env.ATHANORDB_TEST_PG_PASSWORD || "athanordb_test",
+  host: process.env.NEBULADB_TEST_PG_HOST || "localhost",
+  port: Number(process.env.NEBULADB_TEST_PG_PORT || 55432),
+  database: process.env.NEBULADB_TEST_PG_DATABASE || "nebuladb_test",
+  user: process.env.NEBULADB_TEST_PG_USER || "nebuladb_test",
+  password: process.env.NEBULADB_TEST_PG_PASSWORD || "nebuladb_test",
 };
 
 test("PostgresDriver connects, introspects, measures risks, deploys migrations", async (t) => {

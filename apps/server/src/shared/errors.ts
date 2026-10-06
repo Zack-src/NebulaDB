@@ -14,7 +14,6 @@ export const ERROR_CATALOG = {
   NAME_REQUIRED: { status: 400, message: "name is required" },
   NAME_TOO_LONG: { status: 400, message: "name must be 200 characters or fewer" },
   NAME_OR_STATUS_REQUIRED: { status: 400, message: "name or status is required" },
-  PROJECT_TEMPLATE_INVALID: { status: 400, message: "template must be one of blog, ecommerce, saas, auth" },
   PROJECT_STATUS_INVALID: { status: 400, message: "status must be one of active, archived, trashed" },
   PERMISSION_INVALID: { status: 400, message: "permission must be one of view, edit, administrator" },
   SOURCE_REQUIRED: { status: 400, message: "source is required" },
@@ -38,6 +37,8 @@ export const ERROR_CATALOG = {
   TRANSFER_TARGET_INVALID: { status: 400, message: "transferProjectsTo must be another existing user" },
   CANNOT_DELETE_SELF: { status: 400, message: "you cannot delete your own account" },
   CANNOT_DISABLE_SELF: { status: 400, message: "you cannot disable your own account" },
+  CANNOT_DEMOTE_SELF: { status: 400, message: "you cannot remove your own administrator role" },
+  ADMIN_MUST_BE_BOOLEAN: { status: 400, message: "admin must be a boolean" },
   LAST_ADMIN: { status: 400, message: "this is the last active administrator" },
   LAST_ADMIN_SELF: {
     status: 400,
@@ -52,7 +53,13 @@ export const ERROR_CATALOG = {
   },
   PERSONAL_CREDENTIALS_INVALID: { status: 400, message: "username and password are required" },
   PERSONAL_CREDENTIALS_REJECTED: { status: 400, message: "the database refused this account" },
+  PERSONAL_PASSWORD_REJECTED: { status: 400, message: "the database refused the new password" },
   CONNECTION_TARGET_FORBIDDEN: { status: 400, message: "this connection target is not allowed" },
+  CONNECTION_DATABASE_INVALID: {
+    status: 400,
+    message:
+      "a project's database name is letters, digits, _ $ . and -, and only on a connection made of a host and a port",
+  },
   DB_ADMIN_INPUT_INVALID: {
     status: 400,
     message: "the request is missing a required field or names an unknown object",
@@ -167,6 +174,11 @@ export const ERROR_CATALOG = {
     status: 403,
     message: "this connection is managed by an instance administrator and cannot be changed from a project",
   },
+  CONNECTION_TARGET_MANAGED: {
+    status: 403,
+    message:
+      "this database server is managed by an instance administrator: ask them to attach it to the project instead",
+  },
   ACCOUNT_DISABLED: { status: 403, message: "this account has been disabled" },
   ORIGIN_INVALID: { status: 403, message: "invalid origin" },
   ORIGIN_MISMATCH: { status: 403, message: "cross-origin request refused" },
@@ -193,6 +205,10 @@ export const ERROR_CATALOG = {
   EMAIL_ALREADY_EXISTS: { status: 409, message: "a user with this email already exists" },
   INVITATION_ALREADY_USED: { status: 409, message: "this invitation has already been used" },
   PROJECT_LIMIT_REACHED: { status: 409, message: "you have reached the maximum number of projects" },
+  CONNECTION_DATABASE_TAKEN: {
+    status: 409,
+    message: "two projects cannot use the same database on this connection: give each one its own",
+  },
   CONNECTION_IN_USE: {
     status: 409,
     message: "this connection is still attached to one or more projects — confirm to delete it anyway",
@@ -258,7 +274,7 @@ export const ERROR_CATALOG = {
   DB_ADMIN_CONNECTION_ACCOUNT_PROTECTED: {
     status: 409,
     message:
-      "this is the account the connection itself signs in with — dropping, locking it or changing its password would lock Athanor out of this database",
+      "this is the account the connection itself signs in with — dropping, locking it or changing its password would lock Nebula out of this database",
   },
   PRODUCTION_CONFIRMATION_REQUIRED: {
     status: 409,
@@ -287,7 +303,7 @@ export const ERROR_CATALOG = {
   DATABASE_UNAVAILABLE: { status: 503, message: "database unavailable" },
   CONNECTION_SECRET_MISSING: {
     status: 503,
-    message: "ATHANORDB_SECRET must be configured before a database connection can be stored",
+    message: "NEBULADB_SECRET must be configured before a database connection can be stored",
   },
   PASSWORD_RESET_UNAVAILABLE: {
     status: 503,

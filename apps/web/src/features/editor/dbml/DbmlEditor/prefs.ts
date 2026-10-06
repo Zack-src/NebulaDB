@@ -1,7 +1,7 @@
 import { readNumberInRange, readString, writeString } from "@/utils/storage";
 
-export const PREF_WRAP = "athanordb_dbml_wrap";
-export const PREF_FONT = "athanordb_dbml_font_size";
+export const PREF_WRAP = "nebuladb_dbml_wrap";
+export const PREF_FONT = "nebuladb_dbml_font_size";
 
 const MIN_FONT = 10;
 const MAX_FONT = 24;

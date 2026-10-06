@@ -3,7 +3,7 @@ import * as syncProtocol from "y-protocols/sync.js";
 import * as awarenessProtocol from "y-protocols/awareness.js";
 import * as encoding from "lib0/encoding.js";
 import * as decoding from "lib0/decoding.js";
-import type { ServerNotice } from "@athanordb/shared";
+import type { ServerNotice } from "@nebuladb/shared";
 import { hashColor } from "@/features/collaboration/awarenessColor";
 
 const MESSAGE_SYNC = 0;
@@ -48,7 +48,7 @@ export interface ProjectConnection {
  * `Y.UndoManager` (default `trackedOrigins: {null}`) relies on this being
  * non-null to keep remote edits out of the local undo stack.
  */
-const REMOTE_ORIGIN = Symbol("athanordb-remote");
+const REMOTE_ORIGIN = Symbol("nebuladb-remote");
 
 /**
  * Swaps the WebSocket transport for a caller-supplied, purely local

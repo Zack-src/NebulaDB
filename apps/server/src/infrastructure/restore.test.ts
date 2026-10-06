@@ -9,7 +9,7 @@ import { join } from "node:path";
 // and permissions.test.ts: point it at a throwaway temp file before the
 // (dynamic) import touches it, so this suite never opens the real dev/prod
 // database just to test two pure string-parsing helpers.
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-${randomUUID()}.sqlite`);
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-${randomUUID()}.sqlite`);
 
 const { nameFromFilename, parseArgs } = await import("./restore.js");
 

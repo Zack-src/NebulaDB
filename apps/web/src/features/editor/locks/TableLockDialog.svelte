@@ -5,7 +5,7 @@
     type TableLock,
     type TableLockAuthority,
     type TableLockLevel,
-  } from "@athanordb/shared";
+  } from "@nebuladb/shared";
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";

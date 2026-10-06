@@ -1,4 +1,4 @@
-import type { SqlDialect } from "@athanordb/dbml-engine";
+import type { SqlDialect } from "@nebuladb/dbml-engine";
 
 export const SQL_DIALECTS: SqlDialect[] = ["postgres", "mysql", "mssql"];
 

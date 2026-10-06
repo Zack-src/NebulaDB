@@ -73,25 +73,8 @@ export async function launchBrowser(): Promise<Browser> {
   throw lastError;
 }
 
-/**
- * A fresh browser profile is a first visit, and a first visit gets the
- * editor's guided tour — which the tests of everything else have no use for.
- * Marks it as seen for every page this one loads. `onboarding.e2e.ts` is the
- * test that wants it.
- */
-export async function skipEditorTour(page: Page): Promise<void> {
-  await page.addInitScript(() => {
-    try {
-      localStorage.setItem("athanordb.tour.editor.seen", "true");
-    } catch {
-      // No storage on this page (about:blank): nothing to mark.
-    }
-  });
-}
-
 /** Logs the seeded admin in and waits for the dashboard to be interactive. */
 export async function login(page: Page, baseUrl: string): Promise<void> {
-  await skipEditorTour(page);
   await page.goto(baseUrl);
   await page.getByLabel("Adresse e-mail").fill(ADMIN_EMAIL);
   await page.getByLabel("Mot de passe").fill(ADMIN_PASSWORD);
@@ -121,13 +104,13 @@ export async function startE2eEnvironment(
   extraEnv: NodeJS.ProcessEnv = {},
 ): Promise<E2eEnvironment> {
   const baseUrl = `http://127.0.0.1:${port}`;
-  const dataDir = mkdtempSync(join(tmpdir(), "athanordb-e2e-"));
+  const dataDir = mkdtempSync(join(tmpdir(), "nebuladb-e2e-"));
   const env: NodeJS.ProcessEnv = {
     ...process.env,
-    ATHANORDB_DB_PATH: join(dataDir, "athanordb.sqlite"),
-    ATHANORDB_COOKIE_SECURE: "false",
-    ATHANORDB_SECRET: "e2e-test-secret-do-not-use-in-production",
-    ATHANORDB_LOG_LEVEL: "silent",
+    NEBULADB_DB_PATH: join(dataDir, "nebuladb.sqlite"),
+    NEBULADB_COOKIE_SECURE: "false",
+    NEBULADB_SECRET: "e2e-test-secret-do-not-use-in-production",
+    NEBULADB_LOG_LEVEL: "silent",
     PORT: String(port),
     NODE_ENV: "production",
     ...extraEnv,

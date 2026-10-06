@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import type { BackupStatus, BackupSummary, BackupTableInfo, BackupTrigger, DatabaseEngine } from "@athanordb/shared";
+import type { BackupStatus, BackupSummary, BackupTableInfo, BackupTrigger, DatabaseEngine } from "@nebuladb/shared";
 import { config } from "../../config.js";
 import { db } from "../../infrastructure/db.js";
 import { removeBackupFile, type StoredBackup } from "./storage.js";

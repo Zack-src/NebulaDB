@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Field, Project, Ref, Table } from "@athanordb/shared";
+import type { Field, Project, Ref, Table } from "@nebuladb/shared";
 import { projectToSvg } from "./svg.js";
 
 function field(name: string, extra: Partial<Field> = {}): Field {

@@ -7,7 +7,7 @@ import { join } from "node:path";
 // Same reasoning as auth/session.test.ts: db.ts opens its sqlite file at
 // import time, so the env var must be set before the first (dynamic) import
 // of anything that touches it.
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-${randomUUID()}.sqlite`);
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-${randomUUID()}.sqlite`);
 
 const { db } = await import("../infrastructure/db.js");
 const { getEffectivePermission, hasPermission, canManageProject } = await import("./permissions.js");

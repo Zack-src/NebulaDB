@@ -29,6 +29,7 @@ export default {
         border: {
           DEFAULT: "var(--color-border)",
           strong: "var(--color-border-strong)",
+          control: "var(--color-border-control)",
         },
         text: {
           DEFAULT: "var(--color-text)",

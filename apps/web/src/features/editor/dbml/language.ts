@@ -259,7 +259,7 @@ const dbmlFold = foldService.of((state, lineStart, lineEnd) => {
  * building a `Compartment`-based live reconfiguration for a flag whose
  * visible effect this theme already overrides everywhere it matters.
  */
-export const athanorEditorTheme = EditorView.theme(
+export const nebulaEditorTheme = EditorView.theme(
   {
     "&": {
       height: "100%",

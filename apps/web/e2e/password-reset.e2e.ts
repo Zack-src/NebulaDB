@@ -33,11 +33,11 @@ test("forgot password → emailed link → new password → sign in with it", { 
   const baseUrl = `http://127.0.0.1:${PORT}`;
 
   const env = await startE2eEnvironment(PORT, {
-    ATHANORDB_PUBLIC_URL: baseUrl,
-    ATHANORDB_SMTP_HOST: "127.0.0.1",
-    ATHANORDB_SMTP_PORT: String(smtpPort),
-    ATHANORDB_SMTP_SECURE: "false",
-    ATHANORDB_SMTP_FROM: "AthanorDB <noreply@example.test>",
+    NEBULADB_PUBLIC_URL: baseUrl,
+    NEBULADB_SMTP_HOST: "127.0.0.1",
+    NEBULADB_SMTP_PORT: String(smtpPort),
+    NEBULADB_SMTP_SECURE: "false",
+    NEBULADB_SMTP_FROM: "NebulaDB <noreply@example.test>",
   });
   try {
     const page = await env.browser.newPage();

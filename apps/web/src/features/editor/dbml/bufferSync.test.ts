@@ -1,14 +1,14 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { EditorState } from "@codemirror/state";
-import type { Project } from "@athanordb/shared";
+import type { Project } from "@nebuladb/shared";
 import {
   mergeProjectIntoExisting,
   parseDbml,
   preserveConcurrentAdditions,
   projectToDbml,
   toProject,
-} from "@athanordb/dbml-engine";
+} from "@nebuladb/dbml-engine";
 import { ECHO_GRACE_MS, TYPING_QUIET_MS, createBufferSync, minimalChange } from "@/features/editor/dbml/bufferSync";
 import { dbmlSignature } from "@/features/editor/dbml/symbols";
 

@@ -2,23 +2,23 @@
 /**
  * Resets the 8 Docker target databases used for cross-engine deploy testing
  * (see docker-compose set up for this) to a clean slate, then redeploys the
- * DeepDetect project's current schema to each one via Athanor's public API
+ * DeepDetect project's current schema to each one via Nebula's public API
  * and prints a pass/fail table.
  *
  * Prereqs:
- *   - The 8 `athanor-*` containers running (postgres/mysql/mariadb/tidb/
+ *   - The 8 `nebula-*` containers running (postgres/mysql/mariadb/tidb/
  *     singlestore/yugabyte/mssql/oracle) — see the docker-compose.yml this
  *     session's Claude Code conversation produced.
- *   - The Athanor server running with ATHANORDB_SECRET set (needed to read
+ *   - The Nebula server running with NEBULADB_SECRET set (needed to read
  *     back the stored connection credentials) and reachable at BASE_URL.
- *   - A connection already created in Athanor for each of the 8 engines,
+ *   - A connection already created in Nebula for each of the 8 engines,
  *     pointed at these containers (create once via the Connections UI or
  *     POST /api/v1/projects/:id/connections; this script only resets +
  *     redeploys, it doesn't create connections).
  *
  * Usage:
  *   node scripts/multi-db-redeploy-test.mjs
- *   ATHANOR_API_KEY=adb_... ATHANOR_PROJECT_ID=... node scripts/multi-db-redeploy-test.mjs
+ *   NEBULA_API_KEY=adb_... NEBULA_PROJECT_ID=... node scripts/multi-db-redeploy-test.mjs
  *
  * Config below (env var overrides in parens) — adjust ports/passwords if
  * your docker-compose differs from the one this was built against.
@@ -34,12 +34,12 @@ const oracledb = require("oracledb");
 
 // ---- Config -----------------------------------------------------------
 
-const BASE_URL = process.env.ATHANOR_BASE_URL || "http://localhost:3001/api/v1";
-const PROJECT_ID = process.env.ATHANOR_PROJECT_ID || "bab4eed2-ae08-4682-b6cc-ceeec4d1b5aa"; // DeepDetect
-const API_KEY = process.env.ATHANOR_API_KEY || "adb_Yi2Y1RIuWCQoVplK6VaDbNgFu6ZJPm8HXhZBikwwVb0";
+const BASE_URL = process.env.NEBULA_BASE_URL || "http://localhost:3001/api/v1";
+const PROJECT_ID = process.env.NEBULA_PROJECT_ID || "bab4eed2-ae08-4682-b6cc-ceeec4d1b5aa"; // DeepDetect
+const API_KEY = process.env.NEBULA_API_KEY || "adb_Yi2Y1RIuWCQoVplK6VaDbNgFu6ZJPm8HXhZBikwwVb0";
 
-const DB_PASSWORD = "AthanorTest123!";
-const MSSQL_CONTAINER = "athanor-mssql";
+const DB_PASSWORD = "NebulaTest123!";
+const MSSQL_CONTAINER = "nebula-mssql";
 
 // ---- Reset each target to an empty `deepdetect` database --------------
 
@@ -54,7 +54,7 @@ async function resetPg(port, user, password, adminDb) {
   const pool = new PgPool({ host: "localhost", port, user, password, database: adminDb });
   const client = await pool.connect();
   try {
-    // Athanor's own connection pool can still hold an open session on `deepdetect`
+    // Nebula's own connection pool can still hold an open session on `deepdetect`
     // from the last deploy — DROP DATABASE fails against an in-use database, so
     // terminate every other backend on it first.
     await client.query(
@@ -129,7 +129,7 @@ async function resetAllTargets() {
   console.log(`  oracle reset (dropped ${dropped} tables)`);
 }
 
-// ---- Athanor API calls --------------------------------------------------
+// ---- Nebula API calls --------------------------------------------------
 
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
@@ -155,7 +155,7 @@ async function redeployAll() {
   const list = await api("GET", `/projects/${PROJECT_ID}/connections`);
   if (!list.json?.connections) {
     console.error("Could not list connections:", list.status, JSON.stringify(list.json));
-    console.error("Is the Athanor server running with ATHANORDB_SECRET set?");
+    console.error("Is the Nebula server running with NEBULADB_SECRET set?");
     process.exit(1);
   }
 

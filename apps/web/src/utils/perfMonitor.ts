@@ -1,7 +1,7 @@
 /**
  * Lightweight, dependency-free perf instrumentation for hunting editor
  * stutter/freezes. Disabled by default in production so it costs nothing for
- * real users; flip it on with `localStorage.setItem("athanor:perf", "1")` and
+ * real users; flip it on with `localStorage.setItem("nebula:perf", "1")` and
  * reload (works in a prod build too, so a reported freeze can be reproduced
  * and measured without a dev rebuild). Always on in `import.meta.env.DEV`.
  *
@@ -10,7 +10,7 @@
  *  - a `longtask` PerformanceObserver flags any >50ms main-thread block even
  *    if it isn't inside one of the wrapped spots above (Svelte itself, a
  *    third-party lib, GC, layout thrashing...).
- *  - `logPerfReport()` (also reachable as `window.__athanorPerf.report()`
+ *  - `logPerfReport()` (also reachable as `window.__nebulaPerf.report()`
  *    from devtools) prints a table of every measured label, worst offenders
  *    first.
  */
@@ -20,7 +20,7 @@ export const PERF_LOG_THRESHOLD_MS = 16; // one dropped frame at 60fps
 function readEnabledFlag(): boolean {
   if (import.meta.env.DEV) return true;
   try {
-    return localStorage.getItem("athanor:perf") === "1";
+    return localStorage.getItem("nebula:perf") === "1";
   } catch {
     return false;
   }
@@ -144,8 +144,8 @@ export function isPerfEnabled(): boolean {
 export function setPerfEnabled(next: boolean): void {
   enabled = next;
   try {
-    if (next) localStorage.setItem("athanor:perf", "1");
-    else localStorage.removeItem("athanor:perf");
+    if (next) localStorage.setItem("nebula:perf", "1");
+    else localStorage.removeItem("nebula:perf");
   } catch {
     // localStorage unavailable (private mode, etc.) — in-memory flag still works for this session.
   }
@@ -169,7 +169,7 @@ if (typeof PerformanceObserver !== "undefined") {
 
 declare global {
   interface Window {
-    __athanorPerf?: {
+    __nebulaPerf?: {
       report: () => void;
       stats: () => PerfReportRow[];
       reset: () => void;
@@ -180,7 +180,7 @@ declare global {
 }
 
 if (typeof window !== "undefined") {
-  window.__athanorPerf = {
+  window.__nebulaPerf = {
     report: logPerfReport,
     stats: getPerfReport,
     reset: resetPerfReport,

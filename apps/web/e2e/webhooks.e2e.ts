@@ -38,7 +38,7 @@ test(
         await fetch("/api/projects", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ name: "Hooked", template: "blog" }),
+          body: JSON.stringify({ name: "Hooked" }),
         });
       });
       await page.reload();
@@ -55,8 +55,8 @@ test(
       await page.getByRole("button", { name: "Tester" }).click();
       await page.getByText("Envoyé", { exact: true }).waitFor();
       assert.equal(received.length, 1);
-      assert.equal(received[0].headers["x-athanordb-event"], "ping");
-      assert.match(String(received[0].headers["x-athanordb-signature"]), /^t=\d+,v1=[0-9a-f]{64}$/);
+      assert.equal(received[0].headers["x-nebuladb-event"], "ping");
+      assert.match(String(received[0].headers["x-nebuladb-signature"]), /^t=\d+,v1=[0-9a-f]{64}$/);
       assert.equal(JSON.parse(received[0].body).project.name, "Hooked");
 
       // A new secret for the same webhook: asked first, then shown once like the first.

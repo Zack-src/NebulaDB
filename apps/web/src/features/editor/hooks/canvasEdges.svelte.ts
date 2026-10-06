@@ -6,8 +6,8 @@ import {
   type RefAction,
   type RefCardinality,
   type RoutingPoint,
-} from "@athanordb/shared";
-import type { ValidationIssue } from "@athanordb/dbml-engine";
+} from "@nebuladb/shared";
+import type { ValidationIssue } from "@nebuladb/dbml-engine";
 import type { RefEdgeData, RefEdgeType } from "@/features/editor/edges/refEdgeTypes";
 import {
   DEFAULT_TABLE_HEIGHT,

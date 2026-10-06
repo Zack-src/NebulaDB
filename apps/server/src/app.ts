@@ -1,3 +1,4 @@
+import { registerPrivateConnectionRoutes } from "./modules/connections/privateRoutes.js";
 import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import path from "node:path";
@@ -136,7 +137,7 @@ export async function buildApp(): Promise<FastifyInstance> {
    * is the *only* thing standing between a hostile page and a state-changing
    * request, and it depends entirely on browser behaviour. So: when a
    * state-changing request carries an `Origin`, that origin must match the host
-   * the request was made to (or be listed in ATHANORDB_ALLOWED_ORIGINS).
+   * the request was made to (or be listed in NEBULADB_ALLOWED_ORIGINS).
    *
    * A missing `Origin` is allowed through — non-browser clients (curl, scripts,
    * the backup tooling) don't send one, and browsers always do for cross-origin
@@ -219,6 +220,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerEnvironmentRoutes(app);
   registerConnectionRoutes(app);
   registerCredentialRoutes(app);
+  registerPrivateConnectionRoutes(app);
   registerDbAdminRoutes(app);
   registerConnectionJournalRoutes(app);
   registerDbAccessRoutes(app);

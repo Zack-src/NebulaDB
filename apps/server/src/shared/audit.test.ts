@@ -5,8 +5,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { FastifyRequest } from "fastify";
 
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-audit-test-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-audit-test-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
 
 const { db } = await import("../infrastructure/db.js");
 const { audit, auditUser, listAuditLog, purgeOldAuditEntries } = await import("./audit.js");

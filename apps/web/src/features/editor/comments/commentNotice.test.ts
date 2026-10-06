@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { formatMention, type Comment, type Table } from "@athanordb/shared";
+import { formatMention, type Comment, type Table } from "@nebuladb/shared";
 import { buildCommentNotice } from "./commentNotice";
 
 const comment = (id: string, authorId: string | undefined, text: string, fieldId?: string): Comment => ({

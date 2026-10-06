@@ -1,5 +1,13 @@
 <script lang="ts">
-  import type { DatabaseEngine, DbGrant, DbGrantScope, DbPrincipal, DbPrincipalRef, DbUserAction } from "@athanordb/shared";
+  import type {
+    DatabaseEngine,
+    DbAccessLevel,
+    DbGrant,
+    DbGrantScope,
+    DbPrincipal,
+    DbPrincipalRef,
+    DbUserAction,
+  } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { CloseIcon, KeyIcon, PlusIcon, TrashIcon, UserIcon, UsersIcon } from "@/components/icons/Icons";
   import Badge from "@/components/ui/Badge.svelte";
@@ -10,9 +18,13 @@
   import Hint from "@/components/ui/Hint.svelte";
   import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
   import Select from "@/components/ui/Select.svelte";
+  import { toast } from "@/components/ui/toast.svelte";
+  import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
+  import { assignDbCredentials, fetchUserDbAccess, saveUserDbAccess } from "@/services/dbAccessApi";
   import { applyUserAction, fetchGrants, fetchPrincipals, type ConnectionOverview } from "@/services/dbAdminApi";
+  import { fetchUsers } from "@/services/usersApi";
   import StatementModal from "./StatementModal.svelte";
 
   /**
@@ -21,12 +33,23 @@
    * `overview.capabilities` says which parts apply (a host for MySQL accounts,
    * a server/database level for SQL Server). Nothing here writes directly:
    * each button builds a `DbUserAction` and hands it to `StatementModal`.
+   *
+   * On a connection that asks each person for their own account, a new account
+   * can be handed to an Nebula user as it is created: it becomes their account
+   * on this database ("Mes comptes SQL"), with a password they change there.
    */
   let {
     connectionId,
     engine,
     overview,
-  }: { connectionId: string; engine: DatabaseEngine; overview: ConnectionOverview } = $props();
+    personalAccounts = false,
+  }: {
+    connectionId: string;
+    engine: DatabaseEngine;
+    overview: ConnectionOverview;
+    /** The connection is used with each person's own account — the only case where an account belongs to someone. */
+    personalAccounts?: boolean;
+  } = $props();
 
   const SERVER_LEVEL = "";
   /** The SQL Server keyword, shown as such in every language. */
@@ -77,6 +100,41 @@
   let newPassword = $state("");
   /** SQL Server database users are mapped to an existing login and carry no password of their own. */
   const createNeedsPassword = $derived(newKind === "user" && !principalDatabase);
+
+  // ---- Hand the new account to an Nebula user ----
+  const NOBODY = "";
+  const nebulaUsers = useAsyncResource(() => (personalAccounts ? fetchUsers() : Promise.resolve([])));
+  let associateWith = $state(NOBODY);
+  let associateLevel = $state<DbAccessLevel>("read");
+  const canAssociate = $derived(personalAccounts && createNeedsPassword);
+  const associateTarget = $derived(
+    canAssociate ? ((nebulaUsers.data ?? []).find((user) => user.id === associateWith) ?? null) : null,
+  );
+
+  /**
+   * After the account exists: the person is given access to this database if
+   * they have none (an instance administrator needs none), then the account is
+   * kept as theirs — the server signs in with it once before keeping it.
+   */
+  const associate = useAsyncAction(
+    async (target: { id: string; displayName: string; isAdmin: boolean }, name: string, password: string) => {
+      if (!target.isAdmin) {
+        const access = await fetchUserDbAccess(target.id);
+        const own = access.grants.find((grant) => grant.connectionId === connectionId);
+        const hasAccess = Boolean(own?.level) || access.inherited.some((entry) => entry.connectionId === connectionId);
+        if (!hasAccess) {
+          await saveUserDbAccess(target.id, [
+            ...access.grants
+              .filter((grant) => grant.connectionId !== connectionId)
+              .map((grant) => ({ connectionId: grant.connectionId, level: grant.level, sqlUsername: grant.sqlUsername })),
+            { connectionId, level: associateLevel, sqlUsername: name },
+          ]);
+        }
+      }
+      await assignDbCredentials(target.id, connectionId, name, password);
+      toast.success(t("dbadmin.users.associated", { account: name, user: target.displayName }));
+    },
+  );
 
   function generatePassword() {
     const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789-_+=";
@@ -158,6 +216,10 @@
   function done() {
     // A dropped principal must not stay selected: its grants can no longer be read.
     if (pending?.action.type === "drop") selectedKey = null;
+    if (pending?.action.type === "create" && associateTarget && pending.action.password) {
+      void associate.run(associateTarget, pending.action.principal.name, pending.action.password);
+    }
+    associateWith = NOBODY;
     pending = null;
     creating = false;
     changingPassword = false;
@@ -217,6 +279,33 @@
             <Button size="sm" variant="ghost" onclick={generatePassword}>{t("dbadmin.users.generate")}</Button>
           </div>
           <Hint>{t("dbadmin.users.passwordOnce")}</Hint>
+          {#if canAssociate}
+            <Select
+              size="sm"
+              class="w-full"
+              bind:value={associateWith}
+              options={[
+                { value: NOBODY, label: t("dbadmin.users.associateNobody") },
+                ...(nebulaUsers.data ?? [])
+                  .filter((user) => !user.disabledAt)
+                  .map((user) => ({ value: user.id, label: user.displayName, hint: user.email })),
+              ]}
+              aria-label={t("dbadmin.users.associateLabel")}
+            />
+            {#if associateTarget && !associateTarget.isAdmin}
+              <Select
+                size="sm"
+                class="w-full"
+                bind:value={associateLevel}
+                options={[
+                  { value: "read", label: t("dbAccess.level.read") },
+                  { value: "write", label: t("dbAccess.level.write") },
+                ]}
+                aria-label={t("dbadmin.users.associateLevel")}
+              />
+            {/if}
+            {#if associateTarget}<Hint>{t("dbadmin.users.associateHint")}</Hint>{/if}
+          {/if}
         {:else if newKind === "user"}
           <Hint>{t("dbadmin.users.mappedToLogin")}</Hint>
         {/if}
@@ -226,6 +315,10 @@
       </div>
     {/if}
 
+    {#if nebulaUsers.error}<ErrorText>{nebulaUsers.error}</ErrorText>{/if}
+    {#if associate.error}
+      <ErrorText>{t("dbadmin.users.associateFailed", { reason: associate.error })}</ErrorText>
+    {/if}
     {#if principals.error}<ErrorText>{principals.error}</ErrorText>{/if}
     <div class="max-h-[460px] space-y-0.5 overflow-y-auto">
       {#each visible as p (keyOf(p))}

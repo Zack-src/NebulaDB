@@ -1,4 +1,4 @@
-import type { TableSeedSummary } from "@athanordb/shared";
+import type { TableSeedSummary } from "@nebuladb/shared";
 import { fetchSeeds } from "@/services/seedsApi";
 
 const NO_SEEDS: ReadonlyMap<string, TableSeedSummary> = new Map();

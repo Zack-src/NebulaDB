@@ -137,7 +137,7 @@ export const MIGRATIONS: Migration[] = [
     name: "users.totp columns",
     up: (db) => {
       const columns = db.prepare("PRAGMA table_info(users)").all() as { name: string }[];
-      // Encrypted with the same `ATHANORDB_SECRET`-derived key as a live
+      // Encrypted with the same `NEBULADB_SECRET`-derived key as a live
       // connection's credentials (`shared/crypto.ts`) — a TOTP secret is
       // exactly as sensitive as a database password (whoever has it can log
       // in as this user), so it gets the same at-rest treatment rather than
@@ -311,7 +311,7 @@ export const MIGRATIONS: Migration[] = [
     name: "project_webhooks + webhook_deliveries tables",
     up: (db) => {
       // Outgoing webhooks (Phase 21). `secret_encrypted` signs every payload
-      // (HMAC) and is encrypted at rest with ATHANORDB_SECRET like connection
+      // (HMAC) and is encrypted at rest with NEBULADB_SECRET like connection
       // credentials — it has to be recoverable to sign with, so hashing isn't
       // an option. `webhook_deliveries` doubles as the retry queue: a pending
       // row with a due `next_attempt_at` is picked up by the worker, so
@@ -932,7 +932,7 @@ export const MIGRATIONS: Migration[] = [
       // The accounts watch: off for every project until an instance
       // administrator turns it on. `account_baselines` is, per project and
       // database, the canonical list of accounts, memberships and privileges
-      // Athanor last agreed with (names and privileges only — never a password
+      // Nebula last agreed with (names and privileges only — never a password
       // or a hash), and the last state read when it differed.
       const monitor = db.prepare("PRAGMA table_info(monitor_settings)").all() as { name: string }[];
       if (!monitor.some((c) => c.name === "watch_accounts")) {
@@ -943,7 +943,7 @@ export const MIGRATIONS: Migration[] = [
         db.exec("ALTER TABLE drift_events ADD COLUMN details_json TEXT");
       }
       // Per connection, statement shape and UTC day: how often a statement ran
-      // through the SQL console and how long it took as Athanor measured it.
+      // through the SQL console and how long it took as Nebula measured it.
       // The text has its literals replaced by `?`; days past the retention go.
       db.exec(`
         CREATE TABLE IF NOT EXISTS account_baselines (
@@ -1073,6 +1073,44 @@ export const MIGRATIONS: Migration[] = [
         );
         CREATE INDEX IF NOT EXISTS idx_db_health_samples ON db_health_samples(connection_id, at);
       `);
+    },
+  },
+  {
+    version: 42,
+    name: "private connection ownership",
+    up: (db) => {
+      const columns = db.prepare("PRAGMA table_info(db_connections)").all() as { name: string }[];
+      if (!columns.some((c) => c.name === "owner_user_id"))
+        db.exec("ALTER TABLE db_connections ADD COLUMN owner_user_id TEXT");
+      db.exec("CREATE INDEX IF NOT EXISTS idx_connections_owner ON db_connections(owner_user_id)");
+    },
+  },
+  {
+    version: 43,
+    name: "project_members (a role per person) and project_connection_links.database_name",
+    up: (db) => {
+      // A level on a project given to one person, next to the ones their teams
+      // give. Nothing is granted on upgrade.
+      //
+      // `database_name`: a connection is a server, and several projects can be
+      // attached to it — each then deploys to a database of its own on that
+      // server rather than to the one the connection names. `NULL` keeps the
+      // connection's own database, which is what every existing link does.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS project_members (
+          project_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          permission TEXT NOT NULL,
+          granted_by TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          PRIMARY KEY (project_id, user_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_project_members_user ON project_members(user_id);
+      `);
+      const columns = db.prepare("PRAGMA table_info(project_connection_links)").all() as { name: string }[];
+      if (!columns.some((c) => c.name === "database_name")) {
+        db.exec("ALTER TABLE project_connection_links ADD COLUMN database_name TEXT");
+      }
     },
   },
 ];

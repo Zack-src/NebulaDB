@@ -1,12 +1,12 @@
-import type { DatabaseConnectionConfig } from "@athanordb/shared";
+import type { DatabaseConnectionConfig } from "@nebuladb/shared";
 import { personalCredentialStatus } from "../connections/personalCredentials.js";
 
 /**
  * The database accounts the console must not drop, lock or change the
- * password of from Athanor itself: the one stored on the connection (its
+ * password of from Nebula itself: the one stored on the connection (its
  * own login, or the service account in `personal` mode) and, in `personal`
  * mode, the caller's own account — the one this very request connects as.
- * Doing any of those from here would lock Athanor (or this person) out of
+ * Doing any of those from here would lock Nebula (or this person) out of
  * the database, with no way back from the console.
  */
 export function protectedAccountNames(connection: DatabaseConnectionConfig, actorId: string | null): string[] {

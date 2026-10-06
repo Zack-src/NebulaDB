@@ -1,19 +1,21 @@
 import type { FastifyRequest } from "fastify";
-import type { DatabaseConnectionConfig, MySqlAccount, PersonalCredentialStatus } from "@athanordb/shared";
+import type { DatabaseConnectionConfig, MySqlAccount, PersonalCredentialStatus } from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireUser } from "../../shared/guards.js";
 import { getEffectivePermission } from "../../shared/permissions.js";
 import type { SessionUser } from "../auth/session.js";
+import { createAdminDriver } from "../dbAdmin/drivers/index.js";
 import { createDatabaseDriver } from "./drivers/index.js";
 import {
   deletePersonalCredentials,
   parsePersonalCredentials,
   personalCredentialStatus,
+  readPersonalCredentials,
   savePersonalCredentials,
 } from "./personalCredentials.js";
-import { getConnectionById } from "./repository.js";
+import { connectionOwner, getConnectionById } from "./repository.js";
 import { effectiveDbAccess, getAccountHint } from "../dbAccess/repository.js";
 
 /**
@@ -42,6 +44,22 @@ export const credentialCheck = {
   },
 };
 
+/**
+ * Gives the caller's own database account a new password, signed in as that
+ * account — so it needs no privilege beyond its own, and can reach no other.
+ * An object for the same reason as `credentialCheck`.
+ */
+export const ownPasswordChange = {
+  async apply(connection: DatabaseConnectionConfig, password: string, currentPassword: string): Promise<void> {
+    const driver = await createAdminDriver(connection, "adminWrite");
+    try {
+      await driver.execute(driver.ownPasswordStatements(password, currentPassword), undefined);
+    } finally {
+      await driver.close().catch(() => {});
+    }
+  },
+};
+
 export interface ConnectionUser {
   user: SessionUser;
   connection: DatabaseConnectionConfig;
@@ -50,7 +68,7 @@ export interface ConnectionUser {
 }
 
 /**
- * Those who use a connection through Athanor: instance administrators (the
+ * Those who use a connection through Nebula: instance administrators (the
  * console), the administrators of a project it is attached to (deploy, pull,
  * compare) and, from a browser session, the members an instance administrator
  * granted access to it (explorer and SQL — see `dbAccess/`). Anyone else is
@@ -59,7 +77,8 @@ export interface ConnectionUser {
 export function requireConnectionUser(req: FastifyRequest, connectionId: string): ConnectionUser {
   const user: SessionUser = requireUser(req);
   const connection = getConnectionById(connectionId);
-  if (!connection) throw new ApiError("CONNECTION_NOT_FOUND");
+  if (!connection || (connectionOwner(connectionId) && connectionOwner(connectionId) !== user.id))
+    throw new ApiError("CONNECTION_NOT_FOUND");
   const projectIds = (
     db.prepare("SELECT project_id FROM project_connection_links WHERE connection_id = ?").all(connectionId) as {
       project_id: string;
@@ -113,6 +132,51 @@ export async function giveOwnCredentials(
   return personalCredentialStatus(connection, user.id);
 }
 
+/**
+ * Changes, on the database itself, the password of the account the caller
+ * holds on this connection, then keeps the new one. This is how someone whose
+ * account an administrator created — with a password nobody was shown — makes
+ * it their own. Browser session only, like the rest of "Mes comptes SQL".
+ */
+export async function changeOwnPassword(
+  { user, connection }: ConnectionUser,
+  body: unknown,
+  req: FastifyRequest,
+): Promise<PersonalCredentialStatus> {
+  if (req.apiKey) throw new ApiError("FORBIDDEN");
+  if (connection.authMode !== "personal") throw new ApiError("PERSONAL_CREDENTIALS_NOT_USED");
+  const current = readPersonalCredentials(connection.id, user.id);
+  if (!current) {
+    throw new ApiError("PERSONAL_CREDENTIALS_REQUIRED", {
+      details: { connectionId: connection.id, connectionName: connection.name },
+    });
+  }
+  if (connection.readOnly) throw new ApiError("CONNECTION_READ_ONLY");
+  const { password } = parsePersonalCredentials({
+    username: current.username,
+    password: (body as { password?: unknown } | null)?.password,
+  });
+
+  try {
+    await ownPasswordChange.apply(connection, password, current.password);
+  } catch (err) {
+    if (err instanceof ApiError) throw err;
+    throw new ApiError("PERSONAL_PASSWORD_REJECTED", {
+      details: { reason: err instanceof Error ? err.message : String(err) },
+    });
+  }
+
+  savePersonalCredentials(connection.id, user.id, current.username, password);
+  auditUser(
+    user,
+    "dbconn.credentials.password",
+    { type: "connection", id: connection.id },
+    `${connection.name}: ${current.username}`,
+    req,
+  );
+  return personalCredentialStatus(connection, user.id);
+}
+
 /** Forgets the caller's own account on this connection; says nothing in the audit trail when there was none. */
 export function removeOwnCredentials(
   { user, connection }: ConnectionUser,
@@ -140,7 +204,9 @@ export function removeOwnCredentials(
 export function listOwnAccounts(user: SessionUser, viaApiKey: boolean): MySqlAccount[] {
   if (viaApiKey) return [];
   const rows = db
-    .prepare("SELECT id FROM db_connections WHERE auth_mode = 'personal' ORDER BY name COLLATE NOCASE, created_at")
+    .prepare(
+      "SELECT id FROM db_connections WHERE auth_mode = 'personal' AND owner_user_id IS NULL ORDER BY name COLLATE NOCASE, created_at",
+    )
     .all() as { id: string }[];
   const links = db.prepare("SELECT project_id FROM project_connection_links WHERE connection_id = ?");
   const accounts: MySqlAccount[] = [];

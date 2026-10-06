@@ -9,7 +9,7 @@ import { login, startE2eEnvironment } from "./harness.js";
  * Admin → Connexions → Ouvrir → Journal: one database's journal (the console
  * opened, the statements run, filtered by type, exported with the database
  * as a filter) and its "Requêtes" view — statements counted by shape, values
- * replaced by `?`, timed by Athanor and said so. The accounts watch is
+ * replaced by `?`, timed by Nebula and said so. The accounts watch is
  * covered server-side (`monitoring/accountWatch.test.ts`,
  * `accountReader.live.test.ts`): SQLite, the only engine an e2e run has for
  * sure, has no accounts.
@@ -23,7 +23,7 @@ test(
   "connection journal: events of one database, filters, export, statement figures",
   { timeout: 90_000 },
   async () => {
-    const targetDir = mkdtempSync(join(tmpdir(), "athanordb-e2e-journal-"));
+    const targetDir = mkdtempSync(join(tmpdir(), "nebuladb-e2e-journal-"));
     const env = await startE2eEnvironment(PORT);
     try {
       const page = await env.browser.newPage({ viewport: { width: 1400, height: 900 } });
@@ -100,9 +100,9 @@ test(
       assert.equal(await page.getByRole("option").count(), 2);
       await page.keyboard.press("Escape");
 
-      // Statement figures: grouped by shape, values gone, measured by Athanor.
+      // Statement figures: grouped by shape, values gone, measured by Nebula.
       await page.getByRole("radio", { name: "Requêtes" }).click();
-      await page.getByText("Mesuré par Athanor").waitFor();
+      await page.getByText("Mesuré par Nebula").waitFor();
       const rows = page.getByTestId("query-stat");
       const select = rows.filter({ hasText: "SELECT * FROM items WHERE id = ?" });
       await select.waitFor();

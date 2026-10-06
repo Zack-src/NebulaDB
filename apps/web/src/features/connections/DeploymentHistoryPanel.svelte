@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { ConflictResolutionStrategy } from "@athanordb/shared";
+  import type { ConflictResolutionStrategy } from "@nebuladb/shared";
   import type { TranslationKeyOf } from "@/types";
 
   /** The words the plan used for each answer, so the history reads the same. */
@@ -18,7 +18,7 @@
 </script>
 
 <script lang="ts">
-  import type { DatabaseEngine, DeploymentHistoryEntry } from "@athanordb/shared";
+  import type { DatabaseEngine, DeploymentHistoryEntry } from "@nebuladb/shared";
   import Button from "@/components/ui/Button.svelte";
   import Badge from "@/components/ui/Badge.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
@@ -33,7 +33,7 @@
   /**
    * Past deployments (and rollbacks of them) for one connection, with a rollback
    * action on any entry that still has one available. Split out of
-   * `DeploymentModal.svelte` rather than added inline — that file is already a
+   * `DeploymentPanel.svelte` rather than added inline — that file is already a
    * four-step wizard; this is a fifth, self-contained step with its own
    * fetch/confirm/execute state, not more branches threaded through the
    * existing ones.

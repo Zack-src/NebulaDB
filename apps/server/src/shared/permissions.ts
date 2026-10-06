@@ -27,11 +27,12 @@ export function isGlobalAdmin(userId: string): boolean {
 }
 
 /**
- * A project with zero teams assigned defaults to `view` for every logged-in
- * user; assigning even one team flips it from open to restricted — only that
- * team's members (at their granted level), the project's creator, and global
- * admins can see it. Global admins and the creator always get an
- * unconditional `administrator` regardless of team state.
+ * A project with zero teams and zero people assigned defaults to `view` for
+ * every logged-in user; assigning even one flips it from open to restricted —
+ * only those teams' members and those people (at their granted level), the
+ * project's creator, and global admins can see it. Global admins and the
+ * creator always get an unconditional `administrator` regardless of grants.
+ * A person's own grant and their teams' add up: the highest wins.
  */
 export function getEffectivePermission(userId: string, projectId: string): PermissionLevel | null {
   if (isGlobalAdmin(userId)) return "administrator";
@@ -46,16 +47,24 @@ export function getEffectivePermission(userId: string, projectId: string): Permi
       `SELECT pt.permission AS permission
        FROM project_teams pt
        JOIN team_members tm ON tm.team_id = pt.team_id
-       WHERE pt.project_id = ? AND tm.user_id = ?`,
+       WHERE pt.project_id = ? AND tm.user_id = ?
+       UNION ALL
+       SELECT permission FROM project_members WHERE project_id = ? AND user_id = ?`,
     )
-    .all(projectId, userId) as GrantRow[];
+    .all(projectId, userId, projectId, userId) as GrantRow[];
 
   if (grants.length > 0) {
     return grants.reduce((best, g) => (RANK[g.permission] > RANK[best] ? g.permission : best), grants[0].permission);
   }
 
-  const hasAnyTeam = db.prepare("SELECT 1 FROM project_teams WHERE project_id = ? LIMIT 1").get(projectId);
-  return hasAnyTeam ? null : "view";
+  const restricted = db
+    .prepare(
+      `SELECT 1 FROM project_teams WHERE project_id = ?
+       UNION ALL
+       SELECT 1 FROM project_members WHERE project_id = ? LIMIT 1`,
+    )
+    .get(projectId, projectId);
+  return restricted ? null : "view";
 }
 
 export function hasPermission(userId: string, projectId: string, min: PermissionLevel): boolean {

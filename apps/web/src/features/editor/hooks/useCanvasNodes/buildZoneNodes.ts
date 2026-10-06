@@ -1,5 +1,5 @@
 import * as Y from "yjs";
-import { getZonesMap, type Zone } from "@athanordb/shared";
+import { getZonesMap, type Zone } from "@nebuladb/shared";
 import type { ZoneNodeType } from "@/features/editor/nodes/nodeTypes";
 
 export function buildZoneNodes(

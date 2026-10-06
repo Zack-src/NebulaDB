@@ -1,4 +1,4 @@
-import type { Position, Project } from "@athanordb/shared";
+import type { Position, Project } from "@nebuladb/shared";
 import { isTypingTarget } from "@/utils/dom";
 import {
   clipboardSize,

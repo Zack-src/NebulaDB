@@ -1,4 +1,4 @@
-import type { TableLock, TableLockAuthority, TableLockLevel } from "@athanordb/shared";
+import type { TableLock, TableLockAuthority, TableLockLevel } from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 
 interface TableLockRow {

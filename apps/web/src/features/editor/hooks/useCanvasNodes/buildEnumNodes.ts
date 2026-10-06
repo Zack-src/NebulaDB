@@ -1,5 +1,5 @@
 import * as Y from "yjs";
-import { getEnumsMap, type EnumDef, type EnumValue } from "@athanordb/shared";
+import { getEnumsMap, type EnumDef, type EnumValue } from "@nebuladb/shared";
 import type { EnumNodeType } from "@/features/editor/nodes/nodeTypes";
 import { generateId } from "@/utils/id";
 

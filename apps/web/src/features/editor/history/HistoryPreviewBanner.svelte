@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { ProjectDiff } from "@athanordb/dbml-engine";
+  import type { ProjectDiff } from "@nebuladb/dbml-engine";
   import Icon from "@/components/icons/Icon.svelte";
   import { EyeIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";

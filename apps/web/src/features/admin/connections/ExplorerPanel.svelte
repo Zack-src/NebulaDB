@@ -4,7 +4,7 @@
     DbAdminStatementsResult,
     DbAdminTable,
     StructurePolicyRefusal,
-  } from "@athanordb/shared";
+  } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import {
     ChevronLeftIcon,

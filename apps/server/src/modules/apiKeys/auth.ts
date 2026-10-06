@@ -14,7 +14,7 @@ export interface ApiKeyContext {
 const BEARER_PREFIX = "Bearer ";
 
 /**
- * Resolves an `Authorization: Bearer adb_...` header into the user it was
+ * Resolves an `Authorization: Bearer ndb_...` header into the user it was
  * issued for, mirroring `resolveSession`'s shape and contract: reads-only,
  * never rejects the request itself (an invalid/missing header just means "no
  * API key on this request", same as no cookie means "no session") — the

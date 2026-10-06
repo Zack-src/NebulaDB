@@ -1,5 +1,5 @@
-import { q, type MigrationDialect } from "@athanordb/dbml-engine";
-import { seedInsertOrder, type BackupCell, type DatabaseEngine, type Project, type Table } from "@athanordb/shared";
+import { q, type MigrationDialect } from "@nebuladb/dbml-engine";
+import { seedInsertOrder, type BackupCell, type DatabaseEngine, type Project, type Table } from "@nebuladb/shared";
 import { ApiError } from "../../shared/errors.js";
 import type { RowValue } from "../connections/drivers/interface.js";
 

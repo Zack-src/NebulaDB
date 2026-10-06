@@ -7,19 +7,19 @@ import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import Database from "better-sqlite3";
 
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-backups-${randomUUID()}`, "app.sqlite");
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-backups-${randomUUID()}`, "app.sqlite");
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 // The smallest ceiling the setting accepts, so the "too large" case stays a small test.
-process.env.ATHANORDB_DATABASE_BACKUP_MAX_MB = "1";
+process.env.NEBULADB_DATABASE_BACKUP_MAX_MB = "1";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
 const { hashPassword } = await import("../auth/password.js");
 const { closeAllRooms, getRoom } = await import("../../realtime/roomRegistry.js");
-const { writeProjectToDoc } = await import("@athanordb/shared");
-const { backupFilePath } = await import("./storage.js");
+const { writeProjectToDoc } = await import("@nebuladb/shared");
+const { backupFilePath, openBackupWriter } = await import("./storage.js");
 const { failInterruptedBackups, insertBackup, purgeExpiredBackups } = await import("./repository.js");
 const { backupPageSql, fromBackupCell, tablesInBackupOrder, toBackupCell } = await import("./format.js");
 const { runDueBackupSchedules } = await import("./schedule.js");
@@ -45,7 +45,7 @@ async function login(app: App, isAdmin: 0 | 1): Promise<string> {
     headers: headers(),
     payload: { email, password },
   });
-  return `athanordb_sid=${res.cookies.find((c) => c.name === "athanordb_sid")!.value}`;
+  return `nebuladb_sid=${res.cookies.find((c) => c.name === "nebuladb_sid")!.value}`;
 }
 
 function call(app: App, cookie: string, method: Method, url: string, payload?: unknown) {
@@ -68,7 +68,7 @@ break, "quoted"');
 `;
 
 function targetFile(sql: string): string {
-  const file = join(tmpdir(), `athanordb-test-backups-target-${randomUUID()}.sqlite`);
+  const file = join(tmpdir(), `nebuladb-test-backups-target-${randomUUID()}.sqlite`);
   const target = new Database(file);
   target.exec(sql);
   target.close();
@@ -253,11 +253,24 @@ test("a backup is taken, stored encrypted, downloaded, and restored over changed
       .trim()
       .split("\n")
       .map((line) => JSON.parse(line) as unknown);
-    assert.deepEqual((lines[0] as { format: string; version: number }).format, "athanordb-backup");
+    assert.deepEqual((lines[0] as { format: string; version: number }).format, "nebuladb-backup");
     assert.ok(
       lines.some((line) => Array.isArray(line) && line[1] === "Ada Lovelace" && line[2] === "9007199254740993"),
     );
     assert.ok(lines.some((line) => Array.isArray(line) && line[3] === 'line\nbreak, "quoted"'));
+
+    // A backup made before the rename must still restore real rows.
+    (lines[0] as { format: string }).format = "athanordb-backup";
+    const legacyWriter = openBackupWriter(backup.id);
+    for (const line of lines) await legacyWriter.write(line);
+    const legacyStored = await legacyWriter.finish();
+    db.prepare("UPDATE backups SET key_encrypted = ?, checksum = ?, size_bytes = ? WHERE id = ?").run(
+      legacyStored.keyEncrypted,
+      legacyStored.checksum,
+      legacyStored.sizeBytes,
+      backup.id,
+    );
+    backup.sizeBytes = legacyStored.sizeBytes;
 
     // The data moves on: a customer and their orders go, a row changes, another arrives.
     const target = new Database(file);
@@ -389,7 +402,7 @@ test("a backup over the size ceiling fails and leaves no file; pin, retention, d
     const bigId = await connect(app, admin, "Big", big);
     const tooLarge = await backUp(app, admin, bigId);
     assert.equal(tooLarge.status, "failed");
-    assert.match(tooLarge.error!, /ATHANORDB_DATABASE_BACKUP_MAX_MB/);
+    assert.match(tooLarge.error!, /NEBULADB_DATABASE_BACKUP_MAX_MB/);
     assert.equal(existsSync(backupFilePath(tooLarge.id)), false);
     assert.equal(
       (await call(app, admin, "GET", `/api/admin/backups/${tooLarge.id}/download`)).json().code,

@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { SeedIssueKind, SeedSeparator } from "@athanordb/shared";
+  import type { SeedIssueKind, SeedSeparator } from "@nebuladb/shared";
 
   const SEPARATOR_LABEL: Record<SeedSeparator, string> = { ",": ",", ";": ";", "\t": "Tab", "|": "|" };
   const PREVIEW_ROWS = 20;
@@ -33,7 +33,7 @@
     type Ref,
     type Table,
     type TableSeedSummary,
-  } from "@athanordb/shared";
+  } from "@nebuladb/shared";
   import Tabs from "@/components/ui/Tabs.svelte";
   import GeneratePanel from "./GeneratePanel.svelte";
   import Icon from "@/components/icons/Icon.svelte";

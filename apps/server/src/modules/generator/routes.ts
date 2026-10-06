@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { parseCsv, seedColumnValues, toCsv, type Table } from "@athanordb/shared";
+import { parseCsv, seedColumnValues, toCsv, type Table } from "@nebuladb/shared";
 import { readProjectReadOnly } from "../../realtime/readOnlyProject.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireProjectAccess } from "../../shared/guards.js";

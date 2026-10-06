@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
-import type { DatabaseConnectionConfig, DbUserAction } from "@athanordb/shared";
+import type { DatabaseConnectionConfig, DbUserAction } from "@nebuladb/shared";
 
-process.env.ATHANORDB_DB_PATH ??= join(tmpdir(), `athanordb-test-accountlive-${randomUUID()}.sqlite`);
+process.env.NEBULADB_DB_PATH ??= join(tmpdir(), `nebuladb-test-accountlive-${randomUUID()}.sqlite`);
 
 const { createAdminDriver } = await import("../dbAdmin/drivers/index.js");
 const { resetConnectionBudgets } = await import("../connections/connectionBudget.js");
@@ -25,29 +25,29 @@ const TARGETS: Record<"postgres" | "mysql" | "mssql", DatabaseConnectionConfig> 
   postgres: {
     ...base,
     engine: "postgres",
-    host: env.ATHANORDB_TEST_PG_HOST || "localhost",
-    port: Number(env.ATHANORDB_TEST_PG_PORT || 55432),
-    database: env.ATHANORDB_TEST_PG_DATABASE || "athanordb_test",
-    user: env.ATHANORDB_TEST_PG_USER || "athanordb_test",
-    password: env.ATHANORDB_TEST_PG_PASSWORD || "athanordb_test",
+    host: env.NEBULADB_TEST_PG_HOST || "localhost",
+    port: Number(env.NEBULADB_TEST_PG_PORT || 55432),
+    database: env.NEBULADB_TEST_PG_DATABASE || "nebuladb_test",
+    user: env.NEBULADB_TEST_PG_USER || "nebuladb_test",
+    password: env.NEBULADB_TEST_PG_PASSWORD || "nebuladb_test",
   },
   mysql: {
     ...base,
     engine: "mysql",
-    host: env.ATHANORDB_TEST_MYSQL_HOST || "localhost",
-    port: Number(env.ATHANORDB_TEST_MYSQL_PORT || 53306),
-    database: env.ATHANORDB_TEST_MYSQL_DATABASE || "athanordb_test",
-    user: env.ATHANORDB_TEST_MYSQL_USER || "root",
-    password: env.ATHANORDB_TEST_MYSQL_PASSWORD || "athanordb_test",
+    host: env.NEBULADB_TEST_MYSQL_HOST || "localhost",
+    port: Number(env.NEBULADB_TEST_MYSQL_PORT || 53306),
+    database: env.NEBULADB_TEST_MYSQL_DATABASE || "nebuladb_test",
+    user: env.NEBULADB_TEST_MYSQL_USER || "root",
+    password: env.NEBULADB_TEST_MYSQL_PASSWORD || "nebuladb_test",
   },
   mssql: {
     ...base,
     engine: "mssql",
-    host: env.ATHANORDB_TEST_MSSQL_HOST || "localhost",
-    port: Number(env.ATHANORDB_TEST_MSSQL_PORT || 1433),
+    host: env.NEBULADB_TEST_MSSQL_HOST || "localhost",
+    port: Number(env.NEBULADB_TEST_MSSQL_PORT || 1433),
     database: "master",
-    user: env.ATHANORDB_TEST_MSSQL_USER || "sa",
-    password: env.ATHANORDB_TEST_MSSQL_PASSWORD || "Athanor_Test123!",
+    user: env.NEBULADB_TEST_MSSQL_USER || "sa",
+    password: env.NEBULADB_TEST_MSSQL_PASSWORD || "Nebula_Test123!",
   },
 };
 const QUOTES = { postgres: ['"', '"'], mysql: ["`", "`"], mssql: ["[", "]"] } as const;
@@ -72,10 +72,10 @@ for (const engine of ["postgres", "mysql", "mssql"] as const) {
     if (!driver) return;
     const [l, r] = QUOTES[engine];
     const q = (name: string) => `${l}${name}${r}`;
-    const database = "athanor_watch_live";
+    const database = "nebula_watch_live";
     const schema = engine === "postgres" ? "public" : engine === "mssql" ? "dbo" : undefined;
     const table = { database, schema, table: "items" };
-    const user = { name: "athanor_watch_live_user", host: engine === "mysql" ? "%" : undefined };
+    const user = { name: "nebula_watch_live_user", host: engine === "mysql" ? "%" : undefined };
     const dbUser = engine === "mssql" ? { ...user, database } : user;
     const key = engine === "mysql" ? `${user.name}@%` : user.name;
     const grantKey = engine === "mssql" ? `${database}/${user.name}` : key;

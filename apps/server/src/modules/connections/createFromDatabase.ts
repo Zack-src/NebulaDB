@@ -1,4 +1,4 @@
-import type { DatabaseConnectionConfig } from "@athanordb/shared";
+import type { DatabaseConnectionConfig } from "@nebuladb/shared";
 import { createProjectForUser, deleteProject } from "../projects/projectCrud.js";
 import { saveConnection } from "./repository.js";
 import { pullConnectionSchema } from "./pull.js";

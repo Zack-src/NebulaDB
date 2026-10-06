@@ -1,4 +1,4 @@
-import type { DatabaseConnectionConfig } from "@athanordb/shared";
+import type { DatabaseConnectionConfig } from "@nebuladb/shared";
 import { ApiError } from "../../../shared/errors.js";
 import { takeConnectionBudget, targetKey, type BudgetKind } from "../../connections/connectionBudget.js";
 import { configForActor } from "../../connections/personalCredentials.js";

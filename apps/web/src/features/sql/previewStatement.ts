@@ -1,4 +1,4 @@
-import type { DatabaseEngine } from "@athanordb/shared";
+import type { DatabaseEngine } from "@nebuladb/shared";
 
 /** How many rows "Voir les données" asks for. The server caps results anyway; this keeps the statement honest about it. */
 export const PREVIEW_ROWS = 100;

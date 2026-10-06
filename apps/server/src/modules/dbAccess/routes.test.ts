@@ -7,10 +7,10 @@ import Database from "better-sqlite3";
 
 // Same rationale as `app.test.ts`: env vars must land before anything
 // transitively imports `db.ts`/`shared/crypto.ts`.
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-dbaccess-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-dbaccess-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
@@ -33,7 +33,7 @@ async function signIn(app: App, email: string) {
     headers: headers(),
     payload: { email, password: PASSWORD },
   });
-  return `athanordb_sid=${res.cookies.find((c) => c.name === "athanordb_sid")!.value}`;
+  return `nebuladb_sid=${res.cookies.find((c) => c.name === "nebuladb_sid")!.value}`;
 }
 
 async function makeUser(app: App, isAdmin: 0 | 1 = 0) {
@@ -49,7 +49,7 @@ async function makeUser(app: App, isAdmin: 0 | 1 = 0) {
 }
 
 function call(app: App, auth: string, method: Method, url: string, payload?: unknown) {
-  const credentials: Record<string, string> = auth.startsWith("adb_")
+  const credentials: Record<string, string> = auth.startsWith("ndb_")
     ? { authorization: `Bearer ${auth}` }
     : { cookie: auth };
   return app.inject({
@@ -62,7 +62,7 @@ function call(app: App, auth: string, method: Method, url: string, payload?: unk
 
 /** A real SQLite file — the one engine the console can be tested against without a server. */
 function seedTarget(): string {
-  const file = join(tmpdir(), `athanordb-test-dbaccess-target-${randomUUID()}.sqlite`);
+  const file = join(tmpdir(), `nebuladb-test-dbaccess-target-${randomUUID()}.sqlite`);
   const target = new Database(file);
   target.exec(`
     CREATE TABLE customers (id INTEGER PRIMARY KEY, name TEXT NOT NULL);
@@ -96,6 +96,175 @@ const grantUser = (app: App, adminCookie: string, userId: string, grants: unknow
 
 const query = (app: App, cookie: string, connectionId: string, body: Record<string, unknown>) =>
   call(app, cookie, "POST", `/api/connections/${connectionId}/query`, body);
+
+test("private databases are usable only by their owner, absent from admin lists, and audited", async () => {
+  const app = await buildApp();
+  try {
+    resetConnectionBudgets();
+    const admin = await makeUser(app, 1);
+    const owner = await makeUser(app);
+    const stranger = await makeUser(app);
+    const created = await call(app, owner.cookie, "POST", "/api/me/connections", {
+      name: "Private sandbox",
+      engine: "sqlite",
+      filePath: seedTarget(),
+    });
+    assert.equal(created.statusCode, 201, created.body);
+    const { id } = created.json().connection;
+    assert.equal((await call(app, owner.cookie, "GET", `/api/connections/${id}/overview`)).statusCode, 200);
+    assert.equal((await query(app, owner.cookie, id, { sql: "SELECT * FROM customers" })).statusCode, 200);
+    for (const other of [admin, stranger]) {
+      assert.equal((await query(app, other.cookie, id, { sql: "SELECT * FROM customers" })).statusCode, 404);
+      assert.equal(
+        (await call(app, other.cookie, "PUT", `/api/me/connections/${id}`, { name: "Stolen", engine: "sqlite" }))
+          .statusCode,
+        404,
+      );
+      assert.equal((await call(app, other.cookie, "DELETE", `/api/me/connections/${id}`)).statusCode, 404);
+    }
+    assert.equal(
+      (await call(app, admin.cookie, "GET", "/api/admin/connections"))
+        .json()
+        .connections.some((c: { id: string }) => c.id === id),
+      false,
+    );
+    assert.equal((await call(app, admin.cookie, "GET", `/api/admin/connections/${id}/overview`)).statusCode, 404);
+    assert.equal((await call(app, admin.cookie, "POST", `/api/admin/connections/${id}/health`)).statusCode, 404);
+    assert.equal(
+      (await call(app, admin.cookie, "POST", `/api/admin/connections/${id}/activity/sample`)).statusCode,
+      404,
+    );
+    assert.equal(
+      (
+        await call(app, admin.cookie, "POST", "/api/admin/connections/test", {
+          id,
+          engine: "sqlite",
+          filePath: created.json().connection.filePath,
+        })
+      ).statusCode,
+      404,
+    );
+    assert.equal(
+      (await grantUser(app, admin.cookie, stranger.id, [{ connectionId: id, level: "write" }])).statusCode,
+      404,
+    );
+    assert.ok(
+      db
+        .prepare("SELECT 1 FROM audit_log WHERE action = 'dbconn.create' AND target_id = ? AND actor_id = ?")
+        .get(id, owner.id),
+    );
+    const updated = await call(app, owner.cookie, "PUT", `/api/me/connections/${id}`, {
+      name: "Private renamed",
+      engine: "sqlite",
+      filePath: created.json().connection.filePath,
+    });
+    assert.equal(updated.statusCode, 200);
+    assert.equal(
+      (await call(app, owner.cookie, "GET", "/api/me/connections")).json().personal[0].name,
+      "Private renamed",
+    );
+    assert.equal((await call(app, owner.cookie, "DELETE", `/api/me/connections/${id}`)).statusCode, 200);
+    assert.equal((await query(app, owner.cookie, id, { sql: "SELECT 1" })).statusCode, 404);
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
+
+test("team account generation skips configured users, persists new secrets, and reports partial failures", async () => {
+  const { accountProvisioner } = await import("./provision.js");
+  const { savePersonalCredentials } = await import("../connections/personalCredentials.js");
+  const { credentialCheck } = await import("../connections/credentialService.js");
+  const original = accountProvisioner.create;
+  const verify = credentialCheck.verify;
+  const app = await buildApp();
+  try {
+    const admin = await makeUser(app, 1),
+      member = await makeUser(app),
+      existing = await makeUser(app),
+      failed = await makeUser(app);
+    const connection = (
+      await call(app, admin.cookie, "POST", "/api/admin/connections", {
+        name: "Team database",
+        engine: "postgres",
+        host: "localhost",
+        database: "test",
+        authMode: "personal",
+      })
+    ).json().connection;
+    const teamId = randomUUID();
+    db.prepare("INSERT INTO teams (id, name) VALUES (?, 'Database team')").run(teamId);
+    for (const user of [member, existing, failed])
+      db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, user.id);
+    await call(app, admin.cookie, "PUT", `/api/admin/teams/${teamId}/db-access`, {
+      grants: [{ connectionId: connection.id, level: "read" }],
+    });
+    savePersonalCredentials(connection.id, existing.id, "already_set", "never-overwrite");
+    const attempts: string[] = [];
+    accountProvisioner.create = async (_id, name, password) => {
+      attempts.push(name);
+      assert.ok(password.length > 20);
+      if (name.includes(failed.id.replace(/-/g, "").slice(0, 24))) throw new Error("refused");
+    };
+    assert.equal((await call(app, member.cookie, "POST", `/api/admin/teams/${teamId}/db-accounts`)).statusCode, 403);
+    const provisioned = await call(app, admin.cookie, "POST", `/api/admin/teams/${teamId}/db-accounts`);
+    assert.equal(provisioned.statusCode, 200, provisioned.body);
+    const results = provisioned.json().results as { userId: string; status: string }[];
+    assert.equal(results.find((r) => r.userId === member.id)?.status, "created");
+    assert.equal(results.find((r) => r.userId === existing.id)?.status, "existing");
+    assert.equal(results.find((r) => r.userId === failed.id)?.status, "failed");
+    assert.equal(attempts.length, 2);
+    assert.equal(
+      (
+        db
+          .prepare("SELECT username FROM db_connection_credentials WHERE user_id = ? AND connection_id = ?")
+          .get(existing.id, connection.id) as { username: string }
+      ).username,
+      "already_set",
+    );
+    credentialCheck.verify = async () => {};
+    const assigned = await call(
+      app,
+      admin.cookie,
+      "PUT",
+      `/api/admin/users/${failed.id}/connections/${connection.id}/credentials`,
+      { username: "assigned", password: "assigned-secret" },
+    );
+    assert.equal(assigned.statusCode, 200, assigned.body);
+    assert.equal(assigned.json().username, "assigned");
+    assert.equal(assigned.body.includes("assigned-secret"), false);
+    const again = await call(app, admin.cookie, "POST", `/api/admin/teams/${teamId}/db-accounts`);
+    assert.ok(again.json().results.every((r: { status: string }) => r.status === "existing"));
+  } finally {
+    accountProvisioner.create = original;
+    credentialCheck.verify = verify;
+    closeAllRooms();
+    await app.close();
+  }
+});
+
+test("editor SQL enforces read-only even if the caller sends write mode", async () => {
+  const app = await buildApp();
+  try {
+    resetConnectionBudgets();
+    const admin = await makeUser(app, 1);
+    const connection = await sqliteConnection(app, admin.cookie);
+    const refused = await query(app, admin.cookie, connection.id, {
+      sql: "DELETE FROM customers",
+      editor: true,
+      readOnly: false,
+    });
+    assert.notEqual(refused.statusCode, 200);
+    assert.equal(countRows(connection.filePath, "SELECT COUNT(*) AS n FROM customers"), 2);
+    assert.equal(
+      (await query(app, admin.cookie, connection.id, { sql: "SELECT * FROM customers", editor: true })).statusCode,
+      200,
+    );
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
 
 test("a member reaches a database only once an instance administrator grants it, and loses it at once", async () => {
   const app = await buildApp();
@@ -374,7 +543,7 @@ const UNREACHABLE = {
   host: "127.0.0.1",
   port: 1,
   database: "shop",
-  user: "athanor_service",
+  user: "nebula_service",
   password: "service-password",
 };
 
@@ -430,8 +599,8 @@ test("the console refuses to drop, lock or re-password the account the connectio
     const act = (connectionId: string, action: unknown, execute = false) =>
       call(app, admin.cookie, "POST", `/api/admin/connections/${connectionId}/users`, { action, execute });
     for (const [connectionId, name] of [
-      [byFields.id, "athanor_service"],
-      [byFields.id, "ATHANOR_SERVICE"],
+      [byFields.id, "nebula_service"],
+      [byFields.id, "NEBULA_SERVICE"],
       [byString.id, "deployer"],
     ]) {
       for (const action of [
@@ -447,7 +616,7 @@ test("the console refuses to drop, lock or re-password the account the connectio
       }
     }
     // Unlocking it, or acting on another account, goes on to the database (unreachable here).
-    const unlock = await act(byFields.id, { type: "lock", principal: { name: "athanor_service" }, locked: false });
+    const unlock = await act(byFields.id, { type: "lock", principal: { name: "nebula_service" }, locked: false });
     assert.notEqual(unlock.json().code, "DB_ADMIN_CONNECTION_ACCOUNT_PROTECTED");
     const other = await act(byFields.id, { type: "drop", principal: { name: "someone_else" } });
     assert.notEqual(other.json().code, "DB_ADMIN_CONNECTION_ACCOUNT_PROTECTED");
@@ -569,7 +738,9 @@ test("an invitation can ask for the database account to be created, and a failur
     const status = (await call(app, cookie, "GET", `/api/connections/${personal.id}/credentials`)).json();
     assert.equal(status.username, null);
     assert.equal(status.suggestedUsername, "ada");
-    const trail = db.prepare("SELECT detail FROM audit_log WHERE action = 'dbuser.create_failed'").all() as {
+    const trail = db
+      .prepare("SELECT detail FROM audit_log WHERE action = 'dbuser.create_failed' AND target_id = ?")
+      .all(personal.id) as {
       detail: string;
     }[];
     assert.equal(trail.length, 1);
@@ -577,5 +748,48 @@ test("an invitation can ask for the database account to be created, and a failur
   } finally {
     closeAllRooms();
     await app.close();
+  }
+});
+
+test("clearing SQL recall history is scoped to the caller and connection and keeps the journal", async () => {
+  const app = await buildApp();
+  try {
+    resetConnectionBudgets();
+    const admin = await makeUser(app, 1);
+    const member = await makeUser(app);
+    const stranger = await makeUser(app);
+    const first = await sqliteConnection(app, admin.cookie);
+    const second = await sqliteConnection(app, admin.cookie);
+    const granted = await grantUser(app, admin.cookie, member.id, [
+      { connectionId: first.id, level: "read" },
+      { connectionId: second.id, level: "read" },
+    ]);
+    assert.equal(granted.statusCode, 200, granted.body);
+    for (const [cookie, id] of [
+      [admin.cookie, first.id],
+      [member.cookie, first.id],
+      [member.cookie, second.id],
+    ]) {
+      const res = await query(app, cookie, id, { sql: "SELECT * FROM customers", readOnly: true });
+      assert.equal(res.statusCode, 200, res.body);
+    }
+    const journalBefore = db.prepare("SELECT COUNT(*) AS n FROM audit_log").get();
+    const denied = await call(app, stranger.cookie, "DELETE", `/api/connections/${first.id}/query-history`);
+    assert.equal(denied.statusCode, 404);
+    const cleared = await call(app, member.cookie, "DELETE", `/api/connections/${first.id}/query-history`);
+    assert.equal(cleared.statusCode, 200, cleared.body);
+    assert.equal(cleared.json().cleared, 1);
+    for (const [cookie, id, expected] of [
+      [member.cookie, first.id, 0],
+      [admin.cookie, first.id, 1],
+      [member.cookie, second.id, 1],
+    ] as const) {
+      const res = await call(app, cookie, "GET", `/api/connections/${id}/query-history`);
+      assert.equal(res.json().history.length, expected);
+    }
+    assert.deepEqual(db.prepare("SELECT COUNT(*) AS n FROM audit_log").get(), journalBefore);
+  } finally {
+    await app.close();
+    closeAllRooms();
   }
 });

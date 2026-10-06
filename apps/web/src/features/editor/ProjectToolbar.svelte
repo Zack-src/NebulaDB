@@ -15,7 +15,7 @@
   import FollowMenu from "@/features/notifications/FollowMenu.svelte";
   import NotificationBell from "@/features/notifications/NotificationBell.svelte";
   import PresenceList from "@/features/collaboration/PresenceList.svelte";
-  import type { AwarenessState, ConnectionStatus } from "@/features/collaboration/yjsClient";
+  import type { AwarenessState } from "@/features/collaboration/yjsClient";
   import Button from "@/components/ui/Button.svelte";
   import { APP_HEADER } from "@/components/ui/layout";
   import BrandMark from "@/components/ui/BrandMark.svelte";
@@ -24,12 +24,8 @@
   import {
     ChevronLeftIcon,
     DownloadIcon,
-    LayersIcon,
-    LayoutGridIcon,
     RedoIcon,
-    InfoIcon, SettingsIcon,
-    SparklesIcon,
-    SwapHorizontalIcon,
+    SettingsIcon,
     UndoIcon,
     UploadIcon,
   } from "@/components/icons/Icons";
@@ -38,35 +34,15 @@
   let props: {
     projectName: string;
     viewOnly: boolean;
-    connection: ConnectionStatus;
-    /** False until the first sync lands, even when the socket itself is already open. */
-    synced: boolean;
     onBack: () => void;
     onUndo: () => void;
     onRedo: () => void;
-    onAutoLayout: () => void;
     onShowImport: () => void;
     onShowExport: () => void;
-    onShowConvertTypes?: () => void;
-    onShowCompare: () => void;
-    onShowDeploy?: () => void;
-    /**
-     * `edit` is enough to change the schema, but a deployment reaches a live
-     * database — a network host or local file the connection (now managed only
-     * from the admin console) points at — and executes arbitrary generated SQL
-     * against it, a materially larger blast radius than a canvas edit. The
-     * connections/deployment routes already enforce project `administrator`
-     * server-side; this hides the button for anyone who'd just get a 403
-     * clicking it, rather than leaving that as the only signal they lack access.
-     */
-    isProjectAdmin: boolean;
     onOpenSettings?: () => void;
     /** Present in the real app: the project to follow, and where a notification about another one leads. */
     follow?: { projectId: string; onOpenProject: (projectId: string) => void };
-    /** Present where the guided tour exists: replays it. */
-    onShowTour?: () => void;
     localUser: string;
-    localColor: string;
     remoteAwareness: Map<number, AwarenessState>;
   } = $props();
 
@@ -79,10 +55,6 @@
   const panelActions = $derived<ToolbarAction[]>([
     ...(props.viewOnly ? [] : [{ icon: UploadIcon, labelKey: "editor.import", onClick: props.onShowImport } as const]),
     { icon: DownloadIcon, labelKey: "editor.export", onClick: props.onShowExport },
-    ...(!props.viewOnly && props.onShowConvertTypes
-      ? [{ icon: SwapHorizontalIcon, labelKey: "editor.convertTypes", onClick: props.onShowConvertTypes } as const]
-      : []),
-    { icon: LayersIcon, labelKey: "editor.compare", onClick: props.onShowCompare },
   ]);
 
   const historyActions = $derived<ToolbarAction[]>(
@@ -91,17 +63,8 @@
       : [
           { icon: UndoIcon, labelKey: "editor.undo", onClick: props.onUndo },
           { icon: RedoIcon, labelKey: "editor.redo", onClick: props.onRedo },
-          { icon: LayoutGridIcon, labelKey: "editor.autoLayout", onClick: props.onAutoLayout },
         ],
   );
-
-  /**
-   * Live-sync state, shown only when it isn't the boring one: a dropped socket
-   * has to be visible, since edits made while it's down reach nobody else until
-   * the reconnect lands.
-   */
-  const showConnection = $derived(!(props.connection === "connected" && props.synced));
-  const reconnecting = $derived(props.connection === "reconnecting" || props.connection === "closed");
 </script>
 
 <header class={`${APP_HEADER} justify-between gap-3 !px-3`}>
@@ -152,45 +115,15 @@
           <span class="hidden lg:inline">{t(action.labelKey)}</span>
         </Button>
       {/each}
-
-      {#if props.onShowDeploy && !props.viewOnly && props.isProjectAdmin}
-        <Button size="sm" variant="primary" onclick={props.onShowDeploy}>
-          <Icon icon={SparklesIcon} size={13} />
-          <span class="hidden sm:inline">{t("deployment.deploy")}</span>
-        </Button>
-      {/if}
     </div>
 
     <span class={`${DIVIDER_CLASS} hidden md:block`}></span>
 
-    {#if showConnection}
-      <span class="inline-flex items-center gap-1.5 whitespace-nowrap text-xs text-text-muted">
-        <span
-          class={`h-[7px] w-[7px] shrink-0 rounded-full ${
-            reconnecting ? "bg-danger shadow-[0_0_0_3px_var(--color-danger-light)]" : "bg-text-muted"
-          }`}
-        ></span>
-        {t(reconnecting ? "editor.reconnecting" : "editor.connecting")}
-      </span>
-    {/if}
-
-    <PresenceList localName={props.localUser} localColor={props.localColor} remote={props.remoteAwareness} />
+    <PresenceList localName={props.localUser} remote={props.remoteAwareness} />
 
     {#if props.follow}
       <FollowMenu projectId={props.follow.projectId} />
       <NotificationBell onOpenProject={props.follow.onOpenProject} />
-    {/if}
-    {#if props.onShowTour}
-      <Button
-        variant="ghost"
-        size="icon-sm"
-        onclick={props.onShowTour}
-        data-tooltip={t("tour.replay")}
-        data-tooltip-pos="bottom"
-        aria-label={t("tour.replay")}
-      >
-        <Icon icon={InfoIcon} size={15} />
-      </Button>
     {/if}
     {#if props.onOpenSettings}
       <Button

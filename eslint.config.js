@@ -6,7 +6,7 @@ import globals from "globals";
 import eslintConfigPrettier from "eslint-config-prettier";
 
 const HARD_CODED_TEXT = {
-  selector: "SvelteText[value=/[A-Za-zÀ-ÿ]{4,}/]",
+  selector: "SvelteText[value=/[A-Za-zÀ-ÿ]{4,}/]:not(SvelteStyleElement > SvelteText)",
   message: "Hard-coded UI text. Add the string to src/locales/fr.json + en.json and render it with t('key').",
 };
 
@@ -27,7 +27,11 @@ const NATIVE_CONTROLS_NOT_MIGRATED = [
 ].map((file) => `apps/web/src/features/${file}`);
 
 export default tseslint.config(
-  { ignores: ["**/dist/**", "**/node_modules/**", "**/data/**"] },
+  {
+    // Static design references contain script fragments assembled by the mockup,
+    // rather than standalone application modules.
+    ignores: ["**/dist/**", "**/node_modules/**", "**/data/**", "docs/refonte-ui/maquette/**"],
+  },
   js.configs.recommended,
   ...tseslint.configs.recommended,
   {
@@ -42,7 +46,7 @@ export default tseslint.config(
   {
     // @dbml/core doesn't export usable types for its raw parsed Database
     // model (Table/Field/Ref internals) — these two spots deliberately bridge
-    // that untyped boundary into AthanorDB's own typed `Project` shape.
+    // that untyped boundary into NebulaDB's own typed `Project` shape.
     files: ["packages/dbml-engine/src/dbml.ts", "apps/server/src/routes/projects.ts"],
     rules: {
       "@typescript-eslint/no-explicit-any": "off",

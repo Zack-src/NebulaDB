@@ -1,4 +1,4 @@
-import type { RefAction } from "@athanordb/shared";
+import type { RefAction } from "@nebuladb/shared";
 
 /**
  * A ref where a given field is the FK ("from") side — what `FieldEditorPopover`

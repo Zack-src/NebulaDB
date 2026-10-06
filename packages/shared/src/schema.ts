@@ -296,7 +296,8 @@ export interface AdminConnectionSummary extends DatabaseConnectionSummary {
   readOnly: boolean;
   /** `null`: follows the instance default. */
   structurePolicy: StructurePolicySetting | null;
-  projects: { id: string; name: string }[];
+  /** `database`: the one the project uses on this connection when it is not the connection's own. */
+  projects: { id: string; name: string; database?: string | null }[];
   health: ConnectionHealth;
 }
 

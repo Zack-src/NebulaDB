@@ -1,5 +1,5 @@
 import * as Y from "yjs";
-import { readProjectFromDoc, type Project } from "@athanordb/shared";
+import { readProjectFromDoc, type Project } from "@nebuladb/shared";
 import { db } from "../infrastructure/db.js";
 import { loadSnapshot } from "./persistence.js";
 import { peekRoom } from "./roomRegistry.js";

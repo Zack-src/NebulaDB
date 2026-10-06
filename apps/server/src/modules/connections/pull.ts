@@ -1,6 +1,6 @@
-import { hasVariables, resolveVariables } from "@athanordb/dbml-engine";
+import { hasVariables, resolveVariables } from "@nebuladb/dbml-engine";
 import { stageVariables } from "../environments/variables.js";
-import { readProjectFromDoc, writeProjectToDoc } from "@athanordb/shared";
+import { readProjectFromDoc, writeProjectToDoc } from "@nebuladb/shared";
 import { ApiError } from "../../shared/errors.js";
 import { getRoom } from "../../realtime/roomRegistry.js";
 import { createDatabaseDriver } from "./drivers/index.js";

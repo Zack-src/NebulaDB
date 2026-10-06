@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Project } from "@athanordb/shared";
+import type { Project } from "@nebuladb/shared";
 import { parseDbml, projectToSql, toProject } from "./dbml.js";
 import { diffTargetAgainstLive } from "./migrationDiff.js";
 import { generateMigrationSql } from "./migrationGenerator.js";
@@ -9,7 +9,7 @@ import { applyVisualMetadata, projectToDbml } from "./serialize.js";
 /**
  * Every way DBML can spell one relation must land in the model the same way
  * round: `from` = the column carrying the foreign key, `to` = the column it
- * references (see `refOrientation.ts` in `@athanordb/shared`). Inline refs
+ * references (see `refOrientation.ts` in `@nebuladb/shared`). Inline refs
  * used to come out backwards, which put the FK on the wrong table in every
  * SQL export and deployment.
  */
@@ -95,7 +95,7 @@ test("many-to-many keeps its declaration order and round-trips", () => {
 });
 
 test("a visual sidecar written with the old direction-sensitive key still restores the ref's style", () => {
-  const source = `${USERS}${POSTS_PLAIN}Ref: posts.author_id > users.id\n// athanordb:visual ${JSON.stringify({
+  const source = `${USERS}${POSTS_PLAIN}Ref: posts.author_id > users.id\n// nebuladb:visual ${JSON.stringify({
     refs: { "users.id->posts.author_id": { style: { color: "#ff0000" } } },
   })}\n`;
   const project = applyVisualMetadata(parse(source), source);

@@ -1,5 +1,5 @@
-import type { DatabaseEngine, SchemaRisk } from "@athanordb/shared";
-import { translateType } from "@athanordb/shared";
+import type { DatabaseEngine, SchemaRisk } from "@nebuladb/shared";
+import { translateType } from "@nebuladb/shared";
 import type { MigrationDiff } from "./migrationDiff.js";
 
 /**

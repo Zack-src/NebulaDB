@@ -55,7 +55,7 @@ import {
   selectSelectionMatches,
 } from "@codemirror/search";
 import { lintGutter, lintKeymap, nextDiagnostic, openLintPanel } from "@codemirror/lint";
-import { athanorEditorTheme, dbmlLanguageSupport } from "@/features/editor/dbml/language";
+import { nebulaEditorTheme, dbmlLanguageSupport } from "@/features/editor/dbml/language";
 import { createSearchPanel, openReplacePanel, searchPanelTheme } from "@/features/editor/dbml/searchPanel";
 import { dbmlCompletion } from "@/features/editor/dbml/completion";
 import { dbmlSymbolsField } from "@/features/editor/dbml/symbols";
@@ -232,7 +232,7 @@ export function createDbmlExtensions(options: DbmlEditorOptions): Extension[] {
     paletteHandler.of(options.onPalette),
     renameHandler.of(options.onRename),
     canvasNavigateHandler.of(options.onNavigateToCanvas),
-    athanorEditorTheme,
+    nebulaEditorTheme,
     wrapCompartment.of(options.lineWrap ? EditorView.lineWrapping : []),
     fontCompartment.of(fontTheme(options.fontSize)),
     // Keep editor shortcuts from leaking into the canvas-level handlers.

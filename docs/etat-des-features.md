@@ -1,4 +1,4 @@
-# AthanorDB — état des fonctionnalités
+# NebulaDB — état des fonctionnalités
 
 État au **2026-10-05**, sur le commit `60b490c` (`main`) **plus les modifications de la session du
 jour, non commitées** (accès aux bases, surveillance des comptes, journal par base, mentions,
@@ -106,7 +106,7 @@ schéma ».
 | Bouton « revenir avant ce déploiement », sauvegardes natives |  ❌  |                                                                |
 | Action GitHub / CLI                                          |  ❌  | Un exemple CI est écrit, jamais lancé                          |
 
-## 5. Comptes Athanor et groupes ★
+## 5. Comptes Nebula et groupes ★
 
 | Fonctionnalité                                                     | État | Reste / remarque                                                             |
 | ------------------------------------------------------------------ | :--: | ---------------------------------------------------------------------------- |
@@ -129,35 +129,35 @@ schéma ».
 | Sessions en cours et arrêt d'une session                              |  ✅  |                                                                                                                                        |
 | ★ Compte SQL personnel par utilisateur et par base                    |  🧪  | Aucune vraie connexion testée ; option par connexion                                                                                   |
 | ★ Accès à une base accordé par l'admin, par utilisateur ou par groupe |  🧪  | Deux niveaux (lecture, écriture de données) par connexion ; vérifié sur PostgreSQL et MySQL en compte partagé, pas en compte personnel |
-| ★ L'admin associe un compte de base à un compte Athanor               |  🟡  | L'admin fixe le nom du compte proposé ; la personne saisit le mot de passe                                                             |
-| ★ Créer le compte de base en même temps que l'invitation              |  🟡  | Créé à l'acceptation (mot de passe aléatoire gardé par Athanor), vérifié sur PostgreSQL ; compte sans privilège, à accorder ensuite    |
+| ★ L'admin associe un compte de base à un compte Nebula                |  🟡  | L'admin fixe le nom du compte proposé ; la personne saisit le mot de passe                                                             |
+| ★ Créer le compte de base en même temps que l'invitation              |  🟡  | Créé à l'acceptation (mot de passe aléatoire gardé par Nebula), vérifié sur PostgreSQL ; compte sans privilège, à accorder ensuite     |
 | ★ Gestion de ses comptes SQL depuis ses Paramètres                    |  🧪  | Bloc « Mes comptes SQL » (Paramètres › Profil), testé serveur et navigateur ; jamais utilisé à la main                                 |
 | Privilèges au niveau colonne                                          |  🟡  | Lisibles, pas attribuables depuis l'interface                                                                                          |
 | Protection du compte de la connexion elle-même                        |  ✅  | Supprimer, verrouiller, changer le mot de passe refusés ; retirer ses privilèges n'est pas intercepté                                  |
 
 ## 7. Requêtes SQL ★
 
-| Fonctionnalité                                                     | État | Reste / remarque                                                                                          |
-| ------------------------------------------------------------------ | :--: | --------------------------------------------------------------------------------------------------------- |
-| Console SQL (lecture seule par défaut, mode écriture confirmé)     |  ✅  | Administrateurs de l'instance                                                                             |
-| Explorateur, données paginées, export CSV                          |  ✅  |                                                                                                           |
-| ★ Onglet « Données & SQL » et panneau SQL dans l'éditeur de schéma |  ✅  | Administrateurs de l'instance, et membres autorisés sur les bases accordées                               |
-| ★ SQL pour les utilisateurs non administrateurs                    |  🧪  | Lecture seule ou données seulement (jamais de structure) ; filtre d'Athanor, pas un analyseur SQL complet |
-| Grille de résultats                                                |  🧪  | Jamais utilisée sur un vrai gros résultat                                                                 |
-| Historique de ses requêtes, journalisation de chaque requête       |  ✅  |                                                                                                           |
-| Changement de structure renvoyé vers le schéma                     |  ✅  | Contournable par une procédure ou un bloc `DO` (admin d'instance)                                         |
-| Éditeur SQL avec complétion depuis le schéma                       |  ❌  | Simple zone de texte aujourd'hui                                                                          |
-| Requêtes enregistrées, EXPLAIN visuel, édition de lignes           |  ❌  |                                                                                                           |
+| Fonctionnalité                                                     | État | Reste / remarque                                                                                         |
+| ------------------------------------------------------------------ | :--: | -------------------------------------------------------------------------------------------------------- |
+| Console SQL (lecture seule par défaut, mode écriture confirmé)     |  ✅  | Administrateurs de l'instance                                                                            |
+| Explorateur, données paginées, export CSV                          |  ✅  |                                                                                                          |
+| ★ Onglet « Données & SQL » et panneau SQL dans l'éditeur de schéma |  ✅  | Administrateurs de l'instance, et membres autorisés sur les bases accordées                              |
+| ★ SQL pour les utilisateurs non administrateurs                    |  🧪  | Lecture seule ou données seulement (jamais de structure) ; filtre d'Nebula, pas un analyseur SQL complet |
+| Grille de résultats                                                |  🧪  | Jamais utilisée sur un vrai gros résultat                                                                |
+| Historique de ses requêtes, journalisation de chaque requête       |  ✅  |                                                                                                          |
+| Changement de structure renvoyé vers le schéma                     |  ✅  | Contournable par une procédure ou un bloc `DO` (admin d'instance)                                        |
+| Éditeur SQL avec complétion depuis le schéma                       |  ❌  | Simple zone de texte aujourd'hui                                                                         |
+| Requêtes enregistrées, EXPLAIN visuel, édition de lignes           |  ❌  |                                                                                                          |
 
 ## 8. Journaux ★
 
 | Fonctionnalité                                                | État | Reste / remarque                                                                                                                             |
 | ------------------------------------------------------------- | :--: | -------------------------------------------------------------------------------------------------------------------------------------------- |
 | Journal d'activité (filtres, export CSV/JSON, non modifiable) |  ✅  |                                                                                                                                              |
-| ★ Journal d'une base précise (onglet « Journal » de la base)  |  ✅  | Ce qui passe par Athanor : ouverture, tests, requêtes, déploiements, comptes, alertes                                                        |
+| ★ Journal d'une base précise (onglet « Journal » de la base)  |  ✅  | Ce qui passe par Nebula : ouverture, tests, requêtes, déploiements, comptes, alertes                                                         |
 | ★ Journal de la modélisation                                  |  🟡  | Dans l'historique du projet, pas dans Activité                                                                                               |
 | Journal des erreurs                                           |  ✅  |                                                                                                                                              |
-| ★ Logs côté base (connexions et requêtes faites hors Athanor) |  🟡  | Niveau 1 : sessions relevées toutes les 5 min (instantané, requêtes courtes manquées), vérifié sur PostgreSQL ; pas d'audit natif (niveau 2) |
+| ★ Logs côté base (connexions et requêtes faites hors Nebula)  |  🟡  | Niveau 1 : sessions relevées toutes les 5 min (instantané, requêtes courtes manquées), vérifié sur PostgreSQL ; pas d'audit natif (niveau 2) |
 | Export syslog / SIEM                                          |  ❌  |                                                                                                                                              |
 
 Le texte SQL est gardé tel quel dans l'audit : un `IDENTIFIED BY '…'` y apparaît (comportement
@@ -167,13 +167,13 @@ antérieur, maintenant bien visible dans l'onglet Journal).
 
 | Fonctionnalité                                        | État | Reste / remarque                                                                                                                                                           |
 | ----------------------------------------------------- | :--: | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| ★ Temps et fréquence d'utilisation par requête        |  🟡  | Requêtes lancées depuis Athanor seulement, regroupées par forme ; rien côté serveur de base                                                                                |
+| ★ Temps et fréquence d'utilisation par requête        |  🟡  | Requêtes lancées depuis Nebula seulement, regroupées par forme ; rien côté serveur de base                                                                                 |
 | Tableau de santé (onglet « Santé »)                   |  🟡  | Sonde, latence, tailles, sessions, verrous bloquants ; vérifié sur PostgreSQL (blocage compris), pas de croissance par table ni de carte sur la liste des connexions       |
 | Trafic par connexion (compteurs du serveur)           |  🟡  | Requêtes, octets, lignes selon le moteur (PostgreSQL : transactions, pas d'octets) ; vérifié sur PostgreSQL, MySQL, SQL Server ; pas de ventilation par compte ni d'alerte |
 | Suggestions d'index                                   |  ❌  |                                                                                                                                                                            |
 | ★ Conseiller de requêtes et de schéma, IA optionnelle |  ❌  | Dépend de la collecte côté serveur de base                                                                                                                                 |
 
-## 10. Modifications faites hors Athanor ★
+## 10. Modifications faites hors Nebula ★
 
 | Fonctionnalité                                     | État | Reste / remarque                                                                                              |
 | -------------------------------------------------- | :--: | ------------------------------------------------------------------------------------------------------------- |
@@ -205,13 +205,13 @@ antérieur, maintenant bien visible dans l'onglet Journal).
 - **Demandes du propriétaire livrées aujourd'hui, à valider en conditions réelles :**
   accès aux bases par utilisateur ou groupe, SQL pour les non-administrateurs, invitation
   enrichie, surveillance des comptes et permissions, journal d'une base, temps et fréquence
-  des requêtes lancées depuis Athanor.
+  des requêtes lancées depuis Nebula.
 - **Demandes du propriétaire encore absentes :**
   1. conseiller de requêtes et IA (aucune décision prise sur l'analyseur SQL) ;
   2. projet racine et déclinaisons.
 - **Limite du droit d'accès aux bases :** deux niveaux seulement par connexion (pas de droit par
   base, schéma ou table). En compte partagé, le membre agit sous le compte stocké sur la
-  connexion : seul le filtre d'Athanor le borne.
+  connexion : seul le filtre d'Nebula le borne.
 
 ## Décisions prises par défaut pendant la mise à jour (à confirmer ou changer)
 
@@ -237,5 +237,5 @@ antérieur, maintenant bien visible dans l'onglet Journal).
 - La vue d'ensemble liste toutes les bases du serveur à un membre ; révoquer les privilèges du
   compte de la connexion n'est pas intercepté.
 - Surveillance des comptes : un changement externe fait dans les quelques millisecondes autour
-  d'une action de la console « Utilisateurs » est attribué à Athanor.
+  d'une action de la console « Utilisateurs » est attribué à Nebula.
 - Les statistiques de requêtes gardent le dernier auteur de chaque forme (30 jours).

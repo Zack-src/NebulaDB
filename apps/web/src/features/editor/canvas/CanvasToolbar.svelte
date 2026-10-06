@@ -6,7 +6,7 @@
 </script>
 
 <script lang="ts">
-  import type { DetailLevel } from "@athanordb/shared";
+  import type { DetailLevel } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { AlertTriangleIcon, LinkIcon, MinimapIcon, RestoreIcon, SearchIcon } from "@/components/icons/Icons";
   import {

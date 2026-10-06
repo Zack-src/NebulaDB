@@ -15,7 +15,7 @@ import type {
   DbPrincipalRef,
   DbPrivilegeCatalog,
   DbUserAction,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import type { DriverConnectionConfig } from "../../connections/drivers/interface.js";
 import { mssqlPoolConfig } from "../../connections/drivers/mssql.js";
 import { assertReadOnlyStatement } from "../sqlGuard.js";
@@ -544,6 +544,17 @@ export class MssqlAdminDriver implements DatabaseAdminDriver {
 
   killSessionStatements(id: string): AdminStatement[] {
     return [plain(`KILL ${requireInteger(id, "session id")}`)];
+  }
+
+  // `OLD_PASSWORD` is what lets a login without ALTER ANY LOGIN change its own password.
+  ownPasswordStatements(password: string, currentPassword: string): AdminStatement[] {
+    const who = q(requireName(this.config.user, "account"));
+    return [
+      {
+        sql: `ALTER LOGIN ${who} WITH PASSWORD = ${nlit(requirePassword(password))} OLD_PASSWORD = ${nlit(requirePassword(currentPassword))}`,
+        display: `ALTER LOGIN ${who} WITH PASSWORD = N'${MASK}' OLD_PASSWORD = N'${MASK}'`,
+      },
+    ];
   }
 
   async execute(statements: AdminStatement[], database?: string): Promise<void> {

@@ -12,7 +12,7 @@ bug bounty.
 
 ## What this project protects, and what it does not
 
-AthanorDB is self-hosted. Its threat model assumes an operator who controls the
+NebulaDB is self-hosted. Its threat model assumes an operator who controls the
 server and a set of accounts that are not all equally trusted.
 
 **In scope** — anything letting someone:
@@ -34,7 +34,7 @@ software:
   everything, including the audit log. The audit trail is append-only _through
   the application_; it is not tamper-evident against server access.
 - Running without TLS. Sessions are cookie-based; deploy behind HTTPS and set
-  `ATHANORDB_COOKIE_SECURE=true` (the server warns at boot if you don't in
+  `NEBULADB_COOKIE_SECURE=true` (the server warns at boot if you don't in
   production).
 - Users you gave administrator to. Global admins can read every project by
   design.
@@ -54,7 +54,7 @@ Postgres/MySQL/SQLite database for introspection and schema deployment:
   and points elsewhere at actual connect time (DNS rebinding) still gets
   through. Tracked in `docs/todo.md` Phase 27.
 - Reading or exfiltrating another project's stored connection credentials, or
-  the `ATHANORDB_SECRET` encryption key.
+  the `NEBULADB_SECRET` encryption key.
 - Getting the deployment wizard to execute SQL beyond what it showed in the
   preview, or bypassing its explicit-confirmation step.
 
@@ -68,7 +68,7 @@ Postgres/MySQL/SQLite database for introspection and schema deployment:
   session cookie is the full authentication surface.
 - **Partial encryption at rest.** Passwords are hashed (scrypt, N=65536).
   Live-database-connection credentials and TOTP secrets are encrypted
-  (AES-256-GCM, keyed by `ATHANORDB_SECRET` — see the README's Configuration
+  (AES-256-GCM, keyed by `NEBULADB_SECRET` — see the README's Configuration
   section) — but schema contents themselves are not encrypted in the database
   file, and there is no general at-rest encryption of the SQLite file.
 - **Single instance.** SQLite plus in-process room state means one server

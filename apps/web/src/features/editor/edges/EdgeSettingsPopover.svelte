@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { RefAction, RefCardinality } from "@athanordb/shared";
+  import type { RefAction, RefCardinality } from "@nebuladb/shared";
   import { anchoredPlacement, provisionalPopoverStyle } from "@/actions/placement";
   import { portal } from "@/actions/portal";
   import Icon from "@/components/icons/Icon.svelte";

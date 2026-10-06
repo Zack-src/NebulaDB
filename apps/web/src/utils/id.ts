@@ -1,7 +1,7 @@
 /**
  * `crypto.randomUUID()` is gated behind `window.isSecureContext` in every
  * browser — it throws/`is not a function` on a plain `http://` origin that
- * isn't `localhost`. AthanorDB is explicitly meant to be reached over plain
+ * isn't `localhost`. NebulaDB is explicitly meant to be reached over plain
  * HTTP on a LAN (see README), so every id generated on the canvas (tables,
  * fields, indexes, zones, notes, enums, refs, comments, groups) went through
  * this instead of the raw global, once that surfaced from a LAN deployment.

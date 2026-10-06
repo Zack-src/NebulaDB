@@ -1,4 +1,4 @@
-import type { McdModel, Position, Project } from "@athanordb/shared";
+import type { McdModel, Position, Project } from "@nebuladb/shared";
 
 /**
  * Positions the MCD graph from the *existing* MLD layout instead of running

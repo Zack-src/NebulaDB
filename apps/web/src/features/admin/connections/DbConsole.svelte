@@ -1,7 +1,16 @@
 <script lang="ts">
-  import type { AdminConnectionSummary, DatabaseConnectionSummary } from "@athanordb/shared";
+  import type { AdminConnectionSummary, DatabaseConnectionSummary } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
-  import { ArchiveIcon, ChevronLeftIcon, CodeIcon, TableIcon, UsersIcon, ClockIcon, NoteIcon, CheckCircleIcon } from "@/components/icons/Icons";
+  import {
+    ArchiveIcon,
+    ChevronLeftIcon,
+    CodeIcon,
+    TableIcon,
+    UsersIcon,
+    ClockIcon,
+    NoteIcon,
+    CheckCircleIcon,
+  } from "@/components/icons/Icons";
   import Badge from "@/components/ui/Badge.svelte";
   import Button from "@/components/ui/Button.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
@@ -33,36 +42,44 @@
   let {
     connection,
     onClose,
+    mode = "all",
   }: {
     /** The admin console's listing, or — for a member — the project's own listing of its connections. */
     connection: AdminConnectionSummary | DatabaseConnectionSummary;
     /** Absent when the console is a tab of a project's workspace: there is no list to go back to. */
     onClose?: () => void;
+    mode?: "all" | "data" | "monitoring";
   } = $props();
 
   const { t } = useTranslation();
   const overview = useAsyncResource(() => fetchConnectionOverview(connection.id));
-  let section = $state<Section>("explorer");
+  // svelte-ignore state_referenced_locally
+  let section = $state<Section>(mode === "monitoring" ? "health" : "explorer");
   let database = $state("");
 
   // The explorer and the SQL console share one "current database", seeded once the server has said what exists.
   $effect(() => {
     const data = overview.data;
     if (!data || data.databases.some((d) => d.name === database)) return;
-    const preferred = data.databases.find((d) => d.name === data.defaultDatabase) ?? data.databases.find((d) => !d.system);
+    const preferred =
+      data.databases.find((d) => d.name === data.defaultDatabase) ?? data.databases.find((d) => !d.system);
     database = (preferred ?? data.databases[0])?.name ?? "";
   });
 
   /** Backups need the admin listing's shape — and are an administrator's anyway. */
   const adminConnection = $derived("health" in connection ? connection : null);
   const tabs = $derived.by(() => {
-    const list: TabItem<Section>[] = [
-      { id: "explorer", label: t("dbadmin.tab.explorer"), icon: TableIcon },
-      { id: "sql", label: t("dbadmin.tab.sql"), icon: CodeIcon },
-    ];
-    if (overview.data?.access !== "admin") return list;
+    const list: TabItem<Section>[] =
+      mode === "monitoring"
+        ? []
+        : [
+            { id: "explorer", label: t("dbadmin.tab.explorer"), icon: TableIcon },
+            { id: "sql", label: t("dbadmin.tab.sql"), icon: CodeIcon },
+          ];
+    if (mode === "data" || overview.data?.access !== "admin") return list;
     if (overview.data.capabilities.users) list.push({ id: "users", label: t("dbadmin.tab.users"), icon: UsersIcon });
-    if (overview.data.capabilities.sessions) list.push({ id: "sessions", label: t("dbadmin.tab.sessions"), icon: ClockIcon });
+    if (overview.data.capabilities.sessions)
+      list.push({ id: "sessions", label: t("dbadmin.tab.sessions"), icon: ClockIcon });
     if (adminConnection) list.push({ id: "health", label: t("dbadmin.tab.health"), icon: CheckCircleIcon });
     if (adminConnection) list.push({ id: "backups", label: t("dbadmin.tab.backups"), icon: ArchiveIcon });
     // The database's journal is the audit log's: instance administrators only.
@@ -81,7 +98,11 @@
     {/if}
     <span class="text-[14px] font-semibold">{connection.name}</span>
     <Badge tone="admin">{t(`connections.engine.${connection.engine}`)}</Badge>
-    {#if connection.environment}<EnvironmentBadge name={connection.environment} color={connection.environmentColor} production={connection.production} />{/if}
+    {#if connection.environment}<EnvironmentBadge
+        name={connection.environment}
+        color={connection.environmentColor}
+        production={connection.production}
+      />{/if}
     {#if overview.data?.readOnly}<Badge tone="warning">{t("dbadmin.readOnly")}</Badge>{/if}
     {#if overview.data && overview.data.access !== "admin"}
       <Badge tone="muted">{t(`dbAccess.level.${overview.data.access}`)}</Badge>
@@ -105,11 +126,21 @@
     {@const data = overview.data}
     <Tabs variant="line" {tabs} activeTab={section} onChange={(id) => (section = id)} class="mb-4" />
     {#if section === "explorer"}
-      <ExplorerPanel connectionId={connection.id} overview={data} bind:database onDatabaseDropped={() => overview.reload()} />
+      <ExplorerPanel
+        connectionId={connection.id}
+        overview={data}
+        bind:database
+        onDatabaseDropped={() => overview.reload()}
+      />
     {:else if section === "sql"}
       <SqlPanel connectionId={connection.id} overview={data} bind:database />
     {:else if section === "users" && data.access === "admin"}
-      <UsersPanel connectionId={connection.id} engine={connection.engine} overview={data} />
+      <UsersPanel
+        connectionId={connection.id}
+        engine={connection.engine}
+        overview={data}
+        personalAccounts={connection.authMode === "personal"}
+      />
     {:else if section === "sessions" && data.access === "admin"}
       <SessionsPanel connectionId={connection.id} overview={data} />
     {:else if section === "health" && adminConnection && data.access === "admin"}

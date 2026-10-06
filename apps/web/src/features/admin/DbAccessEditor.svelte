@@ -5,7 +5,7 @@
     DbAccessGrantInput,
     DbAccessLevel,
     InheritedDbAccess,
-  } from "@athanordb/shared";
+  } from "@nebuladb/shared";
 
   /** One connection's line in the editor: the level granted, and the database account name proposed. */
   export interface DbAccessDraftLine {

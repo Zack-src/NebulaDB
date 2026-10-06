@@ -4,10 +4,8 @@ import { getContext, setContext } from "svelte";
  * What a component rendered somewhere inside a project's workspace can ask of
  * it, without knowing where it sits.
  *
- * First use: the database console, when it is the workspace's "Données & SQL"
- * tab, sends a structural change to the schema. Inside the workspace that is a
- * tab change with the table selected; from the admin console, where there is
- * no workspace, the same dialog falls back to a plain link.
+ * A database result can navigate to the corresponding schema table.
+ * Outside the project workspace, navigation falls back to a plain link.
  */
 export interface WorkspaceContext {
   /**

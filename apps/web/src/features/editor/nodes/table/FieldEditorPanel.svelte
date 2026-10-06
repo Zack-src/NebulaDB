@@ -13,7 +13,7 @@
     type Comment,
     type Field,
     type RefAction,
-  } from "@athanordb/shared";
+  } from "@nebuladb/shared";
   import { autofocus } from "@/actions/autofocus";
   import { anchoredPlacement, provisionalPopoverStyle } from "@/actions/placement";
   import { portal } from "@/actions/portal";

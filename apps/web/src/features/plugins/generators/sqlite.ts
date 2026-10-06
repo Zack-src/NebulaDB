@@ -1,4 +1,4 @@
-import type { Project, Table } from "@athanordb/shared";
+import type { Project, Table } from "@nebuladb/shared";
 
 export interface SqliteExportSettings {
   foreignKeys?: boolean;
@@ -46,7 +46,7 @@ function formatSqliteDefault(defVal: string): string {
 export function generateSqlite(project: Project, settings: SqliteExportSettings = {}): string {
   const lines: string[] = [];
   lines.push(`-- ==========================================================`);
-  lines.push(`-- Generated SQLite DDL for: ${project.name || "AthanorDB Project"}`);
+  lines.push(`-- Generated SQLite DDL for: ${project.name || "NebulaDB Project"}`);
   lines.push(`-- Generated at: ${new Date().toISOString()}`);
   lines.push(`-- ==========================================================`);
   lines.push(``);

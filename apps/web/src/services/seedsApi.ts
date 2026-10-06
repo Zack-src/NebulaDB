@@ -1,4 +1,4 @@
-import type { SeedFromDatabase, SeedOptions, TableSeed, TableSeedSummary } from "@athanordb/shared";
+import type { SeedFromDatabase, SeedOptions, TableSeed, TableSeedSummary } from "@nebuladb/shared";
 import { request } from "./httpClient";
 
 const base = (projectId: string) => `/api/projects/${projectId}/seeds`;

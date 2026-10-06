@@ -29,7 +29,7 @@ Table orders {
 `;
 
 test("seeds: CSV in the editor, checked, shown on the table, deployed", { timeout: 90_000 }, async () => {
-  const targetFile = join(mkdtempSync(join(tmpdir(), "athanordb-e2e-seeds-")), "shop.sqlite");
+  const targetFile = join(mkdtempSync(join(tmpdir(), "nebuladb-e2e-seeds-")), "shop.sqlite");
   const env = await startE2eEnvironment(PORT);
   try {
     const page = await env.browser.newPage({ viewport: { width: 1400, height: 900 } });

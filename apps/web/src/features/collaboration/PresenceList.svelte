@@ -10,13 +10,10 @@
 </script>
 
 <script lang="ts">
+  import AccountAvatar from "@/components/ui/AccountAvatar.svelte";
   import type { AwarenessState } from "@/features/collaboration/yjsClient";
 
-  let {
-    localName,
-    localColor,
-    remote,
-  }: { localName: string; localColor: string; remote: Map<number, AwarenessState> } = $props();
+  let { localName, remote }: { localName: string; remote: Map<number, AwarenessState> } = $props();
 
   const AVATAR_CLASS =
     "-ml-2 inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border-2 border-surface text-[11px] font-bold text-white first:ml-0";
@@ -27,7 +24,7 @@
 {/snippet}
 
 <div class="flex items-center">
-  {@render avatar(`${localName} (you)`, localColor)}
+  <span class="inline-flex" data-tooltip={localName}><AccountAvatar name={localName} /></span>
   {#each Array.from(remote.entries()) as [clientId, state] (clientId)}
     {@render avatar(state.user.name, state.user.color)}
   {/each}

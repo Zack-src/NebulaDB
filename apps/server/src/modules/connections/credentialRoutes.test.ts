@@ -3,12 +3,12 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { DatabaseConnectionConfig } from "@athanordb/shared";
+import type { DatabaseConnectionConfig } from "@nebuladb/shared";
 
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-credentials-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-credentials-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
@@ -16,7 +16,7 @@ const { currentActorId, runInActorScope, setActor } = await import("../../infras
 const { hashPassword } = await import("../auth/password.js");
 const { closeAllRooms } = await import("../../realtime/roomRegistry.js");
 const { resetConnectionBudgets } = await import("./connectionBudget.js");
-const { credentialCheck } = await import("./credentialRoutes.js");
+const { credentialCheck, ownPasswordChange } = await import("./credentialRoutes.js");
 const { configForActor } = await import("./personalCredentials.js");
 const { getConnectionById } = await import("./repository.js");
 
@@ -41,7 +41,7 @@ async function makeUser(app: App, isAdmin: 0 | 1 = 0) {
     headers: headers(),
     payload: { email, password },
   });
-  return { id, email, cookie: `athanordb_sid=${res.cookies.find((c) => c.name === "athanordb_sid")!.value}` };
+  return { id, email, cookie: `nebuladb_sid=${res.cookies.find((c) => c.name === "nebuladb_sid")!.value}` };
 }
 
 function call(app: App, cookie: string, method: "GET" | "POST" | "PUT" | "DELETE", url: string, payload?: unknown) {
@@ -60,7 +60,7 @@ const UNREACHABLE = {
   host: "127.0.0.1",
   port: 1,
   database: "shop",
-  user: "athanor_service",
+  user: "nebula_service",
   password: "service-password",
 };
 
@@ -298,7 +298,7 @@ test("personal accounts: a person connects as themselves or not at all; unattend
     assert.equal(currentActorId(), null, "a request's actor does not outlive the request");
     assert.deepEqual(
       [configForActor(stored).user, configForActor(stored).password],
-      ["athanor_service", "service-password"],
+      ["nebula_service", "service-password"],
     );
     // A shared connection is everybody's, as before.
     const shared = { ...stored, authMode: "shared" as const };
@@ -307,7 +307,7 @@ test("personal accounts: a person connects as themselves or not at all; unattend
         setActor(admin.id);
         return configForActor(shared);
       }).user,
-      "athanor_service",
+      "nebula_service",
     );
 
     // The accounts go with the user, and with the connection.
@@ -361,6 +361,112 @@ test("personal accounts: one list of the caller's own, limited to the connection
     assert.equal((await call(app, admin.cookie, "GET", "/api/me/sql-accounts")).json().accounts[0].username, null);
   } finally {
     verify.mock.restore();
+    closeAllRooms();
+    await app.close();
+  }
+});
+
+test("personal accounts: an account an administrator associated is found in one's settings, and its password changed there", async () => {
+  const app = await buildApp();
+  const verify = mock.method(credentialCheck, "verify", async () => {});
+  const changes: { password: string; currentPassword: string }[] = [];
+  const apply = mock.method(
+    ownPasswordChange,
+    "apply",
+    async (_connection: DatabaseConnectionConfig, password: string, currentPassword: string) => {
+      changes.push({ password, currentPassword });
+    },
+  );
+  try {
+    resetConnectionBudgets();
+    const admin = await makeUser(app, 1);
+    const owner = await makeUser(app);
+    const member = await makeUser(app);
+    const { connectionId } = await personalConnection(app, admin.cookie, owner.cookie);
+    const assignUrl = `/api/admin/users/${member.id}/connections/${connectionId}/credentials`;
+    const passwordUrl = `/api/connections/${connectionId}/credentials/password`;
+    const account = { username: "ath_member", password: "set-by-the-administrator" };
+
+    // Someone with no access to the database is given no account on it, and only an administrator associates one.
+    assert.equal((await call(app, admin.cookie, "PUT", assignUrl, account)).statusCode, 403);
+    assert.equal((await call(app, owner.cookie, "PUT", assignUrl, account)).statusCode, 403);
+    const granted = await call(app, admin.cookie, "PUT", `/api/admin/users/${member.id}/db-access`, {
+      grants: [{ connectionId, level: "read" }],
+    });
+    assert.equal(granted.statusCode, 200, granted.body);
+
+    // No account yet: nothing whose password could be changed.
+    const none = await call(app, member.cookie, "PUT", passwordUrl, { password: "anything" });
+    assert.equal(none.json().code, "PERSONAL_CREDENTIALS_REQUIRED");
+
+    // An account the database refuses is said so, not answered with a 500.
+    verify.mock.mockImplementationOnce(async () => {
+      throw new Error("password authentication failed");
+    });
+    assert.equal(
+      (await call(app, admin.cookie, "PUT", assignUrl, account)).json().code,
+      "PERSONAL_CREDENTIALS_REJECTED",
+    );
+
+    const assigned = await call(app, admin.cookie, "PUT", assignUrl, account);
+    assert.equal(assigned.statusCode, 200, assigned.body);
+    assert.equal(assigned.json().username, "ath_member");
+
+    // The member finds it in their settings — its name, never its password.
+    const mine = await call(app, member.cookie, "GET", "/api/me/sql-accounts");
+    assert.deepEqual(
+      (mine.json().accounts as { connectionId: string; username: string }[]).map((a) => [a.connectionId, a.username]),
+      [[connectionId, "ath_member"]],
+    );
+    assert.equal(mine.body.includes(account.password), false);
+
+    for (const body of [{}, { password: "" }, { password: "a\nb" }]) {
+      const bad = await call(app, member.cookie, "PUT", passwordUrl, body);
+      assert.equal(bad.json().code, "PERSONAL_CREDENTIALS_INVALID", JSON.stringify(body));
+    }
+    assert.equal(apply.mock.callCount(), 0);
+
+    // The database refuses: the password Nebula keeps is still the one that works.
+    apply.mock.mockImplementationOnce(async () => {
+      throw new Error("password does not meet the policy");
+    });
+    const refused = await call(app, member.cookie, "PUT", passwordUrl, { password: "weak" });
+    assert.equal(refused.statusCode, 400, refused.body);
+    assert.equal(refused.json().code, "PERSONAL_PASSWORD_REJECTED");
+    assert.equal(refused.json().reason, "password does not meet the policy");
+
+    // Changed as the account itself, with the password it had; the next change starts from the new one.
+    const changed = await call(app, member.cookie, "PUT", passwordUrl, { password: "chosen-by-the-member" });
+    assert.equal(changed.statusCode, 200, changed.body);
+    assert.equal(changed.json().username, "ath_member");
+    assert.equal(changed.body.includes("chosen-by-the-member"), false);
+    assert.equal((await call(app, member.cookie, "PUT", passwordUrl, { password: "second" })).statusCode, 200);
+    assert.deepEqual(changes, [
+      { password: "chosen-by-the-member", currentPassword: "set-by-the-administrator" },
+      { password: "second", currentPassword: "chosen-by-the-member" },
+    ]);
+    const audited = db
+      .prepare("SELECT actor_id, detail FROM audit_log WHERE action = 'dbconn.credentials.password'")
+      .all();
+    assert.deepEqual(audited, [
+      { actor_id: member.id, detail: "Shop: ath_member" },
+      { actor_id: member.id, detail: "Shop: ath_member" },
+    ]);
+
+    // Someone else's account is out of reach: the route only ever knows the caller's own.
+    assert.equal(
+      (await call(app, owner.cookie, "PUT", passwordUrl, { password: "x" })).json().code,
+      "PERSONAL_CREDENTIALS_REQUIRED",
+    );
+
+    // A read-only connection is written to by nobody, passwords included.
+    await call(app, admin.cookie, "PUT", `/api/admin/connections/${connectionId}`, { readOnly: true });
+    assert.equal(
+      (await call(app, member.cookie, "PUT", passwordUrl, { password: "third" })).json().code,
+      "CONNECTION_READ_ONLY",
+    );
+  } finally {
+    mock.restoreAll();
     closeAllRooms();
     await app.close();
   }

@@ -5,7 +5,7 @@ import {
   type DatabaseConnectionConfig,
   type SeedFromDatabase,
   type Table,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { ApiError } from "../../shared/errors.js";
 import { backupPageSql } from "../backups/format.js";
 import { createDatabaseDriver } from "../connections/drivers/index.js";

@@ -1,5 +1,5 @@
-import { lintProject, summarizeLint, type LintSettings } from "@athanordb/dbml-engine";
-import type { Project } from "@athanordb/shared";
+import { lintProject, summarizeLint, type LintSettings } from "@nebuladb/dbml-engine";
+import type { Project } from "@nebuladb/shared";
 import { readProjectReadOnly } from "../../realtime/readOnlyProject.js";
 import { ApiError } from "../../shared/errors.js";
 import { resolveProjectLint } from "./repository.js";

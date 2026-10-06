@@ -11,7 +11,7 @@
     type Ref,
     type Table,
     type TableGeneratorConfig,
-  } from "@athanordb/shared";
+  } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { DownloadIcon, RestoreIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";

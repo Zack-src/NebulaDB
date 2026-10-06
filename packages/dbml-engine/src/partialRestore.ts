@@ -1,4 +1,4 @@
-import type { Project, Ref } from "@athanordb/shared";
+import type { Project, Ref } from "@nebuladb/shared";
 
 // Pure Project → Project, no `@dbml/core` import: safe client-side, like diff.ts.
 

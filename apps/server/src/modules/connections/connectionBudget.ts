@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import type { DatabaseConnectionConfig } from "@athanordb/shared";
+import type { DatabaseConnectionConfig } from "@nebuladb/shared";
 import { ApiError } from "../../shared/errors.js";
 
 /**

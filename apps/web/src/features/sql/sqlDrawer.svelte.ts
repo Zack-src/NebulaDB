@@ -1,9 +1,9 @@
-import type { DatabaseConnectionSummary, Table } from "@athanordb/shared";
+import type { DatabaseConnectionSummary, Table } from "@nebuladb/shared";
 import { previewRowsStatement } from "@/features/sql/previewStatement";
 import { readBoolean, readNumberInRange, writeBoolean, writeString } from "@/utils/storage";
 
-const OPEN_KEY = "athanordb.sqlDrawer.open";
-const HEIGHT_KEY = "athanordb.sqlDrawer.height";
+const OPEN_KEY = "nebuladb.sqlDrawer.open";
+const WIDTH_KEY = "nebuladb.sqlDrawer.width";
 
 interface SqlDrawerInput {
   /** The workspace's current connection. */
@@ -15,16 +15,16 @@ interface SqlDrawerInput {
 }
 
 /**
- * The SQL drawer under the diagram: the console's SQL panel, within reach of
+ * The SQL drawer beside the diagram: the console's SQL panel, within reach of
  * the schema. Offered to exactly those the console is offered to; open /
- * closed and height are remembered per browser.
+ * closed and width are remembered per browser.
  */
 export class SqlDrawerState {
-  static readonly MIN_HEIGHT = 140;
-  static readonly MAX_HEIGHT = 640;
+  static readonly MIN_WIDTH = 300;
+  static readonly MAX_WIDTH = 960;
 
   open = $state(readBoolean(OPEN_KEY, false));
-  height = $state(readNumberInRange(HEIGHT_KEY, SqlDrawerState.MIN_HEIGHT, SqlDrawerState.MAX_HEIGHT, 300));
+  width = $state(readNumberInRange(WIDTH_KEY, SqlDrawerState.MIN_WIDTH, SqlDrawerState.MAX_WIDTH, 460));
   /** A statement to run as soon as the drawer shows; `token` tells two identical requests apart. */
   request = $state.raw<{ sql: string; token: number } | null>(null);
 
@@ -54,7 +54,7 @@ export class SqlDrawerState {
     writeBoolean(OPEN_KEY, open);
   };
 
-  rememberHeight = (height: number): void => writeString(HEIGHT_KEY, String(height));
+  rememberWidth = (width: number): void => writeString(WIDTH_KEY, String(width));
 
   /** Opens the drawer on the first rows of a table. Stable identity: it is part of what the table node cache compares. */
   viewTableData = (table: Table): void => {

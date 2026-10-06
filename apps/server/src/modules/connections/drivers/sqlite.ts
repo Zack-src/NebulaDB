@@ -1,8 +1,8 @@
 import fs from "node:fs";
-import { q } from "@athanordb/dbml-engine";
+import { q } from "@nebuladb/dbml-engine";
 import path from "node:path";
 import Database from "better-sqlite3";
-import type { DatabaseConnectionConfig, Project, Ref, Table, TableIndex } from "@athanordb/shared";
+import type { DatabaseConnectionConfig, Project, Ref, Table, TableIndex } from "@nebuladb/shared";
 import { config as appConfig } from "../../../config.js";
 import { ApiError } from "../../../shared/errors.js";
 import type { DatabaseDriver, MigrationExecutionResult, RowValue, TestConnectionResult } from "./interface.js";
@@ -22,13 +22,13 @@ function realPath(target: string): string {
 }
 
 /**
- * Refuses to open AthanorDB's own database file as a "live" SQLite target.
+ * Refuses to open NebulaDB's own database file as a "live" SQLite target.
  *
  * Every other engine's SSRF surface (see `hostGuard.ts`) is bounded by *who*
  * can reach this feature — but for SQLite the equivalent risk isn't a
  * network host, it's the local filesystem: a project administrator (the
  * permission level every connections route already requires) pointing this
- * at the app's own `athanordb.sqlite` would read and, via `apply-deployment`,
+ * at the app's own `nebuladb.sqlite` would read and, via `apply-deployment`,
  * write arbitrary SQL against the table holding every password hash, session
  * token and audit entry the app has. That's a strictly worse outcome than
  * anything a misconfigured *live* database connection could cause, so it's
@@ -36,7 +36,7 @@ function realPath(target: string): string {
  *
  * On its own this is deliberately narrow: nothing stops opening some *other*
  * file the process can write to unless the operator sets
- * `ATHANORDB_SQLITE_DIR`, which turns it into a real path allowlist.
+ * `NEBULADB_SQLITE_DIR`, which turns it into a real path allowlist.
  */
 export function assertSqlitePathAllowed(requestedPath: string): void {
   if (requestedPath === ":memory:") return;
@@ -44,18 +44,18 @@ export function assertSqlitePathAllowed(requestedPath: string): void {
   const resolvedApp = realPath(appConfig.dbPath);
   if (resolvedRequested === resolvedApp) {
     throw new ApiError("CONNECTION_TARGET_FORBIDDEN", {
-      message: "refusing to open AthanorDB's own database file as a live connection target",
+      message: "refusing to open NebulaDB's own database file as a live connection target",
     });
   }
   // The full allowlist the narrow check above never was: opt-in through
-  // `ATHANORDB_SQLITE_DIR`, because an existing install's connections may
+  // `NEBULADB_SQLITE_DIR`, because an existing install's connections may
   // legitimately point anywhere on disk and must keep working after an upgrade.
   if (appConfig.sqliteAllowedDir) {
     const allowed = realPath(appConfig.sqliteAllowedDir);
     const relative = path.relative(allowed, resolvedRequested);
     if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
       throw new ApiError("CONNECTION_TARGET_FORBIDDEN", {
-        message: "SQLite connections are restricted to the directory configured in ATHANORDB_SQLITE_DIR",
+        message: "SQLite connections are restricted to the directory configured in NEBULADB_SQLITE_DIR",
       });
     }
   }

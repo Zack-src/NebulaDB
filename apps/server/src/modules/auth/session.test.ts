@@ -10,8 +10,8 @@ import type { FastifyReply, FastifyRequest } from "fastify";
 // that transitively imports it — a static `import` at the top of this file
 // would already have run by then. A fresh temp path per test run also means
 // this suite never touches the real dev/prod database.
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
 
 const { db } = await import("../../infrastructure/db.js");
 const {
@@ -68,6 +68,21 @@ function mockReply() {
   return { reply, cookiesSet, cookieOptionsUsed, cookiesCleared, getStatus: () => statusCode, getBody: () => body };
 }
 
+test("historical cookies renew under the new name and are revoked on logout", () => {
+  const userId = insertUser();
+  const login = mockReply();
+  createSession(userId, login.reply as unknown as FastifyReply);
+  const id = login.cookiesSet[0].value;
+  const req = mockRequest({ athanordb_sid: id });
+  const renewed = mockReply();
+  assert.equal(resolveSession(req, renewed.reply as unknown as FastifyReply)?.id, userId);
+  assert.equal(renewed.cookiesSet[0].name, "nebuladb_sid");
+  assert.deepEqual(renewed.cookiesCleared, ["athanordb_sid"]);
+  const logout = mockReply();
+  destroySession(req, logout.reply as unknown as FastifyReply);
+  assert.equal(resolveSession(mockRequest({ nebuladb_sid: id }), mockReply().reply as unknown as FastifyReply), null);
+});
+
 function mockRequest(cookies: Record<string, string> = {}, user: unknown = undefined) {
   return { cookies, user } as unknown as FastifyRequest;
 }
@@ -106,12 +121,12 @@ test("resolveSession falls back to the email's local part when display name is u
 test("resolveSession returns null with no cookie, an unknown session id, or a garbage one", () => {
   assert.equal(resolveSession(mockRequest(), mockReply().reply as unknown as FastifyReply), null);
   assert.equal(
-    resolveSession(mockRequest({ athanordb_sid: randomUUID() }), mockReply().reply as unknown as FastifyReply),
+    resolveSession(mockRequest({ nebuladb_sid: randomUUID() }), mockReply().reply as unknown as FastifyReply),
     null,
     "well-formed but never-issued session id",
   );
   assert.equal(
-    resolveSession(mockRequest({ athanordb_sid: "not-a-uuid-at-all" }), mockReply().reply as unknown as FastifyReply),
+    resolveSession(mockRequest({ nebuladb_sid: "not-a-uuid-at-all" }), mockReply().reply as unknown as FastifyReply),
     null,
   );
 });
@@ -163,7 +178,7 @@ test("destroySession deletes the row and clears the cookie — resolveSession th
 
   const { reply: destroyReply, cookiesCleared } = mockReply();
   destroySession(mockRequest({ [name]: value }), destroyReply as unknown as FastifyReply);
-  assert.deepEqual(cookiesCleared, [name]);
+  assert.deepEqual(cookiesCleared, [name, "athanordb_sid"]);
 
   const resolved = resolveSession(mockRequest({ [name]: value }), mockReply().reply as unknown as FastifyReply);
   assert.equal(resolved, null);
@@ -174,7 +189,7 @@ test("destroySession with no cookie is a harmless no-op", () => {
   destroySession(mockRequest(), reply as unknown as FastifyReply);
   assert.deepEqual(
     cookiesCleared,
-    ["athanordb_sid"],
+    ["nebuladb_sid", "athanordb_sid"],
     "still clears the cookie client-side even if there was nothing to delete server-side",
   );
 });

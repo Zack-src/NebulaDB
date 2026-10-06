@@ -9,7 +9,7 @@ import { checkPassword, hashPassword } from "./modules/auth/password.js";
  * account already existing.
  *
  * Usage: `npm run bootstrap-admin -w apps/server -- <email> <password>`.
- * Respects `ATHANORDB_DB_PATH` the same as the server itself.
+ * Respects `NEBULADB_DB_PATH` the same as the server itself.
  */
 async function main(): Promise<void> {
   const [, , emailArg, passwordArg] = process.argv;

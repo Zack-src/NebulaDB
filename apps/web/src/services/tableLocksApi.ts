@@ -1,4 +1,4 @@
-import type { TableLock, TableLockAuthority, TableLockLevel, TableLocksResponse } from "@athanordb/shared";
+import type { TableLock, TableLockAuthority, TableLockLevel, TableLocksResponse } from "@nebuladb/shared";
 import { request } from "./httpClient";
 
 const base = (projectId: string) => `/api/projects/${projectId}/locks`;

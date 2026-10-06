@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import type { AcceptedRisk, DatabaseEngine, DeploymentHistoryEntry, SeedResult } from "@athanordb/shared";
+import type { AcceptedRisk, DatabaseEngine, DeploymentHistoryEntry, SeedResult } from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 
 /** A stored JSON column (`accepted_risks`, `seed_report`); anything unreadable reads as none rather than failing the history. */

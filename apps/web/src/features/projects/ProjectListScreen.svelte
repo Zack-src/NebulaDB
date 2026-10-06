@@ -5,13 +5,13 @@
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import { APP_SHELL } from "@/components/ui/layout";
   import type { CreateProjectResult } from "@/features/projects/projects.svelte";
-  import type { ProjectTemplateId } from "@athanordb/dbml-engine";
   import type { SearchHit } from "@/services/searchApi";
   import type { CreateProjectFromDatabaseResponse } from "@/services/connectionsApi";
   import type { ProjectStatus, ProjectSummary, Session } from "@/types/index";
 
   let props: {
     session: Session;
+    embedded?: boolean;
     projects: ProjectSummary[];
     /** False until the first project fetch settles — the list shows placeholders rather than an empty state. */
     projectsLoaded: boolean;
@@ -22,7 +22,7 @@
     /** Opens a project known only by its id — where a notification leads. */
     onOpenProjectById?: (projectId: string) => void;
     onLogout: () => void;
-    onCreateProject: (name: string, template?: ProjectTemplateId) => Promise<CreateProjectResult>;
+    onCreateProject: (name: string) => Promise<CreateProjectResult>;
     onOpenSearchHit: (hit: SearchHit) => void;
     onRenameProject: (p: ProjectSummary, name: string) => Promise<void>;
     onSetProjectStatus: (p: ProjectSummary, status: ProjectStatus) => Promise<void>;
@@ -32,17 +32,19 @@
   } = $props();
 </script>
 
-<div class={APP_SHELL}>
-  <Navbar
-    session={props.session}
-    onOpenSettings={props.onOpenSettings}
-    onOpenAdmin={props.onOpenAdmin}
-    onLogout={props.onLogout}
-  >
-    {#snippet actions()}
-      <NotificationBell onOpenProject={props.onOpenProjectById} />
-    {/snippet}
-  </Navbar>
+<div class={props.embedded ? "flex min-h-0 min-w-0 flex-1 flex-col bg-bg" : APP_SHELL}>
+  {#if !props.embedded}
+    <Navbar
+      session={props.session}
+      onOpenSettings={props.onOpenSettings}
+      onOpenAdmin={props.onOpenAdmin}
+      onLogout={props.onLogout}
+    >
+      {#snippet actions()}
+        <NotificationBell onOpenProject={props.onOpenProjectById} />
+      {/snippet}
+    </Navbar>
+  {/if}
 
   {#if props.openLinkError}
     <div class="p-4">

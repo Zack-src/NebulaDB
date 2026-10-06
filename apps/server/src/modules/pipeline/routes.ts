@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { readProjectFromDoc } from "@athanordb/shared";
+import { readProjectFromDoc } from "@nebuladb/shared";
 import { getRoom } from "../../realtime/roomRegistry.js";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";

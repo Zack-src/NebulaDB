@@ -6,18 +6,18 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-risks-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-risks-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
 const { hashPassword } = await import("../auth/password.js");
 const { closeAllRooms, getRoom } = await import("../../realtime/roomRegistry.js");
-const { writeProjectToDoc } = await import("@athanordb/shared");
-type Table = import("@athanordb/shared").Table;
-type SchemaRisk = import("@athanordb/shared").SchemaRisk;
+const { writeProjectToDoc } = await import("@nebuladb/shared");
+type Table = import("@nebuladb/shared").Table;
+type SchemaRisk = import("@nebuladb/shared").SchemaRisk;
 
 const HOST = "localhost:3001";
 const ORIGIN = `http://${HOST}`;
@@ -41,7 +41,7 @@ async function adminCookie(app: App) {
     headers: headers(),
     payload: { email, password },
   });
-  return `athanordb_sid=${res.cookies.find((c) => c.name === "athanordb_sid")!.value}`;
+  return `nebuladb_sid=${res.cookies.find((c) => c.name === "nebuladb_sid")!.value}`;
 }
 
 function call(app: App, cookie: string, method: "GET" | "POST", url: string, payload?: unknown) {
@@ -55,7 +55,7 @@ function call(app: App, cookie: string, method: "GET" | "POST", url: string, pay
 
 /** A target database: `users` holds a duplicated email and a nickname nobody is going to keep. */
 function seedTarget(): string {
-  const file = join(mkdtempSync(join(tmpdir(), "athanordb-risks-")), "target.sqlite");
+  const file = join(mkdtempSync(join(tmpdir(), "nebuladb-risks-")), "target.sqlite");
   const target = new Database(file);
   target.exec(`
     CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT, nickname TEXT);

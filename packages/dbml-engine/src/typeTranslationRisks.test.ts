@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { diffTargetAgainstLive } from "./migrationDiff.js";
 import { detectTypeTranslationRisks } from "./typeTranslationRisks.js";
-import type { Project } from "@athanordb/shared";
+import type { Project } from "@nebuladb/shared";
 
 function makeProject(tables: { name: string; fields: { name: string; type: string; pk?: boolean }[] }[]): Project {
   return {

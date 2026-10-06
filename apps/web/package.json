@@ -1,6 +1,6 @@
 {
-  "name": "@athanordb/web",
-  "version": "0.0.1",
+  "name": "@nebuladb/web",
+  "version": "1.0.0",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -14,8 +14,8 @@
     "check": "svelte-check --tsconfig ./tsconfig.json"
   },
   "dependencies": {
-    "@athanordb/dbml-engine": "*",
-    "@athanordb/shared": "*",
+    "@nebuladb/dbml-engine": "*",
+    "@nebuladb/shared": "*",
     "@codemirror/autocomplete": "^6.20.3",
     "@codemirror/commands": "^6.10.4",
     "@codemirror/language": "^6.12.4",
@@ -23,7 +23,6 @@
     "@codemirror/search": "^6.7.1",
     "@codemirror/state": "^6.7.1",
     "@codemirror/view": "^6.43.8",
-    "@dagrejs/dagre": "^3.1.1",
     "@xyflow/svelte": "^1.6.6",
     "html-to-image": "^1.11.13",
     "jspdf": "^4.2.1",

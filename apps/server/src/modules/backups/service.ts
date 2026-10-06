@@ -1,10 +1,10 @@
 import type { Readable } from "node:stream";
 import type { FastifyRequest } from "fastify";
-import type { BackupList, BackupSummary, DatabaseConnectionConfig } from "@athanordb/shared";
+import type { BackupList, BackupSummary, DatabaseConnectionConfig } from "@nebuladb/shared";
 import { config } from "../../config.js";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
-import { getConnectionById } from "../connections/repository.js";
+import { connectionOwner, getConnectionById } from "../connections/repository.js";
 import { deleteBackup, getBackup, getBackupKey, listBackups, usedBytes } from "./repository.js";
 import { cancelBackup, startBackup } from "./runner.js";
 import { getBackupSchedule } from "./schedule.js";
@@ -23,7 +23,7 @@ const MAX_NOTE = 500;
 
 export function requireConnection(id: string): DatabaseConnectionConfig {
   const connection = getConnectionById(id);
-  if (!connection) throw new ApiError("CONNECTION_NOT_FOUND");
+  if (!connection || connectionOwner(id)) throw new ApiError("CONNECTION_NOT_FOUND");
   return connection;
 }
 

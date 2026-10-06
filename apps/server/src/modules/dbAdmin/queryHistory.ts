@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import type { DbAdminQueryHistoryEntry } from "@athanordb/shared";
+import type { DbAdminQueryHistoryEntry } from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { recordQueryStat } from "./queryStats.js";
 
@@ -81,4 +81,10 @@ export function listQueryHistory(connectionId: string, userId: string, limit = 5
     error: r.error,
     createdAt: r.created_at,
   }));
+}
+
+/** Clear only the caller’s recall history; query statistics and audit records remain. */
+export function clearQueryHistory(connectionId: string, userId: string): number {
+  return db.prepare("DELETE FROM admin_query_history WHERE connection_id = ? AND user_id = ?").run(connectionId, userId)
+    .changes;
 }

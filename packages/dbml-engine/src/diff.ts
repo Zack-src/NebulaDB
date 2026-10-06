@@ -1,4 +1,4 @@
-import type { Field, Project, Ref } from "@athanordb/shared";
+import type { Field, Project, Ref } from "@nebuladb/shared";
 
 // Deliberately its own module with zero `@dbml/core` import — unlike dbml.ts
 // (which instantiates a Parser at module scope, dragging that whole parser

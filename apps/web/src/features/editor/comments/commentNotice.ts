@@ -1,4 +1,4 @@
-import { extractMentionedUserIds, type Comment, type Table } from "@athanordb/shared";
+import { extractMentionedUserIds, type Comment, type Table } from "@nebuladb/shared";
 
 export interface MentionableUser {
   id: string;

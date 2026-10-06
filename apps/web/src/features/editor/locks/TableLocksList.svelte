@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { TableLock } from "@athanordb/shared";
+  import type { TableLock } from "@nebuladb/shared";
   import Modal from "@/components/overlays/Modal.svelte";
   import Badge from "@/components/ui/Badge.svelte";
   import Button from "@/components/ui/Button.svelte";

@@ -10,7 +10,7 @@ import type {
   Table,
   VisualStyle,
   Zone,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { formatDbml } from "./format.js";
 
 // Own module with zero `@dbml/core` import, same reasoning as diff.ts/validate.ts:
@@ -146,7 +146,7 @@ function legacyRefSignatures(tables: Table[], ref: Ref): string[] {
  * clean; always attempted on import, since a pasted-in file either has it or
  * it's a harmless no-op.
  */
-const VISUAL_METADATA_MARKER = "// athanordb:visual ";
+const VISUAL_METADATA_MARKER = "// nebuladb:visual ";
 
 export interface VisualMetadataV1 {
   tables?: Record<string, { position?: Position; size?: Size; style?: VisualStyle; detailLevel?: DetailLevel }>;
@@ -220,7 +220,7 @@ export function applyVisualMetadata(project: Project, source: string): Project {
 }
 
 /**
- * Convert AthanorDB's internal `Project` shape into DBML source text.
+ * Convert NebulaDB's internal `Project` shape into DBML source text.
  * Round-trips table/field/index/ref/enum structure natively; pass
  * `includeVisualMetadata` to also append the sidecar comment (see above) so
  * position/color/detail-level/zones/sticky notes survive a save-to-file and

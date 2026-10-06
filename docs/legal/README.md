@@ -8,7 +8,7 @@
 
 ## Pourquoi ces documents vous concernent, vous
 
-AthanorDB est **auto-hébergé**. Le projet AthanorDB ne fait tourner aucun
+NebulaDB est **auto-hébergé**. Le projet NebulaDB ne fait tourner aucun
 service, ne reçoit aucune donnée et n'a aucune relation avec vos utilisateurs.
 Si vous déployez une instance et que d'autres personnes s'en servent :
 
@@ -38,8 +38,8 @@ Cherchez `[` dans les deux fichiers. Au minimum :
 - `[DATE]` — date d'entrée en vigueur
 
 Vérifiez aussi les valeurs de conservation : elles décrivent la configuration
-**par défaut** du logiciel. Si vous modifiez `ATHANORDB_AUDIT_RETENTION_DAYS`,
-`ATHANORDB_BACKUP_KEEP` ou `ATHANORDB_BACKUP_INTERVAL_HOURS`, la politique de
+**par défaut** du logiciel. Si vous modifiez `NEBULADB_AUDIT_RETENTION_DAYS`,
+`NEBULADB_BACKUP_KEEP` ou `NEBULADB_BACKUP_INTERVAL_HOURS`, la politique de
 confidentialité doit suivre — un document qui annonce une durée que le serveur
 n'applique pas est pire que pas de document du tout.
 

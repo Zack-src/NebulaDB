@@ -9,8 +9,8 @@ import * as decoding from "lib0/decoding.js";
 import * as syncProtocol from "y-protocols/sync.js";
 import type { WebSocket } from "ws";
 
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-room-test-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-room-test-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
 
 const { db } = await import("../infrastructure/db.js");
 const { Room } = await import("./room.js");
@@ -180,7 +180,7 @@ test("an evicted room releases its Awareness timer", () => {
 });
 
 test("loading a project saved with an inverted ref repairs it once, persistently, under its own author", async (t) => {
-  const { writeProjectToDoc, getRefsMap } = await import("@athanordb/shared");
+  const { writeProjectToDoc, getRefsMap } = await import("@nebuladb/shared");
   const { saveSnapshot, listRevisions } = await import("./persistence.js");
 
   // A project as an older version stored an inline `posts.author_id [ref: > users.id]`:
@@ -232,7 +232,7 @@ test("loading a project saved with an inverted ref repairs it once, persistently
   assert.deepEqual(repaired.from, { tableId: "t-posts", fieldId: "f-posts-author" });
   assert.deepEqual(repaired.to, { tableId: "t-users", fieldId: "f-users-id" });
   assert.ok(
-    listRevisions(projectId).some((rev) => rev.author === "AthanorDB (sens des relations corrigé)"),
+    listRevisions(projectId).some((rev) => rev.author === "NebulaDB (sens des relations corrigé)"),
     "the repair is a recorded revision, not a silent in-memory change",
   );
 

@@ -18,8 +18,8 @@ import type {
   ResolvedContribution,
 } from "@/features/plugins/types";
 
-const STORAGE_KEY = "athanordb_plugins";
-const SETTINGS_KEY = "athanordb_plugin_settings";
+const STORAGE_KEY = "nebuladb_plugins";
+const SETTINGS_KEY = "nebuladb_plugin_settings";
 const MAX_PLUGIN_CODE_LENGTH = 512 * 1024;
 
 interface StoredPlugin {

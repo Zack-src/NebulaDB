@@ -5,10 +5,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-tablelocks-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-tablelocks-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
@@ -36,7 +36,7 @@ async function makeUser(app: App, isAdmin: 0 | 1 = 0) {
     headers: headers(),
     payload: { email, password },
   });
-  const cookie = `athanordb_sid=${res.cookies.find((c) => c.name === "athanordb_sid")!.value}`;
+  const cookie = `nebuladb_sid=${res.cookies.find((c) => c.name === "nebuladb_sid")!.value}`;
   return { id, email, cookie };
 }
 
@@ -319,7 +319,7 @@ test("pull from a database: relations follow their tables, and a pull that alter
     const { id } = created.json() as { id: string };
     const base = `/api/projects/${id}`;
 
-    const file = join(tmpdir(), `athanordb-test-lockpull-${randomUUID()}.sqlite`);
+    const file = join(tmpdir(), `nebuladb-test-lockpull-${randomUUID()}.sqlite`);
     const target = new Database(file);
     target.exec(`
       CREATE TABLE users (id INTEGER PRIMARY KEY, email TEXT NOT NULL);

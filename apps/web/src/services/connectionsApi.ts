@@ -12,8 +12,8 @@ import type {
   SeedResult,
   MySqlAccount,
   PersonalCredentialStatus,
-} from "@athanordb/shared";
-import type { LintRuleKey, MigrationDiff, SchemaComparisonEntry } from "@athanordb/dbml-engine";
+} from "@nebuladb/shared";
+import type { LintRuleKey, MigrationDiff, SchemaComparisonEntry } from "@nebuladb/dbml-engine";
 import { request } from "./httpClient";
 
 export interface TestConnectionResponse {
@@ -87,6 +87,14 @@ export function savePersonalCredentials(
   return request<PersonalCredentialStatus>(`/api/connections/${connectionId}/credentials`, {
     method: "PUT",
     body: { username, password },
+  });
+}
+
+/** A new password for the account already held, set on the database itself — the old one need not be known. */
+export function changePersonalPassword(connectionId: string, password: string): Promise<PersonalCredentialStatus> {
+  return request<PersonalCredentialStatus>(`/api/connections/${connectionId}/credentials/password`, {
+    method: "PUT",
+    body: { password },
   });
 }
 

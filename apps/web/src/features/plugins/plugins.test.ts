@@ -1,6 +1,29 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import type { Project } from "@athanordb/shared";
+import { runInNewContext } from "node:vm";
+import { buildWorkerSource } from "./sandboxRuntime";
+import type { Project } from "@nebuladb/shared";
+
+describe("Plugin name migration", () => {
+  it("loads saved plugins using the historical API and new plugins using nebula", () => {
+    for (const name of ["athanor", "nebula"]) {
+      const messages: { type: string; manifest?: { id: string } }[] = [];
+      const context: Record<string, unknown> = {
+        console: {},
+        postMessage: (message: (typeof messages)[number]) => messages.push(message),
+      };
+      context.self = context;
+      runInNewContext(
+        buildWorkerSource(
+          `${name}.plugin({id: 'saved.plugin', name: 'Saved'}); ${name}.registerExporter({id: 'export', label: 'Export', extension: 'txt', run: function () { return 'ok'; }});`,
+        ),
+        context,
+      );
+      assert.equal(messages.at(-1)?.type, "ready");
+      assert.equal(messages.at(-1)?.manifest?.id, "saved.plugin");
+    }
+  });
+});
 import {
   generateSqlite,
   generateTypeScript,
@@ -178,9 +201,9 @@ describe("Built-in Plugins", () => {
   it("all built-in native plugins are defined with valid manifests and contributions", () => {
     assert.equal(BUILTIN_PLUGINS.length, 4);
     const ids = BUILTIN_PLUGINS.map((p) => p.manifest.id);
-    assert.ok(ids.includes("athanordb.core-export"));
-    assert.ok(ids.includes("athanordb.core-import"));
-    assert.ok(ids.includes("athanordb.core-canvas"));
-    assert.ok(ids.includes("athanordb.core-editor"));
+    assert.ok(ids.includes("nebuladb.core-export"));
+    assert.ok(ids.includes("nebuladb.core-import"));
+    assert.ok(ids.includes("nebuladb.core-canvas"));
+    assert.ok(ids.includes("nebuladb.core-editor"));
   });
 });

@@ -1,10 +1,10 @@
 import type * as Y from "yjs";
-import { writeProjectToDoc, type Project } from "@athanordb/shared";
+import { writeProjectToDoc, type Project } from "@nebuladb/shared";
 import { useTranslation } from "@/i18n/i18n.svelte";
 import { useFlashMessage } from "@/hooks/flashMessage.svelte";
 import { matchShortcut } from "@/features/plugins/shortcuts";
 import type { CanvasCommandContribution, CanvasCommandResult, ResolvedContribution } from "@/features/plugins/types";
-import { AUTO_LAYOUT_ID, GROUP_TABLES_ID } from "@/features/plugins/builtins/coreCanvas";
+import { GROUP_TABLES_ID } from "@/features/plugins/builtins/coreCanvas";
 
 /** How long a plugin command's status line stays on the canvas. */
 const PLUGIN_MESSAGE_MS = 4000;
@@ -12,8 +12,7 @@ const PLUGIN_MESSAGE_MS = 4000;
 /**
  * Everything to do with *running* a canvas command — whether triggered from
  * a toolbar button, the plugin menu, or a keyboard shortcut — bundled in one
- * place: the transient status line, the run itself, the two toolbar shortcuts
- * (auto-layout, group tables) that are really just commands under the hood,
+ * place: the transient status line, the run itself, the table-grouping shortcut that are really just commands under the hood,
  * and the global keyboard-shortcut binding for plugin-defined commands.
  *
  * Must be called during component initialisation (it binds the shortcuts).
@@ -49,10 +48,7 @@ export function useCanvasCommandRunner(options: {
     }
   };
 
-  // Auto-layout and table-grouping are the `athanordb.core-canvas` plugin's
-  // canvasCommands (see coreCanvas.ts) — these just run them through the same
-  // path every other canvas command uses. If the plugin providing one is
-  // disabled, its button quietly does nothing, same as any other command.
+  // Table grouping uses the same command path as other plugins.
   const runCanvasCommandById = (id: string) => {
     const command = options.canvasCommands().find((c) => c.contribution.id === id);
     if (command) void runCanvasCommand(command);
@@ -89,7 +85,6 @@ export function useCanvasCommandRunner(options: {
     },
     runCanvasCommand,
     runCanvasCommandById,
-    onAutoLayout: () => runCanvasCommandById(AUTO_LAYOUT_ID),
     onGroupTables: () => runCanvasCommandById(GROUP_TABLES_ID),
   };
 }

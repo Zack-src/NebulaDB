@@ -15,7 +15,7 @@ import type {
   DbPrincipalRef,
   DbPrivilegeCatalog,
   DbUserAction,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { ApiError } from "../../../shared/errors.js";
 import type { DriverConnectionConfig } from "../../connections/drivers/interface.js";
 import { postgresPoolConfig } from "../../connections/drivers/postgres.js";
@@ -231,8 +231,8 @@ export class PostgresAdminDriver implements DatabaseAdminDriver {
       // transaction. A cursor keeps a huge result from being buffered whole.
       let res: pg.QueryArrayResult;
       if (isRowReturningQuery(statement, "postgres")) {
-        await client.query(extended(`DECLARE athanor_cursor NO SCROLL CURSOR FOR ${statement}`));
-        res = await client.query({ text: `FETCH ${options.maxRows + 1} FROM athanor_cursor`, rowMode: "array" });
+        await client.query(extended(`DECLARE nebula_cursor NO SCROLL CURSOR FOR ${statement}`));
+        res = await client.query({ text: `FETCH ${options.maxRows + 1} FROM nebula_cursor`, rowMode: "array" });
       } else {
         res = await client.query(extended(statement));
       }
@@ -442,6 +442,15 @@ export class PostgresAdminDriver implements DatabaseAdminDriver {
 
   killSessionStatements(id: string): AdminStatement[] {
     return [plain(`SELECT pg_terminate_backend(${requireInteger(id, "session id")})`)];
+  }
+
+  ownPasswordStatements(password: string): AdminStatement[] {
+    return [
+      {
+        sql: `ALTER ROLE CURRENT_USER PASSWORD ${literal(requirePassword(password))}`,
+        display: `ALTER ROLE CURRENT_USER PASSWORD '${MASK}'`,
+      },
+    ];
   }
 
   async execute(statements: AdminStatement[], database?: string): Promise<void> {

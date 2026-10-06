@@ -5,7 +5,7 @@ import type {
   DbAdminStatementsResult,
   DbUserAction,
   StructuralAction,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireAdmin } from "../../shared/guards.js";
@@ -15,17 +15,20 @@ import { createDatabaseDriver } from "../connections/drivers/index.js";
 import { isValidEngine } from "../connections/engines.js";
 import {
   createGlobalConnection,
+  connectionOwner,
   deleteConnection,
+  checkConnectionProjects,
   getAdminConnection,
   getConnectionById,
   listAllConnections,
   setConnectionProjects,
   updateGlobalConnection,
+  type ConnectionProjectLink,
 } from "../connections/repository.js";
-import { optionalName, requireName } from "./drivers/common.js";
+import { optionalName, quoteBacktick, quoteBracket, quoteDouble, requireName } from "./drivers/common.js";
 import { createAdminDriver, type AdminStatement, type DatabaseAdminDriver, type DropKind } from "./drivers/index.js";
 import { checkConnectionHealth } from "./health.js";
-import { listQueryHistory, recordQuery } from "./queryHistory.js";
+import { clearQueryHistory, listQueryHistory, recordQuery } from "./queryHistory.js";
 import { requireDbConsoleUser, type DbConsoleUser } from "../dbAccess/service.js";
 import { isConnectionAccount } from "./connectionAccount.js";
 import { assertDataStatement, assertReadOnlyStatement, findStructuralStatements } from "./sqlGuard.js";
@@ -61,7 +64,7 @@ function clamp(value: unknown, fallback: number, max: number): number {
 
 function loadConnection(id: string): DatabaseConnectionConfig {
   const connection = getConnectionById(id);
-  if (!connection) throw new ApiError("CONNECTION_NOT_FOUND");
+  if (!connection || connectionOwner(id)) throw new ApiError("CONNECTION_NOT_FOUND");
   return connection;
 }
 
@@ -119,6 +122,53 @@ function parseConnectionBody(body: Record<string, unknown>, partial: boolean): P
   return config as Partial<DatabaseConnectionConfig>;
 }
 
+/** The projects to attach, each with its database — or the older `projectIds`, which leaves the databases as they are. */
+function parseProjectLinks(body: { projectIds?: unknown; links?: unknown }): ConnectionProjectLink[] {
+  if (Array.isArray(body.links)) {
+    return body.links.map((raw) => {
+      const link = (raw ?? {}) as { projectId?: unknown; database?: unknown };
+      const databaseOk = link.database === undefined || link.database === null || typeof link.database === "string";
+      if (typeof link.projectId !== "string" || !databaseOk) {
+        throw new ApiError("DB_ADMIN_INPUT_INVALID", { message: "links must be { projectId, database? } objects" });
+      }
+      return { projectId: link.projectId, database: link.database as string | null | undefined };
+    });
+  }
+  if (!Array.isArray(body.projectIds) || body.projectIds.some((p) => typeof p !== "string")) {
+    throw new ApiError("DB_ADMIN_INPUT_INVALID", { message: "projectIds must be an array of project ids" });
+  }
+  return (body.projectIds as string[]).map((projectId) => ({ projectId }));
+}
+
+/**
+ * Creates, on the connection's server, those of `names` that are not there
+ * yet, and says which. Empty and nothing else: no owner, no options — what a
+ * project needs to be deployed to, the rest being the administrator's to set
+ * in the console. Engines with no `CREATE DATABASE` of that shape are refused.
+ */
+async function createMissingDatabases(connectionId: string, names: string[]): Promise<string[]> {
+  const connection = loadConnection(connectionId);
+  assertWritable(connection);
+  const quote =
+    connection.engine === "postgres"
+      ? quoteDouble
+      : connection.engine === "mysql"
+        ? quoteBacktick
+        : connection.engine === "mssql"
+          ? quoteBracket
+          : null;
+  if (!quote) throw new ApiError("DB_ADMIN_UNSUPPORTED", { message: "creating a database is not supported here" });
+  return withDriver(connection, "adminWrite", async (driver) => {
+    const existing = new Set((await driver.listDatabases()).map((d) => d.name.toLowerCase()));
+    const missing = names.filter((name) => !existing.has(name.toLowerCase()));
+    for (const name of missing) {
+      const sql = `CREATE DATABASE ${quote(name)}`;
+      await driver.execute([{ sql, display: sql }]);
+    }
+    return missing;
+  });
+}
+
 function describeRef(ref: DbAdminObjectRef): string {
   return [ref.database, ref.schema, ref.table, ref.column].filter(Boolean).join(".");
 }
@@ -141,6 +191,13 @@ async function previewOrExecute(
  * administering any one project.
  */
 export function registerDbAdminRoutes(app: FastifyInstance): void {
+  // A private database is never an administrative connection, including on
+  // monitoring routes registered by other modules. Its actions stay in audit.
+  app.addHook("preHandler", async (req) => {
+    if (!req.routeOptions.url?.startsWith("/api/admin/connections/:id")) return;
+    const { id } = req.params as { id: string };
+    if (connectionOwner(id)) throw new ApiError("CONNECTION_NOT_FOUND");
+  });
   // ---- Connections ---------------------------------------------------------
 
   app.get("/api/admin/connections", READ_LIMIT, async (req) => {
@@ -212,15 +269,36 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
   app.put("/api/admin/connections/:id/projects", WRITE_LIMIT, async (req) => {
     const user = requireAdmin(req);
     const { id } = req.params as { id: string };
-    const { projectIds } = (req.body ?? {}) as { projectIds?: unknown };
-    if (!Array.isArray(projectIds) || projectIds.some((p) => typeof p !== "string")) {
-      throw new ApiError("DB_ADMIN_INPUT_INVALID", { message: "projectIds must be an array of project ids" });
-    }
-    if (!getAdminConnection(id)) throw new ApiError("CONNECTION_NOT_FOUND");
-    setConnectionProjects(id, projectIds as string[]);
+    const body = (req.body ?? {}) as { projectIds?: unknown; links?: unknown; createDatabases?: unknown };
+    const links = parseProjectLinks(body);
+    const before = getAdminConnection(id);
+    if (!before) throw new ApiError("CONNECTION_NOT_FOUND");
+
+    // The databases the links newly name, made before the links are saved: a
+    // project attached to a database that could not be created would only
+    // find out at its first deployment.
+    const known = new Set(before.projects.map((p) => `${p.id}\n${p.database ?? ""}`));
+    const fresh = [
+      ...new Set(
+        links.flatMap((link) =>
+          link.database && !known.has(`${link.projectId}\n${link.database}`) ? [link.database] : [],
+        ),
+      ),
+    ];
+    // Checked first, so that nothing is created on the server for links that will be refused.
+    checkConnectionProjects(id, links);
+    const created = body.createDatabases === true && fresh.length > 0 ? await createMissingDatabases(id, fresh) : [];
+    setConnectionProjects(id, links);
+
     const connection = getAdminConnection(id)!;
-    auditUser(user, "dbconn.link", { type: "connection", id }, `${connection.projects.length} project(s)`, req);
-    return { connection };
+    auditUser(
+      user,
+      "dbconn.link",
+      { type: "connection", id },
+      `${connection.projects.length} project(s)${created.length > 0 ? `; created ${created.join(", ")}` : ""}`,
+      req,
+    );
+    return { connection, createdDatabases: created };
   });
 
   app.post("/api/admin/connections/test", WRITE_LIMIT, async (req) => {
@@ -229,7 +307,7 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
     if (!isValidEngine(body.engine)) throw new ApiError("CONNECTION_ENGINE_INVALID");
     // Editing an existing connection: the form never has the stored password,
     // so an empty one means "the one already saved".
-    const stored = body.id ? getConnectionById(body.id) : null;
+    const stored = body.id ? loadConnection(body.id) : null;
     const config = { ...body, password: body.password || stored?.password } as DatabaseConnectionConfig;
     if (stored?.connectionString && body.connectionString?.includes("***"))
       config.connectionString = stored.connectionString;
@@ -364,6 +442,7 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
         sql?: unknown;
         database?: unknown;
         readOnly?: unknown;
+        editor?: unknown;
         confirmStructural?: unknown;
         confirmWrite?: unknown;
         maxRows?: unknown;
@@ -374,8 +453,8 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
       }
       const sql = body.sql;
       // Read-only unless explicitly switched off — a missing flag must never mean "write".
-      const readOnly = body.readOnly !== false;
-      const database = optionalName(body.database, "database");
+      const readOnly = body.editor === true || body.readOnly !== false;
+      const database = body.editor === true ? connection.database : optionalName(body.database, "database");
       if (!readOnly && access === "read") throw new ApiError("DB_ACCESS_WRITE_FORBIDDEN");
       if (!readOnly) assertWritable(connection);
       // A member's write is confirmed in the request itself, not only by a dialog the client may skip.
@@ -463,6 +542,12 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
       const { id } = req.params as { id: string };
       const { user } = guard(req, id);
       return { history: listQueryHistory(id, user.id) };
+    });
+
+    app.delete(`${prefix}/:id/query-history`, WRITE_LIMIT, async (req) => {
+      const { id } = req.params as { id: string };
+      const { user } = guard(req, id);
+      return { cleared: clearQueryHistory(id, user.id) };
     });
   }
 
@@ -564,7 +649,7 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
     const execute = body.execute === true;
     const connection = loadConnection(id);
     // Refused on the preview already, before anything connects: the account
-    // Athanor itself signs in with cannot be dropped, locked or given a new
+    // Nebula itself signs in with cannot be dropped, locked or given a new
     // password from here — that would lock the console out of the database.
     const locksOut =
       action.type === "drop" || action.type === "password" || (action.type === "lock" && action.locked !== false);

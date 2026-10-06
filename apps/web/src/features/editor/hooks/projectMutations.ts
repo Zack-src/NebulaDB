@@ -11,7 +11,7 @@ import {
   reverseRef,
   type DetailLevel,
   type Project,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import type { CanvasNode } from "@/types/index";
 import { generateId } from "@/utils/id";
 import {
@@ -108,8 +108,8 @@ export function createProjectMutations(
     });
   };
 
-  // Figma-style grouping (select 2+ tables, group them) and auto-layout are
-  // the `athanordb.core-canvas` plugin's canvasCommands (see coreCanvas.ts),
+  // Figma-style grouping (select 2+ tables, group them) is
+  // the `nebuladb.core-canvas` plugin's canvasCommands (see coreCanvas.ts),
   // not plain doc mutations here — consistent with how every other
   // schema-transform command in the app is wired.
 

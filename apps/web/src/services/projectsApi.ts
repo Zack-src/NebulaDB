@@ -1,5 +1,4 @@
-import type { ProjectTemplateId } from "@athanordb/dbml-engine";
-import type { HistoryMarker, Project, RevisionChanges } from "@athanordb/shared";
+import type { HistoryMarker, Project, RevisionChanges } from "@nebuladb/shared";
 import type { PermissionLevel, ProjectStatus, ProjectSummary, ProjectTeamGrant } from "@/types";
 import { request, requestText } from "./httpClient";
 import type { SqlDialect } from "./convertApi";
@@ -25,11 +24,10 @@ export function fetchProject(projectId: string): Promise<ProjectSummary> {
   return request<ProjectSummary>(projectPath(projectId));
 }
 
-/** `template` seeds the project server-side from one of `PROJECT_TEMPLATES`; omitted, the project starts empty. */
-export function createProject(name: string, template?: ProjectTemplateId): Promise<ProjectSummary> {
+export function createProject(name: string): Promise<ProjectSummary> {
   return request<ProjectSummary>("/api/projects", {
     method: "POST",
-    body: { name, ...(template ? { template } : {}) },
+    body: { name },
   });
 }
 
@@ -64,6 +62,17 @@ export function grantProjectTeam(
 
 export function revokeProjectTeam(projectId: string, teamId: string): Promise<void> {
   return request<void>(`${projectPath(projectId)}/teams/${teamId}`, { method: "DELETE" });
+}
+
+// --- a person's own level ---
+
+/** Gives one person a level on the project themselves, next to what their teams give. */
+export function grantProjectMember(projectId: string, userId: string, permission: PermissionLevel): Promise<void> {
+  return request<void>(`${projectPath(projectId)}/members/${userId}`, { method: "PUT", body: { permission } });
+}
+
+export function revokeProjectMember(projectId: string, userId: string): Promise<void> {
+  return request<void>(`${projectPath(projectId)}/members/${userId}`, { method: "DELETE" });
 }
 
 // --- history ---

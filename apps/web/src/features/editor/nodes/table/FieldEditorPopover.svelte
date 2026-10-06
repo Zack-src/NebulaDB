@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Comment, Field, RefAction } from "@athanordb/shared";
+  import type { Comment, Field, RefAction } from "@nebuladb/shared";
   import type { FieldRefInfo } from "@/features/editor/nodes/table/fieldRefInfo";
   import Icon from "@/components/icons/Icon.svelte";
   import { PencilIcon } from "@/components/icons/Icons";

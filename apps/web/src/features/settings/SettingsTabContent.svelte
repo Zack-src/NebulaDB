@@ -50,6 +50,7 @@
   import type { GridStyle } from "@/utils/preferences";
   import ActiveSessions from "@/features/settings/ActiveSessions.svelte";
   import ApiKeys from "@/features/settings/ApiKeys.svelte";
+  import PersonalConnections from "@/features/settings/PersonalConnections.svelte";
   import SqlAccounts from "@/features/settings/SqlAccounts.svelte";
   import PersonalData from "@/features/settings/PersonalData.svelte";
   import TwoFactorAuth from "@/features/settings/TwoFactorAuth.svelte";
@@ -62,12 +63,25 @@
    * Only the `tab` prop changes what's rendered; the surrounding chrome
    * (sidebar nav, header) stays with each caller since it differs on purpose.
    */
-  let { tab, session, state }: { tab: SettingsTab; session: Session; state: SettingsPanelState } = $props();
+  let {
+    tab,
+    session,
+    state,
+    projectId,
+  }: {
+    tab: SettingsTab;
+    session: Session;
+    state: SettingsPanelState;
+    /** The project open behind the in-editor modal — what a new API key is offered for by default. */
+    projectId?: string;
+  } = $props();
 
   const { t, setLocale } = useTranslation();
 </script>
 
-{#if tab === "profile"}
+{#if tab === "databases"}
+  <SqlAccounts /><PersonalConnections />
+{:else if tab === "profile"}
   <div class="space-y-6">
     <div>
       <h2 class="text-lg font-bold text-text mb-1">{t("settings.profile.title")}</h2>
@@ -106,7 +120,6 @@
 
     <TwoFactorAuth />
     <ActiveSessions />
-    <SqlAccounts />
     <PersonalData />
   </div>
 {:else if tab === "appearance"}
@@ -177,9 +190,6 @@
       <p class="text-xs text-text-muted">{t("settings.editor.subtitle")}</p>
     </div>
 
-    <!-- The auto-layout "algorithm" choice that used to sit here offered
-         dagre and force; only dagre exists (`canvas/autoLayout.ts` has no
-         algorithm parameter at all), so the control could only ever mislead. -->
     <div class="space-y-3">
       <SettingSwitch
         label={t("settings.editor.gridSnapping")}
@@ -205,7 +215,9 @@
     <Card variant="glass" class="p-4 space-y-3">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-3">
-          <div class="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs">
+          <div
+            class="w-8 h-8 rounded-full bg-primary/20 text-primary flex items-center justify-center font-bold text-xs"
+          >
             {session.displayName.charAt(0).toUpperCase()}
           </div>
           <div>
@@ -237,9 +249,9 @@
 
       <p class="text-xs text-text-secondary leading-relaxed">{t("settings.billing.description")}</p>
     </Card>
-
-    <ApiKeys />
   </div>
+{:else if tab === "apiKeys"}
+  <ApiKeys {projectId} />
 {:else}
   <div class="space-y-6">
     <div>

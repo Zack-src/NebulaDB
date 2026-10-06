@@ -1,4 +1,4 @@
-import type { Project } from "@athanordb/shared";
+import type { Project } from "@nebuladb/shared";
 
 // Zero `@dbml/core` import, like validate.ts and lint.ts: the editor's
 // dictionary page and the server's export run the same functions.

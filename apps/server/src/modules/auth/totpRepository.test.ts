@@ -6,11 +6,11 @@ import { join } from "node:path";
 
 // Same pattern as `session.test.ts`: the env vars have to be set before
 // anything transitively imports `db.ts` (module-level `new Database(...)`) or
-// `shared/crypto.ts` (reads `ATHANORDB_SECRET` lazily, but every test below
+// `shared/crypto.ts` (reads `NEBULADB_SECRET` lazily, but every test below
 // exercises the encrypted-secret path so it needs to be set regardless).
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-totp-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-totp-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 
 const { db } = await import("../../infrastructure/db.js");
 const {

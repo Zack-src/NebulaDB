@@ -10,7 +10,7 @@ import { readString, writeString } from "./storage";
 export type ThemePreset = "obsidian" | "midnight" | "emerald" | "light";
 const THEME_PRESETS: ThemePreset[] = ["obsidian", "midnight", "emerald", "light"];
 
-const KEY = "athanordb.theme";
+const KEY = "nebuladb.theme";
 
 export function loadThemePreset(): ThemePreset {
   const stored = readString(KEY);

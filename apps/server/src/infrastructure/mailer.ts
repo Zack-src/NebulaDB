@@ -18,7 +18,7 @@ export interface OutgoingMail {
 let transport: Transporter | null = null;
 
 function getTransport(): Transporter {
-  if (!config.smtp) throw new Error("email is not configured (ATHANORDB_SMTP_HOST is unset)");
+  if (!config.smtp) throw new Error("email is not configured (NEBULADB_SMTP_HOST is unset)");
   if (!transport) {
     const { host, port, secure, user, password } = config.smtp;
     transport = nodemailer.createTransport({

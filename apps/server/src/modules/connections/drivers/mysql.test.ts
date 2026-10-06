@@ -3,20 +3,20 @@ import assert from "node:assert/strict";
 import { MysqlDriver } from "./mysql.js";
 import { analyzeDeploymentRisks, resolutionKeyOf } from "../riskAnalysis.js";
 import { TEST_DB_HINT } from "./testDbAvailability.js";
-import { diffTargetAgainstLive, generateMigrationSql, generateRollbackSql } from "@athanordb/dbml-engine";
-import type { Project } from "@athanordb/shared";
+import { diffTargetAgainstLive, generateMigrationSql, generateRollbackSql } from "@nebuladb/dbml-engine";
+import type { Project } from "@nebuladb/shared";
 
-// Matches docker-compose.test.yml's `athanordb-test-mysql` service.
+// Matches docker-compose.test.yml's `nebuladb-test-mysql` service.
 const config = {
   id: "test-conn",
   projectId: "p1",
   name: "Test MySQL",
   engine: "mysql" as const,
-  host: process.env.ATHANORDB_TEST_MYSQL_HOST || "localhost",
-  port: Number(process.env.ATHANORDB_TEST_MYSQL_PORT || 53306),
-  database: process.env.ATHANORDB_TEST_MYSQL_DATABASE || "athanordb_test",
-  user: process.env.ATHANORDB_TEST_MYSQL_USER || "root",
-  password: process.env.ATHANORDB_TEST_MYSQL_PASSWORD || "athanordb_test",
+  host: process.env.NEBULADB_TEST_MYSQL_HOST || "localhost",
+  port: Number(process.env.NEBULADB_TEST_MYSQL_PORT || 53306),
+  database: process.env.NEBULADB_TEST_MYSQL_DATABASE || "nebuladb_test",
+  user: process.env.NEBULADB_TEST_MYSQL_USER || "root",
+  password: process.env.NEBULADB_TEST_MYSQL_PASSWORD || "nebuladb_test",
 };
 
 test("MysqlDriver connects, introspects, measures risks, deploys migrations", async (t) => {

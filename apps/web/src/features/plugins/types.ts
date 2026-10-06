@@ -1,10 +1,10 @@
-import type { Project } from "@athanordb/shared";
+import type { Project } from "@nebuladb/shared";
 
 export type PluginCategory = "export" | "import" | "canvas" | "editor" | "tools" | "community";
 
 /**
  * What a plugin declares about itself. Authored inside the plugin source via
- * `athanor.plugin({...})`; built-in plugins provide the same shape from code.
+ * `nebula.plugin({...})`; built-in plugins provide the same shape from code.
  */
 export interface PluginManifest {
   id: string;

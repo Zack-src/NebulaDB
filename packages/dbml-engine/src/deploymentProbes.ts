@@ -4,7 +4,7 @@ import type {
   SchemaRisk,
   StrategyOption,
   Table,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import type { MigrationDiff, MigrationTableChange } from "./migrationDiff.js";
 import { q, type MigrationDialect } from "./migrationGenerator.js";
 

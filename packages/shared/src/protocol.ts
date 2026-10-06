@@ -105,11 +105,11 @@ export interface MonitorSettings {
 export const MONITOR_INTERVALS: readonly number[] = [5, 15, 60, 360, 1440];
 
 /**
- * Something the watch found. `external`: the database changed since Athanor
+ * Something the watch found. `external`: the database changed since Nebula
  * last deployed or pulled, and no deployment explains it. `partial-deployment`:
  * the change matches a deployment that failed half-way. `unreachable`: the
  * database could not be read — never reported as a change. `accounts`: the
- * database's accounts or privileges changed and no Athanor action explains it
+ * database's accounts or privileges changed and no Nebula action explains it
  * (only shown to the project's administrators; `added` / `removed` are then
  * canonical account lines and `accountChanges` says what they mean).
  */

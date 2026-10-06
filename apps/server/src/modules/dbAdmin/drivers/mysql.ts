@@ -15,7 +15,7 @@ import type {
   DbPrincipalRef,
   DbPrivilegeCatalog,
   DbUserAction,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { ApiError } from "../../../shared/errors.js";
 import type { DriverConnectionConfig } from "../../connections/drivers/interface.js";
 import { mysqlPoolConfig } from "../../connections/drivers/mysql.js";
@@ -514,6 +514,15 @@ export class MysqlAdminDriver implements DatabaseAdminDriver {
 
   killSessionStatements(id: string): AdminStatement[] {
     return [plain(`KILL ${requireInteger(id, "session id")}`)];
+  }
+
+  ownPasswordStatements(password: string): AdminStatement[] {
+    return [
+      {
+        sql: `ALTER USER CURRENT_USER() IDENTIFIED BY ${lit(requirePassword(password))}`,
+        display: `ALTER USER CURRENT_USER() IDENTIFIED BY '${MASK}'`,
+      },
+    ];
   }
 
   async execute(statements: AdminStatement[], database?: string): Promise<void> {

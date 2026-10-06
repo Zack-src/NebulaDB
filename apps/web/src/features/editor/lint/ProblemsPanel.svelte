@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { summarizeLint, type LintFinding, type LintSettings, type LintSeverity } from "@athanordb/dbml-engine";
+  import { summarizeLint, type LintFinding, type LintSettings, type LintSeverity } from "@nebuladb/dbml-engine";
   import Icon from "@/components/icons/Icon.svelte";
   import { CheckCircleIcon, TableIcon } from "@/components/icons/Icons";
   import Badge, { type BadgeTone } from "@/components/ui/Badge.svelte";

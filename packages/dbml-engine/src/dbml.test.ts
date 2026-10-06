@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Project } from "@athanordb/shared";
+import type { Project } from "@nebuladb/shared";
 import { parseDbml, toProject, projectToSql, mergeProjectIntoExisting } from "./dbml.js";
 import { projectToDbml, extractVisualMetadata, applyVisualMetadata } from "./serialize.js";
 
@@ -616,10 +616,10 @@ test("projectToDbml only appends the visual-metadata sidecar when opted in, and 
   const project = projectWithVisuals();
 
   const plain = projectToDbml(project);
-  assert.doesNotMatch(plain, /athanordb:visual/, "sidecar absent by default (keeps the live DBML panel clean)");
+  assert.doesNotMatch(plain, /nebuladb:visual/, "sidecar absent by default (keeps the live DBML panel clean)");
 
   const withVisuals = projectToDbml(project, { includeVisualMetadata: true });
-  assert.match(withVisuals, /\/\/ athanordb:visual /);
+  assert.match(withVisuals, /\/\/ nebuladb:visual /);
 
   // A plain `//` comment — @dbml/core should just ignore it like any other tool would.
   const reparsed = toProject(parseDbml(withVisuals), "Test");
@@ -635,7 +635,7 @@ test("extractVisualMetadata reads the sidecar back out, and is nullish-safe for 
   assert.equal(meta!.stickyNotes?.length, 1);
 
   assert.equal(extractVisualMetadata("Table users { id int [pk] }"), null, "no marker line -> null, not a throw");
-  assert.equal(extractVisualMetadata("// athanordb:visual not-json"), null, "malformed JSON -> null, not a throw");
+  assert.equal(extractVisualMetadata("// nebuladb:visual not-json"), null, "malformed JSON -> null, not a throw");
 });
 
 test("applyVisualMetadata restores position/style/detailLevel/zones/stickyNotes onto a freshly re-parsed project", () => {

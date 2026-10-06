@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { EnvironmentColor } from "@athanordb/shared";
+  import type { EnvironmentColor } from "@nebuladb/shared";
 
   /** A stage's colour as a CSS value — tokens only, so both themes get a readable shade. */
   export const STAGE_COLOR: Record<EnvironmentColor, string> = {

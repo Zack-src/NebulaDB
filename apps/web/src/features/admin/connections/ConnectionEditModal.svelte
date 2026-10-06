@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { AdminConnectionSummary, ConnectionAuthMode, DatabaseEngine, StructurePolicy } from "@athanordb/shared";
+  import type { AdminConnectionSummary, ConnectionAuthMode, DatabaseEngine, StructurePolicy } from "@nebuladb/shared";
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import RadioGroup from "@/components/ui/RadioGroup.svelte";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
@@ -9,7 +9,7 @@
   import Hint from "@/components/ui/Hint.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { CheckCircleIcon, CheckIcon } from "@/components/icons/Icons";
-  import { INPUT_CLASS } from "@/components/ui/inputStyles";
+  import { INPUT_CLASS, INPUT_SM_CLASS } from "@/components/ui/inputStyles";
   import ConnectionFormFields, { DEFAULT_PORTS } from "@/features/connections/ConnectionFormFields.svelte";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
@@ -65,7 +65,7 @@
   let useUri = $state(Boolean(initial?.connectionString));
   let tags = $state((initial?.tags ?? []).join(", "));
   let readOnly = $state(Boolean(initial?.readOnly));
-  let authMode = $state<ConnectionAuthMode>(initial?.authMode ?? "shared");
+  let authMode = $state<ConnectionAuthMode>(initial?.authMode ?? "personal");
   /** A personal account replaces a user and a password: there are none in a SQLite file or a connection string. */
   const personalPossible = $derived(engine !== "sqlite" && !useUri);
   // Who has already given an account: what tells an administrator the switch will not lock everyone out.
@@ -74,6 +74,24 @@
   let structurePolicy = $state<StructurePolicy | "inherit">(initial?.structurePolicy?.policy ?? "inherit");
   let structureApplyToSql = $state(initial?.structurePolicy?.applyToSql ?? true);
   let projectIds = $state<string[]>((initial?.projects ?? []).map((p) => p.id));
+  // The database each attached project uses on this server; empty: the connection's own.
+  let projectDatabases = $state<Record<string, string>>(
+    Object.fromEntries((initial?.projects ?? []).map((p) => [p.id, p.database ?? ""])),
+  );
+  let createDatabases = $state(true);
+  /** A project can only be given a database where the connection has one to replace. */
+  const namesDatabase = $derived(engine !== "sqlite" && !useUri);
+  const links = $derived(
+    projectIds.map((projectId) => ({
+      projectId,
+      database: (namesDatabase && projectDatabases[projectId]?.trim()) || null,
+    })),
+  );
+  const linkKey = (list: { projectId: string; database: string | null }[]) =>
+    list
+      .map((link) => `${link.projectId}=${link.database ?? ""}`)
+      .sort()
+      .join();
 
   const projects = useAsyncResource(fetchProjects);
   const activeProjects = $derived((projects.data ?? []).filter((p) => p.status === "active"));
@@ -88,13 +106,16 @@
       host: network ? host : undefined,
       port: network ? Number(port) : undefined,
       database: network ? database : undefined,
-      user: network ? user : undefined,
-      password: network ? password || undefined : undefined,
+      user: network && authMode === "shared" ? user : undefined,
+      password: network && authMode === "shared" ? password || undefined : undefined,
       ssl: network ? ssl : undefined,
       // Empty rather than left out: an update that does not mention it would keep the stored one.
       connectionString: useUri && engine !== "sqlite" ? connectionString : "",
       filePath: engine === "sqlite" ? filePath : undefined,
-      tags: tags.split(",").map((tag) => tag.trim()).filter(Boolean),
+      tags: tags
+        .split(",")
+        .map((tag) => tag.trim())
+        .filter(Boolean),
       readOnly,
       authMode: personalPossible ? authMode : "shared",
       structurePolicy:
@@ -108,7 +129,10 @@
     try {
       const res = await testAdminConnection(payload(), initial?.id);
       testResult = res.ok
-        ? { ok: true, message: `${t("connections.testSuccess")}: ${res.version ?? ""} ${res.database ? `(${res.database})` : ""}` }
+        ? {
+            ok: true,
+            message: `${t("connections.testSuccess")}: ${res.version ?? ""} ${res.database ? `(${res.database})` : ""}`,
+          }
         : { ok: false, message: res.error || t("connections.testFailed") };
     } catch (err) {
       testResult = { ok: false, message: describeApiError(err, t) };
@@ -117,8 +141,8 @@
 
   const save = useAsyncAction(async () => {
     const saved = initial ? await updateAdminConnection(initial.id, payload()) : await createAdminConnection(payload());
-    const before = [...linkedIds].sort().join();
-    if ([...projectIds].sort().join() !== before) await setAdminConnectionProjects(saved.id, projectIds);
+    const before = linkKey((initial?.projects ?? []).map((p) => ({ projectId: p.id, database: p.database ?? null })));
+    if (linkKey(links) !== before) await setAdminConnectionProjects(saved.id, links, createDatabases);
     onSaved();
   });
 
@@ -132,7 +156,12 @@
   });
 </script>
 
-<Modal title={initial ? t("connections.editConnection") : t("connections.newConnection")} {onClose} wide dismissable={!save.pending}>
+<Modal
+  title={initial ? t("connections.editConnection") : t("connections.newConnection")}
+  {onClose}
+  wide
+  dismissable={!save.pending}
+>
   <div class="space-y-4">
     <div>
       <!-- svelte-ignore a11y_label_has_associated_control -->
@@ -141,6 +170,7 @@
     </div>
 
     <ConnectionFormFields
+      showCredentials={!personalPossible || authMode === "shared"}
       bind:environmentId
       bind:engine
       bind:host
@@ -201,7 +231,11 @@
         aria-labelledby="structure-policy-label"
         options={[
           { value: "inherit", label: t("dbadmin.structure.inherit"), hint: t("dbadmin.structure.inheritHint") },
-          { value: "schema-only", label: t("dbadmin.structure.policy.schema-only"), hint: t("dbadmin.structure.policyHint.schema-only") },
+          {
+            value: "schema-only",
+            label: t("dbadmin.structure.policy.schema-only"),
+            hint: t("dbadmin.structure.policyHint.schema-only"),
+          },
           { value: "warn", label: t("dbadmin.structure.policy.warn"), hint: t("dbadmin.structure.policyHint.warn") },
           { value: "free", label: t("dbadmin.structure.policy.free"), hint: t("dbadmin.structure.policyHint.free") },
         ]}
@@ -216,6 +250,7 @@
     <div>
       <div class={LABEL}>{t("admin.connections.projects")}</div>
       <Hint>{t("admin.connections.projectsHint")}</Hint>
+      {#if namesDatabase}<Hint>{t("admin.connections.projectDatabaseHint")}</Hint>{/if}
       {#if projects.error}<ErrorText>{projects.error}</ErrorText>{/if}
       <div class="max-h-44 space-y-0.5 overflow-y-auto rounded-md border border-border p-1.5">
         {#each activeProjects as project (project.id)}
@@ -228,6 +263,14 @@
             >
               <span class="block truncate text-xs">{project.name}</span>
             </Checkbox>
+            {#if namesDatabase && projectIds.includes(project.id)}
+              <input
+                class={`${INPUT_SM_CLASS} w-44 font-mono`}
+                bind:value={projectDatabases[project.id]}
+                placeholder={database || t("admin.connections.projectDatabase")}
+                aria-label={t("admin.connections.projectDatabaseFor", { project: project.name })}
+              />
+            {/if}
             <!-- Only for links that are already saved: the server refuses these for a project the connection isn't attached to yet. -->
             {#if initial && linkedIds.has(project.id)}
               <Button
@@ -250,6 +293,11 @@
           </p>
         {/if}
       </div>
+      {#if namesDatabase && links.some((link) => link.database)}
+        <Checkbox bind:checked={createDatabases} class="mt-2" hint={t("admin.connections.createDatabasesHint")}>
+          {t("admin.connections.createDatabases")}
+        </Checkbox>
+      {/if}
       {#if pullMessage}<Hint>{pullMessage}</Hint>{/if}
       {#if pull.error}<ErrorText>{pull.error}</ErrorText>{/if}
     </div>

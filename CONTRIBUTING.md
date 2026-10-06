@@ -1,4 +1,4 @@
-# Contributing to AthanorDB
+# Contributing to NebulaDB
 
 ## Getting set up
 

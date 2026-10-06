@@ -6,7 +6,7 @@ import type {
   DbQueryStatSort,
   DbServerCounters,
   DbTrafficBucket,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { request } from "./httpClient";
 
 /**
@@ -27,7 +27,7 @@ export async function fetchJournalActors(connectionId: string): Promise<JournalA
   return (await request<{ actors: JournalActor[] }>(`${base(connectionId)}/journal/actors`)).actors;
 }
 
-/** Statement shapes run through Athanor's SQL console, aggregated; `days` 0 for every day kept. */
+/** Statement shapes run through Nebula's SQL console, aggregated; `days` 0 for every day kept. */
 export async function fetchQueryStats(
   connectionId: string,
   options: { days: number; sort: DbQueryStatSort },
@@ -39,7 +39,7 @@ export async function fetchQueryStats(
   ).stats;
 }
 
-/** What the database server itself shows (sessions, statements), sampled; `outside` leaves out the accounts Athanor uses. */
+/** What the database server itself shows (sessions, statements), sampled; `outside` leaves out the accounts Nebula uses. */
 export function fetchDbActivity(
   connectionId: string,
   options: { days: number; outside: boolean },

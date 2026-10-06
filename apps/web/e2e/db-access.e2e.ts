@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
-import { login, skipEditorTour, startE2eEnvironment } from "./harness.js";
+import { login, startE2eEnvironment } from "./harness.js";
 
 /**
  * Database access for members: an instance administrator grants a member
@@ -23,7 +23,7 @@ const MEMBER_EMAIL = "analyste@example.com";
 const MEMBER_PASSWORD = "correct horse battery staple analyst";
 
 test("admin grants a member read access; the member queries the database read-only", { timeout: 120_000 }, async () => {
-  const targetDir = mkdtempSync(join(tmpdir(), "athanordb-e2e-access-"));
+  const targetDir = mkdtempSync(join(tmpdir(), "nebuladb-e2e-access-"));
   const targetFile = join(targetDir, "shop.sqlite");
   const target = new Database(targetFile);
   target.exec(`
@@ -86,7 +86,6 @@ test("admin grants a member read access; the member queries the database read-on
     const memberContext = await env.browser.newContext({ viewport: { width: 1400, height: 900 } });
     const member = await memberContext.newPage();
     member.setDefaultTimeout(15_000);
-    await skipEditorTour(member);
     await member.goto(env.baseUrl);
     await member.getByLabel("Adresse e-mail").fill(MEMBER_EMAIL);
     await member.getByLabel("Mot de passe").fill(MEMBER_PASSWORD);

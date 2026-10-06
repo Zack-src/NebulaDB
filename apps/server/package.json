@@ -1,6 +1,6 @@
 {
-  "name": "@athanordb/server",
-  "version": "0.0.1",
+  "name": "@nebuladb/server",
+  "version": "1.0.0",
   "license": "MIT",
   "private": true,
   "type": "module",
@@ -18,8 +18,8 @@
     "rotate-secret": "tsx src/rotate-secret.ts"
   },
   "dependencies": {
-    "@athanordb/dbml-engine": "*",
-    "@athanordb/shared": "*",
+    "@nebuladb/dbml-engine": "*",
+    "@nebuladb/shared": "*",
     "@fastify/cookie": "^11.1.2",
     "@fastify/rate-limit": "^11.2.0",
     "@fastify/static": "^10.1.3",

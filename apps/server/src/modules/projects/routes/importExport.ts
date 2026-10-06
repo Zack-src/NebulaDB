@@ -1,12 +1,12 @@
 import type { FastifyInstance } from "fastify";
-import { readProjectFromDoc, writeProjectToDoc, type Project } from "@athanordb/shared";
+import { readProjectFromDoc, writeProjectToDoc, type Project } from "@nebuladb/shared";
 import {
   applyVisualMetadata,
   mergeProjectIntoExisting,
   preserveConcurrentAdditions,
   projectToDbml,
   toProject,
-} from "@athanordb/dbml-engine";
+} from "@nebuladb/dbml-engine";
 import { auditUser } from "../../../shared/audit.js";
 import { ApiError } from "../../../shared/errors.js";
 import { requireProjectAccess } from "../../../shared/guards.js";

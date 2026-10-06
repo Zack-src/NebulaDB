@@ -1,4 +1,4 @@
-import type { Project, Field } from "@athanordb/shared";
+import type { Project, Field } from "@nebuladb/shared";
 import {
   toSnakeCase,
   toCamelCase,
@@ -6,24 +6,14 @@ import {
   auditSchema,
   calculateSchemaStats,
 } from "@/features/plugins/generators";
-import { computeAutoLayout } from "@/features/editor/canvas/autoLayout";
 import { generateId } from "@/utils/id";
 import type { Contribution, InvokeResult } from "@/features/plugins/types";
 import type { BuiltinPlugin, BuiltinRunner } from "./types";
 
 export const RESET_LINK_ROUTING_ID = "reset-link-routing";
-export const AUTO_LAYOUT_ID = "auto-layout";
 export const GROUP_TABLES_ID = "group-tables";
 
 const contributions: Contribution[] = [
-  {
-    kind: "canvasCommand",
-    id: AUTO_LAYOUT_ID,
-    label: "Réorganiser automatiquement",
-    shortcut: "Ctrl+Alt+G",
-    description:
-      "Repositionne les tables par disposition automatique, en gardant groupes et zones bien séparés les uns des autres.",
-  },
   {
     kind: "canvasCommand",
     id: GROUP_TABLES_ID,
@@ -86,25 +76,6 @@ const contributions: Contribution[] = [
 ];
 
 const runners: Record<string, BuiltinRunner> = {
-  [`canvasCommand:${AUTO_LAYOUT_ID}`]: (input) => {
-    const project = input as Project;
-    const { tables: positions, zones: zoneUpdates } = computeAutoLayout(
-      project.tables,
-      project.refs,
-      project.zones,
-      project.tableGroups,
-    );
-    const tables = project.tables.map((table) => {
-      const position = positions.get(table.id);
-      return position ? { ...table, position } : table;
-    });
-    const zones = project.zones.map((zone) => {
-      const update = zoneUpdates.get(zone.id);
-      return update ? { ...zone, position: update.position, size: update.size } : zone;
-    });
-    return { project: { ...project, tables, zones } };
-  },
-
   [`canvasCommand:${GROUP_TABLES_ID}`]: (input, ctx) => {
     const project = input as Project;
     const tableIds = ctx.selection?.tableIds ?? [];
@@ -270,10 +241,10 @@ const runners: Record<string, BuiltinRunner> = {
 
 export const coreCanvasPlugin: BuiltinPlugin = {
   manifest: {
-    id: "athanordb.core-canvas",
+    id: "nebuladb.core-canvas",
     name: "Commandes Canvas & Schéma",
     version: "1.0.0",
-    author: "AthanorDB",
+    author: "NebulaDB",
     category: "canvas",
     description:
       "Outils d'édition de canvas : réinitialisation du routage, conversions de casse, timestamps, audit et statistiques.",

@@ -9,15 +9,11 @@
    is exactly what put a pale outline around all three app headers. */
 
 .glass-panel {
-  background-color: rgba(19, 21, 31, 0.75);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  background-color: var(--color-surface);
 }
 
 .glass-card {
-  background-color: rgba(26, 29, 43, 0.6);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background-color: var(--color-surface-raised);
 }
 
 .gradient-bg-hero {
@@ -30,7 +26,24 @@
 }
 
 .glow-indigo {
-  box-shadow: var(--shadow-glow);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Fill tokens keep primary buttons readable; text tokens keep labels readable. */
+.text-primary {
+  color: var(--color-primary-text);
+}
+.text-success {
+  color: var(--color-success-text);
+}
+.text-warning {
+  color: var(--color-warning-text);
+}
+.text-danger {
+  color: var(--color-danger-text);
+}
+.text-info {
+  color: var(--color-info-text);
 }
 
 .app-select {

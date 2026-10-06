@@ -30,17 +30,36 @@
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { formatRelativeTime } from "@/i18n/formatters";
   import { i18n, useTranslation } from "@/i18n/i18n.svelte";
-  import { API_KEY_SCOPES, createApiKey, listApiKeys, revokeApiKey } from "@/services/apiKeysApi";
+  import { untrack } from "svelte";
+  import Select, { type SelectOption } from "@/components/ui/Select.svelte";
+  import {
+    API_KEY_SCOPES,
+    createApiKey,
+    listApiKeys,
+    revokeApiKey,
+    type CreatedApiKey,
+  } from "@/services/apiKeysApi";
+  import { fetchProjects } from "@/services/projectsApi";
+  import { copyText } from "@/utils/clipboard";
+
+  const projectLabelId = $props.id();
+
+  /** `projectId` — the project open behind the in-editor settings modal; a new key is offered for it by default. */
+  let { projectId: currentProjectId }: { projectId?: string } = $props();
 
   const { t } = useTranslation();
   const keys = useAsyncResource(listApiKeys);
+  const projects = useAsyncResource(fetchProjects);
   let name = $state("");
   let scopes = $state.raw<ApiKeyScope[]>([]);
-  let justCreated = $state<string | null>(null);
+  /** `null` — the key follows every project its owner can see. */
+  let projectId = $state<string | null>(untrack(() => currentProjectId ?? null));
+  let justCreated = $state.raw<CreatedApiKey | null>(null);
+  let copied = $state(false);
 
   const create = useAsyncAction(async () => {
-    const result = await createApiKey(name.trim(), scopes);
-    justCreated = result.plaintextKey;
+    justCreated = await createApiKey(name.trim(), scopes, projectId ?? undefined);
+    copied = false;
     name = "";
     scopes = [];
     keys.reload();
@@ -55,25 +74,63 @@
     scopes = scopes.includes(scope) ? scopes.filter((s) => s !== scope) : [...scopes, scope];
   }
 
+  async function copyKey(plaintextKey: string) {
+    copied = await copyText(plaintextKey);
+  }
+
+  const projectOptions = $derived<SelectOption<string | null>[]>([
+    { value: null, label: t("settings.billing.apiKeys.allProjects") },
+    ...(projects.data ?? []).map((project) => ({ value: project.id, label: project.name })),
+  ]);
+  const projectName = (id: string) => projects.data?.find((project) => project.id === id)?.name ?? id;
+
+  /** A ready-to-paste first call for the key just created — the one thing a new key's owner does next. */
+  const example = $derived.by(() => {
+    if (!justCreated) return "";
+    const restrictedTo = justCreated.summary.projectId;
+    const path = restrictedTo ? `/api/v1/projects/${restrictedTo}` : "/api/v1/projects";
+    return `curl -H "Authorization: Bearer ${justCreated.plaintextKey}" ${location.origin}${path}`;
+  });
+
   const rows = $derived((keys.data ?? []).filter((k) => !k.revokedAt));
-  const error = $derived(keys.error ?? create.error ?? revoke.error);
+  const error = $derived(keys.error ?? projects.error ?? create.error ?? revoke.error);
 </script>
 
-<div class="space-y-2 pt-4 border-t border-border/60">
-  <h3 class="text-xs font-bold text-text">{t("settings.billing.apiKeysTitle")}</h3>
-  <p class="text-xs text-text-muted leading-relaxed">{t("settings.billing.apiKeys.intro")}</p>
+<div class="space-y-4">
+  <div>
+    <h2 class="text-lg font-bold text-text mb-1">{t("settings.billing.apiKeysTitle")}</h2>
+    <p class="text-xs text-text-muted leading-relaxed">{t("settings.billing.apiKeys.intro")}</p>
+    <a
+      href="/api/v1/openapi.json"
+      target="_blank"
+      rel="noreferrer"
+      class="text-xs font-semibold text-primary hover:underline"
+    >
+      {t("settings.billing.apiKeys.reference")}
+    </a>
+  </div>
 
   {#if error}<ErrorText>{error}</ErrorText>{/if}
 
   {#if justCreated}
+    {@const created = justCreated}
     <div class="rounded-lg border border-primary/50 bg-primary/10 p-3 space-y-2">
       <p class="text-xs font-semibold text-text">{t("settings.billing.apiKeys.createdOnce")}</p>
       <code class="block break-all rounded-md bg-surface-raised px-2 py-1.5 text-[11.5px] text-text">
-        {justCreated}
+        {created.plaintextKey}
       </code>
-      <Button size="sm" variant="outline" onclick={() => (justCreated = null)}>
-        {t("settings.billing.apiKeys.dismiss")}
-      </Button>
+      <p class="text-xs text-text-muted">{t("settings.billing.apiKeys.example")}</p>
+      <code class="block break-all rounded-md bg-surface-raised px-2 py-1.5 text-[11.5px] text-text-secondary">
+        {example}
+      </code>
+      <div class="flex items-center gap-2">
+        <Button size="sm" variant="primary" onclick={() => void copyKey(created.plaintextKey)}>
+          {copied ? t("common.copied") : t("common.copy")}
+        </Button>
+        <Button size="sm" variant="outline" onclick={() => (justCreated = null)}>
+          {t("settings.billing.apiKeys.dismiss")}
+        </Button>
+      </div>
     </div>
   {/if}
 
@@ -89,6 +146,7 @@
             {/each}
           </div>
           <div class="text-text-muted mt-0.5">
+            {key.projectId ? projectName(key.projectId) : t("settings.billing.apiKeys.allProjects")} ·
             {key.lastUsedAt
               ? t("settings.billing.apiKeys.lastUsed", { time: formatRelativeTime(key.lastUsedAt, i18n.locale) })
               : t("settings.billing.apiKeys.neverUsed")}
@@ -107,6 +165,13 @@
       bind:value={name}
       placeholder={t("settings.billing.apiKeys.namePlaceholder")}
     />
+    <div class="mb-4 space-y-1.5">
+      <span id={projectLabelId} class="block text-xs font-semibold text-text">
+        {t("settings.billing.apiKeys.projectLabel")}
+      </span>
+      <Select bind:value={projectId} options={projectOptions} size="sm" class="w-full" aria-labelledby={projectLabelId} />
+      <p class="text-xs text-text-muted">{t("settings.billing.apiKeys.projectHint")}</p>
+    </div>
     <div class="flex flex-col gap-1.5 mb-4">
       {#each API_KEY_SCOPES as scope (scope)}
         <Checkbox checked={scopes.includes(scope)} onChange={() => toggleScope(scope)}>

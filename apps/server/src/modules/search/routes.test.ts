@@ -4,15 +4,15 @@ import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-search-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-search-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
 const { hashPassword } = await import("../auth/password.js");
-const { closeAllRooms } = await import("../../realtime/roomRegistry.js");
+const { closeAllRooms, getRoom } = await import("../../realtime/roomRegistry.js");
 
 const HOST = "localhost:3001";
 const headers = (extra: Record<string, string> = {}) => ({ host: HOST, origin: `http://${HOST}`, ...extra });
@@ -32,17 +32,30 @@ async function makeUserAndLogin(app: App) {
     headers: headers(),
     payload: { email, password },
   });
-  return `athanordb_sid=${res.cookies.find((c) => c.name === "athanordb_sid")!.value}`;
+  return `nebuladb_sid=${res.cookies.find((c) => c.name === "nebuladb_sid")!.value}`;
 }
 
-async function createFromTemplate(app: App, cookie: string, name: string, template: string) {
+async function createFixture(app: App, cookie: string, name: string, fixture: string) {
   const res = await app.inject({
     method: "POST",
     url: "/api/projects",
     headers: headers({ cookie }),
-    payload: { name, template },
+    payload: { name },
   });
-  return (res.json() as { id: string }).id;
+  const { id } = res.json() as { id: string };
+  const source =
+    fixture === "ecommerce"
+      ? "Enum order_status { pending\n paid }\nTable customers {\n id int [pk]\n}\nTable orders {\n id int [pk]\n customer_id int\n status order_status\n}"
+      : "Table users {\n id int [pk]\n}\n";
+  const imported = await app.inject({
+    method: "POST",
+    url: `/api/projects/${id}/import`,
+    headers: headers({ cookie }),
+    payload: { source },
+  });
+  assert.equal(imported.statusCode, 200);
+  getRoom(id).flush();
+  return id;
 }
 
 interface Hit {
@@ -70,16 +83,16 @@ test("cross-project search: finds tables/columns/enums in every visible project,
   try {
     const me = await makeUserAndLogin(app);
     const stranger = await makeUserAndLogin(app);
-    const shop = await createFromTemplate(app, me, "Shop", "ecommerce");
-    await createFromTemplate(app, me, "Accounts", "auth");
-    const trashed = await createFromTemplate(app, me, "Old blog", "blog");
+    const shop = await createFixture(app, me, "Shop", "ecommerce");
+    await createFixture(app, me, "Accounts", "auth");
+    const trashed = await createFixture(app, me, "Old blog", "blog");
     await app.inject({
       method: "PATCH",
       url: `/api/projects/${trashed}`,
       headers: headers({ cookie: me }),
       payload: { status: "trashed" },
     });
-    const strangers = await createFromTemplate(app, stranger, "Stranger's SaaS", "saas");
+    const strangers = await createFixture(app, stranger, "Stranger's SaaS", "saas");
     // A project with no team is open to every logged-in user (see
     // `permissions.ts`); assigning one — which `me` isn't in — is what makes
     // it private, so that's what the search must respect.
@@ -90,7 +103,7 @@ test("cross-project search: finds tables/columns/enums in every visible project,
       teamId,
     );
     // …and an open project of someone else's *is* visible, and so searchable.
-    await createFromTemplate(app, stranger, "Open to all", "blog");
+    await createFixture(app, stranger, "Open to all", "blog");
 
     // Read from snapshots, not live rooms — the path every idle project takes.
     closeAllRooms();
@@ -131,7 +144,7 @@ test("cross-project search sees a live edit before it reaches the snapshot", asy
   const app = await buildApp();
   try {
     const me = await makeUserAndLogin(app);
-    const id = await createFromTemplate(app, me, "Live", "auth");
+    const id = await createFixture(app, me, "Live", "auth");
     // An import leaves the room resident; the snapshot write is debounced.
     await app.inject({
       method: "POST",

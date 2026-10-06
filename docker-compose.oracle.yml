@@ -6,13 +6,13 @@
 #   docker compose -f docker-compose.oracle.yml down -v
 #
 # Connection form: host localhost, port 51521, database (service) FREEPDB1,
-# user system, password athanordb_test.
+# user system, password nebuladb_test.
 services:
-  athanordb-test-oracle:
+  nebuladb-test-oracle:
     image: gvenzl/oracle-free:23-slim-faststart
-    container_name: athanordb-test-oracle
+    container_name: nebuladb-test-oracle
     environment:
-      ORACLE_PASSWORD: athanordb_test
+      ORACLE_PASSWORD: nebuladb_test
     ports:
       - "51521:1521"
     healthcheck:

@@ -31,16 +31,15 @@
     type ProjectDriftEntry,
     type ServerNotice,
     type Table,
-  } from "@athanordb/shared";
+  } from "@nebuladb/shared";
   import { toast } from "@/components/ui/toast.svelte";
   import { TableLocksState } from "@/features/editor/locks/tableLocks.svelte";
   import { SeedsState } from "@/features/editor/seeds/seeds.svelte";
   import Splitter from "@/components/ui/Splitter.svelte";
   import { SqlDrawerState } from "@/features/sql/sqlDrawer.svelte";
-  import { diffProjects, fingerprintSchema } from "@athanordb/dbml-engine";
+  import { diffProjects, fingerprintSchema } from "@nebuladb/dbml-engine";
   import { LintState } from "@/features/editor/lint/lint.svelte";
   import { SchemaQuality } from "@/features/editor/lint/schemaQuality.svelte";
-  import EditorTour, { editorTourSeen } from "@/features/onboarding/EditorTour.svelte";
   import type { RevisionSummary } from "@/services/projectsApi";
   import HistoryPreviewBanner from "@/features/editor/history/HistoryPreviewBanner.svelte";
   import type { HistoryDiffStatus } from "@/features/editor/hooks/useCanvasNodes/canvasNodes.svelte";
@@ -52,7 +51,6 @@
     AlertTriangleIcon,
     ClockIcon,
     CodeIcon,
-    DatabaseIcon,
     NoteIcon,
     SparklesIcon,
   } from "@/components/icons/Icons";
@@ -61,7 +59,6 @@
   import { provideWorkspace } from "@/features/workspace/workspaceContext";
   import { useProjectDoc } from "@/features/collaboration/projectDoc.svelte";
   import { useAwarenessStates, useRemoteSelections } from "@/features/collaboration/awarenessStates.svelte";
-  import { hashColor } from "@/features/collaboration/awarenessColor";
   import CanvasArea from "@/features/editor/canvas/CanvasArea.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { ChevronRightIcon } from "@/components/icons/Icons";
@@ -96,6 +93,7 @@
     session: Session;
     onDisplayNameChange: (name: string) => Promise<void>;
     onLogout: () => void;
+    onOpenSettings?: () => void;
     onBack: () => void;
     /** Table (and optionally column) to centre on once the document has loaded — from a cross-project search hit. */
     initialFocus?: { tableName: string; fieldName?: string } | null;
@@ -104,8 +102,6 @@
     onTabChange?: (tab: WorkspaceTab) => void;
     /** Opens another project by id — where a notification leads. */
     onOpenProject?: (projectId: string) => void;
-    /** The real app: offer the guided tour on a first visit. Off in the perf harness, which must render nothing extra. */
-    guided?: boolean;
   } = $props();
 
   const { t } = useTranslation();
@@ -147,7 +143,6 @@
     toast.warning(t("locks.keptToast", { tables: tables.join(", "), count: tables.length }));
   // Linked databases known to have been changed outside the schema — see `DriftBanner`.
   let drift = $state.raw<ProjectDriftEntry[]>([]);
-  let differencesFor = $state<string | null>(null);
   const refreshDrift = () =>
     fetchProjectDrift(project.id)
       .then((entries) => (drift = entries.filter((entry) => entry.outOfSchemaAt)))
@@ -187,14 +182,10 @@
   let showImport = $state(false);
   let showExport = $state(false);
   let showConvertTypes = $state(false);
-  let showCompare = $state(false);
   let dbmlOpen = $state(true);
   let showPlugins = $state(false);
   let showSettings = $state(false);
-  let showDeployment = $state(false);
-  // The guided tour: once per browser, on the first project opened, and again from the header.
-  let tourOpen = $state(untrack(() => props.guided === true) && !editorTourSeen());
-  /** Counts deployment dialogs closed — the pipeline refetches on it. */
+  /** Counts completed deployments — the pipeline refetches on it. */
   let deploymentsSeen = $state(0);
   let viewMode = $state<EditorViewMode>("mld");
   // Connections themselves are managed from the admin console now — this
@@ -233,9 +224,6 @@
   const isProjectAdmin = $derived(project.permission === "administrator");
   const workspaceTabs = $derived.by(() => {
     const list: TabItem<WorkspaceTab>[] = [{ id: "schema", label: t("workspace.tab.schema"), icon: CodeIcon }];
-    if (connections.some((connection) => mayQuery(connection.id))) {
-      list.push({ id: "data", label: t("workspace.tab.data"), icon: DatabaseIcon });
-    }
     if (isProjectAdmin) list.push({ id: "deployments", label: t("workspace.tab.deployments"), icon: SparklesIcon });
     list.push({ id: "history", label: t("workspace.tab.history"), icon: ClockIcon });
     list.push({
@@ -571,35 +559,22 @@
   <ProjectToolbar
     projectName={project.name}
     viewOnly={!canWrite}
-    connection={docHandle.connection}
-    synced={Boolean(liveProject)}
     onBack={props.onBack}
     onUndo={() => docHandle.undoManager?.undo()}
     onRedo={() => docHandle.undoManager?.redo()}
-    onAutoLayout={commandRunner.onAutoLayout}
     onShowImport={() => (showImport = true)}
     onShowExport={() => (showExport = true)}
-    onShowConvertTypes={canWrite ? () => (showConvertTypes = true) : undefined}
-    onShowCompare={() => (showCompare = true)}
-    onShowDeploy={() => (showDeployment = true)}
-    {isProjectAdmin}
-    onOpenSettings={() => (showSettings = true)}
-    follow={props.guided && props.onOpenProject
+    onOpenSettings={props.onOpenSettings ?? (() => (showSettings = true))}
+    follow={props.onOpenProject
       ? { projectId: project.id, onOpenProject: props.onOpenProject }
       : undefined}
-    onShowTour={props.guided
-      ? () => {
-          setTab("schema");
-          tourOpen = true;
-        }
-      : undefined}
     localUser={user}
-    localColor={hashColor(user)}
     remoteAwareness={remoteAwareness.states}
   />
   {#if showSettings}
     <SettingsModal
       session={props.session}
+      projectId={project.id}
       onClose={() => (showSettings = false)}
       onDisplayNameChange={props.onDisplayNameChange}
       onLogout={props.onLogout}
@@ -623,18 +598,14 @@
       projectId={project.id}
       {entry}
       canManage={isProjectAdmin}
-      onShowDifferences={(connectionId) => (differencesFor = connectionId)}
+      onShowDifferences={(id) => { connectionId = id; setTab("deployments"); }}
     />
   {/each}
 
   <!-- The other tabs replace the editor rather than cover it: an unmounted
        canvas has no keyboard shortcuts, clipboard handlers or selection to act
        on by accident. The document connection lives above, so nothing is lost. -->
-  {#if tab === "data"}
-    {#await import("@/features/workspace/DataTab.svelte") then { default: DataTab }}
-      <DataTab {connectionId} {connections} isAdmin={props.session.isAdmin} access={dbAccess} />
-    {/await}
-  {:else if tab === "deployments"}
+  {#if tab === "deployments"}
     {#await import("@/features/workspace/DeploymentsTab.svelte") then { default: DeploymentsTab }}
       <DeploymentsTab
         projectId={project.id}
@@ -644,15 +615,15 @@
         schemaHash={liveProject ? fingerprintSchema(liveProject).hash : undefined}
         onDeployTo={(id) => {
           connectionId = id;
-          showDeployment = true;
         }}
         onOpenTable={(tableName) => {
           setTab("schema");
           focusRequest = { tableName };
         }}
         canDeploy={canWrite}
-        onDeploy={() => (showDeployment = true)}
-        onShowDifferences={() => (differencesFor = connectionId)}
+        canSkipStage={props.session.isAdmin}
+        onDeployed={() => (deploymentsSeen += 1)}
+        onShowProblems={() => setTab("problems")}
       />
     {/await}
   {:else if tab === "problems"}
@@ -712,7 +683,7 @@
       onClose={() => (historyPreview = null)}
     />
   {/if}
-  <div class="flex min-h-0 min-w-0 flex-1 flex-col">
+  <div class="flex min-h-0 min-w-0 flex-1 flex-row">
   <div class="relative flex min-h-0 min-w-0 flex-1">
     {#if dbmlOpen && liveProject}
       <DbmlPanel
@@ -720,6 +691,7 @@
         projectId={project.id}
         readOnly={!canWrite}
         onClose={() => (dbmlOpen = false)}
+        onConvertTypes={canWrite ? () => (showConvertTypes = true) : undefined}
         scrollToTable={dbmlScrollRequest}
         {onNavigateToCanvas}
         findings={quality.dbmlFindings}
@@ -800,14 +772,14 @@
   </div>
   {#if sql.open && canUseSql && activeConnection}
     <Splitter
-      bind:size={sql.height}
-      min={SqlDrawerState.MIN_HEIGHT}
-      max={SqlDrawerState.MAX_HEIGHT}
-      edge="top"
+      bind:size={sql.width}
+      min={SqlDrawerState.MIN_WIDTH}
+      max={SqlDrawerState.MAX_WIDTH}
+      edge="left"
       aria-label={t("workspace.sql.resize")}
-      onCommit={sql.rememberHeight}
+      onCommit={sql.rememberWidth}
     />
-    <div class="flex shrink-0 flex-col" style:height="{sql.height}px">
+    <div class="flex min-h-0 max-w-[85%] shrink-0 flex-col border-l border-border" style:width="{sql.width}px">
       {#await import("@/features/sql/EditorSqlDrawer.svelte") then { default: EditorSqlDrawer }}
         <!-- Keyed: the drawer and its history belong to one connection. -->
         {#key activeConnection.id}
@@ -845,45 +817,10 @@
       />
     {/await}
   {/if}
-  {#if showCompare && liveProject}
-    {#await import("@/features/editor/compare/CompareProjectsModal.svelte") then { default: CompareProjectsModal }}
-      <CompareProjectsModal currentProject={liveProject} onClose={() => (showCompare = false)} />
-    {/await}
-  {/if}
   {#if showPlugins}
     {#await import("@/features/plugins/PluginManagerDialog.svelte") then { default: PluginManagerDialog }}
       <PluginManagerDialog onClose={() => (showPlugins = false)} />
     {/await}
-  {/if}
-  {#if showDeployment}
-    {#await import("@/features/connections/DeploymentModal.svelte") then { default: DeploymentModal }}
-      <DeploymentModal
-        projectId={project.id}
-        onClose={() => {
-          showDeployment = false;
-          deploymentsSeen += 1;
-        }}
-        initialConnectionId={activeConnection?.id}
-        canSkipStage={props.session.isAdmin}
-        onShowProblems={() => {
-          showDeployment = false;
-          setTab("problems");
-        }}
-      />
-    {/await}
-  {/if}
-  {#if differencesFor}
-    {#await import("@/features/connections/DeploymentModal.svelte") then { default: DeploymentModal }}
-      <DeploymentModal
-        projectId={project.id}
-        readOnly
-        initialConnectionId={differencesFor}
-        onClose={() => (differencesFor = null)}
-      />
-    {/await}
-  {/if}
-  {#if tourOpen && liveProject && tab === "schema"}
-    <EditorTour onClose={() => (tourOpen = false)} />
   {/if}
   {#if showLocksList && liveProject}
     {#await import("@/features/editor/locks/TableLocksList.svelte") then { default: TableLocksList }}

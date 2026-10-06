@@ -117,7 +117,7 @@ test("lint: findings are listed, fixed, excepted and ruled by the project's prof
     assert.equal(report.summary.error, 2, "created_at / updated_at missing on both tables, now an error");
 
     // The deployment dialog names what blocks it, and leads back here.
-    const file = join(mkdtempSync(join(tmpdir(), "athanordb-e2e-lint-")), "target.sqlite").replace(/\\/g, "/");
+    const file = join(mkdtempSync(join(tmpdir(), "nebuladb-e2e-lint-")), "target.sqlite").replace(/\\/g, "/");
     await page.evaluate(
       async ({ id, filePath }) => {
         await fetch(`/api/projects/${id}/connections`, {

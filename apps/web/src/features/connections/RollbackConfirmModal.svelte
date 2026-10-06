@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { DatabaseEngine, DeploymentHistoryEntry } from "@athanordb/shared";
+  import type { DatabaseEngine, DeploymentHistoryEntry } from "@nebuladb/shared";
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";

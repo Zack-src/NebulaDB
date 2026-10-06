@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Field, Ref, Table } from "@athanordb/shared";
+import type { Field, Ref, Table } from "@nebuladb/shared";
 import { canonicalDefault, canonicalType, compareSchemas, diffFingerprints, fingerprintSchema } from "./schemaHash.js";
 import { mergeProjectIntoExisting, parseDbml, toProject } from "./dbml.js";
 import { projectToDbml } from "./serialize.js";

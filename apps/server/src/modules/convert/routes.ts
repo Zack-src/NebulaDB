@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { describeDbmlParseError, parseSql, projectToDbml, toProject } from "@athanordb/dbml-engine";
+import { describeDbmlParseError, parseSql, projectToDbml, toProject } from "@nebuladb/dbml-engine";
 import { ApiError } from "../../shared/errors.js";
 import { requireUser } from "../../shared/guards.js";
 import { isSqlDialect, SQL_DIALECTS } from "../../shared/sqlDialect.js";

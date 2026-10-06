@@ -846,7 +846,7 @@ const COMPONENTS: Record<string, Schema> = {
     events: { type: "array", items: ref("WebhookEvent") },
     enabled: bool,
     consecutiveFailures: int,
-    disabledReason: { type: ["string", "null"], description: "Why Athanor switched it off after repeated failures" },
+    disabledReason: { type: ["string", "null"], description: "Why Nebula switched it off after repeated failures" },
     createdAt: str,
   }),
   WebhookDelivery: obj({
@@ -1052,7 +1052,7 @@ export function buildOpenApiSpec(serverUrl: string | null): Record<string, unkno
         .filter(Boolean)
         .map((part) => part[0].toUpperCase() + part.slice(1))
         .join("")}`,
-      "x-athanordb-scope": op.scope,
+      "x-nebuladb-scope": op.scope,
       security: [{ apiKey: [op.scope] }],
       ...(pathParams.length + queryParams.length > 0 ? { parameters: [...pathParams, ...queryParams] } : {}),
       ...(op.body ? { requestBody: { required: true, content: { "application/json": { schema: op.body } } } } : {}),
@@ -1071,15 +1071,15 @@ export function buildOpenApiSpec(serverUrl: string | null): Record<string, unkno
   return {
     openapi: "3.1.0",
     info: {
-      title: "AthanorDB public API",
+      title: "NebulaDB public API",
       version: "1",
       description:
-        "Stable REST surface for scripts and CI. Authenticate with `Authorization: Bearer adb_…` (create keys in Settings). A key acts as its owner, narrowed by its scopes and optional project restriction. See docs/public-api.md.",
+        "Stable REST surface for scripts and CI. Authenticate with `Authorization: Bearer ndb_…` (create keys in Settings). A key acts as its owner, narrowed by its scopes and optional project restriction. See docs/public-api.md.",
     },
     ...(serverUrl ? { servers: [{ url: serverUrl }] } : {}),
     tags: [{ name: "Projects" }, { name: "Connections" }, { name: "Teams" }],
     components: {
-      securitySchemes: { apiKey: { type: "http", scheme: "bearer", bearerFormat: "adb_…" } },
+      securitySchemes: { apiKey: { type: "http", scheme: "bearer", bearerFormat: "ndb_…" } },
       schemas: COMPONENTS,
     },
     security: [{ apiKey: [] }],

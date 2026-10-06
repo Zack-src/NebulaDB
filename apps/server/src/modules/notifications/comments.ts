@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { extractMentionedUserIds, type DirectNotificationEvent } from "@athanordb/shared";
+import { extractMentionedUserIds, type DirectNotificationEvent } from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { notifyProjectUsers } from "../../realtime/roomRegistry.js";
 import { ApiError } from "../../shared/errors.js";

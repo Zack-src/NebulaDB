@@ -28,7 +28,7 @@ RUN npm run build
 
 ENV NODE_ENV=production
 ENV PORT=3001
-ENV ATHANORDB_DB_PATH=/data/athanordb.sqlite
+ENV NEBULADB_DB_PATH=/data/nebuladb.sqlite
 
 # Don't run as root. `/data` is created and chowned here so the named volume
 # mounted over it inherits this ownership when Docker first populates it.

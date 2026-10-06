@@ -10,7 +10,7 @@ import {
   getTablesMap,
   getZonesMap,
   readProjectFromDoc,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { connectProject, type ConnectionStatus } from "@/features/collaboration/yjsClient";
 import { time } from "@/utils/perfMonitor";
 

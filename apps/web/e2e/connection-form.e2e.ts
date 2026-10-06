@@ -90,7 +90,7 @@ test(
   "admin: the connection form saves what its checkboxes, port and URI toggle show, and imports a schema once confirmed",
   { timeout: 120_000 },
   async () => {
-    const targetDir = mkdtempSync(join(tmpdir(), "athanordb-e2e-target-"));
+    const targetDir = mkdtempSync(join(tmpdir(), "nebuladb-e2e-target-"));
     const targetFile = join(targetDir, "shop.sqlite");
     const target = new Database(targetFile);
     target.exec(`

@@ -7,8 +7,8 @@ import {
   type EnvironmentProtection,
   type EnvironmentStage,
   type EnvironmentStageInput,
-} from "@athanordb/shared";
-import { parseVariableValues } from "@athanordb/dbml-engine";
+} from "@nebuladb/shared";
+import { parseVariableValues } from "@nebuladb/dbml-engine";
 import { db } from "../../infrastructure/db.js";
 import { ApiError } from "../../shared/errors.js";
 

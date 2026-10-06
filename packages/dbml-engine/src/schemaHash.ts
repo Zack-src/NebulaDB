@@ -1,4 +1,4 @@
-import type { Field, Project, Ref, RefAction, Table } from "@athanordb/shared";
+import type { Field, Project, Ref, RefAction, Table } from "@nebuladb/shared";
 
 /**
  * A schema reduced to what makes it *this* schema, in one canonical form, with

@@ -12,7 +12,7 @@
 </script>
 
 <script lang="ts">
-  import { MAX_NAME_LENGTH, type EnumValue } from "@athanordb/shared";
+  import { MAX_NAME_LENGTH, type EnumValue } from "@nebuladb/shared";
   import { autofocus } from "@/actions/autofocus";
   import Icon from "@/components/icons/Icon.svelte";
   import { TrashIcon } from "@/components/icons/Icons";

@@ -1,7 +1,7 @@
 <script lang="ts" module>
   import * as Y from "yjs";
   import { Awareness } from "y-protocols/awareness.js";
-  import { writeProjectToDoc } from "@athanordb/shared";
+  import { writeProjectToDoc } from "@nebuladb/shared";
   import { setOfflineConnectionFactory, type ProjectConnection } from "@/features/collaboration/yjsClient";
   import type { ProjectSummary, Session } from "@/types/index";
   import { BENCH_PROJECT_ID, buildBenchProject, parseBenchConfig } from "./benchProject";

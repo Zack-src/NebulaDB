@@ -4,7 +4,7 @@
 
 <script lang="ts">
   import type { NodeProps } from "@xyflow/svelte";
-  import { MAX_NAME_LENGTH } from "@athanordb/shared";
+  import { MAX_NAME_LENGTH } from "@nebuladb/shared";
   import { autofocus } from "@/actions/autofocus";
   import { INPUT_XS_CLASS } from "@/components/ui/inputStyles";
   import type { TableGroupNodeType } from "@/features/editor/nodes/nodeTypes";

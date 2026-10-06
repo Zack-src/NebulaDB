@@ -15,7 +15,7 @@ import type {
   DbPrincipalRef,
   DbPrivilegeCatalog,
   DbUserAction,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { ApiError } from "../../../shared/errors.js";
 import type { DriverConnectionConfig } from "../../connections/drivers/interface.js";
 import { oraclePoolAttributes } from "../../connections/drivers/oracle.js";
@@ -463,6 +463,20 @@ export class OracleAdminDriver implements DatabaseAdminDriver {
     if (!/^\d+,\d+$/.test(id))
       throw new ApiError("DB_ADMIN_INPUT_INVALID", { message: "session id must be sid,serial#" });
     return [plain(`ALTER SYSTEM KILL SESSION '${id}' IMMEDIATE`)];
+  }
+
+  // Oracle has no "current user" in ALTER USER, and the name a session signed in with may differ
+  // in case from the account's own: the statement is built from `USER`, on the server.
+  ownPasswordStatements(password: string, currentPassword: string): AdminStatement[] {
+    const clause = (next: string, current: string) => `IDENTIFIED BY ${next} REPLACE ${current}`;
+    const inString = (text: string) => text.replace(/'/g, "''");
+    const alter = (tail: string) => `BEGIN EXECUTE IMMEDIATE 'ALTER USER "' || USER || '" ${tail}'; END;`;
+    return [
+      {
+        sql: alter(inString(clause(passwordToken(password), passwordToken(currentPassword)))),
+        display: alter(clause(`"${MASK}"`, `"${MASK}"`)),
+      },
+    ];
   }
 
   async execute(statements: AdminStatement[]): Promise<void> {

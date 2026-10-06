@@ -1,4 +1,4 @@
-import type { HistoryMarker, RevisionChanges } from "@athanordb/shared";
+import type { HistoryMarker, RevisionChanges } from "@nebuladb/shared";
 import { parseServerTime } from "@/features/sql/format";
 import type { RevisionSummary } from "@/services/projectsApi";
 

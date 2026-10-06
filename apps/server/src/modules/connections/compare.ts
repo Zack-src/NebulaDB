@@ -1,10 +1,5 @@
-import { compareSchemas, resolveVariables, type SchemaComparisonEntry } from "@athanordb/dbml-engine";
-import {
-  readProjectFromDoc,
-  type DatabaseConnectionConfig,
-  type DatabaseEngine,
-  type Project,
-} from "@athanordb/shared";
+import { compareSchemas, resolveVariables, type SchemaComparisonEntry } from "@nebuladb/dbml-engine";
+import { readProjectFromDoc, type DatabaseConnectionConfig, type DatabaseEngine, type Project } from "@nebuladb/shared";
 import { getRoom } from "../../realtime/roomRegistry.js";
 import { ApiError } from "../../shared/errors.js";
 import { stageVariables } from "../environments/variables.js";

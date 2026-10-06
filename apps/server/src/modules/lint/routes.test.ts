@@ -6,16 +6,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-lint-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-lint-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
 const { hashPassword } = await import("../auth/password.js");
 const { closeAllRooms, getRoom } = await import("../../realtime/roomRegistry.js");
-const { writeProjectToDoc } = await import("@athanordb/shared");
+const { writeProjectToDoc } = await import("@nebuladb/shared");
 
 const HOST = "localhost:3001";
 const ORIGIN = `http://${HOST}`;
@@ -40,7 +40,7 @@ async function login(app: App) {
     headers: headers(),
     payload: { email, password },
   });
-  return { id, cookie: `athanordb_sid=${res.cookies.find((c) => c.name === "athanordb_sid")!.value}` };
+  return { id, cookie: `nebuladb_sid=${res.cookies.find((c) => c.name === "nebuladb_sid")!.value}` };
 }
 
 function call(app: App, cookie: string, method: "GET" | "POST" | "PUT" | "DELETE", url: string, payload?: unknown) {
@@ -169,7 +169,7 @@ test("lint: defaults, who may change the rules, what is refused, and the public 
 
 test("lint: a deployment is refused on an error when the project asks for it, and only then", async () => {
   const app = await buildApp();
-  const file = join(mkdtempSync(join(tmpdir(), "athanordb-lint-")), "target.sqlite");
+  const file = join(mkdtempSync(join(tmpdir(), "nebuladb-lint-")), "target.sqlite");
   try {
     const owner = await login(app);
     const project = await createProject(app, owner.cookie);
@@ -390,7 +390,7 @@ test("lint presets: the library is for instance administrators, one is the defau
 
 test("lint presets: a deployment is refused on the default preset's rules", async () => {
   const app = await buildApp();
-  const file = join(mkdtempSync(join(tmpdir(), "athanordb-lint-preset-")), "target.sqlite");
+  const file = join(mkdtempSync(join(tmpdir(), "nebuladb-lint-preset-")), "target.sqlite");
   try {
     const admin = await loginAdmin(app);
     const owner = await login(app);

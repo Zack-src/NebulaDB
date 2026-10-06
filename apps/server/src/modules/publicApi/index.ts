@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { readProjectFromDoc, writeProjectToDoc } from "@athanordb/shared";
+import { readProjectFromDoc, writeProjectToDoc } from "@nebuladb/shared";
 import {
   applyVisualMetadata,
   buildDictionary,
@@ -12,7 +12,7 @@ import {
   projectToDbml,
   projectToSvg,
   toProject,
-} from "@athanordb/dbml-engine";
+} from "@nebuladb/dbml-engine";
 import { assertLocksAllow } from "../tableLocks/access.js";
 import { lintReport } from "../lint/check.js";
 import { requireScope } from "../apiKeys/auth.js";
@@ -86,11 +86,8 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
   app.post("/api/v1/projects", API_RATE_LIMIT, async (req, reply) => {
     const user = requireUser(req);
     requireScope(req, "projects:write");
-    const body = (req.body ?? {}) as { name?: unknown; template?: unknown };
-    const { id, name } = createProjectForUser(user.id, body.name, {
-      template: body.template,
-      author: user.displayName,
-    });
+    const body = (req.body ?? {}) as { name?: unknown };
+    const { id, name } = createProjectForUser(user.id, body.name);
     auditUser(user, "project.create", { type: "project", id }, `${name} (v1)`, req);
     return reply.code(201).send({ id, name, permission: "administrator" });
   });

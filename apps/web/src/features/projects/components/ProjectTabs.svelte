@@ -5,9 +5,7 @@
   import { PROJECT_SECTIONS } from "./projectSections";
 
   /**
-   * Left-rail section nav (active/archived/trashed), each with a live count —
-   * the Figma-style "Recents / Drafts / Trash" file-browser pattern, in place
-   * of the horizontal tab bar this used to be.
+   * Project-list filters, kept in one horizontal row under the page actions.
    */
   let {
     projects,
@@ -22,13 +20,14 @@
   const { t } = useTranslation();
 </script>
 
-<nav class="flex flex-col gap-0.5">
+<nav class="flex gap-1 overflow-x-auto border-b border-border pb-3" aria-label={t("projects.title")}>
   {#each PROJECT_SECTIONS as entry (entry.key)}
     {@const count = projects.filter((project) => project.status === entry.key).length}
     {@const active = section === entry.key}
     <button
       onclick={() => onSectionChange(entry.key)}
-      class={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-semibold transition-colors ${
+      aria-current={active ? "page" : undefined}
+      class={`flex shrink-0 items-center gap-2 rounded-md px-3 py-1.5 text-left text-[12px] font-medium transition-colors ${
         active ? "bg-primary-light text-primary" : "text-text-secondary hover:bg-surface-hover hover:text-text"
       }`}
     >

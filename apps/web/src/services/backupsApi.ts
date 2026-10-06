@@ -1,4 +1,4 @@
-import type { BackupList, BackupSchedule, BackupSummary, RestoreResult } from "@athanordb/shared";
+import type { BackupList, BackupSchedule, BackupSummary, RestoreResult } from "@nebuladb/shared";
 import { request } from "./httpClient";
 
 /** Backups of a connected database — instance administrators only, like the console they sit in. */

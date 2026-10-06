@@ -20,7 +20,7 @@ test(
   "environments: chain in the admin, a stage on a connection, production deploy confirmed by name",
   { timeout: 90_000 },
   async () => {
-    const targetFile = join(mkdtempSync(join(tmpdir(), "athanordb-e2e-env-")), "shop.sqlite");
+    const targetFile = join(mkdtempSync(join(tmpdir(), "nebuladb-e2e-env-")), "shop.sqlite");
     const env = await startE2eEnvironment(PORT);
     try {
       const page = await env.browser.newPage({ viewport: { width: 1400, height: 900 } });

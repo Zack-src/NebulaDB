@@ -1,7 +1,7 @@
 import net from "node:net";
-import { q } from "@athanordb/dbml-engine";
+import { q } from "@nebuladb/dbml-engine";
 import sql from "mssql";
-import type { Project, Ref, Table, TableIndex } from "@athanordb/shared";
+import type { Project, Ref, Table, TableIndex } from "@nebuladb/shared";
 import type {
   DatabaseDriver,
   DriverConnectionConfig,

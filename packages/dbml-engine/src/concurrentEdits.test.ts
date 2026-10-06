@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import type { Project, Table } from "@athanordb/shared";
+import type { Project, Table } from "@nebuladb/shared";
 import { preserveConcurrentAdditions } from "./concurrentEdits.js";
 
 function table(name: string, fieldNames: string[]): Table {

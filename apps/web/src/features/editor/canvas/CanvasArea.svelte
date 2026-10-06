@@ -33,7 +33,7 @@
     type Connection,
   } from "@xyflow/svelte";
   import type { Awareness } from "y-protocols/awareness.js";
-  import type { DetailLevel } from "@athanordb/shared";
+  import type { DetailLevel } from "@nebuladb/shared";
   import RemoteCursorsLayer from "@/features/collaboration/RemoteCursorsLayer.svelte";
   import type { RemoteSelector } from "@/features/collaboration/awarenessStates.svelte";
   import { useEscapeKey } from "@/hooks/escapeKey.svelte";

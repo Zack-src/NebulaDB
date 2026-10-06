@@ -1,7 +1,7 @@
 import { harmlessRewrite } from "@/features/editor/dbml/annotations";
 import { EditorSelection } from "@codemirror/state";
 import type { Command } from "@codemirror/view";
-import { formatDbml } from "@athanordb/dbml-engine";
+import { formatDbml } from "@nebuladb/dbml-engine";
 
 export { formatDbml };
 

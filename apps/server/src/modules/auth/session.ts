@@ -9,7 +9,8 @@ export interface SessionUser {
   displayName: string;
 }
 
-const SESSION_COOKIE = "athanordb_sid";
+const SESSION_COOKIE = "nebuladb_sid";
+const LEGACY_SESSION_COOKIE = "athanordb_sid";
 
 /**
  * Two session lengths, chosen at login ("stay signed in").
@@ -62,7 +63,7 @@ function cookieOptions(maxAgeMs: number | null) {
     sameSite: "lax" as const,
     path: "/",
     // Self-hosted deployments may run plain HTTP — defaulting `secure` to
-    // true would silently lock those out. Opt in via ATHANORDB_COOKIE_SECURE
+    // true would silently lock those out. Opt in via NEBULADB_COOKIE_SECURE
     // once TLS is in front of the app (config.ts warns at boot if it's unset
     // in production).
     secure: config.cookieSecure,
@@ -123,7 +124,7 @@ export function createSession(
 
 /** The caller's own sessions, newest activity first, with the current one flagged. */
 export function listSessions(userId: string, req: FastifyRequest): SessionSummary[] {
-  const currentId = req.cookies?.[SESSION_COOKIE];
+  const currentId = currentSessionId(req);
   const rows = db
     .prepare(
       `SELECT id, created_at, last_seen_at, expires_at, user_agent, ip
@@ -169,18 +170,21 @@ export function revokeAllSessions(userId: string, exceptSessionId?: string): num
 
 /** The session id the request is authenticated with, if any — needed to exclude it from a bulk revoke. */
 export function currentSessionId(req: FastifyRequest): string | undefined {
-  return req.cookies?.[SESSION_COOKIE];
+  return req.cookies?.[SESSION_COOKIE] ?? req.cookies?.[LEGACY_SESSION_COOKIE];
 }
 
 /** Drops the session cookie without touching the database — for when the row is already gone. */
 export function clearSessionCookie(reply: FastifyReply): void {
   reply.clearCookie(SESSION_COOKIE, { path: "/" });
+  reply.clearCookie(LEGACY_SESSION_COOKIE, { path: "/" });
 }
 
 export function destroySession(req: FastifyRequest, reply: FastifyReply): void {
-  const sessionId = req.cookies?.[SESSION_COOKIE];
-  if (sessionId) db.prepare("DELETE FROM sessions WHERE id = ?").run(sessionId);
-  reply.clearCookie(SESSION_COOKIE, { path: "/" });
+  for (const name of [SESSION_COOKIE, LEGACY_SESSION_COOKIE]) {
+    const sessionId = req.cookies?.[name];
+    if (sessionId) db.prepare("DELETE FROM sessions WHERE id = ?").run(sessionId);
+  }
+  clearSessionCookie(reply);
 }
 
 /**
@@ -191,7 +195,7 @@ export function destroySession(req: FastifyRequest, reply: FastifyReply): void {
  * need a user call `requireUser`/`requireAdmin` against the resolved value.
  */
 export function resolveSession(req: FastifyRequest, reply: FastifyReply): SessionUser | null {
-  const sessionId = req.cookies?.[SESSION_COOKIE];
+  const sessionId = currentSessionId(req);
   if (!sessionId) return null;
 
   const session = db.prepare("SELECT id, user_id, expires_at, ttl_ms FROM sessions WHERE id = ?").get(sessionId) as
@@ -218,6 +222,7 @@ export function resolveSession(req: FastifyRequest, reply: FastifyReply): Sessio
     session.id,
   );
   reply.setCookie(SESSION_COOKIE, session.id, cookieOptions(ttlMs === SHORT_SESSION_TTL_MS ? null : ttlMs));
+  if (req.cookies?.[LEGACY_SESSION_COOKIE]) reply.clearCookie(LEGACY_SESSION_COOKIE, { path: "/" });
 
   return toSessionUser(user);
 }

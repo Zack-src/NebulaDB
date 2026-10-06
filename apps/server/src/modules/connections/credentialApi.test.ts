@@ -3,12 +3,12 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { DatabaseConnectionConfig } from "@athanordb/shared";
+import type { DatabaseConnectionConfig } from "@nebuladb/shared";
 
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-credentials-api-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-credentials-api-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
@@ -47,7 +47,7 @@ async function makeUser(app: App, isAdmin: 0 | 1 = 0) {
     headers: headers(),
     payload: { email, password },
   });
-  return { id, email, cookie: `athanordb_sid=${res.cookies.find((c) => c.name === "athanordb_sid")!.value}` };
+  return { id, email, cookie: `nebuladb_sid=${res.cookies.find((c) => c.name === "nebuladb_sid")!.value}` };
 }
 
 function send(app: App, auth: Record<string, string>, method: Method, url: string, payload?: unknown) {
@@ -73,7 +73,7 @@ const UNREACHABLE = {
   host: "127.0.0.1",
   port: 1,
   database: "shop",
-  user: "athanor_service",
+  user: "nebula_service",
   password: "service-password",
 };
 
@@ -97,7 +97,12 @@ async function makeConnection(
   });
   assert.equal(created.statusCode, 200, created.body);
   const { id } = (created.json() as { connection: { id: string } }).connection;
-  const linked = await withCookie(app, adminCookie, "PUT", `/api/admin/connections/${id}/projects`, { projectIds });
+  // The first project on the connection's own database, each further one on a database of its own.
+  const links = projectIds.map((projectId, index) => ({
+    projectId,
+    database: index === 0 ? null : `${name.toLowerCase()}_${index}`,
+  }));
+  const linked = await withCookie(app, adminCookie, "PUT", `/api/admin/connections/${id}/projects`, { links });
   assert.equal(linked.statusCode, 200, linked.body);
   return id;
 }
@@ -119,7 +124,7 @@ test("/api/v1 personal accounts: who reaches them — a key, its owner's rights,
     const otherProject = await makeProject(app, other.cookie, "Other");
     const shop = await makeConnection(app, admin.cookie, "Shop", [shopProject]);
     const billing = await makeConnection(app, admin.cookie, "Billing", [billingProject]);
-    // One database two projects use.
+    // One server two projects use.
     const both = await makeConnection(app, admin.cookie, "Both", [shopProject, otherProject]);
 
     // No key, or one that is none: not signed in.

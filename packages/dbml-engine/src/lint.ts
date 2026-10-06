@@ -1,4 +1,4 @@
-import type { Field, Project, Table } from "@athanordb/shared";
+import type { Field, Project, Table } from "@nebuladb/shared";
 import { parseNote, type DataClassification } from "./dictionary.js";
 import { withoutVariables } from "./variables.js";
 

@@ -10,8 +10,8 @@ import type {
   TableIndex,
   TableSeedSummary,
   Zone,
-} from "@athanordb/shared";
-import type { ValidationIssue } from "@athanordb/dbml-engine";
+} from "@nebuladb/shared";
+import type { ValidationIssue } from "@nebuladb/dbml-engine";
 import type { FieldRefInfo } from "@/features/editor/nodes/table/fieldRefInfo";
 
 /**

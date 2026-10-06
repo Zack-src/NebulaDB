@@ -1,12 +1,12 @@
 import type { DatabaseEngine, Id } from "./schema.js";
 
 /**
- * Logical backups of a connected database: Athanor reads structure and rows
+ * Logical backups of a connected database: Nebula reads structure and rows
  * through the driver and keeps them in one encrypted file. Types shared by
  * the server (`modules/backups/`) and the "Sauvegardes" tab.
  */
 
-/** Why a backup was taken. `scheduled`: the connection's schedule. The two `pre-*` ones are the safety copy made before Athanor writes to the database. */
+/** Why a backup was taken. `scheduled`: the connection's schedule. The two `pre-*` ones are the safety copy made before Nebula writes to the database. */
 export type BackupTrigger = "manual" | "scheduled" | "pre-deployment" | "pre-restore";
 
 export type BackupStatus = "running" | "done" | "failed" | "cancelled";
@@ -84,7 +84,7 @@ export interface RestoreResult {
  * `{ $b: "<base64>" }` for bytes.
  */
 export interface BackupFileHeader {
-  format: "athanordb-backup";
+  format: "nebuladb-backup" | "athanordb-backup";
   version: 1;
   engine: DatabaseEngine;
   connectionName: string;

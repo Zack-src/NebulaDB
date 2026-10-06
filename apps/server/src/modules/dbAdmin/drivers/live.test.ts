@@ -3,10 +3,10 @@ import assert from "node:assert/strict";
 import { join } from "node:path";
 import { tmpdir } from "node:os";
 import { randomUUID } from "node:crypto";
-import type { DatabaseConnectionConfig, DbUserAction } from "@athanordb/shared";
+import type { DatabaseConnectionConfig, DbUserAction } from "@nebuladb/shared";
 
 // `drivers/sqlite.ts` (pulled in by the factory) reads the app config.
-process.env.ATHANORDB_DB_PATH ??= join(tmpdir(), `athanordb-test-adminlive-${randomUUID()}.sqlite`);
+process.env.NEBULADB_DB_PATH ??= join(tmpdir(), `nebuladb-test-adminlive-${randomUUID()}.sqlite`);
 
 const { createAdminDriver } = await import("./index.js");
 const { resetConnectionBudgets } = await import("../../connections/connectionBudget.js");
@@ -24,38 +24,38 @@ const TARGETS: Record<"postgres" | "mysql" | "mssql" | "oracle", DatabaseConnect
   postgres: {
     ...base,
     engine: "postgres",
-    host: env.ATHANORDB_TEST_PG_HOST || "localhost",
-    port: Number(env.ATHANORDB_TEST_PG_PORT || 55432),
-    database: env.ATHANORDB_TEST_PG_DATABASE || "athanordb_test",
-    user: env.ATHANORDB_TEST_PG_USER || "athanordb_test",
-    password: env.ATHANORDB_TEST_PG_PASSWORD || "athanordb_test",
+    host: env.NEBULADB_TEST_PG_HOST || "localhost",
+    port: Number(env.NEBULADB_TEST_PG_PORT || 55432),
+    database: env.NEBULADB_TEST_PG_DATABASE || "nebuladb_test",
+    user: env.NEBULADB_TEST_PG_USER || "nebuladb_test",
+    password: env.NEBULADB_TEST_PG_PASSWORD || "nebuladb_test",
   },
   mysql: {
     ...base,
     engine: "mysql",
-    host: env.ATHANORDB_TEST_MYSQL_HOST || "localhost",
-    port: Number(env.ATHANORDB_TEST_MYSQL_PORT || 53306),
-    database: env.ATHANORDB_TEST_MYSQL_DATABASE || "athanordb_test",
-    user: env.ATHANORDB_TEST_MYSQL_USER || "root",
-    password: env.ATHANORDB_TEST_MYSQL_PASSWORD || "athanordb_test",
+    host: env.NEBULADB_TEST_MYSQL_HOST || "localhost",
+    port: Number(env.NEBULADB_TEST_MYSQL_PORT || 53306),
+    database: env.NEBULADB_TEST_MYSQL_DATABASE || "nebuladb_test",
+    user: env.NEBULADB_TEST_MYSQL_USER || "root",
+    password: env.NEBULADB_TEST_MYSQL_PASSWORD || "nebuladb_test",
   },
   mssql: {
     ...base,
     engine: "mssql",
-    host: env.ATHANORDB_TEST_MSSQL_HOST || "localhost",
-    port: Number(env.ATHANORDB_TEST_MSSQL_PORT || 1433),
+    host: env.NEBULADB_TEST_MSSQL_HOST || "localhost",
+    port: Number(env.NEBULADB_TEST_MSSQL_PORT || 1433),
     database: "master",
-    user: env.ATHANORDB_TEST_MSSQL_USER || "sa",
-    password: env.ATHANORDB_TEST_MSSQL_PASSWORD || "Athanor_Test123!",
+    user: env.NEBULADB_TEST_MSSQL_USER || "sa",
+    password: env.NEBULADB_TEST_MSSQL_PASSWORD || "Nebula_Test123!",
   },
   oracle: {
     ...base,
     engine: "oracle",
-    host: env.ATHANORDB_TEST_ORACLE_HOST || "localhost",
-    port: Number(env.ATHANORDB_TEST_ORACLE_PORT || 51521),
-    database: env.ATHANORDB_TEST_ORACLE_SERVICE || "FREEPDB1",
-    user: env.ATHANORDB_TEST_ORACLE_USER || "system",
-    password: env.ATHANORDB_TEST_ORACLE_PASSWORD || "athanordb_test",
+    host: env.NEBULADB_TEST_ORACLE_HOST || "localhost",
+    port: Number(env.NEBULADB_TEST_ORACLE_PORT || 51521),
+    database: env.NEBULADB_TEST_ORACLE_SERVICE || "FREEPDB1",
+    user: env.NEBULADB_TEST_ORACLE_USER || "system",
+    password: env.NEBULADB_TEST_ORACLE_PASSWORD || "nebuladb_test",
   },
 };
 
@@ -83,10 +83,10 @@ for (const engine of ["postgres", "mysql", "mssql"] as const) {
     if (!driver) return;
     const [l, r] = QUOTES[engine];
     const q = (name: string) => `${l}${name}${r}`;
-    const database = "athanor_admin_live";
+    const database = "nebula_admin_live";
     const schema = engine === "postgres" ? "public" : engine === "mssql" ? "dbo" : undefined;
     const table = { database, schema, table: "items" };
-    const user = { name: "athanor_admin_live_user", host: engine === "mysql" ? "%" : undefined };
+    const user = { name: "nebula_admin_live_user", host: engine === "mysql" ? "%" : undefined };
     // SQL Server keeps a server login and a per-database user; elsewhere they are one and the same.
     const dbUser = engine === "mssql" ? { ...user, database } : user;
     const apply = async (action: DbUserAction, runIn?: string) => {
@@ -259,9 +259,9 @@ for (const engine of ["postgres", "mysql", "mssql"] as const) {
 test("oracle admin driver: explore, query with the read-only guard, manage a user, drop", async (t) => {
   const driver = await open(t, "oracle");
   if (!driver) return;
-  const user = { name: "ATHANOR_ADMIN_LIVE" };
+  const user = { name: "NEBULA_ADMIN_LIVE" };
   // The objects live in a schema of their own: the connecting account's (SYSTEM) is Oracle-maintained, and off limits.
-  const owner = "ATHANOR_LIVE_OWNER";
+  const owner = "NEBULA_LIVE_OWNER";
   const table = { schema: owner, table: "ITEMS" };
   const apply = async (action: DbUserAction) => {
     const statements = driver.userStatements(action);

@@ -98,10 +98,10 @@ export interface DbAdminQueryHistoryEntry {
 }
 
 /**
- * One statement shape run through Athanor's SQL console on a connection,
+ * One statement shape run through Nebula's SQL console on a connection,
  * aggregated (`GET /api/admin/connections/:id/query-stats`). `sql` has every
  * literal replaced by `?` — never a value, never a result. Durations are
- * measured by Athanor around the call (opening the connection included), not
+ * measured by Nebula around the call (opening the connection included), not
  * read from the database server.
  */
 export interface DbQueryStat {
@@ -139,11 +139,23 @@ export interface DbBlocking {
 
 /** The "Santé" tab of a connection: every part is `null` when the engine or the account cannot give it. */
 export interface DbHealthBoard {
-  status: { ok: boolean; version: string | null; latencyMs: number | null; checkedAt: string | null; error: string | null };
+  status: {
+    ok: boolean;
+    version: string | null;
+    latencyMs: number | null;
+    checkedAt: string | null;
+    error: string | null;
+  };
   /** Latency of the last probes, oldest first (7 days kept). */
   history: { at: string; ok: boolean; latencyMs: number }[];
   databases: { name: string; sizeBytes: number | null; system: boolean }[] | null;
-  sessions: { total: number; active: number; idle: number; longestSeconds: number | null; longestUser: string | null } | null;
+  sessions: {
+    total: number;
+    active: number;
+    idle: number;
+    longestSeconds: number | null;
+    longestUser: string | null;
+  } | null;
   blocking: DbBlocking[] | null;
 }
 
@@ -170,7 +182,7 @@ export interface DbActivityEntry {
   maxSeconds: number;
   firstAt: string;
   lastAt: string;
-  /** The account is one Athanor signs in with here (by name only). */
+  /** The account is one Nebula signs in with here (by name only). */
   knownAccount: boolean;
 }
 

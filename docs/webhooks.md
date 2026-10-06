@@ -6,12 +6,12 @@ project can have up to 10.
 
 ## Events
 
-| Event                  | Sent when                                                                                                                                                                                                                                               |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `schema.changed`       | The schema changed, once the project has seen **30 seconds without an edit**. A burst of edits becomes one notification listing every author. Moving tables or changing colours doesn't count.                                                          |
-| `deployment.completed` | A deployment or a rollback to a connected database finished — successfully or not.                                                                                                                                                                      |
-| `drift.detected`       | The project's watch (Déploiements → Surveillance) found a database changed outside Athanor since the last deployment or pull — or, with the accounts watch on, its accounts or privileges changed (`kind: "accounts"`). Once per state of the database. |
-| `ping`                 | Only when someone clicks **Tester** — never subscribed to.                                                                                                                                                                                              |
+| Event                  | Sent when                                                                                                                                                                                                                                              |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `schema.changed`       | The schema changed, once the project has seen **30 seconds without an edit**. A burst of edits becomes one notification listing every author. Moving tables or changing colours doesn't count.                                                         |
+| `deployment.completed` | A deployment or a rollback to a connected database finished — successfully or not.                                                                                                                                                                     |
+| `drift.detected`       | The project's watch (Déploiements → Surveillance) found a database changed outside Nebula since the last deployment or pull — or, with the accounts watch on, its accounts or privileges changed (`kind: "accounts"`). Once per state of the database. |
+| `ping`                 | Only when someone clicks **Tester** — never subscribed to.                                                                                                                                                                                             |
 
 ## Formats
 
@@ -37,7 +37,7 @@ Slack and Discord messages are short French sentences built from the event.
 }
 ```
 
-`project.url` is `null` unless `ATHANORDB_PUBLIC_URL` is set. `data.changes` is
+`project.url` is `null` unless `NEBULADB_PUBLIC_URL` is set. `data.changes` is
 `null` in the rare case the server has no earlier state to compare with.
 
 For `deployment.completed`, `data` is `{ kind: "deploy" | "rollback",
@@ -51,7 +51,7 @@ reference and explains the change.
 
 When an instance administrator turned on the project's **accounts watch**,
 `drift.detected` is also sent with `kind: "accounts"`: the database's accounts,
-roles or privileges changed and no action in Athanor's console explains it.
+roles or privileges changed and no action in Nebula's console explains it.
 `data` is then `{ kind: "accounts", connectionName, environment, added: [],
 removed: [], changed: [], accountChanges }`, where `accountChanges` counts the
 changes by type (`{ "created": 1, "privilege-granted": 2 }`; the types are
@@ -68,9 +68,9 @@ only expects tables should check `kind`.
 
 Every request carries:
 
-- `X-AthanorDB-Event` — the event name
-- `X-AthanorDB-Delivery` — the delivery id (same as `id` in the body)
-- `X-AthanorDB-Signature` — `t=<unix seconds>,v1=<hex HMAC-SHA256>`
+- `X-NebulaDB-Event` — the event name
+- `X-NebulaDB-Delivery` — the delivery id (same as `id` in the body)
+- `X-NebulaDB-Signature` — `t=<unix seconds>,v1=<hex HMAC-SHA256>`
 
 The HMAC is computed over `<t>.<raw request body>` with the webhook's signing
 secret (`whsec_…`, shown **once**, when the webhook is created). Check it
@@ -79,7 +79,7 @@ against the raw body, before parsing, and reject old timestamps to stop replays:
 ```js
 import crypto from "node:crypto";
 
-function isFromAthanorDB(rawBody, signatureHeader, secret, toleranceSeconds = 300) {
+function isFromNebulaDB(rawBody, signatureHeader, secret, toleranceSeconds = 300) {
   const match = /^t=(\d+),v1=([0-9a-f]{64})$/.exec(signatureHeader ?? "");
   if (!match) return false;
   const [, t, v1] = match;
@@ -109,7 +109,7 @@ put the new one in the receiving service straight away.
 ## Security
 
 - Only project administrators can see or change a project's webhooks.
-- The signing secret is stored encrypted with `ATHANORDB_SECRET`, which must
+- The signing secret is stored encrypted with `NEBULADB_SECRET`, which must
   be set (same requirement as database connections). Changing that key makes
   existing secrets unreadable: those webhooks' deliveries then fail with an
   explicit error until they are recreated.

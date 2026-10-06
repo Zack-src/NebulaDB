@@ -3,12 +3,12 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { DbAdminSession } from "@athanordb/shared";
+import type { DbAdminSession } from "@nebuladb/shared";
 
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-activity-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-activity-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
@@ -37,7 +37,7 @@ async function makeUser(app: App, isAdmin: 0 | 1) {
     headers: headers(),
     payload: { email, password },
   });
-  return `athanordb_sid=${res.cookies.find((c) => c.name === "athanordb_sid")!.value}`;
+  return `nebuladb_sid=${res.cookies.find((c) => c.name === "nebuladb_sid")!.value}`;
 }
 
 function call(app: App, cookie: string, method: "GET" | "POST" | "PUT", url: string, payload?: unknown) {
@@ -74,7 +74,7 @@ test("database-side activity: sampled, masked, grouped, and told apart by accoun
         host: "127.0.0.1",
         port: 1,
         database: "shop",
-        user: "athanor_service",
+        user: "nebula_service",
         password: "service-password",
       })
     ).json().connection as { id: string };
@@ -85,7 +85,7 @@ test("database-side activity: sampled, masked, grouped, and told apart by accoun
     assert.deepEqual((await call(app, admin, "GET", url)).json().entries, []);
 
     read.mock.mockImplementation(async () => [
-      session({ id: "1", user: "athanor_service", query: "SELECT 1" }),
+      session({ id: "1", user: "nebula_service", query: "SELECT 1" }),
       session({
         id: "2",
         user: "report_bot",
@@ -118,7 +118,7 @@ test("database-side activity: sampled, masked, grouped, and told apart by accoun
     assert.equal(orders.seen, 2);
     assert.equal(orders.maxSeconds, 7);
     assert.equal(orders.sql.includes("Ada") || orders.sql.includes("42"), false, "no literal is kept");
-    assert.equal(all.find((e) => e.user === "athanor_service")!.knownAccount, true);
+    assert.equal(all.find((e) => e.user === "nebula_service")!.knownAccount, true);
     assert.equal(orders.knownAccount, false);
     // A session with no statement is still listed, with an empty shape.
     assert.ok(all.some((e) => e.sql === "" && e.user === "report_bot"));

@@ -1,5 +1,5 @@
 import type { FastifyReply } from "fastify";
-import type { Project } from "@athanordb/shared";
+import type { Project } from "@nebuladb/shared";
 import {
   applyVisualMetadata,
   describeDbmlParseError,
@@ -8,7 +8,7 @@ import {
   projectToSql,
   toProject,
   type SqlDialect,
-} from "@athanordb/dbml-engine";
+} from "@nebuladb/dbml-engine";
 import { ApiError } from "../../shared/errors.js";
 import { isSqlDialect, SQL_DIALECTS } from "../../shared/sqlDialect.js";
 

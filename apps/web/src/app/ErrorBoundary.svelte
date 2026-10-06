@@ -36,7 +36,7 @@
 
   function handleError(error: unknown) {
     const err = error instanceof Error ? error : new Error(String(error));
-    console.error("[athanordb] render error:", err);
+    console.error("[nebuladb] render error:", err);
     // Best-effort report to the server-side error log. Never awaited and never
     // lets a reporting failure surface here: this handler is already deep in
     // "something went wrong", and a rejected fetch (offline, logged out,

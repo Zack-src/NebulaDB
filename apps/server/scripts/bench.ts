@@ -21,10 +21,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-bench-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "bench-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-bench-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "bench-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../src/app.js");
 const { db } = await import("../src/infrastructure/db.js");
@@ -104,8 +104,8 @@ async function benchRest(app: Awaited<ReturnType<typeof buildApp>>, tableCount: 
     headers: headers(),
     payload: { email, password },
   });
-  const sessionCookie = loginRes.cookies.find((c) => c.name === "athanordb_sid");
-  const cookie = sessionCookie ? `athanordb_sid=${sessionCookie.value}` : "";
+  const sessionCookie = loginRes.cookies.find((c) => c.name === "nebuladb_sid");
+  const cookie = sessionCookie ? `nebuladb_sid=${sessionCookie.value}` : "";
 
   const createRes = await app.inject({
     method: "POST",

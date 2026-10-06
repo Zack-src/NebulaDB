@@ -5,10 +5,10 @@ import {
   type StructurePolicy,
   type StructurePolicyRefusal,
   type StructurePolicySetting,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { ApiError } from "../../shared/errors.js";
-import { getAdminConnection } from "../connections/repository.js";
+import { connectionOwner, getAdminConnection } from "../connections/repository.js";
 
 const SETTING_KEY = "structure_policy";
 
@@ -54,6 +54,7 @@ export function setInstanceStructurePolicy(setting: StructurePolicySetting, user
 
 /** The policy in force on a connection: its own when it has one, the instance's otherwise. */
 export function effectiveStructurePolicy(connectionId: string): EffectiveStructurePolicy {
+  if (connectionOwner(connectionId)) return { ...getInstanceStructurePolicy(), source: "instance", projects: [] };
   const connection = getAdminConnection(connectionId);
   if (!connection) throw new ApiError("CONNECTION_NOT_FOUND");
   const own = connection.structurePolicy;

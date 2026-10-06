@@ -19,7 +19,7 @@ import { login, startE2eEnvironment } from "./harness.js";
 const PORT = Number(process.env.E2E_PORT) || 4397;
 
 test("admin: add a connection, explore it, query it and drop a table", { timeout: 90_000 }, async () => {
-  const targetDir = mkdtempSync(join(tmpdir(), "athanordb-e2e-target-"));
+  const targetDir = mkdtempSync(join(tmpdir(), "nebuladb-e2e-target-"));
   const targetFile = join(targetDir, "shop.sqlite");
   const target = new Database(targetFile);
   target.exec(`

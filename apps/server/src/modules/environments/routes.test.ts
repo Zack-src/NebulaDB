@@ -6,16 +6,16 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-environments-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-environments-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
 const { hashPassword } = await import("../auth/password.js");
 const { closeAllRooms, getRoom } = await import("../../realtime/roomRegistry.js");
-const { writeProjectToDoc } = await import("@athanordb/shared");
+const { writeProjectToDoc } = await import("@nebuladb/shared");
 
 const HOST = "localhost:3001";
 const ORIGIN = `http://${HOST}`;
@@ -33,8 +33,8 @@ async function loginAs(app: App, email: string, password: string) {
     headers: headers(),
     payload: { email, password },
   });
-  const sessionCookie = res.cookies.find((c) => c.name === "athanordb_sid");
-  return `athanordb_sid=${sessionCookie!.value}`;
+  const sessionCookie = res.cookies.find((c) => c.name === "nebuladb_sid");
+  return `nebuladb_sid=${sessionCookie!.value}`;
 }
 
 async function makeUser(isAdmin: 0 | 1 = 0) {
@@ -251,7 +251,7 @@ test("environments: deploying to the production stage needs the connection's nam
       name: string;
     };
     seedCanvasTable(project.id, project.name);
-    const targetFile = join(mkdtempSync(join(tmpdir(), "athanordb-env-")), "prod.sqlite");
+    const targetFile = join(mkdtempSync(join(tmpdir(), "nebuladb-env-")), "prod.sqlite");
     const created = await call(app, cookie, "POST", `/api/projects/${project.id}/connections`, {
       name: "Shop live",
       engine: "sqlite",
@@ -329,7 +329,7 @@ test("variables: one schema deployed under each stage's names; an undefined vari
     });
     assert.equal(seeded.statusCode, 200, seeded.body);
 
-    const dir = mkdtempSync(join(tmpdir(), "athanordb-vars-"));
+    const dir = mkdtempSync(join(tmpdir(), "nebuladb-vars-"));
     const connect = async (name: string, environmentId: string | null) =>
       (
         await call(app, cookie, "POST", `${base}/connections`, {

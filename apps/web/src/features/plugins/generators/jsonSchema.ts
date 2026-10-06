@@ -1,4 +1,4 @@
-import type { Project } from "@athanordb/shared";
+import type { Project } from "@nebuladb/shared";
 
 function mapToJsonSchemaType(typeStr: string): string {
   const t = String(typeStr || "")
@@ -54,7 +54,7 @@ export function generateJsonSchema(project: Project): string {
 
   const rootSchema = {
     $schema: "http://json-schema.org/draft-07/schema#",
-    title: project.name || "AthanorDB Schema",
+    title: project.name || "NebulaDB Schema",
     type: "object",
     definitions,
   };

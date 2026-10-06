@@ -6,8 +6,8 @@ import { join } from "node:path";
 
 // Same reason as session.test.ts: `db.ts` opens its SQLite file at import
 // time, so the path has to be set before anything imports it transitively.
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-lockout-test-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-lockout-test-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
 
 const { db } = await import("../../infrastructure/db.js");
 const { checkLock, clearFailures, purgeStaleAttempts, recordFailure, MAX_FAILED_ATTEMPTS } =

@@ -1,5 +1,5 @@
 <script lang="ts" module>
-  import type { DatabaseEngine } from "@athanordb/shared";
+  import type { DatabaseEngine } from "@nebuladb/shared";
 
   export const DEFAULT_PORTS: Record<DatabaseEngine, number> = {
     postgres: 5432,
@@ -13,7 +13,7 @@
 </script>
 
 <script lang="ts">
-  import type { EnvironmentStage } from "@athanordb/shared";
+  import type { EnvironmentStage } from "@nebuladb/shared";
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import Hint from "@/components/ui/Hint.svelte";
   import { INPUT_CLASS } from "@/components/ui/inputStyles";
@@ -42,6 +42,8 @@
     connectionString = $bindable(),
     filePath = $bindable(),
     useUri = $bindable(),
+    showCredentials = true,
+    showEnvironment = true,
   }: {
     /** The deployment stage (Admin → Environnements); `""` for none. */
     environmentId: string;
@@ -56,6 +58,8 @@
     connectionString: string;
     filePath: string;
     useUri: boolean;
+    showCredentials?: boolean;
+    showEnvironment?: boolean;
   } = $props();
 
   const { t } = useTranslation();
@@ -107,17 +111,17 @@
     />
   </div>
 
-  <div class="col-span-2">
-    <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label id="connection-environment" class={LABEL}>{t("connections.environment")}</label>
-    <Select
-      aria-labelledby="connection-environment"
-      value={environmentId}
-      options={stageOptions}
-      onChange={(value) => (environmentId = value)}
-    />
-    <Hint>{t("connections.environmentHint")}</Hint>
-  </div>
+  {#if showEnvironment}<div class="col-span-2">
+      <!-- svelte-ignore a11y_label_has_associated_control -->
+      <label id="connection-environment" class={LABEL}>{t("connections.environment")}</label>
+      <Select
+        aria-labelledby="connection-environment"
+        value={environmentId}
+        options={stageOptions}
+        onChange={(value) => (environmentId = value)}
+      />
+      <Hint>{t("connections.environmentHint")}</Hint>
+    </div>{/if}
 </div>
 
 {#if engine === "sqlite"}
@@ -162,19 +166,20 @@
       <div class="grid grid-cols-3 gap-2">
         <div class="col-span-1">
           <!-- svelte-ignore a11y_label_has_associated_control -->
-          <label class={LABEL}>{engine === "oracle" ? t("connections.oracleService") : t("connections.database")}</label>
+          <label class={LABEL}>{engine === "oracle" ? t("connections.oracleService") : t("connections.database")}</label
+          >
           <input class={INPUT_CLASS} bind:value={database} />
         </div>
-        <div class="col-span-1">
-          <!-- svelte-ignore a11y_label_has_associated_control -->
-          <label class={LABEL}>{t("connections.user")}</label>
-          <input class={INPUT_CLASS} bind:value={user} />
-        </div>
-        <div class="col-span-1">
-          <!-- svelte-ignore a11y_label_has_associated_control -->
-          <label class={LABEL}>{t("connections.password")}</label>
-          <input class={INPUT_CLASS} type="password" bind:value={password} placeholder={passwordPlaceholder} />
-        </div>
+        {#if showCredentials}<div class="col-span-1">
+            <!-- svelte-ignore a11y_label_has_associated_control -->
+            <label class={LABEL}>{t("connections.user")}</label>
+            <input class={INPUT_CLASS} bind:value={user} />
+          </div>
+          <div class="col-span-1">
+            <!-- svelte-ignore a11y_label_has_associated_control -->
+            <label class={LABEL}>{t("connections.password")}</label>
+            <input class={INPUT_CLASS} type="password" bind:value={password} placeholder={passwordPlaceholder} />
+          </div>{/if}
       </div>
 
       <div>

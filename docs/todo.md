@@ -1,4 +1,4 @@
-# AthanorDB — TODO
+# NebulaDB — TODO
 
 DBML-native, self-hosted, multi-user, versioned, visual editor — and, since the database
 console, a workbench for the databases it models.
@@ -195,7 +195,7 @@ the answer may change.
       _Phase 33._
 - [ ] **Database-side logs:** default retention; syslog / SIEM export. **Traffic:** accept an
       estimate for PostgreSQL's data volume? _Phase 34._
-- [ ] **`ATHANORDB_SQLITE_DIR` as the default:** a breaking change to schedule. A general
+- [ ] **`NEBULADB_SQLITE_DIR` as the default:** a breaking change to schedule. A general
       private-IP block: stays off by default? _Phase 27._
 - [ ] **Roles beyond view / edit / administrator:** only on real demand — say when. _Phase 20._
 - [ ] **Visual overhaul:** before the new features or alongside them; Figma mock-ups first?
@@ -244,7 +244,7 @@ the answer may change.
       highest wins; never derived from a project. Not per database / schema / table on the
       server; no "structure" level. _Phase 31._
 - [ ] **A grant on a shared-account connection** runs as the connection's stored account: only
-      Athanor's own screening (read-only rules; data statements only) bounds the member, not the
+      Nebula's own screening (read-only rules; data statements only) bounds the member, not the
       database's permissions. Alternative: allow `write` (or any grant) only on connections in
       personal-account mode. _Phase 31 / 27._
 - [ ] **Where a member reaches it:** from a project the database is attached to (Données & SQL,
@@ -398,7 +398,7 @@ are in the repository for this.
 
 - [ ] **Scheduled backups over a few days:** hours are the **server's local time**; one
       catch-up after downtime; the kept-count. Tested with a simulated clock only. _Phase 32._
-- [ ] **A backup past the size ceiling** (`ATHANORDB_DATABASE_BACKUP_MAX_MB`, 512): it must
+- [ ] **A backup past the size ceiling** (`NEBULADB_DATABASE_BACKUP_MAX_MB`, 512): it must
       fail, and a production deployment must then be refused — try it on a copy. _Phase 32._
 
 ### C. To verify before upgrading a real instance
@@ -427,12 +427,12 @@ Take a backup first (`npm run backup -- <dir>`); migrations are one-way. Try the
       `409 DESTRUCTIVE_CHANGE_UNRESOLVED`. A script sending a free-text `environment` gets
       `404 ENVIRONMENT_NOT_FOUND`. List the scripts and CI jobs concerned. _Phase 32._
 - [ ] **Production deployments now back the database up first** and are refused if that fails:
-      check the room on `ATHANORDB_DATABASE_BACKUP_DIR` (default: next to the app database),
-      the ceiling (`ATHANORDB_DATABASE_BACKUP_MAX_MB`) against the size of the production
-      databases, and the retention (`ATHANORDB_DATABASE_BACKUP_RETENTION_DAYS`). _Phase 32._
+      check the room on `NEBULADB_DATABASE_BACKUP_DIR` (default: next to the app database),
+      the ceiling (`NEBULADB_DATABASE_BACKUP_MAX_MB`) against the size of the production
+      databases, and the retention (`NEBULADB_DATABASE_BACKUP_RETENTION_DAYS`). _Phase 32._
 - [ ] **"Annuler / Gérer manuellement" on a risk now really cancels** the deployment: tell the
       people who used to click through it. _Phase 32._
-- [ ] **`ATHANORDB_SECRET`:** losing it now also loses the database backups, the personal
+- [ ] **`NEBULADB_SECRET`:** losing it now also loses the database backups, the personal
       accounts and the webhook secrets — check it is itself backed up, outside the instance.
 - [ ] **The changelog's "read before upgrading" entries**, top to bottom.
 
@@ -1100,10 +1100,10 @@ here: each gets its own security review before it is closed.**
   in). Runs in the background: `POST /api/admin/connections/:id/backups` answers `202`, the
   list shows tables done / total, `…/cancel` stops it between pages, one backup per database at
   a time, a backup cut by a restart is marked failed at boot. Size ceiling
-  `ATHANORDB_DATABASE_BACKUP_MAX_MB` (512, before compression — over it the backup **fails**
-  and says to use the engine's tool), retention `ATHANORDB_DATABASE_BACKUP_RETENTION_DAYS`
+  `NEBULADB_DATABASE_BACKUP_MAX_MB` (512, before compression — over it the backup **fails**
+  and says to use the engine's tool), retention `NEBULADB_DATABASE_BACKUP_RETENTION_DAYS`
   (30; hourly sweep on the scheduler; a **pinned** backup is never swept), directory
-  `ATHANORDB_DATABASE_BACKUP_DIR` (next to the app database). Download = the decrypted file,
+  `NEBULADB_DATABASE_BACKUP_DIR` (next to the app database). Download = the decrypted file,
   still gzipped (`.jsonl.gz`). A deleted connection takes its backups with it. Audited
   (`backup.create|download|delete|restore`). UI: the **Sauvegardes** tab of the database console
   (`features/backups/BackupsPanel.svelte`) — so also in the workspace's Données & SQL tab.
@@ -1120,8 +1120,8 @@ here: each gets its own security review before it is closed.**
     told apart, bytes as base64 — and nothing to quote per dialect.
   - _Not a consistent snapshot_: tables are read one after another, without a transaction
     across them. Fine for a quiet database, approximate under writes — said in the user guide.
-  - _The existing `ATHANORDB_BACKUP_*` variables stay what they were_ (the app's own data);
-    the new ones are `ATHANORDB_DATABASE_BACKUP_*`.
+  - _The existing `NEBULADB_BACKUP_*` variables stay what they were_ (the app's own data);
+    the new ones are `NEBULADB_DATABASE_BACKUP_*`.
 
   **Verified:** `backups/routes.test.ts` on SQLite (rights; a backup with a 64-bit integer, a
   blob, `NULL` vs empty string and a multi-line text restored bit for bit; the file is neither
@@ -1187,7 +1187,7 @@ here: each gets its own security review before it is closed.**
       logs (WAL, binlog) for point-in-time when the DBA configured them. This is the "backup/
       restore and data import" item of the console follow-ups (Phase 27).
 - [ ] **Fine data rollback and unified timeline** — **L**. Restore a row range ("lines deleted
-      between X and Y"); "Annuler cette requête" for small writes made from Athanor (keep the
+      between X and Y"); "Annuler cette requête" for small writes made from Nebula (keep the
       before-image under a row threshold); one timeline of deployments, backups, restores and
       external drifts with a return point at each step.
 - [ ] **Deployment safety extras** — **S each**, unarbitrated: pre-deploy impact analysis
@@ -1299,10 +1299,10 @@ file_ref, options_json, updated_at)`; an abstract `SeedSource` interface (`csv` 
   a context (`projectId`, `connectionId`, defaulting from the target) and records the request id
   as `correlation_id` (Fastify now issues UUIDs); migration 27 adds and backfills the columns.
   **Decisions taken:** the Errors tab stays separate (different readers, different retention);
-  retention stays `ATHANORDB_AUDIT_RETENTION_DAYS` (no Admin → Paramètres screen yet).
+  retention stays `NEBULADB_AUDIT_RETENTION_DAYS` (no Admin → Paramètres screen yet).
   **Verified:** `audit/routes.test.ts` (categories, filters, paging, export, admin-only),
   `e2e/activity.e2e.ts`. **Still to do:** source "Base" (lot 10, database-side logs) and the "hors
-  Athanor uniquement" filter that needs it; ~~per-user filter~~ (done 2026-10-04: "Voir toute son activité" in an entry's detail sets
+  Nebula uniquement" filter that needs it; ~~per-user filter~~ (done 2026-10-04: "Voir toute son activité" in an entry's detail sets
   `actorId`, kept in the export links); ~~duration / rows affected for SQL entries~~ (they were
   already in the `dbadmin.query` detail); ~~one database's journal~~ (done 2026-10-05: console →
   **Journal**, `features/admin/connections/JournalPanel.svelte` — the activity routes with
@@ -1313,8 +1313,8 @@ file_ref, options_json, updated_at)`; an abstract `SeedSource` interface (`csv` 
   _Surveillance_ (`monitoring.drift`, `monitoring.unreachable`, `monitoring.accounts*`): the
   watch now writes what it finds to the journal. Verified: `dbAdmin/queryStats.test.ts`,
   `e2e/connection-journal.e2e.ts`); hash-chain for a tamper-evident log;
-  editor-SQL vs console-SQL told apart. The original item: **L**. One filterable view (source Athanor / Base; connection;
-  user; type — structure · data · accounts · sessions · deployments; period; "hors Athanor
+  editor-SQL vs console-SQL told apart. The original item: **L**. One filterable view (source Nebula / Base; connection;
+  user; type — structure · data · accounts · sessions · deployments; period; "hors Nebula
   uniquement"; search; CSV export) merging today's `AuditTab.svelte` and `ErrorsTab.svelte`;
   row detail panel (full SQL, duration, rows, IP, project, link to schema / deployment);
   cursor pagination. Server: extend `shared/audit.ts` with new event types (locks, structure
@@ -1347,12 +1347,12 @@ file_ref, options_json, updated_at)`; an abstract `SeedSource` interface (`csv` 
   mute and reminders (the channels item below); severity by stage (critical on production);
   `connectionBudget` is not consulted (the job is sequential and bounded instead). The original
   item: **XL**. Project setting
-  "Détecter les modifications externes à Athanor": interval (5 min … daily), scope
+  "Détecter les modifications externes à Nebula": interval (5 min … daily), scope
   (structure / + views, functions, procedures / + accounts and permissions), ignore list,
   alert channels, severity (critical on Prod connection), optional action "mark project
   divergent and block deployments". Mechanism: store the **reference fingerprint** after every
   successful deployment or pull; periodic re-introspection; on difference, look in
-  `deployment_history` for a recent Athanor deployment that explains it, otherwise
+  `deployment_history` for a recent Nebula deployment that explains it, otherwise
   **external** (author and time when capability level 2 is available); event `drift.detected`;
   reference updated once resolved. Tables `schema_fingerprints`, `drift_events`,
   `monitor_settings`, `alert_acks`; routes `GET/PUT /api/projects/:id/monitoring`,
@@ -1374,7 +1374,7 @@ file_ref, options_json, updated_at)`; an abstract `SeedSource` interface (`csv` 
   reference; a difference = event `accounts` (once per state), audit `monitoring.accounts`,
   `notifyFollowers("drift", { kind: "accounts", connection, changes })` to project
   administrators only, webhook `drift.detected` with `kind: "accounts"` and counts by change
-  type. **Athanor's own changes:** a `preHandler` / `onResponse` pair on
+  type. **Nebula's own changes:** a `preHandler` / `onResponse` pair on
   `POST /api/admin/connections/:id/users` (executed, by an instance administrator) reads the
   accounts before and after; what changed in between is applied to the reference
   (`applyAccountDelta`), so a pending outside change stays reported. **Accepter l'état actuel**
@@ -1383,16 +1383,16 @@ file_ref, options_json, updated_at)`; an abstract `SeedSource` interface (`csv` 
   watch's state) to instance administrators only; notifications and webhooks carry counts, not
   names; the option only runs while the project's watch is on; reading fails → kept as
   `lastError` on the card, never an alert. **Verified:** `monitoring/accountFingerprint.test.ts`
-  (stable, order-insensitive, privilege / role / lock / create / drop, Athanor delta),
+  (stable, order-insensitive, privilege / role / lock / create / drop, Nebula delta),
   `monitoring/accountWatch.test.ts` (rights, SQLite hidden, alert once, notification without
-  names, Athanor's console change not alerted while the outside one stays, accept, cascade),
+  names, Nebula's console change not alerted while the outside one stays, accept, cascade),
   `monitoring/accountReader.live.test.ts` against the PostgreSQL, MySQL and SQL Server
   containers. **Found on the way, fixed:** PostgreSQL `listGrants` did not read a table's
   default (NULL ACL) owner privileges, so they seemed to appear on the first grant.
   **Not done:** views / functions / procedures; Oracle checked by code only (no container);
-  the window between the two reads around a console change attributes to Athanor anything
+  the window between the two reads around a console change attributes to Nebula anything
   done elsewhere in those milliseconds; `/api/v1` does not expose the accounts watch.
-- [ ] **Drift UI** — **L**. Editor banner ("modifiée en dehors d'Athanor — n différences" with
+- [ ] **Drift UI** — **L**. Editor banner ("modifiée en dehors d'Nebula — n différences" with
       Voir / Mettre à jour le schéma / Réappliquer le schéma / Ignorer), differences page reusing
       `editor/compare/` with per-line Import / Revert / Ignore (ignore list = exceptions), "divergent"
       badge on nodes and a red dot on the project list, admin **alert centre** (bell, ack, history).
@@ -1405,7 +1405,7 @@ file_ref, options_json, updated_at)`; an abstract `SeedSource` interface (`csv` 
       (`pg_stat_activity` / `pg_stat_statements`, `performance_schema`, DMVs, `V$SESSION`); level
       2: DDL / audit trail only if the DBA configured it (PostgreSQL event trigger or log,
       MySQL `general_log` table / audit plugin, SQL Server Extended Events / default trace, Oracle
-      unified audit). **Athanor never configures server-side audit itself** — it supplies the
+      unified audit). **Nebula never configures server-side audit itself** — it supplies the
       script and verifies it works. Table `db_activity_log` (short, capped retention; statement
       text truncated and literals masked). Capability map shown in the connection editor.
       Open: default retention; syslog / SIEM export.
@@ -1413,12 +1413,12 @@ file_ref, options_json, updated_at)`; an abstract `SeedSource` interface (`csv` 
       version, uptime, size and growth per table, sessions, blocking locks (link to the sessions
       panel and its existing **kill**), slow statements (link to Phase 36). Short aggregated
       series kept server-side, rate-limited sampling.
-- [ ] **Traffic: queries and data volume** — first piece of "Athanor's own traffic" done
+- [ ] **Traffic: queries and data volume** — first piece of "Nebula's own traffic" done
       2026-10-05: per connection, the SQL console's statements grouped by shape
       (`dbAdmin/sqlShape.ts`: comments dropped, every literal → `?`, lists collapsed), counted per
       UTC day in `query_stats` (migration 37; runs, failures, total / max ms, rows, last author),
-      kept `ATHANORDB_QUERY_STATS_RETENTION_DAYS` (30), shown in console → Journal → **Requêtes**
-      (frequency / slowest / total, badge "Mesuré par Athanor"; the duration includes opening the
+      kept `NEBULADB_QUERY_STATS_RETENTION_DAYS` (30), shown in console → Journal → **Requêtes**
+      (frequency / slowest / total, badge "Mesuré par Nebula"; the duration includes opening the
       connection). Fed by `recordQuery`, so the members' console (`/api/connections/…`) counts too.
       Verified: `dbAdmin/queryStats.test.ts`, `e2e/connection-journal.e2e.ts`. The rest below is
       still to do. **L**, admin only, "if possible". Per connection:
@@ -1428,10 +1428,10 @@ file_ref, options_json, updated_at)`; an abstract `SeedSource` interface (`csv` 
       (`status_by_account`); Oracle `user calls`/`execute count` + SQL*Net byte stats (`V$SYSSTAT`,
       `V$SESSTAT`); SQL Server `Batch Requests/sec` + `sys.dm_exec_connections` (partial);
       PostgreSQL `xact_commit/rollback` + `pg_stat_statements` — **no native network bytes**, volume
-      is an estimate (rows × average row size) — and SQLite only via Athanor. Every figure carries
-      an **accuracy badge** (exact / estimated / unavailable / measured by Athanor); never present
-      an estimate as a measurement. **Athanor's own traffic is measured exactly and shown apart**
-      ("Via Athanor"). Counters are cumulative → deltas, **ignore negative deltas** (server restart).
+      is an estimate (rows × average row size) — and SQLite only via Nebula. Every figure carries
+      an **accuracy badge** (exact / estimated / unavailable / measured by Nebula); never present
+      an estimate as a measurement. **Nebula's own traffic is measured exactly and shown apart**
+      ("Via Nebula"). Counters are cumulative → deltas, **ignore negative deltas** (server restart).
       Storage `connection_metrics(connection_id, bucket_start, resolution, queries, by_type_json,
 bytes_out, bytes_in, rows_returned, quality)`, downsampled minute (7 d) → hour (90 d) → day
       (2 y). Open: accept an estimate for PostgreSQL?; threshold alerts; per-client chargeback.
@@ -1643,7 +1643,7 @@ indexes`, `sys.dm_db_index_usage_stats`, `performance_schema`, Oracle views) wit
       statements run on a database and propose (a) **query rewrites** and (b) **database changes**.
   - _Activation:_ admin-only, off on Prod until explicitly confirmed; sources (engine stats —
     `pg_stat_statements`, `events_statements_summary_by_digest`, Query Store /
-    `dm_exec_query_stats`, `V$SQL` — plus statements run from Athanor; slow-query log
+    `dm_exec_query_stats`, `V$SQL` — plus statements run from Nebula; slow-query log
     optionally); sampling interval, retention (default 14 d), "slow" threshold; privacy
     toggles (replace literals by `?`, never store parameters); `EXPLAIN ANALYZE` never / on
     demand read-only, with a load budget (~2 %).
@@ -1661,8 +1661,8 @@ indexes`, `sys.dm_db_index_usage_stats`, `performance_schema`, Oracle views) wit
     (🟢 plan observed … estimate); impact estimate from measured times, and for indexes a
     hypothetical-index check where the engine allows (`hypopg` on PostgreSQL) — otherwise
     labelled "estimation". Ignore button remembered; no recommendation on too few samples.
-  - _Apply:_ a rewrite replaces the text only for statements living **in Athanor**; for an
-    external application it is "copy" with the diff (Athanor cannot see app code). Database
+  - _Apply:_ a rewrite replaces the text only for statements living **in Nebula**; for an
+    external application it is "copy" with the diff (Nebula cannot see app code). Database
     changes go through "Proposer dans le schéma" (see index suggestions). A recommendation
     seen on a client's Prod is scoped to that **variant** or proposed to the base.
   - _Guard-rails:_ statistics-view reads only, bounded budget and interval, `connectionBudget`
@@ -1867,7 +1867,7 @@ PERSONAL_CREDENTIALS_REQUIRED`, before the target is touched.
     the route is no way to guess a database password.
   - _Only instance administrators set the mode_ (like the structure policy); a project route
     ignores it. Who may give an account: instance administrators and administrators of a
-    linked project — the people who can act on the database through Athanor at all.
+    linked project — the people who can act on the database through Nebula at all.
   - _Not for SQLite_ (no accounts) _nor a connection string_ (the account is inside it):
     refused, `CONNECTION_AUTH_MODE_INVALID`.
 
@@ -1901,7 +1901,7 @@ PERSONAL_CREDENTIALS_REQUIRED`, before the target is touched.
   - **SQL Server / Oracle connection strings** and a PostgreSQL / MySQL URL carrying its own TLS
     options (`sslrootcert`, `?ssl=`) are **checked but not pinned** to the resolved address
     (rewriting would drop options). DNS rebinding is otherwise closed (`targetPinning.ts`).
-  - `ATHANORDB_SQLITE_DIR` is **opt-in**; making it the default is a breaking change to schedule.
+  - `NEBULADB_SQLITE_DIR` is **opt-in**; making it the default is a breaking change to schedule.
   - A general private-IP-range block — deliberately not default (a self-hosted DB is often on
     `localhost` / LAN).
   - Audit what `sampleData` / risk-inspection queries can leak across a permission boundary
@@ -1951,7 +1951,7 @@ NOT IN (SELECT id FROM projects)` is worth running on existing instances (migrat
   audit log, TOTP 2FA, account disable / delete, **self-service password reset** (SHA-256 token
   storage, 1 h TTL, single use, cooldown, identical answer for unknown addresses).
 - **Phase 20** — Configurable session length; **transactional e-mail** (`infrastructure/
-mailer.ts`, `ATHANORDB_SMTP_*`, `ATHANORDB_PUBLIC_URL`; _not verified_ through a real
+mailer.ts`, `NEBULADB_SMTP_*`, `NEBULADB_PUBLIC_URL`; _not verified_ through a real
   third-party relay — one manual send worth doing); invitation delivery by e-mail.
 - **Phase 21** — **Public API** `/api/v1` + **OpenAPI** (`GET /api/v1/openapi.json`, drift caught
   by `openapi.test.ts`); **webhooks** (`modules/webhooks/`, `docs/webhooks.md`, signed, retry
@@ -1966,7 +1966,7 @@ mailer.ts`, `ATHANORDB_SMTP_*`, `ATHANORDB_PUBLIC_URL`; _not verified_ through a
   Compose, logging with request ids, `GET /api/metrics`, error tracking (`error_log`).
 - **Phase 25** — GDPR export / deletion / retention, self-hosted Google Fonts, reverse-proxy
   guidance.
-- **Phase 27** — DNS-rebinding closed for host/port configs and PG/MySQL URLs; `ATHANORDB_SQLITE_
+- **Phase 27** — DNS-rebinding closed for host/port configs and PG/MySQL URLs; `NEBULADB_SQLITE_
 DIR`; project-scoped connection access fixed; per-target rate limiting (`connectionBudget.ts`);
   project-delete cascade of connections; instance-level connections + Oracle (migration 18);
   **database console** — explorer, SQL console, drops behind a SQL preview, session monitor with

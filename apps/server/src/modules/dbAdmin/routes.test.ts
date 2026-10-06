@@ -7,10 +7,10 @@ import Database from "better-sqlite3";
 
 // Same rationale as `app.test.ts`: env vars must land before anything
 // transitively imports `db.ts`/`shared/crypto.ts`.
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-dbadmin-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-dbadmin-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
@@ -38,7 +38,7 @@ async function makeUser(isAdmin: 0 | 1) {
 async function login(app: App, isAdmin: 0 | 1): Promise<string> {
   const user = await makeUser(isAdmin);
   const res = await app.inject({ method: "POST", url: "/api/auth/login", headers: headers(), payload: user });
-  return `athanordb_sid=${res.cookies.find((c) => c.name === "athanordb_sid")!.value}`;
+  return `nebuladb_sid=${res.cookies.find((c) => c.name === "nebuladb_sid")!.value}`;
 }
 
 function call(app: App, cookie: string, method: "GET" | "POST" | "PUT" | "DELETE", url: string, payload?: unknown) {
@@ -100,7 +100,7 @@ test("a connection is reached by a connection string or by host and port, never 
 
 /** A real SQLite file with two tables and a view — the one engine that needs no server to test the console against. */
 function seedTarget(): string {
-  const file = join(tmpdir(), `athanordb-test-dbadmin-target-${randomUUID()}.sqlite`);
+  const file = join(tmpdir(), `nebuladb-test-dbadmin-target-${randomUUID()}.sqlite`);
   const target = new Database(file);
   target.exec(`
     CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT NOT NULL, email TEXT UNIQUE);
@@ -543,7 +543,7 @@ test("health check records status, version and latency; an unreachable target is
       await call(app, cookie, "POST", "/api/admin/connections", {
         name: "Own db",
         engine: "sqlite",
-        filePath: process.env.ATHANORDB_DB_PATH,
+        filePath: process.env.NEBULADB_DB_PATH,
       })
     ).json().connection;
     const res = await call(app, cookie, "POST", `/api/admin/connections/${broken.id}/health`, {});

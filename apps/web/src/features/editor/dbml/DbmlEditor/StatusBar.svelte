@@ -1,6 +1,6 @@
 <script lang="ts">
   import { useTranslation } from "@/i18n/i18n.svelte";
-  import { SettingsIcon } from "@/components/icons/Icons";
+  import { SettingsIcon, CheckCircleIcon, ClockIcon, AlertTriangleIcon } from "@/components/icons/Icons";
   import Icon from "@/components/icons/Icon.svelte";
   import { useDismissablePopover } from "@/hooks/dismissablePopover.svelte";
   import BehaviourSettings from "./BehaviourSettings.svelte";
@@ -38,20 +38,30 @@
     () => [settingsButton, settingsPopover],
   );
 
-  const syncDot = { synced: "bg-success", pending: "bg-warning", error: "bg-danger" } as const;
+  const syncIcons = { synced: CheckCircleIcon, pending: ClockIcon, error: AlertTriangleIcon };
+  const syncColors = { synced: "text-success", pending: "text-warning", error: "text-danger" };
+  const syncLabel = $derived(
+    syncIndicator?.state === "error"
+      ? syncIndicator.line
+        ? t("dbml.sync.errorAtLine", { line: syncIndicator.line })
+        : t("dbml.sync.error")
+      : t(syncIndicator?.state === "synced" ? "dbml.sync.synced" : "dbml.sync.pending"),
+  );
 </script>
 
-<div class="relative flex shrink-0 items-center gap-3 whitespace-nowrap border-t border-border bg-surface px-2.5 py-1 text-[11px] text-text-muted">
+<div
+  class="relative flex shrink-0 items-center gap-3 whitespace-nowrap border-t border-border bg-surface px-2.5 py-1 text-[11px] text-text-muted"
+>
   {#if syncIndicator}
-    <span class="flex shrink-0 items-center gap-1.5" role="status" data-sync-state={syncIndicator.state} data-tooltip={t("dbml.sync.hint")}>
-      <span class={`h-1.5 w-1.5 rounded-full ${syncDot[syncIndicator.state]}`}></span>
-      {#if syncIndicator.state === "error"}
-        <span class="text-danger">
-          {syncIndicator.line ? t("dbml.sync.errorAtLine", { line: syncIndicator.line }) : t("dbml.sync.error")}
-        </span>
-      {:else}
-        {t(syncIndicator.state === "synced" ? "dbml.sync.synced" : "dbml.sync.pending")}
-      {/if}
+    <span
+      class="flex shrink-0 items-center"
+      role="status"
+      aria-label={syncLabel}
+      data-sync-state={syncIndicator.state}
+      data-tooltip={syncLabel}
+    >
+      <Icon icon={syncIcons[syncIndicator.state]} class={syncColors[syncIndicator.state]} size={14} />
+      <span class="sr-only">{syncLabel}</span>
     </span>
   {/if}
   <!-- The cursor details give way first: on a narrow panel they are clipped, the sync state and the controls never are. -->
@@ -65,19 +75,34 @@
   </div>
   <span class="flex shrink-0 items-center gap-2">
     {#if cursor.errors > 0 || cursor.warnings > 0}
-      <button type="button" onclick={onShowProblems} class="rounded px-1 hover:bg-surface-hover" data-tooltip={t("dbml.showProblems")} aria-label={t("dbml.showProblems")}>
+      <button
+        type="button"
+        onclick={onShowProblems}
+        class="rounded px-1 hover:bg-surface-hover"
+        data-tooltip={t("dbml.showProblems")}
+        aria-label={t("dbml.showProblems")}
+      >
         <span class={cursor.errors ? "text-danger" : ""}>✕ {cursor.errors}</span>
         <span class={cursor.warnings ? "text-warning" : ""}>⚠ {cursor.warnings}</span>
       </button>
     {/if}
-    <button type="button" onclick={onToggleWrap} class="rounded px-1 hover:bg-surface-hover" data-tooltip={t("dbml.toggleWrap")}>
-      {t(wrap ? "dbml.wrapOn" : "dbml.wrapOff")}
-    </button>
-    <button type="button" onclick={onDecreaseFont} class="rounded px-1 hover:bg-surface-hover" data-tooltip={t("dbml.fontDecrease")} aria-label={t("dbml.fontDecrease")}>
+    <button
+      type="button"
+      onclick={onDecreaseFont}
+      class="rounded px-1 hover:bg-surface-hover"
+      data-tooltip={t("dbml.fontDecrease")}
+      aria-label={t("dbml.fontDecrease")}
+    >
       A−
     </button>
     <span>{fontSize}px</span>
-    <button type="button" onclick={onIncreaseFont} class="rounded px-1 hover:bg-surface-hover" data-tooltip={t("dbml.fontIncrease")} aria-label={t("dbml.fontIncrease")}>
+    <button
+      type="button"
+      onclick={onIncreaseFont}
+      class="rounded px-1 hover:bg-surface-hover"
+      data-tooltip={t("dbml.fontIncrease")}
+      aria-label={t("dbml.fontIncrease")}
+    >
       A+
     </button>
     <button
@@ -97,7 +122,7 @@
       bind:this={settingsPopover}
       class="absolute bottom-full right-1 z-30 mb-1 whitespace-normal rounded-md border border-border bg-surface-raised p-3 shadow-lg"
     >
-      <BehaviourSettings />
+      <BehaviourSettings {wrap} {onToggleWrap} />
     </div>
   {/if}
 </div>

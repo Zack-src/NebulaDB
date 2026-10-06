@@ -1,13 +1,6 @@
 <script lang="ts" module>
   export type ButtonVariant =
-    | "default"
-    | "primary"
-    | "gradient"
-    | "glow"
-    | "outline"
-    | "ghost"
-    | "danger"
-    | "danger-ghost";
+    "default" | "primary" | "gradient" | "glow" | "outline" | "ghost" | "danger" | "danger-ghost";
   export type ButtonSize = "xs" | "sm" | "md" | "lg" | "icon" | "icon-sm" | "icon-xs";
 
   /**
@@ -28,16 +21,17 @@
 
   const VARIANT: Record<ButtonVariant, string> = {
     default:
-      "border border-border bg-surface-raised text-text-secondary enabled:hover:border-border-strong enabled:hover:bg-surface-hover enabled:hover:text-text",
+      "border border-border-control bg-surface-raised text-text enabled:hover:border-border-strong enabled:hover:bg-surface-hover",
     primary:
       "border border-primary bg-primary text-white enabled:hover:border-primary-hover enabled:hover:bg-primary-hover shadow-xs",
-    gradient: "border border-indigo-400/30 bg-indigo-600 text-white enabled:hover:bg-indigo-500 shadow-xs",
-    glow: "border border-indigo-400/40 bg-gradient-to-r from-indigo-600 to-violet-600 text-white enabled:hover:brightness-110 shadow-md",
+    gradient: "border border-primary bg-primary text-white enabled:hover:bg-primary-hover shadow-xs",
+    glow: "border border-primary bg-primary text-white enabled:hover:bg-primary-hover shadow-xs",
     outline:
       "border border-border-strong bg-transparent text-text enabled:hover:border-primary enabled:hover:bg-surface-hover",
     ghost:
       "border border-transparent bg-transparent text-text-secondary enabled:hover:bg-surface-hover enabled:hover:text-text",
-    danger: "border border-danger/45 bg-danger-light text-danger enabled:hover:border-danger enabled:hover:bg-danger/20",
+    danger:
+      "border border-danger/45 bg-danger-light text-danger enabled:hover:border-danger enabled:hover:bg-danger/20",
     "danger-ghost": "border border-transparent bg-transparent text-danger enabled:hover:bg-danger-light",
   };
 
@@ -92,7 +86,10 @@
   // icon-only by definition, so the tooltip doubles as the accessible name
   // unless the call site gave a better one.
   const derivedLabel = $derived(
-    size.startsWith("icon") && !rest["aria-label"] && !rest["aria-labelledby"] && typeof rest["data-tooltip"] === "string"
+    size.startsWith("icon") &&
+      !rest["aria-label"] &&
+      !rest["aria-labelledby"] &&
+      typeof rest["data-tooltip"] === "string"
       ? rest["data-tooltip"]
       : undefined,
   );

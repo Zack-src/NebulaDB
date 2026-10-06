@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { DatabaseConnectionSummary } from "@athanordb/shared";
+  import type { DatabaseConnectionSummary } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { CodeIcon, DatabaseIcon, LockIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
@@ -14,10 +14,8 @@
    * The workspace's second bar: which section of the project is showing, and
    * which of its databases the sections that talk to one are talking to.
    *
-   * One selector for the whole workspace, on purpose: the data tab, the
-   * deployments tab and the Deploy button all act on "the current
-   * connection", and its environment is always in view — in red when it is
-   * the production stage — rather than being a detail of whichever dialog is open.
+   * One selector for the project: its SQL drawer and deployment panel both
+   * use this connection. Its environment remains visible on every tab.
    */
   let {
     tabs,

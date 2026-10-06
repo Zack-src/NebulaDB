@@ -20,7 +20,7 @@ import type {
   EffectiveStructurePolicy,
   StructurePolicySetting,
   PersonalCredentialHolder,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import type { TestConnectionResponse } from "./connectionsApi";
 import { request } from "./httpClient";
 
@@ -77,11 +77,20 @@ export async function deleteAdminConnection(id: string, force: boolean): Promise
   await request<void>(base(id), { method: "DELETE", query: { force: force ? "true" : undefined } });
 }
 
-export async function setAdminConnectionProjects(id: string, projectIds: string[]): Promise<AdminConnectionSummary> {
+/**
+ * The projects attached to the connection, each with the database it uses on
+ * that server (`null`: the connection's own). `createDatabases` makes the ones
+ * newly named that the server does not have yet.
+ */
+export async function setAdminConnectionProjects(
+  id: string,
+  links: { projectId: string; database: string | null }[],
+  createDatabases = false,
+): Promise<AdminConnectionSummary> {
   return (
     await request<{ connection: AdminConnectionSummary }>(`${base(id)}/projects`, {
       method: "PUT",
-      body: { projectIds },
+      body: { links, createDatabases },
     })
   ).connection;
 }
@@ -157,6 +166,7 @@ export async function runAdminQuery(
   options: {
     database?: string;
     readOnly: boolean;
+    editor?: boolean;
     maxRows?: number;
     confirmStructural?: boolean;
     confirmWrite?: boolean;
@@ -172,6 +182,10 @@ export async function runAdminQuery(
 
 export async function fetchQueryHistory(id: string): Promise<DbAdminQueryHistoryEntry[]> {
   return (await request<{ history: DbAdminQueryHistoryEntry[] }>(`${consoleBase(id)}/query-history`)).history;
+}
+
+export function clearQueryHistory(id: string): Promise<{ cleared: number }> {
+  return request(`${consoleBase(id)}/query-history`, { method: "DELETE" });
 }
 
 // ---- Mutations: every one previews (`execute: false`) before it runs --------

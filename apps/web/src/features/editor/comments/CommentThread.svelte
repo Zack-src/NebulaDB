@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { Comment } from "@athanordb/shared";
+  import type { Comment } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { CommentIcon } from "@/components/icons/Icons";
   import { useTranslation } from "@/i18n/i18n.svelte";

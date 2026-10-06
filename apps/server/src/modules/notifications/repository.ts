@@ -5,7 +5,7 @@ import {
   type NotificationParams,
   type ProjectSubscription,
   type UserNotification,
-} from "@athanordb/shared";
+} from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { notifyProjectUsers } from "../../realtime/roomRegistry.js";
 import { ApiError } from "../../shared/errors.js";

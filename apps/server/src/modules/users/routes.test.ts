@@ -4,10 +4,10 @@ import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 
-process.env.ATHANORDB_DB_PATH = join(tmpdir(), `athanordb-test-users-${randomUUID()}.sqlite`);
-process.env.ATHANORDB_COOKIE_SECURE = "false";
-process.env.ATHANORDB_SECRET = "test-secret-do-not-use-in-production";
-process.env.ATHANORDB_LOG_LEVEL = "silent";
+process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-users-${randomUUID()}.sqlite`);
+process.env.NEBULADB_COOKIE_SECURE = "false";
+process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
+process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
@@ -27,8 +27,8 @@ async function loginAs(app: Awaited<ReturnType<typeof buildApp>>, email: string,
     headers: headers(),
     payload: { email, password },
   });
-  const sessionCookie = res.cookies.find((c) => c.name === "athanordb_sid");
-  return `athanordb_sid=${sessionCookie!.value}`;
+  const sessionCookie = res.cookies.find((c) => c.name === "nebuladb_sid");
+  return `nebuladb_sid=${sessionCookie!.value}`;
 }
 
 async function makeUser(isAdmin: 0 | 1 = 0) {
@@ -261,6 +261,66 @@ test("PATCH /api/users/:id/disabled refuses self-disable and disabling the last 
       payload: { disabled: false },
     });
     assert.equal(reenabled.statusCode, 200);
+  } finally {
+    await app.close();
+  }
+});
+
+test("PATCH /api/users/:id/admin gives and takes back the administrator role, from a session only", async () => {
+  const app = await buildApp();
+  try {
+    const admin = await makeUser(1);
+    const plain = await makeUser(0);
+    const adminCookie = await loginAs(app, admin.email, admin.password);
+    const plainCookie = await loginAs(app, plain.email, plain.password);
+    const setAdmin = (cookie: string, id: string, payload: object) =>
+      app.inject({ method: "PATCH", url: `/api/users/${id}/admin`, headers: headers({ cookie }), payload });
+
+    // A member promotes nobody, themselves included.
+    assert.equal((await setAdmin(plainCookie, plain.id, { admin: true })).statusCode, 403);
+    assert.equal((await setAdmin(adminCookie, plain.id, {})).json().code, "ADMIN_MUST_BE_BOOLEAN");
+    assert.equal((await setAdmin(adminCookie, randomUUID(), { admin: true })).statusCode, 404);
+    assert.equal((await setAdmin(adminCookie, admin.id, { admin: false })).json().code, "CANNOT_DEMOTE_SELF");
+
+    // An administrator's API key cannot mint administrators.
+    const key = await app.inject({
+      method: "POST",
+      url: "/api/keys",
+      headers: headers({ cookie: adminCookie }),
+      payload: { name: "ci", scopes: ["teams:manage"] },
+    });
+    const viaKey = await app.inject({
+      method: "PATCH",
+      url: `/api/users/${plain.id}/admin`,
+      headers: headers({ authorization: `Bearer ${key.json().plaintextKey}` }),
+      payload: { admin: true },
+    });
+    assert.equal(viaKey.statusCode, 403);
+
+    const promoted = await setAdmin(adminCookie, plain.id, { admin: true });
+    assert.equal(promoted.statusCode, 200, promoted.body);
+    assert.deepEqual(promoted.json(), { id: plain.id, admin: true });
+    // Effective on the session they already hold: no need to sign in again.
+    assert.equal(
+      (await app.inject({ method: "GET", url: "/api/users", headers: headers({ cookie: plainCookie }) })).statusCode,
+      200,
+    );
+    // Saying it twice changes nothing, and is not written twice.
+    assert.equal((await setAdmin(adminCookie, plain.id, { admin: true })).statusCode, 200);
+
+    // The new administrator can take the role back from the first one — and loses it the same way.
+    assert.equal((await setAdmin(plainCookie, admin.id, { admin: false })).statusCode, 200);
+    assert.equal((await setAdmin(adminCookie, plain.id, { admin: false })).statusCode, 403);
+
+    const trail = db
+      .prepare(
+        "SELECT action, actor_id, detail FROM audit_log WHERE action IN ('user.promote', 'user.demote') ORDER BY rowid",
+      )
+      .all();
+    assert.deepEqual(trail, [
+      { action: "user.promote", actor_id: admin.id, detail: plain.email },
+      { action: "user.demote", actor_id: plain.id, detail: admin.email },
+    ]);
   } finally {
     await app.close();
   }

@@ -36,7 +36,7 @@ export function quantizeZoom(zoom: number): number {
   return Math.round(zoom / ZOOM_STEP) * ZOOM_STEP;
 }
 
-const KEY = Symbol("athanordb.canvas");
+const KEY = Symbol("nebuladb.canvas");
 
 export function setCanvasContext(context: CanvasContext): void {
   setContext(KEY, context);

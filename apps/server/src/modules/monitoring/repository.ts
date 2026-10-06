@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { MONITOR_INTERVALS, type DriftEvent, type MonitorSettings } from "@athanordb/shared";
+import { MONITOR_INTERVALS, type DriftEvent, type MonitorSettings } from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { ApiError } from "../../shared/errors.js";
 
