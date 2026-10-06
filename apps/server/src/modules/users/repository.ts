@@ -67,6 +67,10 @@ export function enableUser(userId: string): void {
   db.prepare("UPDATE users SET disabled_at = NULL WHERE id = ?").run(userId);
 }
 
+export function setUserAdmin(userId: string, admin: boolean): void {
+  db.prepare("UPDATE users SET is_admin = ? WHERE id = ?").run(admin ? 1 : 0, userId);
+}
+
 export function countProjectsOwnedBy(userId: string): number {
   const row = db.prepare("SELECT COUNT(*) AS n FROM projects WHERE owner_id = ?").get(userId) as { n: number };
   return row.n;
@@ -88,6 +92,7 @@ const purgeUserAndBelongingsTx = db.transaction((userId: string, email: string, 
   db.prepare("UPDATE projects SET owner_id = ? WHERE owner_id = ?").run(transferTo, userId);
   db.prepare("DELETE FROM sessions WHERE user_id = ?").run(userId);
   db.prepare("DELETE FROM team_members WHERE user_id = ?").run(userId);
+  db.prepare("DELETE FROM project_members WHERE user_id = ?").run(userId);
   db.prepare("DELETE FROM subscriptions WHERE user_id = ?").run(userId);
   db.prepare("DELETE FROM notifications WHERE user_id = ?").run(userId);
   for (const row of db.prepare("SELECT id FROM db_connections WHERE owner_user_id = ?").all(userId) as { id: string }[])

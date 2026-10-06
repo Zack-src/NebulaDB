@@ -22,6 +22,7 @@ import { listDeploymentHistory } from "./deploymentHistory.js";
 import {
   getConnectionOrigin,
   getProjectConnection,
+  isAdminManagedTarget,
   isConnectionLinked,
   listConnectionsByProject,
   saveConnection,
@@ -30,6 +31,20 @@ import {
 } from "./repository.js";
 import { VALID_ENGINES } from "./engines.js";
 import type { SessionUser } from "../auth/session.js";
+
+/**
+ * A server an instance administrator connected is reached through that
+ * connection, which only they attach to a project. Without this, anyone could
+ * create a project — they administer what they create — and deploy to that
+ * server through a connection of their own, around the administrator's choice
+ * of who may.
+ */
+export function assertTargetNotManaged(
+  user: SessionUser,
+  config: Pick<DatabaseConnectionConfig, "engine" | "host" | "port" | "connectionString">,
+): void {
+  if (!user.isAdmin && isAdminManagedTarget(config)) throw new ApiError("CONNECTION_TARGET_MANAGED");
+}
 
 /**
  * Per-caller ceiling on top of the per-target budget (`connectionBudget.ts`):
@@ -79,6 +94,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
     // falls back.
     connectionConfig.name =
       connectionConfig.name?.trim() || projectName?.trim() || connectionConfig.database || "Database";
+    assertTargetNotManaged(user, connectionConfig);
 
     const result = await createProjectFromDatabase(
       user.id,
@@ -112,6 +128,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
 
     if (!body.name?.trim()) throw new ApiError("NAME_REQUIRED");
     if (!VALID_ENGINES.has(body.engine)) throw new ApiError("CONNECTION_ENGINE_INVALID");
+    assertTargetNotManaged(user, body);
 
     const saved = saveConnection(id, body);
     auditUser(user, "connection.create", { type: "project", id }, `${body.engine}: ${body.name}`, req, {
@@ -128,6 +145,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
     if (body.engine !== undefined && !VALID_ENGINES.has(body.engine)) throw new ApiError("CONNECTION_ENGINE_INVALID");
 
     assertProjectMayEditConnection(user, id, connId);
+    assertTargetNotManaged(user, { ...getProjectConnection(id, connId)!, ...body });
     const updated = updateConnection(connId, body, id);
     if (!updated) throw new ApiError("CONNECTION_NOT_FOUND");
 
@@ -154,9 +172,10 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
   // 5. Test connection config
   app.post("/api/projects/:id/connections/test", CONNECTION_RATE_LIMIT, async (req) => {
     const { id } = req.params as { id: string };
-    requireProjectAdmin(req, id);
+    const { user } = requireProjectAdmin(req, id);
     const body = (req.body ?? {}) as DatabaseConnectionConfig;
     if (!VALID_ENGINES.has(body.engine)) throw new ApiError("CONNECTION_ENGINE_INVALID");
+    assertTargetNotManaged(user, body);
 
     const driver = await createDatabaseDriver(body);
     try {

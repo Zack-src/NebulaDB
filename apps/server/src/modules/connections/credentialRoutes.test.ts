@@ -370,9 +370,13 @@ test("personal accounts: an account an administrator associated is found in one'
   const app = await buildApp();
   const verify = mock.method(credentialCheck, "verify", async () => {});
   const changes: { password: string; currentPassword: string }[] = [];
-  const apply = mock.method(ownPasswordChange, "apply", async (_connection, password, currentPassword) => {
-    changes.push({ password, currentPassword });
-  });
+  const apply = mock.method(
+    ownPasswordChange,
+    "apply",
+    async (_connection: DatabaseConnectionConfig, password: string, currentPassword: string) => {
+      changes.push({ password, currentPassword });
+    },
+  );
   try {
     resetConnectionBudgets();
     const admin = await makeUser(app, 1);
@@ -399,7 +403,10 @@ test("personal accounts: an account an administrator associated is found in one'
     verify.mock.mockImplementationOnce(async () => {
       throw new Error("password authentication failed");
     });
-    assert.equal((await call(app, admin.cookie, "PUT", assignUrl, account)).json().code, "PERSONAL_CREDENTIALS_REJECTED");
+    assert.equal(
+      (await call(app, admin.cookie, "PUT", assignUrl, account)).json().code,
+      "PERSONAL_CREDENTIALS_REJECTED",
+    );
 
     const assigned = await call(app, admin.cookie, "PUT", assignUrl, account);
     assert.equal(assigned.statusCode, 200, assigned.body);
@@ -438,18 +445,26 @@ test("personal accounts: an account an administrator associated is found in one'
       { password: "chosen-by-the-member", currentPassword: "set-by-the-administrator" },
       { password: "second", currentPassword: "chosen-by-the-member" },
     ]);
-    const audited = db.prepare("SELECT actor_id, detail FROM audit_log WHERE action = 'dbconn.credentials.password'").all();
+    const audited = db
+      .prepare("SELECT actor_id, detail FROM audit_log WHERE action = 'dbconn.credentials.password'")
+      .all();
     assert.deepEqual(audited, [
       { actor_id: member.id, detail: "Shop: ath_member" },
       { actor_id: member.id, detail: "Shop: ath_member" },
     ]);
 
     // Someone else's account is out of reach: the route only ever knows the caller's own.
-    assert.equal((await call(app, owner.cookie, "PUT", passwordUrl, { password: "x" })).json().code, "PERSONAL_CREDENTIALS_REQUIRED");
+    assert.equal(
+      (await call(app, owner.cookie, "PUT", passwordUrl, { password: "x" })).json().code,
+      "PERSONAL_CREDENTIALS_REQUIRED",
+    );
 
     // A read-only connection is written to by nobody, passwords included.
     await call(app, admin.cookie, "PUT", `/api/admin/connections/${connectionId}`, { readOnly: true });
-    assert.equal((await call(app, member.cookie, "PUT", passwordUrl, { password: "third" })).json().code, "CONNECTION_READ_ONLY");
+    assert.equal(
+      (await call(app, member.cookie, "PUT", passwordUrl, { password: "third" })).json().code,
+      "CONNECTION_READ_ONLY",
+    );
   } finally {
     mock.restoreAll();
     closeAllRooms();

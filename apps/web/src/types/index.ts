@@ -110,12 +110,20 @@ export interface TeamDetail {
   name: string;
   createdAt: string;
   members: UserSummary[];
+  /** The projects the team opens to its members, and at what level. */
+  projects: { projectId: string; projectName: string; permission: PermissionLevel }[];
 }
 
 export interface ProjectTeamGrant {
   teamId: string;
   teamName: string;
   permission: PermissionLevel;
+}
+
+/** What one person can reach by themselves: their teams, the projects they own or were given a level on. */
+export interface UserAccess {
+  teams: { id: string; name: string; joinedAt: string }[];
+  projects: { projectId: string; projectName: string; permission: PermissionLevel | null; owner: boolean }[];
 }
 
 export interface CanvasImageCapture {

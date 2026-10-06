@@ -64,6 +64,17 @@ export function revokeProjectTeam(projectId: string, teamId: string): Promise<vo
   return request<void>(`${projectPath(projectId)}/teams/${teamId}`, { method: "DELETE" });
 }
 
+// --- a person's own level ---
+
+/** Gives one person a level on the project themselves, next to what their teams give. */
+export function grantProjectMember(projectId: string, userId: string, permission: PermissionLevel): Promise<void> {
+  return request<void>(`${projectPath(projectId)}/members/${userId}`, { method: "PUT", body: { permission } });
+}
+
+export function revokeProjectMember(projectId: string, userId: string): Promise<void> {
+  return request<void>(`${projectPath(projectId)}/members/${userId}`, { method: "DELETE" });
+}
+
 // --- history ---
 
 export function fetchRevisions(projectId: string): Promise<RevisionSummary[]> {

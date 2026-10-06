@@ -266,6 +266,66 @@ test("PATCH /api/users/:id/disabled refuses self-disable and disabling the last 
   }
 });
 
+test("PATCH /api/users/:id/admin gives and takes back the administrator role, from a session only", async () => {
+  const app = await buildApp();
+  try {
+    const admin = await makeUser(1);
+    const plain = await makeUser(0);
+    const adminCookie = await loginAs(app, admin.email, admin.password);
+    const plainCookie = await loginAs(app, plain.email, plain.password);
+    const setAdmin = (cookie: string, id: string, payload: object) =>
+      app.inject({ method: "PATCH", url: `/api/users/${id}/admin`, headers: headers({ cookie }), payload });
+
+    // A member promotes nobody, themselves included.
+    assert.equal((await setAdmin(plainCookie, plain.id, { admin: true })).statusCode, 403);
+    assert.equal((await setAdmin(adminCookie, plain.id, {})).json().code, "ADMIN_MUST_BE_BOOLEAN");
+    assert.equal((await setAdmin(adminCookie, randomUUID(), { admin: true })).statusCode, 404);
+    assert.equal((await setAdmin(adminCookie, admin.id, { admin: false })).json().code, "CANNOT_DEMOTE_SELF");
+
+    // An administrator's API key cannot mint administrators.
+    const key = await app.inject({
+      method: "POST",
+      url: "/api/keys",
+      headers: headers({ cookie: adminCookie }),
+      payload: { name: "ci", scopes: ["teams:manage"] },
+    });
+    const viaKey = await app.inject({
+      method: "PATCH",
+      url: `/api/users/${plain.id}/admin`,
+      headers: headers({ authorization: `Bearer ${key.json().plaintextKey}` }),
+      payload: { admin: true },
+    });
+    assert.equal(viaKey.statusCode, 403);
+
+    const promoted = await setAdmin(adminCookie, plain.id, { admin: true });
+    assert.equal(promoted.statusCode, 200, promoted.body);
+    assert.deepEqual(promoted.json(), { id: plain.id, admin: true });
+    // Effective on the session they already hold: no need to sign in again.
+    assert.equal(
+      (await app.inject({ method: "GET", url: "/api/users", headers: headers({ cookie: plainCookie }) })).statusCode,
+      200,
+    );
+    // Saying it twice changes nothing, and is not written twice.
+    assert.equal((await setAdmin(adminCookie, plain.id, { admin: true })).statusCode, 200);
+
+    // The new administrator can take the role back from the first one — and loses it the same way.
+    assert.equal((await setAdmin(plainCookie, admin.id, { admin: false })).statusCode, 200);
+    assert.equal((await setAdmin(adminCookie, plain.id, { admin: false })).statusCode, 403);
+
+    const trail = db
+      .prepare(
+        "SELECT action, actor_id, detail FROM audit_log WHERE action IN ('user.promote', 'user.demote') ORDER BY rowid",
+      )
+      .all();
+    assert.deepEqual(trail, [
+      { action: "user.promote", actor_id: admin.id, detail: plain.email },
+      { action: "user.demote", actor_id: plain.id, detail: admin.email },
+    ]);
+  } finally {
+    await app.close();
+  }
+});
+
 test("DELETE /api/users/:id refuses self-delete, refuses removing the last admin, and honours transferProjectsTo", async () => {
   const app = await buildApp();
   try {

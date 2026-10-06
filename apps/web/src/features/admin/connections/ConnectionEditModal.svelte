@@ -9,7 +9,7 @@
   import Hint from "@/components/ui/Hint.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { CheckCircleIcon, CheckIcon } from "@/components/icons/Icons";
-  import { INPUT_CLASS } from "@/components/ui/inputStyles";
+  import { INPUT_CLASS, INPUT_SM_CLASS } from "@/components/ui/inputStyles";
   import ConnectionFormFields, { DEFAULT_PORTS } from "@/features/connections/ConnectionFormFields.svelte";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
@@ -74,6 +74,24 @@
   let structurePolicy = $state<StructurePolicy | "inherit">(initial?.structurePolicy?.policy ?? "inherit");
   let structureApplyToSql = $state(initial?.structurePolicy?.applyToSql ?? true);
   let projectIds = $state<string[]>((initial?.projects ?? []).map((p) => p.id));
+  // The database each attached project uses on this server; empty: the connection's own.
+  let projectDatabases = $state<Record<string, string>>(
+    Object.fromEntries((initial?.projects ?? []).map((p) => [p.id, p.database ?? ""])),
+  );
+  let createDatabases = $state(true);
+  /** A project can only be given a database where the connection has one to replace. */
+  const namesDatabase = $derived(engine !== "sqlite" && !useUri);
+  const links = $derived(
+    projectIds.map((projectId) => ({
+      projectId,
+      database: (namesDatabase && projectDatabases[projectId]?.trim()) || null,
+    })),
+  );
+  const linkKey = (list: { projectId: string; database: string | null }[]) =>
+    list
+      .map((link) => `${link.projectId}=${link.database ?? ""}`)
+      .sort()
+      .join();
 
   const projects = useAsyncResource(fetchProjects);
   const activeProjects = $derived((projects.data ?? []).filter((p) => p.status === "active"));
@@ -123,8 +141,8 @@
 
   const save = useAsyncAction(async () => {
     const saved = initial ? await updateAdminConnection(initial.id, payload()) : await createAdminConnection(payload());
-    const before = [...linkedIds].sort().join();
-    if ([...projectIds].sort().join() !== before) await setAdminConnectionProjects(saved.id, projectIds);
+    const before = linkKey((initial?.projects ?? []).map((p) => ({ projectId: p.id, database: p.database ?? null })));
+    if (linkKey(links) !== before) await setAdminConnectionProjects(saved.id, links, createDatabases);
     onSaved();
   });
 
@@ -232,6 +250,7 @@
     <div>
       <div class={LABEL}>{t("admin.connections.projects")}</div>
       <Hint>{t("admin.connections.projectsHint")}</Hint>
+      {#if namesDatabase}<Hint>{t("admin.connections.projectDatabaseHint")}</Hint>{/if}
       {#if projects.error}<ErrorText>{projects.error}</ErrorText>{/if}
       <div class="max-h-44 space-y-0.5 overflow-y-auto rounded-md border border-border p-1.5">
         {#each activeProjects as project (project.id)}
@@ -244,6 +263,14 @@
             >
               <span class="block truncate text-xs">{project.name}</span>
             </Checkbox>
+            {#if namesDatabase && projectIds.includes(project.id)}
+              <input
+                class={`${INPUT_SM_CLASS} w-44 font-mono`}
+                bind:value={projectDatabases[project.id]}
+                placeholder={database || t("admin.connections.projectDatabase")}
+                aria-label={t("admin.connections.projectDatabaseFor", { project: project.name })}
+              />
+            {/if}
             <!-- Only for links that are already saved: the server refuses these for a project the connection isn't attached to yet. -->
             {#if initial && linkedIds.has(project.id)}
               <Button
@@ -266,6 +293,11 @@
           </p>
         {/if}
       </div>
+      {#if namesDatabase && links.some((link) => link.database)}
+        <Checkbox bind:checked={createDatabases} class="mt-2" hint={t("admin.connections.createDatabasesHint")}>
+          {t("admin.connections.createDatabases")}
+        </Checkbox>
+      {/if}
       {#if pullMessage}<Hint>{pullMessage}</Hint>{/if}
       {#if pull.error}<ErrorText>{pull.error}</ErrorText>{/if}
     </div>

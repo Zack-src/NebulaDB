@@ -1,4 +1,4 @@
-import type { Session, UserSummary } from "@/types";
+import type { Session, UserAccess, UserSummary } from "@/types";
 import { request } from "./httpClient";
 
 export function fetchUsers(): Promise<UserSummary[]> {
@@ -26,6 +26,16 @@ export function resetUserPassword(userId: string, newPassword: string): Promise<
 
 export function setUserDisabled(userId: string, disabled: boolean): Promise<void> {
   return request<void>(`/api/users/${userId}/disabled`, { method: "PATCH", body: { disabled } });
+}
+
+/** Gives the instance administrator role, or takes it back. */
+export function setUserAdmin(userId: string, admin: boolean): Promise<void> {
+  return request<void>(`/api/users/${userId}/admin`, { method: "PATCH", body: { admin } });
+}
+
+/** A person's teams and the projects they own or were given a level on (instance administrators). */
+export function fetchUserAccess(userId: string): Promise<UserAccess> {
+  return request<UserAccess>(`/api/users/${userId}/access`);
 }
 
 export function deleteUser(userId: string, transferProjectsTo?: string): Promise<{ projectsAffected: number }> {

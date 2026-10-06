@@ -97,7 +97,12 @@ async function makeConnection(
   });
   assert.equal(created.statusCode, 200, created.body);
   const { id } = (created.json() as { connection: { id: string } }).connection;
-  const linked = await withCookie(app, adminCookie, "PUT", `/api/admin/connections/${id}/projects`, { projectIds });
+  // The first project on the connection's own database, each further one on a database of its own.
+  const links = projectIds.map((projectId, index) => ({
+    projectId,
+    database: index === 0 ? null : `${name.toLowerCase()}_${index}`,
+  }));
+  const linked = await withCookie(app, adminCookie, "PUT", `/api/admin/connections/${id}/projects`, { links });
   assert.equal(linked.statusCode, 200, linked.body);
   return id;
 }
@@ -119,7 +124,7 @@ test("/api/v1 personal accounts: who reaches them — a key, its owner's rights,
     const otherProject = await makeProject(app, other.cookie, "Other");
     const shop = await makeConnection(app, admin.cookie, "Shop", [shopProject]);
     const billing = await makeConnection(app, admin.cookie, "Billing", [billingProject]);
-    // One database two projects use.
+    // One server two projects use.
     const both = await makeConnection(app, admin.cookie, "Both", [shopProject, otherProject]);
 
     // No key, or one that is none: not signed in.

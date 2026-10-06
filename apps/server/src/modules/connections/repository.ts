@@ -162,6 +162,29 @@ function toBlob(config: Partial<DatabaseConnectionConfig>): string {
   return encryptPayload(secret);
 }
 
+/**
+ * The database a project uses on a connection, when the link names one of its
+ * own: a connection is a server, and each project attached to it can have its
+ * database there. `null`: the connection's own.
+ */
+function linkDatabase(projectId: string, connectionId: string): string | null {
+  const row = db
+    .prepare("SELECT database_name FROM project_connection_links WHERE project_id = ? AND connection_id = ?")
+    .get(projectId, connectionId) as { database_name: string | null } | undefined;
+  return row?.database_name ?? null;
+}
+
+/** A link can only name a database where the connection has one to replace: not a SQLite file, not a connection string. */
+function takesLinkDatabase(config: Pick<DatabaseConnectionConfig, "engine" | "connectionString">): boolean {
+  return config.engine !== "sqlite" && !config.connectionString?.trim();
+}
+
+function projectSummary(row: ConnectionRow, projectId: string): DatabaseConnectionSummary {
+  const summary = rowToSummary(row, projectId);
+  const database = linkDatabase(projectId, row.id);
+  return database && takesLinkDatabase(summary) ? { ...summary, database } : summary;
+}
+
 export function listConnectionsByProject(projectId: string): DatabaseConnectionSummary[] {
   const rows = db
     .prepare(
@@ -170,7 +193,7 @@ export function listConnectionsByProject(projectId: string): DatabaseConnectionS
         WHERE l.project_id = ? ORDER BY c.created_at ASC`,
     )
     .all(projectId) as ConnectionRow[];
-  return rows.map((row) => rowToSummary(row, projectId));
+  return rows.map((row) => projectSummary(row, projectId));
 }
 
 export function isConnectionLinked(projectId: string, connectionId: string): boolean {
@@ -192,11 +215,18 @@ export function getConnectionById(id: string): DatabaseConnectionConfig | null {
  * Every project-scoped route resolves a connection through here: a project
  * administrator must not be able to reach another project's (or an unlinked
  * global) connection just by knowing its id.
+ *
+ * It is also where the link's own database replaces the connection's: every
+ * deployment, pull, comparison, watch and backup of a project goes through
+ * here, so none of them can land in another project's database on the server.
  */
 export function getProjectConnection(projectId: string, connectionId: string): DatabaseConnectionConfig | null {
   if (!isConnectionLinked(projectId, connectionId)) return null;
   const row = getRow(connectionId);
-  return row ? rowToConfig(row, projectId) : null;
+  if (!row) return null;
+  const config = rowToConfig(row, projectId);
+  const database = linkDatabase(projectId, connectionId);
+  return database && takesLinkDatabase(config) ? { ...config, database } : config;
 }
 
 export function getConnectionOrigin(id: string): ConnectionOrigin | null {
@@ -344,7 +374,7 @@ export function updateConnection(
   projectId = "",
 ): DatabaseConnectionSummary | null {
   if (!applyUpdate(id, updates)) return null;
-  return rowToSummary(getRow(id)!, projectId);
+  return projectId ? projectSummary(getRow(id)!, projectId) : rowToSummary(getRow(id)!, "");
 }
 
 export function updateGlobalConnection(
@@ -410,18 +440,19 @@ function pruneOrphanProjectConnections(): void {
 function rowToAdminSummary(row: ConnectionRow): AdminConnectionSummary {
   const projects = db
     .prepare(
-      `SELECT p.id AS id, p.name AS name FROM project_connection_links l
+      `SELECT p.id AS id, p.name AS name, l.database_name AS database FROM project_connection_links l
          JOIN projects p ON p.id = l.project_id
         WHERE l.connection_id = ? ORDER BY p.name COLLATE NOCASE`,
     )
-    .all(row.id) as { id: string; name: string }[];
+    .all(row.id) as { id: string; name: string; database: string | null }[];
   return {
     ...rowToSummary(row, ""),
     origin: row.origin as ConnectionOrigin,
     tags: parseTags(row.tags),
     readOnly: row.read_only === 1,
     structurePolicy: rowStructurePolicy(row),
-    projects,
+    // `database` only where the project has one of its own.
+    projects: projects.map(({ database, ...project }) => (database ? { ...project, database } : project)),
     health: {
       status: (row.last_status as "online" | "offline" | null) ?? null,
       checkedAt: row.last_checked_at,
@@ -444,21 +475,138 @@ export function getAdminConnection(id: string): AdminConnectionSummary | null {
   return row && !row.owner_user_id ? rowToAdminSummary(row) : null;
 }
 
-/** Replaces the set of projects a connection is attached to. Unknown project ids are ignored. */
-export function setConnectionProjects(connectionId: string, projectIds: string[]): void {
+/** One project a connection is attached to. `database` left out keeps what the link has; `null` goes back to the connection's own. */
+export interface ConnectionProjectLink {
+  projectId: string;
+  database?: string | null;
+}
+
+/** Passed to the driver as a connection parameter and, to create it, quoted into one statement: letters, digits and the few signs no engine minds. */
+const LINK_DATABASE_NAME = /^[A-Za-z0-9_$.-]{1,128}$/;
+
+/** What `links` would make of the connection's links, or the refusal — nothing is written. */
+function resolveLinks(connectionId: string, links: ConnectionProjectLink[]) {
+  const row = getRow(connectionId);
+  if (!row) throw new ApiError("CONNECTION_NOT_FOUND");
+  const config = rowToConfig(row, "");
+  const named = takesLinkDatabase(config);
+
+  const before = new Map(
+    (
+      db
+        .prepare("SELECT project_id, database_name FROM project_connection_links WHERE connection_id = ?")
+        .all(connectionId) as { project_id: string; database_name: string | null }[]
+    ).map((link) => [link.project_id, link.database_name]),
+  );
+  const wanted = new Map<string, string | null>();
+  const exists = db.prepare("SELECT 1 FROM projects WHERE id = ?");
+  for (const link of links) {
+    // An unknown project is left out, not refused — and takes no database from a real one.
+    if (!exists.get(link.projectId)) continue;
+    const database = link.database === undefined ? (before.get(link.projectId) ?? null) : link.database?.trim() || null;
+    if (database !== null && (!named || !LINK_DATABASE_NAME.test(database))) {
+      throw new ApiError("CONNECTION_DATABASE_INVALID", { details: { database } });
+    }
+    wanted.set(link.projectId, database);
+  }
+  if (named) {
+    const taken = new Set<string>();
+    for (const database of wanted.values()) {
+      const effective = (database ?? config.database ?? "").toLowerCase();
+      if (taken.has(effective)) {
+        throw new ApiError("CONNECTION_DATABASE_TAKEN", { details: { database: database ?? config.database ?? "" } });
+      }
+      taken.add(effective);
+    }
+  }
+  return { before, wanted };
+}
+
+/** Refuses what `setConnectionProjects` would refuse, without changing anything. */
+export function checkConnectionProjects(connectionId: string, links: ConnectionProjectLink[]): void {
+  resolveLinks(connectionId, links);
+}
+
+/**
+ * Replaces the set of projects a connection is attached to, each with the
+ * database it uses there. Unknown project ids are ignored.
+ *
+ * Two projects never share a database on a connection that can name one: the
+ * second deployment would see the first project's tables as ones to drop.
+ * Refused whole (`CONNECTION_DATABASE_TAKEN`) rather than half applied.
+ */
+export function setConnectionProjects(connectionId: string, links: ConnectionProjectLink[]): void {
   db.transaction(() => {
+    const { before, wanted } = resolveLinks(connectionId, links);
+
     db.prepare("DELETE FROM project_connection_links WHERE connection_id = ?").run(connectionId);
     const insert = db.prepare(
-      `INSERT OR IGNORE INTO project_connection_links (project_id, connection_id)
-       SELECT id, ? FROM projects WHERE id = ?`,
+      `INSERT OR IGNORE INTO project_connection_links (project_id, connection_id, database_name)
+       SELECT id, ?, ? FROM projects WHERE id = ?`,
     );
-    for (const projectId of new Set(projectIds)) insert.run(connectionId, projectId);
+    // What was read from one database says nothing about another: a link that
+    // changes database starts over, like one that was just made.
+    const forget = db.prepare("DELETE FROM schema_fingerprints WHERE connection_id = ? AND project_id = ?");
+    const forgetAccounts = db.prepare("DELETE FROM account_baselines WHERE connection_id = ? AND project_id = ?");
+    for (const [projectId, database] of wanted) {
+      insert.run(connectionId, database, projectId);
+      if (before.has(projectId) && before.get(projectId) !== database) {
+        forget.run(connectionId, projectId);
+        forgetAccounts.run(connectionId, projectId);
+      }
+    }
     db.prepare(
       `DELETE FROM schema_fingerprints
         WHERE connection_id = ?
           AND project_id NOT IN (SELECT project_id FROM project_connection_links WHERE connection_id = ?)`,
     ).run(connectionId, connectionId);
   })();
+}
+
+/**
+ * Whether a connection an instance administrator manages already reaches the
+ * server `config` points at. A project then goes through that connection —
+ * which an administrator attaches — rather than around it with a connection of
+ * its own. Hosts are compared as written: this stops the obvious way round,
+ * while the database's own accounts remain what actually decides.
+ */
+export function isAdminManagedTarget(
+  config: Pick<DatabaseConnectionConfig, "engine" | "host" | "port" | "connectionString">,
+): boolean {
+  const target = serverOf(config);
+  if (!target) return false;
+  const rows = db
+    .prepare("SELECT * FROM db_connections WHERE origin = 'admin' AND owner_user_id IS NULL AND engine = ?")
+    .all(config.engine) as ConnectionRow[];
+  return rows.some((row) => serverOf(rowToConfig(row, "")) === target);
+}
+
+const DEFAULT_PORTS: Partial<Record<DatabaseEngine, number>> = {
+  postgres: 5432,
+  mysql: 3306,
+  mssql: 1433,
+  oracle: 1521,
+};
+
+function serverOf(
+  config: Pick<DatabaseConnectionConfig, "engine" | "host" | "port" | "connectionString">,
+): string | null {
+  if (config.engine === "sqlite") return null;
+  let host = config.host;
+  let port: number | string | undefined = config.port;
+  if (config.connectionString?.trim()) {
+    try {
+      const url = new URL(config.connectionString);
+      host = url.hostname;
+      port = url.port;
+    } catch {
+      return null;
+    }
+  }
+  if (!host?.trim()) return null;
+  const name = host.trim().toLowerCase();
+  const local = name === "localhost" || name === "::1" || name === "[::1]" ? "127.0.0.1" : name;
+  return `${local}:${Number(port) || DEFAULT_PORTS[config.engine] || ""}`;
 }
 
 export interface HealthResult {

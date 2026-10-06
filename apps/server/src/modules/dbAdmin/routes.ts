@@ -17,13 +17,15 @@ import {
   createGlobalConnection,
   connectionOwner,
   deleteConnection,
+  checkConnectionProjects,
   getAdminConnection,
   getConnectionById,
   listAllConnections,
   setConnectionProjects,
   updateGlobalConnection,
+  type ConnectionProjectLink,
 } from "../connections/repository.js";
-import { optionalName, requireName } from "./drivers/common.js";
+import { optionalName, quoteBacktick, quoteBracket, quoteDouble, requireName } from "./drivers/common.js";
 import { createAdminDriver, type AdminStatement, type DatabaseAdminDriver, type DropKind } from "./drivers/index.js";
 import { checkConnectionHealth } from "./health.js";
 import { clearQueryHistory, listQueryHistory, recordQuery } from "./queryHistory.js";
@@ -118,6 +120,53 @@ function parseConnectionBody(body: Record<string, unknown>, partial: boolean): P
   const config = { ...body };
   for (const key of ["id", "projectId", "createdAt", "updatedAt"]) delete config[key];
   return config as Partial<DatabaseConnectionConfig>;
+}
+
+/** The projects to attach, each with its database — or the older `projectIds`, which leaves the databases as they are. */
+function parseProjectLinks(body: { projectIds?: unknown; links?: unknown }): ConnectionProjectLink[] {
+  if (Array.isArray(body.links)) {
+    return body.links.map((raw) => {
+      const link = (raw ?? {}) as { projectId?: unknown; database?: unknown };
+      const databaseOk = link.database === undefined || link.database === null || typeof link.database === "string";
+      if (typeof link.projectId !== "string" || !databaseOk) {
+        throw new ApiError("DB_ADMIN_INPUT_INVALID", { message: "links must be { projectId, database? } objects" });
+      }
+      return { projectId: link.projectId, database: link.database as string | null | undefined };
+    });
+  }
+  if (!Array.isArray(body.projectIds) || body.projectIds.some((p) => typeof p !== "string")) {
+    throw new ApiError("DB_ADMIN_INPUT_INVALID", { message: "projectIds must be an array of project ids" });
+  }
+  return (body.projectIds as string[]).map((projectId) => ({ projectId }));
+}
+
+/**
+ * Creates, on the connection's server, those of `names` that are not there
+ * yet, and says which. Empty and nothing else: no owner, no options — what a
+ * project needs to be deployed to, the rest being the administrator's to set
+ * in the console. Engines with no `CREATE DATABASE` of that shape are refused.
+ */
+async function createMissingDatabases(connectionId: string, names: string[]): Promise<string[]> {
+  const connection = loadConnection(connectionId);
+  assertWritable(connection);
+  const quote =
+    connection.engine === "postgres"
+      ? quoteDouble
+      : connection.engine === "mysql"
+        ? quoteBacktick
+        : connection.engine === "mssql"
+          ? quoteBracket
+          : null;
+  if (!quote) throw new ApiError("DB_ADMIN_UNSUPPORTED", { message: "creating a database is not supported here" });
+  return withDriver(connection, "adminWrite", async (driver) => {
+    const existing = new Set((await driver.listDatabases()).map((d) => d.name.toLowerCase()));
+    const missing = names.filter((name) => !existing.has(name.toLowerCase()));
+    for (const name of missing) {
+      const sql = `CREATE DATABASE ${quote(name)}`;
+      await driver.execute([{ sql, display: sql }]);
+    }
+    return missing;
+  });
 }
 
 function describeRef(ref: DbAdminObjectRef): string {
@@ -220,15 +269,36 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
   app.put("/api/admin/connections/:id/projects", WRITE_LIMIT, async (req) => {
     const user = requireAdmin(req);
     const { id } = req.params as { id: string };
-    const { projectIds } = (req.body ?? {}) as { projectIds?: unknown };
-    if (!Array.isArray(projectIds) || projectIds.some((p) => typeof p !== "string")) {
-      throw new ApiError("DB_ADMIN_INPUT_INVALID", { message: "projectIds must be an array of project ids" });
-    }
-    if (!getAdminConnection(id)) throw new ApiError("CONNECTION_NOT_FOUND");
-    setConnectionProjects(id, projectIds as string[]);
+    const body = (req.body ?? {}) as { projectIds?: unknown; links?: unknown; createDatabases?: unknown };
+    const links = parseProjectLinks(body);
+    const before = getAdminConnection(id);
+    if (!before) throw new ApiError("CONNECTION_NOT_FOUND");
+
+    // The databases the links newly name, made before the links are saved: a
+    // project attached to a database that could not be created would only
+    // find out at its first deployment.
+    const known = new Set(before.projects.map((p) => `${p.id}\n${p.database ?? ""}`));
+    const fresh = [
+      ...new Set(
+        links.flatMap((link) =>
+          link.database && !known.has(`${link.projectId}\n${link.database}`) ? [link.database] : [],
+        ),
+      ),
+    ];
+    // Checked first, so that nothing is created on the server for links that will be refused.
+    checkConnectionProjects(id, links);
+    const created = body.createDatabases === true && fresh.length > 0 ? await createMissingDatabases(id, fresh) : [];
+    setConnectionProjects(id, links);
+
     const connection = getAdminConnection(id)!;
-    auditUser(user, "dbconn.link", { type: "connection", id }, `${connection.projects.length} project(s)`, req);
-    return { connection };
+    auditUser(
+      user,
+      "dbconn.link",
+      { type: "connection", id },
+      `${connection.projects.length} project(s)${created.length > 0 ? `; created ${created.join(", ")}` : ""}`,
+      req,
+    );
+    return { connection, createdDatabases: created };
   });
 
   app.post("/api/admin/connections/test", WRITE_LIMIT, async (req) => {

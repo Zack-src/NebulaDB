@@ -1085,6 +1085,34 @@ export const MIGRATIONS: Migration[] = [
       db.exec("CREATE INDEX IF NOT EXISTS idx_connections_owner ON db_connections(owner_user_id)");
     },
   },
+  {
+    version: 43,
+    name: "project_members (a role per person) and project_connection_links.database_name",
+    up: (db) => {
+      // A level on a project given to one person, next to the ones their teams
+      // give. Nothing is granted on upgrade.
+      //
+      // `database_name`: a connection is a server, and several projects can be
+      // attached to it — each then deploys to a database of its own on that
+      // server rather than to the one the connection names. `NULL` keeps the
+      // connection's own database, which is what every existing link does.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS project_members (
+          project_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          permission TEXT NOT NULL,
+          granted_by TEXT,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          PRIMARY KEY (project_id, user_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_project_members_user ON project_members(user_id);
+      `);
+      const columns = db.prepare("PRAGMA table_info(project_connection_links)").all() as { name: string }[];
+      if (!columns.some((c) => c.name === "database_name")) {
+        db.exec("ALTER TABLE project_connection_links ADD COLUMN database_name TEXT");
+      }
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */

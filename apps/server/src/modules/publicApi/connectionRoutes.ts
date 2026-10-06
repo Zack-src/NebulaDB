@@ -14,12 +14,13 @@ import { deployToConnection, rollbackConnectionDeployment } from "../connections
 import { pullConnectionSchema } from "../connections/pull.js";
 import { listDeploymentHistory } from "../connections/deploymentHistory.js";
 import {
+  getProjectConnection,
   listConnectionsByProject,
   saveConnection,
   unlinkProjectConnection,
   updateConnection,
 } from "../connections/repository.js";
-import { assertProjectMayEditConnection } from "../connections/routes.js";
+import { assertProjectMayEditConnection, assertTargetNotManaged } from "../connections/routes.js";
 import { isValidEngine } from "../connections/engines.js";
 import { API_RATE_LIMIT, DEPLOY_RATE_LIMIT } from "./rateLimits.js";
 
@@ -51,6 +52,7 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
     const body = (req.body ?? {}) as Omit<DatabaseConnectionConfig, "id">;
     if (!body.name?.trim()) throw new ApiError("NAME_REQUIRED");
     requireValidEngine(body.engine);
+    assertTargetNotManaged(user, body);
 
     const saved = saveConnection(id, body);
     auditUser(user, "connection.create", { type: "project", id }, `${body.engine}: ${body.name} (v1)`, req, {
@@ -67,6 +69,7 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
     if (body.engine !== undefined) requireValidEngine(body.engine);
 
     assertProjectMayEditConnection(user, id, connId);
+    assertTargetNotManaged(user, { ...getProjectConnection(id, connId)!, ...body });
     const updated = updateConnection(connId, body, id);
     if (!updated) throw new ApiError("CONNECTION_NOT_FOUND");
 
@@ -90,10 +93,11 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
 
   app.post("/api/v1/projects/:id/connections/test", API_RATE_LIMIT, async (req) => {
     const { id } = req.params as { id: string };
-    requireProjectAdmin(req, id);
+    const { user } = requireProjectAdmin(req, id);
     requireScope(req, "connections:manage", id);
     const body = (req.body ?? {}) as DatabaseConnectionConfig;
     requireValidEngine(body.engine);
+    assertTargetNotManaged(user, body);
 
     const driver = await createDatabaseDriver(body);
     try {

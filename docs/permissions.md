@@ -15,23 +15,26 @@ There are two axes, and no others.
 
 **Instance** — one flag on the account (`users.is_admin`).
 
-| Role                   | How you get it                                                    |
-| ---------------------- | ----------------------------------------------------------------- |
-| Instance administrator | `npm run bootstrap-admin`, or an invitation issued with admin on. |
-| Member                 | Any other account. Accounts only exist by invitation.             |
+| Role                   | How you get it                                                                                                  |
+| ---------------------- | --------------------------------------------------------------------------------------------------------------- |
+| Instance administrator | `npm run bootstrap-admin`, an invitation issued with admin on, or another administrator (Admin → Utilisateurs). |
+| Member                 | Any other account. Accounts only exist by invitation.                                                           |
 
 **Project** — a level per project, resolved for each request (`getEffectivePermission`):
 
-| Level           | How you get it                                                                              |
-| --------------- | ------------------------------------------------------------------------------------------- |
-| `administrator` | Instance administrator (always) · the project's owner (always) · a team granted this level. |
-| `edit`          | Member of a team granted `edit` on the project.                                             |
-| `view`          | Member of a team granted `view` — **or anyone**, when the project has no team at all.       |
-| none            | The project has at least one team, and you are in none of them.                             |
+| Level           | How you get it                                                                                              |
+| --------------- | ----------------------------------------------------------------------------------------------------------- |
+| `administrator` | Instance administrator (always) · the project's owner (always) · a team, or you yourself, given this level. |
+| `edit`          | Member of a team granted `edit` on the project, or given `edit` yourself.                                   |
+| `view`          | A team's or your own `view` — **or anyone**, when the project has no team and no person assigned at all.    |
+| none            | The project has at least one team or person assigned, and you are none of them.                             |
 
-- With several teams, the highest level wins.
-- A project with **no team assigned is readable by every account** on the instance. Assigning
-  the first team is what makes it private. This is the default most worth knowing.
+- A level can be given to a **team** (`project_teams`) or to **one person** (`project_members`):
+  the second is how someone becomes administrator of a project they did not create. With
+  several, the highest wins.
+- A project with **no team and no person assigned is readable by every account** on the
+  instance. Assigning the first one is what makes it private. This is the default most worth
+  knowing.
 - The owner is whoever created the project (`projects.owner_id`); a restored backup can have
   none, in which case only an instance administrator can manage it.
 
@@ -63,6 +66,7 @@ There are two axes, and no others.
 | Label a revision; restore a revision (whole or some tables), the snapshot                                                        |      |  ✔   |       ✔       |
 | Rename, archive, trash, restore from trash, delete the project                                                                   |      |      |       ✔       |
 | Grant or revoke a team on the project                                                                                            |      |      |       ✔       |
+| Give, change or take back one person's level; read who has one (`…/members`)                                                     |      |      |       ✔       |
 | Webhooks: list, create, edit, delete, test, read deliveries                                                                      |      |      |       ✔       |
 | Database connections of the project: add, edit, remove, test                                                                     |      |      |       ✔       |
 | List the project's connections (names and hosts, never the password)                                                             |  ✔   |  ✔   |       ✔       |
@@ -82,6 +86,23 @@ the credentials for, list the projects it can read, and search across them.
 
 A connection created in the admin console is managed there: a project administrator can use it
 when it is linked to the project, not edit or delete it (`CONNECTION_MANAGED_BY_ADMIN`).
+
+**Who may deploy where.** Anyone can create a project and administers what they create, so the
+right to deploy does not come from the project: it comes from the connection being attached to
+it, which only an instance administrator does. A member's own connection is refused when it
+points at a server an administrator already connected (`CONNECTION_TARGET_MANAGED` — on create,
+edit, test and "project from a database", `/api/v1` included): that server is reached through
+the administrator's connection or not at all. Hosts are compared as written, so this closes the
+obvious way round, not every alias of a machine — the database's own accounts stay the real
+bound.
+
+**One server, several projects.** A connection is a server; each project attached to it can be
+given a **database of its own** there (`project_connection_links.database_name`), set by the
+instance administrator when attaching it. Everything the project does on that connection —
+plan, deploy, roll back, pull, compare, watch, backup before deployment — uses that database.
+Two projects never share one on a connection that can name it (`CONNECTION_DATABASE_TAKEN`):
+at most one uses the connection's own database, the others are named. Not offered on a SQLite
+file or a connection string, which have no database to replace.
 
 Reading a table's rows from a linked database as a seed to review
 (`POST …/seeds/:tableId/from-database`) needs **instance administrator** as well as `edit`:
@@ -125,16 +146,23 @@ A lock has an **authority**: `project` (the default) or `instance`.
 
 Instance administrator only (`requireAdmin`) — a project `administrator` has none of these:
 
-- Accounts: list, reset a password, disable / enable, delete; invitations: create (with the
+- Accounts: list, reset a password, disable / enable, delete, give or take back the instance
+  administrator role (`PATCH /api/users/:id/admin` — from a browser session only, never with an
+  API key, and never one's own role); invitations: create (with the
   teams to join and the database access to give on acceptance), list, revoke.
-- Teams: create, rename, delete, add and remove members, read a team's members. (Any account
-  can read the list of team names, to grant one on a project it administers.)
+- Teams: create, rename, delete, add and remove members, read a team's members and the projects
+  it opens. (Any account can read the list of team names, to grant one on a project it
+  administers.)
+- A person's access on one screen (Admin → Utilisateurs → Équipes et projets,
+  `GET /api/users/:id/access`): their teams, the projects they own or were given a level on.
+  The changes themselves are the team and project routes above.
 - The library of lint presets (Admin → Lint): create, edit, delete, make one the default, apply one to
   projects (`/api/admin/lint-presets`). A preset's settings are rules only; an administrator who applies it
   to a project replaces that project's own version.
 - Audit log and error log.
 - The database console, except what a database access grant opens below: instance-level
-  connections (create, edit, delete, link to projects, health), drops, database users and
+  connections (create, edit, delete, link to projects — with each project's database, created
+  on the server when asked — health), drops, database users and
   permissions, sessions and kill, write-mode SQL that changes structure. The explorer, SQL and
   query history are theirs on every connection, and a member's on the connections granted.
 - Database access grants: give, change, remove (per user, per team, in an invitation), and

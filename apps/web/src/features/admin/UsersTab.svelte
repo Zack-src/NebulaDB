@@ -1,6 +1,17 @@
 <script lang="ts">
   import Icon from "@/components/icons/Icon.svelte";
-  import { LinkIcon, DatabaseIcon, KeyIcon, LogOutIcon, RestoreIcon, TrashIcon } from "@/components/icons/Icons";
+  import {
+    LinkIcon,
+    DatabaseIcon,
+    KeyIcon,
+    LockIcon,
+    LockOpenIcon,
+    LogOutIcon,
+    RestoreIcon,
+    TrashIcon,
+    UsersIcon,
+  } from "@/components/icons/Icons";
+  import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Button from "@/components/ui/Button.svelte";
   import Badge from "@/components/ui/Badge.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
@@ -9,7 +20,7 @@
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { formatDate } from "@/i18n/formatters";
   import { i18n, useTranslation } from "@/i18n/i18n.svelte";
-  import { fetchUsers, setUserDisabled } from "@/services/usersApi";
+  import { fetchUsers, setUserAdmin, setUserDisabled } from "@/services/usersApi";
   import InviteUserForm from "./InviteUserForm.svelte";
   import { memberRows } from "./memberRows";
   import { fetchInvitations, revokeInvitation } from "@/services/invitationsApi";
@@ -19,6 +30,7 @@
   import ResetPasswordModal from "@/features/admin/ResetPasswordModal.svelte";
   import DeleteUserModal from "@/features/admin/DeleteUserModal.svelte";
   import UserDbAccessModal from "@/features/admin/UserDbAccessModal.svelte";
+  import UserAccessModal from "@/features/admin/UserAccessModal.svelte";
 
   const { t } = useTranslation();
   const users = useAsyncResource(fetchUsers);
@@ -49,6 +61,7 @@
   let resetTarget = $state.raw<UserSummary | null>(null);
   let deleteTarget = $state.raw<UserSummary | null>(null);
   let accessTarget = $state.raw<UserSummary | null>(null);
+  let membershipTarget = $state.raw<UserSummary | null>(null);
   let pendingUserId = $state<string | null>(null);
 
   /**
@@ -65,6 +78,17 @@
     } finally {
       pendingUserId = null;
     }
+  });
+
+  /**
+   * The administrator role opens the whole instance — every project, every
+   * database, every account — so giving it or taking it back is asked twice.
+   */
+  let roleTarget = $state.raw<UserSummary | null>(null);
+  const changeRole = useAsyncAction(async (user: UserSummary) => {
+    await setUserAdmin(user.id, !user.isAdmin);
+    roleTarget = null;
+    users.reload();
   });
 
   const rows = $derived(memberRows(users.data ?? [], invitations.data ?? []));
@@ -136,6 +160,15 @@
                     <Button
                       variant="ghost"
                       size="icon"
+                      data-tooltip={t("admin.access.button")}
+                      aria-label={t("admin.access.title", { name: user.displayName })}
+                      onclick={() => (membershipTarget = user)}
+                    >
+                      <Icon icon={UsersIcon} size={13} />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
                       data-tooltip={t("dbAccess.button")}
                       aria-label={t("dbAccess.userTitle", { name: user.displayName })}
                       onclick={() => (accessTarget = user)}
@@ -151,6 +184,17 @@
                     >
                       <Icon icon={KeyIcon} size={13} />
                     </Button>
+                    {#if !disabled}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        aria-label={user.isAdmin ? t("admin.users.demote") : t("admin.users.promote")}
+                        data-tooltip={user.isAdmin ? t("admin.users.demote") : t("admin.users.promote")}
+                        onclick={() => (roleTarget = user)}
+                      >
+                        <Icon icon={user.isAdmin ? LockIcon : LockOpenIcon} size={13} />
+                      </Button>
+                    {/if}
                     <Button
                       variant="ghost"
                       size="icon"
@@ -198,6 +242,24 @@
   {/if}
   {#if resetTarget}
     <ResetPasswordModal targetUser={resetTarget} onClose={() => (resetTarget = null)} />
+  {/if}
+  {#if roleTarget}
+    {@const target = roleTarget}
+    <ConfirmDialog
+      title={target.isAdmin
+        ? t("admin.users.demoteTitle", { name: target.displayName })
+        : t("admin.users.promoteTitle", { name: target.displayName })}
+      message={target.isAdmin ? t("admin.users.demoteMessage") : t("admin.users.promoteMessage")}
+      confirmLabel={target.isAdmin ? t("admin.users.demote") : t("admin.users.promote")}
+      danger="warning"
+      pending={changeRole.pending}
+      error={changeRole.error}
+      onConfirm={() => void changeRole.run(target)}
+      onCancel={() => (roleTarget = null)}
+    />
+  {/if}
+  {#if membershipTarget}
+    <UserAccessModal targetUser={membershipTarget} onClose={() => (membershipTarget = null)} />
   {/if}
   {#if accessTarget}
     <UserDbAccessModal targetUser={accessTarget} onClose={() => (accessTarget = null)} />

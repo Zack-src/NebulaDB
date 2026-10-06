@@ -9,12 +9,16 @@ import {
   disableUser,
   enableUser,
   getUserIdentity,
+  isAdminUser,
+  listTeamMembershipsOf,
   listUsers,
+  setUserAdmin,
   updatePasswordHash,
   userExists,
   type UserIdentityRow,
 } from "../repository.js";
 import { deleteUserAccount, toUserSummary, wouldRemoveLastAdmin } from "../service.js";
+import { listUserProjects } from "../../projects/repository.js";
 
 function requireTargetUser(id: string): UserIdentityRow {
   const target = getUserIdentity(id);
@@ -29,6 +33,15 @@ export function registerUserAdminRoutes(app: FastifyInstance): void {
   app.get("/api/users", async (req) => {
     requireAdmin(req);
     return listUsers().map(toUserSummary);
+  });
+
+  // What one person can reach, on one screen: their teams, and the projects
+  // they own or were given a level on themselves.
+  app.get("/api/users/:id/access", async (req) => {
+    requireAdmin(req);
+    const { id } = req.params as { id: string };
+    requireTargetUser(id);
+    return { teams: listTeamMembershipsOf(id), projects: listUserProjects(id) };
   });
 
   // Admin override — no current-password check, since the whole point is
@@ -76,6 +89,33 @@ export function registerUserAdminRoutes(app: FastifyInstance): void {
     }
     auditUser(admin, disabled ? "user.disable" : "user.enable", { type: "user", id }, target.email, req);
     return { id, disabled };
+  });
+
+  /**
+   * Make an account an instance administrator, or take the role back.
+   *
+   * Browser session only: an administrator's API key that could mint other
+   * administrators would turn one leaked key into a standing way in. Nobody
+   * takes their own role away — which also means there is always one left:
+   * the caller.
+   */
+  app.patch("/api/users/:id/admin", async (req) => {
+    const admin = requireAdmin(req);
+    if (req.apiKey) throw new ApiError("FORBIDDEN");
+    const { id } = req.params as { id: string };
+    const target = requireTargetUser(id);
+
+    const body = (req.body ?? {}) as { admin?: boolean };
+    if (typeof body.admin !== "boolean") throw new ApiError("ADMIN_MUST_BE_BOOLEAN");
+    if (!body.admin && id === admin.id) throw new ApiError("CANNOT_DEMOTE_SELF");
+
+    if (isAdminUser(id) !== body.admin) {
+      setUserAdmin(id, body.admin);
+      // What they may open changed with the role: sockets held open resolve their access again.
+      revalidateAllRooms();
+      auditUser(admin, body.admin ? "user.promote" : "user.demote", { type: "user", id }, target.email, req);
+    }
+    return { id, admin: body.admin };
   });
 
   /**

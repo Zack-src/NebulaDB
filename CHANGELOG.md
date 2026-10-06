@@ -24,6 +24,28 @@ this file has a dated entry for — not on every commit.
 
 ## [Unreleased]
 
+### Added — access managed from the administrator's side
+
+- Admin → Utilisateurs → **Équipes et projets**: a person's teams (add, remove) and the projects
+  they own or were given a level on, in one dialog. A level can now be given to **one person**
+  on a project, next to the ones their teams give (`PUT` / `DELETE /api/projects/:id/members/:userId`,
+  migration 43, `project_members`) — how someone becomes administrator of a project they did not
+  create. A first person assigned makes an open project private, as a first team does.
+- Admin → Équipes → a team: the **projects** it opens and at what level, edited there.
+- Admin → Connexions → a connection: each attached project can have a **database of its own**
+  on that server (`project_connection_links.database_name`), created on the server when asked
+  (PostgreSQL, MySQL, SQL Server). Every project route on that connection uses it.
+
+### Changed
+
+- Two projects can no longer be attached to the **same database** of one connection
+  (`CONNECTION_DATABASE_TAKEN`): at most one uses the connection's own database. Links that
+  already share one keep working and are refused the next time the connection's projects are
+  saved, until each has a database.
+- A member can no longer create, edit or test a project connection pointing at a server an
+  instance administrator already connected (`CONNECTION_TARGET_MANAGED`): the administrator
+  attaches theirs to the project instead.
+
 ### Added — a "Santé" tab on each connection
 
 - Admin → Connexions → Ouvrir → **Santé**: a fresh probe on opening (status, latency, version), a

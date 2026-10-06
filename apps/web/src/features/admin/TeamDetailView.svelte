@@ -14,6 +14,9 @@
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { addTeamMember, fetchTeam, removeTeamMember } from "@/services/teamsApi";
   import { fetchUsers } from "@/services/usersApi";
+  import { fetchProjects, grantProjectTeam, revokeProjectTeam } from "@/services/projectsApi";
+  import type { PermissionLevel } from "@/types";
+  import { permissionOptions } from "./permissionOptions";
   import { toast } from "@/components/ui/toast.svelte";
   import { fetchTeamDbAccess, saveTeamDbAccess } from "@/services/dbAccessApi";
   import { listAdminConnections } from "@/services/dbAdminApi";
@@ -57,6 +60,27 @@
   const assignableUsers = $derived(
     (users.data ?? []).filter((user) => !members.some((member) => member.id === user.id)),
   );
+  // The projects the team opens to its members: the team's side of a project's "Équipes".
+  const projects = useAsyncResource(fetchProjects);
+  let selectedProjectId = $state("");
+  let selectedPermission = $state<PermissionLevel>("edit");
+  const teamProjects = $derived(team.data?.projects ?? []);
+  const grantableProjects = $derived(
+    (projects.data ?? []).filter(
+      (project) => project.status === "active" && !teamProjects.some((mine) => mine.projectId === project.id),
+    ),
+  );
+  const levels = $derived(permissionOptions(t));
+  const grantProject = useAsyncAction(async (projectId: string, permission: PermissionLevel) => {
+    await grantProjectTeam(projectId, teamId, permission);
+    selectedProjectId = "";
+    team.reload();
+  });
+  const revokeProject = useAsyncAction(async (projectId: string) => {
+    await revokeProjectTeam(projectId, teamId);
+    team.reload();
+  });
+
   // Database access every member of the team inherits — read or write, per connection.
   const connections = useAsyncResource(listAdminConnections);
   const dbAccess = useAsyncResource(() => fetchTeamDbAccess(teamId));
@@ -73,7 +97,15 @@
   });
 
   const error = $derived(
-    team.error ?? addMember.error ?? removeMember.error ?? connections.error ?? dbAccess.error ?? saveAccess.error,
+    team.error ??
+      addMember.error ??
+      removeMember.error ??
+      projects.error ??
+      grantProject.error ??
+      revokeProject.error ??
+      connections.error ??
+      dbAccess.error ??
+      saveAccess.error,
   );
 </script>
 
@@ -125,6 +157,55 @@
         {/each}
       </List>
     {/if}
+    <section class="mt-7 border-t border-border pt-4" aria-label={t("admin.teams.projects")}>
+      <h3 class="m-0 mb-2 text-body-sm font-semibold text-text">{t("admin.teams.projects")}</h3>
+      <div class="mb-3 flex gap-2">
+        <Select
+          class="min-w-0 flex-1"
+          bind:value={selectedProjectId}
+          options={grantableProjects.map((project) => ({ value: project.id, label: project.name }))}
+          placeholder={t("admin.teams.addProject")}
+          aria-label={t("admin.teams.addProject")}
+        />
+        <Select class="w-40" bind:value={selectedPermission} options={levels} aria-label={t("teams.permission")} />
+        <Button
+          variant="primary"
+          onclick={() => void grantProject.run(selectedProjectId, selectedPermission)}
+          disabled={!selectedProjectId || grantProject.pending}
+        >
+          <Icon icon={PlusIcon} size={14} />
+          {t("common.add")}
+        </Button>
+      </div>
+      {#if teamProjects.length === 0}
+        <EmptyState>{t("admin.teams.noProjects")}</EmptyState>
+      {:else}
+        <List>
+          {#each teamProjects as project (project.projectId)}
+            <ListRow>
+              <ListMain><span>{project.projectName}</span></ListMain>
+              <Select
+                size="sm"
+                class="w-36"
+                value={project.permission}
+                options={levels}
+                onChange={(permission) => void grantProject.run(project.projectId, permission)}
+                aria-label={t("teams.permission")}
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                data-tooltip={t("admin.teams.removeProject")}
+                aria-label={t("admin.teams.removeProject")}
+                onclick={() => void revokeProject.run(project.projectId)}
+              >
+                <Icon icon={TrashIcon} size={13} />
+              </Button>
+            </ListRow>
+          {/each}
+        </List>
+      {/if}
+    </section>
     <section class="mt-7 border-t border-border pt-4" aria-label={t("dbAccess.teamTitle")}>
       <h3 class="m-0 mb-2 text-body-sm font-semibold text-text">{t("dbAccess.teamTitle")}</h3>
       {#if connections.data && dbAccess.data}
