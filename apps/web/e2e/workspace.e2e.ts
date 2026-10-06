@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
-import { login, startE2eEnvironment } from "./harness.js";
+import { clickRevealedOnHover, login, startE2eEnvironment } from "./harness.js";
 
 /**
  * The project workspace: one bar of tabs over the schema editor, the database
@@ -128,8 +128,10 @@ test(
       // --- SQL panel beside the schema ---
       const drawer = page.getByRole("region", { name: "SQL" });
       assert.equal(await drawer.count(), 0, "closed until asked for");
-      await canvasTable("customers").hover();
-      await canvasTable("customers").getByRole("button", { name: "Voir les données" }).click();
+      await clickRevealedOnHover(
+        canvasTable("customers"),
+        canvasTable("customers").getByRole("button", { name: "Voir les données" }),
+      );
       await drawer.getByRole("textbox", { name: "Console SQL" }).waitFor();
       assert.equal(
         await drawer.getByRole("textbox", { name: "Console SQL" }).inputValue(),

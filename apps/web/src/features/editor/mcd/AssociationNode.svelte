@@ -18,8 +18,8 @@
 </script>
 
 <div class={`${TABLE_NODE_CLASS} rounded-full! ${data.lock ? "is-locked border-dashed" : ""}`}>
-  <Handle type="target" position={Position.Left} style="opacity: 0" />
-  <Handle type="source" position={Position.Right} style="opacity: 0" />
+  <Handle type="target" position={Position.Left} style="visibility: hidden" />
+  <Handle type="source" position={Position.Right} style="visibility: hidden" />
   <div
     class="flex h-[calc(30px_*_var(--canvas-font-scale))] items-center justify-center px-3 text-[calc(13px_*_var(--canvas-font-scale))] font-semibold italic"
     style:background={headerColor}

@@ -28,8 +28,8 @@
 <div
   class={`${TABLE_NODE_CLASS} ${data.hasWarning ? "border-warning" : ""} ${data.lock ? "is-locked border-dashed" : ""}`}
 >
-  <Handle type="target" position={Position.Left} style="opacity: 0" />
-  <Handle type="source" position={Position.Right} style="opacity: 0" />
+  <Handle type="target" position={Position.Left} style="visibility: hidden" />
+  <Handle type="source" position={Position.Right} style="visibility: hidden" />
   <div
     class={TABLE_HEADER_CLASS}
     style:background={headerColor}

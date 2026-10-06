@@ -3,7 +3,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
-import { chromium, type Browser, type Page } from "playwright-core";
+import { chromium, type Browser, type Locator, type Page } from "playwright-core";
 
 /**
  * Shared boot/teardown for every `*.e2e.ts` file — spawn a real server
@@ -71,6 +71,39 @@ export async function launchBrowser(): Promise<Browser> {
     }
   }
   throw lastError;
+}
+
+/**
+ * Clicks a control that only shows while its table is hovered (the header
+ * actions, a row's edit button).
+ *
+ * Right after a page load the canvas is still fitting its view, so the table
+ * slides out from under a pointer resting on it and the control hides again.
+ * The table is therefore waited on until it holds still, then hovered, and
+ * the hover repeated until the control is there.
+ */
+export async function clickRevealedOnHover(table: Locator, control: Locator): Promise<void> {
+  let last = "";
+  let stableSince = 0;
+  for (let attempt = 0; attempt < 200 && Date.now() - stableSince < 1200; attempt++) {
+    const now = JSON.stringify(await table.boundingBox());
+    if (now !== last) {
+      last = now;
+      stableSince = Date.now();
+    }
+    await table.page().waitForTimeout(50);
+  }
+  for (let attempt = 0; attempt < 40; attempt++) {
+    await table.hover();
+    if (await control.isVisible()) break;
+    await table.page().waitForTimeout(100);
+  }
+  // A raw mouse click rather than `control.click()`: that waits for the
+  // control to be visible *before* it moves the pointer onto it, and a
+  // control that only exists while hovered can hide again in that gap.
+  const box = await control.boundingBox();
+  if (!box) throw new Error("clickRevealedOnHover: the control has no box");
+  await table.page().mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 }
 
 /** Logs the seeded admin in and waits for the dashboard to be interactive. */

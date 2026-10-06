@@ -68,6 +68,10 @@
   const labelY = $derived(split?.mid.y ?? routing.stepLabelY);
 
   const isHighlighted = $derived(Boolean(data?.highlightLinks || data?.connectedHighlight || selected || isHovered));
+  /** Highlighted because someone is looking at *this* relation, not because every relation is — see `canvas-links-static`. */
+  const flowPathClass = $derived(
+    data?.connectedHighlight || selected || isHovered ? "ref-edge-flow-path is-focused" : "ref-edge-flow-path",
+  );
   const hasIssue = $derived(Boolean(data?.hasIssue));
   const strokeColor = $derived(hasIssue ? ISSUE_STROKE : isHighlighted ? (data?.color ?? style.stroke) : DIMMED_STROKE);
   // Path coordinates live in flow space, which the viewport scales down via a
@@ -140,7 +144,7 @@
     <path
       d={polylinePath(split.first)}
       fill="none"
-      class="ref-edge-flow-path"
+      class={flowPathClass}
       style={animatedStrokeStyle}
       role="presentation"
       onmouseenter={hover}
@@ -148,7 +152,7 @@
     <path
       d={polylinePath(split.second)}
       fill="none"
-      class="ref-edge-flow-path"
+      class={flowPathClass}
       style={animatedStrokeStyle}
       role="presentation"
       onmouseenter={hover}
@@ -160,7 +164,7 @@
     <path
       d={routing.fullPath}
       fill="none"
-      class="ref-edge-flow-path"
+      class={flowPathClass}
       style={animatedStrokeStyle}
       role="presentation"
       onmouseenter={hover}

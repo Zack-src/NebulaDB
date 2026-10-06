@@ -4,7 +4,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
-import { login, startE2eEnvironment } from "./harness.js";
+import { clickRevealedOnHover, login, startE2eEnvironment } from "./harness.js";
 
 /**
  * Initial data: a CSV is chosen for a table, its columns are matched by
@@ -69,8 +69,10 @@ test("seeds: CSV in the editor, checked, shown on the table, deployed", { timeou
 
     await page.goto(`${env.baseUrl}/project/${projectId}`);
     const node = (name: string) => page.locator(".svelte-flow__node").filter({ hasText: name });
-    await node("customers").hover();
-    await node("customers").getByRole("button", { name: "Données initiales (CSV)" }).click();
+    await clickRevealedOnHover(
+      node("customers"),
+      node("customers").getByRole("button", { name: "Données initiales (CSV)" }),
+    );
     const dialog = page.getByRole("dialog", { name: "Données initiales — customers" });
     await dialog.waitFor();
 
@@ -101,8 +103,7 @@ test("seeds: CSV in the editor, checked, shown on the table, deployed", { timeou
     await node("customers").getByRole("button", { name: "Données initiales : 2 lignes" }).waitFor();
 
     // orders: generated rows, their customer drawn from the customers' initial data.
-    await node("orders").hover();
-    await node("orders").getByRole("button", { name: "Données initiales (CSV)" }).click();
+    await clickRevealedOnHover(node("orders"), node("orders").getByRole("button", { name: "Données initiales (CSV)" }));
     const orders = page.getByRole("dialog", { name: "Données initiales — orders" });
     await orders.getByRole("tab", { name: "Générer" }).click();
     await orders.getByRole("spinbutton", { name: "Lignes" }).fill("8");

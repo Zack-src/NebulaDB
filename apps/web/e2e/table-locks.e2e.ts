@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 import type { Page } from "playwright-core";
-import { login, startE2eEnvironment } from "./harness.js";
+import { clickRevealedOnHover, login, startE2eEnvironment } from "./harness.js";
 
 /**
  * Table locks, end to end, with two people in the same project: an
@@ -117,8 +117,10 @@ test(
       // --- The administrator locks `users` ---
       await admin.goto(`${env.baseUrl}/project/${projectId}`);
       await tableHeader(admin, "users").waitFor({ timeout: 10_000 });
-      await tableNode(admin, "users").hover();
-      await tableNode(admin, "users").getByRole("button", { name: "Verrouiller la table…" }).click();
+      await clickRevealedOnHover(
+        tableNode(admin, "users"),
+        tableNode(admin, "users").getByRole("button", { name: "Verrouiller la table…" }),
+      );
       const dialog = admin.getByRole("dialog", { name: "Verrou de la table « users »" });
       await dialog.getByRole("radio", { name: /Structure/ }).waitFor();
       await dialog.getByLabel("Motif (visible par tous)").fill("Table de référence RH");

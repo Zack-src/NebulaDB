@@ -1,0 +1,6046 @@
+{
+  "tag": "slowpc-after",
+  "window": {
+    "width": 1600,
+    "height": 900
+  },
+  "viewport": {
+    "x": 100,
+    "y": 100,
+    "zoom": 0.6
+  },
+  "cpu": 6,
+  "results": [
+    {
+      "config": {
+        "tables": 50,
+        "columns": 8,
+        "detail": "full"
+      },
+      "loadMs": 3671,
+      "ready": {
+        "nodes": 50,
+        "edges": 49,
+        "waitedMs": 3.4
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 2621.2,
+          "frames": {
+            "count": 101,
+            "avgMs": 25.9,
+            "p95Ms": 66.9,
+            "maxMs": 93.4,
+            "droppedFrames": 26,
+            "fps": 38.6
+          },
+          "longTasks": {
+            "count": 15,
+            "totalMs": 1027,
+            "maxMs": 89
+          },
+          "totalBlockingMs": 277,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 15,
+              "totalMs": 1027,
+              "avgMs": 68.5,
+              "maxMs": 89,
+              "p95Ms": 84,
+              "lastMs": 51
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 8,
+              "totalMs": 5,
+              "avgMs": 0.7,
+              "maxMs": 0.9,
+              "p95Ms": 0.9,
+              "lastMs": 0.8
+            }
+          ],
+          "mainThread": {
+            "taskMs": 2068,
+            "scriptMs": 405,
+            "styleMs": 158,
+            "layoutMs": 116,
+            "otherMs": 1389
+          },
+          "profileTop": [
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 59.6
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 57.6
+            },
+            {
+              "fn": "getBoundingClientRect ← (anonymous) xyflow-7b95fSSs.js:10039",
+              "selfMs": 57.6
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 39.7
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 31.8
+            },
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 27.8
+            },
+            {
+              "fn": "set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 15.9
+            },
+            {
+              "fn": "set_style xyflow-7b95fSSs.js:5574",
+              "selfMs": 13.9
+            },
+            {
+              "fn": "#resolve xyflow-7b95fSSs.js:1206",
+              "selfMs": 11.9
+            },
+            {
+              "fn": "capture xyflow-7b95fSSs.js:1418",
+              "selfMs": 9.9
+            },
+            {
+              "fn": "get$2 xyflow-7b95fSSs.js:3023",
+              "selfMs": 7.9
+            },
+            {
+              "fn": "setProperty ← update_styles xyflow-7b95fSSs.js:5559",
+              "selfMs": 6
+            },
+            {
+              "fn": "update_derived xyflow-7b95fSSs.js:963",
+              "selfMs": 6
+            },
+            {
+              "fn": "update_dependencies xyflow-7b95fSSs.js:2923",
+              "selfMs": 6
+            }
+          ]
+        },
+        {
+          "label": "zoom-again",
+          "durationMs": 2244.5,
+          "frames": {
+            "count": 102,
+            "avgMs": 22,
+            "p95Ms": 53.4,
+            "maxMs": 80.1,
+            "droppedFrames": 17,
+            "fps": 45.5
+          },
+          "longTasks": {
+            "count": 8,
+            "totalMs": 485,
+            "maxMs": 68
+          },
+          "totalBlockingMs": 85,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 8,
+              "totalMs": 485,
+              "avgMs": 60.6,
+              "maxMs": 68,
+              "p95Ms": 68,
+              "lastMs": 53
+            }
+          ],
+          "mainThread": {
+            "taskMs": 1668,
+            "scriptMs": 165,
+            "styleMs": 76,
+            "layoutMs": 63,
+            "otherMs": 1364
+          },
+          "profileTop": [
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 24.6
+            },
+            {
+              "fn": "set_style xyflow-7b95fSSs.js:5574",
+              "selfMs": 15.8
+            },
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 14
+            },
+            {
+              "fn": "set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 8.8
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:8028",
+              "selfMs": 7
+            },
+            {
+              "fn": "requestAnimationFrame ← tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 7
+            },
+            {
+              "fn": "capture xyflow-7b95fSSs.js:1418",
+              "selfMs": 5.3
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 5.3
+            },
+            {
+              "fn": "ZoomEvent xyflow-7b95fSSs.js:8920",
+              "selfMs": 3.5
+            },
+            {
+              "fn": "pointer_default xyflow-7b95fSSs.js:7293",
+              "selfMs": 3.5
+            },
+            {
+              "fn": "#process xyflow-7b95fSSs.js:1229",
+              "selfMs": 3.5
+            },
+            {
+              "fn": "get$2 xyflow-7b95fSSs.js:3023",
+              "selfMs": 3.5
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 3.5
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:14162",
+              "selfMs": 3.5
+            }
+          ]
+        },
+        {
+          "label": "pan",
+          "durationMs": 2011.2,
+          "frames": {
+            "count": 127,
+            "avgMs": 15.9,
+            "p95Ms": 26.7,
+            "maxMs": 40.1,
+            "droppedFrames": 3,
+            "fps": 63
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [],
+          "mainThread": {
+            "taskMs": 1224,
+            "scriptMs": 136,
+            "styleMs": 113,
+            "layoutMs": 34,
+            "otherMs": 941
+          },
+          "profileTop": [
+            {
+              "fn": "requestAnimationFrame ← tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 10.9
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:4930",
+              "selfMs": 9.1
+            },
+            {
+              "fn": "before ← append xyflow-7b95fSSs.js:3600",
+              "selfMs": 7.3
+            },
+            {
+              "fn": "remove ← remove_effect_dom xyflow-7b95fSSs.js:2627",
+              "selfMs": 7.3
+            },
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 7.3
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:11504",
+              "selfMs": 5.4
+            },
+            {
+              "fn": "property_default xyflow-7b95fSSs.js:6970",
+              "selfMs": 3.6
+            },
+            {
+              "fn": "flush xyflow-7b95fSSs.js:1433",
+              "selfMs": 3.6
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 3.6
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 3.6
+            },
+            {
+              "fn": "addEventListener ← (anonymous) xyflow-7b95fSSs.js:7163",
+              "selfMs": 3.6
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:14162",
+              "selfMs": 3.6
+            },
+            {
+              "fn": "ensure xyflow-7b95fSSs.js:4302",
+              "selfMs": 3.6
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:4314",
+              "selfMs": 3.6
+            }
+          ]
+        },
+        {
+          "label": "hover-sweep",
+          "durationMs": 4187.9,
+          "frames": {
+            "count": 294,
+            "avgMs": 14.2,
+            "p95Ms": 13.5,
+            "maxMs": 53.4,
+            "droppedFrames": 6,
+            "fps": 70.4
+          },
+          "longTasks": {
+            "count": 3,
+            "totalMs": 175,
+            "maxMs": 65
+          },
+          "totalBlockingMs": 25,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 3,
+              "totalMs": 175,
+              "avgMs": 58.3,
+              "maxMs": 65,
+              "p95Ms": 58,
+              "lastMs": 52
+            },
+            {
+              "label": "canvas.highlightedFields",
+              "count": 20,
+              "totalMs": 2,
+              "avgMs": 0.1,
+              "maxMs": 1,
+              "p95Ms": 0.3,
+              "lastMs": 0
+            }
+          ],
+          "mainThread": {
+            "taskMs": 1083,
+            "scriptMs": 359,
+            "styleMs": 100,
+            "layoutMs": 35,
+            "otherMs": 589
+          },
+          "profileTop": [
+            {
+              "fn": "getBoundingClientRect ← screenToFlowPosition xyflow-7b95fSSs.js:15558",
+              "selfMs": 59.7
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 48.1
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 34.8
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 29.9
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:4930",
+              "selfMs": 13.3
+            },
+            {
+              "fn": "handle_event_propagation xyflow-7b95fSSs.js:3372",
+              "selfMs": 11.6
+            },
+            {
+              "fn": "before ← append xyflow-7b95fSSs.js:3600",
+              "selfMs": 11.6
+            },
+            {
+              "fn": "set_style xyflow-7b95fSSs.js:5574",
+              "selfMs": 10
+            },
+            {
+              "fn": "addConnectionToLookup xyflow-7b95fSSs.js:10887",
+              "selfMs": 8.3
+            },
+            {
+              "fn": "requestAnimationFrame ← tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 8.3
+            },
+            {
+              "fn": "setLocalStateField yjs-5H8xyA-s.js:10840",
+              "selfMs": 6.6
+            },
+            {
+              "fn": "emit yjs-5H8xyA-s.js:299",
+              "selfMs": 6.6
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 6.6
+            },
+            {
+              "fn": "getLayoutedEdges xyflow-7b95fSSs.js:13029",
+              "selfMs": 6.6
+            }
+          ]
+        },
+        {
+          "label": "zoom-links-on",
+          "durationMs": 2695,
+          "frames": {
+            "count": 101,
+            "avgMs": 26.6,
+            "p95Ms": 66.8,
+            "maxMs": 106.9,
+            "droppedFrames": 29,
+            "fps": 37.6
+          },
+          "longTasks": {
+            "count": 20,
+            "totalMs": 1248,
+            "maxMs": 92
+          },
+          "totalBlockingMs": 248,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 20,
+              "totalMs": 1248,
+              "avgMs": 62.4,
+              "maxMs": 92,
+              "p95Ms": 79,
+              "lastMs": 58
+            }
+          ],
+          "mainThread": {
+            "taskMs": 2197,
+            "scriptMs": 299,
+            "styleMs": 206,
+            "layoutMs": 78,
+            "otherMs": 1614
+          },
+          "profileTop": [
+            {
+              "fn": "set_style xyflow-7b95fSSs.js:5574",
+              "selfMs": 37.2
+            },
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 30.2
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 28.4
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 16
+            },
+            {
+              "fn": "(garbage collector) :0",
+              "selfMs": 16
+            },
+            {
+              "fn": "#commit xyflow-7b95fSSs.js:4238",
+              "selfMs": 12.4
+            },
+            {
+              "fn": "setProperty ← update_styles xyflow-7b95fSSs.js:5559",
+              "selfMs": 10.6
+            },
+            {
+              "fn": "update_styles xyflow-7b95fSSs.js:5559",
+              "selfMs": 8.9
+            },
+            {
+              "fn": "set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 8.9
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 8.9
+            },
+            {
+              "fn": "tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 7.1
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 7.1
+            },
+            {
+              "fn": "PerformanceObserver.observe.type perfMonitor-Hci5trb9.js:92",
+              "selfMs": 7.1
+            },
+            {
+              "fn": "wheeled xyflow-7b95fSSs.js:9145",
+              "selfMs": 5.3
+            }
+          ]
+        },
+        {
+          "label": "idle-links-on",
+          "durationMs": 1974.5,
+          "frames": {
+            "count": 148,
+            "avgMs": 13.4,
+            "p95Ms": 13.4,
+            "maxMs": 13.5,
+            "droppedFrames": 0,
+            "fps": 74.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [],
+          "mainThread": {
+            "taskMs": 108,
+            "scriptMs": 8,
+            "styleMs": 0,
+            "layoutMs": 0,
+            "otherMs": 100
+          },
+          "profileTop": [
+            {
+              "fn": "BenchSession BenchHarness-Bs9VAh_T.js:143",
+              "selfMs": 1.9
+            },
+            {
+              "fn": "(anonymous) BenchHarness-Bs9VAh_T.js:173",
+              "selfMs": 1.9
+            },
+            {
+              "fn": "tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 1.9
+            },
+            {
+              "fn": "requestAnimationFrame ← tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 1.9
+            }
+          ]
+        },
+        {
+          "label": "drag-single",
+          "durationMs": 2613.2,
+          "frames": {
+            "count": 174,
+            "avgMs": 15,
+            "p95Ms": 26.7,
+            "maxMs": 106.8,
+            "droppedFrames": 2,
+            "fps": 66.8
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 100,
+            "maxMs": 100
+          },
+          "totalBlockingMs": 50,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 100,
+              "avgMs": 100,
+              "maxMs": 100,
+              "p95Ms": 100,
+              "lastMs": 100
+            },
+            {
+              "label": "canvas.commitDrag",
+              "count": 1,
+              "totalMs": 12,
+              "avgMs": 11.7,
+              "maxMs": 11.7,
+              "p95Ms": 11.7,
+              "lastMs": 11.7
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 8,
+              "avgMs": 7.5,
+              "maxMs": 7.5,
+              "p95Ms": 7.5,
+              "lastMs": 7.5
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 2.2,
+              "maxMs": 2.2,
+              "p95Ms": 2.2,
+              "lastMs": 2.2
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 2.3,
+              "maxMs": 2.3,
+              "p95Ms": 2.3,
+              "lastMs": 2.3
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.7,
+              "maxMs": 0.7,
+              "p95Ms": 0.7,
+              "lastMs": 0.7
+            }
+          ],
+          "mainThread": {
+            "taskMs": 2152,
+            "scriptMs": 480,
+            "styleMs": 116,
+            "layoutMs": 52,
+            "otherMs": 1504
+          },
+          "profileTop": [
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 106.4
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 106.4
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 74.5
+            },
+            {
+              "fn": "(garbage collector) :0",
+              "selfMs": 40.8
+            },
+            {
+              "fn": "getBoundingClientRect ← pointer_default xyflow-7b95fSSs.js:7293",
+              "selfMs": 23.1
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 17.7
+            },
+            {
+              "fn": "getBoundingClientRect ← screenToFlowPosition xyflow-7b95fSSs.js:15558",
+              "selfMs": 10.6
+            },
+            {
+              "fn": "adoptUserNodes xyflow-7b95fSSs.js:10638",
+              "selfMs": 8.9
+            },
+            {
+              "fn": "#resolve xyflow-7b95fSSs.js:1206",
+              "selfMs": 8.9
+            },
+            {
+              "fn": "getStoreItems xyflow-7b95fSSs.js:14475",
+              "selfMs": 8.9
+            },
+            {
+              "fn": "requestAnimationFrame ← tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 8.9
+            },
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 7.1
+            },
+            {
+              "fn": "set_attributes xyflow-7b95fSSs.js:5789",
+              "selfMs": 7.1
+            },
+            {
+              "fn": "schedule_possible_effect_self_invalidation xyflow-7b95fSSs.js:2848",
+              "selfMs": 7.1
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 1775.1,
+          "frames": {
+            "count": 91,
+            "avgMs": 19.5,
+            "p95Ms": 53.4,
+            "maxMs": 133.5,
+            "droppedFrames": 9,
+            "fps": 51.3
+          },
+          "longTasks": {
+            "count": 7,
+            "totalMs": 532,
+            "maxMs": 137
+          },
+          "totalBlockingMs": 182,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 1232,
+              "avgMs": 1232.1,
+              "maxMs": 1232.1,
+              "p95Ms": 1232.1,
+              "lastMs": 1232.1
+            },
+            {
+              "label": "longtask",
+              "count": 7,
+              "totalMs": 532,
+              "avgMs": 76,
+              "maxMs": 137,
+              "p95Ms": 96,
+              "lastMs": 137
+            },
+            {
+              "label": "canvas.highlightedFields",
+              "count": 10,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.2,
+              "p95Ms": 0.2,
+              "lastMs": 0.2
+            }
+          ],
+          "mainThread": {
+            "taskMs": 1516,
+            "scriptMs": 322,
+            "styleMs": 222,
+            "layoutMs": 44,
+            "otherMs": 928
+          },
+          "profileTop": [
+            {
+              "fn": "getBoundingClientRect ← screenToFlowPosition xyflow-7b95fSSs.js:15558",
+              "selfMs": 168.8
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 97.4
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 50.5
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 36.5
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 8.7
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:4930",
+              "selfMs": 8.7
+            },
+            {
+              "fn": "before ← append xyflow-7b95fSSs.js:3600",
+              "selfMs": 8.7
+            },
+            {
+              "fn": "#resolve xyflow-7b95fSSs.js:1206",
+              "selfMs": 7
+            },
+            {
+              "fn": "(anonymous) :0",
+              "selfMs": 7
+            },
+            {
+              "fn": "handle_event_propagation xyflow-7b95fSSs.js:3372",
+              "selfMs": 5.2
+            },
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 5.2
+            },
+            {
+              "fn": "update_derived xyflow-7b95fSSs.js:963",
+              "selfMs": 5.2
+            },
+            {
+              "fn": "set_class xyflow-7b95fSSs.js:5535",
+              "selfMs": 5.2
+            },
+            {
+              "fn": "create_effect xyflow-7b95fSSs.js:2370",
+              "selfMs": 5.2
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 2957.6,
+          "frames": {
+            "count": 180,
+            "avgMs": 16.4,
+            "p95Ms": 26.7,
+            "maxMs": 66.7,
+            "droppedFrames": 5,
+            "fps": 61
+          },
+          "longTasks": {
+            "count": 2,
+            "totalMs": 125,
+            "maxMs": 68
+          },
+          "totalBlockingMs": 25,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 2,
+              "totalMs": 125,
+              "avgMs": 62.5,
+              "maxMs": 68,
+              "p95Ms": 57,
+              "lastMs": 68
+            },
+            {
+              "label": "canvas.commitDrag",
+              "count": 1,
+              "totalMs": 7,
+              "avgMs": 6.9,
+              "maxMs": 6.9,
+              "p95Ms": 6.9,
+              "lastMs": 6.9
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 5,
+              "avgMs": 4.9,
+              "maxMs": 4.9,
+              "p95Ms": 4.9,
+              "lastMs": 4.9
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 2,
+              "maxMs": 2,
+              "p95Ms": 2,
+              "lastMs": 2
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 1.8,
+              "maxMs": 1.8,
+              "p95Ms": 1.8,
+              "lastMs": 1.8
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.8,
+              "maxMs": 0.8,
+              "p95Ms": 0.8,
+              "lastMs": 0.8
+            }
+          ],
+          "mainThread": {
+            "taskMs": 2407,
+            "scriptMs": 637,
+            "styleMs": 201,
+            "layoutMs": 52,
+            "otherMs": 1517
+          },
+          "profileTop": [
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 128.7
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 89.2
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 80.6
+            },
+            {
+              "fn": "getBoundingClientRect ← pointer_default xyflow-7b95fSSs.js:7293",
+              "selfMs": 25.7
+            },
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 24
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 17.2
+            },
+            {
+              "fn": "#resolve xyflow-7b95fSSs.js:1206",
+              "selfMs": 13.7
+            },
+            {
+              "fn": "get$2 xyflow-7b95fSSs.js:3023",
+              "selfMs": 13.7
+            },
+            {
+              "fn": "set_attributes xyflow-7b95fSSs.js:5789",
+              "selfMs": 12
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:5918",
+              "selfMs": 12
+            },
+            {
+              "fn": "requestAnimationFrame ← tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 12
+            },
+            {
+              "fn": "eq codemirror-K6YpN40R.js:4239",
+              "selfMs": 10.3
+            },
+            {
+              "fn": "set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 8.6
+            },
+            {
+              "fn": "capture xyflow-7b95fSSs.js:1418",
+              "selfMs": 8.6
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 526.6,
+          "frames": {
+            "count": 35,
+            "avgMs": 14.9,
+            "p95Ms": 13.5,
+            "maxMs": 66.8,
+            "droppedFrames": 1,
+            "fps": 67.2
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 51,
+            "maxMs": 51
+          },
+          "totalBlockingMs": 1,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 51,
+              "avgMs": 51,
+              "maxMs": 51,
+              "p95Ms": 51,
+              "lastMs": 51
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 2.6,
+              "maxMs": 2.6,
+              "p95Ms": 2.6,
+              "lastMs": 2.6
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 3.3,
+              "maxMs": 3.3,
+              "p95Ms": 3.3,
+              "lastMs": 3.3
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.4,
+              "maxMs": 1.4,
+              "p95Ms": 1.4,
+              "lastMs": 1.4
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.2,
+              "maxMs": 1.2,
+              "p95Ms": 1.2,
+              "lastMs": 1.2
+            }
+          ],
+          "mainThread": {
+            "taskMs": 357,
+            "scriptMs": 37,
+            "styleMs": 17,
+            "layoutMs": 1,
+            "otherMs": 302
+          },
+          "profileTop": [
+            {
+              "fn": "(garbage collector) :0",
+              "selfMs": 37.2
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 10.6
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 10.6
+            },
+            {
+              "fn": "_writeVarStringNative yjs-5H8xyA-s.js:578",
+              "selfMs": 5.3
+            },
+            {
+              "fn": "evaluate :305",
+              "selfMs": 2.7
+            },
+            {
+              "fn": "(anonymous) :1",
+              "selfMs": 2.7
+            },
+            {
+              "fn": "(anonymous) yjs-5H8xyA-s.js:3065",
+              "selfMs": 2.7
+            },
+            {
+              "fn": "writeAny yjs-5H8xyA-s.js:732",
+              "selfMs": 2.7
+            },
+            {
+              "fn": "finishSpan perfMonitor-Hci5trb9.js:40",
+              "selfMs": 2.7
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:1497",
+              "selfMs": 2.7
+            },
+            {
+              "fn": "baseType lint-CqGL1rjd.js:121",
+              "selfMs": 2.7
+            },
+            {
+              "fn": "buildTableNodes ProjectEditor-e3U6tpHd.js:10621",
+              "selfMs": 2.7
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:4600",
+              "selfMs": 2.7
+            },
+            {
+              "fn": "translateWith i18n.svelte-Cx5NdBMX.js:1961",
+              "selfMs": 2.7
+            }
+          ]
+        },
+        {
+          "label": "recolor-single",
+          "durationMs": 513.2,
+          "frames": {
+            "count": 35,
+            "avgMs": 14.5,
+            "p95Ms": 13.5,
+            "maxMs": 53.5,
+            "droppedFrames": 1,
+            "fps": 69
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 54,
+            "maxMs": 54
+          },
+          "totalBlockingMs": 4,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 54,
+              "avgMs": 54,
+              "maxMs": 54,
+              "p95Ms": 54,
+              "lastMs": 54
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 4.3,
+              "maxMs": 4.3,
+              "p95Ms": 4.3,
+              "lastMs": 4.3
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 4.4,
+              "maxMs": 4.4,
+              "p95Ms": 4.4,
+              "lastMs": 4.4
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 1.5,
+              "maxMs": 1.5,
+              "p95Ms": 1.5,
+              "lastMs": 1.5
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.8,
+              "maxMs": 0.8,
+              "p95Ms": 0.8,
+              "lastMs": 0.8
+            }
+          ],
+          "mainThread": {
+            "taskMs": 336,
+            "scriptMs": 42,
+            "styleMs": 20,
+            "layoutMs": 1,
+            "otherMs": 273
+          },
+          "profileTop": [
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 9.9
+            },
+            {
+              "fn": "requestAnimationFrame ← tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 7.4
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 4.9
+            },
+            {
+              "fn": "capture xyflow-7b95fSSs.js:1418",
+              "selfMs": 4.9
+            },
+            {
+              "fn": "evaluate :305",
+              "selfMs": 2.5
+            },
+            {
+              "fn": "callEventHandlerListeners yjs-5H8xyA-s.js:4562",
+              "selfMs": 2.5
+            },
+            {
+              "fn": "orderTables ProjectEditor-e3U6tpHd.js:282",
+              "selfMs": 2.5
+            },
+            {
+              "fn": "findDuplicateNames ProjectEditor-e3U6tpHd.js:1115",
+              "selfMs": 2.5
+            },
+            {
+              "fn": "lintProject lint-CqGL1rjd.js:215",
+              "selfMs": 2.5
+            },
+            {
+              "fn": "(anonymous) lint-CqGL1rjd.js:279",
+              "selfMs": 2.5
+            },
+            {
+              "fn": "(anonymous) lint-CqGL1rjd.js:295",
+              "selfMs": 2.5
+            },
+            {
+              "fn": "buildTableNodes ProjectEditor-e3U6tpHd.js:10621",
+              "selfMs": 2.5
+            },
+            {
+              "fn": "ensure xyflow-7b95fSSs.js:4302",
+              "selfMs": 2.5
+            },
+            {
+              "fn": "schedule_possible_effect_self_invalidation xyflow-7b95fSSs.js:2848",
+              "selfMs": 2.5
+            }
+          ]
+        },
+        {
+          "label": "column-flag",
+          "durationMs": 577.4,
+          "frames": {
+            "count": 36,
+            "avgMs": 15.9,
+            "p95Ms": 13.4,
+            "maxMs": 106.9,
+            "droppedFrames": 1,
+            "fps": 62.7
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 97,
+            "maxMs": 97
+          },
+          "totalBlockingMs": 47,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 97,
+              "avgMs": 97,
+              "maxMs": 97,
+              "p95Ms": 97,
+              "lastMs": 97
+            },
+            {
+              "label": "dbml.signature",
+              "count": 2,
+              "totalMs": 19,
+              "avgMs": 9.3,
+              "maxMs": 11.6,
+              "p95Ms": 6.9,
+              "lastMs": 6.9
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 2.6,
+              "maxMs": 2.6,
+              "p95Ms": 2.6,
+              "lastMs": 2.6
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 3.2,
+              "maxMs": 3.2,
+              "p95Ms": 3.2,
+              "lastMs": 3.2
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 1.5,
+              "maxMs": 1.5,
+              "p95Ms": 1.5,
+              "lastMs": 1.5
+            }
+          ],
+          "mainThread": {
+            "taskMs": 443,
+            "scriptMs": 109,
+            "styleMs": 25,
+            "layoutMs": 3,
+            "otherMs": 306
+          },
+          "profileTop": [
+            {
+              "fn": "parseDbmlSymbols ProjectEditor-e3U6tpHd.js:14134",
+              "selfMs": 13.9
+            },
+            {
+              "fn": "updateHeight codemirror-K6YpN40R.js:8546",
+              "selfMs": 13.9
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 9.2
+            },
+            {
+              "fn": "eq codemirror-K6YpN40R.js:4239",
+              "selfMs": 6.9
+            },
+            {
+              "fn": "requestAnimationFrame ← tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 6.9
+            },
+            {
+              "fn": "dbmlSignature ProjectEditor-e3U6tpHd.js:14373",
+              "selfMs": 4.6
+            },
+            {
+              "fn": "parseSettings ProjectEditor-e3U6tpHd.js:14104",
+              "selfMs": 4.6
+            },
+            {
+              "fn": "minimalChange ProjectEditor-e3U6tpHd.js:13990",
+              "selfMs": 4.6
+            },
+            {
+              "fn": "measure codemirror-K6YpN40R.js:10336",
+              "selfMs": 4.6
+            },
+            {
+              "fn": "next codemirror-K6YpN40R.js:3188",
+              "selfMs": 4.6
+            },
+            {
+              "fn": "(anonymous) BenchHarness-Bs9VAh_T.js:206",
+              "selfMs": 2.3
+            },
+            {
+              "fn": "(anonymous) yjs-5H8xyA-s.js:2967",
+              "selfMs": 2.3
+            },
+            {
+              "fn": "getPerfReport perfMonitor-Hci5trb9.js:60",
+              "selfMs": 2.3
+            },
+            {
+              "fn": "#process xyflow-7b95fSSs.js:1229",
+              "selfMs": 2.3
+            }
+          ]
+        },
+        {
+          "label": "highlight-toggle",
+          "durationMs": 1345.6,
+          "frames": {
+            "count": 88,
+            "avgMs": 15.2,
+            "p95Ms": 13.4,
+            "maxMs": 120.2,
+            "droppedFrames": 2,
+            "fps": 65.9
+          },
+          "longTasks": {
+            "count": 2,
+            "totalMs": 166,
+            "maxMs": 110
+          },
+          "totalBlockingMs": 66,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 2,
+              "totalMs": 166,
+              "avgMs": 83,
+              "maxMs": 110,
+              "p95Ms": 56,
+              "lastMs": 56
+            }
+          ],
+          "mainThread": {
+            "taskMs": 974,
+            "scriptMs": 95,
+            "styleMs": 118,
+            "layoutMs": 12,
+            "otherMs": 749
+          },
+          "profileTop": [
+            {
+              "fn": "query :5607",
+              "selfMs": 20
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 12
+            },
+            {
+              "fn": "set_style xyflow-7b95fSSs.js:5574",
+              "selfMs": 12
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 10
+            },
+            {
+              "fn": "querySelectorAll :0",
+              "selfMs": 8
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 8
+            },
+            {
+              "fn": "elementsFromPoint :0",
+              "selfMs": 6
+            },
+            {
+              "fn": "(anonymous) :0",
+              "selfMs": 6
+            },
+            {
+              "fn": "remove ← remove_effect_dom xyflow-7b95fSSs.js:2627",
+              "selfMs": 6
+            },
+            {
+              "fn": "evaluate :305",
+              "selfMs": 4
+            },
+            {
+              "fn": "schedule_possible_effect_self_invalidation xyflow-7b95fSSs.js:2848",
+              "selfMs": 4
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:8112",
+              "selfMs": 4
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 4
+            },
+            {
+              "fn": "requestAnimationFrame ← tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 4
+            }
+          ]
+        },
+        {
+          "label": "delete-columns",
+          "durationMs": 634.9,
+          "frames": {
+            "count": 34,
+            "avgMs": 18.8,
+            "p95Ms": 26.7,
+            "maxMs": 160.2,
+            "droppedFrames": 1,
+            "fps": 53.1
+          },
+          "longTasks": {
+            "count": 2,
+            "totalMs": 169,
+            "maxMs": 104
+          },
+          "totalBlockingMs": 69,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 2,
+              "totalMs": 169,
+              "avgMs": 84.5,
+              "maxMs": 104,
+              "p95Ms": 65,
+              "lastMs": 65
+            },
+            {
+              "label": "dbml.signature",
+              "count": 2,
+              "totalMs": 13,
+              "avgMs": 6.5,
+              "maxMs": 8.1,
+              "p95Ms": 5,
+              "lastMs": 8.1
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 3,
+              "totalMs": 7,
+              "avgMs": 2.3,
+              "maxMs": 3.1,
+              "p95Ms": 2.6,
+              "lastMs": 1.1
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 4.4,
+              "maxMs": 4.4,
+              "p95Ms": 4.4,
+              "lastMs": 4.4
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 1.9,
+              "maxMs": 1.9,
+              "p95Ms": 1.9,
+              "lastMs": 1.9
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 2,
+              "totalMs": 1,
+              "avgMs": 0.6,
+              "maxMs": 0.7,
+              "p95Ms": 0.5,
+              "lastMs": 0.7
+            },
+            {
+              "label": "canvas.nodeInternalsFlush",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.2,
+              "maxMs": 1.2,
+              "p95Ms": 1.2,
+              "lastMs": 1.2
+            }
+          ],
+          "mainThread": {
+            "taskMs": 539,
+            "scriptMs": 137,
+            "styleMs": 31,
+            "layoutMs": 6,
+            "otherMs": 365
+          },
+          "profileTop": [
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 19.8
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 17.3
+            },
+            {
+              "fn": "eq codemirror-K6YpN40R.js:4239",
+              "selfMs": 14.8
+            },
+            {
+              "fn": "parseDbmlSymbols ProjectEditor-e3U6tpHd.js:14134",
+              "selfMs": 9.9
+            },
+            {
+              "fn": "reconcile xyflow-7b95fSSs.js:4721",
+              "selfMs": 7.4
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 4.9
+            },
+            {
+              "fn": "translateWith i18n.svelte-Cx5NdBMX.js:1961",
+              "selfMs": 4.9
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 4.9
+            },
+            {
+              "fn": "addConnectionToLookup xyflow-7b95fSSs.js:10887",
+              "selfMs": 4.9
+            },
+            {
+              "fn": "linter.delay ProjectEditor-e3U6tpHd.js:15371",
+              "selfMs": 4.9
+            },
+            {
+              "fn": "dbmlSignature ProjectEditor-e3U6tpHd.js:14373",
+              "selfMs": 4.9
+            },
+            {
+              "fn": "maskLine ProjectEditor-e3U6tpHd.js:14028",
+              "selfMs": 4.9
+            },
+            {
+              "fn": "openEnd codemirror-K6YpN40R.js:3370",
+              "selfMs": 4.9
+            },
+            {
+              "fn": "evaluate :305",
+              "selfMs": 2.5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 100,
+        "columns": 8,
+        "detail": "standard"
+      },
+      "loadMs": 2694,
+      "ready": {
+        "nodes": 100,
+        "edges": 99,
+        "waitedMs": 2.7
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 2870.7,
+          "frames": {
+            "count": 105,
+            "avgMs": 27.3,
+            "p95Ms": 80.2,
+            "maxMs": 146.8,
+            "droppedFrames": 25,
+            "fps": 36.6
+          },
+          "longTasks": {
+            "count": 17,
+            "totalMs": 1306,
+            "maxMs": 148
+          },
+          "totalBlockingMs": 456,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 17,
+              "totalMs": 1306,
+              "avgMs": 76.8,
+              "maxMs": 148,
+              "p95Ms": 104,
+              "lastMs": 68
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 10,
+              "totalMs": 8,
+              "avgMs": 0.8,
+              "maxMs": 1.7,
+              "p95Ms": 1,
+              "lastMs": 1
+            }
+          ],
+          "mainThread": {
+            "taskMs": 2291,
+            "scriptMs": 588,
+            "styleMs": 222,
+            "layoutMs": 183,
+            "otherMs": 1298
+          },
+          "profileTop": [
+            {
+              "fn": "getBoundingClientRect ← (anonymous) xyflow-7b95fSSs.js:10039",
+              "selfMs": 133.8
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 90.5
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 78.7
+            },
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 51.1
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 47.2
+            },
+            {
+              "fn": "set_style xyflow-7b95fSSs.js:5574",
+              "selfMs": 33.4
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 31.5
+            },
+            {
+              "fn": "schedule_possible_effect_self_invalidation xyflow-7b95fSSs.js:2848",
+              "selfMs": 23.6
+            },
+            {
+              "fn": "capture xyflow-7b95fSSs.js:1418",
+              "selfMs": 21.6
+            },
+            {
+              "fn": "#resolve xyflow-7b95fSSs.js:1206",
+              "selfMs": 13.8
+            },
+            {
+              "fn": "set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 13.8
+            },
+            {
+              "fn": "get$2 xyflow-7b95fSSs.js:3023",
+              "selfMs": 13.8
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:5918",
+              "selfMs": 11.8
+            },
+            {
+              "fn": "addConnectionToLookup xyflow-7b95fSSs.js:10887",
+              "selfMs": 11.8
+            }
+          ]
+        },
+        {
+          "label": "zoom-again",
+          "durationMs": 2198.5,
+          "frames": {
+            "count": 106,
+            "avgMs": 20.8,
+            "p95Ms": 53.3,
+            "maxMs": 80.1,
+            "droppedFrames": 16,
+            "fps": 48.1
+          },
+          "longTasks": {
+            "count": 7,
+            "totalMs": 408,
+            "maxMs": 78
+          },
+          "totalBlockingMs": 58,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 7,
+              "totalMs": 408,
+              "avgMs": 58.3,
+              "maxMs": 78,
+              "p95Ms": 64,
+              "lastMs": 51
+            }
+          ],
+          "mainThread": {
+            "taskMs": 1604,
+            "scriptMs": 220,
+            "styleMs": 118,
+            "layoutMs": 70,
+            "otherMs": 1196
+          },
+          "profileTop": [
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 52
+            },
+            {
+              "fn": "set_style xyflow-7b95fSSs.js:5574",
+              "selfMs": 26.9
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 25.1
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:8098",
+              "selfMs": 12.6
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 9
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 9
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:8028",
+              "selfMs": 9
+            },
+            {
+              "fn": "set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 7.2
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:8009",
+              "selfMs": 5.4
+            },
+            {
+              "fn": "schedule xyflow-7b95fSSs.js:1602",
+              "selfMs": 5.4
+            },
+            {
+              "fn": "(garbage collector) :0",
+              "selfMs": 5.4
+            },
+            {
+              "fn": "flush xyflow-7b95fSSs.js:1433",
+              "selfMs": 3.6
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:2523",
+              "selfMs": 3.6
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:14462",
+              "selfMs": 3.6
+            }
+          ]
+        },
+        {
+          "label": "pan",
+          "durationMs": 1989.3,
+          "frames": {
+            "count": 148,
+            "avgMs": 13.4,
+            "p95Ms": 13.4,
+            "maxMs": 26.7,
+            "droppedFrames": 0,
+            "fps": 74.4
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [],
+          "mainThread": {
+            "taskMs": 846,
+            "scriptMs": 84,
+            "styleMs": 73,
+            "layoutMs": 25,
+            "otherMs": 664
+          },
+          "profileTop": [
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 7.4
+            },
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 5.5
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:7138",
+              "selfMs": 3.7
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:11504",
+              "selfMs": 3.7
+            },
+            {
+              "fn": "#process xyflow-7b95fSSs.js:1229",
+              "selfMs": 3.7
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 3.7
+            },
+            {
+              "fn": "remove ← remove_effect_dom xyflow-7b95fSSs.js:2627",
+              "selfMs": 3.7
+            },
+            {
+              "fn": "(anonymous) yjs-5H8xyA-s.js:10771",
+              "selfMs": 1.8
+            },
+            {
+              "fn": "zoom.translateBy xyflow-7b95fSSs.js:9057",
+              "selfMs": 1.8
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:9042",
+              "selfMs": 1.8
+            },
+            {
+              "fn": "set viewport xyflow-7b95fSSs.js:13566",
+              "selfMs": 1.8
+            },
+            {
+              "fn": "Batch xyflow-7b95fSSs.js:1050",
+              "selfMs": 1.8
+            },
+            {
+              "fn": "emit xyflow-7b95fSSs.js:9134",
+              "selfMs": 1.8
+            },
+            {
+              "fn": "ZoomEvent xyflow-7b95fSSs.js:8920",
+              "selfMs": 1.8
+            }
+          ]
+        },
+        {
+          "label": "hover-sweep",
+          "durationMs": 3937.6,
+          "frames": {
+            "count": 295,
+            "avgMs": 13.3,
+            "p95Ms": 13.4,
+            "maxMs": 13.5,
+            "droppedFrames": 0,
+            "fps": 74.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [],
+          "mainThread": {
+            "taskMs": 456,
+            "scriptMs": 90,
+            "styleMs": 0,
+            "layoutMs": 0,
+            "otherMs": 366
+          },
+          "profileTop": [
+            {
+              "fn": "handle_event_propagation xyflow-7b95fSSs.js:3372",
+              "selfMs": 15.1
+            },
+            {
+              "fn": "requestAnimationFrame ← tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 10.1
+            },
+            {
+              "fn": "requestAnimationFrame ← onMouseMove ProjectEditor-e3U6tpHd.js:9995",
+              "selfMs": 8.4
+            },
+            {
+              "fn": "setLocalState yjs-5H8xyA-s.js:10803",
+              "selfMs": 6.7
+            },
+            {
+              "fn": "screenToFlowPosition xyflow-7b95fSSs.js:15558",
+              "selfMs": 5
+            },
+            {
+              "fn": "pointToRendererPoint xyflow-7b95fSSs.js:9781",
+              "selfMs": 5
+            },
+            {
+              "fn": "setTimeout ← handle_event_propagation xyflow-7b95fSSs.js:3372",
+              "selfMs": 5
+            },
+            {
+              "fn": "emit yjs-5H8xyA-s.js:299",
+              "selfMs": 3.4
+            },
+            {
+              "fn": "equalityDeep yjs-5H8xyA-s.js:1598",
+              "selfMs": 3.4
+            },
+            {
+              "fn": "composedPath ← handle_event_propagation xyflow-7b95fSSs.js:3372",
+              "selfMs": 3.4
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:10003",
+              "selfMs": 1.7
+            },
+            {
+              "fn": "setLocalStateField yjs-5H8xyA-s.js:10840",
+              "selfMs": 1.7
+            },
+            {
+              "fn": "(anonymous) yjs-5H8xyA-s.js:300",
+              "selfMs": 1.7
+            },
+            {
+              "fn": "size yjs-5H8xyA-s.js:1518",
+              "selfMs": 1.7
+            }
+          ]
+        },
+        {
+          "label": "zoom-links-on",
+          "durationMs": 3191.5,
+          "frames": {
+            "count": 105,
+            "avgMs": 30.4,
+            "p95Ms": 80.1,
+            "maxMs": 106.8,
+            "droppedFrames": 34,
+            "fps": 32.9
+          },
+          "longTasks": {
+            "count": 25,
+            "totalMs": 1702,
+            "maxMs": 98
+          },
+          "totalBlockingMs": 452,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 25,
+              "totalMs": 1702,
+              "avgMs": 68.1,
+              "maxMs": 98,
+              "p95Ms": 82,
+              "lastMs": 57
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 4,
+              "totalMs": 3,
+              "avgMs": 0.7,
+              "maxMs": 0.9,
+              "p95Ms": 0.8,
+              "lastMs": 0.6
+            }
+          ],
+          "mainThread": {
+            "taskMs": 2644,
+            "scriptMs": 582,
+            "styleMs": 311,
+            "layoutMs": 105,
+            "otherMs": 1646
+          },
+          "profileTop": [
+            {
+              "fn": "set_style xyflow-7b95fSSs.js:5574",
+              "selfMs": 83.6
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 62.7
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 59.2
+            },
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 36.6
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 36.6
+            },
+            {
+              "fn": "setProperty ← update_styles xyflow-7b95fSSs.js:5559",
+              "selfMs": 29.6
+            },
+            {
+              "fn": "(garbage collector) :0",
+              "selfMs": 26.1
+            },
+            {
+              "fn": "schedule_possible_effect_self_invalidation xyflow-7b95fSSs.js:2848",
+              "selfMs": 20.9
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 19.2
+            },
+            {
+              "fn": "capture xyflow-7b95fSSs.js:1418",
+              "selfMs": 19.2
+            },
+            {
+              "fn": "get$2 xyflow-7b95fSSs.js:3023",
+              "selfMs": 17.4
+            },
+            {
+              "fn": "#resolve xyflow-7b95fSSs.js:1206",
+              "selfMs": 15.7
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:8087",
+              "selfMs": 15.7
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:8028",
+              "selfMs": 10.5
+            }
+          ]
+        },
+        {
+          "label": "idle-links-on",
+          "durationMs": 1964.3,
+          "frames": {
+            "count": 146,
+            "avgMs": 13.3,
+            "p95Ms": 13.4,
+            "maxMs": 13.5,
+            "droppedFrames": 0,
+            "fps": 74.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [],
+          "mainThread": {
+            "taskMs": 148,
+            "scriptMs": 8,
+            "styleMs": 0,
+            "layoutMs": 0,
+            "otherMs": 140
+          },
+          "profileTop": [
+            {
+              "fn": "requestAnimationFrame ← tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 8.9
+            },
+            {
+              "fn": "requestAnimationFrame ← (anonymous) BenchHarness-Bs9VAh_T.js:244",
+              "selfMs": 1.8
+            },
+            {
+              "fn": "serializeAsCallArgument :172",
+              "selfMs": 1.8
+            }
+          ]
+        },
+        {
+          "label": "drag-single",
+          "durationMs": 1631.5,
+          "frames": {
+            "count": 112,
+            "avgMs": 14.5,
+            "p95Ms": 13.5,
+            "maxMs": 53.5,
+            "droppedFrames": 2,
+            "fps": 68.8
+          },
+          "longTasks": {
+            "count": 2,
+            "totalMs": 112,
+            "maxMs": 58
+          },
+          "totalBlockingMs": 12,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 2,
+              "totalMs": 112,
+              "avgMs": 56,
+              "maxMs": 58,
+              "p95Ms": 54,
+              "lastMs": 54
+            },
+            {
+              "label": "canvas.highlightedFields",
+              "count": 4,
+              "totalMs": 1,
+              "avgMs": 0.2,
+              "maxMs": 0.6,
+              "p95Ms": 0.1,
+              "lastMs": 0
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 2,
+              "totalMs": 1,
+              "avgMs": 0.7,
+              "maxMs": 0.8,
+              "p95Ms": 0.6,
+              "lastMs": 0.6
+            }
+          ],
+          "mainThread": {
+            "taskMs": 624,
+            "scriptMs": 111,
+            "styleMs": 38,
+            "layoutMs": 8,
+            "otherMs": 467
+          },
+          "profileTop": [
+            {
+              "fn": "getBoundingClientRect ← screenToFlowPosition xyflow-7b95fSSs.js:15558",
+              "selfMs": 27.7
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 20.3
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 20.3
+            },
+            {
+              "fn": "handle_event_propagation xyflow-7b95fSSs.js:3372",
+              "selfMs": 7.4
+            },
+            {
+              "fn": "(anonymous) :1",
+              "selfMs": 5.5
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 5.5
+            },
+            {
+              "fn": "addConnectionToLookup xyflow-7b95fSSs.js:10887",
+              "selfMs": 5.5
+            },
+            {
+              "fn": "set_attributes xyflow-7b95fSSs.js:5789",
+              "selfMs": 5.5
+            },
+            {
+              "fn": "(anonymous) :0",
+              "selfMs": 5.5
+            },
+            {
+              "fn": "get$2 xyflow-7b95fSSs.js:3023",
+              "selfMs": 3.7
+            },
+            {
+              "fn": "onOut Root-uo8K8HqJ.js:16441",
+              "selfMs": 3.7
+            },
+            {
+              "fn": "(anonymous) :6",
+              "selfMs": 3.7
+            },
+            {
+              "fn": "evaluate :305",
+              "selfMs": 1.8
+            },
+            {
+              "fn": "setupDragListeners :1",
+              "selfMs": 1.8
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 1637.7,
+          "frames": {
+            "count": 96,
+            "avgMs": 17,
+            "p95Ms": 40.1,
+            "maxMs": 80.2,
+            "droppedFrames": 6,
+            "fps": 58.9
+          },
+          "longTasks": {
+            "count": 5,
+            "totalMs": 329,
+            "maxMs": 75
+          },
+          "totalBlockingMs": 79,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 1044,
+              "avgMs": 1043.6,
+              "maxMs": 1043.6,
+              "p95Ms": 1043.6,
+              "lastMs": 1043.6
+            },
+            {
+              "label": "longtask",
+              "count": 5,
+              "totalMs": 329,
+              "avgMs": 65.8,
+              "maxMs": 75,
+              "p95Ms": 74,
+              "lastMs": 60
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 1.6,
+              "maxMs": 1.6,
+              "p95Ms": 1.6,
+              "lastMs": 1.6
+            }
+          ],
+          "mainThread": {
+            "taskMs": 1253,
+            "scriptMs": 228,
+            "styleMs": 131,
+            "layoutMs": 33,
+            "otherMs": 861
+          },
+          "profileTop": [
+            {
+              "fn": "getBoundingClientRect ← screenToFlowPosition xyflow-7b95fSSs.js:15558",
+              "selfMs": 107.4
+            },
+            {
+              "fn": "(garbage collector) :0",
+              "selfMs": 103.7
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 70.4
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 29.6
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 22.2
+            },
+            {
+              "fn": "addConnectionToLookup xyflow-7b95fSSs.js:10887",
+              "selfMs": 11.1
+            },
+            {
+              "fn": "(anonymous) :0",
+              "selfMs": 7.4
+            },
+            {
+              "fn": "get$2 xyflow-7b95fSSs.js:3023",
+              "selfMs": 5.6
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:5918",
+              "selfMs": 5.6
+            },
+            {
+              "fn": "requestAnimationFrame ← tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 5.6
+            },
+            {
+              "fn": "is_runes xyflow-7b95fSSs.js:581",
+              "selfMs": 3.7
+            },
+            {
+              "fn": "getElevatedEdgeZIndex xyflow-7b95fSSs.js:10156",
+              "selfMs": 3.7
+            },
+            {
+              "fn": "set_class xyflow-7b95fSSs.js:5535",
+              "selfMs": 3.7
+            },
+            {
+              "fn": "schedule_possible_effect_self_invalidation xyflow-7b95fSSs.js:2848",
+              "selfMs": 3.7
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 1859.4,
+          "frames": {
+            "count": 133,
+            "avgMs": 14,
+            "p95Ms": 13.4,
+            "maxMs": 93.4,
+            "droppedFrames": 1,
+            "fps": 71.7
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 58,
+            "maxMs": 58
+          },
+          "totalBlockingMs": 8,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 58,
+              "avgMs": 58,
+              "maxMs": 58,
+              "p95Ms": 58,
+              "lastMs": 58
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1,
+              "maxMs": 1,
+              "p95Ms": 1,
+              "lastMs": 1
+            }
+          ],
+          "mainThread": {
+            "taskMs": 1146,
+            "scriptMs": 105,
+            "styleMs": 101,
+            "layoutMs": 10,
+            "otherMs": 930
+          },
+          "profileTop": [
+            {
+              "fn": "getBoundingClientRect ← screenToFlowPosition xyflow-7b95fSSs.js:15558",
+              "selfMs": 30.4
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 21.5
+            },
+            {
+              "fn": "(garbage collector) :0",
+              "selfMs": 19.7
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 14.3
+            },
+            {
+              "fn": "(anonymous) :0",
+              "selfMs": 14.3
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 8.9
+            },
+            {
+              "fn": "handle_event_propagation xyflow-7b95fSSs.js:3372",
+              "selfMs": 7.2
+            },
+            {
+              "fn": "requestAnimationFrame ← tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 5.4
+            },
+            {
+              "fn": "#resolve xyflow-7b95fSSs.js:1206",
+              "selfMs": 5.4
+            },
+            {
+              "fn": "setupDragListeners :1",
+              "selfMs": 5.4
+            },
+            {
+              "fn": "remove ← remove_effect_dom xyflow-7b95fSSs.js:2627",
+              "selfMs": 3.6
+            },
+            {
+              "fn": "get$2 xyflow-7b95fSSs.js:3023",
+              "selfMs": 3.6
+            },
+            {
+              "fn": "addConnectionToLookup xyflow-7b95fSSs.js:10887",
+              "selfMs": 3.6
+            },
+            {
+              "fn": "setTimeout ← handle_event_propagation xyflow-7b95fSSs.js:3372",
+              "selfMs": 3.6
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 588.9,
+          "frames": {
+            "count": 35,
+            "avgMs": 16.8,
+            "p95Ms": 13.5,
+            "maxMs": 133.4,
+            "droppedFrames": 1,
+            "fps": 59.6
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 131,
+            "maxMs": 131
+          },
+          "totalBlockingMs": 81,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 131,
+              "avgMs": 131,
+              "maxMs": 131,
+              "p95Ms": 131,
+              "lastMs": 131
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 12,
+              "avgMs": 11.5,
+              "maxMs": 11.5,
+              "p95Ms": 11.5,
+              "lastMs": 11.5
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 3.3,
+              "maxMs": 3.3,
+              "p95Ms": 3.3,
+              "lastMs": 3.3
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 2.4,
+              "maxMs": 2.4,
+              "p95Ms": 2.4,
+              "lastMs": 2.4
+            },
+            {
+              "label": "canvas.selectionPreservingMerge",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.6,
+              "maxMs": 0.6,
+              "p95Ms": 0.6,
+              "lastMs": 0.6
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.1,
+              "maxMs": 1.1,
+              "p95Ms": 1.1,
+              "lastMs": 1.1
+            }
+          ],
+          "mainThread": {
+            "taskMs": 181,
+            "scriptMs": 106,
+            "styleMs": 1,
+            "layoutMs": 1,
+            "otherMs": 73
+          },
+          "profileTop": [
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 16.2
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 13.9
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 13.9
+            },
+            {
+              "fn": "schedule_possible_effect_self_invalidation xyflow-7b95fSSs.js:2848",
+              "selfMs": 9.2
+            },
+            {
+              "fn": "lintProject lint-CqGL1rjd.js:215",
+              "selfMs": 6.9
+            },
+            {
+              "fn": "flush_queued_effects xyflow-7b95fSSs.js:1659",
+              "selfMs": 6.9
+            },
+            {
+              "fn": "formatDbml ProjectEditor-e3U6tpHd.js:837",
+              "selfMs": 6.9
+            },
+            {
+              "fn": "(garbage collector) :0",
+              "selfMs": 6.9
+            },
+            {
+              "fn": "#resolve xyflow-7b95fSSs.js:1206",
+              "selfMs": 4.6
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:4637",
+              "selfMs": 4.6
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:5918",
+              "selfMs": 4.6
+            },
+            {
+              "fn": "sameValues codemirror-K6YpN40R.js:3399",
+              "selfMs": 4.6
+            },
+            {
+              "fn": "normalizeSpacing ProjectEditor-e3U6tpHd.js:762",
+              "selfMs": 4.6
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 4.6
+            }
+          ]
+        },
+        {
+          "label": "recolor-single",
+          "durationMs": 531.4,
+          "frames": {
+            "count": 35,
+            "avgMs": 14.9,
+            "p95Ms": 13.4,
+            "maxMs": 66.7,
+            "droppedFrames": 1,
+            "fps": 67.2
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 70,
+            "maxMs": 70
+          },
+          "totalBlockingMs": 20,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 70,
+              "avgMs": 70,
+              "maxMs": 70,
+              "p95Ms": 70,
+              "lastMs": 70
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 10,
+              "avgMs": 9.5,
+              "maxMs": 9.5,
+              "p95Ms": 9.5,
+              "lastMs": 9.5
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 2.9,
+              "maxMs": 2.9,
+              "p95Ms": 2.9,
+              "lastMs": 2.9
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 2.8,
+              "maxMs": 2.8,
+              "p95Ms": 2.8,
+              "lastMs": 2.8
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.5,
+              "maxMs": 0.5,
+              "p95Ms": 0.5,
+              "lastMs": 0.5
+            }
+          ],
+          "mainThread": {
+            "taskMs": 114,
+            "scriptMs": 53,
+            "styleMs": 1,
+            "layoutMs": 1,
+            "otherMs": 59
+          },
+          "profileTop": [
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 10
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:1497",
+              "selfMs": 7.5
+            },
+            {
+              "fn": "normalizeSpacing ProjectEditor-e3U6tpHd.js:762",
+              "selfMs": 7.5
+            },
+            {
+              "fn": "(garbage collector) :0",
+              "selfMs": 7.5
+            },
+            {
+              "fn": "lintProject lint-CqGL1rjd.js:215",
+              "selfMs": 5
+            },
+            {
+              "fn": "linter.delay ProjectEditor-e3U6tpHd.js:15371",
+              "selfMs": 5
+            },
+            {
+              "fn": "init codemirror-K6YpN40R.js:19107",
+              "selfMs": 5
+            },
+            {
+              "fn": "emit yjs-5H8xyA-s.js:236",
+              "selfMs": 2.5
+            },
+            {
+              "fn": "writeUpdateMessageFromTransaction yjs-5H8xyA-s.js:4982",
+              "selfMs": 2.5
+            },
+            {
+              "fn": "_writeVarStringNative yjs-5H8xyA-s.js:578",
+              "selfMs": 2.5
+            },
+            {
+              "fn": "innerSerialize :186",
+              "selfMs": 2.5
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 2.5
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:24094",
+              "selfMs": 2.5
+            },
+            {
+              "fn": "buildTableNodes ProjectEditor-e3U6tpHd.js:10621",
+              "selfMs": 2.5
+            }
+          ]
+        },
+        {
+          "label": "column-flag",
+          "durationMs": 650.2,
+          "frames": {
+            "count": 35,
+            "avgMs": 18.3,
+            "p95Ms": 13.4,
+            "maxMs": 186.9,
+            "droppedFrames": 1,
+            "fps": 54.6
+          },
+          "longTasks": {
+            "count": 2,
+            "totalMs": 207,
+            "maxMs": 147
+          },
+          "totalBlockingMs": 107,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 2,
+              "totalMs": 207,
+              "avgMs": 103.5,
+              "maxMs": 147,
+              "p95Ms": 60,
+              "lastMs": 60
+            },
+            {
+              "label": "dbml.signature",
+              "count": 2,
+              "totalMs": 37,
+              "avgMs": 18.7,
+              "maxMs": 22.5,
+              "p95Ms": 14.9,
+              "lastMs": 14.9
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 9,
+              "avgMs": 9.1,
+              "maxMs": 9.1,
+              "p95Ms": 9.1,
+              "lastMs": 9.1
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 2.6,
+              "maxMs": 2.6,
+              "p95Ms": 2.6,
+              "lastMs": 2.6
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 2.9,
+              "maxMs": 2.9,
+              "p95Ms": 2.9,
+              "lastMs": 2.9
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 2,
+              "totalMs": 1,
+              "avgMs": 0.7,
+              "maxMs": 1.1,
+              "p95Ms": 0.4,
+              "lastMs": 1.1
+            },
+            {
+              "label": "canvas.nodeInternalsFlush",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.1,
+              "maxMs": 1.1,
+              "p95Ms": 1.1,
+              "lastMs": 1.1
+            }
+          ],
+          "mainThread": {
+            "taskMs": 270,
+            "scriptMs": 189,
+            "styleMs": 4,
+            "layoutMs": 8,
+            "otherMs": 69
+          },
+          "profileTop": [
+            {
+              "fn": "parseDbmlSymbols ProjectEditor-e3U6tpHd.js:14134",
+              "selfMs": 29.2
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 20.2
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 18
+            },
+            {
+              "fn": "eq codemirror-K6YpN40R.js:4239",
+              "selfMs": 15.7
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 11.2
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 9
+            },
+            {
+              "fn": "countBraces ProjectEditor-e3U6tpHd.js:14098",
+              "selfMs": 9
+            },
+            {
+              "fn": "(garbage collector) :0",
+              "selfMs": 9
+            },
+            {
+              "fn": "parseNote dictionary-CULZEosw.js:25",
+              "selfMs": 6.7
+            },
+            {
+              "fn": "schedule_possible_effect_self_invalidation xyflow-7b95fSSs.js:2848",
+              "selfMs": 6.7
+            },
+            {
+              "fn": "maskLine ProjectEditor-e3U6tpHd.js:14028",
+              "selfMs": 6.7
+            },
+            {
+              "fn": "#resolve xyflow-7b95fSSs.js:1206",
+              "selfMs": 4.5
+            },
+            {
+              "fn": "linter.delay ProjectEditor-e3U6tpHd.js:15371",
+              "selfMs": 4.5
+            },
+            {
+              "fn": "projectToDbml ProjectEditor-e3U6tpHd.js:1030",
+              "selfMs": 4.5
+            }
+          ]
+        },
+        {
+          "label": "highlight-toggle",
+          "durationMs": 1410.5,
+          "frames": {
+            "count": 85,
+            "avgMs": 16.6,
+            "p95Ms": 13.4,
+            "maxMs": 186.9,
+            "droppedFrames": 2,
+            "fps": 60.1
+          },
+          "longTasks": {
+            "count": 4,
+            "totalMs": 339,
+            "maxMs": 142
+          },
+          "totalBlockingMs": 139,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 4,
+              "totalMs": 339,
+              "avgMs": 84.8,
+              "maxMs": 142,
+              "p95Ms": 77,
+              "lastMs": 54
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 2,
+              "totalMs": 1,
+              "avgMs": 0.7,
+              "maxMs": 0.8,
+              "p95Ms": 0.6,
+              "lastMs": 0.6
+            }
+          ],
+          "mainThread": {
+            "taskMs": 615,
+            "scriptMs": 201,
+            "styleMs": 85,
+            "layoutMs": 23,
+            "otherMs": 306
+          },
+          "profileTop": [
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 28.6
+            },
+            {
+              "fn": "query :5607",
+              "selfMs": 21
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 19.1
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 11.5
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 11.5
+            },
+            {
+              "fn": "elementsFromPoint :0",
+              "selfMs": 9.5
+            },
+            {
+              "fn": "schedule_possible_effect_self_invalidation xyflow-7b95fSSs.js:2848",
+              "selfMs": 9.5
+            },
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 9.5
+            },
+            {
+              "fn": "set_style xyflow-7b95fSSs.js:5574",
+              "selfMs": 9.5
+            },
+            {
+              "fn": "querySelectorAll :0",
+              "selfMs": 7.6
+            },
+            {
+              "fn": "addConnectionToLookup xyflow-7b95fSSs.js:10887",
+              "selfMs": 7.6
+            },
+            {
+              "fn": "get$2 xyflow-7b95fSSs.js:3023",
+              "selfMs": 7.6
+            },
+            {
+              "fn": "update_dependencies xyflow-7b95fSSs.js:2923",
+              "selfMs": 7.6
+            },
+            {
+              "fn": "before ← append xyflow-7b95fSSs.js:3600",
+              "selfMs": 7.6
+            }
+          ]
+        },
+        {
+          "label": "delete-columns",
+          "durationMs": 595.7,
+          "frames": {
+            "count": 35,
+            "avgMs": 17.2,
+            "p95Ms": 13.4,
+            "maxMs": 146.9,
+            "droppedFrames": 1,
+            "fps": 58.3
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 143,
+            "maxMs": 143
+          },
+          "totalBlockingMs": 93,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 143,
+              "avgMs": 143,
+              "maxMs": 143,
+              "p95Ms": 143,
+              "lastMs": 143
+            },
+            {
+              "label": "dbml.signature",
+              "count": 2,
+              "totalMs": 31,
+              "avgMs": 15.5,
+              "maxMs": 16.4,
+              "p95Ms": 14.5,
+              "lastMs": 14.5
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 11,
+              "avgMs": 11.2,
+              "maxMs": 11.2,
+              "p95Ms": 11.2,
+              "lastMs": 11.2
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 3,
+              "totalMs": 5,
+              "avgMs": 1.6,
+              "maxMs": 1.7,
+              "p95Ms": 1.6,
+              "lastMs": 1.6
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 3,
+              "maxMs": 3,
+              "p95Ms": 3,
+              "lastMs": 3
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.6,
+              "maxMs": 0.6,
+              "p95Ms": 0.6,
+              "lastMs": 0.6
+            }
+          ],
+          "mainThread": {
+            "taskMs": 223,
+            "scriptMs": 137,
+            "styleMs": 3,
+            "layoutMs": 4,
+            "otherMs": 79
+          },
+          "profileTop": [
+            {
+              "fn": "parseDbmlSymbols ProjectEditor-e3U6tpHd.js:14134",
+              "selfMs": 31
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 11.9
+            },
+            {
+              "fn": "eq codemirror-K6YpN40R.js:4239",
+              "selfMs": 11.9
+            },
+            {
+              "fn": "(garbage collector) :0",
+              "selfMs": 11.9
+            },
+            {
+              "fn": "dbmlSignature ProjectEditor-e3U6tpHd.js:14373",
+              "selfMs": 9.5
+            },
+            {
+              "fn": "parseSettings ProjectEditor-e3U6tpHd.js:14104",
+              "selfMs": 9.5
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 7.1
+            },
+            {
+              "fn": "linter.delay ProjectEditor-e3U6tpHd.js:15371",
+              "selfMs": 7.1
+            },
+            {
+              "fn": "maskLine ProjectEditor-e3U6tpHd.js:14028",
+              "selfMs": 7.1
+            },
+            {
+              "fn": "openEnd codemirror-K6YpN40R.js:3370",
+              "selfMs": 7.1
+            },
+            {
+              "fn": "goto codemirror-K6YpN40R.js:3288",
+              "selfMs": 7.1
+            },
+            {
+              "fn": "UndoManager.afterTransactionHandler yjs-5H8xyA-s.js:5374",
+              "selfMs": 4.8
+            },
+            {
+              "fn": "report lint-CqGL1rjd.js:235",
+              "selfMs": 4.8
+            },
+            {
+              "fn": "formatDbml ProjectEditor-e3U6tpHd.js:837",
+              "selfMs": 4.8
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 100,
+        "columns": 8,
+        "detail": "full"
+      },
+      "loadMs": 3706,
+      "ready": {
+        "nodes": 100,
+        "edges": 99,
+        "waitedMs": 6
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 3923.2,
+          "frames": {
+            "count": 94,
+            "avgMs": 41.8,
+            "p95Ms": 133.5,
+            "maxMs": 213.6,
+            "droppedFrames": 36,
+            "fps": 23.9
+          },
+          "longTasks": {
+            "count": 29,
+            "totalMs": 2778,
+            "maxMs": 217
+          },
+          "totalBlockingMs": 1328,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 29,
+              "totalMs": 2778,
+              "avgMs": 95.8,
+              "maxMs": 217,
+              "p95Ms": 174,
+              "lastMs": 51
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 10,
+              "totalMs": 8,
+              "avgMs": 0.8,
+              "maxMs": 1.4,
+              "p95Ms": 1.1,
+              "lastMs": 1.1
+            }
+          ],
+          "mainThread": {
+            "taskMs": 3469,
+            "scriptMs": 765,
+            "styleMs": 346,
+            "layoutMs": 251,
+            "otherMs": 2107
+          },
+          "profileTop": [
+            {
+              "fn": "getBoundingClientRect ← (anonymous) xyflow-7b95fSSs.js:10039",
+              "selfMs": 269.2
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 133.7
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 124.1
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 74.5
+            },
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 63
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 40.1
+            },
+            {
+              "fn": "schedule_possible_effect_self_invalidation xyflow-7b95fSSs.js:2848",
+              "selfMs": 28.6
+            },
+            {
+              "fn": "set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 24.8
+            },
+            {
+              "fn": "get$2 xyflow-7b95fSSs.js:3023",
+              "selfMs": 24.8
+            },
+            {
+              "fn": "set_style xyflow-7b95fSSs.js:5574",
+              "selfMs": 22.9
+            },
+            {
+              "fn": "get offsetWidth ← getDimensions xyflow-7b95fSSs.js:10011",
+              "selfMs": 19.1
+            },
+            {
+              "fn": "get offsetHeight ← getDimensions xyflow-7b95fSSs.js:10011",
+              "selfMs": 19.1
+            },
+            {
+              "fn": "#resolve xyflow-7b95fSSs.js:1206",
+              "selfMs": 15.3
+            },
+            {
+              "fn": "set_attributes xyflow-7b95fSSs.js:5789",
+              "selfMs": 13.4
+            }
+          ]
+        },
+        {
+          "label": "zoom-again",
+          "durationMs": 2947.7,
+          "frames": {
+            "count": 96,
+            "avgMs": 30.7,
+            "p95Ms": 93.4,
+            "maxMs": 106.8,
+            "droppedFrames": 32,
+            "fps": 32.5
+          },
+          "longTasks": {
+            "count": 21,
+            "totalMs": 1545,
+            "maxMs": 104
+          },
+          "totalBlockingMs": 495,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 21,
+              "totalMs": 1545,
+              "avgMs": 73.6,
+              "maxMs": 104,
+              "p95Ms": 103,
+              "lastMs": 52
+            }
+          ],
+          "mainThread": {
+            "taskMs": 2455,
+            "scriptMs": 222,
+            "styleMs": 126,
+            "layoutMs": 89,
+            "otherMs": 2018
+          },
+          "profileTop": [
+            {
+              "fn": "set_style xyflow-7b95fSSs.js:5574",
+              "selfMs": 30.6
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 27
+            },
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 27
+            },
+            {
+              "fn": "set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 23.4
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 14.4
+            },
+            {
+              "fn": "get style ← set_style xyflow-7b95fSSs.js:5574",
+              "selfMs": 10.8
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 7.2
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 7.2
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:8028",
+              "selfMs": 7.2
+            },
+            {
+              "fn": "setProperty ← update_styles xyflow-7b95fSSs.js:5559",
+              "selfMs": 5.4
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:8098",
+              "selfMs": 5.4
+            },
+            {
+              "fn": "#resolve xyflow-7b95fSSs.js:1206",
+              "selfMs": 5.4
+            },
+            {
+              "fn": "set_text xyflow-7b95fSSs.js:4082",
+              "selfMs": 3.6
+            },
+            {
+              "fn": "deep_read_state xyflow-7b95fSSs.js:3126",
+              "selfMs": 3.6
+            }
+          ]
+        },
+        {
+          "label": "pan",
+          "durationMs": 2253.8,
+          "frames": {
+            "count": 142,
+            "avgMs": 15.9,
+            "p95Ms": 26.7,
+            "maxMs": 40.1,
+            "droppedFrames": 4,
+            "fps": 62.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [],
+          "mainThread": {
+            "taskMs": 1220,
+            "scriptMs": 112,
+            "styleMs": 94,
+            "layoutMs": 35,
+            "otherMs": 979
+          },
+          "profileTop": [
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 13.2
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:4930",
+              "selfMs": 11.4
+            },
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 9.5
+            },
+            {
+              "fn": "requestAnimationFrame ← tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 9.5
+            },
+            {
+              "fn": "remove ← remove_effect_dom xyflow-7b95fSSs.js:2627",
+              "selfMs": 7.6
+            },
+            {
+              "fn": "setProperty ← update_styles xyflow-7b95fSSs.js:5559",
+              "selfMs": 7.6
+            },
+            {
+              "fn": "before ← append xyflow-7b95fSSs.js:3600",
+              "selfMs": 5.7
+            },
+            {
+              "fn": "cloneNode ← (anonymous) xyflow-7b95fSSs.js:3497",
+              "selfMs": 5.7
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:4314",
+              "selfMs": 3.8
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:4948",
+              "selfMs": 3.8
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:2523",
+              "selfMs": 3.8
+            },
+            {
+              "fn": "set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 3.8
+            },
+            {
+              "fn": "getLocalState yjs-5H8xyA-s.js:10797",
+              "selfMs": 1.9
+            },
+            {
+              "fn": "evaluate :305",
+              "selfMs": 1.9
+            }
+          ]
+        },
+        {
+          "label": "hover-sweep",
+          "durationMs": 4507.1,
+          "frames": {
+            "count": 306,
+            "avgMs": 14.7,
+            "p95Ms": 13.5,
+            "maxMs": 80,
+            "droppedFrames": 10,
+            "fps": 68
+          },
+          "longTasks": {
+            "count": 9,
+            "totalMs": 545,
+            "maxMs": 70
+          },
+          "totalBlockingMs": 95,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 9,
+              "totalMs": 545,
+              "avgMs": 60.6,
+              "maxMs": 70,
+              "p95Ms": 69,
+              "lastMs": 51
+            },
+            {
+              "label": "canvas.highlightedFields",
+              "count": 20,
+              "totalMs": 2,
+              "avgMs": 0.1,
+              "maxMs": 0.8,
+              "p95Ms": 0.2,
+              "lastMs": 0
+            }
+          ],
+          "mainThread": {
+            "taskMs": 1215,
+            "scriptMs": 455,
+            "styleMs": 88,
+            "layoutMs": 22,
+            "otherMs": 650
+          },
+          "profileTop": [
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 118.5
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 75.6
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 56.7
+            },
+            {
+              "fn": "getBoundingClientRect ← screenToFlowPosition xyflow-7b95fSSs.js:15558",
+              "selfMs": 53.2
+            },
+            {
+              "fn": "addConnectionToLookup xyflow-7b95fSSs.js:10887",
+              "selfMs": 18.9
+            },
+            {
+              "fn": "handle_event_propagation xyflow-7b95fSSs.js:3372",
+              "selfMs": 10.3
+            },
+            {
+              "fn": "refresh ProjectEditor-e3U6tpHd.js:2822",
+              "selfMs": 8.6
+            },
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 8.6
+            },
+            {
+              "fn": "#resolve xyflow-7b95fSSs.js:1206",
+              "selfMs": 8.6
+            },
+            {
+              "fn": "setTimeout ← handle_event_propagation xyflow-7b95fSSs.js:3372",
+              "selfMs": 6.9
+            },
+            {
+              "fn": "composedPath ← handle_event_propagation xyflow-7b95fSSs.js:3372",
+              "selfMs": 6.9
+            },
+            {
+              "fn": "updateConnectionLookup xyflow-7b95fSSs.js:10900",
+              "selfMs": 6.9
+            },
+            {
+              "fn": "getLayoutedEdges xyflow-7b95fSSs.js:13029",
+              "selfMs": 6.9
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:4930",
+              "selfMs": 6.9
+            }
+          ]
+        },
+        {
+          "label": "zoom-links-on",
+          "durationMs": 3910.4,
+          "frames": {
+            "count": 97,
+            "avgMs": 40.3,
+            "p95Ms": 106.8,
+            "maxMs": 120.3,
+            "droppedFrames": 38,
+            "fps": 24.8
+          },
+          "longTasks": {
+            "count": 30,
+            "totalMs": 2554,
+            "maxMs": 116
+          },
+          "totalBlockingMs": 1054,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 30,
+              "totalMs": 2554,
+              "avgMs": 85.1,
+              "maxMs": 116,
+              "p95Ms": 112,
+              "lastMs": 79
+            }
+          ],
+          "mainThread": {
+            "taskMs": 3382,
+            "scriptMs": 453,
+            "styleMs": 371,
+            "layoutMs": 119,
+            "otherMs": 2439
+          },
+          "profileTop": [
+            {
+              "fn": "set_style xyflow-7b95fSSs.js:5574",
+              "selfMs": 82.7
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 48.2
+            },
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 41.3
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 22.4
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 18.9
+            },
+            {
+              "fn": "capture xyflow-7b95fSSs.js:1418",
+              "selfMs": 18.9
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 17.2
+            },
+            {
+              "fn": "set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 13.8
+            },
+            {
+              "fn": "#resolve xyflow-7b95fSSs.js:1206",
+              "selfMs": 13.8
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:8028",
+              "selfMs": 12.1
+            },
+            {
+              "fn": "setProperty ← update_styles xyflow-7b95fSSs.js:5559",
+              "selfMs": 10.3
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:8018",
+              "selfMs": 10.3
+            },
+            {
+              "fn": "get zoom ProjectEditor-e3U6tpHd.js:7789",
+              "selfMs": 10.3
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:2523",
+              "selfMs": 8.6
+            }
+          ]
+        },
+        {
+          "label": "idle-links-on",
+          "durationMs": 1971,
+          "frames": {
+            "count": 147,
+            "avgMs": 13.3,
+            "p95Ms": 13.4,
+            "maxMs": 13.5,
+            "droppedFrames": 0,
+            "fps": 74.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [],
+          "mainThread": {
+            "taskMs": 126,
+            "scriptMs": 8,
+            "styleMs": 0,
+            "layoutMs": 0,
+            "otherMs": 118
+          },
+          "profileTop": [
+            {
+              "fn": "requestAnimationFrame ← tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 7.9
+            },
+            {
+              "fn": "tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 2
+            },
+            {
+              "fn": "stop BenchHarness-Bs9VAh_T.js:168",
+              "selfMs": 2
+            }
+          ]
+        },
+        {
+          "label": "drag-single",
+          "durationMs": 3198.3,
+          "frames": {
+            "count": 180,
+            "avgMs": 17.7,
+            "p95Ms": 40,
+            "maxMs": 160.2,
+            "droppedFrames": 14,
+            "fps": 56.4
+          },
+          "longTasks": {
+            "count": 3,
+            "totalMs": 273,
+            "maxMs": 159
+          },
+          "totalBlockingMs": 123,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 3,
+              "totalMs": 273,
+              "avgMs": 91,
+              "maxMs": 159,
+              "p95Ms": 62,
+              "lastMs": 159
+            },
+            {
+              "label": "canvas.commitDrag",
+              "count": 1,
+              "totalMs": 13,
+              "avgMs": 13.1,
+              "maxMs": 13.1,
+              "p95Ms": 13.1,
+              "lastMs": 13.1
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 12,
+              "avgMs": 11.5,
+              "maxMs": 11.5,
+              "p95Ms": 11.5,
+              "lastMs": 11.5
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 4.2,
+              "maxMs": 4.2,
+              "p95Ms": 4.2,
+              "lastMs": 4.2
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 4,
+              "avgMs": 3.6,
+              "maxMs": 3.6,
+              "p95Ms": 3.6,
+              "lastMs": 3.6
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.4,
+              "maxMs": 1.4,
+              "p95Ms": 1.4,
+              "lastMs": 1.4
+            }
+          ],
+          "mainThread": {
+            "taskMs": 2750,
+            "scriptMs": 808,
+            "styleMs": 126,
+            "layoutMs": 70,
+            "otherMs": 1746
+          },
+          "profileTop": [
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 218.1
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 216.3
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 137.7
+            },
+            {
+              "fn": "(garbage collector) :0",
+              "selfMs": 35.8
+            },
+            {
+              "fn": "getBoundingClientRect ← pointer_default xyflow-7b95fSSs.js:7293",
+              "selfMs": 26.8
+            },
+            {
+              "fn": "getBoundingClientRect ← screenToFlowPosition xyflow-7b95fSSs.js:15558",
+              "selfMs": 25
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 19.7
+            },
+            {
+              "fn": "#resolve xyflow-7b95fSSs.js:1206",
+              "selfMs": 16.1
+            },
+            {
+              "fn": "requestAnimationFrame ← tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 12.5
+            },
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 10.7
+            },
+            {
+              "fn": "schedule_possible_effect_self_invalidation xyflow-7b95fSSs.js:2848",
+              "selfMs": 10.7
+            },
+            {
+              "fn": "(anonymous) :0",
+              "selfMs": 10.7
+            },
+            {
+              "fn": "#process xyflow-7b95fSSs.js:1229",
+              "selfMs": 8.9
+            },
+            {
+              "fn": "get$2 xyflow-7b95fSSs.js:3023",
+              "selfMs": 7.2
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 1849.1,
+          "frames": {
+            "count": 95,
+            "avgMs": 19.4,
+            "p95Ms": 53.3,
+            "maxMs": 120.3,
+            "droppedFrames": 9,
+            "fps": 51.6
+          },
+          "longTasks": {
+            "count": 6,
+            "totalMs": 545,
+            "maxMs": 115
+          },
+          "totalBlockingMs": 245,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 1292,
+              "avgMs": 1291.7,
+              "maxMs": 1291.7,
+              "p95Ms": 1291.7,
+              "lastMs": 1291.7
+            },
+            {
+              "label": "longtask",
+              "count": 6,
+              "totalMs": 545,
+              "avgMs": 90.8,
+              "maxMs": 115,
+              "p95Ms": 110,
+              "lastMs": 110
+            },
+            {
+              "label": "canvas.highlightedFields",
+              "count": 9,
+              "totalMs": 1,
+              "avgMs": 0.1,
+              "maxMs": 0.3,
+              "p95Ms": 0.2,
+              "lastMs": 0
+            }
+          ],
+          "mainThread": {
+            "taskMs": 1535,
+            "scriptMs": 415,
+            "styleMs": 190,
+            "layoutMs": 44,
+            "otherMs": 886
+          },
+          "profileTop": [
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 174.1
+            },
+            {
+              "fn": "getBoundingClientRect ← screenToFlowPosition xyflow-7b95fSSs.js:15558",
+              "selfMs": 158.6
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 87.1
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 77.4
+            },
+            {
+              "fn": "#resolve xyflow-7b95fSSs.js:1206",
+              "selfMs": 15.5
+            },
+            {
+              "fn": "(anonymous) :0",
+              "selfMs": 15.5
+            },
+            {
+              "fn": "addConnectionToLookup xyflow-7b95fSSs.js:10887",
+              "selfMs": 13.5
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 11.6
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:4930",
+              "selfMs": 9.7
+            },
+            {
+              "fn": "get$2 xyflow-7b95fSSs.js:3023",
+              "selfMs": 9.7
+            },
+            {
+              "fn": "handle_event_propagation xyflow-7b95fSSs.js:3372",
+              "selfMs": 5.8
+            },
+            {
+              "fn": "capture xyflow-7b95fSSs.js:1418",
+              "selfMs": 5.8
+            },
+            {
+              "fn": "screenToFlowPosition xyflow-7b95fSSs.js:15558",
+              "selfMs": 5.8
+            },
+            {
+              "fn": "cloneNode ← (anonymous) xyflow-7b95fSSs.js:3532",
+              "selfMs": 3.9
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 3442.2,
+          "frames": {
+            "count": 190,
+            "avgMs": 18.1,
+            "p95Ms": 40.1,
+            "maxMs": 93.5,
+            "droppedFrames": 29,
+            "fps": 55.4
+          },
+          "longTasks": {
+            "count": 6,
+            "totalMs": 357,
+            "maxMs": 94
+          },
+          "totalBlockingMs": 57,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 6,
+              "totalMs": 357,
+              "avgMs": 59.5,
+              "maxMs": 94,
+              "p95Ms": 57,
+              "lastMs": 94
+            },
+            {
+              "label": "canvas.commitDrag",
+              "count": 1,
+              "totalMs": 8,
+              "avgMs": 8.4,
+              "maxMs": 8.4,
+              "p95Ms": 8.4,
+              "lastMs": 8.4
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 7,
+              "avgMs": 7.1,
+              "maxMs": 7.1,
+              "p95Ms": 7.1,
+              "lastMs": 7.1
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 3.2,
+              "maxMs": 3.2,
+              "p95Ms": 3.2,
+              "lastMs": 3.2
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 2.2,
+              "maxMs": 2.2,
+              "p95Ms": 2.2,
+              "lastMs": 2.2
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.6,
+              "maxMs": 0.6,
+              "p95Ms": 0.6,
+              "lastMs": 0.6
+            }
+          ],
+          "mainThread": {
+            "taskMs": 3001,
+            "scriptMs": 915,
+            "styleMs": 211,
+            "layoutMs": 70,
+            "otherMs": 1805
+          },
+          "profileTop": [
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 251.5
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 223.3
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 140.7
+            },
+            {
+              "fn": "#resolve xyflow-7b95fSSs.js:1206",
+              "selfMs": 26.4
+            },
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 24.6
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 22.9
+            },
+            {
+              "fn": "getBoundingClientRect ← pointer_default xyflow-7b95fSSs.js:7293",
+              "selfMs": 22.9
+            },
+            {
+              "fn": "set_attributes xyflow-7b95fSSs.js:5789",
+              "selfMs": 15.8
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:4637",
+              "selfMs": 12.3
+            },
+            {
+              "fn": "execute_derived xyflow-7b95fSSs.js:942",
+              "selfMs": 12.3
+            },
+            {
+              "fn": "get$2 xyflow-7b95fSSs.js:3023",
+              "selfMs": 12.3
+            },
+            {
+              "fn": "eq codemirror-K6YpN40R.js:4239",
+              "selfMs": 12.3
+            },
+            {
+              "fn": "(garbage collector) :0",
+              "selfMs": 12.3
+            },
+            {
+              "fn": "capture xyflow-7b95fSSs.js:1418",
+              "selfMs": 10.6
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 550.9,
+          "frames": {
+            "count": 35,
+            "avgMs": 15.6,
+            "p95Ms": 13.4,
+            "maxMs": 93.5,
+            "droppedFrames": 1,
+            "fps": 63.9
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 79,
+            "maxMs": 79
+          },
+          "totalBlockingMs": 29,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 79,
+              "avgMs": 79,
+              "maxMs": 79,
+              "p95Ms": 79,
+              "lastMs": 79
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 1,
+              "totalMs": 8,
+              "avgMs": 7.9,
+              "maxMs": 7.9,
+              "p95Ms": 7.9,
+              "lastMs": 7.9
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 8,
+              "avgMs": 8.1,
+              "maxMs": 8.1,
+              "p95Ms": 8.1,
+              "lastMs": 8.1
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 2.8,
+              "maxMs": 2.8,
+              "p95Ms": 2.8,
+              "lastMs": 2.8
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 1.5,
+              "maxMs": 1.5,
+              "p95Ms": 1.5,
+              "lastMs": 1.5
+            }
+          ],
+          "mainThread": {
+            "taskMs": 453,
+            "scriptMs": 62,
+            "styleMs": 25,
+            "layoutMs": 1,
+            "otherMs": 365
+          },
+          "profileTop": [
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 24.5
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 13.6
+            },
+            {
+              "fn": "write yjs-5H8xyA-s.js:516",
+              "selfMs": 5.4
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:10626",
+              "selfMs": 5.4
+            },
+            {
+              "fn": "schedule_possible_effect_self_invalidation xyflow-7b95fSSs.js:2848",
+              "selfMs": 5.4
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 5.4
+            },
+            {
+              "fn": "quoteIdent ProjectEditor-e3U6tpHd.js:931",
+              "selfMs": 5.4
+            },
+            {
+              "fn": "(anonymous) yjs-5H8xyA-s.js:3065",
+              "selfMs": 2.7
+            },
+            {
+              "fn": "readProjectFromDoc ProjectEditor-e3U6tpHd.js:297",
+              "selfMs": 2.7
+            },
+            {
+              "fn": "isError :57",
+              "selfMs": 2.7
+            },
+            {
+              "fn": "#resolve xyflow-7b95fSSs.js:1206",
+              "selfMs": 2.7
+            },
+            {
+              "fn": "baseType$1 ProjectEditor-e3U6tpHd.js:1112",
+              "selfMs": 2.7
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:1497",
+              "selfMs": 2.7
+            },
+            {
+              "fn": "lintProject lint-CqGL1rjd.js:215",
+              "selfMs": 2.7
+            }
+          ]
+        },
+        {
+          "label": "recolor-single",
+          "durationMs": 539.6,
+          "frames": {
+            "count": 25,
+            "avgMs": 21.4,
+            "p95Ms": 13.4,
+            "maxMs": 146.8,
+            "droppedFrames": 2,
+            "fps": 46.8
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 67,
+            "maxMs": 67
+          },
+          "totalBlockingMs": 17,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 67,
+              "avgMs": 67,
+              "maxMs": 67,
+              "p95Ms": 67,
+              "lastMs": 67
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 7,
+              "avgMs": 6.8,
+              "maxMs": 6.8,
+              "p95Ms": 6.8,
+              "lastMs": 6.8
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 1,
+              "totalMs": 5,
+              "avgMs": 5.2,
+              "maxMs": 5.2,
+              "p95Ms": 5.2,
+              "lastMs": 5.2
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 2.8,
+              "maxMs": 2.8,
+              "p95Ms": 2.8,
+              "lastMs": 2.8
+            }
+          ],
+          "mainThread": {
+            "taskMs": 535,
+            "scriptMs": 53,
+            "styleMs": 22,
+            "layoutMs": 1,
+            "otherMs": 459
+          },
+          "profileTop": [
+            {
+              "fn": "(garbage collector) :0",
+              "selfMs": 263
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 20
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 17.2
+            },
+            {
+              "fn": "formatDbml ProjectEditor-e3U6tpHd.js:837",
+              "selfMs": 8.6
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:1507",
+              "selfMs": 5.7
+            },
+            {
+              "fn": "lintProject lint-CqGL1rjd.js:215",
+              "selfMs": 5.7
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:10626",
+              "selfMs": 5.7
+            },
+            {
+              "fn": "linter.delay ProjectEditor-e3U6tpHd.js:15371",
+              "selfMs": 5.7
+            },
+            {
+              "fn": "(anonymous) BenchHarness-Bs9VAh_T.js:253",
+              "selfMs": 2.9
+            },
+            {
+              "fn": "hasColumn lint-CqGL1rjd.js:151",
+              "selfMs": 2.9
+            },
+            {
+              "fn": "schedule_possible_effect_self_invalidation xyflow-7b95fSSs.js:2848",
+              "selfMs": 2.9
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:5918",
+              "selfMs": 2.9
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:14933",
+              "selfMs": 2.9
+            },
+            {
+              "fn": "clsx xyflow-7b95fSSs.js:5412",
+              "selfMs": 2.9
+            }
+          ]
+        },
+        {
+          "label": "column-flag",
+          "durationMs": 624.8,
+          "frames": {
+            "count": 35,
+            "avgMs": 17.9,
+            "p95Ms": 13.5,
+            "maxMs": 173.5,
+            "droppedFrames": 1,
+            "fps": 55.8
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 155,
+            "maxMs": 155
+          },
+          "totalBlockingMs": 105,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 155,
+              "avgMs": 155,
+              "maxMs": 155,
+              "p95Ms": 155,
+              "lastMs": 155
+            },
+            {
+              "label": "dbml.signature",
+              "count": 2,
+              "totalMs": 33,
+              "avgMs": 16.3,
+              "maxMs": 18.5,
+              "p95Ms": 14.1,
+              "lastMs": 14.1
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 9,
+              "avgMs": 9,
+              "maxMs": 9,
+              "p95Ms": 9,
+              "lastMs": 9
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 1,
+              "totalMs": 6,
+              "avgMs": 6.2,
+              "maxMs": 6.2,
+              "p95Ms": 6.2,
+              "lastMs": 6.2
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 3.2,
+              "maxMs": 3.2,
+              "p95Ms": 3.2,
+              "lastMs": 3.2
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.7,
+              "maxMs": 0.7,
+              "p95Ms": 0.7,
+              "lastMs": 0.7
+            }
+          ],
+          "mainThread": {
+            "taskMs": 515,
+            "scriptMs": 161,
+            "styleMs": 23,
+            "layoutMs": 3,
+            "otherMs": 328
+          },
+          "profileTop": [
+            {
+              "fn": "parseDbmlSymbols ProjectEditor-e3U6tpHd.js:14134",
+              "selfMs": 33.3
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 17.9
+            },
+            {
+              "fn": "updateHeight codemirror-K6YpN40R.js:8546",
+              "selfMs": 15.4
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 12.8
+            },
+            {
+              "fn": "(garbage collector) :0",
+              "selfMs": 12.8
+            },
+            {
+              "fn": "eq codemirror-K6YpN40R.js:4239",
+              "selfMs": 10.3
+            },
+            {
+              "fn": "maskLine ProjectEditor-e3U6tpHd.js:14028",
+              "selfMs": 10.3
+            },
+            {
+              "fn": "lintProject lint-CqGL1rjd.js:215",
+              "selfMs": 7.7
+            },
+            {
+              "fn": "dbmlSignature ProjectEditor-e3U6tpHd.js:14373",
+              "selfMs": 7.7
+            },
+            {
+              "fn": "fieldSig ProjectEditor-e3U6tpHd.js:14375",
+              "selfMs": 7.7
+            },
+            {
+              "fn": "minimalChange ProjectEditor-e3U6tpHd.js:13990",
+              "selfMs": 7.7
+            },
+            {
+              "fn": "tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 5.1
+            },
+            {
+              "fn": "forEachDiagnostic codemirror-K6YpN40R.js:19888",
+              "selfMs": 5.1
+            },
+            {
+              "fn": "formatDbml ProjectEditor-e3U6tpHd.js:837",
+              "selfMs": 5.1
+            }
+          ]
+        },
+        {
+          "label": "highlight-toggle",
+          "durationMs": 1521.8,
+          "frames": {
+            "count": 90,
+            "avgMs": 16.9,
+            "p95Ms": 13.5,
+            "maxMs": 200.2,
+            "droppedFrames": 3,
+            "fps": 59.1
+          },
+          "longTasks": {
+            "count": 2,
+            "totalMs": 267,
+            "maxMs": 181
+          },
+          "totalBlockingMs": 167,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 2,
+              "totalMs": 267,
+              "avgMs": 133.5,
+              "maxMs": 181,
+              "p95Ms": 86,
+              "lastMs": 86
+            }
+          ],
+          "mainThread": {
+            "taskMs": 1291,
+            "scriptMs": 169,
+            "styleMs": 154,
+            "layoutMs": 16,
+            "otherMs": 952
+          },
+          "profileTop": [
+            {
+              "fn": "query :5607",
+              "selfMs": 54.4
+            },
+            {
+              "fn": "(garbage collector) :0",
+              "selfMs": 36.3
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 32.2
+            },
+            {
+              "fn": "querySelectorAll :0",
+              "selfMs": 24.2
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 24.2
+            },
+            {
+              "fn": "set_style xyflow-7b95fSSs.js:5574",
+              "selfMs": 20.1
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 16.1
+            },
+            {
+              "fn": "elementsFromPoint :0",
+              "selfMs": 12.1
+            },
+            {
+              "fn": "before ← append xyflow-7b95fSSs.js:3600",
+              "selfMs": 10.1
+            },
+            {
+              "fn": "requestAnimationFrame ← tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 8.1
+            },
+            {
+              "fn": "(anonymous) :0",
+              "selfMs": 6
+            },
+            {
+              "fn": "getBoundingClientRect :0",
+              "selfMs": 6
+            },
+            {
+              "fn": "get$2 xyflow-7b95fSSs.js:3023",
+              "selfMs": 6
+            },
+            {
+              "fn": "set_attributes xyflow-7b95fSSs.js:5789",
+              "selfMs": 6
+            }
+          ]
+        },
+        {
+          "label": "delete-columns",
+          "durationMs": 698.6,
+          "frames": {
+            "count": 35,
+            "avgMs": 19.8,
+            "p95Ms": 13.4,
+            "maxMs": 240.3,
+            "droppedFrames": 1,
+            "fps": 50.4
+          },
+          "longTasks": {
+            "count": 2,
+            "totalMs": 253,
+            "maxMs": 177
+          },
+          "totalBlockingMs": 153,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 2,
+              "totalMs": 253,
+              "avgMs": 126.5,
+              "maxMs": 177,
+              "p95Ms": 76,
+              "lastMs": 76
+            },
+            {
+              "label": "dbml.signature",
+              "count": 2,
+              "totalMs": 32,
+              "avgMs": 15.9,
+              "maxMs": 17.8,
+              "p95Ms": 13.9,
+              "lastMs": 13.9
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 3,
+              "totalMs": 14,
+              "avgMs": 4.7,
+              "maxMs": 6.8,
+              "p95Ms": 5.1,
+              "lastMs": 2.3
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 9,
+              "avgMs": 8.9,
+              "maxMs": 8.9,
+              "p95Ms": 8.9,
+              "lastMs": 8.9
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 3.3,
+              "maxMs": 3.3,
+              "p95Ms": 3.3,
+              "lastMs": 3.3
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 2,
+              "totalMs": 2,
+              "avgMs": 1.2,
+              "maxMs": 1.7,
+              "p95Ms": 0.7,
+              "lastMs": 0.7
+            },
+            {
+              "label": "canvas.nodeInternalsFlush",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.4,
+              "maxMs": 1.4,
+              "p95Ms": 1.4,
+              "lastMs": 1.4
+            }
+          ],
+          "mainThread": {
+            "taskMs": 574,
+            "scriptMs": 210,
+            "styleMs": 25,
+            "layoutMs": 7,
+            "otherMs": 332
+          },
+          "profileTop": [
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 45.3
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 30.2
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 22.7
+            },
+            {
+              "fn": "parseDbmlSymbols ProjectEditor-e3U6tpHd.js:14134",
+              "selfMs": 22.7
+            },
+            {
+              "fn": "(garbage collector) :0",
+              "selfMs": 20.2
+            },
+            {
+              "fn": "eq codemirror-K6YpN40R.js:4239",
+              "selfMs": 17.6
+            },
+            {
+              "fn": "maskLine ProjectEditor-e3U6tpHd.js:14028",
+              "selfMs": 15.1
+            },
+            {
+              "fn": "countBraces ProjectEditor-e3U6tpHd.js:14098",
+              "selfMs": 10.1
+            },
+            {
+              "fn": "schedule_possible_effect_self_invalidation xyflow-7b95fSSs.js:2848",
+              "selfMs": 5
+            },
+            {
+              "fn": "(anonymous) codemirror-K6YpN40R.js:19340",
+              "selfMs": 5
+            },
+            {
+              "fn": "normalizeSpacing ProjectEditor-e3U6tpHd.js:762",
+              "selfMs": 5
+            },
+            {
+              "fn": "dbmlSignature ProjectEditor-e3U6tpHd.js:14373",
+              "selfMs": 5
+            },
+            {
+              "fn": "parseSettings ProjectEditor-e3U6tpHd.js:14104",
+              "selfMs": 5
+            },
+            {
+              "fn": "goto codemirror-K6YpN40R.js:3288",
+              "selfMs": 5
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "config": {
+        "tables": 200,
+        "columns": 8,
+        "detail": "standard"
+      },
+      "loadMs": 3043,
+      "ready": {
+        "nodes": 200,
+        "edges": 199,
+        "waitedMs": 3.6
+      },
+      "scenarios": [
+        {
+          "label": "zoom",
+          "durationMs": 3155,
+          "frames": {
+            "count": 103,
+            "avgMs": 30.6,
+            "p95Ms": 93.4,
+            "maxMs": 160.2,
+            "droppedFrames": 32,
+            "fps": 32.7
+          },
+          "longTasks": {
+            "count": 20,
+            "totalMs": 1657,
+            "maxMs": 152
+          },
+          "totalBlockingMs": 657,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 20,
+              "totalMs": 1657,
+              "avgMs": 82.9,
+              "maxMs": 152,
+              "p95Ms": 127,
+              "lastMs": 50
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 10,
+              "totalMs": 13,
+              "avgMs": 1.3,
+              "maxMs": 2,
+              "p95Ms": 1.5,
+              "lastMs": 1.2
+            }
+          ],
+          "mainThread": {
+            "taskMs": 2633,
+            "scriptMs": 901,
+            "styleMs": 296,
+            "layoutMs": 296,
+            "otherMs": 1140
+          },
+          "profileTop": [
+            {
+              "fn": "getBoundingClientRect ← (anonymous) xyflow-7b95fSSs.js:10039",
+              "selfMs": 199.2
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 134.1
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 111.1
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 84.3
+            },
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 65.1
+            },
+            {
+              "fn": "set_style xyflow-7b95fSSs.js:5574",
+              "selfMs": 53.6
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 49.8
+            },
+            {
+              "fn": "capture xyflow-7b95fSSs.js:1418",
+              "selfMs": 40.2
+            },
+            {
+              "fn": "schedule_possible_effect_self_invalidation xyflow-7b95fSSs.js:2848",
+              "selfMs": 32.6
+            },
+            {
+              "fn": "get$2 xyflow-7b95fSSs.js:3023",
+              "selfMs": 28.7
+            },
+            {
+              "fn": "set_attributes xyflow-7b95fSSs.js:5789",
+              "selfMs": 26.8
+            },
+            {
+              "fn": "update_derived xyflow-7b95fSSs.js:963",
+              "selfMs": 23
+            },
+            {
+              "fn": "addConnectionToLookup xyflow-7b95fSSs.js:10887",
+              "selfMs": 19.2
+            },
+            {
+              "fn": "#resolve xyflow-7b95fSSs.js:1206",
+              "selfMs": 19.2
+            }
+          ]
+        },
+        {
+          "label": "zoom-again",
+          "durationMs": 2383.5,
+          "frames": {
+            "count": 105,
+            "avgMs": 22.6,
+            "p95Ms": 53.4,
+            "maxMs": 66.8,
+            "droppedFrames": 26,
+            "fps": 44.2
+          },
+          "longTasks": {
+            "count": 12,
+            "totalMs": 693,
+            "maxMs": 72
+          },
+          "totalBlockingMs": 93,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 12,
+              "totalMs": 693,
+              "avgMs": 57.8,
+              "maxMs": 72,
+              "p95Ms": 63,
+              "lastMs": 55
+            }
+          ],
+          "mainThread": {
+            "taskMs": 1800,
+            "scriptMs": 363,
+            "styleMs": 219,
+            "layoutMs": 141,
+            "otherMs": 1077
+          },
+          "profileTop": [
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 52.3
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 48.8
+            },
+            {
+              "fn": "set_style xyflow-7b95fSSs.js:5574",
+              "selfMs": 43.6
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 27.9
+            },
+            {
+              "fn": "set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 22.7
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 20.9
+            },
+            {
+              "fn": "get$2 xyflow-7b95fSSs.js:3023",
+              "selfMs": 12.2
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 12.2
+            },
+            {
+              "fn": "ensure xyflow-7b95fSSs.js:4302",
+              "selfMs": 10.5
+            },
+            {
+              "fn": "update_derived xyflow-7b95fSSs.js:963",
+              "selfMs": 10.5
+            },
+            {
+              "fn": "capture xyflow-7b95fSSs.js:1418",
+              "selfMs": 7
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:8028",
+              "selfMs": 7
+            },
+            {
+              "fn": "requestAnimationFrame ← tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 7
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:8112",
+              "selfMs": 5.2
+            }
+          ]
+        },
+        {
+          "label": "pan",
+          "durationMs": 1949.5,
+          "frames": {
+            "count": 146,
+            "avgMs": 13.3,
+            "p95Ms": 13.4,
+            "maxMs": 13.5,
+            "droppedFrames": 0,
+            "fps": 74.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [],
+          "mainThread": {
+            "taskMs": 671,
+            "scriptMs": 58,
+            "styleMs": 28,
+            "layoutMs": 18,
+            "otherMs": 567
+          },
+          "profileTop": [
+            {
+              "fn": "requestAnimationFrame ← tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 12.8
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 7.3
+            },
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 7.3
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:11504",
+              "selfMs": 5.5
+            },
+            {
+              "fn": "ZoomEvent xyflow-7b95fSSs.js:8920",
+              "selfMs": 3.7
+            },
+            {
+              "fn": "clearTimeout ← (anonymous) xyflow-7b95fSSs.js:11504",
+              "selfMs": 3.7
+            },
+            {
+              "fn": "setProperty ← update_styles xyflow-7b95fSSs.js:5559",
+              "selfMs": 3.7
+            },
+            {
+              "fn": "start BenchHarness-Bs9VAh_T.js:146",
+              "selfMs": 1.8
+            },
+            {
+              "fn": "isTypedArray :65",
+              "selfMs": 1.8
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:7138",
+              "selfMs": 1.8
+            },
+            {
+              "fn": "zoom xyflow-7b95fSSs.js:9119",
+              "selfMs": 1.8
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:6431",
+              "selfMs": 1.8
+            },
+            {
+              "fn": "end xyflow-7b95fSSs.js:9127",
+              "selfMs": 1.8
+            },
+            {
+              "fn": "isMacOs xyflow-7b95fSSs.js:9930",
+              "selfMs": 1.8
+            }
+          ]
+        },
+        {
+          "label": "hover-sweep",
+          "durationMs": 4075.4,
+          "frames": {
+            "count": 306,
+            "avgMs": 13.4,
+            "p95Ms": 13.4,
+            "maxMs": 13.5,
+            "droppedFrames": 0,
+            "fps": 74.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [],
+          "mainThread": {
+            "taskMs": 608,
+            "scriptMs": 85,
+            "styleMs": 0,
+            "layoutMs": 0,
+            "otherMs": 523
+          },
+          "profileTop": [
+            {
+              "fn": "handle_event_propagation xyflow-7b95fSSs.js:3372",
+              "selfMs": 21.6
+            },
+            {
+              "fn": "setTimeout ← handle_event_propagation xyflow-7b95fSSs.js:3372",
+              "selfMs": 8.3
+            },
+            {
+              "fn": "requestAnimationFrame ← tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 8.3
+            },
+            {
+              "fn": "requestAnimationFrame ← onMouseMove ProjectEditor-e3U6tpHd.js:9995",
+              "selfMs": 6.6
+            },
+            {
+              "fn": "screenToFlowPosition xyflow-7b95fSSs.js:15558",
+              "selfMs": 5
+            },
+            {
+              "fn": "getBoundingClientRect ← screenToFlowPosition xyflow-7b95fSSs.js:15558",
+              "selfMs": 5
+            },
+            {
+              "fn": "setLocalStateField yjs-5H8xyA-s.js:10840",
+              "selfMs": 5
+            },
+            {
+              "fn": "emit yjs-5H8xyA-s.js:299",
+              "selfMs": 5
+            },
+            {
+              "fn": "get awareness ProjectEditor-e3U6tpHd.js:24619",
+              "selfMs": 3.3
+            },
+            {
+              "fn": "composedPath ← handle_event_propagation xyflow-7b95fSSs.js:3372",
+              "selfMs": 3.3
+            },
+            {
+              "fn": "setLocalState yjs-5H8xyA-s.js:10803",
+              "selfMs": 3.3
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:10523",
+              "selfMs": 1.7
+            },
+            {
+              "fn": "onMouseMove ProjectEditor-e3U6tpHd.js:9995",
+              "selfMs": 1.7
+            },
+            {
+              "fn": "get awareness ProjectEditor-e3U6tpHd.js:2764",
+              "selfMs": 1.7
+            }
+          ]
+        },
+        {
+          "label": "zoom-links-on",
+          "durationMs": 3180.7,
+          "frames": {
+            "count": 91,
+            "avgMs": 34.9,
+            "p95Ms": 120.2,
+            "maxMs": 146.9,
+            "droppedFrames": 25,
+            "fps": 28.6
+          },
+          "longTasks": {
+            "count": 16,
+            "totalMs": 1758,
+            "maxMs": 146
+          },
+          "totalBlockingMs": 958,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 16,
+              "totalMs": 1758,
+              "avgMs": 109.9,
+              "maxMs": 146,
+              "p95Ms": 142,
+              "lastMs": 99
+            }
+          ],
+          "mainThread": {
+            "taskMs": 2815,
+            "scriptMs": 864,
+            "styleMs": 448,
+            "layoutMs": 152,
+            "otherMs": 1351
+          },
+          "profileTop": [
+            {
+              "fn": "set_style xyflow-7b95fSSs.js:5574",
+              "selfMs": 156.6
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 108.4
+            },
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 68.9
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 49.9
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 46.5
+            },
+            {
+              "fn": "setProperty ← update_styles xyflow-7b95fSSs.js:5559",
+              "selfMs": 43
+            },
+            {
+              "fn": "capture xyflow-7b95fSSs.js:1418",
+              "selfMs": 43
+            },
+            {
+              "fn": "(garbage collector) :0",
+              "selfMs": 41.3
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 31
+            },
+            {
+              "fn": "set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 27.5
+            },
+            {
+              "fn": "get style ← set_style xyflow-7b95fSSs.js:5574",
+              "selfMs": 25.8
+            },
+            {
+              "fn": "get$2 xyflow-7b95fSSs.js:3023",
+              "selfMs": 20.7
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:2523",
+              "selfMs": 17.2
+            },
+            {
+              "fn": "getter xyflow-7b95fSSs.js:6401",
+              "selfMs": 17.2
+            }
+          ]
+        },
+        {
+          "label": "idle-links-on",
+          "durationMs": 1964,
+          "frames": {
+            "count": 147,
+            "avgMs": 13.4,
+            "p95Ms": 13.4,
+            "maxMs": 13.5,
+            "droppedFrames": 0,
+            "fps": 74.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [],
+          "mainThread": {
+            "taskMs": 137,
+            "scriptMs": 10,
+            "styleMs": 0,
+            "layoutMs": 0,
+            "otherMs": 127
+          },
+          "profileTop": [
+            {
+              "fn": "requestAnimationFrame ← tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 9
+            },
+            {
+              "fn": "tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 1.8
+            },
+            {
+              "fn": "innerSerialize :186",
+              "selfMs": 1.8
+            }
+          ]
+        },
+        {
+          "label": "drag-single",
+          "durationMs": 1546.6,
+          "frames": {
+            "count": 111,
+            "avgMs": 14,
+            "p95Ms": 13.4,
+            "maxMs": 40,
+            "droppedFrames": 1,
+            "fps": 71.7
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [],
+          "mainThread": {
+            "taskMs": 430,
+            "scriptMs": 46,
+            "styleMs": 20,
+            "layoutMs": 6,
+            "otherMs": 358
+          },
+          "profileTop": [
+            {
+              "fn": "getBoundingClientRect ← screenToFlowPosition xyflow-7b95fSSs.js:15558",
+              "selfMs": 20.9
+            },
+            {
+              "fn": "(anonymous) :0",
+              "selfMs": 11.4
+            },
+            {
+              "fn": "addConnectionToLookup xyflow-7b95fSSs.js:10887",
+              "selfMs": 3.8
+            },
+            {
+              "fn": "getLayoutedEdges xyflow-7b95fSSs.js:13029",
+              "selfMs": 3.8
+            },
+            {
+              "fn": "handle_event_propagation xyflow-7b95fSSs.js:3372",
+              "selfMs": 3.8
+            },
+            {
+              "fn": "requestAnimationFrame ← onMouseMove ProjectEditor-e3U6tpHd.js:9995",
+              "selfMs": 3.8
+            },
+            {
+              "fn": "composedPath ← handle_event_propagation xyflow-7b95fSSs.js:3372",
+              "selfMs": 3.8
+            },
+            {
+              "fn": "requestAnimationFrame ← tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 3.8
+            },
+            {
+              "fn": "evaluate :305",
+              "selfMs": 1.9
+            },
+            {
+              "fn": "BenchSession BenchHarness-Bs9VAh_T.js:143",
+              "selfMs": 1.9
+            },
+            {
+              "fn": "setupDragListeners :1",
+              "selfMs": 1.9
+            },
+            {
+              "fn": "parseEvaluationResultValue :106",
+              "selfMs": 1.9
+            },
+            {
+              "fn": "getPerfReport perfMonitor-Hci5trb9.js:60",
+              "selfMs": 1.9
+            },
+            {
+              "fn": "setTimeout ← handle_event_propagation xyflow-7b95fSSs.js:3372",
+              "selfMs": 1.9
+            }
+          ]
+        },
+        {
+          "label": "select-multi",
+          "durationMs": 1361.3,
+          "frames": {
+            "count": 94,
+            "avgMs": 14.5,
+            "p95Ms": 13.5,
+            "maxMs": 40.1,
+            "droppedFrames": 3,
+            "fps": 69
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [
+            {
+              "label": "canvas.selectionDragTotal",
+              "count": 1,
+              "totalMs": 854,
+              "avgMs": 854.1,
+              "maxMs": 854.1,
+              "p95Ms": 854.1,
+              "lastMs": 854.1
+            }
+          ],
+          "mainThread": {
+            "taskMs": 995,
+            "scriptMs": 99,
+            "styleMs": 93,
+            "layoutMs": 25,
+            "otherMs": 778
+          },
+          "profileTop": [
+            {
+              "fn": "getBoundingClientRect ← screenToFlowPosition xyflow-7b95fSSs.js:15558",
+              "selfMs": 83
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:14573",
+              "selfMs": 22.6
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:14579",
+              "selfMs": 11.3
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 9.4
+            },
+            {
+              "fn": "addConnectionToLookup xyflow-7b95fSSs.js:10887",
+              "selfMs": 9.4
+            },
+            {
+              "fn": "fallback xyflow-7b95fSSs.js:62",
+              "selfMs": 5.7
+            },
+            {
+              "fn": "evaluate :305",
+              "selfMs": 3.8
+            },
+            {
+              "fn": "get$2 xyflow-7b95fSSs.js:3023",
+              "selfMs": 3.8
+            },
+            {
+              "fn": "capture xyflow-7b95fSSs.js:1418",
+              "selfMs": 3.8
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:4637",
+              "selfMs": 3.8
+            },
+            {
+              "fn": "set_class xyflow-7b95fSSs.js:5535",
+              "selfMs": 3.8
+            },
+            {
+              "fn": "nodeHasDimensions xyflow-7b95fSSs.js:9940",
+              "selfMs": 3.8
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 3.8
+            },
+            {
+              "fn": "#resolve xyflow-7b95fSSs.js:1206",
+              "selfMs": 3.8
+            }
+          ]
+        },
+        {
+          "label": "drag-multi",
+          "durationMs": 1973.3,
+          "frames": {
+            "count": 145,
+            "avgMs": 13.5,
+            "p95Ms": 13.4,
+            "maxMs": 39.9,
+            "droppedFrames": 1,
+            "fps": 73.9
+          },
+          "longTasks": {
+            "count": 0,
+            "totalMs": 0,
+            "maxMs": 0
+          },
+          "totalBlockingMs": 0,
+          "perf": [],
+          "mainThread": {
+            "taskMs": 1318,
+            "scriptMs": 53,
+            "styleMs": 97,
+            "layoutMs": 2,
+            "otherMs": 1166
+          },
+          "profileTop": [
+            {
+              "fn": "getBoundingClientRect ← screenToFlowPosition xyflow-7b95fSSs.js:15558",
+              "selfMs": 32.8
+            },
+            {
+              "fn": "(anonymous) :0",
+              "selfMs": 16.4
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 5.5
+            },
+            {
+              "fn": "remove ← remove_effect_dom xyflow-7b95fSSs.js:2627",
+              "selfMs": 5.5
+            },
+            {
+              "fn": "requestAnimationFrame ← tick BenchHarness-Bs9VAh_T.js:161",
+              "selfMs": 5.5
+            },
+            {
+              "fn": "setLocalStateField yjs-5H8xyA-s.js:10840",
+              "selfMs": 3.6
+            },
+            {
+              "fn": "handle_event_propagation xyflow-7b95fSSs.js:3372",
+              "selfMs": 3.6
+            },
+            {
+              "fn": "(anonymous) :1",
+              "selfMs": 3.6
+            },
+            {
+              "fn": "setupDragListeners :1",
+              "selfMs": 3.6
+            },
+            {
+              "fn": "(anonymous) :6",
+              "selfMs": 3.6
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:13256",
+              "selfMs": 1.8
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:4637",
+              "selfMs": 1.8
+            },
+            {
+              "fn": "get$2 xyflow-7b95fSSs.js:3023",
+              "selfMs": 1.8
+            },
+            {
+              "fn": "#resolve xyflow-7b95fSSs.js:1206",
+              "selfMs": 1.8
+            }
+          ]
+        },
+        {
+          "label": "recolor-multi",
+          "durationMs": 624.3,
+          "frames": {
+            "count": 35,
+            "avgMs": 17.5,
+            "p95Ms": 13.4,
+            "maxMs": 160.2,
+            "droppedFrames": 1,
+            "fps": 57
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 168,
+            "maxMs": 168
+          },
+          "totalBlockingMs": 118,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 168,
+              "avgMs": 168,
+              "maxMs": 168,
+              "p95Ms": 168,
+              "lastMs": 168
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 21,
+              "avgMs": 21,
+              "maxMs": 21,
+              "p95Ms": 21,
+              "lastMs": 21
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 6,
+              "avgMs": 5.8,
+              "maxMs": 5.8,
+              "p95Ms": 5.8,
+              "lastMs": 5.8
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 3,
+              "avgMs": 2.6,
+              "maxMs": 2.6,
+              "p95Ms": 2.6,
+              "lastMs": 2.6
+            },
+            {
+              "label": "canvas.selectionPreservingMerge",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 0.6,
+              "maxMs": 0.6,
+              "p95Ms": 0.6,
+              "lastMs": 0.6
+            }
+          ],
+          "mainThread": {
+            "taskMs": 220,
+            "scriptMs": 143,
+            "styleMs": 2,
+            "layoutMs": 0,
+            "otherMs": 75
+          },
+          "profileTop": [
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 27.3
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 22.4
+            },
+            {
+              "fn": "schedule_possible_effect_self_invalidation xyflow-7b95fSSs.js:2848",
+              "selfMs": 14.9
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 12.4
+            },
+            {
+              "fn": "flush_queued_effects xyflow-7b95fSSs.js:1659",
+              "selfMs": 9.9
+            },
+            {
+              "fn": "set_class xyflow-7b95fSSs.js:5535",
+              "selfMs": 7.5
+            },
+            {
+              "fn": "linter.delay ProjectEditor-e3U6tpHd.js:15371",
+              "selfMs": 7.5
+            },
+            {
+              "fn": "formatDbml ProjectEditor-e3U6tpHd.js:837",
+              "selfMs": 7.5
+            },
+            {
+              "fn": "normalizeSpacing ProjectEditor-e3U6tpHd.js:762",
+              "selfMs": 7.5
+            },
+            {
+              "fn": "encodeInto ← _writeVarStringNative yjs-5H8xyA-s.js:578",
+              "selfMs": 5
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:1497",
+              "selfMs": 5
+            },
+            {
+              "fn": "lintProject lint-CqGL1rjd.js:215",
+              "selfMs": 5
+            },
+            {
+              "fn": "set_attributes xyflow-7b95fSSs.js:5789",
+              "selfMs": 5
+            },
+            {
+              "fn": "getAttribute ← get_setters xyflow-7b95fSSs.js:5963",
+              "selfMs": 5
+            }
+          ]
+        },
+        {
+          "label": "recolor-single",
+          "durationMs": 564,
+          "frames": {
+            "count": 36,
+            "avgMs": 15.6,
+            "p95Ms": 13.5,
+            "maxMs": 93.5,
+            "droppedFrames": 1,
+            "fps": 64.2
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 89,
+            "maxMs": 89
+          },
+          "totalBlockingMs": 39,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 89,
+              "avgMs": 89,
+              "maxMs": 89,
+              "p95Ms": 89,
+              "lastMs": 89
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 17,
+              "avgMs": 16.5,
+              "maxMs": 16.5,
+              "p95Ms": 16.5,
+              "lastMs": 16.5
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 5,
+              "avgMs": 4.8,
+              "maxMs": 4.8,
+              "p95Ms": 4.8,
+              "lastMs": 4.8
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 2,
+              "maxMs": 2,
+              "p95Ms": 2,
+              "lastMs": 2
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 1,
+              "avgMs": 1.3,
+              "maxMs": 1.3,
+              "p95Ms": 1.3,
+              "lastMs": 1.3
+            }
+          ],
+          "mainThread": {
+            "taskMs": 216,
+            "scriptMs": 77,
+            "styleMs": 1,
+            "layoutMs": 0,
+            "otherMs": 138
+          },
+          "profileTop": [
+            {
+              "fn": "(garbage collector) :0",
+              "selfMs": 61.7
+            },
+            {
+              "fn": "formatDbml ProjectEditor-e3U6tpHd.js:837",
+              "selfMs": 14
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 8.4
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 8.4
+            },
+            {
+              "fn": "buildTableNodes ProjectEditor-e3U6tpHd.js:10621",
+              "selfMs": 5.6
+            },
+            {
+              "fn": "linter.delay ProjectEditor-e3U6tpHd.js:15371",
+              "selfMs": 5.6
+            },
+            {
+              "fn": "quoteIdent ProjectEditor-e3U6tpHd.js:931",
+              "selfMs": 5.6
+            },
+            {
+              "fn": "normalizeSpacing ProjectEditor-e3U6tpHd.js:762",
+              "selfMs": 5.6
+            },
+            {
+              "fn": "Transaction yjs-5H8xyA-s.js:4907",
+              "selfMs": 2.8
+            },
+            {
+              "fn": "findIndexSS yjs-5H8xyA-s.js:4751",
+              "selfMs": 2.8
+            },
+            {
+              "fn": "write yjs-5H8xyA-s.js:516",
+              "selfMs": 2.8
+            },
+            {
+              "fn": "readProjectFromDoc ProjectEditor-e3U6tpHd.js:297",
+              "selfMs": 2.8
+            },
+            {
+              "fn": "stop BenchHarness-Bs9VAh_T.js:168",
+              "selfMs": 2.8
+            },
+            {
+              "fn": "#process xyflow-7b95fSSs.js:1229",
+              "selfMs": 2.8
+            }
+          ]
+        },
+        {
+          "label": "column-flag",
+          "durationMs": 663.1,
+          "frames": {
+            "count": 36,
+            "avgMs": 18.5,
+            "p95Ms": 13.4,
+            "maxMs": 200.3,
+            "droppedFrames": 1,
+            "fps": 53.9
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 188,
+            "maxMs": 188
+          },
+          "totalBlockingMs": 138,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 188,
+              "avgMs": 188,
+              "maxMs": 188,
+              "p95Ms": 188,
+              "lastMs": 188
+            },
+            {
+              "label": "dbml.signature",
+              "count": 2,
+              "totalMs": 59,
+              "avgMs": 29.5,
+              "maxMs": 32.8,
+              "p95Ms": 26.1,
+              "lastMs": 26.1
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 13,
+              "avgMs": 13.2,
+              "maxMs": 13.2,
+              "p95Ms": 13.2,
+              "lastMs": 13.2
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 6,
+              "avgMs": 5.7,
+              "maxMs": 5.7,
+              "p95Ms": 5.7,
+              "lastMs": 5.7
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 2,
+              "maxMs": 2,
+              "p95Ms": 2,
+              "lastMs": 2
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 2.2,
+              "maxMs": 2.2,
+              "p95Ms": 2.2,
+              "lastMs": 2.2
+            }
+          ],
+          "mainThread": {
+            "taskMs": 283,
+            "scriptMs": 202,
+            "styleMs": 1,
+            "layoutMs": 2,
+            "otherMs": 78
+          },
+          "profileTop": [
+            {
+              "fn": "parseDbmlSymbols ProjectEditor-e3U6tpHd.js:14134",
+              "selfMs": 42.6
+            },
+            {
+              "fn": "maskLine ProjectEditor-e3U6tpHd.js:14028",
+              "selfMs": 18
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 11.2
+            },
+            {
+              "fn": "lineInner codemirror-K6YpN40R.js:275",
+              "selfMs": 11.2
+            },
+            {
+              "fn": "lintProject lint-CqGL1rjd.js:215",
+              "selfMs": 9
+            },
+            {
+              "fn": "linter.delay ProjectEditor-e3U6tpHd.js:15371",
+              "selfMs": 9
+            },
+            {
+              "fn": "projectToDbml ProjectEditor-e3U6tpHd.js:1030",
+              "selfMs": 9
+            },
+            {
+              "fn": "dbmlSignature ProjectEditor-e3U6tpHd.js:14373",
+              "selfMs": 9
+            },
+            {
+              "fn": "fieldSig ProjectEditor-e3U6tpHd.js:14375",
+              "selfMs": 9
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 6.7
+            },
+            {
+              "fn": "(anonymous) xyflow-7b95fSSs.js:599",
+              "selfMs": 4.5
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:11128",
+              "selfMs": 4.5
+            },
+            {
+              "fn": "(anonymous) ProjectEditor-e3U6tpHd.js:10632",
+              "selfMs": 4.5
+            },
+            {
+              "fn": "schedule_possible_effect_self_invalidation xyflow-7b95fSSs.js:2848",
+              "selfMs": 4.5
+            }
+          ]
+        },
+        {
+          "label": "highlight-toggle",
+          "durationMs": 1483.8,
+          "frames": {
+            "count": 85,
+            "avgMs": 17.4,
+            "p95Ms": 13.4,
+            "maxMs": 267,
+            "droppedFrames": 2,
+            "fps": 57.4
+          },
+          "longTasks": {
+            "count": 2,
+            "totalMs": 373,
+            "maxMs": 265
+          },
+          "totalBlockingMs": 273,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 2,
+              "totalMs": 373,
+              "avgMs": 186.5,
+              "maxMs": 265,
+              "p95Ms": 108,
+              "lastMs": 108
+            }
+          ],
+          "mainThread": {
+            "taskMs": 643,
+            "scriptMs": 286,
+            "styleMs": 71,
+            "layoutMs": 17,
+            "otherMs": 269
+          },
+          "profileTop": [
+            {
+              "fn": "set_style xyflow-7b95fSSs.js:5574",
+              "selfMs": 35.9
+            },
+            {
+              "fn": "querySelector ← tryToMount xyflow-7b95fSSs.js:12404",
+              "selfMs": 27.9
+            },
+            {
+              "fn": "query :5607",
+              "selfMs": 25.9
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 23.9
+            },
+            {
+              "fn": "(garbage collector) :0",
+              "selfMs": 23.9
+            },
+            {
+              "fn": "before ← append xyflow-7b95fSSs.js:3600",
+              "selfMs": 21.9
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 20
+            },
+            {
+              "fn": "elementsFromPoint :0",
+              "selfMs": 14
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 12
+            },
+            {
+              "fn": "setAttribute ← set_attribute xyflow-7b95fSSs.js:5764",
+              "selfMs": 12
+            },
+            {
+              "fn": "querySelectorAll :0",
+              "selfMs": 10
+            },
+            {
+              "fn": "is_dirty xyflow-7b95fSSs.js:2828",
+              "selfMs": 10
+            },
+            {
+              "fn": "schedule_possible_effect_self_invalidation xyflow-7b95fSSs.js:2848",
+              "selfMs": 10
+            },
+            {
+              "fn": "pop xyflow-7b95fSSs.js:560",
+              "selfMs": 10
+            }
+          ]
+        },
+        {
+          "label": "delete-columns",
+          "durationMs": 637.8,
+          "frames": {
+            "count": 35,
+            "avgMs": 18.3,
+            "p95Ms": 13.4,
+            "maxMs": 187,
+            "droppedFrames": 1,
+            "fps": 54.6
+          },
+          "longTasks": {
+            "count": 1,
+            "totalMs": 177,
+            "maxMs": 177
+          },
+          "totalBlockingMs": 127,
+          "perf": [
+            {
+              "label": "longtask",
+              "count": 1,
+              "totalMs": 177,
+              "avgMs": 177,
+              "maxMs": 177,
+              "p95Ms": 177,
+              "lastMs": 177
+            },
+            {
+              "label": "dbml.signature",
+              "count": 2,
+              "totalMs": 40,
+              "avgMs": 19.9,
+              "maxMs": 20.6,
+              "p95Ms": 19.2,
+              "lastMs": 19.2
+            },
+            {
+              "label": "dbml.serialize",
+              "count": 1,
+              "totalMs": 13,
+              "avgMs": 13.1,
+              "maxMs": 13.1,
+              "p95Ms": 13.1,
+              "lastMs": 13.1
+            },
+            {
+              "label": "canvas.buildNodes",
+              "count": 1,
+              "totalMs": 5,
+              "avgMs": 4.8,
+              "maxMs": 4.8,
+              "p95Ms": 4.8,
+              "lastMs": 4.8
+            },
+            {
+              "label": "doc.readProjectFromDoc",
+              "count": 3,
+              "totalMs": 3,
+              "avgMs": 1.1,
+              "maxMs": 1.8,
+              "p95Ms": 1.1,
+              "lastMs": 1.1
+            },
+            {
+              "label": "canvas.buildEdges",
+              "count": 1,
+              "totalMs": 2,
+              "avgMs": 1.8,
+              "maxMs": 1.8,
+              "p95Ms": 1.8,
+              "lastMs": 1.8
+            }
+          ],
+          "mainThread": {
+            "taskMs": 261,
+            "scriptMs": 175,
+            "styleMs": 4,
+            "layoutMs": 4,
+            "otherMs": 78
+          },
+          "profileTop": [
+            {
+              "fn": "parseDbmlSymbols ProjectEditor-e3U6tpHd.js:14134",
+              "selfMs": 33.8
+            },
+            {
+              "fn": "lineInner codemirror-K6YpN40R.js:275",
+              "selfMs": 14.5
+            },
+            {
+              "fn": "eq codemirror-K6YpN40R.js:4239",
+              "selfMs": 12.1
+            },
+            {
+              "fn": "lintProject lint-CqGL1rjd.js:215",
+              "selfMs": 9.7
+            },
+            {
+              "fn": "mark_reactions xyflow-7b95fSSs.js:1910",
+              "selfMs": 9.7
+            },
+            {
+              "fn": "linter.delay ProjectEditor-e3U6tpHd.js:15371",
+              "selfMs": 9.7
+            },
+            {
+              "fn": "maskLine ProjectEditor-e3U6tpHd.js:14028",
+              "selfMs": 9.7
+            },
+            {
+              "fn": "normalizeSpacing ProjectEditor-e3U6tpHd.js:762",
+              "selfMs": 7.3
+            },
+            {
+              "fn": "unquoteIdent ProjectEditor-e3U6tpHd.js:14019",
+              "selfMs": 7.3
+            },
+            {
+              "fn": "minimalChange ProjectEditor-e3U6tpHd.js:13990",
+              "selfMs": 7.3
+            },
+            {
+              "fn": "#traverse xyflow-7b95fSSs.js:1320",
+              "selfMs": 4.8
+            },
+            {
+              "fn": "(anonymous) lint-CqGL1rjd.js:151",
+              "selfMs": 4.8
+            },
+            {
+              "fn": "schedule_possible_effect_self_invalidation xyflow-7b95fSSs.js:2848",
+              "selfMs": 4.8
+            },
+            {
+              "fn": "update_reaction xyflow-7b95fSSs.js:2863",
+              "selfMs": 4.8
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

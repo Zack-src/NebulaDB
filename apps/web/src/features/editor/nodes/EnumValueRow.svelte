@@ -47,7 +47,7 @@
 </script>
 
 <div class="group/row flex items-center gap-1 px-2.5 py-1 hover:bg-surface-hover/60">
-  <div class={`flex shrink-0 flex-col opacity-0 ${readOnly ? "" : "group-hover/row:opacity-100"}`}>
+  <div class={`invisible flex shrink-0 flex-col ${readOnly ? "" : "group-hover/row:visible"}`}>
     <button
       type="button"
       class={REORDER_BTN_CLASS}
@@ -103,7 +103,7 @@
   {#if !readOnly}
     <button
       type="button"
-      class="nodrag shrink-0 text-text-muted opacity-0 transition-colors hover:text-danger group-hover/row:opacity-100"
+      class="nodrag invisible shrink-0 text-text-muted transition-colors hover:text-danger group-hover/row:visible"
       onclick={onDelete}
       data-tooltip={t("enum.deleteValue")}
       aria-label={t("enum.deleteValue")}

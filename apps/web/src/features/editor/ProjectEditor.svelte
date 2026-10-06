@@ -292,8 +292,24 @@
     dbmlOpen = true;
     dbmlScrollRequest = { tableName, requestId: (dbmlScrollRequest?.requestId ?? 0) + 1 };
   };
-  const setHoveredFieldId = (id: string | null) => (hoveredFieldId = id);
-  const setHoveredTableId = (id: string | null) => (hoveredTableId = id);
+  // While the viewport pans or zooms, tables slide under a pointer that
+  // isn't moving and the browser reports each one as a hover: every frame of
+  // the gesture then re-highlighted relations and handed the flow a new edge
+  // array. Hover is dropped when the gesture starts and ignored until it ends.
+  let viewportMoving = false;
+  const setViewportMoving = (moving: boolean) => {
+    viewportMoving = moving;
+    if (moving) {
+      hoveredFieldId = null;
+      hoveredTableId = null;
+    }
+  };
+  const setHoveredFieldId = (id: string | null) => {
+    if (!viewportMoving) hoveredFieldId = id;
+  };
+  const setHoveredTableId = (id: string | null) => {
+    if (!viewportMoving) hoveredTableId = id;
+  };
   const setSelectedFieldId = (id: string | null) => (selectedFieldId = id);
   const setSelectedEdgeId = (id: string | null) => (selectedEdgeId = id);
   const openPlugins = () => (showPlugins = true);
@@ -755,6 +771,7 @@
               {canWrite}
               {viewMode}
               onSetViewMode={(mode) => (viewMode = mode)}
+              onViewportMovingChange={setViewportMoving}
             />
           {:else if liveProject}
             <McdCanvas

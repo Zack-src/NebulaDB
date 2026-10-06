@@ -133,6 +133,8 @@ export class CanvasEdgesState {
   private stableNodes: CanvasNode[] = [];
   private geometryKey = "";
   private overlay = new Map<string, OverlayEntry>();
+  private overlayBase: RefEdgeType[] | null = null;
+  private overlayResult: RefEdgeType[] = [];
 
   /**
    * `nodes` by geometry alone: same array reference until some node's
@@ -314,7 +316,11 @@ export class CanvasEdgesState {
    * The cheap pass — see the class comment. Reuses the previous edge object
    * for any ref whose highlight flags didn't change (same trick as the node
    * merge), so a hover over one table doesn't hand the flow a fresh object for
-   * the other few thousand edges too.
+   * the other few thousand edges too. And when no ref's flags changed at all
+   * (the pointer crossing a column that carries no relation, which is most of
+   * them), the previous *array* is returned: a new one, even holding the same
+   * edges, makes the flow rebuild its connection lookup and re-validate every
+   * edge and every table.
    */
   readonly edges = $derived.by((): RefEdgeType[] => {
     const baseEdges = this.baseEdges;
@@ -327,6 +333,7 @@ export class CanvasEdgesState {
 
     const previous = this.overlay;
     const nextOverlay = new Map<string, OverlayEntry>();
+    let changed = baseEdges !== this.overlayBase;
     const result = baseEdges.map((edge) => {
       const flags = computeHighlightFlags(
         edge,
@@ -358,9 +365,13 @@ export class CanvasEdgesState {
         },
       };
       nextOverlay.set(edge.id, { flags, base: edge.data, edge: merged });
+      changed = true;
       return merged;
     });
+    if (!changed) return this.overlayResult;
     this.overlay = nextOverlay;
+    this.overlayBase = baseEdges;
+    this.overlayResult = result;
     return result;
   });
 

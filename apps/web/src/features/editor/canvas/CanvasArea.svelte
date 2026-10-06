@@ -17,6 +17,15 @@
   const edgeTypes = { ref: RefEdge } as unknown as EdgeTypes;
 
   const GRID_SIZE = 10;
+  /**
+   * With "highlight every relation" on, the marching-dash animation runs on
+   * every relation at once, and a dash offset is not something the compositor
+   * can animate: each frame restyles and repaints every one of them on the
+   * main thread, for as long as the canvas stays open. Past this many
+   * relations they are drawn as still dashes instead (`canvas-links-static`);
+   * the ones under the pointer or selected keep moving.
+   */
+  const ANIMATED_LINKS_LIMIT = 40;
   /** Past this many pixels, a right-button press was a pan, not a click asking for the context menu. */
   const CONTEXT_MENU_DRAG_TOLERANCE_PX = 3;
 </script>
@@ -128,6 +137,8 @@
     canWrite: boolean;
     viewMode: EditorViewMode;
     onSetViewMode: (mode: EditorViewMode) => void;
+    /** True from the first frame of a pan/zoom to its last — see `ProjectEditor`'s hover gate. */
+    onViewportMovingChange: (moving: boolean) => void;
   } = $props();
 
   const flow = useSvelteFlow<CanvasNode, RefEdgeType>();
@@ -143,7 +154,7 @@
    * re-selecting the tool each time. `null` is the ordinary selection mode.
    */
   let activeInsertTool = $state<CanvasInsertTool | null>(null);
-  const { initialViewport, onMoveEnd } = useSharedViewport(
+  const { initialViewport, onMoveEnd: saveViewportOnMoveEnd } = useSharedViewport(
     untrack(() => props.projectId),
     untrack(() => props.viewportUserId),
   );
@@ -157,7 +168,16 @@
   // One O(edges) pass for the whole canvas, replacing a per-table walk of the
   // edge array — see `highlightedFields.ts`.
   const highlightedFields = $derived(time("canvas.highlightedFields", () => computeHighlightedFields(props.edges)));
-  const zoom = $derived(quantizeZoom(flowStore.viewport.zoom));
+  // A `$state` written from an effect, not a `$derived` of the viewport: a
+  // derived is re-validated — and everything downstream of it marked "maybe
+  // dirty" and walked — on every viewport change, so each frame of a pan
+  // visited every relation's dozen zoom-dependent expressions just to find
+  // the step hadn't moved. A state only notifies when the value changes.
+  // eslint-disable-next-line svelte/prefer-writable-derived -- a derived is exactly what this replaces, see above
+  let zoom = $state(quantizeZoom(untrack(() => flowStore.viewport.zoom)));
+  $effect.pre(() => {
+    zoom = quantizeZoom(flowStore.viewport.zoom);
+  });
 
   setCanvasContext({
     get highlightedFields() {
@@ -260,7 +280,13 @@
   const onMoveStart = (event: MouseEvent | TouchEvent | null) => {
     if (event) userMovedViewport = true;
     closeContextMenu();
+    props.onViewportMovingChange(true);
   };
+  const onMoveEnd: typeof saveViewportOnMoveEnd = (event, viewport) => {
+    props.onViewportMovingChange(false);
+    saveViewportOnMoveEnd(event, viewport);
+  };
+  $effect(() => () => props.onViewportMovingChange(false));
   useEscapeKey(
     () => Boolean(contextMenu),
     closeContextMenu,
@@ -369,7 +395,7 @@
 <div
   class={`min-w-0 flex-1 bg-bg-canvas ${activeInsertTool ? "canvas-placing" : ""} ${
     props.highlightLinks ? "canvas-links-highlighted" : ""
-  }`}
+  } ${props.highlightLinks && props.edges.length > ANIMATED_LINKS_LIMIT ? "canvas-links-static" : ""}`}
   onmousemove={cursor.onMouseMove}
   onmouseleave={cursor.onMouseLeave}
   onpointerdown={(event) => {

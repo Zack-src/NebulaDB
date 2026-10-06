@@ -14,18 +14,20 @@ export function createCollaboratorCursor(
   awareness: () => Awareness | null,
   screenToFlowPosition: (point: { x: number; y: number }) => CanvasPoint,
 ) {
-  let pending: CanvasPoint | null = null;
+  // Screen coordinates: converting to flow space reads the canvas's bounding
+  // rect, so it is done once per frame with the broadcast, not once per event.
+  let pending: { x: number; y: number } | null = null;
   let frame: number | null = null;
 
   return {
     onMouseMove(event: MouseEvent) {
       const current = awareness();
       if (!current) return;
-      pending = screenToFlowPosition({ x: event.clientX, y: event.clientY });
+      pending = { x: event.clientX, y: event.clientY };
       if (frame !== null) return;
       frame = requestAnimationFrame(() => {
         frame = null;
-        if (pending) current.setLocalStateField("cursor", pending);
+        if (pending) current.setLocalStateField("cursor", screenToFlowPosition(pending));
       });
     },
     onMouseLeave() {

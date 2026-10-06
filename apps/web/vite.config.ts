@@ -36,6 +36,9 @@ export default defineConfig({
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
   build: {
+    // `BENCH_READABLE=1` keeps function names intact so a CPU profile taken by
+    // `scripts/bench-web.mjs --profile` names the real culprit instead of `a`.
+    minify: process.env.BENCH_READABLE ? false : undefined,
     rollupOptions: {
       output: {
         // Svelte Flow and CodeMirror are both large, independently-cacheable

@@ -52,16 +52,27 @@ export const ROW_TYPE_CLASS =
   "ml-1 shrink-0 whitespace-nowrap rounded-full border border-border bg-bg px-1.5 py-px font-mono " +
   "text-[calc(10.5px_*_var(--canvas-font-scale))] text-text-muted";
 
-/** Drag handle for column reordering — hidden until the row is hovered, same as the edit/comment buttons on the other end of the row. */
+/**
+ * Drag handle for column reordering — hidden until the row is hovered, same as the edit/comment buttons on the other end of the row.
+ *
+ * Hidden with `invisible`, not `opacity-0`: an element at opacity 0 is still
+ * painted, through an effect node of its own in the browser's property tree.
+ * Several of those per column row, on every row of every table, is what the
+ * compositor spent most of a pan or zoom frame sorting through (see
+ * `docs/perf/canvas-perf-2026-10-06.md`). An invisible element paints nothing.
+ */
 export const ROW_DRAG_HANDLE_CLASS =
-  "flex h-5 w-3.5 shrink-0 cursor-grab items-center justify-center rounded-sm text-text-muted opacity-0 " +
-  "transition-opacity duration-100 hover:text-text group-hover:opacity-100 active:cursor-grabbing";
+  "invisible flex h-5 w-3.5 shrink-0 cursor-grab items-center justify-center rounded-sm text-text-muted " +
+  "hover:text-text group-hover:visible active:cursor-grabbing";
 /** Drop-position indicator while another column is dragged over this row — an inset line so it doesn't shift row height/layout. */
 export function rowDropIndicatorClass(side: "before" | "after" | null): string {
   if (side === "before") return "shadow-[inset_0_2px_0_0_var(--color-primary)]";
   if (side === "after") return "shadow-[inset_0_-2px_0_0_var(--color-primary)]";
   return "";
 }
+
+/** Same box as `ROW_DRAG_HANDLE_CLASS`, for a row whose grip isn't mounted — see `TableNodeRow`'s `actionsVisible`. */
+export const ROW_DRAG_HANDLE_PLACEHOLDER_CLASS = "h-5 w-3.5 shrink-0";
 
 export const ROW_BADGES_CLASS = "ml-0.5 flex items-center gap-[3px]";
 export const KW_BADGE_CLASS = "flex h-4 w-4 shrink-0 items-center justify-center leading-none";
@@ -73,8 +84,8 @@ export const KW_BADGE_COLOR: Record<"unique" | "notNull" | "increment" | "note",
 };
 
 export const ROW_ACTIONS_CLASS =
-  "ml-auto flex items-center gap-[3px] opacity-0 transition-opacity duration-100 " +
-  "group-hover:opacity-100 has-[.has-comments]:opacity-100 has-[.has-open-popover]:opacity-100";
+  "invisible ml-auto flex items-center gap-[3px] " +
+  "group-hover:visible has-[.has-comments]:visible has-[.has-open-popover]:visible";
 export const ROW_ACTION_BTN_CLASS =
   "flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm px-1 text-text-muted transition-colors duration-100 " +
   "hover:bg-surface-hover hover:text-text [&.has-comments]:bg-surface-hover [&.has-comments]:text-text " +
@@ -90,11 +101,16 @@ export const ROW_ACTION_BTN_CLASS =
 // lay out while a table is skipped — set to this app's own existing
 // "unmeasured table" guess (`DEFAULT_TABLE_WIDTH`/`HEIGHT` in
 // `refGeometry.ts`) so an edge terminating at a currently-skipped table still
-// gets a reasonable box instead of collapsing to zero.
+// gets a reasonable box instead of collapsing to zero. `auto` makes that guess
+// a first-time fallback only: once a table has been rendered, its real size is
+// what it keeps while skipped. Without it every table snapped back to 220×120
+// on leaving the viewport and to its real size on coming back — a resize the
+// flow answers by re-measuring the table and all its handles, which is what a
+// zoom-out spent a third of its script time doing.
 export const TABLE_NODE_CLASS =
   "min-w-[190px] overflow-hidden rounded-sm [transition:box-shadow_0.12s_ease,border-color_0.12s_ease] " +
   "border border-border bg-surface text-[calc(12.5px_*_var(--canvas-font-scale))] shadow-sm " +
-  "[content-visibility:auto] [contain-intrinsic-size:220px_120px]";
+  "[content-visibility:auto] [contain-intrinsic-size:auto_220px_auto_120px]";
 /**
  * Selection recolours the table's own 1px border to primary instead of adding
  * a second, thicker ring around it — an `outline` used to do that job, but at
@@ -121,8 +137,8 @@ export const TABLE_NAME_INPUT_CLASS =
   "focus:border-white/70 focus:outline-hidden focus:ring-[3px] focus:ring-white/20";
 
 export const HEADER_ACTIONS_CLASS =
-  "ml-auto flex items-center gap-[3px] opacity-0 transition-opacity duration-100 " +
-  "group-hover:opacity-100 group-[.is-selected]:opacity-100 has-[.has-comments]:opacity-100 has-[.has-open-popover]:opacity-100";
+  "invisible ml-auto flex items-center gap-[3px] " +
+  "group-hover:visible group-[.is-selected]:visible has-[.has-comments]:visible has-[.has-open-popover]:visible";
 /** Inherits the header's computed colour rather than pinning white, for the same reason. */
 export const HEADER_BTN_CLASS =
   "flex h-6 w-6 shrink-0 items-center justify-center rounded-sm text-current opacity-70 transition-[opacity,background-color] duration-100 " +
@@ -134,6 +150,9 @@ export const TABLE_ADD_BTN_CLASS =
   "flex w-full items-center gap-[5px] rounded-sm border border-dashed border-transparent px-2 py-[3px] " +
   "text-[calc(11px_*_var(--canvas-font-scale))] font-medium text-text-muted transition-colors duration-100 " +
   "hover:border-border hover:bg-surface-hover hover:text-text";
+
+/** Same box as one `ROW_ACTION_BTN_CLASS` button, for a row whose edit button isn't mounted. */
+export const ROW_ACTION_PLACEHOLDER_CLASS = "h-5 w-5 shrink-0";
 
 export const POPOVER_HEADER_CLASS = "flex items-center justify-between border-b border-border pb-2";
 export const POPOVER_TITLE_CLASS = "text-[11px] font-bold uppercase tracking-[0.06em] text-text-secondary";

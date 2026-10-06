@@ -94,10 +94,12 @@ export function createLassoSelection(options: {
     /** One frame's worth of work: repaint the rectangle, re-run the hit-test, commit only if the selected set actually changed. */
     const runFrame = () => {
       rafId = null;
-      paintRect();
-
+      // Reads before the write: converting a point reads the pane's rect, and
+      // doing that after `paintRect` restyled the rectangle forced a layout
+      // on every frame of the drag.
       const p0 = options.screenToFlowPosition({ x: startX, y: startY });
       const p1 = options.screenToFlowPosition({ x: lastX, y: lastY });
+      paintRect();
       const minX = Math.min(p0.x, p1.x);
       const maxX = Math.max(p0.x, p1.x);
       const minY = Math.min(p0.y, p1.y);

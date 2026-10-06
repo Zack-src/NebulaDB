@@ -25,6 +25,7 @@
     fieldRefs,
     onUpdateRefAction,
     triggerClassName,
+    open = $bindable(false),
   }: {
     field: Field;
     comments: Comment[];
@@ -36,10 +37,11 @@
     fieldRefs?: FieldRefInfo[];
     onUpdateRefAction?: (refId: string, patch: { onDelete?: RefAction; onUpdate?: RefAction }) => void;
     triggerClassName: string;
+    /** Bindable so the row can keep this mounted while the panel is open, wherever the pointer has gone. */
+    open?: boolean;
   } = $props();
 
   const { t } = useTranslation();
-  let open = $state(false);
   let triggerRect = $state.raw<DOMRect | null>(null);
   let trigger: HTMLButtonElement | undefined = $state();
 

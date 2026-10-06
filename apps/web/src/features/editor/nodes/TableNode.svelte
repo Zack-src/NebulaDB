@@ -66,7 +66,7 @@
     (next) => data.onRename(next ?? ""),
   );
 
-  let isTableHovered = false;
+  let isTableHovered = $state(false);
   // Nothing should keep this table "hovered" after it disappears mid-hover (a
   // delete, a view switch).
   $effect(() => () => {
@@ -204,10 +204,10 @@
       if (!data.readOnly && !data.structureLocked) renaming = true;
     }}
   >
-    <Handle type="target" position={Position.Left} id="header-left-target" style="opacity: 0" />
-    <Handle type="source" position={Position.Left} id="header-left-source" style="opacity: 0" />
-    <Handle type="target" position={Position.Right} id="header-right-target" style="opacity: 0" />
-    <Handle type="source" position={Position.Right} id="header-right-source" style="opacity: 0" />
+    <Handle type="target" position={Position.Left} id="header-left-target" />
+    <Handle type="source" position={Position.Left} id="header-left-source" />
+    <Handle type="target" position={Position.Right} id="header-right-target" />
+    <Handle type="source" position={Position.Right} id="header-right-source" />
     {#if renaming}
       <input
         use:autofocus
@@ -389,6 +389,7 @@
         selectedEdgeFieldIds.has(field.id) || (data.selectedFieldId === field.id && data.refFieldIds.has(field.id)),
       )}
       isSelected={data.selectedFieldId === field.id}
+      actionsVisible={isTableHovered}
       currentUser={data.currentUser}
       onSelect={() => handleSelectField(field.id)}
       onHoverStart={() => data.onFieldHoverChange(field.id)}

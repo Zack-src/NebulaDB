@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { join } from "node:path";
-import { login, startE2eEnvironment } from "./harness.js";
+import { clickRevealedOnHover, login, startE2eEnvironment } from "./harness.js";
 
 /**
  * Mentions in comments, with two accounts: typing `@` offers the people who
@@ -98,7 +98,7 @@ test(
       await page.goto(`${env.baseUrl}/project/${projectId}`);
       const node = page.locator(".svelte-flow__node").filter({ hasText: "customers" });
       await node.waitFor();
-      await node.getByRole("button", { name: "Commentaires de la table" }).click();
+      await clickRevealedOnHover(node, node.getByRole("button", { name: "Commentaires de la table" }));
       const box = page.getByPlaceholder("Ajouter un commentaire");
       await box.click();
       await box.pressSequentially("Peux-tu relire ça @e2e-");

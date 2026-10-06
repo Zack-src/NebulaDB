@@ -92,7 +92,10 @@
         hide();
         return;
       }
-      const targetUnderCursor = document.elementFromPoint(event.clientX, event.clientY);
+      // The event's own target, not `document.elementFromPoint`: that is a
+      // synchronous hit test (and a forced layout if anything is pending) on
+      // every mouse move over the canvas, where every row carries a tooltip.
+      const targetUnderCursor = event.target as Node | null;
       if (targetUnderCursor && !target.contains(targetUnderCursor)) {
         hide();
       }

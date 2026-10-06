@@ -21,9 +21,11 @@
     KW_BADGE_COLOR,
     ROW_ACTIONS_CLASS,
     ROW_ACTION_BTN_CLASS,
+    ROW_ACTION_PLACEHOLDER_CLASS,
     ROW_BADGES_CLASS,
     ROW_CLASS,
     ROW_DRAG_HANDLE_CLASS,
+    ROW_DRAG_HANDLE_PLACEHOLDER_CLASS,
     ROW_NAME_CLASS,
     ROW_NAME_INPUT_CLASS,
     ROW_TYPE_CLASS,
@@ -42,6 +44,7 @@
     isForeignKey,
     isLinked,
     isSelected,
+    actionsVisible,
     currentUser,
     onSelect,
     onHoverStart,
@@ -60,6 +63,14 @@
     isForeignKey: boolean;
     isLinked: boolean;
     isSelected: boolean;
+    /**
+     * Whether the pointer is over this row's table. The reorder grip and the
+     * edit button only show then, so they only *exist* then: a 100-table
+     * schema at full detail otherwise keeps 1 600 hidden buttons — elements,
+     * icons, listeners and the reactive bookkeeping behind each — for the
+     * eight the pointer can reach.
+     */
+    actionsVisible: boolean;
     currentUser: string;
     onSelect: () => void;
     onHoverStart: () => void;
@@ -84,6 +95,7 @@
   // nothing's being dragged over it right now. Local, not lifted: only the
   // row currently under the pointer needs to know.
   let dropSide = $state<"before" | "after" | null>(null);
+  let editorOpen = $state(false);
 
   // Guards the teardown below: only a row that is itself the currently
   // hovered one should clear the shared hover state when it disappears (a
@@ -132,7 +144,13 @@
 >
   <Handle type="target" position={Position.Left} id={`${field.id}-left-target`} class="table-row-handle" />
   <Handle type="source" position={Position.Left} id={`${field.id}-left-source`} class="table-row-handle" />
-  {#if onReorderField}
+  {#if !onReorderField}
+    <!-- Read-only: no grip, and no room kept for one. -->
+  {:else if !actionsVisible}
+    <!-- Holds the grip's place, so the table isn't a few pixels narrower
+         whenever the pointer is elsewhere. -->
+    <span class={ROW_DRAG_HANDLE_PLACEHOLDER_CLASS}></span>
+  {:else}
     <span
       class={`nodrag ${ROW_DRAG_HANDLE_CLASS}`}
       draggable="true"
@@ -211,18 +229,23 @@
   </div>
 
   <div class={ROW_ACTIONS_CLASS}>
-    <FieldEditorPopover
-      {field}
-      {comments}
-      {currentUser}
-      {onUpdateField}
-      {onDeleteField}
-      {onAddComment}
-      {onDeleteComment}
-      {fieldRefs}
-      {onUpdateRefAction}
-      triggerClassName={ROW_ACTION_BTN_CLASS}
-    />
+    {#if actionsVisible || editorOpen}
+      <FieldEditorPopover
+        bind:open={editorOpen}
+        {field}
+        {comments}
+        {currentUser}
+        {onUpdateField}
+        {onDeleteField}
+        {onAddComment}
+        {onDeleteComment}
+        {fieldRefs}
+        {onUpdateRefAction}
+        triggerClassName={ROW_ACTION_BTN_CLASS}
+      />
+    {:else}
+      <span class={ROW_ACTION_PLACEHOLDER_CLASS}></span>
+    {/if}
     <!-- Only an indicator once a comment actually exists — not a standing
          invitation to add one on every column. Adding the first comment
          happens from the field's own properties (above) instead. -->
