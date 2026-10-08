@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { readProjectFromDoc, writeProjectToDoc, type Project } from "@nebuladb/shared";
+import { parseProjectBundle, readProjectFromDoc, writeProjectToDoc, type Project } from "@nebuladb/shared";
 import {
   applyVisualMetadata,
   mergeProjectIntoExisting,
@@ -14,6 +14,7 @@ import { assertLocksAllow } from "../../tableLocks/access.js";
 import { reconstructDocAtRevision } from "../../../realtime/persistence.js";
 import { getRoom } from "../../../realtime/roomRegistry.js";
 import { readProjectReadOnly } from "../../../realtime/readOnlyProject.js";
+import { applyBundle, buildBundle } from "../bundle.js";
 import { parseBaselineProject, parseSource, requireSqlDialect, sendSql } from "../dbmlSource.js";
 
 function loadRevisionProject(projectId: string, revisionId: string, name: string): Project {
@@ -68,6 +69,38 @@ export function registerProjectImportExportRoutes(app: FastifyInstance): void {
     // where it is.
     auditUser(user, "project.export", { type: "project", id }, "dbml", req);
     return reply.type("text/plain").send(projectToDbml(current, { includeVisualMetadata: visual === "1" }));
+  });
+
+  // Everything about the project in one file — schema and layout, but also the
+  // locks, seeds and generator settings that DBML cannot carry. See `ProjectBundle`.
+  app.get("/api/projects/:id/export/bundle", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const { user, project } = requireProjectAccess(req, id, "view");
+    const current = readProjectFromDoc(getRoom(id).doc, project.id, project.name);
+    auditUser(user, "project.export", { type: "project", id }, "bundle", req);
+    return reply.type("application/json").send(JSON.stringify(buildBundle(current), null, 2));
+  });
+
+  app.post("/api/projects/:id/import/bundle", { bodyLimit: 64 * 1024 * 1024 }, async (req) => {
+    const { id } = req.params as { id: string };
+    const { user, project } = requireProjectAccess(req, id, "edit");
+    const { source } = (req.body ?? {}) as { source?: unknown };
+    if (typeof source !== "string" || !source.trim()) throw new ApiError("SOURCE_REQUIRED");
+    let bundle;
+    try {
+      bundle = parseProjectBundle(source);
+    } catch (err) {
+      throw new ApiError("BUNDLE_INVALID", { message: err instanceof Error ? err.message : undefined });
+    }
+    const result = applyBundle(user, project, bundle);
+    auditUser(
+      user,
+      "project.import",
+      { type: "project", id },
+      `bundle: ${result.tables} table(s), ${result.locks} lock(s), ${result.seeds} seed(s)`,
+      req,
+    );
+    return { imported: true, ...result };
   });
 
   /**

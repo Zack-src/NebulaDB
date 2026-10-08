@@ -4,6 +4,7 @@ import { takeConnectionBudget, targetKey, type BudgetKind } from "../../connecti
 import { configForActor } from "../../connections/personalCredentials.js";
 import { pinConnectionTarget } from "../../connections/targetPinning.js";
 import type { DatabaseAdminDriver } from "./interface.js";
+import { BigQueryAdminDriver } from "./bigquery.js";
 import { MssqlAdminDriver } from "./mssql.js";
 import { MysqlAdminDriver } from "./mysql.js";
 import { OracleAdminDriver } from "./oracle.js";
@@ -35,6 +36,8 @@ export async function createAdminDriver(
       return new OracleAdminDriver(await pinConnectionTarget(config));
     case "sqlite":
       return new SqliteAdminDriver(config);
+    case "bigquery":
+      return new BigQueryAdminDriver(config);
     default:
       throw new ApiError("CONNECTION_ENGINE_INVALID");
   }

@@ -62,14 +62,16 @@ function typesMatch(a: string, b: string): boolean {
   // Dialect type aliases
   const aliases: Record<string, string[]> = {
     int: ["integer", "int4", "int"],
-    bigint: ["int8", "bigint"],
-    smallint: ["int2", "smallint"],
-    bool: ["boolean", "bool", "tinyint(1)"],
+    // BigQuery has one integer type: every integer column reads back as `int64`.
+    bigint: ["int8", "bigint", "int64"],
+    smallint: ["int2", "smallint", "int64"],
+    bool: ["boolean", "bool", "tinyint(1)", "bit"],
     text: ["varchar", "character varying", "text", "string", "nvarchar"],
     // Live introspection reports the bare `decimal` (no precision/scale), like `varchar` without a length.
     decimal: ["decimal", "numeric"],
     float: ["real", "float4", "float"],
-    double: ["double precision", "float8", "double"],
+    double: ["double precision", "float8", "double", "float64"],
+    binary: ["bytea", "blob", "binary", "varbinary", "bytes"],
     timestamp: ["timestamptz", "timestamp with time zone", "timestamp without time zone", "datetime"],
   };
 
@@ -82,12 +84,30 @@ function typesMatch(a: string, b: string): boolean {
   return false;
 }
 
+/**
+ * Is this default "the current date and time", in any engine's spelling
+ * (`GETDATE()`, `now()`, `CURRENT_TIMESTAMP`, BigQuery's `CURRENT_DATETIME()`…)?
+ * The generator writes the spelling of the target engine, so the database
+ * reads back another one than the schema wrote: they are the same default.
+ */
+export function isCurrentTimeExpression(text: string): boolean {
+  const bare = text
+    .trim()
+    .replace(/^\((.*)\)$/, "$1")
+    .trim()
+    .toLowerCase();
+  return /^(getdate|sysdatetime|now|current_timestamp|current_datetime|localtimestamp|sysdate|systimestamp)(\(\))?$/.test(
+    bare,
+  );
+}
+
 function normalizeDefault(d: string | undefined): string {
   if (!d) return "";
   let val = d.trim();
   // Strip quotes or casts like 'val'::text or ("val")
   if (val.startsWith("'") && val.endsWith("'")) val = val.slice(1, -1);
   if (val.startsWith("(") && val.endsWith(")")) val = val.slice(1, -1);
+  if (isCurrentTimeExpression(val)) return "now";
   return val.toLowerCase();
 }
 

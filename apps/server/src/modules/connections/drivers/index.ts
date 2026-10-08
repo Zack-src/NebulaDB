@@ -9,6 +9,7 @@ import { MysqlDriver } from "./mysql.js";
 import { SqliteDriver } from "./sqlite.js";
 import { MssqlDriver } from "./mssql.js";
 import { OracleDriver } from "./oracle.js";
+import { BigQueryDriver } from "./bigquery.js";
 
 export * from "./interface.js";
 export * from "./postgres.js";
@@ -16,6 +17,7 @@ export * from "./mysql.js";
 export * from "./sqlite.js";
 export * from "./mssql.js";
 export * from "./oracle.js";
+export * from "./bigquery.js";
 
 /**
  * The single place every route creates a driver from — `pinConnectionTarget`
@@ -56,6 +58,9 @@ async function openDriver(config: DatabaseConnectionConfig): Promise<DatabaseDri
       return new OracleDriver(await pinConnectionTarget(config));
     case "sqlite":
       return new SqliteDriver(config);
+    case "bigquery":
+      // No host of the user's to resolve or pin: the client only ever talks to Google's own API.
+      return new BigQueryDriver(config);
     default:
       throw new ApiError("CONNECTION_ENGINE_INVALID");
   }

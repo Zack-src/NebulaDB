@@ -46,7 +46,8 @@ function oracleStringHost(connectString: string): string | undefined {
  * sits inside an opaque connection string, the host is checked but not pinned.
  */
 export async function pinConnectionTarget(config: DatabaseConnectionConfig): Promise<DriverConnectionConfig> {
-  if (config.engine === "sqlite") return config;
+  // A SQLite file and a BigQuery dataset have no network address of their own to check.
+  if (config.engine === "sqlite" || config.engine === "bigquery") return config;
 
   if (!config.connectionString) {
     const pinned = await resolveAllowedHost(config.host);

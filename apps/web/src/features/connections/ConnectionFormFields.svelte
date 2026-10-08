@@ -7,9 +7,10 @@
     sqlite: 0,
     mssql: 1433,
     oracle: 1521,
+    bigquery: 0,
   };
 
-  const ENGINES: DatabaseEngine[] = ["postgres", "mysql", "mssql", "oracle", "sqlite"];
+  const ENGINES: DatabaseEngine[] = ["postgres", "mysql", "mssql", "oracle", "sqlite", "bigquery"];
 </script>
 
 <script lang="ts">
@@ -85,6 +86,11 @@
     engine = nextEngine;
     port = DEFAULT_PORTS[nextEngine] || 5432;
     if (nextEngine === "sqlite" && !filePath) filePath = "./data/database.sqlite";
+    // A BigQuery connection is a project and a dataset: there is no address to give as a URI, and no port.
+    if (nextEngine === "bigquery") {
+      useUri = false;
+      port = 0;
+    }
   }
 
   const uriPlaceholder = $derived(
@@ -130,6 +136,28 @@
     <label class={LABEL}>{t("connections.filePath")}</label>
     <input class={INPUT_CLASS} bind:value={filePath} placeholder="./data/app.sqlite" />
     <Hint>{t("connections.sqliteHint")}</Hint>
+  </div>
+{:else if engine === "bigquery"}
+  <!-- The same fields as any other engine underneath: the project is the host, the dataset the database, the key the password. -->
+  <div class="space-y-3">
+    <div class="grid grid-cols-2 gap-2">
+      <div>
+        <!-- svelte-ignore a11y_label_has_associated_control -->
+        <label class={LABEL}>{t("connections.bigqueryProject")}</label>
+        <input class={INPUT_CLASS} bind:value={host} placeholder="my-gcp-project" />
+      </div>
+      <div>
+        <!-- svelte-ignore a11y_label_has_associated_control -->
+        <label class={LABEL}>{t("connections.bigqueryDataset")}</label>
+        <input class={INPUT_CLASS} bind:value={database} placeholder="my_dataset" />
+      </div>
+    </div>
+    {#if showCredentials}<div>
+        <!-- svelte-ignore a11y_label_has_associated_control -->
+        <label class={LABEL}>{t("connections.bigqueryKey")}</label>
+        <input class={INPUT_CLASS} type="password" bind:value={password} placeholder={passwordPlaceholder} />
+        <Hint>{t("connections.bigqueryHint")}</Hint>
+      </div>{/if}
   </div>
 {:else}
   <div class="flex items-center gap-2 pt-1">

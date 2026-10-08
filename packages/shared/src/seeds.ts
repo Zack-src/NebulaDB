@@ -396,7 +396,7 @@ export function seedInsertOrder(
 export function normalizeSeedValue(value: string | null, field: Field, engine: DatabaseEngine): string | null {
   if (value === null || typeFamily(field.type) !== "boolean") return value;
   const truthy = BOOLEAN_TRUE.has(value.trim().toLowerCase());
-  return engine === "postgres" ? (truthy ? "true" : "false") : truthy ? "1" : "0";
+  return engine === "postgres" || engine === "bigquery" ? (truthy ? "true" : "false") : truthy ? "1" : "0";
 }
 
 /** What a deployment plan would do with one table's seed. */

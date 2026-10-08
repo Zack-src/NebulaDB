@@ -1,8 +1,9 @@
-import type { Field, MigrationResolutionMap, Ref, RefAction, Table } from "@nebuladb/shared";
+import type { Field, MigrationResolutionMap, Project, Ref, RefAction, Table } from "@nebuladb/shared";
 import { translateType } from "@nebuladb/shared";
+import { isCurrentTimeExpression } from "./migrationDiff.js";
 import type { MigrationDiff, MigrationFieldChange, MigrationTableChange } from "./migrationDiff.js";
 
-export type MigrationDialect = "postgres" | "mysql" | "sqlite" | "mssql" | "oracle";
+export type MigrationDialect = "postgres" | "mysql" | "sqlite" | "mssql" | "oracle" | "bigquery";
 
 /**
  * The type actually emitted into SQL for `field` on `dialect`: the engine-
@@ -23,12 +24,33 @@ export function effectiveType(
   const resKey = `column:${tableName.toLowerCase()}.${field.name.toLowerCase()}`;
   if (resolutions[resKey]?.strategy === "KEEP_AS_WRITTEN") return field.type || "text";
   // `decimal(18.6)` is a typo for `decimal(18,6)` that no engine accepts — repair it rather than emit invalid SQL.
-  const type = (field.type || "text").replace(/((d+).(d+))/, "($1,$2)");
+  const type = (field.type || "text").replace(/\((\d+)\.(\d+)\)/, "($1,$2)");
   return translateType(type, dialect).type;
 }
 
+/**
+ * The part of a schema `dialect` can hold — what is compared with a database
+ * of that engine and deployed to it. BigQuery refuses a foreign key from a
+ * table to itself (`user.superior_id` to `user.id`), and has neither unique
+ * constraints nor indexes: left in, those would fail a deployment or show as
+ * still to do in every plan.
+ */
+export function schemaForDialect(project: Project, dialect: MigrationDialect): Project {
+  if (dialect !== "bigquery") return project;
+  return {
+    ...project,
+    refs: project.refs.filter((ref) => ref.from.tableId !== ref.to.tableId),
+    tables: project.tables.map((table) => ({
+      ...table,
+      fields: table.fields.map((field) => (field.unique ? { ...field, unique: false } : field)),
+      // The primary key is the one "index" BigQuery knows, as a constraint of the table.
+      indexes: table.indexes.filter((index) => index.pk),
+    })),
+  };
+}
+
 export function q(ident: string, dialect: MigrationDialect): string {
-  if (dialect === "mysql") return `\`${ident.replace(/`/g, "``")}\``;
+  if (dialect === "mysql" || dialect === "bigquery") return `\`${ident.replace(/`/g, "``")}\``;
   if (dialect === "mssql") return `[${ident.replace(/]/g, "]]")}]`;
   return `"${ident.replace(/"/g, '""')}"`;
 }
@@ -88,6 +110,8 @@ const ORACLE_ON_DELETE: Partial<Record<RefAction, string>> = {
  */
 export function refActionClause(ref: Ref | undefined, dialect: MigrationDialect): string {
   if (!ref) return "";
+  // A BigQuery foreign key is a declaration the engine never enforces: there is nothing for it to do on delete or update.
+  if (dialect === "bigquery") return "";
 
   if (dialect === "oracle") {
     const action = ref.onDelete && ORACLE_ON_DELETE[ref.onDelete];
@@ -146,13 +170,89 @@ export function sqlDefaultLiteral(field: Field, legacyGuess: (trimmed: string) =
   }
 }
 
-export function formatColumnDef(field: Field, dialect: MigrationDialect, typeOverride?: string): string {
-  const parts = [q(field.name, dialect), typeOverride ?? (field.type || "text")];
+/** The spellings of "the current date and time" each engine takes as a default, lower case. */
+const NOW_NATIVE: Record<MigrationDialect, string[]> = {
+  postgres: ["now()", "current_timestamp", "localtimestamp"],
+  mysql: ["now()", "current_timestamp", "current_timestamp()", "localtimestamp"],
+  sqlite: ["current_timestamp"],
+  mssql: ["getdate()", "sysdatetime()", "current_timestamp"],
+  oracle: ["current_timestamp", "localtimestamp", "sysdate", "systimestamp"],
+  bigquery: [],
+};
+
+/**
+ * A default written for one engine, as `dialect` takes it. Only "now" is
+ * translated — `GETDATE()` deployed on PostgreSQL, `now()` on SQL Server —
+ * and only where the spelling written is not valid already; anything else is
+ * returned as it is. BigQuery wants the function of the column's own type.
+ */
+export function translateDefaultExpression(literal: string, dialect: MigrationDialect, targetType: string): string {
+  const bare = literal
+    .trim()
+    .replace(/^\((.*)\)$/, "$1")
+    .trim()
+    .toLowerCase();
+  if (!isCurrentTimeExpression(literal)) return literal;
+  if (dialect === "bigquery") {
+    const type = targetType.trim().toLowerCase();
+    if (type.startsWith("timestamp")) return "CURRENT_TIMESTAMP()";
+    if (type === "date") return "CURRENT_DATE()";
+    if (type === "time") return "CURRENT_TIME()";
+    return "CURRENT_DATETIME()";
+  }
+  if (NOW_NATIVE[dialect].includes(bare)) return literal;
+  return dialect === "mssql" ? "GETDATE()" : "CURRENT_TIMESTAMP";
+}
+
+/**
+ * What makes the database number an `increment` column itself — the clauses
+ * the SQL export (`projectToSql`) writes, so a deployed table and an exported
+ * one agree. SQLite has nothing to add: its `INTEGER PRIMARY KEY` already
+ * numbers the rows. BigQuery has no such column at all.
+ */
+const IDENTITY_CLAUSE: Partial<Record<MigrationDialect, string>> = {
+  postgres: "GENERATED BY DEFAULT AS IDENTITY",
+  mysql: "AUTO_INCREMENT",
+  mssql: "IDENTITY(1,1)",
+  oracle: "GENERATED BY DEFAULT AS IDENTITY",
+};
+
+/**
+ * `identity` is for a column of a table being created: there the `increment`
+ * setting becomes the dialect's identity clause. Adding or altering a column
+ * leaves it out — no engine turns an existing column into an identity with a
+ * plain `ALTER`, and MySQL refuses `AUTO_INCREMENT` on a column that is no key.
+ */
+export function formatColumnDef(
+  field: Field,
+  dialect: MigrationDialect,
+  typeOverride?: string,
+  options: { identity?: boolean } = {},
+): string {
+  const type = typeOverride ?? (field.type || "text");
+  const defaultOf = (legacyGuess: (trimmed: string) => string) => {
+    const literal = sqlDefaultLiteral(field, legacyGuess);
+    return literal === null ? null : translateDefaultExpression(literal, dialect, type);
+  };
+  if (dialect === "bigquery") {
+    // GoogleSQL: the type, the default, then NOT NULL. Keys are table constraints (never enforced) and UNIQUE does not exist.
+    const parts = [q(field.name, dialect), type];
+    const literal = defaultOf((d) => (isSqlExpression(d) ? d : quoteSqlString(d)));
+    if (literal !== null) parts.push(`DEFAULT ${literal}`);
+    if (field.notNull || field.pk) parts.push("NOT NULL");
+    return parts.join(" ");
+  }
+  const identity = options.identity && field.increment ? IDENTITY_CLAUSE[dialect] : undefined;
+  const parts = [q(field.name, dialect), type];
+  // MySQL wants AUTO_INCREMENT after the key it rests on; the others take their clause right after the type.
+  if (identity && dialect !== "mysql") parts.push(identity);
   if (field.pk) parts.push("PRIMARY KEY");
   if (field.notNull && !field.pk) parts.push("NOT NULL");
   if (field.unique && !field.pk) parts.push("UNIQUE");
-  const literal = sqlDefaultLiteral(field, (d) => (isSqlExpression(d) ? d : quoteSqlString(d)));
+  // An identity column takes its value from the engine: a default on top is refused.
+  const literal = identity ? null : defaultOf((d) => (isSqlExpression(d) ? d : quoteSqlString(d)));
   if (literal !== null) parts.push(`DEFAULT ${literal}`);
+  if (identity && dialect === "mysql") parts.push(identity);
   return parts.join(" ");
 }
 
@@ -162,7 +262,7 @@ export function generateCreateTable(
   resolutions: MigrationResolutionMap = {},
 ): string {
   const colDefs = table.fields.map(
-    (f) => `  ${formatColumnDef(f, dialect, effectiveType(f, dialect, table.name, resolutions))}`,
+    (f) => `  ${formatColumnDef(f, dialect, effectiveType(f, dialect, table.name, resolutions), { identity: true })}`,
   );
 
   // Composite PK
@@ -172,7 +272,11 @@ export function generateCreateTable(
       .map((id) => table.fields.find((f) => f.id === id)?.name ?? id)
       .map((n) => q(n, dialect))
       .join(", ");
-    colDefs.push(`  PRIMARY KEY (${pkCols})`);
+    colDefs.push(`  PRIMARY KEY (${pkCols})${dialect === "bigquery" ? " NOT ENFORCED" : ""}`);
+  } else if (dialect === "bigquery") {
+    // Elsewhere the key sits on its column; BigQuery only knows it as a constraint of the table, kept for the optimizer and never checked.
+    const pkCols = table.fields.filter((f) => f.pk).map((f) => q(f.name, dialect));
+    if (pkCols.length > 0) colDefs.push(`  PRIMARY KEY (${pkCols.join(", ")}) NOT ENFORCED`);
   }
 
   return `CREATE TABLE ${q(table.name, dialect)} (\n${colDefs.join(",\n")}\n);`;
@@ -262,6 +366,9 @@ function typeChangeStatement(
       return `ALTER TABLE ${t} ALTER COLUMN ${c} ${targetType}${after.notNull ? " NOT NULL" : ""};`;
     case "oracle":
       return `ALTER TABLE ${t} MODIFY (${c} ${targetType});`;
+    case "bigquery":
+      // Only widening changes are accepted (INT64 to NUMERIC, a longer STRING…); BigQuery refuses the others itself.
+      return `ALTER TABLE ${t} ALTER COLUMN ${c} SET DATA TYPE ${targetType};`;
     default:
       return `-- SQLite type altered for ${t}.${c} -> ${targetType}`;
   }
@@ -287,6 +394,11 @@ function nullabilityChangeStatement(
   if (dialect === "oracle") {
     return `ALTER TABLE ${t} MODIFY (${c} ${after.notNull ? "NOT NULL" : "NULL"});`;
   }
+  if (dialect === "bigquery") {
+    return after.notNull
+      ? `-- BigQuery cannot make an existing column NOT NULL: ${t}.${c} stays nullable`
+      : `ALTER TABLE ${t} ALTER COLUMN ${c} DROP NOT NULL;`;
+  }
   return undefined;
 }
 
@@ -298,8 +410,9 @@ function defaultChangeStatement(
 ): string | undefined {
   const t = q(table, dialect);
   const c = q(col, dialect);
-  const literal = sqlDefaultLiteral(after, alterDefaultLiteral);
-  if (dialect === "postgres") {
+  const written = sqlDefaultLiteral(after, alterDefaultLiteral);
+  const literal = written === null ? null : translateDefaultExpression(written, dialect, after.type || "text");
+  if (dialect === "postgres" || dialect === "bigquery") {
     return literal !== null
       ? `ALTER TABLE ${t} ALTER COLUMN ${c} SET DEFAULT ${literal};`
       : `ALTER TABLE ${t} ALTER COLUMN ${c} DROP DEFAULT;`;
@@ -385,7 +498,7 @@ export function generateMigrationSql(
   } else if (dialect === "sqlite" || dialect === "mssql") {
     statements.push("BEGIN TRANSACTION;");
   }
-  // Oracle DDL autocommits and has no explicit transaction-start statement.
+  // Oracle DDL autocommits and has no explicit transaction-start statement. BigQuery runs no DDL inside a transaction.
 
   // 1. Dropped Tables
   for (const table of diff.tables.filter((t) => t.status === "dropped")) {
@@ -412,6 +525,8 @@ export function generateMigrationSql(
     // Dropped Indexes
     for (const idx of table.droppedIndexes) {
       const idxName = idx.name || `idx_${table.name}_${idx.fieldIds.join("_")}`;
+      // BigQuery has no secondary index to drop or create.
+      if (dialect === "bigquery") continue;
       if (dialect === "mysql" || dialect === "mssql") {
         statements.push(`DROP INDEX ${q(idxName, dialect)} ON ${q(table.name, dialect)};`);
       } else if (dialect === "oracle") {
@@ -432,7 +547,11 @@ export function generateMigrationSql(
         idx.name ||
         `idx_${table.name}_${idx.fieldIds.map((id) => targetTable.fields.find((f) => f.id === id)?.name ?? id).join("_")}`;
       const unique = idx.unique ? "UNIQUE " : "";
-      if (dialect === "mssql" || dialect === "oracle") {
+      if (dialect === "bigquery") {
+        statements.push(
+          `-- BigQuery has no secondary indexes: ${q(idxName, dialect)} on ${q(table.name, dialect)} is not created`,
+        );
+      } else if (dialect === "mssql" || dialect === "oracle") {
         // Neither supports "IF NOT EXISTS" on CREATE INDEX.
         statements.push(`CREATE ${unique}INDEX ${q(idxName, dialect)} ON ${q(table.name, dialect)} (${colNames});`);
       } else {
@@ -446,7 +565,7 @@ export function generateMigrationSql(
   // 4. Dropped Refs (Foreign Keys) — see `fkFallbackName` for why the fallback isn't just `fk_<fromTable>_<fromField>`.
   for (const ref of diff.refs.filter((r) => r.status === "dropped")) {
     const fkName = ref.name || fkFallbackName(ref.fromTable, ref.fromField, ref.toTable);
-    if (dialect === "postgres" || dialect === "mssql") {
+    if (dialect === "postgres" || dialect === "mssql" || dialect === "bigquery") {
       statements.push(`ALTER TABLE ${q(ref.fromTable, dialect)} DROP CONSTRAINT IF EXISTS ${q(fkName, dialect)};`);
     } else if (dialect === "mysql") {
       statements.push(`ALTER TABLE ${q(ref.fromTable, dialect)} DROP FOREIGN KEY ${q(fkName, dialect)};`);
@@ -458,15 +577,20 @@ export function generateMigrationSql(
   // 5. Added Refs (Foreign Keys)
   for (const ref of diff.refs.filter((r) => r.status === "added")) {
     const fkName = ref.name || fkFallbackName(ref.fromTable, ref.fromField, ref.toTable);
-    if (dialect !== "sqlite") {
+    if (dialect === "bigquery" && ref.fromTable === ref.toTable) {
+      // See `schemaForDialect`: a deployment never gets here with one, a hand-made diff may.
       statements.push(
-        `ALTER TABLE ${q(ref.fromTable, dialect)} ADD CONSTRAINT ${q(fkName, dialect)} FOREIGN KEY (${q(ref.fromField, dialect)}) REFERENCES ${q(ref.toTable, dialect)} (${q(ref.toField, dialect)})${refActionClause(ref.after, dialect)};`,
+        `-- BigQuery refuses a foreign key from a table to itself: ${q(ref.fromTable, dialect)}.${q(ref.fromField, dialect)} is not declared`,
+      );
+    } else if (dialect !== "sqlite") {
+      statements.push(
+        `ALTER TABLE ${q(ref.fromTable, dialect)} ADD CONSTRAINT ${q(fkName, dialect)} FOREIGN KEY (${q(ref.fromField, dialect)}) REFERENCES ${q(ref.toTable, dialect)} (${q(ref.toField, dialect)})${refActionClause(ref.after, dialect)}${dialect === "bigquery" ? " NOT ENFORCED" : ""};`,
       );
     }
   }
 
   // Transaction commit
-  statements.push("COMMIT;");
+  if (dialect !== "bigquery") statements.push("COMMIT;");
 
   return statements.join("\n\n");
 }

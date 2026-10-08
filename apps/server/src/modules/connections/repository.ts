@@ -126,15 +126,19 @@ function rowToConfig(row: ConnectionRow, projectId: string): DatabaseConnectionC
 
 /**
  * A personal account replaces the connection's user and password, so there
- * have to be some to replace: not a SQLite file (no accounts), not a
- * connection string (the account is somewhere inside it).
+ * have to be some to replace: not a SQLite file (no accounts), not BigQuery
+ * (a service account key, not a user and a password), not a connection
+ * string (the account is somewhere inside it).
  */
 function assertAuthModeFits(
   mode: unknown,
   config: Pick<DatabaseConnectionConfig, "engine" | "connectionString">,
 ): void {
   if (mode !== "shared" && mode !== "personal") throw new ApiError("CONNECTION_AUTH_MODE_INVALID");
-  if (mode === "personal" && (config.engine === "sqlite" || Boolean(config.connectionString?.trim()))) {
+  if (
+    mode === "personal" &&
+    (config.engine === "sqlite" || config.engine === "bigquery" || Boolean(config.connectionString?.trim()))
+  ) {
     throw new ApiError("CONNECTION_AUTH_MODE_INVALID");
   }
 }

@@ -91,6 +91,7 @@
 
   function target(c: AdminConnectionSummary): string {
     if (c.engine === "sqlite") return c.filePath ?? "";
+    if (c.engine === "bigquery") return [c.host, c.database].filter(Boolean).join(".");
     if (c.connectionString) return c.connectionString;
     return `${c.host ?? ""}${c.port ? `:${c.port}` : ""}${c.database ? `/${c.database}` : ""}`;
   }

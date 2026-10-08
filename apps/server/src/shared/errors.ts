@@ -45,7 +45,7 @@ export const ERROR_CATALOG = {
     message: "you are the last active administrator — grant admin to someone else first",
   },
   INVITATION_INVALID: { status: 400, message: "this invitation is no longer valid" },
-  CONNECTION_ENGINE_INVALID: { status: 400, message: "engine must be one of postgres, mysql, mssql, oracle, sqlite" },
+  CONNECTION_ENGINE_INVALID: { status: 400, message: "engine must be one of postgres, mysql, mssql, oracle, sqlite, bigquery" },
   CONNECTION_AUTH_MODE_INVALID: {
     status: 400,
     message:
@@ -96,6 +96,7 @@ export const ERROR_CATALOG = {
       "a stage needs a name (at most 40 characters); colour, protection and production must be known values; " +
       "variables: name → identifier fragment (letters, digits, _ $ . -, 64 characters at most)",
   },
+  BUNDLE_INVALID: { status: 400, message: "not a valid NebulaDB project bundle" },
   SEED_INVALID: {
     status: 400,
     message: "a seed needs CSV content (at most 2 MB, 50 000 rows) and valid options: separator, header, mapping, mode",

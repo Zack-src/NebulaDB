@@ -191,14 +191,29 @@ export class MssqlDriver implements DatabaseDriver {
    * Inserts seed rows in one transaction, in batches, with bound parameters —
    * never values spliced into the SQL. All or nothing: a failing row rolls the
    * whole table back. Returns the number of rows inserted.
+   *
+   * Rows that carry the value of an identity column (a seed or a backup keeps
+   * its ids so that the foreign keys of the other tables still match) are
+   * inserted under `IDENTITY_INSERT`, which SQL Server requires for them. The
+   * option is set inside each parameterized batch: it ends with the batch, so
+   * nothing stays on the pooled connection, even when the insert fails.
    */
   async insertRows(table: string, columns: string[], rows: RowValue[][]): Promise<number> {
     if (rows.length === 0) return 0;
     const pool = await this.ready;
+    const target = q(table, "mssql");
+    const identity = await pool
+      .request()
+      .input("table", sql.NVarChar(sql.MAX), target)
+      .query<{ name: string }>("SELECT name FROM sys.identity_columns WHERE object_id = OBJECT_ID(@table)");
+    const identityColumns = new Set(identity.recordset.map((row) => row.name.toLowerCase()));
+    const keepsIdentity = columns.some((column) => identityColumns.has(column.toLowerCase()));
     const transaction = new sql.Transaction(pool);
     // SQL Server caps a statement at 2100 parameters and a VALUES list at 1000 rows.
     const batch = Math.max(1, Math.min(1000, Math.floor(2000 / columns.length)));
-    const head = `INSERT INTO ${q(table, "mssql")} (${columns.map((c) => q(c, "mssql")).join(", ")}) VALUES `;
+    const insert = `INSERT INTO ${target} (${columns.map((c) => q(c, "mssql")).join(", ")}) VALUES `;
+    const head = keepsIdentity ? `SET IDENTITY_INSERT ${target} ON; ${insert}` : insert;
+    const tail = keepsIdentity ? `; SET IDENTITY_INSERT ${target} OFF` : "";
     await transaction.begin();
     try {
       for (let i = 0; i < rows.length; i += batch) {
@@ -221,7 +236,7 @@ export class MssqlDriver implements DatabaseDriver {
                 .join(", ")})`,
           )
           .join(", ");
-        await request.query(head + values);
+        await request.query(head + values + tail);
       }
       await transaction.commit();
       return rows.length;

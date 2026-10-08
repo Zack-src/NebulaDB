@@ -25,7 +25,7 @@ const RESERVED = new Set(
  */
 export function quoteIdentifier(name: string, engine: DatabaseEngine): string {
   if (PLAIN_IDENTIFIER.test(name) && !RESERVED.has(name)) return name;
-  if (engine === "mysql") return `\`${name.replace(/`/g, "``")}\``;
+  if (engine === "mysql" || engine === "bigquery") return `\`${name.replace(/`/g, "``")}\``;
   if (engine === "mssql") return `[${name.replace(/]/g, "]]")}]`;
   return `"${name.replace(/"/g, '""')}"`;
 }

@@ -67,7 +67,7 @@
   let readOnly = $state(Boolean(initial?.readOnly));
   let authMode = $state<ConnectionAuthMode>(initial?.authMode ?? "personal");
   /** A personal account replaces a user and a password: there are none in a SQLite file or a connection string. */
-  const personalPossible = $derived(engine !== "sqlite" && !useUri);
+  const personalPossible = $derived(engine !== "sqlite" && engine !== "bigquery" && !useUri);
   // Who has already given an account: what tells an administrator the switch will not lock everyone out.
   const holders = useAsyncResource(() => (initial ? fetchCredentialHolders(initial.id) : Promise.resolve([])));
   // "inherit" is this form's word for "no policy of its own" (`null` on the wire).

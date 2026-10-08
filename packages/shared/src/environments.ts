@@ -58,7 +58,7 @@ export interface EnvironmentStageInput {
 export interface PipelineConnection {
   id: string;
   name: string;
-  engine: "postgres" | "mysql" | "sqlite" | "mssql" | "oracle";
+  engine: "postgres" | "mysql" | "sqlite" | "mssql" | "oracle" | "bigquery";
   /** The last deployment or rollback this project ran against it; `null`: never. */
   lastDeployment: { at: string; by: string | null; success: boolean; rollback: boolean } | null;
   /** The last thing done here was a successful deployment of the schema as it is now. */

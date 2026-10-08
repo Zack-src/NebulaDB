@@ -352,7 +352,29 @@ are in the repository for this.
       SQL Server / Oracle ones) and run them — first thing, before the items below.
 - [ ] **Seed insertion (`insertRows`) and the deployment risk probes (`queryScalar`, one
       aggregate query per dialect)** on PostgreSQL, MySQL, SQL Server, Oracle: verified end to
-      end on SQLite only, as text elsewhere. _Phase 32 / 33._
+      end on SQLite only, as text elsewhere — except `insertRows` on SQL Server
+      (`drivers/mssql.test.ts`, seeds that give the ids of identity columns). _Phase 32 / 33._
+- [ ] **BigQuery engine** (`drivers/bigquery.ts`, dialect `bigquery` in `migrationGenerator.ts`,
+      `typeMapping.ts`): connection, plan, deployment, seeds, schema read-back — run for real
+      on 2026-10-08 (a 126-table schema, 207 relations, 98 seeds, then a second plan that
+      found nothing left). Rollback is generated and unit-tested, never executed there. The
+      live test (`drivers/bigquery.test.ts`) needs a real dataset —
+      `NEBULADB_TEST_BIGQUERY_PROJECT` / `_DATASET` / `_KEY` — there is no local BigQuery to
+      start.
+      The admin console has its driver (`dbAdmin/drivers/bigquery.ts`: explorer, SQL console,
+      health, a backup of two tables — all run for real). Still open: a restore is untried; a
+      deployment is one job per statement (slow on a large schema: group the constraints of a
+      table, or send one script); arrays and structs read back as `ARRAY<…>` / `STRUCT` are not
+      modelled; the dataset's region is read, never chosen. PostgreSQL / MySQL as targets of a
+      schema written for SQL Server are better (`(max)`, `bit`, `GETDATE()`) but a full
+      deployment there is still unverified (MySQL renumbers an id 0 unless
+      `NO_AUTO_VALUE_ON_ZERO`; PostgreSQL's sequence is not moved past seeded ids).
+- [ ] **Auto-increment columns of a created table** (`formatColumnDef`, `identity`): the
+      clause was deployed and checked on SQL Server only (126 tables, their seeds, then
+      inserts without id); PostgreSQL, MySQL and Oracle are verified as text against the SQL
+      export. Still open: a column **added** to an existing table gets no identity, the live
+      diff does not compare `increment` (an existing table whose column is a plain integer is
+      not reported), and PostgreSQL's sequence is not moved past seeded ids.
 - [ ] **The watch and the drift check on a real engine:** the strict fingerprint depends on
       `TYPE_ALIASES`; a type spelling it does not know reads as a false "changed". _Phase 34._
 - [ ] **The database users panel** (Admin → Connexions → a database → Utilisateurs): its
@@ -1170,8 +1192,10 @@ here: each gets its own security review before it is closed.**
     needs the drivers to expose one.
   - No preview of what will be lost ("21 rows created since"); no restore into a **new**
     database or of the **structure** (deploy first); no cross-engine restore.
-  - Identity / `GENERATED ALWAYS` columns (SQL Server needs `IDENTITY_INSERT`) and sequences
-    (PostgreSQL `serial` is not moved past the restored ids) — not handled.
+  - `GENERATED ALWAYS` columns and sequences (PostgreSQL `serial` is not moved past the
+    restored ids) — not handled. SQL Server identity columns are: `MssqlDriver.insertRows`
+    sets `IDENTITY_INSERT` when the rows carry the identity column (`drivers/mssql.test.ts`,
+    live, needs `docker-compose.mssql.yml`).
   - A self-referencing table is inserted in primary-key order, which may not satisfy its own
     foreign key.
   - Table locks are not consulted (they freeze the schema and the seed, not rows — decide);

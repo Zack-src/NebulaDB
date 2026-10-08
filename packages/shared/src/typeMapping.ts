@@ -2,8 +2,7 @@ import type { DatabaseEngine } from "./schema.js";
 
 /**
  * Cross-engine column type translation: maps a recognized type spelling to its native equivalent
- * on each of the five engines, so a schema written for one engine can be deployed or exported to
- * another.
+ * on each engine, so a schema written for one engine can be deployed or exported to another.
  *
  * Conservative: a type is translated only when unusable on `targetEngine`, never to force a
  * preferred spelling (`varchar(255)` on SQL Server is left alone). Same-engine round trips stay
@@ -43,6 +42,8 @@ const FAMILIES: Record<string, FamilyDef> = {
       mysql: ["int", "integer"],
       mssql: ["int", "integer"],
       sqlite: ["int", "integer"],
+      // BigQuery reads INT / INTEGER / BIGINT / SMALLINT as aliases of INT64.
+      bigquery: ["int", "integer"],
     },
     render: {
       postgres: () => "integer",
@@ -50,39 +51,62 @@ const FAMILIES: Record<string, FamilyDef> = {
       mssql: () => "int",
       sqlite: () => "integer",
       oracle: () => "number(10)",
+      bigquery: () => "INT64",
     },
   },
   bigint: {
-    recognizedAs: ["bigint", "int8"],
-    nativeOn: { postgres: ["bigint", "int8"], mysql: ["bigint"], mssql: ["bigint"], sqlite: ["bigint"] },
+    recognizedAs: ["bigint", "int8", "int64"],
+    nativeOn: {
+      postgres: ["bigint", "int8"],
+      mysql: ["bigint"],
+      mssql: ["bigint"],
+      sqlite: ["bigint"],
+      bigquery: ["bigint", "int64"],
+    },
     render: {
       postgres: () => "bigint",
       mysql: () => "bigint",
       mssql: () => "bigint",
       sqlite: () => "integer",
       oracle: () => "number(19)",
+      bigquery: () => "INT64",
     },
   },
   smallint: {
     recognizedAs: ["smallint", "int2"],
-    nativeOn: { postgres: ["smallint", "int2"], mysql: ["smallint"], mssql: ["smallint"], sqlite: ["smallint"] },
+    nativeOn: {
+      postgres: ["smallint", "int2"],
+      mysql: ["smallint"],
+      mssql: ["smallint"],
+      sqlite: ["smallint"],
+      bigquery: ["smallint"],
+    },
     render: {
       postgres: () => "smallint",
       mysql: () => "smallint",
       mssql: () => "smallint",
       sqlite: () => "integer",
       oracle: () => "number(5)",
+      bigquery: () => "INT64",
     },
   },
   boolean: {
-    recognizedAs: ["boolean", "bool"],
-    nativeOn: { postgres: ["boolean", "bool"], sqlite: ["boolean", "bool"] },
+    // `bit` is how SQL Server spells a boolean; PostgreSQL, MySQL and SQLite accept the word too.
+    recognizedAs: ["boolean", "bool", "bit"],
+    nativeOn: {
+      postgres: ["boolean", "bool", "bit"],
+      mysql: ["bit"],
+      mssql: ["bit"],
+      sqlite: ["boolean", "bool", "bit"],
+      bigquery: ["boolean", "bool"],
+    },
     render: {
       postgres: () => "boolean",
       mysql: () => "tinyint(1)",
       mssql: () => "bit",
       sqlite: () => "boolean",
       oracle: () => "number(1)",
+      bigquery: () => "BOOL",
     },
   },
   float: {
@@ -99,26 +123,34 @@ const FAMILIES: Record<string, FamilyDef> = {
       mssql: () => "float",
       sqlite: () => "real",
       oracle: () => "binary_float",
+      bigquery: () => "FLOAT64",
     },
   },
   double: {
-    recognizedAs: ["double", "double precision", "float8"],
-    nativeOn: { postgres: ["double", "double precision", "float8"], mysql: ["double"], sqlite: ["double"] },
+    recognizedAs: ["double", "double precision", "float8", "float64"],
+    nativeOn: {
+      postgres: ["double", "double precision", "float8"],
+      mysql: ["double"],
+      sqlite: ["double"],
+      bigquery: ["float64"],
+    },
     render: {
       postgres: () => "double precision",
       mysql: () => "double",
       mssql: () => "float",
       sqlite: () => "real",
       oracle: () => "binary_double",
+      bigquery: () => "FLOAT64",
     },
   },
   decimal: {
-    recognizedAs: ["decimal", "numeric"],
+    recognizedAs: ["decimal", "numeric", "bignumeric", "bigdecimal"],
     nativeOn: {
       postgres: ["decimal", "numeric"],
       mysql: ["decimal", "numeric"],
       mssql: ["decimal", "numeric"],
       sqlite: ["decimal", "numeric"],
+      bigquery: ["decimal", "numeric", "bignumeric", "bigdecimal"],
     },
     render: {
       postgres: (a) => `numeric${argsSuffix(a)}`,
@@ -126,6 +158,7 @@ const FAMILIES: Record<string, FamilyDef> = {
       mssql: (a) => `decimal${argsSuffix(a)}`,
       sqlite: () => "numeric",
       oracle: (a) => `number${argsSuffix(a)}`,
+      bigquery: (a) => `NUMERIC${argsSuffix(a)}`,
     },
   },
   varchar: {
@@ -142,6 +175,7 @@ const FAMILIES: Record<string, FamilyDef> = {
       mssql: (a) => `varchar${argsSuffix(a, "255")}`,
       sqlite: () => "text",
       oracle: (a) => `varchar2${argsSuffix(a, "255")}`,
+      bigquery: (a) => `STRING${argsSuffix(a)}`,
     },
   },
   char: {
@@ -158,17 +192,24 @@ const FAMILIES: Record<string, FamilyDef> = {
       mssql: (a) => `char${argsSuffix(a)}`,
       sqlite: () => "text",
       oracle: (a) => `char${argsSuffix(a)}`,
+      bigquery: (a) => `STRING${argsSuffix(a)}`,
     },
   },
   text: {
     recognizedAs: ["text", "string", "clob", "ntext"],
-    nativeOn: { postgres: ["text", "string"], mysql: ["text", "string"], sqlite: ["text", "string"] },
+    nativeOn: {
+      postgres: ["text", "string"],
+      mysql: ["text", "string"],
+      sqlite: ["text", "string"],
+      bigquery: ["string"],
+    },
     render: {
       postgres: () => "text",
       mysql: () => "text",
       mssql: () => "nvarchar(max)",
       sqlite: () => "text",
       oracle: () => "clob",
+      bigquery: () => "STRING",
     },
   },
   uuid: {
@@ -180,17 +221,19 @@ const FAMILIES: Record<string, FamilyDef> = {
       mssql: () => "uniqueidentifier",
       sqlite: () => "text",
       oracle: () => "raw(16)",
+      bigquery: () => "STRING",
     },
   },
   json: {
     recognizedAs: ["json", "jsonb"],
-    nativeOn: { postgres: ["json", "jsonb"], mysql: ["json"] },
+    nativeOn: { postgres: ["json", "jsonb"], mysql: ["json"], bigquery: ["json"] },
     render: {
       postgres: () => "jsonb",
       mysql: () => "json",
       mssql: () => "nvarchar(max)",
       sqlite: () => "text",
       oracle: () => "clob",
+      bigquery: () => "JSON",
     },
   },
   timestamp: {
@@ -207,6 +250,8 @@ const FAMILIES: Record<string, FamilyDef> = {
       mysql: ["timestamp", "datetime"],
       sqlite: ["timestamp", "datetime"],
       oracle: ["timestamp"],
+      // TIMESTAMP is a point in time, DATETIME a date and a time without a zone: both exist, neither is forced.
+      bigquery: ["timestamp", "datetime"],
     },
     render: {
       postgres: () => "timestamp",
@@ -214,6 +259,7 @@ const FAMILIES: Record<string, FamilyDef> = {
       mssql: () => "datetime2",
       sqlite: () => "datetime",
       oracle: () => "timestamp",
+      bigquery: () => "DATETIME",
     },
   },
   date: {
@@ -224,6 +270,7 @@ const FAMILIES: Record<string, FamilyDef> = {
       mssql: ["date"],
       sqlite: ["date"],
       oracle: ["date"],
+      bigquery: ["date"],
     },
     render: {
       postgres: () => "date",
@@ -231,26 +278,29 @@ const FAMILIES: Record<string, FamilyDef> = {
       mssql: () => "date",
       sqlite: () => "date",
       oracle: () => "date",
+      bigquery: () => "DATE",
     },
   },
   time: {
     recognizedAs: ["time"],
-    nativeOn: { postgres: ["time"], mysql: ["time"], mssql: ["time"] },
+    nativeOn: { postgres: ["time"], mysql: ["time"], mssql: ["time"], bigquery: ["time"] },
     render: {
       postgres: () => "time",
       mysql: () => "time",
       mssql: () => "time",
       sqlite: () => "text",
       oracle: () => "date",
+      bigquery: () => "TIME",
     },
   },
   binary: {
-    recognizedAs: ["blob", "bytea", "binary", "varbinary", "image", "raw"],
+    recognizedAs: ["blob", "bytea", "binary", "varbinary", "image", "raw", "bytes"],
     nativeOn: {
       postgres: ["bytea"],
       mysql: ["blob", "binary", "varbinary"],
       mssql: ["binary", "varbinary", "image"],
       sqlite: ["blob"],
+      bigquery: ["bytes"],
     },
     render: {
       postgres: () => "bytea",
@@ -258,6 +308,7 @@ const FAMILIES: Record<string, FamilyDef> = {
       mssql: () => "varbinary(max)",
       sqlite: () => "blob",
       oracle: () => "blob",
+      bigquery: () => "BYTES",
     },
   },
 };
@@ -294,6 +345,29 @@ export function translateType(raw: string, targetEngine: DatabaseEngine): TypeTr
   const family = findFamily(parsed.name);
   if (!family) return { original, type: original, changed: false };
 
+  // `varchar(max)` / `varbinary(max)` is SQL Server's unbounded form: elsewhere it is the engine's long text or binary type.
+  if (parsed.args.includes("max") && targetEngine !== "mssql") {
+    const unbounded = family === FAMILIES.binary ? FAMILIES.binary : FAMILIES.text;
+    const type =
+      targetEngine === "mysql"
+        ? unbounded === FAMILIES.binary
+          ? "longblob"
+          : "longtext"
+        : unbounded.render[targetEngine]([]);
+    return { original, type, changed: true };
+  }
+
+  if (targetEngine === "bigquery") {
+    // A zoned timestamp is BigQuery's TIMESTAMP, not the zoneless DATETIME the family renders.
+    if (parsed.name === "timestamptz" || parsed.name === "timestamp with time zone") {
+      return { original, type: "TIMESTAMP", changed: true };
+    }
+    // NUMERIC stops at 38 digits, 9 of them after the point; past that it takes BIGNUMERIC.
+    if (family === FAMILIES.decimal && (Number(parsed.args[0]) > 38 || Number(parsed.args[1]) > 9)) {
+      return { original, type: `BIGNUMERIC${argsSuffix(parsed.args)}`, changed: !parsed.name.startsWith("big") };
+    }
+  }
+
   if (family.nativeOn[targetEngine]?.includes(parsed.name)) {
     return { original, type: original, changed: false };
   }
@@ -301,4 +375,35 @@ export function translateType(raw: string, targetEngine: DatabaseEngine): TypeTr
   return { original, type: family.render[targetEngine](parsed.args), changed: true };
 }
 
-export const SUPPORTED_ENGINES: DatabaseEngine[] = ["postgres", "mysql", "sqlite", "mssql", "oracle"];
+export const SUPPORTED_ENGINES: DatabaseEngine[] = ["postgres", "mysql", "sqlite", "mssql", "oracle", "bigquery"];
+
+/** The families that are one thing once the engine is taken out of the picture: BigQuery has a single integer, a single float, a single text. */
+const NEUTRAL_FAMILY: Record<string, string> = {
+  int: "integer",
+  bigint: "integer",
+  smallint: "integer",
+  float: "float",
+  double: "float",
+  varchar: "text",
+  char: "text",
+  text: "text",
+  timestamp: "datetime",
+};
+
+/**
+ * A type as no engine in particular spells it, to compare two databases of
+ * different engines: `varchar(255)` on SQL Server and `STRING(255)` on
+ * BigQuery are both `text(255)`, `int` and `INT64` both `integer`. Coarser
+ * than any one engine on purpose — what it erases (`int` against `bigint`,
+ * `datetime2` against `timestamp`) is exactly what cannot be kept from one
+ * engine to another. A type it does not know is returned in lower case.
+ */
+export function neutralType(raw: string): string {
+  const parsed = normalizeTypeString(raw ?? "");
+  if (!parsed) return (raw ?? "").trim().toLowerCase();
+  const name = Object.keys(FAMILIES).find((key) => FAMILIES[key].recognizedAs.includes(parsed.name));
+  if (!name) return (raw ?? "").trim().toLowerCase().replace(/s+/g, "");
+  const family = NEUTRAL_FAMILY[name] ?? name;
+  const sized = (family === "text" || family === "decimal") && parsed.args.length > 0 && !parsed.args.includes("max");
+  return sized ? `${family}(${parsed.args.join(",")})` : family;
+}

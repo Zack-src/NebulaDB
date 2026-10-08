@@ -135,6 +135,23 @@ export function exportDbml(projectId: string, includeVisualMetadata = false): Pr
   });
 }
 
+/** Everything about the project as one JSON file: schema, layout, locks, seeds, generator settings. */
+export function exportBundle(projectId: string): Promise<string> {
+  return requestText(`${projectPath(projectId)}/export/bundle`);
+}
+
+export interface BundleImportSummary {
+  tables: number;
+  locks: number;
+  seeds: number;
+  generators: number;
+  skipped: string[];
+}
+
+export function importBundle(projectId: string, source: string): Promise<BundleImportSummary> {
+  return request<BundleImportSummary>(`${projectPath(projectId)}/import/bundle`, { method: "POST", body: { source } });
+}
+
 export function exportSql(projectId: string, dialect: SqlDialect): Promise<string> {
   return requestText(`${projectPath(projectId)}/export/sql`, { query: { dialect } });
 }

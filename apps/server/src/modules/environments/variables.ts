@@ -1,5 +1,5 @@
-import { resolveVariables, type VariableValues } from "@nebuladb/dbml-engine";
-import type { Project } from "@nebuladb/shared";
+import { resolveVariables, schemaForDialect, type VariableValues } from "@nebuladb/dbml-engine";
+import type { DatabaseEngine, Project } from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { ApiError } from "../../shared/errors.js";
 
@@ -17,13 +17,17 @@ export function stageVariables(environmentId: string | null | undefined): Variab
  * database, when the schema uses a variable the stage does not define, or
  * when the stage's values leave a table without a name or give two tables
  * the same one: deploying a half-resolved name would create `{{prefix}}orders`.
+ * What the connection's engine cannot hold at all is left out (`schemaForDialect`).
  */
-export function schemaForConnection(project: Project, connection: { environmentId?: string | null }): Project {
+export function schemaForConnection(
+  project: Project,
+  connection: { environmentId?: string | null; engine?: DatabaseEngine },
+): Project {
   const resolved = resolveVariables(project, stageVariables(connection.environmentId));
   if (resolved.missing.length + resolved.unnamed.length + resolved.collisions.length > 0) {
     throw new ApiError("VARIABLES_UNRESOLVED", {
       details: { missing: resolved.missing, unnamed: resolved.unnamed, collisions: resolved.collisions },
     });
   }
-  return resolved.project;
+  return connection.engine ? schemaForDialect(resolved.project, connection.engine) : resolved.project;
 }

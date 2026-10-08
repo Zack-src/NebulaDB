@@ -68,10 +68,10 @@ export function stripSqlNoise(sql: string, engine: DatabaseEngine): string {
       const end = sql.indexOf("*/", i + 2);
       i = end === -1 ? n : end + 2;
       out += " ";
-    } else if (ch === "'" || ch === '"' || (ch === "`" && engine === "mysql")) {
+    } else if (ch === "'" || ch === '"' || (ch === "`" && (engine === "mysql" || engine === "bigquery"))) {
       i++;
       while (i < n) {
-        if (sql[i] === "\\" && engine === "mysql") i += 2;
+        if (sql[i] === "\\" && (engine === "mysql" || engine === "bigquery")) i += 2;
         else if (sql[i] === ch && sql[i + 1] === ch) i += 2;
         else if (sql[i] === ch) break;
         else i++;

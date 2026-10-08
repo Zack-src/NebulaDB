@@ -1,7 +1,7 @@
 <script lang="ts" module>
   import type { DatabaseEngine } from "@nebuladb/shared";
 
-  const ENGINES: DatabaseEngine[] = ["postgres", "mysql", "mssql", "sqlite", "oracle"];
+  const ENGINES: DatabaseEngine[] = ["postgres", "mysql", "mssql", "sqlite", "oracle", "bigquery"];
 
   interface TypeChange {
     key: string;

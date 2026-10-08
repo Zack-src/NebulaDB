@@ -111,6 +111,7 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   CONNECTION_AUTH_MODE_INVALID: "errors.connectionAuthModeInvalid",
   DEPLOYMENT_BLOCKED_BY_RISK: "errors.deploymentBlockedByRisk",
   SEED_INVALID: "errors.seedInvalid",
+  BUNDLE_INVALID: "errors.bundleInvalid",
   GENERATOR_INVALID: "errors.generatorInvalid",
   ACTIVITY_QUERY_INVALID: "errors.activityQueryInvalid",
   MONITORING_INVALID: "errors.monitoringInvalid",

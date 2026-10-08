@@ -162,3 +162,38 @@ test("primary-key columns are implicitly NOT NULL: no nullability change, no red
   ]);
   assert.equal(diffTargetAgainstLive(live, target).hasChanges, false);
 });
+
+test("a schema deployed on BigQuery reads back as itself: its type names and its current-time default are no change", () => {
+  const target = makeProject("model", [
+    {
+      name: "events",
+      fields: [
+        { name: "id", type: "int", pk: true },
+        { name: "label", type: "varchar(255)" },
+        { name: "body", type: "varchar(max)" },
+        { name: "amount", type: "decimal(18,6)" },
+        { name: "done", type: "bit" },
+        { name: "at", type: "datetime2", default: "GETDATE()" },
+        { name: "big", type: "bigint" },
+      ],
+    },
+  ]);
+  const live = makeProject("live", [
+    {
+      name: "events",
+      fields: [
+        { name: "id", type: "INT64", pk: true },
+        { name: "label", type: "STRING(255)" },
+        { name: "body", type: "STRING" },
+        { name: "amount", type: "NUMERIC(18,6)" },
+        { name: "done", type: "BOOL" },
+        { name: "at", type: "DATETIME", default: "CURRENT_DATETIME()" },
+        { name: "big", type: "INT64" },
+      ],
+    },
+  ]);
+  assert.equal(diffTargetAgainstLive(live, target).hasChanges, false);
+  // A real difference is still one.
+  live.tables[0].fields[1].type = "STRING(100)";
+  assert.equal(diffTargetAgainstLive(live, target).hasChanges, true);
+});

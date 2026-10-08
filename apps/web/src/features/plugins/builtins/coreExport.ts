@@ -1,5 +1,5 @@
 import type { Project } from "@nebuladb/shared";
-import { exportDbml, exportSql } from "@/services/projectsApi";
+import { exportBundle, exportDbml, exportSql } from "@/services/projectsApi";
 import {
   generateSqlite,
   generateTypeScript,
@@ -18,6 +18,14 @@ const contributions: Contribution[] = [
     extension: "dbml",
     description:
       "Format natif DBML — inclut aussi la mise en page complète (position/taille/couleur des tables, zones, notes, groupes, style des liens) pour une réimportation fidèle",
+  },
+  {
+    kind: "exporter",
+    id: "bundle",
+    label: "NebulaDB Bundle (JSON)",
+    extension: "nebula.json",
+    description:
+      "Export complet : schéma et mise en page, verrous de tables, données initiales (seeds), réglages du générateur, commentaires et palette — réimportable à l'identique",
   },
   {
     kind: "exporter",
@@ -109,6 +117,10 @@ const runners: Record<string, BuiltinRunner> = {
   "exporter:dbml": async (_input, ctx) => {
     const text = await exportDbml(ctx.projectId, true);
     return { text, extension: "dbml" };
+  },
+  "exporter:bundle": async (_input, ctx) => {
+    const text = await exportBundle(ctx.projectId);
+    return { text, extension: "nebula.json" };
   },
   "exporter:postgres": async (_input, ctx) => {
     const text = await exportSql(ctx.projectId, "postgres");

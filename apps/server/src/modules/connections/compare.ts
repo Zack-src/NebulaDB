@@ -1,5 +1,17 @@
-import { compareSchemas, resolveVariables, type SchemaComparisonEntry } from "@nebuladb/dbml-engine";
-import { readProjectFromDoc, type DatabaseConnectionConfig, type DatabaseEngine, type Project } from "@nebuladb/shared";
+import {
+  compareSchemas,
+  isCurrentTimeExpression,
+  resolveVariables,
+  schemaForDialect,
+  type SchemaComparisonEntry,
+} from "@nebuladb/dbml-engine";
+import {
+  neutralType,
+  readProjectFromDoc,
+  type DatabaseConnectionConfig,
+  type DatabaseEngine,
+  type Project,
+} from "@nebuladb/shared";
 import { getRoom } from "../../realtime/roomRegistry.js";
 import { ApiError } from "../../shared/errors.js";
 import { stageVariables } from "../environments/variables.js";
@@ -28,6 +40,48 @@ async function readStructure(connection: DatabaseConnectionConfig): Promise<Proj
     return await driver.introspectSchema();
   } finally {
     await driver.close().catch(() => {});
+  }
+}
+
+/**
+ * A structure as two different engines can both hold it: types without their
+ * engine's spelling, "now" for whatever each calls the current time, and —
+ * when one side is BigQuery — none of what BigQuery has no notion of. Without
+ * it, SQL Server against BigQuery is 100 % "different": `int` is not `INT64`.
+ */
+function acrossEngines<T extends Pick<Project, "tables" | "refs">>(structure: T, withBigQuery: boolean): T {
+  const held = withBigQuery ? schemaForDialect(structure as unknown as Project, "bigquery") : structure;
+  return {
+    ...structure,
+    refs: held.refs,
+    tables: held.tables.map((table) => ({
+      ...table,
+      fields: table.fields.map((field) => ({
+        ...field,
+        type: neutralType(field.type),
+        default: field.default && isCurrentTimeExpression(field.default) ? "now" : field.default,
+      })),
+    })),
+  };
+}
+
+/**
+ * Not every engine's catalogue is read with sizes (SQL Server gives `varchar`,
+ * BigQuery `STRING(255)`): a size only one side states cannot be compared, so
+ * it is dropped from the other — `text` against `text(255)` is no difference,
+ * `text(100)` against `text(255)` still is.
+ */
+function withoutOneSidedSizes<T extends Pick<Project, "tables" | "refs">>(a: T, b: T): void {
+  const base = (type: string) => type.replace(/\(.*\)$/, "");
+  const tables = new Map(b.tables.map((table) => [table.name.toLowerCase(), table]));
+  for (const table of a.tables) {
+    const other = new Map((tables.get(table.name.toLowerCase())?.fields ?? []).map((f) => [f.name.toLowerCase(), f]));
+    for (const field of table.fields) {
+      const twin = other.get(field.name.toLowerCase());
+      if (!twin || field.type === twin.type || base(field.type) !== base(twin.type)) continue;
+      if (field.type === base(field.type)) twin.type = field.type;
+      else if (twin.type === base(twin.type)) field.type = twin.type;
+    }
   }
 }
 
@@ -60,8 +114,8 @@ export async function compareConnections(
   const target = getProjectConnection(projectId, targetId);
   if (!source || !target) throw new ApiError("CONNECTION_NOT_FOUND");
 
-  const sourceStructure = await readStructure(source);
-  const targetStructure = await readStructure(target);
+  let sourceStructure = await readStructure(source);
+  let targetStructure = await readStructure(target);
   // "In the schema" under either stage's names: the two sides may spell `{{variables}}` differently.
   const written = readProjectFromDoc(getRoom(projectId).doc, projectId, projectName);
   const schema = {
@@ -70,10 +124,18 @@ export async function compareConnections(
     ),
     refs: [],
   };
+  let model: Pick<Project, "tables" | "refs"> = schema;
+  if (source.engine !== target.engine) {
+    const withBigQuery = source.engine === "bigquery" || target.engine === "bigquery";
+    sourceStructure = acrossEngines(sourceStructure, withBigQuery);
+    targetStructure = acrossEngines(targetStructure, withBigQuery);
+    model = acrossEngines(schema, withBigQuery);
+    withoutOneSidedSizes(sourceStructure, targetStructure);
+  }
   return {
     comparedAt: new Date().toISOString(),
     source: side(source),
     target: side(target),
-    tables: compareSchemas(sourceStructure, targetStructure, schema),
+    tables: compareSchemas(sourceStructure, targetStructure, model),
   };
 }

@@ -44,7 +44,7 @@ export function generateRollbackSql(
 
   if (dialect === "postgres") statements.push("BEGIN;");
   else if (dialect === "mysql") statements.push("START TRANSACTION;");
-  else statements.push("BEGIN TRANSACTION;");
+  else if (dialect !== "bigquery") statements.push("BEGIN TRANSACTION;");
 
   // 1. Tables that were added by the forward migration -> drop them back out.
   for (const table of diff.tables.filter((t) => t.status === "added" && t.after)) {
@@ -97,7 +97,7 @@ export function generateRollbackSql(
     // Shares `fkFallbackName` with `migrationGenerator.ts` — must match the name that
     // created this constraint, or the rollback's DROP/ADD CONSTRAINT targets one that never existed.
     const fkName = ref.name || fkFallbackName(ref.fromTable, ref.fromField, ref.toTable);
-    if (dialect === "postgres")
+    if (dialect === "postgres" || dialect === "bigquery")
       statements.push(`ALTER TABLE ${q(ref.fromTable, dialect)} DROP CONSTRAINT IF EXISTS ${q(fkName, dialect)};`);
     else if (dialect === "mysql")
       statements.push(`ALTER TABLE ${q(ref.fromTable, dialect)} DROP FOREIGN KEY ${q(fkName, dialect)};`);
@@ -108,11 +108,11 @@ export function generateRollbackSql(
     // Shares `fkFallbackName` with `migrationGenerator.ts` — must match the name that
     // created this constraint, or the rollback's DROP/ADD CONSTRAINT targets one that never existed.
     const fkName = ref.name || fkFallbackName(ref.fromTable, ref.fromField, ref.toTable);
-    const stmt = `ALTER TABLE ${q(ref.fromTable, dialect)} ADD CONSTRAINT ${q(fkName, dialect)} FOREIGN KEY (${q(ref.fromField, dialect)}) REFERENCES ${q(ref.toTable, dialect)} (${q(ref.toField, dialect)})${refActionClause(ref.before, dialect)};`;
-    if (dialect === "postgres" || dialect === "mysql") statements.push(stmt);
+    const stmt = `ALTER TABLE ${q(ref.fromTable, dialect)} ADD CONSTRAINT ${q(fkName, dialect)} FOREIGN KEY (${q(ref.fromField, dialect)}) REFERENCES ${q(ref.toTable, dialect)} (${q(ref.toField, dialect)})${refActionClause(ref.before, dialect)}${dialect === "bigquery" ? " NOT ENFORCED" : ""};`;
+    if (dialect === "postgres" || dialect === "mysql" || dialect === "bigquery") statements.push(stmt);
   }
 
-  statements.push("COMMIT;");
+  if (dialect !== "bigquery") statements.push("COMMIT;");
   return { sql: statements.join("\n\n"), irreversible };
 }
 

@@ -13,6 +13,13 @@ const contributions: Contribution[] = [
   },
   {
     kind: "importer",
+    id: "bundle",
+    label: "NebulaDB Bundle (JSON)",
+    fileExtensions: ["json"],
+    description: "Bundle complet : schéma, mise en page, verrous, seeds et réglages du générateur",
+  },
+  {
+    kind: "importer",
     id: "postgres",
     label: "PostgreSQL DDL",
     fileExtensions: ["sql"],
@@ -50,6 +57,9 @@ const contributions: Contribution[] = [
 
 const runners: Record<string, BuiltinRunner> = {
   "importer:dbml": (input) => ({ dbml: String(input ?? "") }),
+  // Not DBML: the bundle goes to its own server route (ImportDialog), which
+  // restores the parts DBML cannot carry.
+  "importer:bundle": (input) => ({ bundle: String(input ?? "") }),
   "importer:postgres": async (input) => {
     const res = await convertSqlToDbml(String(input ?? ""), "postgres");
     return { dbml: res.dbml };

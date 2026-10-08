@@ -9,9 +9,10 @@
   import Select from "@/components/ui/Select.svelte";
   import { useImporters } from "@/features/plugins/plugins.svelte";
   import type { ImportResult } from "@/features/plugins/types";
+  import { looksLikeProjectBundle } from "@nebuladb/shared";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { describeApiError } from "@/i18n/serverErrorMessages";
-  import { importSource } from "@/services/projectsApi";
+  import { importBundle, importSource } from "@/services/projectsApi";
 
   /**
    * Import is a two-step pipeline now: the selected importer *contribution*
@@ -51,6 +52,11 @@
     source = await file.text();
     fileName = file.name;
     error = null;
+    // `.json` is also JSON Schema's extension: the content tells them apart.
+    if (looksLikeProjectBundle(source)) {
+      selection = "nebuladb.core-import:bundle";
+      return;
+    }
     const ext = file.name.split(".").pop()?.toLowerCase();
     if (!ext) return;
     // Pick the first importer that claims this extension, preferring one whose
@@ -68,6 +74,11 @@
     error = null;
     try {
       const produced = (await importer.run(source)) as ImportResult;
+      if (produced?.bundle) {
+        await importBundle(props.projectId, produced.bundle);
+        props.onClose();
+        return;
+      }
       const dbml = produced?.dbml ?? "";
       if (!dbml.trim()) throw new Error(`${importer.contribution.label} produced no DBML`);
 

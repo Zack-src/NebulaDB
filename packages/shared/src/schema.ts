@@ -175,7 +175,7 @@ export interface Project {
 import type { StructurePolicySetting } from "./dbAdmin.js";
 import type { EnvironmentColor } from "./environments.js";
 
-export type DatabaseEngine = "postgres" | "mysql" | "sqlite" | "mssql" | "oracle";
+export type DatabaseEngine = "postgres" | "mysql" | "sqlite" | "mssql" | "oracle" | "bigquery";
 
 /**
  * Whose database account a connection is used with. `shared`: the one stored

@@ -99,7 +99,9 @@ export interface ExportResult {
  * a plugin only has to handle its own input format.
  */
 export interface ImportResult {
-  dbml: string;
+  dbml?: string;
+  /** A NebulaDB project bundle (JSON) instead of DBML: restored whole, locks and seeds included. */
+  bundle?: string;
 }
 
 /**

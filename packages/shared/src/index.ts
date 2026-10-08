@@ -12,3 +12,4 @@ export * from "./seeds.js";
 export * from "./dataGenerator.js";
 export * from "./backups.js";
 export * from "./commentMentions.js";
+export * from "./projectBundle.js";

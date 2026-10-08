@@ -6,6 +6,7 @@ export const VALID_ENGINES: ReadonlySet<string> = new Set<DatabaseEngine>([
   "sqlite",
   "mssql",
   "oracle",
+  "bigquery",
 ]);
 
 export function isValidEngine(engine: unknown): engine is DatabaseEngine {
