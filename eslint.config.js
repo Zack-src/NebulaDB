@@ -61,6 +61,33 @@ export default tseslint.config(
       globals: { ...globals.node, ...globals.browser },
     },
   },
+  {
+    // The server's storage is asynchronous: a data function that used to
+    // return a row now returns a promise, and a forgotten `await` is a
+    // condition that is always true or a write nobody waits for. Only the
+    // type checker can see that, hence type-aware rules for these files.
+    files: ["apps/server/src/**/*.ts"],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
+      },
+    },
+    rules: {
+      "@typescript-eslint/no-floating-promises": [
+        "error",
+        {
+          // `node:test` returns a promise from `test()` for sub-tests to await;
+          // at the top level of a file the runner is what waits for it.
+          allowForKnownSafeCalls: [
+            { from: "package", package: "node:test", name: ["test", "it", "describe", "suite"] },
+          ],
+        },
+      ],
+      "@typescript-eslint/no-misused-promises": "error",
+      "@typescript-eslint/await-thenable": "error",
+    },
+  },
   ...svelte.configs.recommended,
   {
     files: ["apps/web/**/*.{ts,svelte}"],
