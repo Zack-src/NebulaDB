@@ -1914,5 +1914,12 @@
   "dbAccess.provision": "Generate missing SQL accounts",
   "dbAccess.provisionHint": "Uses your own administrator SQL account on selected databases. Existing accounts are preserved. Set SQL permissions afterwards in monitoring.",
   "dbAccess.provisionResult": "{{created}} created, {{skipped}} existing, {{failed}} failed.",
-  "dbAccess.assign": "Assign an account · {{name}}"
+  "dbAccess.assign": "Assign an account · {{name}}",
+  "palette.title": "Global palette",
+  "palette.placeholder": "Go to a page, a table, a connection…",
+  "palette.group.tables": "In {{name}}",
+  "palette.group.go": "Go to",
+  "palette.group.connections": "Connections",
+  "palette.group.search": "In projects",
+  "palette.searchFailed": "Searching across projects failed."
 }

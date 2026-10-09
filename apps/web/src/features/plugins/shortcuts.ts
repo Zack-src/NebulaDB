@@ -7,6 +7,9 @@
 
 const MODIFIER_ORDER = ["ctrl", "meta", "alt", "shift"];
 
+/** Opens the global palette; a plugin cannot bind it, whichever of the two layers would have run it. */
+const RESERVED_SHORTCUTS: ReadonlySet<string> = new Set(["ctrl+k", "meta+k"]);
+
 /** `"ctrl+alt+s"` from any reasonable spelling, or `null` when unusable. */
 export function normalizeShortcut(shortcut: string): string | null {
   const parts = shortcut
@@ -41,5 +44,6 @@ export function matchShortcut<T extends { shortcut?: string }>(
   event: KeyboardEvent,
 ): T | undefined {
   const pressed = shortcutFromEvent(event);
+  if (RESERVED_SHORTCUTS.has(pressed)) return undefined;
   return items.find((item) => item.shortcut && normalizeShortcut(item.shortcut) === pressed);
 }

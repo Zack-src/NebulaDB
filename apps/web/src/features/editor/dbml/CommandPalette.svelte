@@ -1,26 +1,8 @@
-<script lang="ts" module>
-  /** Subsequence match with a bonus for prefix / word-start hits; null when it doesn't match. */
-  function score(query: string, text: string): number | null {
-    if (!query) return 0;
-    const q = query.toLowerCase();
-    const lower = text.toLowerCase();
-    if (lower.startsWith(q)) return 1000 - lower.length;
-    let qi = 0;
-    let points = 0;
-    for (let i = 0; i < lower.length && qi < q.length; i++) {
-      if (lower[i] === q[qi]) {
-        points += i === 0 || /[^A-Za-z0-9]/.test(lower[i - 1]) ? 8 : 3;
-        qi += 1;
-      }
-    }
-    return qi === q.length ? points - lower.length * 0.1 : null;
-  }
-</script>
-
 <script lang="ts">
   import { autofocus } from "@/actions/autofocus";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import type { PaletteItem } from "./DbmlEditor/types";
+  import { fuzzyScore } from "./fuzzyScore";
 
   let { items, placeholder, onClose }: { items: PaletteItem[]; placeholder: string; onClose: () => void } = $props();
 
@@ -31,7 +13,7 @@
 
   const filtered = $derived(
     items
-      .map((item) => ({ item, s: score(query, `${item.label} ${item.detail ?? ""}`) }))
+      .map((item) => ({ item, s: fuzzyScore(query, `${item.label} ${item.detail ?? ""}`) }))
       .filter((r): r is { item: PaletteItem; s: number } => r.s !== null)
       .sort((a, b) => b.s - a.s)
       .map((r) => r.item)

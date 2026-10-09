@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import type { AdminConnectionSummary } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { CodeIcon, PencilIcon, PlusIcon, RestoreIcon, TrashIcon } from "@/components/icons/Icons";
@@ -39,6 +40,8 @@
    * them. Opening one leads to the console — browse, query, manage accounts —
    * which works on the server itself and needs no project at all.
    */
+  let { initialConnectionId }: { initialConnectionId?: string } = $props();
+
   const { t } = useTranslation();
   const connections = useAsyncResource(listAdminConnections);
   let filter = $state("");
@@ -47,6 +50,14 @@
   let consoleFor = $state.raw<AdminConnectionSummary | null>(null);
   let diff = $state.raw<{ projectId: string; connectionId: string } | null>(null);
   let checkingId = $state<string | null>(null);
+
+  // One-shot: a jump from the global palette lands straight in that connection's console.
+  let pendingConsoleId = $state(untrack(() => initialConnectionId));
+  $effect(() => {
+    if (!pendingConsoleId || !connections.data) return;
+    consoleFor = connections.data.find((c) => c.id === pendingConsoleId) ?? null;
+    pendingConsoleId = undefined;
+  });
 
   const rows = $derived(
     (connections.data ?? []).filter((c) => {

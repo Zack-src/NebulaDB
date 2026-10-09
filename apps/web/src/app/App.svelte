@@ -16,6 +16,8 @@
   import WorkspaceShell from "@/components/layout/WorkspaceShell.svelte";
   import { shellHash, shellViewFromHash, type ShellView } from "@/app/shellNavigation";
   import DatabaseWorkspace from "@/features/workspace/DatabaseWorkspace.svelte";
+  import GlobalPalette from "@/features/palette/GlobalPalette.svelte";
+  import type { AdminSection } from "@/features/admin/adminSections";
 
   const { t } = useTranslation();
   let viewMode = $state<ShellView>("app");
@@ -52,6 +54,18 @@
     };
   });
 
+  // Which admin tab to show, and a connection whose console to open on it. The nonce
+  // remounts the console so a repeated jump to the same place still lands.
+  let adminTarget = $state<{ section: AdminSection; connectionId?: string; nonce: number }>({
+    section: "users",
+    nonce: 0,
+  });
+
+  function openAdmin(section: AdminSection, connectionId?: string) {
+    adminTarget = { section, connectionId, nonce: adminTarget.nonce + 1 };
+    navigate("admin");
+  }
+
   function navigate(view: ShellView) {
     if (session && session !== "loading" && !session.isAdmin && view === "admin") return;
     routing.closeProject();
@@ -59,9 +73,9 @@
     history.replaceState(null, "", `/${shellHash(view)}`);
   }
 
-  function openProjectById(id: string) {
+  function openProjectById(id: string, focus?: { tableName: string; fieldName?: string }) {
     viewMode = "app";
-    routing.openProjectById(id);
+    routing.openProjectById(id, focus);
   }
 
   // The new project already has its schema pulled in by the time this fires
@@ -110,7 +124,7 @@
     {session}
     view={viewMode}
     projectName={viewMode === "app" ? routing.openProject?.name : undefined}
-    onNavigate={navigate}
+    onNavigate={(view) => (view === "admin" && viewMode !== "admin" ? openAdmin("users") : navigate(view))}
     onLogout={auth.logout}
     onOpenProject={openProjectById}
   >
@@ -155,7 +169,14 @@
       />
     {:else if viewMode === "admin" && session.isAdmin}
       <!-- 4. Admin Console View -->
-      <AdminConsole embedded initialSection="users" onClose={() => navigate("app")} />
+      {#key adminTarget.nonce}
+        <AdminConsole
+          embedded
+          initialSection={adminTarget.section}
+          initialConnectionId={adminTarget.connectionId}
+          onClose={() => navigate("app")}
+        />
+      {/key}
     {:else if viewMode === "bases"}
       <div class="min-h-0 flex-1 overflow-auto p-4 md:p-6">
         <div class="mx-auto max-w-[1240px]">
@@ -191,4 +212,12 @@
       />
     {/if}
   </WorkspaceShell>
+  <GlobalPalette
+    {session}
+    project={viewMode === "app" ? routing.openProject : null}
+    onView={navigate}
+    onAdmin={openAdmin}
+    onProjectTab={routing.setTab}
+    onOpenProject={openProjectById}
+  />
 {/if}

@@ -1,19 +1,3 @@
-<script lang="ts" module>
-  import type { TranslationKeyOf } from "@/types";
-
-  const SECTIONS = [
-    { key: "teams", labelKey: "admin.section.teams" },
-    { key: "users", labelKey: "admin.section.users" },
-    { key: "audit", labelKey: "admin.section.activity" },
-    { key: "errors", labelKey: "admin.section.errors" },
-    { key: "connections", labelKey: "admin.section.connections" },
-    { key: "environments", labelKey: "admin.section.environments" },
-    { key: "lint", labelKey: "admin.section.lint" },
-  ] as const satisfies readonly { key: string; labelKey: TranslationKeyOf }[];
-
-  type Section = (typeof SECTIONS)[number]["key"];
-</script>
-
 <script lang="ts">
   import Icon from "@/components/icons/Icon.svelte";
   import { ChevronLeftIcon } from "@/components/icons/Icons";
@@ -27,16 +11,20 @@
   import Button from "@/components/ui/Button.svelte";
   import BrandMark from "@/components/ui/BrandMark.svelte";
   import { APP_HEADER, APP_SHELL } from "@/components/ui/layout";
+  import { ADMIN_SECTIONS as SECTIONS, type AdminSection as Section } from "@/features/admin/adminSections";
   import { useTranslation } from "@/i18n/i18n.svelte";
 
   let {
     onClose,
     embedded = false,
     initialSection = "users",
+    initialConnectionId,
   }: {
     onClose: () => void;
     embedded?: boolean;
     initialSection?: Section;
+    /** Opens that connection's console as soon as the connections tab has loaded — from the global palette. */
+    initialConnectionId?: string;
   } = $props();
 
   const { t } = useTranslation();
@@ -82,7 +70,7 @@
         {/if}
         {#if section === "audit"}<ActivityTab />{/if}
         {#if section === "errors"}<ErrorsTab />{/if}
-        {#if section === "connections"}<ConnectionsTab />{/if}
+        {#if section === "connections"}<ConnectionsTab {initialConnectionId} />{/if}
         {#if section === "environments"}<EnvironmentsTab />{/if}
         {#if section === "lint"}<LintPresetsTab />{/if}
       </div>

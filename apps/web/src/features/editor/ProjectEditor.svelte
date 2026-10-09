@@ -45,6 +45,8 @@
     SparklesIcon,
   } from "@/components/icons/Icons";
   import type { WorkspaceTab } from "@/features/projects/projectRouting.svelte";
+  import { visibleWorkspaceTabs } from "@/features/projects/workspaceTabs";
+  import { openProjectSource } from "@/features/palette/openProjectSource";
   import WorkspaceBar from "@/features/workspace/WorkspaceBar.svelte";
   import { provideWorkspace } from "@/features/workspace/workspaceContext";
   import { useProjectDoc } from "@/features/collaboration/projectDoc.svelte";
@@ -176,19 +178,23 @@
   // for instance administrators and for members granted one of the project's
   // databases, deployments for the project's administrators.
   const isProjectAdmin = $derived(project.permission === "administrator");
-  const workspaceTabs = $derived.by(() => {
-    const list: TabItem<WorkspaceTab>[] = [{ id: "schema", label: t("workspace.tab.schema"), icon: CodeIcon }];
-    if (isProjectAdmin) list.push({ id: "deployments", label: t("workspace.tab.deployments"), icon: SparklesIcon });
-    list.push({ id: "history", label: t("workspace.tab.history"), icon: ClockIcon });
-    list.push({
-      id: "problems",
-      label: t("workspace.tab.problems"),
-      icon: AlertTriangleIcon,
-      badge: quality.findings.length > 0 ? quality.findings.length : undefined,
-    });
-    list.push({ id: "dictionary", label: t("workspace.tab.dictionary"), icon: NoteIcon });
-    return list;
-  });
+  const TAB_ICONS = {
+    schema: CodeIcon,
+    deployments: SparklesIcon,
+    history: ClockIcon,
+    problems: AlertTriangleIcon,
+    dictionary: NoteIcon,
+  };
+  const workspaceTabs = $derived(
+    visibleWorkspaceTabs(project.permission).map(
+      (id): TabItem<WorkspaceTab> => ({
+        id,
+        label: t(`workspace.tab.${id}`),
+        icon: TAB_ICONS[id],
+        badge: id === "problems" && quality.findings.length > 0 ? quality.findings.length : undefined,
+      }),
+    ),
+  );
   // A tab named by the URL but not offered to this user (a shared link, a
   // permission that changed) quietly shows the schema instead of an empty page.
   let localTab = $state<WorkspaceTab>("schema");
@@ -319,6 +325,19 @@
       seedDialogTableId = table.id;
       return true;
     },
+  });
+
+  // The global palette (Ctrl+K) searches this project's tables itself and jumps here to show one.
+  $effect(() => {
+    openProjectSource.set({
+      projectId: project.id,
+      tables: () => liveProject?.tables ?? [],
+      openTable: (tableName, fieldName) => {
+        setTab("schema");
+        focusRequest = { tableName, fieldName };
+      },
+    });
+    return () => openProjectSource.set(null);
   });
 
   // One-shot: centre on the requested table once it exists in the doc *and*

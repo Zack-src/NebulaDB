@@ -1914,5 +1914,12 @@
   "dbAccess.provision": "Générer les comptes SQL manquants",
   "dbAccess.provisionHint": "Utilise votre propre compte SQL administrateur sur les bases sélectionnées. Les comptes existants sont conservés. Les permissions SQL se règlent ensuite dans le monitoring.",
   "dbAccess.provisionResult": "{{created}} compte(s) créé(s), {{skipped}} existant(s), {{failed}} échec(s).",
-  "dbAccess.assign": "Attribuer un compte · {{name}}"
+  "dbAccess.assign": "Attribuer un compte · {{name}}",
+  "palette.title": "Palette globale",
+  "palette.placeholder": "Aller à une page, une table, une connexion…",
+  "palette.group.tables": "Dans {{name}}",
+  "palette.group.go": "Aller à",
+  "palette.group.connections": "Connexions",
+  "palette.group.search": "Dans les projets",
+  "palette.searchFailed": "La recherche dans les projets a échoué."
 }
