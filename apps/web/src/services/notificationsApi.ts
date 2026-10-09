@@ -20,15 +20,16 @@ export async function fetchProjectSubscription(projectId: string): Promise<Proje
     .subscription;
 }
 
-/** Follows these events on the project; an empty list stops following. */
+/** Follows these events on the project; an empty list stops following. `emailDrift`: also e-mail the drift alerts. */
 export async function saveProjectSubscription(
   projectId: string,
   events: NotificationEvent[],
+  emailDrift?: boolean,
 ): Promise<ProjectSubscription | null> {
   return (
     await request<{ subscription: ProjectSubscription | null }>(`/api/projects/${projectId}/subscription`, {
       method: "PUT",
-      body: { events },
+      body: { events, emailDrift },
     })
   ).subscription;
 }

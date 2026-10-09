@@ -1,13 +1,12 @@
 import { asUnattended } from "../../infrastructure/actor.js";
 import { audit } from "../../shared/audit.js";
-import { notifyFollowers } from "../notifications/repository.js";
 import { diffFingerprints, fingerprintSchema } from "@nebuladb/dbml-engine";
 import { db } from "../../infrastructure/db.js";
 import { notifyProject } from "../../realtime/roomRegistry.js";
 import { createDatabaseDriver } from "../connections/drivers/index.js";
 import { loadReference, markProjectOutOfSchema, referenceTakenAt } from "../connections/drift.js";
 import { getProjectConnection } from "../connections/repository.js";
-import { emitWebhookEvent } from "../webhooks/dispatcher.js";
+import { announceDrift } from "./alerts.js";
 import { checkProjectAccounts, isAccountWatchOn } from "./accountWatch.js";
 import {
   alreadyReported,
@@ -69,8 +68,8 @@ export interface MonitorCheckResult {
  * (the fingerprint of the last deployment or pull).
  *
  * A difference no deployment explains is recorded once per database state, marks the project's
- * link (editor banner) and fires `drift.detected`. An unreadable database is "unreachable":
- * reported once, closed when it answers, never taken for a change.
+ * link (editor banner) and announces it (followers, e-mail, `drift.detected`). An unreadable
+ * database is "unreachable": reported once, closed when it answers, never taken for a change.
  *
  * Read as each connection's service account, even for a user-requested check.
  */
@@ -155,13 +154,7 @@ async function readWatchedDatabases(projectId: string): Promise<MonitorCheckResu
         projectId,
       },
     );
-    notifyFollowers(projectId, "drift", {
-      kind,
-      connection: conn.name,
-      environment: conn.environment ?? null,
-      tables: added.length + removed.length + changed.length,
-    });
-    emitWebhookEvent(projectId, "drift.detected", {
+    announceDrift(projectId, {
       kind,
       connectionName: conn.name,
       environment: conn.environment ?? null,

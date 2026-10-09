@@ -113,7 +113,14 @@ export const ERROR_CATALOG = {
     message: "the watch is imposed by a connection of this project: only an instance administrator changes it",
   },
   STAGE_SKIP_REASON_REQUIRED: { status: 400, message: "skipping a stage needs a reason (skipReason)" },
-  SUBSCRIPTION_INVALID: { status: 400, message: "events must be a list among deployment, lock, seed, drift" },
+  SUBSCRIPTION_INVALID: {
+    status: 400,
+    message: "events must be a list among deployment, lock, seed, drift; emailDrift, if given, a boolean (needs drift)",
+  },
+  EMAIL_ALERTS_UNAVAILABLE: {
+    status: 503,
+    message: "alerts by email are not available: this instance has no email configured",
+  },
   COMMENT_NOTICE_INVALID: {
     status: 400,
     message: "text, tableName (and optionally columnName, threadUserIds) are required",

@@ -20,23 +20,31 @@ const RANK: Record<PermissionLevel, number> = { view: 1, edit: 2, administrator:
 /** What a user follows on a project; `null` when they do not follow it. */
 export function getProjectSubscription(userId: string, projectId: string): ProjectSubscription | null {
   const row = db
-    .prepare("SELECT events_json FROM subscriptions WHERE user_id = ? AND scope_type = 'project' AND scope_id = ?")
-    .get(userId, projectId) as { events_json: string } | undefined;
-  return row ? { events: JSON.parse(row.events_json) as NotificationEvent[] } : null;
+    .prepare(
+      "SELECT events_json, email_drift FROM subscriptions WHERE user_id = ? AND scope_type = 'project' AND scope_id = ?",
+    )
+    .get(userId, projectId) as { events_json: string; email_drift: number } | undefined;
+  return row ? { events: JSON.parse(row.events_json) as NotificationEvent[], emailDrift: row.email_drift === 1 } : null;
 }
 
 /** Everything an account follows — for its personal-data export. */
-export function listSubscriptionsOf(userId: string): { scopeType: string; scopeId: string; events: string[] }[] {
+export function listSubscriptionsOf(
+  userId: string,
+): { scopeType: string; scopeId: string; events: string[]; emailDrift: boolean }[] {
   return (
-    db.prepare("SELECT scope_type, scope_id, events_json FROM subscriptions WHERE user_id = ?").all(userId) as {
+    db
+      .prepare("SELECT scope_type, scope_id, events_json, email_drift FROM subscriptions WHERE user_id = ?")
+      .all(userId) as {
       scope_type: string;
       scope_id: string;
       events_json: string;
+      email_drift: number;
     }[]
   ).map((row) => ({
     scopeType: row.scope_type,
     scopeId: row.scope_id,
     events: JSON.parse(row.events_json) as string[],
+    emailDrift: row.email_drift === 1,
   }));
 }
 
@@ -49,10 +57,20 @@ export function parseSubscription(body: unknown): NotificationEvent[] {
   return NOTIFICATION_EVENTS.filter((event) => events.includes(event));
 }
 
+/** Checks the optional "also by email" choice: absent (keep what was chosen), or a boolean — and `true` only with `drift` followed. */
+export function parseEmailDrift(body: unknown, events: NotificationEvent[]): boolean | undefined {
+  const value = (body as { emailDrift?: unknown } | null)?.emailDrift;
+  if (value === undefined) return undefined;
+  if (typeof value !== "boolean" || (value && !events.includes("drift"))) throw new ApiError("SUBSCRIPTION_INVALID");
+  return value;
+}
+
+/** `emailDrift` left out keeps the earlier choice; it is dropped whenever `drift` is no longer followed. */
 export function saveProjectSubscription(
   userId: string,
   projectId: string,
   events: NotificationEvent[],
+  emailDrift?: boolean,
 ): ProjectSubscription | null {
   if (events.length === 0) {
     db.prepare("DELETE FROM subscriptions WHERE user_id = ? AND scope_type = 'project' AND scope_id = ?").run(
@@ -61,17 +79,57 @@ export function saveProjectSubscription(
     );
     return null;
   }
+  const wanted =
+    events.includes("drift") && (emailDrift ?? getProjectSubscription(userId, projectId)?.emailDrift === true);
   db.prepare(
-    `INSERT INTO subscriptions (user_id, scope_type, scope_id, events_json) VALUES (?, 'project', ?, ?)
-     ON CONFLICT(user_id, scope_type, scope_id) DO UPDATE SET events_json = excluded.events_json`,
-  ).run(userId, projectId, JSON.stringify(events));
-  return { events };
+    `INSERT INTO subscriptions (user_id, scope_type, scope_id, events_json, email_drift) VALUES (?, 'project', ?, ?, ?)
+     ON CONFLICT(user_id, scope_type, scope_id) DO UPDATE SET
+       events_json = excluded.events_json, email_drift = excluded.email_drift`,
+  ).run(userId, projectId, JSON.stringify(events), wanted ? 1 : 0);
+  return { events, emailDrift: wanted };
 }
 
 interface SubscriberRow {
   user_id: string;
   email: string;
   events_json: string;
+  email_drift: number;
+}
+
+/**
+ * The project's followers of `event` who may see what it is about: following it, enabled, and at
+ * the level `needs` now (not when they subscribed — a grant may have gone since).
+ */
+function eligibleFollowers(
+  projectId: string,
+  event: NotificationEvent,
+  options: { actor?: { id?: string | null; email?: string | null }; needs?: PermissionLevel },
+): SubscriberRow[] {
+  const followers = db
+    .prepare(
+      `SELECT s.user_id, u.email, s.events_json, s.email_drift
+         FROM subscriptions s JOIN users u ON u.id = s.user_id
+        WHERE s.scope_type = 'project' AND s.scope_id = ? AND u.disabled_at IS NULL`,
+    )
+    .all(projectId) as SubscriberRow[];
+  const needed = RANK[options.needs ?? "view"];
+  return followers.filter((follower) => {
+    if (!(JSON.parse(follower.events_json) as string[]).includes(event)) return false;
+    if (options.actor?.id && follower.user_id === options.actor.id) return false;
+    if (options.actor?.email && follower.email.toLowerCase() === options.actor.email.toLowerCase()) return false;
+    const level = getEffectivePermission(follower.user_id, projectId);
+    return level !== null && RANK[level] >= needed;
+  });
+}
+
+/**
+ * Addresses of the drift followers who asked for it by email too. The same follower list and
+ * the same visibility rules as the in-app notification: who is told there is who is mailed here.
+ */
+export function listDriftEmailRecipients(projectId: string, needs?: PermissionLevel): string[] {
+  return eligibleFollowers(projectId, "drift", { needs })
+    .filter((follower) => follower.email_drift === 1)
+    .map((follower) => follower.email);
 }
 
 /**
@@ -90,13 +148,6 @@ export function notifyFollowers(
   options: { actor?: { id?: string | null; email?: string | null }; needs?: PermissionLevel } = {},
 ): number {
   try {
-    const followers = db
-      .prepare(
-        `SELECT s.user_id, u.email, s.events_json
-           FROM subscriptions s JOIN users u ON u.id = s.user_id
-          WHERE s.scope_type = 'project' AND s.scope_id = ? AND u.disabled_at IS NULL`,
-      )
-      .all(projectId) as SubscriberRow[];
     const insert = db.prepare(
       "INSERT INTO notifications (id, user_id, project_id, event, params_json) VALUES (?, ?, ?, ?, ?)",
     );
@@ -104,14 +155,8 @@ export function notifyFollowers(
       `DELETE FROM notifications WHERE user_id = ? AND id NOT IN
          (SELECT id FROM notifications WHERE user_id = ? ORDER BY rowid DESC LIMIT ${KEPT_PER_USER})`,
     );
-    const needed = RANK[options.needs ?? "view"];
     const told = new Set<string>();
-    for (const follower of followers) {
-      if (!(JSON.parse(follower.events_json) as string[]).includes(event)) continue;
-      if (options.actor?.id && follower.user_id === options.actor.id) continue;
-      if (options.actor?.email && follower.email.toLowerCase() === options.actor.email.toLowerCase()) continue;
-      const level = getEffectivePermission(follower.user_id, projectId);
-      if (!level || RANK[level] < needed) continue;
+    for (const follower of eligibleFollowers(projectId, event, options)) {
       insert.run(crypto.randomUUID(), follower.user_id, projectId, event, JSON.stringify(params));
       trim.run(follower.user_id, follower.user_id);
       told.add(follower.user_id);

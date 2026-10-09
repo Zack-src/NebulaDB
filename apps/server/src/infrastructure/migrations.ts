@@ -1149,6 +1149,17 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 47,
+    name: "subscriptions.email_drift: drift alerts by email",
+    up: (db) => {
+      // Off for every existing subscription: nobody gets email they did not ask for.
+      const columns = db.prepare("PRAGMA table_info(subscriptions)").all() as { name: string }[];
+      if (!columns.some((c) => c.name === "email_drift")) {
+        db.exec("ALTER TABLE subscriptions ADD COLUMN email_drift INTEGER NOT NULL DEFAULT 0");
+      }
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */

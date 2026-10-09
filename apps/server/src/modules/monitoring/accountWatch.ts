@@ -5,8 +5,6 @@ import { db } from "../../infrastructure/db.js";
 import { audit } from "../../shared/audit.js";
 import { getConnectionById, getProjectConnection } from "../connections/repository.js";
 import { createAdminDriver } from "../dbAdmin/drivers/index.js";
-import { notifyFollowers } from "../notifications/repository.js";
-import { emitWebhookEvent } from "../webhooks/dispatcher.js";
 import {
   applyAccountDelta,
   describeAccountChange,
@@ -15,6 +13,7 @@ import {
   summarizeAccountChanges,
 } from "./accountFingerprint.js";
 import { readAccountLines } from "./accountReader.js";
+import { announceDrift } from "./alerts.js";
 import { alreadyReported, insertDriftEvent } from "./repository.js";
 
 /**
@@ -245,27 +244,14 @@ function reportAccountChanges(projectId: string, connection: DatabaseConnectionC
   // A pointer, without the accounts' names: the followers who are project
   // administrators learn that something changed; the names stay on the
   // instance administrators' screens.
-  notifyFollowers(
-    projectId,
-    "drift",
-    {
-      kind: "accounts",
-      connection: connection.name,
-      environment: connection.environment ?? null,
-      changes: changes.length,
-    },
-    { needs: "administrator" },
-  );
-  const counts: Record<string, number> = {};
-  for (const change of changes) counts[change.type] = (counts[change.type] ?? 0) + 1;
-  emitWebhookEvent(projectId, "drift.detected", {
+  announceDrift(projectId, {
     kind: "accounts",
     connectionName: connection.name,
     environment: connection.environment ?? null,
     added: [],
     removed: [],
     changed: [],
-    accountChanges: counts,
+    accountChanges: changes,
   });
 }
 

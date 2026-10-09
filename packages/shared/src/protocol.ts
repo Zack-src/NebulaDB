@@ -209,6 +209,8 @@ export type NotificationParams = Record<string, string | number | boolean | null
 /** `GET/PUT /api/projects/:id/subscription` — the events the signed-in user follows on the project. */
 export interface ProjectSubscription {
   events: NotificationEvent[];
+  /** Also e-mail the `drift` alerts (only when the instance sends e-mail); always false unless `drift` is followed. */
+  emailDrift: boolean;
 }
 
 /** One entry of `GET /api/notifications`. */

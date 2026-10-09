@@ -237,7 +237,7 @@ test("with no SMTP configured: invitations still work by link, and forgot-passwo
     assert.match(created.json().inviteUrl, /^\/invite\//);
 
     const features = await app.inject({ method: "GET", url: "/api/auth/features", headers: headers() });
-    assert.deepEqual(features.json(), { passwordReset: false });
+    assert.deepEqual(features.json(), { passwordReset: false, email: false });
 
     const reset = await app.inject({
       method: "POST",

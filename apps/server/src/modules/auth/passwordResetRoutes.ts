@@ -15,8 +15,11 @@ const REQUEST_RATE_LIMIT = { config: { rateLimit: { max: 5, timeWindow: "1 minut
 const CONFIRM_RATE_LIMIT = { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } };
 
 export function registerPasswordResetRoutes(app: FastifyInstance): void {
-  /** What the login screen may offer. Public: it gates a link on a page nobody is logged into yet. */
-  app.get("/api/auth/features", async () => ({ passwordReset: isMailEnabled() }));
+  /**
+   * What the login screen may offer. Public: it gates a link on a page nobody is logged into yet.
+   * `email`: the instance sends mail at all (the "follow" menu offers alerts by email only then).
+   */
+  app.get("/api/auth/features", async () => ({ passwordReset: isMailEnabled(), email: isMailEnabled() }));
 
   /**
    * Always answers the same thing, whether or not the address has an account

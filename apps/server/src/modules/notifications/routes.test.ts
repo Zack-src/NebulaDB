@@ -97,17 +97,27 @@ test("notifications: followers are told what happened — not their own doing, n
     assert.equal((await call(app, editor.cookie, "GET", `${base}/subscription`)).json().subscription, null);
     assert.deepEqual((await follow(editor, ["seed", "lock", "deployment"])).json().subscription, {
       events: ["deployment", "lock", "seed"],
+      emailDrift: false,
     });
+    // "Also by email" needs the drift alerts, and an instance that sends email (this one does not).
+    const byEmail = (who: { cookie: string }, events: string[], emailDrift: unknown) =>
+      call(app, who.cookie, "PUT", `${base}/subscription`, { events, emailDrift });
+    assert.equal((await byEmail(editor, ["lock"], true)).statusCode, 400, "only with drift followed");
+    assert.equal((await byEmail(editor, ["drift"], "yes")).statusCode, 400);
+    const unavailable = await byEmail(editor, ["drift"], true);
+    assert.equal(unavailable.statusCode, 503);
+    assert.equal(unavailable.json().code, "EMAIL_ALERTS_UNAVAILABLE");
+    assert.equal((await byEmail(editor, ["seed", "lock", "deployment"], false)).statusCode, 200);
     await follow(viewer, ["lock"]);
     await follow(owner, ["lock", "seed"]);
     await follow(coAdmin, ["deployment"]);
 
     // What an account follows is part of its personal-data export.
     const exported = (await call(app, editor.cookie, "GET", "/api/users/me/export")).json() as {
-      subscriptions: { scopeType: string; scopeId: string; events: string[] }[];
+      subscriptions: { scopeType: string; scopeId: string; events: string[]; emailDrift: boolean }[];
     };
     assert.deepEqual(exported.subscriptions, [
-      { scopeType: "project", scopeId: project.id, events: ["deployment", "lock", "seed"] },
+      { scopeType: "project", scopeId: project.id, events: ["deployment", "lock", "seed"], emailDrift: false },
     ]);
 
     // A lock: everyone who follows locks, except the one who placed it.

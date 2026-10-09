@@ -82,9 +82,10 @@ export function regenerateBackupCodes(password: string): Promise<{ backupCodes: 
   });
 }
 
-/** What the login screen may offer — today only whether "forgot password" works (it needs the server to have email configured). */
+/** What the instance offers: whether "forgot password" works and whether alerts can go by email — both need the server to have email configured. */
 export interface AuthFeatures {
   passwordReset: boolean;
+  email: boolean;
 }
 
 export function fetchAuthFeatures(): Promise<AuthFeatures> {

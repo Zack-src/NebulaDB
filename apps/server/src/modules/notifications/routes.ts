@@ -1,9 +1,12 @@
 import type { FastifyInstance } from "fastify";
+import { isMailEnabled } from "../../infrastructure/mailer.js";
+import { ApiError } from "../../shared/errors.js";
 import { requireProjectAccess, requireUser } from "../../shared/guards.js";
 import {
   getProjectSubscription,
   listNotifications,
   markNotificationsRead,
+  parseEmailDrift,
   parseSubscription,
   saveProjectSubscription,
 } from "./repository.js";
@@ -29,11 +32,14 @@ export function registerNotificationRoutes(app: FastifyInstance): void {
     return { subscription: getProjectSubscription(user.id, id) };
   });
 
-  // An empty list of events is how one stops following.
+  // An empty list of events is how one stops following. `emailDrift`: also by email, where the instance sends any.
   app.put("/api/projects/:id/subscription", async (req) => {
     const { id } = req.params as { id: string };
     const { user } = requireProjectAccess(req, id, "view");
-    return { subscription: saveProjectSubscription(user.id, id, parseSubscription(req.body)) };
+    const events = parseSubscription(req.body);
+    const emailDrift = parseEmailDrift(req.body, events);
+    if (emailDrift && !isMailEnabled()) throw new ApiError("EMAIL_ALERTS_UNAVAILABLE");
+    return { subscription: saveProjectSubscription(user.id, id, events, emailDrift) };
   });
 
   // Comments live in the shared document, which the server does not read for

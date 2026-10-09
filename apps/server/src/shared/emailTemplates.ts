@@ -78,3 +78,69 @@ function formatDate(date: Date): string {
     new Intl.DateTimeFormat("fr-FR", { dateStyle: "long", timeStyle: "short", timeZone: "UTC" }).format(date) + " (UTC)"
   );
 }
+
+/** What the watch found, as the alert mail tells it. Names are those of the database's tables: untrusted text, escaped by `layout`. */
+export interface DriftAlertMail {
+  projectName: string;
+  connectionName: string;
+  environment: string | null;
+  kind: "external" | "partial-deployment" | "accounts";
+  added: string[];
+  removed: string[];
+  changed: string[];
+  /** For `accounts` only: how many changes. Never their names — those are for instance administrators' screens. */
+  accountChanges?: number;
+}
+
+/** Table names listed per group before "et N autres": a mail is a pointer, the Déploiements tab has the whole list. */
+const LISTED_NAMES = 10;
+
+/** One line a person's mail client shows in a list: no line breaks, bounded. */
+function oneLine(value: string): string {
+  return value.replace(/\s+/g, " ").trim().slice(0, 120);
+}
+
+function tableGroup(count: number, one: string, many: string, names: string[]): string | null {
+  if (count === 0) return null;
+  const shown = names.slice(0, LISTED_NAMES).map(oneLine).join(", ");
+  const rest = names.length > LISTED_NAMES ? ` et ${names.length - LISTED_NAMES} autre(s)` : "";
+  return `${count} ${count === 1 ? one : many} (${shown}${rest})`;
+}
+
+export function driftAlertEmail(to: string, alert: DriftAlertMail, url: string): OutgoingMail {
+  const project = oneLine(alert.projectName);
+  const database = oneLine(alert.connectionName) + (alert.environment ? ` (${oneLine(alert.environment)})` : "");
+  const what =
+    alert.kind === "accounts"
+      ? "Comptes ou privilèges modifiés"
+      : alert.kind === "partial-deployment"
+        ? "Déploiement partiel"
+        : "Modification hors NebulaDB";
+  const details =
+    alert.kind === "accounts"
+      ? [
+          `${alert.accountChanges ?? 0} changement(s) de comptes ou de privilèges ont été détectés. Leur détail est réservé aux administrateurs de l'instance, dans l'onglet Déploiements.`,
+        ]
+      : [
+          [
+            tableGroup(alert.added.length, "table ajoutée", "tables ajoutées", alert.added),
+            tableGroup(alert.removed.length, "table supprimée", "tables supprimées", alert.removed),
+            tableGroup(alert.changed.length, "table modifiée", "tables modifiées", alert.changed),
+          ]
+            .filter(Boolean)
+            .join(" ; ") + ".",
+        ];
+  return build(
+    to,
+    `${what} : ${project}`,
+    [
+      `La surveillance du projet « ${project} » a détecté un changement sur la base « ${database} » : ${what.toLowerCase()}.`,
+      ...details,
+      alert.kind === "partial-deployment"
+        ? "Ce changement correspond à un déploiement qui a échoué en cours de route."
+        : "Ce changement n'a pas été fait depuis NebulaDB.",
+    ],
+    { label: "Ouvrir les déploiements", url },
+    "Vous recevez ce message parce que vous suivez les changements de base de ce projet avec l'option « aussi par e-mail ». Décochez-la dans le menu « Suivre » du projet pour ne plus en recevoir.",
+  );
+}
