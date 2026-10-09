@@ -34,18 +34,18 @@ un moteur cible pour les projets).
 
 ## D. Lot 3 — navigation
 
-- [ ] D1. Formulaire de connexion en onglets (Connexion / Règles / Projets)
-- [ ] D2. Palette `Ctrl+K` globale (projets, tables, onglets, connexions)
+- [~] D1. Formulaire de connexion en onglets (Connexion / Règles / Projets)
+- [~] D2. Palette `Ctrl+K` globale (projets, tables, onglets, connexions)
 
 ## E. Lot 4 — déploiement et droits
 
-- [ ] E1. Revue avant production (demande, approbation par une autre personne, déploiement)
-- [ ] E2. Rôle « peut déployer » sans être administrateur du projet
+- [~] E1. Revue avant production (demande, approbation par une autre personne, déploiement)
+- [~] E2. Rôle « peut déployer » sans être administrateur du projet
 
 ## F. Lot 5 — le reste
 
 - [ ] F1. Alertes de surveillance : e-mail, acquittement, mise en sourdine
-- [ ] F2. Dictionnaire : description multi-ligne, export PDF
+- [~] F2. Dictionnaire : description multi-ligne, export PDF
 - [ ] F3. Export des migrations en fichiers versionnés (Flyway / Liquibase)
 - [ ] F4. CLI / action GitHub
 - [ ] F5. Suggestions d'index à partir des statistiques de requêtes
