@@ -81,6 +81,9 @@ export async function updateProject(
 export async function deleteProject(id: string): Promise<void> {
   await closeRoom(id);
   await deleteProjectCascade(id);
+  // Somebody may have opened the project while its rows were being deleted;
+  // their room has nothing left to write to.
+  await closeRoom(id);
   forgetProjectIndex(id);
   await invalidateWebhookCache(id);
 }

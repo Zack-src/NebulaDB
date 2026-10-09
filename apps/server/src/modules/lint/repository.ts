@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { DEFAULT_LINT_SETTINGS, parseLintSettings, type LintSettings } from "@nebuladb/dbml-engine";
-import { db } from "../../infrastructure/db.js";
+import { db, isUniqueViolation } from "../../infrastructure/db.js";
 import { ApiError } from "../../shared/errors.js";
 import { mapAsync } from "../../shared/async.js";
 
@@ -119,18 +119,30 @@ const nameTaken = async (name: string, exceptId?: string) =>
     await db.prepare("SELECT 1 FROM lint_presets WHERE LOWER(name) = LOWER(?) AND id != ?").get(name, exceptId ?? ""),
   );
 
+/**
+ * Makes the transaction it is called in the only one changing the library
+ * until it ends: the limit, a free name and the single default are each read
+ * and then written, and must not be read by two writers at once.
+ */
+async function lockLibrary(): Promise<void> {
+  await db.exec("LOCK TABLE lint_presets IN SHARE ROW EXCLUSIVE MODE");
+}
+
 export async function createLintPreset(body: unknown, by: string): Promise<LintPreset> {
   const input = (body ?? {}) as Record<string, unknown>;
   const name = cleanName(input.name);
   const description = cleanDescription(input.description);
   const settings = parseLintSettingsInput(input.settings);
-  const count = ((await db.prepare("SELECT COUNT(*) AS n FROM lint_presets").get()) as { n: number }).n;
-  if (count >= MAX_LINT_PRESETS) throw new ApiError("LINT_PRESET_LIMIT");
-  if (await nameTaken(name)) throw new ApiError("LINT_PRESET_NAME_TAKEN");
   const id = randomUUID();
-  await db
-    .prepare("INSERT INTO lint_presets (id, name, description, settings_json, created_by) VALUES (?, ?, ?, ?, ?)")
-    .run(id, name, description, JSON.stringify(settings), by);
+  await db.transaction(async () => {
+    await lockLibrary();
+    const count = ((await db.prepare("SELECT COUNT(*) AS n FROM lint_presets").get()) as { n: number }).n;
+    if (count >= MAX_LINT_PRESETS) throw new ApiError("LINT_PRESET_LIMIT");
+    if (await nameTaken(name)) throw new ApiError("LINT_PRESET_NAME_TAKEN");
+    await db
+      .prepare("INSERT INTO lint_presets (id, name, description, settings_json, created_by) VALUES (?, ?, ?, ?, ?)")
+      .run(id, name, description, JSON.stringify(settings), by);
+  });
   return await getLintPreset(id);
 }
 
@@ -144,11 +156,17 @@ export async function updateLintPreset(id: string, body: unknown): Promise<{ pre
   const settings =
     input.settings === undefined ? row.settings_json : JSON.stringify(parseLintSettingsInput(input.settings));
   if (name !== row.name && (await nameTaken(name, id))) throw new ApiError("LINT_PRESET_NAME_TAKEN");
-  await db
-    .prepare(
-      "UPDATE lint_presets SET name = ?, description = ?, settings_json = ?, updated_at = utc_now() WHERE id = ?",
-    )
-    .run(name, description, settings, id);
+  try {
+    await db
+      .prepare(
+        "UPDATE lint_presets SET name = ?, description = ?, settings_json = ?, updated_at = utc_now() WHERE id = ?",
+      )
+      .run(name, description, settings, id);
+  } catch (err) {
+    // Taken between the look above and this update.
+    if (isUniqueViolation(err, "idx_lint_presets_name")) throw new ApiError("LINT_PRESET_NAME_TAKEN");
+    throw err;
+  }
   return { preset: await getLintPreset(id), affected: input.settings === undefined ? [] : await projectsFollowing(id) };
 }
 
@@ -168,8 +186,9 @@ export async function deleteLintPreset(id: string): Promise<{ detached: string[]
 export async function setDefaultLintPreset(
   id: string | null,
 ): Promise<{ defaultId: string | null; affected: string[] }> {
-  if (id !== null && !(await presetRow(id))) throw new ApiError("LINT_PRESET_NOT_FOUND");
   await db.transaction(async () => {
+    await lockLibrary();
+    if (id !== null && !(await presetRow(id))) throw new ApiError("LINT_PRESET_NOT_FOUND");
     await db.prepare("UPDATE lint_presets SET is_default = 0 WHERE is_default = 1").run();
     if (id !== null) await db.prepare("UPDATE lint_presets SET is_default = 1 WHERE id = ?").run(id);
   });

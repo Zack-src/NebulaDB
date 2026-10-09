@@ -13,6 +13,8 @@ import {
   purgeUserAndBelongings,
   type UserRow,
 } from "./repository.js";
+import { db } from "../../infrastructure/db.js";
+import { ApiError } from "../../shared/errors.js";
 
 /** The public shape of a user — never includes the password hash. */
 export function toUserSummary(row: UserRow) {
@@ -34,6 +36,27 @@ export function toUserSummary(row: UserRow) {
 export async function wouldRemoveLastAdmin(userId: string): Promise<boolean> {
   if (!(await isAdminUser(userId))) return false;
   return (await countOtherActiveAdmins(userId)) === 0;
+}
+
+/**
+ * Runs `change` — disabling, demoting or deleting `userId` — unless that
+ * would leave nobody to administer the instance, in which case it throws
+ * `refusal` and changes nothing.
+ *
+ * The check and the change are one transaction holding the administrators'
+ * rows: two administrators removing each other at the same moment would
+ * otherwise each see the other still there, and both go through.
+ */
+export async function unlessLastAdmin<T>(
+  userId: string,
+  refusal: "LAST_ADMIN" | "LAST_ADMIN_SELF",
+  change: () => Promise<T>,
+): Promise<T> {
+  return db.transaction(async () => {
+    await db.prepare("SELECT id FROM users WHERE is_admin = 1 AND disabled_at IS NULL ORDER BY id FOR UPDATE").all();
+    if (await wouldRemoveLastAdmin(userId)) throw new ApiError(refusal);
+    return change();
+  });
 }
 
 /**

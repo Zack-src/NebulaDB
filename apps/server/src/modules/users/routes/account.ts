@@ -6,7 +6,7 @@ import { ApiError } from "../../../shared/errors.js";
 import { requireUser } from "../../../shared/guards.js";
 import { revalidateAllRooms } from "../../../realtime/roomRegistry.js";
 import { getPasswordHash, updateDisplayName, updatePasswordHash } from "../repository.js";
-import { buildPersonalDataExport, deleteUserAccount, wouldRemoveLastAdmin } from "../service.js";
+import { buildPersonalDataExport, deleteUserAccount, unlessLastAdmin } from "../service.js";
 
 const MAX_DISPLAY_NAME_LENGTH = 64;
 
@@ -51,9 +51,8 @@ export function registerAccountRoutes(app: FastifyInstance): void {
     const { password } = (req.body ?? {}) as { password?: string };
     if (!password) throw new ApiError("PASSWORD_REQUIRED_FOR_DELETION");
     await verifyOwnPassword(user.id, password, "PASSWORD_INCORRECT");
-    if (await wouldRemoveLastAdmin(user.id)) throw new ApiError("LAST_ADMIN_SELF");
 
-    const owned = await deleteUserAccount(user.id, user.email, null);
+    const owned = await unlessLastAdmin(user.id, "LAST_ADMIN_SELF", () => deleteUserAccount(user.id, user.email, null));
     await revalidateAllRooms();
     clearSessionCookie(reply);
     await auditUser(

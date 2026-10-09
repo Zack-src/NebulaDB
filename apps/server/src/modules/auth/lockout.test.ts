@@ -86,3 +86,15 @@ test("purgeStaleAttempts drops old unlocked rows but keeps locked ones", async (
   assert.equal(await exists(locked), true, "an active lock survives the sweep even when old");
   assert.equal(await exists(recent), true, "recent failures are kept");
 });
+
+test("wrong passwords tried at the same moment are all counted", async () => {
+  // Read-then-write would have each of these see the same count and write it
+  // back plus one: the threshold would never be reached by a parallel guesser.
+  const email = freshEmail();
+  await Promise.all(Array.from({ length: MAX_FAILED_ATTEMPTS }, () => recordFailure(email)));
+  const row = (await db.prepare("SELECT failures FROM login_attempts WHERE email = ?").get(email)) as {
+    failures: number;
+  };
+  assert.equal(row.failures, MAX_FAILED_ATTEMPTS);
+  assert.equal((await checkLock(email)).locked, true);
+});

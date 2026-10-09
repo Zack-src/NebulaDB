@@ -145,3 +145,11 @@ test("recordMfaFailure counts attempts and discards the challenge once the cap i
   assert.equal(final, MAX_MFA_ATTEMPTS);
   assert.equal(await getMfaChallenge(id), null, "challenge should be gone once the attempt cap is hit");
 });
+
+test("a backup code presented twice at the same moment is accepted once", async () => {
+  const userId = await insertUser();
+  await replaceBackupCodes(userId, ["RACE-0001"]);
+  const outcomes = await Promise.all(Array.from({ length: 6 }, () => consumeBackupCode(userId, "RACE-0001")));
+  assert.equal(outcomes.filter(Boolean).length, 1);
+  assert.equal(await countUnusedBackupCodes(userId), 0);
+});

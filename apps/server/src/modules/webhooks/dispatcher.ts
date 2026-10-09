@@ -167,9 +167,8 @@ async function drainDueDeliveries(): Promise<void> {
 export function processDueDeliveries(): Promise<void> {
   if (running) return running;
   // Cleared from `.finally` on purpose, not from a `finally` block inside the
-  // async function: with nothing due, that function completes synchronously,
-  // so its `finally` would run *before* this assignment and leave `running`
-  // pinned to a settled promise — silently stopping the queue for good.
+  // async function: `running` must be cleared by the same promise it holds,
+  // whenever that settles, and never before this assignment has been made.
   running = drainDueDeliveries().finally(() => {
     running = null;
   });

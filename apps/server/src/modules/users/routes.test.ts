@@ -360,3 +360,33 @@ test("DELETE /api/users/:id refuses self-delete, refuses removing the last admin
     await app.close();
   }
 });
+
+test("two administrators removing each other at the same moment do not leave the instance without one", async () => {
+  const app = await buildApp();
+  try {
+    // The only two active administrators, whatever earlier tests left behind.
+    await db.prepare("UPDATE users SET is_admin = 0").run();
+    const first = await makeUser(1);
+    const second = await makeUser(1);
+    const firstCookie = await loginAs(app, first.email, first.password);
+    const secondCookie = await loginAs(app, second.email, second.password);
+    const disable = (cookie: string, id: string) =>
+      app.inject({
+        method: "PATCH",
+        url: `/api/users/${id}/disabled`,
+        headers: headers({ cookie }),
+        payload: { disabled: true },
+      });
+
+    const results = await Promise.all([disable(firstCookie, second.id), disable(secondCookie, first.id)]);
+    const active = (await db
+      .prepare("SELECT COUNT(*) AS n FROM users WHERE is_admin = 1 AND disabled_at IS NULL")
+      .get()) as { n: number };
+    assert.equal(active.n, 1, "exactly one of them is still there");
+    // The other request was refused — for being the last administrator, or
+    // because its own session went with the account it had just lost.
+    assert.deepEqual(results.map((res) => res.statusCode === 200).sort(), [false, true]);
+  } finally {
+    await app.close();
+  }
+});

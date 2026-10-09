@@ -18,6 +18,7 @@ import {
   recordProgress,
 } from "./repository.js";
 import { openBackupWriter, type BackupWriter } from "./storage.js";
+import { isUniqueViolation } from "../../infrastructure/db.js";
 
 /** Rows read per query: small enough to hold in memory whatever the table, large enough not to crawl. */
 const PAGE_ROWS = 2000;
@@ -116,15 +117,22 @@ export async function startBackup(
 ): Promise<{ backup: BackupSummary; done: Promise<BackupSummary> }> {
   const { connection } = request;
   if (await hasRunningBackup(connection.id)) throw new ApiError("BACKUP_ALREADY_RUNNING");
-  const id = await insertBackup({
-    connectionId: connection.id,
-    connectionName: connection.name,
-    engine: connection.engine,
-    trigger: request.trigger,
-    scope: request.tables && request.tables.length > 0 ? request.tables : null,
-    note: request.note ?? null,
-    createdBy: request.createdBy ?? null,
-  });
+  let id: string;
+  try {
+    id = await insertBackup({
+      connectionId: connection.id,
+      connectionName: connection.name,
+      engine: connection.engine,
+      trigger: request.trigger,
+      scope: request.tables && request.tables.length > 0 ? request.tables : null,
+      note: request.note ?? null,
+      createdBy: request.createdBy ?? null,
+    });
+  } catch (err) {
+    // Another request started one between the look above and this insert.
+    if (isUniqueViolation(err, "idx_backups_running")) throw new ApiError("BACKUP_ALREADY_RUNNING");
+    throw err;
+  }
   const job = { cancelled: false };
   running.set(id, job);
   const done = run(id, request, job)

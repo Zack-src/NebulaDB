@@ -90,8 +90,12 @@ export async function consumeBackupCode(userId: string, candidate: string): Prom
     .all(userId)) as { id: string; code_hash: string }[];
   for (const row of rows) {
     if (verifyBackupCode(candidate, row.code_hash)) {
-      await db.prepare("UPDATE totp_backup_codes SET used_at = utc_now() WHERE id = ?").run(row.id);
-      return true;
+      // Claimed, not just marked: of two logins presenting the same code at
+      // once, only the one whose update finds it still unused gets in.
+      const claimed = await db
+        .prepare("UPDATE totp_backup_codes SET used_at = utc_now() WHERE id = ? AND used_at IS NULL")
+        .run(row.id);
+      return claimed.changes > 0;
     }
   }
   return false;

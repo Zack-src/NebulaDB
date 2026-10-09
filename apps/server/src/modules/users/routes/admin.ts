@@ -17,7 +17,7 @@ import {
   userExists,
   type UserIdentityRow,
 } from "../repository.js";
-import { deleteUserAccount, toUserSummary, wouldRemoveLastAdmin } from "../service.js";
+import { deleteUserAccount, toUserSummary, unlessLastAdmin } from "../service.js";
 import { listUserProjects } from "../../projects/repository.js";
 
 async function requireTargetUser(id: string): Promise<UserIdentityRow> {
@@ -76,10 +76,9 @@ export function registerUserAdminRoutes(app: FastifyInstance): void {
     const { disabled } = (req.body ?? {}) as { disabled?: boolean };
     if (typeof disabled !== "boolean") throw new ApiError("DISABLED_MUST_BE_BOOLEAN");
     if (disabled && id === admin.id) throw new ApiError("CANNOT_DISABLE_SELF");
-    if (disabled && (await wouldRemoveLastAdmin(id))) throw new ApiError("LAST_ADMIN");
 
     if (disabled) {
-      await disableUser(id);
+      await unlessLastAdmin(id, "LAST_ADMIN", () => disableUser(id));
       // Any WebSocket they still hold open resolves its access again and is
       // closed — `resolveSession` now refuses disabled accounts, but a socket
       // authenticated before the change is already past that check.
@@ -110,7 +109,8 @@ export function registerUserAdminRoutes(app: FastifyInstance): void {
     if (!body.admin && id === admin.id) throw new ApiError("CANNOT_DEMOTE_SELF");
 
     if ((await isAdminUser(id)) !== body.admin) {
-      await setUserAdmin(id, body.admin);
+      if (body.admin) await setUserAdmin(id, true);
+      else await unlessLastAdmin(id, "LAST_ADMIN", () => setUserAdmin(id, false));
       // What they may open changed with the role: sockets held open resolve their access again.
       await revalidateAllRooms();
       await auditUser(admin, body.admin ? "user.promote" : "user.demote", { type: "user", id }, target.email, req);
@@ -134,14 +134,15 @@ export function registerUserAdminRoutes(app: FastifyInstance): void {
     const { id } = req.params as { id: string };
     const target = await requireTargetUser(id);
     if (id === admin.id) throw new ApiError("CANNOT_DELETE_SELF");
-    if (await wouldRemoveLastAdmin(id)) throw new ApiError("LAST_ADMIN");
 
     const { transferProjectsTo } = (req.body ?? {}) as { transferProjectsTo?: string };
     if (transferProjectsTo !== undefined && (transferProjectsTo === id || !(await userExists(transferProjectsTo)))) {
       throw new ApiError("TRANSFER_TARGET_INVALID");
     }
 
-    const owned = await deleteUserAccount(id, target.email, transferProjectsTo ?? null);
+    const owned = await unlessLastAdmin(id, "LAST_ADMIN", () =>
+      deleteUserAccount(id, target.email, transferProjectsTo ?? null),
+    );
     await revalidateAllRooms();
     await auditUser(
       admin,

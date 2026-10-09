@@ -94,6 +94,17 @@ async function assertNameFree(name: string, exceptId?: string): Promise<void> {
   if (existing && existing.id !== exceptId) throw new ApiError("ENVIRONMENT_NAME_TAKEN");
 }
 
+/**
+ * Makes the transaction it is called in the only one changing the chain until
+ * it ends. A stage's name must be free, its position the next one, the
+ * production flag on one stage only: each is read and then written, and two
+ * administrators saving at once would both read the same "before". Readers
+ * are not held up.
+ */
+async function lockChain(): Promise<void> {
+  await db.exec("LOCK TABLE environments IN SHARE ROW EXCLUSIVE MODE");
+}
+
 /** At most one production stage: flagging one takes the flag off the other. */
 async function takeProductionFlag(id: string): Promise<void> {
   await db.prepare("UPDATE environments SET is_production = 0 WHERE is_production = 1 AND id <> ?").run(id);
@@ -103,9 +114,10 @@ async function takeProductionFlag(id: string): Promise<void> {
 /** Appends a stage at the end of the chain. */
 export async function createEnvironment(body: unknown): Promise<EnvironmentStage> {
   const input = parseInput(body, false);
-  await assertNameFree(input.name!);
   const id = crypto.randomUUID();
   await db.transaction(async () => {
+    await lockChain();
+    await assertNameFree(input.name!);
     const { next } = (await db.prepare("SELECT COALESCE(MAX(position) + 1, 0) AS next FROM environments").get()) as {
       next: number;
     };
@@ -135,11 +147,12 @@ export async function updateEnvironment(
   id: string,
   body: unknown,
 ): Promise<{ before: EnvironmentStage; after: EnvironmentStage }> {
-  const before = await getEnvironment(id);
-  if (!before) throw new ApiError("ENVIRONMENT_NOT_FOUND");
   const input = parseInput(body, true);
-  if (input.name) await assertNameFree(input.name, id);
-  await db.transaction(async () => {
+  const before = await db.transaction(async () => {
+    await lockChain();
+    const before = await getEnvironment(id);
+    if (!before) throw new ApiError("ENVIRONMENT_NOT_FOUND");
+    if (input.name) await assertNameFree(input.name, id);
     await db
       .prepare("UPDATE environments SET name = ?, color = ?, protection = ?, variables_json = ? WHERE id = ?")
       .run(
@@ -155,22 +168,24 @@ export async function updateEnvironment(
     if (input.production === true) await takeProductionFlag(id);
     else if (input.production === false)
       await db.prepare("UPDATE environments SET is_production = 0 WHERE id = ?").run(id);
+    return before;
   });
   return { before, after: (await getEnvironment(id))! };
 }
 
 /** Removes a stage; its connections are left without one (and say so), never deleted. */
 export async function deleteEnvironment(id: string): Promise<EnvironmentStage> {
-  const existing = await getEnvironment(id);
-  if (!existing) throw new ApiError("ENVIRONMENT_NOT_FOUND");
-  await db.transaction(async () => {
+  return db.transaction(async () => {
+    await lockChain();
+    const existing = await getEnvironment(id);
+    if (!existing) throw new ApiError("ENVIRONMENT_NOT_FOUND");
     await db
       .prepare("UPDATE db_connections SET environment_id = NULL, environment = NULL WHERE environment_id = ?")
       .run(id);
     await db.prepare("DELETE FROM environments WHERE id = ?").run(id);
     await renumber((await listEnvironments()).map((stage) => stage.id));
+    return existing;
   });
-  return existing;
 }
 
 async function renumber(ids: readonly string[]): Promise<void> {
@@ -180,16 +195,19 @@ async function renumber(ids: readonly string[]): Promise<void> {
 
 /** Sets the chain's order. `ids` must name every stage exactly once. */
 export async function reorderEnvironments(ids: unknown): Promise<EnvironmentStage[]> {
-  const current = (await listEnvironments()).map((stage) => stage.id);
-  if (
-    !Array.isArray(ids) ||
-    ids.length !== current.length ||
-    new Set(ids).size !== ids.length ||
-    !ids.every((stageId) => typeof stageId === "string" && current.includes(stageId))
-  ) {
-    throw new ApiError("ENVIRONMENT_INVALID");
-  }
-  await db.transaction(async () => renumber(ids as string[]));
+  await db.transaction(async () => {
+    await lockChain();
+    const current = (await listEnvironments()).map((stage) => stage.id);
+    if (
+      !Array.isArray(ids) ||
+      ids.length !== current.length ||
+      new Set(ids).size !== ids.length ||
+      !ids.every((stageId) => typeof stageId === "string" && current.includes(stageId))
+    ) {
+      throw new ApiError("ENVIRONMENT_INVALID");
+    }
+    await renumber(ids as string[]);
+  });
   return await listEnvironments();
 }
 

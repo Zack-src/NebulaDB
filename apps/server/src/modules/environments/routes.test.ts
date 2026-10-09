@@ -411,3 +411,37 @@ test("variables: one schema deployed under each stage's names; an undefined vari
     await app.close();
   }
 });
+
+test("stages created at the same moment each get a place of their own, and a name only once", async () => {
+  const app = await buildApp();
+  try {
+    const admin = await makeUser(1);
+    const cookie = await loginAs(app, admin.email, admin.password);
+    const create = (name: string) =>
+      app.inject({ method: "POST", url: "/api/admin/environments", headers: headers({ cookie }), payload: { name } });
+
+    const tag = randomUUID().slice(0, 8);
+    const created = await Promise.all([`QA ${tag}`, `UAT ${tag}`, `Perf ${tag}`, `Demo ${tag}`].map(create));
+    assert.deepEqual(
+      created.map((res) => res.statusCode),
+      [200, 200, 200, 200],
+    );
+    const positions = (
+      (await db.prepare("SELECT position FROM environments ORDER BY position").all()) as { position: number }[]
+    ).map((row) => row.position);
+    assert.equal(new Set(positions).size, positions.length, `no two stages share a position: ${positions.join(",")}`);
+
+    const twins = await Promise.all([create(`Twin ${tag}`), create(`twin ${tag}`), create(`TWIN ${tag}`)]);
+    assert.deepEqual(
+      twins.map((res) => res.statusCode).sort(),
+      [200, 409, 409],
+      "the name goes to one of them; the others are told it is taken",
+    );
+    assert.ok(
+      twins.filter((res) => res.statusCode === 409).every((res) => res.json().code === "ENVIRONMENT_NAME_TAKEN"),
+    );
+  } finally {
+    await closeAllRooms();
+    await app.close();
+  }
+});

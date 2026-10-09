@@ -62,21 +62,22 @@ export async function checkLock(email: string): Promise<LockState> {
  * the lock on the attempt that trips it, rather than only on the next one.
  */
 export async function recordFailure(email: string): Promise<LockState> {
-  const row = (await db.prepare("SELECT failures, locked_until FROM login_attempts WHERE email = ?").get(email)) as
-    AttemptRow | undefined;
-  const failures = (row?.failures ?? 0) + 1;
-  const lockedUntil = failures >= MAX_FAILED_ATTEMPTS ? new Date(Date.now() + LOCKOUT_MS).toISOString() : null;
-  await db
+  // One statement, so the count is the database's: read first and written
+  // back, wrong passwords tried in parallel would each see the same count and
+  // the threshold would never be reached.
+  const lockAt = new Date(Date.now() + LOCKOUT_MS).toISOString();
+  const row = (await db
     .prepare(
       `INSERT INTO login_attempts (email, failures, locked_until, last_failure_at)
-     VALUES (?, ?, ?, utc_now())
+     VALUES (?, 1, CASE WHEN 1 >= ? THEN ? END, utc_now())
      ON CONFLICT(email) DO UPDATE SET
-       failures = excluded.failures,
-       locked_until = excluded.locked_until,
-       last_failure_at = excluded.last_failure_at`,
+       failures = login_attempts.failures + 1,
+       locked_until = CASE WHEN login_attempts.failures + 1 >= ? THEN ? END,
+       last_failure_at = excluded.last_failure_at
+     RETURNING locked_until`,
     )
-    .run(email, failures, lockedUntil);
-  return lockedUntil ? { locked: true, until: lockedUntil } : { locked: false };
+    .get(email, MAX_FAILED_ATTEMPTS, lockAt, MAX_FAILED_ATTEMPTS, lockAt)) as { locked_until: string | null };
+  return row.locked_until ? { locked: true, until: row.locked_until } : { locked: false };
 }
 
 /** Clears the counter after a successful login. */
