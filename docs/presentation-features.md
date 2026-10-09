@@ -6,8 +6,9 @@
 - Cartes de projet avec miniature du diagramme, onglets, archivage et corbeille.
 - **Recherche globale** : trouve une table, une colonne ou un enum dans tous les projets
   visibles, et ouvre le projet centré dessus.
-- Un projet s'ouvre sur un espace à onglets : Schéma, Données & SQL, Déploiements, Historique,
-  Dictionnaire, Problèmes.
+- Un projet s'ouvre sur un espace à onglets : Schéma, Déploiements, Historique, Dictionnaire,
+  Problèmes. Les données et le SQL sont dans l'espace « Bases » et dans le panneau SQL sous le
+  diagramme (`Ctrl+J`).
 
 ## 2. Modélisation
 
