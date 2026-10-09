@@ -31,25 +31,28 @@ test("variables: typed on a stage, kept, and used by a deployment to that stage"
 
     await page.getByRole("button", { name: "Admin", exact: true }).click();
     await page.getByRole("button", { name: "Environnements" }).click();
-    const variables = page.getByLabel("Variables de DEV");
-    await variables.waitFor();
+    const group = page.getByRole("group", { name: "Variables de DEV" });
+    await group.waitFor();
 
-    // A pair without `=` cannot be guessed at.
-    await variables.fill("table_prefix");
-    await variables.press("Enter");
-    await page.getByText("Variables : écrivez nom=valeur, séparés par des virgules.").waitFor();
+    // A name that is not an identifier is flagged before anything is sent.
+    await group.getByRole("button", { name: "Ajouter une variable" }).click();
+    await group.getByLabel("Nom de variable de DEV").fill("1bad name");
+    await group.getByText("Nom invalide").waitFor();
+    assert.equal(await group.getByRole("button", { name: "Enregistrer les variables" }).isDisabled(), true);
 
-    await variables.fill("table_prefix = dev_ , schema=");
-    await variables.press("Enter");
-    await page.waitForFunction(
-      () =>
-        (document.querySelector('[aria-label="Variables de DEV"]') as HTMLInputElement | null)?.value ===
-        "table_prefix=dev_, schema=",
-    );
+    // An empty value is a variable like any other.
+    await group.getByLabel("Nom de variable de DEV").fill("table_prefix");
+    await group.getByLabel("Valeur de table_prefix sur DEV").fill("dev_");
+    await group.getByRole("button", { name: "Ajouter une variable" }).click();
+    await group.getByLabel("Nom de variable de DEV").nth(1).fill("schema");
+    await group.getByRole("button", { name: "Enregistrer les variables" }).click();
+    await page.getByRole("group", { name: "Variables de DEV" }).getByLabel("Valeur de schema sur DEV").waitFor();
+    await page.waitForFunction(() => document.querySelectorAll('[aria-label="Nom de variable de DEV"]').length === 2);
     await page.reload();
     await page.getByRole("button", { name: "Admin", exact: true }).click();
     await page.getByRole("button", { name: "Environnements" }).click();
-    assert.equal(await page.getByLabel("Variables de DEV").inputValue(), "table_prefix=dev_, schema=");
+    assert.equal(await page.getByLabel("Valeur de table_prefix sur DEV").inputValue(), "dev_");
+    assert.equal(await page.getByLabel("Valeur de schema sur DEV").inputValue(), "");
 
     // A project whose table is named with the placeholder, deployed to a DEV database and to a Staging one.
     const outcome = await page.evaluate(

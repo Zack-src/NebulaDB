@@ -18,6 +18,7 @@
   import ListRow from "@/components/ui/ListRow.svelte";
   import Select from "@/components/ui/Select.svelte";
   import { toast } from "@/components/ui/toast.svelte";
+  import StageVariables from "@/features/admin/StageVariables.svelte";
   import EnvironmentBadge from "@/features/environments/EnvironmentBadge.svelte";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
@@ -82,37 +83,13 @@
     stages.reload();
   });
 
-  // A stage's variables are typed as one line, `name=value, name=value`; an empty value is a value ("no prefix here").
-  const formatVariables = (variables: Record<string, string>) =>
-    Object.entries(variables)
-      .map(([name, value]) => `${name}=${value}`)
-      .join(", ");
-  let variablesError = $state<string | null>(null);
-  function saveVariables(stage: EnvironmentStage, text: string) {
-    if (text.trim() === formatVariables(stage.variables)) return;
-    const pairs = text
-      .split(",")
-      .map((pair) => pair.trim())
-      .filter(Boolean)
-      .map((pair) => pair.split("=").map((part) => part.trim()));
-    // The server checks names and values; what it cannot do is guess what a pair without `=` meant.
-    if (pairs.some((pair) => pair.length !== 2 || !pair[0])) {
-      variablesError = t("environments.variablesInvalid");
-      return;
-    }
-    variablesError = null;
-    void save.run(stage, { variables: Object.fromEntries(pairs) as Record<string, string> });
-  }
-
   function rename(stage: EnvironmentStage, value: string) {
     const name = value.trim();
     if (name && name !== stage.name) void save.run(stage, { name });
   }
 
   const busy = $derived(add.pending || save.pending || move.pending || remove.pending);
-  const shownError = $derived(
-    variablesError ?? stages.error ?? add.error ?? save.error ?? move.error ?? remove.error,
-  );
+  const shownError = $derived(stages.error ?? add.error ?? save.error ?? move.error ?? remove.error);
 </script>
 
 <div>
@@ -137,91 +114,90 @@
   {:else}
     <List>
       {#each list as stage, index (stage.id)}
-        <ListRow>
-          <span class="w-5 shrink-0 text-center font-mono text-xs text-text-muted">{index + 1}</span>
-          <div class="flex shrink-0 flex-col">
-            <button
-              type="button"
-              class="cursor-pointer border-0 bg-transparent p-0 leading-none text-text-muted hover:text-text disabled:cursor-default disabled:opacity-30"
-              disabled={busy || index === 0}
-              aria-label={t("environments.moveUp", { name: stage.name })}
-              onclick={() => void move.run(index, -1)}
-            >
-              <Icon icon={ChevronRightIcon} size={12} class="-rotate-90" />
-            </button>
-            <button
-              type="button"
-              class="cursor-pointer border-0 bg-transparent p-0 leading-none text-text-muted hover:text-text disabled:cursor-default disabled:opacity-30"
-              disabled={busy || index === list.length - 1}
-              aria-label={t("environments.moveDown", { name: stage.name })}
-              onclick={() => void move.run(index, 1)}
-            >
-              <Icon icon={ChevronRightIcon} size={12} class="rotate-90" />
-            </button>
-          </div>
-          {#key stage.name}
-            <input
-              class={`${INPUT_SM_CLASS} w-40`}
-              value={stage.name}
-              maxlength={ENVIRONMENT_NAME_MAX}
-              aria-label={t("environments.name")}
+        <div>
+          <ListRow>
+            <span class="w-5 shrink-0 text-center font-mono text-xs text-text-muted">{index + 1}</span>
+            <div class="flex shrink-0 flex-col">
+              <button
+                type="button"
+                class="cursor-pointer border-0 bg-transparent p-0 leading-none text-text-muted hover:text-text disabled:cursor-default disabled:opacity-30"
+                disabled={busy || index === 0}
+                aria-label={t("environments.moveUp", { name: stage.name })}
+                onclick={() => void move.run(index, -1)}
+              >
+                <Icon icon={ChevronRightIcon} size={12} class="-rotate-90" />
+              </button>
+              <button
+                type="button"
+                class="cursor-pointer border-0 bg-transparent p-0 leading-none text-text-muted hover:text-text disabled:cursor-default disabled:opacity-30"
+                disabled={busy || index === list.length - 1}
+                aria-label={t("environments.moveDown", { name: stage.name })}
+                onclick={() => void move.run(index, 1)}
+              >
+                <Icon icon={ChevronRightIcon} size={12} class="rotate-90" />
+              </button>
+            </div>
+            {#key stage.name}
+              <input
+                class={`${INPUT_SM_CLASS} w-40`}
+                value={stage.name}
+                maxlength={ENVIRONMENT_NAME_MAX}
+                aria-label={t("environments.name")}
+                disabled={busy}
+                onblur={(event) => rename(stage, event.currentTarget.value)}
+                onkeydown={(event) => {
+                  if (event.key === "Enter") rename(stage, event.currentTarget.value);
+                }}
+              />
+            {/key}
+            <Select
+              size="sm"
+              class="w-28"
+              aria-label={t("environments.colorLabel", { name: stage.name })}
+              value={stage.color}
+              options={colorOptions}
+              disabled={busy || stage.production}
+              onChange={(color) => void save.run(stage, { color })}
+            />
+            <Select
+              size="sm"
+              class="w-36"
+              aria-label={t("environments.protectionLabel", { name: stage.name })}
+              value={stage.protection}
+              options={protectionOptions}
+              disabled={busy || stage.production}
+              onChange={(protection) => void save.run(stage, { protection })}
+            />
+            <Checkbox
+              checked={stage.production}
               disabled={busy}
-              onblur={(event) => rename(stage, event.currentTarget.value)}
-              onkeydown={(event) => {
-                if (event.key === "Enter") rename(stage, event.currentTarget.value);
-              }}
+              onChange={(production) => void save.run(stage, { production })}
+            >
+              <span class="text-xs">{t("environments.production")}</span>
+            </Checkbox>
+            <span class="shrink-0 text-xs text-text-muted">
+              {t("environments.connectionCount", { count: stage.connectionCount })}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              data-tooltip={t("common.delete")}
+              aria-label={t("environments.delete", { name: stage.name })}
+              disabled={busy}
+              onclick={() => (deleting = stage)}
+            >
+              <Icon icon={TrashIcon} size={13} />
+            </Button>
+          </ListRow>
+          {#key JSON.stringify(stage.variables)}
+            <StageVariables
+              {stage}
+              others={list.filter((other) => other.id !== stage.id)}
+              disabled={busy}
+              onSave={(variables) => void save.run(stage, { variables })}
             />
           {/key}
-          <Select
-            size="sm"
-            class="w-28"
-            aria-label={t("environments.colorLabel", { name: stage.name })}
-            value={stage.color}
-            options={colorOptions}
-            disabled={busy || stage.production}
-            onChange={(color) => void save.run(stage, { color })}
-          />
-          <Select
-            size="sm"
-            class="w-36"
-            aria-label={t("environments.protectionLabel", { name: stage.name })}
-            value={stage.protection}
-            options={protectionOptions}
-            disabled={busy || stage.production}
-            onChange={(protection) => void save.run(stage, { protection })}
-          />
-          <Checkbox
-            checked={stage.production}
-            disabled={busy}
-            onChange={(production) => void save.run(stage, { production })}
-          >
-            <span class="text-xs">{t("environments.production")}</span>
-          </Checkbox>
-          {#key formatVariables(stage.variables)}
-            <input
-              class={`${INPUT_SM_CLASS} min-w-[160px] flex-1 font-mono`}
-              value={formatVariables(stage.variables)}
-              placeholder={t("environments.variablesPlaceholder")}
-              aria-label={t("environments.variablesLabel", { name: stage.name })}
-              data-tooltip={t("environments.variablesHint")}
-              disabled={busy}
-              onchange={(event) => saveVariables(stage, event.currentTarget.value)}
-            />
-          {/key}
-          <span class="shrink-0 text-xs text-text-muted">
-            {t("environments.connectionCount", { count: stage.connectionCount })}
-          </span>
-          <Button
-            variant="ghost"
-            size="icon"
-            data-tooltip={t("common.delete")}
-            aria-label={t("environments.delete", { name: stage.name })}
-            disabled={busy}
-            onclick={() => (deleting = stage)}
-          >
-            <Icon icon={TrashIcon} size={13} />
-          </Button>
-        </ListRow>
+        </div>
       {/each}
     </List>
   {/if}
