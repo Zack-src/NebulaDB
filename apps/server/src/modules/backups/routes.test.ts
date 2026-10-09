@@ -6,8 +6,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import Database from "better-sqlite3";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-backups-${randomUUID()}`, "app.sqlite");
+await useTestDatabase("backups");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -33,12 +34,9 @@ const headers = (extra: Record<string, string> = {}) => ({ host: HOST, origin: `
 async function login(app: App, isAdmin: 0 | 1): Promise<string> {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)").run(
-    randomUUID(),
-    email,
-    await hashPassword(password),
-    isAdmin,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)")
+    .run(randomUUID(), email, await hashPassword(password), isAdmin);
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -214,7 +212,7 @@ test("backups: only instance administrators", async () => {
       assert.equal(anonymous.statusCode, 401, url);
     }
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -241,7 +239,7 @@ test("a backup is taken, stored encrypted, downloaded, and restored over changed
     assert.ok(backup.expiresAt, "kept for the default retention");
 
     // On disk: neither readable nor a plain gzip.
-    const stored = readFileSync(backupFilePath(backup.id));
+    const stored = readFileSync(await backupFilePath(backup.id));
     assert.equal(stored.includes("Ada Lovelace"), false);
     assert.throws(() => gunzipSync(stored));
 
@@ -261,15 +259,12 @@ test("a backup is taken, stored encrypted, downloaded, and restored over changed
 
     // A backup made before the rename must still restore real rows.
     (lines[0] as { format: string }).format = "athanordb-backup";
-    const legacyWriter = openBackupWriter(backup.id);
+    const legacyWriter = await openBackupWriter(backup.id);
     for (const line of lines) await legacyWriter.write(line);
     const legacyStored = await legacyWriter.finish();
-    db.prepare("UPDATE backups SET key_encrypted = ?, checksum = ?, size_bytes = ? WHERE id = ?").run(
-      legacyStored.keyEncrypted,
-      legacyStored.checksum,
-      legacyStored.sizeBytes,
-      backup.id,
-    );
+    await db
+      .prepare("UPDATE backups SET key_encrypted = ?, checksum = ?, size_bytes = ? WHERE id = ?")
+      .run(legacyStored.keyEncrypted, legacyStored.checksum, legacyStored.sizeBytes, backup.id);
     backup.sizeBytes = legacyStored.sizeBytes;
 
     // The data moves on: a customer and their orders go, a row changes, another arrives.
@@ -323,13 +318,13 @@ test("a backup is taken, stored encrypted, downloaded, and restored over changed
     assert.equal(usedBytes, backup.sizeBytes! + safety.sizeBytes!);
 
     const actions = (
-      db.prepare("SELECT action FROM audit_log WHERE action LIKE 'backup.%' ORDER BY rowid").all() as {
+      (await db.prepare("SELECT action FROM audit_log WHERE action LIKE 'backup.%' ORDER BY seq").all()) as {
         action: string;
       }[]
     ).map((row) => row.action);
     assert.deepEqual(actions, ["backup.create", "backup.download", "backup.restore"]);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -342,7 +337,7 @@ test("a connection's backups go to the folder chosen for it; the earlier ones st
     const connId = await connect(app, admin, "Elsewhere", targetFile(SHOP));
     const url = `/api/admin/connections/${connId}/backup-destination`;
     const first = await backUp(app, admin, connId);
-    const defaultPath = backupFilePath(first.id);
+    const defaultPath = await backupFilePath(first.id);
 
     assert.equal((await call(app, member, "PUT", url, { directory: "/tmp" })).statusCode, 403);
     assert.equal(
@@ -365,10 +360,10 @@ test("a connection's backups go to the folder chosen for it; the earlier ones st
 
     const second = await backUp(app, admin, connId);
     assert.equal(second.status, "done", second.error ?? "");
-    assert.equal(backupFilePath(second.id), join(share, `${second.id}.bak`));
-    assert.equal(existsSync(backupFilePath(second.id)), true);
+    assert.equal(await backupFilePath(second.id), join(share, `${second.id}.bak`));
+    assert.equal(existsSync(await backupFilePath(second.id)), true);
     // The one taken before has not moved, and still downloads.
-    assert.equal(backupFilePath(first.id), defaultPath);
+    assert.equal(await backupFilePath(first.id), defaultPath);
     assert.equal((await call(app, admin, "GET", `/api/admin/backups/${first.id}/download`)).statusCode, 200);
     assert.equal((await call(app, admin, "GET", `/api/admin/backups/${second.id}/download`)).statusCode, 200);
 
@@ -422,7 +417,7 @@ test("a restore refuses a read-only target, a target missing a column, and a fil
       safetyBackupId: null,
     });
 
-    const path = backupFilePath(backup.id);
+    const path = await backupFilePath(backup.id);
     const bytes = readFileSync(path);
     bytes[bytes.length - 1] ^= 0xff;
     writeFileSync(path, bytes);
@@ -432,7 +427,7 @@ test("a restore refuses a read-only target, a target missing a column, and a fil
       "BACKUP_CORRUPTED",
     );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -450,7 +445,7 @@ test("a backup over the size ceiling fails and leaves no file; pin, retention, d
     const tooLarge = await backUp(app, admin, bigId);
     assert.equal(tooLarge.status, "failed");
     assert.match(tooLarge.error!, /NEBULADB_DATABASE_BACKUP_MAX_MB/);
-    assert.equal(existsSync(backupFilePath(tooLarge.id)), false);
+    assert.equal(existsSync(await backupFilePath(tooLarge.id)), false);
     assert.equal(
       (await call(app, admin, "GET", `/api/admin/backups/${tooLarge.id}/download`)).json().code,
       "BACKUP_NOT_READY",
@@ -469,13 +464,13 @@ test("a backup over the size ceiling fails and leaves no file; pin, retention, d
     assert.equal(pinned.expiresAt, null);
 
     // Both are made a year old: the pinned one stays, the other goes with its file.
-    db.prepare("UPDATE backups SET started_at = datetime('now', '-365 days') WHERE id IN (?, ?)").run(kept.id, old.id);
-    assert.equal(purgeExpiredBackups(), 1);
-    assert.equal(existsSync(backupFilePath(old.id)), false);
-    assert.equal(existsSync(backupFilePath(kept.id)), true);
+    await db.prepare("UPDATE backups SET started_at = utc_now('-365 days') WHERE id IN (?, ?)").run(kept.id, old.id);
+    assert.equal(await purgeExpiredBackups(), 1);
+    assert.equal(existsSync(await backupFilePath(old.id)), false);
+    assert.equal(existsSync(await backupFilePath(kept.id)), true);
 
     // A backup still "running" at boot was cut short by the restart.
-    const ghost = insertBackup({
+    const ghost = await insertBackup({
       connectionId: connId,
       connectionName: "Small",
       engine: "sqlite",
@@ -489,18 +484,18 @@ test("a backup over the size ceiling fails and leaves no file; pin, retention, d
       "BACKUP_ALREADY_RUNNING",
     );
     assert.equal((await call(app, admin, "DELETE", `/api/admin/backups/${ghost}`)).json().code, "BACKUP_NOT_READY");
-    assert.equal(failInterruptedBackups(), 1);
+    assert.equal(await failInterruptedBackups(), 1);
     assert.equal((await call(app, admin, "DELETE", `/api/admin/backups/${ghost}`)).statusCode, 200);
 
     // Deleting the connection takes its backups, files included.
     assert.equal((await call(app, admin, "DELETE", `/api/admin/connections/${connId}`)).statusCode, 200);
-    assert.equal(existsSync(backupFilePath(kept.id)), false);
+    assert.equal(existsSync(await backupFilePath(kept.id)), false);
     assert.equal(
-      (db.prepare("SELECT COUNT(*) AS n FROM backups WHERE connection_id = ?").get(connId) as { n: number }).n,
+      ((await db.prepare("SELECT COUNT(*) AS n FROM backups WHERE connection_id = ?").get(connId)) as { n: number }).n,
       0,
     );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -511,9 +506,9 @@ test("a production deployment backs the database up first — or does not happen
     const admin = await login(app, 1);
     const project = (await call(app, admin, "POST", "/api/projects", { name: "Shop" })).json() as { id: string };
     const column = (name: string, pk = false) => ({ id: `f-${name}`, name, type: pk ? "integer" : "text", pk });
-    const write = (fields: ReturnType<typeof column>[]) => {
-      const room = getRoom(project.id);
-      room.doc.transact(() => {
+    const write = async (fields: ReturnType<typeof column>[]) => {
+      const room = await getRoom(project.id);
+      await room.write(() => {
         writeProjectToDoc(room.doc, {
           id: project.id,
           name: "Shop",
@@ -546,12 +541,12 @@ test("a production deployment backs the database up first — or does not happen
       (await call(app, admin, "GET", `/api/admin/connections/${connId}/backups`)).json().backups as Backup[];
 
     // Nothing to change: nothing to protect, no backup.
-    write([column("id", true), column("body")]);
+    await write([column("id", true), column("body")]);
     assert.equal((await deploy({})).json().backupId, null);
     assert.equal((await backups()).length, 0);
 
     // A change on the production stage: the backup comes first, and the history says which.
-    write([column("id", true), column("body"), column("label")]);
+    await write([column("id", true), column("body"), column("label")]);
     const deployed = await deploy({});
     assert.equal(deployed.statusCode, 200, deployed.body);
     const [backup] = await backups();
@@ -565,7 +560,7 @@ test("a production deployment backs the database up first — or does not happen
     assert.equal(history[0].backupId, backup.id);
 
     // Explicitly without.
-    write([column("id", true), column("body"), column("label"), column("extra")]);
+    await write([column("id", true), column("body"), column("label"), column("extra")]);
     assert.equal((await deploy({ backupBefore: false })).json().backupId, null);
     assert.equal((await backups()).length, 1);
 
@@ -574,7 +569,7 @@ test("a production deployment backs the database up first — or does not happen
     const insert = filler.prepare("INSERT INTO blobs (body) VALUES (?)");
     for (let i = 0; i < 30; i++) insert.run("x".repeat(50_000));
     filler.close();
-    write([column("id", true), column("body"), column("label"), column("extra"), column("more")]);
+    await write([column("id", true), column("body"), column("label"), column("extra"), column("more")]);
     const refused = await deploy({});
     assert.equal(refused.statusCode, 502);
     assert.equal(refused.json().code, "BACKUP_FAILED");
@@ -583,7 +578,7 @@ test("a production deployment backs the database up first — or does not happen
     after.close();
     assert.deepEqual(columns, ["id", "body", "label", "extra"]);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -611,9 +606,9 @@ test("a running backup can be cancelled, and leaves no file", async () => {
       await new Promise((resolve) => setTimeout(resolve, 5));
     }
     assert.equal(backup?.status, "cancelled");
-    assert.equal(existsSync(backupFilePath(id)), false);
+    assert.equal(existsSync(await backupFilePath(id)), false);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -718,19 +713,19 @@ test("/api/v1 backups: taken, polled, listed, downloaded and deleted with an adm
     assert.equal((await withKey(manageKey, "POST", `/api/v1/backups/${id}/cancel`)).json().code, "BACKUP_NOT_READY");
     const deleted = await withKey(manageKey, "DELETE", `/api/v1/backups/${id}`);
     assert.deepEqual([deleted.statusCode, deleted.json()], [200, { deleted: true }]);
-    assert.equal(existsSync(backupFilePath(id)), false);
+    assert.equal(existsSync(await backupFilePath(id)), false);
     assert.equal((await withKey(manageKey, "GET", `/api/v1/backups/${id}`)).statusCode, 404);
     assert.deepEqual((await withKey(manageKey, "GET", list)).json().backups, []);
 
     // Recorded as the app's own actions are; a refused call records nothing.
     const actions = (
-      db
-        .prepare("SELECT action FROM audit_log WHERE action LIKE 'backup.%' AND target_id = ? ORDER BY rowid")
-        .all(connId) as { action: string }[]
+      (await db
+        .prepare("SELECT action FROM audit_log WHERE action LIKE 'backup.%' AND target_id = ? ORDER BY seq")
+        .all(connId)) as { action: string }[]
     ).map((row) => row.action);
     assert.deepEqual(actions, ["backup.create", "backup.download", "backup.delete"]);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -773,9 +768,9 @@ test("/api/v1 backups: a running backup is cancelled with a key", async () => {
       status = ((await withKey("GET", `/api/v1/backups/${id}`)).json().backup as Backup).status;
     }
     assert.equal(status, "cancelled");
-    assert.equal(existsSync(backupFilePath(id)), false);
+    assert.equal(existsSync(await backupFilePath(id)), false);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -838,14 +833,16 @@ test("a schedule fires once per occurrence, never for a past one, and keeps the 
     assert.equal(kept.length, 3);
     assert.ok(kept.some((b) => b.id === first.id));
     // The age-based sweep leaves scheduled backups to their schedule.
-    db.prepare("UPDATE backups SET started_at = datetime(started_at, '-365 days') WHERE connection_id = ?").run(connId);
-    assert.equal(purgeExpiredBackups(), 0);
+    await db
+      .prepare("UPDATE backups SET started_at = utc_shift(started_at, '-365 days') WHERE connection_id = ?")
+      .run(connId);
+    assert.equal(await purgeExpiredBackups(), 0);
 
     await call(app, admin, "PUT", url, { ...settings, enabled: false });
     assert.equal(await runDueBackupSchedules(day(30)), 0);
-    const audited = db
-      .prepare("SELECT detail FROM audit_log WHERE action = 'backup.schedule' ORDER BY rowid")
-      .all() as {
+    const audited = (await db
+      .prepare("SELECT detail FROM audit_log WHERE action = 'backup.schedule' ORDER BY seq")
+      .all()) as {
       detail: string;
     }[];
     assert.deepEqual(
@@ -853,7 +850,7 @@ test("a schedule fires once per occurrence, never for a past one, and keeps the 
       ["Nightly: daily at 2:00, keeping 2", "Nightly: off"],
     );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

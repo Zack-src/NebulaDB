@@ -28,35 +28,39 @@ import { closeDriftEvents } from "../monitoring/repository.js";
 export type FingerprintSource = "deploy" | "rollback" | "pull";
 
 /** The live schema is now the agreed state: remember it, and clear any out-of-schema mark. */
-export function saveReferenceFingerprint(
+export async function saveReferenceFingerprint(
   projectId: string,
   connectionId: string,
   live: Pick<Project, "tables" | "refs">,
   source: FingerprintSource,
-): void {
+): Promise<void> {
   const fingerprint = fingerprintSchema(live);
-  db.transaction(() => {
-    db.prepare(
-      `INSERT INTO schema_fingerprints (project_id, connection_id, source, hash, snapshot_json)
+  await db.transaction(async () => {
+    await db
+      .prepare(
+        `INSERT INTO schema_fingerprints (project_id, connection_id, source, hash, snapshot_json)
        VALUES (?, ?, ?, ?, ?)
        ON CONFLICT (project_id, connection_id) DO UPDATE SET
          source = excluded.source, hash = excluded.hash, snapshot_json = excluded.snapshot_json,
-         taken_at = datetime('now')`,
-    ).run(projectId, connectionId, source, fingerprint.hash, JSON.stringify(fingerprint));
-    db.prepare(
-      `UPDATE project_connection_links SET out_of_schema_at = NULL, out_of_schema_detail = NULL
+         taken_at = utc_now()`,
+      )
+      .run(projectId, connectionId, source, fingerprint.hash, JSON.stringify(fingerprint));
+    await db
+      .prepare(
+        `UPDATE project_connection_links SET out_of_schema_at = NULL, out_of_schema_detail = NULL
         WHERE project_id = ? AND connection_id = ?`,
-    ).run(projectId, connectionId);
+      )
+      .run(projectId, connectionId);
     // Schema and database agree again: what the watch had found is settled.
-    closeDriftEvents(projectId, connectionId, "resolved", ["external", "partial-deployment"]);
-  })();
+    await closeDriftEvents(projectId, connectionId, "resolved", ["external", "partial-deployment"]);
+  });
   notifyProject(projectId, { type: "drift-changed" });
 }
 
-export function loadReference(projectId: string, connectionId: string): SchemaFingerprint | null {
-  const row = db
+export async function loadReference(projectId: string, connectionId: string): Promise<SchemaFingerprint | null> {
+  const row = (await db
     .prepare("SELECT snapshot_json FROM schema_fingerprints WHERE project_id = ? AND connection_id = ?")
-    .get(projectId, connectionId) as { snapshot_json: string } | undefined;
+    .get(projectId, connectionId)) as { snapshot_json: string } | undefined;
   if (!row) return null;
   try {
     const parsed = JSON.parse(row.snapshot_json) as SchemaFingerprint;
@@ -68,19 +72,21 @@ export function loadReference(projectId: string, connectionId: string): SchemaFi
 }
 
 /** When the reference was taken — `null` when there is none. */
-export function referenceTakenAt(projectId: string, connectionId: string): string | null {
-  const row = db
+export async function referenceTakenAt(projectId: string, connectionId: string): Promise<string | null> {
+  const row = (await db
     .prepare("SELECT taken_at FROM schema_fingerprints WHERE project_id = ? AND connection_id = ?")
-    .get(projectId, connectionId) as { taken_at: string } | undefined;
+    .get(projectId, connectionId)) as { taken_at: string } | undefined;
   return row?.taken_at ?? null;
 }
 
 /** Marks one project's link to a database as changed outside the schema, with what was found. */
-export function markProjectOutOfSchema(projectId: string, connectionId: string, detail: string): void {
-  db.prepare(
-    `UPDATE project_connection_links SET out_of_schema_at = datetime('now'), out_of_schema_detail = ?
+export async function markProjectOutOfSchema(projectId: string, connectionId: string, detail: string): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE project_connection_links SET out_of_schema_at = utc_now(), out_of_schema_detail = ?
       WHERE project_id = ? AND connection_id = ?`,
-  ).run(detail.slice(0, 500), projectId, connectionId);
+    )
+    .run(detail.slice(0, 500), projectId, connectionId);
   notifyProject(projectId, { type: "drift-changed" });
 }
 
@@ -88,34 +94,38 @@ export function markProjectOutOfSchema(projectId: string, connectionId: string, 
  * A structural change was just made to this database outside the schema. Every
  * project modelling it is marked, and told at once if it is open somewhere.
  */
-export function markOutOfSchema(connectionId: string, detail: string): void {
-  const projects = db
+export async function markOutOfSchema(connectionId: string, detail: string): Promise<void> {
+  const projects = (await db
     .prepare("SELECT project_id FROM project_connection_links WHERE connection_id = ?")
-    .all(connectionId) as { project_id: string }[];
+    .all(connectionId)) as { project_id: string }[];
   if (projects.length === 0) return;
-  db.prepare(
-    `UPDATE project_connection_links SET out_of_schema_at = datetime('now'), out_of_schema_detail = ?
+  await db
+    .prepare(
+      `UPDATE project_connection_links SET out_of_schema_at = utc_now(), out_of_schema_detail = ?
       WHERE connection_id = ?`,
-  ).run(detail.slice(0, 500), connectionId);
+    )
+    .run(detail.slice(0, 500), connectionId);
   for (const { project_id } of projects) notifyProject(project_id, { type: "drift-changed" });
 }
 
-export function dismissOutOfSchema(projectId: string, connectionId: string): boolean {
-  const changed = db
-    .prepare(
-      `UPDATE project_connection_links SET out_of_schema_at = NULL, out_of_schema_detail = NULL
+export async function dismissOutOfSchema(projectId: string, connectionId: string): Promise<boolean> {
+  const changed = (
+    await db
+      .prepare(
+        `UPDATE project_connection_links SET out_of_schema_at = NULL, out_of_schema_detail = NULL
         WHERE project_id = ? AND connection_id = ? AND out_of_schema_at IS NOT NULL`,
-    )
-    .run(projectId, connectionId).changes;
+      )
+      .run(projectId, connectionId)
+  ).changes;
   // Waved off: the watch will not report this state of the database again.
-  closeDriftEvents(projectId, connectionId, "ignored", ["external", "partial-deployment"]);
+  await closeDriftEvents(projectId, connectionId, "ignored", ["external", "partial-deployment"]);
   if (changed > 0) notifyProject(projectId, { type: "drift-changed" });
   return changed > 0;
 }
 
 /** What the editor needs to decide whether to show a banner. No database is contacted. */
-export function listProjectDrift(projectId: string): ProjectDriftEntry[] {
-  const rows = db
+export async function listProjectDrift(projectId: string): Promise<ProjectDriftEntry[]> {
+  const rows = (await db
     .prepare(
       `SELECT c.id AS id, c.name AS name, l.out_of_schema_at AS at, l.out_of_schema_detail AS detail,
               f.taken_at AS reference_at
@@ -123,9 +133,9 @@ export function listProjectDrift(projectId: string): ProjectDriftEntry[] {
          JOIN db_connections c ON c.id = l.connection_id
          LEFT JOIN schema_fingerprints f ON f.project_id = l.project_id AND f.connection_id = l.connection_id
         WHERE l.project_id = ?
-        ORDER BY c.name COLLATE NOCASE`,
+        ORDER BY LOWER(c.name)`,
     )
-    .all(projectId) as {
+    .all(projectId)) as {
     id: string;
     name: string;
     at: string | null;
@@ -152,14 +162,17 @@ export async function checkDrift(
   projectName: string,
   connectionId: string,
 ): Promise<DriftCheckResult> {
-  const conn = getProjectConnection(projectId, connectionId);
+  const conn = await getProjectConnection(projectId, connectionId);
   if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
   const driver = await createDatabaseDriver(conn);
   try {
     const live = await driver.introspectSchema();
-    const canvas = schemaForConnection(readProjectFromDoc(getRoom(projectId).doc, projectId, projectName), conn);
+    const canvas = await schemaForConnection(
+      readProjectFromDoc((await getRoom(projectId)).doc, projectId, projectName),
+      conn,
+    );
     const diff = diffTargetAgainstLive(live, canvas);
-    const reference = loadReference(projectId, connectionId);
+    const reference = await loadReference(projectId, connectionId);
     const since = reference ? diffFingerprints(reference, fingerprintSchema(live)) : null;
     return {
       checkedAt: new Date().toISOString(),

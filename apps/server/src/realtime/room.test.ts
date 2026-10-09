@@ -1,19 +1,19 @@
 import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import * as Y from "yjs";
 import * as encoding from "lib0/encoding.js";
 import * as decoding from "lib0/decoding.js";
 import * as syncProtocol from "y-protocols/sync.js";
 import type { WebSocket } from "ws";
+import { useTestDatabase } from "../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-room-test-${randomUUID()}.sqlite`);
+await useTestDatabase("room");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 
 const { db } = await import("../infrastructure/db.js");
 const { Room } = await import("./room.js");
+type RoomInstance = Awaited<ReturnType<typeof Room.open>>;
 
 /**
  * Enough of a WebSocket for `Room`: it only ever calls `send`, `close` and
@@ -38,9 +38,9 @@ function fakeSocket() {
   return { socket: socket as unknown as WebSocket, sent, isClosed: () => closed };
 }
 
-function newProject(): string {
+async function newProject(): Promise<string> {
   const id = randomUUID();
-  db.prepare("INSERT INTO projects (id, name) VALUES (?, ?)").run(id, "room test");
+  await db.prepare("INSERT INTO projects (id, name) VALUES (?, ?)").run(id, "room test");
   return id;
 }
 
@@ -49,9 +49,9 @@ function newProject(): string {
  * so a test that leaves one alive holds the whole process open — which is how
  * the eviction leak this file also covers was found in the first place.
  */
-function newRoom(t: TestContext): InstanceType<typeof Room> {
-  const room = new Room(newProject(), () => {});
-  t.after(() => room.destroy());
+async function newRoom(t: TestContext): Promise<RoomInstance> {
+  const room = await Room.open(await newProject(), () => {});
+  t.after(async () => await room.destroy());
   return room;
 }
 
@@ -65,49 +65,49 @@ function updateMessage(mutate: (doc: Y.Doc) => void): Uint8Array {
   return encoding.toUint8Array(encoder);
 }
 
-test("a writable connection's update is applied", (t) => {
-  const room = newRoom(t);
+test("a writable connection's update is applied", async (t) => {
+  const room = await newRoom(t);
   const { socket } = fakeSocket();
-  room.join(socket, "alice", () => ({ canWrite: true }));
+  await room.join(socket, "alice", () => ({ canWrite: true }));
 
-  room.receive(
+  await room.receive(
     socket,
     updateMessage((doc) => doc.getMap("tables").set("t1", "users")),
   );
   assert.equal(room.doc.getMap("tables").get("t1"), "users");
 });
 
-test("a read-only connection's update is dropped", (t) => {
-  const room = newRoom(t);
+test("a read-only connection's update is dropped", async (t) => {
+  const room = await newRoom(t);
   const { socket } = fakeSocket();
-  room.join(socket, "bob", () => ({ canWrite: false }));
+  await room.join(socket, "bob", () => ({ canWrite: false }));
 
-  room.receive(
+  await room.receive(
     socket,
     updateMessage((doc) => doc.getMap("tables").set("t1", "users")),
   );
   assert.equal(room.doc.getMap("tables").has("t1"), false, "a view-only socket cannot mutate the document");
 });
 
-test("revoking write access takes effect on an already-open connection", (t) => {
+test("revoking write access takes effect on an already-open connection", async (t) => {
   // The bug this covers: `canWrite` used to be resolved once, at connect time,
   // and stored. Downgrading someone to view-only left them writing until they
   // happened to reconnect.
-  const room = newRoom(t);
+  const room = await newRoom(t);
   const { socket } = fakeSocket();
   let canWrite = true;
-  room.join(socket, "carol", () => ({ canWrite }));
+  await room.join(socket, "carol", () => ({ canWrite }));
 
-  room.receive(
+  await room.receive(
     socket,
     updateMessage((doc) => doc.getMap("tables").set("before", "ok")),
   );
   assert.equal(room.doc.getMap("tables").get("before"), "ok");
 
   canWrite = false;
-  room.revalidate(); // what the permission-changing routes call
+  await room.revalidate(); // what the permission-changing routes call
 
-  room.receive(
+  await room.receive(
     socket,
     updateMessage((doc) => doc.getMap("tables").set("after", "nope")),
   );
@@ -115,49 +115,49 @@ test("revoking write access takes effect on an already-open connection", (t) => 
   assert.equal(room.doc.getMap("tables").get("before"), "ok", "edits made while allowed are untouched");
 });
 
-test("losing access entirely closes the connection", (t) => {
-  const room = newRoom(t);
+test("losing access entirely closes the connection", async (t) => {
+  const room = await newRoom(t);
   const { socket, isClosed } = fakeSocket();
   let access: { canWrite: boolean } | null = { canWrite: true };
-  room.join(socket, "dave", () => access);
+  await room.join(socket, "dave", () => access);
 
   assert.equal(isClosed(), false);
   access = null; // removed from the only team granting the project
-  room.revalidate();
+  await room.revalidate();
   assert.equal(isClosed(), true, "a user with no permission left is disconnected, not silently downgraded");
 });
 
-test("a resolver that throws fails closed", (t) => {
-  const room = newRoom(t);
+test("a resolver that throws fails closed", async (t) => {
+  const room = await newRoom(t);
   const { socket } = fakeSocket();
   let broken = false;
-  room.join(socket, "erin", () => {
+  await room.join(socket, "erin", () => {
     if (broken) throw new Error("database is locked");
     return { canWrite: true };
   });
 
   broken = true;
-  room.revalidate();
-  room.receive(
+  await room.revalidate();
+  await room.receive(
     socket,
     updateMessage((doc) => doc.getMap("tables").set("t1", "users")),
   );
   assert.equal(room.doc.getMap("tables").has("t1"), false, "an unresolvable permission is not treated as granted");
 });
 
-test("a connection that joins with no access starts read-only", (t) => {
-  const room = newRoom(t);
+test("a connection that joins with no access starts read-only", async (t) => {
+  const room = await newRoom(t);
   const { socket } = fakeSocket();
-  room.join(socket, "frank", () => null);
+  await room.join(socket, "frank", () => null);
 
-  room.receive(
+  await room.receive(
     socket,
     updateMessage((doc) => doc.getMap("tables").set("t1", "users")),
   );
   assert.equal(room.doc.getMap("tables").has("t1"), false);
 });
 
-test("an evicted room releases its Awareness timer", () => {
+test("an evicted room releases its Awareness timer", async () => {
   // Regression test for a leak found while writing this file: the last client
   // leaving evicts the room from the module's map, but `Awareness` holds a
   // `setInterval` of its own, so the timer — and through it the Awareness, the
@@ -165,13 +165,13 @@ test("an evicted room releases its Awareness timer", () => {
   // process, for every project ever opened. The symptom that exposed it was
   // this test file never exiting.
   let evicted = false;
-  const room = new Room(newProject(), () => {
+  const room = await Room.open(await newProject(), () => {
     evicted = true;
   });
   const { socket } = fakeSocket();
-  room.join(socket, "grace", () => ({ canWrite: true }));
+  await room.join(socket, "grace", () => ({ canWrite: true }));
 
-  room.leave(socket);
+  await room.leave(socket);
 
   assert.equal(evicted, true, "the room is evicted when the last client leaves");
   // `Awareness.destroy()` clears its interval and emits `destroy`; observing
@@ -185,7 +185,7 @@ test("loading a project saved with an inverted ref repairs it once, persistently
 
   // A project as an older version stored an inline `posts.author_id [ref: > users.id]`:
   // `from` on the referenced key, `to` on the FK column.
-  const projectId = newProject();
+  const projectId = await newProject();
   const legacy = new Y.Doc();
   writeProjectToDoc(legacy, {
     id: projectId,
@@ -224,24 +224,24 @@ test("loading a project saved with an inverted ref repairs it once, persistently
     stickyNotes: [],
     tableGroups: [],
   });
-  saveSnapshot(projectId, legacy);
+  await saveSnapshot(projectId, legacy);
 
-  const room = new Room(projectId, () => {});
-  t.after(() => room.destroy());
+  const room = await Room.open(projectId, () => {});
+  t.after(async () => await room.destroy());
   const repaired = getRefsMap(room.doc).get("r1")!;
   assert.deepEqual(repaired.from, { tableId: "t-posts", fieldId: "f-posts-author" });
   assert.deepEqual(repaired.to, { tableId: "t-users", fieldId: "f-users-id" });
   assert.ok(
-    listRevisions(projectId).some((rev) => rev.author === "NebulaDB (sens des relations corrigé)"),
+    (await listRevisions(projectId)).some((rev) => rev.author === "NebulaDB (sens des relations corrigé)"),
     "the repair is a recorded revision, not a silent in-memory change",
   );
 
   // A second load of the repaired state finds nothing to do.
-  room.flush();
-  const before = listRevisions(projectId).length;
-  const again = new Room(projectId, () => {});
-  t.after(() => again.destroy());
-  assert.equal(listRevisions(projectId).length, before);
+  await room.flush();
+  const before = (await listRevisions(projectId)).length;
+  const again = await Room.open(projectId, () => {});
+  t.after(async () => await again.destroy());
+  assert.equal((await listRevisions(projectId)).length, before);
 });
 
 // --- Table locks -----------------------------------------------------------
@@ -258,9 +258,9 @@ function lockTestTable(id: string, name: string, columns: string[]) {
 }
 
 /** A room holding `users` and `orders`, with `orders.user_id` → `users.id`. */
-function roomWithSchema(t: TestContext): InstanceType<typeof Room> {
-  const room = newRoom(t);
-  room.doc.transact(() => {
+async function roomWithSchema(t: TestContext): Promise<RoomInstance> {
+  const room = await newRoom(t);
+  await room.write(() => {
     const tables = room.doc.getMap("tables");
     tables.set("users", lockTestTable("users", "users", ["id", "email"]));
     tables.set("orders", lockTestTable("orders", "orders", ["id", "user_id"]));
@@ -275,7 +275,7 @@ function roomWithSchema(t: TestContext): InstanceType<typeof Room> {
 }
 
 /** A frame from a client that is in sync with the room, carrying only what `mutate` changed — what a real editor sends. */
-function clientEdit(room: InstanceType<typeof Room>, mutate: (doc: Y.Doc) => void): Uint8Array {
+function clientEdit(room: RoomInstance, mutate: (doc: Y.Doc) => void): Uint8Array {
   const client = new Y.Doc();
   Y.applyUpdate(client, Y.encodeStateAsUpdate(room.doc));
   const before = Y.encodeStateVector(client);
@@ -287,7 +287,7 @@ function clientEdit(room: InstanceType<typeof Room>, mutate: (doc: Y.Doc) => voi
 }
 
 /** `Room` keeps its project id private; the revision log is the only way to see what it persisted. */
-const roomProjectId = (room: InstanceType<typeof Room>) => (room as unknown as { projectId: string }).projectId;
+const roomProjectId = (room: RoomInstance) => (room as unknown as { projectId: string }).projectId;
 
 type AnyTable = ReturnType<typeof lockTestTable> & { position: { x: number; y: number } };
 const tableOf = (doc: Y.Doc, id: string) => doc.getMap("tables").get(id) as AnyTable | undefined;
@@ -300,12 +300,12 @@ function noticesSent(sent: Uint8Array[]): unknown[] {
   });
 }
 
-test("a change to a locked table is put back, and the connection is told which table", (t) => {
-  const room = roomWithSchema(t);
+test("a change to a locked table is put back, and the connection is told which table", async (t) => {
+  const room = await roomWithSchema(t);
   const { socket, sent } = fakeSocket();
-  room.join(socket, "erin", () => ({ canWrite: true, lockedTableIds: new Set(["users"]) }));
+  await room.join(socket, "erin", () => ({ canWrite: true, lockedTableIds: new Set(["users"]) }));
 
-  room.receive(
+  await room.receive(
     socket,
     clientEdit(room, (doc) => {
       const users = tableOf(doc, "users")!;
@@ -333,18 +333,18 @@ test("a change to a locked table is put back, and the connection is told which t
   assert.deepEqual(noticesSent(sent), [{ type: "table-locked", tables: ["users"] }]);
 });
 
-test("deleting a locked table, or its foreign key, is put back", (t) => {
-  const room = roomWithSchema(t);
+test("deleting a locked table, or its foreign key, is put back", async (t) => {
+  const room = await roomWithSchema(t);
   const { socket } = fakeSocket();
-  room.join(socket, "erin", () => ({ canWrite: true, lockedTableIds: new Set(["orders"]) }));
+  await room.join(socket, "erin", () => ({ canWrite: true, lockedTableIds: new Set(["orders"]) }));
 
-  room.receive(
+  await room.receive(
     socket,
     clientEdit(room, (doc) => doc.getMap("refs").delete("r1")),
   );
   assert.ok(room.doc.getMap("refs").has("r1"), "the locked table's foreign key is restored");
 
-  room.receive(
+  await room.receive(
     socket,
     clientEdit(room, (doc) => doc.getMap("tables").delete("orders")),
   );
@@ -353,12 +353,12 @@ test("deleting a locked table, or its foreign key, is put back", (t) => {
 
 test("moving a locked table, or editing another one, sends no notice and reverts nothing", async (t) => {
   const { listRevisions } = await import("./persistence.js");
-  const room = roomWithSchema(t);
+  const room = await roomWithSchema(t);
   const { socket, sent } = fakeSocket();
-  room.join(socket, "erin", () => ({ canWrite: true, lockedTableIds: new Set(["users"]) }));
-  const revisionsBefore = listRevisions(roomProjectId(room)).length;
+  await room.join(socket, "erin", () => ({ canWrite: true, lockedTableIds: new Set(["users"]) }));
+  const revisionsBefore = (await listRevisions(roomProjectId(room))).length;
 
-  room.receive(
+  await room.receive(
     socket,
     clientEdit(room, (doc) => {
       doc.getMap("tables").set("users", { ...tableOf(doc, "users")!, position: { x: 10, y: 20 } });
@@ -376,46 +376,50 @@ test("moving a locked table, or editing another one, sends no notice and reverts
   assert.deepEqual(tableOf(room.doc, "users")!.position, { x: 10, y: 20 });
   assert.ok(room.doc.getMap("refs").has("r2"));
   assert.deepEqual(noticesSent(sent), []);
-  assert.equal(listRevisions(roomProjectId(room)).length, revisionsBefore + 1, "one revision: the edit, no revert");
+  assert.equal(
+    (await listRevisions(roomProjectId(room))).length,
+    revisionsBefore + 1,
+    "one revision: the edit, no revert",
+  );
 });
 
-test("a lock binds only the connections it is resolved for, and lifting it takes effect on revalidate", (t) => {
-  const room = roomWithSchema(t);
+test("a lock binds only the connections it is resolved for, and lifting it takes effect on revalidate", async (t) => {
+  const room = await roomWithSchema(t);
   const admin = fakeSocket();
   const editor = fakeSocket();
   let locked = new Set(["users"]);
-  room.join(admin.socket, "admin", () => ({ canWrite: true }));
-  room.join(editor.socket, "editor", () => ({ canWrite: true, lockedTableIds: locked }));
+  await room.join(admin.socket, "admin", () => ({ canWrite: true }));
+  await room.join(editor.socket, "editor", () => ({ canWrite: true, lockedTableIds: locked }));
 
   const rename = (name: string) => (doc: Y.Doc) =>
     doc.getMap("tables").set("users", { ...tableOf(doc, "users")!, name });
 
-  room.receive(admin.socket, clientEdit(room, rename("accounts")));
+  await room.receive(admin.socket, clientEdit(room, rename("accounts")));
   assert.equal(tableOf(room.doc, "users")!.name, "accounts", "the administrator edits the locked table");
 
-  room.receive(editor.socket, clientEdit(room, rename("people")));
+  await room.receive(editor.socket, clientEdit(room, rename("people")));
   assert.equal(tableOf(room.doc, "users")!.name, "accounts", "the editor does not");
 
   locked = new Set();
-  room.revalidate(); // what the lock routes call
-  room.receive(editor.socket, clientEdit(room, rename("people")));
+  await room.revalidate(); // what the lock routes call
+  await room.receive(editor.socket, clientEdit(room, rename("people")));
   assert.equal(tableOf(room.doc, "users")!.name, "people", "once unlocked, the editor does");
 
   room.announce({ type: "locks-changed" });
   assert.deepEqual(noticesSent(admin.sent).at(-1), { type: "locks-changed" });
 });
 
-test("a notice addressed to accounts reaches their connections only", (t) => {
-  const room = newRoom(t);
+test("a notice addressed to accounts reaches their connections only", async (t) => {
+  const room = await newRoom(t);
   const ada = fakeSocket();
   const adaOtherTab = fakeSocket();
   const bob = fakeSocket();
   const unidentified = fakeSocket();
-  room.join(ada.socket, "ada", () => ({ canWrite: true }), "user-ada");
-  room.join(adaOtherTab.socket, "ada", () => ({ canWrite: true }), "user-ada");
+  await room.join(ada.socket, "ada", () => ({ canWrite: true }), "user-ada");
+  await room.join(adaOtherTab.socket, "ada", () => ({ canWrite: true }), "user-ada");
   // Same display name as Ada: it is the account that is addressed, not the name.
-  room.join(bob.socket, "ada", () => ({ canWrite: true }), "user-bob");
-  room.join(unidentified.socket, "ada", () => ({ canWrite: true }));
+  await room.join(bob.socket, "ada", () => ({ canWrite: true }), "user-bob");
+  await room.join(unidentified.socket, "ada", () => ({ canWrite: true }));
 
   room.announceTo(new Set(["user-ada", "user-nobody-connected"]), { type: "notification" });
 

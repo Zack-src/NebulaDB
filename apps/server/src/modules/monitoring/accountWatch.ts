@@ -16,6 +16,7 @@ import {
 } from "./accountFingerprint.js";
 import { readAccountLines } from "./accountReader.js";
 import { alreadyReported, insertDriftEvent } from "./repository.js";
+import { mapAsync } from "../../shared/async.js";
 
 /**
  * The accounts watch: a database's accounts, memberships and privileges compared with the
@@ -82,12 +83,12 @@ interface Baseline {
   lastError: string | null;
 }
 
-function getBaseline(projectId: string, connectionId: string): Baseline | null {
-  const row = db
+async function getBaseline(projectId: string, connectionId: string): Promise<Baseline | null> {
+  const row = (await db
     .prepare(
       "SELECT hash, lines_json, taken_at, live_hash, last_error FROM account_baselines WHERE project_id = ? AND connection_id = ?",
     )
-    .get(projectId, connectionId) as BaselineRow | undefined;
+    .get(projectId, connectionId)) as BaselineRow | undefined;
   if (!row) return null;
   return {
     hash: row.hash,
@@ -98,85 +99,95 @@ function getBaseline(projectId: string, connectionId: string): Baseline | null {
   };
 }
 
-function saveBaseline(projectId: string, connectionId: string, lines: string[]): void {
-  db.prepare(
-    `INSERT INTO account_baselines (project_id, connection_id, hash, lines_json, taken_at, last_read_at)
-     VALUES (?, ?, ?, ?, datetime('now'), datetime('now'))
+async function saveBaseline(projectId: string, connectionId: string, lines: string[]): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO account_baselines (project_id, connection_id, hash, lines_json, taken_at, last_read_at)
+     VALUES (?, ?, ?, ?, utc_now(), utc_now())
      ON CONFLICT(project_id, connection_id) DO UPDATE SET
        hash = excluded.hash, lines_json = excluded.lines_json, taken_at = excluded.taken_at,
        live_hash = NULL, live_json = NULL, last_read_at = excluded.last_read_at, last_error = NULL`,
-  ).run(projectId, connectionId, hashAccountLines(lines), JSON.stringify(lines));
-}
-
-function recordLive(projectId: string, connectionId: string, lines: string[] | null): void {
-  db.prepare(
-    `UPDATE account_baselines SET live_hash = ?, live_json = ?, last_read_at = datetime('now'), last_error = NULL
-      WHERE project_id = ? AND connection_id = ?`,
-  ).run(lines ? hashAccountLines(lines) : null, lines ? JSON.stringify(lines) : null, projectId, connectionId);
-}
-
-function recordReadError(projectId: string, connectionId: string, error: string): void {
-  db.prepare(
-    `INSERT INTO account_baselines (project_id, connection_id, hash, lines_json, last_read_at, last_error)
-     VALUES (?, ?, '', '[]', datetime('now'), ?)
-     ON CONFLICT(project_id, connection_id) DO UPDATE SET last_read_at = excluded.last_read_at, last_error = excluded.last_error`,
-  ).run(projectId, connectionId, error.slice(0, 500));
-}
-
-function closeAccountEvents(projectId: string, connectionId: string): number {
-  return db
-    .prepare(
-      `UPDATE drift_events SET status = 'resolved', resolved_at = datetime('now')
-        WHERE project_id = ? AND connection_id = ? AND kind = 'accounts' AND status = 'open'`,
     )
-    .run(projectId, connectionId).changes;
+    .run(projectId, connectionId, hashAccountLines(lines), JSON.stringify(lines));
 }
 
-export function isAccountWatchOn(projectId: string): boolean {
-  const row = db.prepare("SELECT watch_accounts FROM monitor_settings WHERE project_id = ?").get(projectId) as
+async function recordLive(projectId: string, connectionId: string, lines: string[] | null): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE account_baselines SET live_hash = ?, live_json = ?, last_read_at = utc_now(), last_error = NULL
+      WHERE project_id = ? AND connection_id = ?`,
+    )
+    .run(lines ? hashAccountLines(lines) : null, lines ? JSON.stringify(lines) : null, projectId, connectionId);
+}
+
+async function recordReadError(projectId: string, connectionId: string, error: string): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO account_baselines (project_id, connection_id, hash, lines_json, last_read_at, last_error)
+     VALUES (?, ?, '', '[]', utc_now(), ?)
+     ON CONFLICT(project_id, connection_id) DO UPDATE SET last_read_at = excluded.last_read_at, last_error = excluded.last_error`,
+    )
+    .run(projectId, connectionId, error.slice(0, 500));
+}
+
+async function closeAccountEvents(projectId: string, connectionId: string): Promise<number> {
+  return (
+    await db
+      .prepare(
+        `UPDATE drift_events SET status = 'resolved', resolved_at = utc_now()
+        WHERE project_id = ? AND connection_id = ? AND kind = 'accounts' AND status = 'open'`,
+      )
+      .run(projectId, connectionId)
+  ).changes;
+}
+
+export async function isAccountWatchOn(projectId: string): Promise<boolean> {
+  const row = (await db.prepare("SELECT watch_accounts FROM monitor_settings WHERE project_id = ?").get(projectId)) as
     { watch_accounts: number } | undefined;
   return row?.watch_accounts === 1;
 }
 
-export function setAccountWatch(projectId: string, enabled: boolean): void {
-  db.prepare(
-    `INSERT INTO monitor_settings (project_id, watch_accounts) VALUES (?, ?)
+export async function setAccountWatch(projectId: string, enabled: boolean): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO monitor_settings (project_id, watch_accounts) VALUES (?, ?)
      ON CONFLICT(project_id) DO UPDATE SET watch_accounts = excluded.watch_accounts`,
-  ).run(projectId, enabled ? 1 : 0);
+    )
+    .run(projectId, enabled ? 1 : 0);
 }
 
 /** The project's linked databases that have accounts. */
-function accountConnections(projectId: string): DatabaseConnectionConfig[] {
+async function accountConnections(projectId: string): Promise<DatabaseConnectionConfig[]> {
   const ids = (
-    db.prepare("SELECT connection_id FROM project_connection_links WHERE project_id = ?").all(projectId) as {
+    (await db.prepare("SELECT connection_id FROM project_connection_links WHERE project_id = ?").all(projectId)) as {
       connection_id: string;
     }[]
   ).map((row) => row.connection_id);
-  return ids
-    .map((id) => getProjectConnection(projectId, id))
-    .filter((conn): conn is DatabaseConnectionConfig => conn !== null && engineHasAccounts(conn.engine));
+  return (await mapAsync(ids, (id) => getProjectConnection(projectId, id))).filter(
+    (conn): conn is DatabaseConnectionConfig => conn !== null && engineHasAccounts(conn.engine),
+  );
 }
 
 /** Projects whose accounts watch is live on this database: watch on, accounts on, project active. */
-function projectsWatchingAccountsOf(connectionId: string): string[] {
+async function projectsWatchingAccountsOf(connectionId: string): Promise<string[]> {
   return (
-    db
+    (await db
       .prepare(
         `SELECT m.project_id FROM monitor_settings m
            JOIN projects p ON p.id = m.project_id
            JOIN project_connection_links l ON l.project_id = m.project_id
           WHERE l.connection_id = ? AND m.enabled = 1 AND m.watch_accounts = 1 AND p.status = 'active'`,
       )
-      .all(connectionId) as { project_id: string }[]
+      .all(connectionId)) as { project_id: string }[]
   ).map((row) => row.project_id);
 }
 
-export function accountWatchState(projectId: string, canManage: boolean): AccountWatchState {
+export async function accountWatchState(projectId: string, canManage: boolean): Promise<AccountWatchState> {
   return {
-    enabled: isAccountWatchOn(projectId),
+    enabled: await isAccountWatchOn(projectId),
     canManage,
-    connections: accountConnections(projectId).map((conn) => {
-      const baseline = getBaseline(projectId, conn.id);
+    connections: await mapAsync(await accountConnections(projectId), async (conn) => {
+      const baseline = await getBaseline(projectId, conn.id);
       const hasReference = Boolean(baseline && baseline.hash);
       return {
         connectionId: conn.id,
@@ -199,28 +210,28 @@ type AccountCheckOutcome = "reference" | "same" | "changed" | "known";
  * becomes the reference (nothing to compare with yet); a state already
  * reported is not reported again.
  */
-function compareAccounts(
+async function compareAccounts(
   projectId: string,
   connection: DatabaseConnectionConfig,
   lines: string[],
-): AccountCheckOutcome {
-  const baseline = getBaseline(projectId, connection.id);
+): Promise<AccountCheckOutcome> {
+  const baseline = await getBaseline(projectId, connection.id);
   if (!baseline || !baseline.hash) {
-    saveBaseline(projectId, connection.id, lines);
+    await saveBaseline(projectId, connection.id, lines);
     return "reference";
   }
   const liveHash = hashAccountLines(lines);
   if (liveHash === baseline.hash) {
-    recordLive(projectId, connection.id, null);
-    closeAccountEvents(projectId, connection.id);
+    await recordLive(projectId, connection.id, null);
+    await closeAccountEvents(projectId, connection.id);
     return "same";
   }
-  recordLive(projectId, connection.id, lines);
-  if (alreadyReported(projectId, connection.id, liveHash)) return "known";
+  await recordLive(projectId, connection.id, lines);
+  if (await alreadyReported(projectId, connection.id, liveHash)) return "known";
 
   const { added, removed } = diffAccountLines(baseline.lines, lines);
   const changes = summarizeAccountChanges(added, removed);
-  insertDriftEvent({
+  await insertDriftEvent({
     projectId,
     connectionId: connection.id,
     kind: "accounts",
@@ -229,12 +240,16 @@ function compareAccounts(
     removed,
     details: changes,
   });
-  reportAccountChanges(projectId, connection, changes);
+  await reportAccountChanges(projectId, connection, changes);
   return "changed";
 }
 
-function reportAccountChanges(projectId: string, connection: DatabaseConnectionConfig, changes: AccountChange[]): void {
-  audit(
+async function reportAccountChanges(
+  projectId: string,
+  connection: DatabaseConnectionConfig,
+  changes: AccountChange[],
+): Promise<void> {
+  await audit(
     SYSTEM,
     "monitoring.accounts",
     { type: "connection", id: connection.id },
@@ -245,7 +260,7 @@ function reportAccountChanges(projectId: string, connection: DatabaseConnectionC
   // A pointer, without the accounts' names: the followers who are project
   // administrators learn that something changed; the names stay on the
   // instance administrators' screens.
-  notifyFollowers(
+  await notifyFollowers(
     projectId,
     "drift",
     {
@@ -258,7 +273,7 @@ function reportAccountChanges(projectId: string, connection: DatabaseConnectionC
   );
   const counts: Record<string, number> = {};
   for (const change of changes) counts[change.type] = (counts[change.type] ?? 0) + 1;
-  emitWebhookEvent(projectId, "drift.detected", {
+  await emitWebhookEvent(projectId, "drift.detected", {
     kind: "accounts",
     connectionName: connection.name,
     environment: connection.environment ?? null,
@@ -272,13 +287,13 @@ function reportAccountChanges(projectId: string, connection: DatabaseConnectionC
 /** One pass over a project's databases that have accounts. Never throws; a failed read is kept to be shown. */
 export async function checkProjectAccounts(projectId: string): Promise<{ checked: number; changes: number }> {
   const result = { checked: 0, changes: 0 };
-  for (const connection of accountConnections(projectId)) {
+  for (const connection of await accountConnections(projectId)) {
     try {
       const lines = await readAccounts(connection);
       result.checked++;
-      if (compareAccounts(projectId, connection, lines) === "changed") result.changes++;
+      if ((await compareAccounts(projectId, connection, lines)) === "changed") result.changes++;
     } catch (err) {
-      recordReadError(projectId, connection.id, err instanceof Error ? err.message : String(err));
+      await recordReadError(projectId, connection.id, err instanceof Error ? err.message : String(err));
     }
   }
   return result;
@@ -289,13 +304,13 @@ export async function checkProjectAccounts(projectId: string): Promise<{ checked
  * reference: the open findings are closed. Uses the last state read — the
  * one the administrator saw — not a new read that could hold something else.
  */
-export function acceptAccountState(projectId: string, connectionId: string): boolean {
-  const row = db
+export async function acceptAccountState(projectId: string, connectionId: string): Promise<boolean> {
+  const row = (await db
     .prepare("SELECT live_json FROM account_baselines WHERE project_id = ? AND connection_id = ?")
-    .get(projectId, connectionId) as { live_json: string | null } | undefined;
+    .get(projectId, connectionId)) as { live_json: string | null } | undefined;
   if (!row?.live_json) return false;
-  saveBaseline(projectId, connectionId, JSON.parse(row.live_json) as string[]);
-  closeAccountEvents(projectId, connectionId);
+  await saveBaseline(projectId, connectionId, JSON.parse(row.live_json) as string[]);
+  await closeAccountEvents(projectId, connectionId);
   return true;
 }
 
@@ -308,13 +323,13 @@ export function acceptAccountState(projectId: string, connectionId: string): boo
  * project watches this database's accounts (nothing is read then).
  */
 async function beforeNebulaAccountChange(connectionId: string): Promise<string[] | null> {
-  const projects = projectsWatchingAccountsOf(connectionId);
-  const connection = getConnectionById(connectionId);
+  const projects = await projectsWatchingAccountsOf(connectionId);
+  const connection = await getConnectionById(connectionId);
   if (projects.length === 0 || !connection || !engineHasAccounts(connection.engine)) return null;
   const lines = await readAccounts(connection);
   for (const projectId of projects) {
-    const linked = getProjectConnection(projectId, connectionId);
-    if (linked) compareAccounts(projectId, linked, lines);
+    const linked = await getProjectConnection(projectId, connectionId);
+    if (linked) await compareAccounts(projectId, linked, lines);
   }
   return lines;
 }
@@ -326,27 +341,29 @@ async function beforeNebulaAccountChange(connectionId: string): Promise<string[]
  * the state just read.
  */
 async function afterNebulaAccountChange(connectionId: string, before: string[]): Promise<void> {
-  const connection = getConnectionById(connectionId);
+  const connection = await getConnectionById(connectionId);
   if (!connection) return;
   const after = await readAccounts(connection);
   const afterHash = hashAccountLines(after);
-  for (const projectId of projectsWatchingAccountsOf(connectionId)) {
-    const baseline = getBaseline(projectId, connectionId);
+  for (const projectId of await projectsWatchingAccountsOf(connectionId)) {
+    const baseline = await getBaseline(projectId, connectionId);
     if (!baseline || !baseline.hash) {
-      saveBaseline(projectId, connectionId, after);
+      await saveBaseline(projectId, connectionId, after);
       continue;
     }
     const reference = applyAccountDelta(baseline.lines, before, after);
-    saveBaseline(projectId, connectionId, reference);
+    await saveBaseline(projectId, connectionId, reference);
     if (hashAccountLines(reference) === afterHash) {
-      closeAccountEvents(projectId, connectionId);
+      await closeAccountEvents(projectId, connectionId);
     } else {
-      recordLive(projectId, connectionId, after);
+      await recordLive(projectId, connectionId, after);
       // The same outside change, now seen next to Nebula's: not a new one.
-      db.prepare(
-        `UPDATE drift_events SET live_hash = ?
+      await db
+        .prepare(
+          `UPDATE drift_events SET live_hash = ?
           WHERE project_id = ? AND connection_id = ? AND kind = 'accounts' AND status = 'open'`,
-      ).run(afterHash, projectId, connectionId);
+        )
+        .run(afterHash, projectId, connectionId);
     }
   }
 }

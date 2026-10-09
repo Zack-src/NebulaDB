@@ -1,10 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-iam-${randomUUID()}.sqlite`);
+await useTestDatabase("iam");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -26,12 +25,9 @@ async function makeUser(app: App, isAdmin: 0 | 1 = 0) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)").run(
-    id,
-    email,
-    await hashPassword(password),
-    isAdmin,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)")
+    .run(id, email, await hashPassword(password), isAdmin);
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -188,7 +184,7 @@ test("projects attached to one server each get a database of their own", async (
     assert.equal(invalid.statusCode, 400);
     assert.equal(invalid.json().code, "CONNECTION_DATABASE_INVALID");
     // Refused whole: nothing was attached along the way.
-    assert.equal(getProjectConnection(first, connectionId), null);
+    assert.equal(await getProjectConnection(first, connectionId), null);
 
     const saved = await link([{ projectId: first }, { projectId: second, database: "shop" }]);
     assert.equal(saved.statusCode, 200, saved.body);
@@ -203,8 +199,8 @@ test("projects attached to one server each get a database of their own", async (
     );
 
     // What a deployment of each project connects to.
-    assert.equal(getProjectConnection(first, connectionId)?.database, "main");
-    assert.equal(getProjectConnection(second, connectionId)?.database, "shop");
+    assert.equal((await getProjectConnection(first, connectionId))?.database, "main");
+    assert.equal((await getProjectConnection(second, connectionId))?.database, "shop");
     const listed = (await call(app, admin.cookie, "GET", `/api/projects/${second}/connections`)).json() as {
       connections: { database: string }[];
     };
@@ -215,8 +211,8 @@ test("projects attached to one server each get a database of their own", async (
       projectIds: [second],
     });
     assert.equal(legacy.statusCode, 200);
-    assert.equal(getProjectConnection(second, connectionId)?.database, "shop");
-    assert.equal(getProjectConnection(first, connectionId), null);
+    assert.equal((await getProjectConnection(second, connectionId))?.database, "shop");
+    assert.equal(await getProjectConnection(first, connectionId), null);
   } finally {
     await app.close();
   }
@@ -250,8 +246,8 @@ test("a project in the trash does not hold its database, and comes back detached
 
     // Back from the trash: the database is someone else's now.
     assert.equal((await setStatus(old, "active")).statusCode, 200);
-    assert.equal(getProjectConnection(old, connectionId), null);
-    assert.equal(getProjectConnection(fresh, connectionId)?.database, "shop");
+    assert.equal(await getProjectConnection(old, connectionId), null);
+    assert.equal((await getProjectConnection(fresh, connectionId))?.database, "shop");
 
     // Nobody took it: the link survives the round trip.
     const kept = await makeProject(app, admin.cookie, "Kept");
@@ -266,7 +262,7 @@ test("a project in the trash does not hold its database, and comes back detached
     );
     await setStatus(kept, "trashed");
     await setStatus(kept, "active");
-    assert.equal(getProjectConnection(kept, connectionId)?.database, "kept");
+    assert.equal((await getProjectConnection(kept, connectionId))?.database, "kept");
   } finally {
     await app.close();
   }
@@ -292,7 +288,7 @@ test("a watch imposed from a connection is on for its projects and closed to the
     const { listDueProjects } = await import("../monitoring/repository.js");
 
     assert.equal((await settings()).enabled, false);
-    assert.equal(listDueProjects().includes(projectId), false);
+    assert.equal((await listDueProjects()).includes(projectId), false);
     assert.equal((await impose({ intervalMinutes: 7 })).json().code, "MONITORING_INVALID");
 
     const imposed = await impose({ intervalMinutes: 15 });
@@ -305,7 +301,7 @@ test("a watch imposed from a connection is on for its projects and closed to the
       lastCheckedAt: null,
       forced: { intervalMinutes: 15, connections: ["Server db-watch.internal.example"] },
     });
-    assert.equal(listDueProjects().includes(projectId), true);
+    assert.equal((await listDueProjects()).includes(projectId), true);
 
     // The project's administrator cannot switch it off, nor ignore its way out.
     const off = { enabled: false, intervalMinutes: 1440, ignoreTables: ["orders"] };

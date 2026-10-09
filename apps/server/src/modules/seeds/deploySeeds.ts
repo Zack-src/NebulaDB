@@ -41,9 +41,9 @@ export interface PreparedSeeds {
  * belongs to nothing being deployed). Parents are validated first so a
  * child's foreign keys are checked against the rows its parent will insert.
  */
-export function prepareSeeds(projectId: string, project: Project): PreparedSeeds {
+export async function prepareSeeds(projectId: string, project: Project): Promise<PreparedSeeds> {
   const tables = new Map(project.tables.map((table) => [table.id, table]));
-  const seeds = listSeedsWithContent(projectId).filter((seed) => tables.has(seed.tableId));
+  const seeds = (await listSeedsWithContent(projectId)).filter((seed) => tables.has(seed.tableId));
   const { order, cycles } = seedInsertOrder(
     seeds.map((seed) => seed.tableId),
     project.refs,

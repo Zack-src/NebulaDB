@@ -30,20 +30,20 @@ export function registerAuditRoutes(app: FastifyInstance): void {
     };
     const parsedLimit = limit ? Number(limit) : undefined;
     if (parsedLimit !== undefined && !Number.isFinite(parsedLimit)) throw new ApiError("LIMIT_MUST_BE_NUMBER");
-    return listAuditLog({ limit: parsedLimit, before, action, targetId });
+    return await listAuditLog({ limit: parsedLimit, before, action, targetId });
   });
 
   // The activity view (Admin → Activité): the same trail, filtered and paged.
   app.get("/api/admin/activity", async (req) => {
     requireAdmin(req);
-    return listActivity(parseActivityQuery(req.query));
+    return await listActivity(parseActivityQuery(req.query));
   });
 
   // Everything the filters match (up to ACTIVITY_EXPORT_MAX rows), as CSV or JSON.
   app.get("/api/admin/activity/export", async (req, reply) => {
     requireAdmin(req);
     const { format } = req.query as { format?: string };
-    const { entries } = listActivity(
+    const { entries } = await listActivity(
       { ...parseActivityQuery(req.query), limit: ACTIVITY_EXPORT_MAX },
       ACTIVITY_EXPORT_MAX,
     );

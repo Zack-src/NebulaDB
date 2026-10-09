@@ -9,7 +9,7 @@ import { checkPassword, hashPassword } from "./modules/auth/password.js";
  * account already existing.
  *
  * Usage: `npm run bootstrap-admin -w apps/server -- <email> <password>`.
- * Respects `NEBULADB_DB_PATH` the same as the server itself.
+ * Uses the database `NEBULADB_DATABASE_URL` points at, the same as the server itself.
  */
 async function main(): Promise<void> {
   const [, , emailArg, passwordArg] = process.argv;
@@ -28,15 +28,18 @@ async function main(): Promise<void> {
     console.error(check.error);
     process.exit(1);
   }
-  if (db.prepare("SELECT id FROM users WHERE email = ?").get(email)) {
+  if (await db.prepare("SELECT id FROM users WHERE email = ?").get(email)) {
     console.error(`a user with email ${email} already exists`);
     process.exit(1);
   }
 
   const passwordHash = await hashPassword(check.password);
   const id = crypto.randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin) VALUES (?, ?, ?, 1)").run(id, email, passwordHash);
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin) VALUES (?, ?, ?, 1)")
+    .run(id, email, passwordHash);
   console.log(`created global admin ${email} (id ${id})`);
+  await db.close();
 }
 
 main().catch((err) => {

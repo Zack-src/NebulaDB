@@ -1,10 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-activity-${randomUUID()}.sqlite`);
+await useTestDatabase("activity");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -26,13 +25,9 @@ function headers(extra: Record<string, string> = {}) {
 async function login(app: App, isAdmin: 0 | 1) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, ?)").run(
-    randomUUID(),
-    email,
-    await hashPassword(password),
-    isAdmin,
-    isAdmin ? "Admin Ada" : null,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, ?)")
+    .run(randomUUID(), email, await hashPassword(password), isAdmin, isAdmin ? "Admin Ada" : null);
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -162,7 +157,7 @@ test("activity: filtered by type, project, connection and text, paged by cursor,
     const json = await call(app, admin, "GET", "/api/admin/activity/export?format=json&category=projects");
     assert.equal((json.json() as Entry[]).length, 2);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

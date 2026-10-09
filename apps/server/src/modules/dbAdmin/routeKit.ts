@@ -12,9 +12,9 @@ const READ_LIMIT = { config: { rateLimit: { max: 240, timeWindow: "1 minute" } }
 export /** Anything that changes the instance's connection list or the target server. */
 const WRITE_LIMIT = { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } };
 
-export function loadConnection(id: string): DatabaseConnectionConfig {
-  const connection = getConnectionById(id);
-  if (!connection || connectionOwner(id)) throw new ApiError("CONNECTION_NOT_FOUND");
+export async function loadConnection(id: string): Promise<DatabaseConnectionConfig> {
+  const connection = await getConnectionById(id);
+  if (!connection || (await connectionOwner(id))) throw new ApiError("CONNECTION_NOT_FOUND");
   return connection;
 }
 

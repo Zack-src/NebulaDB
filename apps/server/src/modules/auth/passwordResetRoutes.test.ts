@@ -2,9 +2,8 @@ import { test, after } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import type { AddressInfo } from "node:net";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { SMTPServer } from "smtp-server";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
 /**
  * Email flows against a real SMTP server — an in-process `smtp-server`
@@ -38,7 +37,7 @@ await new Promise<void>((resolve) => smtp.listen(0, "127.0.0.1", resolve));
 const smtpPort = (smtp.server.address() as AddressInfo).port;
 after(() => new Promise<void>((resolve) => smtp.close(() => resolve())));
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-reset-${randomUUID()}.sqlite`);
+await useTestDatabase("reset");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -62,12 +61,9 @@ async function makeUser(isAdmin: 0 | 1 = 0) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)").run(
-    id,
-    email,
-    await hashPassword(password),
-    isAdmin,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)")
+    .run(id, email, await hashPassword(password), isAdmin);
   return { id, email, password };
 }
 
@@ -188,7 +184,7 @@ test("forgot password: generic answer, a real email with an absolute link, singl
     assert.equal(newLogin.statusCode, 200);
 
     // Only the hash is at rest.
-    const stored = db.prepare("SELECT token_hash FROM password_reset_tokens").all() as { token_hash: string }[];
+    const stored = (await db.prepare("SELECT token_hash FROM password_reset_tokens").all()) as { token_hash: string }[];
     assert.ok(stored.every((row) => row.token_hash !== token));
   } finally {
     await app.close();
@@ -201,11 +197,10 @@ test("reset links: an expired token and a disabled account are both refused", as
     const user = await makeUser();
     const { issueResetToken } = await import("./passwordReset.js");
 
-    const expiredToken = issueResetToken(user.id)!;
-    db.prepare("UPDATE password_reset_tokens SET expires_at = ? WHERE user_id = ?").run(
-      new Date(Date.now() - 1000).toISOString(),
-      user.id,
-    );
+    const expiredToken = (await issueResetToken(user.id))!;
+    await db
+      .prepare("UPDATE password_reset_tokens SET expires_at = ? WHERE user_id = ?")
+      .run(new Date(Date.now() - 1000).toISOString(), user.id);
     const expired = await app.inject({
       method: "POST",
       url: "/api/auth/password-reset/confirm",
@@ -214,9 +209,9 @@ test("reset links: an expired token and a disabled account are both refused", as
     });
     assert.equal(expired.json().code, "PASSWORD_RESET_TOKEN_INVALID");
 
-    db.prepare("DELETE FROM password_reset_tokens WHERE user_id = ?").run(user.id);
-    const liveToken = issueResetToken(user.id)!;
-    db.prepare("UPDATE users SET disabled_at = datetime('now') WHERE id = ?").run(user.id);
+    await db.prepare("DELETE FROM password_reset_tokens WHERE user_id = ?").run(user.id);
+    const liveToken = (await issueResetToken(user.id))!;
+    await db.prepare("UPDATE users SET disabled_at = utc_now() WHERE id = ?").run(user.id);
     const disabled = await app.inject({
       method: "POST",
       url: "/api/auth/password-reset/confirm",

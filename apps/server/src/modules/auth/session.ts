@@ -92,12 +92,12 @@ export interface SessionOptions {
   remember?: boolean;
 }
 
-export function createSession(
+export async function createSession(
   userId: string,
   reply: FastifyReply,
   req?: FastifyRequest,
   options: SessionOptions = {},
-): void {
+): Promise<void> {
   const id = crypto.randomUUID();
   // Default `true`: the previous behaviour for every caller that doesn't ask.
   const remember = options.remember !== false;
@@ -111,27 +111,22 @@ export function createSession(
   // `ttl_ms` is stored per session, not derived from a constant at read time:
   // `resolveSession` rolls the expiry forward on every request, and without it
   // a short session would silently be promoted to a long one on its first use.
-  db.prepare("INSERT INTO sessions (id, user_id, expires_at, user_agent, ip, ttl_ms) VALUES (?, ?, ?, ?, ?, ?)").run(
-    id,
-    userId,
-    expiresAt,
-    userAgent,
-    ip,
-    ttlMs,
-  );
+  await db
+    .prepare("INSERT INTO sessions (id, user_id, expires_at, user_agent, ip, ttl_ms) VALUES (?, ?, ?, ?, ?, ?)")
+    .run(id, userId, expiresAt, userAgent, ip, ttlMs);
   reply.setCookie(SESSION_COOKIE, id, cookieOptions(remember ? ttlMs : null));
 }
 
 /** The caller's own sessions, newest activity first, with the current one flagged. */
-export function listSessions(userId: string, req: FastifyRequest): SessionSummary[] {
+export async function listSessions(userId: string, req: FastifyRequest): Promise<SessionSummary[]> {
   const currentId = currentSessionId(req);
-  const rows = db
+  const rows = (await db
     .prepare(
       `SELECT id, created_at, last_seen_at, expires_at, user_agent, ip
        FROM sessions WHERE user_id = ? AND expires_at > ?
        ORDER BY last_seen_at DESC`,
     )
-    .all(userId, new Date().toISOString()) as {
+    .all(userId, new Date().toISOString())) as {
     id: string;
     created_at: string;
     last_seen_at: string;
@@ -151,8 +146,8 @@ export function listSessions(userId: string, req: FastifyRequest): SessionSummar
 }
 
 /** Revokes one of the caller's own sessions. Scoped by `user_id` so an id guessed from elsewhere is useless. */
-export function revokeSession(userId: string, sessionId: string): boolean {
-  return db.prepare("DELETE FROM sessions WHERE id = ? AND user_id = ?").run(sessionId, userId).changes > 0;
+export async function revokeSession(userId: string, sessionId: string): Promise<boolean> {
+  return (await db.prepare("DELETE FROM sessions WHERE id = ? AND user_id = ?").run(sessionId, userId)).changes > 0;
 }
 
 /**
@@ -161,11 +156,12 @@ export function revokeSession(userId: string, sessionId: string): boolean {
  * clicking in). Also used with no exception when an account is disabled or
  * deleted.
  */
-export function revokeAllSessions(userId: string, exceptSessionId?: string): number {
+export async function revokeAllSessions(userId: string, exceptSessionId?: string): Promise<number> {
   if (exceptSessionId) {
-    return db.prepare("DELETE FROM sessions WHERE user_id = ? AND id != ?").run(userId, exceptSessionId).changes;
+    return (await db.prepare("DELETE FROM sessions WHERE user_id = ? AND id != ?").run(userId, exceptSessionId))
+      .changes;
   }
-  return db.prepare("DELETE FROM sessions WHERE user_id = ?").run(userId).changes;
+  return (await db.prepare("DELETE FROM sessions WHERE user_id = ?").run(userId)).changes;
 }
 
 /** The session id the request is authenticated with, if any — needed to exclude it from a bulk revoke. */
@@ -179,10 +175,10 @@ export function clearSessionCookie(reply: FastifyReply): void {
   reply.clearCookie(LEGACY_SESSION_COOKIE, { path: "/" });
 }
 
-export function destroySession(req: FastifyRequest, reply: FastifyReply): void {
+export async function destroySession(req: FastifyRequest, reply: FastifyReply): Promise<void> {
   for (const name of [SESSION_COOKIE, LEGACY_SESSION_COOKIE]) {
     const sessionId = req.cookies?.[name];
-    if (sessionId) db.prepare("DELETE FROM sessions WHERE id = ?").run(sessionId);
+    if (sessionId) await db.prepare("DELETE FROM sessions WHERE id = ?").run(sessionId);
   }
   clearSessionCookie(reply);
 }
@@ -194,17 +190,18 @@ export function destroySession(req: FastifyRequest, reply: FastifyReply): void {
  * public routes (login, invite accept, health) stay reachable; callers that
  * need a user call `requireUser`/`requireAdmin` against the resolved value.
  */
-export function resolveSession(req: FastifyRequest, reply: FastifyReply): SessionUser | null {
+export async function resolveSession(req: FastifyRequest, reply: FastifyReply): Promise<SessionUser | null> {
   const sessionId = currentSessionId(req);
   if (!sessionId) return null;
 
-  const session = db.prepare("SELECT id, user_id, expires_at, ttl_ms FROM sessions WHERE id = ?").get(sessionId) as
-    SessionRow | undefined;
+  const session = (await db
+    .prepare("SELECT id, user_id, expires_at, ttl_ms FROM sessions WHERE id = ?")
+    .get(sessionId)) as SessionRow | undefined;
   if (!session || new Date(session.expires_at).getTime() < Date.now()) return null;
 
-  const user = db
+  const user = (await db
     .prepare("SELECT id, email, is_admin, display_name, disabled_at FROM users WHERE id = ?")
-    .get(session.user_id) as UserRow | undefined;
+    .get(session.user_id)) as UserRow | undefined;
   if (!user) return null;
   // A disabled account is refused here rather than only at login: disabling
   // deletes the account's sessions, but this is the layer that has to hold if
@@ -217,10 +214,9 @@ export function resolveSession(req: FastifyRequest, reply: FastifyReply): Sessio
   // originally created with.
   const ttlMs = session.ttl_ms ?? LONG_SESSION_TTL_MS;
   const newExpiresAt = new Date(Date.now() + ttlMs).toISOString();
-  db.prepare("UPDATE sessions SET last_seen_at = datetime('now'), expires_at = ? WHERE id = ?").run(
-    newExpiresAt,
-    session.id,
-  );
+  await db
+    .prepare("UPDATE sessions SET last_seen_at = utc_now(), expires_at = ? WHERE id = ?")
+    .run(newExpiresAt, session.id);
   reply.setCookie(SESSION_COOKIE, session.id, cookieOptions(ttlMs === SHORT_SESSION_TTL_MS ? null : ttlMs));
   if (req.cookies?.[LEGACY_SESSION_COOKIE]) reply.clearCookie(LEGACY_SESSION_COOKIE, { path: "/" });
 
@@ -233,6 +229,6 @@ export function resolveSession(req: FastifyRequest, reply: FastifyReply): Sessio
  * `resolveSession` already refuses to use an expired row, this just stops them
  * accumulating. Returns the number of rows removed.
  */
-export function purgeExpiredSessions(): number {
-  return db.prepare("DELETE FROM sessions WHERE expires_at < ?").run(new Date().toISOString()).changes;
+export async function purgeExpiredSessions(): Promise<number> {
+  return (await db.prepare("DELETE FROM sessions WHERE expires_at < ?").run(new Date().toISOString())).changes;
 }

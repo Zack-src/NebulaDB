@@ -50,8 +50,8 @@ function rowToSchedule(row: ScheduleRow | undefined, now: Date): BackupSchedule 
   };
 }
 
-export function getBackupSchedule(connectionId: string, now = new Date()): BackupSchedule {
-  const row = db.prepare("SELECT * FROM backup_schedules WHERE connection_id = ?").get(connectionId) as
+export async function getBackupSchedule(connectionId: string, now = new Date()): Promise<BackupSchedule> {
+  const row = (await db.prepare("SELECT * FROM backup_schedules WHERE connection_id = ?").get(connectionId)) as
     ScheduleRow | undefined;
   return rowToSchedule(row, now);
 }
@@ -82,32 +82,34 @@ export function parseBackupSchedule(body: unknown): ScheduleSettings {
  * Saving restarts the clock: `not_before` moves to now, so a schedule set at
  * 15:00 for 02:00 fires next night, not at once for the 02:00 already gone.
  */
-export function saveBackupSchedule(
+export async function saveBackupSchedule(
   connectionId: string,
   settings: ScheduleSettings,
   by: string,
   now = new Date(),
-): BackupSchedule {
-  db.prepare(
-    `INSERT INTO backup_schedules
+): Promise<BackupSchedule> {
+  await db
+    .prepare(
+      `INSERT INTO backup_schedules
        (connection_id, enabled, frequency, hour, weekday, day_of_month, keep, not_before, updated_by_name)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT(connection_id) DO UPDATE SET
        enabled = excluded.enabled, frequency = excluded.frequency, hour = excluded.hour, weekday = excluded.weekday,
        day_of_month = excluded.day_of_month, keep = excluded.keep, not_before = excluded.not_before,
        updated_by_name = excluded.updated_by_name`,
-  ).run(
-    connectionId,
-    settings.enabled ? 1 : 0,
-    settings.frequency,
-    settings.hour,
-    settings.weekday,
-    settings.dayOfMonth,
-    settings.keep,
-    now.toISOString(),
-    by,
-  );
-  return getBackupSchedule(connectionId, now);
+    )
+    .run(
+      connectionId,
+      settings.enabled ? 1 : 0,
+      settings.frequency,
+      settings.hour,
+      settings.weekday,
+      settings.dayOfMonth,
+      settings.keep,
+      now.toISOString(),
+      by,
+    );
+  return await getBackupSchedule(connectionId, now);
 }
 
 function isDue(row: ScheduleRow, now: Date): boolean {
@@ -129,21 +131,21 @@ function isDue(row: ScheduleRow, now: Date): boolean {
  * every restart.
  */
 export async function runDueBackupSchedules(now = new Date()): Promise<number> {
-  const rows = db.prepare("SELECT * FROM backup_schedules WHERE enabled = 1").all() as ScheduleRow[];
+  const rows = (await db.prepare("SELECT * FROM backup_schedules WHERE enabled = 1").all()) as ScheduleRow[];
   const record = db.prepare("UPDATE backup_schedules SET last_run_at = ?, last_status = ? WHERE connection_id = ?");
   let started = 0;
   for (const row of rows.filter((candidate) => isDue(candidate, now))) {
-    const connection = getConnectionById(row.connection_id);
+    const connection = await getConnectionById(row.connection_id);
     if (!connection) continue;
-    record.run(now.toISOString(), "running", row.connection_id);
+    await record.run(now.toISOString(), "running", row.connection_id);
     try {
-      const backup = await startBackup({ connection, trigger: "scheduled" }).done;
-      record.run(now.toISOString(), backup.status, row.connection_id);
-      if (backup.status === "done") pruneScheduledBackups(row.connection_id, row.keep);
+      const backup = await (await startBackup({ connection, trigger: "scheduled" })).done;
+      await record.run(now.toISOString(), backup.status, row.connection_id);
+      if (backup.status === "done") await pruneScheduledBackups(row.connection_id, row.keep);
       started++;
     } catch (err) {
       // Another backup of this database is running: this occurrence is skipped, the next one is not.
-      record.run(now.toISOString(), "failed", row.connection_id);
+      await record.run(now.toISOString(), "failed", row.connection_id);
       console.error(`[backups] scheduled backup of ${connection.name} did not start:`, err);
     }
   }

@@ -43,7 +43,7 @@ const MAX_CONTEXT_LENGTH = 500;
  * here must not turn a successful (or already-failing) request into a worse
  * one, and must never mask the original error from its own caller/logger.
  */
-export function recordError(
+export async function recordError(
   source: ErrorSource,
   message: string,
   options: {
@@ -51,25 +51,29 @@ export function recordError(
     context?: string | null;
     user?: { id: string; email: string } | null;
   } = {},
-): void {
+): Promise<void> {
   try {
-    db.prepare(
-      `INSERT INTO error_log (id, source, message, stack, context, user_id, user_email)
+    await db
+      .prepare(
+        `INSERT INTO error_log (id, source, message, stack, context, user_id, user_email)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      randomUUID(),
-      source,
-      message.slice(0, MAX_MESSAGE_LENGTH),
-      options.stack ? options.stack.slice(0, MAX_STACK_LENGTH) : null,
-      options.context ? options.context.slice(0, MAX_CONTEXT_LENGTH) : null,
-      options.user?.id ?? null,
-      options.user?.email ?? null,
-    );
+      )
+      .run(
+        randomUUID(),
+        source,
+        message.slice(0, MAX_MESSAGE_LENGTH),
+        options.stack ? options.stack.slice(0, MAX_STACK_LENGTH) : null,
+        options.context ? options.context.slice(0, MAX_CONTEXT_LENGTH) : null,
+        options.user?.id ?? null,
+        options.user?.email ?? null,
+      );
     // Cheap with the `created_at` index and a rare write path (real errors,
     // not every request) — no reason to defer this to a scheduled sweep.
-    db.prepare(
-      `DELETE FROM error_log WHERE id NOT IN (SELECT id FROM error_log ORDER BY created_at DESC, rowid DESC LIMIT ?)`,
-    ).run(MAX_ROWS);
+    await db
+      .prepare(
+        `DELETE FROM error_log WHERE id NOT IN (SELECT id FROM error_log ORDER BY created_at DESC, seq DESC LIMIT ?)`,
+      )
+      .run(MAX_ROWS);
   } catch (err) {
     console.error("[errorLog] failed to record error:", err);
   }
@@ -82,7 +86,7 @@ export interface ErrorLogQuery {
 }
 
 /** Newest first. Read-only, admin-only at the route layer — see `modules/errors/routes.ts`. */
-export function listErrorLog(query: ErrorLogQuery = {}): ErrorLogEntry[] {
+export async function listErrorLog(query: ErrorLogQuery = {}): Promise<ErrorLogEntry[]> {
   const limit = Math.min(Math.max(query.limit ?? 100, 1), 500);
   const conditions: string[] = [];
   const params: unknown[] = [];
@@ -95,12 +99,12 @@ export function listErrorLog(query: ErrorLogQuery = {}): ErrorLogEntry[] {
     params.push(query.source);
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-  const rows = db
+  const rows = (await db
     .prepare(
       `SELECT id, created_at, source, message, stack, context, user_id, user_email
-       FROM error_log ${where} ORDER BY created_at DESC, rowid DESC LIMIT ?`,
+       FROM error_log ${where} ORDER BY created_at DESC, seq DESC LIMIT ?`,
     )
-    .all(...params, limit) as ErrorLogRow[];
+    .all(...params, limit)) as ErrorLogRow[];
   return rows.map((row) => ({
     id: row.id,
     createdAt: row.created_at,

@@ -1,5 +1,6 @@
 import type { HistoryMarker } from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
+import { mapAsync } from "../../shared/async.js";
 
 /** Newest markers kept per kind of source — the timeline is for recent history, the audit log has the rest. */
 const MARKER_LIMIT = 200;
@@ -40,24 +41,25 @@ interface AuditRow {
  * so nothing new is stored and a marker cannot disagree with them. The audit
  * log's retention therefore bounds how far back lock and restore markers go.
  */
-export function listHistoryMarkers(projectId: string, includeDeployments: boolean): HistoryMarker[] {
-  const auditRows = db
+export async function listHistoryMarkers(projectId: string, includeDeployments: boolean): Promise<HistoryMarker[]> {
+  const auditRows = (await db
     .prepare(
       `SELECT a.action, a.created_at, a.detail, COALESCE(u.display_name, a.actor_email) AS actor
          FROM audit_log a LEFT JOIN users u ON u.id = a.actor_id
         WHERE a.target_type = 'project' AND a.target_id = ?
           AND a.action IN ('table.lock', 'table.unlock', 'project.revision.restore')
-        ORDER BY a.created_at DESC, a.rowid DESC LIMIT ?`,
+        ORDER BY a.created_at DESC, a.seq DESC LIMIT ?`,
     )
-    .all(projectId, MARKER_LIMIT) as AuditRow[];
+    .all(projectId, MARKER_LIMIT)) as AuditRow[];
 
-  const markers: HistoryMarker[] = auditRows.map((row) => {
+  const markers: HistoryMarker[] = await mapAsync(auditRows, async (row): Promise<HistoryMarker> => {
     if (row.action === "project.revision.restore") {
       const match = RESTORE_DETAIL.exec(row.detail ?? "");
       const revisionAt = match
         ? ((
-            db.prepare("SELECT created_at FROM revisions WHERE id = ? AND project_id = ?").get(match[1], projectId) as
-              { created_at: string } | undefined
+            (await db
+              .prepare("SELECT created_at FROM revisions WHERE id = ? AND project_id = ?")
+              .get(match[1], projectId)) as { created_at: string } | undefined
           )?.created_at ?? null)
         : null;
       return {
@@ -78,15 +80,15 @@ export function listHistoryMarkers(projectId: string, includeDeployments: boolea
   });
 
   if (includeDeployments) {
-    const deployments = db
+    const deployments = (await db
       .prepare(
         `SELECT d.created_at, d.connection_name, d.environment, d.success, d.rollback_of,
                 COALESCE(u.display_name, d.executed_by_email) AS actor
            FROM deployment_history d LEFT JOIN users u ON u.email = d.executed_by_email
           WHERE d.project_id = ?
-          ORDER BY d.created_at DESC, d.rowid DESC LIMIT ?`,
+          ORDER BY d.created_at DESC, d.seq DESC LIMIT ?`,
       )
-      .all(projectId, MARKER_LIMIT) as {
+      .all(projectId, MARKER_LIMIT)) as {
       created_at: string;
       connection_name: string;
       environment: string | null;

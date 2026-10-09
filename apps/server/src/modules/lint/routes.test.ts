@@ -5,8 +5,9 @@ import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-lint-${randomUUID()}.sqlite`);
+await useTestDatabase("lint");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -29,11 +30,9 @@ async function login(app: App) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, NULL)").run(
-    id,
-    email,
-    await hashPassword(password),
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, NULL)")
+    .run(id, email, await hashPassword(password));
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -53,15 +52,13 @@ function call(app: App, cookie: string, method: "GET" | "POST" | "PUT" | "DELETE
 }
 
 /** Grants `userId` a level on the project through a team — the only way a non-owner gets one. */
-function grant(projectId: string, userId: string, permission: string) {
+async function grant(projectId: string, userId: string, permission: string) {
   const teamId = randomUUID();
-  db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(teamId, `team-${teamId}`);
-  db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, userId);
-  db.prepare("INSERT INTO project_teams (project_id, team_id, permission) VALUES (?, ?, ?)").run(
-    projectId,
-    teamId,
-    permission,
-  );
+  await db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(teamId, `team-${teamId}`);
+  await db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, userId);
+  await db
+    .prepare("INSERT INTO project_teams (project_id, team_id, permission) VALUES (?, ?, ?)")
+    .run(projectId, teamId, permission);
 }
 
 /** A project whose only table has neither a key, a description nor timestamps. */
@@ -70,8 +67,8 @@ async function createProject(app: App, cookie: string) {
     id: string;
     name: string;
   };
-  const room = getRoom(project.id);
-  room.doc.transact(() => {
+  const room = await getRoom(project.id);
+  await room.write(() => {
     writeProjectToDoc(room.doc, {
       id: project.id,
       name: project.name,
@@ -91,7 +88,7 @@ async function createProject(app: App, cookie: string) {
       stickyNotes: [],
       tableGroups: [],
     });
-  });
+  }, "test-seed");
   return project;
 }
 
@@ -109,7 +106,7 @@ test("lint: defaults, who may change the rules, what is refused, and the public 
     const viewer = await login(app);
     const stranger = await login(app);
     const project = await createProject(app, owner.cookie);
-    grant(project.id, viewer.id, "edit");
+    await grant(project.id, viewer.id, "edit");
     const url = `/api/projects/${project.id}/lint`;
 
     // Nothing saved yet: the standard profile, nothing blocked.
@@ -140,7 +137,8 @@ test("lint: defaults, who may change the rules, what is refused, and the public 
     assert.equal(again.settings.blockDeployment, true);
     assert.deepEqual(again.settings.rules, { timestamps: "off" });
     assert.equal(
-      (db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'project.lint'").get() as { n: number }).n,
+      ((await db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'project.lint'").get()) as { n: number })
+        .n,
       1,
     );
 
@@ -160,9 +158,9 @@ test("lint: defaults, who may change the rules, what is refused, and the public 
 
     // The settings go with the project.
     assert.equal((await call(app, owner.cookie, "DELETE", `/api/projects/${project.id}`)).statusCode, 200);
-    assert.equal((db.prepare("SELECT COUNT(*) AS n FROM lint_settings").get() as { n: number }).n, 0);
+    assert.equal(((await db.prepare("SELECT COUNT(*) AS n FROM lint_settings").get()) as { n: number }).n, 0);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -225,14 +223,14 @@ test("lint: a deployment is refused on an error when the project asks for it, an
     assert.equal(allowed.statusCode, 200, allowed.body);
     assert.deepEqual(tablesInTarget(), ["widgets"]);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
 
 async function loginAdmin(app: App) {
   const session = await login(app);
-  db.prepare("UPDATE users SET is_admin = 1 WHERE id = ?").run(session.id);
+  await db.prepare("UPDATE users SET is_admin = 1 WHERE id = ?").run(session.id);
   return session;
 }
 
@@ -265,7 +263,7 @@ test("lint presets: the library is for instance administrators, one is the defau
     const owner = await login(app);
     const member = await login(app);
     const project = await createProject(app, owner.cookie);
-    grant(project.id, member.id, "edit");
+    await grant(project.id, member.id, "edit");
     const url = `/api/projects/${project.id}/lint`;
     const state = async (cookie = owner.cookie) => (await call(app, cookie, "GET", url)).json() as LintState;
     const presetsUrl = "/api/admin/lint-presets";
@@ -374,7 +372,7 @@ test("lint presets: the library is for instance administrators, one is the defau
     assert.equal((await state()).source.kind, "preset");
 
     const actions = (
-      db.prepare("SELECT action FROM audit_log WHERE action LIKE 'lint.preset.%'").all() as { action: string }[]
+      (await db.prepare("SELECT action FROM audit_log WHERE action LIKE 'lint.preset.%'").all()) as { action: string }[]
     ).map((row) => row.action);
     for (const action of ["create", "default", "update", "delete", "apply"]) {
       assert.ok(actions.includes(`lint.preset.${action}`), action);
@@ -383,7 +381,7 @@ test("lint presets: the library is for instance administrators, one is the defau
     // What the project followed goes with the project.
     assert.equal((await call(app, owner.cookie, "DELETE", `/api/projects/${project.id}`)).statusCode, 200);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -425,7 +423,7 @@ test("lint presets: a deployment is refused on the default preset's rules", asyn
       target.close();
     }
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

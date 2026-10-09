@@ -1,11 +1,10 @@
 import { mock, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import type { DatabaseConnectionConfig } from "@nebuladb/shared";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-credentials-api-${randomUUID()}.sqlite`);
+await useTestDatabase("credentials-api");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -35,12 +34,9 @@ async function makeUser(app: App, isAdmin: 0 | 1 = 0) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)").run(
-    id,
-    email,
-    await hashPassword(password),
-    isAdmin,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)")
+    .run(id, email, await hashPassword(password), isAdmin);
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -64,8 +60,8 @@ const withCookie = (app: App, cookie: string, method: Method, url: string, paylo
 const withKey = (app: App, key: string, method: Method, url: string, payload?: unknown) =>
   send(app, { authorization: `Bearer ${key}` }, method, url, payload);
 
-const keyOf = (userId: string, scopes: Scope[], projectId: string | null = null) =>
-  createApiKey(userId, "ci", scopes, projectId).plaintextKey;
+const keyOf = async (userId: string, scopes: Scope[], projectId: string | null = null) =>
+  (await createApiKey(userId, "ci", scopes, projectId)).plaintextKey;
 
 /** A PostgreSQL connection nothing listens behind: enough for everything but a real login. */
 const UNREACHABLE = {
@@ -137,7 +133,7 @@ test("/api/v1 personal accounts: who reaches them — a key, its owner's rights,
 
     // A key acts as its owner: someone who administers no project of this connection is told it does not exist,
     // whatever the key's scope.
-    const strangerKey = keyOf(stranger.id, ["connections:manage"]);
+    const strangerKey = await keyOf(stranger.id, ["connections:manage"]);
     for (const method of ["GET", "PUT", "DELETE"] as const) {
       const res = await withKey(app, strangerKey, method, credentialsOf(shop), method === "PUT" ? ACCOUNT : undefined);
       assert.equal(res.statusCode, 404, `${method}: ${res.body}`);
@@ -146,7 +142,7 @@ test("/api/v1 personal accounts: who reaches them — a key, its owner's rights,
     assert.equal((await withKey(app, strangerKey, "GET", credentialsOf(randomUUID()))).statusCode, 404);
 
     // The scope narrows what the owner could do: reading projects is not managing connections.
-    const readKey = keyOf(owner.id, ["projects:read", "projects:write", "deployments:trigger"]);
+    const readKey = await keyOf(owner.id, ["projects:read", "projects:write", "deployments:trigger"]);
     for (const method of ["GET", "PUT", "DELETE"] as const) {
       const res = await withKey(app, readKey, method, credentialsOf(shop), method === "PUT" ? ACCOUNT : undefined);
       assert.equal(res.statusCode, 403, `${method}: ${res.body}`);
@@ -154,7 +150,7 @@ test("/api/v1 personal accounts: who reaches them — a key, its owner's rights,
     }
 
     // A key restricted to one project: that project's connections, no other's — though its owner administers both.
-    const shopKey = keyOf(owner.id, ["connections:manage"], shopProject);
+    const shopKey = await keyOf(owner.id, ["connections:manage"], shopProject);
     assert.deepEqual((await withKey(app, shopKey, "GET", credentialsOf(shop))).json(), {
       authMode: "personal",
       username: null,
@@ -167,34 +163,38 @@ test("/api/v1 personal accounts: who reaches them — a key, its owner's rights,
       assert.equal(res.json().code, "API_KEY_PROJECT_RESTRICTED");
     }
     // The same for an instance administrator's key, who reaches every connection otherwise.
-    const adminShopKey = keyOf(admin.id, ["connections:manage"], shopProject);
+    const adminShopKey = await keyOf(admin.id, ["connections:manage"], shopProject);
     assert.equal((await withKey(app, adminShopKey, "GET", credentialsOf(shop))).statusCode, 200);
     assert.equal(
       (await withKey(app, adminShopKey, "GET", credentialsOf(billing))).json().code,
       "API_KEY_PROJECT_RESTRICTED",
     );
     assert.equal(
-      (await withKey(app, keyOf(admin.id, ["connections:manage"]), "GET", credentialsOf(billing))).statusCode,
+      (await withKey(app, await keyOf(admin.id, ["connections:manage"]), "GET", credentialsOf(billing))).statusCode,
       200,
     );
     // The right to use the connection has to come from the key's project: `other` uses "Both" through their own
     // project, which a key held to the shop's project does not reach.
     assert.equal(
-      (await withKey(app, keyOf(other.id, ["connections:manage"]), "GET", credentialsOf(both))).statusCode,
+      (await withKey(app, await keyOf(other.id, ["connections:manage"]), "GET", credentialsOf(both))).statusCode,
       200,
     );
     assert.equal(
-      (await withKey(app, keyOf(other.id, ["connections:manage"], shopProject), "GET", credentialsOf(both))).json()
-        .code,
+      (
+        await withKey(app, await keyOf(other.id, ["connections:manage"], shopProject), "GET", credentialsOf(both))
+      ).json().code,
       "API_KEY_PROJECT_RESTRICTED",
     );
 
     // Nothing above was tried on a database, kept or written down.
     assert.equal(verify.mock.callCount(), 0);
-    assert.equal((db.prepare("SELECT COUNT(*) AS n FROM db_connection_credentials").get() as { n: number }).n, 0);
+    assert.equal(
+      ((await db.prepare("SELECT COUNT(*) AS n FROM db_connection_credentials").get()) as { n: number }).n,
+      0,
+    );
     assert.equal(
       (
-        db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE action LIKE 'dbconn.credentials.%'").get() as {
+        (await db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE action LIKE 'dbconn.credentials.%'").get()) as {
           n: number;
         }
       ).n,
@@ -205,7 +205,7 @@ test("/api/v1 personal accounts: who reaches them — a key, its owner's rights,
     assert.equal((await withCookie(app, owner.cookie, "GET", credentialsOf(billing))).statusCode, 200);
   } finally {
     verify.mock.restore();
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -219,7 +219,7 @@ test("/api/v1 personal accounts: given with a key, tried before being kept, neve
     const owner = await makeUser(app);
     const project = await makeProject(app, owner.cookie, "Shop");
     const shop = await makeConnection(app, admin.cookie, "Shop", [project]);
-    const key = keyOf(owner.id, ["connections:manage"], project);
+    const key = await keyOf(owner.id, ["connections:manage"], project);
     const url = credentialsOf(shop);
 
     for (const body of [{}, { username: "ada" }, { username: "a\nb", password: "x" }]) {
@@ -233,7 +233,10 @@ test("/api/v1 personal accounts: given with a key, tried before being kept, neve
     const refused = await withKey(app, key, "PUT", url, ACCOUNT);
     assert.equal(refused.statusCode, 400, refused.body);
     assert.equal(refused.json().code, "PERSONAL_CREDENTIALS_REJECTED");
-    assert.equal((db.prepare("SELECT COUNT(*) AS n FROM db_connection_credentials").get() as { n: number }).n, 0);
+    assert.equal(
+      ((await db.prepare("SELECT COUNT(*) AS n FROM db_connection_credentials").get()) as { n: number }).n,
+      0,
+    );
 
     // The database accepts it (the one step a test cannot do for real).
     let tried: DatabaseConnectionConfig | undefined;
@@ -252,7 +255,9 @@ test("/api/v1 personal accounts: given with a key, tried before being kept, neve
     );
 
     // Kept as the key owner's account, its password encrypted.
-    const rows = db.prepare("SELECT user_id, username, secret_encrypted FROM db_connection_credentials").all() as {
+    const rows = (await db
+      .prepare("SELECT user_id, username, secret_encrypted FROM db_connection_credentials")
+      .all()) as {
       user_id: string;
       username: string;
       secret_encrypted: string;
@@ -271,30 +276,33 @@ test("/api/v1 personal accounts: given with a key, tried before being kept, neve
     const inApp = await withCookie(app, owner.cookie, "GET", `/api/connections/${shop}/credentials`);
     assert.deepEqual(inApp.json(), read.json());
     // Somebody else's is not anybody's.
-    assert.equal((await withKey(app, keyOf(admin.id, ["connections:manage"]), "GET", url)).json().username, null);
+    assert.equal((await withKey(app, await keyOf(admin.id, ["connections:manage"]), "GET", url)).json().username, null);
 
-    const trail = () =>
-      db
+    const trail = async () =>
+      (await db
         .prepare(
-          "SELECT action, actor_id, target_id, detail FROM audit_log WHERE action LIKE 'dbconn.credentials.%' ORDER BY rowid",
+          "SELECT action, actor_id, target_id, detail FROM audit_log WHERE action LIKE 'dbconn.credentials.%' ORDER BY seq",
         )
-        .all() as { action: string; actor_id: string; target_id: string; detail: string }[];
-    assert.deepEqual(trail(), [
+        .all()) as { action: string; actor_id: string; target_id: string; detail: string }[];
+    assert.deepEqual(await trail(), [
       { action: "dbconn.credentials.set", actor_id: owner.id, target_id: shop, detail: "Shop: ada (v1)" },
     ]);
-    assert.equal(JSON.stringify(db.prepare("SELECT * FROM audit_log").all()).includes("ada-password"), false);
+    assert.equal(JSON.stringify(await db.prepare("SELECT * FROM audit_log").all()).includes("ada-password"), false);
 
     // Removed by its owner — once: there is nothing to write down the second time.
     assert.equal((await withKey(app, key, "DELETE", url)).json().username, null);
     assert.equal((await withKey(app, key, "DELETE", url)).statusCode, 200);
     assert.deepEqual(
-      trail().map((entry) => [entry.action, entry.detail]),
+      (await trail()).map((entry) => [entry.action, entry.detail]),
       [
         ["dbconn.credentials.set", "Shop: ada (v1)"],
         ["dbconn.credentials.remove", "Shop (v1)"],
       ],
     );
-    assert.equal((db.prepare("SELECT COUNT(*) AS n FROM db_connection_credentials").get() as { n: number }).n, 0);
+    assert.equal(
+      ((await db.prepare("SELECT COUNT(*) AS n FROM db_connection_credentials").get()) as { n: number }).n,
+      0,
+    );
 
     // A connection that uses one shared account takes none.
     const tries = verify.mock.callCount();
@@ -306,7 +314,7 @@ test("/api/v1 personal accounts: given with a key, tried before being kept, neve
     assert.equal((await withKey(app, key, "GET", url)).json().authMode, "shared");
   } finally {
     verify.mock.restore();
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -321,7 +329,7 @@ test("/api/v1 personal accounts: a key's job is refused until its owner has give
     const project = await makeProject(app, owner.cookie, "Shop");
     const shop = await makeConnection(app, admin.cookie, "Shop", [project]);
     // What a CI job is given: one project, read it, deploy it, and manage its connections.
-    const key = keyOf(owner.id, ["projects:read", "deployments:trigger", "connections:manage"], project);
+    const key = await keyOf(owner.id, ["projects:read", "deployments:trigger", "connections:manage"], project);
     const connection = `/api/v1/projects/${project}/connections/${shop}`;
     const opening = [`${connection}/pull`, `${connection}/deploy`] as const;
 
@@ -352,7 +360,7 @@ test("/api/v1 personal accounts: a key's job is refused until its owner has give
     assert.equal((await withKey(app, key, "POST", opening[0], {})).json().code, "PERSONAL_CREDENTIALS_REQUIRED");
   } finally {
     verify.mock.restore();
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -368,7 +376,7 @@ test("/api/v1 personal accounts: giving one is limited like the app's route — 
     const owner = await makeUser(app);
     const project = await makeProject(app, owner.cookie, "Shop");
     const shop = await makeConnection(app, admin.cookie, "Shop", [project]);
-    const key = keyOf(owner.id, ["connections:manage"]);
+    const key = await keyOf(owner.id, ["connections:manage"]);
 
     for (let attempt = 1; attempt <= 10; attempt++) {
       const res = await withKey(app, key, "PUT", credentialsOf(shop), {
@@ -384,7 +392,7 @@ test("/api/v1 personal accounts: giving one is limited like the app's route — 
     assert.equal((await withKey(app, key, "GET", credentialsOf(shop))).statusCode, 200);
   } finally {
     verify.mock.restore();
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

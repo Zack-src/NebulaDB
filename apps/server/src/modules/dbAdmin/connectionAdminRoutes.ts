@@ -73,7 +73,7 @@ function parseProjectLinks(body: { projectIds?: unknown; links?: unknown }): Con
  * in the console. Engines with no `CREATE DATABASE` of that shape are refused.
  */
 async function createMissingDatabases(connectionId: string, names: string[]): Promise<string[]> {
-  const connection = loadConnection(connectionId);
+  const connection = await loadConnection(connectionId);
   assertWritable(connection);
   const quote =
     connection.engine === "postgres"
@@ -100,14 +100,14 @@ export function registerConnectionAdminRoutes(app: FastifyInstance): void {
 
   app.get("/api/admin/connections", READ_LIMIT, async (req) => {
     requireAdmin(req);
-    return { connections: listAllConnections() };
+    return { connections: await listAllConnections() };
   });
 
   app.post("/api/admin/connections", WRITE_LIMIT, async (req) => {
     const user = requireAdmin(req);
     const config = parseConnectionBody((req.body ?? {}) as Record<string, unknown>, false) as DatabaseConnectionConfig;
-    const connection = createGlobalConnection(config, user.id);
-    auditUser(
+    const connection = await createGlobalConnection(config, user.id);
+    await auditUser(
       user,
       "dbconn.create",
       { type: "connection", id: connection.id },
@@ -121,15 +121,15 @@ export function registerConnectionAdminRoutes(app: FastifyInstance): void {
     const user = requireAdmin(req);
     const { id } = req.params as { id: string };
     const updates = parseConnectionBody((req.body ?? {}) as Record<string, unknown>, true);
-    const before = getAdminConnection(id);
-    const connection = updateGlobalConnection(id, updates);
+    const before = await getAdminConnection(id);
+    const connection = await updateGlobalConnection(id, updates);
     if (!connection) throw new ApiError("CONNECTION_NOT_FOUND");
-    auditUser(user, "dbconn.update", { type: "connection", id }, `${connection.engine}: ${connection.name}`, req);
+    await auditUser(user, "dbconn.update", { type: "connection", id }, `${connection.engine}: ${connection.name}`, req);
     // Its own line in the trail: loosening a policy is the kind of change someone asks about later.
     const describe = (setting: typeof connection.structurePolicy) =>
       setting ? `${setting.policy}${setting.applyToSql ? "" : " (not SQL)"}` : "instance default";
     if (before && before.authMode !== connection.authMode) {
-      auditUser(
+      await auditUser(
         user,
         "dbconn.auth_mode",
         { type: "connection", id },
@@ -140,7 +140,7 @@ export function registerConnectionAdminRoutes(app: FastifyInstance): void {
     const watch = (setting: typeof connection.forcedMonitoring) =>
       setting ? `imposed, every ${setting.intervalMinutes} min` : "left to each project";
     if (watch(before?.forcedMonitoring ?? null) !== watch(connection.forcedMonitoring)) {
-      auditUser(
+      await auditUser(
         user,
         "dbconn.monitoring",
         { type: "connection", id },
@@ -149,7 +149,7 @@ export function registerConnectionAdminRoutes(app: FastifyInstance): void {
       );
     }
     if (describe(before?.structurePolicy ?? null) !== describe(connection.structurePolicy)) {
-      auditUser(
+      await auditUser(
         user,
         "dbconn.policy",
         { type: "connection", id },
@@ -164,14 +164,14 @@ export function registerConnectionAdminRoutes(app: FastifyInstance): void {
     const user = requireAdmin(req);
     const { id } = req.params as { id: string };
     const { force } = req.query as { force?: string };
-    const connection = getAdminConnection(id);
+    const connection = await getAdminConnection(id);
     if (!connection) throw new ApiError("CONNECTION_NOT_FOUND");
     // Projects lose the ability to deploy to it; nothing else of theirs is touched.
     if (connection.projects.length > 0 && force !== "true") {
       throw new ApiError("CONNECTION_IN_USE", { details: { projects: connection.projects } });
     }
-    deleteConnection(id);
-    auditUser(user, "dbconn.delete", { type: "connection", id }, `${connection.engine}: ${connection.name}`, req);
+    await deleteConnection(id);
+    await auditUser(user, "dbconn.delete", { type: "connection", id }, `${connection.engine}: ${connection.name}`, req);
     return { deleted: true };
   });
 
@@ -180,7 +180,7 @@ export function registerConnectionAdminRoutes(app: FastifyInstance): void {
     const { id } = req.params as { id: string };
     const body = (req.body ?? {}) as { projectIds?: unknown; links?: unknown; createDatabases?: unknown };
     const links = parseProjectLinks(body);
-    const before = getAdminConnection(id);
+    const before = await getAdminConnection(id);
     if (!before) throw new ApiError("CONNECTION_NOT_FOUND");
 
     // The databases the links newly name, made before the links are saved: a
@@ -195,12 +195,12 @@ export function registerConnectionAdminRoutes(app: FastifyInstance): void {
       ),
     ];
     // Checked first, so that nothing is created on the server for links that will be refused.
-    checkConnectionProjects(id, links);
+    await checkConnectionProjects(id, links);
     const created = body.createDatabases === true && fresh.length > 0 ? await createMissingDatabases(id, fresh) : [];
-    setConnectionProjects(id, links);
+    await setConnectionProjects(id, links);
 
-    const connection = getAdminConnection(id)!;
-    auditUser(
+    const connection = (await getAdminConnection(id))!;
+    await auditUser(
       user,
       "dbconn.link",
       { type: "connection", id },
@@ -216,7 +216,7 @@ export function registerConnectionAdminRoutes(app: FastifyInstance): void {
     if (!isValidEngine(body.engine)) throw new ApiError("CONNECTION_ENGINE_INVALID");
     // Editing an existing connection: the form never has the stored password,
     // so an empty one means "the one already saved".
-    const stored = body.id ? loadConnection(body.id) : null;
+    const stored = body.id ? await loadConnection(body.id) : null;
     const config = { ...body, password: body.password || stored?.password } as DatabaseConnectionConfig;
     if (stored?.connectionString && body.connectionString?.includes("***"))
       config.connectionString = stored.connectionString;
@@ -241,15 +241,15 @@ export function registerConnectionAdminRoutes(app: FastifyInstance): void {
 
   app.get("/api/admin/settings/structure-policy", READ_LIMIT, async (req) => {
     requireAdmin(req);
-    return { setting: getInstanceStructurePolicy() };
+    return { setting: await getInstanceStructurePolicy() };
   });
 
   app.put("/api/admin/settings/structure-policy", WRITE_LIMIT, async (req) => {
     const user = requireAdmin(req);
     const setting = parseStructurePolicySetting(req.body);
-    const previous = getInstanceStructurePolicy();
-    setInstanceStructurePolicy(setting, user.id);
-    auditUser(
+    const previous = await getInstanceStructurePolicy();
+    await setInstanceStructurePolicy(setting, user.id);
+    await auditUser(
       user,
       "instance.structure_policy",
       null,

@@ -13,17 +13,17 @@ const REASON_MAX = 300;
  * anything else runs: skipping is for instance administrators, needs a reason,
  * and is written to the audit log whatever the deployment then does.
  */
-export function stageSkipFor(
+export async function stageSkipFor(
   req: FastifyRequest,
   projectId: string,
   connectionId: string,
   body: { skipStageOrder?: unknown; skipReason?: unknown },
-): boolean {
+): Promise<boolean> {
   if (body.skipStageOrder !== true) return false;
   const user = requireAdmin(req);
   const reason = typeof body.skipReason === "string" ? body.skipReason.trim().slice(0, REASON_MAX) : "";
   if (!reason) throw new ApiError("STAGE_SKIP_REASON_REQUIRED");
-  auditUser(user, "connection.deploy.stage_skipped", { type: "project", id: projectId }, reason, req, {
+  await auditUser(user, "connection.deploy.stage_skipped", { type: "project", id: projectId }, reason, req, {
     connectionId,
   });
   return true;
@@ -37,8 +37,8 @@ export function stageSkipFor(
 export function registerPipelineRoutes(app: FastifyInstance): void {
   app.get("/api/projects/:id/pipeline", async (req) => {
     const { id } = req.params as { id: string };
-    const { project } = requireProjectAdmin(req, id);
-    const schema = readProjectFromDoc(getRoom(id).doc, id, project.name);
-    return { pipeline: projectPipeline(id, schemaHashOf(schema)) };
+    const { project } = await requireProjectAdmin(req, id);
+    const schema = readProjectFromDoc((await getRoom(id)).doc, id, project.name);
+    return { pipeline: await projectPipeline(id, schemaHashOf(schema)) };
   });
 }

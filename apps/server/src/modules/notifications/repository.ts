@@ -18,17 +18,19 @@ const LISTED = 50;
 const RANK: Record<PermissionLevel, number> = { view: 1, edit: 2, administrator: 3 };
 
 /** What a user follows on a project; `null` when they do not follow it. */
-export function getProjectSubscription(userId: string, projectId: string): ProjectSubscription | null {
-  const row = db
+export async function getProjectSubscription(userId: string, projectId: string): Promise<ProjectSubscription | null> {
+  const row = (await db
     .prepare("SELECT events_json FROM subscriptions WHERE user_id = ? AND scope_type = 'project' AND scope_id = ?")
-    .get(userId, projectId) as { events_json: string } | undefined;
+    .get(userId, projectId)) as { events_json: string } | undefined;
   return row ? { events: JSON.parse(row.events_json) as NotificationEvent[] } : null;
 }
 
 /** Everything an account follows — for its personal-data export. */
-export function listSubscriptionsOf(userId: string): { scopeType: string; scopeId: string; events: string[] }[] {
+export async function listSubscriptionsOf(
+  userId: string,
+): Promise<{ scopeType: string; scopeId: string; events: string[] }[]> {
   return (
-    db.prepare("SELECT scope_type, scope_id, events_json FROM subscriptions WHERE user_id = ?").all(userId) as {
+    (await db.prepare("SELECT scope_type, scope_id, events_json FROM subscriptions WHERE user_id = ?").all(userId)) as {
       scope_type: string;
       scope_id: string;
       events_json: string;
@@ -49,22 +51,23 @@ export function parseSubscription(body: unknown): NotificationEvent[] {
   return NOTIFICATION_EVENTS.filter((event) => events.includes(event));
 }
 
-export function saveProjectSubscription(
+export async function saveProjectSubscription(
   userId: string,
   projectId: string,
   events: NotificationEvent[],
-): ProjectSubscription | null {
+): Promise<ProjectSubscription | null> {
   if (events.length === 0) {
-    db.prepare("DELETE FROM subscriptions WHERE user_id = ? AND scope_type = 'project' AND scope_id = ?").run(
-      userId,
-      projectId,
-    );
+    await db
+      .prepare("DELETE FROM subscriptions WHERE user_id = ? AND scope_type = 'project' AND scope_id = ?")
+      .run(userId, projectId);
     return null;
   }
-  db.prepare(
-    `INSERT INTO subscriptions (user_id, scope_type, scope_id, events_json) VALUES (?, 'project', ?, ?)
+  await db
+    .prepare(
+      `INSERT INTO subscriptions (user_id, scope_type, scope_id, events_json) VALUES (?, 'project', ?, ?)
      ON CONFLICT(user_id, scope_type, scope_id) DO UPDATE SET events_json = excluded.events_json`,
-  ).run(userId, projectId, JSON.stringify(events));
+    )
+    .run(userId, projectId, JSON.stringify(events));
   return { events };
 }
 
@@ -83,26 +86,26 @@ interface SubscriberRow {
  * each follower now, not when they subscribed (a grant may have gone since).
  * Never throws: a notification is a courtesy, not part of the action.
  */
-export function notifyFollowers(
+export async function notifyFollowers(
   projectId: string,
   event: NotificationEvent,
   params: NotificationParams,
   options: { actor?: { id?: string | null; email?: string | null }; needs?: PermissionLevel } = {},
-): number {
+): Promise<number> {
   try {
-    const followers = db
+    const followers = (await db
       .prepare(
         `SELECT s.user_id, u.email, s.events_json
            FROM subscriptions s JOIN users u ON u.id = s.user_id
           WHERE s.scope_type = 'project' AND s.scope_id = ? AND u.disabled_at IS NULL`,
       )
-      .all(projectId) as SubscriberRow[];
+      .all(projectId)) as SubscriberRow[];
     const insert = db.prepare(
       "INSERT INTO notifications (id, user_id, project_id, event, params_json) VALUES (?, ?, ?, ?, ?)",
     );
     const trim = db.prepare(
       `DELETE FROM notifications WHERE user_id = ? AND id NOT IN
-         (SELECT id FROM notifications WHERE user_id = ? ORDER BY rowid DESC LIMIT ${KEPT_PER_USER})`,
+         (SELECT id FROM notifications WHERE user_id = ? ORDER BY seq DESC LIMIT ${KEPT_PER_USER})`,
     );
     const needed = RANK[options.needs ?? "view"];
     const told = new Set<string>();
@@ -110,10 +113,10 @@ export function notifyFollowers(
       if (!(JSON.parse(follower.events_json) as string[]).includes(event)) continue;
       if (options.actor?.id && follower.user_id === options.actor.id) continue;
       if (options.actor?.email && follower.email.toLowerCase() === options.actor.email.toLowerCase()) continue;
-      const level = getEffectivePermission(follower.user_id, projectId);
+      const level = await getEffectivePermission(follower.user_id, projectId);
       if (!level || RANK[level] < needed) continue;
-      insert.run(crypto.randomUUID(), follower.user_id, projectId, event, JSON.stringify(params));
-      trim.run(follower.user_id, follower.user_id);
+      await insert.run(crypto.randomUUID(), follower.user_id, projectId, event, JSON.stringify(params));
+      await trim.run(follower.user_id, follower.user_id);
       told.add(follower.user_id);
     }
     // Those who have the project open learn it now rather than at their bell's
@@ -137,17 +140,19 @@ interface NotificationRow {
 }
 
 /** The account's latest notifications, newest first, and how many it has not read. */
-export function listNotifications(userId: string): { notifications: UserNotification[]; unread: number } {
-  const rows = db
+export async function listNotifications(
+  userId: string,
+): Promise<{ notifications: UserNotification[]; unread: number }> {
+  const rows = (await db
     .prepare(
       `SELECT n.id, n.project_id, p.name AS project_name, n.event, n.params_json, n.created_at, n.read_at
          FROM notifications n LEFT JOIN projects p ON p.id = n.project_id
-        WHERE n.user_id = ? ORDER BY n.rowid DESC LIMIT ${LISTED}`,
+        WHERE n.user_id = ? ORDER BY n.seq DESC LIMIT ${LISTED}`,
     )
-    .all(userId) as NotificationRow[];
-  const { unread } = db
+    .all(userId)) as NotificationRow[];
+  const { unread } = (await db
     .prepare("SELECT COUNT(*) AS unread FROM notifications WHERE user_id = ? AND read_at IS NULL")
-    .get(userId) as { unread: number };
+    .get(userId)) as { unread: number };
   return {
     unread,
     notifications: rows.map((row) => ({
@@ -163,17 +168,19 @@ export function listNotifications(userId: string): { notifications: UserNotifica
 }
 
 /** Marks some of the account's notifications as read, or all of them. */
-export function markNotificationsRead(userId: string, ids: unknown): number {
+export async function markNotificationsRead(userId: string, ids: unknown): Promise<number> {
   if (ids === undefined) {
-    return db
-      .prepare("UPDATE notifications SET read_at = datetime('now') WHERE user_id = ? AND read_at IS NULL")
-      .run(userId).changes;
+    return (
+      await db.prepare("UPDATE notifications SET read_at = utc_now() WHERE user_id = ? AND read_at IS NULL").run(userId)
+    ).changes;
   }
   if (!Array.isArray(ids) || ids.length > LISTED || !ids.every((id) => typeof id === "string")) {
     throw new ApiError("SUBSCRIPTION_INVALID");
   }
   const mark = db.prepare(
-    "UPDATE notifications SET read_at = datetime('now') WHERE user_id = ? AND id = ? AND read_at IS NULL",
+    "UPDATE notifications SET read_at = utc_now() WHERE user_id = ? AND id = ? AND read_at IS NULL",
   );
-  return (ids as string[]).reduce((count, id) => count + mark.run(userId, id).changes, 0);
+  let count = 0;
+  for (const id of ids as string[]) count += (await mark.run(userId, id)).changes;
+  return count;
 }

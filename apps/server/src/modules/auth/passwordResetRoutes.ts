@@ -31,10 +31,10 @@ export function registerPasswordResetRoutes(app: FastifyInstance): void {
     const normalized = normalizeEmail(email);
     if (!normalized) throw new ApiError("EMAIL_INVALID");
 
-    const user = findResettableUser(normalized);
-    const token = user ? issueResetToken(user.id) : null;
+    const user = await findResettableUser(normalized);
+    const token = user ? await issueResetToken(user.id) : null;
     if (user && token) {
-      auditUser(null, "user.password.reset_request", { type: "user", id: user.id }, user.email, req);
+      await auditUser(null, "user.password.reset_request", { type: "user", id: user.id }, user.email, req);
       const mail = passwordResetEmail(user.email, appUrl(`/reset-password/${token}`), RESET_TOKEN_TTL_MINUTES);
       setImmediate(() => {
         sendMail(mail).catch((err: unknown) => req.log.error({ err }, "password reset email failed"));
@@ -49,15 +49,15 @@ export function registerPasswordResetRoutes(app: FastifyInstance): void {
     const check = checkPassword(password);
     if (!check.ok) throw new ApiError("PASSWORD_TOO_WEAK", { message: check.error });
 
-    const user = consumeResetToken(token, await hashPassword(check.password));
+    const user = await consumeResetToken(token, await hashPassword(check.password));
     if (!user) throw new ApiError("PASSWORD_RESET_TOKEN_INVALID");
 
     // Proving control of the mailbox is exactly what an account lockout is
     // waiting for — without this, a locked-out user who resets still can't log in.
-    clearFailures(user.email);
+    await clearFailures(user.email);
     // Sessions were deleted with the password; this closes their live sockets too.
-    revalidateAllRooms();
-    auditUser(user, "user.password.reset_self", { type: "user", id: user.id }, undefined, req);
+    await revalidateAllRooms();
+    await auditUser(user, "user.password.reset_self", { type: "user", id: user.id }, undefined, req);
     return { email: user.email };
   });
 }

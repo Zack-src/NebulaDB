@@ -12,35 +12,35 @@ import { API_RATE_LIMIT } from "./rateLimits.js";
 export function registerPublicIamRoutes(app: FastifyInstance): void {
   app.get("/api/v1/projects/:id/iam", API_RATE_LIMIT, async (req) => {
     const { id } = req.params as { id: string };
-    requireProjectAccess(req, id, "view");
+    await requireProjectAccess(req, id, "view");
     requireScope(req, "projects:read", id);
-    return { teams: listProjectTeams(id) };
+    return { teams: await listProjectTeams(id) };
   });
 
   app.put("/api/v1/projects/:id/iam/:teamId", API_RATE_LIMIT, async (req) => {
     const { id, teamId } = req.params as { id: string; teamId: string };
-    const { user } = requireProjectAdmin(req, id);
+    const { user } = await requireProjectAdmin(req, id);
     requireScope(req, "projects:write", id);
-    if (!teamExists(teamId)) throw new ApiError("TEAM_NOT_FOUND");
+    if (!(await teamExists(teamId))) throw new ApiError("TEAM_NOT_FOUND");
 
     const { permission } = (req.body ?? {}) as { permission?: string };
     if (!isPermissionLevel(permission)) throw new ApiError("PERMISSION_INVALID");
 
-    grantTeamPermission(id, teamId, permission);
+    await grantTeamPermission(id, teamId, permission);
     // Sockets already open on this project resolved their access when they connected;
     // without this, a permission change wouldn't reach them until the room's own re-check interval.
-    revalidateRoom(id);
-    auditUser(user, "project.team.grant", { type: "project", id }, `team ${teamId} -> ${permission} (v1)`, req);
+    await revalidateRoom(id);
+    await auditUser(user, "project.team.grant", { type: "project", id }, `team ${teamId} -> ${permission} (v1)`, req);
     return { projectId: id, teamId, permission };
   });
 
   app.delete("/api/v1/projects/:id/iam/:teamId", API_RATE_LIMIT, async (req) => {
     const { id, teamId } = req.params as { id: string; teamId: string };
-    const { user } = requireProjectAdmin(req, id);
+    const { user } = await requireProjectAdmin(req, id);
     requireScope(req, "projects:write", id);
-    revokeTeamPermission(id, teamId);
-    revalidateRoom(id);
-    auditUser(user, "project.team.revoke", { type: "project", id }, `team ${teamId} (v1)`, req);
+    await revokeTeamPermission(id, teamId);
+    await revalidateRoom(id);
+    await auditUser(user, "project.team.revoke", { type: "project", id }, `team ${teamId} (v1)`, req);
     return { removed: true };
   });
 }

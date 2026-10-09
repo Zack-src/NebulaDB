@@ -1,8 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { useTestDatabase } from "../../../infrastructure/testDatabase.js";
 
 /**
  * Committed regression coverage for the 2026-08-20 data-loss bug (see
@@ -18,7 +17,7 @@ import { join } from "node:path";
  * was two live browser tabs and a throwaway Playwright script; this is that
  * scenario, committed.
  */
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-concurrency-${randomUUID()}.sqlite`);
+await useTestDatabase("concurrency");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -52,11 +51,9 @@ async function makeUser() {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, NULL)").run(
-    id,
-    email,
-    await hashPassword(password),
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, NULL)")
+    .run(id, email, await hashPassword(password));
   return { id, email, password };
 }
 
@@ -97,9 +94,9 @@ function baseProject(projectId: string, projectName: string) {
 }
 
 /** Writes a project state straight into the room's live doc — simulates a canvas edit from *any* connected client, bypassing the WebSocket exactly like `seedCanvasTable` does in `connections/routes.test.ts`. */
-function writeCanvasState(projectId: string, project: ReturnType<typeof baseProject>) {
-  const room = getRoom(projectId);
-  room.doc.transact(() => writeProjectToDoc(room.doc, project), "test-canvas-edit");
+async function writeCanvasState(projectId: string, project: ReturnType<typeof baseProject>) {
+  const room = await getRoom(projectId);
+  await room.write(() => writeProjectToDoc(room.doc, project), "test-canvas-edit");
 }
 
 test("Bob's concurrent canvas edit survives Alice's stale DBML-panel resync (the actual 2026-08-20 bug)", async () => {
@@ -111,7 +108,7 @@ test("Bob's concurrent canvas edit survives Alice's stale DBML-panel resync (the
 
     // Both Alice's and Bob's clients start from this state.
     const shared = baseProject(project.id, project.name);
-    writeCanvasState(project.id, shared);
+    await writeCanvasState(project.id, shared);
     const aliceBaseline = projectToDbml(shared);
     // Alice's buffer is untouched (dirty === false), so her "source" on
     // resync is identical to her baseline — exactly what
@@ -130,7 +127,7 @@ test("Bob's concurrent canvas edit survives Alice's stale DBML-panel resync (the
         },
       ],
     };
-    writeCanvasState(project.id, withBobsColumn);
+    await writeCanvasState(project.id, withBobsColumn);
 
     // Alice's panel now resyncs its (stale) buffer.
     const resync = await app.inject({
@@ -141,7 +138,7 @@ test("Bob's concurrent canvas edit survives Alice's stale DBML-panel resync (the
     });
     assert.equal(resync.statusCode, 200);
 
-    const finalState = readProjectFromDoc(getRoom(project.id).doc, project.id, project.name);
+    const finalState = readProjectFromDoc((await getRoom(project.id)).doc, project.id, project.name);
     const fieldNames = finalState.tables[0].fields.map((f) => f.name);
     assert.deepEqual(
       fieldNames.sort(),
@@ -149,7 +146,7 @@ test("Bob's concurrent canvas edit survives Alice's stale DBML-panel resync (the
       "Bob's concurrently-added column must survive Alice's stale resync",
     );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -162,7 +159,7 @@ test("Alice's own deletion still applies — concurrent-edit protection doesn't 
     const project = await makeProject(app, cookie);
 
     const shared = baseProject(project.id, project.name);
-    writeCanvasState(project.id, shared);
+    await writeCanvasState(project.id, shared);
     const baseline = projectToDbml(shared);
 
     // Alice deletes the `label` field in her DBML buffer — present in the
@@ -181,11 +178,11 @@ test("Alice's own deletion still applies — concurrent-edit protection doesn't 
     });
     assert.equal(resync.statusCode, 200);
 
-    const finalState = readProjectFromDoc(getRoom(project.id).doc, project.id, project.name);
+    const finalState = readProjectFromDoc((await getRoom(project.id)).doc, project.id, project.name);
     const fieldNames = finalState.tables[0].fields.map((f) => f.name);
     assert.deepEqual(fieldNames.sort(), ["id"], "a field genuinely removed by the importing client must stay removed");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -198,7 +195,7 @@ test("Alice creating a table in DBML survives Bob's concurrent canvas resync in 
     const project = await makeProject(app, cookie);
 
     const shared = baseProject(project.id, project.name);
-    writeCanvasState(project.id, shared);
+    await writeCanvasState(project.id, shared);
     const baseline = projectToDbml(shared);
 
     // Alice types a whole new table into the DBML panel.
@@ -226,14 +223,14 @@ test("Alice creating a table in DBML survives Bob's concurrent canvas resync in 
     });
     assert.equal(resync.statusCode, 200);
 
-    const finalState = readProjectFromDoc(getRoom(project.id).doc, project.id, project.name);
+    const finalState = readProjectFromDoc((await getRoom(project.id)).doc, project.id, project.name);
     assert.deepEqual(
       finalState.tables.map((t) => t.name).sort(),
       ["orders", "widgets"],
       "Alice's table typed in DBML must appear even though it was applied through the merge-by-baseline path",
     );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -246,7 +243,7 @@ test("an import with no baseline (import dialog, a script, an older client) keep
     const project = await makeProject(app, cookie);
 
     const shared = baseProject(project.id, project.name);
-    writeCanvasState(project.id, shared);
+    await writeCanvasState(project.id, shared);
 
     // Someone else's concurrent addition, same as the first test...
     const withBobsColumn = {
@@ -258,7 +255,7 @@ test("an import with no baseline (import dialog, a script, an older client) keep
         },
       ],
     };
-    writeCanvasState(project.id, withBobsColumn);
+    await writeCanvasState(project.id, withBobsColumn);
 
     // ...but this import carries no baseline at all — the plain Import
     // dialog's shape, which is a deliberate, one-off "this file is now the
@@ -271,14 +268,14 @@ test("an import with no baseline (import dialog, a script, an older client) keep
     });
     assert.equal(plainImport.statusCode, 200);
 
-    const finalState = readProjectFromDoc(getRoom(project.id).doc, project.id, project.name);
+    const finalState = readProjectFromDoc((await getRoom(project.id)).doc, project.id, project.name);
     assert.deepEqual(
       finalState.tables[0].fields.map((f) => f.name).sort(),
       ["id", "label"],
       "without a baseline, import replaces the schema wholesale — this is the documented, intentional exception",
     );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

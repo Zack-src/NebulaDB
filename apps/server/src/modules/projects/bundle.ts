@@ -19,8 +19,9 @@ import { getRoom, notifyLocksChanged, notifyProject } from "../../realtime/roomR
 import { ApiError } from "../../shared/errors.js";
 import { getGeneratorConfig, parseGeneratorConfig, saveGeneratorConfig } from "../generator/repository.js";
 import { listSeedsWithContent, parseSeedInput, upsertSeed } from "../seeds/repository.js";
-import { assertLocksAllow, canOverrideLock, lockAuthorityOf } from "../tableLocks/access.js";
+import { canOverrideLock, lockAuthorityOf, lockGuardFor } from "../tableLocks/access.js";
 import { getTableLock, listTableLocks, upsertTableLock } from "../tableLocks/repository.js";
+import { mapAsync } from "../../shared/async.js";
 
 interface Caller {
   id: string;
@@ -28,14 +29,14 @@ interface Caller {
 }
 
 /** Every part of the project in one document — see `ProjectBundle`. Read from the live room, like the other exports. */
-export function buildBundle(project: Project): ProjectBundle {
+export async function buildBundle(project: Project): Promise<ProjectBundle> {
   const projectId = project.id;
   const tableIds = new Set(project.tables.map((table) => table.id));
   const names = new Map(project.tables.map((table) => [table.id, table.name]));
 
   // Only what still belongs to a table of the project: a lock or seed left
   // behind by a deleted table would import as an orphan.
-  const locks: BundleLock[] = listTableLocks(projectId)
+  const locks: BundleLock[] = (await listTableLocks(projectId))
     .filter((lock) => tableIds.has(lock.tableId))
     .map((lock) => ({
       tableId: lock.tableId,
@@ -46,7 +47,7 @@ export function buildBundle(project: Project): ProjectBundle {
       lockedByName: lock.lockedByName,
       lockedAt: lock.lockedAt,
     }));
-  const seeds: BundleSeed[] = listSeedsWithContent(projectId)
+  const seeds: BundleSeed[] = (await listSeedsWithContent(projectId))
     .filter((seed) => tableIds.has(seed.tableId))
     .map((seed) => ({
       tableId: seed.tableId,
@@ -54,10 +55,12 @@ export function buildBundle(project: Project): ProjectBundle {
       options: seed.options,
       content: seed.content,
     }));
-  const generators: BundleGenerator[] = project.tables.flatMap((table) => {
-    const config = getGeneratorConfig(projectId, table.id);
-    return config ? [{ tableId: table.id, config }] : [];
-  });
+  const generators: BundleGenerator[] = (
+    await mapAsync(project.tables, async (table) => {
+      const config = await getGeneratorConfig(projectId, table.id);
+      return config ? [{ tableId: table.id, config }] : [];
+    })
+  ).flat();
 
   return {
     format: BUNDLE_FORMAT,
@@ -98,15 +101,23 @@ function parseLock(raw: BundleLock): { level: TableLockLevel; authority: TableLo
  * (a lock above their authority, the seed of a table under a `full` lock) are
  * skipped and reported rather than refusing everything.
  */
-export function applyBundle(user: Caller, project: { id: string; name: string }, bundle: ProjectBundle): BundleImportResult {
+export async function applyBundle(
+  user: Caller,
+  project: { id: string; name: string },
+  bundle: ProjectBundle,
+): Promise<BundleImportResult> {
   const projectId = project.id;
-  const room = getRoom(projectId);
+  const assertLocksAllow = await lockGuardFor(user.id, projectId);
+  // From here to `room.write`, nothing waits: see `Room.write`.
+  const room = await getRoom(projectId);
   const current = readProjectFromDoc(room.doc, projectId, project.name);
   // The bundle may come from another project: this one keeps its own identity.
   const incoming: Project = { ...bundle.project, id: projectId, name: current.name };
   const tableIds = new Set(incoming.tables.map((table) => table.id));
 
-  const locks = bundle.locks.filter((lock) => tableIds.has(lock?.tableId)).map((lock) => ({ lock, ...parseLock(lock) }));
+  const locks = bundle.locks
+    .filter((lock) => tableIds.has(lock?.tableId))
+    .map((lock) => ({ lock, ...parseLock(lock) }));
   const seeds = bundle.seeds
     .filter((seed) => tableIds.has(seed?.tableId))
     .map((seed) => ({ seed, ...parseSeedInput(seed) }));
@@ -114,22 +125,22 @@ export function applyBundle(user: Caller, project: { id: string; name: string },
     .filter((generator) => tableIds.has(generator?.tableId))
     .map((generator) => ({ tableId: generator.tableId, config: parseGeneratorConfig(generator.config) }));
 
-  assertLocksAllow(user.id, projectId, current, incoming);
-  room.doc.transact(() => writeProjectToDoc(room.doc, incoming), user.displayName);
+  assertLocksAllow(current, incoming);
+  await room.write(() => writeProjectToDoc(room.doc, incoming), user.displayName);
 
-  const held = lockAuthorityOf(user.id, projectId);
+  const held = await lockAuthorityOf(user.id, projectId);
   const result: BundleImportResult = { tables: incoming.tables.length, locks: 0, seeds: 0, generators: 0, skipped: [] };
   const tableName = (id: string) => incoming.tables.find((table) => table.id === id)?.name ?? id;
 
   for (const { lock, level, authority, reason } of locks) {
-    const existing = getTableLock(projectId, lock.tableId);
+    const existing = await getTableLock(projectId, lock.tableId);
     // Same rules as placing a lock by hand: no lock above one's authority,
     // and none over a lock one cannot lift.
     if (!held || (authority === "instance" && held !== "instance") || (existing && !canOverrideLock(held, existing))) {
       result.skipped.push(`lock:${tableName(lock.tableId)}`);
       continue;
     }
-    upsertTableLock({
+    await upsertTableLock({
       projectId,
       tableId: lock.tableId,
       tableName: tableName(lock.tableId),
@@ -144,12 +155,12 @@ export function applyBundle(user: Caller, project: { id: string; name: string },
 
   // Read after the locks above: a `full` lock just placed freezes its seed too.
   for (const { seed, content, options, rowCount } of seeds) {
-    const lock = getTableLock(projectId, seed.tableId);
+    const lock = await getTableLock(projectId, seed.tableId);
     if (lock?.level === "full" && !canOverrideLock(held, lock)) {
       result.skipped.push(`seed:${tableName(seed.tableId)}`);
       continue;
     }
-    upsertSeed({
+    await upsertSeed({
       projectId,
       tableId: seed.tableId,
       tableName: tableName(seed.tableId),
@@ -163,11 +174,11 @@ export function applyBundle(user: Caller, project: { id: string; name: string },
   }
 
   for (const { tableId, config } of generators) {
-    saveGeneratorConfig(projectId, tableId, config, user.displayName);
+    await saveGeneratorConfig(projectId, tableId, config, user.displayName);
     result.generators++;
   }
 
-  if (result.locks > 0) notifyLocksChanged(projectId);
+  if (result.locks > 0) await notifyLocksChanged(projectId);
   if (result.seeds > 0) notifyProject(projectId, { type: "seeds-changed" });
   return result;
 }

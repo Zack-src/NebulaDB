@@ -1,13 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
 // `routes/crud.ts` (create/rename/delete/list, permission gating) is covered
 // in `../../app.test.ts` already — this file is the remaining three:
 // `routes/importExport.ts`, `routes/revisions.ts`, `routes/teams.ts`.
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-projectroutes-${randomUUID()}.sqlite`);
+await useTestDatabase("projectroutes");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -39,12 +38,9 @@ async function makeUser(isAdmin: 0 | 1 = 0) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)").run(
-    id,
-    email,
-    await hashPassword(password),
-    isAdmin,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)")
+    .run(id, email, await hashPassword(password), isAdmin);
   return { id, email, password };
 }
 
@@ -119,7 +115,7 @@ test("import/export round-trip: DBML in, DBML/SQL out, a view grant can't import
     assert.equal(malformedImport.statusCode, 400);
     assert.equal(malformedImport.json().code, "DBML_PARSE_FAILED");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -223,7 +219,7 @@ test("revisions: listed after an edit, labelable, restorable; a view grant can r
     });
     assert.deepEqual((snapshot.json() as { tables: { name: string }[] }).tables.map((t) => t.name).sort(), ["users"]);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -312,10 +308,12 @@ Table orders {
     );
 
     // A deployment row, as `recordDeployment` would leave it.
-    db.prepare(
-      `INSERT INTO deployment_history (id, project_id, connection_id, connection_name, environment, engine, sql, success, executed_by_email)
+    await db
+      .prepare(
+        `INSERT INTO deployment_history (id, project_id, connection_id, connection_name, environment, engine, sql, success, executed_by_email)
        VALUES (?, ?, NULL, 'Staging DB', 'staging', 'postgres', 'SELECT 1', 1, ?)`,
-    ).run(randomUUID(), project.id, owner.email);
+      )
+      .run(randomUUID(), project.id, owner.email);
 
     const ownerMarkers = (
       await app.inject({
@@ -350,7 +348,7 @@ Table orders {
     assert.ok(kinds.includes("restore"));
     assert.ok(!kinds.includes("deployment"), "deployment history is for project administrators");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -432,7 +430,7 @@ test("project-team routes: granting/revoking is project-admin-only, and an edit 
     });
     assert.equal(revoked.statusCode, 200);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -455,8 +453,8 @@ test("GET /api/projects/:id/content returns the schema as JSON for a viewer, wit
       headers: headers({ cookie: ownerCookie }),
       payload: { source: "Table password_reset_tokens {\n id int [pk]\n}" },
     });
-    (await import("../../realtime/roomRegistry.js")).getRoom(id).flush();
-    closeAllRooms();
+    await (await (await import("../../realtime/roomRegistry.js")).getRoom(id)).flush();
+    await closeAllRooms();
 
     const { liveRoomCount } = await import("../../realtime/roomRegistry.js");
     const res = await app.inject({
@@ -473,7 +471,7 @@ test("GET /api/projects/:id/content returns the schema as JSON for a viewer, wit
     const anonymous = await app.inject({ method: "GET", url: `/api/projects/${id}/content`, headers: headers() });
     assert.equal(anonymous.statusCode, 401);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

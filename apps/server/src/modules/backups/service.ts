@@ -31,8 +31,8 @@ const MAX_TABLES = 2000;
 const MAX_NOTE = 500;
 const MAX_DIRECTORY = 1024;
 
-const destinationOf = (connectionId: string) => ({
-  directory: getBackupDirectory(connectionId),
+const destinationOf = async (connectionId: string) => ({
+  directory: await getBackupDirectory(connectionId),
   defaultDirectory: path.resolve(config.databaseBackupDir),
 });
 
@@ -43,8 +43,8 @@ const destinationOf = (connectionId: string) => ({
  * folder nothing can be written to is refused with the system's reason. The
  * backups already taken stay where they are, and stay readable.
  */
-export function saveBackupDestination(user: Actor, connectionId: string, rawBody: unknown, req: FastifyRequest) {
-  const connection = requireConnection(connectionId);
+export async function saveBackupDestination(user: Actor, connectionId: string, rawBody: unknown, req: FastifyRequest) {
+  const connection = await requireConnection(connectionId);
   const { directory: raw } = (rawBody ?? {}) as { directory?: unknown };
   let directory: string | null = null;
   if (raw !== null && raw !== undefined && raw !== "") {
@@ -60,9 +60,9 @@ export function saveBackupDestination(user: Actor, connectionId: string, rawBody
       });
     }
   }
-  if (directory !== getBackupDirectory(connectionId)) {
-    setBackupDirectory(connectionId, directory);
-    auditUser(
+  if (directory !== (await getBackupDirectory(connectionId))) {
+    await setBackupDirectory(connectionId, directory);
+    await auditUser(
       user,
       "backup.destination",
       { type: "connection", id: connectionId },
@@ -70,17 +70,17 @@ export function saveBackupDestination(user: Actor, connectionId: string, rawBody
       req,
     );
   }
-  return destinationOf(connectionId);
+  return await destinationOf(connectionId);
 }
 
-export function requireConnection(id: string): DatabaseConnectionConfig {
-  const connection = getConnectionById(id);
-  if (!connection || connectionOwner(id)) throw new ApiError("CONNECTION_NOT_FOUND");
+export async function requireConnection(id: string): Promise<DatabaseConnectionConfig> {
+  const connection = await getConnectionById(id);
+  if (!connection || (await connectionOwner(id))) throw new ApiError("CONNECTION_NOT_FOUND");
   return connection;
 }
 
-export function requireBackup(id: string): BackupSummary {
-  const backup = getBackup(id);
+export async function requireBackup(id: string): Promise<BackupSummary> {
+  const backup = await getBackup(id);
   if (!backup) throw new ApiError("BACKUP_NOT_FOUND");
   return backup;
 }
@@ -102,51 +102,57 @@ export function parseTables(value: unknown): string[] | undefined {
 export const describeBackup = (backup: BackupSummary) =>
   `${backup.connectionName}, ${backup.scope ? `${backup.scope.length} table(s)` : "whole database"}, ${backup.startedAt}`;
 
-export function connectionBackups(connectionId: string): BackupList {
-  requireConnection(connectionId);
+export async function connectionBackups(connectionId: string): Promise<BackupList> {
+  await requireConnection(connectionId);
   return {
-    backups: listBackups(connectionId),
+    backups: await listBackups(connectionId),
     limits: { maxBytes: config.databaseBackupMaxBytes, retentionDays: config.databaseBackupRetentionDays },
-    usedBytes: usedBytes(connectionId),
-    schedule: getBackupSchedule(connectionId),
-    destination: destinationOf(connectionId),
+    usedBytes: await usedBytes(connectionId),
+    schedule: await getBackupSchedule(connectionId),
+    destination: await destinationOf(connectionId),
   };
 }
 
 /** Returns as soon as the backup has started; its record says how far it is. */
-export function startManualBackup(
+export async function startManualBackup(
   user: Actor,
   connectionId: string,
   rawBody: unknown,
   req: FastifyRequest,
-): BackupSummary {
-  const connection = requireConnection(connectionId);
+): Promise<BackupSummary> {
+  const connection = await requireConnection(connectionId);
   const body = (rawBody ?? {}) as { tables?: unknown; note?: unknown };
   if (body.note !== undefined && (typeof body.note !== "string" || body.note.length > MAX_NOTE)) {
     throw new ApiError("BACKUP_INVALID");
   }
-  const { backup } = startBackup({
+  const { backup } = await startBackup({
     connection,
     trigger: "manual",
     tables: parseTables(body.tables),
     note: (body.note as string | undefined)?.trim() || null,
     createdBy: user,
   });
-  auditUser(user, "backup.create", { type: "connection", id: connectionId }, describeBackup(backup), req);
+  await auditUser(user, "backup.create", { type: "connection", id: connectionId }, describeBackup(backup), req);
   return backup;
 }
 
-export function cancelRunningBackup(backupId: string): void {
-  const backup = requireBackup(backupId);
+export async function cancelRunningBackup(backupId: string): Promise<void> {
+  const backup = await requireBackup(backupId);
   if (backup.status !== "running" || !cancelBackup(backupId)) throw new ApiError("BACKUP_NOT_READY");
 }
 
-export function removeBackup(user: Actor, backupId: string, req: FastifyRequest): void {
-  const backup = requireBackup(backupId);
+export async function removeBackup(user: Actor, backupId: string, req: FastifyRequest): Promise<void> {
+  const backup = await requireBackup(backupId);
   // A running one is cancelled, not pulled from under the writer.
   if (backup.status === "running") throw new ApiError("BACKUP_NOT_READY");
-  deleteBackup(backupId);
-  auditUser(user, "backup.delete", { type: "connection", id: backup.connectionId ?? "" }, describeBackup(backup), req);
+  await deleteBackup(backupId);
+  await auditUser(
+    user,
+    "backup.delete",
+    { type: "connection", id: backup.connectionId ?? "" },
+    describeBackup(backup),
+    req,
+  );
 }
 
 /** The decrypted file, still gzipped: one JSON document per line (see `BackupFileHeader`). */
@@ -155,11 +161,11 @@ export async function downloadBackup(
   backupId: string,
   req: FastifyRequest,
 ): Promise<{ fileName: string; stream: Readable }> {
-  const backup = requireBackup(backupId);
-  const key = getBackupKey(backupId);
+  const backup = await requireBackup(backupId);
+  const key = await getBackupKey(backupId);
   if (backup.status !== "done" || !key) throw new ApiError("BACKUP_NOT_READY");
   if ((await backupFileChecksum(backupId)) !== backup.checksum) throw new ApiError("BACKUP_CORRUPTED");
-  auditUser(
+  await auditUser(
     user,
     "backup.download",
     { type: "connection", id: backup.connectionId ?? "" },
@@ -167,5 +173,5 @@ export async function downloadBackup(
     req,
   );
   const name = `${backup.connectionName.replace(/[^A-Za-z0-9._-]+/g, "_") || "backup"}-${backup.startedAt.replace(/[^0-9]/g, "")}`;
-  return { fileName: `${name}.jsonl.gz`, stream: openBackupDownload(backupId, key) };
+  return { fileName: `${name}.jsonl.gz`, stream: await openBackupDownload(backupId, key) };
 }

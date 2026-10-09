@@ -13,6 +13,7 @@ import { ApiError } from "../../shared/errors.js";
 import { requireAdmin } from "../../shared/guards.js";
 import { appUrl, isMailEnabled, sendMail } from "../../infrastructure/mailer.js";
 import { invitationEmail } from "../../shared/emailTemplates.js";
+import { filterAsync, mapAsync } from "../../shared/async.js";
 
 const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -59,30 +60,32 @@ export function registerInvitationRoutes(app: FastifyInstance): void {
     const { email, isAdmin } = body;
     const normalized = normalizeEmail(email);
     if (!normalized) throw new ApiError("EMAIL_INVALID");
-    if (db.prepare("SELECT id FROM users WHERE email = ?").get(normalized)) {
+    if (await db.prepare("SELECT id FROM users WHERE email = ?").get(normalized)) {
       throw new ApiError("EMAIL_ALREADY_EXISTS");
     }
     // Teams to join and database access, applied the moment the invitation is accepted.
-    const grants = parseInvitationGrants(body);
+    const grants = await parseInvitationGrants(body);
     const hasGrants = grants.teamIds.length > 0 || grants.databases.length > 0;
 
     // Only one pending invite per email makes sense — replace rather than accumulate.
-    db.prepare("DELETE FROM invitations WHERE email = ? AND accepted_at IS NULL").run(normalized);
+    await db.prepare("DELETE FROM invitations WHERE email = ? AND accepted_at IS NULL").run(normalized);
 
     const token = crypto.randomUUID();
     const expiresAt = new Date(Date.now() + INVITATION_TTL_MS).toISOString();
-    db.prepare(
-      "INSERT INTO invitations (token, email, is_admin, invited_by, expires_at, grants_json) VALUES (?, ?, ?, ?, ?, ?)",
-    ).run(token, normalized, isAdmin ? 1 : 0, admin.id, expiresAt, hasGrants ? JSON.stringify(grants) : null);
+    await db
+      .prepare(
+        "INSERT INTO invitations (token, email, is_admin, invited_by, expires_at, grants_json) VALUES (?, ?, ?, ?, ?, ?)",
+      )
+      .run(token, normalized, isAdmin ? 1 : 0, admin.id, expiresAt, hasGrants ? JSON.stringify(grants) : null);
 
-    const teamNames = grants.teamIds.map((teamId) => getTeam(teamId)?.name ?? teamId);
-    auditUser(
+    const teamNames = await mapAsync(grants.teamIds, async (teamId) => (await getTeam(teamId))?.name ?? teamId);
+    await auditUser(
       admin,
       "invitation.create",
       { type: "invitation", id: token },
       `${normalized}${isAdmin ? " (admin)" : ""}` +
         (teamNames.length ? `; teams: ${teamNames.join(", ")}` : "") +
-        (grants.databases.length ? `; databases: ${describeGrants(grants.databases)}` : ""),
+        (grants.databases.length ? `; databases: ${await describeGrants(grants.databases)}` : ""),
       req,
     );
     // With email configured the invitee gets the link directly; without it (or
@@ -110,10 +113,10 @@ export function registerInvitationRoutes(app: FastifyInstance): void {
 
   app.get("/api/invitations", async (req) => {
     requireAdmin(req);
-    const rows = db
+    const rows = (await db
       .prepare(`SELECT ${INVITATION_COLUMNS} FROM invitations ORDER BY created_at DESC`)
-      .all() as InvitationRow[];
-    return rows.map((row) => {
+      .all()) as InvitationRow[];
+    return mapAsync(rows, async (row) => {
       const grants = readGrants(row);
       return {
         token: row.token,
@@ -123,23 +126,27 @@ export function registerInvitationRoutes(app: FastifyInstance): void {
         expiresAt: row.expires_at,
         status: getInvitationStatus(row),
         // Names only, as the list shows them; a team or connection deleted since is left out.
-        teams: grants.teamIds.flatMap((teamId) => {
-          const team = getTeam(teamId);
-          return team ? [{ id: team.id, name: team.name }] : [];
-        }),
-        databases: grants.databases.flatMap((entry) => {
-          const connection = getConnectionById(entry.connectionId);
-          return connection
-            ? [
-                {
-                  connectionId: entry.connectionId,
-                  connectionName: connection.name,
-                  level: entry.level,
-                  sqlUsername: entry.sqlUsername ?? null,
-                },
-              ]
-            : [];
-        }),
+        teams: (
+          await mapAsync(grants.teamIds, async (teamId) => {
+            const team = await getTeam(teamId);
+            return team ? [{ id: team.id, name: team.name }] : [];
+          })
+        ).flat(),
+        databases: (
+          await mapAsync(grants.databases, async (entry) => {
+            const connection = await getConnectionById(entry.connectionId);
+            return connection
+              ? [
+                  {
+                    connectionId: entry.connectionId,
+                    connectionName: connection.name,
+                    level: entry.level,
+                    sqlUsername: entry.sqlUsername ?? null,
+                  },
+                ]
+              : [];
+          })
+        ).flat(),
       };
     });
   });
@@ -147,8 +154,8 @@ export function registerInvitationRoutes(app: FastifyInstance): void {
   app.delete("/api/invitations/:token", async (req) => {
     const admin = requireAdmin(req);
     const { token } = req.params as { token: string };
-    db.prepare("DELETE FROM invitations WHERE token = ? AND accepted_at IS NULL").run(token);
-    auditUser(admin, "invitation.revoke", { type: "invitation", id: token }, undefined, req);
+    await db.prepare("DELETE FROM invitations WHERE token = ? AND accepted_at IS NULL").run(token);
+    await auditUser(admin, "invitation.revoke", { type: "invitation", id: token }, undefined, req);
     return { revoked: true };
   });
 
@@ -157,8 +164,9 @@ export function registerInvitationRoutes(app: FastifyInstance): void {
   // hashes a password (expensive) and creates an account.
   app.post("/api/invitations/:token/accept", ACCEPT_RATE_LIMIT, async (req) => {
     const { token } = req.params as { token: string };
-    const invitation = db.prepare(`SELECT ${INVITATION_COLUMNS} FROM invitations WHERE token = ?`).get(token) as
-      InvitationRow | undefined;
+    const invitation = (await db
+      .prepare(`SELECT ${INVITATION_COLUMNS} FROM invitations WHERE token = ?`)
+      .get(token)) as InvitationRow | undefined;
     if (!invitation || getInvitationStatus(invitation) !== "pending") throw new ApiError("INVITATION_INVALID");
 
     const { password } = (req.body ?? {}) as { password?: string };
@@ -173,36 +181,34 @@ export function registerInvitationRoutes(app: FastifyInstance): void {
     // pass the check above and both INSERT, with the loser blowing up on the
     // `users.email` UNIQUE constraint as an unhandled 500. Now the second one
     // finds `accepted_at` already set and rolls back cleanly.
-    const claimInvitation = db.transaction(() => {
-      const claimed = db
-        .prepare("UPDATE invitations SET accepted_at = datetime('now') WHERE token = ? AND accepted_at IS NULL")
-        .run(token);
-      if (claimed.changes === 0) return false;
-      if (db.prepare("SELECT 1 FROM users WHERE email = ?").get(invitation.email)) return false;
-      db.prepare("INSERT INTO users (id, email, password_hash, is_admin) VALUES (?, ?, ?, ?)").run(
-        id,
-        invitation.email,
-        passwordHash,
-        invitation.is_admin,
-      );
-      // What the invitation promised, in the same transaction as the account:
-      // nobody has to come back and grant it. A team or a connection deleted
-      // since the invitation was made is skipped, not recreated.
-      const grants = readGrants(invitation);
-      const teamExists = db.prepare("SELECT 1 FROM teams WHERE id = ?");
-      const join = db.prepare("INSERT OR IGNORE INTO team_members (team_id, user_id) VALUES (?, ?)");
-      for (const teamId of grants.teamIds) if (teamExists.get(teamId)) join.run(teamId, id);
-      addUserGrantsInTransaction(
-        id,
-        grants.databases.filter((entry) => getConnectionById(entry.connectionId)),
-        invitation.invited_by,
-      );
-      return true;
-    });
+    const claimInvitation = async () =>
+      await db.transaction(async () => {
+        const claimed = await db
+          .prepare("UPDATE invitations SET accepted_at = utc_now() WHERE token = ? AND accepted_at IS NULL")
+          .run(token);
+        if (claimed.changes === 0) return false;
+        if (await db.prepare("SELECT 1 FROM users WHERE email = ?").get(invitation.email)) return false;
+        await db
+          .prepare("INSERT INTO users (id, email, password_hash, is_admin) VALUES (?, ?, ?, ?)")
+          .run(id, invitation.email, passwordHash, invitation.is_admin);
+        // What the invitation promised, in the same transaction as the account:
+        // nobody has to come back and grant it. A team or a connection deleted
+        // since the invitation was made is skipped, not recreated.
+        const grants = readGrants(invitation);
+        const teamExists = db.prepare("SELECT 1 FROM teams WHERE id = ?");
+        const join = db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?) ON CONFLICT DO NOTHING");
+        for (const teamId of grants.teamIds) if (await teamExists.get(teamId)) await join.run(teamId, id);
+        await addUserGrantsInTransaction(
+          id,
+          await filterAsync(grants.databases, async (entry) => (await getConnectionById(entry.connectionId)) !== null),
+          invitation.invited_by,
+        );
+        return true;
+      });
 
     let created: boolean;
     try {
-      created = claimInvitation();
+      created = await claimInvitation();
     } catch (err) {
       req.log.error({ err }, "invitation accept failed");
       throw new ApiError("INVITATION_FAILED");
@@ -219,12 +225,12 @@ export function registerInvitationRoutes(app: FastifyInstance): void {
     // The actor here is the brand-new account itself, not an admin — this is
     // the row that ties an account's existence to the invitation it came from.
     const granted = readGrants(invitation);
-    auditUser(
+    await auditUser(
       { id, email: invitation.email },
       "invitation.accept",
       { type: "invitation", id: token },
       granted.teamIds.length || granted.databases.length
-        ? `teams: ${granted.teamIds.length}; databases: ${describeGrants(granted.databases)}`
+        ? `teams: ${granted.teamIds.length}; databases: ${await describeGrants(granted.databases)}`
         : undefined,
       req,
     );

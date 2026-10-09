@@ -1,11 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import * as Y from "yjs";
+import { useTestDatabase } from "../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-persistence-${randomUUID()}.sqlite`);
+await useTestDatabase("persistence");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -30,7 +29,7 @@ function makeProject(overrides: Partial<Project> = {}): Project {
 }
 
 /** Writes `project` into a scratch doc seeded with every update applied so far, and appends the resulting delta as a revision — mirrors what `Room.handleDocUpdate` does for a real collaborative edit, without the WebSocket/room machinery. */
-function commit(doc: Y.Doc, projectId: string, author: string, project: Project): string {
+async function commit(doc: Y.Doc, projectId: string, author: string, project: Project): Promise<string> {
   let update: Uint8Array | null = null;
   const capture = (u: Uint8Array) => {
     update = u;
@@ -39,16 +38,16 @@ function commit(doc: Y.Doc, projectId: string, author: string, project: Project)
   writeProjectToDoc(doc, project);
   doc.off("update", capture);
   if (!update) throw new Error("write produced no update — project must differ from the doc's current content");
-  appendRevision(projectId, author, update);
-  const rows = db
-    .prepare(`SELECT id FROM revisions WHERE project_id = ? ORDER BY rowid DESC LIMIT 1`)
-    .get(projectId) as { id: string };
+  await appendRevision(projectId, author, update);
+  const rows = (await db
+    .prepare(`SELECT id FROM revisions WHERE project_id = ? ORDER BY seq DESC LIMIT 1`)
+    .get(projectId)) as { id: string };
   return rows.id;
 }
 
 test("listMeaningfulRevisions drops a revision that only moved a table (no schema change), keeps ones that changed the schema", async () => {
   const projectId = randomUUID();
-  db.prepare("INSERT INTO projects (id, name) VALUES (?, ?)").run(projectId, "Test project");
+  await db.prepare("INSERT INTO projects (id, name) VALUES (?, ?)").run(projectId, "Test project");
   const doc = new Y.Doc();
 
   const table = {
@@ -60,9 +59,9 @@ test("listMeaningfulRevisions drops a revision that only moved a table (no schem
     detailLevel: "standard" as const,
   };
 
-  commit(doc, projectId, "alice", makeProject({ tables: [table] }));
-  commit(doc, projectId, "alice", makeProject({ tables: [{ ...table, position: { x: 400, y: 250 } }] }));
-  commit(
+  await commit(doc, projectId, "alice", makeProject({ tables: [table] }));
+  await commit(doc, projectId, "alice", makeProject({ tables: [{ ...table, position: { x: 400, y: 250 } }] }));
+  await commit(
     doc,
     projectId,
     "alice",
@@ -81,10 +80,10 @@ test("listMeaningfulRevisions drops a revision that only moved a table (no schem
     }),
   );
 
-  const all = listRevisions(projectId);
+  const all = await listRevisions(projectId);
   assert.equal(all.length, 3, "every doc update still gets its own row in the raw log");
 
-  const meaningful = listMeaningfulRevisions(projectId);
+  const meaningful = await listMeaningfulRevisions(projectId);
   assert.equal(meaningful.length, 2, "the position-only revision is dropped");
   assert.deepEqual(
     meaningful.map((r) => r.id),
@@ -94,7 +93,7 @@ test("listMeaningfulRevisions drops a revision that only moved a table (no schem
 
 test("listMeaningfulRevisions keeps a labeled revision even when it changed nothing", async () => {
   const projectId = randomUUID();
-  db.prepare("INSERT INTO projects (id, name) VALUES (?, ?)").run(projectId, "Test project");
+  await db.prepare("INSERT INTO projects (id, name) VALUES (?, ?)").run(projectId, "Test project");
   const doc = new Y.Doc();
 
   const table = {
@@ -106,11 +105,16 @@ test("listMeaningfulRevisions keeps a labeled revision even when it changed noth
     detailLevel: "standard" as const,
   };
 
-  commit(doc, projectId, "alice", makeProject({ tables: [table] }));
-  const noOpId = commit(doc, projectId, "alice", makeProject({ tables: [{ ...table, position: { x: 10, y: 10 } }] }));
-  assert.ok(setRevisionLabel(projectId, noOpId, "checkpoint"));
+  await commit(doc, projectId, "alice", makeProject({ tables: [table] }));
+  const noOpId = await commit(
+    doc,
+    projectId,
+    "alice",
+    makeProject({ tables: [{ ...table, position: { x: 10, y: 10 } }] }),
+  );
+  assert.ok(await setRevisionLabel(projectId, noOpId, "checkpoint"));
 
-  const meaningful = listMeaningfulRevisions(projectId);
+  const meaningful = await listMeaningfulRevisions(projectId);
   assert.equal(meaningful.length, 2);
   assert.equal(meaningful[1].id, noOpId);
   assert.equal(meaningful[1].label, "checkpoint");

@@ -33,28 +33,28 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
 }
 
 /** The project's databases that have a reference — a deployment or a pull happened, so there is something to compare with. */
-function watchedConnections(projectId: string): string[] {
+async function watchedConnections(projectId: string): Promise<string[]> {
   return (
-    db
+    (await db
       .prepare(
         `SELECT l.connection_id FROM project_connection_links l
            JOIN schema_fingerprints f ON f.project_id = l.project_id AND f.connection_id = l.connection_id
           WHERE l.project_id = ?`,
       )
-      .all(projectId) as { connection_id: string }[]
+      .all(projectId)) as { connection_id: string }[]
   ).map((row) => row.connection_id);
 }
 
 /** A deployment that failed after running some statements since the reference: it explains a change. */
-function partialDeploymentSince(projectId: string, connectionId: string, since: string): boolean {
+async function partialDeploymentSince(projectId: string, connectionId: string, since: string): Promise<boolean> {
   return (
-    db
+    (await db
       .prepare(
         `SELECT 1 FROM deployment_history
           WHERE project_id = ? AND connection_id = ? AND success = 0 AND executed_statements > 0 AND created_at >= ?
           LIMIT 1`,
       )
-      .get(projectId, connectionId, since) !== undefined
+      .get(projectId, connectionId, since)) !== undefined
   );
 }
 
@@ -79,13 +79,13 @@ export function checkProjectMonitoring(projectId: string): Promise<MonitorCheckR
 }
 
 async function readWatchedDatabases(projectId: string): Promise<MonitorCheckResult> {
-  const settings = getMonitorSettings(projectId);
+  const settings = await getMonitorSettings(projectId);
   const ignored = new Set(settings.ignoreTables.map((name) => name.toLowerCase()));
   const result: MonitorCheckResult = { checked: 0, changes: 0, unreachable: 0 };
-  for (const connectionId of watchedConnections(projectId)) {
-    const conn = getProjectConnection(projectId, connectionId);
-    const reference = loadReference(projectId, connectionId);
-    const takenAt = referenceTakenAt(projectId, connectionId);
+  for (const connectionId of await watchedConnections(projectId)) {
+    const conn = await getProjectConnection(projectId, connectionId);
+    const reference = await loadReference(projectId, connectionId);
+    const takenAt = await referenceTakenAt(projectId, connectionId);
     if (!conn || !reference || !takenAt) continue;
     result.checked++;
 
@@ -99,10 +99,10 @@ async function readWatchedDatabases(projectId: string): Promise<MonitorCheckResu
       }
     } catch (err) {
       result.unreachable++;
-      if (!hasOpenUnreachable(projectId, connectionId)) {
+      if (!(await hasOpenUnreachable(projectId, connectionId))) {
         const error = err instanceof Error ? err.message : String(err);
-        insertDriftEvent({ projectId, connectionId, kind: "unreachable", error });
-        audit(
+        await insertDriftEvent({ projectId, connectionId, kind: "unreachable", error });
+        await audit(
           { id: null, email: null },
           "monitoring.unreachable",
           { type: "connection", id: connectionId },
@@ -113,7 +113,7 @@ async function readWatchedDatabases(projectId: string): Promise<MonitorCheckResu
       }
       continue;
     }
-    closeDriftEvents(projectId, connectionId, "resolved", ["unreachable"]);
+    await closeDriftEvents(projectId, connectionId, "resolved", ["unreachable"]);
 
     const fingerprint = fingerprintSchema(live);
     const diff = diffFingerprints(reference, fingerprint);
@@ -124,13 +124,13 @@ async function readWatchedDatabases(projectId: string): Promise<MonitorCheckResu
     const changed = diff.changed.filter(keep);
     if (added.length + removed.length + changed.length === 0) {
       // Back to the reference (someone undid it by hand): nothing open any more.
-      closeDriftEvents(projectId, connectionId, "resolved", ["external", "partial-deployment"]);
+      await closeDriftEvents(projectId, connectionId, "resolved", ["external", "partial-deployment"]);
       continue;
     }
-    if (alreadyReported(projectId, connectionId, fingerprint.hash)) continue;
+    if (await alreadyReported(projectId, connectionId, fingerprint.hash)) continue;
 
-    const kind = partialDeploymentSince(projectId, connectionId, takenAt) ? "partial-deployment" : "external";
-    insertDriftEvent({ projectId, connectionId, kind, liveHash: fingerprint.hash, added, removed, changed });
+    const kind = (await partialDeploymentSince(projectId, connectionId, takenAt)) ? "partial-deployment" : "external";
+    await insertDriftEvent({ projectId, connectionId, kind, liveHash: fingerprint.hash, added, removed, changed });
     result.changes++;
     const summary = [
       added.length ? `+${added.join(", +")}` : null,
@@ -139,13 +139,13 @@ async function readWatchedDatabases(projectId: string): Promise<MonitorCheckResu
     ]
       .filter(Boolean)
       .join(" ");
-    markProjectOutOfSchema(
+    await markProjectOutOfSchema(
       projectId,
       connectionId,
       `${kind === "external" ? "external change" : "partial deployment"}: ${summary}`,
     );
     // The database's journal (Admin → Connexions → Journal) shows what the watch found.
-    audit(
+    await audit(
       { id: null, email: null },
       "monitoring.drift",
       { type: "connection", id: connectionId },
@@ -155,13 +155,13 @@ async function readWatchedDatabases(projectId: string): Promise<MonitorCheckResu
         projectId,
       },
     );
-    notifyFollowers(projectId, "drift", {
+    await notifyFollowers(projectId, "drift", {
       kind,
       connection: conn.name,
       environment: conn.environment ?? null,
       tables: added.length + removed.length + changed.length,
     });
-    emitWebhookEvent(projectId, "drift.detected", {
+    await emitWebhookEvent(projectId, "drift.detected", {
       kind,
       connectionName: conn.name,
       environment: conn.environment ?? null,
@@ -171,20 +171,20 @@ async function readWatchedDatabases(projectId: string): Promise<MonitorCheckResu
     });
   }
   // Accounts and privileges, when an instance administrator turned it on for this project.
-  if (isAccountWatchOn(projectId)) await checkProjectAccounts(projectId);
-  markChecked(projectId);
+  if (await isAccountWatchOn(projectId)) await checkProjectAccounts(projectId);
+  await markChecked(projectId);
   if (result.checked > 0) notifyProject(projectId, { type: "drift-changed" });
   return result;
 }
 
 /** One pass of the scheduled watch: every project that is due, one after the other — never a burst of connections. */
 export async function runDueMonitoring(): Promise<void> {
-  for (const projectId of listDueProjects()) {
+  for (const projectId of await listDueProjects()) {
     try {
       await checkProjectMonitoring(projectId);
     } catch (err) {
       console.error(`[monitoring] check of project ${projectId} failed:`, err);
-      markChecked(projectId);
+      await markChecked(projectId);
     }
   }
 }

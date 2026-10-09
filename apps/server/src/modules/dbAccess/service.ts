@@ -13,6 +13,7 @@ import { requireUser } from "../../shared/guards.js";
 import type { SessionUser } from "../auth/session.js";
 import { connectionOwner, getConnectionById } from "../connections/repository.js";
 import { effectiveDbAccess } from "./repository.js";
+import { mapAsync, someAsync } from "../../shared/async.js";
 
 const MAX_ENTRIES = 500;
 const MAX_SQL_USERNAME = 128;
@@ -34,20 +35,20 @@ export interface DbConsoleUser {
  * only: an API key is refused, since nothing under `/api/v1` offers SQL and a
  * leaked key should not turn into a database client.
  */
-export function requireDbConsoleUser(req: FastifyRequest, connectionId: string): DbConsoleUser {
+export async function requireDbConsoleUser(req: FastifyRequest, connectionId: string): Promise<DbConsoleUser> {
   const user = requireUser(req);
-  const owner = connectionOwner(connectionId);
+  const owner = await connectionOwner(connectionId);
   if (owner) {
     if (req.apiKey || owner !== user.id) throw new ApiError("CONNECTION_NOT_FOUND");
-    return { user, connection: getConnectionById(connectionId)!, access: "write" };
+    return { user, connection: (await getConnectionById(connectionId))!, access: "write" };
   }
   if (user.isAdmin) {
-    const connection = getConnectionById(connectionId);
+    const connection = await getConnectionById(connectionId);
     if (!connection) throw new ApiError("CONNECTION_NOT_FOUND");
     return { user, connection, access: "admin" };
   }
-  const level = req.apiKey ? null : effectiveDbAccess(user.id, connectionId);
-  const connection = level ? getConnectionById(connectionId) : null;
+  const level = req.apiKey ? null : await effectiveDbAccess(user.id, connectionId);
+  const connection = level ? await getConnectionById(connectionId) : null;
   if (!level || !connection) throw new ApiError("CONNECTION_NOT_FOUND");
   return { user, connection, access: level };
 }
@@ -79,14 +80,22 @@ function parseSqlUsername(value: unknown): string | null {
  * whether a database account name may come with each entry (users and
  * invitations — a team has no account).
  */
-export function parseGrantEntries(raw: unknown, withAccounts: boolean, withProvisioning = false): DbAccessGrantInput[] {
+export async function parseGrantEntries(
+  raw: unknown,
+  withAccounts: boolean,
+  withProvisioning = false,
+): Promise<DbAccessGrantInput[]> {
   if (!Array.isArray(raw) || raw.length > MAX_ENTRIES) throw invalid("grants must be an array");
   const seen = new Set<string>();
   const entries: DbAccessGrantInput[] = [];
   for (const item of raw) {
     if (typeof item !== "object" || item === null) throw invalid("each grant must be an object");
     const { connectionId, level, sqlUsername, createAccount } = item as Record<string, unknown>;
-    if (typeof connectionId !== "string" || !getConnectionById(connectionId) || connectionOwner(connectionId)) {
+    if (
+      typeof connectionId !== "string" ||
+      !(await getConnectionById(connectionId)) ||
+      (await connectionOwner(connectionId))
+    ) {
       throw new ApiError("CONNECTION_NOT_FOUND");
     }
     if (seen.has(connectionId)) throw invalid("a connection is listed twice");
@@ -96,7 +105,7 @@ export function parseGrantEntries(raw: unknown, withAccounts: boolean, withProvi
     else if (sqlUsername !== undefined && sqlUsername !== null) throw invalid("a team has no database account");
     if (createAccount === true) {
       if (!withProvisioning) throw invalid("an account can only be created from an invitation");
-      const connection = getConnectionById(connectionId);
+      const connection = await getConnectionById(connectionId);
       if (!entry.sqlUsername) throw invalid("creating an account needs its name");
       if (connection?.authMode !== "personal" || connection.readOnly) {
         throw invalid("accounts are created only on personal-account connections that are not read-only");
@@ -110,25 +119,26 @@ export function parseGrantEntries(raw: unknown, withAccounts: boolean, withProvi
 }
 
 /** What an invitation may give: teams to join and database access. Both optional. */
-export function parseInvitationGrants(body: Record<string, unknown>): InvitationGrants {
+export async function parseInvitationGrants(body: Record<string, unknown>): Promise<InvitationGrants> {
   const rawTeams = body.teamIds ?? [];
   if (!Array.isArray(rawTeams) || rawTeams.length > MAX_ENTRIES || rawTeams.some((id) => typeof id !== "string")) {
     throw invalid("teamIds must be an array of team ids");
   }
   const teamIds = [...new Set(rawTeams as string[])];
   const exists = db.prepare("SELECT 1 FROM teams WHERE id = ?");
-  if (teamIds.some((id) => !exists.get(id))) throw new ApiError("NOT_FOUND", { message: "no such team" });
-  return { teamIds, databases: parseGrantEntries(body.databases ?? [], true, true) };
+  if (await someAsync(teamIds, async (id) => !(await exists.get(id)))) {
+    throw new ApiError("NOT_FOUND", { message: "no such team" });
+  }
+  return { teamIds, databases: await parseGrantEntries(body.databases ?? [], true, true) };
 }
 
 /** One line for the audit trail: `Shop: write (as ada), Stats: read`. */
-export function describeGrants(entries: DbAccessGrantInput[]): string {
+export async function describeGrants(entries: DbAccessGrantInput[]): Promise<string> {
   if (entries.length === 0) return "none";
-  return entries
-    .map((entry) => {
-      const name = getConnectionById(entry.connectionId)?.name ?? entry.connectionId;
-      const account = entry.sqlUsername ? ` (as ${entry.sqlUsername})` : "";
-      return `${name}: ${entry.level ?? "no access"}${account}`;
-    })
-    .join(", ");
+  const lines = await mapAsync(entries, async (entry) => {
+    const name = (await getConnectionById(entry.connectionId))?.name ?? entry.connectionId;
+    const account = entry.sqlUsername ? ` (as ${entry.sqlUsername})` : "";
+    return `${name}: ${entry.level ?? "no access"}${account}`;
+  });
+  return lines.join(", ");
 }

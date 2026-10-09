@@ -175,7 +175,7 @@ export async function restoreBackup(
   target: DatabaseConnectionConfig,
   request: RestoreRequest,
 ): Promise<RestoreResult> {
-  const keyEncrypted = getBackupKey(backup.id);
+  const keyEncrypted = await getBackupKey(backup.id);
   if (backup.status !== "done" || !keyEncrypted) throw new ApiError("BACKUP_NOT_READY");
   if (target.readOnly) throw new ApiError("CONNECTION_READ_ONLY");
   if (target.engine !== backup.engine) {

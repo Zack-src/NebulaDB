@@ -20,27 +20,27 @@ const TARGETS = [
   { table: "backups", key: "id", column: "key_encrypted" },
 ];
 
-function main(): void {
+async function main(): Promise<void> {
   if (!readEnv("NEBULADB_SECRET")?.trim()) {
     console.error("NEBULADB_SECRET must be set to the new secret.");
     process.exit(1);
   }
   let total = 0;
   try {
-    db.transaction(() => {
+    await db.transaction(async () => {
       for (const { table, key, column } of TARGETS) {
-        const rows = db
+        const rows = (await db
           .prepare(`SELECT ${key} AS id, ${column} AS value FROM ${table} WHERE ${column} IS NOT NULL`)
-          .all() as {
+          .all()) as {
           id: string;
           value: string;
         }[];
         const update = db.prepare(`UPDATE ${table} SET ${column} = ? WHERE ${key} = ?`);
-        for (const row of rows) update.run(reencryptPayload(row.value), row.id);
+        for (const row of rows) await update.run(reencryptPayload(row.value), row.id);
         console.log(`${table}.${column}: ${rows.length} value(s) re-encrypted`);
         total += rows.length;
       }
-    })();
+    });
   } catch (err) {
     console.error(
       "Rotation aborted, nothing was changed. A stored value could not be decrypted with NEBULADB_SECRET or " +
@@ -52,4 +52,5 @@ function main(): void {
   console.log(`Done: ${total} value(s). NEBULADB_SECRET_PREVIOUS can now be removed.`);
 }
 
-main();
+await main();
+await db.close();

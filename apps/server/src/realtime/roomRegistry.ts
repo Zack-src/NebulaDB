@@ -8,6 +8,10 @@ import { Room, type RoomLogger } from "./room.js";
  * about the registry of all of them.
  */
 const rooms = new Map<string, Room>();
+/** Rooms being loaded: whoever asks for one meanwhile gets the same room, not a second one for the same project. */
+const opening = new Map<string, Promise<Room>>();
+/** What an evicted room still had to store. Its project is not reopened before that lands, or it would load the state from before. */
+const settling = new Map<string, Promise<void>>();
 
 /**
  * Falls back to `console` so a `Room` created before `setRoomLogger` runs
@@ -26,13 +30,38 @@ export function setRoomLogger(logger: RoomLogger): void {
   roomLogger = logger;
 }
 
-export function getRoom(projectId: string): Room {
-  let room = rooms.get(projectId);
-  if (!room) {
-    room = new Room(projectId, () => rooms.delete(projectId), roomLogger);
-    rooms.set(projectId, room);
+/**
+ * The project's live room, loaded from its snapshot if nobody has it open.
+ *
+ * A room is evicted the moment its last client leaves, so use what this
+ * returns straight away: after another `await`, ask again rather than keep
+ * the reference — a write to an evicted room's doc reaches nobody and is
+ * stored nowhere.
+ */
+export async function getRoom(projectId: string): Promise<Room> {
+  const live = rooms.get(projectId);
+  if (live) return live;
+  let pending = opening.get(projectId);
+  if (!pending) {
+    pending = openRoom(projectId).finally(() => opening.delete(projectId));
+    opening.set(projectId, pending);
   }
+  return pending;
+}
+
+async function openRoom(projectId: string): Promise<Room> {
+  await settling.get(projectId);
+  const room = await Room.open(projectId, (settled) => evictRoom(projectId, room, settled), roomLogger);
+  rooms.set(projectId, room);
   return room;
+}
+
+function evictRoom(projectId: string, room: Room, settled: Promise<void>): void {
+  if (rooms.get(projectId) === room) rooms.delete(projectId);
+  settling.set(projectId, settled);
+  void settled.then(() => {
+    if (settling.get(projectId) === settled) settling.delete(projectId);
+  });
 }
 
 /** The live room for a project if one is resident, without creating one — for read-only callers that can fall back to the stored snapshot. */
@@ -44,17 +73,20 @@ export function peekRoom(projectId: string): Room | undefined {
  * Snapshots every live room immediately. Called on SIGTERM/SIGINT: without it,
  * anything edited inside the last snapshot-debounce window is only in the
  * revision log and the in-memory doc, and dies with the process. Returns how
- * many rooms were flushed.
+ * many rooms were flushed, once they all are.
  */
-export function flushAllRooms(): number {
-  for (const room of rooms.values()) room.flush();
-  return rooms.size;
+export async function flushAllRooms(): Promise<number> {
+  const flushed = Array.from(rooms.values(), (room) => room.flush());
+  // Rooms emptied a moment ago may still be storing their last snapshot.
+  await Promise.all([...flushed, ...settling.values()]);
+  return flushed.length;
 }
 
 /** Disconnects every client and drops every room — shutdown, after `flushAllRooms`. */
-export function closeAllRooms(): void {
-  for (const room of rooms.values()) room.destroy();
+export async function closeAllRooms(): Promise<void> {
+  const closed = Array.from(rooms.values(), (room) => room.destroy());
   rooms.clear();
+  await Promise.all(closed);
 }
 
 /** Number of projects currently resident in memory — reported by the health check. */
@@ -73,8 +105,8 @@ export function totalConnectionCount(): number {
  * Re-checks access for every connection of one project. Call after changing
  * that project's team grants.
  */
-export function revalidateRoom(projectId: string): void {
-  rooms.get(projectId)?.revalidate();
+export async function revalidateRoom(projectId: string): Promise<void> {
+  await rooms.get(projectId)?.revalidate();
 }
 
 /**
@@ -85,8 +117,8 @@ export function revalidateRoom(projectId: string): void {
  * costs one permission lookup, so this stays proportional to who is actually
  * connected right now rather than to how much data exists.
  */
-export function revalidateAllRooms(): void {
-  for (const room of rooms.values()) room.revalidate();
+export async function revalidateAllRooms(): Promise<void> {
+  await Promise.all(Array.from(rooms.values(), (room) => room.revalidate()));
 }
 
 /**
@@ -94,10 +126,10 @@ export function revalidateAllRooms(): void {
  * frozen tables is recomputed at once, and clients are told to refetch the
  * lock list so padlocks appear and disappear without a reload.
  */
-export function notifyLocksChanged(projectId: string): void {
+export async function notifyLocksChanged(projectId: string): Promise<void> {
   const room = rooms.get(projectId);
   if (!room) return;
-  room.revalidate();
+  await room.revalidate();
   room.announce({ type: "locks-changed" });
 }
 
@@ -114,10 +146,12 @@ export function notifyProjectUsers(projectId: string, userIds: ReadonlySet<strin
   if (userIds.size > 0) rooms.get(projectId)?.announceTo(userIds, notice);
 }
 
-/** Tears down a project's in-memory room (if one is live) ahead of deleting its rows — see `Room.destroy`. */
-export function closeRoom(projectId: string): void {
-  const room = rooms.get(projectId);
-  if (!room) return;
-  room.destroy();
-  rooms.delete(projectId);
+/** Tears down a project's in-memory room (if one is live or loading) ahead of deleting its rows — see `Room.destroy`. */
+export async function closeRoom(projectId: string): Promise<void> {
+  const room = rooms.get(projectId) ?? (await opening.get(projectId));
+  if (room) {
+    rooms.delete(projectId);
+    await room.destroy();
+  }
+  await settling.get(projectId);
 }

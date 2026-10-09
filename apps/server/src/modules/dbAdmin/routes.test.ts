@@ -4,10 +4,11 @@ import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
 // Same rationale as `app.test.ts`: env vars must land before anything
 // transitively imports `db.ts`/`shared/crypto.ts`.
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-dbadmin-${randomUUID()}.sqlite`);
+await useTestDatabase("dbadmin");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -26,12 +27,9 @@ const headers = (extra: Record<string, string> = {}) => ({ host: HOST, origin: `
 async function makeUser(isAdmin: 0 | 1) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)").run(
-    randomUUID(),
-    email,
-    await hashPassword(password),
-    isAdmin,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)")
+    .run(randomUUID(), email, await hashPassword(password), isAdmin);
   return { email, password };
 }
 
@@ -93,7 +91,7 @@ test("a connection is reached by a connection string or by host and port, never 
       [undefined, undefined, undefined, false],
     );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -164,7 +162,7 @@ test("every admin connection route refuses a non-admin, and an anonymous caller"
       assert.equal(anonymous.statusCode, 401, `${method} ${url} (anonymous)`);
     }
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -193,7 +191,9 @@ test("global connection lifecycle: create, list without secrets, update keeping 
     assert.ok(!created.body.includes("s3cret"), "the password never comes back");
     assert.deepEqual(connection.health, { status: null, checkedAt: null, version: null, latencyMs: null, error: null });
 
-    const stored = db.prepare("SELECT config_encrypted FROM db_connections WHERE id = ?").get(connection.id) as {
+    const stored = (await db
+      .prepare("SELECT config_encrypted FROM db_connections WHERE id = ?")
+      .get(connection.id)) as {
       config_encrypted: string;
     };
     assert.ok(!stored.config_encrypted.includes("s3cret"), "encrypted at rest");
@@ -242,13 +242,13 @@ test("global connection lifecycle: create, list without secrets, update keeping 
     );
 
     const actions = (
-      db.prepare("SELECT action FROM audit_log WHERE target_id = ? ORDER BY rowid").all(connection.id) as {
+      (await db.prepare("SELECT action FROM audit_log WHERE target_id = ? ORDER BY seq").all(connection.id)) as {
         action: string;
       }[]
     ).map((a) => a.action);
     assert.deepEqual(actions, ["dbconn.create", "dbconn.update", "dbconn.link", "dbconn.delete"]);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -295,9 +295,9 @@ test("a project administrator can only reach connections attached to their proje
       (await call(app, owner, "DELETE", `/api/projects/${project.id}/connections/${own.id}`)).statusCode,
       200,
     );
-    assert.equal(db.prepare("SELECT 1 FROM db_connections WHERE id = ?").get(own.id), undefined);
+    assert.equal(await db.prepare("SELECT 1 FROM db_connections WHERE id = ?").get(own.id), undefined);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -341,7 +341,7 @@ test("a read-only connection refuses deployment, write SQL and drops, but still 
       3,
     );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -428,16 +428,16 @@ test("explorer and SQL console against a real SQLite target", async () => {
         (h: { success: boolean; error: string | null }) => !h.success && /no such table/.test(h.error ?? ""),
       ),
     );
-    const audited = db
+    const audited = (await db
       .prepare("SELECT detail FROM audit_log WHERE action = 'dbadmin.query' AND target_id = ?")
-      .all(connection.id) as { detail: string }[];
+      .all(connection.id)) as { detail: string }[];
     assert.ok(audited.some((a) => a.detail.startsWith("WRITE ok 1 row(s)")));
 
     // SQLite has no accounts or sessions: a clear refusal, not a crash.
     assert.equal((await call(app, cookie, "GET", `${base}/principals`)).json().code, "DB_ADMIN_UNSUPPORTED");
     assert.equal((await call(app, cookie, "GET", `${base}/sessions`)).json().code, "DB_ADMIN_UNSUPPORTED");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -514,15 +514,15 @@ test("drop: preview first, then only with the object's exact name typed back", a
     );
     assert.deepEqual(await tableNames(), ["users"]);
 
-    const drops = db
-      .prepare("SELECT detail FROM audit_log WHERE action = 'dbadmin.drop' AND target_id = ? ORDER BY rowid")
-      .all(connection.id) as { detail: string }[];
+    const drops = (await db
+      .prepare("SELECT detail FROM audit_log WHERE action = 'dbadmin.drop' AND target_id = ? ORDER BY seq")
+      .all(connection.id)) as { detail: string }[];
     assert.deepEqual(
       drops.map((d) => d.detail),
       ["view big_orders", "column orders.note", "table orders"],
     );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -541,17 +541,17 @@ test("health check records status, version and latency; an unreachable target is
 
     const broken = (
       await call(app, cookie, "POST", "/api/admin/connections", {
-        name: "Own db",
+        name: "Not a file",
         engine: "sqlite",
-        filePath: process.env.NEBULADB_DB_PATH,
+        filePath: tmpdir(),
       })
     ).json().connection;
     const res = await call(app, cookie, "POST", `/api/admin/connections/${broken.id}/health`, {});
     assert.equal(res.statusCode, 200);
     assert.equal(res.json().connection.health.status, "offline");
-    assert.match(res.json().connection.health.error, /own database/);
+    assert.match(res.json().connection.health.error, /unable to open database file/);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -580,13 +580,13 @@ const tableNames = (file: string) => {
   }
 };
 
-const outOfSchemaAudit = (connectionId: string) =>
+const outOfSchemaAudit = async (connectionId: string) =>
   (
-    db
+    (await db
       .prepare(
-        "SELECT detail FROM audit_log WHERE action = 'dbadmin.structure.out_of_schema' AND target_id = ? ORDER BY rowid",
+        "SELECT detail FROM audit_log WHERE action = 'dbadmin.structure.out_of_schema' AND target_id = ? ORDER BY seq",
       )
-      .all(connectionId) as { detail: string }[]
+      .all(connectionId)) as { detail: string }[]
   ).map((row) => row.detail);
 
 test("structure policy, default: on a database a project models, table DDL is sent to the schema — data and views are not", async () => {
@@ -635,9 +635,9 @@ test("structure policy, default: on a database a project models, table DDL is se
     assert.equal((await query("UPDATE users SET name = 'Ada L.' WHERE id = 1")).statusCode, 200);
     assert.equal((await query("DROP VIEW big_orders")).statusCode, 200);
     assert.equal((await query("CREATE TEMP TABLE scratch (id INTEGER)")).statusCode, 200);
-    assert.deepEqual(outOfSchemaAudit(connection.id), []);
+    assert.deepEqual(await outOfSchemaAudit(connection.id), []);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -654,7 +654,7 @@ test("structure policy: a database no project models is left alone, whatever the
     assert.equal(dropped.statusCode, 200, dropped.body);
     assert.deepEqual(tableNames(connection.filePath), ["users"]);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -688,12 +688,12 @@ test("structure policy `warn`: runs only once confirmed, and is recorded as made
     const executed = await call(app, cookie, "POST", `${base}/drop`, { ...drop, execute: true, confirm: "note" });
     assert.equal(executed.statusCode, 200, executed.body);
 
-    assert.deepEqual(outOfSchemaAudit(connection.id), [
+    assert.deepEqual(await outOfSchemaAudit(connection.id), [
       "sql: alter table users",
       "explorer: alter table orders (note)",
     ]);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -757,11 +757,11 @@ test("structure policy: instance default and per-connection override, each audit
     });
 
     const trail = (
-      db
+      (await db
         .prepare(
-          "SELECT action, detail FROM audit_log WHERE action IN ('dbconn.policy', 'instance.structure_policy') ORDER BY rowid",
+          "SELECT action, detail FROM audit_log WHERE action IN ('dbconn.policy', 'instance.structure_policy') ORDER BY seq",
         )
-        .all() as { action: string; detail: string }[]
+        .all()) as { action: string; detail: string }[]
     ).map((row) => `${row.action}: ${row.detail}`);
     assert.deepEqual(trail, [
       "dbconn.policy: Target: instance default -> schema-only (not SQL)",
@@ -771,8 +771,8 @@ test("structure policy: instance default and per-connection override, each audit
     ]);
   } finally {
     // Other tests in this file rely on the built-in default.
-    db.prepare("DELETE FROM instance_settings").run();
-    closeAllRooms();
+    await db.prepare("DELETE FROM instance_settings").run();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -879,14 +879,14 @@ test("drift: an out-of-schema change marks the project, a check says what differ
 
     // Unlinking drops the reference with the link.
     await call(app, cookie, "PUT", `${base}/projects`, { projectIds: [] });
-    const left = db
+    const left = (await db
       .prepare("SELECT COUNT(*) AS n FROM schema_fingerprints WHERE connection_id = ?")
-      .get(connection.id) as {
+      .get(connection.id)) as {
       n: number;
     };
     assert.equal(left.n, 0);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

@@ -35,23 +35,23 @@ export function registerBackupRoutes(app: FastifyInstance): void {
   app.get("/api/admin/connections/:id/backups", READ_LIMIT, async (req) => {
     requireAdmin(req);
     const { id } = req.params as { id: string };
-    return connectionBackups(id);
+    return await connectionBackups(id);
   });
 
   // Answers as soon as the backup has started; the list says how far it is.
   app.post("/api/admin/connections/:id/backups", HEAVY_LIMIT, async (req, reply) => {
     const user = requireAdmin(req);
     const { id } = req.params as { id: string };
-    return reply.status(202).send({ backup: startManualBackup(user, id, req.body, req) });
+    return reply.status(202).send({ backup: await startManualBackup(user, id, req.body, req) });
   });
 
   app.put("/api/admin/connections/:id/backup-schedule", READ_LIMIT, async (req) => {
     const user = requireAdmin(req);
     const { id } = req.params as { id: string };
-    const connection = requireConnection(id);
+    const connection = await requireConnection(id);
     const settings = parseBackupSchedule(req.body);
-    const schedule = saveBackupSchedule(id, settings, user.displayName);
-    auditUser(
+    const schedule = await saveBackupSchedule(id, settings, user.displayName);
+    await auditUser(
       user,
       "backup.schedule",
       { type: "connection", id },
@@ -67,30 +67,30 @@ export function registerBackupRoutes(app: FastifyInstance): void {
   app.put("/api/admin/connections/:id/backup-destination", READ_LIMIT, async (req) => {
     const user = requireAdmin(req);
     const { id } = req.params as { id: string };
-    return { destination: saveBackupDestination(user, id, req.body, req) };
+    return { destination: await saveBackupDestination(user, id, req.body, req) };
   });
 
   app.post("/api/admin/backups/:backupId/cancel", READ_LIMIT, async (req) => {
     requireAdmin(req);
     const { backupId } = req.params as { backupId: string };
-    cancelRunningBackup(backupId);
+    await cancelRunningBackup(backupId);
     return { cancelling: true };
   });
 
   app.patch("/api/admin/backups/:backupId", READ_LIMIT, async (req) => {
     requireAdmin(req);
     const { backupId } = req.params as { backupId: string };
-    requireBackup(backupId);
+    await requireBackup(backupId);
     const { pinned } = (req.body ?? {}) as { pinned?: unknown };
     if (typeof pinned !== "boolean") throw new ApiError("BACKUP_INVALID");
-    setBackupPinned(backupId, pinned);
-    return { backup: getBackup(backupId) };
+    await setBackupPinned(backupId, pinned);
+    return { backup: await getBackup(backupId) };
   });
 
   app.delete("/api/admin/backups/:backupId", READ_LIMIT, async (req) => {
     const user = requireAdmin(req);
     const { backupId } = req.params as { backupId: string };
-    removeBackup(user, backupId, req);
+    await removeBackup(user, backupId, req);
     return { deleted: true };
   });
 
@@ -107,7 +107,7 @@ export function registerBackupRoutes(app: FastifyInstance): void {
   app.post("/api/admin/backups/:backupId/restore", HEAVY_LIMIT, async (req) => {
     const user = requireAdmin(req);
     const { backupId } = req.params as { backupId: string };
-    const backup = requireBackup(backupId);
+    const backup = await requireBackup(backupId);
     const body = (req.body ?? {}) as {
       connectionId?: unknown;
       tables?: unknown;
@@ -116,7 +116,7 @@ export function registerBackupRoutes(app: FastifyInstance): void {
     };
     // Back where it came from unless another connection is named.
     const targetId = typeof body.connectionId === "string" ? body.connectionId : backup.connectionId;
-    const target = requireConnection(targetId ?? "");
+    const target = await requireConnection(targetId ?? "");
     const result = await restoreBackup(backup, target, {
       tables: parseTables(body.tables),
       confirmName: typeof body.confirmName === "string" ? body.confirmName : undefined,
@@ -124,7 +124,7 @@ export function registerBackupRoutes(app: FastifyInstance): void {
       requestedBy: user,
     });
     const rows = result.tables.reduce((sum, table) => sum + table.inserted, 0);
-    auditUser(
+    await auditUser(
       user,
       "backup.restore",
       { type: "connection", id: target.id },

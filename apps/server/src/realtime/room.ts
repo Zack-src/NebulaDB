@@ -23,8 +23,8 @@ import {
   type ServerNotice,
   type Table,
 } from "@nebuladb/shared";
-import { appendRevision, saveSnapshot, loadSnapshot } from "./persistence.js";
-import { timeSync } from "../infrastructure/perf.js";
+import { appendRevision, saveSnapshotState, loadSnapshot } from "./persistence.js";
+import { timeAsync, timeSync } from "../infrastructure/perf.js";
 import { LIMIT_ORIGIN, enforceLimits } from "./room/limits.js";
 import type { RoomLogger } from "./room/logger.js";
 
@@ -37,7 +37,7 @@ const REF_REPAIR_ORIGIN = "NebulaDB (sens des relations corrigé)";
  * webhooks module (which reads rooms, and would make a cycle). Set once from
  * `buildApp()`, same pattern as `setRoomLogger`.
  */
-type DocChangeListener = (projectId: string, author: string) => void;
+type DocChangeListener = (projectId: string, author: string) => void | Promise<void>;
 let docChangeListener: DocChangeListener | null = null;
 
 export function setRoomDocChangeListener(listener: DocChangeListener | null): void {
@@ -85,7 +85,8 @@ interface ConnectionAccess {
   lockedTableIds?: ReadonlySet<string>;
 }
 
-export type AccessResolver = () => ConnectionAccess | null;
+/** May answer at once (a test, a fixed answer) or after looking it up. */
+export type AccessResolver = () => ConnectionAccess | null | Promise<ConnectionAccess | null>;
 
 export type { RoomLogger };
 
@@ -105,7 +106,14 @@ const NO_LOCKS: ReadonlySet<string> = new Set();
 /**
  * One project's live collaborative document: a Y.Doc shared over WS by all
  * connected clients, an Awareness instance for presence/cursors, and
- * SQLite-backed persistence (append-only revision log + debounced snapshot).
+ * database-backed persistence (append-only revision log + debounced snapshot).
+ *
+ * The doc is only ever changed synchronously, as Yjs requires; what reaches
+ * the database does so afterwards, through two queues that keep the order the
+ * synchronous storage used to give for free: `writes` (a revision is stored
+ * before the next one, a snapshot never overtakes a newer one) and `inbox`
+ * (a frame is fully handled before the next, even when handling it has to
+ * look a permission up).
  */
 export class Room {
   readonly doc = new Y.Doc();
@@ -116,13 +124,34 @@ export class Room {
   private disposed = false;
   /** Collection key -> entity ids written since the last `enforceLimits()` pass. */
   private readonly pendingChecks = new Map<string, Set<string>>();
+  /** Tail of the persistence queue. Never rejects: a failed write is logged where it is queued. */
+  private writes: Promise<void> = Promise.resolve();
+  /** Tail of the incoming-frame queue. Never rejects either. */
+  private inbox: Promise<void> = Promise.resolve();
+  private latestRevision: string | null = null;
+  /** Settles once the doc-change listener has heard of every change so far. Never rejects. */
+  private told: Promise<void> = Promise.resolve();
 
-  constructor(
+  /**
+   * Loads the project's stored state and starts its room. The only way to get
+   * one: reading the snapshot waits on the database, which a constructor
+   * cannot do. `onEmpty` is given what the room still had to write when its
+   * last client left — the project must not be reopened before that lands.
+   */
+  static async open(
+    projectId: string,
+    onEmpty: (settled: Promise<void>) => void,
+    log: RoomLogger = console,
+  ): Promise<Room> {
+    return new Room(projectId, onEmpty, log, await loadSnapshot(projectId));
+  }
+
+  private constructor(
     private readonly projectId: string,
-    private readonly onEmpty: () => void,
-    private readonly log: RoomLogger = console,
+    private readonly onEmpty: (settled: Promise<void>) => void,
+    private readonly log: RoomLogger,
+    snapshot: Uint8Array | undefined,
   ) {
-    const snapshot = loadSnapshot(projectId);
     if (snapshot) Y.applyUpdate(this.doc, snapshot);
 
     this.awareness = new awarenessProtocol.Awareness(this.doc);
@@ -208,26 +237,30 @@ export class Room {
     // resolved the acting username and passed it straight through as the
     // transaction's origin).
     const author = typeof origin === "string" ? origin : (this.conns.get(origin as WebSocket)?.author ?? "system");
-    // A DB write failing here (constraint violation, disk full, whatever)
-    // must not crash the process — this runs inside a Yjs event handler, so
-    // an uncaught throw takes down every other project's connections along
-    // with this one. Log and keep going: the in-memory doc (and the
-    // broadcast below) stay correct even if this particular write didn't
-    // land.
-    try {
-      appendRevision(this.projectId, author, update);
-    } catch (err) {
-      this.log.error({ err, room: this.projectId }, "failed to append revision");
-    }
+    // A DB write failing here (constraint violation, database unreachable,
+    // whatever) must not crash the process — this runs inside a Yjs event
+    // handler, so an uncaught throw takes down every other project's
+    // connections along with this one. `persist` logs and keeps going: the
+    // in-memory doc (and the broadcast below) stay correct even if this
+    // particular write didn't land.
+    // The id is chosen here, not by the insert, so `lastRevisionId` can say
+    // which revision a change became without waiting for it to be stored.
+    const revisionId = crypto.randomUUID();
+    this.latestRevision = revisionId;
+    void this.persist("failed to append revision", () => appendRevision(this.projectId, author, update, revisionId));
     this.scheduleSnapshot();
     // Same resilience rule as the revision write above: a listener's failure
     // must never take the room down with it. Automatic repairs aren't news.
     if (docChangeListener && origin !== REF_REPAIR_ORIGIN && origin !== LOCK_REVERT_ORIGIN) {
-      try {
-        docChangeListener(this.projectId, author);
-      } catch (err) {
-        this.log.error({ err, room: this.projectId }, "doc change listener failed");
-      }
+      const listener = docChangeListener;
+      // Through a promise whether or not the listener waits on anything, so a
+      // throw and a rejection end up in the same place.
+      const heard = Promise.resolve()
+        .then(() => listener(this.projectId, author))
+        .catch((err: unknown) => {
+          this.log.error({ err, room: this.projectId }, "doc change listener failed");
+        });
+      this.told = Promise.all([this.told, heard]).then(() => {});
     }
 
     const encoder = encoding.createEncoder();
@@ -237,8 +270,17 @@ export class Room {
   }
 
   /** `userId` absent: a connection no account-addressed notice (`announceTo`) will ever reach. */
-  join(conn: WebSocket, author: string, resolveAccess: AccessResolver, userId?: string): void {
-    const initial = resolveAccess();
+  async join(conn: WebSocket, author: string, resolveAccess: AccessResolver, userId?: string): Promise<void> {
+    const initial = await resolveAccess();
+    // The socket closed while its access was being looked up: nothing joined, so nothing would ever leave.
+    if (conn.readyState !== conn.OPEN) return;
+    // The room emptied (or its project was deleted) meanwhile. Joining a room
+    // nothing listens to would leave this client editing into the void; closed,
+    // it reconnects and gets the project's current room.
+    if (this.disposed) {
+      conn.close();
+      return;
+    }
     this.conns.set(conn, {
       author,
       userId,
@@ -266,15 +308,27 @@ export class Room {
     }
   }
 
-  receive(conn: WebSocket, data: Uint8Array): void {
+  /**
+   * Handles one frame, after every frame received before it. Resolves once
+   * this one is done; a frame that fails is logged and never rejects, so one
+   * malformed message cannot wedge the queue behind it.
+   */
+  receive(conn: WebSocket, data: Uint8Array): Promise<void> {
     // One aggregate label across every project/room rather than one per
     // project id — this fires on every WS frame from every client, so a
     // per-project label would leave `stats` growing without bound over the
     // life of the process.
-    timeSync("room.receive", () => this.receiveInternal(conn, data));
+    this.inbox = this.inbox
+      .then(() => timeAsync("room.receive", () => this.receiveInternal(conn, data)))
+      .catch((err: unknown) => {
+        this.log.error({ err, room: this.projectId }, "failed to handle a frame");
+      });
+    return this.inbox;
   }
 
-  private receiveInternal(conn: WebSocket, data: Uint8Array): void {
+  private async receiveInternal(conn: WebSocket, data: Uint8Array): Promise<void> {
+    // The room was emptied or deleted while this frame waited its turn.
+    if (this.disposed) return;
     const decoder = decoding.createDecoder(data);
     const messageType = decoding.readVarUint(decoder);
 
@@ -288,7 +342,11 @@ export class Room {
       // dropped for a read-only connection while syncStep1 (a state-vector
       // request — read-only by construction, just produces a reply) stays
       // allowed either way.
-      const canWrite = this.currentCanWrite(conn);
+      // The only wait in this method, and only when the cached answer has
+      // aged out: everything after it runs in one go, so the before/after
+      // comparison a lock relies on cannot have another frame slip in between.
+      const canWrite = await this.currentCanWrite(conn);
+      if (this.disposed) return;
       const innerType = decoding.readVarUint(decoder);
       const encoder = encoding.createEncoder();
       encoding.writeVarUint(encoder, MESSAGE_SYNC);
@@ -316,10 +374,14 @@ export class Room {
     }
   }
 
-  leave(conn: WebSocket): void {
+  /** Resolves once whatever this departure had to store has landed. */
+  leave(conn: WebSocket): Promise<void> {
     const meta = this.conns.get(conn);
     this.conns.delete(conn);
-    if (meta && meta.awarenessClientIds.size > 0) {
+    // A socket that closed before `join` finished never entered the room;
+    // emptying (and evicting) the room on its behalf would be wrong.
+    if (!meta || this.disposed) return this.writes;
+    if (meta.awarenessClientIds.size > 0) {
       awarenessProtocol.removeAwarenessStates(this.awareness, Array.from(meta.awarenessClientIds), null);
     }
     if (this.conns.size === 0) {
@@ -327,20 +389,39 @@ export class Room {
         clearTimeout(this.snapshotTimer);
         this.snapshotTimer = null;
       }
-      if (!this.destroyed) {
-        try {
-          saveSnapshot(this.projectId, this.doc);
-        } catch (err) {
-          this.log.error({ err, room: this.projectId }, "failed to save snapshot on last client leaving");
-        }
-      }
+      if (!this.destroyed) this.queueSnapshot("failed to save snapshot on last client leaving");
       // Evict once nobody's connected — every project ever opened otherwise
       // keeps a live Y.Doc + Awareness resident in memory for the process's
       // entire lifetime. Safe: `getRoom` recreates it on demand from the
-      // snapshot just saved above, same as a fresh server start would.
-      this.onEmpty();
+      // snapshot queued above — which is why it is handed that write to wait
+      // for, where a synchronous store had already finished it.
+      this.onEmpty(this.writes);
       this.dispose();
     }
+    return this.writes;
+  }
+
+  /**
+   * Changes the doc on behalf of someone who is not a connection — an import,
+   * a restore, a pull — and resolves once the revision it made is stored and
+   * the doc-change listener has heard of it, so the response that follows can
+   * be trusted by a client that reads the history next. `author` is who the
+   * history will name.
+   *
+   * Everything `change` is computed from must have been read from `doc` since
+   * the caller last waited on anything: across an `await` a connected client
+   * may have edited the doc, or the last one left and the room was evicted.
+   */
+  async write(change: () => void, author: string): Promise<void> {
+    // Loud rather than lost: nothing listens to an evicted room's doc any more.
+    if (this.disposed) throw new Error(`room ${this.projectId} was closed before the change could be applied`);
+    this.doc.transact(change, author);
+    await Promise.all([this.writes, this.told]);
+  }
+
+  /** The revision the latest change to the doc was recorded as; `null` if none since the room was loaded. */
+  get lastRevisionId(): string | null {
+    return this.latestRevision;
   }
 
   presence(): string[] {
@@ -358,12 +439,10 @@ export class Room {
    * account disable/delete) so a revocation takes effect on already-open
    * sockets immediately rather than at the next TTL expiry.
    */
-  revalidate(): void {
+  async revalidate(): Promise<void> {
     // Snapshot first: `refreshAccess` can close a connection, and a close
     // handler running mid-iteration would mutate the map being iterated.
-    for (const [conn, meta] of Array.from(this.conns.entries())) {
-      this.refreshAccess(conn, meta);
-    }
+    await Promise.all(Array.from(this.conns.entries(), ([conn, meta]) => this.refreshAccess(conn, meta)));
   }
 
   /**
@@ -373,20 +452,20 @@ export class Room {
    * team entirely) left that person writing until they happened to reconnect,
    * which for a long-lived collaborative socket could be days.
    */
-  private currentCanWrite(conn: WebSocket): boolean {
+  private async currentCanWrite(conn: WebSocket): Promise<boolean> {
     const meta = this.conns.get(conn);
     if (!meta) return false;
     if (Date.now() - meta.accessCheckedAt < ACCESS_TTL_MS) return meta.canWrite;
     return this.refreshAccess(conn, meta);
   }
 
-  private refreshAccess(conn: WebSocket, meta: ConnMeta): boolean {
+  private async refreshAccess(conn: WebSocket, meta: ConnMeta): Promise<boolean> {
     let access: ConnectionAccess | null;
     try {
-      access = meta.resolveAccess();
+      access = await meta.resolveAccess();
     } catch (err) {
-      // Fail closed. A permission lookup that throws (database locked, row
-      // vanished mid-query) must not be read as "allowed" — and must not
+      // Fail closed. A permission lookup that throws (database unreachable,
+      // row vanished mid-query) must not be read as "allowed" — and must not
       // propagate, since this runs inside a WebSocket message handler.
       this.log.error({ err, room: this.projectId, author: meta.author }, "permission re-check failed");
       // `canWrite` false already stops every write, locked table or not.
@@ -466,12 +545,16 @@ export class Room {
 
   /**
    * Deleting a project must stop this room from writing anything else back
-   * to SQLite (the rows it would write to no longer exist) and disconnect
-   * anyone still viewing it. Each socket's own `close` handler still calls
-   * `leave()` afterwards — the `destroyed` flag above makes that a no-op
-   * instead of resurrecting a snapshot/revision row for the deleted project.
+   * to the database (the rows it would write to no longer exist) and
+   * disconnect anyone still viewing it. Each socket's own `close` handler
+   * still calls `leave()` afterwards — the `destroyed` flag above makes that a
+   * no-op instead of resurrecting a snapshot/revision row for the deleted
+   * project.
+   *
+   * Resolves once the writes already under way have finished: deleting the
+   * project's rows before then would race an insert that refers to them.
    */
-  destroy(): void {
+  destroy(): Promise<void> {
     this.destroyed = true;
     if (this.snapshotTimer) {
       clearTimeout(this.snapshotTimer);
@@ -479,6 +562,7 @@ export class Room {
     }
     this.conns.forEach((_meta, conn) => conn.close());
     this.dispose();
+    return this.writes;
   }
 
   /**
@@ -494,21 +578,37 @@ export class Room {
   }
 
   /**
-   * Writes this room's current state to SQLite right now, cancelling any
-   * pending debounced snapshot. Used on shutdown, where waiting out the
+   * Writes this room's current state to the database right now, cancelling
+   * any pending debounced snapshot, and resolves once it — and every revision
+   * queued before it — is stored. Used on shutdown, where waiting out the
    * debounce would mean losing the last couple of seconds of edits.
    */
-  flush(): void {
+  flush(): Promise<void> {
     if (this.snapshotTimer) {
       clearTimeout(this.snapshotTimer);
       this.snapshotTimer = null;
     }
-    if (this.destroyed) return;
-    try {
-      saveSnapshot(this.projectId, this.doc);
-    } catch (err) {
-      this.log.error({ err, room: this.projectId }, "failed to save snapshot on flush");
-    }
+    if (!this.destroyed && !this.disposed) this.queueSnapshot("failed to save snapshot on flush");
+    return this.writes;
+  }
+
+  /**
+   * Queues a write behind the ones already waiting. One at a time, in the
+   * order they were asked for: revisions replay in the order they were
+   * stored, and a snapshot must not be overwritten by an older one that
+   * happened to arrive later.
+   */
+  private persist(failure: string, write: () => Promise<void>): Promise<void> {
+    this.writes = this.writes.then(write).catch((err: unknown) => {
+      this.log.error({ err, room: this.projectId }, failure);
+    });
+    return this.writes;
+  }
+
+  /** Encoded now, while the doc is alive and exactly as it stands; stored when its turn comes. */
+  private queueSnapshot(failure: string): void {
+    const state = timeSync("persistence.encodeSnapshot", () => Y.encodeStateAsUpdate(this.doc));
+    void this.persist(failure, () => saveSnapshotState(this.projectId, state));
   }
 
   /**
@@ -536,11 +636,7 @@ export class Room {
     if (this.snapshotTimer) return;
     this.snapshotTimer = setTimeout(() => {
       this.snapshotTimer = null;
-      try {
-        saveSnapshot(this.projectId, this.doc);
-      } catch (err) {
-        this.log.error({ err, room: this.projectId }, "failed to save debounced snapshot");
-      }
+      this.queueSnapshot("failed to save debounced snapshot");
     }, SNAPSHOT_DEBOUNCE_MS);
   }
 }

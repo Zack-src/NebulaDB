@@ -83,35 +83,37 @@ export interface RecordDeploymentInput {
   schemaHash?: string | null;
 }
 
-export function recordDeployment(input: RecordDeploymentInput): string {
+export async function recordDeployment(input: RecordDeploymentInput): Promise<string> {
   const id = crypto.randomUUID();
-  db.prepare(
-    `INSERT INTO deployment_history
+  await db
+    .prepare(
+      `INSERT INTO deployment_history
        (id, project_id, connection_id, connection_name, environment, engine, sql, rollback_sql, rollback_of,
         success, executed_statements, total_statements, error, executed_by_email, accepted_risks, risk_note, seed_report,
         backup_id, schema_hash)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    id,
-    input.projectId,
-    input.connectionId,
-    input.connectionName,
-    input.environment,
-    input.engine,
-    input.sql,
-    input.rollbackSql,
-    input.rollbackOf ?? null,
-    input.success ? 1 : 0,
-    input.executedStatements,
-    input.totalStatements,
-    input.error ?? null,
-    input.executedByEmail,
-    input.acceptedRisks && input.acceptedRisks.length > 0 ? JSON.stringify(input.acceptedRisks) : null,
-    input.riskNote?.trim() || null,
-    input.seedReport && input.seedReport.length > 0 ? JSON.stringify(input.seedReport) : null,
-    input.backupId ?? null,
-    input.schemaHash ?? null,
-  );
+    )
+    .run(
+      id,
+      input.projectId,
+      input.connectionId,
+      input.connectionName,
+      input.environment,
+      input.engine,
+      input.sql,
+      input.rollbackSql,
+      input.rollbackOf ?? null,
+      input.success ? 1 : 0,
+      input.executedStatements,
+      input.totalStatements,
+      input.error ?? null,
+      input.executedByEmail,
+      input.acceptedRisks && input.acceptedRisks.length > 0 ? JSON.stringify(input.acceptedRisks) : null,
+      input.riskNote?.trim() || null,
+      input.seedReport && input.seedReport.length > 0 ? JSON.stringify(input.seedReport) : null,
+      input.backupId ?? null,
+      input.schemaHash ?? null,
+    );
   return id;
 }
 
@@ -123,34 +125,34 @@ const DEFAULT_HISTORY_LIMIT = 50;
  * is computed per row (a successful rollback entry pointing back at it), not
  * stored, so it can never drift out of sync with reality.
  */
-export function listDeploymentHistory(
+export async function listDeploymentHistory(
   projectId: string,
   connectionId: string,
   limit = DEFAULT_HISTORY_LIMIT,
-): DeploymentHistoryEntry[] {
-  const rows = db
+): Promise<DeploymentHistoryEntry[]> {
+  const rows = (await db
     .prepare(
       `SELECT * FROM deployment_history WHERE connection_id = ? AND project_id = ?
-        ORDER BY created_at DESC, rowid DESC LIMIT ?`,
+        ORDER BY created_at DESC, seq DESC LIMIT ?`,
     )
-    .all(connectionId, projectId, limit) as HistoryRow[];
+    .all(connectionId, projectId, limit)) as HistoryRow[];
   const rolledBackIds = new Set(
     (
-      db
+      (await db
         .prepare(
           `SELECT DISTINCT rollback_of FROM deployment_history
             WHERE connection_id = ? AND project_id = ? AND success = 1 AND rollback_of IS NOT NULL`,
         )
-        .all(connectionId, projectId) as { rollback_of: string }[]
+        .all(connectionId, projectId)) as { rollback_of: string }[]
     ).map((r) => r.rollback_of),
   );
   return rows.map((row) => rowToEntry(row, rolledBackIds.has(row.id)));
 }
 
-export function getDeploymentHistoryEntry(id: string): DeploymentHistoryEntry | null {
-  const row = db.prepare("SELECT * FROM deployment_history WHERE id = ?").get(id) as HistoryRow | undefined;
+export async function getDeploymentHistoryEntry(id: string): Promise<DeploymentHistoryEntry | null> {
+  const row = (await db.prepare("SELECT * FROM deployment_history WHERE id = ?").get(id)) as HistoryRow | undefined;
   if (!row) return null;
-  const alreadyRolledBack = db
+  const alreadyRolledBack = await db
     .prepare("SELECT 1 FROM deployment_history WHERE rollback_of = ? AND success = 1 LIMIT 1")
     .get(id);
   return rowToEntry(row, Boolean(alreadyRolledBack));

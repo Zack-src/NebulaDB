@@ -4,10 +4,11 @@ import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
 // Same rationale as `app.test.ts`: env vars must land before anything
 // transitively imports `db.ts`/`shared/crypto.ts`.
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-dbaccess-${randomUUID()}.sqlite`);
+await useTestDatabase("dbaccess");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -39,12 +40,9 @@ async function signIn(app: App, email: string) {
 async function makeUser(app: App, isAdmin: 0 | 1 = 0) {
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)").run(
-    id,
-    email,
-    await hashPassword(PASSWORD),
-    isAdmin,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)")
+    .run(id, email, await hashPassword(PASSWORD), isAdmin);
   return { id, email, cookie: await signIn(app, email) };
 }
 
@@ -149,7 +147,7 @@ test("private databases are usable only by their owner, absent from admin lists,
       404,
     );
     assert.ok(
-      db
+      await db
         .prepare("SELECT 1 FROM audit_log WHERE action = 'dbconn.create' AND target_id = ? AND actor_id = ?")
         .get(id, owner.id),
     );
@@ -166,7 +164,7 @@ test("private databases are usable only by their owner, absent from admin lists,
     assert.equal((await call(app, owner.cookie, "DELETE", `/api/me/connections/${id}`)).statusCode, 200);
     assert.equal((await query(app, owner.cookie, id, { sql: "SELECT 1" })).statusCode, 404);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -193,13 +191,13 @@ test("team account generation skips configured users, persists new secrets, and 
       })
     ).json().connection;
     const teamId = randomUUID();
-    db.prepare("INSERT INTO teams (id, name) VALUES (?, 'Database team')").run(teamId);
+    await db.prepare("INSERT INTO teams (id, name) VALUES (?, 'Database team')").run(teamId);
     for (const user of [member, existing, failed])
-      db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, user.id);
+      await db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, user.id);
     await call(app, admin.cookie, "PUT", `/api/admin/teams/${teamId}/db-access`, {
       grants: [{ connectionId: connection.id, level: "read" }],
     });
-    savePersonalCredentials(connection.id, existing.id, "already_set", "never-overwrite");
+    await savePersonalCredentials(connection.id, existing.id, "already_set", "never-overwrite");
     const attempts: string[] = [];
     accountProvisioner.create = async (_id, name, password) => {
       attempts.push(name);
@@ -216,9 +214,9 @@ test("team account generation skips configured users, persists new secrets, and 
     assert.equal(attempts.length, 2);
     assert.equal(
       (
-        db
+        (await db
           .prepare("SELECT username FROM db_connection_credentials WHERE user_id = ? AND connection_id = ?")
-          .get(existing.id, connection.id) as { username: string }
+          .get(existing.id, connection.id)) as { username: string }
       ).username,
       "already_set",
     );
@@ -238,7 +236,7 @@ test("team account generation skips configured users, persists new secrets, and 
   } finally {
     accountProvisioner.create = original;
     credentialCheck.verify = verify;
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -261,7 +259,7 @@ test("editor SQL enforces read-only even if the caller sends write mode", async 
       200,
     );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -334,9 +332,9 @@ test("a member reaches a database only once an instance administrator grants it,
     assert.equal(countRows(connection.filePath, "SELECT COUNT(*) AS n FROM customers"), 2);
 
     // Everything is in the audit trail, refused attempts included, marked as a member's.
-    const trail = db
-      .prepare("SELECT detail FROM audit_log WHERE action = 'dbaccess.query' AND actor_id = ? ORDER BY rowid")
-      .all(member.id) as { detail: string }[];
+    const trail = (await db
+      .prepare("SELECT detail FROM audit_log WHERE action = 'dbaccess.query' AND actor_id = ? ORDER BY seq")
+      .all(member.id)) as { detail: string }[];
     assert.equal(trail.length, 2);
     assert.match(trail[0].detail, /^\[read access\] read ok 2 row\(s\)/);
     assert.match(trail[1].detail, /^\[read access\] read failed/);
@@ -354,7 +352,7 @@ test("a member reaches a database only once an instance administrator grants it,
     }
 
     // An API key of the same member does not carry the grant.
-    const key = createApiKey(member.id, "ci", ["projects:read"], null).plaintextKey;
+    const key = (await createApiKey(member.id, "ci", ["projects:read"], null)).plaintextKey;
     assert.equal((await query(app, key, connection.id, { sql: "SELECT 1" })).statusCode, 404);
 
     // Revoked: the very next request is refused.
@@ -362,7 +360,7 @@ test("a member reaches a database only once an instance administrator grants it,
     assert.equal((await query(app, member.cookie, connection.id, { sql: "SELECT 1" })).statusCode, 404);
     assert.equal((await call(app, member.cookie, "GET", `${base}/overview`)).statusCode, 404);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -426,7 +424,7 @@ test("write access runs data statements once confirmed, and never structure", as
       "admin",
     );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -481,12 +479,12 @@ test("a team's grant reaches its members, and stops with the membership or the t
     // Deleting the team takes its grants with it (no foreign keys in this database).
     await call(app, admin.cookie, "DELETE", `/api/teams/${team.id}`);
     assert.equal((await query(app, member.cookie, connection.id, { sql: "SELECT 1" })).statusCode, 404);
-    const left = db.prepare("SELECT COUNT(*) AS n FROM db_access_grants WHERE subject_id = ?").get(team.id) as {
+    const left = (await db.prepare("SELECT COUNT(*) AS n FROM db_access_grants WHERE subject_id = ?").get(team.id)) as {
       n: number;
     };
     assert.equal(left.n, 0);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -517,22 +515,25 @@ test("grants and account names go with the user and with the connection", async 
     ]) {
       assert.notEqual((await grantUser(app, admin.cookie, member.id, grants)).statusCode, 200);
     }
-    const count = (sql: string, id: string) => (db.prepare(sql).get(id) as { n: number }).n;
-    assert.equal(count("SELECT COUNT(*) AS n FROM db_account_hints WHERE user_id = ?", member.id), 2);
+    const count = async (sql: string, id: string) => ((await db.prepare(sql).get(id)) as { n: number }).n;
+    assert.equal(await count("SELECT COUNT(*) AS n FROM db_account_hints WHERE user_id = ?", member.id), 2);
 
     await call(app, admin.cookie, "DELETE", `/api/admin/connections/${one.id}`);
-    assert.equal(count("SELECT COUNT(*) AS n FROM db_access_grants WHERE connection_id = ?", one.id), 0);
-    assert.equal(count("SELECT COUNT(*) AS n FROM db_account_hints WHERE connection_id = ?", one.id), 0);
+    assert.equal(await count("SELECT COUNT(*) AS n FROM db_access_grants WHERE connection_id = ?", one.id), 0);
+    assert.equal(await count("SELECT COUNT(*) AS n FROM db_account_hints WHERE connection_id = ?", one.id), 0);
 
     const deleted = await call(app, admin.cookie, "DELETE", `/api/users/${member.id}`, {});
     assert.equal(deleted.statusCode, 200, deleted.body);
-    assert.equal(count("SELECT COUNT(*) AS n FROM db_account_hints WHERE user_id = ?", member.id), 0);
+    assert.equal(await count("SELECT COUNT(*) AS n FROM db_account_hints WHERE user_id = ?", member.id), 0);
     assert.equal(
-      count("SELECT COUNT(*) AS n FROM db_access_grants WHERE subject_type = 'user' AND subject_id = ?", member.id),
+      await count(
+        "SELECT COUNT(*) AS n FROM db_access_grants WHERE subject_type = 'user' AND subject_id = ?",
+        member.id,
+      ),
       0,
     );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -575,7 +576,7 @@ test("on personal accounts a member runs as themself, and without an account is 
       suggestedUsername: "ada",
     });
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -621,7 +622,7 @@ test("the console refuses to drop, lock or re-password the account the connectio
     const other = await act(byFields.id, { type: "drop", principal: { name: "someone_else" } });
     assert.notEqual(other.json().code, "DB_ADMIN_CONNECTION_ACCOUNT_PROTECTED");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -668,9 +669,9 @@ test("an invitation's teams and database access are in place the moment it is ac
     });
     assert.equal(accepted.statusCode, 200, accepted.body);
     const cookie = await signIn(app, email);
-    const newId = (db.prepare("SELECT id FROM users WHERE email = ?").get(email) as { id: string }).id;
+    const newId = ((await db.prepare("SELECT id FROM users WHERE email = ?").get(email)) as { id: string }).id;
 
-    assert.ok(db.prepare("SELECT 1 FROM team_members WHERE team_id = ? AND user_id = ?").get(team.id, newId));
+    assert.ok(await db.prepare("SELECT 1 FROM team_members WHERE team_id = ? AND user_id = ?").get(team.id, newId));
     assert.deepEqual((await call(app, cookie, "GET", "/api/me/db-access")).json().connections, [
       { connectionId: connection.id, level: "write" },
     ]);
@@ -683,7 +684,7 @@ test("an invitation's teams and database access are in place the moment it is ac
     const credentials = await call(app, cookie, "GET", `/api/connections/${connection.id}/credentials`);
     assert.equal(credentials.json().suggestedUsername, "grace");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -738,15 +739,15 @@ test("an invitation can ask for the database account to be created, and a failur
     const status = (await call(app, cookie, "GET", `/api/connections/${personal.id}/credentials`)).json();
     assert.equal(status.username, null);
     assert.equal(status.suggestedUsername, "ada");
-    const trail = db
+    const trail = (await db
       .prepare("SELECT detail FROM audit_log WHERE action = 'dbuser.create_failed' AND target_id = ?")
-      .all(personal.id) as {
+      .all(personal.id)) as {
       detail: string;
     }[];
     assert.equal(trail.length, 1);
     assert.equal(trail[0].detail.includes(PASSWORD), false);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -773,7 +774,7 @@ test("clearing SQL recall history is scoped to the caller and connection and kee
       const res = await query(app, cookie, id, { sql: "SELECT * FROM customers", readOnly: true });
       assert.equal(res.statusCode, 200, res.body);
     }
-    const journalBefore = db.prepare("SELECT COUNT(*) AS n FROM audit_log").get();
+    const journalBefore = await db.prepare("SELECT COUNT(*) AS n FROM audit_log").get();
     const denied = await call(app, stranger.cookie, "DELETE", `/api/connections/${first.id}/query-history`);
     assert.equal(denied.statusCode, 404);
     const cleared = await call(app, member.cookie, "DELETE", `/api/connections/${first.id}/query-history`);
@@ -787,9 +788,9 @@ test("clearing SQL recall history is scoped to the caller and connection and kee
       const res = await call(app, cookie, "GET", `/api/connections/${id}/query-history`);
       assert.equal(res.json().history.length, expected);
     }
-    assert.deepEqual(db.prepare("SELECT COUNT(*) AS n FROM audit_log").get(), journalBefore);
+    assert.deepEqual(await db.prepare("SELECT COUNT(*) AS n FROM audit_log").get(), journalBefore);
   } finally {
     await app.close();
-    closeAllRooms();
+    await closeAllRooms();
   }
 });

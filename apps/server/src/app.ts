@@ -111,9 +111,9 @@ export async function buildApp(): Promise<FastifyInstance> {
   // database connection is opened as (`infrastructure/actor.ts`).
   app.addHook("onRequest", (_req, _reply, done) => runInActorScope(done));
   app.addHook("onRequest", async (req, reply) => {
-    req.user = resolveSession(req, reply);
+    req.user = await resolveSession(req, reply);
     if (!req.user) {
-      const resolved = resolveApiKey(req);
+      const resolved = await resolveApiKey(req);
       req.user = resolved?.user ?? null;
       req.apiKey = resolved?.apiKey ?? null;
     }
@@ -158,7 +158,7 @@ export async function buildApp(): Promise<FastifyInstance> {
    */
   app.get("/api/health", async (_req, reply) => {
     try {
-      const row = db.prepare("SELECT COUNT(*) AS n FROM projects").get() as { n: number };
+      const row = (await db.prepare("SELECT COUNT(*) AS n FROM projects").get()) as { n: number };
       return {
         status: "ok",
         projects: row.n,
@@ -179,7 +179,7 @@ export async function buildApp(): Promise<FastifyInstance> {
    */
   app.get("/api/metrics", async (_req, reply) => {
     reply.type("text/plain; version=0.0.4");
-    return renderPrometheusMetrics();
+    return await renderPrometheusMetrics();
   });
 
   registerAuthRoutes(app);
@@ -251,46 +251,62 @@ export async function buildApp(): Promise<FastifyInstance> {
           // room got created regardless, and `Room.leave()`'s snapshot insert
           // against a nonexistent `project_id` throws a foreign-key error that
           // was never caught, taking the entire server down for every project.
-          if (!getProjectRow(projectId)) throw new ApiError("PROJECT_NOT_FOUND");
-          if (!getEffectivePermission(req.user.id, projectId)) throw new ApiError("FORBIDDEN");
+          if (!(await getProjectRow(projectId))) throw new ApiError("PROJECT_NOT_FOUND");
+          if (!(await getEffectivePermission(req.user.id, projectId))) throw new ApiError("FORBIDDEN");
         },
       },
       (socket: WebSocket, req) => {
         const { projectId } = req.params as { projectId: string };
         const author = req.user!.displayName;
         const userId = req.user!.id;
-        const room = getRoom(projectId);
 
-        // Resolved on every use rather than captured once — see `Room.join`.
-        // `null` (no permission at all) closes the socket instead of silently
-        // downgrading it to read-only, which is what a user removed from a
-        // project should experience.
-        room.join(
-          socket,
-          author,
-          () => {
-            const level = getEffectivePermission(userId, projectId);
-            if (!level) return null;
-            const canWrite = level !== "view";
-            // A view-only socket cannot write at all, so its lock set is never consulted.
-            return { canWrite, lockedTableIds: canWrite ? lockedTableIdsFor(userId, projectId) : undefined };
-          },
-          userId,
-        );
-        // `req.log` rather than `app.log`: this is the one point in a
-        // connection's life that maps to a single request (the WS upgrade),
-        // so it's the one place a `reqId` can actually correlate — unlike
-        // `Room`'s own logs, which span every connection over its lifetime
-        // (see `realtime/room/logger.ts`).
-        req.log.info({ room: projectId, author }, "joined project");
+        // Loading the room and resolving this user's access both wait on the
+        // database, but the socket is already open and its first frames may
+        // already be on their way: the listeners below are attached now, and
+        // hand everything to the room once it has let the connection in.
+        const joined = (async () => {
+          const room = await getRoom(projectId);
+          // Resolved on every use rather than captured once — see `Room.join`.
+          // `null` (no permission at all) closes the socket instead of silently
+          // downgrading it to read-only, which is what a user removed from a
+          // project should experience.
+          await room.join(
+            socket,
+            author,
+            async () => {
+              const level = await getEffectivePermission(userId, projectId);
+              if (!level) return null;
+              const canWrite = level !== "view";
+              // A view-only socket cannot write at all, so its lock set is never consulted.
+              return { canWrite, lockedTableIds: canWrite ? await lockedTableIdsFor(userId, projectId) : undefined };
+            },
+            userId,
+          );
+          // `req.log` rather than `app.log`: this is the one point in a
+          // connection's life that maps to a single request (the WS upgrade),
+          // so it's the one place a `reqId` can actually correlate — unlike
+          // `Room`'s own logs, which span every connection over its lifetime
+          // (see `realtime/room/logger.ts`).
+          req.log.info({ room: projectId, author }, "joined project");
+          return room;
+        })().catch((err: unknown) => {
+          req.log.error({ err, room: projectId, author }, "failed to join project");
+          socket.close();
+          return null;
+        });
 
+        // Callbacks on one promise run in the order they were added, and the
+        // room handles frames in the order it is given them.
         socket.on("message", (data: Buffer) => {
-          room.receive(socket, new Uint8Array(data));
+          void joined.then((room) => room?.receive(socket, new Uint8Array(data)));
         });
 
         socket.on("close", () => {
-          room.leave(socket);
-          req.log.info({ room: projectId, author }, "left project");
+          void joined.then((room) => {
+            if (!room) return;
+            void room.leave(socket);
+            req.log.info({ room: projectId, author }, "left project");
+          });
         });
       },
     );

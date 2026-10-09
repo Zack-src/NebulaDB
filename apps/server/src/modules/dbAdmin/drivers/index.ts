@@ -23,7 +23,7 @@ export async function createAdminDriver(
   stored: DatabaseConnectionConfig,
   kind: BudgetKind = "admin",
 ): Promise<DatabaseAdminDriver> {
-  const config = configForActor(stored);
+  const config = await configForActor(stored);
   takeConnectionBudget(targetKey(config), kind);
   switch (config.engine) {
     case "postgres":

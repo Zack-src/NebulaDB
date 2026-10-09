@@ -13,9 +13,9 @@ import {
 } from "./repository.js";
 
 /** What the editor needs to lint: the settings that apply, where they come from, and (to those who may choose) the presets on offer. */
-function lintState(projectId: string, canChoose: boolean) {
-  const { settings, source } = resolveProjectLint(projectId);
-  return { settings, source, presets: canChoose ? listLintPresetChoices() : [] };
+async function lintState(projectId: string, canChoose: boolean) {
+  const { settings, source } = await resolveProjectLint(projectId);
+  return { settings, source, presets: canChoose ? await listLintPresetChoices() : [] };
 }
 
 /**
@@ -28,13 +28,13 @@ function lintState(projectId: string, canChoose: boolean) {
 export function registerLintRoutes(app: FastifyInstance): void {
   app.get("/api/projects/:id/lint", async (req) => {
     const { id } = req.params as { id: string };
-    const { user } = requireProjectAccess(req, id, "view");
-    return lintState(id, getEffectivePermission(user.id, id) === "administrator");
+    const { user } = await requireProjectAccess(req, id, "view");
+    return await lintState(id, (await getEffectivePermission(user.id, id)) === "administrator");
   });
 
   app.put("/api/projects/:id/lint", async (req) => {
     const { id } = req.params as { id: string };
-    const { user } = requireProjectAdmin(req, id);
+    const { user } = await requireProjectAdmin(req, id);
     const body = (req.body ?? {}) as { settings?: unknown; presetId?: unknown; profile?: unknown };
     const by = user.displayName ?? user.email;
     // The settings used to be the whole body; that is still accepted.
@@ -42,9 +42,9 @@ export function registerLintRoutes(app: FastifyInstance): void {
 
     if (own !== undefined) {
       // The project's own version: it stops following a preset.
-      const settings = saveLintSettings(id, parseLintSettingsInput(own), by);
+      const settings = await saveLintSettings(id, parseLintSettingsInput(own), by);
       const blocking = settings.blockDeployment ? ", blocks deployment" : "";
-      auditUser(
+      await auditUser(
         user,
         "project.lint",
         { type: "project", id },
@@ -53,8 +53,8 @@ export function registerLintRoutes(app: FastifyInstance): void {
       );
     } else if (body.presetId === null || typeof body.presetId === "string") {
       // A preset, or `null`: follow the instance default. Its own version, if any, is dropped.
-      setProjectPreset(id, body.presetId, by);
-      auditUser(
+      await setProjectPreset(id, body.presetId, by);
+      await auditUser(
         user,
         "project.lint",
         { type: "project", id },
@@ -65,6 +65,6 @@ export function registerLintRoutes(app: FastifyInstance): void {
       throw new ApiError("LINT_INVALID");
     }
     notifyProject(id, { type: "lint-changed" });
-    return lintState(id, true);
+    return await lintState(id, true);
   });
 }

@@ -26,40 +26,42 @@ export interface QueryStatInput {
 }
 
 /** Adds one execution to today's bucket of its statement shape. Never throws. */
-export function recordQueryStat(input: QueryStatInput): void {
+export async function recordQueryStat(input: QueryStatInput): Promise<void> {
   try {
     const engine = (
-      db.prepare("SELECT engine FROM db_connections WHERE id = ?").get(input.connectionId) as
+      (await db.prepare("SELECT engine FROM db_connections WHERE id = ?").get(input.connectionId)) as
         { engine: string } | undefined
     )?.engine;
     const normalized = normalizeSql(input.sql, engine);
     if (!normalized) return;
     const ms = Math.max(0, Math.round(input.durationMs ?? 0));
     const counted = input.success && input.rowCount !== null ? 1 : 0;
-    db.prepare(
-      `INSERT INTO query_stats (connection_id, query_hash, day, normalized_sql, executions, failures, total_ms, max_ms,
+    await db
+      .prepare(
+        `INSERT INTO query_stats (connection_id, query_hash, day, normalized_sql, executions, failures, total_ms, max_ms,
                                 rows_total, rows_counted, last_at, last_user_id)
-       VALUES (?, ?, date('now'), ?, 1, ?, ?, ?, ?, ?, datetime('now'), ?)
+       VALUES (?, ?, utc_today(), ?, 1, ?, ?, ?, ?, ?, utc_now(), ?)
        ON CONFLICT(connection_id, query_hash, day) DO UPDATE SET
-         executions = executions + 1,
-         failures = failures + excluded.failures,
-         total_ms = total_ms + excluded.total_ms,
-         max_ms = MAX(max_ms, excluded.max_ms),
-         rows_total = rows_total + excluded.rows_total,
-         rows_counted = rows_counted + excluded.rows_counted,
+         executions = query_stats.executions + 1,
+         failures = query_stats.failures + excluded.failures,
+         total_ms = query_stats.total_ms + excluded.total_ms,
+         max_ms = GREATEST(query_stats.max_ms, excluded.max_ms),
+         rows_total = query_stats.rows_total + excluded.rows_total,
+         rows_counted = query_stats.rows_counted + excluded.rows_counted,
          last_at = excluded.last_at,
          last_user_id = excluded.last_user_id`,
-    ).run(
-      input.connectionId,
-      queryHash(normalized),
-      normalized,
-      input.success ? 0 : 1,
-      ms,
-      ms,
-      counted ? input.rowCount : 0,
-      counted,
-      input.userId,
-    );
+      )
+      .run(
+        input.connectionId,
+        queryHash(normalized),
+        normalized,
+        input.success ? 0 : 1,
+        ms,
+        ms,
+        counted ? input.rowCount : 0,
+        counted,
+        input.userId,
+      );
   } catch (err) {
     // A statistic must never fail the query it counts.
     console.error("[dbAdmin] failed to record query statistics:", err);
@@ -81,18 +83,18 @@ interface StatRow {
 
 const ORDER: Record<DbQueryStatSort, string> = {
   frequency: "executions DESC, total_ms DESC",
-  slowest: "(CAST(total_ms AS REAL) / executions) DESC, executions DESC",
+  slowest: "(CAST(total_ms AS DOUBLE PRECISION) / executions) DESC, executions DESC",
   total: "total_ms DESC, executions DESC",
 };
 
 /** The statement shapes run on a connection since `sinceDays` days (all kept days when absent), aggregated. */
-export function listQueryStats(
+export async function listQueryStats(
   connectionId: string,
   options: { sinceDays?: number; sort?: DbQueryStatSort; limit?: number } = {},
-): DbQueryStat[] {
+): Promise<DbQueryStat[]> {
   const limit = Math.min(Math.max(options.limit ?? 100, 1), QUERY_STATS_MAX);
   const since = options.sinceDays ? `-${Math.trunc(options.sinceDays) - 1} days` : null;
-  const rows = db
+  const rows = (await db
     .prepare(
       `SELECT s.hash, s.sql, s.executions, s.failures, s.total_ms, s.max_ms, s.rows_total, s.rows_counted, s.last_at,
               (SELECT u.display_name FROM query_stats q LEFT JOIN users u ON u.id = q.last_user_id
@@ -101,12 +103,12 @@ export function listQueryStats(
                       SUM(failures) AS failures, SUM(total_ms) AS total_ms, MAX(max_ms) AS max_ms,
                       SUM(rows_total) AS rows_total, SUM(rows_counted) AS rows_counted, MAX(last_at) AS last_at
                  FROM query_stats
-                WHERE connection_id = ? ${since ? "AND day >= date('now', ?)" : ""}
+                WHERE connection_id = ? ${since ? "AND day >= utc_today(?)" : ""}
                 GROUP BY query_hash) s
         ORDER BY ${ORDER[options.sort ?? "frequency"]}
         LIMIT ?`,
     )
-    .all(connectionId, connectionId, ...(since ? [since] : []), limit) as StatRow[];
+    .all(connectionId, connectionId, ...(since ? [since] : []), limit)) as StatRow[];
   return rows.map((row) => ({
     hash: row.hash,
     sql: row.sql,
@@ -122,12 +124,13 @@ export function listQueryStats(
 }
 
 /** Drops the days past the retention, and what is left of deleted connections. `0` keeps everything. */
-export function purgeOldQueryStats(retentionDays: number): number {
-  let removed = db
-    .prepare("DELETE FROM query_stats WHERE connection_id NOT IN (SELECT id FROM db_connections)")
-    .run().changes;
+export async function purgeOldQueryStats(retentionDays: number): Promise<number> {
+  let removed = (
+    await db.prepare("DELETE FROM query_stats WHERE connection_id NOT IN (SELECT id FROM db_connections)").run()
+  ).changes;
   if (retentionDays > 0) {
-    removed += db.prepare("DELETE FROM query_stats WHERE day < date('now', ?)").run(`-${retentionDays} days`).changes;
+    removed += (await db.prepare("DELETE FROM query_stats WHERE day < utc_today(?)").run(`-${retentionDays} days`))
+      .changes;
   }
   return removed;
 }

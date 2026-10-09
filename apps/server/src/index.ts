@@ -26,40 +26,40 @@ const app = await buildApp();
 // Expired rows were never removed, so `sessions` grew forever. Sweep at boot
 // and hourly; `unref` so this timer alone can't hold the process open.
 const SESSION_SWEEP_MS = 60 * 60 * 1000;
-const sweepSessions = () => {
+const sweepSessions = async () => {
   try {
-    const removed = purgeExpiredSessions();
+    const removed = await purgeExpiredSessions();
     if (removed > 0) app.log.info(`purged ${removed} expired session(s)`);
     // Same schedule, same rationale: failed-login counters for accounts that
     // are no longer locked and haven't failed in a day carry no information.
-    const attempts = purgeStaleAttempts();
+    const attempts = await purgeStaleAttempts();
     if (attempts > 0) app.log.info(`purged ${attempts} stale login attempt row(s)`);
     // Same schedule again: the audit trail is the one table with no natural
     // ceiling, so its retention has to be enforced somewhere rather than left
     // as a sentence in a policy document.
-    const audits = purgeOldAuditEntries(config.auditRetentionDays);
+    const audits = await purgeOldAuditEntries(config.auditRetentionDays);
     if (audits > 0)
       app.log.info(`purged ${audits} audit entry(ies) past the ${config.auditRetentionDays}-day retention`);
     // MFA challenges are already short-lived (5 minutes) and `getMfaChallenge`
     // refuses an expired one on its own, but an abandoned login (password
     // step completed, second factor never entered) otherwise leaves a dead
     // row behind forever.
-    const challenges = purgeExpiredMfaChallenges();
+    const challenges = await purgeExpiredMfaChallenges();
     if (challenges > 0) app.log.info(`purged ${challenges} expired MFA challenge(s)`);
-    const resetTokens = purgeExpiredResetTokens();
+    const resetTokens = await purgeExpiredResetTokens();
     if (resetTokens > 0) app.log.info(`purged ${resetTokens} expired/used password reset token(s)`);
-    const queryStats = purgeOldQueryStats(config.queryStatsRetentionDays);
+    const queryStats = await purgeOldQueryStats(config.queryStatsRetentionDays);
     if (queryStats > 0) app.log.info(`purged ${queryStats} SQL console statistic row(s)`);
-    const activity = purgeOldActivity(config.dbActivityRetentionDays);
+    const activity = await purgeOldActivity(config.dbActivityRetentionDays);
     if (activity > 0) app.log.info(`purged ${activity} database-side activity row(s)`);
-    const deliveries = purgeOldDeliveries();
+    const deliveries = await purgeOldDeliveries();
     if (deliveries > 0) app.log.info(`purged ${deliveries} webhook delivery log row(s) older than 30 days`);
   } catch (err) {
     app.log.error({ err }, "session sweep failed");
   }
 };
-sweepSessions();
-const sessionSweepTimer = setInterval(sweepSessions, SESSION_SWEEP_MS);
+await sweepSessions();
+const sessionSweepTimer = setInterval(() => void sweepSessions(), SESSION_SWEEP_MS);
 sessionSweepTimer.unref();
 
 // Webhook retries: deliveries whose next attempt has come due. First
@@ -71,12 +71,12 @@ scheduleJob("drift-monitor", 60_000, runDueMonitoring);
 // Database-side sessions of the connections an administrator asked to sample.
 scheduleJob("db-activity-samples", 60_000, runDueActivitySamples);
 // Backups of connected databases: whatever a restart cut short is marked failed, and what is past its retention goes.
-const interrupted = failInterruptedBackups();
+const interrupted = await failInterruptedBackups();
 if (interrupted > 0) app.log.warn(`${interrupted} database backup(s) were interrupted by the restart`);
 // Each connection's schedule says when; this only looks for whose hour has come.
 scheduleJob("database-backup-schedules", 60_000, () => runDueBackupSchedules().then(() => {}));
-scheduleJob("database-backup-retention", 60 * 60 * 1000, () => {
-  const purged = purgeExpiredBackups();
+scheduleJob("database-backup-retention", 60 * 60 * 1000, async () => {
+  const purged = await purgeExpiredBackups();
   if (purged > 0) app.log.info(`purged ${purged} database backup(s) past their retention`);
 });
 
@@ -93,9 +93,9 @@ scheduleJob("database-backup-retention", 60 * 60 * 1000, () => {
  */
 let backupTimer: NodeJS.Timeout | null = null;
 if (config.backupIntervalHours > 0) {
-  const runScheduledBackup = () => {
+  const runScheduledBackup = async () => {
     try {
-      const result = runBackup(path.join(config.backupDir, backupTimestamp()));
+      const result = await runBackup(path.join(config.backupDir, backupTimestamp()));
       const pruned = pruneOldBackups(config.backupDir, config.backupKeep);
       app.log.info(
         `backup: ${result.backedUp} project(s) written to ${result.dir}` +
@@ -107,7 +107,7 @@ if (config.backupIntervalHours > 0) {
       app.log.error({ err }, "scheduled backup failed");
     }
   };
-  backupTimer = setInterval(runScheduledBackup, config.backupIntervalHours * 60 * 60 * 1000);
+  backupTimer = setInterval(() => void runScheduledBackup(), config.backupIntervalHours * 60 * 60 * 1000);
   backupTimer.unref();
   app.log.info(
     `scheduled backups every ${config.backupIntervalHours}h into ${path.resolve(config.backupDir)} (keeping ${config.backupKeep})`,
@@ -118,7 +118,7 @@ if (config.backupIntervalHours > 0) {
  * `docker stop` / `docker compose down` send SIGTERM with nothing listening,
  * which dropped in-flight WebSocket connections and any pending debounced
  * snapshot (up to ~2s of edits). Stop accepting new work, flush every live
- * room to SQLite, then close the database.
+ * room to the database, then close the pool.
  */
 const SHUTDOWN_TIMEOUT_MS = 10_000;
 let shuttingDown = false;
@@ -140,11 +140,11 @@ async function shutdown(signal: string): Promise<void> {
   stopAllJobs();
   if (backupTimer) clearInterval(backupTimer);
   try {
-    const flushed = flushAllRooms();
+    const flushed = await flushAllRooms();
     if (flushed > 0) app.log.info(`flushed ${flushed} room snapshot(s)`);
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
-    db.close();
+    await db.close();
     app.log.info("shutdown complete");
     process.exit(0);
   } catch (err) {
@@ -170,18 +170,19 @@ for (const signal of ["SIGTERM", "SIGINT"] as const) {
 process.on("uncaughtException", (err) => {
   app.log.error({ err }, "uncaught exception — server kept alive, state flushed");
   tallyErrorForMetrics("server");
-  recordError("server", err.message, { stack: err.stack, context: "uncaughtException" });
-  try {
-    flushAllRooms();
-  } catch (flushErr) {
+  // Neither of these may reject: a rejection raised from inside these two
+  // handlers would come straight back to the one below, and around again.
+  // `recordError` and a room's flush both log their own failures.
+  void recordError("server", err.message, { stack: err.stack, context: "uncaughtException" });
+  flushAllRooms().catch((flushErr: unknown) => {
     app.log.error({ err: flushErr }, "flush after uncaught exception failed");
-  }
+  });
 });
 
 process.on("unhandledRejection", (reason) => {
   app.log.error({ err: reason }, "unhandled promise rejection");
   tallyErrorForMetrics("server");
-  recordError("server", reason instanceof Error ? reason.message : String(reason), {
+  void recordError("server", reason instanceof Error ? reason.message : String(reason), {
     stack: reason instanceof Error ? reason.stack : undefined,
     context: "unhandledRejection",
   });

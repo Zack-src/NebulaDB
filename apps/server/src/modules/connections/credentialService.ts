@@ -17,6 +17,7 @@ import {
 } from "./personalCredentials.js";
 import { connectionOwner, getConnectionById } from "./repository.js";
 import { effectiveDbAccess, getAccountHint } from "../dbAccess/repository.js";
+import { someAsync } from "../../shared/async.js";
 
 /**
  * What giving, reading and removing one's own database account does, whoever
@@ -74,26 +75,30 @@ export interface ConnectionUser {
  * granted access to it (explorer and SQL — see `dbAccess/`). Anyone else is
  * told the connection does not exist.
  */
-export function requireConnectionUser(req: FastifyRequest, connectionId: string): ConnectionUser {
+export async function requireConnectionUser(req: FastifyRequest, connectionId: string): Promise<ConnectionUser> {
   const user: SessionUser = requireUser(req);
-  const connection = getConnectionById(connectionId);
-  if (!connection || (connectionOwner(connectionId) && connectionOwner(connectionId) !== user.id))
+  const connection = await getConnectionById(connectionId);
+  if (!connection || ((await connectionOwner(connectionId)) && (await connectionOwner(connectionId)) !== user.id))
     throw new ApiError("CONNECTION_NOT_FOUND");
   const projectIds = (
-    db.prepare("SELECT project_id FROM project_connection_links WHERE connection_id = ?").all(connectionId) as {
+    (await db.prepare("SELECT project_id FROM project_connection_links WHERE connection_id = ?").all(connectionId)) as {
       project_id: string;
     }[]
   ).map((link) => link.project_id);
-  const granted = !req.apiKey && effectiveDbAccess(user.id, connectionId) !== null;
-  if (!user.isAdmin && !granted && !projectIds.some((id) => getEffectivePermission(user.id, id) === "administrator")) {
+  const granted = !req.apiKey && (await effectiveDbAccess(user.id, connectionId)) !== null;
+  if (
+    !user.isAdmin &&
+    !granted &&
+    !(await someAsync(projectIds, async (id) => (await getEffectivePermission(user.id, id)) === "administrator"))
+  ) {
     throw new ApiError("CONNECTION_NOT_FOUND");
   }
   return { user, connection, projectIds };
 }
 
 /** The caller's own account on this connection — its name, never its password. */
-export function ownCredentials({ user, connection }: ConnectionUser): PersonalCredentialStatus {
-  return personalCredentialStatus(connection, user.id);
+export async function ownCredentials({ user, connection }: ConnectionUser): Promise<PersonalCredentialStatus> {
+  return await personalCredentialStatus(connection, user.id);
 }
 
 /**
@@ -121,15 +126,15 @@ export async function giveOwnCredentials(
     });
   }
 
-  savePersonalCredentials(connection.id, user.id, username, password);
-  auditUser(
+  await savePersonalCredentials(connection.id, user.id, username, password);
+  await auditUser(
     user,
     "dbconn.credentials.set",
     { type: "connection", id: connection.id },
     `${connection.name}: ${username}${via}`,
     req,
   );
-  return personalCredentialStatus(connection, user.id);
+  return await personalCredentialStatus(connection, user.id);
 }
 
 /**
@@ -145,7 +150,7 @@ export async function changeOwnPassword(
 ): Promise<PersonalCredentialStatus> {
   if (req.apiKey) throw new ApiError("FORBIDDEN");
   if (connection.authMode !== "personal") throw new ApiError("PERSONAL_CREDENTIALS_NOT_USED");
-  const current = readPersonalCredentials(connection.id, user.id);
+  const current = await readPersonalCredentials(connection.id, user.id);
   if (!current) {
     throw new ApiError("PERSONAL_CREDENTIALS_REQUIRED", {
       details: { connectionId: connection.id, connectionName: connection.name },
@@ -166,25 +171,25 @@ export async function changeOwnPassword(
     });
   }
 
-  savePersonalCredentials(connection.id, user.id, current.username, password);
-  auditUser(
+  await savePersonalCredentials(connection.id, user.id, current.username, password);
+  await auditUser(
     user,
     "dbconn.credentials.password",
     { type: "connection", id: connection.id },
     `${connection.name}: ${current.username}`,
     req,
   );
-  return personalCredentialStatus(connection, user.id);
+  return await personalCredentialStatus(connection, user.id);
 }
 
 /** Forgets the caller's own account on this connection; says nothing in the audit trail when there was none. */
-export function removeOwnCredentials(
+export async function removeOwnCredentials(
   { user, connection }: ConnectionUser,
   req: FastifyRequest,
   via = "",
-): PersonalCredentialStatus {
-  if (deletePersonalCredentials(connection.id, user.id)) {
-    auditUser(
+): Promise<PersonalCredentialStatus> {
+  if (await deletePersonalCredentials(connection.id, user.id)) {
+    await auditUser(
       user,
       "dbconn.credentials.remove",
       { type: "connection", id: connection.id },
@@ -192,7 +197,7 @@ export function removeOwnCredentials(
       req,
     );
   }
-  return personalCredentialStatus(connection, user.id);
+  return await personalCredentialStatus(connection, user.id);
 }
 
 /**
@@ -201,28 +206,29 @@ export function removeOwnCredentials(
  * connection. Same audience as `requireConnectionUser`; an API key sees none,
  * as the explorer and SQL are browser-only.
  */
-export function listOwnAccounts(user: SessionUser, viaApiKey: boolean): MySqlAccount[] {
+export async function listOwnAccounts(user: SessionUser, viaApiKey: boolean): Promise<MySqlAccount[]> {
   if (viaApiKey) return [];
-  const rows = db
+  const rows = (await db
     .prepare(
-      "SELECT id FROM db_connections WHERE auth_mode = 'personal' AND owner_user_id IS NULL ORDER BY name COLLATE NOCASE, created_at",
+      "SELECT id FROM db_connections WHERE auth_mode = 'personal' AND owner_user_id IS NULL ORDER BY LOWER(name), created_at",
     )
-    .all() as { id: string }[];
+    .all()) as { id: string }[];
   const links = db.prepare("SELECT project_id FROM project_connection_links WHERE connection_id = ?");
   const accounts: MySqlAccount[] = [];
   for (const { id } of rows) {
-    const connection = getConnectionById(id);
+    const connection = await getConnectionById(id);
     if (!connection) continue;
     const usable =
       user.isAdmin ||
-      effectiveDbAccess(user.id, id) !== null ||
-      (links.all(id) as { project_id: string }[]).some(
-        (link) => getEffectivePermission(user.id, link.project_id) === "administrator",
-      );
+      (await effectiveDbAccess(user.id, id)) !== null ||
+      (await someAsync(
+        (await links.all(id)) as { project_id: string }[],
+        async (link) => (await getEffectivePermission(user.id, link.project_id)) === "administrator",
+      ));
     if (!usable) continue;
-    const suggestedUsername = getAccountHint(id, user.id);
+    const suggestedUsername = await getAccountHint(id, user.id);
     accounts.push({
-      ...personalCredentialStatus(connection, user.id),
+      ...(await personalCredentialStatus(connection, user.id)),
       ...(suggestedUsername ? { suggestedUsername } : {}),
       connectionId: id,
       connectionName: connection.name,

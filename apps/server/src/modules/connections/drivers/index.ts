@@ -30,7 +30,7 @@ export * from "./bigquery.js";
  * an account is refused without touching the target.
  */
 export async function createDatabaseDriver(stored: DatabaseConnectionConfig): Promise<DatabaseDriver> {
-  const config = configForActor(stored);
+  const config = await configForActor(stored);
   const key = targetKey(config);
   takeConnectionBudget(key, "connect");
   return withWriteBudget(await openDriver(config), key);

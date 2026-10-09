@@ -17,7 +17,7 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
   app.addHook("preHandler", async (req) => {
     if (!req.routeOptions.url?.startsWith("/api/admin/connections/:id")) return;
     const { id } = req.params as { id: string };
-    if (connectionOwner(id)) throw new ApiError("CONNECTION_NOT_FOUND");
+    if (await connectionOwner(id)) throw new ApiError("CONNECTION_NOT_FOUND");
   });
 
   registerConnectionAdminRoutes(app);

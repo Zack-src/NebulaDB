@@ -52,7 +52,7 @@ export function registerConnectionJournalRoutes(app: FastifyInstance): void {
     // A refusal to someone who may not use the console is not an opening of the database.
     if (!req.user.isAdmin && reply.statusCode >= 400) return payload;
     const connectionId = connectionOf(req);
-    if (!connectionId || !getConnectionById(connectionId)) return payload;
+    if (!connectionId || !(await getConnectionById(connectionId))) return payload;
     let detail = opening.detail;
     if (reply.statusCode >= 400) {
       detail += `: failed (${reply.statusCode})`;
@@ -65,7 +65,7 @@ export function registerConnectionJournalRoutes(app: FastifyInstance): void {
         // Not JSON: the entry says the test ran, nothing more.
       }
     }
-    auditUser(req.user, opening.action, { type: "connection", id: connectionId }, detail, req);
+    await auditUser(req.user, opening.action, { type: "connection", id: connectionId }, detail, req);
     return payload;
   });
 
@@ -73,14 +73,14 @@ export function registerConnectionJournalRoutes(app: FastifyInstance): void {
   app.get("/api/admin/connections/:id/journal/actors", READ_LIMIT, async (req) => {
     requireAdmin(req);
     const { id } = req.params as { id: string };
-    const actors = db
+    const actors = (await db
       .prepare(
-        `SELECT a.actor_id AS id, COALESCE(u.display_name, MAX(a.actor_email)) AS name, MAX(a.actor_email) AS email
+        `SELECT a.actor_id AS id, COALESCE(MAX(u.display_name), MAX(a.actor_email)) AS name, MAX(a.actor_email) AS email
            FROM audit_log a LEFT JOIN users u ON u.id = a.actor_id
           WHERE a.connection_id = ? AND a.actor_id IS NOT NULL
-          GROUP BY a.actor_id ORDER BY name LIMIT 500`,
+          GROUP BY a.actor_id ORDER BY name NULLS FIRST LIMIT 500`,
       )
-      .all(id) as { id: string; name: string | null; email: string | null }[];
+      .all(id)) as { id: string; name: string | null; email: string | null }[];
     return { actors };
   });
 
@@ -101,14 +101,14 @@ export function registerConnectionJournalRoutes(app: FastifyInstance): void {
   app.get("/api/admin/connections/:id/activity", READ_LIMIT, async (req) => {
     requireAdmin(req);
     const { id } = req.params as { id: string };
-    const connection = getConnectionById(id);
+    const connection = await getConnectionById(id);
     if (!connection) throw new ApiError("CONNECTION_NOT_FOUND");
     const query = req.query as { days?: string; outside?: string };
     const days = query.days ? Number(query.days) : 1;
     if (!Number.isInteger(days) || days < 1 || days > 3650) throw new ApiError("ACTIVITY_QUERY_INVALID");
     return {
-      watch: getActivityWatch(id),
-      entries: listActivity(connection, { sinceDays: days, outsideOnly: query.outside === "1" }),
+      watch: await getActivityWatch(id),
+      entries: await listActivity(connection, { sinceDays: days, outsideOnly: query.outside === "1" }),
     };
   });
 
@@ -116,20 +116,20 @@ export function registerConnectionJournalRoutes(app: FastifyInstance): void {
   app.get("/api/admin/connections/:id/activity/traffic", READ_LIMIT, async (req) => {
     requireAdmin(req);
     const { id } = req.params as { id: string };
-    if (!getConnectionById(id)) throw new ApiError("CONNECTION_NOT_FOUND");
+    if (!(await getConnectionById(id))) throw new ApiError("CONNECTION_NOT_FOUND");
     const days = Number((req.query as { days?: string }).days ?? 1);
     if (!Number.isInteger(days) || days < 1 || days > 90) throw new ApiError("ACTIVITY_QUERY_INVALID");
-    return listTraffic(id, days);
+    return await listTraffic(id, days);
   });
 
   app.post("/api/admin/connections/:id/activity/sample", WRITE_LIMIT, async (req) => {
     const user = requireAdmin(req);
     const { id } = req.params as { id: string };
-    const connection = getConnectionById(id);
+    const connection = await getConnectionById(id);
     if (!connection) throw new ApiError("CONNECTION_NOT_FOUND");
     try {
       const sessions = await sampleActivity(connection);
-      auditUser(user, "dbconn.activity.sample", { type: "connection", id }, `${sessions} session(s)`, req);
+      await auditUser(user, "dbconn.activity.sample", { type: "connection", id }, `${sessions} session(s)`, req);
       return { sessions };
     } catch (err) {
       throw new ApiError("DB_ADMIN_QUERY_FAILED", { message: err instanceof Error ? err.message : String(err) });
@@ -139,18 +139,18 @@ export function registerConnectionJournalRoutes(app: FastifyInstance): void {
   app.put("/api/admin/connections/:id/activity/watch", WRITE_LIMIT, async (req) => {
     const user = requireAdmin(req);
     const { id } = req.params as { id: string };
-    if (!getConnectionById(id)) throw new ApiError("CONNECTION_NOT_FOUND");
+    if (!(await getConnectionById(id))) throw new ApiError("CONNECTION_NOT_FOUND");
     const enabled = (req.body as { enabled?: unknown } | undefined)?.enabled === true;
-    setActivityWatch(id, enabled);
-    auditUser(user, "dbconn.activity.watch", { type: "connection", id }, enabled ? "on" : "off", req);
-    return getActivityWatch(id);
+    await setActivityWatch(id, enabled);
+    await auditUser(user, "dbconn.activity.watch", { type: "connection", id }, enabled ? "on" : "off", req);
+    return await getActivityWatch(id);
   });
 
   // Per statement shape: how often, how long — measured by Nebula, literals masked.
   app.get("/api/admin/connections/:id/query-stats", READ_LIMIT, async (req) => {
     requireAdmin(req);
     const { id } = req.params as { id: string };
-    if (!getConnectionById(id)) throw new ApiError("CONNECTION_NOT_FOUND");
+    if (!(await getConnectionById(id))) throw new ApiError("CONNECTION_NOT_FOUND");
     const query = req.query as { days?: string; sort?: string; limit?: string };
     const days = query.days ? Number(query.days) : undefined;
     if (days !== undefined && (!Number.isInteger(days) || days < 0 || days > 3650)) {
@@ -162,7 +162,7 @@ export function registerConnectionJournalRoutes(app: FastifyInstance): void {
     const limit = query.limit ? Number(query.limit) : undefined;
     if (limit !== undefined && !Number.isFinite(limit)) throw new ApiError("LIMIT_MUST_BE_NUMBER");
     return {
-      stats: listQueryStats(id, { sinceDays: days || undefined, sort: query.sort as DbQueryStatSort, limit }),
+      stats: await listQueryStats(id, { sinceDays: days || undefined, sort: query.sort as DbQueryStatSort, limit }),
     };
   });
 }

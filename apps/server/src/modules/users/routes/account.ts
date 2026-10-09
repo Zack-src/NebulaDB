@@ -16,7 +16,7 @@ async function verifyOwnPassword(
   password: string,
   failure: "PASSWORD_INCORRECT" | "CURRENT_PASSWORD_INCORRECT",
 ) {
-  const hash = getPasswordHash(userId);
+  const hash = await getPasswordHash(userId);
   if (!hash || !(await verifyPassword(password, hash))) throw new ApiError(failure);
 }
 
@@ -27,14 +27,14 @@ export function registerAccountRoutes(app: FastifyInstance): void {
     const { displayName } = (req.body ?? {}) as { displayName?: string };
     const trimmed = displayName?.trim().slice(0, MAX_DISPLAY_NAME_LENGTH);
     if (!trimmed) throw new ApiError("DISPLAY_NAME_REQUIRED");
-    updateDisplayName(user.id, trimmed);
+    await updateDisplayName(user.id, trimmed);
     return { ...user, displayName: trimmed };
   });
 
   app.get("/api/users/me/export", async (req, reply) => {
     const user = requireUser(req);
     reply.header("Content-Disposition", `attachment; filename="nebuladb-${user.email}.json"`);
-    return buildPersonalDataExport(user.id, req);
+    return await buildPersonalDataExport(user.id, req);
   });
 
   /**
@@ -51,12 +51,12 @@ export function registerAccountRoutes(app: FastifyInstance): void {
     const { password } = (req.body ?? {}) as { password?: string };
     if (!password) throw new ApiError("PASSWORD_REQUIRED_FOR_DELETION");
     await verifyOwnPassword(user.id, password, "PASSWORD_INCORRECT");
-    if (wouldRemoveLastAdmin(user.id)) throw new ApiError("LAST_ADMIN_SELF");
+    if (await wouldRemoveLastAdmin(user.id)) throw new ApiError("LAST_ADMIN_SELF");
 
-    const owned = deleteUserAccount(user.id, user.email, null);
-    revalidateAllRooms();
+    const owned = await deleteUserAccount(user.id, user.email, null);
+    await revalidateAllRooms();
     clearSessionCookie(reply);
-    auditUser(
+    await auditUser(
       user,
       "user.delete",
       { type: "user", id: user.id },
@@ -76,7 +76,7 @@ export function registerAccountRoutes(app: FastifyInstance): void {
     if (!check.ok) throw new ApiError("PASSWORD_TOO_WEAK", { message: check.error });
 
     await verifyOwnPassword(user.id, currentPassword, "CURRENT_PASSWORD_INCORRECT");
-    updatePasswordHash(user.id, await hashPassword(check.password));
+    await updatePasswordHash(user.id, await hashPassword(check.password));
     return { changed: true };
   });
 }

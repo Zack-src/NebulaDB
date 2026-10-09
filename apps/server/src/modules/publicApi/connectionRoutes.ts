@@ -40,22 +40,22 @@ function requireValidEngine(engine: unknown): void {
 export function registerPublicConnectionRoutes(app: FastifyInstance): void {
   app.get("/api/v1/projects/:id/connections", API_RATE_LIMIT, async (req) => {
     const { id } = req.params as { id: string };
-    requireProjectAccess(req, id, "view");
+    await requireProjectAccess(req, id, "view");
     requireScope(req, "projects:read", id);
-    return { connections: listConnectionsByProject(id) };
+    return { connections: await listConnectionsByProject(id) };
   });
 
   app.post("/api/v1/projects/:id/connections", API_RATE_LIMIT, async (req) => {
     const { id } = req.params as { id: string };
-    const { user } = requireProjectAdmin(req, id);
+    const { user } = await requireProjectAdmin(req, id);
     requireScope(req, "connections:manage", id);
     const body = (req.body ?? {}) as Omit<DatabaseConnectionConfig, "id">;
     if (!body.name?.trim()) throw new ApiError("NAME_REQUIRED");
     requireValidEngine(body.engine);
-    assertTargetNotManaged(user, body);
+    await assertTargetNotManaged(user, body);
 
-    const saved = saveConnection(id, body);
-    auditUser(user, "connection.create", { type: "project", id }, `${body.engine}: ${body.name} (v1)`, req, {
+    const saved = await saveConnection(id, body);
+    await auditUser(user, "connection.create", { type: "project", id }, `${body.engine}: ${body.name} (v1)`, req, {
       connectionId: saved.id,
     });
     return { connection: saved };
@@ -63,41 +63,50 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
 
   app.put("/api/v1/projects/:id/connections/:connId", API_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
-    const { user } = requireProjectAdmin(req, id);
+    const { user } = await requireProjectAdmin(req, id);
     requireScope(req, "connections:manage", id);
     const body = (req.body ?? {}) as Partial<DatabaseConnectionConfig>;
     if (body.engine !== undefined) requireValidEngine(body.engine);
 
-    assertProjectMayEditConnection(user, id, connId);
-    assertTargetNotManaged(user, { ...getProjectConnection(id, connId)!, ...body });
-    const updated = updateConnection(connId, body, id);
+    await assertProjectMayEditConnection(user, id, connId);
+    await assertTargetNotManaged(user, { ...(await getProjectConnection(id, connId))!, ...body });
+    const updated = await updateConnection(connId, body, id);
     if (!updated) throw new ApiError("CONNECTION_NOT_FOUND");
 
-    auditUser(user, "connection.update", { type: "project", id }, `${updated.engine}: ${updated.name} (v1)`, req, {
-      connectionId: connId,
-    });
+    await auditUser(
+      user,
+      "connection.update",
+      { type: "project", id },
+      `${updated.engine}: ${updated.name} (v1)`,
+      req,
+      {
+        connectionId: connId,
+      },
+    );
     return { connection: updated };
   });
 
   app.delete("/api/v1/projects/:id/connections/:connId", API_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
-    const { user } = requireProjectAdmin(req, id);
+    const { user } = await requireProjectAdmin(req, id);
     requireScope(req, "connections:manage", id);
 
-    const ok = unlinkProjectConnection(id, connId);
+    const ok = await unlinkProjectConnection(id, connId);
     if (!ok) throw new ApiError("CONNECTION_NOT_FOUND");
 
-    auditUser(user, "connection.delete", { type: "project", id }, `${connId} (v1)`, req, { connectionId: connId });
+    await auditUser(user, "connection.delete", { type: "project", id }, `${connId} (v1)`, req, {
+      connectionId: connId,
+    });
     return { deleted: true };
   });
 
   app.post("/api/v1/projects/:id/connections/test", API_RATE_LIMIT, async (req) => {
     const { id } = req.params as { id: string };
-    const { user } = requireProjectAdmin(req, id);
+    const { user } = await requireProjectAdmin(req, id);
     requireScope(req, "connections:manage", id);
     const body = (req.body ?? {}) as DatabaseConnectionConfig;
     requireValidEngine(body.engine);
-    assertTargetNotManaged(user, body);
+    await assertTargetNotManaged(user, body);
 
     const driver = await createDatabaseDriver(body);
     try {
@@ -109,20 +118,27 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
 
   app.post("/api/v1/projects/:id/connections/:connId/pull", API_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
-    const { user, project } = requireProjectAdmin(req, id);
+    const { user, project } = await requireProjectAdmin(req, id);
     requireScope(req, "connections:manage", id);
 
     const result = await pullConnectionSchema(id, project.name, connId, user.displayName, user.id);
-    auditUser(user, "connection.pull", { type: "project", id }, `${connId} -> ${result.tablesCount} tables (v1)`, req, {
-      connectionId: connId,
-    });
+    await auditUser(
+      user,
+      "connection.pull",
+      { type: "project", id },
+      `${connId} -> ${result.tablesCount} tables (v1)`,
+      req,
+      {
+        connectionId: connId,
+      },
+    );
 
     return result;
   });
 
   app.post("/api/v1/projects/:id/connections/:connId/deploy", DEPLOY_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
-    const { user, project } = requireProjectAdmin(req, id);
+    const { user, project } = await requireProjectAdmin(req, id);
     requireScope(req, "deployments:trigger", id);
     const body = (req.body ?? {}) as {
       resolutions?: MigrationResolutionMap;
@@ -134,7 +150,7 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
       skipReason?: string;
     };
 
-    const skipStageOrder = stageSkipFor(req, id, connId, body);
+    const skipStageOrder = await stageSkipFor(req, id, connId, body);
 
     const result = await deployToConnection(id, project.name, connId, body.resolutions || {}, user.email, {
       confirmName: body.confirmName,
@@ -144,7 +160,7 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
       skipStageOrder,
     });
 
-    auditUser(
+    await auditUser(
       user,
       "connection.deploy",
       { type: "project", id },
@@ -159,16 +175,16 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
   // Where the current schema has been deployed along the stages — what a CI job reads before promoting.
   app.get("/api/v1/projects/:id/pipeline", API_RATE_LIMIT, async (req) => {
     const { id } = req.params as { id: string };
-    const { project } = requireProjectAdmin(req, id);
+    const { project } = await requireProjectAdmin(req, id);
     requireScope(req, "projects:read", id);
-    const schema = readProjectFromDoc(getRoom(id).doc, id, project.name);
-    return { pipeline: projectPipeline(id, schemaHashOf(schema)) };
+    const schema = readProjectFromDoc((await getRoom(id)).doc, id, project.name);
+    return { pipeline: await projectPipeline(id, schemaHashOf(schema)) };
   });
 
   // Two of the project's databases against each other. Reads both, changes nothing.
   app.post("/api/v1/projects/:id/connections/compare", DEPLOY_RATE_LIMIT, async (req) => {
     const { id } = req.params as { id: string };
-    const { project } = requireProjectAdmin(req, id);
+    const { project } = await requireProjectAdmin(req, id);
     requireScope(req, "projects:read", id);
     const { sourceId, targetId } = (req.body ?? {}) as { sourceId?: unknown; targetId?: unknown };
     return compareConnections(id, project.name, sourceId, targetId);
@@ -176,22 +192,29 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
 
   app.get("/api/v1/projects/:id/connections/:connId/history", API_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
-    requireProjectAdmin(req, id);
+    await requireProjectAdmin(req, id);
     requireScope(req, "projects:read", id);
-    return { history: listDeploymentHistory(id, connId) };
+    return { history: await listDeploymentHistory(id, connId) };
   });
 
   app.post("/api/v1/projects/:id/connections/:connId/history/:historyId/rollback", DEPLOY_RATE_LIMIT, async (req) => {
     const { id, connId, historyId } = req.params as { id: string; connId: string; historyId: string };
-    const { user } = requireProjectAdmin(req, id);
+    const { user } = await requireProjectAdmin(req, id);
     requireScope(req, "deployments:trigger", id);
 
     const { confirmName } = (req.body ?? {}) as { confirmName?: string };
     const result = await rollbackConnectionDeployment(id, connId, historyId, user.email, confirmName);
 
-    auditUser(user, "connection.rollback", { type: "project", id }, `${connId}: rolled back ${historyId} (v1)`, req, {
-      connectionId: connId,
-    });
+    await auditUser(
+      user,
+      "connection.rollback",
+      { type: "project", id },
+      `${connId}: rolled back ${historyId} (v1)`,
+      req,
+      {
+        connectionId: connId,
+      },
+    );
 
     return result;
   });
