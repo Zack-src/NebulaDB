@@ -35,7 +35,7 @@ un moteur cible pour les projets).
 ## D. Lot 3 — navigation
 
 - [~] D1. Formulaire de connexion en onglets (Connexion / Règles / Projets)
-- [~] D2. Palette `Ctrl+K` globale (projets, tables, onglets, connexions)
+- [x] D2. Palette `Ctrl+K` globale (projets, tables, onglets, connexions) — `b7dd320`, `f10d6b9`
 
 ## E. Lot 4 — déploiement et droits
 
@@ -67,13 +67,14 @@ un moteur cible pour les projets).
 
 ## Journal
 
-| Date       | Ligne | Commit    | Note                                                                                                             |
-| ---------- | ----- | --------- | ---------------------------------------------------------------------------------------------------------------- |
-| 2026-10-09 | B3    | `7e8882c` | Table clé/valeur + variables manquantes ; e2e réécrit, non lancé                                                 |
-| 2026-10-09 | B1    | `9f04aee` | Avertissement (toast) + champ `detachedConnections` dans la réponse, API v1 comprise                             |
-| 2026-10-09 | B2    | `2e7aeaf` | Pastilles + liste à cocher avec recherche ; nom hors schéma accepté                                              |
-| 2026-10-09 | B4    | `72b58bc` | Liste des bases du serveur (datalist), état « existe / sera créée », doublons signalés                           |
-| 2026-10-09 | C1    | `478534c` | Éditeur CodeMirror : dialecte par moteur, complétion tables/colonnes ; essayé en navigateur sur SQLite seulement |
+| Date       | Ligne | Commit    | Note                                                                                                                          |
+| ---------- | ----- | --------- | ----------------------------------------------------------------------------------------------------------------------------- |
+| 2026-10-09 | B3    | `7e8882c` | Table clé/valeur + variables manquantes ; e2e réécrit, non lancé                                                              |
+| 2026-10-09 | B1    | `9f04aee` | Avertissement (toast) + champ `detachedConnections` dans la réponse, API v1 comprise                                          |
+| 2026-10-09 | B2    | `2e7aeaf` | Pastilles + liste à cocher avec recherche ; nom hors schéma accepté                                                           |
+| 2026-10-09 | B4    | `72b58bc` | Liste des bases du serveur (datalist), état « existe / sera créée », doublons signalés                                        |
+| 2026-10-09 | C1    | `478534c` | Éditeur CodeMirror : dialecte par moteur, complétion tables/colonnes ; essayé en navigateur sur SQLite seulement              |
+| 2026-10-09 | D2    | `b7dd320` | Palette globale ; ne s'ouvre pas depuis l'éditeur DBML (Ctrl+K y est un préfixe de raccourcis) ; e2e dédié passé chez l'agent |
 
 Vérifié après intégration des quatre lignes B : 337 tests serveur, 121 tests web, typecheck et lint propres.
 Non vérifié : tests navigateur (e2e) et essai à la main des écrans.
