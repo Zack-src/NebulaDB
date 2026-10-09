@@ -1173,6 +1173,20 @@ export const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 49,
+    name: "monitor_settings.muted_*: alerts held back for a while",
+    up: (db) => {
+      // NULL: not muted.
+      const columns = db.prepare("PRAGMA table_info(monitor_settings)").all() as { name: string }[];
+      if (!columns.some((c) => c.name === "muted_until")) {
+        db.exec("ALTER TABLE monitor_settings ADD COLUMN muted_until TEXT");
+        db.exec("ALTER TABLE monitor_settings ADD COLUMN muted_at TEXT");
+        db.exec("ALTER TABLE monitor_settings ADD COLUMN muted_by_name TEXT");
+        db.exec("ALTER TABLE monitor_settings ADD COLUMN muted_reason TEXT");
+      }
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */

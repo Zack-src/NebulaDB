@@ -1,5 +1,12 @@
 import crypto from "node:crypto";
-import { MONITOR_INTERVALS, type DriftAcknowledgement, type DriftEvent, type MonitorSettings } from "@nebuladb/shared";
+import {
+  MONITOR_INTERVALS,
+  MONITOR_MUTE_MINUTES,
+  type DriftAcknowledgement,
+  type DriftEvent,
+  type MonitorMute,
+  type MonitorSettings,
+} from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { ApiError } from "../../shared/errors.js";
 
@@ -11,13 +18,25 @@ interface SettingsRow {
   interval_minutes: number;
   ignore_json: string;
   last_checked_at: string | null;
+  muted_until: string | null;
+  muted_at: string | null;
+  muted_by_name: string | null;
+  muted_reason: string | null;
+}
+
+const MAX_MUTE_REASON = 200;
+
+/** Server time as the database stores it (`YYYY-MM-DD HH:MM:SS`, UTC), so stored dates compare as text. */
+function serverTime(ms: number): string {
+  return new Date(ms).toISOString().slice(0, 19).replace("T", " ");
 }
 
 /** What the project itself chose, before any connection imposes anything. */
 function storedSettings(projectId: string): MonitorSettings {
   const row = db
     .prepare(
-      "SELECT enabled, interval_minutes, ignore_json, last_checked_at FROM monitor_settings WHERE project_id = ?",
+      `SELECT enabled, interval_minutes, ignore_json, last_checked_at, muted_until, muted_at, muted_by_name, muted_reason
+         FROM monitor_settings WHERE project_id = ?`,
     )
     .get(projectId) as SettingsRow | undefined;
   if (!row) return { ...DEFAULTS };
@@ -26,7 +45,53 @@ function storedSettings(projectId: string): MonitorSettings {
     intervalMinutes: row.interval_minutes,
     ignoreTables: JSON.parse(row.ignore_json) as string[],
     lastCheckedAt: row.last_checked_at,
+    // A mute that has run out is no mute.
+    mute:
+      row.muted_until && row.muted_until > serverTime(Date.now())
+        ? {
+            until: row.muted_until,
+            at: row.muted_at ?? row.muted_until,
+            by: row.muted_by_name ?? "",
+            reason: row.muted_reason ?? "",
+          }
+        : null,
   };
+}
+
+/** Whether the project's alerts are held back right now. */
+export function isMuted(projectId: string): boolean {
+  return storedSettings(projectId).mute != null;
+}
+
+/** Checks what an administrator sent to mute the alerts: one of the offered durations and a reason. */
+export function parseMute(body: unknown): { minutes: number; reason: string } {
+  const raw = (body ?? {}) as Record<string, unknown>;
+  const reason = typeof raw.reason === "string" ? raw.reason.trim() : "";
+  if (!MONITOR_MUTE_MINUTES.includes(raw.minutes as number) || !reason || reason.length > MAX_MUTE_REASON) {
+    throw new ApiError("MONITORING_MUTE_INVALID");
+  }
+  return { minutes: raw.minutes as number, reason };
+}
+
+export function setMute(projectId: string, minutes: number, reason: string, by: string): MonitorMute {
+  const now = Date.now();
+  const mute = { until: serverTime(now + minutes * 60_000), at: serverTime(now), by, reason };
+  db.prepare(
+    `INSERT INTO monitor_settings (project_id, muted_until, muted_at, muted_by_name, muted_reason) VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(project_id) DO UPDATE SET
+       muted_until = excluded.muted_until, muted_at = excluded.muted_at,
+       muted_by_name = excluded.muted_by_name, muted_reason = excluded.muted_reason`,
+  ).run(projectId, mute.until, mute.at, by, reason);
+  return mute;
+}
+
+/** Lifts the mute; `false` when there was none. */
+export function clearMute(projectId: string): boolean {
+  if (!isMuted(projectId)) return false;
+  db.prepare(
+    "UPDATE monitor_settings SET muted_until = NULL, muted_at = NULL, muted_by_name = NULL, muted_reason = NULL WHERE project_id = ?",
+  ).run(projectId);
+  return true;
 }
 
 /** The watch imposed on a project by the connections it is attached to (Admin → Connexions), or `null`. */

@@ -31,6 +31,21 @@ export function setAccountWatch(projectId: string, enabled: boolean): Promise<Mo
   return request<MonitoringState>(`${base(projectId)}/accounts`, { method: "PUT", body: { enabled } });
 }
 
+/** Holds the project's alerts back for `minutes`; checks go on and findings are still recorded. */
+export async function muteAlerts(projectId: string, minutes: number, reason: string): Promise<MonitorSettings> {
+  return (
+    await request<{ settings: MonitorSettings }>(`${base(projectId)}/mute`, {
+      method: "PUT",
+      body: { minutes, reason: reason.trim() },
+    })
+  ).settings;
+}
+
+/** Lifts the mute: alerts are sent again. */
+export async function unmuteAlerts(projectId: string): Promise<MonitorSettings> {
+  return (await request<{ settings: MonitorSettings }>(`${base(projectId)}/mute`, { method: "DELETE" })).settings;
+}
+
 /** A project administrator takes note of an open finding: it stays open, with who, when and the note. */
 export function acknowledgeEvent(projectId: string, eventId: string, note: string): Promise<MonitoringState> {
   return request<MonitoringState>(`${base(projectId)}/events/${eventId}/acknowledge`, {

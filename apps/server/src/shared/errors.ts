@@ -112,6 +112,14 @@ export const ERROR_CATALOG = {
     status: 403,
     message: "the watch is imposed by a connection of this project: only an instance administrator changes it",
   },
+  MONITORING_MUTE_INVALID: {
+    status: 400,
+    message: "mute: minutes (60, 480, 1440 or 10080) and a reason (at most 200 characters) are required",
+  },
+  MONITORING_MUTE_LOCKED: {
+    status: 403,
+    message: "the watch is imposed by a connection of this project: only an instance administrator may mute its alerts",
+  },
   MONITORING_EVENT_NOT_FOUND: { status: 404, message: "no such finding of the watch in this project" },
   MONITORING_EVENT_NOT_OPEN: {
     status: 409,

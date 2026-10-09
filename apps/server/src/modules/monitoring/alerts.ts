@@ -4,6 +4,7 @@ import { driftAlertEmail } from "../../shared/emailTemplates.js";
 import { getProjectRow } from "../projects/repository.js";
 import { listDriftEmailRecipients, notifyFollowers } from "../notifications/repository.js";
 import { emitWebhookEvent } from "../webhooks/dispatcher.js";
+import { isMuted } from "./repository.js";
 
 /** What the watch found, as it is told to followers, by email and to webhooks. */
 export interface DriftAlert {
@@ -21,9 +22,11 @@ export interface DriftAlert {
  * Tells the project of a new finding: the in-app notification, the followers who asked for email
  * too, the webhooks. The accounts watch is for project administrators (instance administrators
  * read the names on screen): a follower below that level is told nothing, by any channel.
- * Never throws and never waits: a notice that fails is logged, the watch goes on.
+ * Nothing at all is sent while the project's alerts are muted. Never throws and never waits: a notice that fails is logged, the watch goes on.
  */
 export function announceDrift(projectId: string, alert: DriftAlert): void {
+  // Muted: the event is recorded and listed, nothing is sent — and not sent later either.
+  if (isMuted(projectId)) return;
   const accounts = alert.kind === "accounts";
   const changes = alert.accountChanges ?? [];
   const needs = accounts ? ("administrator" as const) : undefined;

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { MONITOR_INTERVALS, type AccountChange, type DriftEvent } from "@nebuladb/shared";
+  import { MONITOR_INTERVALS, MONITOR_MUTE_MINUTES, type AccountChange, type DriftEvent } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { CloseIcon, PlusIcon, RestoreIcon, SearchIcon } from "@/components/icons/Icons";
   import Badge from "@/components/ui/Badge.svelte";
@@ -22,9 +22,11 @@
     acceptAccountState,
     acknowledgeEvent,
     fetchMonitoring,
+    muteAlerts,
     runMonitoringCheck,
     saveMonitoring,
     setAccountWatch,
+    unmuteAlerts,
     type MonitoringState,
   } from "@/services/monitoringApi";
 
@@ -84,6 +86,18 @@
     override = await acknowledgeEvent(projectId, acknowledging.id, acknowledging.note);
     acknowledging = null;
   });
+  /** The mute being set (duration and reason), while its form is open. */
+  let muting = $state<{ minutes: number; reason: string } | null>(null);
+  const mute = useAsyncAction(async () => {
+    if (!muting) return;
+    const settings = await muteAlerts(projectId, muting.minutes, muting.reason);
+    if (current) override = { ...current, settings };
+    muting = null;
+  });
+  const unmute = useAsyncAction(async () => {
+    const settings = await unmuteAlerts(projectId);
+    if (current) override = { ...current, settings };
+  });
   /** The database whose current accounts are about to become the reference. */
   let accepting = $state<{ connectionId: string; connectionName: string } | null>(null);
   const accept = useAsyncAction(async () => {
@@ -127,6 +141,9 @@
   const intervalOptions = $derived(
     MONITOR_INTERVALS.map((minutes) => ({ value: minutes, label: t(`monitoring.every.${minutes}` as "monitoring.every.5") })),
   );
+  const muteOptions = $derived(
+    MONITOR_MUTE_MINUTES.map((minutes) => ({ value: minutes, label: t(`monitoring.mute.for.${minutes}` as "monitoring.mute.for.60") })),
+  );
   const STATUS_TONE = { open: "danger", resolved: "success", ignored: "muted" } as const;
   const describeChange = (change: AccountChange) =>
     t(`monitoring.accountChange.${change.type}`, {
@@ -143,7 +160,7 @@
         : [...event.added.map((n) => `+${n}`), ...event.changed.map((n) => `~${n}`), ...event.removed.map((n) => `−${n}`)].join(
           " ",
         );
-  const busy = $derived(save.pending || check.pending || watchAccounts.pending);
+  const busy = $derived(save.pending || check.pending || watchAccounts.pending || mute.pending || unmute.pending);
   // Imposed from a connection (Admin → Connexions): on and paced there; the ignored tables are the instance administrators'.
   const forced = $derived(current?.settings.forced ?? null);
   const instanceAdmin = $derived(current?.accounts != null);
@@ -273,6 +290,70 @@
       </p>
     {/if}
 
+    <div class="mt-2" data-testid="monitoring-mute">
+      {#if current.settings.mute}
+        {@const muted = current.settings.mute}
+        <p class="m-0 flex flex-wrap items-center gap-2">
+          <Badge tone="warning">{t("monitoring.mute.badge")}</Badge>
+          <span class="min-w-0 flex-1 text-text-secondary">
+            {t("monitoring.mute.detail", {
+              until: formatDateTime(parseServerTime(muted.until), i18n.locale),
+              name: muted.by,
+              reason: muted.reason,
+            })}
+          </span>
+          {#if canManage}
+            <Button size="xs" variant="outline" onclick={() => void unmute.run()} disabled={busy}>
+              {unmute.pending ? t("common.loading") : t("monitoring.mute.lift")}
+            </Button>
+          {/if}
+        </p>
+      {:else if canManage}
+        {#if muting}
+          <form
+            class="flex flex-wrap items-center gap-2"
+            onsubmit={(submitEvent) => {
+              submitEvent.preventDefault();
+              void mute.run();
+            }}
+          >
+            <Select
+              size="sm"
+              class="w-40"
+              aria-label={t("monitoring.mute.duration")}
+              value={muting.minutes}
+              options={muteOptions}
+              onChange={(minutes) => muting && (muting.minutes = minutes)}
+            />
+            <input
+              class={`${INPUT_SM_CLASS} min-w-[200px] flex-1`}
+              aria-label={t("monitoring.mute.reason")}
+              placeholder={t("monitoring.mute.reason")}
+              maxlength="200"
+              required
+              bind:value={muting.reason}
+            />
+            <Button size="xs" variant="primary" type="submit" disabled={busy || !muting.reason.trim()}>
+              {mute.pending ? t("common.loading") : t("monitoring.mute.confirm")}
+            </Button>
+            <Button size="xs" variant="ghost" onclick={() => (muting = null)} disabled={busy}>{t("common.cancel")}</Button>
+          </form>
+        {:else}
+          <Button
+            size="xs"
+            variant="outline"
+            onclick={() => (muting = { minutes: MONITOR_MUTE_MINUTES[0], reason: "" })}
+            disabled={busy || (forced !== null && !instanceAdmin)}
+          >
+            {t("monitoring.mute.start")}
+          </Button>
+          {#if forced !== null && !instanceAdmin}
+            <Hint>{t("monitoring.mute.forcedHint")}</Hint>
+          {/if}
+        {/if}
+      {/if}
+    </div>
+
     {#if current.accounts && current.accounts.connections.length > 0}
       {@const accounts = current.accounts}
       <div class="mt-3 border-t border-border/60 pt-2" data-testid="monitoring-accounts">
@@ -378,8 +459,8 @@
       {/if}
     {/if}
   {/if}
-  {#if monitoring.error ?? save.error ?? check.error ?? watchAccounts.error ?? acknowledge.error}
-    <ErrorText>{monitoring.error ?? save.error ?? check.error ?? watchAccounts.error ?? acknowledge.error}</ErrorText>
+  {#if monitoring.error ?? save.error ?? check.error ?? watchAccounts.error ?? acknowledge.error ?? mute.error ?? unmute.error}
+    <ErrorText>{monitoring.error ?? save.error ?? check.error ?? watchAccounts.error ?? acknowledge.error ?? mute.error ?? unmute.error}</ErrorText>
   {/if}
   {#if accepting}
     <ConfirmDialog

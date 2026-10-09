@@ -15,11 +15,14 @@ import {
 import { checkProjectMonitoring } from "./monitor.js";
 import {
   acknowledgeDriftEvent,
+  clearMute,
   getDriftEvent,
   getMonitorSettings,
   listDriftEvents,
   parseMonitorSettings,
+  parseMute,
   saveMonitorSettings,
+  setMute,
 } from "./repository.js";
 
 const CHECK_LIMIT = { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } };
@@ -51,6 +54,28 @@ export function saveMonitoringFor(
 }
 
 const MAX_NOTE = 500;
+
+type RouteUser = { id: string; email: string; displayName: string; isAdmin: boolean };
+
+/**
+ * Holds the watch's alerts back for a while: checks go on and events are still recorded and
+ * listed, but nothing is notified, e-mailed or sent to a webhook. A watch imposed from a connection
+ * is not the project's to silence — only an instance administrator may, or muting would be a way
+ * around the imposition. Audited, with the reason.
+ */
+export function muteAlertsFor(user: RouteUser, projectId: string, body: unknown, req: FastifyRequest): MonitorSettings {
+  if (getMonitorSettings(projectId).forced && !user.isAdmin) throw new ApiError("MONITORING_MUTE_LOCKED");
+  const { minutes, reason } = parseMute(body);
+  const mute = setMute(projectId, minutes, reason, user.displayName);
+  auditUser(user, "monitoring.mute", { type: "project", id: projectId }, `until ${mute.until} UTC: ${reason}`, req);
+  return getMonitorSettings(projectId);
+}
+
+/** Lifts the mute — always open to a project administrator: it only brings the alerts back. */
+export function unmuteAlertsFor(user: RouteUser, projectId: string, req: FastifyRequest): MonitorSettings {
+  if (clearMute(projectId)) auditUser(user, "monitoring.unmute", { type: "project", id: projectId }, undefined, req);
+  return getMonitorSettings(projectId);
+}
 
 /**
  * A project administrator takes note of an open finding: who and when are recorded with an
@@ -126,6 +151,18 @@ export function registerMonitoringRoutes(app: FastifyInstance): void {
     requireProjectAdmin(req, id);
     const result = await checkProjectMonitoring(id);
     return { result, ...monitoringView(req, id) };
+  });
+
+  app.put("/api/projects/:id/monitoring/mute", async (req) => {
+    const { id } = req.params as { id: string };
+    const { user } = requireProjectAdmin(req, id);
+    return { settings: muteAlertsFor(user, id, req.body, req) };
+  });
+
+  app.delete("/api/projects/:id/monitoring/mute", async (req) => {
+    const { id } = req.params as { id: string };
+    const { user } = requireProjectAdmin(req, id);
+    return { settings: unmuteAlertsFor(user, id, req) };
   });
 
   app.post("/api/projects/:id/monitoring/events/:eventId/acknowledge", async (req) => {

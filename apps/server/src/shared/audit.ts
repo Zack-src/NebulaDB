@@ -115,6 +115,8 @@ export const AUDIT_ACTIONS = [
   "dbconn.open",
   "monitoring.drift",
   "monitoring.acknowledge",
+  "monitoring.mute",
+  "monitoring.unmute",
   "monitoring.unreachable",
   "monitoring.accounts",
   "monitoring.accounts.watch",

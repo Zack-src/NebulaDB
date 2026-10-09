@@ -3,7 +3,7 @@ import { requireScope } from "../apiKeys/auth.js";
 import { requireProjectAccess, requireProjectAdmin } from "../../shared/guards.js";
 import { checkProjectMonitoring } from "../monitoring/monitor.js";
 import { getMonitorSettings, listDriftEvents } from "../monitoring/repository.js";
-import { acknowledgeEventFor, saveMonitoringFor } from "../monitoring/routes.js";
+import { acknowledgeEventFor, muteAlertsFor, saveMonitoringFor, unmuteAlertsFor } from "../monitoring/routes.js";
 import { API_RATE_LIMIT, DEPLOY_RATE_LIMIT } from "./rateLimits.js";
 
 /**
@@ -34,6 +34,21 @@ export function registerPublicMonitoringRoutes(app: FastifyInstance): void {
     requireScope(req, "projects:read", id);
     const result = await checkProjectMonitoring(id);
     return { result, settings: getMonitorSettings(id), events: listDriftEvents(id) };
+  });
+
+  // Holds the alerts back for a while (a maintenance window a CI job opens); lifting it is `DELETE`.
+  app.put("/api/v1/projects/:id/monitoring/mute", API_RATE_LIMIT, async (req) => {
+    const { id } = req.params as { id: string };
+    const { user } = requireProjectAdmin(req, id);
+    requireScope(req, "projects:write", id);
+    return { settings: muteAlertsFor(user, id, req.body, req) };
+  });
+
+  app.delete("/api/v1/projects/:id/monitoring/mute", API_RATE_LIMIT, async (req) => {
+    const { id } = req.params as { id: string };
+    const { user } = requireProjectAdmin(req, id);
+    requireScope(req, "projects:write", id);
+    return { settings: unmuteAlertsFor(user, id, req) };
   });
 
   // Takes note of an open finding: it stays open, shows who is on it and quiets the editor's banner for non-administrators.

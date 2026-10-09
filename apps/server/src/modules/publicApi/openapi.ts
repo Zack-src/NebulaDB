@@ -561,6 +561,30 @@ export const OPERATIONS: Operation[] = [
     },
   },
   {
+    method: "put",
+    path: "/api/v1/projects/:id/monitoring/mute",
+    tag: "Connections",
+    scope: "projects:write",
+    admin: true,
+    summary: "Mute the watch's alerts for a while",
+    description:
+      "No notification, e-mail or webhook is sent until `settings.mute.until`; checks go on and findings are still recorded and listed. When a connection imposes the watch (`settings.forced`), only an instance administrator may mute (403 `MONITORING_MUTE_LOCKED`).",
+    body: obj({
+      minutes: { type: "integer", enum: [60, 480, 1440, 10080] },
+      reason: { type: "string", maxLength: 200 },
+    }),
+    ok: { status: 200, schema: obj({ settings: ref("MonitorSettings") }) },
+  },
+  {
+    method: "delete",
+    path: "/api/v1/projects/:id/monitoring/mute",
+    tag: "Connections",
+    scope: "projects:write",
+    admin: true,
+    summary: "Lift the mute: alerts are sent again",
+    ok: { status: 200, schema: obj({ settings: ref("MonitorSettings") }) },
+  },
+  {
     method: "post",
     path: "/api/v1/projects/:id/monitoring/events/:eventId/acknowledge",
     tag: "Connections",
@@ -881,6 +905,12 @@ const COMPONENTS: Record<string, Schema> = {
       description:
         "Set when an instance administrator imposes the watch from a connection of the project: it is on, at least this often, and `PUT` is refused (`MONITORING_LOCKED`) to anyone else.",
       properties: { intervalMinutes: int, connections: { type: "array", items: str } },
+    },
+    mute: {
+      type: ["object", "null"],
+      description:
+        "Set while the alerts (notifications, e-mail, webhooks) are muted: until when (`until`, server time), since when, by whom and why. Findings are still recorded and listed.",
+      properties: { until: str, at: str, by: str, reason: str },
     },
   }),
   DriftEvent: obj({

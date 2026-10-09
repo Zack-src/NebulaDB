@@ -121,7 +121,20 @@ export interface MonitorSettings {
    * administrators change the rest. `connections`: the names of those connections.
    */
   forced?: { intervalMinutes: number; connections: string[] } | null;
+  /** Alerts (notifications, e-mail, webhooks) are held back until `until`; checks go on and events are still recorded. `null`: not muted. */
+  mute?: MonitorMute | null;
 }
+
+/** Who silenced the watch's alerts, why, and until when (server time, like every date here). */
+export interface MonitorMute {
+  until: string;
+  at: string;
+  by: string;
+  reason: string;
+}
+
+/** What an alert mute can last, in minutes: 1 hour, 8 hours, 1 day, 1 week. */
+export const MONITOR_MUTE_MINUTES: readonly number[] = [60, 480, 1440, 10080];
 
 export const MONITOR_INTERVALS: readonly number[] = [5, 15, 60, 360, 1440];
 
