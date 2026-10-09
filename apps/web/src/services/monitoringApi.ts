@@ -31,6 +31,14 @@ export function setAccountWatch(projectId: string, enabled: boolean): Promise<Mo
   return request<MonitoringState>(`${base(projectId)}/accounts`, { method: "PUT", body: { enabled } });
 }
 
+/** A project administrator takes note of an open finding: it stays open, with who, when and the note. */
+export function acknowledgeEvent(projectId: string, eventId: string, note: string): Promise<MonitoringState> {
+  return request<MonitoringState>(`${base(projectId)}/events/${eventId}/acknowledge`, {
+    method: "POST",
+    body: { note: note.trim() || null },
+  });
+}
+
 /** Instance administrators: the accounts as last read become the reference; open findings close. */
 export function acceptAccountState(projectId: string, connectionId: string): Promise<MonitoringState> {
   return request<MonitoringState>(`${base(projectId)}/accounts/accept`, { method: "POST", body: { connectionId } });

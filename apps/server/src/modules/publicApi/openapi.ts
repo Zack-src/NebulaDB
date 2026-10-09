@@ -562,6 +562,18 @@ export const OPERATIONS: Operation[] = [
   },
   {
     method: "post",
+    path: "/api/v1/projects/:id/monitoring/events/:eventId/acknowledge",
+    tag: "Connections",
+    scope: "projects:write",
+    admin: true,
+    summary: "Acknowledge an open finding of the watch",
+    description:
+      "Records who took note of it and when, with an optional note. The finding stays `open` (it is neither `resolved` nor `ignored`) and shows `acknowledgement`; the editor's banner then stays for administrators only. A later, different change on the same database is a new finding, not acknowledged. 409 when the finding is not open or already acknowledged.",
+    body: obj({ note: { type: ["string", "null"], maxLength: 500 } }),
+    ok: { status: 200, schema: obj({ event: ref("DriftEvent") }) },
+  },
+  {
+    method: "post",
     path: "/api/v1/projects/:id/connections/compare",
     tag: "Connections",
     scope: "projects:read",
@@ -883,6 +895,10 @@ const COMPONENTS: Record<string, Schema> = {
     error: { type: ["string", "null"] },
     status: { type: "string", enum: ["open", "resolved", "ignored"] },
     resolvedAt: { type: ["string", "null"] },
+    acknowledgement: {
+      description: "Set once a project administrator acknowledged this open finding",
+      oneOf: [obj({ by: str, at: str, note: { type: ["string", "null"] } }), { type: "null" }],
+    },
   }),
   TableLock: obj({
     projectId: str,

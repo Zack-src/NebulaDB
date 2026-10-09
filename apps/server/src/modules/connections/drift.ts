@@ -12,7 +12,7 @@ import { getRoom, notifyProject } from "../../realtime/roomRegistry.js";
 import { ApiError } from "../../shared/errors.js";
 import { createDatabaseDriver } from "./drivers/index.js";
 import { getProjectConnection } from "./repository.js";
-import { closeDriftEvents } from "../monitoring/repository.js";
+import { closeDriftEvents, currentAcknowledgement } from "../monitoring/repository.js";
 
 /**
  * Tracks whether a project's database still is what the project last knew it to be, per
@@ -138,6 +138,7 @@ export function listProjectDrift(projectId: string): ProjectDriftEntry[] {
     outOfSchemaAt: row.at,
     outOfSchemaDetail: row.detail,
     referenceTakenAt: row.reference_at,
+    acknowledgement: currentAcknowledgement(projectId, row.id, row.at),
   }));
 }
 

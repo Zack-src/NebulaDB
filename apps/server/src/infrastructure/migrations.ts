@@ -1160,6 +1160,19 @@ export const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 48,
+    name: "drift_events.acknowledged_*: an administrator took note of an open finding",
+    up: (db) => {
+      // NULL on every existing event: nothing was acknowledged before.
+      const columns = db.prepare("PRAGMA table_info(drift_events)").all() as { name: string }[];
+      if (!columns.some((c) => c.name === "acknowledged_at")) {
+        db.exec("ALTER TABLE drift_events ADD COLUMN acknowledged_at TEXT");
+        db.exec("ALTER TABLE drift_events ADD COLUMN acknowledged_by_name TEXT");
+        db.exec("ALTER TABLE drift_events ADD COLUMN acknowledged_note TEXT");
+      }
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */

@@ -1,5 +1,5 @@
 import crypto from "node:crypto";
-import { MONITOR_INTERVALS, type DriftEvent, type MonitorSettings } from "@nebuladb/shared";
+import { MONITOR_INTERVALS, type DriftAcknowledgement, type DriftEvent, type MonitorSettings } from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { ApiError } from "../../shared/errors.js";
 
@@ -137,6 +137,14 @@ interface EventRow {
   status: DriftEvent["status"];
   resolved_at: string | null;
   details_json: string | null;
+  acknowledged_at: string | null;
+  acknowledged_by_name: string | null;
+  acknowledged_note: string | null;
+}
+
+function acknowledgementOf(row: EventRow): DriftAcknowledgement | null {
+  if (!row.acknowledged_at) return null;
+  return { by: row.acknowledged_by_name ?? "", at: row.acknowledged_at, note: row.acknowledged_note };
 }
 
 function rowToEvent(row: EventRow): DriftEvent {
@@ -152,6 +160,7 @@ function rowToEvent(row: EventRow): DriftEvent {
     error: row.error,
     status: row.status,
     resolvedAt: row.resolved_at,
+    acknowledgement: acknowledgementOf(row),
   };
   if (row.kind === "accounts") event.accountChanges = row.details_json ? JSON.parse(row.details_json) : [];
   return event;
@@ -241,4 +250,50 @@ export function closeDriftEvents(
           AND kind IN (${kinds.map(() => "?").join(", ")})`,
     )
     .run(status, projectId, connectionId, ...kinds).changes;
+}
+
+/** One finding of a project, with its connection's name. */
+export function getDriftEvent(projectId: string, eventId: string): DriftEvent | null {
+  const row = db
+    .prepare(
+      `SELECT e.*, c.name AS connection_name FROM drift_events e
+         LEFT JOIN db_connections c ON c.id = e.connection_id
+        WHERE e.project_id = ? AND e.id = ?`,
+    )
+    .get(projectId, eventId) as EventRow | undefined;
+  return row ? rowToEvent(row) : null;
+}
+
+/** Records who took note of an open finding, and when. `false` when it is not open or already acknowledged. */
+export function acknowledgeDriftEvent(projectId: string, eventId: string, by: string, note: string | null): boolean {
+  return (
+    db
+      .prepare(
+        `UPDATE drift_events SET acknowledged_at = datetime('now'), acknowledged_by_name = ?, acknowledged_note = ?
+          WHERE project_id = ? AND id = ? AND status = 'open' AND acknowledged_at IS NULL`,
+      )
+      .run(by, note, projectId, eventId).changes > 0
+  );
+}
+
+/**
+ * The acknowledgement that currently quiets a database's banner: the newest open change
+ * (`external` / `partial-deployment`) carries one, and it is not older than the out-of-schema
+ * mark — a change made from the console since (which moves the mark) is not covered by it.
+ */
+export function currentAcknowledgement(
+  projectId: string,
+  connectionId: string,
+  outOfSchemaAt: string | null,
+): DriftAcknowledgement | null {
+  if (!outOfSchemaAt) return null;
+  const row = db
+    .prepare(
+      `SELECT * FROM drift_events
+        WHERE project_id = ? AND connection_id = ? AND status = 'open' AND kind IN ('external', 'partial-deployment')
+        ORDER BY detected_at DESC, rowid DESC LIMIT 1`,
+    )
+    .get(projectId, connectionId) as EventRow | undefined;
+  const acknowledgement = row ? acknowledgementOf(row) : null;
+  return acknowledgement && acknowledgement.at >= outOfSchemaAt ? acknowledgement : null;
 }

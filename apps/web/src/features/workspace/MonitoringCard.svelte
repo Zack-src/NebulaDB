@@ -8,6 +8,7 @@
   import Hint from "@/components/ui/Hint.svelte";
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import Input from "@/components/ui/Input.svelte";
+  import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
   import Popover from "@/components/ui/Popover.svelte";
   import Select from "@/components/ui/Select.svelte";
   import Switch from "@/components/ui/Switch.svelte";
@@ -19,6 +20,7 @@
   import { i18n, useTranslation } from "@/i18n/i18n.svelte";
   import {
     acceptAccountState,
+    acknowledgeEvent,
     fetchMonitoring,
     runMonitoringCheck,
     saveMonitoring,
@@ -74,6 +76,13 @@
   });
   const watchAccounts = useAsyncAction(async (enabled: boolean) => {
     override = await setAccountWatch(projectId, enabled);
+  });
+  /** The open finding an administrator is about to take note of, with the note being typed. */
+  let acknowledging = $state<{ id: string; note: string } | null>(null);
+  const acknowledge = useAsyncAction(async () => {
+    if (!acknowledging) return;
+    override = await acknowledgeEvent(projectId, acknowledging.id, acknowledging.note);
+    acknowledging = null;
   });
   /** The database whose current accounts are about to become the reference. */
   let accepting = $state<{ connectionId: string; connectionName: string } | null>(null);
@@ -318,19 +327,59 @@
     {#if current.events.length > 0}
       <ul class="m-0 mt-3 list-none space-y-1 p-0" aria-label={t("monitoring.events")}>
         {#each current.events.slice(0, 10) as event (event.id)}
-          <li class="flex items-center gap-2" data-kind={event.kind} data-status={event.status}>
+          <li class="flex flex-wrap items-center gap-x-2 gap-y-1" data-kind={event.kind} data-status={event.status}>
             <Badge tone={STATUS_TONE[event.status]}>{t(`monitoring.status.${event.status}`)}</Badge>
+            {#if event.acknowledgement}
+              <Badge tone="warning">{t("monitoring.acknowledged")}</Badge>
+            {/if}
             <span class="shrink-0 text-text-muted">{formatDateTime(parseServerTime(event.detectedAt), i18n.locale)}</span>
             <span class="shrink-0 font-semibold">{t(`monitoring.kind.${event.kind}`)}</span>
             <span class="shrink-0 text-text-secondary">{event.connectionName ?? ""}</span>
             <span class="min-w-0 flex-1 truncate font-mono">{summary(event)}</span>
+            {#if canManage && event.status === "open" && !event.acknowledgement}
+              <Button size="xs" variant="outline" onclick={() => (acknowledging = { id: event.id, note: "" })} disabled={busy}>
+                {t("monitoring.acknowledge")}
+              </Button>
+            {/if}
+            {#if event.acknowledgement}
+              <span class="w-full pl-1 text-text-muted" data-testid="monitoring-acknowledgement">
+                {t("monitoring.acknowledgedBy", {
+                  name: event.acknowledgement.by,
+                  when: formatDateTime(parseServerTime(event.acknowledgement.at), i18n.locale),
+                })}
+                {#if event.acknowledgement.note}<span class="italic">« {event.acknowledgement.note} »</span>{/if}
+              </span>
+            {/if}
           </li>
         {/each}
       </ul>
+      {#if acknowledging}
+        <form
+          class="mt-2 flex flex-wrap items-center gap-2"
+          onsubmit={(submitEvent) => {
+            submitEvent.preventDefault();
+            void acknowledge.run();
+          }}
+        >
+          <input
+            class={`${INPUT_SM_CLASS} min-w-[200px] flex-1`}
+            aria-label={t("monitoring.acknowledgeNote")}
+            placeholder={t("monitoring.acknowledgeNote")}
+            maxlength="500"
+            bind:value={acknowledging.note}
+          />
+          <Button size="xs" variant="primary" type="submit" disabled={acknowledge.pending}>
+            {acknowledge.pending ? t("common.loading") : t("monitoring.acknowledge")}
+          </Button>
+          <Button size="xs" variant="ghost" onclick={() => (acknowledging = null)} disabled={acknowledge.pending}>
+            {t("common.cancel")}
+          </Button>
+        </form>
+      {/if}
     {/if}
   {/if}
-  {#if monitoring.error ?? save.error ?? check.error ?? watchAccounts.error}
-    <ErrorText>{monitoring.error ?? save.error ?? check.error ?? watchAccounts.error}</ErrorText>
+  {#if monitoring.error ?? save.error ?? check.error ?? watchAccounts.error ?? acknowledge.error}
+    <ErrorText>{monitoring.error ?? save.error ?? check.error ?? watchAccounts.error ?? acknowledge.error}</ErrorText>
   {/if}
   {#if accepting}
     <ConfirmDialog

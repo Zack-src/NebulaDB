@@ -112,6 +112,11 @@ export const ERROR_CATALOG = {
     status: 403,
     message: "the watch is imposed by a connection of this project: only an instance administrator changes it",
   },
+  MONITORING_EVENT_NOT_FOUND: { status: 404, message: "no such finding of the watch in this project" },
+  MONITORING_EVENT_NOT_OPEN: {
+    status: 409,
+    message: "only an open finding that is not acknowledged yet can be acknowledged",
+  },
   STAGE_SKIP_REASON_REQUIRED: { status: 400, message: "skipping a stage needs a reason (skipReason)" },
   SUBSCRIPTION_INVALID: {
     status: 400,

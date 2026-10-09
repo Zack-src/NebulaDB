@@ -78,6 +78,20 @@ export interface ProjectDriftEntry {
   outOfSchemaDetail: string | null;
   /** When schema and database were last known to agree — the last deployment or pull. `null`: never. */
   referenceTakenAt: string | null;
+  /**
+   * Set when a project administrator acknowledged what the watch found and nothing has changed
+   * since: the banner then stays for administrators only (a note says who acknowledged), and
+   * goes for everyone else. A later change clears it.
+   */
+  acknowledgement: DriftAcknowledgement | null;
+}
+
+/** A project administrator took note of an open finding of the watch: it stays open, but someone is on it. */
+export interface DriftAcknowledgement {
+  /** Display name of the administrator. */
+  by: string;
+  at: string;
+  note: string | null;
 }
 
 /** `POST /api/projects/:id/connections/:connId/drift-check` — the database, read now. */
@@ -132,6 +146,8 @@ export interface DriftEvent {
   error: string | null;
   status: "open" | "resolved" | "ignored";
   resolvedAt: string | null;
+  /** Set once an administrator acknowledged this (open) event; a different later change is a new event, not acknowledged. */
+  acknowledgement: DriftAcknowledgement | null;
   /** Set on an `accounts` event. */
   accountChanges?: AccountChange[];
 }

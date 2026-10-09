@@ -807,6 +807,7 @@ test("drift: an out-of-schema change marks the project, a check says what differ
         outOfSchemaAt: null,
         outOfSchemaDetail: null,
         referenceTakenAt: null,
+        acknowledgement: null,
       },
     ]);
     assert.equal((await check()).sinceReference, null);

@@ -3,7 +3,7 @@ import { requireScope } from "../apiKeys/auth.js";
 import { requireProjectAccess, requireProjectAdmin } from "../../shared/guards.js";
 import { checkProjectMonitoring } from "../monitoring/monitor.js";
 import { getMonitorSettings, listDriftEvents } from "../monitoring/repository.js";
-import { saveMonitoringFor } from "../monitoring/routes.js";
+import { acknowledgeEventFor, saveMonitoringFor } from "../monitoring/routes.js";
 import { API_RATE_LIMIT, DEPLOY_RATE_LIMIT } from "./rateLimits.js";
 
 /**
@@ -34,5 +34,13 @@ export function registerPublicMonitoringRoutes(app: FastifyInstance): void {
     requireScope(req, "projects:read", id);
     const result = await checkProjectMonitoring(id);
     return { result, settings: getMonitorSettings(id), events: listDriftEvents(id) };
+  });
+
+  // Takes note of an open finding: it stays open, shows who is on it and quiets the editor's banner for non-administrators.
+  app.post("/api/v1/projects/:id/monitoring/events/:eventId/acknowledge", API_RATE_LIMIT, async (req) => {
+    const { id, eventId } = req.params as { id: string; eventId: string };
+    const { user } = requireProjectAdmin(req, id);
+    requireScope(req, "projects:write", id);
+    return { event: acknowledgeEventFor(user, id, eventId, req.body, req) };
   });
 }

@@ -121,6 +121,8 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   ACTIVITY_QUERY_INVALID: "errors.activityQueryInvalid",
   MONITORING_INVALID: "errors.monitoringInvalid",
   MONITORING_LOCKED: "errors.monitoringLocked",
+  MONITORING_EVENT_NOT_FOUND: "errors.monitoringEventNotFound",
+  MONITORING_EVENT_NOT_OPEN: "errors.monitoringEventNotOpen",
   DATABASE_TABLE_NOT_FOUND: "errors.databaseTableNotFound",
   COMPARISON_INVALID: "errors.comparisonInvalid",
   SUBSCRIPTION_INVALID: "errors.subscriptionInvalid",

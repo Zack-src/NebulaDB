@@ -1,8 +1,9 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import type { MonitorSettings } from "@nebuladb/shared";
+import type { DriftEvent, MonitorSettings } from "@nebuladb/shared";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireAdmin, requireProjectAccess, requireProjectAdmin, requireUser } from "../../shared/guards.js";
+import { notifyProject } from "../../realtime/roomRegistry.js";
 import { getProjectRow } from "../projects/repository.js";
 import {
   acceptAccountState,
@@ -12,7 +13,14 @@ import {
   setAccountWatch,
 } from "./accountWatch.js";
 import { checkProjectMonitoring } from "./monitor.js";
-import { getMonitorSettings, listDriftEvents, parseMonitorSettings, saveMonitorSettings } from "./repository.js";
+import {
+  acknowledgeDriftEvent,
+  getDriftEvent,
+  getMonitorSettings,
+  listDriftEvents,
+  parseMonitorSettings,
+  saveMonitorSettings,
+} from "./repository.js";
 
 const CHECK_LIMIT = { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } };
 
@@ -40,6 +48,42 @@ export function saveMonitoringFor(
     );
   }
   return settings;
+}
+
+const MAX_NOTE = 500;
+
+/**
+ * A project administrator takes note of an open finding: who and when are recorded with an
+ * optional note, the finding stays open. The accounts watch's findings are the instance
+ * administrators' to see, hence to acknowledge — for anyone else they do not exist.
+ */
+export function acknowledgeEventFor(
+  user: { id: string; email: string; displayName: string; isAdmin: boolean },
+  projectId: string,
+  eventId: string,
+  body: unknown,
+  req: FastifyRequest,
+): DriftEvent {
+  const raw = ((body ?? {}) as { note?: unknown }).note;
+  if (raw !== undefined && raw !== null && (typeof raw !== "string" || raw.length > MAX_NOTE)) {
+    throw new ApiError("MONITORING_INVALID");
+  }
+  const note = typeof raw === "string" && raw.trim() ? raw.trim() : null;
+  const event = getDriftEvent(projectId, eventId);
+  if (!event || (event.kind === "accounts" && !user.isAdmin)) throw new ApiError("MONITORING_EVENT_NOT_FOUND");
+  if (!acknowledgeDriftEvent(projectId, eventId, user.displayName, note))
+    throw new ApiError("MONITORING_EVENT_NOT_OPEN");
+  auditUser(
+    user,
+    "monitoring.acknowledge",
+    { type: "connection", id: event.connectionId },
+    `${event.kind}${note ? `: ${note}` : ""}`,
+    req,
+    { projectId },
+  );
+  // The editor's banner of the people who are not administrators goes at once.
+  notifyProject(projectId, { type: "drift-changed" });
+  return getDriftEvent(projectId, eventId)!;
 }
 
 /**
@@ -82,6 +126,13 @@ export function registerMonitoringRoutes(app: FastifyInstance): void {
     requireProjectAdmin(req, id);
     const result = await checkProjectMonitoring(id);
     return { result, ...monitoringView(req, id) };
+  });
+
+  app.post("/api/projects/:id/monitoring/events/:eventId/acknowledge", async (req) => {
+    const { id, eventId } = req.params as { id: string; eventId: string };
+    const { user } = requireProjectAdmin(req, id);
+    acknowledgeEventFor(user, id, eventId, req.body, req);
+    return monitoringView(req, id);
   });
 
   // Turning the accounts watch on or off: instance administrators only.
