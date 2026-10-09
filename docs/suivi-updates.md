@@ -29,7 +29,7 @@ un moteur cible pour les projets).
 ## C. Lot 2 — SQL
 
 - [x] C1. Éditeur SQL (coloration, complétion des tables et colonnes du schéma) — `5932a4c`, `478534c`
-- [ ] C2. Requêtes enregistrées
+- [~] C2. Requêtes enregistrées
 - [ ] C3. Édition de lignes dans la grille de résultats
 
 ## D. Lot 3 — navigation
@@ -44,7 +44,7 @@ un moteur cible pour les projets).
 
 ## F. Lot 5 — le reste
 
-- [ ] F1. Alertes de surveillance : e-mail, acquittement, mise en sourdine
+- [~] F1. Alertes de surveillance : e-mail, acquittement, mise en sourdine
 - [~] F2. Dictionnaire : description multi-ligne, export PDF
 - [ ] F3. Export des migrations en fichiers versionnés (Flyway / Liquibase)
 - [ ] F4. CLI / action GitHub
