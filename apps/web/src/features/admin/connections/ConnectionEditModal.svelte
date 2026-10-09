@@ -9,6 +9,7 @@
   import Badge from "@/components/ui/Badge.svelte";
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import Select from "@/components/ui/Select.svelte";
+  import Tabs, { type TabItem } from "@/components/ui/Tabs.svelte";
   import RadioGroup from "@/components/ui/RadioGroup.svelte";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Modal from "@/components/overlays/Modal.svelte";
@@ -24,6 +25,7 @@
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { describeApiError } from "@/i18n/serverErrorMessages";
+  import { ApiError } from "@/services/ApiError";
   import { pullDatabaseSchema } from "@/services/connectionsApi";
   import {
     createAdminConnection,
@@ -177,9 +179,27 @@
     };
   }
 
+  type TabId = "connection" | "rules" | "projects";
+  let activeTab = $state<TabId>("connection");
+  /** Where a refused save is explained: the server's code names the field it objected to. */
+  const ERROR_TABS: Record<string, TabId> = {
+    CONNECTION_DATABASE_TAKEN: "projects",
+    CONNECTION_DATABASE_INVALID: "projects",
+    MONITORING_INVALID: "rules",
+    STRUCTURE_POLICY_INVALID: "rules",
+    NAME_REQUIRED: "connection",
+    NAME_TOO_LONG: "connection",
+    CONNECTION_ENGINE_INVALID: "connection",
+    CONNECTION_AUTH_MODE_INVALID: "connection",
+    CONNECTION_TARGET_FORBIDDEN: "connection",
+  };
+  let errorTab = $state<TabId | null>(null);
+
   let testResult = $state.raw<{ ok: boolean; message: string } | null>(null);
   const test = useAsyncAction(async () => {
     testResult = null;
+    // The result is shown on the first tab, wherever the test was started from.
+    activeTab = "connection";
     try {
       const res = await testAdminConnection(payload(), initial?.id);
       testResult = res.ok
@@ -194,11 +214,34 @@
   });
 
   const save = useAsyncAction(async () => {
-    const saved = initial ? await updateAdminConnection(initial.id, payload()) : await createAdminConnection(payload());
-    const before = linkKey((initial?.projects ?? []).map((p) => ({ projectId: p.id, database: p.database ?? null })));
-    if (linkKey(links) !== before) await setAdminConnectionProjects(saved.id, links, createDatabases);
+    errorTab = null;
+    try {
+      const saved = initial ? await updateAdminConnection(initial.id, payload()) : await createAdminConnection(payload());
+      const before = linkKey((initial?.projects ?? []).map((p) => ({ projectId: p.id, database: p.database ?? null })));
+      if (linkKey(links) !== before) await setAdminConnectionProjects(saved.id, links, createDatabases);
+    } catch (err) {
+      // Bring the user to the tab that explains the refusal; any other error shows under every tab.
+      errorTab = (err instanceof ApiError && err.code && ERROR_TABS[err.code]) || null;
+      if (errorTab) activeTab = errorTab;
+      throw err;
+    }
     onSaved();
   });
+
+  // A tab holding something to fix says so with "!", whichever tab is showing.
+  const tabs = $derived<TabItem<TabId>[]>([
+    {
+      id: "connection",
+      label: t("admin.connections.tabConnection"),
+      badge: errorTab === "connection" || (!name.trim() && activeTab !== "connection") ? "!" : undefined,
+    },
+    { id: "rules", label: t("admin.connections.tabRules"), badge: errorTab === "rules" ? "!" : undefined },
+    {
+      id: "projects",
+      label: t("admin.connections.tabProjects"),
+      badge: errorTab === "projects" || databaseIssues.size > 0 ? "!" : projectIds.length > 0 ? projectIds.length : undefined,
+    },
+  ]);
 
   let pullMessage = $state<string | null>(null);
   /** The project whose schema is about to be replaced by the database's — asked first. */
@@ -217,209 +260,232 @@
   dismissable={!save.pending}
 >
   <div class="space-y-4">
-    <div>
-      <!-- svelte-ignore a11y_label_has_associated_control -->
-      <label class={LABEL}>{t("common.name")}</label>
-      <input class={`${INPUT_CLASS} w-full`} bind:value={name} placeholder="ex: Production DB" />
-    </div>
+    <Tabs variant="line" {tabs} {activeTab} onChange={(id) => (activeTab = id)} />
 
-    <ConnectionFormFields
-      showCredentials={!personalPossible || authMode === "shared"}
-      bind:environmentId
-      bind:engine
-      bind:host
-      bind:port
-      bind:database
-      bind:user
-      bind:password
-      passwordPlaceholder={initial?.hasPassword ? "••••••••" : ""}
-      bind:ssl
-      bind:connectionString
-      bind:filePath
-      bind:useUri
-    />
+    <!-- Every panel stays in the same grid cell: the modal keeps the height of the tallest one, and nothing typed is lost. -->
+    <div class="grid">
+      <div
+        role="tabpanel"
+        aria-label={t("admin.connections.tabConnection")}
+        class={`col-start-1 row-start-1 space-y-4 ${activeTab === "connection" ? "" : "invisible"}`}
+      >
+        <div>
+          <!-- svelte-ignore a11y_label_has_associated_control -->
+          <label class={LABEL}>{t("common.name")}</label>
+          <input class={`${INPUT_CLASS} w-full`} bind:value={name} placeholder="ex: Production DB" />
+        </div>
 
-    <div>
-      <!-- svelte-ignore a11y_label_has_associated_control -->
-      <label class={LABEL}>{t("admin.connections.tags")}</label>
-      <input class={`${INPUT_CLASS} w-full`} bind:value={tags} placeholder={t("admin.connections.tagsPlaceholder")} />
-    </div>
-
-    <Checkbox bind:checked={readOnly} hint={t("admin.connections.readOnlyHint")}>
-      {t("admin.connections.readOnly")}
-    </Checkbox>
-
-    <div>
-      <Checkbox bind:checked={forceMonitoring} hint={t("admin.connections.forceMonitoringHint")}>
-        {t("admin.connections.forceMonitoring")}
-      </Checkbox>
-      {#if forceMonitoring}
-        <Select
-          size="sm"
-          class="mt-2 w-44"
-          aria-label={t("admin.connections.forceMonitoringInterval")}
-          value={monitoringInterval}
-          options={intervalOptions}
-          onChange={(minutes) => (monitoringInterval = minutes)}
+        <ConnectionFormFields
+          showCredentials={!personalPossible || authMode === "shared"}
+          bind:environmentId
+          bind:engine
+          bind:host
+          bind:port
+          bind:database
+          bind:user
+          bind:password
+          passwordPlaceholder={initial?.hasPassword ? "••••••••" : ""}
+          bind:ssl
+          bind:connectionString
+          bind:filePath
+          bind:useUri
         />
-      {/if}
-    </div>
 
-    {#if personalPossible}
-      <div>
-        <div id="auth-mode-label" class={LABEL}>{t("admin.connections.authMode")}</div>
-        <RadioGroup
-          bind:value={authMode}
-          aria-labelledby="auth-mode-label"
-          options={[
-            { value: "shared", label: t("admin.connections.authShared"), hint: t("admin.connections.authSharedHint") },
-            {
-              value: "personal",
-              label: t("admin.connections.authPersonal"),
-              hint: t("admin.connections.authPersonalHint"),
-            },
-          ]}
-        />
-        {#if authMode === "personal" && initial}
-          <p class="m-0 mt-2 text-xs text-text-muted" data-testid="credential-holders">
-            {(holders.data ?? []).length > 0
-              ? t("admin.connections.authHolders", {
-                  count: (holders.data ?? []).length,
-                  people: (holders.data ?? []).map((holder) => `${holder.email} (${holder.username})`).join(", "),
-                })
-              : t("admin.connections.authNoHolder")}
-          </p>
-        {/if}
-      </div>
-    {/if}
 
-    <div>
-      <div id="structure-policy-label" class={LABEL}>{t("dbadmin.structure.settingTitle")}</div>
-      <Hint>{t("dbadmin.structure.settingHint")}</Hint>
-      <RadioGroup
-        bind:value={structurePolicy}
-        aria-labelledby="structure-policy-label"
-        options={[
-          { value: "inherit", label: t("dbadmin.structure.inherit"), hint: t("dbadmin.structure.inheritHint") },
-          {
-            value: "schema-only",
-            label: t("dbadmin.structure.policy.schema-only"),
-            hint: t("dbadmin.structure.policyHint.schema-only"),
-          },
-          { value: "warn", label: t("dbadmin.structure.policy.warn"), hint: t("dbadmin.structure.policyHint.warn") },
-          { value: "free", label: t("dbadmin.structure.policy.free"), hint: t("dbadmin.structure.policyHint.free") },
-        ]}
-      />
-      {#if structurePolicy === "schema-only" || structurePolicy === "warn"}
-        <Checkbox bind:checked={structureApplyToSql} class="mt-2.5" hint={t("dbadmin.structure.applyToSqlHint")}>
-          {t("dbadmin.structure.applyToSql")}
-        </Checkbox>
-      {/if}
-    </div>
-
-    <div>
-      <div class={LABEL}>{t("admin.connections.projects")}</div>
-      <Hint>{t("admin.connections.projectsHint")}</Hint>
-      {#if namesDatabase}<Hint>{t("admin.connections.projectDatabaseHint")}</Hint>{/if}
-      {#if projects.error}<ErrorText>{projects.error}</ErrorText>{/if}
-      <div class="max-h-44 space-y-0.5 overflow-y-auto rounded-md border border-border p-1.5">
-        {#each activeProjects as project (project.id)}
-          {@const issue = databaseIssues.get(project.id)}
-          {@const state = databaseState(project.id)}
-          <div class="rounded-sm px-1.5 py-1 text-xs hover:bg-surface-hover">
-            <div class="flex items-center gap-2">
-              <Checkbox
-                class="min-w-0 flex-1"
-                checked={projectIds.includes(project.id)}
-                onChange={(checked) =>
-                  (projectIds = checked ? [...projectIds, project.id] : projectIds.filter((id) => id !== project.id))}
-              >
-                <span class="flex items-center gap-1.5 text-xs">
-                  <span class="truncate">{project.name}</span>
-                  {#if project.trashed}
-                    <span title={t("admin.connections.projectTrashedHint")}>
-                      <Badge tone="muted">{t("admin.connections.projectTrashed")}</Badge>
-                    </span>
-                  {/if}
-                </span>
-              </Checkbox>
-              {#if namesDatabase && projectIds.includes(project.id)}
-                <Input
-                  inputSize="sm"
-                  class="w-44 font-mono"
-                  bind:value={projectDatabases[project.id]}
-                  list={suggestions.length > 0 ? datalistId : undefined}
-                  autocomplete="off"
-                  invalid={Boolean(issue)}
-                  placeholder={database || t("admin.connections.projectDatabase")}
-                  aria-label={t("admin.connections.projectDatabaseFor", { project: project.name })}
-                />
-              {/if}
-              <!-- Only for links that are already saved: the server refuses these for a project the connection isn't attached to yet. -->
-              {#if initial && linkedIds.has(project.id) && !project.trashed}
-                <Button
-                  size="xs"
-                  variant="ghost"
-                  disabled={pull.pending}
-                  onclick={() => (pullingInto = { id: project.id, name: project.name })}
-                >
-                  {t("connections.pullSchema")}
-                </Button>
-                <Button size="xs" variant="ghost" onclick={() => onCheckDifferences(project.id, initial.id)}>
-                  {t("connections.checkDifferences")}
-                </Button>
-              {/if}
-            </div>
-            {#if namesDatabase && projectIds.includes(project.id) && (issue || state)}
-              <p
-                class={`m-0 mt-0.5 pl-6 text-[11px] ${issue ? "text-danger" : state === "exists" ? "text-success" : "text-text-muted"}`}
-                data-testid="project-database-state"
-              >
-                {issue
-                  ? t(issue === "invalid" ? "admin.connections.projectDatabaseInvalid" : "admin.connections.projectDatabaseDuplicate")
-                  : t(
-                      state === "exists"
-                        ? "admin.connections.projectDatabaseExists"
-                        : state === "created"
-                          ? "admin.connections.projectDatabaseCreated"
-                          : "admin.connections.projectDatabaseMissing",
-                    )}
+        {#if personalPossible}
+          <div>
+            <div id="auth-mode-label" class={LABEL}>{t("admin.connections.authMode")}</div>
+            <RadioGroup
+              bind:value={authMode}
+              aria-labelledby="auth-mode-label"
+              options={[
+                { value: "shared", label: t("admin.connections.authShared"), hint: t("admin.connections.authSharedHint") },
+                {
+                  value: "personal",
+                  label: t("admin.connections.authPersonal"),
+                  hint: t("admin.connections.authPersonalHint"),
+                },
+              ]}
+            />
+            {#if authMode === "personal" && initial}
+              <p class="m-0 mt-2 text-xs text-text-muted" data-testid="credential-holders">
+                {(holders.data ?? []).length > 0
+                  ? t("admin.connections.authHolders", {
+                      count: (holders.data ?? []).length,
+                      people: (holders.data ?? []).map((holder) => `${holder.email} (${holder.username})`).join(", "),
+                    })
+                  : t("admin.connections.authNoHolder")}
               </p>
             {/if}
           </div>
-        {/each}
-        {#if activeProjects.length === 0}
-          <p class="py-3 text-center text-xs text-text-muted">
-            {projects.loading ? t("common.loading") : t("admin.connections.noProjects")}
-          </p>
+        {/if}
+
+        <div>
+          <!-- svelte-ignore a11y_label_has_associated_control -->
+          <label class={LABEL}>{t("admin.connections.tags")}</label>
+          <input class={`${INPUT_CLASS} w-full`} bind:value={tags} placeholder={t("admin.connections.tagsPlaceholder")} />
+        </div>
+
+        {#if testResult}
+          <div
+            class={`flex items-center gap-2 rounded-sm border p-2 text-xs ${
+              testResult.ok
+                ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
+                : "border-rose-500/30 bg-rose-500/10 text-rose-400"
+            }`}
+          >
+            {#if testResult.ok}<Icon icon={CheckCircleIcon} size={14} />{/if}
+            <span>{testResult.message}</span>
+          </div>
         {/if}
       </div>
-      {#if suggestions.length > 0}
-        <datalist id={datalistId}>
-          {#each suggestions as suggestion (suggestion)}<option value={suggestion}></option>{/each}
-        </datalist>
-      {/if}
-      {#if namesDatabase && links.some((link) => link.database)}
-        <Checkbox bind:checked={createDatabases} class="mt-2" hint={t("admin.connections.createDatabasesHint")}>
-          {t("admin.connections.createDatabases")}
+      <div
+        role="tabpanel"
+        aria-label={t("admin.connections.tabRules")}
+        class={`col-start-1 row-start-1 space-y-4 ${activeTab === "rules" ? "" : "invisible"}`}
+      >
+        <Checkbox bind:checked={readOnly} hint={t("admin.connections.readOnlyHint")}>
+          {t("admin.connections.readOnly")}
         </Checkbox>
-      {/if}
-      {#if pullMessage}<Hint>{pullMessage}</Hint>{/if}
-      {#if pull.error}<ErrorText>{pull.error}</ErrorText>{/if}
+
+        <div>
+          <Checkbox bind:checked={forceMonitoring} hint={t("admin.connections.forceMonitoringHint")}>
+            {t("admin.connections.forceMonitoring")}
+          </Checkbox>
+          {#if forceMonitoring}
+            <Select
+              size="sm"
+              class="mt-2 w-44"
+              aria-label={t("admin.connections.forceMonitoringInterval")}
+              value={monitoringInterval}
+              options={intervalOptions}
+              onChange={(minutes) => (monitoringInterval = minutes)}
+            />
+          {/if}
+        </div>
+
+        <div>
+          <div id="structure-policy-label" class={LABEL}>{t("dbadmin.structure.settingTitle")}</div>
+          <Hint>{t("dbadmin.structure.settingHint")}</Hint>
+          <RadioGroup
+            bind:value={structurePolicy}
+            aria-labelledby="structure-policy-label"
+            options={[
+              { value: "inherit", label: t("dbadmin.structure.inherit"), hint: t("dbadmin.structure.inheritHint") },
+              {
+                value: "schema-only",
+                label: t("dbadmin.structure.policy.schema-only"),
+                hint: t("dbadmin.structure.policyHint.schema-only"),
+              },
+              { value: "warn", label: t("dbadmin.structure.policy.warn"), hint: t("dbadmin.structure.policyHint.warn") },
+              { value: "free", label: t("dbadmin.structure.policy.free"), hint: t("dbadmin.structure.policyHint.free") },
+            ]}
+          />
+          {#if structurePolicy === "schema-only" || structurePolicy === "warn"}
+            <Checkbox bind:checked={structureApplyToSql} class="mt-2.5" hint={t("dbadmin.structure.applyToSqlHint")}>
+              {t("dbadmin.structure.applyToSql")}
+            </Checkbox>
+          {/if}
+        </div>
+      </div>
+      <div
+        role="tabpanel"
+        aria-label={t("admin.connections.tabProjects")}
+        class={`col-start-1 row-start-1 space-y-4 ${activeTab === "projects" ? "" : "invisible"}`}
+      >
+        <div>
+          <div class={LABEL}>{t("admin.connections.projects")}</div>
+          <Hint>{t("admin.connections.projectsHint")}</Hint>
+          {#if namesDatabase}<Hint>{t("admin.connections.projectDatabaseHint")}</Hint>{/if}
+          {#if projects.error}<ErrorText>{projects.error}</ErrorText>{/if}
+          <div class="max-h-44 space-y-0.5 overflow-y-auto rounded-md border border-border p-1.5">
+            {#each activeProjects as project (project.id)}
+              {@const issue = databaseIssues.get(project.id)}
+              {@const state = databaseState(project.id)}
+              <div class="rounded-sm px-1.5 py-1 text-xs hover:bg-surface-hover">
+                <div class="flex items-center gap-2">
+                  <Checkbox
+                    class="min-w-0 flex-1"
+                    checked={projectIds.includes(project.id)}
+                    onChange={(checked) =>
+                      (projectIds = checked ? [...projectIds, project.id] : projectIds.filter((id) => id !== project.id))}
+                  >
+                    <span class="flex items-center gap-1.5 text-xs">
+                      <span class="truncate">{project.name}</span>
+                      {#if project.trashed}
+                        <span title={t("admin.connections.projectTrashedHint")}>
+                          <Badge tone="muted">{t("admin.connections.projectTrashed")}</Badge>
+                        </span>
+                      {/if}
+                    </span>
+                  </Checkbox>
+                  {#if namesDatabase && projectIds.includes(project.id)}
+                    <Input
+                      inputSize="sm"
+                      class="w-44 font-mono"
+                      bind:value={projectDatabases[project.id]}
+                      list={suggestions.length > 0 ? datalistId : undefined}
+                      autocomplete="off"
+                      invalid={Boolean(issue)}
+                      placeholder={database || t("admin.connections.projectDatabase")}
+                      aria-label={t("admin.connections.projectDatabaseFor", { project: project.name })}
+                    />
+                  {/if}
+                  <!-- Only for links that are already saved: the server refuses these for a project the connection isn't attached to yet. -->
+                  {#if initial && linkedIds.has(project.id) && !project.trashed}
+                    <Button
+                      size="xs"
+                      variant="ghost"
+                      disabled={pull.pending}
+                      onclick={() => (pullingInto = { id: project.id, name: project.name })}
+                    >
+                      {t("connections.pullSchema")}
+                    </Button>
+                    <Button size="xs" variant="ghost" onclick={() => onCheckDifferences(project.id, initial.id)}>
+                      {t("connections.checkDifferences")}
+                    </Button>
+                  {/if}
+                </div>
+                {#if namesDatabase && projectIds.includes(project.id) && (issue || state)}
+                  <p
+                    class={`m-0 mt-0.5 pl-6 text-[11px] ${issue ? "text-danger" : state === "exists" ? "text-success" : "text-text-muted"}`}
+                    data-testid="project-database-state"
+                  >
+                    {issue
+                      ? t(issue === "invalid" ? "admin.connections.projectDatabaseInvalid" : "admin.connections.projectDatabaseDuplicate")
+                      : t(
+                          state === "exists"
+                            ? "admin.connections.projectDatabaseExists"
+                            : state === "created"
+                              ? "admin.connections.projectDatabaseCreated"
+                              : "admin.connections.projectDatabaseMissing",
+                        )}
+                  </p>
+                {/if}
+              </div>
+            {/each}
+            {#if activeProjects.length === 0}
+              <p class="py-3 text-center text-xs text-text-muted">
+                {projects.loading ? t("common.loading") : t("admin.connections.noProjects")}
+              </p>
+            {/if}
+          </div>
+          {#if suggestions.length > 0}
+            <datalist id={datalistId}>
+              {#each suggestions as suggestion (suggestion)}<option value={suggestion}></option>{/each}
+            </datalist>
+          {/if}
+          {#if namesDatabase && links.some((link) => link.database)}
+            <Checkbox bind:checked={createDatabases} class="mt-2" hint={t("admin.connections.createDatabasesHint")}>
+              {t("admin.connections.createDatabases")}
+            </Checkbox>
+          {/if}
+          {#if pullMessage}<Hint>{pullMessage}</Hint>{/if}
+          {#if pull.error}<ErrorText>{pull.error}</ErrorText>{/if}
+        </div>
+      </div>
     </div>
 
-    {#if testResult}
-      <div
-        class={`flex items-center gap-2 rounded-sm border p-2 text-xs ${
-          testResult.ok
-            ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-            : "border-rose-500/30 bg-rose-500/10 text-rose-400"
-        }`}
-      >
-        {#if testResult.ok}<Icon icon={CheckCircleIcon} size={14} />{/if}
-        <span>{testResult.message}</span>
-      </div>
-    {/if}
     {#if save.error}<ErrorText>{save.error}</ErrorText>{/if}
 
     <div class="flex flex-wrap items-center justify-between gap-2 border-t border-border pt-4">
