@@ -1059,6 +1059,8 @@
   "dbadmin.sql.history": "Historique",
   "dbadmin.sql.historyEmpty": "Aucune requête exécutée sur cette connexion.",
   "dbadmin.sql.write": "écriture",
+  "dbadmin.sql.completion.table": "table",
+  "dbadmin.sql.completion.view": "vue",
   "dbadmin.sessions.hint": "Sessions ouvertes sur le serveur, hors celle d'Nebula.",
   "dbadmin.sessions.empty": "Aucune autre session.",
   "dbadmin.sessions.user": "Utilisateur",

@@ -5,7 +5,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 import type { Page } from "playwright-core";
-import { login, startE2eEnvironment } from "./harness.js";
+import { fillCodeEditor, login, startE2eEnvironment } from "./harness.js";
 
 /**
  * "Structure goes through the schema", in the database console, against a
@@ -116,7 +116,7 @@ test(
       await page.getByRole("tab", { name: "Console SQL" }).click();
       const editor = page.getByRole("textbox", { name: "Console SQL" });
       await page.getByRole("switch", { name: "Mode écriture" }).click();
-      await editor.fill("ALTER TABLE invoices ADD COLUMN note TEXT");
+      await fillCodeEditor(editor, "ALTER TABLE invoices ADD COLUMN note TEXT");
       await page.getByRole("button", { name: "Exécuter", exact: true }).click();
       await page.getByRole("dialog").getByRole("button", { name: "Exécuter en écriture" }).click();
       await redirect.getByText("modifier la table invoices").waitFor();
@@ -140,7 +140,7 @@ test(
       await page.getByRole("button", { name: "Ouvrir" }).click();
       await page.getByRole("tab", { name: "Console SQL" }).click();
       await page.getByRole("switch", { name: "Mode écriture" }).click();
-      await editor.fill("ALTER TABLE invoices ADD COLUMN note TEXT");
+      await fillCodeEditor(editor, "ALTER TABLE invoices ADD COLUMN note TEXT");
       await page.getByRole("button", { name: "Exécuter", exact: true }).click();
       await page.getByRole("dialog").getByRole("button", { name: "Exécuter en écriture" }).click();
       const confirm = page.getByRole("dialog", { name: "Modifier la structure hors du schéma ?" });

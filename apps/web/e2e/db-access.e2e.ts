@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
-import { login, startE2eEnvironment } from "./harness.js";
+import { fillCodeEditor, login, startE2eEnvironment } from "./harness.js";
 
 /**
  * Database access for members: an instance administrator grants a member
@@ -126,10 +126,10 @@ test("admin grants a member read access; the member queries the database read-on
       "no write mode on read access",
     );
     const editor = member.getByRole("textbox", { name: "Console SQL" });
-    await editor.fill("SELECT name FROM customers ORDER BY id");
+    await fillCodeEditor(editor, "SELECT name FROM customers ORDER BY id");
     await member.getByRole("button", { name: "Exécuter", exact: true }).click();
     await member.getByRole("gridcell", { name: "Ada" }).waitFor();
-    await editor.fill("DELETE FROM customers");
+    await fillCodeEditor(editor, "DELETE FROM customers");
     await member.getByRole("button", { name: "Exécuter", exact: true }).click();
     // Said in terms of their access, not "switch to write mode": they have none.
     await member.getByText("Votre accès à cette base est en lecture seule.").waitFor();

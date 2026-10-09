@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
-import { clickRevealedOnHover, login, startE2eEnvironment } from "./harness.js";
+import { clickRevealedOnHover, codeEditorText, login, startE2eEnvironment } from "./harness.js";
 
 /**
  * The project workspace: one bar of tabs over the schema editor, the database
@@ -134,7 +134,7 @@ test(
       );
       await drawer.getByRole("textbox", { name: "Console SQL" }).waitFor();
       assert.equal(
-        await drawer.getByRole("textbox", { name: "Console SQL" }).inputValue(),
+        await codeEditorText(drawer.getByRole("textbox", { name: "Console SQL" })),
         "SELECT * FROM customers LIMIT 100",
       );
       await drawer.getByRole("gridcell", { name: "Ada" }).waitFor();

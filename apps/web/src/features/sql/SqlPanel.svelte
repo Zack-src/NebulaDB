@@ -1,13 +1,22 @@
+<script lang="ts" module>
+  const NO_TABLES: readonly Table[] = [];
+</script>
+
 <script lang="ts">
   import Icon from "@/components/icons/Icon.svelte";
   import { ChevronRightIcon } from "@/components/icons/Icons";
   import { untrack } from "svelte";
-  import type { DbAdminQueryHistoryEntry, DbAdminQueryResult, StructurePolicyRefusal } from "@nebuladb/shared";
+  import type {
+    DatabaseEngine,
+    DbAdminQueryHistoryEntry,
+    DbAdminQueryResult,
+    StructurePolicyRefusal,
+    Table,
+  } from "@nebuladb/shared";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
-  import { TEXTAREA_CODE_CLASS } from "@/components/ui/inputStyles";
   import Select from "@/components/ui/Select.svelte";
   import Switch from "@/components/ui/Switch.svelte";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
@@ -18,6 +27,8 @@
   import { clearQueryHistory, fetchQueryHistory, runAdminQuery, type ConnectionOverview } from "@/services/dbAdminApi";
   import { parseServerTime } from "./format";
   import ResultGrid from "./ResultGrid.svelte";
+  import { SqlCatalogState } from "./sqlCatalog.svelte";
+  import SqlEditor from "./SqlEditor.svelte";
   import StructureRedirectDialog, { describeStructuralAction } from "./StructureRedirectDialog.svelte";
 
   /**
@@ -27,16 +38,22 @@
    */
   let {
     connectionId,
+    engine,
     overview,
     database = $bindable(),
+    schemaTables = NO_TABLES,
     request = null,
     compact = false,
     readOnly = false,
     fixedDatabase = false,
   }: {
     connectionId: string;
+    /** The connection's engine: the dialect the editor highlights and completes. */
+    engine: DatabaseEngine;
     overview: ConnectionOverview;
     database: string;
+    /** In a project, the tables of its schema: the editor completes from them too. */
+    schemaTables?: readonly Table[];
     /**
      * A statement to load and run, from outside the panel ("Voir les données"
      * on a table). A new `token` means a new request, even for the same SQL.
@@ -55,6 +72,14 @@
   /** A member granted `read` has no write mode at all; the server would refuse it anyway. */
   const canWrite = $derived(!readOnly && overview.access !== "read");
   let sql = $state("");
+  // What the editor completes from — loaded once per database, see `SqlCatalogState`.
+  const catalog = new SqlCatalogState({
+    connectionId: () => connectionId,
+    // The explorer's rule: a server with a single database is not asked for one by name.
+    database: () => (overview.capabilities.multiDatabase ? database || undefined : undefined),
+    ready: () => !overview.capabilities.multiDatabase || Boolean(database),
+    projectTables: () => schemaTables,
+  });
   let writeMode = $state(false);
   let result = $state.raw<DbAdminQueryResult | null>(null);
   const history = useAsyncResource(() => fetchQueryHistory(connectionId));
@@ -72,10 +97,11 @@
 
   const execute = useAsyncAction(async (confirmStructural: boolean = false) => {
     result = null;
+    const reading = readOnly || !writeMode;
     try {
       result = await runAdminQuery(connectionId, sql, {
         database: database || undefined,
-        readOnly: readOnly || !writeMode,
+        readOnly: reading,
         editor: fixedDatabase || undefined,
         confirmStructural: confirmStructural || undefined,
         // Only ever sent after the write dialog below: what the server asks of a member with `write` access.
@@ -92,6 +118,8 @@
       } else throw err;
     } finally {
       history.reload();
+      // A write may have created, altered or dropped what the editor completes.
+      if (!reading) catalog.reload();
     }
   });
 
@@ -113,13 +141,6 @@
     if (!sql.trim() || execute.pending) return;
     if (canWrite && writeMode) confirmingWrite = true;
     else void execute.run();
-  }
-
-  function onKeydown(event: KeyboardEvent) {
-    if (event.key === "Enter" && (event.ctrlKey || event.metaKey)) {
-      event.preventDefault();
-      run();
-    }
   }
 
   function recall(entry: DbAdminQueryHistoryEntry) {
@@ -160,13 +181,17 @@
     {/if}
   </div>
 
-  <textarea
-    class={`${TEXTAREA_CODE_CLASS} ${compact ? "!min-h-0 h-20" : "h-40"} w-full ${writeMode ? "!border-danger/60" : ""}`}
+  <SqlEditor
     bind:value={sql}
-    onkeydown={onKeydown}
-    spellcheck="false"
+    {engine}
+    catalog={catalog.tables}
+    {compact}
+    danger={writeMode}
     placeholder="SELECT …"
-    aria-label={t("dbadmin.tab.sql")}></textarea>
+    label={t("dbadmin.tab.sql")}
+    onRun={run}
+    onTablesReferenced={catalog.ensureColumns}
+  />
 
   <div class="flex items-center gap-2">
     <Button

@@ -106,6 +106,27 @@ export async function clickRevealedOnHover(table: Locator, control: Locator): Pr
   await table.page().mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 }
 
+/**
+ * Replaces what a CodeMirror editor holds. `content` is its `.cm-content` —
+ * the element with the `textbox` role, so `getByRole("textbox", { name })`
+ * finds the SQL console's by its label.
+ *
+ * Inserted in one go (a paste): typed key by key, bracket-closing and
+ * completion would rewrite the text. The completion list is closed by leaving
+ * the field, never with Escape, which a dialog around it would take for itself.
+ */
+export async function fillCodeEditor(content: Locator, text: string): Promise<void> {
+  const page = content.page();
+  await content.click();
+  await page.keyboard.press("ControlOrMeta+a");
+  await page.keyboard.insertText(text);
+}
+
+/** The text a CodeMirror editor holds, line breaks included. */
+export async function codeEditorText(content: Locator): Promise<string> {
+  return (await content.locator(".cm-line").allInnerTexts()).join("\n");
+}
+
 /** Logs the seeded admin in and waits for the dashboard to be interactive. */
 export async function login(page: Page, baseUrl: string): Promise<void> {
   await page.goto(baseUrl);

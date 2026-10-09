@@ -1059,6 +1059,8 @@
   "dbadmin.sql.history": "History",
   "dbadmin.sql.historyEmpty": "No query run on this connection yet.",
   "dbadmin.sql.write": "write",
+  "dbadmin.sql.completion.table": "table",
+  "dbadmin.sql.completion.view": "view",
   "dbadmin.sessions.hint": "Sessions open on the server, other than Nebula's own.",
   "dbadmin.sessions.empty": "No other session.",
   "dbadmin.sessions.user": "User",

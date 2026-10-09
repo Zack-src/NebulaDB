@@ -737,7 +737,12 @@
       {#await import("@/features/sql/EditorSqlDrawer.svelte") then { default: EditorSqlDrawer }}
         <!-- Keyed: the drawer and its history belong to one connection. -->
         {#key databases.activeConnection.id}
-          <EditorSqlDrawer connection={databases.activeConnection} request={sql.request} onClose={() => sql.setOpen(false)} />
+          <EditorSqlDrawer
+            connection={databases.activeConnection}
+            schemaTables={liveProject?.tables ?? []}
+            request={sql.request}
+            onClose={() => sql.setOpen(false)}
+          />
         {/key}
       {/await}
     </div>

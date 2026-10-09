@@ -192,7 +192,7 @@ const dbmlLanguage = StreamLanguage.define<{ inCommentBlock: boolean; inNoteBloc
  * (deepened, not inverted — several of these read fine on near-black but fail
  * contrast on white at the same lightness).
  */
-const dbmlHighlightStyle = HighlightStyle.define([
+export const dbmlHighlightStyle = HighlightStyle.define([
   { tag: t.comment, color: "var(--color-syntax-comment)", fontStyle: "italic" },
   { tag: t.keyword, color: "var(--color-syntax-keyword)", fontWeight: "600" },
   { tag: t.modifier, color: "var(--color-syntax-modifier)" },

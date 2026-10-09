@@ -133,7 +133,7 @@
         onDatabaseDropped={() => overview.reload()}
       />
     {:else if section === "sql"}
-      <SqlPanel connectionId={connection.id} overview={data} bind:database />
+      <SqlPanel connectionId={connection.id} engine={connection.engine} overview={data} bind:database />
     {:else if section === "users" && data.access === "admin"}
       <UsersPanel
         connectionId={connection.id}

@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
-import { login, startE2eEnvironment } from "./harness.js";
+import { fillCodeEditor, login, startE2eEnvironment } from "./harness.js";
 
 /**
  * Admin console → database connections, end to end against a real SQLite
@@ -78,17 +78,17 @@ test("admin: add a connection, explore it, query it and drop a table", { timeout
     // SQL console.
     await page.getByRole("tab", { name: "Console SQL" }).click();
     const editor = page.getByRole("textbox", { name: "Console SQL" });
-    await editor.fill("SELECT name FROM customers ORDER BY id");
+    await fillCodeEditor(editor, "SELECT name FROM customers ORDER BY id");
     await page.getByRole("button", { name: "Exécuter", exact: true }).click();
     await page.getByRole("gridcell", { name: "Linus" }).waitFor();
 
-    await editor.fill("DELETE FROM customers");
+    await fillCodeEditor(editor, "DELETE FROM customers");
     await page.getByRole("button", { name: "Exécuter", exact: true }).click();
     await page.getByText(/Mode lecture seule/).waitFor();
     await snap("sql-read-only-refusal");
 
     await page.getByRole("switch", { name: "Mode écriture" }).click();
-    await editor.fill("UPDATE customers SET name = 'Ada Lovelace' WHERE id = 1");
+    await fillCodeEditor(editor, "UPDATE customers SET name = 'Ada Lovelace' WHERE id = 1");
     await page.getByRole("button", { name: "Exécuter", exact: true }).click();
     await page.getByRole("dialog").getByRole("button", { name: "Exécuter en écriture" }).click();
     await page.getByText("1 ligne(s) affectée(s)").waitFor();
