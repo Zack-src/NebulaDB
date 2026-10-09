@@ -28,7 +28,7 @@ un moteur cible pour les projets).
 
 ## C. Lot 2 — SQL
 
-- [~] C1. Éditeur SQL (coloration, complétion des tables et colonnes du schéma)
+- [x] C1. Éditeur SQL (coloration, complétion des tables et colonnes du schéma) — `5932a4c`, `478534c`
 - [ ] C2. Requêtes enregistrées
 - [ ] C3. Édition de lignes dans la grille de résultats
 
@@ -52,6 +52,12 @@ un moteur cible pour les projets).
 - [ ] F6. Lien de partage en lecture seule (diagramme, dictionnaire)
 - [ ] F7. Sauvegardes vers S3 / SFTP (en plus du dossier ou partage monté)
 
+## G. Dette repérée en route
+
+- [ ] G1. Remettre à niveau les 11 tests navigateur (e2e) qui échouent déjà sur `de5c5f6` : ils
+      attendent des éléments retirés par la refonte (« Ouvrir », onglet « Données & SQL », « Déployer »)
+- [ ] G2. Formater `bundle.ts` et `bundle.test.ts` (avertissement Prettier antérieur à ce lot)
+
 ## En attente d'une décision de Zack
 
 - SSO (quel fournisseur, OIDC ou SAML)
@@ -61,12 +67,13 @@ un moteur cible pour les projets).
 
 ## Journal
 
-| Date       | Ligne | Commit    | Note                                                                                   |
-| ---------- | ----- | --------- | -------------------------------------------------------------------------------------- |
-| 2026-10-09 | B3    | `7e8882c` | Table clé/valeur + variables manquantes ; e2e réécrit, non lancé                       |
-| 2026-10-09 | B1    | `9f04aee` | Avertissement (toast) + champ `detachedConnections` dans la réponse, API v1 comprise   |
-| 2026-10-09 | B2    | `2e7aeaf` | Pastilles + liste à cocher avec recherche ; nom hors schéma accepté                    |
-| 2026-10-09 | B4    | `72b58bc` | Liste des bases du serveur (datalist), état « existe / sera créée », doublons signalés |
+| Date       | Ligne | Commit    | Note                                                                                                             |
+| ---------- | ----- | --------- | ---------------------------------------------------------------------------------------------------------------- |
+| 2026-10-09 | B3    | `7e8882c` | Table clé/valeur + variables manquantes ; e2e réécrit, non lancé                                                 |
+| 2026-10-09 | B1    | `9f04aee` | Avertissement (toast) + champ `detachedConnections` dans la réponse, API v1 comprise                             |
+| 2026-10-09 | B2    | `2e7aeaf` | Pastilles + liste à cocher avec recherche ; nom hors schéma accepté                                              |
+| 2026-10-09 | B4    | `72b58bc` | Liste des bases du serveur (datalist), état « existe / sera créée », doublons signalés                           |
+| 2026-10-09 | C1    | `478534c` | Éditeur CodeMirror : dialecte par moteur, complétion tables/colonnes ; essayé en navigateur sur SQLite seulement |
 
 Vérifié après intégration des quatre lignes B : 337 tests serveur, 121 tests web, typecheck et lint propres.
 Non vérifié : tests navigateur (e2e) et essai à la main des écrans.
