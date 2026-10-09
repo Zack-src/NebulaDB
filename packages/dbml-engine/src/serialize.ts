@@ -25,8 +25,10 @@ function quoteIdent(name: string): string {
   return IDENT_RE.test(name) ? name : `"${name.replace(/"/g, '\\"')}"`;
 }
 
+/** A single-quoted DBML string cannot hold a line break: a multi-line note is a `'''` string, escaped the same way. */
 function quoteNoteText(note: string): string {
-  return `'${note.replace(/\\/g, "\\\\").replace(/'/g, "\\'")}'`;
+  const escaped = note.replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+  return /[\r\n]/.test(note) ? `'''${escaped}'''` : `'${escaped}'`;
 }
 
 /** A bare function call (`now()`, `gen_random_uuid()`, `pg_catalog.now()`) or an SQL date keyword. */

@@ -64,12 +64,12 @@ test(
       const completeness = page.getByTestId("dictionary-completeness");
       await completeness.getByText("0 % décrit — tables 0/2, colonnes 0/4").waitFor();
 
-      // A field is saved when it is left (or Enter is pressed).
+      // A field is saved when it is left (Enter in a description is a line break).
       const customers = panel.locator('[data-table="customers"]');
       const fill = async (label: string, value: string) => {
         const input = customers.getByLabel(label, { exact: true });
         await input.fill(value);
-        await input.press("Enter");
+        await input.blur();
       };
       await fill("Description de customers", "Les clients de la boutique.");
       await fill("Responsable de customers", "equipe-crm");
@@ -77,9 +77,14 @@ test(
       await customers.getByRole("combobox", { name: "Classification de customers", exact: true }).click();
       await page.getByRole("option", { name: "Personnel" }).click();
       await fill("Description de customers.email", "Adresse de connexion.");
+      // A description may run over several lines: the DBML keeps it as a triple-quoted note.
+      const orders = panel.locator('[data-table="orders"]');
+      const orderId = orders.getByLabel("Description de orders.id", { exact: true });
+      await orderId.fill("Identifiant.\n- stable\n- jamais réutilisé");
+      await orderId.blur();
       await customers.getByRole("combobox", { name: "Classification de customers.email" }).click();
       await page.getByRole("option", { name: "Sensible" }).click();
-      await completeness.getByText("33 % décrit — tables 1/2, colonnes 1/4").waitFor();
+      await completeness.getByText("50 % décrit — tables 1/2, colonnes 2/4").waitFor();
       await snap("filled");
 
       // It is the schema: the DBML says it, and a reload brings it back.
@@ -92,8 +97,9 @@ test(
         dbml,
       );
       assert.ok(dbml.includes("note: 'Adresse de connexion. [class: sensitive]'"), dbml);
+      assert.ok(dbml.includes("note: '''Identifiant.\n- stable\n- jamais réutilisé'''"), dbml);
       await page.reload();
-      await completeness.getByText("33 % décrit").waitFor();
+      await completeness.getByText("50 % décrit").waitFor();
       assert.equal(await customers.getByLabel("Responsable de customers", { exact: true }).inputValue(), "equipe-crm");
 
       // Filters: what is left to document, and where the personal data is.
@@ -129,6 +135,10 @@ test(
       );
       assert.ok(
         markdown.includes("| `email` | varchar(320) | not null | sensitive | Adresse de connexion. |"),
+        markdown,
+      );
+      assert.ok(
+        markdown.includes("| `id` | integer | pk |  | Identifiant.<br>- stable<br>- jamais réutilisé |"),
         markdown,
       );
       assert.ok(markdown.includes("| `customer_id` | integer | fk → customers.id |"), markdown);

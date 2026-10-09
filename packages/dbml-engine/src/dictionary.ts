@@ -10,7 +10,9 @@ import type { Project } from "@nebuladb/shared";
  *
  *   'Customer accounts. [owner: crm-team] [class: personal] [tags: rgpd, core]'
  *
- * A note is one line of DBML, so a description is too.
+ * The description may span several lines (paragraphs, a short list): the annotations are found
+ * wherever they sit, and `formatNote` writes them on a last line of their own after such a text.
+ * A multi-line note is written to DBML as a `'''` string (see `quoteNoteText`).
  */
 export const DATA_CLASSIFICATIONS = ["public", "internal", "personal", "sensitive"] as const;
 export type DataClassification = (typeof DATA_CLASSIFICATIONS)[number];
@@ -23,6 +25,8 @@ export interface NoteMeta {
 }
 
 const ANNOTATION = /\[(owner|class|tags)\s*:\s*([^\]]*)\]/gi;
+/** Stands where an annotation was while the lines are sorted out. */
+const MARK = "\u0000";
 const MAX_VALUE = 80;
 
 /** One line, no bracket: what an annotation's value may hold. */
@@ -33,9 +37,28 @@ const clean = (value: string) =>
     .trim()
     .slice(0, MAX_VALUE);
 
+/**
+ * A description as stored: `\n` line ends, no trailing space, at most one blank line in a row,
+ * nothing around it. A single line is collapsed to single spaces; with several, a line keeps its
+ * own indentation (a nested list) and collapses the spaces after it.
+ */
+function cleanDescription(text: string): string {
+  const lines = text.replace(/\r\n?/g, "\n").split("\n");
+  if (lines.length === 1) return text.replace(/\s+/g, " ").trim();
+  return lines
+    .map((line) => {
+      const indent = /^[ \t]*/.exec(line)![0].replace(/\t/g, "  ");
+      const body = line.trim().replace(/[ \t]+/g, " ");
+      return body ? indent + body : "";
+    })
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export function parseNote(note: string | undefined): NoteMeta {
   const meta: NoteMeta = { description: "", tags: [] };
-  const text = (note ?? "").replace(ANNOTATION, (_, key: string, raw: string) => {
+  const read = (_: string, key: string, raw: string) => {
     const value = raw.trim();
     switch (key.toLowerCase()) {
       case "owner":
@@ -49,21 +72,33 @@ export function parseNote(note: string | undefined): NoteMeta {
       default:
         meta.tags = [...new Set(value.split(",").map(clean).filter(Boolean))];
     }
-    return "";
-  });
-  meta.description = text.replace(/\s+/g, " ").trim();
+    return MARK;
+  };
+  const text = (note ?? "")
+    .replace(ANNOTATION, read)
+    .split(/\r\n?|\n/)
+    .flatMap((line) => {
+      // A line that held only annotations goes with them: it leaves no blank line behind.
+      const rest = line.replaceAll(MARK, "");
+      return rest.trim() === "" && rest !== line ? [] : [rest];
+    })
+    .join("\n");
+  meta.description = cleanDescription(text);
   return meta;
 }
 
 /** The note that says `meta`; `undefined` when there is nothing to say. */
 export function formatNote(meta: NoteMeta): string | undefined {
-  const parts = [meta.description.replace(/\s+/g, " ").trim()];
+  const description = cleanDescription(meta.description);
+  const annotations: string[] = [];
   const owner = clean(meta.owner ?? "");
-  if (owner) parts.push(`[owner: ${owner}]`);
-  if (meta.classification) parts.push(`[class: ${meta.classification}]`);
+  if (owner) annotations.push(`[owner: ${owner}]`);
+  if (meta.classification) annotations.push(`[class: ${meta.classification}]`);
   const tags = [...new Set(meta.tags.map(clean).filter(Boolean))];
-  if (tags.length > 0) parts.push(`[tags: ${tags.join(", ")}]`);
-  return parts.filter(Boolean).join(" ") || undefined;
+  if (tags.length > 0) annotations.push(`[tags: ${tags.join(", ")}]`);
+  // After several lines the annotations get a line of their own, so none sits at the end of a list item.
+  const separator = description.includes("\n") ? "\n" : " ";
+  return [description, annotations.join(" ")].filter(Boolean).join(separator) || undefined;
 }
 
 export interface DictionaryColumn extends NoteMeta {
@@ -100,7 +135,7 @@ export interface DataDictionary {
 }
 
 /** `lint-ignore: …` is an instruction to the linter, not a description. */
-const withoutLintAnnotation = (text: string) => text.replace(/lint-ignore:\s*[a-z0-9,\s-]+/gi, "").trim();
+const withoutLintAnnotation = (text: string) => text.replace(/lint-ignore:[ \t]*[a-z0-9, \t-]+/gi, "").trim();
 
 /** The dictionary of a project: tables by name, columns in their own order. */
 export function buildDictionary(project: Project): DataDictionary {
@@ -179,13 +214,20 @@ export function completenessPercent(dictionary: DataDictionary): number {
   return total === 0 ? 100 : Math.round(((describedTables + describedColumns) / total) * 100);
 }
 
-const mdCell = (text: string) => text.replace(/\|/g, "\\|").replace(/\s+/g, " ");
+/** A table cell is one line of Markdown: line breaks become `<br>`, which renderers honour and a raw reader still follows. */
+const mdCell = (text: string) =>
+  text
+    .replace(/\|/g, "\\|")
+    .replace(/\r?\n/g, "<br>")
+    .replace(/[ \t]+/g, " ");
+/** Outside a table a lone line break would fold into the paragraph: two trailing spaces keep it. */
+const mdBlock = (text: string) => text.replace(/([^\n])\n(?=[^\n])/g, "$1  \n");
 
 export function dictionaryToMarkdown(dictionary: DataDictionary): string {
   const lines = [`# ${dictionary.projectName} — data dictionary`, ""];
   for (const table of dictionary.tables) {
     lines.push(`## ${table.schemaName ? `${table.schemaName}.` : ""}${table.name}`, "");
-    if (table.description) lines.push(table.description, "");
+    if (table.description) lines.push(mdBlock(table.description), "");
     const facts = [
       table.owner ? `**Owner:** ${table.owner}` : "",
       table.classification ? `**Classification:** ${table.classification}` : "",
@@ -254,6 +296,8 @@ export function dictionaryToCsv(dictionary: DataDictionary): string {
 
 const escapeHtml = (text: string) =>
   text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+/** Escaped text whose line breaks stay line breaks. */
+const escapeHtmlLines = (text: string) => escapeHtml(text).replace(/\r?\n/g, "<br>");
 
 /** A single self-contained page: no script, no external resource — safe to open from disk or host as is. */
 export function dictionaryToHtml(dictionary: DataDictionary): string {
@@ -267,7 +311,7 @@ export function dictionaryToHtml(dictionary: DataDictionary): string {
           (column) =>
             `<tr><td><code>${e(column.name)}</code></td><td>${e(column.type)}</td><td>${e(
               column.constraints.join(", "),
-            )}</td><td>${badge(column.classification)}</td><td>${e(column.description)}${
+            )}</td><td>${badge(column.classification)}</td><td>${escapeHtmlLines(column.description)}${
               column.tags.length > 0 ? ` <em>${e(column.tags.join(", "))}</em>` : ""
             }</td></tr>`,
         )
@@ -280,7 +324,7 @@ export function dictionaryToHtml(dictionary: DataDictionary): string {
         .join(" · ");
       return `<section id="${e(table.name)}">
 <h2>${e(table.schemaName ? `${table.schemaName}.${table.name}` : table.name)} ${badge(table.classification)}</h2>
-${table.description ? `<p>${e(table.description)}</p>` : ""}
+${table.description ? `<p>${escapeHtmlLines(table.description)}</p>` : ""}
 ${facts ? `<p class="facts">${facts}</p>` : ""}
 <table><thead><tr><th>Column</th><th>Type</th><th>Constraints</th><th>Classification</th><th>Description</th></tr></thead>
 <tbody>
@@ -296,7 +340,7 @@ ${rows}
 ${def.usedBy.length > 0 ? `<p class="facts">Used by: ${e(def.usedBy.join(", "))}</p>` : ""}
 <table><thead><tr><th>Value</th><th>Description</th></tr></thead>
 <tbody>
-${def.values.map((value) => `<tr><td><code>${e(value.name)}</code></td><td>${e(value.description)}</td></tr>`).join("\n")}
+${def.values.map((value) => `<tr><td><code>${e(value.name)}</code></td><td>${escapeHtmlLines(value.description)}</td></tr>`).join("\n")}
 </tbody></table>
 </section>`,
     )

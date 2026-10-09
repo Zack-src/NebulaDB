@@ -288,7 +288,7 @@ const FLOAT_TYPES = new Set(["float", "float4", "float8", "real", "double", "dou
 const MONEY_NAME =
   /(^|_)(price|amount|total|subtotal|cost|balance|salary|fee|tax|vat|montant|prix|solde|tarif|tva)(_|$)/i;
 const TIMESTAMP_COLUMNS = ["created_at", "updated_at"];
-const IGNORE_NOTE = /lint-ignore:\s*([a-z0-9,\s:-]+)/gi;
+const IGNORE_NOTE = /lint-ignore:[ \t]*([a-z0-9, \t:-]+)/gi;
 
 /** Rules a table's own note excepts it from: `lint-ignore: pk-required, timestamps` (or `all`). */
 function rulesIgnoredByNote(table: Table): Set<string> {

@@ -22,6 +22,7 @@
   import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
   import SegmentedControl from "@/components/ui/SegmentedControl.svelte";
   import Select from "@/components/ui/Select.svelte";
+  import TextArea from "@/components/ui/TextArea.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { triggerDownload } from "@/utils/download";
 
@@ -214,8 +215,13 @@
           />
         </div>
         <div class="flex flex-wrap gap-2 border-b border-border px-3 py-2">
-          <input
-            class={`${INPUT_SM_CLASS} min-w-[240px] flex-[3]`}
+          <TextArea
+            variant="sm"
+            autoGrow
+            maxRows={8}
+            rows={1}
+            class="min-w-[240px] flex-[3]"
+            style="min-height: 30px"
             placeholder={t("dictionary.tableDescription")}
             aria-label={t("dictionary.descriptionOf", { name: table.name })}
             value={table.description}
@@ -242,8 +248,13 @@
                   </span>
                 </td>
                 <td class="px-1 py-1">
-                  <input
-                    class={`${INPUT_SM_CLASS} w-full`}
+                  <TextArea
+                    variant="sm"
+                    autoGrow
+                    maxRows={8}
+                    rows={1}
+                    class="w-full"
+                    style="min-height: 30px"
                     placeholder={t("dictionary.columnDescription")}
                     aria-label={t("dictionary.descriptionOf", { name: `${table.name}.${column.name}` })}
                     value={column.description}
