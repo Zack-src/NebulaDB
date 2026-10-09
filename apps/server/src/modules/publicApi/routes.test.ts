@@ -448,6 +448,63 @@ test("/api/v1 project CRUD: create, rename/archive, delete — same lifecycle th
   }
 });
 
+test("/api/v1 migration export: same rule and scope as reading deployment history", async () => {
+  const app = await buildApp();
+  try {
+    const owner = await makeUser();
+    const cookie = await loginAs(app, owner.email, owner.password);
+    const { project, plaintextKey } = await createProjectWithKey(app, cookie, ["projects:read"]);
+    const noRead = await createProjectWithKey(app, cookie, ["deployments:trigger"]);
+    const connRes = await app.inject({
+      method: "POST",
+      url: `/api/projects/${project.id}/connections`,
+      headers: headers({ cookie }),
+      payload: {
+        name: "Local file",
+        engine: "sqlite",
+        filePath: join(tmpdir(), `nebuladb-test-v1export-${randomUUID()}.sqlite`),
+      },
+    });
+    const connId = connRes.json().connection.id;
+    db.prepare(
+      `INSERT INTO deployment_history (id, project_id, connection_id, connection_name, engine, sql, success, executed_statements, total_statements)
+       VALUES (?, ?, ?, 'Local file', 'sqlite', 'CREATE TABLE widgets (id INTEGER);', 1, 1, 1)`,
+    ).run(randomUUID(), project.id, connId);
+
+    const url = `/api/v1/projects/${project.id}/connections/${connId}/history/export?format=flyway`;
+    const ok = await app.inject({ method: "GET", url, headers: bearer(plaintextKey) });
+    assert.equal(ok.statusCode, 200);
+    assert.equal(ok.headers["content-type"], "application/zip");
+    assert.equal(ok.rawPayload.subarray(0, 4).toString("hex"), "504b0304", "a zip");
+    assert.ok(ok.rawPayload.includes("V0001__deployment.sql"));
+
+    const bad = await app.inject({ method: "GET", url: url.replace("flyway", "x"), headers: bearer(plaintextKey) });
+    assert.equal(bad.statusCode, 400);
+    const noScope = await app.inject({
+      method: "GET",
+      url: `/api/v1/projects/${noRead.project.id}/connections/${connId}/history/export`,
+      headers: bearer(noRead.plaintextKey),
+    });
+    assert.equal(noScope.statusCode, 403);
+
+    const stranger = await makeUser();
+    const strangerCookie = await loginAs(app, stranger.email, stranger.password);
+    const strangerKey = (
+      await app.inject({
+        method: "POST",
+        url: "/api/keys",
+        headers: headers({ cookie: strangerCookie }),
+        payload: { name: "stranger", scopes: ["projects:read"] },
+      })
+    ).json().plaintextKey;
+    const notAdmin = await app.inject({ method: "GET", url, headers: bearer(strangerKey) });
+    assert.equal(notAdmin.statusCode, 403, "a key is not enough without project administrator");
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
+
 test("/api/v1 history: exposes the same schema revision log as the session-authed route", async () => {
   const app = await buildApp();
   try {

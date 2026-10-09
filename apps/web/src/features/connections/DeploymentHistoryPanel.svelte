@@ -4,13 +4,17 @@
   import Badge from "@/components/ui/Badge.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Icon from "@/components/icons/Icon.svelte";
-  import { CheckCircleIcon, ClockIcon, CloseIcon } from "@/components/icons/Icons";
+  import { CheckCircleIcon, ClockIcon, CloseIcon, DownloadIcon } from "@/components/icons/Icons";
+  import Select from "@/components/ui/Select.svelte";
+  import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { formatRelativeTime } from "@/i18n/formatters";
   import { i18n, useTranslation } from "@/i18n/i18n.svelte";
-  import { listDeploymentHistory } from "@/services/connectionsApi";
+  import { exportMigrations, listDeploymentHistory, type MigrationExportFormat } from "@/services/connectionsApi";
+  import { triggerDownload } from "@/utils/download";
   import RollbackConfirmModal from "./RollbackConfirmModal.svelte";
   import { STRATEGY_LABEL } from "./deployment/deploymentModel";
+  import type { TranslationKeyOf } from "@/types";
 
   /**
    * Past deployments (and rollbacks of them) for one connection, with a rollback
@@ -40,6 +44,17 @@
   let confirmEntry = $state.raw<DeploymentHistoryEntry | null>(null);
 
   const entries = $derived(history.data ?? []);
+
+  const EXPORT_FORMATS: { value: MigrationExportFormat; label: TranslationKeyOf }[] = [
+    { value: "sql", label: "deployment.exportFormatSql" },
+    { value: "flyway", label: "deployment.exportFormatFlyway" },
+    { value: "liquibase", label: "deployment.exportFormatLiquibase" },
+  ];
+  let exportFormat = $state<MigrationExportFormat>("sql");
+  const migrationExport = useAsyncAction(async () => {
+    const blob = await exportMigrations(projectId, connId, exportFormat);
+    triggerDownload(URL.createObjectURL(blob), `migrations-${exportFormat}.zip`, true);
+  });
 </script>
 
 <div class="space-y-3">
@@ -53,6 +68,23 @@
       {t("deployment.historyEmpty")}
     </div>
   {:else}
+    <div class="space-y-1.5">
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        <Select
+          size="sm"
+          class="w-36"
+          aria-label={t("deployment.exportFormat")}
+          bind:value={exportFormat}
+          options={EXPORT_FORMATS.map(({ value, label }) => ({ value, label: t(label) }))}
+        />
+        <Button size="sm" variant="outline" disabled={migrationExport.pending} onclick={() => migrationExport.run()}>
+          <Icon icon={DownloadIcon} size={14} />
+          {migrationExport.pending ? t("deployment.exporting") : t("deployment.exportMigrations")}
+        </Button>
+      </div>
+      <p class="m-0 text-right text-[11px] text-text-muted">{t("deployment.exportHint")}</p>
+      {#if migrationExport.error}<ErrorText>{migrationExport.error}</ErrorText>{/if}
+    </div>
     <ul class="m-0 max-h-96 list-none space-y-2 overflow-y-auto p-0 pr-1">
       {#each entries as entry (entry.id)}
         <li class="rounded-sm border border-border bg-surface p-3 text-xs">

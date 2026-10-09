@@ -15,7 +15,7 @@ import type {
   PersonalCredentialStatus,
 } from "@nebuladb/shared";
 import type { LintRuleKey, MigrationDiff, SchemaComparisonEntry } from "@nebuladb/dbml-engine";
-import { request } from "./httpClient";
+import { request, requestBlob } from "./httpClient";
 
 export interface TestConnectionResponse {
   ok: boolean;
@@ -253,6 +253,13 @@ export async function listDeploymentHistory(projectId: string, connId: string): 
     `/api/projects/${projectId}/connections/${connId}/history`,
   );
   return res.history;
+}
+
+export type MigrationExportFormat = "sql" | "flyway" | "liquibase";
+
+/** The history as migration files in one zip — see the server's `migrationExport.ts`. */
+export function exportMigrations(projectId: string, connId: string, format: MigrationExportFormat): Promise<Blob> {
+  return requestBlob(`/api/projects/${projectId}/connections/${connId}/history/export`, { query: { format } });
 }
 
 export async function rollbackDeployment(

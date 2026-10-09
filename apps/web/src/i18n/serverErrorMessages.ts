@@ -86,6 +86,7 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   MFA_CHALLENGE_INVALID: "errors.mfaChallengeInvalid",
   DEPLOYMENT_HISTORY_NOT_FOUND: "errors.deploymentHistoryNotFound",
   ROLLBACK_NOT_AVAILABLE: "errors.rollbackNotAvailable",
+  MIGRATION_FORMAT_INVALID: "errors.migrationFormatInvalid",
   ROLLBACK_ALREADY_ATTEMPTED: "errors.rollbackAlreadyAttempted",
   STRUCTURE_VIA_SCHEMA: "errors.structureViaSchema",
   STRUCTURE_CONFIRMATION_REQUIRED: "errors.structureConfirmationRequired",

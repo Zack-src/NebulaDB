@@ -14,6 +14,7 @@ import { deployToConnection, rollbackConnectionDeployment } from "../connections
 import { pullConnectionSchema } from "../connections/pull.js";
 import { listDeploymentHistory } from "../connections/deploymentHistory.js";
 import { reconcileReviews } from "../reviews/service.js";
+import { exportMigrations, isMigrationFormat } from "../connections/migrationExport.js";
 import {
   getProjectConnection,
   listConnectionsByProject,
@@ -184,6 +185,30 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
     requireProjectAccess(req, id, "deploy");
     requireScope(req, "projects:read", id);
     return { history: listDeploymentHistory(id, connId) };
+  });
+
+  app.get("/api/v1/projects/:id/connections/:connId/history/export", API_RATE_LIMIT, async (req, reply) => {
+    const { id, connId } = req.params as { id: string; connId: string };
+    const { user, project } = requireProjectAccess(req, id, "deploy");
+    requireScope(req, "projects:read", id);
+    const { format = "sql" } = req.query as { format?: string };
+    if (!isMigrationFormat(format)) throw new ApiError("MIGRATION_FORMAT_INVALID");
+    const conn = getProjectConnection(id, connId);
+    if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
+
+    const { fileName, archive, files } = exportMigrations(id, project.name, conn, format);
+    auditUser(
+      user,
+      "connection.migrations_export",
+      { type: "project", id },
+      `${connId}: ${format}, ${files} files (v1)`,
+      req,
+      { connectionId: connId },
+    );
+    return reply
+      .header("content-type", "application/zip")
+      .header("content-disposition", `attachment; filename="${fileName}"`)
+      .send(archive);
   });
 
   app.post("/api/v1/projects/:id/connections/:connId/history/:historyId/rollback", DEPLOY_RATE_LIMIT, async (req) => {

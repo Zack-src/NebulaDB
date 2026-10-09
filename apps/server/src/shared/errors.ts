@@ -45,6 +45,7 @@ export const ERROR_CATALOG = {
     message: "you are the last active administrator — grant admin to someone else first",
   },
   INVITATION_INVALID: { status: 400, message: "this invitation is no longer valid" },
+  MIGRATION_FORMAT_INVALID: { status: 400, message: "format must be one of sql, flyway, liquibase" },
   CONNECTION_ENGINE_INVALID: {
     status: 400,
     message: "engine must be one of postgres, mysql, mssql, oracle, sqlite, bigquery",

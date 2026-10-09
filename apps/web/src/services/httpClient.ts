@@ -72,7 +72,14 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   return (text ? JSON.parse(text) : undefined) as T;
 }
 
-/** For endpoints that return `text/plain` (the DBML and SQL exports). */
+/** For endpoints that answer a file (the migration export's zip). */
+export async function requestBlob(path: string, options: RequestOptions = {}): Promise<Blob> {
+  const res = await send(path, options);
+  if (!res.ok) throw await toApiError(res);
+  return res.blob();
+}
+
+/** For endpoints that return `text/plain' (the DBML and SQL exports). */
 export async function requestText(path: string, options: RequestOptions = {}): Promise<string> {
   const res = await send(path, options);
   if (!res.ok) throw await toApiError(res);

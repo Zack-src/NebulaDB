@@ -640,6 +640,18 @@ export const OPERATIONS: Operation[] = [
     ok: { status: 200, schema: obj({ history: { type: "array", items: ref("DeploymentHistoryEntry") } }) },
   },
   {
+    method: "get",
+    path: "/api/v1/projects/:id/connections/:connId/history/export",
+    tag: "Connections",
+    scope: "projects:read",
+    admin: "deploy",
+    summary: "Deployment history as migration files (zip)",
+    description:
+      "Successful deployments, oldest first, as numbered SQL, Flyway or Liquibase files, plus a README listing what was left out. 400 MIGRATION_FORMAT_INVALID for another format.",
+    query: [{ name: "format", schema: { type: "string", enum: ["sql", "flyway", "liquibase"], default: "sql" } }],
+    ok: { status: 200, mediaType: "application/zip" },
+  },
+  {
     method: "post",
     path: "/api/v1/projects/:id/connections/:connId/history/:historyId/rollback",
     tag: "Connections",
@@ -1228,7 +1240,7 @@ const ERROR_RESPONSES = {
 };
 
 /** Answers that are bytes, not text. */
-const BINARY_MEDIA_TYPES = new Set(["image/png", "application/gzip"]);
+const BINARY_MEDIA_TYPES = new Set(["image/png", "application/gzip", "application/zip"]);
 
 function toOpenApiPath(path: string): string {
   return path.replace(/:([A-Za-z]+)/g, "{$1}");

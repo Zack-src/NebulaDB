@@ -20,6 +20,7 @@ import { planSeeds, prepareSeeds } from "../seeds/deploySeeds.js";
 import { createProjectFromDatabase } from "./createFromDatabase.js";
 import { listDeploymentHistory } from "./deploymentHistory.js";
 import { reconcileReviews } from "../reviews/service.js";
+import { exportMigrations, isMigrationFormat } from "./migrationExport.js";
 import {
   getConnectionOrigin,
   getProjectConnection,
@@ -328,6 +329,35 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
     const { id, connId } = req.params as { id: string; connId: string };
     requireProjectAccess(req, id, "deploy");
     return { history: listDeploymentHistory(id, connId) };
+  });
+
+  /**
+   * 9b. The history as versioned migration files (plain SQL, Flyway or
+   * Liquibase), in one zip — see `migrationExport.ts` for what goes in.
+   */
+  app.get("/api/projects/:id/connections/:connId/history/export", CONNECTION_RATE_LIMIT, async (req, reply) => {
+    const { id, connId } = req.params as { id: string; connId: string };
+    const { user, project } = requireProjectAccess(req, id, "deploy");
+    const { format = "sql" } = req.query as { format?: string };
+    if (!isMigrationFormat(format)) throw new ApiError("MIGRATION_FORMAT_INVALID");
+    const conn = getProjectConnection(id, connId);
+    if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
+
+    const { fileName, archive, files } = exportMigrations(id, project.name, conn, format);
+    auditUser(
+      user,
+      "connection.migrations_export",
+      { type: "project", id },
+      `${connId}: ${format}, ${files} files`,
+      req,
+      {
+        connectionId: connId,
+      },
+    );
+    return reply
+      .header("content-type", "application/zip")
+      .header("content-disposition", `attachment; filename="${fileName}"`)
+      .send(archive);
   });
 
   /**

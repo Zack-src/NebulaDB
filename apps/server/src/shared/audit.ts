@@ -49,6 +49,7 @@ export const AUDIT_ACTIONS = [
   "connection.pull",
   "connection.deploy",
   "connection.rollback",
+  "connection.migrations_export",
   "connection.drift.dismiss",
   "dbconn.create",
   "dbconn.update",

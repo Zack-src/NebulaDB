@@ -185,3 +185,41 @@ export function getDeploymentHistoryEntry(id: string): DeploymentHistoryEntry | 
     .get(id);
   return rowToEntry(row, Boolean(alreadyRolledBack));
 }
+
+/** A history row as the migration export reads it: who ran it by name, and the schema it deployed. */
+export interface DeploymentExportRow extends DeploymentHistoryEntry {
+  executedByName: string | null;
+  schemaHash: string | null;
+}
+
+/**
+ * Every deployment of one connection *as used by one project*, oldest first —
+ * the order they ran in (`rowid` breaks ties inside one second), so a replay
+ * of the successful ones rebuilds the database. Not limited, unlike the list
+ * the history panel shows.
+ */
+export function listDeploymentsForExport(projectId: string, connectionId: string): DeploymentExportRow[] {
+  const rows = db
+    .prepare(
+      `SELECT d.*, u.display_name AS executed_by_name
+         FROM deployment_history d LEFT JOIN users u ON u.email = d.executed_by_email
+        WHERE d.connection_id = ? AND d.project_id = ?
+        ORDER BY d.created_at ASC, d.rowid ASC`,
+    )
+    .all(connectionId, projectId) as (HistoryRow & { executed_by_name: string | null; schema_hash: string | null })[];
+  const rolledBackIds = new Set(
+    (
+      db
+        .prepare(
+          `SELECT DISTINCT rollback_of FROM deployment_history
+            WHERE connection_id = ? AND project_id = ? AND success = 1 AND rollback_of IS NOT NULL`,
+        )
+        .all(connectionId, projectId) as { rollback_of: string }[]
+    ).map((r) => r.rollback_of),
+  );
+  return rows.map((row) => ({
+    ...rowToEntry(row, rolledBackIds.has(row.id)),
+    executedByName: row.executed_by_name,
+    schemaHash: row.schema_hash,
+  }));
+}
