@@ -116,7 +116,8 @@
         return;
       }
       const target = event.target as HTMLElement | null;
-      if (target?.closest?.(".cm-editor")) return;
+      // The DBML editor keeps Ctrl+K as the prefix of its own chords; the SQL editor has none.
+      if (target?.closest?.(".cm-editor") && !target.closest("[data-sql-editor]")) return;
       if (document.querySelector('[role="dialog"][aria-modal="true"]')) return;
       // The browser would otherwise focus its own search bar; and a plugin's canvas shortcut must not also fire.
       event.preventDefault();

@@ -125,6 +125,7 @@
 
 <div
   bind:this={container}
+  data-sql-editor
   class={`overflow-hidden rounded-md border transition-[border-color,box-shadow] duration-150 ease-out focus-within:ring-2 ${
     danger
       ? "border-danger/60 focus-within:ring-danger/25"
