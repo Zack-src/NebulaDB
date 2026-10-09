@@ -16,8 +16,9 @@
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
   import Icon from "@/components/icons/Icon.svelte";
+  import Input from "@/components/ui/Input.svelte";
   import { CheckCircleIcon, CheckIcon } from "@/components/icons/Icons";
-  import { INPUT_CLASS, INPUT_SM_CLASS } from "@/components/ui/inputStyles";
+  import { INPUT_CLASS } from "@/components/ui/inputStyles";
   import ConnectionFormFields, { DEFAULT_PORTS } from "@/features/connections/ConnectionFormFields.svelte";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
@@ -26,6 +27,7 @@
   import { pullDatabaseSchema } from "@/services/connectionsApi";
   import {
     createAdminConnection,
+    fetchConnectionOverview,
     fetchCredentialHolders,
     setAdminConnectionProjects,
     testAdminConnection,
@@ -33,6 +35,7 @@
     type AdminConnectionInput,
   } from "@/services/dbAdminApi";
   import { fetchProjects } from "@/services/projectsApi";
+  import { findDatabaseIssues } from "./projectDatabases";
 
   /**
    * Create or edit one instance-level connection, and choose which projects
@@ -100,6 +103,23 @@
       database: (namesDatabase && projectDatabases[projectId]?.trim()) || null,
     })),
   );
+  /** Engines whose databases are created from here; the others only offer the ones that exist. */
+  const createsDatabases = $derived(engine === "postgres" || engine === "mysql" || engine === "mssql");
+  // The databases the server has, to pick from. Only a saved connection can be asked, and the answer is
+  // never an error here: offline, refused (a personal account that isn't the administrator's), no right —
+  // the field then stays a plain text input.
+  const databaseList = useAsyncResource(async () => {
+    if (!initial || !namesDatabase) return null;
+    try {
+      return (await fetchConnectionOverview(initial.id)).databases;
+    } catch {
+      return null;
+    }
+  });
+  const existingDatabases = $derived(new Set((databaseList.data ?? []).map((d) => d.name.toLowerCase())));
+  const suggestions = $derived((databaseList.data ?? []).filter((d) => !d.system).map((d) => d.name));
+  const uid = $props.id();
+  const datalistId = `${uid}-databases`;
   const linkKey = (list: { projectId: string; database: string | null }[]) =>
     list
       .map((link) => `${link.projectId}=${link.database ?? ""}`)
@@ -113,6 +133,21 @@
     ...(projects.data ?? []).filter((p) => p.status === "active").map((p) => ({ id: p.id, name: p.name, trashed: false })),
     ...trashedLinked,
   ]);
+  const databaseIssues = $derived(
+    findDatabaseIssues(
+      activeProjects
+        .filter((p) => projectIds.includes(p.id))
+        .map((p) => ({ projectId: p.id, trashed: p.trashed, value: projectDatabases[p.id] ?? "" })),
+      database,
+    ),
+  );
+  /** Whether the chosen database is on the server, or will be made on save; nothing for the connection's own, or an unknown list. */
+  function databaseState(projectId: string): "exists" | "created" | "missing" | null {
+    const name = projectDatabases[projectId]?.trim();
+    if (!name || !databaseList.data || databaseIssues.get(projectId) === "invalid") return null;
+    if (existingDatabases.has(name.toLowerCase())) return "exists";
+    return createDatabases && createsDatabases ? "created" : "missing";
+  }
   const linkedIds = $derived(new Set((initial?.projects ?? []).map((p) => p.id)));
 
   function payload(): AdminConnectionInput {
@@ -289,43 +324,67 @@
       {#if projects.error}<ErrorText>{projects.error}</ErrorText>{/if}
       <div class="max-h-44 space-y-0.5 overflow-y-auto rounded-md border border-border p-1.5">
         {#each activeProjects as project (project.id)}
-          <div class="flex items-center gap-2 rounded-sm px-1.5 py-1 text-xs hover:bg-surface-hover">
-            <Checkbox
-              class="min-w-0 flex-1"
-              checked={projectIds.includes(project.id)}
-              onChange={(checked) =>
-                (projectIds = checked ? [...projectIds, project.id] : projectIds.filter((id) => id !== project.id))}
-            >
-              <span class="flex items-center gap-1.5 text-xs">
-                <span class="truncate">{project.name}</span>
-                {#if project.trashed}
-                  <span title={t("admin.connections.projectTrashedHint")}>
-                    <Badge tone="muted">{t("admin.connections.projectTrashed")}</Badge>
-                  </span>
-                {/if}
-              </span>
-            </Checkbox>
-            {#if namesDatabase && projectIds.includes(project.id)}
-              <input
-                class={`${INPUT_SM_CLASS} w-44 font-mono`}
-                bind:value={projectDatabases[project.id]}
-                placeholder={database || t("admin.connections.projectDatabase")}
-                aria-label={t("admin.connections.projectDatabaseFor", { project: project.name })}
-              />
-            {/if}
-            <!-- Only for links that are already saved: the server refuses these for a project the connection isn't attached to yet. -->
-            {#if initial && linkedIds.has(project.id) && !project.trashed}
-              <Button
-                size="xs"
-                variant="ghost"
-                disabled={pull.pending}
-                onclick={() => (pullingInto = { id: project.id, name: project.name })}
+          {@const issue = databaseIssues.get(project.id)}
+          {@const state = databaseState(project.id)}
+          <div class="rounded-sm px-1.5 py-1 text-xs hover:bg-surface-hover">
+            <div class="flex items-center gap-2">
+              <Checkbox
+                class="min-w-0 flex-1"
+                checked={projectIds.includes(project.id)}
+                onChange={(checked) =>
+                  (projectIds = checked ? [...projectIds, project.id] : projectIds.filter((id) => id !== project.id))}
               >
-                {t("connections.pullSchema")}
-              </Button>
-              <Button size="xs" variant="ghost" onclick={() => onCheckDifferences(project.id, initial.id)}>
-                {t("connections.checkDifferences")}
-              </Button>
+                <span class="flex items-center gap-1.5 text-xs">
+                  <span class="truncate">{project.name}</span>
+                  {#if project.trashed}
+                    <span title={t("admin.connections.projectTrashedHint")}>
+                      <Badge tone="muted">{t("admin.connections.projectTrashed")}</Badge>
+                    </span>
+                  {/if}
+                </span>
+              </Checkbox>
+              {#if namesDatabase && projectIds.includes(project.id)}
+                <Input
+                  inputSize="sm"
+                  class="w-44 font-mono"
+                  bind:value={projectDatabases[project.id]}
+                  list={suggestions.length > 0 ? datalistId : undefined}
+                  autocomplete="off"
+                  invalid={Boolean(issue)}
+                  placeholder={database || t("admin.connections.projectDatabase")}
+                  aria-label={t("admin.connections.projectDatabaseFor", { project: project.name })}
+                />
+              {/if}
+              <!-- Only for links that are already saved: the server refuses these for a project the connection isn't attached to yet. -->
+              {#if initial && linkedIds.has(project.id) && !project.trashed}
+                <Button
+                  size="xs"
+                  variant="ghost"
+                  disabled={pull.pending}
+                  onclick={() => (pullingInto = { id: project.id, name: project.name })}
+                >
+                  {t("connections.pullSchema")}
+                </Button>
+                <Button size="xs" variant="ghost" onclick={() => onCheckDifferences(project.id, initial.id)}>
+                  {t("connections.checkDifferences")}
+                </Button>
+              {/if}
+            </div>
+            {#if namesDatabase && projectIds.includes(project.id) && (issue || state)}
+              <p
+                class={`m-0 mt-0.5 pl-6 text-[11px] ${issue ? "text-danger" : state === "exists" ? "text-success" : "text-text-muted"}`}
+                data-testid="project-database-state"
+              >
+                {issue
+                  ? t(issue === "invalid" ? "admin.connections.projectDatabaseInvalid" : "admin.connections.projectDatabaseDuplicate")
+                  : t(
+                      state === "exists"
+                        ? "admin.connections.projectDatabaseExists"
+                        : state === "created"
+                          ? "admin.connections.projectDatabaseCreated"
+                          : "admin.connections.projectDatabaseMissing",
+                    )}
+              </p>
             {/if}
           </div>
         {/each}
@@ -335,6 +394,11 @@
           </p>
         {/if}
       </div>
+      {#if suggestions.length > 0}
+        <datalist id={datalistId}>
+          {#each suggestions as suggestion (suggestion)}<option value={suggestion}></option>{/each}
+        </datalist>
+      {/if}
       {#if namesDatabase && links.some((link) => link.database)}
         <Checkbox bind:checked={createDatabases} class="mt-2" hint={t("admin.connections.createDatabasesHint")}>
           {t("admin.connections.createDatabases")}
@@ -364,7 +428,7 @@
       </Button>
       <div class="flex items-center gap-2">
         <Button size="sm" variant="ghost" onclick={onClose} disabled={save.pending}>{t("common.cancel")}</Button>
-        <Button size="sm" variant="primary" onclick={() => void save.run()} disabled={save.pending || !name.trim()}>
+        <Button size="sm" variant="primary" onclick={() => void save.run()} disabled={save.pending || !name.trim() || databaseIssues.size > 0}>
           <Icon icon={CheckIcon} size={13} />
           {save.pending ? t("common.saving") : t("common.save")}
         </Button>
