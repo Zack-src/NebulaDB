@@ -75,35 +75,36 @@ schéma ».
 
 ## 3. Connexions aux bases ★
 
-| Fonctionnalité                                                       | État | Reste / remarque                                   |
-| -------------------------------------------------------------------- | :--: | -------------------------------------------------- |
-| Connexions au niveau de l'instance, rattachées aux projets           |  ✅  |                                                    |
-| PostgreSQL, MySQL/MariaDB, SQL Server                                |  ✅  | Vérifié sur de vraies bases                        |
-| Oracle                                                               |  🧪  | Jamais testé sur une vraie base                    |
-| SQLite                                                               |  ✅  |                                                    |
-| Chiffrement des identifiants, rotation de la clé, anti DNS-rebinding |  ✅  |                                                    |
-| Santé, tags, lecture seule par connexion                             |  ✅  |                                                    |
-| Environnements configurables (DEV › Staging › Prod)                  |  🟡  | Le niveau « revue » est appliqué comme « protégé » |
-| Variables par environnement dans les noms de tables et de schémas    |  🧪  | `{{schema}}` jamais essayé sur un moteur à schémas |
-| Tunnel SSH, autorité de certification TLS personnalisée              |  ❌  |                                                    |
+| Fonctionnalité                                                       | État | Reste / remarque                                                 |
+| -------------------------------------------------------------------- | :--: | ---------------------------------------------------------------- |
+| Connexions au niveau de l'instance, rattachées aux projets           |  ✅  |                                                                  |
+| PostgreSQL, MySQL/MariaDB, SQL Server                                |  ✅  | Vérifié sur de vraies bases                                      |
+| Oracle                                                               |  🧪  | Jamais testé sur une vraie base                                  |
+| SQLite                                                               |  ✅  |                                                                  |
+| Chiffrement des identifiants, rotation de la clé, anti DNS-rebinding |  ✅  |                                                                  |
+| Santé, tags, lecture seule par connexion                             |  ✅  |                                                                  |
+| Environnements configurables (DEV › Staging › Prod)                  |  ✅  | « Revue » demande l'approbation d'une autre personne (section 4) |
+| Variables par environnement dans les noms de tables et de schémas    |  🧪  | `{{schema}}` jamais essayé sur un moteur à schémas               |
+| Tunnel SSH, autorité de certification TLS personnalisée              |  ❌  |                                                                  |
 
 ## 4. Déploiement ★
 
-| Fonctionnalité                                               | État | Reste / remarque                                               |
-| ------------------------------------------------------------ | :--: | -------------------------------------------------------------- |
-| Assistant : différences → risques → SQL → résultat           |  🧪  | Fenêtre découpée en étapes, jamais regardée à la main          |
-| ★ Comparatif montré avant le déploiement                     |  ✅  |                                                                |
-| Mesure des risques sur les données existantes                |  ✅  | Vérifié sur PostgreSQL et MySQL ; très grosses tables à tester |
-| Confirmation et sauvegarde automatique en production         |  ✅  |                                                                |
-| Pipeline sans saut d'étape                                   |  ✅  |                                                                |
-| Comparaison de deux environnements                           |  🧪  | Faux « différent » attendus entre deux moteurs différents      |
-| Historique des déploiements, retour arrière « au mieux »     |  🟡  | MySQL : pas de retour à travers un échec en cours de lot       |
-| Données initiales CSV, reprise des lignes depuis la base     |  🧪  | Reprise jamais essayée ailleurs que sur SQLite                 |
-| Générateur de données de test                                |  🟡  | Générateurs « regex » et « copie d'une colonne » absents       |
-| Sauvegardes logiques, planification, restauration            |  🧪  | Jamais essayées sur les moteurs serveur ni sur plusieurs jours |
-| Revue avant production, fenêtres de déploiement, gel         |  ❌  |                                                                |
-| Bouton « revenir avant ce déploiement », sauvegardes natives |  ❌  |                                                                |
-| Action GitHub / CLI                                          |  ❌  | Un exemple CI est écrit, jamais lancé                          |
+| Fonctionnalité                                                                                                     | État | Reste / remarque                                                                           |
+| ------------------------------------------------------------------------------------------------------------------ | :--: | ------------------------------------------------------------------------------------------ |
+| Assistant : différences → risques → SQL → résultat                                                                 |  🧪  | Fenêtre découpée en étapes, jamais regardée à la main                                      |
+| ★ Comparatif montré avant le déploiement                                                                           |  ✅  |                                                                                            |
+| Mesure des risques sur les données existantes                                                                      |  ✅  | Vérifié sur PostgreSQL et MySQL ; très grosses tables à tester                             |
+| Confirmation et sauvegarde automatique en production                                                               |  ✅  |                                                                                            |
+| Pipeline sans saut d'étape                                                                                         |  ✅  |                                                                                            |
+| Comparaison de deux environnements                                                                                 |  🧪  | Faux « différent » attendus entre deux moteurs différents                                  |
+| Historique des déploiements, retour arrière « au mieux »                                                           |  🟡  | MySQL : pas de retour à travers un échec en cours de lot                                   |
+| Données initiales CSV, reprise des lignes depuis la base                                                           |  🧪  | Reprise jamais essayée ailleurs que sur SQLite                                             |
+| Générateur de données de test                                                                                      |  🟡  | Générateurs « regex » et « copie d'une colonne » absents                                   |
+| Sauvegardes logiques, planification, restauration                                                                  |  🧪  | Jamais essayées sur les moteurs serveur ni sur plusieurs jours                             |
+| Revue avant une étape « Revue » (demande, approbation par une autre personne, déploiement de la demande approuvée) |  🧪  | Testée côté serveur et par `/api/v1` ; écrans jamais cliqués ; approbation valable 7 jours |
+| Fenêtres de déploiement, gel                                                                                       |  ❌  |                                                                                            |
+| Bouton « revenir avant ce déploiement », sauvegardes natives                                                       |  ❌  |                                                                                            |
+| Action GitHub / CLI                                                                                                |  ❌  | Un exemple CI est écrit, jamais lancé                                                      |
 
 ## 5. Comptes Nebula et groupes ★
 

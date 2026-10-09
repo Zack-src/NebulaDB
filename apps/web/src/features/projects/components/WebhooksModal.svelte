@@ -10,6 +10,7 @@
   const EVENTS: { id: WebhookEvent; labelKey: TranslationKeyOf }[] = [
     { id: "schema.changed", labelKey: "webhooks.event.schemaChanged" },
     { id: "deployment.completed", labelKey: "webhooks.event.deploymentCompleted" },
+    { id: "deployment.review", labelKey: "webhooks.event.deploymentReview" },
     { id: "drift.detected", labelKey: "webhooks.event.driftDetected" },
   ];
   const STATUS_TONE = { succeeded: "success", failed: "danger", pending: "warning" } as const;
@@ -78,6 +79,7 @@
   let events = $state<Record<WebhookEvent, boolean>>({
     "schema.changed": true,
     "deployment.completed": true,
+    "deployment.review": true,
     "drift.detected": true,
   });
   let newSecret = $state<string | null>(null);

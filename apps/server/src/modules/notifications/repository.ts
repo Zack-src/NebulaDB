@@ -1,6 +1,7 @@
 import crypto from "node:crypto";
 import {
   NOTIFICATION_EVENTS,
+  type DirectNotificationEvent,
   type NotificationEvent,
   type NotificationParams,
   type ProjectSubscription,
@@ -165,6 +166,43 @@ export function notifyFollowers(
     return told.size;
   } catch (err) {
     console.error("[notifications] could not notify followers:", err);
+    return 0;
+  }
+}
+
+/**
+ * Tells named accounts something that waits for them or answers them — a
+ * deployment to review, what became of the review they asked for — whether or
+ * not they follow the project. Who is addressed is the caller's rule; disabled
+ * accounts and those who can no longer open the project are left out here.
+ * Never throws, like `notifyFollowers`.
+ */
+export function notifyDirectly(
+  projectId: string,
+  userIds: Iterable<string>,
+  event: DirectNotificationEvent,
+  params: NotificationParams,
+): number {
+  try {
+    const exists = db.prepare("SELECT 1 FROM users WHERE id = ? AND disabled_at IS NULL");
+    const insert = db.prepare(
+      "INSERT INTO notifications (id, user_id, project_id, event, params_json) VALUES (?, ?, ?, ?, ?)",
+    );
+    const trim = db.prepare(
+      `DELETE FROM notifications WHERE user_id = ? AND id NOT IN
+         (SELECT id FROM notifications WHERE user_id = ? ORDER BY rowid DESC LIMIT ${KEPT_PER_USER})`,
+    );
+    const told = new Set<string>();
+    for (const userId of new Set(userIds)) {
+      if (!exists.get(userId) || !getEffectivePermission(userId, projectId)) continue;
+      insert.run(crypto.randomUUID(), userId, projectId, event, JSON.stringify(params));
+      trim.run(userId, userId);
+      told.add(userId);
+    }
+    notifyProjectUsers(projectId, told, { type: "notification" });
+    return told.size;
+  } catch (err) {
+    console.error("[notifications] could not notify directly:", err);
     return 0;
   }
 }

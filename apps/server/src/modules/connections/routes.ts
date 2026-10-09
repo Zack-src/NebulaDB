@@ -19,6 +19,7 @@ import { analyzeDeploymentRisks } from "./riskAnalysis.js";
 import { planSeeds, prepareSeeds } from "../seeds/deploySeeds.js";
 import { createProjectFromDatabase } from "./createFromDatabase.js";
 import { listDeploymentHistory } from "./deploymentHistory.js";
+import { reconcileReviews } from "../reviews/service.js";
 import {
   getConnectionOrigin,
   getProjectConnection,
@@ -149,6 +150,8 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
     auditUser(user, "connection.update", { type: "project", id }, `${updated.engine}: ${updated.name}`, req, {
       connectionId: connId,
     });
+    // Moved to another stage: a review asked for the old one no longer stands.
+    reconcileReviews(id, { user, req });
     return { connection: updated };
   });
 
@@ -163,6 +166,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
     if (!ok) throw new ApiError("CONNECTION_NOT_FOUND");
 
     auditUser(user, "connection.delete", { type: "project", id }, connId, req, { connectionId: connId });
+    reconcileReviews(id, { user, req });
     return { deleted: true };
   });
 

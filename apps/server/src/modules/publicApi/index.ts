@@ -31,6 +31,7 @@ import { registerPublicCredentialRoutes } from "./credentialRoutes.js";
 import { registerPublicIamRoutes } from "./iamRoutes.js";
 import { registerPublicLockRoutes } from "./lockRoutes.js";
 import { registerPublicMonitoringRoutes } from "./monitoringRoutes.js";
+import { registerPublicReviewRoutes } from "./reviewRoutes.js";
 import { registerPublicConnectionRoutes } from "./connectionRoutes.js";
 import { registerPublicTeamRoutes } from "./teamRoutes.js";
 import { registerPublicWebhookRoutes } from "./webhookRoutes.js";
@@ -217,6 +218,7 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
   registerPublicLockRoutes(app);
   registerPublicMonitoringRoutes(app);
   registerPublicConnectionRoutes(app);
+  registerPublicReviewRoutes(app);
   registerPublicCredentialRoutes(app);
   registerPublicBackupRoutes(app);
   registerPublicWebhookRoutes(app);

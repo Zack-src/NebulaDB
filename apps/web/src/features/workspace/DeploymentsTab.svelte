@@ -8,6 +8,7 @@
   import { useTranslation } from "@/i18n/i18n.svelte";
   import EnvironmentBadge from "@/features/environments/EnvironmentBadge.svelte";
   import CompareEnvironmentsCard from "./CompareEnvironmentsCard.svelte";
+  import DeploymentReviewsCard from "./DeploymentReviewsCard.svelte";
   import PipelineCard from "./PipelineCard.svelte";
   import MonitoringCard from "./MonitoringCard.svelte";
 
@@ -26,6 +27,7 @@
     canSkipStage = false,
     onDeployed = () => {},
     onShowProblems,
+    reviewsKey = 0,
   }: {
     projectId: string;
     /** The workspace's current connection; `null` when the project has none. */
@@ -48,9 +50,13 @@
     canSkipStage?: boolean;
     onDeployed?: () => void;
     onShowProblems?: () => void;
+    /** Changes when the server says a review request was made, decided or closed. */
+    reviewsKey?: number;
   } = $props();
 
   const { t } = useTranslation();
+  /** Counts the requests made from the dialog below: the card lists one more. */
+  let requested = $state(0);
 </script>
 
 <div class="min-h-0 flex-1 overflow-y-auto bg-bg">
@@ -79,6 +85,15 @@
         {canSkipStage}
         {onDeployed}
         {onShowProblems}
+        onReviewRequested={() => (requested += 1)}
+      />
+      <DeploymentReviewsCard
+        {projectId}
+        {connections}
+        currentId={connection.id}
+        refreshKey={reviewsKey + requested + refreshKey}
+        {canSkipStage}
+        {onDeployed}
       />
       <PipelineCard {projectId} {refreshKey} {schemaHash} {canDeploy} {onDeployTo} />
       <!-- The watch covers all the project's databases, not only the current one. -->

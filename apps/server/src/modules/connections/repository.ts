@@ -76,7 +76,7 @@ function maskConnectionString(value: string | undefined): string | undefined {
 /** The connection's stage as the summary shows it — name, colour, production — or nothing. */
 function stageFields(
   row: ConnectionRow,
-): Pick<DatabaseConnectionSummary, "environment" | "environmentId" | "environmentColor" | "production"> {
+): Pick<DatabaseConnectionSummary, "environment" | "environmentId" | "environmentColor" | "production" | "protection"> {
   const stage = row.environment_id ? getEnvironment(row.environment_id) : null;
   if (!stage) return {};
   return {
@@ -84,6 +84,7 @@ function stageFields(
     environmentId: stage.id,
     environmentColor: stage.color,
     production: stage.production,
+    protection: stage.protection,
   };
 }
 

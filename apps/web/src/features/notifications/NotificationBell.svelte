@@ -16,6 +16,10 @@
   import { i18n, useTranslation } from "@/i18n/i18n.svelte";
   import { fetchInbox, markNotificationsRead, type Inbox } from "@/services/notificationsApi";
 
+  /** What a `review` notification says happened to a request (`params.action`). */
+  type DeploymentReviewAction =
+    "requested" | "approved" | "rejected" | "withdrawn" | "deployed" | "expired" | "stale" | "cancelled";
+
   /**
    * The notification centre: what happened on the projects this account
    * follows, newest first, with the count of what it has not read yet.
@@ -73,6 +77,8 @@
         return t(params.locked ? "notifications.lock.placed" : "notifications.lock.lifted", values);
       case "seed":
         return t(params.removed ? "notifications.seed.removed" : "notifications.seed.set", values);
+      case "review":
+        return t(`notifications.review.${params.action as DeploymentReviewAction}`, values);
       case "mention":
       case "reply":
         return t(`notifications.${event}.${params.column ? "column" : "table"}`, values);

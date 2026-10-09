@@ -95,6 +95,11 @@ export const AUDIT_ACTIONS = [
   "lint.preset.default",
   "lint.preset.apply",
   "connection.deploy.stage_skipped",
+  "connection.review.request",
+  "connection.review.approve",
+  "connection.review.reject",
+  "connection.review.withdraw",
+  "connection.review.cancel",
   "backup.create",
   "backup.delete",
   "backup.download",
@@ -146,7 +151,7 @@ export const ACTIVITY_CATEGORIES: readonly ActivityCategory[] = [
 /** First match wins. */
 const CATEGORY_RULES: [RegExp, ActivityCategory][] = [
   [/^monitoring\./, "monitoring"],
-  [/^connection\.(deploy|rollback|pull|drift\.)/, "deployments"],
+  [/^connection\.(deploy|rollback|pull|drift\.|review\.)/, "deployments"],
   [
     /^(table\.(lock|unlock)|dbadmin\.(drop|structure\.)|dbconn\.policy|instance\.structure_policy|project\.(import|revision\.restore))/,
     "structure",

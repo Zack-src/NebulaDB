@@ -1,6 +1,19 @@
+import crypto from "node:crypto";
 import { notifyFollowers } from "../notifications/repository.js";
-import { readProjectFromDoc, type MigrationResolutionMap } from "@nebuladb/shared";
-import { diffTargetAgainstLive, generateMigrationSql, generateRollbackSql } from "@nebuladb/dbml-engine";
+import {
+  readProjectFromDoc,
+  type AcceptedRisk,
+  type DatabaseConnectionConfig,
+  type DeploymentReviewCloseReason,
+  type MigrationResolutionMap,
+  type Project,
+} from "@nebuladb/shared";
+import {
+  diffTargetAgainstLive,
+  generateMigrationSql,
+  generateRollbackSql,
+  type MigrationDiff,
+} from "@nebuladb/dbml-engine";
 import { ApiError } from "../../shared/errors.js";
 import { getRoom } from "../../realtime/roomRegistry.js";
 import { createDatabaseDriver } from "./drivers/index.js";
@@ -9,7 +22,7 @@ import type { DatabaseDriver } from "./drivers/interface.js";
 import { getProjectConnection } from "./repository.js";
 import { getEnvironment } from "../environments/repository.js";
 import { analyzeDeploymentRisks, settleRisks } from "./riskAnalysis.js";
-import { applySeeds, assertSeedsDeployable, prepareSeeds } from "../seeds/deploySeeds.js";
+import { applySeeds, assertSeedsDeployable, prepareSeeds, type PreparedSeeds } from "../seeds/deploySeeds.js";
 import type { SeedResult } from "@nebuladb/shared";
 import { backupOrRefuse } from "../backups/runner.js";
 
@@ -17,6 +30,11 @@ const RISK_NOTE_MAX = 1000;
 
 function isProductionStage(conn: { environmentId?: string | null }): boolean {
   return Boolean(conn.environmentId && getEnvironment(conn.environmentId)?.production);
+}
+
+/** A stage whose protection is `review`: a deployment to it carries an approved review request, or does not run. */
+export function stageAsksForReview(conn: { environmentId?: string | null }): boolean {
+  return Boolean(conn.environmentId && getEnvironment(conn.environmentId)?.protection === "review");
 }
 
 /**
@@ -94,6 +112,141 @@ function countStatements(sql: string): number {
   return sql.split(";").filter((s) => s.trim().length > 0).length;
 }
 
+/** The seeds a deployment would insert, as one value: a request for review freezes it, a deployment compares. */
+function seedsHashOf(seeds: PreparedSeeds | null): string | null {
+  if (!seeds || seeds.seeds.length === 0) return null;
+  const hash = crypto.createHash("sha256");
+  for (const { seed, table } of seeds.seeds) hash.update(JSON.stringify([table.name, seed.options, seed.content]));
+  return hash.digest("hex");
+}
+
+/** One risk as a reviewer read it: what it is about and the answer given — not the row count, which moves on its own. */
+const riskIdentity = (risk: AcceptedRisk) =>
+  [risk.type, risk.tableName, risk.columnName ?? "", risk.detail ?? "", risk.strategy].join("\u0000");
+
+interface DeploymentPlan {
+  diff: MigrationDiff;
+  acceptedRisks: AcceptedRisk[];
+  /** `null` when the seeds are left out. */
+  seeds: PreparedSeeds | null;
+  sql: string;
+}
+
+/**
+ * What a deployment would run against the target as it is now: the diff, the
+ * risks settled with the answers given, the seeds, the SQL. Refuses what a
+ * deployment refuses (a risk left on "cancel", a seed that cannot go in) —
+ * the same for the deployment itself and for the request that freezes it for
+ * a review.
+ */
+async function planDeployment(
+  driver: DatabaseDriver,
+  projectId: string,
+  conn: DatabaseConnectionConfig,
+  canvasProject: Project,
+  resolutions: MigrationResolutionMap,
+  skipSeeds: boolean,
+): Promise<DeploymentPlan> {
+  const liveProject = await driver.introspectSchema();
+  const diff = diffTargetAgainstLive(liveProject, canvasProject);
+  // Measured again here, whatever the plan said: the data may have moved
+  // since, and an API caller may never have looked at a plan at all.
+  const acceptedRisks = settleRisks(
+    await analyzeDeploymentRisks(driver, diff, conn.engine),
+    resolutions,
+    isProductionStage(conn),
+  );
+  // Seeds are checked before anything runs: a seed that cannot go in must
+  // not leave the database half-deployed.
+  const seeds = skipSeeds ? null : prepareSeeds(projectId, canvasProject);
+  if (seeds) assertSeedsDeployable(seeds);
+  return { diff, acceptedRisks, seeds, sql: generateMigrationSql(diff, conn.engine, resolutions) };
+}
+
+/** What a review request froze, as far as a deployment has to match it. */
+export interface ReviewedPlan {
+  /** The request's id, kept with the deployment. */
+  id: string;
+  schemaHash: string;
+  sql: string;
+  risks: AcceptedRisk[];
+  seedsHash: string | null;
+}
+
+/**
+ * An approval is for what was read. The plan made now, with the answers the
+ * request froze, has to be the one that was approved: same SQL, same risks
+ * with the same answers, same seeds. Otherwise `DEPLOYMENT_REVIEW_STALE`,
+ * naming what moved — the schema when its hash did, the database when the
+ * schema is the same and the SQL is not.
+ */
+function assertStillAsReviewed(reviewed: ReviewedPlan, schemaHash: string, plan: DeploymentPlan): void {
+  const sameRisks =
+    plan.acceptedRisks.length === reviewed.risks.length &&
+    plan.acceptedRisks.map(riskIdentity).sort().join("\n") === reviewed.risks.map(riskIdentity).sort().join("\n");
+  const reason: DeploymentReviewCloseReason | null =
+    plan.sql !== reviewed.sql
+      ? schemaHash !== reviewed.schemaHash
+        ? "schema"
+        : "database"
+      : !sameRisks
+        ? "risks"
+        : seedsHashOf(plan.seeds) !== reviewed.seedsHash
+          ? "seeds"
+          : null;
+  if (reason) throw new ApiError("DEPLOYMENT_REVIEW_STALE", { details: { reason } });
+}
+
+export interface FrozenDeployment {
+  connection: DatabaseConnectionConfig;
+  schemaHash: string;
+  sql: string;
+  acceptedRisks: AcceptedRisk[];
+  seedsHash: string | null;
+}
+
+/**
+ * Prepares a deployment exactly as `deployToConnection` would, and stops
+ * before anything runs: what a review request keeps. Everything that would
+ * refuse the deployment for what it *is* refuses the request too (read-only
+ * connection, lint errors, a risk left on "cancel", broken seeds). The stage
+ * order is not asked here: it is about the other stages, which normally move
+ * between a request and its deployment, and is checked when deploying.
+ */
+export async function freezeDeployment(
+  projectId: string,
+  projectName: string,
+  connId: string,
+  resolutions: MigrationResolutionMap,
+  options: { skipSeeds?: boolean } = {},
+): Promise<FrozenDeployment> {
+  const conn = getProjectConnection(projectId, connId);
+  if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
+  if (conn.readOnly) throw new ApiError("CONNECTION_READ_ONLY");
+  if (!stageAsksForReview(conn)) throw new ApiError("DEPLOYMENT_REVIEW_NOT_REQUIRED");
+
+  const writtenProject = readProjectFromDoc(getRoom(projectId).doc, projectId, projectName);
+  assertLintAllowsDeployment(writtenProject, getLintSettings(projectId));
+  const canvasProject = schemaForConnection(writtenProject, conn);
+
+  const driver = await createDatabaseDriver(conn);
+  try {
+    const plan = await planDeployment(driver, projectId, conn, canvasProject, resolutions, options.skipSeeds === true);
+    if (!plan.diff.hasChanges && !(plan.seeds && plan.seeds.seeds.length > 0)) {
+      throw new ApiError("DEPLOYMENT_REVIEW_NOTHING_TO_DEPLOY");
+    }
+    return {
+      connection: conn,
+      schemaHash: schemaHashOf(writtenProject),
+      sql: plan.sql,
+      acceptedRisks: plan.acceptedRisks,
+      seedsHash: seedsHashOf(plan.seeds),
+    };
+  } finally {
+    await driver.close().catch(() => {});
+  }
+}
+
 export interface DeployToConnectionResult {
   success: boolean;
   executedStatements: number;
@@ -136,12 +289,25 @@ export async function deployToConnection(
     backupBefore?: boolean;
     /** Deploy although an earlier stage is not level — the caller has checked who asks and why. */
     skipStageOrder?: boolean;
+    /**
+     * The approved review request this deployment carries out — the caller has
+     * checked that it is approved, by whom and until when. Required on a stage
+     * whose protection is `review`; the plan must still be the one it froze.
+     */
+    review?: ReviewedPlan;
   } = {},
 ): Promise<DeployToConnectionResult> {
   const { confirmName } = options;
   const conn = getProjectConnection(projectId, connId);
   if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
   if (conn.readOnly) throw new ApiError("CONNECTION_READ_ONLY");
+  // Here rather than in a route: the editor, the deployments tab and the
+  // public API all end up in this function, and none of them gets around it.
+  if (stageAsksForReview(conn) && !options.review) {
+    throw new ApiError("DEPLOYMENT_REVIEW_REQUIRED", {
+      details: { connection: conn.name, environment: conn.environment ?? null },
+    });
+  }
   assertProductionConfirmed(conn, confirmName);
 
   const room = getRoom(projectId);
@@ -156,20 +322,9 @@ export async function deployToConnection(
 
   const driver = await createDatabaseDriver(conn);
   try {
-    const liveProject = await driver.introspectSchema();
-    const diff = diffTargetAgainstLive(liveProject, canvasProject);
-    // Measured again here, whatever the plan said: the data may have moved
-    // since, and an API caller may never have looked at a plan at all.
-    const acceptedRisks = settleRisks(
-      await analyzeDeploymentRisks(driver, diff, conn.engine),
-      resolutions,
-      isProductionStage(conn),
-    );
-    // Seeds are checked before anything runs: a seed that cannot go in must
-    // not leave the database half-deployed.
-    const seeds = options.skipSeeds ? null : prepareSeeds(projectId, canvasProject);
-    if (seeds) assertSeedsDeployable(seeds);
-    const sql = generateMigrationSql(diff, conn.engine, resolutions);
+    const plan = await planDeployment(driver, projectId, conn, canvasProject, resolutions, options.skipSeeds === true);
+    if (options.review) assertStillAsReviewed(options.review, schemaHash, plan);
+    const { diff, acceptedRisks, seeds, sql } = plan;
     const { sql: rollbackSqlRaw, irreversible } = generateRollbackSql(diff, conn.engine, resolutions);
     // The warnings are prepended as SQL comments rather than kept in a
     // separate column: whoever reads `rollbackSql` later (the history list,
@@ -218,6 +373,7 @@ export async function deployToConnection(
       seedReport,
       backupId: backup?.id ?? null,
       schemaHash,
+      reviewId: options.review?.id ?? null,
     });
     notifyDeployment(projectId, conn, "deploy", result, executedByEmail);
 

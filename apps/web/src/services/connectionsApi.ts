@@ -3,6 +3,7 @@ import type {
   DatabaseConnectionSummary,
   DatabaseEngine,
   DeploymentHistoryEntry,
+  DeploymentReview,
   DriftCheckResult,
   MigrationResolutionMap,
   ProjectDriftEntry,
@@ -185,6 +186,65 @@ export async function applyDeployment(
   return request<ApplyDeploymentResponse>(`/api/projects/${projectId}/connections/${connId}/apply-deployment`, {
     method: "POST",
     body: { resolutions, ...options },
+  });
+}
+
+// ---- Review before a stage whose protection is "Revue" ----------------------
+
+/** The project's review requests, newest first, open and closed — for those who may deploy. */
+export async function listDeploymentReviews(projectId: string): Promise<DeploymentReview[]> {
+  return (await request<{ reviews: DeploymentReview[] }>(`/api/projects/${projectId}/reviews`)).reviews;
+}
+
+/** Asks for a review instead of deploying: the server prepares the deployment, runs nothing and freezes it. */
+export async function requestDeploymentReview(
+  projectId: string,
+  connId: string,
+  resolutions: MigrationResolutionMap,
+  options: { riskNote?: string; skipSeeds?: boolean; message?: string } = {},
+): Promise<DeploymentReview> {
+  const res = await request<{ review: DeploymentReview }>(`/api/projects/${projectId}/connections/${connId}/reviews`, {
+    method: "POST",
+    body: { resolutions, ...options },
+  });
+  return res.review;
+}
+
+/** Approves or rejects a pending request — someone other than its author. */
+export async function decideDeploymentReview(
+  projectId: string,
+  reviewId: string,
+  decision: "approve" | "reject",
+  comment?: string,
+): Promise<DeploymentReview> {
+  const res = await request<{ review: DeploymentReview }>(
+    `/api/projects/${projectId}/reviews/${reviewId}/${decision}`,
+    {
+      method: "POST",
+      body: comment ? { comment } : {},
+    },
+  );
+  return res.review;
+}
+
+/** The author takes their request back. */
+export async function withdrawDeploymentReview(projectId: string, reviewId: string): Promise<DeploymentReview> {
+  const res = await request<{ review: DeploymentReview }>(`/api/projects/${projectId}/reviews/${reviewId}/withdraw`, {
+    method: "POST",
+    body: {},
+  });
+  return res.review;
+}
+
+/** Deploys an approved request as it was read — its author or its approver. Options as for `applyDeployment`. */
+export function deployDeploymentReview(
+  projectId: string,
+  reviewId: string,
+  options: { confirmName?: string; skipStageOrder?: boolean; skipReason?: string } = {},
+): Promise<ApplyDeploymentResponse> {
+  return request<ApplyDeploymentResponse>(`/api/projects/${projectId}/reviews/${reviewId}/deploy`, {
+    method: "POST",
+    body: options,
   });
 }
 

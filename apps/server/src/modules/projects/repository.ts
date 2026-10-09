@@ -73,6 +73,7 @@ export function deleteProjectCascade(id: string): void {
     ).run(id);
     db.prepare("DELETE FROM project_webhooks WHERE project_id = ?").run(id);
     db.prepare("DELETE FROM deployment_history WHERE project_id = ?").run(id);
+    db.prepare("DELETE FROM deployment_reviews WHERE project_id = ?").run(id);
     // Connections are instance-level since migration 18: only the link goes, plus
     // any connection this project created that is now attached to nothing.
     db.prepare("DELETE FROM project_connection_links WHERE project_id = ?").run(id);

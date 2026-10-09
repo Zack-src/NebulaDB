@@ -17,6 +17,7 @@
     applyDeployment,
     listProjectConnections,
     planDeployment,
+    requestDeploymentReview,
     type ApplyDeploymentResponse,
     type PlanDeploymentResponse,
   } from "@/services/connectionsApi";
@@ -45,10 +46,13 @@
     readOnly = false,
     canSkipStage = false,
     onShowProblems,
+    onReviewRequested = () => {},
   }: {
     projectId: string;
     schemaHash?: string;
     onDeployed?: () => void;
+    /** A review was asked for instead of deploying: whoever lists the requests has one more. */
+    onReviewRequested?: () => void;
     initialConnectionId?: string | null;
     /**
      * "Check Differences" entry point: same diff/risks/SQL preview as a real
@@ -79,6 +83,10 @@
   let copied = $state(false);
   /** Why the risks are accepted — kept with the deployment in its history. */
   let riskNote = $state("");
+  /** What the requester writes for the reviewer, on a stage that asks for a review. */
+  let reviewMessage = $state("");
+  /** Set once the review was asked for: the step then says so instead of offering the button again. */
+  let reviewRequested = $state(false);
   /** `null` until someone ticks or unticks the box: the default then follows the connection (on for production). */
   let backupChoice = $state<boolean | null>(null);
 
@@ -112,6 +120,7 @@
     error = null;
     plan = null;
     deployResult = null;
+    reviewRequested = false;
     try {
       const res = await planDeployment(projectId, connId);
       if (version !== analysisVersion) return;
@@ -196,7 +205,29 @@
     }
   }
 
+  /** On a stage whose protection is "Revue", the last step asks for a review; the deployment is the approved request's. */
+  async function handleRequestReview() {
+    if (!selectedConnId) return;
+    deploying = true;
+    error = null;
+    try {
+      await requestDeploymentReview(projectId, selectedConnId, resolutions, {
+        riskNote: riskNote.trim() || undefined,
+        skipSeeds,
+        message: reviewMessage.trim() || undefined,
+      });
+      reviewRequested = true;
+      reviewMessage = "";
+      onReviewRequested();
+    } catch (err) {
+      error = describeApiError(err, t);
+    } finally {
+      deploying = false;
+    }
+  }
+
   const selectedConn = $derived(connections.find((c) => c.id === selectedConnId));
+  const needsReview = $derived(selectedConn?.protection === "review");
   const backupBefore = $derived(backupChoice ?? selectedConn?.production ?? false);
   const diff = $derived(plan?.diff);
   const risks = $derived(plan?.risks ?? []);
@@ -286,7 +317,12 @@
           blockingRiskCount={blockingRisks.length}
           {copied}
           onCopy={handleCopySql}
+          {needsReview}
+          bind:reviewMessage
         />
+        {#if reviewRequested}
+          <p class="m-0 text-xs text-success" role="status" data-testid="review-requested">{t("review.requested")}</p>
+        {/if}
       {/if}
 
       {#if activeStep === "done" && deployResult}
@@ -344,7 +380,17 @@
             >
           {/if}
 
-          {#if activeStep === "sql" && !readOnly}
+          {#if activeStep === "sql" && !readOnly && needsReview}
+            <Button
+              size="sm"
+              variant="primary"
+              onclick={() => void handleRequestReview()}
+              disabled={deploying || reviewRequested || !hasWork || blockingRisks.length > 0 || seedsBroken}
+            >
+              <Icon icon={CheckIcon} size={13} />
+              {deploying ? t("review.requesting") : t("review.request")}
+            </Button>
+          {:else if activeStep === "sql" && !readOnly}
             <Button
               size="sm"
               variant="primary"

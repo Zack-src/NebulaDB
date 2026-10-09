@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { auditUser } from "../../shared/audit.js";
 import { requireAdmin, requireUser } from "../../shared/guards.js";
+import { reconcileReviews } from "../reviews/service.js";
 import {
   createEnvironment,
   deleteEnvironment,
@@ -42,6 +43,8 @@ export function registerEnvironmentRoutes(app: FastifyInstance): void {
     if (changes.length > 0) {
       auditUser(user, "environment.update", { type: "environment", id }, `${after.name}: ${changes.join(", ")}`, req);
     }
+    // A stage that stops asking for a review leaves its open requests without an object.
+    if (before.protection !== after.protection) reconcileReviews(undefined, { user, req });
     return { environment: after };
   });
 
@@ -56,6 +59,7 @@ export function registerEnvironmentRoutes(app: FastifyInstance): void {
       `${removed.name} (${removed.connectionCount} connection(s) left without a stage)`,
       req,
     );
+    reconcileReviews(undefined, { user, req });
     return { deleted: true };
   });
 

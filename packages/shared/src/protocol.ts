@@ -66,7 +66,9 @@ export type ServerNotice =
    * `GET /api/notifications`. Sent to that account's connections only, never
    * to the room: who follows what is nobody else's business.
    */
-  | { type: "notification" };
+  | { type: "notification" }
+  /** A review request was made, decided or closed — refetch `GET /api/projects/:id/reviews` (those who may deploy). */
+  | { type: "reviews-changed" };
 
 /** One database linked to a project, and whether it is known to have left the schema. `GET /api/projects/:id/drift`. */
 export interface ProjectDriftEntry {
@@ -227,9 +229,10 @@ export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number];
  * Notifications addressed to one person rather than to a project's followers:
  * they arrive whether or not the project is followed, since someone chose to
  * write to that person — a comment that mentions them, a reply in a thread
- * they wrote in.
+ * they wrote in — or waits for them: a deployment to review, and what became
+ * of the review one asked for.
  */
-export const DIRECT_NOTIFICATION_EVENTS = ["mention", "reply"] as const;
+export const DIRECT_NOTIFICATION_EVENTS = ["mention", "reply", "review"] as const;
 export type DirectNotificationEvent = (typeof DIRECT_NOTIFICATION_EVENTS)[number];
 
 /** Short facts the client words in the reader's language: names, never free text from a database. */

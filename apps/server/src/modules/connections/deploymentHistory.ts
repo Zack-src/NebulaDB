@@ -32,7 +32,21 @@ interface HistoryRow {
   risk_note: string | null;
   backup_id: string | null;
   created_at: string;
+  review_requested_by_email: string | null;
+  review_requested_at: string | null;
+  review_decided_by_email: string | null;
+  review_decided_at: string | null;
+  review_message: string | null;
+  review_comment: string | null;
+  review_id: string | null;
 }
+
+/** A history row with the review it went through, when there was one — who asked and who approved are part of what ran. */
+const SELECT_HISTORY = `
+  SELECT h.*, r.requested_by_email AS review_requested_by_email, r.requested_at AS review_requested_at,
+         r.decided_by_email AS review_decided_by_email, r.decided_at AS review_decided_at,
+         r.message AS review_message, r.decision_comment AS review_comment
+    FROM deployment_history h LEFT JOIN deployment_reviews r ON r.id = h.review_id`;
 
 function rowToEntry(row: HistoryRow, rolledBack: boolean): DeploymentHistoryEntry {
   return {
@@ -54,6 +68,19 @@ function rowToEntry(row: HistoryRow, rolledBack: boolean): DeploymentHistoryEntr
     ...(row.risk_note ? { riskNote: row.risk_note } : {}),
     ...(row.seed_report ? { seedReport: parseJsonArray<SeedResult>(row.seed_report) } : {}),
     ...(row.backup_id ? { backupId: row.backup_id } : {}),
+    ...(row.review_id && row.review_requested_by_email && row.review_requested_at
+      ? {
+          review: {
+            id: row.review_id,
+            requestedByEmail: row.review_requested_by_email,
+            requestedAt: row.review_requested_at,
+            approvedByEmail: row.review_decided_by_email,
+            approvedAt: row.review_decided_at,
+            ...(row.review_message ? { message: row.review_message } : {}),
+            ...(row.review_comment ? { comment: row.review_comment } : {}),
+          },
+        }
+      : {}),
     createdAt: row.created_at,
     rolledBack,
   };
@@ -81,6 +108,8 @@ export interface RecordDeploymentInput {
   backupId?: string | null;
   /** The schema this deployment deployed (`pipeline.ts#schemaHashOf`); absent for a rollback. */
   schemaHash?: string | null;
+  /** The approved review request this deployment carried out, on a stage that asks for one. */
+  reviewId?: string | null;
 }
 
 export function recordDeployment(input: RecordDeploymentInput): string {
@@ -89,8 +118,8 @@ export function recordDeployment(input: RecordDeploymentInput): string {
     `INSERT INTO deployment_history
        (id, project_id, connection_id, connection_name, environment, engine, sql, rollback_sql, rollback_of,
         success, executed_statements, total_statements, error, executed_by_email, accepted_risks, risk_note, seed_report,
-        backup_id, schema_hash)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        backup_id, schema_hash, review_id)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     id,
     input.projectId,
@@ -111,6 +140,7 @@ export function recordDeployment(input: RecordDeploymentInput): string {
     input.seedReport && input.seedReport.length > 0 ? JSON.stringify(input.seedReport) : null,
     input.backupId ?? null,
     input.schemaHash ?? null,
+    input.reviewId ?? null,
   );
   return id;
 }
@@ -130,8 +160,8 @@ export function listDeploymentHistory(
 ): DeploymentHistoryEntry[] {
   const rows = db
     .prepare(
-      `SELECT * FROM deployment_history WHERE connection_id = ? AND project_id = ?
-        ORDER BY created_at DESC, rowid DESC LIMIT ?`,
+      `${SELECT_HISTORY} WHERE h.connection_id = ? AND h.project_id = ?
+        ORDER BY h.created_at DESC, h.rowid DESC LIMIT ?`,
     )
     .all(connectionId, projectId, limit) as HistoryRow[];
   const rolledBackIds = new Set(
@@ -148,7 +178,7 @@ export function listDeploymentHistory(
 }
 
 export function getDeploymentHistoryEntry(id: string): DeploymentHistoryEntry | null {
-  const row = db.prepare("SELECT * FROM deployment_history WHERE id = ?").get(id) as HistoryRow | undefined;
+  const row = db.prepare(`${SELECT_HISTORY} WHERE h.id = ?`).get(id) as HistoryRow | undefined;
   if (!row) return null;
   const alreadyRolledBack = db
     .prepare("SELECT 1 FROM deployment_history WHERE rollback_of = ? AND success = 1 LIMIT 1")

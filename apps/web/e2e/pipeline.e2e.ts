@@ -37,7 +37,7 @@ test("pipeline: stages in order, a refused skip, then a skip with a reason", { t
         };
         for (const [name, protection] of [
           ["DEV", "free"],
-          ["Staging", "review"],
+          ["Staging", "protected"],
         ]) {
           const stage = chain.environments.find((entry) => entry.name === name);
           await fetch(`/api/admin/environments/${stage?.id}`, {

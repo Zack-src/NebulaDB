@@ -173,7 +173,7 @@ export interface Project {
 }
 
 import type { StructurePolicySetting } from "./dbAdmin.js";
-import type { EnvironmentColor } from "./environments.js";
+import type { EnvironmentColor, EnvironmentProtection } from "./environments.js";
 
 export type DatabaseEngine = "postgres" | "mysql" | "sqlite" | "mssql" | "oracle" | "bigquery";
 
@@ -274,6 +274,8 @@ export interface DatabaseConnectionSummary {
   environmentId?: string;
   environmentColor?: EnvironmentColor;
   production?: boolean;
+  /** The stage's protection; `review`: a deployment there is requested, approved by another person, then deployed. */
+  protection?: EnvironmentProtection;
   host?: string;
   port?: number;
   database?: string;
@@ -352,6 +354,78 @@ export interface DeploymentHistoryEntry {
   seedReport?: SeedResult[];
   /** The backup of the database taken just before this deployment (instance administrators can restore it). */
   backupId?: string;
+  /** The review this deployment went through, on a stage that asks for one: who asked, who approved. */
+  review?: {
+    id: string;
+    requestedByEmail: string;
+    requestedAt: string;
+    approvedByEmail: string | null;
+    approvedAt: string | null;
+    /** What the requester wrote with the request. */
+    message?: string;
+    /** What the approver wrote with the approval. */
+    comment?: string;
+  };
+}
+
+/**
+ * Where a review request stands. `pending` and `approved` are open — one open
+ * request per project and connection; the others are final. `expired`: approved
+ * but not deployed in time. `stale`: the schema or the database moved so that
+ * what would run is no longer what was approved. `cancelled`: the stage stopped
+ * asking for a review, or the connection left the project or the stage.
+ */
+export type DeploymentReviewStatus =
+  "pending" | "approved" | "rejected" | "withdrawn" | "deployed" | "expired" | "stale" | "cancelled";
+
+/** How long an approval is good for. After that the request is `expired` and a new one is asked. */
+export const REVIEW_APPROVAL_TTL_DAYS = 7;
+
+/** Why a request was closed without anyone deciding so (`stale`, `cancelled`). */
+export type DeploymentReviewCloseReason = "schema" | "database" | "risks" | "seeds" | "protection" | "connection";
+
+/**
+ * A deployment to a stage whose protection is `review`, as its author prepared
+ * it and as another person approves or rejects it: what is frozen here is what
+ * was read, and the only thing an approval lets run.
+ */
+export interface DeploymentReview {
+  id: string;
+  projectId: string;
+  /** `null` once the connection is gone. */
+  connectionId: string | null;
+  connectionName: string;
+  environment: string | null;
+  engine: DatabaseEngine;
+  status: DeploymentReviewStatus;
+  /** The schema the request was made for (`ProjectPipeline.schemaHash`). */
+  schemaHash: string;
+  /** The SQL shown to the reviewer — a deployment of this request runs exactly this, or nothing. */
+  sql: string;
+  /** The plan's risks with the answer given to each. */
+  risks: AcceptedRisk[];
+  /** The tables' seeds are left out of this deployment. */
+  skipSeeds: boolean;
+  /** Why the risks are accepted. */
+  riskNote?: string;
+  /** What the requester wrote for the reviewer. */
+  message?: string;
+  requestedByEmail: string;
+  requestedAt: string;
+  /** Who approved or rejected, when, and what they wrote. */
+  decidedByEmail?: string;
+  decidedAt?: string;
+  comment?: string;
+  /** An approval is good until then. */
+  expiresAt?: string;
+  closedAt?: string;
+  closeReason?: DeploymentReviewCloseReason;
+  /** The deployment history entry, once deployed. */
+  deploymentId?: string;
+  /** Still open, but the project's schema is no longer the one this request froze. */
+  schemaChanged: boolean;
+  /** What the caller may do with it now. */
+  viewer: { canDecide: boolean; canDeploy: boolean; canWithdraw: boolean };
 }
 
 /** What one table's seed did during a deployment — kept in the deployment's history. Lives here, not in `seeds.ts`, which imports this file. */

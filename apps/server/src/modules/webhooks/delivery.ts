@@ -71,6 +71,20 @@ function summarize(envelope: WebhookEnvelope): string {
         ? `🚀 « ${name} » déployé sur ${target} (${data.executedStatements} instruction(s))${link}`
         : `❌ Échec du déploiement de « ${name} » sur ${target} : ${data.error ?? "erreur inconnue"}${link}`;
     }
+    case "deployment.review": {
+      const target = `${data.connectionName}${data.environment ? ` [${data.environment}]` : ""}`;
+      const by = (data.by as string | null) ?? "NebulaDB";
+      const said: Record<string, string> = {
+        requested: `👀 ${data.requestedBy} demande une revue avant de déployer « ${name} » sur ${target}`,
+        approved: `✅ ${by} a approuvé le déploiement de « ${name} » sur ${target} demandé par ${data.requestedBy}`,
+        rejected: `⛔ ${by} a rejeté le déploiement de « ${name} » sur ${target} demandé par ${data.requestedBy}`,
+        withdrawn: `↩️ ${data.requestedBy} a retiré sa demande de revue pour « ${name} » sur ${target}`,
+        expired: `⌛ L'approbation du déploiement de « ${name} » sur ${target} a expiré`,
+        stale: `♻️ La demande de revue pour « ${name} » sur ${target} n'est plus à jour : le schéma ou la base a changé`,
+        cancelled: `🚫 La demande de revue pour « ${name} » sur ${target} a été annulée`,
+      };
+      return `${said[String(data.action)] ?? said.cancelled}${link}`;
+    }
     case "drift.detected": {
       const target = `${data.connectionName}${data.environment ? ` [${data.environment}]` : ""}`;
       if (data.kind === "accounts") {

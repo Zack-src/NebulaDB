@@ -65,14 +65,14 @@ test("pipeline: a guarded stage takes a schema only after the stage before it; a
     const owner = await login(app);
     const editor = await login(app);
 
-    // DEV free › Staging review › Prod production: the chain a fresh instance starts with, made explicit.
+    // DEV free › Staging protected › Prod production: the order rule alone (a `review` stage adds an approval, see `reviews/`).
     const chain = (await call(app, admin.cookie, "GET", "/api/environments")).json().environments as {
       id: string;
       name: string;
     }[];
     const stage = (name: string) => chain.find((entry) => entry.name === name)!.id;
     await call(app, admin.cookie, "PATCH", `/api/admin/environments/${stage("DEV")}`, { protection: "free" });
-    await call(app, admin.cookie, "PATCH", `/api/admin/environments/${stage("Staging")}`, { protection: "review" });
+    await call(app, admin.cookie, "PATCH", `/api/admin/environments/${stage("Staging")}`, { protection: "protected" });
 
     const project = (await call(app, owner.cookie, "POST", "/api/projects", { name: "Shop" })).json() as { id: string };
     const base = `/api/projects/${project.id}`;

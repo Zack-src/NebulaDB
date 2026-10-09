@@ -20,6 +20,8 @@
     blockingRiskCount,
     copied,
     onCopy,
+    needsReview = false,
+    reviewMessage = $bindable(""),
   }: {
     /** The SQL with the answers given so far. */
     sql: string;
@@ -32,6 +34,10 @@
     blockingRiskCount: number;
     copied: boolean;
     onCopy: () => void;
+    /** The stage asks for a review: this step ends on a request, not on a deployment. */
+    needsReview?: boolean;
+    /** What the requester writes for the reviewer. */
+    reviewMessage?: string;
   } = $props();
 
   const { t } = useTranslation();
@@ -61,7 +67,18 @@
       ></textarea>
     </label>
   {/if}
-  {#if !readOnly}
+  {#if needsReview && !readOnly}
+    <p class="m-0 pt-1 text-xs text-text-muted" data-testid="review-needed">{t("review.stageHint")}</p>
+    <label class="block text-xs text-text">
+      <span class="mb-1 block font-semibold">{t("review.message")}</span>
+      <textarea
+        class={`${INPUT_CLASS} h-14 w-full`}
+        bind:value={reviewMessage}
+        maxlength={1000}
+        placeholder={t("review.messagePlaceholder")}
+      ></textarea>
+    </label>
+  {:else if !readOnly}
     <Checkbox checked={backupBefore} onChange={onBackupChange} hint={t("deployment.backupBeforeHint")}>
       <span class="text-xs">{t("deployment.backupBefore")}</span>
     </Checkbox>

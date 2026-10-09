@@ -144,6 +144,7 @@
     else if (notice.type === "seeds-changed") void seeds.refresh();
     else if (notice.type === "lint-changed") void lint.refresh();
     else if (notice.type === "notification") inboxPush.signal();
+    else if (notice.type === "reviews-changed") reviewsSeen += 1;
     else if (notice.type === "table-locked") {
       toast.warning(t("locks.revertedToast", { tables: notice.tables.join(", "), count: notice.tables.length }));
       // The local picture was evidently out of date — that is how the change got offered at all.
@@ -171,6 +172,8 @@
   let showSettings = $state(false);
   /** Counts completed deployments — the pipeline refetches on it. */
   let deploymentsSeen = $state(0);
+  /** Counts the server's "a review request changed" notices — the deployments tab refetches on it. */
+  let reviewsSeen = $state(0);
   let viewMode = $state<EditorViewMode>("mld");
   // ---- Workspace tabs --------------------------------------------------------
   // The schema editor is one section of the project among several. Which ones
@@ -585,6 +588,7 @@
         connection={databases.activeConnection}
         connections={databases.connections}
         refreshKey={deploymentsSeen}
+        reviewsKey={reviewsSeen}
         schemaHash={liveProject ? fingerprintSchema(liveProject).hash : undefined}
         tableNames={liveProject?.tables.map((table) => table.name) ?? []}
         onDeployTo={(id) => {

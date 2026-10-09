@@ -1187,6 +1187,57 @@ export const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 50,
+    name: "deployment_reviews table, deployment_history.review_id",
+    up: (db) => {
+      // A deployment to a stage whose protection is `review`, frozen as its
+      // author prepared it (schema hash, SQL, answers to the risks, seeds
+      // option) until another person approves or rejects it. Nothing is
+      // created on upgrade: a stage already set to `review` simply starts
+      // asking. `connection_id` and `environment_id` are plain ids, not
+      // foreign keys: a request outlives what it pointed at, as a closed one.
+      // Dates are written by the application (`YYYY-MM-DD HH:MM:SS`, UTC).
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS deployment_reviews (
+          id TEXT PRIMARY KEY,
+          project_id TEXT NOT NULL,
+          connection_id TEXT,
+          connection_name TEXT NOT NULL,
+          environment_id TEXT,
+          environment TEXT,
+          engine TEXT NOT NULL,
+          status TEXT NOT NULL,
+          schema_hash TEXT NOT NULL,
+          sql TEXT NOT NULL,
+          resolutions_json TEXT NOT NULL,
+          risks_json TEXT NOT NULL,
+          seeds_hash TEXT,
+          skip_seeds INTEGER NOT NULL DEFAULT 0,
+          risk_note TEXT,
+          message TEXT,
+          requested_by TEXT,
+          requested_by_email TEXT NOT NULL,
+          requested_at TEXT NOT NULL,
+          decided_by TEXT,
+          decided_by_email TEXT,
+          decided_at TEXT,
+          decision_comment TEXT,
+          expires_at TEXT,
+          closed_at TEXT,
+          close_reason TEXT,
+          deployment_id TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_deployment_reviews_project ON deployment_reviews(project_id, requested_at);
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_deployment_reviews_open
+          ON deployment_reviews(project_id, connection_id) WHERE status IN ('pending', 'approved');
+      `);
+      const columns = db.prepare("PRAGMA table_info(deployment_history)").all() as { name: string }[];
+      if (!columns.some((c) => c.name === "review_id")) {
+        db.exec("ALTER TABLE deployment_history ADD COLUMN review_id TEXT");
+      }
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */

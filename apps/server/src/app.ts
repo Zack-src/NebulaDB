@@ -40,6 +40,7 @@ import { registerLintPresetRoutes } from "./modules/lint/presetRoutes.js";
 import { registerLintRoutes } from "./modules/lint/routes.js";
 import { registerNotificationRoutes } from "./modules/notifications/routes.js";
 import { registerPipelineRoutes } from "./modules/pipeline/routes.js";
+import { registerReviewRoutes } from "./modules/reviews/routes.js";
 import { registerBackupRoutes } from "./modules/backups/routes.js";
 import { lockedTableIdsFor } from "./modules/tableLocks/access.js";
 import { registerTableLockRoutes } from "./modules/tableLocks/routes.js";
@@ -198,6 +199,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerLintPresetRoutes(app);
   registerNotificationRoutes(app);
   registerPipelineRoutes(app);
+  registerReviewRoutes(app);
   registerBackupRoutes(app);
   registerWebhookRoutes(app);
   registerConvertRoutes(app);

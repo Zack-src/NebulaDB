@@ -13,6 +13,7 @@ import { createDatabaseDriver } from "../connections/drivers/index.js";
 import { deployToConnection, rollbackConnectionDeployment } from "../connections/deploy.js";
 import { pullConnectionSchema } from "../connections/pull.js";
 import { listDeploymentHistory } from "../connections/deploymentHistory.js";
+import { reconcileReviews } from "../reviews/service.js";
 import {
   getProjectConnection,
   listConnectionsByProject,
@@ -78,6 +79,7 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
     auditUser(user, "connection.update", { type: "project", id }, `${updated.engine}: ${updated.name} (v1)`, req, {
       connectionId: connId,
     });
+    reconcileReviews(id, { user, req, v1: true });
     return { connection: updated };
   });
 
@@ -90,6 +92,7 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
     if (!ok) throw new ApiError("CONNECTION_NOT_FOUND");
 
     auditUser(user, "connection.delete", { type: "project", id }, `${connId} (v1)`, req, { connectionId: connId });
+    reconcileReviews(id, { user, req, v1: true });
     return { deleted: true };
   });
 

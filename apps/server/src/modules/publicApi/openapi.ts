@@ -1,3 +1,4 @@
+import { REVIEW_APPROVAL_TTL_DAYS } from "@nebuladb/shared";
 import { ERROR_CATALOG } from "../../shared/errors.js";
 import type { ApiKeyScope } from "../apiKeys/repository.js";
 
@@ -51,6 +52,9 @@ const DIALECT: Schema = { type: "string", enum: ["postgres", "mysql", "mssql"] }
 /** Who reaches a connection's personal-account routes — neither of the two notes `admin` writes. */
 const CREDENTIAL_ACCESS =
   "Open to instance administrators and to those who may deploy (`deploy` or `administrator`) on a project the connection is attached to; anyone else gets 404 CONNECTION_NOT_FOUND. A key restricted to one project works only on a connection attached to that project (403 API_KEY_PROJECT_RESTRICTED otherwise).";
+
+/** The rule every review route rests on, said once. */
+const REVIEW_RULES = `Someone who may deploy requests the review; another person who may deploy on the project (an instance administrator counts) approves or rejects; the author or the approver then deploys the approved request. An approval is good for ${REVIEW_APPROVAL_TTL_DAYS} days.`;
 
 export const OPERATIONS: Operation[] = [
   // --- projects ---
@@ -448,7 +452,7 @@ export const OPERATIONS: Operation[] = [
     admin: "deploy",
     summary: "Deploy the canvas schema to the live database",
     description:
-      "Introspect → diff → generate SQL → execute → record, the same pipeline as the web app's deploy button. `resolutions` answers the risks a plan reported (e.g. a default value for a new NOT NULL column).",
+      "Introspect → diff → generate SQL → execute → record, the same pipeline as the web app's deploy button. `resolutions` answers the risks a plan reported (e.g. a default value for a new NOT NULL column). Refused with 409 DEPLOYMENT_REVIEW_REQUIRED on a stage whose protection is `review`: request a review (`POST …/connections/{connId}/reviews`) and deploy the approved request instead.",
     body: obj(
       {
         resolutions: { type: "object", additionalProperties: true },
@@ -653,6 +657,103 @@ export const OPERATIONS: Operation[] = [
       [],
     ),
     ok: { status: 200, schema: obj({ success: bool, executedStatements: int }) },
+  },
+
+  // --- review before a stage whose protection is `review` ---
+  {
+    method: "get",
+    path: "/api/v1/projects/:id/reviews",
+    tag: "Connections",
+    scope: "projects:read",
+    admin: "deploy",
+    summary: "The project's review requests, newest first — open and closed",
+    description: `A deployment to a stage whose protection is \`review\` needs the approval of another person. ${REVIEW_RULES}`,
+    ok: { status: 200, schema: obj({ reviews: { type: "array", items: ref("DeploymentReview") } }) },
+  },
+  {
+    method: "post",
+    path: "/api/v1/projects/:id/connections/:connId/reviews",
+    tag: "Connections",
+    scope: "deployments:trigger",
+    admin: "deploy",
+    summary: "Request a review for a deployment to a review stage",
+    description:
+      "Prepares the deployment as `deploy` would and stops before anything runs: the schema hash, the SQL, the answers to the risks and the seeds option are frozen in the request. Refused like a deployment would be (403 CONNECTION_READ_ONLY, 409 LINT_BLOCKS_DEPLOYMENT, DEPLOYMENT_BLOCKED_BY_RISK, SEEDS_NOT_DEPLOYABLE), and with 409 DEPLOYMENT_REVIEW_NOT_REQUIRED on a stage that asks for none, DEPLOYMENT_REVIEW_NOTHING_TO_DEPLOY, or DEPLOYMENT_REVIEW_ALREADY_OPEN — one open request per project and connection.",
+    body: obj(
+      {
+        resolutions: { type: "object", additionalProperties: true },
+        skipSeeds: { type: "boolean", description: "Leave the tables' seeds out of this deployment" },
+        riskNote: { type: "string", maxLength: 1000, description: "Why the risks are accepted" },
+        message: { type: "string", maxLength: 1000, description: "For the reviewer" },
+      },
+      [],
+    ),
+    ok: { status: 200, schema: obj({ review: ref("DeploymentReview") }) },
+  },
+  {
+    method: "post",
+    path: "/api/v1/projects/:id/reviews/:reviewId/approve",
+    tag: "Connections",
+    scope: "deployments:trigger",
+    admin: "deploy",
+    summary: "Approve a pending review request",
+    description: `Never by the request's author (403 DEPLOYMENT_REVIEW_SELF_DECISION) — a key is its owner. 409 DEPLOYMENT_REVIEW_STALE, and the request is closed, if the project's schema is no longer the one the request froze. ${REVIEW_RULES}`,
+    body: obj({ comment: { type: "string", maxLength: 1000 } }, []),
+    ok: { status: 200, schema: obj({ review: ref("DeploymentReview") }) },
+  },
+  {
+    method: "post",
+    path: "/api/v1/projects/:id/reviews/:reviewId/reject",
+    tag: "Connections",
+    scope: "deployments:trigger",
+    admin: "deploy",
+    summary: "Reject a pending review request",
+    description: "Never by the request's author (403 DEPLOYMENT_REVIEW_SELF_DECISION): they withdraw it instead.",
+    body: obj({ comment: { type: "string", maxLength: 1000 } }, []),
+    ok: { status: 200, schema: obj({ review: ref("DeploymentReview") }) },
+  },
+  {
+    method: "post",
+    path: "/api/v1/projects/:id/reviews/:reviewId/withdraw",
+    tag: "Connections",
+    scope: "deployments:trigger",
+    admin: "deploy",
+    summary: "Withdraw one's own review request, pending or approved",
+    description: "The author's alone (403 DEPLOYMENT_REVIEW_NOT_YOURS).",
+    ok: { status: 200, schema: obj({ review: ref("DeploymentReview") }) },
+  },
+  {
+    method: "post",
+    path: "/api/v1/projects/:id/reviews/:reviewId/deploy",
+    tag: "Connections",
+    scope: "deployments:trigger",
+    admin: "deploy",
+    summary: "Deploy an approved review request",
+    description:
+      "By the request's author or its approver (403 DEPLOYMENT_REVIEW_NOT_YOURS). Runs the deployment with the answers the request froze, and only if the plan made now is still the approved one — same SQL, same risks and answers, same seeds: otherwise 409 DEPLOYMENT_REVIEW_STALE (`reason`: `schema`, `database`, `risks` or `seeds`), the request is closed and nothing runs. 409 DEPLOYMENT_REVIEW_NOT_APPROVED before the approval, DEPLOYMENT_REVIEW_EXPIRED after its date. Everything `deploy` checks is checked: `confirmName` and the backup on the production stage, lint, the stage order.",
+    body: obj(
+      {
+        confirmName: { type: "string", description: "The connection's name — required on the production stage" },
+        backupBefore: { type: "boolean", description: "As for `deploy`" },
+        skipStageOrder: {
+          type: "boolean",
+          description: "As for `deploy`: instance administrators only, with skipReason",
+        },
+        skipReason: { type: "string", maxLength: 300 },
+      },
+      [],
+    ),
+    ok: {
+      status: 200,
+      schema: obj({
+        success: bool,
+        executedStatements: int,
+        sql: str,
+        rollbackAvailable: bool,
+        irreversibleWarnings: { type: "array", items: str },
+        backupId: { type: ["string", "null"] },
+      }),
+    },
   },
 
   // --- personal database accounts (instance-level: a connection's id, no project) ---
@@ -873,7 +974,10 @@ const COMPONENTS: Record<string, Schema> = {
       description: "The last thing done here is a successful deployment of the current schema",
     },
   }),
-  WebhookEvent: { type: "string", enum: ["schema.changed", "deployment.completed", "drift.detected"] },
+  WebhookEvent: {
+    type: "string",
+    enum: ["schema.changed", "deployment.completed", "deployment.review", "drift.detected"],
+  },
   Webhook: obj({
     id: str,
     projectId: str,
@@ -887,7 +991,10 @@ const COMPONENTS: Record<string, Schema> = {
   }),
   WebhookDelivery: obj({
     id: str,
-    event: { type: "string", enum: ["schema.changed", "deployment.completed", "drift.detected", "ping"] },
+    event: {
+      type: "string",
+      enum: ["schema.changed", "deployment.completed", "deployment.review", "drift.detected", "ping"],
+    },
     status: { type: "string", enum: ["pending", "succeeded", "failed"] },
     attempts: int,
     responseStatus: { type: ["integer", "null"] },
@@ -1032,8 +1139,73 @@ const COMPONENTS: Record<string, Schema> = {
       executedByEmail: { type: ["string", "null"] },
       createdAt: str,
       rolledBack: bool,
+      review: {
+        ...obj(
+          {
+            id: str,
+            requestedByEmail: str,
+            requestedAt: str,
+            approvedByEmail: { type: ["string", "null"] },
+            approvedAt: { type: ["string", "null"] },
+            message: str,
+            comment: str,
+          },
+          ["id", "requestedByEmail", "requestedAt", "approvedByEmail", "approvedAt"],
+        ),
+        description: "The review this deployment went through, on a stage that asks for one",
+      },
     },
     ["id", "projectId", "connectionName", "engine", "sql", "success", "createdAt", "rolledBack"],
+  ),
+  DeploymentReview: obj(
+    {
+      id: str,
+      projectId: str,
+      connectionId: { type: ["string", "null"] },
+      connectionName: str,
+      environment: { type: ["string", "null"] },
+      engine: ref("Engine"),
+      status: {
+        type: "string",
+        enum: ["pending", "approved", "rejected", "withdrawn", "deployed", "expired", "stale", "cancelled"],
+        description:
+          "`pending` and `approved` are open. `expired`: approved but not deployed in time. `stale`: the schema or the database moved. `cancelled`: the stage stopped asking for a review, or the connection left the project or the stage",
+      },
+      schemaHash: str,
+      sql: { type: "string", description: "What was shown to the reviewer, and the only thing an approval lets run" },
+      risks: { type: "array", items: { type: "object", additionalProperties: true } },
+      skipSeeds: bool,
+      riskNote: str,
+      message: str,
+      requestedByEmail: str,
+      requestedAt: str,
+      decidedByEmail: str,
+      decidedAt: str,
+      comment: str,
+      expiresAt: { type: "string", description: "An approval is good until then" },
+      closedAt: str,
+      closeReason: { type: "string", enum: ["schema", "database", "risks", "seeds", "protection", "connection"] },
+      deploymentId: str,
+      schemaChanged: { type: "boolean", description: "Open, but the project's schema is no longer the one frozen" },
+      viewer: obj({ canDecide: bool, canDeploy: bool, canWithdraw: bool }),
+    },
+    [
+      "id",
+      "projectId",
+      "connectionId",
+      "connectionName",
+      "environment",
+      "engine",
+      "status",
+      "schemaHash",
+      "sql",
+      "risks",
+      "skipSeeds",
+      "requestedByEmail",
+      "requestedAt",
+      "schemaChanged",
+      "viewer",
+    ],
   ),
   TeamMember: obj({ id: str, email: str, isAdmin: bool, displayName: str }),
   PersonalCredentialStatus: obj({

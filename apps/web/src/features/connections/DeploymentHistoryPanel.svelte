@@ -1,22 +1,3 @@
-<script lang="ts" module>
-  import type { ConflictResolutionStrategy } from "@nebuladb/shared";
-  import type { TranslationKeyOf } from "@/types";
-
-  /** The words the plan used for each answer, so the history reads the same. */
-  const STRATEGY_LABEL: Record<ConflictResolutionStrategy, TranslationKeyOf> = {
-    DROP_DATA_CONFIRMED: "connections.strategy.dropData",
-    KEEP_IN_DB: "connections.strategy.keepInDb",
-    FORCE_CAST: "connections.strategy.forceCast",
-    CLEAR_COLUMN_DATA: "connections.strategy.clearData",
-    BACKFILL_DEFAULT: "connections.strategy.backfillDefault",
-    DELETE_OFFENDING_ROWS: "connections.strategy.deleteRows",
-    CANCEL: "connections.strategy.cancel",
-    PROCEED: "connections.strategy.proceed",
-    USE_TRANSLATED_TYPE: "connections.strategy.useTranslatedType",
-    KEEP_AS_WRITTEN: "connections.strategy.keepAsWritten",
-  };
-</script>
-
 <script lang="ts">
   import type { DatabaseEngine, DeploymentHistoryEntry } from "@nebuladb/shared";
   import Button from "@/components/ui/Button.svelte";
@@ -29,6 +10,7 @@
   import { i18n, useTranslation } from "@/i18n/i18n.svelte";
   import { listDeploymentHistory } from "@/services/connectionsApi";
   import RollbackConfirmModal from "./RollbackConfirmModal.svelte";
+  import { STRATEGY_LABEL } from "./deployment/deploymentModel";
 
   /**
    * Past deployments (and rollbacks of them) for one connection, with a rollback
@@ -115,6 +97,17 @@
           {/if}
           {#if entry.backupId}
             <p class="mt-1.5 text-[11px] text-text-muted">{t("deployment.historyBackup")}</p>
+          {/if}
+          {#if entry.review}
+            <p class="mt-1.5 text-[11px] text-text-muted" data-testid="history-review">
+              {entry.review.approvedByEmail
+                ? t("review.historyLine", {
+                    requester: entry.review.requestedByEmail,
+                    approver: entry.review.approvedByEmail,
+                  })
+                : t("review.historyRequested", { requester: entry.review.requestedByEmail })}
+              {#if entry.review.comment}<span class="italic text-text"> « {entry.review.comment} »</span>{/if}
+            </p>
           {/if}
           {#if entry.acceptedRisks && entry.acceptedRisks.length > 0}
             <div class="mt-2 rounded-sm border border-border bg-surface-raised p-2 text-[11px]">

@@ -10,6 +10,7 @@ project can have up to 10.
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `schema.changed`       | The schema changed, once the project has seen **30 seconds without an edit**. A burst of edits becomes one notification listing every author. Moving tables or changing colours doesn't count.                                                         |
 | `deployment.completed` | A deployment or a rollback to a connected database finished — successfully or not.                                                                                                                                                                     |
+| `deployment.review`    | A review request for a deployment to a stage whose protection is "Revue" was made, approved, rejected, withdrawn, or closed (expired, out of date, cancelled). The deployment of an approved request is a `deployment.completed`.                      |
 | `drift.detected`       | The project's watch (Déploiements → Surveillance) found a database changed outside Nebula since the last deployment or pull — or, with the accounts watch on, its accounts or privileges changed (`kind: "accounts"`). Once per state of the database. |
 | `ping`                 | Only when someone clicks **Tester** — never subscribed to.                                                                                                                                                                                             |
 
@@ -43,6 +44,16 @@ Slack and Discord messages are short French sentences built from the event.
 For `deployment.completed`, `data` is `{ kind: "deploy" | "rollback",
 connectionName, environment, engine, success, executedStatements, error,
 executedBy }` — `executedBy` is the email of the person who ran it.
+
+For `deployment.review`, `data` is `{ action: "requested" | "approved" |
+"rejected" | "withdrawn" | "expired" | "stale" | "cancelled", reviewId,
+connectionName, environment, engine, requestedBy, by, reason }` — `requestedBy`
+and `by` are emails (`by` is whoever did it, `null` when nobody did: an
+approval that ran out); `reason` says why a request was closed as `stale`
+(`schema`, `database`, `risks`, `seeds`) or `cancelled` (`protection`,
+`connection`), and is `null` otherwise. The SQL under review is not sent. A
+webhook created before this event existed is not subscribed to it: tick it in
+the webhook's events.
 
 For `drift.detected`, `data` is `{ kind: "external" | "partial-deployment",
 connectionName, environment, added, removed, changed }` — the last three are
@@ -118,5 +129,6 @@ put the new one in the receiving service straight away.
   so a hostname that changes its DNS answer can't get around it. Like database
   connections, private and LAN addresses are allowed on purpose (an internal
   chat or CI server is the normal case for a self-hosted instance).
-- Payloads carry the project name, change counts and, for deployments, the
-  deployer's email. Nothing of the schema itself is sent.
+- Payloads carry the project name, change counts and, for deployments and
+  their reviews, the emails of those involved. Nothing of the schema itself
+  is sent.

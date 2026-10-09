@@ -179,7 +179,8 @@ export const ERROR_CATALOG = {
   WEBHOOK_FORMAT_INVALID: { status: 400, message: "format must be one of json, slack, discord" },
   WEBHOOK_EVENTS_INVALID: {
     status: 400,
-    message: "events must be a non-empty array of schema.changed, deployment.completed, drift.detected",
+    message:
+      "events must be a non-empty array of schema.changed, deployment.completed, deployment.review, drift.detected",
   },
   API_KEY_SCOPES_INVALID: {
     status: 400,
@@ -197,6 +198,18 @@ export const ERROR_CATALOG = {
 
   // --- 403 ---
   ADMIN_REQUIRED: { status: 403, message: "administrator access required" },
+  DEPLOYMENT_REVIEW_SELF_DECISION: {
+    status: 403,
+    message:
+      "a review request is approved or rejected by someone other than its author: another person who may deploy " +
+      "on this project (level deploy or administrator), or an instance administrator",
+  },
+  DEPLOYMENT_REVIEW_NOT_YOURS: {
+    status: 403,
+    message:
+      "a review request is withdrawn by its author only, and deployed once approved by its author or by the " +
+      "person who approved it",
+  },
   FORBIDDEN: { status: 403, message: "forbidden" },
   API_SCOPE_INSUFFICIENT: { status: 403, message: "this API key does not have the required scope" },
   API_KEY_PROJECT_RESTRICTED: { status: 403, message: "this API key is restricted to a different project" },
@@ -225,6 +238,7 @@ export const ERROR_CATALOG = {
   CONNECTION_NOT_FOUND: { status: 404, message: "connection not found" },
   API_KEY_NOT_FOUND: { status: 404, message: "no such API key" },
   WEBHOOK_NOT_FOUND: { status: 404, message: "no such webhook on this project" },
+  DEPLOYMENT_REVIEW_NOT_FOUND: { status: 404, message: "no such review request on this project" },
   TABLE_NOT_FOUND: { status: 404, message: "no such table in this project" },
   ENVIRONMENT_NOT_FOUND: { status: 404, message: "no such environment stage" },
   BACKUP_NOT_FOUND: { status: 404, message: "no such backup" },
@@ -269,6 +283,39 @@ export const ERROR_CATALOG = {
     message:
       "this stage takes a schema only once the stage before it has it — deploy there first (an instance " +
       "administrator may skip the stage, with a reason)",
+  },
+  DEPLOYMENT_REVIEW_REQUIRED: {
+    status: 409,
+    message:
+      "this stage asks for a review — request one for this deployment, and deploy the request once another person " +
+      "has approved it",
+  },
+  DEPLOYMENT_REVIEW_NOT_REQUIRED: {
+    status: 409,
+    message: "this connection is not on a stage that asks for a review — deploy to it directly",
+  },
+  DEPLOYMENT_REVIEW_NOTHING_TO_DEPLOY: {
+    status: 409,
+    message: "there is nothing to deploy to this database — nothing to review",
+  },
+  DEPLOYMENT_REVIEW_ALREADY_OPEN: {
+    status: 409,
+    message: "a review request is already open for this connection — deploy it, or have it withdrawn or rejected first",
+  },
+  DEPLOYMENT_REVIEW_NOT_PENDING: { status: 409, message: "this review request is no longer waiting for a decision" },
+  DEPLOYMENT_REVIEW_NOT_APPROVED: {
+    status: 409,
+    message: "this review request has not been approved, or is closed — only an approved request is deployed",
+  },
+  DEPLOYMENT_REVIEW_EXPIRED: {
+    status: 409,
+    message: "this approval has expired — request a new review",
+  },
+  DEPLOYMENT_REVIEW_STALE: {
+    status: 409,
+    message:
+      "the schema or the database changed since this request was made: what would run is no longer what was " +
+      "reviewed — request a new review",
   },
   VARIABLES_UNRESOLVED: {
     status: 409,
