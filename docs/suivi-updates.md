@@ -29,8 +29,8 @@ un moteur cible pour les projets).
 ## C. Lot 2 — SQL
 
 - [x] C1. Éditeur SQL (coloration, complétion des tables et colonnes du schéma) — `5932a4c`, `478534c`
-- [~] C2. Requêtes enregistrées
-- [ ] C3. Édition de lignes dans la grille de résultats
+- [x] C2. Requêtes enregistrées — `3b11f8f`
+- [~] C3. Édition de lignes dans la grille de résultats
 
 ## D. Lot 3 — navigation
 
@@ -46,7 +46,7 @@ un moteur cible pour les projets).
 
 - [~] F1. Alertes de surveillance : e-mail, acquittement, mise en sourdine
 - [x] F2. Dictionnaire : description multi-ligne, export PDF — `7c33923`, `692f305`
-- [ ] F3. Export des migrations en fichiers versionnés (Flyway / Liquibase)
+- [~] F3. Export des migrations en fichiers versionnés (Flyway / Liquibase)
 - [ ] F4. CLI / action GitHub
 - [ ] F5. Suggestions d'index à partir des statistiques de requêtes
 - [ ] F6. Lien de partage en lecture seule (diagramme, dictionnaire)
@@ -78,6 +78,7 @@ un moteur cible pour les projets).
 | 2026-10-09 | D2    | `b7dd320` | Palette globale ; ne s'ouvre pas depuis l'éditeur DBML (Ctrl+K y est un préfixe de raccourcis) ; e2e dédié passé chez l'agent      |
 | 2026-10-09 | D1    | `3b5bef6` | Onglets Connexion / Règles / Projets, un seul Enregistrer, repère « ! » sur l'onglet fautif ; refait par-dessus la liste des bases |
 | 2026-10-09 | F2    | `692f305` | Descriptions multi-lignes (notes DBML en triple quote) et export PDF côté navigateur ; pas de `format=pdf` dans l'API              |
+| 2026-10-09 | C2    | `3b11f8f` | Requêtes enregistrées, privées ou partagées ; migration 46 ; 344 tests serveur passent après intégration                           |
 
 Vérifié après intégration des quatre lignes B : 337 tests serveur, 121 tests web, typecheck et lint propres.
 Non vérifié : tests navigateur (e2e) et essai à la main des écrans.
