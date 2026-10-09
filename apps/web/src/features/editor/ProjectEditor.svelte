@@ -565,6 +565,7 @@
         connections={databases.connections}
         refreshKey={deploymentsSeen}
         schemaHash={liveProject ? fingerprintSchema(liveProject).hash : undefined}
+        tableNames={liveProject?.tables.map((table) => table.name) ?? []}
         onDeployTo={(id) => {
           databases.connectionId = id;
         }}

@@ -1,12 +1,14 @@
 <script lang="ts">
   import { MONITOR_INTERVALS, type AccountChange, type DriftEvent } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
-  import { RestoreIcon } from "@/components/icons/Icons";
+  import { CloseIcon, PlusIcon, RestoreIcon, SearchIcon } from "@/components/icons/Icons";
   import Badge from "@/components/ui/Badge.svelte";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
-  import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
+  import Checkbox from "@/components/ui/Checkbox.svelte";
+  import Input from "@/components/ui/Input.svelte";
+  import Popover from "@/components/ui/Popover.svelte";
   import Select from "@/components/ui/Select.svelte";
   import Switch from "@/components/ui/Switch.svelte";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
@@ -33,13 +35,30 @@
      * otherwise): accounts, roles and privileges against a reference the console's own changes move.
      * Not offered when no linked database has accounts (SQLite).
      */
-  let { projectId, canManage }: { projectId: string; canManage: boolean } = $props();
+  let {
+    projectId,
+    canManage,
+    tableNames = [],
+  }: {
+    projectId: string;
+    canManage: boolean;
+    /** The tables of the project's current schema, offered in the ignore picker. */
+    tableNames?: string[];
+  } = $props();
+
+  /** The server's limits on the ignored list (`parseMonitorSettings`). */
+  const MAX_IGNORE_TABLES = 200;
+  const MAX_IGNORE_NAME = 128;
 
   const { t } = useTranslation();
   const monitoring = useAsyncResource(() => fetchMonitoring(projectId));
   let override = $state.raw<MonitoringState | null>(null);
   const current = $derived(override ?? monitoring.data);
-  let ignoreDraft = $state<string | null>(null);
+  /** The ignored list while a save is in flight; `null` shows the saved one. */
+  let ignoreDraft = $state<string[] | null>(null);
+  let pickerOpen = $state(false);
+  let pickerAnchor = $state<HTMLElement | null>(null);
+  let pickerQuery = $state("");
 
   const save = useAsyncAction(async (patch: { enabled?: boolean; intervalMinutes?: number; ignoreTables?: string[] }) => {
     if (!current) return;
@@ -64,14 +83,36 @@
     accepting = null;
   });
 
-  function saveIgnore() {
-    if (ignoreDraft === null) return;
-    const ignoreTables = ignoreDraft
-      .split(",")
-      .map((name) => name.trim())
-      .filter(Boolean);
+  const ignored = $derived(ignoreDraft ?? current?.settings.ignoreTables ?? []);
+  const ignoredSet = $derived(new Set(ignored));
+  // Names the server would refuse are not offered; the list is capped as it is.
+  const pickable = $derived([...new Set(tableNames)].filter((name) => name.length <= MAX_IGNORE_NAME));
+  const matches = $derived.by(() => {
+    const needle = pickerQuery.trim().toLowerCase();
+    return needle ? pickable.filter((name) => name.toLowerCase().includes(needle)) : pickable;
+  });
+  // A name typed in full that is neither in the schema nor already ignored: a table only the database has.
+  const typedName = $derived(pickerQuery.trim());
+  const canAddTyped = $derived(typedName !== "" && !pickable.includes(typedName) && !ignoredSet.has(typedName));
+  const listFull = $derived(ignored.length >= MAX_IGNORE_TABLES);
+
+  async function commitIgnore(ignoreTables: string[]) {
+    ignoreDraft = ignoreTables;
+    await save.run({ ignoreTables });
     ignoreDraft = null;
-    void save.run({ ignoreTables });
+  }
+  function toggleIgnored(name: string, on: boolean) {
+    if (on ? listFull || ignoredSet.has(name) : !ignoredSet.has(name)) return;
+    void commitIgnore(on ? [...ignored, name] : ignored.filter((entry) => entry !== name));
+  }
+  function addTyped() {
+    if (!canAddTyped || listFull) return;
+    toggleIgnored(typedName, true);
+    pickerQuery = "";
+  }
+  function closePicker() {
+    pickerOpen = false;
+    pickerQuery = "";
   }
 
   const intervalOptions = $derived(
@@ -97,6 +138,7 @@
   // Imposed from a connection (Admin → Connexions): on and paced there; the ignored tables are the instance administrators'.
   const forced = $derived(current?.settings.forced ?? null);
   const instanceAdmin = $derived(current?.accounts != null);
+  const ignoreDisabled = $derived(!canManage || busy || (forced !== null && !instanceAdmin));
 </script>
 
 <section class="rounded-md border border-border bg-surface p-3 text-xs" aria-labelledby="monitoring-title" data-testid="monitoring">
@@ -139,18 +181,78 @@
         disabled={!canManage || busy || forced !== null}
         onChange={(intervalMinutes) => void save.run({ intervalMinutes })}
       />
-      <input
-        class={`${INPUT_SM_CLASS} min-w-[200px] flex-1`}
-        aria-label={t("monitoring.ignore")}
-        placeholder={t("monitoring.ignorePlaceholder")}
-        value={ignoreDraft ?? current.settings.ignoreTables.join(", ")}
-        disabled={!canManage || busy || (forced !== null && !instanceAdmin)}
-        oninput={(event) => (ignoreDraft = event.currentTarget.value)}
-        onblur={saveIgnore}
-        onkeydown={(event) => {
-          if (event.key === "Enter") saveIgnore();
-        }}
-      />
+      <div class="flex min-w-[200px] flex-1 flex-wrap items-center gap-1.5" role="group" aria-label={t("monitoring.ignore")}>
+        {#each ignored as name (name)}
+          <span
+            class="inline-flex max-w-full items-center gap-1 rounded-full bg-surface-hover py-px pl-2 pr-1 font-mono text-text"
+            data-testid="monitoring-ignored"
+          >
+            <span class="truncate">{name}</span>
+            <button
+              type="button"
+              class="flex rounded-full text-text-muted hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-50"
+              aria-label={t("monitoring.ignoreRemove", { name })}
+              disabled={ignoreDisabled}
+              onclick={() => toggleIgnored(name, false)}
+            >
+              <Icon icon={CloseIcon} size={10} />
+            </button>
+          </span>
+        {:else}
+          <span class="text-text-muted">{t("monitoring.ignoreNone")}</span>
+        {/each}
+        <span bind:this={pickerAnchor} class="inline-flex">
+          <Button
+            size="xs"
+            variant="outline"
+            onclick={() => (pickerOpen ? closePicker() : (pickerOpen = true))}
+            disabled={ignoreDisabled}
+            aria-haspopup="dialog"
+            aria-expanded={pickerOpen}
+          >
+            <Icon icon={PlusIcon} size={12} />
+            {t("monitoring.ignoreAdd")}
+          </Button>
+        </span>
+      </div>
+      <Popover open={pickerOpen} anchor={pickerAnchor} onClose={closePicker} class="w-72 p-2" role="dialog" aria-label={t("monitoring.ignore")}>
+        <Input
+          inputSize="sm"
+          autofocus
+          maxlength={MAX_IGNORE_NAME}
+          aria-label={t("monitoring.ignoreSearch")}
+          placeholder={t("monitoring.ignoreSearch")}
+          bind:value={pickerQuery}
+          onkeydown={(event) => {
+            if (event.key === "Enter") {
+              event.preventDefault();
+              addTyped();
+            }
+          }}
+        >
+          {#snippet icon()}<Icon icon={SearchIcon} size={13} />{/snippet}
+        </Input>
+        {#if canAddTyped}
+          <Button class="mt-1.5 w-full" size="xs" variant="outline" onclick={addTyped} disabled={listFull}>
+            {t("monitoring.ignoreAddName", { name: typedName })}
+          </Button>
+        {/if}
+        <ul class="m-0 mt-1.5 max-h-56 list-none space-y-0.5 overflow-y-auto p-0" aria-label={t("monitoring.ignoreTables")}>
+          {#each matches as name (name)}
+            {@const on = ignoredSet.has(name)}
+            <li class="rounded-sm px-1 py-0.5 hover:bg-surface-hover">
+              <Checkbox checked={on} disabled={!on && listFull} onChange={(checked) => toggleIgnored(name, checked)} class="w-full">
+                <span class="font-mono">{name}</span>
+              </Checkbox>
+            </li>
+          {:else}
+            <li class="px-1 py-1 text-text-muted">{t("monitoring.ignoreNoMatch")}</li>
+          {/each}
+        </ul>
+        {#if listFull}
+          <p class="m-0 mt-1.5 text-text-muted">{t("monitoring.ignoreFull", { max: MAX_IGNORE_TABLES })}</p>
+        {/if}
+      </Popover>
     </div>
     {#if forced}
       <p class="m-0 mt-2 flex flex-wrap items-center gap-2 text-text-muted" data-testid="monitoring-forced">

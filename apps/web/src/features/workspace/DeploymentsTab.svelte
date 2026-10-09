@@ -19,6 +19,7 @@
     onOpenTable = () => {},
     refreshKey = 0,
     schemaHash,
+    tableNames = [],
     onDeployTo = () => {},
     canDeploy,
     canSkipStage = false,
@@ -35,6 +36,8 @@
     refreshKey?: number;
     /** The fingerprint of the schema as it is now: the pipeline follows it. */
     schemaHash?: string;
+    /** The tables of the schema as it is now: offered when choosing which to ignore in the watch. */
+    tableNames?: string[];
     /** Selects one of the project's databases for deployment. */
     onDeployTo?: (connectionId: string) => void;
     /** False for a view-only project: comparing stays, deploying goes. */
@@ -76,7 +79,7 @@
       />
       <PipelineCard {projectId} {refreshKey} {schemaHash} {canDeploy} {onDeployTo} />
       <!-- The watch covers all the project's databases, not only the current one. -->
-      <MonitoringCard {projectId} canManage={canDeploy} />
+      <MonitoringCard {projectId} canManage={canDeploy} {tableNames} />
       {#if connections.length > 1}
         <CompareEnvironmentsCard {projectId} {connections} currentId={connection.id} {onOpenTable} />
       {/if}
