@@ -11,24 +11,24 @@ Branche à part `feat/postgres-storage`, fusionnée dans `updates` quand le serv
 les tests passent. PostgreSQL seul (SQLite n'est plus un stockage possible pour Nebula ; il reste
 un moteur cible pour les projets).
 
-- [ ] A1. Couche d'accès asynchrone (`pg`, pool, transactions) à la place de `better-sqlite3`
-- [ ] A2. Schéma PostgreSQL de départ (équivalent des migrations 1 à 45) et migrations suivantes
-- [ ] A3. Conversion des modules serveur (requêtes et appelants en `async`)
-- [ ] A4. Tests serveur sur PostgreSQL (une base isolée par fichier de test)
-- [ ] A5. Outil de bascule d'une instance SQLite existante vers PostgreSQL
-- [ ] A6. Configuration, Docker Compose, README, sauvegarde/restauration en ligne de commande
+- [~] A1. Couche d'accès asynchrone (`pg`, pool, transactions) à la place de `better-sqlite3`
+- [~] A2. Schéma PostgreSQL de départ (équivalent des migrations 1 à 45) et migrations suivantes
+- [~] A3. Conversion des modules serveur (requêtes et appelants en `async`)
+- [~] A4. Tests serveur sur PostgreSQL (une base isolée par fichier de test)
+- [~] A5. Outil de bascule d'une instance SQLite existante vers PostgreSQL
+- [~] A6. Configuration, Docker Compose, README, sauvegarde/restauration en ligne de commande
 - [ ] A7. Fusion dans `updates` et conversion des requêtes ajoutées entre-temps par les lots B à F
 
 ## B. Lot 1 — petits conforts
 
-- [ ] B1. Message à la restauration d'un projet qui revient détaché d'une connexion
-- [ ] B2. Tables ignorées par la surveillance : sélecteur au lieu du champ texte
-- [ ] B3. Variables d'environnement : tableau clé/valeur, variables manquantes signalées
-- [ ] B4. Base d'un projet sur une connexion : liste des bases du serveur + « créer »
+- [~] B1. Message à la restauration d'un projet qui revient détaché d'une connexion
+- [~] B2. Tables ignorées par la surveillance : sélecteur au lieu du champ texte
+- [~] B3. Variables d'environnement : tableau clé/valeur, variables manquantes signalées
+- [~] B4. Base d'un projet sur une connexion : liste des bases du serveur + « créer »
 
 ## C. Lot 2 — SQL
 
-- [ ] C1. Éditeur SQL (coloration, complétion des tables et colonnes du schéma)
+- [~] C1. Éditeur SQL (coloration, complétion des tables et colonnes du schéma)
 - [ ] C2. Requêtes enregistrées
 - [ ] C3. Édition de lignes dans la grille de résultats
 
