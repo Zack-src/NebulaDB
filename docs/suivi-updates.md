@@ -21,10 +21,10 @@ un moteur cible pour les projets).
 
 ## B. Lot 1 — petits conforts
 
-- [~] B1. Message à la restauration d'un projet qui revient détaché d'une connexion
-- [~] B2. Tables ignorées par la surveillance : sélecteur au lieu du champ texte
-- [x] B3. Variables d'environnement : tableau clé/valeur, variables manquantes signalées — `9f04aee`
-- [~] B4. Base d'un projet sur une connexion : liste des bases du serveur + « créer »
+- [x] B1. Message à la restauration d'un projet qui revient détaché d'une connexion — `9f04aee`
+- [x] B2. Tables ignorées par la surveillance : sélecteur au lieu du champ texte — `2e7aeaf`
+- [x] B3. Variables d'environnement : tableau clé/valeur, variables manquantes signalées — `7e8882c`
+- [x] B4. Base d'un projet sur une connexion : liste des bases du serveur + « créer » — `72b58bc`
 
 ## C. Lot 2 — SQL
 
@@ -61,6 +61,12 @@ un moteur cible pour les projets).
 
 ## Journal
 
-| Date       | Ligne | Commit    | Note                                                             |
-| ---------- | ----- | --------- | ---------------------------------------------------------------- |
-| 2026-10-09 | B3    | `9f04aee` | Table clé/valeur + variables manquantes ; e2e réécrit, non lancé |
+| Date       | Ligne | Commit    | Note                                                                                   |
+| ---------- | ----- | --------- | -------------------------------------------------------------------------------------- |
+| 2026-10-09 | B3    | `7e8882c` | Table clé/valeur + variables manquantes ; e2e réécrit, non lancé                       |
+| 2026-10-09 | B1    | `9f04aee` | Avertissement (toast) + champ `detachedConnections` dans la réponse, API v1 comprise   |
+| 2026-10-09 | B2    | `2e7aeaf` | Pastilles + liste à cocher avec recherche ; nom hors schéma accepté                    |
+| 2026-10-09 | B4    | `72b58bc` | Liste des bases du serveur (datalist), état « existe / sera créée », doublons signalés |
+
+Vérifié après intégration des quatre lignes B : 337 tests serveur, 121 tests web, typecheck et lint propres.
+Non vérifié : tests navigateur (e2e) et essai à la main des écrans.
