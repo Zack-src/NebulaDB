@@ -238,6 +238,8 @@
   "projects.linkForbidden": "You don't have access to that project.",
   "projects.emptyTrashPartialFailure_one": "{{count}} project could not be deleted.",
   "projects.emptyTrashPartialFailure_other": "{{count}} projects could not be deleted.",
+  "projects.restoredDetached_one": "{{name}} is back from the trash without the connection {{connections}}: its database is now used by another project.",
+  "projects.restoredDetached_other": "{{name}} is back from the trash without the connections {{connections}}: their database is now used by another project.",
   "projects.section.active": "Active projects",
   "projects.section.activeEmpty": "No active project yet — create one to get started.",
   "projects.section.archived": "Archive",

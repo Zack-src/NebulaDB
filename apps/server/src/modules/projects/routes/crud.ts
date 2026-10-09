@@ -41,10 +41,15 @@ export function registerProjectCrudRoutes(app: FastifyInstance): void {
       // already visible in the project itself, but "who trashed this?" is a
       // question that gets asked after the fact.
       const action = changed.status === "active" ? "project.restore" : "project.archive";
-      auditUser(user, action, { type: "project", id }, `status set to ${changed.status}`, req);
+      const detached = changed.detachedConnections ? `, detached from ${changed.detachedConnections.join(", ")}` : "";
+      auditUser(user, action, { type: "project", id }, `status set to ${changed.status}${detached}`, req);
     }
 
-    return { ...getProjectSummary(id)!, permission: "administrator" as const };
+    return {
+      ...getProjectSummary(id)!,
+      permission: "administrator" as const,
+      ...(changed.detachedConnections && { detachedConnections: changed.detachedConnections }),
+    };
   });
 
   // Permanent delete — the client only calls this from the Trash section

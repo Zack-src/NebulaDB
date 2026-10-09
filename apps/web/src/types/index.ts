@@ -22,6 +22,11 @@ export interface ProjectSummary {
   permission: PermissionLevel;
 }
 
+/** What `PATCH /api/projects/:id` answers: the summary, plus the connections a restore detached (only when there were any). */
+export interface UpdatedProject extends ProjectSummary {
+  detachedConnections?: string[];
+}
+
 export interface Session {
   id: string;
   email: string;

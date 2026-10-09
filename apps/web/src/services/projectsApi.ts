@@ -1,5 +1,5 @@
 import type { HistoryMarker, Project, RevisionChanges } from "@nebuladb/shared";
-import type { PermissionLevel, ProjectStatus, ProjectSummary, ProjectTeamGrant } from "@/types";
+import type { PermissionLevel, ProjectStatus, ProjectSummary, ProjectTeamGrant, UpdatedProject } from "@/types";
 import { request, requestText } from "./httpClient";
 import type { SqlDialect } from "./convertApi";
 
@@ -35,8 +35,8 @@ export function renameProject(projectId: string, name: string): Promise<ProjectS
   return request<ProjectSummary>(projectPath(projectId), { method: "PATCH", body: { name } });
 }
 
-export function setProjectStatus(projectId: string, status: ProjectStatus): Promise<ProjectSummary> {
-  return request<ProjectSummary>(projectPath(projectId), { method: "PATCH", body: { status } });
+export function setProjectStatus(projectId: string, status: ProjectStatus): Promise<UpdatedProject> {
+  return request<UpdatedProject>(projectPath(projectId), { method: "PATCH", body: { status } });
 }
 
 export function deleteProjectForever(projectId: string): Promise<void> {

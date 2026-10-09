@@ -54,11 +54,18 @@ export interface UpdateProjectInput {
   status?: unknown;
 }
 
+export interface UpdateProjectResult {
+  name?: string;
+  status?: ProjectStatus;
+  /** Connections a restored project lost because their database was given away while it was in the trash. */
+  detachedConnections?: string[];
+}
+
 /** Returns the field that actually changed (`"name"`, `"status"`, or both applied) — callers use it to decide what to audit. */
-export function updateProject(id: string, input: UpdateProjectInput): { name?: string; status?: ProjectStatus } {
+export function updateProject(id: string, input: UpdateProjectInput): UpdateProjectResult {
   if (input.name === undefined && input.status === undefined) throw new ApiError("NAME_OR_STATUS_REQUIRED");
 
-  const result: { name?: string; status?: ProjectStatus } = {};
+  const result: UpdateProjectResult = {};
   if (input.name !== undefined) {
     const name = parseProjectName(input.name);
     updateProjectName(id, name);
@@ -68,7 +75,10 @@ export function updateProject(id: string, input: UpdateProjectInput): { name?: s
     if (!isProjectStatus(input.status)) throw new ApiError("PROJECT_STATUS_INVALID");
     const leavesTrash = getProjectSummary(id)?.status === "trashed" && input.status !== "trashed";
     updateProjectStatus(id, input.status);
-    if (leavesTrash) detachTakenLinks(id);
+    if (leavesTrash) {
+      const lost = detachTakenLinks(id);
+      if (lost.length > 0) result.detachedConnections = lost;
+    }
     result.status = input.status;
   }
   return result;

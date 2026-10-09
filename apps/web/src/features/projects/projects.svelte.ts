@@ -1,3 +1,4 @@
+import { toast } from "@/components/ui/toast.svelte";
 import { describeApiError } from "@/i18n/serverErrorMessages";
 import { useTranslation } from "@/i18n/i18n.svelte";
 import * as projectsApi from "@/services/projectsApi";
@@ -76,8 +77,17 @@ export function useProjects(active: () => boolean): ProjectsHandle {
   };
 
   const setProjectStatus = async (project: ProjectSummary, status: ProjectStatus) => {
-    await projectsApi.setProjectStatus(project.id, status);
+    const updated = await projectsApi.setProjectStatus(project.id, status);
     refreshProjects();
+    if (updated.detachedConnections?.length) {
+      toast.warning(
+        t("projects.restoredDetached", {
+          name: project.name,
+          connections: updated.detachedConnections.join(", "),
+          count: updated.detachedConnections.length,
+        }),
+      );
+    }
   };
 
   const deleteProjectForever = async (project: ProjectSummary): Promise<string | null> => {

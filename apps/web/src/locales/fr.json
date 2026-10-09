@@ -238,6 +238,8 @@
   "projects.linkForbidden": "Vous n'avez pas accès à ce projet.",
   "projects.emptyTrashPartialFailure_one": "{{count}} projet n'a pas pu être supprimé.",
   "projects.emptyTrashPartialFailure_other": "{{count}} projets n'ont pas pu être supprimés.",
+  "projects.restoredDetached_one": "{{name}} est sorti de la corbeille sans la connexion {{connections}} : sa base de données est désormais utilisée par un autre projet.",
+  "projects.restoredDetached_other": "{{name}} est sorti de la corbeille sans les connexions {{connections}} : leur base de données est désormais utilisée par un autre projet.",
   "projects.section.active": "Projets actifs",
   "projects.section.activeEmpty": "Aucun projet actif pour le moment — créez-en un pour commencer.",
   "projects.section.archived": "Archives",

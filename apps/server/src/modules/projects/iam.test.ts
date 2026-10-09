@@ -249,7 +249,11 @@ test("a project in the trash does not hold its database, and comes back detached
     assert.equal(projects.find((p) => p.id === fresh)?.trashed, undefined);
 
     // Back from the trash: the database is someone else's now.
-    assert.equal((await setStatus(old, "active")).statusCode, 200);
+    const restored = await setStatus(old, "active");
+    assert.equal(restored.statusCode, 200);
+    assert.deepEqual((restored.json() as { detachedConnections?: string[] }).detachedConnections, [
+      "Server db-trash.internal.example",
+    ]);
     assert.equal(getProjectConnection(old, connectionId), null);
     assert.equal(getProjectConnection(fresh, connectionId)?.database, "shop");
 
@@ -265,7 +269,8 @@ test("a project in the trash does not hold its database, and comes back detached
       200,
     );
     await setStatus(kept, "trashed");
-    await setStatus(kept, "active");
+    const back = await setStatus(kept, "active");
+    assert.equal((back.json() as { detachedConnections?: string[] }).detachedConnections, undefined);
     assert.equal(getProjectConnection(kept, connectionId)?.database, "kept");
   } finally {
     await app.close();

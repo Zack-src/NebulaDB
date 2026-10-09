@@ -100,10 +100,15 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
 
     if (changed.status !== undefined) {
       const action = changed.status === "active" ? "project.restore" : "project.archive";
-      auditUser(user, action, { type: "project", id }, `status set to ${changed.status} (v1)`, req);
+      const detached = changed.detachedConnections ? `, detached from ${changed.detachedConnections.join(", ")}` : "";
+      auditUser(user, action, { type: "project", id }, `status set to ${changed.status}${detached} (v1)`, req);
     }
 
-    return { ...getProjectSummary(id)!, permission: "administrator" as const };
+    return {
+      ...getProjectSummary(id)!,
+      permission: "administrator" as const,
+      ...(changed.detachedConnections && { detachedConnections: changed.detachedConnections }),
+    };
   });
 
   // Permanent delete — irreversible. Moving to trash is the PATCH above (`status: "trashed"`), which can be restored.

@@ -86,7 +86,12 @@ export const OPERATIONS: Operation[] = [
     admin: true,
     summary: "Rename and/or archive, trash or restore",
     body: obj({ name: str, status: { type: "string", enum: ["active", "archived", "trashed"] } }, []),
-    ok: { status: 200, schema: ref("ProjectSummary") },
+    ok: {
+      status: 200,
+      schema: {
+        allOf: [ref("ProjectSummary"), obj({ detachedConnections: { type: "array", items: str } }, [])],
+      },
+    },
   },
   {
     method: "delete",
