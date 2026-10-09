@@ -44,7 +44,7 @@ un moteur cible pour les projets).
 
 ## F. Lot 5 — le reste
 
-- [~] F1. Alertes de surveillance : e-mail, acquittement, mise en sourdine
+- [x] F1. Alertes de surveillance : e-mail, acquittement, mise en sourdine — `a9c6b69`, `0c8bc97`, `8f6a98e`
 - [x] F2. Dictionnaire : description multi-ligne, export PDF — `7c33923`, `692f305`
 - [~] F3. Export des migrations en fichiers versionnés (Flyway / Liquibase)
 - [ ] F4. CLI / action GitHub
@@ -79,6 +79,7 @@ un moteur cible pour les projets).
 | 2026-10-09 | D1    | `3b5bef6` | Onglets Connexion / Règles / Projets, un seul Enregistrer, repère « ! » sur l'onglet fautif ; refait par-dessus la liste des bases |
 | 2026-10-09 | F2    | `692f305` | Descriptions multi-lignes (notes DBML en triple quote) et export PDF côté navigateur ; pas de `format=pdf` dans l'API              |
 | 2026-10-09 | C2    | `3b11f8f` | Requêtes enregistrées, privées ou partagées ; migration 46 ; 344 tests serveur passent après intégration                           |
+| 2026-10-09 | F1    | `8f6a98e` | E-mail sur abonnement (option par compte), acquittement, sourdine avec durée ; migrations 47 à 49 ; relais SMTP réel non essayé    |
 
 Vérifié après intégration des quatre lignes B : 337 tests serveur, 121 tests web, typecheck et lint propres.
 Non vérifié : tests navigateur (e2e) et essai à la main des écrans.
