@@ -59,6 +59,17 @@ export interface BackupList {
   /** Disk space taken by this connection's stored backups. */
   usedBytes: number;
   schedule: BackupSchedule;
+  destination: BackupDestination;
+}
+
+/**
+ * Where a connection's backups are written. `directory`: a folder of the
+ * server chosen for this connection — local or a mounted network share —
+ * `null` for the instance's own, which `defaultDirectory` names.
+ */
+export interface BackupDestination {
+  directory: string | null;
+  defaultDirectory: string;
 }
 
 /** What a restore did to one table. */

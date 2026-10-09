@@ -19,6 +19,43 @@ has a dated entry for. Version 1.0.0 is the first release under the NebulaDB nam
 
 ## [Unreleased]
 
+### Added — a watch imposed from the connection
+
+- Admin → Connexions → a connection → **Imposer la surveillance des modifications hors Nebula**,
+  with a frequency. Every project attached to that connection is then watched, at least that
+  often, whatever the project chose; its Surveillance card shows where the rule comes from, and
+  its administrators can neither switch it off nor change the ignored tables
+  (`403 MONITORING_LOCKED`, also on `/api/v1`) — instance administrators still set the ignored
+  tables. Unticking gives each project back what it had chosen. Audited as `dbconn.monitoring`.
+  `GET …/monitoring` adds `settings.forced`. Migration 44 (`db_connections.monitor_forced`,
+  `monitor_interval_minutes`); off for every existing connection.
+
+### Added — a backup location per connection
+
+- Admin → Connexions → Ouvrir → Sauvegardes → **Emplacement des sauvegardes**: the folder of the
+  server a database's backups are written to — a local folder or a network share mounted on the
+  server (NFS, SMB; a `\\server\share` path on Windows). It is created and written to before it is
+  kept (`BACKUP_DESTINATION_UNUSABLE` with the system's reason otherwise). Empty: the instance's
+  own folder, `NEBULADB_DATABASE_BACKUP_DIR`, as before. A backup remembers where it was written,
+  so the ones already taken stay readable, downloadable and restorable after a change.
+  `PUT /api/admin/connections/:id/backup-destination`, audited as `backup.destination`.
+  Migration 45 (`db_connections.backup_dir`, `backups.dir`). **The account the server runs as
+  needs write access to that folder**, and the files there are still encrypted: they are read
+  back through Nebula, with `NEBULADB_SECRET`.
+
+### Fixed — a project in the trash kept its database
+
+- A database used by a project in the trash could not be given to another project
+  (`CONNECTION_DATABASE_TAKEN`) until the trash was emptied — and the admin form did not show
+  the project holding it. A trashed project no longer holds its database, and is listed in the
+  connection's form with a "Corbeille" badge. Restored after its database was given away, it
+  comes back detached from that connection.
+
+### Removed
+
+- Project templates (blog, e-commerce, SaaS, authentication) are gone from the application; the
+  `template` field is no longer documented on `POST /api/v1/projects` and is ignored if sent.
+
 ### Added — BigQuery as a deployment target
 
 - A connection can be a **BigQuery dataset** (engine `bigquery`): the Google Cloud

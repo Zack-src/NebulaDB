@@ -2,6 +2,7 @@ import { ApiError } from "../../shared/errors.js";
 import {
   countProjectsOwnedBy,
   deleteProjectCascade,
+  getProjectSummary,
   insertProject,
   isProjectStatus,
   updateProjectName,
@@ -9,6 +10,7 @@ import {
   type ProjectStatus,
 } from "./repository.js";
 import { closeRoom } from "../../realtime/roomRegistry.js";
+import { detachTakenLinks } from "../connections/repository.js";
 import { forgetProjectIndex } from "../search/searchIndex.js";
 import { invalidateWebhookCache } from "../webhooks/dispatcher.js";
 
@@ -64,7 +66,9 @@ export function updateProject(id: string, input: UpdateProjectInput): { name?: s
   }
   if (input.status !== undefined) {
     if (!isProjectStatus(input.status)) throw new ApiError("PROJECT_STATUS_INVALID");
+    const leavesTrash = getProjectSummary(id)?.status === "trashed" && input.status !== "trashed";
     updateProjectStatus(id, input.status);
+    if (leavesTrash) detachTakenLinks(id);
     result.status = input.status;
   }
   return result;

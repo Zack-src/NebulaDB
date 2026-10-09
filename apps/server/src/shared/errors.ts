@@ -45,7 +45,10 @@ export const ERROR_CATALOG = {
     message: "you are the last active administrator — grant admin to someone else first",
   },
   INVITATION_INVALID: { status: 400, message: "this invitation is no longer valid" },
-  CONNECTION_ENGINE_INVALID: { status: 400, message: "engine must be one of postgres, mysql, mssql, oracle, sqlite, bigquery" },
+  CONNECTION_ENGINE_INVALID: {
+    status: 400,
+    message: "engine must be one of postgres, mysql, mssql, oracle, sqlite, bigquery",
+  },
   CONNECTION_AUTH_MODE_INVALID: {
     status: 400,
     message:
@@ -105,6 +108,10 @@ export const ERROR_CATALOG = {
     status: 400,
     message: "monitoring: enabled (boolean), intervalMinutes (5, 15, 60, 360 or 1440), ignoreTables (names)",
   },
+  MONITORING_LOCKED: {
+    status: 403,
+    message: "the watch is imposed by a connection of this project: only an instance administrator changes it",
+  },
   STAGE_SKIP_REASON_REQUIRED: { status: 400, message: "skipping a stage needs a reason (skipReason)" },
   SUBSCRIPTION_INVALID: { status: 400, message: "events must be a list among deployment, lock, seed, drift" },
   COMMENT_NOTICE_INVALID: {
@@ -124,6 +131,11 @@ export const ERROR_CATALOG = {
   LINT_PRESET_NOT_FOUND: { status: 404, message: "no such lint preset" },
   LINT_PRESET_NAME_TAKEN: { status: 409, message: "a lint preset already has that name" },
   LINT_PRESET_LIMIT: { status: 409, message: "the library holds 100 lint presets at most" },
+  BACKUP_DESTINATION_INVALID: {
+    status: 400,
+    message: "directory must be an absolute path of the server (1024 characters at most), or null for the default",
+  },
+  BACKUP_DESTINATION_UNUSABLE: { status: 400, message: "backups cannot be written to this directory" },
   BACKUP_INVALID: {
     status: 400,
     message:

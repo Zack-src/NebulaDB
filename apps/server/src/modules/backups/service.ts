@@ -1,3 +1,4 @@
+import path from "node:path";
 import type { Readable } from "node:stream";
 import type { FastifyRequest } from "fastify";
 import type { BackupList, BackupSummary, DatabaseConnectionConfig } from "@nebuladb/shared";
@@ -5,10 +6,18 @@ import { config } from "../../config.js";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { connectionOwner, getConnectionById } from "../connections/repository.js";
-import { deleteBackup, getBackup, getBackupKey, listBackups, usedBytes } from "./repository.js";
+import {
+  deleteBackup,
+  getBackup,
+  getBackupDirectory,
+  getBackupKey,
+  listBackups,
+  setBackupDirectory,
+  usedBytes,
+} from "./repository.js";
 import { cancelBackup, startBackup } from "./runner.js";
 import { getBackupSchedule } from "./schedule.js";
-import { backupFileChecksum, openBackupDownload } from "./storage.js";
+import { backupFileChecksum, openBackupDownload, probeBackupDirectory } from "./storage.js";
 
 /**
  * What can be done with a database's backups, once — the app's routes and
@@ -20,6 +29,49 @@ type Actor = { id: string; email: string; displayName: string };
 
 const MAX_TABLES = 2000;
 const MAX_NOTE = 500;
+const MAX_DIRECTORY = 1024;
+
+const destinationOf = (connectionId: string) => ({
+  directory: getBackupDirectory(connectionId),
+  defaultDirectory: path.resolve(config.databaseBackupDir),
+});
+
+/**
+ * Where a connection's next backups are written: a folder of the server —
+ * local, or a network share mounted there (or a `\\server\share` path on
+ * Windows) — or `null` for the instance's own. Tried before it is kept: a
+ * folder nothing can be written to is refused with the system's reason. The
+ * backups already taken stay where they are, and stay readable.
+ */
+export function saveBackupDestination(user: Actor, connectionId: string, rawBody: unknown, req: FastifyRequest) {
+  const connection = requireConnection(connectionId);
+  const { directory: raw } = (rawBody ?? {}) as { directory?: unknown };
+  let directory: string | null = null;
+  if (raw !== null && raw !== undefined && raw !== "") {
+    if (typeof raw !== "string" || raw.length > MAX_DIRECTORY || raw.includes("\0") || !path.isAbsolute(raw.trim())) {
+      throw new ApiError("BACKUP_DESTINATION_INVALID");
+    }
+    directory = path.normalize(raw.trim());
+    try {
+      probeBackupDirectory(directory);
+    } catch (err) {
+      throw new ApiError("BACKUP_DESTINATION_UNUSABLE", {
+        details: { reason: err instanceof Error ? err.message : String(err) },
+      });
+    }
+  }
+  if (directory !== getBackupDirectory(connectionId)) {
+    setBackupDirectory(connectionId, directory);
+    auditUser(
+      user,
+      "backup.destination",
+      { type: "connection", id: connectionId },
+      `${connection.name}: ${directory ?? "instance default"}`,
+      req,
+    );
+  }
+  return destinationOf(connectionId);
+}
 
 export function requireConnection(id: string): DatabaseConnectionConfig {
   const connection = getConnectionById(id);
@@ -57,6 +109,7 @@ export function connectionBackups(connectionId: string): BackupList {
     limits: { maxBytes: config.databaseBackupMaxBytes, retentionDays: config.databaseBackupRetentionDays },
     usedBytes: usedBytes(connectionId),
     schedule: getBackupSchedule(connectionId),
+    destination: destinationOf(connectionId),
   };
 }
 

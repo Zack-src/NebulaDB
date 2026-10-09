@@ -13,7 +13,8 @@ interface SettingsRow {
   last_checked_at: string | null;
 }
 
-export function getMonitorSettings(projectId: string): MonitorSettings {
+/** What the project itself chose, before any connection imposes anything. */
+function storedSettings(projectId: string): MonitorSettings {
   const row = db
     .prepare(
       "SELECT enabled, interval_minutes, ignore_json, last_checked_at FROM monitor_settings WHERE project_id = ?",
@@ -25,6 +26,32 @@ export function getMonitorSettings(projectId: string): MonitorSettings {
     intervalMinutes: row.interval_minutes,
     ignoreTables: JSON.parse(row.ignore_json) as string[],
     lastCheckedAt: row.last_checked_at,
+  };
+}
+
+/** The watch imposed on a project by the connections it is attached to (Admin → Connexions), or `null`. */
+export function forcedMonitoring(projectId: string): NonNullable<MonitorSettings["forced"]> | null {
+  const rows = db
+    .prepare(
+      `SELECT c.name, c.monitor_interval_minutes AS minutes FROM project_connection_links l
+         JOIN db_connections c ON c.id = l.connection_id
+        WHERE l.project_id = ? AND c.monitor_forced = 1 ORDER BY c.name COLLATE NOCASE`,
+    )
+    .all(projectId) as { name: string; minutes: number }[];
+  if (rows.length === 0) return null;
+  return { intervalMinutes: Math.min(...rows.map((row) => row.minutes)), connections: rows.map((row) => row.name) };
+}
+
+/** The watch as it runs: the project's own choice, tightened by what its connections impose. */
+export function getMonitorSettings(projectId: string): MonitorSettings {
+  const stored = storedSettings(projectId);
+  const forced = forcedMonitoring(projectId);
+  if (!forced) return { ...stored, forced: null };
+  return {
+    ...stored,
+    enabled: true,
+    intervalMinutes: stored.enabled ? Math.min(stored.intervalMinutes, forced.intervalMinutes) : forced.intervalMinutes,
+    forced,
   };
 }
 
@@ -53,6 +80,12 @@ export function saveMonitorSettings(
   settings: Omit<MonitorSettings, "lastCheckedAt">,
   by: string,
 ): MonitorSettings {
+  // Imposed from a connection: on/off and the pace are not the project's any more, and what it
+  // had chosen is kept for the day the connection lets go.
+  if (forcedMonitoring(projectId)) {
+    const stored = storedSettings(projectId);
+    settings = { ...settings, enabled: stored.enabled, intervalMinutes: stored.intervalMinutes };
+  }
   db.prepare(
     `INSERT INTO monitor_settings (project_id, enabled, interval_minutes, ignore_json, updated_by_name, updated_at)
      VALUES (?, ?, ?, ?, ?, datetime('now'))
@@ -70,15 +103,21 @@ export function markChecked(projectId: string): void {
   ).run(projectId);
 }
 
-/** Projects whose watch is on and whose interval has run out since their last check. */
+/** Projects whose watch is on — by their own choice or a connection's — and whose interval has run out since their last check. */
 export function listDueProjects(): string[] {
   return (
     db
       .prepare(
-        `SELECT m.project_id FROM monitor_settings m JOIN projects p ON p.id = m.project_id
-          WHERE m.enabled = 1 AND p.status = 'active'
+        `SELECT p.id AS project_id FROM projects p
+           LEFT JOIN monitor_settings m ON m.project_id = p.id
+           LEFT JOIN (SELECT l.project_id, MIN(c.monitor_interval_minutes) AS minutes
+                        FROM project_connection_links l JOIN db_connections c ON c.id = l.connection_id
+                       WHERE c.monitor_forced = 1 GROUP BY l.project_id) f ON f.project_id = p.id
+          WHERE p.status = 'active' AND (m.enabled = 1 OR f.minutes IS NOT NULL)
             AND (m.last_checked_at IS NULL
-                 OR m.last_checked_at <= datetime('now', '-' || m.interval_minutes || ' minutes'))
+                 OR m.last_checked_at <= datetime('now', '-' || MIN(
+                      CASE WHEN m.enabled = 1 THEN m.interval_minutes ELSE 1000000 END,
+                      COALESCE(f.minutes, 1000000)) || ' minutes'))
           ORDER BY m.last_checked_at`,
       )
       .all() as { project_id: string }[]

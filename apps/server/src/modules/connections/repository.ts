@@ -6,6 +6,7 @@ import type {
   DatabaseConnectionConfig,
   DatabaseConnectionSummary,
   DatabaseEngine,
+  ForcedMonitoring,
   StructurePolicy,
   StructurePolicySetting,
 } from "@nebuladb/shared";
@@ -28,6 +29,8 @@ interface ConnectionRow {
   read_only: number;
   structure_policy: string | null;
   structure_policy_sql: number;
+  monitor_forced: number;
+  monitor_interval_minutes: number;
   auth_mode: string;
   created_by: string | null;
   created_at: string;
@@ -154,6 +157,7 @@ function toBlob(config: Partial<DatabaseConnectionConfig>): string {
     "tags",
     "readOnly",
     "structurePolicy",
+    "forcedMonitoring",
     "authMode",
     "environment",
     "environmentId",
@@ -275,6 +279,7 @@ export function createGlobalConnection(config: ConnectionInput, createdBy: strin
   const id = insertConnection(config, "admin", createdBy);
   // The insert is shared with project-created connections, which never carry a policy.
   if (config.structurePolicy) applyUpdate(id, { structurePolicy: config.structurePolicy }, true);
+  if (config.forcedMonitoring) applyUpdate(id, { forcedMonitoring: config.forcedMonitoring }, true);
   if (config.authMode && config.authMode !== "shared") {
     try {
       applyUpdate(id, { authMode: config.authMode }, true);
@@ -293,8 +298,12 @@ function rowStructurePolicy(row: ConnectionRow): StructurePolicySetting | null {
     : null;
 }
 
+function rowForcedMonitoring(row: ConnectionRow): ForcedMonitoring | null {
+  return row.monitor_forced === 1 ? { intervalMinutes: row.monitor_interval_minutes } : null;
+}
+
 /**
- * `allowPolicy`: the structure policy and the account mode are the instance
+ * `allowPolicy`: the structure policy, the imposed watch and the account mode are the instance
  * administrator's to set. A project route passes `false`, and whatever it
  * sent for them is ignored rather than trusted.
  */
@@ -346,6 +355,8 @@ function applyUpdate(id: string, updates: Partial<DatabaseConnectionConfig>, all
   const readOnly = updates.readOnly !== undefined ? Boolean(updates.readOnly) : Boolean(existing.readOnly);
   const policy =
     allowPolicy && updates.structurePolicy !== undefined ? updates.structurePolicy : rowStructurePolicy(row);
+  const watch =
+    allowPolicy && updates.forcedMonitoring !== undefined ? updates.forcedMonitoring : rowForcedMonitoring(row);
   // Checked against the connection as it will be: an engine or a connection
   // string changed in the same request counts.
   const authMode = allowPolicy && updates.authMode !== undefined ? updates.authMode : row.auth_mode;
@@ -354,7 +365,8 @@ function applyUpdate(id: string, updates: Partial<DatabaseConnectionConfig>, all
   db.prepare(
     `UPDATE db_connections
         SET name = ?, engine = ?, environment = ?, environment_id = ?, config_encrypted = ?, tags = ?, read_only = ?,
-            structure_policy = ?, structure_policy_sql = ?, auth_mode = ?, updated_at = datetime('now')
+            structure_policy = ?, structure_policy_sql = ?, monitor_forced = ?, monitor_interval_minutes = ?,
+            auth_mode = ?, updated_at = datetime('now')
       WHERE id = ?`,
   ).run(
     merged.name,
@@ -366,6 +378,8 @@ function applyUpdate(id: string, updates: Partial<DatabaseConnectionConfig>, all
     readOnly ? 1 : 0,
     policy?.policy ?? null,
     policy?.applyToSql === false ? 0 : 1,
+    watch ? 1 : 0,
+    watch?.intervalMinutes ?? row.monitor_interval_minutes,
     authMode,
     id,
   );
@@ -444,19 +458,25 @@ function pruneOrphanProjectConnections(): void {
 function rowToAdminSummary(row: ConnectionRow): AdminConnectionSummary {
   const projects = db
     .prepare(
-      `SELECT p.id AS id, p.name AS name, l.database_name AS database FROM project_connection_links l
+      `SELECT p.id AS id, p.name AS name, l.database_name AS database, p.status = 'trashed' AS trashed
+         FROM project_connection_links l
          JOIN projects p ON p.id = l.project_id
         WHERE l.connection_id = ? ORDER BY p.name COLLATE NOCASE`,
     )
-    .all(row.id) as { id: string; name: string; database: string | null }[];
+    .all(row.id) as { id: string; name: string; database: string | null; trashed: number }[];
   return {
     ...rowToSummary(row, ""),
     origin: row.origin as ConnectionOrigin,
     tags: parseTags(row.tags),
     readOnly: row.read_only === 1,
     structurePolicy: rowStructurePolicy(row),
+    forcedMonitoring: rowForcedMonitoring(row),
     // `database` only where the project has one of its own.
-    projects: projects.map(({ database, ...project }) => (database ? { ...project, database } : project)),
+    projects: projects.map(({ database, trashed, ...project }) => ({
+      ...project,
+      ...(database ? { database } : {}),
+      ...(trashed ? { trashed: true } : {}),
+    })),
     health: {
       status: (row.last_status as "online" | "offline" | null) ?? null,
       checkedAt: row.last_checked_at,
@@ -503,10 +523,14 @@ function resolveLinks(connectionId: string, links: ConnectionProjectLink[]) {
     ).map((link) => [link.project_id, link.database_name]),
   );
   const wanted = new Map<string, string | null>();
-  const exists = db.prepare("SELECT 1 FROM projects WHERE id = ?");
+  const status = db.prepare("SELECT status FROM projects WHERE id = ?");
+  // A project in the trash keeps its link but holds no database: another project can be given it meanwhile.
+  const trashed = new Set<string>();
   for (const link of links) {
     // An unknown project is left out, not refused — and takes no database from a real one.
-    if (!exists.get(link.projectId)) continue;
+    const project = status.get(link.projectId) as { status: string } | undefined;
+    if (!project) continue;
+    if (project.status === "trashed") trashed.add(link.projectId);
     const database = link.database === undefined ? (before.get(link.projectId) ?? null) : link.database?.trim() || null;
     if (database !== null && (!named || !LINK_DATABASE_NAME.test(database))) {
       throw new ApiError("CONNECTION_DATABASE_INVALID", { details: { database } });
@@ -515,7 +539,8 @@ function resolveLinks(connectionId: string, links: ConnectionProjectLink[]) {
   }
   if (named) {
     const taken = new Set<string>();
-    for (const database of wanted.values()) {
+    for (const [projectId, database] of wanted) {
+      if (trashed.has(projectId)) continue;
       const effective = (database ?? config.database ?? "").toLowerCase();
       if (taken.has(effective)) {
         throw new ApiError("CONNECTION_DATABASE_TAKEN", { details: { database: database ?? config.database ?? "" } });
@@ -565,6 +590,35 @@ export function setConnectionProjects(connectionId: string, links: ConnectionPro
           AND project_id NOT IN (SELECT project_id FROM project_connection_links WHERE connection_id = ?)`,
     ).run(connectionId, connectionId);
   })();
+}
+
+/**
+ * A project leaving the trash: while it was there its database could be given
+ * to another project (`resolveLinks`). Where that happened it comes back
+ * detached from the connection — never two projects on one database. Returns
+ * the connections it lost.
+ */
+export function detachTakenLinks(projectId: string): string[] {
+  const links = db
+    .prepare("SELECT connection_id, database_name FROM project_connection_links WHERE project_id = ?")
+    .all(projectId) as { connection_id: string; database_name: string | null }[];
+  const others = db.prepare(
+    `SELECT l.database_name FROM project_connection_links l JOIN projects p ON p.id = l.project_id
+      WHERE l.connection_id = ? AND l.project_id <> ? AND p.status <> 'trashed'`,
+  );
+  const lost: string[] = [];
+  for (const link of links) {
+    const row = getRow(link.connection_id);
+    if (!row) continue;
+    const config = rowToConfig(row, "");
+    if (!takesLinkDatabase(config)) continue;
+    const effective = (name: string | null) => (name ?? config.database ?? "").toLowerCase();
+    const taken = (others.all(link.connection_id, projectId) as { database_name: string | null }[]).some(
+      (other) => effective(other.database_name) === effective(link.database_name),
+    );
+    if (taken && unlinkProjectConnection(projectId, link.connection_id)) lost.push(row.name);
+  }
+  return lost;
 }
 
 /**

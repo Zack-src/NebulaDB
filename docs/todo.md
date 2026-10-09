@@ -1974,7 +1974,7 @@ mailer.ts`, `NEBULADB_SMTP_*`, `NEBULADB_PUBLIC_URL`; _not verified_ through a r
   third-party relay — one manual send worth doing); invitation delivery by e-mail.
 - **Phase 21** — **Public API** `/api/v1` + **OpenAPI** (`GET /api/v1/openapi.json`, drift caught
   by `openapi.test.ts`); **webhooks** (`modules/webhooks/`, `docs/webhooks.md`, signed, retry
-  queue, SSRF-safe at connect time); **project templates** (4 starters, `TemplatePickerModal`);
+  queue, SSRF-safe at connect time); **project templates** (4 starters — removed since);
   **cross-project diff** (`CompareProjectsModal.svelte`); **global multi-project search**
   (`GET /api/search`).
 - **Phase 22** — Light theme, `<svelte:boundary>`, loading placeholders.

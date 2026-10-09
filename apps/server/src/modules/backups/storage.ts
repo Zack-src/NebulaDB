@@ -1,23 +1,38 @@
 import crypto from "node:crypto";
 import { once } from "node:events";
-import { createReadStream, createWriteStream, mkdirSync, rmSync } from "node:fs";
+import { createReadStream, createWriteStream, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { Transform, pipeline, type Readable } from "node:stream";
 import { pipeline as pipelineAsync } from "node:stream/promises";
 import { StringDecoder } from "node:string_decoder";
 import { createGunzip, createGzip } from "node:zlib";
 import { config } from "../../config.js";
+import { db } from "../../infrastructure/db.js";
 import { decryptPayload, encryptPayload } from "../../shared/crypto.js";
 
 const ALGORITHM = "aes-256-gcm";
 
 /**
- * Where a backup's file lives. The name is the backup's own id (a UUID the
- * server generated), never anything a client sent, so there is no path to
- * escape with.
+ * Where a backup's file lives: the folder it was written to — its connection's
+ * destination at the time, or the instance's own. The name is the backup's own
+ * id (a UUID the server generated), never anything a client sent, so there is
+ * no path to escape with.
  */
 export function backupFilePath(id: string): string {
-  return path.join(config.databaseBackupDir, `${id}.bak`);
+  const row = db.prepare("SELECT dir FROM backups WHERE id = ?").get(id) as { dir: string | null } | undefined;
+  return path.join(row?.dir ?? config.databaseBackupDir, `${id}.bak`);
+}
+
+/**
+ * Makes sure backups can be written to `directory` — a local folder or a
+ * mounted network share — by creating it if needed and writing a file there.
+ * Throws the system's own error (no such share, permission denied…).
+ */
+export function probeBackupDirectory(directory: string): void {
+  mkdirSync(directory, { recursive: true });
+  const probe = path.join(directory, `.nebuladb-write-test-${crypto.randomUUID()}`);
+  writeFileSync(probe, "", { mode: 0o600 });
+  rmSync(probe, { force: true });
 }
 
 export function removeBackupFile(id: string): void {
@@ -54,7 +69,7 @@ export interface BackupWriter {
  * does not mean rewriting gigabytes.
  */
 export function openBackupWriter(id: string): BackupWriter {
-  mkdirSync(config.databaseBackupDir, { recursive: true });
+  mkdirSync(path.dirname(backupFilePath(id)), { recursive: true });
   const key = crypto.randomBytes(32);
   const iv = crypto.randomBytes(12);
   const gzip = createGzip();

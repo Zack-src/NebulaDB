@@ -44,7 +44,7 @@ utilisé ».
 | Copier/coller de tables, enums, zones et notes ; duplication ; annuler/rétablir                    |  ✅  | Une colonne typée par un enum, collée sans l'enum, perd la définition                        |
 | Vue conceptuelle MCD (Merise)                                                                      |  ✅  |                                                                                              |
 | Import DBML/SQL, export DBML/SQL/PNG/SVG/PDF                                                       |  ✅  | Bug `UNIQUE PRIMARY KEY` corrigé                                                             |
-| Modèles de départ, projet créé depuis une base existante                                           |  ✅  |                                                                                              |
+| Projet créé depuis une base existante                                                              |  ✅  |                                                                                              |
 | Recherche dans tous les projets                                                                    |  ✅  |                                                                                              |
 | Conversion de types entre moteurs                                                                  |  🧪  | Écran jamais cliqué par un test                                                              |
 | Linter de schéma (profils, corrections, blocage de déploiement)                                    |  ✅  | Le motif de nommage se règle en règle personnalisée                                          |

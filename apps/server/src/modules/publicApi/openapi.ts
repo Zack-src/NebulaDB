@@ -66,14 +66,8 @@ export const OPERATIONS: Operation[] = [
     path: "/api/v1/projects",
     tag: "Projects",
     scope: "projects:write",
-    summary: "Create a project, empty or from a starter template",
-    body: obj(
-      {
-        name: { type: "string", maxLength: 200 },
-        template: { type: "string", enum: ["blog", "ecommerce", "saas", "auth"] },
-      },
-      ["name"],
-    ),
+    summary: "Create an empty project",
+    body: obj({ name: { type: "string", maxLength: 200 } }, ["name"]),
     ok: { status: 201, schema: obj({ id: str, name: str, permission: PERMISSION }) },
   },
   {
@@ -865,6 +859,12 @@ const COMPONENTS: Record<string, Schema> = {
     intervalMinutes: int,
     ignoreTables: { type: "array", items: str },
     lastCheckedAt: { type: ["string", "null"] },
+    forced: {
+      type: ["object", "null"],
+      description:
+        "Set when an instance administrator imposes the watch from a connection of the project: it is on, at least this often, and `PUT` is refused (`MONITORING_LOCKED`) to anyone else.",
+      properties: { intervalMinutes: int, connections: { type: "array", items: str } },
+    },
   }),
   DriftEvent: obj({
     id: str,

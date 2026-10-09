@@ -94,6 +94,9 @@
           " ",
         );
   const busy = $derived(save.pending || check.pending || watchAccounts.pending);
+  // Imposed from a connection (Admin → Connexions): on and paced there; the ignored tables are the instance administrators'.
+  const forced = $derived(current?.settings.forced ?? null);
+  const instanceAdmin = $derived(current?.accounts != null);
 </script>
 
 <section class="rounded-md border border-border bg-surface p-3 text-xs" aria-labelledby="monitoring-title" data-testid="monitoring">
@@ -121,7 +124,7 @@
         <Switch
           size="sm"
           checked={current.settings.enabled}
-          disabled={!canManage || busy}
+          disabled={!canManage || busy || forced !== null}
           onChange={(enabled) => void save.run({ enabled })}
           aria-label={t("monitoring.enable")}
         />
@@ -133,7 +136,7 @@
         aria-label={t("monitoring.interval")}
         value={current.settings.intervalMinutes}
         options={intervalOptions}
-        disabled={!canManage || busy}
+        disabled={!canManage || busy || forced !== null}
         onChange={(intervalMinutes) => void save.run({ intervalMinutes })}
       />
       <input
@@ -141,7 +144,7 @@
         aria-label={t("monitoring.ignore")}
         placeholder={t("monitoring.ignorePlaceholder")}
         value={ignoreDraft ?? current.settings.ignoreTables.join(", ")}
-        disabled={!canManage || busy}
+        disabled={!canManage || busy || (forced !== null && !instanceAdmin)}
         oninput={(event) => (ignoreDraft = event.currentTarget.value)}
         onblur={saveIgnore}
         onkeydown={(event) => {
@@ -149,6 +152,15 @@
         }}
       />
     </div>
+    {#if forced}
+      <p class="m-0 mt-2 flex flex-wrap items-center gap-2 text-text-muted" data-testid="monitoring-forced">
+        <Badge tone="admin">{t("monitoring.accounts.adminOnly")}</Badge>
+        {t("monitoring.forced", {
+          connections: forced.connections.join(", "),
+          interval: t(`monitoring.every.${forced.intervalMinutes}` as "monitoring.every.5"),
+        })}
+      </p>
+    {/if}
 
     {#if current.accounts && current.accounts.connections.length > 0}
       {@const accounts = current.accounts}

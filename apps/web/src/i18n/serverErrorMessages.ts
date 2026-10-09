@@ -115,6 +115,7 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   GENERATOR_INVALID: "errors.generatorInvalid",
   ACTIVITY_QUERY_INVALID: "errors.activityQueryInvalid",
   MONITORING_INVALID: "errors.monitoringInvalid",
+  MONITORING_LOCKED: "errors.monitoringLocked",
   DATABASE_TABLE_NOT_FOUND: "errors.databaseTableNotFound",
   COMPARISON_INVALID: "errors.comparisonInvalid",
   SUBSCRIPTION_INVALID: "errors.subscriptionInvalid",
@@ -131,6 +132,8 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   SEEDS_NOT_DEPLOYABLE: "errors.seedsNotDeployable",
   DESTRUCTIVE_CHANGE_UNRESOLVED: "errors.destructiveChangeUnresolved",
   BACKUP_INVALID: "errors.backupInvalid",
+  BACKUP_DESTINATION_INVALID: "errors.backupDestinationInvalid",
+  BACKUP_DESTINATION_UNUSABLE: "errors.backupDestinationUnusable",
   BACKUP_NOT_FOUND: "errors.backupNotFound",
   BACKUP_ALREADY_RUNNING: "errors.backupAlreadyRunning",
   BACKUP_NOT_READY: "errors.backupNotReady",
@@ -168,7 +171,11 @@ export function describeApiError(error: unknown, t: Translator): string {
       return t(key, { connection: String(error.details.connectionName ?? "") });
     }
     // The database's own words are the useful part: "password authentication failed for user …".
-    if (error.code === "PERSONAL_CREDENTIALS_REJECTED" || error.code === "PERSONAL_PASSWORD_REJECTED") {
+    if (
+      error.code === "PERSONAL_CREDENTIALS_REJECTED" ||
+      error.code === "PERSONAL_PASSWORD_REJECTED" ||
+      error.code === "BACKUP_DESTINATION_UNUSABLE"
+    ) {
       return t(key, { reason: String(error.details.reason ?? "") });
     }
     const tables = error.details.tables;

@@ -1,6 +1,14 @@
 <script lang="ts">
-  import type { AdminConnectionSummary, ConnectionAuthMode, DatabaseEngine, StructurePolicy } from "@nebuladb/shared";
+  import {
+    MONITOR_INTERVALS,
+    type AdminConnectionSummary,
+    type ConnectionAuthMode,
+    type DatabaseEngine,
+    type StructurePolicy,
+  } from "@nebuladb/shared";
+  import Badge from "@/components/ui/Badge.svelte";
   import Checkbox from "@/components/ui/Checkbox.svelte";
+  import Select from "@/components/ui/Select.svelte";
   import RadioGroup from "@/components/ui/RadioGroup.svelte";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Modal from "@/components/overlays/Modal.svelte";
@@ -73,6 +81,11 @@
   // "inherit" is this form's word for "no policy of its own" (`null` on the wire).
   let structurePolicy = $state<StructurePolicy | "inherit">(initial?.structurePolicy?.policy ?? "inherit");
   let structureApplyToSql = $state(initial?.structurePolicy?.applyToSql ?? true);
+  let forceMonitoring = $state(Boolean(initial?.forcedMonitoring));
+  let monitoringInterval = $state(initial?.forcedMonitoring?.intervalMinutes ?? 60);
+  const intervalOptions = $derived(
+    MONITOR_INTERVALS.map((minutes) => ({ value: minutes, label: t(`monitoring.every.${minutes}` as "monitoring.every.5") })),
+  );
   let projectIds = $state<string[]>((initial?.projects ?? []).map((p) => p.id));
   // The database each attached project uses on this server; empty: the connection's own.
   let projectDatabases = $state<Record<string, string>>(
@@ -94,7 +107,12 @@
       .join();
 
   const projects = useAsyncResource(fetchProjects);
-  const activeProjects = $derived((projects.data ?? []).filter((p) => p.status === "active"));
+  // A linked project in the trash stays listed, so that it can be detached: it is not among the active ones.
+  const trashedLinked = (initial?.projects ?? []).filter((p) => p.trashed).map((p) => ({ id: p.id, name: p.name, trashed: true }));
+  const activeProjects = $derived([
+    ...(projects.data ?? []).filter((p) => p.status === "active").map((p) => ({ id: p.id, name: p.name, trashed: false })),
+    ...trashedLinked,
+  ]);
   const linkedIds = $derived(new Set((initial?.projects ?? []).map((p) => p.id)));
 
   function payload(): AdminConnectionInput {
@@ -120,6 +138,7 @@
       authMode: personalPossible ? authMode : "shared",
       structurePolicy:
         structurePolicy === "inherit" ? null : { policy: structurePolicy, applyToSql: structureApplyToSql },
+      forcedMonitoring: forceMonitoring ? { intervalMinutes: monitoringInterval } : null,
     };
   }
 
@@ -195,6 +214,22 @@
       {t("admin.connections.readOnly")}
     </Checkbox>
 
+    <div>
+      <Checkbox bind:checked={forceMonitoring} hint={t("admin.connections.forceMonitoringHint")}>
+        {t("admin.connections.forceMonitoring")}
+      </Checkbox>
+      {#if forceMonitoring}
+        <Select
+          size="sm"
+          class="mt-2 w-44"
+          aria-label={t("admin.connections.forceMonitoringInterval")}
+          value={monitoringInterval}
+          options={intervalOptions}
+          onChange={(minutes) => (monitoringInterval = minutes)}
+        />
+      {/if}
+    </div>
+
     {#if personalPossible}
       <div>
         <div id="auth-mode-label" class={LABEL}>{t("admin.connections.authMode")}</div>
@@ -261,7 +296,14 @@
               onChange={(checked) =>
                 (projectIds = checked ? [...projectIds, project.id] : projectIds.filter((id) => id !== project.id))}
             >
-              <span class="block truncate text-xs">{project.name}</span>
+              <span class="flex items-center gap-1.5 text-xs">
+                <span class="truncate">{project.name}</span>
+                {#if project.trashed}
+                  <span title={t("admin.connections.projectTrashedHint")}>
+                    <Badge tone="muted">{t("admin.connections.projectTrashed")}</Badge>
+                  </span>
+                {/if}
+              </span>
             </Checkbox>
             {#if namesDatabase && projectIds.includes(project.id)}
               <input
@@ -272,7 +314,7 @@
               />
             {/if}
             <!-- Only for links that are already saved: the server refuses these for a project the connection isn't attached to yet. -->
-            {#if initial && linkedIds.has(project.id)}
+            {#if initial && linkedIds.has(project.id) && !project.trashed}
               <Button
                 size="xs"
                 variant="ghost"

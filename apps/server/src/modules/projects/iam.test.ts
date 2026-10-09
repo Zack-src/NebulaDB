@@ -42,7 +42,13 @@ async function makeUser(app: App, isAdmin: 0 | 1 = 0) {
   return { id, email, cookie: `nebuladb_sid=${sid!.value}` };
 }
 
-function call(app: App, cookie: string, method: "GET" | "POST" | "PUT" | "DELETE", url: string, payload?: object) {
+function call(
+  app: App,
+  cookie: string,
+  method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE",
+  url: string,
+  payload?: object,
+) {
   return app.inject({ method, url, headers: headers({ cookie }), ...(payload ? { payload } : {}) });
 }
 
@@ -211,6 +217,112 @@ test("projects attached to one server each get a database of their own", async (
     assert.equal(legacy.statusCode, 200);
     assert.equal(getProjectConnection(second, connectionId)?.database, "shop");
     assert.equal(getProjectConnection(first, connectionId), null);
+  } finally {
+    await app.close();
+  }
+});
+
+test("a project in the trash does not hold its database, and comes back detached once it was given away", async () => {
+  const app = await buildApp();
+  try {
+    const admin = await makeUser(app, 1);
+    const old = await makeProject(app, admin.cookie, "Old");
+    const fresh = await makeProject(app, admin.cookie, "Fresh");
+    const connectionId = await makeServer(app, admin.cookie, "db-trash.internal.example");
+    const link = (links: object[]) =>
+      call(app, admin.cookie, "PUT", `/api/admin/connections/${connectionId}/projects`, { links });
+    const setStatus = (id: string, status: string) =>
+      call(app, admin.cookie, "PATCH", `/api/projects/${id}`, { status });
+
+    assert.equal((await link([{ projectId: old, database: "shop" }])).statusCode, 200);
+    assert.equal((await setStatus(old, "trashed")).statusCode, 200);
+
+    // The admin form sends the trashed project's link along with the new one.
+    const given = await link([
+      { projectId: old, database: "shop" },
+      { projectId: fresh, database: "shop" },
+    ]);
+    assert.equal(given.statusCode, 200, given.body);
+    const projects = (given.json() as { connection: { projects: { id: string; trashed?: boolean }[] } }).connection
+      .projects;
+    assert.equal(projects.find((p) => p.id === old)?.trashed, true);
+    assert.equal(projects.find((p) => p.id === fresh)?.trashed, undefined);
+
+    // Back from the trash: the database is someone else's now.
+    assert.equal((await setStatus(old, "active")).statusCode, 200);
+    assert.equal(getProjectConnection(old, connectionId), null);
+    assert.equal(getProjectConnection(fresh, connectionId)?.database, "shop");
+
+    // Nobody took it: the link survives the round trip.
+    const kept = await makeProject(app, admin.cookie, "Kept");
+    assert.equal(
+      (
+        await link([
+          { projectId: fresh, database: "shop" },
+          { projectId: kept, database: "kept" },
+        ])
+      ).statusCode,
+      200,
+    );
+    await setStatus(kept, "trashed");
+    await setStatus(kept, "active");
+    assert.equal(getProjectConnection(kept, connectionId)?.database, "kept");
+  } finally {
+    await app.close();
+  }
+});
+
+test("a watch imposed from a connection is on for its projects and closed to their administrators", async () => {
+  const app = await buildApp();
+  try {
+    const admin = await makeUser(app, 1);
+    const member = await makeUser(app);
+    const projectId = await makeProject(app, member.cookie, "Watched");
+    const connectionId = await makeServer(app, admin.cookie, "db-watch.internal.example");
+    await call(app, admin.cookie, "PUT", `/api/admin/connections/${connectionId}/projects`, { links: [{ projectId }] });
+    const settings = async () =>
+      (await call(app, member.cookie, "GET", `/api/projects/${projectId}/monitoring`)).json().settings as {
+        enabled: boolean;
+        intervalMinutes: number;
+        ignoreTables: string[];
+        forced: { intervalMinutes: number; connections: string[] } | null;
+      };
+    const impose = (forcedMonitoring: object | null) =>
+      call(app, admin.cookie, "PUT", `/api/admin/connections/${connectionId}`, { forcedMonitoring });
+    const { listDueProjects } = await import("../monitoring/repository.js");
+
+    assert.equal((await settings()).enabled, false);
+    assert.equal(listDueProjects().includes(projectId), false);
+    assert.equal((await impose({ intervalMinutes: 7 })).json().code, "MONITORING_INVALID");
+
+    const imposed = await impose({ intervalMinutes: 15 });
+    assert.equal(imposed.statusCode, 200, imposed.body);
+    assert.deepEqual(imposed.json().connection.forcedMonitoring, { intervalMinutes: 15 });
+    assert.deepEqual(await settings(), {
+      enabled: true,
+      intervalMinutes: 15,
+      ignoreTables: [],
+      lastCheckedAt: null,
+      forced: { intervalMinutes: 15, connections: ["Server db-watch.internal.example"] },
+    });
+    assert.equal(listDueProjects().includes(projectId), true);
+
+    // The project's administrator cannot switch it off, nor ignore its way out.
+    const off = { enabled: false, intervalMinutes: 1440, ignoreTables: ["orders"] };
+    const refused = await call(app, member.cookie, "PUT", `/api/projects/${projectId}/monitoring`, off);
+    assert.equal(refused.statusCode, 403);
+    assert.equal(refused.json().code, "MONITORING_LOCKED");
+
+    // An instance administrator changes the ignored tables; on/off and the pace stay the connection's.
+    assert.equal((await call(app, admin.cookie, "PUT", `/api/projects/${projectId}/monitoring`, off)).statusCode, 200);
+    const after = await settings();
+    assert.deepEqual([after.enabled, after.intervalMinutes, after.ignoreTables], [true, 15, ["orders"]]);
+
+    // Let go: the project is back to what it had chosen, and to its own administrators.
+    assert.equal((await impose(null)).statusCode, 200);
+    const freed = await settings();
+    assert.deepEqual([freed.enabled, freed.forced], [false, null]);
+    assert.equal((await call(app, member.cookie, "PUT", `/api/projects/${projectId}/monitoring`, off)).statusCode, 200);
   } finally {
     await app.close();
   }

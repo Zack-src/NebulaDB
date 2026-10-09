@@ -78,8 +78,8 @@ export interface NewBackup {
 export function insertBackup(input: NewBackup): string {
   const id = crypto.randomUUID();
   db.prepare(
-    `INSERT INTO backups (id, connection_id, connection_name, engine, trigger, status, scope_json, note, created_by, created_by_name)
-     VALUES (?, ?, ?, ?, ?, 'running', ?, ?, ?, ?)`,
+    `INSERT INTO backups (id, connection_id, connection_name, engine, trigger, status, scope_json, note, created_by, created_by_name, dir)
+     VALUES (?, ?, ?, ?, ?, 'running', ?, ?, ?, ?, (SELECT backup_dir FROM db_connections WHERE id = ?))`,
   ).run(
     id,
     input.connectionId,
@@ -90,8 +90,20 @@ export function insertBackup(input: NewBackup): string {
     input.note,
     input.createdBy?.id ?? null,
     input.createdBy?.displayName ?? null,
+    input.connectionId,
   );
   return id;
+}
+
+/** The folder a connection's next backups go to; `null`: the instance's own. */
+export function getBackupDirectory(connectionId: string): string | null {
+  const row = db.prepare("SELECT backup_dir FROM db_connections WHERE id = ?").get(connectionId) as
+    { backup_dir: string | null } | undefined;
+  return row?.backup_dir ?? null;
+}
+
+export function setBackupDirectory(connectionId: string, directory: string | null): void {
+  db.prepare("UPDATE db_connections SET backup_dir = ? WHERE id = ?").run(directory, connectionId);
 }
 
 export function getBackup(id: string): BackupSummary | null {

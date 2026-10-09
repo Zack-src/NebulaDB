@@ -16,14 +16,19 @@ import { getMonitorSettings, listDriftEvents, parseMonitorSettings, saveMonitorS
 
 const CHECK_LIMIT = { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } };
 
-/** Saves what an administrator chose for the watch; switching it on or off, or changing its pace, is audited. */
+/**
+ * Saves what an administrator chose for the watch; switching it on or off, or changing its pace, is audited.
+ * A watch imposed from a connection is the instance administrators' alone, and only its ignored tables change here.
+ */
 export function saveMonitoringFor(
-  user: { id: string; email: string; displayName: string },
+  user: { id: string; email: string; displayName: string; isAdmin: boolean },
   projectId: string,
   body: unknown,
   req: FastifyRequest,
 ): MonitorSettings {
   const before = getMonitorSettings(projectId);
+  // Otherwise ignoring every table would switch off what the connection imposes.
+  if (before.forced && !user.isAdmin) throw new ApiError("MONITORING_LOCKED");
   const settings = saveMonitorSettings(projectId, parseMonitorSettings(body), user.displayName);
   if (before.enabled !== settings.enabled || before.intervalMinutes !== settings.intervalMinutes) {
     auditUser(

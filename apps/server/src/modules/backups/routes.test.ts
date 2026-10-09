@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
@@ -330,6 +330,53 @@ test("a backup is taken, stored encrypted, downloaded, and restored over changed
     assert.deepEqual(actions, ["backup.create", "backup.download", "backup.restore"]);
   } finally {
     closeAllRooms();
+    await app.close();
+  }
+});
+
+test("a connection's backups go to the folder chosen for it; the earlier ones stay readable where they are", async () => {
+  const app = await buildApp();
+  try {
+    const admin = await login(app, 1);
+    const member = await login(app, 0);
+    const connId = await connect(app, admin, "Elsewhere", targetFile(SHOP));
+    const url = `/api/admin/connections/${connId}/backup-destination`;
+    const first = await backUp(app, admin, connId);
+    const defaultPath = backupFilePath(first.id);
+
+    assert.equal((await call(app, member, "PUT", url, { directory: "/tmp" })).statusCode, 403);
+    assert.equal(
+      (await call(app, admin, "PUT", url, { directory: "relative/folder" })).json().code,
+      "BACKUP_DESTINATION_INVALID",
+    );
+    // A file where a folder is wanted: nothing can be written under it.
+    const unusable = await call(app, admin, "PUT", url, { directory: join(defaultPath, "sub") });
+    assert.equal(unusable.json().code, "BACKUP_DESTINATION_UNUSABLE");
+    assert.ok(unusable.json().reason);
+
+    const share = join(mkdtempSync(join(tmpdir(), "nebuladb-share-")), "crm", "backups");
+    const saved = await call(app, admin, "PUT", url, { directory: share });
+    assert.equal(saved.statusCode, 200, saved.body);
+    assert.equal(saved.json().destination.directory, share);
+    assert.equal(
+      (await call(app, admin, "GET", `/api/admin/connections/${connId}/backups`)).json().destination.directory,
+      share,
+    );
+
+    const second = await backUp(app, admin, connId);
+    assert.equal(second.status, "done", second.error ?? "");
+    assert.equal(backupFilePath(second.id), join(share, `${second.id}.bak`));
+    assert.equal(existsSync(backupFilePath(second.id)), true);
+    // The one taken before has not moved, and still downloads.
+    assert.equal(backupFilePath(first.id), defaultPath);
+    assert.equal((await call(app, admin, "GET", `/api/admin/backups/${first.id}/download`)).statusCode, 200);
+    assert.equal((await call(app, admin, "GET", `/api/admin/backups/${second.id}/download`)).statusCode, 200);
+
+    await call(app, admin, "DELETE", `/api/admin/backups/${second.id}`);
+    assert.equal(existsSync(join(share, `${second.id}.bak`)), false);
+
+    assert.equal((await call(app, admin, "PUT", url, { directory: null })).json().destination.directory, null);
+  } finally {
     await app.close();
   }
 });

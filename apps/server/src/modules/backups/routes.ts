@@ -14,6 +14,7 @@ import {
   removeBackup,
   requireBackup,
   requireConnection,
+  saveBackupDestination,
   startManualBackup,
 } from "./service.js";
 
@@ -60,6 +61,13 @@ export function registerBackupRoutes(app: FastifyInstance): void {
       req,
     );
     return { schedule };
+  });
+
+  // Tries the folder (creates it, writes a file there) before keeping it.
+  app.put("/api/admin/connections/:id/backup-destination", READ_LIMIT, async (req) => {
+    const user = requireAdmin(req);
+    const { id } = req.params as { id: string };
+    return { destination: saveBackupDestination(user, id, req.body, req) };
   });
 
   app.post("/api/admin/backups/:backupId/cancel", READ_LIMIT, async (req) => {

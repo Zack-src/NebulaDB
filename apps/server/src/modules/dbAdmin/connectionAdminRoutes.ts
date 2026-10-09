@@ -1,4 +1,4 @@
-import type { DatabaseConnectionConfig } from "@nebuladb/shared";
+import { MONITOR_INTERVALS, type DatabaseConnectionConfig } from "@nebuladb/shared";
 import type { FastifyInstance } from "fastify";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
@@ -35,6 +35,12 @@ function parseConnectionBody(body: Record<string, unknown>, partial: boolean): P
   // `null` clears the connection's own policy (back to the instance default).
   if (body.structurePolicy !== undefined && body.structurePolicy !== null) {
     body = { ...body, structurePolicy: parseStructurePolicySetting(body.structurePolicy) };
+  }
+  // `null` leaves the watch to each project again.
+  if (body.forcedMonitoring !== undefined && body.forcedMonitoring !== null) {
+    const minutes = (body.forcedMonitoring as { intervalMinutes?: unknown }).intervalMinutes;
+    if (!MONITOR_INTERVALS.includes(minutes as number)) throw new ApiError("MONITORING_INVALID");
+    body = { ...body, forcedMonitoring: { intervalMinutes: minutes as number } };
   }
   // Server-assigned or meaningless here; never taken from the client.
   const config = { ...body };
@@ -128,6 +134,17 @@ export function registerConnectionAdminRoutes(app: FastifyInstance): void {
         "dbconn.auth_mode",
         { type: "connection", id },
         `${connection.name}: ${before.authMode} -> ${connection.authMode}`,
+        req,
+      );
+    }
+    const watch = (setting: typeof connection.forcedMonitoring) =>
+      setting ? `imposed, every ${setting.intervalMinutes} min` : "left to each project";
+    if (watch(before?.forcedMonitoring ?? null) !== watch(connection.forcedMonitoring)) {
+      auditUser(
+        user,
+        "dbconn.monitoring",
+        { type: "connection", id },
+        `${connection.name}: ${watch(before?.forcedMonitoring ?? null)} -> ${watch(connection.forcedMonitoring)}`,
         req,
       );
     }

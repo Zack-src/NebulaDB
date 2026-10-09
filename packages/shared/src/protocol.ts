@@ -100,6 +100,13 @@ export interface MonitorSettings {
   /** Table names whose changes are not reported. */
   ignoreTables: string[];
   lastCheckedAt: string | null;
+  /**
+   * Set when an instance administrator imposes the watch from a connection the
+   * project is attached to: `enabled` is then true and `intervalMinutes` at most
+   * the connections', whatever the project chose, and only instance
+   * administrators change the rest. `connections`: the names of those connections.
+   */
+  forced?: { intervalMinutes: number; connections: string[] } | null;
 }
 
 export const MONITOR_INTERVALS: readonly number[] = [5, 15, 60, 360, 1440];

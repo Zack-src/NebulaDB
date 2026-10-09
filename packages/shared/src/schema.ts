@@ -247,10 +247,21 @@ export interface DatabaseConnectionConfig {
    * default. Only ever set from the admin console — a project route ignores it.
    */
   structurePolicy?: StructurePolicySetting | null;
+  /**
+   * The watch for outside changes imposed on every project attached to this
+   * connection; `null` leaves it to each project. Only ever set from the admin
+   * console — a project route ignores it.
+   */
+  forcedMonitoring?: ForcedMonitoring | null;
   /** Unset means `shared`. Only ever set from the admin console — a project route ignores it. */
   authMode?: ConnectionAuthMode;
   createdAt?: string;
   updatedAt?: string;
+}
+
+/** A watch an instance administrator imposes from a connection: on, at least this often, and not the project's to change. */
+export interface ForcedMonitoring {
+  intervalMinutes: number;
 }
 
 export interface DatabaseConnectionSummary {
@@ -296,8 +307,13 @@ export interface AdminConnectionSummary extends DatabaseConnectionSummary {
   readOnly: boolean;
   /** `null`: follows the instance default. */
   structurePolicy: StructurePolicySetting | null;
-  /** `database`: the one the project uses on this connection when it is not the connection's own. */
-  projects: { id: string; name: string; database?: string | null }[];
+  /** `null`: each project decides whether it is watched. */
+  forcedMonitoring: ForcedMonitoring | null;
+  /**
+   * `database`: the one the project uses on this connection when it is not the connection's own.
+   * `trashed`: the project is in the trash — its database can be given to another.
+   */
+  projects: { id: string; name: string; database?: string | null; trashed?: boolean }[];
   health: ConnectionHealth;
 }
 

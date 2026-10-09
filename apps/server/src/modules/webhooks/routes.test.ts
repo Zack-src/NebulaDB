@@ -73,7 +73,7 @@ async function newProject(app: App, cookie: string) {
     method: "POST",
     url: "/api/projects",
     headers: headers({ cookie }),
-    payload: { name: "Shop", template: "ecommerce" },
+    payload: { name: "Shop" },
   });
   return res.json().id as string;
 }
@@ -237,7 +237,7 @@ test("schema.changed: a burst of edits becomes one notification with a summary; 
   try {
     const cookie = await login(app);
     const projectId = await newProject(app, cookie);
-    closeAllRooms(); // the template seed is in the snapshot: that's the baseline
+    closeAllRooms(); // the empty project is in the snapshot: that's the baseline
     await app.inject({
       method: "POST",
       url: `/api/projects/${projectId}/webhooks`,

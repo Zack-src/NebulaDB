@@ -1099,6 +1099,33 @@ export const MIGRATIONS: Migration[] = [
       }
     },
   },
+  {
+    version: 44,
+    name: "db_connections.monitor_forced: a watch imposed from the connection",
+    up: (db) => {
+      // Off for every existing connection: each project goes on deciding for itself.
+      const columns = db.prepare("PRAGMA table_info(db_connections)").all() as { name: string }[];
+      if (!columns.some((c) => c.name === "monitor_forced")) {
+        db.exec("ALTER TABLE db_connections ADD COLUMN monitor_forced INTEGER NOT NULL DEFAULT 0");
+        db.exec("ALTER TABLE db_connections ADD COLUMN monitor_interval_minutes INTEGER NOT NULL DEFAULT 60");
+      }
+    },
+  },
+  {
+    version: 45,
+    name: "backup destination: db_connections.backup_dir, backups.dir",
+    up: (db) => {
+      // `NULL` on both: the instance's own folder (`NEBULADB_DATABASE_BACKUP_DIR`), where every
+      // existing backup is. A backup remembers the folder it was written to, so changing a
+      // connection's destination later does not lose the ones already taken.
+      const connection = db.prepare("PRAGMA table_info(db_connections)").all() as { name: string }[];
+      if (!connection.some((c) => c.name === "backup_dir")) {
+        db.exec("ALTER TABLE db_connections ADD COLUMN backup_dir TEXT");
+      }
+      const backup = db.prepare("PRAGMA table_info(backups)").all() as { name: string }[];
+      if (!backup.some((c) => c.name === "dir")) db.exec("ALTER TABLE backups ADD COLUMN dir TEXT");
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */
