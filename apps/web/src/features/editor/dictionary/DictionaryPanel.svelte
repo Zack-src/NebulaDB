@@ -23,6 +23,7 @@
   import SegmentedControl from "@/components/ui/SegmentedControl.svelte";
   import Select from "@/components/ui/Select.svelte";
   import TextArea from "@/components/ui/TextArea.svelte";
+  import { formatDate } from "@/i18n/formatters";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { triggerDownload } from "@/utils/download";
 
@@ -46,9 +47,10 @@
     onSaveFieldNote: (tableId: string, fieldId: string, note: string | undefined) => void;
   } = $props();
 
-  const { t } = useTranslation();
+  const i18n = useTranslation();
+  const { t } = i18n;
   /** File formats' own names, not prose — never translated. */
-  const FORMAT_NAME = { md: "Markdown", csv: "CSV", html: "HTML" } as const;
+  const FORMAT_NAME = { md: "Markdown", csv: "CSV", html: "HTML", pdf: "PDF" } as const;
   /** So a spreadsheet reads the CSV as UTF-8. */
   const BOM = String.fromCharCode(0xfeff);
   type Filter = "all" | "todo" | "personal";
@@ -125,6 +127,41 @@
     const url = URL.createObjectURL(new Blob([content], { type: `${type};charset=utf-8` }));
     triggerDownload(url, `${fileBase}.${extension}`, true);
   }
+  let makingPdf = $state(false);
+  async function downloadPdf() {
+    makingPdf = true;
+    try {
+      const { dictionaryToPdf } = await import("./dictionaryPdf");
+      const blob = await dictionaryToPdf(dictionary, {
+        title: t("dictionary.pdf.title", { name: project.name }),
+        date: formatDate(new Date(), i18n.locale),
+        summary: t("dictionary.described", {
+          percent,
+          tables: `${dictionary.completeness.describedTables}/${dictionary.completeness.tables}`,
+          columns: `${dictionary.completeness.describedColumns}/${dictionary.completeness.columns}`,
+        }),
+        column: t("dictionary.pdf.column"),
+        type: t("dictionary.pdf.type"),
+        constraints: t("dictionary.pdf.constraints"),
+        classification: t("dictionary.pdf.classification"),
+        description: t("dictionary.pdf.description"),
+        value: t("dictionary.pdf.value"),
+        owner: t("dictionary.owner"),
+        tags: t("dictionary.pdf.tags"),
+        usedBy: t("dictionary.pdf.usedBy"),
+        enums: t("dictionary.enums"),
+        classes: {
+          public: t("dictionary.class.public"),
+          internal: t("dictionary.class.internal"),
+          personal: t("dictionary.class.personal"),
+          sensitive: t("dictionary.class.sensitive"),
+        },
+      });
+      triggerDownload(URL.createObjectURL(blob), `${fileBase}.pdf`, true);
+    } finally {
+      makingPdf = false;
+    }
+  }
 </script>
 
 <div class="min-h-0 flex-1 overflow-y-auto bg-bg" data-testid="dictionary">
@@ -142,6 +179,10 @@
       <Button size="sm" variant="outline" onclick={() => download(dictionaryToHtml(dictionary), "html", "text/html")}>
         <Icon icon={DownloadIcon} size={12} />
         {FORMAT_NAME.html}
+      </Button>
+      <Button size="sm" variant="outline" disabled={makingPdf} onclick={downloadPdf}>
+        <Icon icon={DownloadIcon} size={12} />
+        {FORMAT_NAME.pdf}
       </Button>
     </div>
     <Hint>{t("dictionary.hint")}</Hint>

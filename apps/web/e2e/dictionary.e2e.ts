@@ -145,6 +145,19 @@ test(
       assert.ok(markdown.includes("## order_status"), markdown);
       assert.ok(markdown.includes("| `paid` | Commande réglée |"), markdown);
 
+      // The same document as a PDF, made in the browser.
+      const [pdf] = await Promise.all([
+        page.waitForEvent("download"),
+        panel.getByRole("button", { name: "PDF" }).click(),
+      ]);
+      assert.equal(pdf.suggestedFilename(), "Boutique-dictionary.pdf");
+      assert.equal(
+        readFileSync(await pdf.path())
+          .subarray(0, 5)
+          .toString("latin1"),
+        "%PDF-",
+      );
+
       // The linter no longer asks for a description of the table that has one.
       await page.getByRole("tab", { name: /Problèmes/ }).click();
       const problems = page.getByTestId("problems");
