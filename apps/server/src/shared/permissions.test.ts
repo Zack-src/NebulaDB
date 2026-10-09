@@ -10,7 +10,8 @@ import { join } from "node:path";
 process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-${randomUUID()}.sqlite`);
 
 const { db } = await import("../infrastructure/db.js");
-const { getEffectivePermission, hasPermission, canManageProject } = await import("./permissions.js");
+const { getEffectivePermission, hasPermission, canManageProject, canDeployProject, isPermissionLevel } =
+  await import("./permissions.js");
 
 function makeUser(isAdmin: 0 | 1 = 0): string {
   const id = randomUUID();
@@ -38,7 +39,7 @@ function addMember(teamId: string, userId: string) {
   db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, userId);
 }
 
-function grantTeam(projectId: string, teamId: string, permission: "view" | "edit" | "administrator") {
+function grantTeam(projectId: string, teamId: string, permission: "view" | "edit" | "deploy" | "administrator") {
   db.prepare("INSERT INTO project_teams (project_id, team_id, permission) VALUES (?, ?, ?)").run(
     projectId,
     teamId,
@@ -116,7 +117,33 @@ test("hasPermission compares against the rank of the minimum required level", ()
 
   assert.equal(hasPermission(member, project, "view"), true);
   assert.equal(hasPermission(member, project, "edit"), true);
+  assert.equal(hasPermission(member, project, "deploy"), false);
   assert.equal(hasPermission(member, project, "administrator"), false);
+});
+
+test("deploy sits between edit and administrator", () => {
+  const owner = makeUser();
+  const project = makeProject(owner);
+  const deployTeam = makeTeam();
+  const editTeam = makeTeam();
+  grantTeam(project, deployTeam, "deploy");
+  grantTeam(project, editTeam, "edit");
+  const deployer = makeUser();
+  addMember(deployTeam, deployer);
+  addMember(editTeam, deployer);
+  const editor = makeUser();
+  addMember(editTeam, editor);
+
+  assert.equal(getEffectivePermission(deployer, project), "deploy");
+  assert.equal(hasPermission(deployer, project, "edit"), true);
+  assert.equal(hasPermission(deployer, project, "deploy"), true);
+  assert.equal(hasPermission(deployer, project, "administrator"), false);
+  assert.equal(canDeployProject(deployer, project), true);
+  assert.equal(canDeployProject(editor, project), false);
+  assert.equal(canDeployProject(owner, project), true);
+  assert.equal(canManageProject(deployer, project), false);
+  assert.equal(isPermissionLevel("deploy"), true);
+  assert.equal(isPermissionLevel("deployer"), false);
 });
 
 test("canManageProject is true only at the administrator level", () => {

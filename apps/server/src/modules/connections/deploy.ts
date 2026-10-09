@@ -61,12 +61,12 @@ function notifyDeployment(
     error: result.error ?? null,
     executedBy,
   });
-  // The deployment history is the project administrators' to read, so is this.
+  // The deployment history is read by those who may deploy, so is this.
   notifyFollowers(
     projectId,
     "deployment",
     { kind, connection: conn.name, environment: conn.environment ?? null, success: result.success, by: executedBy },
-    { actor: { email: executedBy }, needs: "administrator" },
+    { actor: { email: executedBy }, needs: "deploy" },
   );
 }
 

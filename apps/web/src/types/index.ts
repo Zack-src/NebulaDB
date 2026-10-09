@@ -12,7 +12,8 @@ export type { TranslationKey as TranslationKeyOf } from "@/i18n/translate";
 
 export type CanvasNode = TableNodeType | ZoneNodeType | StickyNoteNodeType | EnumNodeType | TableGroupNodeType;
 export type ProjectStatus = "active" | "archived" | "trashed";
-export type PermissionLevel = "view" | "edit" | "administrator";
+/** Each level includes the ones before it; `deploy` adds the deployment operations to `edit`. */
+export type PermissionLevel = "view" | "edit" | "deploy" | "administrator";
 
 export interface ProjectSummary {
   id: string;

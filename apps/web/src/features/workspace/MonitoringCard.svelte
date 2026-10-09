@@ -42,10 +42,14 @@
   let {
     projectId,
     canManage,
+    canCheck,
     tableNames = [],
   }: {
     projectId: string;
+    /** The project's administrators: switching the watch on or off, its pace, the tables it ignores. */
     canManage: boolean;
+    /** Those who may deploy: having it look now. */
+    canCheck: boolean;
     /** The tables of the project's current schema, offered in the ignore picker. */
     tableNames?: string[];
   } = $props();
@@ -176,7 +180,7 @@
           ? t("monitoring.lastChecked", { when: formatRelativeTime(parseServerTime(current.settings.lastCheckedAt), i18n.locale) })
           : t("monitoring.neverChecked")}
       </span>
-      {#if canManage}
+      {#if canCheck}
         <Button size="xs" variant="outline" onclick={() => void check.run()} disabled={busy}>
           <Icon icon={RestoreIcon} size={12} />
           {check.pending ? t("common.loading") : t("monitoring.checkNow")}

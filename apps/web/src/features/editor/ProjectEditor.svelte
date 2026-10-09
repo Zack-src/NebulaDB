@@ -176,8 +176,9 @@
   // The schema editor is one section of the project among several. Which ones
   // are offered follows what the server would allow: the database console is
   // for instance administrators and for members granted one of the project's
-  // databases, deployments for the project's administrators.
+  // databases, deployments for those who may deploy (`deploy` or `administrator`).
   const isProjectAdmin = $derived(project.permission === "administrator");
+  const canDeploy = $derived(isProjectAdmin || project.permission === "deploy");
   const TAB_ICONS = {
     schema: CodeIcon,
     deployments: SparklesIcon,
@@ -565,6 +566,7 @@
     <DriftBanner
       projectId={project.id}
       {entry}
+      canInspect={canDeploy}
       canManage={isProjectAdmin}
       onShowDifferences={(id) => {
         databases.connectionId = id;
@@ -592,7 +594,8 @@
           setTab("schema");
           focusRequest = { tableName };
         }}
-        canDeploy={canWrite}
+        {canDeploy}
+        canManage={isProjectAdmin}
         canSkipStage={props.session.isAdmin}
         onDeployed={() => (deploymentsSeen += 1)}
         onShowProblems={() => setTab("problems")}

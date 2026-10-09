@@ -15,7 +15,7 @@ export const ERROR_CATALOG = {
   NAME_TOO_LONG: { status: 400, message: "name must be 200 characters or fewer" },
   NAME_OR_STATUS_REQUIRED: { status: 400, message: "name or status is required" },
   PROJECT_STATUS_INVALID: { status: 400, message: "status must be one of active, archived, trashed" },
-  PERMISSION_INVALID: { status: 400, message: "permission must be one of view, edit, administrator" },
+  PERMISSION_INVALID: { status: 400, message: "permission must be one of view, edit, deploy, administrator" },
   SOURCE_REQUIRED: { status: 400, message: "source is required" },
   SQL_DIALECT_INVALID: { status: 400, message: "dialect must be one of postgres, mysql, mssql" },
   DBML_PARSE_FAILED: { status: 400, message: "the DBML source could not be parsed" },

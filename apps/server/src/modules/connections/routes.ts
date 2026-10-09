@@ -65,9 +65,14 @@ export function assertProjectMayEditConnection(user: SessionUser, projectId: str
 }
 
 /**
- * Everything but the list route requires project `administrator`, not `edit`: these routes
- * make the *server* open connections to a caller-supplied host/file or execute generated SQL.
- * `hostGuard.ts` and the SQLite own-database guard narrow *where*; this narrows *who*.
+ * Nothing here but the list route is open to `edit`: these routes make the *server* open
+ * connections to a caller-supplied host/file or execute generated SQL. `hostGuard.ts` and the
+ * SQLite own-database guard narrow *where*; this narrows *who*.
+ *
+ * Two levels share them. `deploy` uses the databases the project already has — plan, deploy,
+ * rollback, their history, compare, "check now". `administrator` decides which databases those
+ * are (create, edit, detach, test a config), replaces the schema with a database's (pull) and
+ * accepts a change made outside the schema (dismiss the drift mark).
  *
  * `from-database` only requires an authenticated user, like `POST /api/projects`: the caller
  * becomes the new project's administrator.
@@ -178,6 +183,9 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
   });
 
   // 6. Pull schema from live DB into canvas
+  // Not a deployment, though it reads the same database: it replaces the
+  // schema everyone works on and makes the database's state the reference
+  // drift is measured against. That stays with the project's administrators.
   app.post("/api/projects/:id/connections/:connId/pull", CONNECTION_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
     const { user, project } = requireProjectAdmin(req, id);
@@ -193,8 +201,9 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
   // 6b. Drift: has a linked database left the schema?
   // Reading the marks contacts no database, so anyone who can open the project
   // may: the banner is information, and an editor about to change a table the
-  // database no longer matches should know. Looking at the database itself,
-  // and dismissing the mark, stay with the project's administrators.
+  // database no longer matches should know. Looking at the database itself
+  // is for those who may deploy to it; dismissing the mark stays with the
+  // project's administrators.
   app.get("/api/projects/:id/drift", async (req) => {
     const { id } = req.params as { id: string };
     requireProjectAccess(req, id, "view");
@@ -202,17 +211,17 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
   });
 
   // Two of the project's databases against each other. It opens both, so it
-  // is for the project's administrators, like every route that reaches a database.
+  // is for those who may deploy, like every route that reaches a database.
   app.post("/api/projects/:id/connections/compare", CONNECTION_RATE_LIMIT, async (req) => {
     const { id } = req.params as { id: string };
-    const { project } = requireProjectAdmin(req, id);
+    const { project } = requireProjectAccess(req, id, "deploy");
     const { sourceId, targetId } = (req.body ?? {}) as { sourceId?: unknown; targetId?: unknown };
     return compareConnections(id, project.name, sourceId, targetId);
   });
 
   app.post("/api/projects/:id/connections/:connId/drift-check", CONNECTION_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
-    const { project } = requireProjectAdmin(req, id);
+    const { project } = requireProjectAccess(req, id, "deploy");
     return checkDrift(id, project.name, connId);
   });
 
@@ -229,7 +238,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
   // 7. Plan deployment: Diff canvas project vs live DB and inspect risks
   app.post("/api/projects/:id/connections/:connId/plan-deployment", CONNECTION_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
-    const { project } = requireProjectAdmin(req, id);
+    const { project } = requireProjectAccess(req, id, "deploy");
 
     const conn = getProjectConnection(id, connId);
     if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
@@ -277,7 +286,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
   // 8. Apply deployment: Generate DDL with resolutions & execute transactionally
   app.post("/api/projects/:id/connections/:connId/apply-deployment", CONNECTION_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
-    const { user, project } = requireProjectAdmin(req, id);
+    const { user, project } = requireProjectAccess(req, id, "deploy");
     const body = (req.body ?? {}) as {
       resolutions?: MigrationResolutionMap;
       confirmName?: string;
@@ -313,7 +322,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
   // 9. Deployment history for a connection — what actually ran, and when.
   app.get("/api/projects/:id/connections/:connId/history", async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
-    requireProjectAdmin(req, id);
+    requireProjectAccess(req, id, "deploy");
     return { history: listDeploymentHistory(id, connId) };
   });
 
@@ -327,7 +336,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
    */
   app.post("/api/projects/:id/connections/:connId/history/:historyId/rollback", CONNECTION_RATE_LIMIT, async (req) => {
     const { id, connId, historyId } = req.params as { id: string; connId: string; historyId: string };
-    const { user } = requireProjectAdmin(req, id);
+    const { user } = requireProjectAccess(req, id, "deploy");
 
     const { confirmName } = (req.body ?? {}) as { confirmName?: string };
     const result = await rollbackConnectionDeployment(id, connId, historyId, user.email, confirmName);

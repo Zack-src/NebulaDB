@@ -1,7 +1,7 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
 import { requireScope } from "../apiKeys/auth.js";
 import { ApiError } from "../../shared/errors.js";
-import { getEffectivePermission } from "../../shared/permissions.js";
+import { canDeployProject } from "../../shared/permissions.js";
 import {
   CREDENTIAL_SAVE_LIMIT,
   type ConnectionUser,
@@ -25,7 +25,7 @@ function requireCredentialAccess(req: FastifyRequest, connectionId: string): Con
   if (restrictedTo) {
     const throughIt =
       access.projectIds.includes(restrictedTo) &&
-      (access.user.isAdmin || getEffectivePermission(access.user.id, restrictedTo) === "administrator");
+      (access.user.isAdmin || canDeployProject(access.user.id, restrictedTo));
     if (!throughIt) throw new ApiError("API_KEY_PROJECT_RESTRICTED");
   }
   return access;

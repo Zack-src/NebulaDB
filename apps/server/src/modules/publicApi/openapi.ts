@@ -23,9 +23,10 @@ interface Operation {
   scope: ApiKeyScope;
   /**
    * Also needs project `administrator` (or global admin for teams) — a scope alone isn't enough.
+   * `"deploy"`: project `deploy` is enough — the routes that use the project's databases.
    * `"instance"`: a global administrator, on a route outside the Teams tag.
    */
-  admin?: boolean | "instance";
+  admin?: boolean | "deploy" | "instance";
   summary: string;
   description?: string;
   query?: { name: string; schema: Schema; description?: string; required?: boolean }[];
@@ -44,12 +45,12 @@ const str: Schema = { type: "string" };
 const int: Schema = { type: "integer" };
 const bool: Schema = { type: "boolean" };
 const flag = (name: string): Schema => obj({ [name]: { type: "boolean", const: true } });
-const PERMISSION: Schema = { type: "string", enum: ["view", "edit", "administrator"] };
+const PERMISSION: Schema = { type: "string", enum: ["view", "edit", "deploy", "administrator"] };
 const DIALECT: Schema = { type: "string", enum: ["postgres", "mysql", "mssql"] };
 
 /** Who reaches a connection's personal-account routes — neither of the two notes `admin` writes. */
 const CREDENTIAL_ACCESS =
-  "Open to instance administrators and to the administrators of a project the connection is attached to; anyone else gets 404 CONNECTION_NOT_FOUND. A key restricted to one project works only on a connection attached to that project (403 API_KEY_PROJECT_RESTRICTED otherwise).";
+  "Open to instance administrators and to those who may deploy (`deploy` or `administrator`) on a project the connection is attached to; anyone else gets 404 CONNECTION_NOT_FOUND. A key restricted to one project works only on a connection attached to that project (403 API_KEY_PROJECT_RESTRICTED otherwise).";
 
 export const OPERATIONS: Operation[] = [
   // --- projects ---
@@ -444,7 +445,7 @@ export const OPERATIONS: Operation[] = [
     path: "/api/v1/projects/:id/connections/:connId/deploy",
     tag: "Connections",
     scope: "deployments:trigger",
-    admin: true,
+    admin: "deploy",
     summary: "Deploy the canvas schema to the live database",
     description:
       "Introspect → diff → generate SQL → execute → record, the same pipeline as the web app's deploy button. `resolutions` answers the risks a plan reported (e.g. a default value for a new NOT NULL column).",
@@ -487,7 +488,7 @@ export const OPERATIONS: Operation[] = [
     path: "/api/v1/projects/:id/pipeline",
     tag: "Connections",
     scope: "projects:read",
-    admin: true,
+    admin: "deploy",
     summary: "The project's databases along the stages, and which have the current schema",
     ok: {
       status: 200,
@@ -547,7 +548,7 @@ export const OPERATIONS: Operation[] = [
     path: "/api/v1/projects/:id/monitoring/check",
     tag: "Connections",
     scope: "projects:read",
-    admin: true,
+    admin: "deploy",
     summary: "Read the project's databases now and report what changed outside the schema",
     description:
       "Compares each database with the reference recorded at its last deployment or pull. Reads only; a database that cannot be read counts as `unreachable`, never as a change.",
@@ -601,7 +602,7 @@ export const OPERATIONS: Operation[] = [
     path: "/api/v1/projects/:id/connections/compare",
     tag: "Connections",
     scope: "projects:read",
-    admin: true,
+    admin: "deploy",
     summary: "Compare the structure of two of the project's databases",
     body: obj({ sourceId: str, targetId: str }),
     ok: {
@@ -630,7 +631,7 @@ export const OPERATIONS: Operation[] = [
     path: "/api/v1/projects/:id/connections/:connId/history",
     tag: "Connections",
     scope: "projects:read",
-    admin: true,
+    admin: "deploy",
     summary: "Deployment history of a connection",
     ok: { status: 200, schema: obj({ history: { type: "array", items: ref("DeploymentHistoryEntry") } }) },
   },
@@ -639,7 +640,7 @@ export const OPERATIONS: Operation[] = [
     path: "/api/v1/projects/:id/connections/:connId/history/:historyId/rollback",
     tag: "Connections",
     scope: "deployments:trigger",
-    admin: true,
+    admin: "deploy",
     summary: "Roll back a past deployment",
     body: obj(
       {
@@ -1087,7 +1088,9 @@ export function buildOpenApiSpec(serverUrl: string | null): Record<string, unkno
     const permissionNote = op.admin
       ? op.tag === "Teams" || op.admin === "instance"
         ? "Requires a global administrator."
-        : "Requires project `administrator`, not just the scope."
+        : op.admin === "deploy"
+          ? "Requires project `deploy` (or `administrator`), not just the scope."
+          : "Requires project `administrator`, not just the scope."
       : undefined;
     paths[toOpenApiPath(op.path)] ??= {};
     paths[toOpenApiPath(op.path)][op.method] = {

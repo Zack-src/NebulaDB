@@ -130,7 +130,7 @@
 - Invitation (par e-mail si SMTP configuré, sinon lien à copier), désactivation, suppression avec
   transfert des projets, réinitialisation de mot de passe.
 - **Équipes** : un utilisateur dans plusieurs équipes ; un projet ouvert à des équipes ou à des
-  personnes, avec un niveau chacune (lecture, édition, administrateur).
+  personnes, avec un niveau chacune (lecture, édition, déploiement, administrateur).
 - Une invitation peut porter d'emblée les équipes, les accès aux bases et le compte SQL proposé.
 
 ### Bases de données

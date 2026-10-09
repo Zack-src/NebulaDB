@@ -1,11 +1,12 @@
 <script lang="ts" module>
   import type { PermissionLevel, TranslationKeyOf } from "@/types";
 
-  const PERMISSION_LEVELS: PermissionLevel[] = ["view", "edit", "administrator"];
+  const PERMISSION_LEVELS: PermissionLevel[] = ["view", "edit", "deploy", "administrator"];
 
   const PERMISSION_LABEL_KEY = {
     view: "permission.view",
     edit: "permission.edit",
+    deploy: "permission.deploy",
     administrator: "permission.administrator",
   } as const satisfies Record<PermissionLevel, TranslationKeyOf>;
 </script>
@@ -64,6 +65,7 @@
 
 <Modal title={t("teams.modalTitle", { name: project.name })} {onClose}>
   <Hint>{t("teams.visibilityNote")}</Hint>
+  <Hint>{t("permission.levelsHint")}</Hint>
   <div class="mb-7 flex max-w-[420px] gap-2">
     <Select
       class="min-w-0 flex-1"

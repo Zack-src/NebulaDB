@@ -4,7 +4,7 @@ import { db } from "../../infrastructure/db.js";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireUser } from "../../shared/guards.js";
-import { getEffectivePermission } from "../../shared/permissions.js";
+import { canDeployProject } from "../../shared/permissions.js";
 import type { SessionUser } from "../auth/session.js";
 import { createAdminDriver } from "../dbAdmin/drivers/index.js";
 import { createDatabaseDriver } from "./drivers/index.js";
@@ -69,8 +69,8 @@ export interface ConnectionUser {
 
 /**
  * Those who use a connection through Nebula: instance administrators (the
- * console), the administrators of a project it is attached to (deploy, pull,
- * compare) and, from a browser session, the members an instance administrator
+ * console), those who may deploy on a project it is attached to (deploy,
+ * compare — and pull, for its administrators) and, from a browser session, the members an instance administrator
  * granted access to it (explorer and SQL — see `dbAccess/`). Anyone else is
  * told the connection does not exist.
  */
@@ -85,7 +85,7 @@ export function requireConnectionUser(req: FastifyRequest, connectionId: string)
     }[]
   ).map((link) => link.project_id);
   const granted = !req.apiKey && effectiveDbAccess(user.id, connectionId) !== null;
-  if (!user.isAdmin && !granted && !projectIds.some((id) => getEffectivePermission(user.id, id) === "administrator")) {
+  if (!user.isAdmin && !granted && !projectIds.some((id) => canDeployProject(user.id, id))) {
     throw new ApiError("CONNECTION_NOT_FOUND");
   }
   return { user, connection, projectIds };
@@ -216,9 +216,7 @@ export function listOwnAccounts(user: SessionUser, viaApiKey: boolean): MySqlAcc
     const usable =
       user.isAdmin ||
       effectiveDbAccess(user.id, id) !== null ||
-      (links.all(id) as { project_id: string }[]).some(
-        (link) => getEffectivePermission(user.id, link.project_id) === "administrator",
-      );
+      (links.all(id) as { project_id: string }[]).some((link) => canDeployProject(user.id, link.project_id));
     if (!usable) continue;
     const suggestedUsername = getAccountHint(id, user.id);
     accounts.push({

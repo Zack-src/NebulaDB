@@ -50,7 +50,7 @@ import { getRoom, liveRoomCount, setRoomLogger } from "./realtime/roomRegistry.j
 import { setRoomDocChangeListener } from "./realtime/room.js";
 import { renderPrometheusMetrics } from "./infrastructure/metrics.js";
 import { ApiError, registerErrorHandler } from "./shared/errors.js";
-import { getEffectivePermission } from "./shared/permissions.js";
+import { getEffectivePermission, permissionAtLeast } from "./shared/permissions.js";
 
 /**
  * Builds the Fastify instance with every plugin, hook and route registered —
@@ -271,7 +271,7 @@ export async function buildApp(): Promise<FastifyInstance> {
           () => {
             const level = getEffectivePermission(userId, projectId);
             if (!level) return null;
-            const canWrite = level !== "view";
+            const canWrite = permissionAtLeast(level, "edit");
             // A view-only socket cannot write at all, so its lock set is never consulted.
             return { canWrite, lockedTableIds: canWrite ? lockedTableIdsFor(userId, projectId) : undefined };
           },

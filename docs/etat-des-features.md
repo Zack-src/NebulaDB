@@ -107,17 +107,17 @@ schéma ».
 
 ## 5. Comptes Nebula et groupes ★
 
-| Fonctionnalité                                                     | État | Reste / remarque                                                             |
-| ------------------------------------------------------------------ | :--: | ---------------------------------------------------------------------------- |
-| Invitation, mot de passe oublié, 2FA, sessions, verrouillage       |  ✅  |                                                                              |
-| E-mails (invitation, réinitialisation)                             |  🧪  | Jamais envoyés par un vrai relais SMTP                                       |
-| Administration : désactiver, supprimer, réinitialiser un compte    |  ✅  |                                                                              |
-| ★ Groupes (« équipes ») : un utilisateur dans 0 à n groupes        |  ✅  |                                                                              |
-| ★ Projet associé à des groupes, avec un niveau par groupe          |  ✅  | Un projet sans groupe est lisible par tous                                   |
-| ★ Invitation avec groupes, accès aux bases et compte SQL attribués |  🧪  | Appliqué à l'acceptation, testé côté serveur ; l'écran n'a jamais été cliqué |
-| Rôle intermédiaire (« peut déployer », « peut lancer du SQL »)     |  ❌  | Le SQL est couvert par le droit d'accès à une base (section 6)               |
-| Restriction de lecture par table ou par colonne                    |  ❌  |                                                                              |
-| SSO, passkeys                                                      |  ❌  |                                                                              |
+| Fonctionnalité                                                     | État | Reste / remarque                                                                                                                                                   |
+| ------------------------------------------------------------------ | :--: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Invitation, mot de passe oublié, 2FA, sessions, verrouillage       |  ✅  |                                                                                                                                                                    |
+| E-mails (invitation, réinitialisation)                             |  🧪  | Jamais envoyés par un vrai relais SMTP                                                                                                                             |
+| Administration : désactiver, supprimer, réinitialiser un compte    |  ✅  |                                                                                                                                                                    |
+| ★ Groupes (« équipes ») : un utilisateur dans 0 à n groupes        |  ✅  |                                                                                                                                                                    |
+| ★ Projet associé à des groupes, avec un niveau par groupe          |  ✅  | Un projet sans groupe est lisible par tous                                                                                                                         |
+| ★ Invitation avec groupes, accès aux bases et compte SQL attribués |  🧪  | Appliqué à l'acceptation, testé côté serveur ; l'écran n'a jamais été cliqué                                                                                       |
+| Rôle intermédiaire (« peut déployer », « peut lancer du SQL »)     |  🧪  | Niveau « Déploiement » entre Édition et Administrateur, testé côté serveur, écrans jamais cliqués ; le SQL est couvert par le droit d'accès à une base (section 6) |
+| Restriction de lecture par table ou par colonne                    |  ❌  |                                                                                                                                                                    |
+| SSO, passkeys                                                      |  ❌  |                                                                                                                                                                    |
 
 ## 6. Utilisateurs et permissions des bases connectées ★
 

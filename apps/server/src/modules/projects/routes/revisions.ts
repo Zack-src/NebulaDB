@@ -5,7 +5,7 @@ import { restoreTables } from "@nebuladb/dbml-engine";
 import { auditUser } from "../../../shared/audit.js";
 import { ApiError } from "../../../shared/errors.js";
 import { requireProjectAccess } from "../../../shared/guards.js";
-import { canManageProject } from "../../../shared/permissions.js";
+import { canDeployProject } from "../../../shared/permissions.js";
 import {
   latestRevisionId,
   listMeaningfulRevisions,
@@ -53,7 +53,7 @@ export function registerProjectRevisionRoutes(app: FastifyInstance): void {
   app.get("/api/projects/:id/history/markers", async (req) => {
     const { id } = req.params as { id: string };
     const { user } = requireProjectAccess(req, id, "view");
-    return listHistoryMarkers(id, canManageProject(user.id, id));
+    return listHistoryMarkers(id, canDeployProject(user.id, id));
   });
 
   app.patch("/api/projects/:id/revisions/:revisionId", async (req) => {

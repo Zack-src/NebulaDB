@@ -1,9 +1,21 @@
 import { db } from "../infrastructure/db.js";
 
-export type PermissionLevel = "view" | "edit" | "administrator";
+/**
+ * What a grant gives on a project, each level including the ones before it:
+ * `view` reads, `edit` changes the schema, `deploy` also plans, deploys and
+ * rolls back to the project's databases (and reads their history), and
+ * `administrator` also decides who has access, the connections, the locks,
+ * the webhooks, the lint rules and the watch.
+ */
+export type PermissionLevel = "view" | "edit" | "deploy" | "administrator";
 
-const RANK: Record<PermissionLevel, number> = { view: 1, edit: 2, administrator: 3 };
-const LEVELS: PermissionLevel[] = ["view", "edit", "administrator"];
+const RANK: Record<PermissionLevel, number> = { view: 1, edit: 2, deploy: 3, administrator: 4 };
+const LEVELS: PermissionLevel[] = ["view", "edit", "deploy", "administrator"];
+
+/** `level` gives at least what `min` gives. */
+export function permissionAtLeast(level: PermissionLevel, min: PermissionLevel): boolean {
+  return RANK[level] >= RANK[min];
+}
 
 export function isPermissionLevel(value: unknown): value is PermissionLevel {
   return typeof value === "string" && (LEVELS as string[]).includes(value);
@@ -69,7 +81,12 @@ export function getEffectivePermission(userId: string, projectId: string): Permi
 
 export function hasPermission(userId: string, projectId: string, min: PermissionLevel): boolean {
   const level = getEffectivePermission(userId, projectId);
-  return level !== null && RANK[level] >= RANK[min];
+  return level !== null && permissionAtLeast(level, min);
+}
+
+/** May plan, deploy and roll back on the project: `deploy` or `administrator`. */
+export function canDeployProject(userId: string, projectId: string): boolean {
+  return hasPermission(userId, projectId, "deploy");
 }
 
 export function canManageProject(userId: string, projectId: string): boolean {

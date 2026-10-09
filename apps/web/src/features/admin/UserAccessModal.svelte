@@ -120,6 +120,7 @@
   <section class="mt-7 border-t border-border pt-4" aria-label={t("admin.access.projects")}>
     <h3 class="m-0 mb-2 text-body-sm font-semibold text-text">{t("admin.access.projects")}</h3>
     <Hint>{t("admin.access.projectsHint")}</Hint>
+    <Hint>{t("permission.levelsHint")}</Hint>
     <div class="mb-3 flex gap-2">
       <Select
         class="min-w-0 flex-1"

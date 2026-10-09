@@ -97,7 +97,7 @@ export function restoreRevision(projectId: string, revisionId: string, tableIds?
   });
 }
 
-/** Locks, restores and (for project administrators) deployments, oldest first. */
+/** Locks, restores and (for those who may deploy) deployments, oldest first. */
 export function fetchHistoryMarkers(projectId: string): Promise<HistoryMarker[]> {
   return request<HistoryMarker[]>(`${projectPath(projectId)}/history/markers`);
 }

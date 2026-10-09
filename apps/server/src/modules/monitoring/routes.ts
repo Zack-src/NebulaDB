@@ -114,7 +114,8 @@ export function acknowledgeEventFor(
 /**
  * The watch over a project's databases. Turning it on, off or changing how it
  * looks is for the project's administrators — it opens connections to their
- * databases on a schedule. What it found is readable by anyone who sees the
+ * databases on a schedule. Having it look once, now, is for those who may
+ * deploy to those databases. What it found is readable by anyone who sees the
  * project (the banner already tells them).
  */
 export function registerMonitoringRoutes(app: FastifyInstance): void {
@@ -148,7 +149,7 @@ export function registerMonitoringRoutes(app: FastifyInstance): void {
 
   app.post("/api/projects/:id/monitoring/check", CHECK_LIMIT, async (req) => {
     const { id } = req.params as { id: string };
-    requireProjectAdmin(req, id);
+    requireProjectAccess(req, id, "deploy");
     const result = await checkProjectMonitoring(id);
     return { result, ...monitoringView(req, id) };
   });

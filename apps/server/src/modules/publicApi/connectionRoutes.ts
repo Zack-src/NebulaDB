@@ -31,11 +31,13 @@ function requireValidEngine(engine: unknown): void {
 /**
  * Database connections, and everything that touches one — CRUD, a
  * connectivity test, pulling a live schema onto the canvas, and the
- * deploy/rollback/history trio. Every route but `GET` (list) requires
- * project `administrator`, same reasoning as the internal
+ * deploy/rollback/history trio. No route but `GET` (list) is open to
+ * `edit`, same reasoning and same split as the internal
  * `connections/routes.ts`: these open a connection to a host/file the
  * caller supplies, or execute generated SQL against it — a materially
- * larger blast radius than a plain schema edit.
+ * larger blast radius than a plain schema edit. Using the project's
+ * databases (deploy, rollback, history, pipeline, compare) takes `deploy`;
+ * choosing them and pulling takes `administrator`.
  */
 export function registerPublicConnectionRoutes(app: FastifyInstance): void {
   app.get("/api/v1/projects/:id/connections", API_RATE_LIMIT, async (req) => {
@@ -122,7 +124,7 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
 
   app.post("/api/v1/projects/:id/connections/:connId/deploy", DEPLOY_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
-    const { user, project } = requireProjectAdmin(req, id);
+    const { user, project } = requireProjectAccess(req, id, "deploy");
     requireScope(req, "deployments:trigger", id);
     const body = (req.body ?? {}) as {
       resolutions?: MigrationResolutionMap;
@@ -159,7 +161,7 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
   // Where the current schema has been deployed along the stages — what a CI job reads before promoting.
   app.get("/api/v1/projects/:id/pipeline", API_RATE_LIMIT, async (req) => {
     const { id } = req.params as { id: string };
-    const { project } = requireProjectAdmin(req, id);
+    const { project } = requireProjectAccess(req, id, "deploy");
     requireScope(req, "projects:read", id);
     const schema = readProjectFromDoc(getRoom(id).doc, id, project.name);
     return { pipeline: projectPipeline(id, schemaHashOf(schema)) };
@@ -168,7 +170,7 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
   // Two of the project's databases against each other. Reads both, changes nothing.
   app.post("/api/v1/projects/:id/connections/compare", DEPLOY_RATE_LIMIT, async (req) => {
     const { id } = req.params as { id: string };
-    const { project } = requireProjectAdmin(req, id);
+    const { project } = requireProjectAccess(req, id, "deploy");
     requireScope(req, "projects:read", id);
     const { sourceId, targetId } = (req.body ?? {}) as { sourceId?: unknown; targetId?: unknown };
     return compareConnections(id, project.name, sourceId, targetId);
@@ -176,14 +178,14 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
 
   app.get("/api/v1/projects/:id/connections/:connId/history", API_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
-    requireProjectAdmin(req, id);
+    requireProjectAccess(req, id, "deploy");
     requireScope(req, "projects:read", id);
     return { history: listDeploymentHistory(id, connId) };
   });
 
   app.post("/api/v1/projects/:id/connections/:connId/history/:historyId/rollback", DEPLOY_RATE_LIMIT, async (req) => {
     const { id, connId, historyId } = req.params as { id: string; connId: string; historyId: string };
-    const { user } = requireProjectAdmin(req, id);
+    const { user } = requireProjectAccess(req, id, "deploy");
     requireScope(req, "deployments:trigger", id);
 
     const { confirmName } = (req.body ?? {}) as { confirmName?: string };

@@ -30,7 +30,7 @@ export function registerPublicMonitoringRoutes(app: FastifyInstance): void {
   // Reads every database of the project now, whatever the watch's own pace — what a CI job calls before promoting.
   app.post("/api/v1/projects/:id/monitoring/check", DEPLOY_RATE_LIMIT, async (req) => {
     const { id } = req.params as { id: string };
-    requireProjectAdmin(req, id);
+    requireProjectAccess(req, id, "deploy");
     requireScope(req, "projects:read", id);
     const result = await checkProjectMonitoring(id);
     return { result, settings: getMonitorSettings(id), events: listDriftEvents(id) };

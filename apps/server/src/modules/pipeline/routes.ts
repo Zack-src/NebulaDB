@@ -3,7 +3,7 @@ import { readProjectFromDoc } from "@nebuladb/shared";
 import { getRoom } from "../../realtime/roomRegistry.js";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
-import { requireAdmin, requireProjectAdmin } from "../../shared/guards.js";
+import { requireAdmin, requireProjectAccess } from "../../shared/guards.js";
 import { projectPipeline, schemaHashOf } from "./pipeline.js";
 
 const REASON_MAX = 300;
@@ -31,13 +31,13 @@ export function stageSkipFor(
 
 /**
  * The pipeline: the project's databases along the chain of stages, and how
- * far the current schema has got. For the project's administrators, like the
+ * far the current schema has got. For those who may deploy, like the
  * deployment history it is read from.
  */
 export function registerPipelineRoutes(app: FastifyInstance): void {
   app.get("/api/projects/:id/pipeline", async (req) => {
     const { id } = req.params as { id: string };
-    const { project } = requireProjectAdmin(req, id);
+    const { project } = requireProjectAccess(req, id, "deploy");
     const schema = readProjectFromDoc(getRoom(id).doc, id, project.name);
     return { pipeline: projectPipeline(id, schemaHashOf(schema)) };
   });

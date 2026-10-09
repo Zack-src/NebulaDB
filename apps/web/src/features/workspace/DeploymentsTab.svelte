@@ -22,6 +22,7 @@
     tableNames = [],
     onDeployTo = () => {},
     canDeploy,
+    canManage,
     canSkipStage = false,
     onDeployed = () => {},
     onShowProblems,
@@ -40,8 +41,10 @@
     tableNames?: string[];
     /** Selects one of the project's databases for deployment. */
     onDeployTo?: (connectionId: string) => void;
-    /** False for a view-only project: comparing stays, deploying goes. */
+    /** The project's `deploy` level or above: without it the plan can be read, not applied. */
     canDeploy: boolean;
+    /** The project's administrators: the watch's settings are theirs. */
+    canManage: boolean;
     canSkipStage?: boolean;
     onDeployed?: () => void;
     onShowProblems?: () => void;
@@ -79,7 +82,7 @@
       />
       <PipelineCard {projectId} {refreshKey} {schemaHash} {canDeploy} {onDeployTo} />
       <!-- The watch covers all the project's databases, not only the current one. -->
-      <MonitoringCard {projectId} canManage={canDeploy} {tableNames} />
+      <MonitoringCard {projectId} {canManage} canCheck={canDeploy} {tableNames} />
       {#if connections.length > 1}
         <CompareEnvironmentsCard {projectId} {connections} currentId={connection.id} {onOpenTable} />
       {/if}

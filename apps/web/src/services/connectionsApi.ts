@@ -125,7 +125,7 @@ export interface EnvironmentComparison {
   tables: SchemaComparisonEntry[];
 }
 
-/** Project administrators only: it opens both databases. */
+/** For those who may deploy on the project: it opens both databases. */
 export function compareProjectConnections(
   projectId: string,
   sourceId: string,
@@ -137,7 +137,7 @@ export function compareProjectConnections(
   });
 }
 
-/** The project's databases along the chain of stages, and how far the current schema has got. Project administrators. */
+/** The project's databases along the chain of stages, and how far the current schema has got. For those who may deploy. */
 export async function fetchProjectPipeline(projectId: string): Promise<ProjectPipeline> {
   return (await request<{ pipeline: ProjectPipeline }>(`/api/projects/${projectId}/pipeline`)).pipeline;
 }
@@ -215,7 +215,7 @@ export async function fetchProjectDrift(projectId: string): Promise<ProjectDrift
   return (await request<{ connections: ProjectDriftEntry[] }>(`/api/projects/${projectId}/drift`)).connections;
 }
 
-/** Reads the database now. Project administrators only. */
+/** Reads the database now. For those who may deploy on the project. */
 export function checkProjectDrift(projectId: string, connId: string): Promise<DriftCheckResult> {
   return request<DriftCheckResult>(`/api/projects/${projectId}/connections/${connId}/drift-check`, { method: "POST" });
 }

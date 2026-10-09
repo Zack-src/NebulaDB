@@ -23,8 +23,8 @@ export interface RevisionChanges {
 /**
  * Something that happened to a project outside its revisions, shown on the
  * history timeline — `GET /api/projects/:id/history/markers`. Deployments and
- * their rollbacks are only listed for project administrators, who are the
- * only ones who can read the deployment history.
+ * their rollbacks are only listed for those who may deploy on the project
+ * (`deploy` or `administrator`), the ones who can read the deployment history.
  */
 export interface HistoryMarker {
   kind: "lock" | "unlock" | "restore" | "deployment" | "rollback";

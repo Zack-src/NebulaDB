@@ -33,7 +33,7 @@ interface AuditRow {
 /**
  * Events that belong on a project's history timeline without being revisions
  * of their own: locks placed or lifted, restores (whole or partial), and — for
- * project administrators only, the one role that may read deployment history —
+ * those who may deploy only, the ones who may read deployment history —
  * deployments and their rollbacks. Oldest first, like the revision list.
  *
  * Read from the records that already exist (audit log, deployment history),

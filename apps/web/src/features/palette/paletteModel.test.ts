@@ -37,18 +37,20 @@ test("an instance administrator also gets every admin console tab", () => {
   ]);
 });
 
-test("an open project adds its tabs first, and deployments only for its administrators", () => {
-  const tabs = (permission: "view" | "edit" | "administrator") =>
+test("an open project adds its tabs first, and deployments only for those who may deploy", () => {
+  const tabs = (permission: "view" | "edit" | "deploy" | "administrator") =>
     ids(navigationTargets({ isAdmin: false }, { name: "Shop", permission }, t)).filter((id) => id.startsWith("tab:"));
   assert.deepEqual(tabs("view"), ["tab:schema", "tab:history", "tab:problems", "tab:dictionary"]);
   assert.deepEqual(tabs("edit"), ["tab:schema", "tab:history", "tab:problems", "tab:dictionary"]);
-  assert.deepEqual(tabs("administrator"), [
-    "tab:schema",
-    "tab:deployments",
-    "tab:history",
-    "tab:problems",
-    "tab:dictionary",
-  ]);
+  for (const permission of ["deploy", "administrator"] as const) {
+    assert.deepEqual(tabs(permission), [
+      "tab:schema",
+      "tab:deployments",
+      "tab:history",
+      "tab:problems",
+      "tab:dictionary",
+    ]);
+  }
   const all = navigationTargets({ isAdmin: false }, { name: "Shop", permission: "view" }, t);
   assert.equal(all[0].id, "tab:schema");
   assert.equal(all[0].detail, "Shop");

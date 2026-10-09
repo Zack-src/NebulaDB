@@ -9,13 +9,11 @@ import {
 import { db } from "../../infrastructure/db.js";
 import { notifyProjectUsers } from "../../realtime/roomRegistry.js";
 import { ApiError } from "../../shared/errors.js";
-import { getEffectivePermission, type PermissionLevel } from "../../shared/permissions.js";
+import { getEffectivePermission, permissionAtLeast, type PermissionLevel } from "../../shared/permissions.js";
 
 /** Kept per account; older ones go as new ones arrive. A notification is a pointer to what happened, not the record of it. */
 const KEPT_PER_USER = 200;
 const LISTED = 50;
-
-const RANK: Record<PermissionLevel, number> = { view: 1, edit: 2, administrator: 3 };
 
 /** What a user follows on a project; `null` when they do not follow it. */
 export function getProjectSubscription(userId: string, projectId: string): ProjectSubscription | null {
@@ -112,13 +110,13 @@ function eligibleFollowers(
         WHERE s.scope_type = 'project' AND s.scope_id = ? AND u.disabled_at IS NULL`,
     )
     .all(projectId) as SubscriberRow[];
-  const needed = RANK[options.needs ?? "view"];
+  const needed = options.needs ?? "view";
   return followers.filter((follower) => {
     if (!(JSON.parse(follower.events_json) as string[]).includes(event)) return false;
     if (options.actor?.id && follower.user_id === options.actor.id) return false;
     if (options.actor?.email && follower.email.toLowerCase() === options.actor.email.toLowerCase()) return false;
     const level = getEffectivePermission(follower.user_id, projectId);
-    return level !== null && RANK[level] >= needed;
+    return level !== null && permissionAtLeast(level, needed);
   });
 }
 
