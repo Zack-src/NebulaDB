@@ -34,7 +34,7 @@ un moteur cible pour les projets).
 
 ## D. Lot 3 — navigation
 
-- [~] D1. Formulaire de connexion en onglets (Connexion / Règles / Projets)
+- [x] D1. Formulaire de connexion en onglets (Connexion / Règles / Projets) — `3b5bef6`
 - [x] D2. Palette `Ctrl+K` globale (projets, tables, onglets, connexions) — `b7dd320`, `f10d6b9`
 
 ## E. Lot 4 — déploiement et droits
@@ -45,7 +45,7 @@ un moteur cible pour les projets).
 ## F. Lot 5 — le reste
 
 - [~] F1. Alertes de surveillance : e-mail, acquittement, mise en sourdine
-- [~] F2. Dictionnaire : description multi-ligne, export PDF
+- [x] F2. Dictionnaire : description multi-ligne, export PDF — `7c33923`, `692f305`
 - [ ] F3. Export des migrations en fichiers versionnés (Flyway / Liquibase)
 - [ ] F4. CLI / action GitHub
 - [ ] F5. Suggestions d'index à partir des statistiques de requêtes
@@ -56,6 +56,7 @@ un moteur cible pour les projets).
 
 - [ ] G1. Remettre à niveau les 11 tests navigateur (e2e) qui échouent déjà sur `de5c5f6` : ils
       attendent des éléments retirés par la refonte (« Ouvrir », onglet « Données & SQL », « Déployer »)
+- [ ] G3. Test serveur instable sous charge : « /api/v1 backups: a running backup is cancelled with a key »
 - [ ] G2. Formater `bundle.ts` et `bundle.test.ts` (avertissement Prettier antérieur à ce lot)
 
 ## En attente d'une décision de Zack
@@ -67,14 +68,16 @@ un moteur cible pour les projets).
 
 ## Journal
 
-| Date       | Ligne | Commit    | Note                                                                                                                          |
-| ---------- | ----- | --------- | ----------------------------------------------------------------------------------------------------------------------------- |
-| 2026-10-09 | B3    | `7e8882c` | Table clé/valeur + variables manquantes ; e2e réécrit, non lancé                                                              |
-| 2026-10-09 | B1    | `9f04aee` | Avertissement (toast) + champ `detachedConnections` dans la réponse, API v1 comprise                                          |
-| 2026-10-09 | B2    | `2e7aeaf` | Pastilles + liste à cocher avec recherche ; nom hors schéma accepté                                                           |
-| 2026-10-09 | B4    | `72b58bc` | Liste des bases du serveur (datalist), état « existe / sera créée », doublons signalés                                        |
-| 2026-10-09 | C1    | `478534c` | Éditeur CodeMirror : dialecte par moteur, complétion tables/colonnes ; essayé en navigateur sur SQLite seulement              |
-| 2026-10-09 | D2    | `b7dd320` | Palette globale ; ne s'ouvre pas depuis l'éditeur DBML (Ctrl+K y est un préfixe de raccourcis) ; e2e dédié passé chez l'agent |
+| Date       | Ligne | Commit    | Note                                                                                                                               |
+| ---------- | ----- | --------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-10-09 | B3    | `7e8882c` | Table clé/valeur + variables manquantes ; e2e réécrit, non lancé                                                                   |
+| 2026-10-09 | B1    | `9f04aee` | Avertissement (toast) + champ `detachedConnections` dans la réponse, API v1 comprise                                               |
+| 2026-10-09 | B2    | `2e7aeaf` | Pastilles + liste à cocher avec recherche ; nom hors schéma accepté                                                                |
+| 2026-10-09 | B4    | `72b58bc` | Liste des bases du serveur (datalist), état « existe / sera créée », doublons signalés                                             |
+| 2026-10-09 | C1    | `478534c` | Éditeur CodeMirror : dialecte par moteur, complétion tables/colonnes ; essayé en navigateur sur SQLite seulement                   |
+| 2026-10-09 | D2    | `b7dd320` | Palette globale ; ne s'ouvre pas depuis l'éditeur DBML (Ctrl+K y est un préfixe de raccourcis) ; e2e dédié passé chez l'agent      |
+| 2026-10-09 | D1    | `3b5bef6` | Onglets Connexion / Règles / Projets, un seul Enregistrer, repère « ! » sur l'onglet fautif ; refait par-dessus la liste des bases |
+| 2026-10-09 | F2    | `692f305` | Descriptions multi-lignes (notes DBML en triple quote) et export PDF côté navigateur ; pas de `format=pdf` dans l'API              |
 
 Vérifié après intégration des quatre lignes B : 337 tests serveur, 121 tests web, typecheck et lint propres.
 Non vérifié : tests navigateur (e2e) et essai à la main des écrans.
