@@ -23,7 +23,7 @@ un moteur cible pour les projets).
 
 - [~] B1. Message à la restauration d'un projet qui revient détaché d'une connexion
 - [~] B2. Tables ignorées par la surveillance : sélecteur au lieu du champ texte
-- [~] B3. Variables d'environnement : tableau clé/valeur, variables manquantes signalées
+- [x] B3. Variables d'environnement : tableau clé/valeur, variables manquantes signalées — `9f04aee`
 - [~] B4. Base d'un projet sur une connexion : liste des bases du serveur + « créer »
 
 ## C. Lot 2 — SQL
@@ -61,5 +61,6 @@ un moteur cible pour les projets).
 
 ## Journal
 
-| Date | Ligne | Commit | Note |
-| ---- | ----- | ------ | ---- |
+| Date       | Ligne | Commit    | Note                                                             |
+| ---------- | ----- | --------- | ---------------------------------------------------------------- |
+| 2026-10-09 | B3    | `9f04aee` | Table clé/valeur + variables manquantes ; e2e réécrit, non lancé |
