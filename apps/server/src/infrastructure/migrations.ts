@@ -1126,6 +1126,29 @@ export const MIGRATIONS: Migration[] = [
       if (!backup.some((c) => c.name === "dir")) db.exec("ALTER TABLE backups ADD COLUMN dir TEXT");
     },
   },
+  {
+    version: 46,
+    name: "saved_queries table",
+    up: (db) => {
+      // A statement kept under a name on a connection, for its author's recall and, once
+      // `shared`, for everyone who can use that connection's SQL console. Never a result.
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS saved_queries (
+          id TEXT PRIMARY KEY,
+          connection_id TEXT NOT NULL,
+          user_id TEXT NOT NULL,
+          name TEXT NOT NULL,
+          sql TEXT NOT NULL,
+          description TEXT,
+          shared INTEGER NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL DEFAULT (datetime('now')),
+          updated_at TEXT NOT NULL DEFAULT (datetime('now')),
+          UNIQUE (connection_id, user_id, name)
+        );
+        CREATE INDEX IF NOT EXISTS idx_saved_queries_user ON saved_queries(user_id);
+      `);
+    },
+  },
 ];
 
 /** Applies every migration above the database's current `user_version`, each in its own transaction, in order. */

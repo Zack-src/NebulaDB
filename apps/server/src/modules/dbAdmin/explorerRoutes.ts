@@ -1,14 +1,15 @@
 import type { DbAdminObjectRef, StructuralAction } from "@nebuladb/shared";
-import type { FastifyInstance, FastifyRequest } from "fastify";
+import type { FastifyInstance } from "fastify";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireAdmin } from "../../shared/guards.js";
 import { markOutOfSchema } from "../connections/drift.js";
-import { requireDbConsoleUser, type DbConsoleUser } from "../dbAccess/service.js";
 import { optionalName, requireName } from "./drivers/common.js";
 import { type DatabaseAdminDriver, type DropKind } from "./drivers/index.js";
 import { clearQueryHistory, listQueryHistory, recordQuery } from "./queryHistory.js";
 import {
+  CONSOLE_ROUTES,
+  MAX_SQL_LENGTH,
   READ_LIMIT,
   WRITE_LIMIT,
   assertWritable,
@@ -31,8 +32,6 @@ const MAX_TIMEOUT_MS = 120_000;
 const DEFAULT_PAGE = 100;
 
 const MAX_PAGE = 500;
-
-const MAX_SQL_LENGTH = 200_000;
 
 const DROP_KINDS: readonly DropKind[] = ["database", "table", "view", "column"];
 
@@ -85,15 +84,7 @@ export function registerExplorerRoutes(app: FastifyInstance): void {
   // confirmed. Never structure, and nothing else of the console (drops,
   // accounts, sessions, backups stay on the admin-only routes).
 
-  const consoleRoutes: [string, (req: FastifyRequest, id: string) => DbConsoleUser][] = [
-    [
-      "/api/admin/connections",
-      (req, id) => ({ user: requireAdmin(req), connection: loadConnection(id), access: "admin" }),
-    ],
-    ["/api/connections", requireDbConsoleUser],
-  ];
-
-  for (const [prefix, guard] of consoleRoutes) {
+  for (const [prefix, guard] of CONSOLE_ROUTES) {
     app.get(`${prefix}/:id/overview`, READ_LIMIT, async (req) => {
       const { id } = req.params as { id: string };
       const { connection, access } = guard(req, id);

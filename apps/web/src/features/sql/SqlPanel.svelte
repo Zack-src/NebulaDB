@@ -10,6 +10,7 @@
     DatabaseEngine,
     DbAdminQueryHistoryEntry,
     DbAdminQueryResult,
+    DbSavedQuery,
     StructurePolicyRefusal,
     Table,
   } from "@nebuladb/shared";
@@ -24,9 +25,17 @@
   import { formatRelativeTime } from "@/i18n/formatters";
   import { i18n, useTranslation } from "@/i18n/i18n.svelte";
   import { ApiError } from "@/services/ApiError";
-  import { clearQueryHistory, fetchQueryHistory, runAdminQuery, type ConnectionOverview } from "@/services/dbAdminApi";
+  import {
+    clearQueryHistory,
+    fetchQueryHistory,
+    fetchSavedQueries,
+    runAdminQuery,
+    type ConnectionOverview,
+  } from "@/services/dbAdminApi";
   import { parseServerTime } from "./format";
   import ResultGrid from "./ResultGrid.svelte";
+  import SavedQueries from "./SavedQueries.svelte";
+  import SaveQueryDialog from "./SaveQueryDialog.svelte";
   import { SqlCatalogState } from "./sqlCatalog.svelte";
   import SqlEditor from "./SqlEditor.svelte";
   import StructureRedirectDialog, { describeStructuralAction } from "./StructureRedirectDialog.svelte";
@@ -85,6 +94,10 @@
   const history = useAsyncResource(() => fetchQueryHistory(connectionId));
   const historyId = $props.id();
   let historyOpen = $state(false);
+  const saved = useAsyncResource(() => fetchSavedQueries(connectionId));
+  const savedId = `${historyId}-saved`;
+  let savedOpen = $state(false);
+  let saving = $state(false);
   const clearHistory = useAsyncAction(async () => {
     await clearQueryHistory(connectionId);
     history.reload();
@@ -141,6 +154,11 @@
     if (!sql.trim() || execute.pending) return;
     if (canWrite && writeMode) confirmingWrite = true;
     else void execute.run();
+  }
+
+  /** Puts the text in the editor, nothing more: it runs, if at all, through the run button and the current mode. */
+  function openSaved(query: DbSavedQuery) {
+    sql = query.sql;
   }
 
   function recall(entry: DbAdminQueryHistoryEntry) {
@@ -203,12 +221,37 @@
       {execute.pending ? t("dbadmin.sql.running") : t("dbadmin.sql.run")}
     </Button>
     <span class="text-xs text-text-muted">{RUN_SHORTCUT}</span>
+    <Button variant="ghost" size="sm" class="ml-auto" disabled={!sql.trim()} onclick={() => (saving = true)}
+      >{t("dbadmin.sql.saved.save")}</Button
+    >
   </div>
 
   {#if execute.error}<ErrorText>{execute.error}</ErrorText>{/if}
   {#if result}<ResultGrid {result} fileName="query" />{/if}
 
   <div class="border-t border-border pt-3">
+    <button
+      type="button"
+      class="mb-1.5 flex items-center gap-1 text-xs font-semibold text-text-secondary hover:text-text"
+      aria-expanded={savedOpen}
+      aria-controls={savedId}
+      onclick={() => (savedOpen = !savedOpen)}
+    >
+      <Icon icon={ChevronRightIcon} size={14} class={savedOpen ? "rotate-90" : ""} />
+      {t("dbadmin.sql.saved.title")}{saved.data?.length ? ` (${saved.data.length})` : ""}
+    </button>
+    {#if savedOpen}
+      <div id={savedId} class="mb-3">
+        <SavedQueries
+          {connectionId}
+          queries={saved.data ?? []}
+          loading={saved.loading}
+          error={saved.error}
+          onOpen={openSaved}
+          onChanged={saved.reload}
+        />
+      </div>
+    {/if}
     <div class="mb-1.5 flex items-center justify-between gap-2">
       <button
         type="button"
@@ -257,6 +300,18 @@
   </div>
 </div>
 
+{#if saving}
+  <SaveQueryDialog
+    {connectionId}
+    {sql}
+    ownNames={(saved.data ?? []).filter((q) => q.mine).map((q) => q.name)}
+    onSaved={() => {
+      saved.reload();
+      savedOpen = true;
+    }}
+    onClose={() => (saving = false)}
+  />
+{/if}
 {#if redirect}
   <StructureRedirectDialog refusal={redirect} onClose={() => (redirect = null)} />
 {/if}

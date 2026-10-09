@@ -284,6 +284,11 @@ export const ERROR_CATALOG = {
     status: 400,
     message: "only data statements (INSERT, UPDATE, DELETE, MERGE) can be run with your access — never structure",
   },
+  SAVED_QUERY_INVALID: { status: 400, message: "a saved query needs a name (120 characters at most) and a statement" },
+  SAVED_QUERY_NOT_FOUND: { status: 404, message: "saved query not found" },
+  SAVED_QUERY_NOT_OWNER: { status: 403, message: "only the author of a saved query can change it" },
+  SAVED_QUERY_NAME_TAKEN: { status: 409, message: "you already have a saved query with this name on this connection" },
+  SAVED_QUERY_LIMIT: { status: 409, message: "too many saved queries on this connection — delete some first" },
   DB_ADMIN_CONNECTION_ACCOUNT_PROTECTED: {
     status: 409,
     message:

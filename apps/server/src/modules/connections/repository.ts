@@ -413,6 +413,7 @@ export function deleteConnection(id: string): boolean {
   return db.transaction(() => {
     db.prepare("DELETE FROM project_connection_links WHERE connection_id = ?").run(id);
     db.prepare("DELETE FROM admin_query_history WHERE connection_id = ?").run(id);
+    db.prepare("DELETE FROM saved_queries WHERE connection_id = ?").run(id);
     db.prepare("DELETE FROM schema_fingerprints WHERE connection_id = ?").run(id);
     db.prepare("DELETE FROM db_connection_credentials WHERE connection_id = ?").run(id);
     db.prepare("DELETE FROM db_access_grants WHERE connection_id = ?").run(id);

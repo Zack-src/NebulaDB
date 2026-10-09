@@ -1,8 +1,10 @@
 import type { DatabaseConnectionConfig, DbAdminObjectRef, DbAdminStatementsResult } from "@nebuladb/shared";
 import type { FastifyRequest } from "fastify";
 import { ApiError } from "../../shared/errors.js";
+import { requireAdmin } from "../../shared/guards.js";
 import type { BudgetKind } from "../connections/connectionBudget.js";
 import { connectionOwner, getConnectionById } from "../connections/repository.js";
+import { requireDbConsoleUser, type DbConsoleUser } from "../dbAccess/service.js";
 import { optionalName } from "./drivers/common.js";
 import { createAdminDriver, type AdminStatement, type DatabaseAdminDriver } from "./drivers/index.js";
 
@@ -12,11 +14,27 @@ const READ_LIMIT = { config: { rateLimit: { max: 240, timeWindow: "1 minute" } }
 export /** Anything that changes the instance's connection list or the target server. */
 const WRITE_LIMIT = { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } };
 
+/** What the query route accepts of a statement, and so what a saved query may hold. */
+export const MAX_SQL_LENGTH = 200_000;
+
 export function loadConnection(id: string): DatabaseConnectionConfig {
   const connection = getConnectionById(id);
   if (!connection || connectionOwner(id)) throw new ApiError("CONNECTION_NOT_FOUND");
   return connection;
 }
+
+/**
+ * The two families of console routes: under `/api/admin/connections`, instance
+ * administrators only; under `/api/connections`, whoever `requireDbConsoleUser`
+ * lets in — administrators, and members an administrator granted the connection to.
+ */
+export const CONSOLE_ROUTES: [string, (req: FastifyRequest, id: string) => DbConsoleUser][] = [
+  [
+    "/api/admin/connections",
+    (req, id) => ({ user: requireAdmin(req), connection: loadConnection(id), access: "admin" }),
+  ],
+  ["/api/connections", requireDbConsoleUser],
+];
 
 export /**
  * Opens an administration driver, runs `fn`, always closes. Whatever the

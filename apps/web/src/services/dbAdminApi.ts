@@ -13,6 +13,7 @@ import type {
   DbAdminTableDescription,
   DbConsoleAccess,
   DbGrant,
+  DbSavedQuery,
   DbPrincipal,
   DbPrincipalRef,
   DbPrivilegeCatalog,
@@ -186,6 +187,38 @@ export async function fetchQueryHistory(id: string): Promise<DbAdminQueryHistory
 
 export function clearQueryHistory(id: string): Promise<{ cleared: number }> {
   return request(`${consoleBase(id)}/query-history`, { method: "DELETE" });
+}
+
+// ---- Saved queries -----------------------------------------------------------
+
+export async function fetchSavedQueries(id: string): Promise<DbSavedQuery[]> {
+  return (await request<{ queries: DbSavedQuery[] }>(`${consoleBase(id)}/saved-queries`)).queries;
+}
+
+/** `overwrite`: replace the caller's own query of that name instead of being refused. */
+export async function saveQuery(
+  id: string,
+  input: { name: string; sql: string; description?: string | null; overwrite?: boolean },
+): Promise<DbSavedQuery> {
+  return (await request<{ query: DbSavedQuery }>(`${consoleBase(id)}/saved-queries`, { method: "POST", body: input }))
+    .query;
+}
+
+export async function updateSavedQuery(
+  id: string,
+  queryId: string,
+  changes: { name?: string; sql?: string; description?: string | null; shared?: boolean },
+): Promise<DbSavedQuery> {
+  return (
+    await request<{ query: DbSavedQuery }>(`${consoleBase(id)}/saved-queries/${queryId}`, {
+      method: "PATCH",
+      body: changes,
+    })
+  ).query;
+}
+
+export function deleteSavedQuery(id: string, queryId: string): Promise<{ deleted: boolean }> {
+  return request(`${consoleBase(id)}/saved-queries/${queryId}`, { method: "DELETE" });
 }
 
 // ---- Mutations: every one previews (`execute: false`) before it runs --------

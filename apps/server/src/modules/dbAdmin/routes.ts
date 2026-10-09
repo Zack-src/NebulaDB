@@ -4,6 +4,7 @@ import { connectionOwner } from "../connections/repository.js";
 import { registerAccountRoutes } from "./accountRoutes.js";
 import { registerConnectionAdminRoutes } from "./connectionAdminRoutes.js";
 import { registerExplorerRoutes } from "./explorerRoutes.js";
+import { registerSavedQueryRoutes } from "./savedQueryRoutes.js";
 
 /**
  * The administration console's API: instance-level connections and everything done *on* a
@@ -22,5 +23,6 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
 
   registerConnectionAdminRoutes(app);
   registerExplorerRoutes(app);
+  registerSavedQueryRoutes(app);
   registerAccountRoutes(app);
 }

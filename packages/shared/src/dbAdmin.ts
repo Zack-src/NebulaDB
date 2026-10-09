@@ -98,6 +98,25 @@ export interface DbAdminQueryHistoryEntry {
 }
 
 /**
+ * A statement kept under a name on a connection. Private to its author unless
+ * `shared`, then readable by everyone who can use the SQL console of that
+ * connection. Saving never runs it and gives no right.
+ */
+export interface DbSavedQuery {
+  id: string;
+  name: string;
+  sql: string;
+  description: string | null;
+  shared: boolean;
+  /** The caller wrote it: only then can it be edited. */
+  mine: boolean;
+  /** Display name (or email) of the author. */
+  authorName: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/**
  * One statement shape run through Nebula's SQL console on a connection,
  * aggregated (`GET /api/admin/connections/:id/query-stats`). `sql` has every
  * literal replaced by `?` — never a value, never a result. Durations are
