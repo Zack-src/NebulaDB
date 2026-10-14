@@ -13,7 +13,7 @@
     "dev": "concurrently -n server,web -c blue,green \"npm run dev:server\" \"npm run dev:web\"",
     "dev:web": "npm run dev -w apps/web",
     "dev:server": "npm run dev -w apps/server",
-    "build": "npm run build -w packages/shared && npm run build -w packages/dbml-engine && npm run build -w apps/server && npm run build -w apps/web",
+    "build": "npm run build -w packages/shared && npm run build -w packages/dbml-engine && npm run build -w apps/server && npm run build -w packages/cli && npm run build -w apps/web",
     "start": "node apps/server/dist/index.js",
     "bench:web": "node scripts/bench-web.mjs",
     "bench:server": "npm run bench -w apps/server --",
