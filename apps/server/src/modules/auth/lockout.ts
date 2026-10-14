@@ -20,7 +20,7 @@ const LOCKOUT_MS = 15 * 60 * 1000;
 /**
  * Failure rows for accounts that are no longer locked and haven't failed
  * within this window are swept away — they carry no information at that point.
- * Expressed as a SQLite modifier rather than a JS timestamp on purpose:
+ * Expressed as an interval for the database rather than a JS timestamp on purpose:
  * `last_failure_at` is written by `utc_now()` (`YYYY-MM-DD HH:MM:SS`),
  * which does not sort correctly against a JS `toISOString()` value for rows
  * landing on the same date.

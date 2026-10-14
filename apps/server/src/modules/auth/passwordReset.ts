@@ -47,7 +47,7 @@ export async function issueResetToken(userId: string): Promise<string | null> {
   await db.transaction(async () => {
     await db.prepare("DELETE FROM password_reset_tokens WHERE user_id = ? AND used_at IS NULL").run(userId);
     // `created_at` written explicitly in the same ISO format `hasRecentRequest`
-    // compares against — SQLite's `utc_now()` default uses a space, not a `T`.
+    // compares against — the column's `utc_now()` default uses a space, not a `T`.
     await db
       .prepare("INSERT INTO password_reset_tokens (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)")
       .run(hashToken(token), userId, expiresAt, new Date().toISOString());

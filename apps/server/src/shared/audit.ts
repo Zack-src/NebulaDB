@@ -7,8 +7,8 @@ import { db } from "../infrastructure/db.js";
  * changes, password resets, account removals. Deliberately narrow: the Yjs revision log already
  * records schema edits.
  *
- * No update or delete path in application code. Someone with filesystem access to the SQLite
- * file can still rewrite it: this is not tamper-evident logging.
+ * No update or delete path in application code. Someone with direct access to the database
+ * can still rewrite it: this is not tamper-evident logging.
  */
 export const AUDIT_ACTIONS = [
   "project.create",
@@ -251,7 +251,7 @@ export async function auditUser(
  * operator whose own rules require an indefinite trail should not have one
  * silently trimmed under them.
  *
- * Uses SQLite's own clock for the cutoff rather than a JS timestamp:
+ * Uses the database's own clock for the cutoff rather than a JS timestamp:
  * `created_at` is written by `utc_now()` (`YYYY-MM-DD HH:MM:SS`), which
  * does not sort correctly against a `toISOString()` value on the same date.
  */

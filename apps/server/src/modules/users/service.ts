@@ -31,7 +31,7 @@ export function toUserSummary(row: UserRow) {
 /**
  * Refuses an action that would remove the last account able to administer the
  * instance. Without this, disabling or deleting the only admin leaves an
- * installation with no way back in short of editing SQLite by hand.
+ * installation with no way back in short of editing the database by hand.
  */
 export async function wouldRemoveLastAdmin(userId: string): Promise<boolean> {
   if (!(await isAdminUser(userId))) return false;

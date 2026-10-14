@@ -45,7 +45,7 @@ export async function updateTeamName(id: string, name: string): Promise<void> {
   await db.prepare("UPDATE teams SET name = ? WHERE id = ?").run(name, id);
 }
 
-/** No FK cascade in this SQLite setup — dependents go first, same ordering the project hard-delete uses. */
+/** No FK cascade on these tables — dependents go first, same ordering the project hard-delete uses. */
 const deleteTeamCascadeTx = async (teamId: string) =>
   await db.transaction(async () => {
     await db.prepare("DELETE FROM project_teams WHERE team_id = ?").run(teamId);

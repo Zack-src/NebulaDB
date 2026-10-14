@@ -345,8 +345,8 @@ export const config = {
   publicUrl,
   /**
    * When set, a SQLite connection may only open a file inside this directory.
-   * Unset keeps the historical behaviour (any path the process can read,
-   * except the app's own database) — see `drivers/sqlite.ts`.
+   * Unset keeps the historical behaviour (any path the process can read) —
+   * see `drivers/sqlite.ts`.
    */
   /** 0 disables the background checks. */
   connectionHealthIntervalMinutes: readConnectionHealthIntervalMinutes(),

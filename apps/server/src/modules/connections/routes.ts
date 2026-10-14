@@ -72,7 +72,7 @@ export async function assertProjectMayEditConnection(
 /**
  * Everything but the list route requires project `administrator`, not `edit`: these routes
  * make the *server* open connections to a caller-supplied host/file or execute generated SQL.
- * `hostGuard.ts` and the SQLite own-database guard narrow *where*; this narrows *who*.
+ * `hostGuard.ts` and `NEBULADB_SQLITE_DIR` narrow *where*; this narrows *who*.
  *
  * `from-database` only requires an authenticated user, like `POST /api/projects`: the caller
  * becomes the new project's administrator.
