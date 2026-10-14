@@ -1,5 +1,6 @@
 <script lang="ts">
   import type {
+    DatabaseEngine,
     DbAdminObjectRef,
     DbAdminStatementsResult,
     DbAdminTable,
@@ -7,8 +8,6 @@
   } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import {
-    ChevronLeftIcon,
-    ChevronRightIcon,
     FileSpreadsheetIcon,
     KeyIcon,
     TableIcon,
@@ -30,13 +29,13 @@
     dropObject,
     fetchSchemas,
     fetchTableDescription,
-    fetchTableRows,
     fetchTables,
     type ConnectionOverview,
     type DropKind,
   } from "@/services/dbAdminApi";
   import { formatBytes } from "@/features/sql/format";
-  import ResultGrid from "@/features/sql/ResultGrid.svelte";
+  import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
+  import EditableRows from "./EditableRows.svelte";
   import StatementModal from "./StatementModal.svelte";
   import StructureRedirectDialog from "@/features/sql/StructureRedirectDialog.svelte";
 
@@ -44,21 +43,23 @@
    * Database → schema → table browser. The left column narrows down to a table;
    * the right shows its rows (paged on the server) or its structure. Every
    * destructive button goes through `StatementModal`: SQL preview, then the
-   * object's name typed back.
+   * object's name typed back. Rows are edited in `EditableRows`, where the
+   * server allows it.
    */
   let {
     connectionId,
+    engine,
     overview,
     database = $bindable(),
     onDatabaseDropped,
   }: {
     connectionId: string;
+    engine: DatabaseEngine;
     overview: ConnectionOverview;
     database: string;
     onDatabaseDropped: () => void;
   } = $props();
 
-  const PAGE_SIZE = 100;
   // SQL keywords, shown as such in every language.
   const PRIMARY_LABEL = "PK";
   const UNIQUE_LABEL = "UNIQUE";
@@ -79,7 +80,9 @@
   const workspace = useWorkspace();
   let selected = $state.raw<DbAdminTable | null>(null);
   let view = $state<"data" | "structure">("data");
-  let offset = $state(0);
+  /** Row changes not applied yet, in the table shown: leaving it asks first. */
+  let pendingRows = $state(0);
+  let leaving = $state.raw<(() => void) | null>(null);
   let drop = $state.raw<{ kind: DropKind; ref: DbAdminObjectRef; name: string } | null>(null);
   let redirect = $state.raw<StructurePolicyRefusal | null>(null);
 
@@ -130,12 +133,16 @@
   const ref = $derived<DbAdminObjectRef | null>(
     selected ? { database: databaseArg, schema: selected.schema ?? undefined, table: selected.name } : null,
   );
-  const rows = useAsyncResource(() => (ref && view === "data" ? fetchTableRows(connectionId, ref, PAGE_SIZE, offset) : Promise.resolve(null)));
   const description = useAsyncResource(() => (ref && view === "structure" ? fetchTableDescription(connectionId, ref) : Promise.resolve(null)));
 
+  /** Runs `action` at once, or once the user agreed to drop the pending row changes. */
+  function leave(action: () => void) {
+    if (pendingRows > 0 && selected && view === "data") leaving = action;
+    else action();
+  }
+
   function select(table: DbAdminTable) {
-    selected = table;
-    offset = 0;
+    leave(() => (selected = table));
   }
 
   function runDrop(execute: boolean, confirmation?: string): Promise<DbAdminStatementsResult> {
@@ -240,7 +247,7 @@
               { id: "structure", label: t("dbadmin.explorer.structure") },
             ]}
             activeTab={view}
-            onChange={(id) => (view = id)}
+            onChange={(id) => leave(() => (view = id))}
           />
           {#if workspace && isAdmin && table.kind === "table"}
             <Button
@@ -273,21 +280,10 @@
       </div>
 
       {#if view === "data"}
-        {#if rows.error}<ErrorText>{rows.error}</ErrorText>{/if}
-        {#if rows.data}
-          <ResultGrid result={rows.data} fileName={table.name} />
-          <div class="mt-2 flex items-center justify-end gap-2 text-xs text-text-muted">
-            <span>{t("dbadmin.explorer.rowRange", { from: offset + 1, to: offset + rows.data.rows.length })}</span>
-            <Button variant="ghost" size="icon-xs" disabled={offset === 0 || rows.loading} data-tooltip={t("dbadmin.explorer.previousPage")} onclick={() => (offset = Math.max(0, offset - PAGE_SIZE))}>
-              <Icon icon={ChevronLeftIcon} size={13} />
-            </Button>
-            <Button variant="ghost" size="icon-xs" disabled={!rows.data.truncated || rows.loading} data-tooltip={t("dbadmin.explorer.nextPage")} onclick={() => (offset += PAGE_SIZE)}>
-              <Icon icon={ChevronRightIcon} size={13} />
-            </Button>
-          </div>
-        {:else if rows.loading}
-          <EmptyState>{t("common.loading")}</EmptyState>
-        {/if}
+        <!-- Keyed on the table: its page, pending changes and editor start afresh with another one. -->
+        {#key JSON.stringify(tableRef)}
+          <EditableRows {connectionId} {engine} {overview} {tableRef} fileName={table.name} onPendingChange={(count) => (pendingRows = count)} />
+        {/key}
       {:else}
         {#if description.error}<ErrorText>{description.error}</ErrorText>{/if}
         {#if description.data}
@@ -376,4 +372,19 @@
 {/if}
 {#if redirect}
   <StructureRedirectDialog refusal={redirect} onClose={() => (redirect = null)} />
+{/if}
+{#if leaving}
+  <ConfirmDialog
+    title={t("dbadmin.rows.discardTitle")}
+    message={t("dbadmin.rows.discardMessage", { count: pendingRows })}
+    danger="warning"
+    confirmLabel={t("dbadmin.rows.discard")}
+    onCancel={() => (leaving = null)}
+    onConfirm={() => {
+      const action = leaving;
+      leaving = null;
+      pendingRows = 0;
+      action?.();
+    }}
+  />
 {/if}

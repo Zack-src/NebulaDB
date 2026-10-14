@@ -128,6 +128,7 @@
     {#if section === "explorer"}
       <ExplorerPanel
         connectionId={connection.id}
+        engine={connection.engine}
         overview={data}
         bind:database
         onDatabaseDropped={() => overview.reload()}

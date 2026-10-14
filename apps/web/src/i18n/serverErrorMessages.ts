@@ -108,6 +108,12 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   DB_ACCESS_WRITE_FORBIDDEN: "errors.dbAccessWriteForbidden",
   DB_ACCESS_WRITE_CONFIRMATION_REQUIRED: "errors.dbAccessWriteConfirmationRequired",
   DB_ACCESS_STATEMENT_NOT_ALLOWED: "errors.dbAccessStatementNotAllowed",
+  ROW_EDIT_INVALID: "errors.rowEditInvalid",
+  ROW_EDIT_LIMIT: "errors.rowEditLimit",
+  ROW_EDIT_NOT_EDITABLE: "errors.rowEditNotEditable",
+  ROW_EDIT_STALE: "errors.rowEditStale",
+  ROW_EDIT_ROW_COUNT: "errors.rowEditRowCount",
+  ROW_EDIT_FAILED: "errors.rowEditFailed",
   SAVED_QUERY_INVALID: "errors.savedQueryInvalid",
   SAVED_QUERY_NOT_FOUND: "errors.savedQueryNotFound",
   SAVED_QUERY_NOT_OWNER: "errors.savedQueryNotOwner",
@@ -199,6 +205,21 @@ export function describeApiError(error: unknown, t: Translator): string {
       error.code === "BACKUP_DESTINATION_UNUSABLE"
     ) {
       return t(key, { reason: String(error.details.reason ?? "") });
+    }
+    // Row edits say which statement of the batch, and the database's own reason.
+    if (error.code?.startsWith("ROW_EDIT_")) {
+      const details = error.details;
+      if (error.code === "ROW_EDIT_STALE" && details.missing === true) {
+        return t("errors.rowEditGone", { position: String(details.position ?? "?") });
+      }
+      return t(key, {
+        position: String(details.position ?? "?"),
+        statement: String(details.statement ?? ""),
+        reason: String(error.code === "ROW_EDIT_INVALID" ? error.message : (details.reason ?? "")),
+        affected: String(details.affected ?? ""),
+        columns: Array.isArray(details.columns) ? details.columns.join(", ") : "",
+        maxOperations: String(details.maxOperations ?? ""),
+      });
     }
     const tables = error.details.tables;
     return error.code === "TABLE_LOCKED" && Array.isArray(tables) ? t(key, { tables: tables.join(", ") }) : t(key);

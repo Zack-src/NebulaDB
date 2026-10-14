@@ -12,11 +12,14 @@ import type {
   DbAdminTable,
   DbAdminTableDescription,
   DbConsoleAccess,
+  DbEditableRows,
   DbGrant,
   DbSavedQuery,
   DbPrincipal,
   DbPrincipalRef,
   DbPrivilegeCatalog,
+  DbRowEditResult,
+  DbRowOperation,
   DbUserAction,
   EffectiveStructurePolicy,
   StructurePolicySetting,
@@ -146,15 +149,31 @@ export async function fetchTableDescription(id: string, ref: DbAdminObjectRef): 
     .description;
 }
 
-export async function fetchTableRows(
+/** A page of a table for the explorer's grid, with what the caller may edit of it. */
+export function fetchEditableRows(
   id: string,
   ref: DbAdminObjectRef,
   limit: number,
   offset: number,
-): Promise<DbAdminQueryResult> {
-  return (
-    await request<{ result: DbAdminQueryResult }>(`${consoleBase(id)}/rows`, { query: { ...ref, limit, offset } })
-  ).result;
+): Promise<DbEditableRows> {
+  return request<DbEditableRows>(`${consoleBase(id)}/editable-rows`, { query: { ...ref, limit, offset } });
+}
+
+/**
+ * Row changes to one table. `execute: false` returns the statements the server
+ * would run (the preview); `true` runs them, all or nothing — and says the user
+ * confirmed, as the server asks of a member with `write` access.
+ */
+export function applyRowEdits(
+  id: string,
+  ref: DbAdminObjectRef,
+  operations: DbRowOperation[],
+  execute: boolean,
+): Promise<DbRowEditResult> {
+  return request<DbRowEditResult>(`${consoleBase(id)}/row-edits`, {
+    method: "POST",
+    body: { ...ref, operations, execute, confirmWrite: execute || undefined },
+  });
 }
 
 // ---- SQL console -----------------------------------------------------------
