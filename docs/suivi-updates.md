@@ -11,12 +11,12 @@ Branche à part `feat/postgres-storage`, fusionnée dans `updates` quand le serv
 les tests passent. PostgreSQL seul (SQLite n'est plus un stockage possible pour Nebula ; il reste
 un moteur cible pour les projets).
 
-- [~] A1. Couche d'accès asynchrone (`pg`, pool, transactions) à la place de `better-sqlite3`
-- [~] A2. Schéma PostgreSQL de départ (équivalent des migrations 1 à 45) et migrations suivantes
-- [~] A3. Conversion des modules serveur (requêtes et appelants en `async`)
-- [~] A4. Tests serveur sur PostgreSQL (une base isolée par fichier de test)
-- [~] A5. Outil de bascule d'une instance SQLite existante vers PostgreSQL
-- [~] A6. Configuration, Docker Compose, README, sauvegarde/restauration en ligne de commande
+- [x] A1. Couche d'accès asynchrone (`pg`, pool, transactions) à la place de `better-sqlite3` — `bf1e9de` (branche `feat/postgres-storage`)
+- [x] A2. Schéma PostgreSQL de départ (équivalent des migrations 1 à 45) et migrations suivantes — `bf1e9de` (branche `feat/postgres-storage`)
+- [x] A3. Conversion des modules serveur (requêtes et appelants en `async`) — `bf1e9de`, `b31cc17`, `94ec99d` (branche `feat/postgres-storage`)
+- [x] A4. Tests serveur sur PostgreSQL (une base isolée par fichier de test) — `bf1e9de` (branche `feat/postgres-storage`)
+- [x] A5. Outil de bascule d'une instance SQLite existante vers PostgreSQL — `b7c8638` (branche `feat/postgres-storage`)
+- [x] A6. Configuration, Docker Compose, README, sauvegarde/restauration en ligne de commande — `7a9877c` (branche `feat/postgres-storage`)
 - [ ] A7. Fusion dans `updates` et conversion des requêtes ajoutées entre-temps par les lots B à F
 
 ## B. Lot 1 — petits conforts
@@ -47,15 +47,15 @@ un moteur cible pour les projets).
 - [x] F1. Alertes de surveillance : e-mail, acquittement, mise en sourdine — `a9c6b69`, `0c8bc97`, `8f6a98e`
 - [x] F2. Dictionnaire : description multi-ligne, export PDF — `7c33923`, `692f305`
 - [x] F3. Export des migrations en fichiers versionnés (Flyway / Liquibase) — `4b743d1`
-- [ ] F4. CLI / action GitHub
+- [~] F4. CLI / action GitHub
 - [~] F5. Suggestions d'index à partir des statistiques de requêtes
 - [~] F6. Lien de partage en lecture seule (diagramme, dictionnaire)
 - [~] F7. Sauvegardes vers S3 / SFTP (en plus du dossier ou partage monté)
 
 ## G. Dette repérée en route
 
-- [ ] G1. Remettre à niveau les 11 tests navigateur (e2e) qui échouent déjà sur `de5c5f6` : ils
-      attendent des éléments retirés par la refonte (« Ouvrir », onglet « Données & SQL », « Déployer »)
+- [~] G1. Remettre à niveau les 11 tests navigateur (e2e) qui échouent déjà sur `de5c5f6` : ils
+  attendent des éléments retirés par la refonte (« Ouvrir », onglet « Données & SQL », « Déployer »)
 - [x] G3. Test serveur instable sous charge : « /api/v1 backups: a running backup is cancelled with a key » — `bb090e9`
 - [x] G2. Formater `bundle.ts` et `bundle.test.ts` (avertissement Prettier antérieur à ce lot) — `c2e7b46`
 
@@ -68,21 +68,22 @@ un moteur cible pour les projets).
 
 ## Journal
 
-| Date       | Ligne | Commit    | Note                                                                                                                               |
-| ---------- | ----- | --------- | ---------------------------------------------------------------------------------------------------------------------------------- |
-| 2026-10-09 | B3    | `7e8882c` | Table clé/valeur + variables manquantes ; e2e réécrit, non lancé                                                                   |
-| 2026-10-09 | B1    | `9f04aee` | Avertissement (toast) + champ `detachedConnections` dans la réponse, API v1 comprise                                               |
-| 2026-10-09 | B2    | `2e7aeaf` | Pastilles + liste à cocher avec recherche ; nom hors schéma accepté                                                                |
-| 2026-10-09 | B4    | `72b58bc` | Liste des bases du serveur (datalist), état « existe / sera créée », doublons signalés                                             |
-| 2026-10-09 | C1    | `478534c` | Éditeur CodeMirror : dialecte par moteur, complétion tables/colonnes ; essayé en navigateur sur SQLite seulement                   |
-| 2026-10-09 | D2    | `b7dd320` | Palette globale ; ne s'ouvre pas depuis l'éditeur DBML (Ctrl+K y est un préfixe de raccourcis) ; e2e dédié passé chez l'agent      |
-| 2026-10-09 | D1    | `3b5bef6` | Onglets Connexion / Règles / Projets, un seul Enregistrer, repère « ! » sur l'onglet fautif ; refait par-dessus la liste des bases |
-| 2026-10-09 | F2    | `692f305` | Descriptions multi-lignes (notes DBML en triple quote) et export PDF côté navigateur ; pas de `format=pdf` dans l'API              |
-| 2026-10-09 | C2    | `3b11f8f` | Requêtes enregistrées, privées ou partagées ; migration 46 ; 344 tests serveur passent après intégration                           |
-| 2026-10-09 | F1    | `8f6a98e` | E-mail sur abonnement (option par compte), acquittement, sourdine avec durée ; migrations 47 à 49 ; relais SMTP réel non essayé    |
-| 2026-10-14 | E2    | `efca567` | Niveau `deploy` entre édition et administrateur ; l'import depuis une base reste administrateur                                    |
-| 2026-10-14 | E1    | `2fc92e9` | Revue sur étape « Revue » : jamais par l'auteur, approbation valable 7 jours, plan refait au déploiement ; migration 50            |
-| 2026-10-14 | F3    | `4b743d1` | Export SQL / Flyway / Liquibase en zip, niveau `deploy` ; formats vérifiés sur documentation seulement                             |
+| Date       | Ligne | Commit    | Note                                                                                                                                                                                  |
+| ---------- | ----- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 2026-10-09 | B3    | `7e8882c` | Table clé/valeur + variables manquantes ; e2e réécrit, non lancé                                                                                                                      |
+| 2026-10-09 | B1    | `9f04aee` | Avertissement (toast) + champ `detachedConnections` dans la réponse, API v1 comprise                                                                                                  |
+| 2026-10-09 | B2    | `2e7aeaf` | Pastilles + liste à cocher avec recherche ; nom hors schéma accepté                                                                                                                   |
+| 2026-10-09 | B4    | `72b58bc` | Liste des bases du serveur (datalist), état « existe / sera créée », doublons signalés                                                                                                |
+| 2026-10-09 | C1    | `478534c` | Éditeur CodeMirror : dialecte par moteur, complétion tables/colonnes ; essayé en navigateur sur SQLite seulement                                                                      |
+| 2026-10-09 | D2    | `b7dd320` | Palette globale ; ne s'ouvre pas depuis l'éditeur DBML (Ctrl+K y est un préfixe de raccourcis) ; e2e dédié passé chez l'agent                                                         |
+| 2026-10-09 | D1    | `3b5bef6` | Onglets Connexion / Règles / Projets, un seul Enregistrer, repère « ! » sur l'onglet fautif ; refait par-dessus la liste des bases                                                    |
+| 2026-10-09 | F2    | `692f305` | Descriptions multi-lignes (notes DBML en triple quote) et export PDF côté navigateur ; pas de `format=pdf` dans l'API                                                                 |
+| 2026-10-09 | C2    | `3b11f8f` | Requêtes enregistrées, privées ou partagées ; migration 46 ; 344 tests serveur passent après intégration                                                                              |
+| 2026-10-09 | F1    | `8f6a98e` | E-mail sur abonnement (option par compte), acquittement, sourdine avec durée ; migrations 47 à 49 ; relais SMTP réel non essayé                                                       |
+| 2026-10-14 | E2    | `efca567` | Niveau `deploy` entre édition et administrateur ; l'import depuis une base reste administrateur                                                                                       |
+| 2026-10-14 | E1    | `2fc92e9` | Revue sur étape « Revue » : jamais par l'auteur, approbation valable 7 jours, plan refait au déploiement ; migration 50                                                               |
+| 2026-10-14 | F3    | `4b743d1` | Export SQL / Flyway / Liquibase en zip, niveau `deploy` ; formats vérifiés sur documentation seulement                                                                                |
+| 2026-10-14 | A1–A6 | `7a9877c` | Branche PostgreSQL complète sur sa base : 364 tests serveur sur PostgreSQL, bascule depuis SQLite essayée sur une vraie instance ; image Docker non construite ; pas encore fusionnée |
 
 Dernière vérification complète (après E1, E2, F3) : 370 tests serveur, 143 tests web, typecheck, lint et imports circulaires propres.
 Non vérifié : tests navigateur (e2e) et essai à la main des écrans.
