@@ -743,7 +743,8 @@ test("/api/v1 backups: a running backup is cancelled with a key", async () => {
     const filler = new Database(file);
     const insert = filler.prepare("INSERT INTO events (label) VALUES (?)");
     filler.transaction(() => {
-      for (let i = 0; i < 40_000; i++) insert.run("event");
+      // Large enough that the backup is still reading when the cancel arrives, even on a loaded machine.
+      for (let i = 0; i < 200_000; i++) insert.run("event");
     })();
     filler.close();
     const connId = await connect(app, admin, "Events v1", file);
