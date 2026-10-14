@@ -890,3 +890,85 @@ test("/api/v1 dictionary: the schema's notes as JSON or as a document, format ch
     await app.close();
   }
 });
+
+test("/api/v1 bundle: a project exports as one file and imports back with the right scopes", async () => {
+  const app = await buildApp();
+  try {
+    const owner = await makeUser();
+    const cookie = await loginAs(app, owner.email, owner.password);
+    const { project, plaintextKey } = await createProjectWithKey(app, cookie, ["projects:read", "projects:write"]);
+
+    const exported = await app.inject({
+      method: "GET",
+      url: `/api/v1/projects/${project.id}/export/bundle`,
+      headers: bearer(plaintextKey),
+    });
+    assert.equal(exported.statusCode, 200, exported.body);
+    assert.match(exported.body, /widgets/);
+
+    const imported = await app.inject({
+      method: "POST",
+      url: `/api/v1/projects/${project.id}/import/bundle`,
+      headers: bearer(plaintextKey),
+      payload: { source: exported.body },
+    });
+    assert.equal(imported.statusCode, 200, imported.body);
+    assert.equal(imported.json().imported, true);
+    assert.equal(imported.json().tables, 1);
+
+    const bad = await app.inject({
+      method: "POST",
+      url: `/api/v1/projects/${project.id}/import/bundle`,
+      headers: bearer(plaintextKey),
+      payload: { source: "not a bundle" },
+    });
+    assert.equal(bad.statusCode, 400);
+    assert.equal(bad.json().code, "BUNDLE_INVALID");
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});
+
+test("/api/v1 plan: a deployment is planned without running, and the plan says what would refuse it", async () => {
+  const app = await buildApp();
+  try {
+    const owner = await makeUser();
+    const cookie = await loginAs(app, owner.email, owner.password);
+    const { project, plaintextKey } = await createProjectWithKey(app, cookie, ["projects:read", "deployments:trigger"]);
+    const targetFile = join(tmpdir(), `nebuladb-test-v1plan-${randomUUID()}.sqlite`);
+    const connRes = await app.inject({
+      method: "POST",
+      url: `/api/projects/${project.id}/connections`,
+      headers: headers({ cookie }),
+      payload: { name: "Local file", engine: "sqlite", filePath: targetFile },
+    });
+    const connId = connRes.json().connection.id;
+
+    const plan = await app.inject({
+      method: "POST",
+      url: `/api/v1/projects/${project.id}/connections/${connId}/plan`,
+      headers: bearer(plaintextKey),
+    });
+    assert.equal(plan.statusCode, 200, plan.body);
+    assert.match(plan.json().sqlPreview, /widgets/);
+    assert.equal(plan.json().blockers.lintErrors, 0);
+
+    const history = await app.inject({
+      method: "GET",
+      url: `/api/v1/projects/${project.id}/connections/${connId}/history`,
+      headers: bearer(plaintextKey),
+    });
+    assert.equal(history.json().history.length, 0, "planning deploys nothing");
+
+    const missing = await app.inject({
+      method: "POST",
+      url: `/api/v1/projects/${project.id}/connections/nope/plan`,
+      headers: bearer(plaintextKey),
+    });
+    assert.equal(missing.json().code, "CONNECTION_NOT_FOUND");
+  } finally {
+    closeAllRooms();
+    await app.close();
+  }
+});

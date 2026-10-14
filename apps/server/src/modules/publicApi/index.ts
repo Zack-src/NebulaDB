@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { readProjectFromDoc, writeProjectToDoc } from "@nebuladb/shared";
+import { parseProjectBundle, readProjectFromDoc, writeProjectToDoc } from "@nebuladb/shared";
 import {
   applyVisualMetadata,
   buildDictionary,
@@ -25,6 +25,7 @@ import { getEffectivePermission } from "../../shared/permissions.js";
 import { svgToPng } from "../../shared/svgToPng.js";
 import { getProjectSummary, listProjectSummaries } from "../projects/repository.js";
 import { createProjectForUser, deleteProject, updateProject } from "../projects/projectCrud.js";
+import { applyBundle, buildBundle } from "../projects/bundle.js";
 import { parseBaselineProject, parseSource, requireSqlDialect, sendSql } from "../projects/dbmlSource.js";
 import { registerPublicBackupRoutes } from "./backupRoutes.js";
 import { registerPublicCredentialRoutes } from "./credentialRoutes.js";
@@ -212,6 +213,39 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
     room.doc.transact(() => writeProjectToDoc(room.doc, reconciled), user.displayName);
     auditUser(user, "project.import", { type: "project", id }, `${reconciled.tables.length} table(s) (v1)`, req);
     return { imported: true, tables: reconciled.tables.length };
+  });
+
+  // Everything about the project in one file — schema, layout, locks, seeds, generator settings. See `ProjectBundle`.
+  app.get("/api/v1/projects/:id/export/bundle", API_RATE_LIMIT, async (req, reply) => {
+    const { id } = req.params as { id: string };
+    const { user, project } = requireProjectAccess(req, id, "view");
+    requireScope(req, "projects:read", id);
+    const current = readProjectFromDoc(getRoom(id).doc, project.id, project.name);
+    auditUser(user, "project.export", { type: "project", id }, "bundle (v1)", req);
+    return reply.type("application/json").send(JSON.stringify(buildBundle(current), null, 2));
+  });
+
+  app.post("/api/v1/projects/:id/import/bundle", { ...API_RATE_LIMIT, bodyLimit: 64 * 1024 * 1024 }, async (req) => {
+    const { id } = req.params as { id: string };
+    const { user, project } = requireProjectAccess(req, id, "edit");
+    requireScope(req, "projects:write", id);
+    const { source } = (req.body ?? {}) as { source?: unknown };
+    if (typeof source !== "string" || !source.trim()) throw new ApiError("SOURCE_REQUIRED");
+    let bundle;
+    try {
+      bundle = parseProjectBundle(source);
+    } catch (err) {
+      throw new ApiError("BUNDLE_INVALID", { message: err instanceof Error ? err.message : undefined });
+    }
+    const result = applyBundle(user, project, bundle);
+    auditUser(
+      user,
+      "project.import",
+      { type: "project", id },
+      `bundle: ${result.tables} table(s), ${result.locks} lock(s), ${result.seeds} seed(s) (v1)`,
+      req,
+    );
+    return { imported: true, ...result };
   });
 
   registerPublicIamRoutes(app);

@@ -22,7 +22,7 @@ import {
   unlinkProjectConnection,
   updateConnection,
 } from "../connections/repository.js";
-import { assertProjectMayEditConnection, assertTargetNotManaged } from "../connections/routes.js";
+import { assertProjectMayEditConnection, assertTargetNotManaged, planDeployment } from "../connections/routes.js";
 import { isValidEngine } from "../connections/engines.js";
 import { API_RATE_LIMIT, DEPLOY_RATE_LIMIT } from "./rateLimits.js";
 
@@ -160,6 +160,14 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
     );
 
     return result;
+  });
+
+  // What a deployment would do — the diff, its risks and the SQL — without doing it; what a CI job reads before `deploy`.
+  app.post("/api/v1/projects/:id/connections/:connId/plan", DEPLOY_RATE_LIMIT, async (req) => {
+    const { id, connId } = req.params as { id: string; connId: string };
+    const { project } = requireProjectAccess(req, id, "deploy");
+    requireScope(req, "projects:read", id);
+    return planDeployment(id, project, connId);
   });
 
   // Where the current schema has been deployed along the stages — what a CI job reads before promoting.

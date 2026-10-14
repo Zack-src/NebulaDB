@@ -372,6 +372,37 @@ export const OPERATIONS: Operation[] = [
     ok: { status: 200, mediaType: "image/png" },
   },
   {
+    method: "get",
+    path: "/api/v1/projects/:id/export/bundle",
+    tag: "Projects",
+    scope: "projects:read",
+    summary: "Export everything about the project as one JSON file",
+    description:
+      "Schema and layout, plus the table locks, seeds and generator settings that DBML cannot carry. Import it back with `POST …/import/bundle`.",
+    ok: { status: 200, mediaType: "application/json" },
+  },
+  {
+    method: "post",
+    path: "/api/v1/projects/:id/import/bundle",
+    tag: "Projects",
+    scope: "projects:write",
+    summary: "Import a project bundle",
+    description:
+      "Merged like a DBML import. Locks and seeds the caller's authority does not reach are left alone and listed in `skipped`. 400 BUNDLE_INVALID when the file is not a bundle.",
+    body: obj({ source: { type: "string", description: "The bundle file's content" } }),
+    ok: {
+      status: 200,
+      schema: obj({
+        imported: { type: "boolean", const: true },
+        tables: int,
+        locks: int,
+        seeds: int,
+        generators: int,
+        skipped: { type: "array", items: str },
+      }),
+    },
+  },
+  {
     method: "post",
     path: "/api/v1/projects/:id/import",
     tag: "Projects",
@@ -484,6 +515,32 @@ export const OPERATIONS: Operation[] = [
         rollbackAvailable: bool,
         irreversibleWarnings: { type: "array", items: str },
         backupId: { type: ["string", "null"] },
+      }),
+    },
+  },
+  {
+    method: "post",
+    path: "/api/v1/projects/:id/connections/:connId/plan",
+    tag: "Connections",
+    scope: "projects:read",
+    admin: "deploy",
+    summary: "Plan a deployment without running it",
+    description:
+      "Reads the live database and answers what `deploy` would do: the diff, the risks to answer with `resolutions`, the seeds, the SQL, and in `blockers` what would refuse the deployment whatever the plan says (lint errors, a stage that must be level first). Changes nothing.",
+    ok: {
+      status: 200,
+      schema: obj({
+        diff: { type: "object", additionalProperties: true },
+        risks: { type: "array", items: { type: "object", additionalProperties: true } },
+        seeds: { type: "array", items: { type: "object", additionalProperties: true } },
+        seedCycles: { type: "array", items: { type: "array", items: str } },
+        sqlPreview: str,
+        engine: str,
+        blockers: obj({
+          lintErrors: int,
+          lintFindings: { type: "array", items: { type: "object", additionalProperties: true } },
+          waitsForStage: { type: ["string", "null"] },
+        }),
       }),
     },
   },

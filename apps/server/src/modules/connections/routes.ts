@@ -67,6 +67,55 @@ export function assertProjectMayEditConnection(user: SessionUser, projectId: str
 }
 
 /**
+ * What deploying the project's current schema to a connection would do, without doing it: the diff
+ * against the live database, its risks, the seeds, the SQL, and what would refuse the deployment
+ * whatever the plan says. Shared by the app's route and `/api/v1`'s.
+ */
+export async function planDeployment(id: string, project: { id: string; name: string }, connId: string) {
+  const conn = getProjectConnection(id, connId);
+  if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
+
+  const room = getRoom(id);
+  const writtenProject = readProjectFromDoc(room.doc, project.id, project.name);
+  const canvasProject = schemaForConnection(writtenProject, conn);
+  // What would refuse the deployment whatever the plan says — told with the
+  // plan, not after "Apply". The deployment checks both again itself.
+  const lintSettings = getLintSettings(id);
+  const stage = conn.environmentId
+    ? projectPipeline(id, schemaHashOf(writtenProject)).stages.find((entry) => entry.id === conn.environmentId)
+    : undefined;
+  const blockingLint = blockingLintFindings(writtenProject, lintSettings);
+  const blockers = {
+    lintErrors: blockingLint.count,
+    lintFindings: blockingLint.findings,
+    waitsForStage: stage && !stage.ready ? stage.requires : null,
+  };
+
+  const driver = await createDatabaseDriver(conn);
+  try {
+    const liveProject = await driver.introspectSchema();
+    const diff = diffTargetAgainstLive(liveProject, canvasProject);
+    const risks = await analyzeDeploymentRisks(driver, diff, conn.engine);
+    const preparedSeeds = prepareSeeds(id, canvasProject);
+    const created = new Set(diff.tables.filter((t) => t.status === "added").map((t) => t.name.toLowerCase()));
+    const seeds = await planSeeds(driver, preparedSeeds, conn.engine, created);
+    const initialSql = generateMigrationSql(diff, conn.engine, {});
+
+    return {
+      diff,
+      risks,
+      seeds,
+      seedCycles: preparedSeeds.cycles,
+      sqlPreview: initialSql,
+      engine: conn.engine,
+      blockers,
+    };
+  } finally {
+    await driver.close().catch(() => {});
+  }
+}
+
+/**
  * Nothing here but the list route is open to `edit`: these routes make the *server* open
  * connections to a caller-supplied host/file or execute generated SQL. `hostGuard.ts` and the
  * SQLite own-database guard narrow *where*; this narrows *who*.
@@ -244,48 +293,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
   app.post("/api/projects/:id/connections/:connId/plan-deployment", CONNECTION_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
     const { project } = requireProjectAccess(req, id, "deploy");
-
-    const conn = getProjectConnection(id, connId);
-    if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
-
-    const room = getRoom(id);
-    const writtenProject = readProjectFromDoc(room.doc, project.id, project.name);
-    const canvasProject = schemaForConnection(writtenProject, conn);
-    // What would refuse the deployment whatever the plan says — told with the
-    // plan, not after "Apply". The deployment checks both again itself.
-    const lintSettings = getLintSettings(id);
-    const stage = conn.environmentId
-      ? projectPipeline(id, schemaHashOf(writtenProject)).stages.find((entry) => entry.id === conn.environmentId)
-      : undefined;
-    const blockingLint = blockingLintFindings(writtenProject, lintSettings);
-    const blockers = {
-      lintErrors: blockingLint.count,
-      lintFindings: blockingLint.findings,
-      waitsForStage: stage && !stage.ready ? stage.requires : null,
-    };
-
-    const driver = await createDatabaseDriver(conn);
-    try {
-      const liveProject = await driver.introspectSchema();
-      const diff = diffTargetAgainstLive(liveProject, canvasProject);
-      const risks = await analyzeDeploymentRisks(driver, diff, conn.engine);
-      const preparedSeeds = prepareSeeds(id, canvasProject);
-      const created = new Set(diff.tables.filter((t) => t.status === "added").map((t) => t.name.toLowerCase()));
-      const seeds = await planSeeds(driver, preparedSeeds, conn.engine, created);
-      const initialSql = generateMigrationSql(diff, conn.engine, {});
-
-      return {
-        diff,
-        risks,
-        seeds,
-        seedCycles: preparedSeeds.cycles,
-        sqlPreview: initialSql,
-        engine: conn.engine,
-        blockers,
-      };
-    } finally {
-      await driver.close().catch(() => {});
-    }
+    return planDeployment(id, project, connId);
   });
 
   // 8. Apply deployment: Generate DDL with resolutions & execute transactionally
