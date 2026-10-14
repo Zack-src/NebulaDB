@@ -3,8 +3,8 @@ import { ApiError } from "../../../shared/errors.js";
 import type { AdminStatement } from "./interface.js";
 
 const MAX_NAME_LENGTH = 128;
-const MAX_CELL_CHARS = 10_000;
-const MAX_BINARY_BYTES = 64;
+export const MAX_CELL_CHARS = 10_000;
+export const MAX_BINARY_BYTES = 64;
 
 /** A name that is about to be quoted into SQL: present, bounded, and free of the one character no quoting rule survives. */
 export function requireName(value: unknown, what: string): string {

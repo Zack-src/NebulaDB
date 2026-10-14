@@ -45,6 +45,10 @@ export interface DbAdminColumn {
   nullable: boolean;
   defaultValue: string | null;
   primaryKey: boolean;
+  /** Computed by the database from other columns, or an always-generated identity: never written. */
+  generated?: boolean;
+  /** An identity / auto-increment column: the database fills it when an insert leaves it out. */
+  autoValue?: boolean;
 }
 
 export interface DbAdminIndex {
@@ -281,6 +285,97 @@ export interface DbAdminSession {
 export interface DbAdminStatementsResult {
   sql: string[];
   executed: boolean;
+}
+
+// ---- Row editing (the explorer's data grid) ------------------------------------
+
+/**
+ * A cell as row editing reads and writes it: the value as text in the
+ * engine's own form, or `null` for SQL NULL — never a JSON number, so a big
+ * integer or a decimal keeps every digit, and `""` is the empty string.
+ */
+export type DbRowCell = string | null;
+
+/** What a column holds, as far as its type says: picks the input and the checks, not the SQL. */
+export type DbRowColumnKind =
+  "integer" | "decimal" | "float" | "boolean" | "text" | "datetime" | "json" | "binary" | "other";
+
+/**
+ * Why a column is shown but never written. `generated`: computed by the
+ * database. `binary`: bytes, shown as a hexadecimal excerpt. `untyped`: a
+ * SQLite column declared without a type, whose values would silently change
+ * class. `unsupported`: a type that does not survive a round trip as text.
+ */
+export type DbRowColumnLock = "generated" | "binary" | "untyped" | "unsupported";
+
+export interface DbRowEditColumn {
+  name: string;
+  type: string;
+  kind: DbRowColumnKind;
+  nullable: boolean;
+  /** Left out of an insert, the column takes its default (or its identity / auto-increment value). */
+  hasDefault: boolean;
+  primaryKey: boolean;
+  readOnly: DbRowColumnLock | null;
+  /** For `boolean`: how this engine writes true and false. */
+  booleanValues?: [string, string];
+}
+
+/**
+ * Why the rows of a table cannot be edited. `engine`: not offered on this
+ * engine. `no-primary-key`: nothing identifies one row (a view, too).
+ * `key-type`: the key cannot be compared faithfully as text.
+ */
+export type DbRowEditRefusal = "engine" | "no-primary-key" | "key-type" | "read-only-connection" | "read-access";
+
+export interface DbRowEditing {
+  editable: boolean;
+  reason: DbRowEditRefusal | null;
+  /** The primary key's columns: what identifies the one row a change targets. */
+  key: string[];
+  columns: DbRowEditColumn[];
+  /** Ceilings of one apply. */
+  maxOperations: number;
+  maxBytes: number;
+}
+
+/** A page of a table for the grid. When `editing.editable`, every cell of `result` is a `DbRowCell`. */
+export interface DbEditableRows {
+  editing: DbRowEditing;
+  result: DbAdminQueryResult;
+  /** `[row, column]` of the cells whose value is not shown whole (cut short, or bytes): not editable. */
+  partial: [number, number][];
+  limit: number;
+  offset: number;
+}
+
+/**
+ * One change to one row. `key`: the row's primary key as it was read.
+ * `original`: the cells as they were displayed — for an update at least the
+ * edited columns, for a delete the whole row; the server refuses the batch
+ * when the row no longer shows those values.
+ */
+export type DbRowOperation =
+  | { type: "insert"; values: Record<string, DbRowCell> }
+  | {
+      type: "update";
+      key: Record<string, string>;
+      original: Record<string, DbRowCell>;
+      values: Record<string, DbRowCell>;
+    }
+  | { type: "delete"; key: Record<string, string>; original: Record<string, DbRowCell> };
+
+export interface DbRowEditCounts {
+  insert: number;
+  update: number;
+  delete: number;
+}
+
+/** The statements of a batch, values written out in the engine's dialect, and whether they ran. */
+export interface DbRowEditResult {
+  sql: string[];
+  executed: boolean;
+  counts: DbRowEditCounts;
 }
 
 // ---- Structure policy ("structure goes through the schema") -------------------

@@ -362,6 +362,17 @@ export const ERROR_CATALOG = {
     message:
       "this is the account the connection itself signs in with — dropping, locking it or changing its password would lock Nebula out of this database",
   },
+  ROW_EDIT_INVALID: { status: 400, message: "the row changes are malformed or do not fit the table" },
+  ROW_EDIT_LIMIT: { status: 400, message: "too many row changes, or too much data, for one apply" },
+  ROW_EDIT_NOT_EDITABLE: { status: 409, message: "the rows of this table cannot be edited from here" },
+  ROW_EDIT_STALE: {
+    status: 409,
+    message: "a row has changed or is gone since it was read — nothing was applied",
+  },
+  ROW_EDIT_ROW_COUNT: {
+    status: 409,
+    message: "a statement did not change exactly one row — nothing was applied",
+  },
   PRODUCTION_CONFIRMATION_REQUIRED: {
     status: 409,
     message: "this connection is the production stage — send its name as confirmName to deploy or roll back",
@@ -396,6 +407,7 @@ export const ERROR_CATALOG = {
     message: "password reset by email is not available: this instance has no email configured",
   },
   DB_ADMIN_QUERY_FAILED: { status: 502, message: "the target database rejected the statement" },
+  ROW_EDIT_FAILED: { status: 502, message: "the database refused a row change — nothing was applied" },
   MIGRATION_FAILED: { status: 502, message: "the migration could not be applied to the target database" },
   ROLLBACK_FAILED: { status: 502, message: "the rollback could not be applied to the target database" },
   BACKUP_FAILED: { status: 502, message: "the safety backup did not complete, so nothing was changed" },

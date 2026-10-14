@@ -4,6 +4,7 @@ import { connectionOwner } from "../connections/repository.js";
 import { registerAccountRoutes } from "./accountRoutes.js";
 import { registerConnectionAdminRoutes } from "./connectionAdminRoutes.js";
 import { registerExplorerRoutes } from "./explorerRoutes.js";
+import { registerRowEditRoutes } from "./rowEditRoutes.js";
 import { registerSavedQueryRoutes } from "./savedQueryRoutes.js";
 
 /**
@@ -23,6 +24,7 @@ export function registerDbAdminRoutes(app: FastifyInstance): void {
 
   registerConnectionAdminRoutes(app);
   registerExplorerRoutes(app);
+  registerRowEditRoutes(app);
   registerSavedQueryRoutes(app);
   registerAccountRoutes(app);
 }

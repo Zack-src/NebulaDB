@@ -11,6 +11,7 @@ process.env.NEBULADB_DB_PATH ??= join(tmpdir(), `nebuladb-test-adminlive-${rando
 const { createAdminDriver } = await import("./index.js");
 const { resetConnectionBudgets } = await import("../../connections/connectionBudget.js");
 const { TEST_DB_HINT } = await import("../../connections/drivers/testDbAvailability.js");
+const { describeRowEditing, planRowEdits, readEditablePage, runRowEdits } = await import("../rowEdits.js");
 
 /**
  * The administration drivers against real servers: the throwaway containers
@@ -361,3 +362,125 @@ test("oracle admin driver: explore, query with the read-only guard, manage a use
     await driver.close();
   }
 });
+
+/** Row editing from the explorer's grid: text in, text out, every value bound, all or nothing. */
+for (const engine of ["postgres", "mysql"] as const) {
+  test(`${engine} row editing: exact values, quoted names, stale rows and rollback`, async (t) => {
+    const driver = await open(t, engine);
+    if (!driver?.rowSession) return;
+    const [l, r] = QUOTES[engine];
+    const q = (name: string) => `${l}${name.replaceAll(r, r + r)}${r}`;
+    const pg = engine === "postgres";
+    const database = "nebula_rows_live";
+    const name = 'od"d `ta.ble';
+    const ref = { database, schema: pg ? "public" : undefined, table: name };
+    const options = { database, write: true, timeoutMs: 20_000 };
+    // Past 2^53: a JavaScript number would round it.
+    const big = "9007199254740993";
+    try {
+      await driver.execute(driver.dropStatements("database", { database })).catch(() => {});
+      await driver.runQuery(`CREATE DATABASE ${q(database)}`, WRITE);
+      await driver.runQuery(
+        pg
+          ? `CREATE TABLE ${q(name)} (id bigint PRIMARY KEY, ${q("we'ird col")} text, amount numeric(30,10), ok boolean,
+               doc jsonb, at timestamp, tags text[], n integer GENERATED ALWAYS AS IDENTITY,
+               twice bigint GENERATED ALWAYS AS (id * 2) STORED)`
+          : `CREATE TABLE ${q(name)} (id bigint unsigned PRIMARY KEY, ${q("we'ird col")} text, amount decimal(30,10),
+               ok tinyint(1), doc json, at datetime(3), n int NOT NULL AUTO_INCREMENT UNIQUE,
+               twice bigint AS (id * 2) STORED)`,
+        { ...WRITE, database },
+      );
+      await driver.runQuery(
+        `INSERT INTO ${q(name)} (id, ${q("we'ird col")}, amount, ok) VALUES (${big}, 'x', 1.5, ${pg ? "true" : "1"})`,
+        { ...WRITE, database },
+      );
+
+      const editing = describeRowEditing(engine, await driver.describeTable(ref), {
+        supported: true,
+        access: "admin",
+        readOnly: false,
+      });
+      assert.equal(editing.editable, true);
+      const column = (c: string) => editing.columns.find((x) => x.name === c)!;
+      assert.equal(column("twice").readOnly, "generated");
+      // An identity column that is `GENERATED ALWAYS` refuses a value; an auto-increment one takes one.
+      assert.equal(column("n").readOnly, pg ? "generated" : null);
+      assert.equal(column("n").hasDefault, !pg);
+
+      const read = async () => {
+        const page = await driver.rowSession!({ ...options, write: false }, (run) =>
+          readEditablePage(run, engine, ref, editing, { limit: 10, offset: 0 }),
+        );
+        return new Map(
+          page.result.rows.map((cells) => [
+            cells[0] as string,
+            Object.fromEntries(page.result.columns.map((c, i) => [c, cells[i] as string | null])),
+          ]),
+        );
+      };
+      const before = (await read()).get(big)!;
+      assert.deepEqual(
+        [before.id, before["we'ird col"], before.amount, before.ok, before.twice],
+        [big, "x", "1.5000000000", pg ? "true" : "1", "18014398509481986"],
+      );
+
+      const apply = (operations: unknown) =>
+        driver.rowSession!(options, (run) => runRowEdits(run, planRowEdits(engine, ref, editing, operations), []));
+      await apply([
+        {
+          type: "update",
+          key: { id: big },
+          original: { "we'ird col": "x", amount: "1.5000000000", doc: null },
+          values: { "we'ird col": "", amount: "12345678901234567890.0123456789", doc: '{"a": [1, 2]}' },
+        },
+        {
+          type: "insert",
+          values: {
+            id: "42",
+            "we'ird col": null,
+            ok: pg ? "false" : "0",
+            at: "2024-02-29 23:59:58.125",
+            ...(pg ? { tags: '{a,"b c"}' } : {}),
+          },
+        },
+      ]);
+      const after = await read();
+      assert.deepEqual(
+        [after.get(big)?.["we'ird col"], after.get(big)?.amount, after.get(big)?.doc],
+        ["", "12345678901234567890.0123456789", pg ? '{"a": [1, 2]}' : '{"a": [1, 2]}'],
+      );
+      assert.equal(after.get("42")?.["we'ird col"], null);
+      assert.match(String(after.get("42")?.at), /^2024-02-29 23:59:58\.125/);
+      if (pg) assert.equal(after.get("42")?.tags, '{a,"b c"}');
+
+      // The row changed since it was read: nothing of the batch stays.
+      await assert.rejects(
+        apply([
+          { type: "insert", values: { id: "43" } },
+          { type: "update", key: { id: big }, original: { "we'ird col": "x" }, values: { "we'ird col": "y" } },
+        ]),
+        { code: "ROW_EDIT_STALE" },
+      );
+      // The database refuses the second statement (a duplicate key): the first does not stay either.
+      await assert.rejects(
+        apply([
+          { type: "insert", values: { id: "44" } },
+          { type: "insert", values: { id: "42" } },
+        ]),
+        (err: { code?: string; details?: { position?: number; reason?: string } }) =>
+          err.code === "ROW_EDIT_FAILED" && err.details?.position === 2 && Boolean(err.details.reason),
+      );
+      // Too large for the column: an error, not a value quietly cut down to fit.
+      await assert.rejects(apply([{ type: "insert", values: { id: "45", amount: "1e40" } }]), {
+        code: "ROW_EDIT_FAILED",
+      });
+      assert.deepEqual([...(await read()).keys()].sort(), ["42", big].sort());
+
+      await apply([{ type: "delete", key: { id: "42" }, original: after.get("42") }]);
+      assert.deepEqual([...(await read()).keys()], [big]);
+    } finally {
+      await driver.execute(driver.dropStatements("database", { database })).catch(() => {});
+      await driver.close();
+    }
+  });
+}

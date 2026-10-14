@@ -13,7 +13,9 @@ import {
   READ_LIMIT,
   WRITE_LIMIT,
   assertWritable,
+  clamp,
   loadConnection,
+  pageFromQuery,
   previewOrExecute,
   refFromQuery,
   withDriver,
@@ -29,17 +31,7 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 
 const MAX_TIMEOUT_MS = 120_000;
 
-const DEFAULT_PAGE = 100;
-
-const MAX_PAGE = 500;
-
 const DROP_KINDS: readonly DropKind[] = ["database", "table", "view", "column"];
-
-function clamp(value: unknown, fallback: number, max: number): number {
-  const n = Number(value);
-  if (value === undefined || value === null || value === "" || !Number.isFinite(n)) return fallback;
-  return Math.min(Math.max(Math.trunc(n), 1), max);
-}
 
 function describeRef(ref: DbAdminObjectRef): string {
   return [ref.database, ref.schema, ref.table, ref.column].filter(Boolean).join(".");
@@ -140,11 +132,7 @@ export function registerExplorerRoutes(app: FastifyInstance): void {
       const { connection } = guard(req, id);
       const ref = refFromQuery(req);
       requireName(ref.table, "table");
-      const { limit, offset } = req.query as { limit?: string; offset?: string };
-      const page = {
-        limit: clamp(limit, DEFAULT_PAGE, MAX_PAGE),
-        offset: Math.max(0, Math.trunc(Number(offset) || 0)),
-      };
+      const page = pageFromQuery(req);
       return withDriver(connection, "admin", async (driver) => ({
         result: await driver.browseRows(ref, page),
         ...page,

@@ -34,7 +34,14 @@ import {
   trimStatement,
   unsupported,
 } from "./common.js";
-import type { AdminStatement, DatabaseAdminDriver, DropKind, RunQueryOptions } from "./interface.js";
+import type {
+  AdminStatement,
+  DatabaseAdminDriver,
+  DropKind,
+  RowSessionOptions,
+  RowStatementRunner,
+  RunQueryOptions,
+} from "./interface.js";
 
 const SYSTEM_DATABASES = new Set(["mysql", "information_schema", "performance_schema", "sys"]);
 const SYSTEM_ACCOUNTS = new Set(["mysql.sys", "mysql.session", "mysql.infoschema", "mariadb.sys"]);
@@ -216,8 +223,10 @@ export class MysqlAdminDriver implements DatabaseAdminDriver {
       nullable: string;
       def: string | null;
       col_key: string;
+      extra: string | null;
     }>(
-      `SELECT COLUMN_NAME AS name, COLUMN_TYPE AS type, IS_NULLABLE AS nullable, COLUMN_DEFAULT AS def, COLUMN_KEY AS col_key
+      `SELECT COLUMN_NAME AS name, COLUMN_TYPE AS type, IS_NULLABLE AS nullable, COLUMN_DEFAULT AS def, COLUMN_KEY AS col_key,
+              EXTRA AS extra
          FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = ? AND TABLE_NAME = ? ORDER BY ORDINAL_POSITION`,
       [database, table],
     );
@@ -271,6 +280,9 @@ export class MysqlAdminDriver implements DatabaseAdminDriver {
         nullable: c.nullable === "YES",
         defaultValue: c.def,
         primaryKey: c.col_key === "PRI",
+        // "VIRTUAL GENERATED" / "STORED GENERATED" (MariaDB: also "PERSISTENT"); "DEFAULT_GENERATED" is only a default.
+        generated: /\b(VIRTUAL|STORED|PERSISTENT)\b/i.test(c.extra ?? ""),
+        autoValue: /\bauto_increment\b/i.test(c.extra ?? ""),
       })),
       indexes: [...indexes.values()],
       constraints: [...constraints.values()].map((c) => ({
@@ -531,6 +543,37 @@ export class MysqlAdminDriver implements DatabaseAdminDriver {
     try {
       if (database) await conn.query(`USE ${q(requireName(database, "database"))}`);
       for (const statement of statements) await conn.query(statement.sql);
+    } finally {
+      conn.release();
+    }
+  }
+
+  async rowSession<T>(options: RowSessionOptions, fn: (run: RowStatementRunner) => Promise<T>): Promise<T> {
+    const conn = await this.pool.getConnection();
+    try {
+      if (options.database) await conn.query(`USE ${q(requireName(options.database, "database"))}`);
+      if (options.write) {
+        // Strict for this session whatever the server's default: a value that does not fit is an
+        // error, not a silently shortened string or a zero.
+        await conn.query("SET SESSION sql_mode = CONCAT(@@SESSION.sql_mode, ',STRICT_ALL_TABLES')");
+        await conn
+          .query(`SET SESSION innodb_lock_wait_timeout = ${Math.max(1, Math.ceil(options.timeoutMs / 1000))}`)
+          .catch(() => {});
+      }
+      await conn.query(options.write ? "START TRANSACTION" : "START TRANSACTION READ ONLY");
+      try {
+        const result = await fn(async (sql, params = []) => {
+          // `execute`: a server-side prepared statement, the parameters sent apart from the text.
+          const [rows, fields] = await conn.execute({ sql, rowsAsArray: true, timeout: options.timeoutMs }, params);
+          if (!Array.isArray(rows)) return { columns: [], rows: [], affected: Number(rows.affectedRows ?? 0) };
+          return { columns: (fields ?? []).map((f) => f.name), rows: rows as unknown[][], affected: 0 };
+        });
+        await conn.query(options.write ? "COMMIT" : "ROLLBACK");
+        return result;
+      } catch (err) {
+        await conn.query("ROLLBACK").catch(() => {});
+        throw err;
+      }
     } finally {
       conn.release();
     }

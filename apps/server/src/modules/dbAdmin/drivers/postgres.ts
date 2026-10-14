@@ -36,7 +36,14 @@ import {
   trimStatement,
   unsupported,
 } from "./common.js";
-import type { AdminStatement, DatabaseAdminDriver, DropKind, RunQueryOptions } from "./interface.js";
+import type {
+  AdminStatement,
+  DatabaseAdminDriver,
+  DropKind,
+  RowSessionOptions,
+  RowStatementRunner,
+  RunQueryOptions,
+} from "./interface.js";
 
 const SYSTEM_DATABASES = new Set(["postgres", "template0", "template1"]);
 const SYSTEM_SCHEMAS = new Set(["pg_catalog", "information_schema"]);
@@ -151,9 +158,19 @@ export class PostgresAdminDriver implements DatabaseAdminDriver {
     );
     if (!target) throw new ApiError("DB_ADMIN_INPUT_INVALID", { message: "no such table" });
 
-    const columns = await this.rows<{ name: string; type: string; notnull: boolean; def: string | null; pk: boolean }>(
+    const columns = await this.rows<{
+      name: string;
+      type: string;
+      notnull: boolean;
+      def: string | null;
+      pk: boolean;
+      generated: string;
+      identity: string;
+    }>(
+      // `attidentity` (10) and `attgenerated` (12) are read through `to_jsonb` so an older server answers too.
       `SELECT a.attname AS name, format_type(a.atttypid, a.atttypmod) AS type, a.attnotnull AS notnull,
               pg_get_expr(d.adbin, d.adrelid) AS def,
+              COALESCE(to_jsonb(a)->>'attgenerated', '') AS generated, COALESCE(to_jsonb(a)->>'attidentity', '') AS identity,
               EXISTS (SELECT 1 FROM pg_index i WHERE i.indrelid = a.attrelid AND i.indisprimary AND a.attnum = ANY(i.indkey)) AS pk
          FROM pg_attribute a LEFT JOIN pg_attrdef d ON d.adrelid = a.attrelid AND d.adnum = a.attnum
         WHERE a.attrelid = $1 AND a.attnum > 0 AND NOT a.attisdropped ORDER BY a.attnum`,
@@ -180,6 +197,9 @@ export class PostgresAdminDriver implements DatabaseAdminDriver {
         nullable: !c.notnull,
         defaultValue: c.def,
         primaryKey: c.pk,
+        // `GENERATED ALWAYS AS IDENTITY` refuses a written value just as a computed column does.
+        generated: c.generated !== "" || c.identity === "a",
+        autoValue: c.identity === "d",
       })),
       indexes: indexes.map((i) => ({ name: i.name, columns: i.cols, unique: i.uniq, primary: i.prim })),
       constraints: constraints.map((c) => ({ name: c.name, type: types[c.contype] ?? c.contype, definition: c.def })),
@@ -467,6 +487,28 @@ export class PostgresAdminDriver implements DatabaseAdminDriver {
     try {
       for (const statement of statements) await client.query(statement.sql);
       await client.query("COMMIT");
+    } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
+      throw err;
+    }
+  }
+
+  async rowSession<T>(options: RowSessionOptions, fn: (run: RowStatementRunner) => Promise<T>): Promise<T> {
+    const client = await this.client(options.database);
+    await client.query(options.write ? "BEGIN" : "BEGIN TRANSACTION READ ONLY");
+    try {
+      await client.query(`SET LOCAL statement_timeout = ${Math.round(options.timeoutMs)}`);
+      const result = await fn(async (text, values = []) => {
+        // Parameters go as text of unknown type: the server gives each the type of the column it meets.
+        const res = await client.query({ text, values, rowMode: "array" });
+        return {
+          columns: (res.fields ?? []).map((f) => f.name),
+          rows: (res.rows ?? []) as unknown[][],
+          affected: res.rowCount ?? 0,
+        };
+      });
+      await client.query(options.write ? "COMMIT" : "ROLLBACK");
+      return result;
     } catch (err) {
       await client.query("ROLLBACK").catch(() => {});
       throw err;
