@@ -131,7 +131,9 @@ test("a lock above the importer's authority is skipped, not applied; a bad bundl
     bundle.locks = [
       { tableId: bundle.project.tables[0].id, tableName: "users", level: "structure", authority: "instance" },
     ];
-    const res = await call(app, cookie, "POST", `/api/projects/${id}/import/bundle`, { source: JSON.stringify(bundle) });
+    const res = await call(app, cookie, "POST", `/api/projects/${id}/import/bundle`, {
+      source: JSON.stringify(bundle),
+    });
     assert.equal(res.statusCode, 200, res.body);
     assert.deepEqual((res.json() as { locks: number; skipped: string[] }).skipped, ["lock:users"]);
 

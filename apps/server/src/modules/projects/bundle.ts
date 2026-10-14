@@ -98,7 +98,11 @@ function parseLock(raw: BundleLock): { level: TableLockLevel; authority: TableLo
  * (a lock above their authority, the seed of a table under a `full` lock) are
  * skipped and reported rather than refusing everything.
  */
-export function applyBundle(user: Caller, project: { id: string; name: string }, bundle: ProjectBundle): BundleImportResult {
+export function applyBundle(
+  user: Caller,
+  project: { id: string; name: string },
+  bundle: ProjectBundle,
+): BundleImportResult {
   const projectId = project.id;
   const room = getRoom(projectId);
   const current = readProjectFromDoc(room.doc, projectId, project.name);
@@ -106,7 +110,9 @@ export function applyBundle(user: Caller, project: { id: string; name: string },
   const incoming: Project = { ...bundle.project, id: projectId, name: current.name };
   const tableIds = new Set(incoming.tables.map((table) => table.id));
 
-  const locks = bundle.locks.filter((lock) => tableIds.has(lock?.tableId)).map((lock) => ({ lock, ...parseLock(lock) }));
+  const locks = bundle.locks
+    .filter((lock) => tableIds.has(lock?.tableId))
+    .map((lock) => ({ lock, ...parseLock(lock) }));
   const seeds = bundle.seeds
     .filter((seed) => tableIds.has(seed?.tableId))
     .map((seed) => ({ seed, ...parseSeedInput(seed) }));
