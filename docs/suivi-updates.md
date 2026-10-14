@@ -48,16 +48,16 @@ un moteur cible pour les projets).
 - [x] F2. Dictionnaire : description multi-ligne, export PDF — `7c33923`, `692f305`
 - [x] F3. Export des migrations en fichiers versionnés (Flyway / Liquibase) — `4b743d1`
 - [ ] F4. CLI / action GitHub
-- [ ] F5. Suggestions d'index à partir des statistiques de requêtes
-- [ ] F6. Lien de partage en lecture seule (diagramme, dictionnaire)
-- [ ] F7. Sauvegardes vers S3 / SFTP (en plus du dossier ou partage monté)
+- [~] F5. Suggestions d'index à partir des statistiques de requêtes
+- [~] F6. Lien de partage en lecture seule (diagramme, dictionnaire)
+- [~] F7. Sauvegardes vers S3 / SFTP (en plus du dossier ou partage monté)
 
 ## G. Dette repérée en route
 
 - [ ] G1. Remettre à niveau les 11 tests navigateur (e2e) qui échouent déjà sur `de5c5f6` : ils
       attendent des éléments retirés par la refonte (« Ouvrir », onglet « Données & SQL », « Déployer »)
-- [ ] G3. Test serveur instable sous charge : « /api/v1 backups: a running backup is cancelled with a key »
-- [ ] G2. Formater `bundle.ts` et `bundle.test.ts` (avertissement Prettier antérieur à ce lot)
+- [x] G3. Test serveur instable sous charge : « /api/v1 backups: a running backup is cancelled with a key » — `bb090e9`
+- [x] G2. Formater `bundle.ts` et `bundle.test.ts` (avertissement Prettier antérieur à ce lot) — `c2e7b46`
 
 ## En attente d'une décision de Zack
 
