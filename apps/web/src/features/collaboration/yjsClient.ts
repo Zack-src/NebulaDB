@@ -80,6 +80,8 @@ export function connectProject(
   user: string,
   onStatus?: (status: ConnectionStatus) => void,
   onNotice?: (notice: ServerNotice) => void,
+  /** Called each time the server has sent the document's state — the first call means the doc is complete. */
+  onSynced?: () => void,
 ): ProjectConnection {
   const offline = offlineConnectionFactory?.(projectId);
   if (offline) {
@@ -167,8 +169,9 @@ export function connectProject(
       if (messageType === MESSAGE_SYNC) {
         const encoder = encoding.createEncoder();
         encoding.writeVarUint(encoder, MESSAGE_SYNC);
-        syncProtocol.readSyncMessage(decoder, encoder, doc, REMOTE_ORIGIN);
+        const syncType = syncProtocol.readSyncMessage(decoder, encoder, doc, REMOTE_ORIGIN);
         if (encoding.length(encoder) > 1) ws.send(encoding.toUint8Array(encoder));
+        if (syncType === syncProtocol.messageYjsSyncStep2) onSynced?.();
       } else if (messageType === MESSAGE_AWARENESS) {
         awarenessProtocol.applyAwarenessUpdate(awareness, decoding.readVarUint8Array(decoder), REMOTE_ORIGIN);
       } else if (messageType === MESSAGE_NOTICE) {

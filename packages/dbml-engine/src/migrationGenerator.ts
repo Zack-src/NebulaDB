@@ -282,6 +282,33 @@ export function generateCreateTable(
   return `CREATE TABLE ${q(table.name, dialect)} (\n${colDefs.join(",\n")}\n);`;
 }
 
+/** The default name of an index on `columns`, as the migrations give it. */
+export function defaultIndexName(tableName: string, columns: string[]): string {
+  return `idx_${tableName}_${columns.join("_")}`;
+}
+
+/**
+ * One `CREATE INDEX`, in the dialect's syntax: the migration generator's own, also used to offer an
+ * index suggestion as text. BigQuery has no secondary index, so it gets a comment.
+ */
+export function generateCreateIndex(
+  tableName: string,
+  columns: string[],
+  name: string,
+  dialect: MigrationDialect,
+  options: { unique?: boolean; schema?: string | null } = {},
+): string {
+  const table = options.schema ? `${q(options.schema, dialect)}.${q(tableName, dialect)}` : q(tableName, dialect);
+  if (dialect === "bigquery") {
+    return `-- BigQuery has no secondary indexes: ${q(name, dialect)} on ${table} is not created`;
+  }
+  const unique = options.unique ? "UNIQUE " : "";
+  const cols = columns.map((column) => q(column, dialect)).join(", ");
+  // Neither SQL Server nor Oracle supports "IF NOT EXISTS" on CREATE INDEX.
+  const ifNotExists = dialect === "mssql" || dialect === "oracle" ? "" : "IF NOT EXISTS ";
+  return `CREATE ${unique}INDEX ${ifNotExists}${q(name, dialect)} ON ${table} (${cols});`;
+}
+
 export function generateDropTable(tableName: string, dialect: MigrationDialect): string {
   if (dialect === "postgres") return `DROP TABLE IF EXISTS ${q(tableName, dialect)} CASCADE;`;
   if (dialect === "oracle") return `DROP TABLE ${q(tableName, dialect)} CASCADE CONSTRAINTS;`;
@@ -539,26 +566,9 @@ export function generateMigrationSql(
     // Added Indexes
     for (const idx of table.addedIndexes) {
       const targetTable = table.after!;
-      const colNames = idx.fieldIds
-        .map((id) => targetTable.fields.find((f) => f.id === id)?.name ?? id)
-        .map((n) => q(n, dialect))
-        .join(", ");
-      const idxName =
-        idx.name ||
-        `idx_${table.name}_${idx.fieldIds.map((id) => targetTable.fields.find((f) => f.id === id)?.name ?? id).join("_")}`;
-      const unique = idx.unique ? "UNIQUE " : "";
-      if (dialect === "bigquery") {
-        statements.push(
-          `-- BigQuery has no secondary indexes: ${q(idxName, dialect)} on ${q(table.name, dialect)} is not created`,
-        );
-      } else if (dialect === "mssql" || dialect === "oracle") {
-        // Neither supports "IF NOT EXISTS" on CREATE INDEX.
-        statements.push(`CREATE ${unique}INDEX ${q(idxName, dialect)} ON ${q(table.name, dialect)} (${colNames});`);
-      } else {
-        statements.push(
-          `CREATE ${unique}INDEX IF NOT EXISTS ${q(idxName, dialect)} ON ${q(table.name, dialect)} (${colNames});`,
-        );
-      }
+      const colNames = idx.fieldIds.map((id) => targetTable.fields.find((f) => f.id === id)?.name ?? id);
+      const idxName = idx.name || defaultIndexName(table.name, colNames);
+      statements.push(generateCreateIndex(table.name, colNames, idxName, dialect, { unique: idx.unique }));
     }
   }
 

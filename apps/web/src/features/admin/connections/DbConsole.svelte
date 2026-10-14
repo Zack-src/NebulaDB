@@ -149,7 +149,7 @@
     {:else if section === "backups" && adminConnection && data.access === "admin"}
       <BackupsPanel connection={adminConnection} />
     {:else if section === "journal" && adminConnection && data.access === "admin"}
-      <JournalPanel connectionId={connection.id} />
+      <JournalPanel connectionId={connection.id} {database} />
     {/if}
   {/if}
 </div>

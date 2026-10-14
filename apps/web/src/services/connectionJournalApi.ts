@@ -2,6 +2,7 @@ import type {
   DbActivityEntry,
   DbActivityWatch,
   DbHealthBoard,
+  DbIndexSuggestions,
   DbQueryStat,
   DbQueryStatSort,
   DbServerCounters,
@@ -37,6 +38,19 @@ export async function fetchQueryStats(
       query: { sort: options.sort, ...(options.days ? { days: String(options.days) } : {}) },
     })
   ).stats;
+}
+
+/** Indexes the statements run would use and the database lacks; `days` 0 for every day kept. */
+export function fetchIndexSuggestions(
+  connectionId: string,
+  options: { days: number; database?: string },
+): Promise<DbIndexSuggestions> {
+  return request(`${base(connectionId)}/index-suggestions`, {
+    query: {
+      ...(options.days ? { days: String(options.days) } : {}),
+      ...(options.database ? { database: options.database } : {}),
+    },
+  });
 }
 
 /** What the database server itself shows (sessions, statements), sampled; `outside` leaves out the accounts Nebula uses. */

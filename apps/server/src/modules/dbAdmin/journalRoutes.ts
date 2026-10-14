@@ -1,10 +1,11 @@
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import type { DbQueryStatSort } from "@nebuladb/shared";
+import type { MigrationDialect } from "@nebuladb/dbml-engine";
+import type { DbQueryStat, DbQueryStatSort } from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireAdmin } from "../../shared/guards.js";
-import { getConnectionById } from "../connections/repository.js";
+import { getAdminConnection, getConnectionById } from "../connections/repository.js";
 import {
   getActivityWatch,
   listActivity,
@@ -13,7 +14,10 @@ import {
   setActivityWatch,
 } from "../dbMonitor/activity.js";
 import { buildHealthBoard } from "../dbMonitor/healthBoard.js";
+import { optionalName } from "./drivers/common.js";
+import { readCatalog, referencedTables, suggestIndexes } from "./indexSuggestions.js";
 import { listQueryStats } from "./queryStats.js";
+import { loadConnection, withDriver } from "./routeKit.js";
 
 const READ_LIMIT = { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } };
 const WRITE_LIMIT = { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } };
@@ -164,5 +168,37 @@ export function registerConnectionJournalRoutes(app: FastifyInstance): void {
     return {
       stats: listQueryStats(id, { sinceDays: days || undefined, sort: query.sort as DbQueryStatSort, limit }),
     };
+  });
+
+  // Indexes the statements run would use and the database lacks, read against its live structure.
+  app.get("/api/admin/connections/:id/index-suggestions", READ_LIMIT, async (req) => {
+    requireAdmin(req);
+    const { id } = req.params as { id: string };
+    const connection = loadConnection(id);
+    const query = req.query as { days?: string; database?: string };
+    const days = query.days ? Number(query.days) : undefined;
+    if (days !== undefined && (!Number.isInteger(days) || days < 0 || days > 3650)) {
+      throw new ApiError("ACTIVITY_QUERY_INVALID");
+    }
+    const database = optionalName(query.database, "database") ?? connection.database ?? undefined;
+    // The slowest and the most frequent first: what matters is in the union of both.
+    const stats = new Map<string, DbQueryStat>();
+    for (const sort of ["total", "slowest", "frequency"] as const) {
+      for (const stat of listQueryStats(id, { sinceDays: days || undefined, sort, limit: 200 })) {
+        stats.set(stat.hash, stat);
+      }
+    }
+    const read = [...stats.values()];
+    const suggestions = await withDriver(connection, "admin", async (driver) =>
+      suggestIndexes(
+        read,
+        await readCatalog(driver, referencedTables(read, connection.engine), database),
+        connection.engine as MigrationDialect,
+      ),
+    );
+    const projects = (getAdminConnection(id)?.projects ?? [])
+      .filter((p) => !p.trashed && (!database || !p.database || p.database === database))
+      .map(({ id: projectId, name }) => ({ id: projectId, name }));
+    return { database: database ?? null, suggestions, projects };
   });
 }

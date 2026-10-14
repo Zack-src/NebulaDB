@@ -580,3 +580,41 @@ export function applyLintFix(project: Project, finding: LintFinding, newId: () =
   }
   return { ...project, tables: project.tables.map((t) => (t.id === table.id ? fixed : t)) };
 }
+
+/**
+ * The project with a plain index on `columns` (field names, case-insensitive) added to the table
+ * called `tableName` — the same change as the foreign-key fix, for an index suggested from the
+ * statements actually run. `null` when the table or a column is not in the schema, or an index
+ * already starts with these columns.
+ */
+export function addSuggestedIndex(
+  project: Project,
+  tableName: string,
+  columns: string[],
+  newId: () => string,
+  schemaName?: string | null,
+): Project | null {
+  const lower = (name: string) => name.toLowerCase();
+  const matching = project.tables.filter(
+    (t) =>
+      lower(t.name) === lower(tableName) && (!schemaName || !t.schemaName || lower(t.schemaName) === lower(schemaName)),
+  );
+  if (matching.length !== 1 || columns.length === 0) return null;
+  const table = matching[0];
+  const fieldIds: string[] = [];
+  for (const column of columns) {
+    const field = table.fields.find((f) => lower(f.name) === lower(column));
+    if (!field) return null;
+    fieldIds.push(field.id);
+  }
+  const covered =
+    (fieldIds.length === 1 &&
+      isIndexed(
+        table,
+        table.fields.find((f) => f.id === fieldIds[0])!,
+      )) ||
+    table.indexes.some((idx) => fieldIds.every((id, i) => idx.fieldIds[i] === id));
+  if (covered) return null;
+  const fixed: Table = { ...table, indexes: [...table.indexes, { id: newId(), fieldIds }] };
+  return { ...project, tables: project.tables.map((t) => (t.id === table.id ? fixed : t)) };
+}

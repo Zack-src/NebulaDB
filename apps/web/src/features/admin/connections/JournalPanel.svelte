@@ -15,7 +15,7 @@
 <script lang="ts">
   import type { DbQueryStatSort } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
-  import { ChevronRightIcon, DownloadIcon } from "@/components/icons/Icons";
+  import { ChevronRightIcon, CopyIcon, DownloadIcon } from "@/components/icons/Icons";
   import Badge from "@/components/ui/Badge.svelte";
   import Button from "@/components/ui/Button.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
@@ -23,6 +23,7 @@
   import Hint from "@/components/ui/Hint.svelte";
   import SegmentedControl from "@/components/ui/SegmentedControl.svelte";
   import Select from "@/components/ui/Select.svelte";
+  import { toast } from "@/components/ui/toast.svelte";
   import { parseServerTime } from "@/features/sql/format";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
@@ -37,9 +38,12 @@
     type ActivityFilters,
   } from "@/services/activityApi";
   import Checkbox from "@/components/ui/Checkbox.svelte";
+  import { copyText } from "@/utils/clipboard";
+  import { addIndexToProject, type SuggestedIndex } from "./indexSuggestionActions";
   import {
     fetchDbActivity,
     fetchDbTraffic,
+    fetchIndexSuggestions,
     fetchJournalActors,
     fetchQueryStats,
     sampleDbActivity,
@@ -53,9 +57,11 @@
    * changes, what the watch found. The audit log filtered on this database
    * (the same entries and export as Admin → Activité), and, under
    * "Requêtes", the statements of the SQL console counted by shape — timed
-   * by Nebula, never by the database server.
+   * by Nebula, never by the database server. Under the figures, the indexes
+   * those statements would use and the database lacks: added to a project's
+   * schema (and deployed from there), or copied as text — never run here.
    */
-  let { connectionId }: { connectionId: string } = $props();
+  let { connectionId, database = "" }: { connectionId: string; database?: string } = $props();
 
   const { t } = useTranslation();
   let view = $state<"events" | "queries" | "dbside">("events");
@@ -114,6 +120,28 @@
   const sortOptions = $derived(
     (["frequency", "slowest", "total"] as const).map((value) => ({ value, label: t(`journal.queries.sort.${value}`) })),
   );
+  // ---- Index suggestions -------------------------------------------------------
+  const suggestions = useAsyncResource(() =>
+    view === "queries"
+      ? fetchIndexSuggestions(connectionId, { days: statDays, database: database || undefined })
+      : Promise.resolve(null),
+  );
+  const MAX_SHOWN_STATEMENTS = 3;
+  const addToSchema = useAsyncAction(async (project: { id: string; name: string }, index: SuggestedIndex) => {
+    const params = { project: project.name, table: index.table };
+    try {
+      const outcome = await addIndexToProject(project.id, index);
+      if (outcome === "added") toast.success(t("journal.indexes.added", params));
+      else toast.warning(t(`journal.indexes.${outcome}` as "journal.indexes.exists", params));
+    } catch {
+      toast.error(t("journal.indexes.failed", params));
+    }
+  });
+  async function copyCreate(statement: string) {
+    if (await copyText(statement)) toast.success(t("journal.indexes.copied"));
+    else toast.error(t("journal.indexes.copyFailed"));
+  }
+
   // ---- Database-side activity -------------------------------------------------
   let outsideOnly = $state(true);
   let activityDays = $state<StatDays>(1);
@@ -434,5 +462,74 @@
       </div>
     {/if}
     <Hint>{t("journal.queries.note")}</Hint>
+
+    <h4 class="mt-5 mb-2 text-xs font-bold text-text">{t("journal.indexes")}</h4>
+    {#if suggestions.error}<ErrorText>{suggestions.error}</ErrorText>{/if}
+    {#if suggestions.data && suggestions.data.suggestions.length === 0}
+      <EmptyState>{t("journal.indexes.empty")}</EmptyState>
+    {:else if suggestions.data}
+      {@const attached = suggestions.data.projects}
+      <ul class="m-0 flex list-none flex-col gap-3 p-0" aria-label={t("journal.indexes")}>
+        {#each suggestions.data.suggestions as suggestion (`${suggestion.schema}.${suggestion.table}.${suggestion.columns.join(",")}`)}
+          {@const index = { table: suggestion.table, schema: suggestion.schema, columns: suggestion.columns }}
+          <li class="rounded-lg border border-border p-3 text-[12px]" data-testid="index-suggestion">
+            <div class="flex flex-wrap items-baseline gap-x-2">
+              <span class="font-mono text-[12.5px] font-bold">
+                {[suggestion.schema, suggestion.table].filter(Boolean).join(".")} ({suggestion.columns.join(", ")})
+              </span>
+              <span class="text-text-muted">
+                {t("journal.indexes.share", {
+                  executions: suggestion.executions,
+                  total: ms(suggestion.totalMs),
+                  share: suggestion.shareOfMeasuredMs,
+                })}
+              </span>
+            </div>
+            <div class="mt-2 text-[11px] text-text-muted">{t("journal.indexes.statements")}</div>
+            <ul class="m-0 mt-1 list-none p-0">
+              {#each suggestion.statements.slice(0, MAX_SHOWN_STATEMENTS) as statement (statement.hash)}
+                <li class="flex items-baseline gap-3 py-0.5">
+                  <span class="min-w-0 flex-1 truncate font-mono text-[11.5px]" title={statement.sql}>{statement.sql}</span>
+                  <span class="shrink-0 tabular-nums text-text-muted">
+                    {statement.executions} × {ms(statement.avgMs)} = {ms(statement.totalMs)}
+                  </span>
+                </li>
+              {/each}
+            </ul>
+            {#if suggestion.statementCount > MAX_SHOWN_STATEMENTS}
+              <div class="text-[11px] text-text-muted">
+                {t("journal.indexes.moreStatements", { count: suggestion.statementCount - MAX_SHOWN_STATEMENTS })}
+              </div>
+            {/if}
+            {#if attached.length > 0}
+              <div class="mt-2 flex flex-wrap items-center gap-2">
+                {#each attached as project (project.id)}
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    title={t("journal.indexes.addToSchemaOf", { project: project.name })}
+                    onclick={() => void addToSchema.run(project, index)}
+                    disabled={addToSchema.pending}
+                  >
+                    {project.name} · {t("journal.indexes.addToSchema")}
+                  </Button>
+                {/each}
+              </div>
+            {:else}
+              <div class="mt-2 text-text-muted">{t("journal.indexes.noProject")}</div>
+              <div class="mt-2 flex items-start gap-2">
+                <code class="min-w-0 flex-1 break-all rounded-sm bg-surface-raised px-2 py-1 font-mono text-[11.5px]">
+                  {suggestion.createStatement}
+                </code>
+                <Button size="sm" variant="ghost" onclick={() => void copyCreate(suggestion.createStatement)}>
+                  <Icon icon={CopyIcon} size={13} />{t("journal.indexes.copy")}
+                </Button>
+              </div>
+            {/if}
+          </li>
+        {/each}
+      </ul>
+    {/if}
+    <Hint>{t("journal.indexes.note")}</Hint>
   {/if}
 </div>

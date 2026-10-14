@@ -141,6 +141,45 @@ export interface DbQueryStat {
   lastUserName: string | null;
 }
 
+/** A statement shape that motivates an index suggestion, with what Nebula measured of it. */
+export interface DbIndexSuggestionStatement {
+  hash: string;
+  sql: string;
+  executions: number;
+  avgMs: number;
+  maxMs: number;
+  totalMs: number;
+}
+
+/**
+ * An index the statements run through the SQL console would use and the database does not have.
+ * Everything but `createStatement` is measured or read; nothing is predicted.
+ */
+export interface DbIndexSuggestion {
+  schema: string | null;
+  table: string;
+  /** Equality columns first, then one range column or the sort columns. */
+  columns: string[];
+  /** The statements that motivate it, the longest total time first, at most five. */
+  statements: DbIndexSuggestionStatement[];
+  /** Over every motivating statement, not only the ones listed. */
+  statementCount: number;
+  executions: number;
+  totalMs: number;
+  /** Share, in percent, of the time measured on the connection (all the statements read) that these statements account for. */
+  shareOfMeasuredMs: number;
+  /** `CREATE INDEX` in the connection engine's dialect, to copy; nothing is ever run. */
+  createStatement: string;
+}
+
+export interface DbIndexSuggestions {
+  /** The database the existing indexes were read from. */
+  database: string | null;
+  suggestions: DbIndexSuggestion[];
+  /** The projects attached to the connection, where the index can be added to the schema. */
+  projects: { id: string; name: string }[];
+}
+
 /**
  * The server's own cumulative counters, as one read. A field is `null` when
  * the engine has no such counter (or the account may not read it) — never
