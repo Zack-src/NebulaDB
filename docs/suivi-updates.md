@@ -39,14 +39,14 @@ un moteur cible pour les projets).
 
 ## E. Lot 4 — déploiement et droits
 
-- [~] E1. Revue avant production (demande, approbation par une autre personne, déploiement)
-- [~] E2. Rôle « peut déployer » sans être administrateur du projet
+- [x] E1. Revue avant production (demande, approbation par une autre personne, déploiement) — `2fc92e9`
+- [x] E2. Rôle « peut déployer » sans être administrateur du projet — `efca567`
 
 ## F. Lot 5 — le reste
 
 - [x] F1. Alertes de surveillance : e-mail, acquittement, mise en sourdine — `a9c6b69`, `0c8bc97`, `8f6a98e`
 - [x] F2. Dictionnaire : description multi-ligne, export PDF — `7c33923`, `692f305`
-- [~] F3. Export des migrations en fichiers versionnés (Flyway / Liquibase)
+- [x] F3. Export des migrations en fichiers versionnés (Flyway / Liquibase) — `4b743d1`
 - [ ] F4. CLI / action GitHub
 - [ ] F5. Suggestions d'index à partir des statistiques de requêtes
 - [ ] F6. Lien de partage en lecture seule (diagramme, dictionnaire)
@@ -80,6 +80,9 @@ un moteur cible pour les projets).
 | 2026-10-09 | F2    | `692f305` | Descriptions multi-lignes (notes DBML en triple quote) et export PDF côté navigateur ; pas de `format=pdf` dans l'API              |
 | 2026-10-09 | C2    | `3b11f8f` | Requêtes enregistrées, privées ou partagées ; migration 46 ; 344 tests serveur passent après intégration                           |
 | 2026-10-09 | F1    | `8f6a98e` | E-mail sur abonnement (option par compte), acquittement, sourdine avec durée ; migrations 47 à 49 ; relais SMTP réel non essayé    |
+| 2026-10-14 | E2    | `efca567` | Niveau `deploy` entre édition et administrateur ; l'import depuis une base reste administrateur                                    |
+| 2026-10-14 | E1    | `2fc92e9` | Revue sur étape « Revue » : jamais par l'auteur, approbation valable 7 jours, plan refait au déploiement ; migration 50            |
+| 2026-10-14 | F3    | `4b743d1` | Export SQL / Flyway / Liquibase en zip, niveau `deploy` ; formats vérifiés sur documentation seulement                             |
 
-Vérifié après intégration des quatre lignes B : 337 tests serveur, 121 tests web, typecheck et lint propres.
+Dernière vérification complète (après E1, E2, F3) : 370 tests serveur, 143 tests web, typecheck, lint et imports circulaires propres.
 Non vérifié : tests navigateur (e2e) et essai à la main des écrans.
