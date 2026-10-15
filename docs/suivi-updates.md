@@ -30,7 +30,7 @@ un moteur cible pour les projets).
 
 - [x] C1. Éditeur SQL (coloration, complétion des tables et colonnes du schéma) — `5932a4c`, `478534c`
 - [x] C2. Requêtes enregistrées — `3b11f8f`
-- [~] C3. Édition de lignes dans la grille de résultats
+- [x] C3. Édition de lignes dans la grille de résultats — `51d09c7`, `b80129e`
 
 ## D. Lot 3 — navigation
 
@@ -47,14 +47,14 @@ un moteur cible pour les projets).
 - [x] F1. Alertes de surveillance : e-mail, acquittement, mise en sourdine — `a9c6b69`, `0c8bc97`, `8f6a98e`
 - [x] F2. Dictionnaire : description multi-ligne, export PDF — `7c33923`, `692f305`
 - [x] F3. Export des migrations en fichiers versionnés (Flyway / Liquibase) — `4b743d1`
-- [~] F4. CLI / action GitHub
-- [~] F5. Suggestions d'index à partir des statistiques de requêtes
-- [~] F6. Lien de partage en lecture seule (diagramme, dictionnaire)
-- [~] F7. Sauvegardes vers S3 / SFTP (en plus du dossier ou partage monté)
+- [~] F4. CLI / action GitHub — CLI faite (`4ca2137`, `85ea884`) ; action GitHub non faite
+- [x] F5. Suggestions d'index à partir des statistiques de requêtes — `a5c7745`
+- [!] F6. Lien de partage en lecture seule (diagramme, dictionnaire) — interrompu : serveur commité, interface inachevée, non intégré (branche `agent/share-links`)
+- [!] F7. Sauvegardes vers S3 / SFTP (en plus du dossier ou partage monté) — interrompu sans commit, non intégré (copie `agent/backup-remote`)
 
 ## G. Dette repérée en route
 
-- [~] G1. Remettre à niveau les 11 tests navigateur (e2e) qui échouent déjà sur `de5c5f6` : ils
+- [!] G1. Remettre à niveau les 11 tests navigateur (e2e) qui échouent déjà sur `de5c5f6` : ils — interrompu sans commit
   attendent des éléments retirés par la refonte (« Ouvrir », onglet « Données & SQL », « Déployer »)
 - [x] G3. Test serveur instable sous charge : « /api/v1 backups: a running backup is cancelled with a key » — `bb090e9`
 - [x] G2. Formater `bundle.ts` et `bundle.test.ts` (avertissement Prettier antérieur à ce lot) — `c2e7b46`
@@ -84,6 +84,9 @@ un moteur cible pour les projets).
 | 2026-10-14 | E1    | `2fc92e9` | Revue sur étape « Revue » : jamais par l'auteur, approbation valable 7 jours, plan refait au déploiement ; migration 50                                                               |
 | 2026-10-14 | F3    | `4b743d1` | Export SQL / Flyway / Liquibase en zip, niveau `deploy` ; formats vérifiés sur documentation seulement                                                                                |
 | 2026-10-14 | A1–A6 | `7a9877c` | Branche PostgreSQL complète sur sa base : 364 tests serveur sur PostgreSQL, bascule depuis SQLite essayée sur une vraie instance ; image Docker non construite ; pas encore fusionnée |
+| 2026-10-15 | C3    | `b80129e` | Édition de lignes depuis l'explorateur (clé primaire requise, SQL montré avant, tout ou rien)                                                                                         |
+| 2026-10-15 | F5    | `a5c7745` | Suggestions d'index depuis les statistiques, ajout via le schéma du projet                                                                                                            |
+| 2026-10-15 | F4    | `85ea884` | CLI `nebuladb` (+ plan et bundle exposés en `/api/v1`) ; action GitHub non faite                                                                                                      |
 
-Dernière vérification complète (après E1, E2, F3) : 370 tests serveur, 143 tests web, typecheck, lint et imports circulaires propres.
+Dernière vérification complète (2026-10-15, version stable) : build complet, 391 tests serveur, 154 tests web, 158 tests du moteur DBML, 35 tests CLI, typecheck, lint, Prettier et imports circulaires propres.
 Non vérifié : tests navigateur (e2e) et essai à la main des écrans.
