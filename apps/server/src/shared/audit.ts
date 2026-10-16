@@ -174,7 +174,7 @@ const CATEGORY_RULES: [RegExp, ActivityCategory][] = [
   [/^(dbadmin\.(query|rows)|dbaccess\.(query|rows)|savedquery\.|seed\.|backup\.|project\.export)/, "data"],
   [/^(auth\.|dbadmin\.session|dbconn\.(test|open)$|user\.sessions|user\.totp)/, "sessions"],
   [/^(user\.|invitation\.|team\.|dbuser\.|dbconn\.credentials\.|dbaccess\.|project\.team\.|apikey\.)/, "accounts"],
-  [/^project\./, "projects"],
+  [/^(project|folder)\./, "projects"],
 ];
 
 export function activityCategory(action: string): ActivityCategory {
