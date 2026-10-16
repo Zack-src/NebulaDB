@@ -10,6 +10,6 @@ import type { PermissionLevel } from "@/types";
 export function visibleWorkspaceTabs(permission: PermissionLevel): WorkspaceTab[] {
   const tabs: WorkspaceTab[] = ["schema"];
   if (permission === "administrator" || permission === "deploy") tabs.push("deployments");
-  tabs.push("history", "problems", "dictionary");
+  tabs.push("history", "problems", "dictionary", "variants");
   return tabs;
 }

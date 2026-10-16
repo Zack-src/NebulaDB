@@ -1,6 +1,19 @@
 <script lang="ts">
   import Icon from "@/components/icons/Icon.svelte";
-  import { DatabaseIcon, FolderIcon, PlusIcon, TrashIcon } from "@/components/icons/Icons";
+  import { ChevronRightIcon, DatabaseIcon, FolderIcon, PencilIcon, PlusIcon, TrashIcon } from "@/components/icons/Icons";
+  import type { ProjectFolder } from "@nebuladb/shared";
+  import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
+  import FolderNameModal from "@/features/projects/components/FolderNameModal.svelte";
+  import MoveProjectModal from "@/features/projects/components/MoveProjectModal.svelte";
+  import { countInFolder, folderPath, shownFolderOf } from "@/features/projects/components/folderTree";
+  import {
+    createFolder,
+    deleteFolder,
+    fetchFolders,
+    moveProjectToFolder,
+    updateFolder,
+  } from "@/services/variantsApi";
+  import { describeApiError } from "@/i18n/serverErrorMessages";
   import { useDraftValue } from "@/hooks/draftValue.svelte";
   import ProjectTeamsModal from "@/features/teams/ProjectTeamsModal.svelte";
   import ProjectTabs from "@/features/projects/components/ProjectTabs.svelte";
@@ -33,6 +46,7 @@
     onDeleteForever,
     onEmptyTrash,
     onProjectCreatedFromDatabase,
+    onProjectsChanged,
   }: {
     projects: ProjectSummary[];
     loaded: boolean;
@@ -45,6 +59,8 @@
     onEmptyTrash: (projects: ProjectSummary[]) => Promise<string | null>;
     /** Fired once the modal's `createProjectFromDatabase` call succeeds — the caller refreshes the list and navigates in. */
     onProjectCreatedFromDatabase: (result: CreateProjectFromDatabaseResponse) => void;
+    /** A project moved to a folder: the list is fetched again. */
+    onProjectsChanged?: () => void;
   } = $props();
 
   const { t } = useTranslation();
@@ -91,10 +107,70 @@
 
   const currentSection = $derived(PROJECT_SECTIONS.find((entry) => entry.key === section)!);
   const normalisedQuery = $derived(searchQuery.trim().toLowerCase());
+
+  // ---- folders: only in the active list and outside a search, which looks everywhere ----
+  let folders = $state.raw<ProjectFolder[]>([]);
+  let folderError = $state<string | null>(null);
+  let currentFolderId = $state<string | null>(null);
+  const loadFolders = () =>
+    fetchFolders()
+      .then((loaded) => {
+        folders = loaded;
+        // The folder being shown was deleted (here or elsewhere): back to the top.
+        if (currentFolderId && !loaded.some((folder) => folder.id === currentFolderId)) currentFolderId = null;
+      })
+      .catch((err: unknown) => (folderError = describeApiError(err, t)));
+  $effect(() => {
+    void loadFolders();
+  });
+  const browsingFolders = $derived(section === "active" && !normalisedQuery);
+  const breadcrumb = $derived(folderPath(folders, currentFolderId));
+  const subfolders = $derived(
+    browsingFolders ? folders.filter((folder) => folder.parentId === currentFolderId) : [],
+  );
+  const activeProjects = $derived(projects.filter((project) => project.status === "active"));
+  let folderDialog = $state<{ mode: "create" } | { mode: "rename"; folder: ProjectFolder } | null>(null);
+  let folderToDelete = $state.raw<ProjectFolder | null>(null);
+  let moveTarget = $state.raw<ProjectSummary | null>(null);
+  const variantCounts = $derived(
+    projects.reduce((counts, project) => {
+      if (project.variantOf) counts.set(project.variantOf, (counts.get(project.variantOf) ?? 0) + 1);
+      return counts;
+    }, new Map<string, number>()),
+  );
+  const projectNames = $derived(new Map(projects.map((project) => [project.id, project.name])));
+
+  async function saveFolder(name: string) {
+    if (folderDialog?.mode === "rename") await updateFolder(folderDialog.folder.id, { name });
+    else await createFolder(name, currentFolderId);
+    await loadFolders();
+  }
+
+  async function removeFolder() {
+    const folder = folderToDelete;
+    folderToDelete = null;
+    if (!folder) return;
+    try {
+      await deleteFolder(folder.id);
+      folderError = null;
+    } catch (err) {
+      folderError = describeApiError(err, t);
+    }
+    await loadFolders();
+    onProjectsChanged?.();
+  }
+
+  async function moveProject(folderId: string | null) {
+    if (!moveTarget) return;
+    await moveProjectToFolder(moveTarget.id, folderId);
+    onProjectsChanged?.();
+  }
+
   const visibleProjects = $derived(
     projects
       .filter((project) => project.status === section)
-      .filter((project) => (normalisedQuery ? project.name.toLowerCase().includes(normalisedQuery) : true)),
+      .filter((project) => (normalisedQuery ? project.name.toLowerCase().includes(normalisedQuery) : true))
+      .filter((project) => !browsingFolders || shownFolderOf(folders, project.folderId) === currentFolderId),
   );
   const openable = $derived(section !== "trashed");
   const deletableTrash = $derived(
@@ -129,6 +205,11 @@
       return;
     }
     if (section !== "active") section = "active";
+    // Made inside the folder being shown.
+    if (currentFolderId) {
+      await moveProjectToFolder(result.id, currentFolderId).catch(() => {});
+      onProjectsChanged?.();
+    }
     renamingId = result.id;
   }
 </script>
@@ -153,6 +234,10 @@
             placeholder={t("projects.searchPlaceholder")}
             bind:value={searchQuery}
           />
+          <Button onclick={() => (folderDialog = { mode: "create" })} class="shrink-0 gap-2 text-xs">
+            <Icon icon={FolderIcon} size={14} />
+            {t("folders.new")}
+          </Button>
           <Button variant="primary" onclick={handleCreate} disabled={creating} class="shrink-0 gap-2 text-xs">
             <Icon icon={PlusIcon} size={14} />
             {creating ? t("projects.creating") : t("projects.newProject")}
@@ -172,6 +257,63 @@
       </div>
 
       {#if createError}<ErrorText>{createError}</ErrorText>{/if}
+      {#if folderError}<ErrorText>{folderError}</ErrorText>{/if}
+      {#if browsingFolders && (breadcrumb.length > 0 || subfolders.length > 0)}
+        <nav class="mb-3 flex flex-wrap items-center gap-1 text-xs" aria-label={t("folders.breadcrumb")}>
+          <button
+            class="cursor-pointer rounded-sm border-0 bg-transparent px-1.5 py-0.5 text-text-muted hover:bg-surface-hover hover:text-text"
+            aria-current={currentFolderId === null ? "page" : undefined}
+            onclick={() => (currentFolderId = null)}>{t("folders.top")}</button
+          >
+          {#each breadcrumb as folder (folder.id)}
+            <Icon icon={ChevronRightIcon} size={11} class="text-text-muted" />
+            <button
+              class="cursor-pointer rounded-sm border-0 bg-transparent px-1.5 py-0.5 font-semibold text-text hover:bg-surface-hover"
+              aria-current={folder.id === currentFolderId ? "page" : undefined}
+              onclick={() => (currentFolderId = folder.id)}>{folder.name}</button
+            >
+          {/each}
+        </nav>
+      {/if}
+      {#if subfolders.length > 0}
+        <div class="mb-4 grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
+          {#each subfolders as folder (folder.id)}
+            <div
+              class="group flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2.5 hover:border-border-strong"
+              data-testid="folder-tile"
+            >
+              <button
+                class="flex min-w-0 flex-1 cursor-pointer items-center gap-2 border-0 bg-transparent p-0 text-left text-sm font-semibold text-text"
+                onclick={() => (currentFolderId = folder.id)}
+              >
+                <Icon icon={FolderIcon} size={16} class="shrink-0 text-primary" />
+                <span class="truncate">{folder.name}</span>
+                <span class="shrink-0 text-[11px] font-normal text-text-muted">
+                  {t("folders.count", { count: countInFolder(folders, activeProjects, folder.id) })}
+                </span>
+              </button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t("folders.rename", { name: folder.name })}
+                data-tooltip={t("common.rename")}
+                onclick={() => (folderDialog = { mode: "rename", folder })}
+              >
+                <Icon icon={PencilIcon} size={12} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t("folders.delete", { name: folder.name })}
+                data-tooltip={t("common.delete")}
+                onclick={() => (folderToDelete = folder)}
+              >
+                <Icon icon={TrashIcon} size={12} />
+              </Button>
+            </div>
+          {/each}
+        </div>
+      {/if}
       {#if section === "trashed" && deletableTrash.length > 0}
         <div class="mb-3 flex justify-end">
           <Button
@@ -193,7 +335,11 @@
              projects is a wrong statement rather than a slow one. -->
         <SkeletonCardGrid count={4} />
       {:else if visibleProjects.length === 0}
-        <EmptyState>{normalisedQuery ? t("projects.noSearchMatch") : t(currentSection.emptyKey)}</EmptyState>
+        {#if !(browsingFolders && (currentFolderId || subfolders.length > 0))}
+          <EmptyState>{normalisedQuery ? t("projects.noSearchMatch") : t(currentSection.emptyKey)}</EmptyState>
+        {:else if currentFolderId}
+          <EmptyState>{t("folders.empty")}</EmptyState>
+        {/if}
       {:else}
         <div class="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
           {#each visibleProjects as project (project.id)}
@@ -212,6 +358,9 @@
               onDeleteForever={() => openDeleteConfirmation(project)}
               onManageTeams={() => (teamsTarget = project)}
               onManageWebhooks={() => (webhooksTarget = project)}
+              onMove={() => (moveTarget = project)}
+              variantOfName={project.variantOf ? (projectNames.get(project.variantOf) ?? null) : null}
+              variantCount={variantCounts.get(project.id) ?? 0}
             />
           {/each}
         </div>
@@ -249,6 +398,33 @@
   {/if}
   {#if webhooksTarget}
     <WebhooksModal project={webhooksTarget} onClose={() => (webhooksTarget = null)} />
+  {/if}
+  {#if folderDialog}
+    <FolderNameModal
+      title={folderDialog.mode === "rename" ? t("folders.renameTitle") : t("folders.new")}
+      initialName={folderDialog.mode === "rename" ? folderDialog.folder.name : ""}
+      onSave={saveFolder}
+      onClose={() => (folderDialog = null)}
+    />
+  {/if}
+  {#if folderToDelete}
+    <ConfirmDialog
+      title={t("folders.deleteTitle", { name: folderToDelete.name })}
+      message={t("folders.deleteMessage")}
+      danger="warning"
+      confirmLabel={t("common.delete")}
+      onCancel={() => (folderToDelete = null)}
+      onConfirm={() => void removeFolder()}
+    />
+  {/if}
+  {#if moveTarget}
+    <MoveProjectModal
+      projectName={moveTarget.name}
+      currentFolderId={shownFolderOf(folders, moveTarget.folderId)}
+      {folders}
+      onMove={moveProject}
+      onClose={() => (moveTarget = null)}
+    />
   {/if}
   {#if teamsTarget}
     <ProjectTeamsModal project={teamsTarget} onClose={() => (teamsTarget = null)} />

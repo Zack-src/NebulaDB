@@ -21,6 +21,10 @@ export interface ProjectSummary {
   status: ProjectStatus;
   created_at: string;
   permission: PermissionLevel;
+  /** The folder of the project list it is in; `null` (or absent, from an older server) at the top. */
+  folderId?: string | null;
+  /** For a client variant: the project it was copied from. */
+  variantOf?: string | null;
 }
 
 /** What `PATCH /api/projects/:id` answers: the summary, plus the connections a restore detached (only when there were any). */

@@ -29,6 +29,8 @@
     onDeleteProjectForever: (p: ProjectSummary) => Promise<string | null>;
     onEmptyTrash: (items: ProjectSummary[]) => Promise<string | null>;
     onProjectCreatedFromDatabase: (result: CreateProjectFromDatabaseResponse) => void;
+    /** A project was moved to a folder, or a variant made: the list is fetched again. */
+    onProjectsChanged?: () => void;
   } = $props();
 </script>
 
@@ -64,6 +66,7 @@
       onDeleteForever={props.onDeleteProjectForever}
       onEmptyTrash={props.onEmptyTrash}
       onProjectCreatedFromDatabase={props.onProjectCreatedFromDatabase}
+      onProjectsChanged={props.onProjectsChanged}
     />
   </div>
 </div>

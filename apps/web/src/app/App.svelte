@@ -209,6 +209,7 @@
         onDeleteProjectForever={projectsHandle.deleteProjectForever}
         onEmptyTrash={projectsHandle.emptyTrash}
         onProjectCreatedFromDatabase={handleProjectCreatedFromDatabase}
+        onProjectsChanged={projectsHandle.refreshProjects}
       />
     {/if}
   </WorkspaceShell>

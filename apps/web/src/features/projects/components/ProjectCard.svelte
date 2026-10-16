@@ -6,7 +6,16 @@
   import { MAX_NAME_LENGTH } from "@nebuladb/shared";
   import { autofocus } from "@/actions/autofocus";
   import Icon from "@/components/icons/Icon.svelte";
-  import { ArchiveIcon, LinkIcon, PencilIcon, RestoreIcon, TrashIcon, UsersIcon } from "@/components/icons/Icons";
+  import {
+    ArchiveIcon,
+    FolderIcon,
+    LayersIcon,
+    LinkIcon,
+    PencilIcon,
+    RestoreIcon,
+    TrashIcon,
+    UsersIcon,
+  } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
   import Badge from "@/components/ui/Badge.svelte";
   import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
@@ -31,6 +40,9 @@
     onDeleteForever,
     onManageTeams,
     onManageWebhooks,
+    onMove,
+    variantOfName = null,
+    variantCount = 0,
   }: {
     project: ProjectSummary;
     section: ProjectStatus;
@@ -46,6 +58,12 @@
     onDeleteForever: () => void;
     onManageTeams: () => void;
     onManageWebhooks: () => void;
+    /** Puts the project in another folder. */
+    onMove?: () => void;
+    /** For a client variant: its original's name (`null` when hidden from the reader). */
+    variantOfName?: string | null;
+    /** For an original: how many client variants it has. */
+    variantCount?: number;
   } = $props();
 
   const { t } = useTranslation();
@@ -151,6 +169,17 @@
             >
               <Icon icon={UsersIcon} size={13} />
             </Button>
+            {#if onMove && section === "active"}
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                data-tooltip={t("folders.move")}
+                aria-label={t("folders.move")}
+                onclick={action(onMove)}
+              >
+                <Icon icon={FolderIcon} size={13} />
+              </Button>
+            {/if}
             <Button
               variant="ghost"
               size="icon-sm"
@@ -199,5 +228,16 @@
         <Badge tone="muted" class="ml-1">{t("projects.card.readOnly")}</Badge>
       {/if}
     </div>
+
+    {#if project.variantOf || variantCount > 0}
+      <div class="mt-1 flex items-center gap-1 text-[11px] text-text-muted" data-testid="variant-badge">
+        <Icon icon={LayersIcon} size={11} class="text-primary" />
+        {project.variantOf
+          ? variantOfName
+            ? t("projects.card.variantOf", { name: variantOfName })
+            : t("projects.card.variant")
+          : t("projects.card.variants", { count: variantCount })}
+      </div>
+    {/if}
   </div>
 </div>
