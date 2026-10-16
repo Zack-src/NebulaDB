@@ -15,6 +15,7 @@
   import FollowMenu from "@/features/notifications/FollowMenu.svelte";
   import NotificationBell from "@/features/notifications/NotificationBell.svelte";
   import PresenceList from "@/features/collaboration/PresenceList.svelte";
+  import VariantSwitcher from "@/features/workspace/variants/VariantSwitcher.svelte";
   import type { AwarenessState } from "@/features/collaboration/yjsClient";
   import Button from "@/components/ui/Button.svelte";
   import { APP_HEADER } from "@/components/ui/layout";
@@ -82,6 +83,9 @@
     <div class="flex min-w-0 items-center gap-2 pl-1 pr-2">
       <BrandMark size={24} iconSize={13} />
       <span class="truncate text-sm font-bold tracking-tight text-text">{props.projectName}</span>
+      {#if props.follow}
+        <VariantSwitcher projectId={props.follow.projectId} onOpenProject={props.follow.onOpenProject} />
+      {/if}
       {#if props.viewOnly}
         <span class="shrink-0" data-tooltip={t("editor.viewOnlyHint")} data-tooltip-pos="bottom">
           <Badge tone="muted">{t("projects.card.readOnly")}</Badge>
