@@ -17,7 +17,7 @@ import { login, startE2eEnvironment } from "./harness.js";
  * Set `E2E_SHOTS=<dir>` to keep a screenshot of each step.
  */
 
-const PORT = Number(process.env.E2E_PORT) || 4428;
+const PORT = Number(process.env.E2E_PORT) || 4462;
 const CLIENT_ID = "nebuladb-e2e";
 const CLIENT_SECRET = "e2e-secret";
 

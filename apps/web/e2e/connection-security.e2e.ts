@@ -16,7 +16,7 @@ import { login, startE2eEnvironment } from "./harness.js";
  * Set `E2E_SHOTS=<dir>` to keep a screenshot of each step.
  */
 
-const PORT = Number(process.env.E2E_PORT) || 4427;
+const PORT = Number(process.env.E2E_PORT) || 4461;
 const pg = {
   host: process.env.NEBULADB_TEST_PG_HOST || "localhost",
   port: Number(process.env.NEBULADB_TEST_PG_PORT || 55432),
