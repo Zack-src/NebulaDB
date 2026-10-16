@@ -306,6 +306,7 @@
           bind:password
           passwordPlaceholder={initial?.hasPassword ? "••••••••" : ""}
           bind:ssl
+          showSsl={false}
           bind:connectionString
           bind:filePath
           bind:useUri

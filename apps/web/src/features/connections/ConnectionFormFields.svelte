@@ -45,6 +45,7 @@
     useUri = $bindable(),
     showCredentials = true,
     showEnvironment = true,
+    showSsl = true,
   }: {
     /** The deployment stage (Admin → Environnements); `""` for none. */
     environmentId: string;
@@ -61,6 +62,8 @@
     useUri: boolean;
     showCredentials?: boolean;
     showEnvironment?: boolean;
+    /** `false` where TLS has a tab of its own (the admin console's Sécurité tab). */
+    showSsl?: boolean;
   } = $props();
 
   const { t } = useTranslation();
@@ -210,9 +213,9 @@
           </div>{/if}
       </div>
 
-      <div>
-        <Checkbox bind:checked={ssl}><span class="text-xs">{t("connections.sslEnable")}</span></Checkbox>
-      </div>
+      {#if showSsl}<div>
+          <Checkbox bind:checked={ssl}><span class="text-xs">{t("connections.sslEnable")}</span></Checkbox>
+        </div>{/if}
     </div>
   {/if}
 {/if}

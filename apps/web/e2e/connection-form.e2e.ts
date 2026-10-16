@@ -77,7 +77,7 @@ async function shows<T>(read: () => Promise<T>, expected: T, what: string): Prom
 
 /** The text field under a label the form does not associate with it (`<label>` then `<input>`). */
 /** The form is three tabs: a field is only there to touch once its tab is open. */
-const openTab = (dialog: Locator, name: "Connexion" | "Règles" | "Projets") =>
+const openTab = (dialog: Locator, name: "Connexion" | "Sécurité" | "Règles" | "Projets") =>
   dialog.getByRole("tab", { name }).click();
 
 const fieldUnder = (dialog: Locator, label: string) => dialog.locator(`label:text-is("${label}") + input`);
@@ -215,9 +215,12 @@ test(
       await creating.getByText("Un compte partagé", { exact: true }).click();
       await fieldUnder(creating, "Utilisateur").fill("app");
       await fieldUnder(creating, "Mot de passe").fill("s3cret-pw");
+      // TLS is on the Sécurité tab, with the certificates.
+      await openTab(creating, "Sécurité");
       assert.equal(await sslOf(creating).isChecked(), false);
       await creating.getByText("Activer SSL / TLS", { exact: true }).click();
       await shows(() => sslOf(creating).isChecked(), true, "SSL is ticked");
+      await openTab(creating, "Connexion");
       // A network engine with a user and a password can ask everyone for their own account.
       assert.equal(await accountMode(creating).count(), 1);
       await openTab(creating, "Règles");
@@ -244,11 +247,13 @@ test(
       await rowOf(page, "Réseau PG").getByRole("button", { name: "Modifier" }).click();
       await portOf(editing).waitFor();
       assert.equal(await portOf(editing).inputValue(), "6543");
-      assert.equal(await sslOf(editing).isChecked(), true);
       assert.equal(await uriOf(editing).isChecked(), false);
       assert.equal(await fieldUnder(editing, "Hôte").inputValue(), "db.internal");
+      await openTab(editing, "Sécurité");
+      assert.equal(await sslOf(editing).isChecked(), true);
       await editing.getByText("Activer SSL / TLS", { exact: true }).click();
       await shows(() => sslOf(editing).isChecked(), false, "SSL is unticked");
+      await openTab(editing, "Connexion");
       await editing.getByRole("button", { name: "Augmenter" }).click();
       await shows(() => portOf(editing).inputValue(), "6544", "the stepper adds one");
       await editing.getByRole("button", { name: "Enregistrer" }).click();
