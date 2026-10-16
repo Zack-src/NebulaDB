@@ -61,17 +61,18 @@ utilisé ».
 
 ## 2. Projet racine et déclinaisons ★
 
-| Fonctionnalité                                                          | État | Reste / remarque                                      |
-| ----------------------------------------------------------------------- | :--: | ----------------------------------------------------- |
-| ★ Projet racine et variantes par client (La Poste, L'Oréal…)            |  ❌  | Aucun code (Phase 35) ; décisions préalables requises |
-| Publication de versions de la base, suivi ou épinglage par variante     |  ❌  |                                                       |
-| Fusion à trois voies quand la base évolue                               |  ❌  |                                                       |
-| Vue en arbre, vues « résolu / surcouche / base », matrice des variantes |  ❌  |                                                       |
-| Moteur, droits, connexions et déploiements propres à chaque variante    |  ❌  |                                                       |
+| Fonctionnalité                                                                 | État | Reste / remarque                                                                                                        |
+| ------------------------------------------------------------------------------ | :--: | ----------------------------------------------------------------------------------------------------------------------- |
+| ★ Projet original et variantes par client                                      |  🧪  | Copie complète, onglet « Variantes » ; testé côté serveur et en navigateur, jamais essayé sur un vrai projet client     |
+| Envoi des changements de l'original, au choix des variantes et des changements |  🧪  | Fusion à trois sources par identifiant ; conflit quand le client a modifié la même chose (sa version gardée par défaut) |
+| Comparaison original / client et client / client                               |  🧪  | Tables et colonnes ; les relations sont seulement comptées                                                              |
+| Dossiers de projets imbriqués dans la liste                                    |  🧪  | Partagés par l'instance, visibles s'ils mènent à un projet accessible                                                   |
+| Publication de versions de l'original, épinglage par variante                  |  ❌  | L'envoi se fait à la demande, pas par version publiée                                                                   |
+| Variantes de variantes (base → secteur → client)                               |  ❌  | Un seul niveau, choix fait le 2026-10-16                                                                                |
+| Export DBML « surcouche » d'une variante                                       |  ❌  | Une variante s'exporte comme n'importe quel projet                                                                      |
 
-À décider avant tout code : format de l'export DBML d'une variante, profondeur de la
-hiérarchie (base → secteur → client), et si les variantes couvrent aussi les « branches de
-schéma ».
+Choix faits : un seul niveau de variantes ; seule la structure est envoyée (tables, colonnes, index, relations,
+enums, groupes), jamais la mise en page ; un changement non envoyé devient propre au client et n'est plus proposé.
 
 ## 3. Connexions aux bases ★
 

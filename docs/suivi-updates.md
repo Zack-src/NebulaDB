@@ -71,15 +71,15 @@ un moteur cible pour les projets).
 
 ## I. Lot 7 — dossiers et variantes de projet par client (demandé le 2026-10-16)
 
-- [ ] I1. Moteur : plan et application d'un envoi de l'original vers une variante (fusion à trois sources par identifiant :
+- [x] I1. Moteur : plan et application d'un envoi de l'original vers une variante (fusion à trois sources par identifiant :
       tables, champs, index, relations, enums, groupes ; conflits quand le client a modifié la même chose)
-- [ ] I2. Serveur : dossiers de projets (imbriqués, partagés), déplacement d'un projet, suppression qui remonte le contenu
-- [ ] I3. Serveur : variantes (création par copie complète, état « en retard sur l'original », aperçu, envoi vers les
+- [x] I2. Serveur : dossiers de projets (imbriqués, partagés), déplacement d'un projet, suppression qui remonte le contenu
+- [x] I3. Serveur : variantes (création par copie complète, état « en retard sur l'original », aperçu, envoi vers les
       variantes choisies avec décision par changement, détachement), comparaison entre deux versions
-- [ ] I4. Interface : dossiers dans la liste des projets (fil d'Ariane, création, renommage, déplacement, suppression)
-- [ ] I5. Interface : onglet « Variantes » (liste et état, envoi avec choix des variantes et des changements, conflits),
+- [x] I4. Interface : dossiers dans la liste des projets (fil d'Ariane, création, renommage, déplacement, suppression)
+- [x] I5. Interface : onglet « Variantes » (liste et état, envoi avec choix des variantes et des changements, conflits),
       comparaison original / client
-- [ ] I6. Tests navigateur, documentation, CHANGELOG, vérification complète
+- [x] I6. Tests navigateur, documentation, CHANGELOG, vérification complète
 
 Choix faits : une variante ne peut pas avoir elle-même de variantes (un seul niveau) ; la mise en page (positions,
 zones, notes) reste propre à chaque projet et n'est jamais envoyée ; un changement non envoyé est considéré comme un
@@ -117,6 +117,10 @@ choix du client et ne revient pas au prochain envoi.
 | 2026-10-16 | H1–H3 | `ff111f4` | TLS (autorité, certificat client, vérification) et tunnel SSH par connexion, onglet Sécurité ; PostgreSQL et MySQL essayés, tunnel essayé avec un serveur SSH simulé ; SQL Server / Oracle non essayés                                                     |
 | 2026-10-16 | H4–H5 | `cb1d2c4` | SSO OpenID Connect (PKCE, compte lié par `sub`, création optionnelle, domaines) ; essayé avec un fournisseur simulé, jamais avec un vrai Keycloak / Entra ID                                                                                               |
 | 2026-10-16 | H6    | `c6b9c29` | CHANGELOG et docs ; 433 serveur, 154 web, 158 moteur, 78 shared, 35 CLI, 47/47 navigateur ; un `await` manquant corrigé dans un test d'export                                                                                                              |
+| 2026-10-16 | I1    | `3948707` | Moteur de synchronisation original → variante (fusion à trois sources par identifiant, conflits, décisions) ; 6 tests                                                                                                                                      |
+| 2026-10-16 | I2–I3 | `47f8fcf` | Dossiers (imbriqués, partagés, suppression qui remonte le contenu) et variantes (copie, état, aperçu, envoi, détachement, comparaison) ; migration 8                                                                                                       |
+| 2026-10-16 | I4–I5 | `82fb0f9` | Dossiers dans la liste des projets, onglet « Variantes », envoi avec choix des variantes et des changements, comparaison                                                                                                                                   |
+| 2026-10-16 | I6    | —         | Docs et CHANGELOG ; 436 serveur, 157 web, 164 moteur, 78 shared, 35 CLI, 48/48 navigateur ; jamais essayé sur un vrai projet client                                                                                                                        |
 
 Dernière vérification complète (2026-10-15, version stable) : build complet, 391 tests serveur, 154 tests web, 158 tests du moteur DBML, 35 tests CLI, typecheck, lint, Prettier et imports circulaires propres.
 Non vérifié : tests navigateur (e2e) et essai à la main des écrans.

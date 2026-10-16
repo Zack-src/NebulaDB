@@ -32,13 +32,35 @@ has a dated entry for. Version 1.0.0 is the first release under the NebulaDB nam
   checks the row counts. Keep the SQLite file as a backup. Tried on a copy of a real instance.
 - Schema changes are now recorded in `schema_migrations` (PostgreSQL migration 1 is the whole
   former SQLite schema; 2–6 add saved queries, e-mail drift alerts, acknowledgements, mutes and
-  deployment reviews; 7 adds `user_identities` for single sign-on). Timestamps keep their `YYYY-MM-DD HH:MM:SS` UTC form in the API.
+  deployment reviews; 7 adds `user_identities` for single sign-on; 8 folders and client variants). Timestamps keep their `YYYY-MM-DD HH:MM:SS` UTC form in the API.
 - Concurrency that SQLite's synchronous access used to hide is now handled explicitly: login
   lockout counting, single use of 2FA backup codes, the last administrator, one running backup per
   database, the order of revisions in collaborative editing.
 - Tests (server, CLI, browser) run against a throwaway PostgreSQL:
   `docker compose -f docker-compose.test.yml up -d nebuladb-test-postgres`.
 - SQLite remains a supported **target** engine for the databases a project deploys to.
+
+### Added — project folders and client variants
+
+- **Folders** in the project list: "Nouveau dossier", nested up to 5 levels, a path to go back up, rename and
+  delete (what a deleted folder held moves up one level; no project is deleted). A project moves into a folder
+  from its card (project administrators); a project created inside a folder lands there. One tree for the
+  instance: each person sees the folders leading to a project they can open, the ones they made, and an instance
+  administrator sees all. Only whoever made a folder, or an instance administrator, changes it.
+- **Client variants**: a project's new **Variantes** tab makes a full copy of it (schema, layout, locks, seeds,
+  generator settings) for one client, in the same folder. A variant has no variants of its own.
+- When the original changes, its Variantes tab shows how far behind each variant is (changes to receive,
+  conflicts, the client's own adaptations). **"Envoyer les changements"** to the chosen variants opens a preview
+  per variant: every change ticked to be sent, untick what should not go; a conflict (the client changed the
+  same thing) keeps the client's version unless "Prendre l'original" is chosen. What is not sent becomes the
+  variant's own and is not offered again. Only the structure travels (tables, columns, indexes, relations,
+  enums, table groups) — positions and layout never. A variant can also take its original's changes from its
+  own tab, and be detached to become an independent project.
+- **Comparison** of any two versions (original and client, or two clients): tables only one side has, and the
+  columns that differ with each side's definition.
+- Audited as `folder.create|update|delete`, `project.folder`, `project.variant.create|push|detach`. Migration 8
+  (`project_folders`, `projects.folder_id`, `project_variants`). `GET /api/projects` and `/api/v1/projects` add
+  `folderId` and `variantOf`.
 
 ### Added — single sign-on (OpenID Connect)
 
