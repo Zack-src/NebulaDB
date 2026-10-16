@@ -101,8 +101,8 @@ test(
       // --- The workspace shows the stage in red; deploying asks for the name ---
       await page.goto(`${env.baseUrl}/project/${projectId}`);
       await page.locator('[data-production="true"]').filter({ hasText: "Prod" }).first().waitFor();
-      await page.getByRole("button", { name: "Déployer", exact: true }).first().click();
-      const modal = page.getByRole("dialog").first();
+      await page.goto(`${env.baseUrl}/project/${projectId}/deployments`);
+      const modal = page.getByTestId("deployment-panel");
       await modal.getByRole("button", { name: "Prévisualiser le SQL" }).click();
       await modal.getByRole("button", { name: "Appliquer les modifications en base" }).click();
 

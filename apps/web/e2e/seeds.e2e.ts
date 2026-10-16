@@ -117,8 +117,8 @@ test("seeds: CSV in the editor, checked, shown on the table, deployed", { timeou
     await orders.waitFor({ state: "detached" });
 
     // The plan counts them, parents first; the deployment inserts them.
-    await page.getByRole("button", { name: "Déployer", exact: true }).first().click();
-    const modal = page.getByRole("dialog").first();
+    await page.goto(`${env.baseUrl}/project/${projectId}/deployments`);
+    const modal = page.getByTestId("deployment-panel");
     await modal.getByTestId("seed-plan").getByText("customers : +2 lignes").waitFor();
     await modal.getByTestId("seed-plan").getByText("orders : +8 lignes").waitFor();
     await snap("plan");
