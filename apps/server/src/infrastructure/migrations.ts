@@ -830,6 +830,27 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 7,
+    name: "user_identities table",
+    up: async (db) => {
+      // An account at a single sign-on provider, tied to a NebulaDB user: the
+      // provider's own identifier (`subject`), never the e-mail, is what logs
+      // in — an address can change hands at the provider.
+      await db.exec(`
+        CREATE TABLE user_identities (
+          issuer ${T} NOT NULL,
+          subject ${T} NOT NULL,
+          user_id ${T} NOT NULL REFERENCES users(id),
+          email ${T},
+          created_at ${T} NOT NULL DEFAULT utc_now(),
+          last_login_at ${T},
+          PRIMARY KEY (issuer, subject)
+        );
+        CREATE INDEX idx_user_identities_user ON user_identities(user_id);
+      `);
+    },
+  },
 ];
 
 // Any constant will do, as long as every NebulaDB process takes the same one.

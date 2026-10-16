@@ -17,6 +17,7 @@ import { registerAuditRoutes } from "./modules/audit/routes.js";
 import { registerAuthRoutes } from "./modules/auth/routes.js";
 import { registerTotpRoutes } from "./modules/auth/totpRoutes.js";
 import { registerPasswordResetRoutes } from "./modules/auth/passwordResetRoutes.js";
+import { registerOidcRoutes } from "./modules/auth/oidcRoutes.js";
 import { resolveSession } from "./modules/auth/session.js";
 import { registerConvertRoutes } from "./modules/convert/routes.js";
 import { registerConnectionRoutes } from "./modules/connections/routes.js";
@@ -186,6 +187,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerAuthRoutes(app);
   registerTotpRoutes(app);
   registerPasswordResetRoutes(app);
+  registerOidcRoutes(app);
   registerInvitationRoutes(app);
   registerUserRoutes(app);
   registerTeamRoutes(app);

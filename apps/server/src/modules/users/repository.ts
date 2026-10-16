@@ -94,6 +94,7 @@ const purgeUserAndBelongingsTx = async (userId: string, email: string, transferT
   await db.transaction(async () => {
     await db.prepare("UPDATE projects SET owner_id = ? WHERE owner_id = ?").run(transferTo, userId);
     await db.prepare("DELETE FROM sessions WHERE user_id = ?").run(userId);
+    await db.prepare("DELETE FROM user_identities WHERE user_id = ?").run(userId);
     await db.prepare("DELETE FROM team_members WHERE user_id = ?").run(userId);
     await db.prepare("DELETE FROM project_members WHERE user_id = ?").run(userId);
     await db.prepare("DELETE FROM subscriptions WHERE user_id = ?").run(userId);

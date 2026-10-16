@@ -417,6 +417,13 @@ export const ERROR_CATALOG = {
   },
   DB_ADMIN_QUERY_FAILED: { status: 502, message: "the target database rejected the statement" },
   ROW_EDIT_FAILED: { status: 502, message: "the database refused a row change — nothing was applied" },
+  SSO_SETTINGS_INVALID: {
+    status: 400,
+    message:
+      "single sign-on needs an https issuer URL (http only on localhost), a client id, and allowed domains as plain names",
+  },
+  SSO_DISCOVERY_FAILED: { status: 502, message: "the identity provider's discovery document could not be read" },
+  SSO_NOT_CONFIGURED: { status: 404, message: "single sign-on is not set up on this instance" },
   CONNECTION_SSH_FAILED: { status: 502, message: "the SSH tunnel to the database could not be opened" },
   MIGRATION_FAILED: { status: 502, message: "the migration could not be applied to the target database" },
   ROLLBACK_FAILED: { status: 502, message: "the rollback could not be applied to the target database" },

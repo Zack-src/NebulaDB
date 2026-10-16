@@ -1,4 +1,5 @@
 import type { FastifyInstance } from "fastify";
+import { publicSsoInfo } from "./oidc.js";
 import { appUrl, isMailEnabled, sendMail } from "../../infrastructure/mailer.js";
 import { revalidateAllRooms } from "../../realtime/roomRegistry.js";
 import { auditUser } from "../../shared/audit.js";
@@ -19,7 +20,12 @@ export function registerPasswordResetRoutes(app: FastifyInstance): void {
    * What the login screen may offer. Public: it gates a link on a page nobody is logged into yet.
    * `email`: the instance sends mail at all (the "follow" menu offers alerts by email only then).
    */
-  app.get("/api/auth/features", async () => ({ passwordReset: isMailEnabled(), email: isMailEnabled() }));
+  app.get("/api/auth/features", async () => ({
+    passwordReset: isMailEnabled(),
+    email: isMailEnabled(),
+    // Whether the login page offers single sign-on, and the button's words.
+    sso: await publicSsoInfo(),
+  }));
 
   /**
    * Always answers the same thing, whether or not the address has an account

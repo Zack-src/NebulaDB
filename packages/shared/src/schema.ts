@@ -556,3 +556,24 @@ export interface SchemaRisk {
 }
 
 export type MigrationResolutionMap = Record<string, { strategy: ConflictResolutionStrategy; value?: string }>;
+
+/** Single sign-on through one OpenID Connect provider, as the admin console shows it. */
+export interface SsoSettings {
+  enabled: boolean;
+  /** The provider's issuer URL; `/.well-known/openid-configuration` is read under it. */
+  issuer: string;
+  clientId: string;
+  /** The secret is never sent back. */
+  hasClientSecret: boolean;
+  /** The login button's words; empty: "Se connecter avec le SSO". */
+  buttonLabel: string;
+  /** Someone the provider knows but NebulaDB does not gets an account (no administrator rights) on first sign-in. */
+  autoCreate: boolean;
+  /** When set, only these e-mail domains may sign in for the first time. Also what is trusted when the provider does not say an address is verified. */
+  allowedDomains: string[];
+}
+
+/** What the console sends: `clientSecret` empty or missing keeps the stored one, `null` removes it. */
+export interface SsoSettingsInput extends Partial<Omit<SsoSettings, "hasClientSecret">> {
+  clientSecret?: string | null;
+}
