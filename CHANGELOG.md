@@ -32,13 +32,46 @@ has a dated entry for. Version 1.0.0 is the first release under the NebulaDB nam
   checks the row counts. Keep the SQLite file as a backup. Tried on a copy of a real instance.
 - Schema changes are now recorded in `schema_migrations` (PostgreSQL migration 1 is the whole
   former SQLite schema; 2–6 add saved queries, e-mail drift alerts, acknowledgements, mutes and
-  deployment reviews). Timestamps keep their `YYYY-MM-DD HH:MM:SS` UTC form in the API.
+  deployment reviews; 7 adds `user_identities` for single sign-on). Timestamps keep their `YYYY-MM-DD HH:MM:SS` UTC form in the API.
 - Concurrency that SQLite's synchronous access used to hide is now handled explicitly: login
   lockout counting, single use of 2FA backup codes, the last administrator, one running backup per
   database, the order of revisions in collaborative editing.
 - Tests (server, CLI, browser) run against a throwaway PostgreSQL:
   `docker compose -f docker-compose.test.yml up -d nebuladb-test-postgres`.
 - SQLite remains a supported **target** engine for the databases a project deploys to.
+
+### Added — single sign-on (OpenID Connect)
+
+- Admin → **Connexion unique (SSO)**: one OpenID Connect provider (Keycloak, Entra ID, Google
+  Workspace, Authentik, Okta…) — issuer URL, client id and secret (encrypted, never sent back),
+  button label, allowed e-mail domains, accounts created on first sign-in (never administrators).
+  "Tester le fournisseur" reads the discovery document. The page shows the redirect URI to register
+  at the provider: `NEBULADB_PUBLIC_URL` + `/api/auth/sso/callback` when set, otherwise the address
+  the console is reached by.
+- The login page offers "Se connecter avec …" next to the password. Authorization code flow with
+  PKCE, state and nonce; the ID token is checked (signature, issuer, audience, nonce).
+- A provider account is tied to a NebulaDB user by the provider's identifier (`sub`), never by
+  e-mail after the first sign-in. The first sign-in finds the user with the same address only when
+  the provider says it is verified, or when its domain is in the allowed list (for providers that do
+  not say, such as Entra ID). A refused sign-in comes back to the login page with the reason.
+  Two-factor codes are not asked after SSO: the provider's own MFA applies. Password sign-in stays.
+- Audited as `auth.sso.login`, `auth.sso.refused`, `user.sso.create`, `user.sso.link`,
+  `instance.sso`. Migration 7 (`user_identities`).
+
+### Added — TLS certificates and SSH tunnels for connections
+
+- A connection's **Sécurité** tab: check the server's certificate against the connection's own
+  authority (PEM) or the system ones, and send a client certificate and key when the server asks for
+  one — PostgreSQL, MySQL and SQL Server tried; Oracle goes over `tcps` with the authority as wallet
+  content, untested. The certificate is checked against the host name typed, even though the socket
+  goes to the pinned address. MySQL connections now honour "Activer SSL / TLS" (they ignored it).
+- **SSH tunnel**: the database is reached through an SSH server (password, or private key with its
+  passphrase); the host and port of the connection are then the ones the SSH server sees. The host
+  key fingerprint (`SHA256:…`) is filled in by the first test and enforced once saved. Only for
+  connections made of a host and a port, not a connection string.
+- The client key and the SSH secrets are encrypted with the rest of the connection and never sent
+  back; an empty field keeps the stored one. `/api/v1` connection routes and the OpenAPI document
+  carry the new fields (`sslVerify`, `sslCa`, `sslCert`, `sslKey`, `sshTunnel`).
 
 ### Added — deployments
 
@@ -84,7 +117,7 @@ has a dated entry for. Version 1.0.0 is the first release under the NebulaDB nam
 
 ### Added — a backup location per connection
 
-- Admin → Connexions → Ouvrir → Sauvegardes → **Emplacement des sauvegardes**: the folder of the
+- Admin → Connexions → Monitoring → Sauvegardes → **Emplacement des sauvegardes**: the folder of the
   server a database's backups are written to — a local folder or a network share mounted on the
   server (NFS, SMB; a `\\server\share` path on Windows). It is created and written to before it is
   kept (`BACKUP_DESTINATION_UNUSABLE` with the system's reason otherwise). Empty: the instance's

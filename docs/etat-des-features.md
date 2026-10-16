@@ -75,17 +75,17 @@ schéma ».
 
 ## 3. Connexions aux bases ★
 
-| Fonctionnalité                                                       | État | Reste / remarque                                                 |
-| -------------------------------------------------------------------- | :--: | ---------------------------------------------------------------- |
-| Connexions au niveau de l'instance, rattachées aux projets           |  ✅  |                                                                  |
-| PostgreSQL, MySQL/MariaDB, SQL Server                                |  ✅  | Vérifié sur de vraies bases                                      |
-| Oracle                                                               |  🧪  | Jamais testé sur une vraie base                                  |
-| SQLite                                                               |  ✅  |                                                                  |
-| Chiffrement des identifiants, rotation de la clé, anti DNS-rebinding |  ✅  |                                                                  |
-| Santé, tags, lecture seule par connexion                             |  ✅  |                                                                  |
-| Environnements configurables (DEV › Staging › Prod)                  |  ✅  | « Revue » demande l'approbation d'une autre personne (section 4) |
-| Variables par environnement dans les noms de tables et de schémas    |  🧪  | `{{schema}}` jamais essayé sur un moteur à schémas               |
-| Tunnel SSH, autorité de certification TLS personnalisée              |  ❌  |                                                                  |
+| Fonctionnalité                                                       | État | Reste / remarque                                                                                             |
+| -------------------------------------------------------------------- | :--: | ------------------------------------------------------------------------------------------------------------ |
+| Connexions au niveau de l'instance, rattachées aux projets           |  ✅  |                                                                                                              |
+| PostgreSQL, MySQL/MariaDB, SQL Server                                |  ✅  | Vérifié sur de vraies bases                                                                                  |
+| Oracle                                                               |  🧪  | Jamais testé sur une vraie base                                                                              |
+| SQLite                                                               |  ✅  |                                                                                                              |
+| Chiffrement des identifiants, rotation de la clé, anti DNS-rebinding |  ✅  |                                                                                                              |
+| Santé, tags, lecture seule par connexion                             |  ✅  |                                                                                                              |
+| Environnements configurables (DEV › Staging › Prod)                  |  ✅  | « Revue » demande l'approbation d'une autre personne (section 4)                                             |
+| Variables par environnement dans les noms de tables et de schémas    |  🧪  | `{{schema}}` jamais essayé sur un moteur à schémas                                                           |
+| Tunnel SSH, autorité de certification TLS personnalisée              |  🧪  | PostgreSQL et MySQL testés (TLS), tunnel testé avec un serveur SSH simulé ; SQL Server et Oracle non essayés |
 
 ## 4. Déploiement ★
 
@@ -118,7 +118,7 @@ schéma ».
 | ★ Invitation avec groupes, accès aux bases et compte SQL attribués |  🧪  | Appliqué à l'acceptation, testé côté serveur ; l'écran n'a jamais été cliqué                                                                                       |
 | Rôle intermédiaire (« peut déployer », « peut lancer du SQL »)     |  🧪  | Niveau « Déploiement » entre Édition et Administrateur, testé côté serveur, écrans jamais cliqués ; le SQL est couvert par le droit d'accès à une base (section 6) |
 | Restriction de lecture par table ou par colonne                    |  ❌  |                                                                                                                                                                    |
-| SSO, passkeys                                                      |  ❌  |                                                                                                                                                                    |
+| SSO (OpenID Connect) ; passkeys non faites                         |  🧪  | Testé côté serveur et en navigateur avec un fournisseur simulé ; jamais essayé avec un vrai Keycloak / Entra ID                                                    |
 
 ## 6. Utilisateurs et permissions des bases connectées ★
 

@@ -59,10 +59,18 @@ un moteur cible pour les projets).
 - [x] G3. Test serveur instable sous charge : « /api/v1 backups: a running backup is cancelled with a key » — `bb090e9`
 - [x] G2. Formater `bundle.ts` et `bundle.test.ts` (avertissement Prettier antérieur à ce lot) — `c2e7b46`
 
+## H. Lot 6 — connexion sécurisée (décidé le 2026-10-16 : SSO en OIDC, tunnel SSH, TLS personnalisé)
+
+- [x] H1. TLS personnalisé par connexion : certificat d'autorité, certificat et clé client, vérification du certificat
+      (PostgreSQL, MySQL, SQL Server ; Oracle en `tcps` sans test possible)
+- [x] H2. Tunnel SSH par connexion : bastion, mot de passe ou clé privée, empreinte de la clé d'hôte
+- [x] H3. Formulaire de connexion : onglet « Sécurité » pour TLS et SSH, empreinte remplie au test
+- [x] H4. SSO OIDC côté serveur : découverte, PKCE, compte lié par l'identifiant du fournisseur, création à la volée optionnelle
+- [x] H5. SSO OIDC côté interface : bouton sur l'écran de connexion, réglages dans l'administration
+- [ ] H6. Documentation, CHANGELOG, vérification complète
+
 ## En attente d'une décision de Zack
 
-- SSO (quel fournisseur, OIDC ou SAML)
-- Tunnel SSH et autorité de certification TLS personnalisée
 - IA optionnelle (quel service, quelles données peuvent sortir de l'instance)
 - Variantes d'un projet par client (format d'export, profondeur de la hiérarchie)
 

@@ -1943,8 +1943,7 @@ NOT IN (SELECT id FROM projects)` is worth running on existing instances (migrat
       primitive; the GitHub Action, CLI wrapper and docs aren't built. Overlaps Phase 38 idea 25.
 - [ ] **Database console follow-ups** — from the console plan's phase 4: data **import**,
       schema comparison **between two connections** (now covered by Phase 32 environment
-      comparison), SSH tunnel and custom CA for TLS (drivers connect with
-      `rejectUnauthorized: false` unless a PostgreSQL URL says otherwise), CodeMirror SQL editor with
+      comparison), SSH tunnel and custom CA for TLS (done: a connection's Sécurité tab), CodeMirror SQL editor with
       completion (Phase 31), MongoDB. SQLite queries run synchronously and cannot be timed out.
       Backup / restore moved to Phase 32.
 
