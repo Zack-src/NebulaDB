@@ -19,6 +19,58 @@ has a dated entry for. Version 1.0.0 is the first release under the NebulaDB nam
 
 ## [Unreleased]
 
+### Changed — NebulaDB's own data moves to PostgreSQL (read before upgrading)
+
+- NebulaDB now stores its users, projects, revisions, connections and everything else in
+  **PostgreSQL**, and only there. `NEBULADB_DATABASE_URL` is required; `NEBULADB_DB_PATH` is no
+  longer read (the server stops at boot and says what to do). `NEBULADB_DATABASE_POOL_SIZE`
+  (default 10) sizes the connection pool. `docker-compose.yml` adds a `postgres` service and needs
+  `NEBULADB_POSTGRES_PASSWORD`.
+- **Moving an existing instance:** start the new version on an empty PostgreSQL database, then
+  `npm run migrate-from-sqlite -- <path-to-sqlite-file>`. It copies every table in one
+  transaction, refuses a target that already holds data and a file older than schema 45, and
+  checks the row counts. Keep the SQLite file as a backup. Tried on a copy of a real instance.
+- Schema changes are now recorded in `schema_migrations` (PostgreSQL migration 1 is the whole
+  former SQLite schema; 2–6 add saved queries, e-mail drift alerts, acknowledgements, mutes and
+  deployment reviews). Timestamps keep their `YYYY-MM-DD HH:MM:SS` UTC form in the API.
+- Concurrency that SQLite's synchronous access used to hide is now handled explicitly: login
+  lockout counting, single use of 2FA backup codes, the last administrator, one running backup per
+  database, the order of revisions in collaborative editing.
+- Tests (server, CLI, browser) run against a throwaway PostgreSQL:
+  `docker compose -f docker-compose.test.yml up -d nebuladb-test-postgres`.
+- SQLite remains a supported **target** engine for the databases a project deploys to.
+
+### Added — deployments
+
+- A **`deploy`** project level between `edit` and `administrator`: plan, deploy, roll back, read
+  the history, compare databases, check for drift — not manage connections, teams or settings.
+- **Review before a "Revue" stage**: the deployment is prepared and frozen, another person who may
+  deploy approves or rejects it (never its author), and the approved request is deployed only if
+  the plan is unchanged. Approvals expire after 7 days. Notifications, audit, webhook event
+  `deployment.review`, `/api/v1` routes.
+- **Export of the deployment history** as numbered SQL, Flyway or Liquibase files in a zip.
+
+### Added — SQL and data
+
+- The SQL console is a **CodeMirror editor** with the connection's dialect and completion of tables
+  and columns; **saved queries**, private or shared; **row editing** from the explorer (primary key
+  required, statements shown before they run, all or nothing); **index suggestions** from the
+  statements run, added through the project's schema.
+
+### Added — monitoring
+
+- **E-mail alerts** for drift (per account, when SMTP is configured), **acknowledging** an alert,
+  and **muting** a project's alerts for a while with a reason.
+
+### Added — interface and tools
+
+- A global **`Ctrl+K` palette**; the connection form in **tabs**; the server's databases offered when
+  choosing a project's database; stage variables as a **key/value table**; ignored tables picked
+  from the schema; a notice when a project leaves the trash detached from a connection; multi-line
+  dictionary descriptions and a **PDF export** of the dictionary.
+- **`nebuladb` command-line client** (`packages/cli`) over `/api/v1`, which now also exposes the
+  deployment plan and project bundles.
+
 ### Added — a watch imposed from the connection
 
 - Admin → Connexions → a connection → **Imposer la surveillance des modifications hors Nebula**,
