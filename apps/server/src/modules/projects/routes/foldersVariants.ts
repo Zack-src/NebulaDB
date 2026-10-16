@@ -23,6 +23,8 @@ import {
   listVariants,
   previewSync,
   pushToVariants,
+  familyOf,
+  resetVariant,
   statusOf,
 } from "../variants.js";
 
@@ -131,6 +133,12 @@ export function registerFolderAndVariantRoutes(app: FastifyInstance): void {
     return { variants: await listVariants(user.id, id), original: null };
   });
 
+  app.get("/api/projects/:id/family", async (req) => {
+    const { id } = req.params as { id: string };
+    const { user } = await requireProjectAccess(req, id, "view");
+    return { family: await familyOf(user.id, id) };
+  });
+
   app.post("/api/projects/:id/variants/preview", async (req) => {
     const { id } = req.params as { id: string };
     const { user } = await requireProjectAccess(req, id, "view");
@@ -159,6 +167,23 @@ export function registerFolderAndVariantRoutes(app: FastifyInstance): void {
       );
     }
     return { results };
+  });
+
+  /** `from`: `"original"` (start again from the original) or the id of another variant of the same original. */
+  app.post("/api/projects/:id/variant/reset", async (req) => {
+    const { id } = req.params as { id: string };
+    const { user } = await requireProjectAccess(req, id, "edit");
+    const from = (req.body as { from?: unknown } | undefined)?.from;
+    if (typeof from !== "string" || !from) throw new ApiError("VARIANT_TARGETS_INVALID");
+    await resetVariant(user, id, from);
+    await auditUser(
+      user,
+      "project.variant.reset",
+      { type: "project", id },
+      from === "original" ? "reset to the original" : `copied from ${(await getProjectRow(from))?.name ?? from}`,
+      req,
+    );
+    return { reset: true, from };
   });
 
   app.delete("/api/projects/:id/variant", async (req) => {

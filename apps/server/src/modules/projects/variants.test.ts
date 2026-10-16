@@ -288,3 +288,62 @@ test("folders: nested, shared, a project moved in by its administrator, deleting
     "FOLDER_NOT_FOUND",
   );
 });
+
+test("variants: reset on the original, copied from a sibling, the family listed, renamed and trashed like any project", async () => {
+  const owner = await makeUser();
+  const base = (await call(owner.cookie, "POST", "/api/projects", { name: "Socle" })).json() as { id: string };
+  await importDbml(owner.cookie, base.id, ORIGINAL);
+  const a = (await call(owner.cookie, "POST", `/api/projects/${base.id}/variants`, { name: "A" })).json() as {
+    id: string;
+  };
+  const b = (await call(owner.cookie, "POST", `/api/projects/${base.id}/variants`, { name: "B" })).json() as {
+    id: string;
+  };
+  await importDbml(owner.cookie, a.id, `${ORIGINAL}\nTable a_only {\n  id int [pk]\n}\n`);
+  await importDbml(owner.cookie, b.id, ORIGINAL.replace("total numeric", "total money"));
+
+  // A takes B's schema: its own table goes, B's type arrives.
+  const copied = await call(owner.cookie, "POST", `/api/projects/${a.id}/variant/reset`, { from: b.id });
+  assert.equal(copied.statusCode, 200, copied.body);
+  let dbmlA = await dbml(owner.cookie, a.id);
+  assert.doesNotMatch(dbmlA, /a_only/);
+  assert.match(dbmlA, /total\s+money/);
+
+  // Then back to the original: nothing of its own left, up to date.
+  await call(owner.cookie, "POST", `/api/projects/${a.id}/variant/reset`, { from: "original" });
+  dbmlA = await dbml(owner.cookie, a.id);
+  assert.equal(dbmlA, await dbml(owner.cookie, base.id));
+  const status = (await call(owner.cookie, "GET", `/api/projects/${a.id}/variants`)).json().original.status;
+  assert.deepEqual(status, { pending: 0, conflicts: 0, customizations: 0 });
+
+  // Only a variant of the same original, never itself.
+  const other = (await call(owner.cookie, "POST", "/api/projects", { name: "Ailleurs" })).json() as { id: string };
+  for (const from of [other.id, a.id, base.id])
+    assert.equal(
+      (await call(owner.cookie, "POST", `/api/projects/${a.id}/variant/reset`, { from })).json().code,
+      "VARIANT_NOT_FOUND",
+      from,
+    );
+
+  // The family, from any of its members.
+  const family = (await call(owner.cookie, "GET", `/api/projects/${b.id}/family`)).json().family;
+  assert.equal(family.originalId, base.id);
+  assert.deepEqual(
+    family.members.map((m: { name: string; original: boolean }) => [m.name, m.original]),
+    [
+      ["Socle", true],
+      ["A", false],
+      ["B", false],
+    ],
+  );
+  assert.equal((await call(owner.cookie, "GET", `/api/projects/${other.id}/family`)).json().family, null);
+
+  // Renamed and trashed through the project routes; a trashed variant leaves the family.
+  assert.equal((await call(owner.cookie, "PATCH", `/api/projects/${b.id}`, { name: "B — Lyon" })).statusCode, 200);
+  await call(owner.cookie, "PATCH", `/api/projects/${a.id}`, { status: "trashed" });
+  const after = (await call(owner.cookie, "GET", `/api/projects/${base.id}/family`)).json().family;
+  assert.deepEqual(
+    after.members.map((m: { name: string }) => m.name),
+    ["Socle", "B — Lyon"],
+  );
+});

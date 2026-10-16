@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Field, Project, Ref, Table } from "@nebuladb/shared";
-import { applyVariantSync, planVariantSync, variantStatus } from "./variants.js";
+import { applyVariantSync, planVariantSync, replaceVariantSchema, variantStatus } from "./variants.js";
 
 const field = (table: string, name: string, type = "int", extra: Partial<Field> = {}): Field => ({
   id: `${table}.${name}`,
@@ -179,4 +179,32 @@ test("a removed field takes its index and relations with it; enums and groups tr
   assert.deepEqual(result.refs, []);
   assert.equal(result.enums[0].name, "status");
   assert.deepEqual(result.tableGroups[0].tableIds, ["orders", "customers"]);
+});
+
+test("a variant reset on its original, or copied from another variant, takes its schema and keeps its own layout", () => {
+  const variant = clone(synced);
+  variant.tables[0].position = { x: 900, y: 40 };
+  variant.tables[0].fields.push(field("customers", "client_ref", "text"));
+  variant.zones = [{ id: "z1", label: "Client", position: { x: 0, y: 0 }, size: { width: 10, height: 10 } }];
+
+  const other = clone(synced);
+  other.tables.push(table("invoices", [field("invoices", "id")], { position: { x: 5, y: 5 } }));
+  other.tables[1].fields[2] = field("orders", "total", "money");
+
+  const copied = replaceVariantSchema(variant, other);
+  assert.deepEqual(
+    copied.tables.map((t) => t.id),
+    ["customers", "orders", "invoices"],
+  );
+  assert.deepEqual(copied.tables[0].position, { x: 900, y: 40 }, "the variant's own place");
+  assert.deepEqual(copied.tables[2].position, { x: 5, y: 5 }, "a new table at the other's place");
+  assert.equal(
+    copied.tables[0].fields.some((f) => f.name === "client_ref"),
+    false,
+  );
+  assert.equal(copied.tables[1].fields[2].type, "money");
+  assert.equal(copied.zones.length, 1);
+  // Nothing left between the copy and its source.
+  assert.deepEqual(planVariantSync(other, other, copied).changes, []);
+  assert.equal(variantStatus(other, other, copied).customizations, 0);
 });

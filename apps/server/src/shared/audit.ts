@@ -38,6 +38,7 @@ export const AUDIT_ACTIONS = [
   "project.variant.create",
   "project.variant.push",
   "project.variant.detach",
+  "project.variant.reset",
   "project.folder",
   "folder.create",
   "folder.update",

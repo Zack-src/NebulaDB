@@ -3,6 +3,7 @@ import {
   applyVariantSync,
   diffProjects,
   planVariantSync,
+  replaceVariantSchema,
   variantStatus,
   type ProjectDiff,
   type VariantDecisions,
@@ -225,4 +226,72 @@ export async function detachVariant(variantId: string): Promise<boolean> {
 /** Two projects side by side, matched by id: what `to` has that `from` has not, and the other way round. */
 export async function compareProjects(fromId: string, toId: string): Promise<ProjectDiff> {
   return diffProjects(await readProject(fromId), await readProject(toId));
+}
+
+/**
+ * Puts a variant back to its original's schema (`from: "original"`), or to
+ * another variant's of the same original. What the variant had of its own is
+ * gone (the history keeps it). After a reset the variant is up to date with
+ * the original; after a copy it stands exactly where the copied variant does,
+ * including what that one has not received yet.
+ */
+export async function resetVariant(user: Caller, variantId: string, from: string): Promise<{ from: string }> {
+  const row = await variantRow(variantId);
+  if (!row) throw new ApiError("VARIANT_NOT_FOUND");
+  let source: Project;
+  let synced: Project;
+  if (from === "original") {
+    if (!(await hasPermission(user.id, row.base_project_id, "view"))) throw new ApiError("FORBIDDEN");
+    source = await readProject(row.base_project_id);
+    synced = source;
+  } else {
+    const other = await variantRow(from);
+    if (!other || other.base_project_id !== row.base_project_id || from === variantId)
+      throw new ApiError("VARIANT_NOT_FOUND");
+    if (!(await hasPermission(user.id, from, "view"))) throw new ApiError("FORBIDDEN");
+    source = await readProject(from);
+    synced = parseSynced(other);
+  }
+  const name = (await getProjectRow(variantId))?.name ?? variantId;
+  const assertLocksAllow = await lockGuardFor(user.id, variantId);
+  // From here to `room.write`, nothing waits: see `Room.write`.
+  const room = await getRoom(variantId);
+  const current = readProjectFromDoc(room.doc, variantId, name);
+  const next = replaceVariantSchema(current, source);
+  assertLocksAllow(current, next);
+  await room.write(() => writeProjectToDoc(room.doc, next), user.displayName);
+  await db
+    .prepare(
+      "UPDATE project_variants SET synced_json = ?, synced_at = utc_now(), synced_by_name = ? WHERE project_id = ?",
+    )
+    .run(JSON.stringify(synced), user.displayName, variantId);
+  return { from };
+}
+
+/**
+ * The original and its variants, names only, as far as the caller may see
+ * them — what the project header switches between. `null` for a project that
+ * is neither an original with variants nor a variant.
+ */
+export async function familyOf(
+  userId: string,
+  projectId: string,
+): Promise<{ originalId: string; members: { id: string; name: string; original: boolean }[] } | null> {
+  const originalId = (await variantRow(projectId))?.base_project_id ?? projectId;
+  const rows = (await db
+    .prepare(
+      `SELECT p.id, p.name FROM project_variants v JOIN projects p ON p.id = v.project_id
+        WHERE v.base_project_id = ? AND p.status <> 'trashed' ORDER BY p.name`,
+    )
+    .all(originalId)) as { id: string; name: string }[];
+  if (rows.length === 0) return null;
+  const members: { id: string; name: string; original: boolean }[] = [];
+  const original = await getProjectRow(originalId);
+  if (original && (await hasPermission(userId, originalId, "view")))
+    members.push({ id: originalId, name: original.name, original: true });
+  for (const row of rows) {
+    if (row.id === projectId || (await hasPermission(userId, row.id, "view")))
+      members.push({ id: row.id, name: row.name, original: false });
+  }
+  return { originalId, members };
 }

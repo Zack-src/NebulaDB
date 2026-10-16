@@ -341,3 +341,35 @@ export function variantStatus(
     customizations: own,
   };
 }
+
+/**
+ * `target` with the schema of `source` — the original (a reset) or another
+ * variant (a copy). Tables both have keep `target`'s place on the canvas,
+ * size and style; tables only `source` has come with their own. Zones and
+ * sticky notes are `target`'s, untouched.
+ */
+export function replaceVariantSchema(target: Project, source: Project): Project {
+  const placed = byId(target.tables);
+  const placedEnums = byId(target.enums);
+  return {
+    ...target,
+    tables: source.tables.map((table) => {
+      const own = placed.get(table.id);
+      const copy = structuredClone(table);
+      return own
+        ? { ...copy, position: own.position, size: own.size, style: own.style, detailLevel: own.detailLevel }
+        : copy;
+    }),
+    refs: source.refs.map((ref) => {
+      const own = target.refs.find((r) => r.id === ref.id);
+      return own
+        ? { ...structuredClone(ref), routingPoints: own.routingPoints, style: own.style }
+        : structuredClone(ref);
+    }),
+    enums: source.enums.map((e) => {
+      const own = placedEnums.get(e.id);
+      return own ? { ...structuredClone(e), position: own.position } : structuredClone(e);
+    }),
+    tableGroups: structuredClone(source.tableGroups),
+  };
+}
