@@ -417,14 +417,20 @@ export const ERROR_CATALOG = {
   },
   DB_ADMIN_QUERY_FAILED: { status: 502, message: "the target database rejected the statement" },
   ROW_EDIT_FAILED: { status: 502, message: "the database refused a row change — nothing was applied" },
-  VARIANT_OF_VARIANT: { status: 400, message: "a client variant cannot have variants of its own: copy its original instead" },
+  VARIANT_OF_VARIANT: {
+    status: 400,
+    message: "a client variant cannot have variants of its own: copy its original instead",
+  },
   VARIANT_NOT_FOUND: { status: 404, message: "this project is not a variant of that one" },
   VARIANT_TARGETS_INVALID: { status: 400, message: "variants must be a list of variant ids (and decisions)" },
   FOLDER_NOT_FOUND: { status: 404, message: "folder not found" },
   FOLDER_TOO_DEEP: { status: 400, message: "folders nest at most 5 levels deep" },
   FOLDER_MOVE_INVALID: { status: 400, message: "a folder cannot go into itself or one of its subfolders" },
   FOLDER_LIMIT_REACHED: { status: 400, message: "this instance has reached its number of folders" },
-  FOLDER_FORBIDDEN: { status: 403, message: "only whoever made the folder, or an instance administrator, can change it" },
+  FOLDER_FORBIDDEN: {
+    status: 403,
+    message: "only whoever made the folder, or an instance administrator, can change it",
+  },
   SSO_SETTINGS_INVALID: {
     status: 400,
     message:
