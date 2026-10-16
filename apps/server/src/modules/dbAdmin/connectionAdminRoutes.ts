@@ -3,7 +3,8 @@ import type { FastifyInstance } from "fastify";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireAdmin } from "../../shared/guards.js";
-import { createDatabaseDriver } from "../connections/drivers/index.js";
+import { testConnectionConfig } from "../connections/drivers/index.js";
+import { mergeSecurity } from "../connections/security.js";
 import { isValidEngine } from "../connections/engines.js";
 import {
   checkConnectionProjects,
@@ -220,13 +221,10 @@ export function registerConnectionAdminRoutes(app: FastifyInstance): void {
     const config = { ...body, password: body.password || stored?.password } as DatabaseConnectionConfig;
     if (stored?.connectionString && body.connectionString?.includes("***"))
       config.connectionString = stored.connectionString;
+    // The client key and the SSH secrets are never sent back to the form either.
+    if (stored) mergeSecurity(stored, body, config);
 
-    const driver = await createDatabaseDriver(config);
-    try {
-      return await driver.testConnection();
-    } finally {
-      await driver.close().catch(() => {});
-    }
+    return await testConnectionConfig(config);
   });
 
   app.post("/api/admin/connections/:id/health", WRITE_LIMIT, async (req) => {

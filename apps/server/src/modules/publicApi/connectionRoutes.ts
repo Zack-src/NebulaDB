@@ -9,7 +9,7 @@ import { requireScope } from "../apiKeys/auth.js";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireProjectAccess, requireProjectAdmin } from "../../shared/guards.js";
-import { createDatabaseDriver } from "../connections/drivers/index.js";
+import { testConnectionConfig } from "../connections/drivers/index.js";
 import { deployToConnection, rollbackConnectionDeployment } from "../connections/deploy.js";
 import { pullConnectionSchema } from "../connections/pull.js";
 import { listDeploymentHistory } from "../connections/deploymentHistory.js";
@@ -114,12 +114,7 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
     requireValidEngine(body.engine);
     await assertTargetNotManaged(user, body);
 
-    const driver = await createDatabaseDriver(body);
-    try {
-      return await driver.testConnection();
-    } finally {
-      await driver.close().catch(() => {});
-    }
+    return await testConnectionConfig(body);
   });
 
   app.post("/api/v1/projects/:id/connections/:connId/pull", API_RATE_LIMIT, async (req) => {

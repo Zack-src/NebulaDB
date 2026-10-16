@@ -16,6 +16,7 @@ import { ApiError } from "../../shared/errors.js";
 import { deleteBackupsOfConnection } from "../backups/repository.js";
 import { getEnvironment, resolveConnectionEnvironment } from "../environments/repository.js";
 import { mapAsync } from "../../shared/async.js";
+import { mergeSecurity, normalizeSecurity, securitySummary } from "./security.js";
 
 interface ConnectionRow {
   id: string;
@@ -105,6 +106,7 @@ async function rowToSummary(row: ConnectionRow, projectId: string): Promise<Data
     user: config.user,
     hasPassword: Boolean(config.password && config.password.length > 0),
     ssl: config.ssl,
+    ...securitySummary(config),
     connectionString: maskConnectionString(config.connectionString),
     filePath: config.filePath,
     authMode: row.auth_mode as ConnectionAuthMode,
@@ -255,6 +257,8 @@ async function insertConnection(
   createdBy: string | null,
 ): Promise<string> {
   const id = crypto.randomUUID();
+  config = { ...config };
+  normalizeSecurity(config);
   const stage = (await resolveConnectionEnvironment(config)) ?? null;
   await db
     .prepare(
@@ -358,9 +362,12 @@ async function applyUpdate(
     if (!merged.connectionString?.trim()) {
       delete merged.connectionString;
     } else if (merged.connectionString !== existing.connectionString) {
-      for (const key of ["host", "port", "database", "user", "password", "ssl"] as const) delete merged[key];
+      for (const key of ["host", "port", "database", "user", "password", "ssl", "sshTunnel"] as const) {
+        delete merged[key];
+      }
     }
   }
+  mergeSecurity(existing, updates, merged);
 
   // `environment`, `tags` and `read_only` live in their own plain columns
   // (not in the encrypted blob): they are operator labels and a policy flag,

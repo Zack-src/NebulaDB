@@ -463,7 +463,16 @@ export const OPERATIONS: Operation[] = [
     body: ref("ConnectionInput"),
     ok: {
       status: 200,
-      schema: obj({ ok: bool, version: str, database: str, error: str }, ["ok"]),
+      schema: obj(
+        {
+          ok: bool,
+          version: str,
+          database: str,
+          error: str,
+          sshHostKeyFingerprint: { type: "string", description: "Through an SSH tunnel: the host key that answered" },
+        },
+        ["ok"],
+      ),
     },
   },
   {
@@ -1162,6 +1171,14 @@ const COMPONENTS: Record<string, Schema> = {
       user: str,
       hasPassword: bool,
       ssl: bool,
+      sslVerify: bool,
+      sslCa: { type: "string", description: "PEM authority the server's certificate is checked against" },
+      sslCert: { type: "string", description: "PEM client certificate" },
+      hasSslKey: bool,
+      sshTunnel: obj(
+        { host: str, port: int, user: str, hasPassword: bool, hasPrivateKey: bool, hostKeyFingerprint: str },
+        ["host", "port", "user", "hasPassword", "hasPrivateKey"],
+      ),
       connectionString: { type: "string", description: "Password masked as `***`" },
       filePath: str,
       createdAt: str,
@@ -1184,6 +1201,29 @@ const COMPONENTS: Record<string, Schema> = {
       user: str,
       password: { type: "string", writeOnly: true },
       ssl: bool,
+      sslVerify: { type: "boolean", description: "Check the server's certificate (authority and host name)" },
+      sslCa: { type: "string", description: "PEM authority, instead of the system ones" },
+      sslCert: { type: "string", description: "PEM client certificate, with sslKey" },
+      sslKey: {
+        type: ["string", "null"],
+        writeOnly: true,
+        description: "PEM client key; empty keeps the stored one, null removes it",
+      },
+      sshTunnel: {
+        type: ["object", "null"],
+        description:
+          "Reach the database through this SSH server (host and port connections only); null removes it. On update, an empty password or key keeps the stored one while host and user stay the same.",
+        properties: {
+          host: str,
+          port: { type: "integer", default: 22 },
+          user: str,
+          password: { type: "string", writeOnly: true },
+          privateKey: { type: "string", writeOnly: true, description: "PEM / OpenSSH private key" },
+          passphrase: { type: "string", writeOnly: true },
+          hostKeyFingerprint: { type: "string", description: "SHA256:… — when set, another host key is refused" },
+        },
+        required: ["host", "user"],
+      },
       connectionString: str,
       filePath: str,
     },

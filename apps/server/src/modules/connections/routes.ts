@@ -6,7 +6,7 @@ import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireProjectAccess, requireProjectAdmin, requireUser } from "../../shared/guards.js";
 import { getRoom } from "../../realtime/roomRegistry.js";
-import { createDatabaseDriver } from "./drivers/index.js";
+import { createDatabaseDriver, testConnectionConfig } from "./drivers/index.js";
 import { deployToConnection, rollbackConnectionDeployment } from "./deploy.js";
 import { compareConnections } from "./compare.js";
 import { blockingLintFindings } from "../lint/check.js";
@@ -233,12 +233,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
     if (!VALID_ENGINES.has(body.engine)) throw new ApiError("CONNECTION_ENGINE_INVALID");
     await assertTargetNotManaged(user, body);
 
-    const driver = await createDatabaseDriver(body);
-    try {
-      return await driver.testConnection();
-    } finally {
-      await driver.close().catch(() => {});
-    }
+    return await testConnectionConfig(body);
   });
 
   // 6. Pull schema from live DB into canvas

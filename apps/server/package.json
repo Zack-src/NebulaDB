@@ -31,9 +31,11 @@
     "mssql": "^12.7.0",
     "mysql2": "^3.23.3",
     "nodemailer": "^10.0.10",
+    "openid-client": "^6.8.8",
     "oracledb": "^7.0.1",
     "pg": "^8.23.0",
     "sharp": "^0.35.3",
+    "ssh2": "^1.17.0",
     "y-protocols": "^1.0.7",
     "yjs": "^13.6.32"
   },
@@ -46,7 +48,9 @@
     "@types/oracledb": "^7.0.2",
     "@types/pg": "^8.21.0",
     "@types/smtp-server": "^3.5.13",
+    "@types/ssh2": "^1.15.6",
     "@types/ws": "^8.18.1",
+    "jose": "^6.2.12",
     "smtp-server": "^3.19.13",
     "tsx": "^4.23.12",
     "typescript": "^7.0.2"

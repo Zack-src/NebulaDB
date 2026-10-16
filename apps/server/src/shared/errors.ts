@@ -55,6 +55,15 @@ export const ERROR_CATALOG = {
     message:
       "authMode must be shared or personal — and personal needs a host, user and password: not a SQLite file, not a connection string",
   },
+  CONNECTION_TLS_INVALID: {
+    status: 400,
+    message: "certificates and keys are PEM text (-----BEGIN …), and TLS settings need TLS to be on",
+  },
+  CONNECTION_SSH_INVALID: {
+    status: 400,
+    message:
+      "an SSH tunnel needs a host, a user and a password or a readable private key, and a connection made of a host and a port",
+  },
   PERSONAL_CREDENTIALS_INVALID: { status: 400, message: "username and password are required" },
   PERSONAL_CREDENTIALS_REJECTED: { status: 400, message: "the database refused this account" },
   PERSONAL_PASSWORD_REJECTED: { status: 400, message: "the database refused the new password" },
@@ -408,6 +417,7 @@ export const ERROR_CATALOG = {
   },
   DB_ADMIN_QUERY_FAILED: { status: 502, message: "the target database rejected the statement" },
   ROW_EDIT_FAILED: { status: 502, message: "the database refused a row change — nothing was applied" },
+  CONNECTION_SSH_FAILED: { status: 502, message: "the SSH tunnel to the database could not be opened" },
   MIGRATION_FAILED: { status: 502, message: "the migration could not be applied to the target database" },
   ROLLBACK_FAILED: { status: 502, message: "the rollback could not be applied to the target database" },
   BACKUP_FAILED: { status: 502, message: "the safety backup did not complete, so nothing was changed" },
