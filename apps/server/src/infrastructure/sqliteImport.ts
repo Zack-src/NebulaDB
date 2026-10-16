@@ -1,6 +1,6 @@
 import Database from "better-sqlite3";
 import { db } from "./db.js";
-import { SQLITE_FINAL_VERSION } from "./migrations.js";
+import { SQLITE_FINAL_VERSION, SQLITE_LAST_DEV_VERSION } from "./migrations.js";
 
 /**
  * Copies an instance's SQLite storage into the PostgreSQL database `db` is
@@ -123,7 +123,7 @@ export async function importSqliteFile(
   }
   try {
     const version = source.pragma("user_version", { simple: true }) as number;
-    if (version !== SQLITE_FINAL_VERSION) {
+    if (version < SQLITE_FINAL_VERSION || version > SQLITE_LAST_DEV_VERSION) {
       throw new SqliteImportRefused(
         `${sqlitePath} is at schema version ${version}, not ${SQLITE_FINAL_VERSION}: start the last SQLite release ` +
           "of NebulaDB on it once, so it brings the file up to date, then run this again",

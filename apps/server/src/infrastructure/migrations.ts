@@ -22,6 +22,14 @@ export interface Migration {
  */
 export const SQLITE_FINAL_VERSION = 45;
 
+/**
+ * The SQLite schema reached by the development builds that came between that
+ * release and the move (46–50: saved queries, drift alerts, reviews). Their
+ * additions are migrations 2–6 here, so `migrate-from-sqlite` takes those
+ * files too: every one of their tables and columns has a place.
+ */
+export const SQLITE_LAST_DEV_VERSION = 50;
+
 // Every text column is declared with the "C" collation: byte order, which is
 // what SQLite's default BINARY collation compared and sorted by. It is also
 // what makes a timestamp kept as text sort chronologically whatever locale the
