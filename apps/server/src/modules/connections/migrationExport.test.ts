@@ -65,7 +65,7 @@ async function seedHistory(projectId: string, connectionId: string, author: stri
     engine: "postgres" as const,
     executedByEmail: author,
   };
-  const first = recordDeployment({
+  const first = await recordDeployment({
     ...base,
     sql: UP_1,
     rollbackSql: DOWN_1,
