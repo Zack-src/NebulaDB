@@ -1,6 +1,20 @@
 <script lang="ts">
   import Icon from "@/components/icons/Icon.svelte";
-  import { CopyIcon, LayersIcon, SwapHorizontalIcon } from "@/components/icons/Icons";
+  import {
+    ChevronRightIcon,
+    CopyIcon,
+    LayersIcon,
+    PencilIcon,
+    RestoreIcon,
+    SwapHorizontalIcon,
+    TrashIcon,
+  } from "@/components/icons/Icons";
+  import Menu from "@/components/ui/Menu.svelte";
+  import MenuItem from "@/components/ui/MenuItem.svelte";
+  import Select from "@/components/ui/Select.svelte";
+  import { toast } from "@/components/ui/toast.svelte";
+  import { renameProject, setProjectStatus } from "@/services/projectsApi";
+  import { familyChanged } from "./familyState.svelte";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Modal from "@/components/overlays/Modal.svelte";
   import Badge from "@/components/ui/Badge.svelte";
@@ -13,7 +27,14 @@
   import { i18n, useTranslation } from "@/i18n/i18n.svelte";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
-  import { createVariant, detachVariant, fetchVariants, type VariantStatus } from "@/services/variantsApi";
+  import {
+    createVariant,
+    detachVariant,
+    fetchFamily,
+    fetchVariants,
+    resetVariant,
+    type VariantStatus,
+  } from "@/services/variantsApi";
   import type { ProjectSummary } from "@/types";
   import VariantCompareModal from "./VariantCompareModal.svelte";
   import VariantSyncModal from "./VariantSyncModal.svelte";
@@ -46,26 +67,60 @@
   const variants = $derived(info.data?.variants ?? []);
   const original = $derived(info.data?.original ?? null);
   const behind = $derived(variants.filter((v) => v.status.pending > 0));
+  // Every version one can see — what both sides of a comparison and "Copier depuis" choose among.
+  const family = useAsyncResource(() => fetchFamily(project.id));
   const versions = $derived(
-    original
-      ? [
-          { id: original.id, name: original.name ?? t("variants.original") },
-          { id: project.id, name: project.name },
-        ]
-      : [{ id: project.id, name: project.name }, ...variants.map((v) => ({ id: v.id, name: v.name }))],
+    family.data
+      ? family.data.members.map((m) => ({ id: m.id, name: m.original ? `${m.name} — ${t("variants.original")}` : m.name }))
+      : [{ id: project.id, name: project.name }],
   );
+  /** The other variants of the same original: what a variant can be copied from. */
+  const siblingsOf = (id: string) => (family.data?.members ?? []).filter((m) => !m.original && m.id !== id);
+
+  function changed() {
+    info.reload();
+    family.reload();
+    familyChanged();
+  }
 
   const create = useAsyncAction(async () => {
     await createVariant(project.id, newName.trim());
     creating = false;
     newName = "";
-    info.reload();
+    changed();
   });
 
   const detach = useAsyncAction(async () => {
     await detachVariant(project.id);
     confirmDetach = false;
-    info.reload();
+    changed();
+  });
+
+  // ---- one variant's own actions: rename, put in the trash, reset on the original, copy another ----
+  let renaming = $state<{ id: string; name: string } | null>(null);
+  let trashing = $state<{ id: string; name: string } | null>(null);
+  let resetting = $state<{ id: string; name: string } | null>(null);
+  let copying = $state<{ id: string; name: string; from: string } | null>(null);
+
+  const rename = useAsyncAction(async () => {
+    if (!renaming) return;
+    await renameProject(renaming.id, renaming.name.trim());
+    renaming = null;
+    changed();
+  });
+  const trash = useAsyncAction(async () => {
+    if (!trashing) return;
+    await setProjectStatus(trashing.id, "trashed");
+    toast.success(t("variants.trashed", { name: trashing.name }));
+    trashing = null;
+    changed();
+  });
+  const reset = useAsyncAction(async (id: string, from: string) => {
+    await resetVariant(id, from);
+    toast.success(from === "original" ? t("variants.resetDone") : t("variants.copyDone"));
+    resetting = null;
+    copying = null;
+    changed();
   });
 
   function statusText(status: VariantStatus): string {
@@ -138,11 +193,30 @@
               </Button>
             {/if}
           {/if}
+          {#if project.permission !== "view"}
+            {#if original.canView}
+              <Button size="sm" variant="ghost" onclick={() => (resetting = { id: project.id, name: project.name })}>
+                <Icon icon={RestoreIcon} size={12} />
+                {t("variants.reset")}
+              </Button>
+            {/if}
+            {#if siblingsOf(project.id).length > 0}
+              <Button
+                size="sm"
+                variant="ghost"
+                onclick={() => (copying = { id: project.id, name: project.name, from: siblingsOf(project.id)[0].id })}
+              >
+                <Icon icon={CopyIcon} size={12} />
+                {t("variants.copyFrom")}
+              </Button>
+            {/if}
+          {/if}
           {#if isAdmin}
             <Button size="sm" variant="ghost" onclick={() => (confirmDetach = true)}>{t("variants.detach")}</Button>
           {/if}
         </div>
         {#if detach.error}<ErrorText>{detach.error}</ErrorText>{/if}
+        {#if reset.error}<ErrorText>{reset.error}</ErrorText>{/if}
       </section>
     {:else if info.data}
       <Hint>{t("variants.hint")}</Hint>
@@ -194,10 +268,45 @@
                   {t("variants.compare.button")}
                 </Button>
                 <Button size="xs" variant="ghost" onclick={() => onOpenProject?.(variant.id)}>{t("variants.open")}</Button>
+                {#if variant.canEdit || variant.canManage}
+                  <Menu aria-label={t("variants.actionsFor", { name: variant.name })}>
+                    {#snippet trigger(props)}
+                      <Button {...props} size="xs" variant="ghost" aria-label={t("variants.actionsFor", { name: variant.name })}>
+                        {t("variants.actions")}
+                        <Icon icon={ChevronRightIcon} size={10} class="rotate-90" />
+                      </Button>
+                    {/snippet}
+                    {#if variant.canManage}
+                      <MenuItem icon={PencilIcon} onSelect={() => (renaming = { id: variant.id, name: variant.name })}>
+                        {t("common.rename")}
+                      </MenuItem>
+                    {/if}
+                    {#if variant.canEdit}
+                      <MenuItem icon={RestoreIcon} onSelect={() => (resetting = { id: variant.id, name: variant.name })}>
+                        {t("variants.reset")}
+                      </MenuItem>
+                      {#if siblingsOf(variant.id).length > 0}
+                        <MenuItem
+                          icon={CopyIcon}
+                          onSelect={() => (copying = { id: variant.id, name: variant.name, from: siblingsOf(variant.id)[0].id })}
+                        >
+                          {t("variants.copyFrom")}
+                        </MenuItem>
+                      {/if}
+                    {/if}
+                    {#if variant.canManage}
+                      <MenuItem icon={TrashIcon} danger onSelect={() => (trashing = { id: variant.id, name: variant.name })}>
+                        {t("variants.trash")}
+                      </MenuItem>
+                    {/if}
+                  </Menu>
+                {/if}
               </div>
             </li>
           {/each}
         </ul>
+        {#if reset.error}<ErrorText>{reset.error}</ErrorText>{/if}
+        {#if trash.error}<ErrorText>{trash.error}</ErrorText>{/if}
       {/if}
     {/if}
   </div>
@@ -256,4 +365,77 @@
     onCancel={() => (confirmDetach = false)}
     onConfirm={() => void detach.run()}
   />
+{/if}
+
+{#if renaming}
+  <Modal title={t("variants.renameTitle")} onClose={() => (renaming = null)} narrow dismissable={!rename.pending}>
+    <form
+      class="space-y-3"
+      onsubmit={(event) => {
+        event.preventDefault();
+        if (renaming?.name.trim()) void rename.run();
+      }}
+    >
+      <Input wrapperClassName="w-full" bind:value={renaming.name} aria-label={t("variants.createName")} autofocus />
+      {#if rename.error}<ErrorText>{rename.error}</ErrorText>{/if}
+      <div class="flex justify-end gap-2">
+        <Button size="sm" variant="ghost" onclick={() => (renaming = null)} disabled={rename.pending}>{t("common.cancel")}</Button>
+        <Button size="sm" variant="primary" type="submit" disabled={rename.pending || !renaming.name.trim()}>
+          {rename.pending ? t("common.saving") : t("common.save")}
+        </Button>
+      </div>
+    </form>
+  </Modal>
+{/if}
+
+{#if trashing}
+  <ConfirmDialog
+    title={t("variants.trashTitle", { name: trashing.name })}
+    message={t("variants.trashMessage")}
+    danger="warning"
+    confirmLabel={t("variants.trash")}
+    onCancel={() => (trashing = null)}
+    onConfirm={() => void trash.run()}
+  />
+{/if}
+
+{#if resetting}
+  <ConfirmDialog
+    title={t("variants.resetTitle", { name: resetting.name })}
+    message={t("variants.resetMessage")}
+    danger="warning"
+    confirmLabel={t("variants.reset")}
+    onCancel={() => (resetting = null)}
+    onConfirm={() => resetting && void reset.run(resetting.id, "original")}
+  />
+{/if}
+
+{#if copying}
+  <Modal title={t("variants.copyTitle", { name: copying.name })} onClose={() => (copying = null)} dismissable={!reset.pending}>
+    <div class="space-y-3" data-testid="variant-copy">
+      <div>
+        <div id="copy-source" class="mb-1 text-xs font-medium text-text-muted">{t("variants.copySource")}</div>
+        <Select
+          class="w-full"
+          aria-labelledby="copy-source"
+          value={copying.from}
+          options={siblingsOf(copying.id).map((m) => ({ value: m.id, label: m.name }))}
+          onChange={(value) => copying && (copying.from = value)}
+        />
+      </div>
+      <Hint>{t("variants.copyMessage")}</Hint>
+      {#if reset.error}<ErrorText>{reset.error}</ErrorText>{/if}
+      <div class="flex justify-end gap-2">
+        <Button size="sm" variant="ghost" onclick={() => (copying = null)} disabled={reset.pending}>{t("common.cancel")}</Button>
+        <Button
+          size="sm"
+          variant="primary"
+          disabled={reset.pending}
+          onclick={() => copying && void reset.run(copying.id, copying.from)}
+        >
+          {reset.pending ? t("common.saving") : t("variants.copyConfirm")}
+        </Button>
+      </div>
+    </div>
+  </Modal>
 {/if}
