@@ -69,10 +69,25 @@ un moteur cible pour les projets).
 - [x] H5. SSO OIDC côté interface : bouton sur l'écran de connexion, réglages dans l'administration
 - [x] H6. Documentation, CHANGELOG, vérification complète
 
+## I. Lot 7 — dossiers et variantes de projet par client (demandé le 2026-10-16)
+
+- [ ] I1. Moteur : plan et application d'un envoi de l'original vers une variante (fusion à trois sources par identifiant :
+      tables, champs, index, relations, enums, groupes ; conflits quand le client a modifié la même chose)
+- [ ] I2. Serveur : dossiers de projets (imbriqués, partagés), déplacement d'un projet, suppression qui remonte le contenu
+- [ ] I3. Serveur : variantes (création par copie complète, état « en retard sur l'original », aperçu, envoi vers les
+      variantes choisies avec décision par changement, détachement), comparaison entre deux versions
+- [ ] I4. Interface : dossiers dans la liste des projets (fil d'Ariane, création, renommage, déplacement, suppression)
+- [ ] I5. Interface : onglet « Variantes » (liste et état, envoi avec choix des variantes et des changements, conflits),
+      comparaison original / client
+- [ ] I6. Tests navigateur, documentation, CHANGELOG, vérification complète
+
+Choix faits : une variante ne peut pas avoir elle-même de variantes (un seul niveau) ; la mise en page (positions,
+zones, notes) reste propre à chaque projet et n'est jamais envoyée ; un changement non envoyé est considéré comme un
+choix du client et ne revient pas au prochain envoi.
+
 ## En attente d'une décision de Zack
 
 - IA optionnelle (quel service, quelles données peuvent sortir de l'instance)
-- Variantes d'un projet par client (format d'export, profondeur de la hiérarchie)
 
 ## Journal
 
