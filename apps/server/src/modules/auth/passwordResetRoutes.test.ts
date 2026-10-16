@@ -88,7 +88,7 @@ test("forgot password: generic answer, a real email with an absolute link, singl
   const app = await buildApp();
   try {
     const features = await app.inject({ method: "GET", url: "/api/auth/features", headers: headers() });
-    assert.deepEqual(features.json(), { passwordReset: true, email: true });
+    assert.deepEqual(features.json(), { passwordReset: true, email: true, sso: { enabled: false, buttonLabel: "" } });
 
     const user = await makeUser();
     const login = await app.inject({

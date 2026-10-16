@@ -34,6 +34,7 @@ test("an instance administrator also gets every admin console tab", () => {
     "admin:connections",
     "admin:environments",
     "admin:lint",
+    "admin:sso",
   ]);
 });
 
