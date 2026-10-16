@@ -17,7 +17,7 @@ un moteur cible pour les projets).
 - [x] A4. Tests serveur sur PostgreSQL (une base isolée par fichier de test) — `bf1e9de` (branche `feat/postgres-storage`)
 - [x] A5. Outil de bascule d'une instance SQLite existante vers PostgreSQL — `b7c8638` (branche `feat/postgres-storage`)
 - [x] A6. Configuration, Docker Compose, README, sauvegarde/restauration en ligne de commande — `7a9877c` (branche `feat/postgres-storage`)
-- [ ] A7. Fusion dans `updates` et conversion des requêtes ajoutées entre-temps par les lots B à F
+- [x] A7. Fusion dans `updates` et conversion des requêtes ajoutées entre-temps par les lots B à F — `81a9e94`
 
 ## B. Lot 1 — petits conforts
 
@@ -87,6 +87,7 @@ un moteur cible pour les projets).
 | 2026-10-15 | C3    | `b80129e` | Édition de lignes depuis l'explorateur (clé primaire requise, SQL montré avant, tout ou rien)                                                                                         |
 | 2026-10-15 | F5    | `a5c7745` | Suggestions d'index depuis les statistiques, ajout via le schéma du projet                                                                                                            |
 | 2026-10-15 | F4    | `85ea884` | CLI `nebuladb` (+ plan et bundle exposés en `/api/v1`) ; action GitHub non faite                                                                                                      |
+| 2026-10-16 | A7    | `81a9e94` | PostgreSQL fusionné : migrations 46–50 devenues 2–6, code ajouté depuis converti ; 415 tests serveur sur PostgreSQL, 35 CLI                                                           |
 
 Dernière vérification complète (2026-10-15, version stable) : build complet, 391 tests serveur, 154 tests web, 158 tests du moteur DBML, 35 tests CLI, typecheck, lint, Prettier et imports circulaires propres.
 Non vérifié : tests navigateur (e2e) et essai à la main des écrans.
