@@ -27,13 +27,13 @@ const notifyRulesChanged = (projectIds: string[]) => {
 export function registerLintPresetRoutes(app: FastifyInstance): void {
   app.get("/api/admin/lint-presets", async (req) => {
     requireAdmin(req);
-    return listLintPresets();
+    return await listLintPresets();
   });
 
   app.post("/api/admin/lint-presets", WRITE_LIMIT, async (req, reply) => {
     const user = requireAdmin(req);
-    const preset = createLintPreset(req.body, user.displayName ?? user.email);
-    auditUser(user, "lint.preset.create", { type: "lint-preset", id: preset.id }, preset.name, req);
+    const preset = await createLintPreset(req.body, user.displayName ?? user.email);
+    await auditUser(user, "lint.preset.create", { type: "lint-preset", id: preset.id }, preset.name, req);
     reply.code(201);
     return { preset };
   });
@@ -42,8 +42,14 @@ export function registerLintPresetRoutes(app: FastifyInstance): void {
   app.put("/api/admin/lint-presets/default", WRITE_LIMIT, async (req) => {
     const user = requireAdmin(req);
     const id = ((req.body ?? {}) as { id?: unknown }).id;
-    const result = setDefaultLintPreset(typeof id === "string" ? id : null);
-    auditUser(user, "lint.preset.default", { type: "lint-preset", id: result.defaultId ?? "none" }, undefined, req);
+    const result = await setDefaultLintPreset(typeof id === "string" ? id : null);
+    await auditUser(
+      user,
+      "lint.preset.default",
+      { type: "lint-preset", id: result.defaultId ?? "none" },
+      undefined,
+      req,
+    );
     notifyRulesChanged(result.affected);
     return { defaultId: result.defaultId };
   });
@@ -51,8 +57,8 @@ export function registerLintPresetRoutes(app: FastifyInstance): void {
   app.put("/api/admin/lint-presets/:id", WRITE_LIMIT, async (req) => {
     const user = requireAdmin(req);
     const { id } = req.params as { id: string };
-    const { preset, affected } = updateLintPreset(id, req.body);
-    auditUser(
+    const { preset, affected } = await updateLintPreset(id, req.body);
+    await auditUser(
       user,
       "lint.preset.update",
       { type: "lint-preset", id },
@@ -66,8 +72,14 @@ export function registerLintPresetRoutes(app: FastifyInstance): void {
   app.delete("/api/admin/lint-presets/:id", WRITE_LIMIT, async (req) => {
     const user = requireAdmin(req);
     const { id } = req.params as { id: string };
-    const { detached } = deleteLintPreset(id);
-    auditUser(user, "lint.preset.delete", { type: "lint-preset", id }, `${detached.length} project(s) detached`, req);
+    const { detached } = await deleteLintPreset(id);
+    await auditUser(
+      user,
+      "lint.preset.delete",
+      { type: "lint-preset", id },
+      `${detached.length} project(s) detached`,
+      req,
+    );
     notifyRulesChanged(detached);
     return { ok: true, detached: detached.length };
   });
@@ -76,8 +88,8 @@ export function registerLintPresetRoutes(app: FastifyInstance): void {
     const user = requireAdmin(req);
     const { id } = req.params as { id: string };
     const { projectIds } = (req.body ?? {}) as { projectIds?: unknown };
-    const { applied, skipped } = applyLintPreset(id, projectIds, user.displayName ?? user.email);
-    auditUser(user, "lint.preset.apply", { type: "lint-preset", id }, `${applied.length} project(s)`, req);
+    const { applied, skipped } = await applyLintPreset(id, projectIds, user.displayName ?? user.email);
+    await auditUser(user, "lint.preset.apply", { type: "lint-preset", id }, `${applied.length} project(s)`, req);
     notifyRulesChanged(applied);
     return { applied: applied.length, skipped };
   });

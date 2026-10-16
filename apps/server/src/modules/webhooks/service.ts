@@ -83,16 +83,16 @@ function toDeliverySummary(row: DeliveryRow) {
   };
 }
 
-function requireWebhook(projectId: string, hookId: string): WebhookRow {
-  const webhook = getWebhook(projectId, hookId);
+async function requireWebhook(projectId: string, hookId: string): Promise<WebhookRow> {
+  const webhook = await getWebhook(projectId, hookId);
   if (!webhook) throw new ApiError("WEBHOOK_NOT_FOUND");
   return webhook;
 }
 
 const newSecret = () => `whsec_${crypto.randomBytes(32).toString("base64url")}`;
 
-export function projectWebhooks(projectId: string): Webhook[] {
-  return listWebhooks(projectId).map(toWebhook);
+export async function projectWebhooks(projectId: string): Promise<Webhook[]> {
+  return (await listWebhooks(projectId)).map(toWebhook);
 }
 
 /** The signing secret is returned here once and never again — store it in the receiving service now. */
@@ -106,11 +106,11 @@ export async function createWebhookFor(
   const url = await parseUrl(body.url);
   const format = parseFormat(body.format);
   const events = parseEvents(body.events ?? SUBSCRIBABLE_EVENTS);
-  if (countWebhooks(projectId) >= MAX_WEBHOOKS_PER_PROJECT) throw new ApiError("WEBHOOK_LIMIT_REACHED");
+  if ((await countWebhooks(projectId)) >= MAX_WEBHOOKS_PER_PROJECT) throw new ApiError("WEBHOOK_LIMIT_REACHED");
 
   const secret = newSecret();
   const webhookId = crypto.randomUUID();
-  insertWebhook({
+  await insertWebhook({
     id: webhookId,
     projectId,
     url,
@@ -119,9 +119,9 @@ export async function createWebhookFor(
     secretEncrypted: encryptPayload(secret),
     createdBy: user.id,
   });
-  invalidateWebhookCache(projectId);
-  auditUser(user, "webhook.create", { type: "project", id: projectId }, `${format} → ${new URL(url).host}`, req);
-  return { webhook: toWebhook(getWebhook(projectId, webhookId)!), secret };
+  await invalidateWebhookCache(projectId);
+  await auditUser(user, "webhook.create", { type: "project", id: projectId }, `${format} → ${new URL(url).host}`, req);
+  return { webhook: toWebhook((await getWebhook(projectId, webhookId))!), secret };
 }
 
 export async function changeWebhook(
@@ -131,24 +131,29 @@ export async function changeWebhook(
   rawBody: unknown,
   req: FastifyRequest,
 ): Promise<Webhook> {
-  requireWebhook(projectId, hookId);
+  await requireWebhook(projectId, hookId);
   const body = (rawBody ?? {}) as { url?: unknown; format?: unknown; events?: unknown; enabled?: unknown };
   if (body.enabled !== undefined && typeof body.enabled !== "boolean") throw new ApiError("WEBHOOK_ENABLED_INVALID");
-  updateWebhook(hookId, {
+  await updateWebhook(hookId, {
     url: body.url !== undefined ? await parseUrl(body.url) : undefined,
     format: body.format !== undefined ? parseFormat(body.format) : undefined,
     events: body.events !== undefined ? parseEvents(body.events) : undefined,
     enabled: body.enabled as boolean | undefined,
   });
-  auditUser(user, "webhook.update", { type: "project", id: projectId }, hookId, req);
-  return toWebhook(getWebhook(projectId, hookId)!);
+  await auditUser(user, "webhook.update", { type: "project", id: projectId }, hookId, req);
+  return toWebhook((await getWebhook(projectId, hookId))!);
 }
 
-export function removeWebhook(user: Actor, projectId: string, hookId: string, req: FastifyRequest): void {
-  requireWebhook(projectId, hookId);
-  deleteWebhook(hookId);
-  invalidateWebhookCache(projectId);
-  auditUser(user, "webhook.delete", { type: "project", id: projectId }, hookId, req);
+export async function removeWebhook(
+  user: Actor,
+  projectId: string,
+  hookId: string,
+  req: FastifyRequest,
+): Promise<void> {
+  await requireWebhook(projectId, hookId);
+  await deleteWebhook(hookId);
+  await invalidateWebhookCache(projectId);
+  await auditUser(user, "webhook.delete", { type: "project", id: projectId }, hookId, req);
 }
 
 /**
@@ -156,24 +161,24 @@ export function removeWebhook(user: Actor, projectId: string, hookId: string, re
  * stay. The old secret stops signing at once: a delivery still waiting for a
  * retry is signed with the new one when it goes out. Shown once, like the first.
  */
-export function rotateWebhookSecret(
+export async function rotateWebhookSecret(
   user: Actor,
   projectId: string,
   hookId: string,
   req: FastifyRequest,
-): { webhook: Webhook; secret: string } {
-  requireWebhook(projectId, hookId);
+): Promise<{ webhook: Webhook; secret: string }> {
+  await requireWebhook(projectId, hookId);
   const secret = newSecret();
-  setWebhookSecret(hookId, encryptPayload(secret));
-  auditUser(user, "webhook.rotate_secret", { type: "project", id: projectId }, hookId, req);
-  return { webhook: toWebhook(getWebhook(projectId, hookId)!), secret };
+  await setWebhookSecret(hookId, encryptPayload(secret));
+  await auditUser(user, "webhook.rotate_secret", { type: "project", id: projectId }, hookId, req);
+  return { webhook: toWebhook((await getWebhook(projectId, hookId))!), secret };
 }
 
 export async function pingWebhook(projectId: string, hookId: string) {
-  return toDeliverySummary(await sendPing(requireWebhook(projectId, hookId)));
+  return toDeliverySummary(await sendPing(await requireWebhook(projectId, hookId)));
 }
 
-export function webhookDeliveries(projectId: string, hookId: string) {
-  requireWebhook(projectId, hookId);
-  return listRecentDeliveries(hookId).map(toDeliverySummary);
+export async function webhookDeliveries(projectId: string, hookId: string) {
+  await requireWebhook(projectId, hookId);
+  return (await listRecentDeliveries(hookId)).map(toDeliverySummary);
 }

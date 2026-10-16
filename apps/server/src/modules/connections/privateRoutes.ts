@@ -14,6 +14,7 @@ import {
   updateConnection,
 } from "./repository.js";
 import { listAccessibleConnections } from "../dbAccess/repository.js";
+import { mapAsync } from "../../shared/async.js";
 
 const LIMIT = { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } };
 function input(raw: unknown): Omit<DatabaseConnectionConfig, "id" | "projectId"> {
@@ -39,37 +40,42 @@ export function registerPrivateConnectionRoutes(app: FastifyInstance): void {
     const user = requireUser(req);
     if (req.apiKey) throw new ApiError("FORBIDDEN");
     const shared = user.isAdmin
-      ? listAllConnections()
-      : listAccessibleConnections(user.id).flatMap((grant) => {
-          const connection = connectionSummary(grant.connectionId);
-          return connection ? [connection] : [];
-        });
-    return { shared, personal: listPrivateConnections(user.id) };
+      ? await listAllConnections()
+      : (
+          await mapAsync(await listAccessibleConnections(user.id), (grant) => connectionSummary(grant.connectionId))
+        ).filter((connection) => connection !== null);
+    return { shared, personal: await listPrivateConnections(user.id) };
   });
   app.post("/api/me/connections", LIMIT, async (req, reply) => {
     const user = requireUser(req);
     if (req.apiKey) throw new ApiError("FORBIDDEN");
-    if (listPrivateConnections(user.id).length >= 50)
+    if ((await listPrivateConnections(user.id)).length >= 50)
       throw new ApiError("DB_ADMIN_INPUT_INVALID", { message: "personal connection limit reached" });
-    const connection = createPrivateConnection(input(req.body), user.id);
-    auditUser(user, "dbconn.create", { type: "connection", id: connection.id }, `private: ${connection.name}`, req);
+    const connection = await createPrivateConnection(input(req.body), user.id);
+    await auditUser(
+      user,
+      "dbconn.create",
+      { type: "connection", id: connection.id },
+      `private: ${connection.name}`,
+      req,
+    );
     return reply.code(201).send({ connection });
   });
   app.put("/api/me/connections/:id", LIMIT, async (req) => {
     const user = requireUser(req);
     const { id } = req.params as { id: string };
-    if (req.apiKey || connectionOwner(id) !== user.id) throw new ApiError("CONNECTION_NOT_FOUND");
-    const connection = updateConnection(id, input(req.body));
-    auditUser(user, "dbconn.update", { type: "connection", id }, `private: ${connection?.name}`, req);
+    if (req.apiKey || (await connectionOwner(id)) !== user.id) throw new ApiError("CONNECTION_NOT_FOUND");
+    const connection = await updateConnection(id, input(req.body));
+    await auditUser(user, "dbconn.update", { type: "connection", id }, `private: ${connection?.name}`, req);
     return { connection };
   });
   app.delete("/api/me/connections/:id", LIMIT, async (req) => {
     const user = requireUser(req);
     const { id } = req.params as { id: string };
-    if (req.apiKey || connectionOwner(id) !== user.id) throw new ApiError("CONNECTION_NOT_FOUND");
-    const name = connectionSummary(id)?.name;
-    deleteConnection(id);
-    auditUser(user, "dbconn.delete", { type: "connection", id }, `private: ${name}`, req);
+    if (req.apiKey || (await connectionOwner(id)) !== user.id) throw new ApiError("CONNECTION_NOT_FOUND");
+    const name = (await connectionSummary(id))?.name;
+    await deleteConnection(id);
+    await auditUser(user, "dbconn.delete", { type: "connection", id }, `private: ${name}`, req);
     return { deleted: true };
   });
 }

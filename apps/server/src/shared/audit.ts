@@ -7,8 +7,8 @@ import { db } from "../infrastructure/db.js";
  * changes, password resets, account removals. Deliberately narrow: the Yjs revision log already
  * records schema edits.
  *
- * No update or delete path in application code. Someone with filesystem access to the SQLite
- * file can still rewrite it: this is not tamper-evident logging.
+ * No update or delete path in application code. Someone with direct access to the database
+ * can still rewrite it: this is not tamper-evident logging.
  */
 export const AUDIT_ACTIONS = [
   "project.create",
@@ -214,50 +214,52 @@ const MAX_DETAIL_LENGTH = 500;
  * failure is logged loudly instead — losing an audit row is bad, losing the
  * user's actual operation because of one is worse.
  */
-export function audit(
+export async function audit(
   actor: AuditActor,
   action: AuditAction,
   target: { type: string; id: string } | null,
   detail?: string,
   req?: FastifyRequest,
   context: AuditContext = {},
-): void {
+): Promise<void> {
   try {
     // The project and connection default to the target when it is one.
     const projectId = context.projectId ?? (target?.type === "project" ? target.id : null);
     const connectionId = context.connectionId ?? (target?.type === "connection" ? target.id : null);
-    db.prepare(
-      `INSERT INTO audit_log (id, actor_id, actor_email, action, target_type, target_id, detail, ip, project_id, connection_id, correlation_id)
+    await db
+      .prepare(
+        `INSERT INTO audit_log (id, actor_id, actor_email, action, target_type, target_id, detail, ip, project_id, connection_id, correlation_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      randomUUID(),
-      actor.id,
-      actor.email,
-      action,
-      target?.type ?? null,
-      target?.id ?? null,
-      detail?.slice(0, MAX_DETAIL_LENGTH) ?? null,
-      req?.ip ?? null,
-      projectId,
-      connectionId,
-      // Fastify's request id: every entry one request produced shares it.
-      req?.id ? String(req.id) : null,
-    );
+      )
+      .run(
+        randomUUID(),
+        actor.id,
+        actor.email,
+        action,
+        target?.type ?? null,
+        target?.id ?? null,
+        detail?.slice(0, MAX_DETAIL_LENGTH) ?? null,
+        req?.ip ?? null,
+        projectId,
+        connectionId,
+        // Fastify's request id: every entry one request produced shares it.
+        req?.id ? String(req.id) : null,
+      );
   } catch (err) {
     console.error(`[audit] failed to record ${action}:`, err);
   }
 }
 
 /** Convenience wrapper for the common case where the actor is the authenticated user. */
-export function auditUser(
+export async function auditUser(
   user: { id: string; email: string } | null,
   action: AuditAction,
   target: { type: string; id: string } | null,
   detail?: string,
   req?: FastifyRequest,
   context?: AuditContext,
-): void {
-  audit({ id: user?.id ?? null, email: user?.email ?? null }, action, target, detail, req, context);
+): Promise<void> {
+  await audit({ id: user?.id ?? null, email: user?.email ?? null }, action, target, detail, req, context);
 }
 
 /**
@@ -265,13 +267,13 @@ export function auditUser(
  * operator whose own rules require an indefinite trail should not have one
  * silently trimmed under them.
  *
- * Uses SQLite's own clock for the cutoff rather than a JS timestamp:
- * `created_at` is written by `datetime('now')` (`YYYY-MM-DD HH:MM:SS`), which
+ * Uses the database's own clock for the cutoff rather than a JS timestamp:
+ * `created_at` is written by `utc_now()` (`YYYY-MM-DD HH:MM:SS`), which
  * does not sort correctly against a `toISOString()` value on the same date.
  */
-export function purgeOldAuditEntries(retentionDays: number): number {
+export async function purgeOldAuditEntries(retentionDays: number): Promise<number> {
   if (retentionDays <= 0) return 0;
-  return db.prepare(`DELETE FROM audit_log WHERE created_at < datetime('now', ?)`).run(`-${retentionDays} days`)
+  return (await db.prepare(`DELETE FROM audit_log WHERE created_at < utc_now(?)`).run(`-${retentionDays} days`))
     .changes;
 }
 
@@ -283,7 +285,7 @@ export interface AuditQuery {
 }
 
 /** Newest first. Read-only, admin-only at the route layer. */
-export function listAuditLog(query: AuditQuery = {}): AuditEntry[] {
+export async function listAuditLog(query: AuditQuery = {}): Promise<AuditEntry[]> {
   const limit = Math.min(Math.max(query.limit ?? 100, 1), 500);
   const conditions: string[] = [];
   const params: unknown[] = [];
@@ -300,12 +302,12 @@ export function listAuditLog(query: AuditQuery = {}): AuditEntry[] {
     params.push(query.targetId);
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-  const rows = db
+  const rows = (await db
     .prepare(
       `SELECT id, created_at, actor_id, actor_email, action, target_type, target_id, detail, ip
-       FROM audit_log ${where} ORDER BY created_at DESC, rowid DESC LIMIT ?`,
+       FROM audit_log ${where} ORDER BY created_at DESC, seq DESC LIMIT ?`,
     )
-    .all(...params, limit) as AuditRow[];
+    .all(...params, limit)) as AuditRow[];
   return rows.map((row) => ({
     id: row.id,
     createdAt: row.created_at,
@@ -359,23 +361,23 @@ export const ACTIVITY_EXPORT_MAX = 10_000;
 
 /**
  * The activity view: the audit trail, newest first, filtered, a page at a
- * time. The cursor is the row's insertion order (`rowid`), so pages neither
+ * time. The cursor is the row's insertion order (`seq`), so pages neither
  * skip nor repeat entries written while someone is reading. Names of the
  * project, connection and actor are joined live — an entry about a deleted
  * project still shows, without a name.
  */
-export function listActivity(
+export async function listActivity(
   query: ActivityQuery = {},
   max = ACTIVITY_PAGE_MAX,
-): {
+): Promise<{
   entries: ActivityEntry[];
   nextCursor: number | null;
-} {
+}> {
   const limit = Math.min(Math.max(query.limit ?? 100, 1), max);
   const conditions: string[] = [];
   const params: unknown[] = [];
   if (query.cursor !== undefined) {
-    conditions.push("a.rowid < ?");
+    conditions.push("a.seq < ?");
     params.push(query.cursor);
   }
   if (query.from) {
@@ -405,13 +407,15 @@ export function listActivity(
   }
   if (query.search) {
     const like = `%${query.search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
-    conditions.push("(a.action LIKE ? ESCAPE '\\' OR a.detail LIKE ? ESCAPE '\\' OR a.actor_email LIKE ? ESCAPE '\\')");
+    conditions.push(
+      "(a.action ILIKE ? ESCAPE '\\' OR a.detail ILIKE ? ESCAPE '\\' OR a.actor_email ILIKE ? ESCAPE '\\')",
+    );
     params.push(like, like, like);
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-  const rows = db
+  const rows = (await db
     .prepare(
-      `SELECT a.rowid AS seq, a.id, a.created_at, a.actor_id, a.actor_email, a.action, a.target_type, a.target_id,
+      `SELECT a.seq AS seq, a.id, a.created_at, a.actor_id, a.actor_email, a.action, a.target_type, a.target_id,
               a.detail, a.ip, a.project_id, a.connection_id, a.correlation_id,
               p.name AS project_name, c.name AS connection_name, u.display_name AS actor_name
          FROM audit_log a
@@ -419,9 +423,9 @@ export function listActivity(
          LEFT JOIN db_connections c ON c.id = a.connection_id
          LEFT JOIN users u ON u.id = a.actor_id
          ${where}
-        ORDER BY a.rowid DESC LIMIT ?`,
+        ORDER BY a.seq DESC LIMIT ?`,
     )
-    .all(...params, limit + 1) as ActivityRow[];
+    .all(...params, limit + 1)) as ActivityRow[];
   const page = rows.slice(0, limit);
   return {
     entries: page.map((row) => ({

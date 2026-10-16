@@ -4,9 +4,13 @@ services:
     ports:
       - "3001:3001"
     environment:
-      NEBULADB_DB_PATH: ${NEBULADB_DB_PATH:-/data/nebuladb.sqlite}
+      NEBULADB_DATABASE_URL: postgres://nebuladb:${NEBULADB_POSTGRES_PASSWORD:?set NEBULADB_POSTGRES_PASSWORD}@postgres:5432/nebuladb
+    # Backups of connected databases are still files: they stay on this volume.
     volumes:
       - nebuladb-data:/data
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
     # The app logs structured JSON to stdout and never rotates or deletes
     # anything itself — that's the container runtime's job, and Docker's own
@@ -20,7 +24,30 @@ services:
         max-size: "10m"
         max-file: "5"
 
+  # NebulaDB's own data. Not published on the host: only the app reaches it.
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: nebuladb
+      POSTGRES_PASSWORD: ${NEBULADB_POSTGRES_PASSWORD:?set NEBULADB_POSTGRES_PASSWORD}
+      POSTGRES_DB: nebuladb
+    volumes:
+      - nebuladb-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nebuladb -d nebuladb"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "5"
+
 volumes:
+  nebuladb-postgres:
+    name: ${NEBULADB_POSTGRES_VOLUME:-nebuladb-postgres}
   nebuladb-data:
     # Set this to the existing volume's physical name when upgrading.
     name: ${NEBULADB_DATA_VOLUME:-nebuladb-data}

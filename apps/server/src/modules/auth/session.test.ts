@@ -1,16 +1,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import type { FastifyReply, FastifyRequest } from "fastify";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-// `db.ts` creates/opens its sqlite file at import time (see its module-level
-// `new Database(DB_PATH)`), so the env var has to be set before anything
-// that transitively imports it — a static `import` at the top of this file
-// would already have run by then. A fresh temp path per test run also means
-// this suite never touches the real dev/prod database.
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-${randomUUID()}.sqlite`);
+// `db.ts` connects and migrates at import time, so its database has to exist
+// (and `NEBULADB_DATABASE_URL` point at it) before anything that transitively
+// imports it — a static `import` at the top of this file would already have
+// run by then. A database of its own per test file also means this suite
+// never touches a real one.
+await useTestDatabase("test");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 
 const { db } = await import("../../infrastructure/db.js");
@@ -26,15 +25,19 @@ const {
 const { requireUser, requireAdmin } = await import("../../shared/guards.js");
 const { ApiError } = await import("../../shared/errors.js");
 
-function insertUser(overrides: { email?: string; isAdmin?: 0 | 1; displayName?: string | null } = {}): string {
+async function insertUser(
+  overrides: { email?: string; isAdmin?: 0 | 1; displayName?: string | null } = {},
+): Promise<string> {
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, ?)").run(
-    id,
-    overrides.email ?? `${id}@example.com`,
-    "irrelevant-for-these-tests",
-    overrides.isAdmin ?? 0,
-    overrides.displayName ?? null,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, ?)")
+    .run(
+      id,
+      overrides.email ?? `${id}@example.com`,
+      "irrelevant-for-these-tests",
+      overrides.isAdmin ?? 0,
+      overrides.displayName ?? null,
+    );
   return id;
 }
 
@@ -68,19 +71,22 @@ function mockReply() {
   return { reply, cookiesSet, cookieOptionsUsed, cookiesCleared, getStatus: () => statusCode, getBody: () => body };
 }
 
-test("historical cookies renew under the new name and are revoked on logout", () => {
-  const userId = insertUser();
+test("historical cookies renew under the new name and are revoked on logout", async () => {
+  const userId = await insertUser();
   const login = mockReply();
-  createSession(userId, login.reply as unknown as FastifyReply);
+  await createSession(userId, login.reply as unknown as FastifyReply);
   const id = login.cookiesSet[0].value;
   const req = mockRequest({ athanordb_sid: id });
   const renewed = mockReply();
-  assert.equal(resolveSession(req, renewed.reply as unknown as FastifyReply)?.id, userId);
+  assert.equal((await resolveSession(req, renewed.reply as unknown as FastifyReply))?.id, userId);
   assert.equal(renewed.cookiesSet[0].name, "nebuladb_sid");
   assert.deepEqual(renewed.cookiesCleared, ["athanordb_sid"]);
   const logout = mockReply();
-  destroySession(req, logout.reply as unknown as FastifyReply);
-  assert.equal(resolveSession(mockRequest({ nebuladb_sid: id }), mockReply().reply as unknown as FastifyReply), null);
+  await destroySession(req, logout.reply as unknown as FastifyReply);
+  assert.equal(
+    await resolveSession(mockRequest({ nebuladb_sid: id }), mockReply().reply as unknown as FastifyReply),
+    null,
+  );
 });
 
 function mockRequest(cookies: Record<string, string> = {}, user: unknown = undefined) {
@@ -92,14 +98,14 @@ function mockRequestWithMeta(userAgent: string, ip: string) {
   return { cookies: {}, headers: { "user-agent": userAgent }, ip } as unknown as FastifyRequest;
 }
 
-test("createSession -> resolveSession round-trips to the same user", () => {
-  const userId = insertUser({ email: "alice@example.com", displayName: "Alice" });
+test("createSession -> resolveSession round-trips to the same user", async () => {
+  const userId = await insertUser({ email: "alice@example.com", displayName: "Alice" });
   const { reply, cookiesSet } = mockReply();
-  createSession(userId, reply as unknown as FastifyReply);
+  await createSession(userId, reply as unknown as FastifyReply);
   assert.equal(cookiesSet.length, 1);
 
   const { name, value } = cookiesSet[0];
-  const resolved = resolveSession(mockRequest({ [name]: value }), mockReply().reply as unknown as FastifyReply);
+  const resolved = await resolveSession(mockRequest({ [name]: value }), mockReply().reply as unknown as FastifyReply);
   assert.ok(resolved);
   assert.equal(resolved?.id, userId);
   assert.equal(resolved?.email, "alice@example.com");
@@ -107,46 +113,51 @@ test("createSession -> resolveSession round-trips to the same user", () => {
   assert.equal(resolved?.isAdmin, false);
 });
 
-test("resolveSession falls back to the email's local part when display name is unset", () => {
-  const userId = insertUser({ email: "bob@example.com", displayName: null });
+test("resolveSession falls back to the email's local part when display name is unset", async () => {
+  const userId = await insertUser({ email: "bob@example.com", displayName: null });
   const { reply, cookiesSet } = mockReply();
-  createSession(userId, reply as unknown as FastifyReply);
-  const resolved = resolveSession(
+  await createSession(userId, reply as unknown as FastifyReply);
+  const resolved = await resolveSession(
     mockRequest({ [cookiesSet[0].name]: cookiesSet[0].value }),
     mockReply().reply as unknown as FastifyReply,
   );
   assert.equal(resolved?.displayName, "bob");
 });
 
-test("resolveSession returns null with no cookie, an unknown session id, or a garbage one", () => {
-  assert.equal(resolveSession(mockRequest(), mockReply().reply as unknown as FastifyReply), null);
+test("resolveSession returns null with no cookie, an unknown session id, or a garbage one", async () => {
+  assert.equal(await resolveSession(mockRequest(), mockReply().reply as unknown as FastifyReply), null);
   assert.equal(
-    resolveSession(mockRequest({ nebuladb_sid: randomUUID() }), mockReply().reply as unknown as FastifyReply),
+    await resolveSession(mockRequest({ nebuladb_sid: randomUUID() }), mockReply().reply as unknown as FastifyReply),
     null,
     "well-formed but never-issued session id",
   );
   assert.equal(
-    resolveSession(mockRequest({ nebuladb_sid: "not-a-uuid-at-all" }), mockReply().reply as unknown as FastifyReply),
+    await resolveSession(
+      mockRequest({ nebuladb_sid: "not-a-uuid-at-all" }),
+      mockReply().reply as unknown as FastifyReply,
+    ),
     null,
   );
 });
 
-test("resolveSession rejects an expired session", () => {
-  const userId = insertUser();
+test("resolveSession rejects an expired session", async () => {
+  const userId = await insertUser();
   const { reply, cookiesSet } = mockReply();
-  createSession(userId, reply as unknown as FastifyReply);
+  await createSession(userId, reply as unknown as FastifyReply);
   const { name, value } = cookiesSet[0];
 
-  db.prepare("UPDATE sessions SET expires_at = ? WHERE id = ?").run(new Date(Date.now() - 1000).toISOString(), value);
+  await db
+    .prepare("UPDATE sessions SET expires_at = ? WHERE id = ?")
+    .run(new Date(Date.now() - 1000).toISOString(), value);
 
-  const resolved = resolveSession(mockRequest({ [name]: value }), mockReply().reply as unknown as FastifyReply);
+  const resolved = await resolveSession(mockRequest({ [name]: value }), mockReply().reply as unknown as FastifyReply);
   assert.equal(resolved, null);
 });
 
-test("resolveSession rolls the expiry forward and re-sets the cookie on every hit", () => {
-  const userId = insertUser();
+test("resolveSession rolls the expiry forward and re-sets the cookie on every hit", async () => {
+  const userId = await insertUser();
   const { reply, cookiesSet } = mockReply();
-  createSession(userId, reply as unknown as FastifyReply);
+  await createSession(userId, reply as unknown as FastifyReply);
   const { name, value } = cookiesSet[0];
 
   // Set it to something soon (but not expired) first — createSession's own
@@ -155,12 +166,13 @@ test("resolveSession rolls the expiry forward and re-sets the cookie on every hi
   // Rolling forward from something obviously closer makes the "after" value
   // unambiguous regardless of clock resolution.
   const soon = new Date(Date.now() + 60_000).toISOString();
-  db.prepare("UPDATE sessions SET expires_at = ? WHERE id = ?").run(soon, value);
+  await db.prepare("UPDATE sessions SET expires_at = ? WHERE id = ?").run(soon, value);
 
   const { reply: reply2, cookiesSet: cookiesSet2 } = mockReply();
-  resolveSession(mockRequest({ [name]: value }), reply2 as unknown as FastifyReply);
-  const after = (db.prepare("SELECT expires_at FROM sessions WHERE id = ?").get(value) as { expires_at: string })
-    .expires_at;
+  await resolveSession(mockRequest({ [name]: value }), reply2 as unknown as FastifyReply);
+  const after = (
+    (await db.prepare("SELECT expires_at FROM sessions WHERE id = ?").get(value)) as { expires_at: string }
+  ).expires_at;
 
   assert.ok(
     new Date(after).getTime() > new Date(soon).getTime(),
@@ -170,23 +182,23 @@ test("resolveSession rolls the expiry forward and re-sets the cookie on every hi
   assert.equal(cookiesSet2[0].value, value, "same session id, just a later expiry");
 });
 
-test("destroySession deletes the row and clears the cookie — resolveSession then fails", () => {
-  const userId = insertUser();
+test("destroySession deletes the row and clears the cookie — resolveSession then fails", async () => {
+  const userId = await insertUser();
   const { reply, cookiesSet } = mockReply();
-  createSession(userId, reply as unknown as FastifyReply);
+  await createSession(userId, reply as unknown as FastifyReply);
   const { name, value } = cookiesSet[0];
 
   const { reply: destroyReply, cookiesCleared } = mockReply();
-  destroySession(mockRequest({ [name]: value }), destroyReply as unknown as FastifyReply);
+  await destroySession(mockRequest({ [name]: value }), destroyReply as unknown as FastifyReply);
   assert.deepEqual(cookiesCleared, [name, "athanordb_sid"]);
 
-  const resolved = resolveSession(mockRequest({ [name]: value }), mockReply().reply as unknown as FastifyReply);
+  const resolved = await resolveSession(mockRequest({ [name]: value }), mockReply().reply as unknown as FastifyReply);
   assert.equal(resolved, null);
 });
 
-test("destroySession with no cookie is a harmless no-op", () => {
+test("destroySession with no cookie is a harmless no-op", async () => {
   const { reply, cookiesCleared } = mockReply();
-  destroySession(mockRequest(), reply as unknown as FastifyReply);
+  await destroySession(mockRequest(), reply as unknown as FastifyReply);
   assert.deepEqual(
     cookiesCleared,
     ["nebuladb_sid", "athanordb_sid"],
@@ -194,30 +206,29 @@ test("destroySession with no cookie is a harmless no-op", () => {
   );
 });
 
-test("purgeExpiredSessions deletes only sessions whose expiry has passed", () => {
+test("purgeExpiredSessions deletes only sessions whose expiry has passed", async () => {
   // Earlier tests in this file deliberately leave their own expired rows
   // behind (that's the scenario they're testing) — this test shares the
   // same temp database, so it asserts relationally against its own two
   // sessions rather than an exact global `removed` count.
-  const userId = insertUser();
+  const userId = await insertUser();
   const { reply: r1, cookiesSet: s1 } = mockReply();
-  createSession(userId, r1 as unknown as FastifyReply);
+  await createSession(userId, r1 as unknown as FastifyReply);
   const { reply: r2, cookiesSet: s2 } = mockReply();
-  createSession(userId, r2 as unknown as FastifyReply);
+  await createSession(userId, r2 as unknown as FastifyReply);
 
-  db.prepare("UPDATE sessions SET expires_at = ? WHERE id = ?").run(
-    new Date(Date.now() - 1000).toISOString(),
-    s1[0].value,
-  );
+  await db
+    .prepare("UPDATE sessions SET expires_at = ? WHERE id = ?")
+    .run(new Date(Date.now() - 1000).toISOString(), s1[0].value);
 
-  const removed = purgeExpiredSessions();
+  const removed = await purgeExpiredSessions();
   assert.ok(removed >= 1, "at least this test's own expired session was counted");
-  assert.equal(db.prepare("SELECT 1 FROM sessions WHERE id = ?").get(s1[0].value), undefined, "expired row gone");
-  assert.ok(db.prepare("SELECT 1 FROM sessions WHERE id = ?").get(s2[0].value), "live row untouched");
+  assert.equal(await db.prepare("SELECT 1 FROM sessions WHERE id = ?").get(s1[0].value), undefined, "expired row gone");
+  assert.ok(await db.prepare("SELECT 1 FROM sessions WHERE id = ?").get(s2[0].value), "live row untouched");
 
-  const stillExpired = db
+  const stillExpired = (await db
     .prepare("SELECT COUNT(*) AS n FROM sessions WHERE expires_at < ?")
-    .get(new Date().toISOString()) as { n: number };
+    .get(new Date().toISOString())) as { n: number };
   assert.equal(stillExpired.n, 0, "nothing expired survives a purge, including rows other tests left behind");
 });
 
@@ -242,32 +253,32 @@ test("requireAdmin rejects a non-admin user and passes through an admin", () => 
   );
 });
 
-test("a disabled account's existing session stops resolving", () => {
+test("a disabled account's existing session stops resolving", async () => {
   // The offboarding path: disabling deletes the account's sessions, but this
   // is the layer that has to hold if one is ever recreated or missed.
-  const userId = insertUser({ email: "leaver@example.com" });
+  const userId = await insertUser({ email: "leaver@example.com" });
   const { reply, cookiesSet } = mockReply();
-  createSession(userId, reply as unknown as FastifyReply);
+  await createSession(userId, reply as unknown as FastifyReply);
   const cookie = { [cookiesSet[0].name]: cookiesSet[0].value };
 
-  assert.ok(resolveSession(mockRequest(cookie), mockReply().reply as unknown as FastifyReply), "valid before");
-  db.prepare("UPDATE users SET disabled_at = datetime('now') WHERE id = ?").run(userId);
+  assert.ok(await resolveSession(mockRequest(cookie), mockReply().reply as unknown as FastifyReply), "valid before");
+  await db.prepare("UPDATE users SET disabled_at = utc_now() WHERE id = ?").run(userId);
   assert.equal(
-    resolveSession(mockRequest(cookie), mockReply().reply as unknown as FastifyReply),
+    await resolveSession(mockRequest(cookie), mockReply().reply as unknown as FastifyReply),
     null,
     "refused once the account is disabled",
   );
 });
 
-test("listSessions returns a user's own sessions and flags the current one", () => {
-  const userId = insertUser({ email: "multi@example.com" });
+test("listSessions returns a user's own sessions and flags the current one", async () => {
+  const userId = await insertUser({ email: "multi@example.com" });
   const first = mockReply();
-  createSession(userId, first.reply as unknown as FastifyReply, mockRequestWithMeta("Firefox/1.0", "10.0.0.1"));
+  await createSession(userId, first.reply as unknown as FastifyReply, mockRequestWithMeta("Firefox/1.0", "10.0.0.1"));
   const second = mockReply();
-  createSession(userId, second.reply as unknown as FastifyReply, mockRequestWithMeta("Chrome/2.0", "10.0.0.2"));
+  await createSession(userId, second.reply as unknown as FastifyReply, mockRequestWithMeta("Chrome/2.0", "10.0.0.2"));
 
   const currentCookie = { [second.cookiesSet[0].name]: second.cookiesSet[0].value };
-  const sessions = listSessions(userId, mockRequest(currentCookie));
+  const sessions = await listSessions(userId, mockRequest(currentCookie));
   assert.equal(sessions.length, 2);
   assert.equal(sessions.filter((s) => s.current).length, 1, "exactly one is the caller's own");
   const current = sessions.find((s) => s.current)!;
@@ -279,53 +290,53 @@ test("listSessions returns a user's own sessions and flags the current one", () 
   );
 });
 
-test("listSessions never shows another user's sessions", () => {
-  const mine = insertUser({ email: "mine@example.com" });
-  const theirs = insertUser({ email: "theirs@example.com" });
-  createSession(theirs, mockReply().reply as unknown as FastifyReply);
-  assert.equal(listSessions(mine, mockRequest()).length, 0);
+test("listSessions never shows another user's sessions", async () => {
+  const mine = await insertUser({ email: "mine@example.com" });
+  const theirs = await insertUser({ email: "theirs@example.com" });
+  await createSession(theirs, mockReply().reply as unknown as FastifyReply);
+  assert.equal((await listSessions(mine, mockRequest())).length, 0);
 });
 
-test("revokeSession only deletes a session the caller owns", () => {
-  const owner = insertUser({ email: "owner@example.com" });
-  const attacker = insertUser({ email: "attacker@example.com" });
+test("revokeSession only deletes a session the caller owns", async () => {
+  const owner = await insertUser({ email: "owner@example.com" });
+  const attacker = await insertUser({ email: "attacker@example.com" });
   const { reply, cookiesSet } = mockReply();
-  createSession(owner, reply as unknown as FastifyReply);
+  await createSession(owner, reply as unknown as FastifyReply);
   const sessionId = cookiesSet[0].value;
 
-  assert.equal(revokeSession(attacker, sessionId), false, "another user's id is not enough to revoke");
-  assert.equal(listSessions(owner, mockRequest()).length, 1, "still there");
-  assert.equal(revokeSession(owner, sessionId), true);
-  assert.equal(listSessions(owner, mockRequest()).length, 0);
+  assert.equal(await revokeSession(attacker, sessionId), false, "another user's id is not enough to revoke");
+  assert.equal((await listSessions(owner, mockRequest())).length, 1, "still there");
+  assert.equal(await revokeSession(owner, sessionId), true);
+  assert.equal((await listSessions(owner, mockRequest())).length, 0);
 });
 
-test("revokeAllSessions can keep the caller's own session", () => {
-  const userId = insertUser({ email: "everywhere@example.com" });
-  createSession(userId, mockReply().reply as unknown as FastifyReply);
-  createSession(userId, mockReply().reply as unknown as FastifyReply);
+test("revokeAllSessions can keep the caller's own session", async () => {
+  const userId = await insertUser({ email: "everywhere@example.com" });
+  await createSession(userId, mockReply().reply as unknown as FastifyReply);
+  await createSession(userId, mockReply().reply as unknown as FastifyReply);
   const keep = mockReply();
-  createSession(userId, keep.reply as unknown as FastifyReply);
+  await createSession(userId, keep.reply as unknown as FastifyReply);
   const keptId = keep.cookiesSet[0].value;
 
-  assert.equal(revokeAllSessions(userId, keptId), 2, "the other two are revoked");
-  const left = listSessions(userId, mockRequest());
+  assert.equal(await revokeAllSessions(userId, keptId), 2, "the other two are revoked");
+  const left = await listSessions(userId, mockRequest());
   assert.equal(left.length, 1);
   assert.equal(left[0].id, keptId, "the caller isn't logged out of the tab they clicked in");
 
-  assert.equal(revokeAllSessions(userId), 1, "and with no exception, everything goes");
-  assert.equal(listSessions(userId, mockRequest()).length, 0);
+  assert.equal(await revokeAllSessions(userId), 1, "and with no exception, everything goes");
+  assert.equal((await listSessions(userId, mockRequest())).length, 0);
 });
 
-test("an unremembered session is short and rides in a browser-session cookie", () => {
-  const userId = insertUser({ email: "shared-machine@example.com" });
+test("an unremembered session is short and rides in a browser-session cookie", async () => {
+  const userId = await insertUser({ email: "shared-machine@example.com" });
   const { reply, cookiesSet, cookieOptionsUsed } = mockReply();
-  createSession(userId, reply as unknown as FastifyReply, undefined, { remember: false });
+  await createSession(userId, reply as unknown as FastifyReply, undefined, { remember: false });
 
   // No Max-Age: the browser drops it when it closes, which is the point on a
   // shared machine — the server-side expiry is the second layer, not the only.
   assert.equal(cookieOptionsUsed[0].maxAge, undefined);
 
-  const row = db.prepare("SELECT ttl_ms, expires_at FROM sessions WHERE id = ?").get(cookiesSet[0].value) as {
+  const row = (await db.prepare("SELECT ttl_ms, expires_at FROM sessions WHERE id = ?").get(cookiesSet[0].value)) as {
     ttl_ms: number;
     expires_at: string;
   };
@@ -334,43 +345,52 @@ test("an unremembered session is short and rides in a browser-session cookie", (
   assert.ok(hoursOut > 11 && hoursOut <= 12, `expires in ~12h, got ${hoursOut}`);
 });
 
-test("the default session stays the 30-day one", () => {
-  const userId = insertUser({ email: "my-own-laptop@example.com" });
+test("the default session stays the 30-day one", async () => {
+  const userId = await insertUser({ email: "my-own-laptop@example.com" });
   const { reply, cookiesSet, cookieOptionsUsed } = mockReply();
-  createSession(userId, reply as unknown as FastifyReply);
+  await createSession(userId, reply as unknown as FastifyReply);
   assert.equal(cookieOptionsUsed[0].maxAge, 30 * 24 * 60 * 60);
-  const row = db.prepare("SELECT ttl_ms FROM sessions WHERE id = ?").get(cookiesSet[0].value) as { ttl_ms: number };
+  const row = (await db.prepare("SELECT ttl_ms FROM sessions WHERE id = ?").get(cookiesSet[0].value)) as {
+    ttl_ms: number;
+  };
   assert.equal(row.ttl_ms, 30 * 24 * 60 * 60 * 1000);
 });
 
-test("using a short session rolls it forward by its own length, not the default", () => {
+test("using a short session rolls it forward by its own length, not the default", async () => {
   // The bug this guards: `resolveSession` used to roll every session forward by
   // a single module constant, which would silently promote a 12-hour session to
   // a 30-day one on its first request.
-  const userId = insertUser({ email: "rolling@example.com" });
+  const userId = await insertUser({ email: "rolling@example.com" });
   const { reply, cookiesSet } = mockReply();
-  createSession(userId, reply as unknown as FastifyReply, undefined, { remember: false });
+  await createSession(userId, reply as unknown as FastifyReply, undefined, { remember: false });
   const sessionId = cookiesSet[0].value;
 
-  resolveSession(mockRequest({ [cookiesSet[0].name]: sessionId }), mockReply().reply as unknown as FastifyReply);
+  await resolveSession(mockRequest({ [cookiesSet[0].name]: sessionId }), mockReply().reply as unknown as FastifyReply);
 
-  const row = db.prepare("SELECT expires_at FROM sessions WHERE id = ?").get(sessionId) as { expires_at: string };
+  const row = (await db.prepare("SELECT expires_at FROM sessions WHERE id = ?").get(sessionId)) as {
+    expires_at: string;
+  };
   const hoursOut = (new Date(row.expires_at).getTime() - Date.now()) / 3_600_000;
   assert.ok(hoursOut <= 12, `still a short session after use, got ${hoursOut}h`);
 });
 
-test("a session predating ttl_ms keeps the long default", () => {
-  const userId = insertUser({ email: "legacy-session@example.com" });
+test("a session predating ttl_ms keeps the long default", async () => {
+  const userId = await insertUser({ email: "legacy-session@example.com" });
   const { reply, cookiesSet } = mockReply();
-  createSession(userId, reply as unknown as FastifyReply);
+  await createSession(userId, reply as unknown as FastifyReply);
   const sessionId = cookiesSet[0].value;
-  db.prepare("UPDATE sessions SET ttl_ms = NULL WHERE id = ?").run(sessionId);
+  await db.prepare("UPDATE sessions SET ttl_ms = NULL WHERE id = ?").run(sessionId);
 
   assert.ok(
-    resolveSession(mockRequest({ [cookiesSet[0].name]: sessionId }), mockReply().reply as unknown as FastifyReply),
+    await resolveSession(
+      mockRequest({ [cookiesSet[0].name]: sessionId }),
+      mockReply().reply as unknown as FastifyReply,
+    ),
     "an existing session from before the column existed still resolves",
   );
-  const row = db.prepare("SELECT expires_at FROM sessions WHERE id = ?").get(sessionId) as { expires_at: string };
+  const row = (await db.prepare("SELECT expires_at FROM sessions WHERE id = ?").get(sessionId)) as {
+    expires_at: string;
+  };
   const daysOut = (new Date(row.expires_at).getTime() - Date.now()) / 86_400_000;
   assert.ok(daysOut > 29, `rolled forward by the long default, got ${daysOut} days`);
 });

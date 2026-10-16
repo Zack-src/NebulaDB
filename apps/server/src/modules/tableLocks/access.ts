@@ -10,9 +10,9 @@ import { listTableLocks, projectHasTableLocks } from "./repository.js";
  * administrator (its owner, or a member of a team granted `administrator`),
  * `null` for everyone else — who can read the locks and nothing more.
  */
-export function lockAuthorityOf(userId: string, projectId: string): TableLockAuthority | null {
-  if (isGlobalAdmin(userId)) return "instance";
-  return getEffectivePermission(userId, projectId) === "administrator" ? "project" : null;
+export async function lockAuthorityOf(userId: string, projectId: string): Promise<TableLockAuthority | null> {
+  if (await isGlobalAdmin(userId)) return "instance";
+  return (await getEffectivePermission(userId, projectId)) === "administrator" ? "project" : null;
 }
 
 /** Whether someone holding `held` may change a table under `lock`, or the lock itself. */
@@ -25,14 +25,12 @@ export function canOverrideLock(held: TableLockAuthority | null, lock: Pick<Tabl
  * The tables this user must leave structurally untouched: every locked table
  * of the project, minus those their authority lets them change.
  */
-export function lockedTableIdsFor(userId: string, projectId: string): Set<string> {
-  if (!projectHasTableLocks(projectId)) return new Set();
-  const held = lockAuthorityOf(userId, projectId);
+export async function lockedTableIdsFor(userId: string, projectId: string): Promise<Set<string>> {
+  if (!(await projectHasTableLocks(projectId))) return new Set();
+  const held = await lockAuthorityOf(userId, projectId);
   if (held === "instance") return new Set();
   return new Set(
-    listTableLocks(projectId)
-      .filter((lock) => !canOverrideLock(held, lock))
-      .map((lock) => lock.tableId),
+    (await listTableLocks(projectId)).filter((lock) => !canOverrideLock(held, lock)).map((lock) => lock.tableId),
   );
 }
 
@@ -43,20 +41,25 @@ export function lockedTableIdsFor(userId: string, projectId: string): Set<string
  * three tables and drops a locked one would otherwise leave the project in a
  * state nobody asked for. The response lists every table in cause, so the
  * caller can fix the change in one go.
+ *
+ * In two steps: the locks are looked up here, and what comes back checks a
+ * change against them without waiting on anything. A write reads the doc,
+ * works out the new state, checks it and applies it; a wait in the middle of
+ * that would let a connected client's edit slip in between and be overwritten.
  */
-export function assertLocksAllow(
+export async function lockGuardFor(
   userId: string,
   projectId: string,
-  before: LockableSchema,
-  after: LockableSchema,
-): void {
-  const locked = lockedTableIdsFor(userId, projectId);
-  if (locked.size === 0) return;
-  const violations = findLockViolations(before, after, locked);
-  if (violations.length === 0) return;
-  const names = violations.map((violation) => violation.tableName);
-  throw new ApiError("TABLE_LOCKED", {
-    message: `locked table(s) cannot be changed: ${names.join(", ")}`,
-    details: { tables: names },
-  });
+): Promise<(before: LockableSchema, after: LockableSchema) => void> {
+  const locked = await lockedTableIdsFor(userId, projectId);
+  return (before, after) => {
+    if (locked.size === 0) return;
+    const violations = findLockViolations(before, after, locked);
+    if (violations.length === 0) return;
+    const names = violations.map((violation) => violation.tableName);
+    throw new ApiError("TABLE_LOCKED", {
+      message: `locked table(s) cannot be changed: ${names.join(", ")}`,
+      details: { tables: names },
+    });
+  };
 }

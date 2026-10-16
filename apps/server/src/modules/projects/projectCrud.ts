@@ -34,17 +34,17 @@ function parseProjectName(name: unknown): string {
   return trimmed;
 }
 
-export function createProjectForUser(userId: string, rawName: unknown): { id: string; name: string } {
+export async function createProjectForUser(userId: string, rawName: unknown): Promise<{ id: string; name: string }> {
   const name = parseProjectName(rawName);
   // Trashed projects still count — they are recoverable, so they still occupy the quota.
-  if (countProjectsOwnedBy(userId) >= MAX_PROJECTS_PER_USER) {
+  if ((await countProjectsOwnedBy(userId)) >= MAX_PROJECTS_PER_USER) {
     throw new ApiError("PROJECT_LIMIT_REACHED", {
       message: `you have reached the limit of ${MAX_PROJECTS_PER_USER} projects`,
       details: { limit: MAX_PROJECTS_PER_USER },
     });
   }
   const id = crypto.randomUUID();
-  insertProject(id, name, userId);
+  await insertProject(id, name, userId);
 
   return { id, name };
 }
@@ -62,21 +62,21 @@ export interface UpdateProjectResult {
 }
 
 /** Returns the field that actually changed (`"name"`, `"status"`, or both applied) — callers use it to decide what to audit. */
-export function updateProject(id: string, input: UpdateProjectInput): UpdateProjectResult {
+export async function updateProject(id: string, input: UpdateProjectInput): Promise<UpdateProjectResult> {
   if (input.name === undefined && input.status === undefined) throw new ApiError("NAME_OR_STATUS_REQUIRED");
 
   const result: UpdateProjectResult = {};
   if (input.name !== undefined) {
     const name = parseProjectName(input.name);
-    updateProjectName(id, name);
+    await updateProjectName(id, name);
     result.name = name;
   }
   if (input.status !== undefined) {
     if (!isProjectStatus(input.status)) throw new ApiError("PROJECT_STATUS_INVALID");
-    const leavesTrash = getProjectSummary(id)?.status === "trashed" && input.status !== "trashed";
-    updateProjectStatus(id, input.status);
+    const leavesTrash = (await getProjectSummary(id))?.status === "trashed" && input.status !== "trashed";
+    await updateProjectStatus(id, input.status);
     if (leavesTrash) {
-      const lost = detachTakenLinks(id);
+      const lost = await detachTakenLinks(id);
       if (lost.length > 0) result.detachedConnections = lost;
     }
     result.status = input.status;
@@ -85,9 +85,12 @@ export function updateProject(id: string, input: UpdateProjectInput): UpdateProj
 }
 
 /** Stops the in-memory room (if live) before touching its rows, so a concurrent editor can't write a revision/snapshot for an id that's about to stop existing. */
-export function deleteProject(id: string): void {
-  closeRoom(id);
-  deleteProjectCascade(id);
+export async function deleteProject(id: string): Promise<void> {
+  await closeRoom(id);
+  await deleteProjectCascade(id);
+  // Somebody may have opened the project while its rows were being deleted;
+  // their room has nothing left to write to.
+  await closeRoom(id);
   forgetProjectIndex(id);
-  invalidateWebhookCache(id);
+  await invalidateWebhookCache(id);
 }

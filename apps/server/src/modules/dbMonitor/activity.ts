@@ -57,14 +57,14 @@ export async function sampleActivity(connection: DatabaseConnectionConfig): Prom
   const upsert = db.prepare(
     `INSERT INTO db_activity (connection_id, fingerprint, day, db_user, database_name, client, state, normalized_sql,
                               seen, max_seconds, first_at, last_at)
-     VALUES (?, ?, date('now'), ?, ?, ?, ?, ?, 1, ?, datetime('now'), datetime('now'))
+     VALUES (?, ?, utc_today(), ?, ?, ?, ?, ?, 1, ?, utc_now(), utc_now())
      ON CONFLICT(connection_id, fingerprint, day) DO UPDATE SET
-       seen = seen + 1,
-       max_seconds = MAX(max_seconds, excluded.max_seconds),
+       seen = db_activity.seen + 1,
+       max_seconds = GREATEST(db_activity.max_seconds, excluded.max_seconds),
        state = excluded.state,
        last_at = excluded.last_at`,
   );
-  db.transaction(() => {
+  await db.transaction(async () => {
     for (const session of sessions) {
       // A session with no statement is still a connection worth showing; it has an empty shape.
       const shape = session.query ? normalizeSql(session.query, connection.engine) : "";
@@ -73,7 +73,7 @@ export async function sampleActivity(connection: DatabaseConnectionConfig): Prom
         .update([session.user, session.database, session.client, shape].join("\u0000"))
         .digest("hex")
         .slice(0, 32);
-      upsert.run(
+      await upsert.run(
         connection.id,
         fingerprint,
         session.user,
@@ -84,31 +84,38 @@ export async function sampleActivity(connection: DatabaseConnectionConfig): Prom
         Math.max(0, session.durationSeconds ?? 0),
       );
     }
-  })();
+  });
   // The traffic counters ride along; an engine or account that cannot give them does not fail the sample.
   try {
     const counters = await activityReader.counters(connection);
-    db.prepare(
-      `INSERT OR REPLACE INTO db_counter_samples (connection_id, taken_at, queries, queries_kind, bytes_out, bytes_in, rows_read)
-       VALUES (?, datetime('now'), ?, ?, ?, ?, ?)`,
-    ).run(connection.id, counters.queries, counters.queriesKind, counters.bytesOut, counters.bytesIn, counters.rows);
+    await db
+      .prepare(
+        `INSERT INTO db_counter_samples (connection_id, taken_at, queries, queries_kind, bytes_out, bytes_in, rows_read)
+       VALUES (?, utc_now(), ?, ?, ?, ?, ?)
+       ON CONFLICT (connection_id, taken_at) DO UPDATE SET
+         queries = excluded.queries, queries_kind = excluded.queries_kind, bytes_out = excluded.bytes_out,
+         bytes_in = excluded.bytes_in, rows_read = excluded.rows_read`,
+      )
+      .run(connection.id, counters.queries, counters.queriesKind, counters.bytesOut, counters.bytesIn, counters.rows);
   } catch {
     // Unavailable: the traffic view says so.
   }
-  db.prepare(
-    `INSERT INTO db_activity_watch (connection_id, enabled, last_sampled_at) VALUES (?, 0, datetime('now'))
-     ON CONFLICT(connection_id) DO UPDATE SET last_sampled_at = datetime('now'), last_error = NULL`,
-  ).run(connection.id);
+  await db
+    .prepare(
+      `INSERT INTO db_activity_watch (connection_id, enabled, last_sampled_at) VALUES (?, 0, utc_now())
+     ON CONFLICT(connection_id) DO UPDATE SET last_sampled_at = utc_now(), last_error = NULL`,
+    )
+    .run(connection.id);
   return sessions.length;
 }
 
 /** The accounts Nebula itself signs in with on this connection: the service account and the personal ones given. */
-function accountsKnownToNebula(connection: DatabaseConnectionConfig): Set<string> {
+async function accountsKnownToNebula(connection: DatabaseConnectionConfig): Promise<Set<string>> {
   const names = new Set<string>();
   if (connection.user) names.add(connection.user);
-  const rows = db
+  const rows = (await db
     .prepare("SELECT username FROM db_connection_credentials WHERE connection_id = ?")
-    .all(connection.id) as { username: string }[];
+    .all(connection.id)) as { username: string }[];
   for (const row of rows) names.add(row.username);
   return names;
 }
@@ -126,20 +133,22 @@ interface ActivityRow {
   last_at: string;
 }
 
-export function listActivity(
+export async function listActivity(
   connection: DatabaseConnectionConfig,
   options: { sinceDays?: number; outsideOnly?: boolean },
-): DbActivityEntry[] {
-  const known = accountsKnownToNebula(connection);
-  const rows = db
+): Promise<DbActivityEntry[]> {
+  const known = await accountsKnownToNebula(connection);
+  const rows = (await db
     .prepare(
-      `SELECT fingerprint, db_user, database_name, client, state, normalized_sql,
+      // A fingerprint is one account, database, client and statement shape; only its state changes from day to day.
+      `SELECT fingerprint, MAX(db_user) AS db_user, MAX(database_name) AS database_name, MAX(client) AS client,
+              (array_agg(state ORDER BY last_at DESC))[1] AS state, MAX(normalized_sql) AS normalized_sql,
               SUM(seen) AS seen, MAX(max_seconds) AS max_seconds, MIN(first_at) AS first_at, MAX(last_at) AS last_at
          FROM db_activity
-        WHERE connection_id = ? AND day >= date('now', ?)
+        WHERE connection_id = ? AND day >= utc_today(?)
         GROUP BY fingerprint ORDER BY MAX(last_at) DESC LIMIT ?`,
     )
-    .all(connection.id, `-${Math.max(0, (options.sinceDays ?? 1) - 1)} days`, MAX_ROWS * 4) as ActivityRow[];
+    .all(connection.id, `-${Math.max(0, (options.sinceDays ?? 1) - 1)} days`, MAX_ROWS * 4)) as ActivityRow[];
   const entries = rows.map<DbActivityEntry>((row) => ({
     fingerprint: row.fingerprint,
     user: row.db_user,
@@ -173,23 +182,23 @@ interface CounterRow {
  * dropped, not guessed. What happened between two reads is attributed to the
  * later one. A counter the engine does not have stays `null`.
  */
-export function listTraffic(
+export async function listTraffic(
   connectionId: string,
   days: number,
-): { kind: DbServerCounters["queriesKind"] | null; buckets: DbTrafficBucket[] } {
-  const rows = db
+): Promise<{ kind: DbServerCounters["queriesKind"] | null; buckets: DbTrafficBucket[] }> {
+  const rows = (await db
     .prepare(
       `SELECT taken_at, queries, queries_kind, bytes_out, bytes_in, rows_read FROM db_counter_samples
-        WHERE connection_id = ? AND taken_at >= datetime('now', ?) ORDER BY taken_at`,
+        WHERE connection_id = ? AND taken_at >= utc_now(?) ORDER BY taken_at`,
     )
-    .all(connectionId, `-${days} days`) as CounterRow[];
+    .all(connectionId, `-${days} days`)) as CounterRow[];
   // One read before the window gives its first step a start.
-  const before = db
+  const before = (await db
     .prepare(
       `SELECT taken_at, queries, queries_kind, bytes_out, bytes_in, rows_read FROM db_counter_samples
-        WHERE connection_id = ? AND taken_at < datetime('now', ?) ORDER BY taken_at DESC LIMIT 1`,
+        WHERE connection_id = ? AND taken_at < utc_now(?) ORDER BY taken_at DESC LIMIT 1`,
     )
-    .get(connectionId, `-${days} days`) as CounterRow | undefined;
+    .get(connectionId, `-${days} days`)) as CounterRow | undefined;
   const series = before ? [before, ...rows] : rows;
   const hourly = days <= 3;
   const buckets = new Map<string, DbTrafficBucket>();
@@ -212,10 +221,10 @@ export function listTraffic(
   };
 }
 
-export function getActivityWatch(connectionId: string): DbActivityWatch {
-  const row = db
+export async function getActivityWatch(connectionId: string): Promise<DbActivityWatch> {
+  const row = (await db
     .prepare("SELECT enabled, last_sampled_at, last_error FROM db_activity_watch WHERE connection_id = ?")
-    .get(connectionId) as { enabled: number; last_sampled_at: string | null; last_error: string | null } | undefined;
+    .get(connectionId)) as { enabled: number; last_sampled_at: string | null; last_error: string | null } | undefined;
   return {
     enabled: row?.enabled === 1,
     lastSampledAt: row?.last_sampled_at ?? null,
@@ -223,45 +232,48 @@ export function getActivityWatch(connectionId: string): DbActivityWatch {
   };
 }
 
-export function setActivityWatch(connectionId: string, enabled: boolean): void {
-  db.prepare(
-    `INSERT INTO db_activity_watch (connection_id, enabled) VALUES (?, ?)
+export async function setActivityWatch(connectionId: string, enabled: boolean): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO db_activity_watch (connection_id, enabled) VALUES (?, ?)
      ON CONFLICT(connection_id) DO UPDATE SET enabled = excluded.enabled`,
-  ).run(connectionId, enabled ? 1 : 0);
+    )
+    .run(connectionId, enabled ? 1 : 0);
 }
 
 /** The scheduled job: samples each watched connection whose last sample is old enough. Never throws. */
 export async function runDueActivitySamples(): Promise<void> {
-  const due = db
+  const due = (await db
     .prepare(
       `SELECT connection_id FROM db_activity_watch
-        WHERE enabled = 1 AND (last_sampled_at IS NULL OR last_sampled_at <= datetime('now', ?))`,
+        WHERE enabled = 1 AND (last_sampled_at IS NULL OR last_sampled_at <= utc_now(?))`,
     )
-    .all(`-${SAMPLE_EVERY_MINUTES} minutes`) as { connection_id: string }[];
+    .all(`-${SAMPLE_EVERY_MINUTES} minutes`)) as { connection_id: string }[];
   for (const { connection_id } of due) {
-    const connection = getConnectionById(connection_id);
+    const connection = await getConnectionById(connection_id);
     if (!connection) continue;
     try {
       await sampleActivity(connection);
     } catch (err) {
-      db.prepare(
-        "UPDATE db_activity_watch SET last_sampled_at = datetime('now'), last_error = ? WHERE connection_id = ?",
-      ).run((err instanceof Error ? err.message : String(err)).slice(0, 300), connection_id);
+      await db
+        .prepare("UPDATE db_activity_watch SET last_sampled_at = utc_now(), last_error = ? WHERE connection_id = ?")
+        .run((err instanceof Error ? err.message : String(err)).slice(0, 300), connection_id);
     }
   }
 }
 
 /** Drops the days past the retention and what belongs to deleted connections. `0` keeps everything. */
-export function purgeOldActivity(retentionDays: number): number {
-  let removed = db
-    .prepare("DELETE FROM db_activity WHERE connection_id NOT IN (SELECT id FROM db_connections)")
-    .run().changes;
-  db.prepare("DELETE FROM db_activity_watch WHERE connection_id NOT IN (SELECT id FROM db_connections)").run();
-  db.prepare("DELETE FROM db_counter_samples WHERE connection_id NOT IN (SELECT id FROM db_connections)").run();
-  db.prepare("DELETE FROM db_health_samples WHERE connection_id NOT IN (SELECT id FROM db_connections)").run();
+export async function purgeOldActivity(retentionDays: number): Promise<number> {
+  let removed = (
+    await db.prepare("DELETE FROM db_activity WHERE connection_id NOT IN (SELECT id FROM db_connections)").run()
+  ).changes;
+  await db.prepare("DELETE FROM db_activity_watch WHERE connection_id NOT IN (SELECT id FROM db_connections)").run();
+  await db.prepare("DELETE FROM db_counter_samples WHERE connection_id NOT IN (SELECT id FROM db_connections)").run();
+  await db.prepare("DELETE FROM db_health_samples WHERE connection_id NOT IN (SELECT id FROM db_connections)").run();
   if (retentionDays > 0) {
-    removed += db.prepare("DELETE FROM db_activity WHERE day < date('now', ?)").run(`-${retentionDays} days`).changes;
-    db.prepare("DELETE FROM db_counter_samples WHERE taken_at < datetime('now', ?)").run(`-${retentionDays} days`);
+    removed += (await db.prepare("DELETE FROM db_activity WHERE day < utc_today(?)").run(`-${retentionDays} days`))
+      .changes;
+    await db.prepare("DELETE FROM db_counter_samples WHERE taken_at < utc_now(?)").run(`-${retentionDays} days`);
   }
   return removed;
 }

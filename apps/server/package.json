@@ -14,7 +14,8 @@
     "backup": "tsx src/infrastructure/backup.ts",
     "restore": "tsx src/infrastructure/restore.ts",
     "bootstrap-admin": "tsx src/bootstrap-admin.ts",
-    "rotate-secret": "tsx src/rotate-secret.ts"
+    "rotate-secret": "tsx src/rotate-secret.ts",
+    "migrate-from-sqlite": "tsx src/migrate-from-sqlite.ts"
   },
   "dependencies": {
     "@fastify/cookie": "^11.1.2",

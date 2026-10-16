@@ -22,15 +22,15 @@ export interface DriftAlert {
  * Tells the project of a new finding: the in-app notification, the followers who asked for email
  * too, the webhooks. The accounts watch is for project administrators (instance administrators
  * read the names on screen): a follower below that level is told nothing, by any channel.
- * Nothing at all is sent while the project's alerts are muted. Never throws and never waits: a notice that fails is logged, the watch goes on.
+ * Nothing at all is sent while the project's alerts are muted. Never throws: a notice that fails is logged, the watch goes on.
  */
-export function announceDrift(projectId: string, alert: DriftAlert): void {
+export async function announceDrift(projectId: string, alert: DriftAlert): Promise<void> {
   // Muted: the event is recorded and listed, nothing is sent — and not sent later either.
-  if (isMuted(projectId)) return;
+  if (await isMuted(projectId)) return;
   const accounts = alert.kind === "accounts";
   const changes = alert.accountChanges ?? [];
   const needs = accounts ? ("administrator" as const) : undefined;
-  notifyFollowers(
+  await notifyFollowers(
     projectId,
     "drift",
     {
@@ -43,10 +43,10 @@ export function announceDrift(projectId: string, alert: DriftAlert): void {
     },
     { needs },
   );
-  emailDriftFollowers(projectId, alert, needs);
+  await emailDriftFollowers(projectId, alert, needs);
   const counts: Record<string, number> = {};
   for (const change of changes) counts[change.type] = (counts[change.type] ?? 0) + 1;
-  emitWebhookEvent(projectId, "drift.detected", {
+  await emitWebhookEvent(projectId, "drift.detected", {
     kind: alert.kind,
     connectionName: alert.connectionName,
     environment: alert.environment,
@@ -57,10 +57,14 @@ export function announceDrift(projectId: string, alert: DriftAlert): void {
   });
 }
 
-function emailDriftFollowers(projectId: string, alert: DriftAlert, needs: "administrator" | undefined): void {
+async function emailDriftFollowers(
+  projectId: string,
+  alert: DriftAlert,
+  needs: "administrator" | undefined,
+): Promise<void> {
   if (!isMailEnabled()) return;
   try {
-    const project = getProjectRow(projectId);
+    const project = await getProjectRow(projectId);
     if (!project) return;
     const url = appUrl(`/project/${projectId}/deployments`);
     const mail = {
@@ -74,7 +78,7 @@ function emailDriftFollowers(projectId: string, alert: DriftAlert, needs: "admin
       changed: alert.kind === "accounts" ? [] : alert.changed,
       accountChanges: alert.accountChanges?.length,
     };
-    for (const to of listDriftEmailRecipients(projectId, needs)) {
+    for (const to of await listDriftEmailRecipients(projectId, needs)) {
       sendMail(driftAlertEmail(to, mail, url)).catch((err: unknown) =>
         console.error("[monitoring] alert email failed:", err instanceof Error ? err.message : err),
       );

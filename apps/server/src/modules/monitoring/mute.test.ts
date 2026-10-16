@@ -5,8 +5,9 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-mute-${randomUUID()}.sqlite`);
+await useTestDatabase("mute");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -33,13 +34,9 @@ async function login(app: App, isAdmin: 0 | 1 = 0, displayName = "Alice Admin") 
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, ?)").run(
-    id,
-    email,
-    await hashPassword(password),
-    isAdmin,
-    displayName,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, ?)")
+    .run(id, email, await hashPassword(password), isAdmin, displayName);
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -57,15 +54,13 @@ const call = (app: App, cookie: string, method: "GET" | "POST" | "PUT" | "DELETE
     ...(payload === undefined ? {} : { payload: payload as object }),
   });
 
-function grant(projectId: string, userId: string, permission: string): void {
+async function grant(projectId: string, userId: string, permission: string): Promise<void> {
   const teamId = randomUUID();
-  db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(teamId, `team-${teamId}`);
-  db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, userId);
-  db.prepare("INSERT INTO project_teams (project_id, team_id, permission) VALUES (?, ?, ?)").run(
-    projectId,
-    teamId,
-    permission,
-  );
+  await db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(teamId, `team-${teamId}`);
+  await db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, userId);
+  await db
+    .prepare("INSERT INTO project_teams (project_id, team_id, permission) VALUES (?, ?, ?)")
+    .run(projectId, teamId, permission);
 }
 
 interface Settings {
@@ -78,7 +73,7 @@ test("mute: no notification or e-mail while muted, events still recorded; lifted
     const owner = await login(app);
     const editor = await login(app);
     const project = (await call(app, owner.cookie, "POST", "/api/projects", { name: "Shop" })).json() as { id: string };
-    grant(project.id, editor.id, "edit");
+    await grant(project.id, editor.id, "edit");
     const base = `/api/projects/${project.id}`;
     await call(app, owner.cookie, "PUT", `${base}/subscription`, { events: ["drift"], emailDrift: true });
     const targetFile = join(mkdtempSync(join(tmpdir(), "nebuladb-mute-")), "shop.sqlite");
@@ -100,8 +95,9 @@ test("mute: no notification or e-mail while muted, events still recorded; lifted
         result: { changes: number };
         events: unknown[];
       };
-    const notified = () =>
-      (db.prepare("SELECT COUNT(*) AS n FROM notifications WHERE user_id = ?").get(owner.id) as { n: number }).n;
+    const notified = async () =>
+      ((await db.prepare("SELECT COUNT(*) AS n FROM notifications WHERE user_id = ?").get(owner.id)) as { n: number })
+        .n;
 
     // Who may mute, and with what.
     const mute = `${base}/monitoring/mute`;
@@ -123,7 +119,9 @@ test("mute: no notification or e-mail while muted, events still recorded; lifted
     );
     assert.deepEqual(
       (
-        db.prepare("SELECT action FROM audit_log WHERE action LIKE 'monitoring.%mute'").all() as { action: string }[]
+        (await db.prepare("SELECT action FROM audit_log WHERE action LIKE 'monitoring.%mute'").all()) as {
+          action: string;
+        }[]
       ).map((row) => row.action),
       ["monitoring.mute"],
     );
@@ -133,7 +131,7 @@ test("mute: no notification or e-mail while muted, events still recorded; lifted
     const found = await check();
     assert.equal(found.result.changes, 1);
     assert.equal(found.events.length, 1);
-    assert.equal(notified(), 0);
+    assert.equal(await notified(), 0);
     assert.equal(sent.length, 0);
     const listed = (await call(app, owner.cookie, "GET", `${base}/monitoring`)).json() as { settings: Settings };
     assert.equal(listed.settings.mute?.reason, "Migration de nuit");
@@ -144,19 +142,21 @@ test("mute: no notification or e-mail while muted, events still recorded; lifted
     assert.equal((await call(app, owner.cookie, "DELETE", mute)).statusCode, 200, "lifting twice is harmless");
     change("CREATE TABLE late (id INTEGER)");
     await check();
-    assert.equal(notified(), 1);
+    assert.equal(await notified(), 1);
     assert.deepEqual(sent, [owner.email]);
 
     // A mute that has run out is none.
     await call(app, owner.cookie, "PUT", mute, { minutes: 60, reason: "court" });
-    db.prepare("UPDATE monitor_settings SET muted_until = '2020-01-01 00:00:00' WHERE project_id = ?").run(project.id);
+    await db
+      .prepare("UPDATE monitor_settings SET muted_until = '2020-01-01 00:00:00' WHERE project_id = ?")
+      .run(project.id);
     assert.equal(
       ((await call(app, owner.cookie, "GET", `${base}/monitoring`)).json() as { settings: Settings }).settings.mute,
       null,
     );
     change("CREATE TABLE third (id INTEGER)");
     await check();
-    assert.equal(notified(), 2);
+    assert.equal(await notified(), 2);
 
     // The same under /api/v1.
     const key = (
@@ -172,7 +172,7 @@ test("mute: no notification or e-mail while muted, events still recorded; lifted
     assert.equal((await v1("PUT", { minutes: 60, reason: "CI" })).json().settings.mute.reason, "CI");
     assert.equal((await v1("DELETE")).json().settings.mute, null);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -200,7 +200,7 @@ test("mute: a watch imposed from a connection can only be muted by an instance a
     assert.equal((await call(app, owner.cookie, "PUT", mute, { minutes: 60, reason: "avant" })).statusCode, 200);
     await call(app, owner.cookie, "DELETE", mute);
 
-    db.prepare("UPDATE db_connections SET monitor_forced = 1 WHERE id = ?").run(connId);
+    await db.prepare("UPDATE db_connections SET monitor_forced = 1 WHERE id = ?").run(connId);
     const refused = await call(app, owner.cookie, "PUT", mute, { minutes: 60, reason: "contourner" });
     assert.equal(refused.statusCode, 403);
     assert.equal(refused.json().code, "MONITORING_MUTE_LOCKED");
@@ -211,7 +211,7 @@ test("mute: a watch imposed from a connection can only be muted by an instance a
     // Lifting only brings the alerts back: the project's administrator may.
     assert.equal((await call(app, owner.cookie, "DELETE", mute)).json().settings.mute, null);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

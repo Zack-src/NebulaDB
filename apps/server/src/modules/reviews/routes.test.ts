@@ -5,8 +5,9 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-reviews-${randomUUID()}.sqlite`);
+await useTestDatabase("reviews");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -28,12 +29,9 @@ async function login(app: App, isAdmin: 0 | 1 = 0) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)").run(
-    id,
-    email,
-    await hashPassword(password),
-    isAdmin,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)")
+    .run(id, email, await hashPassword(password), isAdmin);
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -303,11 +301,11 @@ test("review: a deployment to a review stage is requested, approved by another p
     assert.equal(pipeline.stages.find((entry) => entry.name === "Staging")!.connections[0].level, true);
 
     // Audited, each step under who took it.
-    const audit = db
+    const audit = (await db
       .prepare(
-        "SELECT action, actor_email FROM audit_log WHERE target_id = ? AND action LIKE 'connection.%' ORDER BY rowid",
+        "SELECT action, actor_email FROM audit_log WHERE target_id = ? AND action LIKE 'connection.%' ORDER BY seq",
       )
-      .all(t.project.id) as { action: string; actor_email: string }[];
+      .all(t.project.id)) as { action: string; actor_email: string }[];
     assert.deepEqual(
       audit.filter((row) => row.action.startsWith("connection.review.") || row.action === "connection.deploy").slice(1),
       [
@@ -318,12 +316,14 @@ test("review: a deployment to a review stage is requested, approved by another p
     );
 
     // And sent to the project's webhooks.
+    // Deliveries carry no insertion order of their own; within one second, "requested" came first.
     const events = (
-      db
+      (await db
         .prepare(
-          "SELECT d.payload FROM webhook_deliveries d JOIN project_webhooks w ON w.id = d.webhook_id WHERE w.project_id = ? ORDER BY d.rowid",
+          `SELECT d.payload FROM webhook_deliveries d JOIN project_webhooks w ON w.id = d.webhook_id WHERE w.project_id = ?
+            ORDER BY d.created_at, (d.payload::json->'data'->>'action') DESC`,
         )
-        .all(t.project.id) as { payload: string }[]
+        .all(t.project.id)) as { payload: string }[]
     ).map((row) => JSON.parse(row.payload) as { event: string; data: Record<string, unknown> });
     assert.deepEqual(
       events.map((entry) => [entry.event, entry.data.action, entry.data.requestedBy, entry.data.by]),
@@ -343,7 +343,7 @@ test("review: a deployment to a review stage is requested, approved by another p
     );
     assert.equal(rollback.statusCode, 200, rollback.body);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -411,7 +411,7 @@ test("review: an approval is for what was read — a schema or a database that m
     assert.equal(done.statusCode, 200, done.body);
     assert.equal((await t.reviewOf(owner, fourth)).status, "deployed");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -425,7 +425,7 @@ test("review: an approval expires, a request is withdrawn by its author or rejec
 
     // Expiry: approved, then left longer than the approval lasts.
     const expiring = await t.approved(staging);
-    db.prepare("UPDATE deployment_reviews SET expires_at = '2000-01-01 00:00:00' WHERE id = ?").run(expiring);
+    await db.prepare("UPDATE deployment_reviews SET expires_at = '2000-01-01 00:00:00' WHERE id = ?").run(expiring);
     const tooLate = await t.act(owner, expiring, "deploy");
     assert.deepEqual([tooLate.statusCode, tooLate.json().code], [409, "DEPLOYMENT_REVIEW_EXPIRED"]);
     assert.equal((await t.reviewOf(owner, expiring)).status, "expired");
@@ -470,7 +470,7 @@ test("review: an approval expires, a request is withdrawn by its author or rejec
 
     assert.equal((await t.act(owner, randomUUID(), "approve")).json().code, "DEPLOYMENT_REVIEW_NOT_FOUND");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -511,7 +511,7 @@ test("review: the other rules stay on top — stage order, production confirmati
     await t.importSchema(`${SCHEMA}Table orphans {\n  label varchar(20)\n}\n`);
     assert.equal((await t.request(owner, staging)).json().code, "LINT_BLOCKS_DEPLOYMENT");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -530,9 +530,9 @@ test("review: an open request is cancelled when its stage stops asking for a rev
     assert.deepEqual([cancelled.status, cancelled.closeReason], ["cancelled", "protection"]);
     assert.equal((await t.act(owner, first, "deploy")).json().code, "DEPLOYMENT_REVIEW_NOT_APPROVED");
     assert.equal((await notificationsOf(app, owner)).at(0)?.params.action, "cancelled");
-    const audited = db
+    const audited = (await db
       .prepare("SELECT actor_email FROM audit_log WHERE action = 'connection.review.cancel' AND target_id = ?")
-      .get(t.project.id) as { actor_email: string };
+      .get(t.project.id)) as { actor_email: string };
     assert.equal(audited.actor_email, admin.email);
     assert.equal((await t.request(owner, staging)).json().code, "DEPLOYMENT_REVIEW_NOT_REQUIRED");
     assert.equal((await t.deployDirectly(owner, staging)).statusCode, 200);
@@ -556,7 +556,7 @@ test("review: an open request is cancelled when its stage stops asking for a rev
       ["cancelled", "connection"],
     );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -624,7 +624,7 @@ test("/api/v1 review: keys act as their owners — request, approve and deploy, 
       "rejected",
     );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

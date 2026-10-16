@@ -29,39 +29,39 @@ export interface ReviewDeployBody {
 export function registerReviewRoutes(app: FastifyInstance): void {
   app.get("/api/projects/:id/reviews", async (req) => {
     const { id } = req.params as { id: string };
-    const { user } = requireProjectAccess(req, id, "deploy");
-    return { reviews: listReviews(user, id) };
+    const { user } = await requireProjectAccess(req, id, "deploy");
+    return { reviews: await listReviews(user, id) };
   });
 
   app.post("/api/projects/:id/connections/:connId/reviews", REVIEW_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
-    const { user, project } = requireProjectAccess(req, id, "deploy");
+    const { user, project } = await requireProjectAccess(req, id, "deploy");
     return { review: await requestReview({ user, req }, project, connId, (req.body ?? {}) as ReviewRequestBody) };
   });
 
   app.post("/api/projects/:id/reviews/:reviewId/approve", async (req) => {
     const { id, reviewId } = req.params as { id: string; reviewId: string };
-    const { user } = requireProjectAccess(req, id, "deploy");
+    const { user } = await requireProjectAccess(req, id, "deploy");
     const { comment } = (req.body ?? {}) as { comment?: string };
-    return { review: decideOnReview({ user, req }, id, reviewId, "approved", comment) };
+    return { review: await decideOnReview({ user, req }, id, reviewId, "approved", comment) };
   });
 
   app.post("/api/projects/:id/reviews/:reviewId/reject", async (req) => {
     const { id, reviewId } = req.params as { id: string; reviewId: string };
-    const { user } = requireProjectAccess(req, id, "deploy");
+    const { user } = await requireProjectAccess(req, id, "deploy");
     const { comment } = (req.body ?? {}) as { comment?: string };
-    return { review: decideOnReview({ user, req }, id, reviewId, "rejected", comment) };
+    return { review: await decideOnReview({ user, req }, id, reviewId, "rejected", comment) };
   });
 
   app.post("/api/projects/:id/reviews/:reviewId/withdraw", async (req) => {
     const { id, reviewId } = req.params as { id: string; reviewId: string };
-    const { user } = requireProjectAccess(req, id, "deploy");
-    return { review: withdrawReview({ user, req }, id, reviewId) };
+    const { user } = await requireProjectAccess(req, id, "deploy");
+    return { review: await withdrawReview({ user, req }, id, reviewId) };
   });
 
   app.post("/api/projects/:id/reviews/:reviewId/deploy", REVIEW_RATE_LIMIT, async (req) => {
     const { id, reviewId } = req.params as { id: string; reviewId: string };
-    const { user, project } = requireProjectAccess(req, id, "deploy");
-    return deployReview({ user, req }, project, reviewId, (req.body ?? {}) as ReviewDeployBody);
+    const { user, project } = await requireProjectAccess(req, id, "deploy");
+    return await deployReview({ user, req }, project, reviewId, (req.body ?? {}) as ReviewDeployBody);
   });
 }

@@ -7,6 +7,7 @@ import {
   type ProjectSubscription,
   type UserNotification,
 } from "@nebuladb/shared";
+import { filterAsync } from "../../shared/async.js";
 import { db } from "../../infrastructure/db.js";
 import { notifyProjectUsers } from "../../realtime/roomRegistry.js";
 import { ApiError } from "../../shared/errors.js";
@@ -17,23 +18,23 @@ const KEPT_PER_USER = 200;
 const LISTED = 50;
 
 /** What a user follows on a project; `null` when they do not follow it. */
-export function getProjectSubscription(userId: string, projectId: string): ProjectSubscription | null {
-  const row = db
+export async function getProjectSubscription(userId: string, projectId: string): Promise<ProjectSubscription | null> {
+  const row = (await db
     .prepare(
       "SELECT events_json, email_drift FROM subscriptions WHERE user_id = ? AND scope_type = 'project' AND scope_id = ?",
     )
-    .get(userId, projectId) as { events_json: string; email_drift: number } | undefined;
+    .get(userId, projectId)) as { events_json: string; email_drift: number } | undefined;
   return row ? { events: JSON.parse(row.events_json) as NotificationEvent[], emailDrift: row.email_drift === 1 } : null;
 }
 
 /** Everything an account follows — for its personal-data export. */
-export function listSubscriptionsOf(
+export async function listSubscriptionsOf(
   userId: string,
-): { scopeType: string; scopeId: string; events: string[]; emailDrift: boolean }[] {
+): Promise<{ scopeType: string; scopeId: string; events: string[]; emailDrift: boolean }[]> {
   return (
-    db
+    (await db
       .prepare("SELECT scope_type, scope_id, events_json, email_drift FROM subscriptions WHERE user_id = ?")
-      .all(userId) as {
+      .all(userId)) as {
       scope_type: string;
       scope_id: string;
       events_json: string;
@@ -65,26 +66,27 @@ export function parseEmailDrift(body: unknown, events: NotificationEvent[]): boo
 }
 
 /** `emailDrift` left out keeps the earlier choice; it is dropped whenever `drift` is no longer followed. */
-export function saveProjectSubscription(
+export async function saveProjectSubscription(
   userId: string,
   projectId: string,
   events: NotificationEvent[],
   emailDrift?: boolean,
-): ProjectSubscription | null {
+): Promise<ProjectSubscription | null> {
   if (events.length === 0) {
-    db.prepare("DELETE FROM subscriptions WHERE user_id = ? AND scope_type = 'project' AND scope_id = ?").run(
-      userId,
-      projectId,
-    );
+    await db
+      .prepare("DELETE FROM subscriptions WHERE user_id = ? AND scope_type = 'project' AND scope_id = ?")
+      .run(userId, projectId);
     return null;
   }
   const wanted =
-    events.includes("drift") && (emailDrift ?? getProjectSubscription(userId, projectId)?.emailDrift === true);
-  db.prepare(
-    `INSERT INTO subscriptions (user_id, scope_type, scope_id, events_json, email_drift) VALUES (?, 'project', ?, ?, ?)
+    events.includes("drift") && (emailDrift ?? (await getProjectSubscription(userId, projectId))?.emailDrift === true);
+  await db
+    .prepare(
+      `INSERT INTO subscriptions (user_id, scope_type, scope_id, events_json, email_drift) VALUES (?, 'project', ?, ?, ?)
      ON CONFLICT(user_id, scope_type, scope_id) DO UPDATE SET
        events_json = excluded.events_json, email_drift = excluded.email_drift`,
-  ).run(userId, projectId, JSON.stringify(events), wanted ? 1 : 0);
+    )
+    .run(userId, projectId, JSON.stringify(events), wanted ? 1 : 0);
   return { events, emailDrift: wanted };
 }
 
@@ -99,24 +101,24 @@ interface SubscriberRow {
  * The project's followers of `event` who may see what it is about: following it, enabled, and at
  * the level `needs` now (not when they subscribed — a grant may have gone since).
  */
-function eligibleFollowers(
+async function eligibleFollowers(
   projectId: string,
   event: NotificationEvent,
   options: { actor?: { id?: string | null; email?: string | null }; needs?: PermissionLevel },
-): SubscriberRow[] {
-  const followers = db
+): Promise<SubscriberRow[]> {
+  const followers = (await db
     .prepare(
       `SELECT s.user_id, u.email, s.events_json, s.email_drift
          FROM subscriptions s JOIN users u ON u.id = s.user_id
         WHERE s.scope_type = 'project' AND s.scope_id = ? AND u.disabled_at IS NULL`,
     )
-    .all(projectId) as SubscriberRow[];
+    .all(projectId)) as SubscriberRow[];
   const needed = options.needs ?? "view";
-  return followers.filter((follower) => {
+  return await filterAsync(followers, async (follower) => {
     if (!(JSON.parse(follower.events_json) as string[]).includes(event)) return false;
     if (options.actor?.id && follower.user_id === options.actor.id) return false;
     if (options.actor?.email && follower.email.toLowerCase() === options.actor.email.toLowerCase()) return false;
-    const level = getEffectivePermission(follower.user_id, projectId);
+    const level = await getEffectivePermission(follower.user_id, projectId);
     return level !== null && permissionAtLeast(level, needed);
   });
 }
@@ -125,8 +127,8 @@ function eligibleFollowers(
  * Addresses of the drift followers who asked for it by email too. The same follower list and
  * the same visibility rules as the in-app notification: who is told there is who is mailed here.
  */
-export function listDriftEmailRecipients(projectId: string, needs?: PermissionLevel): string[] {
-  return eligibleFollowers(projectId, "drift", { needs })
+export async function listDriftEmailRecipients(projectId: string, needs?: PermissionLevel): Promise<string[]> {
+  return (await eligibleFollowers(projectId, "drift", { needs }))
     .filter((follower) => follower.email_drift === 1)
     .map((follower) => follower.email);
 }
@@ -140,24 +142,24 @@ export function listDriftEmailRecipients(projectId: string, needs?: PermissionLe
  * each follower now, not when they subscribed (a grant may have gone since).
  * Never throws: a notification is a courtesy, not part of the action.
  */
-export function notifyFollowers(
+export async function notifyFollowers(
   projectId: string,
   event: NotificationEvent,
   params: NotificationParams,
   options: { actor?: { id?: string | null; email?: string | null }; needs?: PermissionLevel } = {},
-): number {
+): Promise<number> {
   try {
     const insert = db.prepare(
       "INSERT INTO notifications (id, user_id, project_id, event, params_json) VALUES (?, ?, ?, ?, ?)",
     );
     const trim = db.prepare(
       `DELETE FROM notifications WHERE user_id = ? AND id NOT IN
-         (SELECT id FROM notifications WHERE user_id = ? ORDER BY rowid DESC LIMIT ${KEPT_PER_USER})`,
+         (SELECT id FROM notifications WHERE user_id = ? ORDER BY seq DESC LIMIT ${KEPT_PER_USER})`,
     );
     const told = new Set<string>();
-    for (const follower of eligibleFollowers(projectId, event, options)) {
-      insert.run(crypto.randomUUID(), follower.user_id, projectId, event, JSON.stringify(params));
-      trim.run(follower.user_id, follower.user_id);
+    for (const follower of await eligibleFollowers(projectId, event, options)) {
+      await insert.run(crypto.randomUUID(), follower.user_id, projectId, event, JSON.stringify(params));
+      await trim.run(follower.user_id, follower.user_id);
       told.add(follower.user_id);
     }
     // Those who have the project open learn it now rather than at their bell's
@@ -177,12 +179,12 @@ export function notifyFollowers(
  * accounts and those who can no longer open the project are left out here.
  * Never throws, like `notifyFollowers`.
  */
-export function notifyDirectly(
+export async function notifyDirectly(
   projectId: string,
   userIds: Iterable<string>,
   event: DirectNotificationEvent,
   params: NotificationParams,
-): number {
+): Promise<number> {
   try {
     const exists = db.prepare("SELECT 1 FROM users WHERE id = ? AND disabled_at IS NULL");
     const insert = db.prepare(
@@ -190,13 +192,13 @@ export function notifyDirectly(
     );
     const trim = db.prepare(
       `DELETE FROM notifications WHERE user_id = ? AND id NOT IN
-         (SELECT id FROM notifications WHERE user_id = ? ORDER BY rowid DESC LIMIT ${KEPT_PER_USER})`,
+         (SELECT id FROM notifications WHERE user_id = ? ORDER BY seq DESC LIMIT ${KEPT_PER_USER})`,
     );
     const told = new Set<string>();
     for (const userId of new Set(userIds)) {
-      if (!exists.get(userId) || !getEffectivePermission(userId, projectId)) continue;
-      insert.run(crypto.randomUUID(), userId, projectId, event, JSON.stringify(params));
-      trim.run(userId, userId);
+      if (!(await exists.get(userId)) || !(await getEffectivePermission(userId, projectId))) continue;
+      await insert.run(crypto.randomUUID(), userId, projectId, event, JSON.stringify(params));
+      await trim.run(userId, userId);
       told.add(userId);
     }
     notifyProjectUsers(projectId, told, { type: "notification" });
@@ -218,17 +220,19 @@ interface NotificationRow {
 }
 
 /** The account's latest notifications, newest first, and how many it has not read. */
-export function listNotifications(userId: string): { notifications: UserNotification[]; unread: number } {
-  const rows = db
+export async function listNotifications(
+  userId: string,
+): Promise<{ notifications: UserNotification[]; unread: number }> {
+  const rows = (await db
     .prepare(
       `SELECT n.id, n.project_id, p.name AS project_name, n.event, n.params_json, n.created_at, n.read_at
          FROM notifications n LEFT JOIN projects p ON p.id = n.project_id
-        WHERE n.user_id = ? ORDER BY n.rowid DESC LIMIT ${LISTED}`,
+        WHERE n.user_id = ? ORDER BY n.seq DESC LIMIT ${LISTED}`,
     )
-    .all(userId) as NotificationRow[];
-  const { unread } = db
+    .all(userId)) as NotificationRow[];
+  const { unread } = (await db
     .prepare("SELECT COUNT(*) AS unread FROM notifications WHERE user_id = ? AND read_at IS NULL")
-    .get(userId) as { unread: number };
+    .get(userId)) as { unread: number };
   return {
     unread,
     notifications: rows.map((row) => ({
@@ -244,17 +248,19 @@ export function listNotifications(userId: string): { notifications: UserNotifica
 }
 
 /** Marks some of the account's notifications as read, or all of them. */
-export function markNotificationsRead(userId: string, ids: unknown): number {
+export async function markNotificationsRead(userId: string, ids: unknown): Promise<number> {
   if (ids === undefined) {
-    return db
-      .prepare("UPDATE notifications SET read_at = datetime('now') WHERE user_id = ? AND read_at IS NULL")
-      .run(userId).changes;
+    return (
+      await db.prepare("UPDATE notifications SET read_at = utc_now() WHERE user_id = ? AND read_at IS NULL").run(userId)
+    ).changes;
   }
   if (!Array.isArray(ids) || ids.length > LISTED || !ids.every((id) => typeof id === "string")) {
     throw new ApiError("SUBSCRIPTION_INVALID");
   }
   const mark = db.prepare(
-    "UPDATE notifications SET read_at = datetime('now') WHERE user_id = ? AND id = ? AND read_at IS NULL",
+    "UPDATE notifications SET read_at = utc_now() WHERE user_id = ? AND id = ? AND read_at IS NULL",
   );
-  return (ids as string[]).reduce((count, id) => count + mark.run(userId, id).changes, 0);
+  let count = 0;
+  for (const id of ids as string[]) count += (await mark.run(userId, id)).changes;
+  return count;
 }

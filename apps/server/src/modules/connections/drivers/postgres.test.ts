@@ -1,10 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { PostgresDriver } from "./postgres.js";
-import { analyzeDeploymentRisks, resolutionKeyOf } from "../riskAnalysis.js";
 import { TEST_DB_HINT } from "./testDbAvailability.js";
+import { useTestDatabase } from "../../../infrastructure/testDatabase.js";
 import { diffTargetAgainstLive, generateMigrationSql } from "@nebuladb/dbml-engine";
 import type { Project } from "@nebuladb/shared";
+
+// `riskAnalysis.ts` reaches `infrastructure/db.ts`, and importing that connects: it needs
+// NebulaDB's own database — not to be confused with the target this file deploys to.
+await useTestDatabase("postgresdriver");
+
+const { PostgresDriver } = await import("./postgres.js");
+const { analyzeDeploymentRisks, resolutionKeyOf } = await import("../riskAnalysis.js");
 
 // Matches docker-compose.test.yml's `nebuladb-test-postgres` service.
 // Override via env if you're pointing this at a differently-configured

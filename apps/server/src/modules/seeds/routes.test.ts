@@ -5,8 +5,9 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-seeds-${randomUUID()}.sqlite`);
+await useTestDatabase("seeds");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -28,12 +29,9 @@ function headers(extra: Record<string, string> = {}) {
 async function userCookie(app: App, isAdmin: 0 | 1) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)").run(
-    randomUUID(),
-    email,
-    await hashPassword(password),
-    isAdmin,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)")
+    .run(randomUUID(), email, await hashPassword(password), isAdmin);
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -53,9 +51,9 @@ function call(app: App, cookie: string, method: "GET" | "POST" | "PUT" | "DELETE
 }
 
 /** customers ← orders, on the live canvas. */
-function seedCanvas(projectId: string) {
-  const room = getRoom(projectId);
-  room.doc.transact(() => {
+async function seedCanvas(projectId: string) {
+  const room = await getRoom(projectId);
+  await room.write(() => {
     writeProjectToDoc(room.doc, {
       id: projectId,
       name: "Shop",
@@ -106,7 +104,7 @@ test("seeds: set and listed, validated before the deployment, inserted parents f
   try {
     const owner = await userCookie(app, 1);
     const project = (await call(app, owner, "POST", "/api/projects", { name: "Shop" })).json() as { id: string };
-    seedCanvas(project.id);
+    await seedCanvas(project.id);
     const targetFile = join(mkdtempSync(join(tmpdir(), "nebuladb-seeds-")), "shop.sqlite");
     const connId = (
       await call(app, owner, "POST", `/api/projects/${project.id}/connections`, {
@@ -209,7 +207,7 @@ test("seeds: set and listed, validated before the deployment, inserted parents f
     }[];
     assert.equal(history[history.length - 1].seedReport?.[0].inserted, 2, "the first deployment's report is kept");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -221,7 +219,7 @@ test("seeds: a full lock freezes the seed for those it binds; a view grant canno
     const owner = await userCookie(app, 0);
     const viewer = await userCookie(app, 0);
     const project = (await call(app, owner, "POST", "/api/projects", { name: "Shop" })).json() as { id: string };
-    seedCanvas(project.id);
+    await seedCanvas(project.id);
     const base = `/api/projects/${project.id}`;
     const put = (cookie: string) =>
       call(app, cookie, "PUT", `${base}/seeds/t-customers`, {
@@ -242,7 +240,7 @@ test("seeds: a full lock freezes the seed for those it binds; a view grant canno
     assert.equal((await call(app, owner, "DELETE", `${base}/seeds/t-customers`)).json().code, "TABLE_LOCKED");
     assert.equal((await put(instanceAdmin)).statusCode, 200, "the lock's own authority still can");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -254,7 +252,7 @@ test("seeds: a table's rows are read from a database as a seed to review — ins
     const owner = await userCookie(app, 0);
     // The owner administers the project without being an instance administrator.
     const project = (await call(app, owner, "POST", "/api/projects", { name: "Shop" })).json() as { id: string };
-    seedCanvas(project.id);
+    await seedCanvas(project.id);
     const base = `/api/projects/${project.id}`;
     const dir = mkdtempSync(join(tmpdir(), "nebuladb-seed-source-"));
     const targetFile = join(dir, "shop.sqlite");
@@ -286,9 +284,9 @@ test("seeds: a table's rows are read from a database as a seed to review — ins
     });
     // Read, not saved.
     assert.deepEqual((await call(app, instanceAdmin, "GET", `${base}/seeds`)).json().seeds, []);
-    const audited = db
+    const audited = (await db
       .prepare("SELECT detail, connection_id FROM audit_log WHERE action = 'seed.read_database'")
-      .all() as { detail: string; connection_id: string }[];
+      .all()) as { detail: string; connection_id: string }[];
     assert.deepEqual(audited, [{ detail: "customers: 4 row(s) from Shop db", connection_id: connId }]);
 
     // What comes back is a seed the ordinary route accepts.
@@ -318,7 +316,7 @@ test("seeds: a table's rows are read from a database as a seed to review — ins
     assert.equal(missing.statusCode, 404);
     assert.equal(missing.json().code, "DATABASE_TABLE_NOT_FOUND");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

@@ -1,12 +1,11 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
 // Same rationale as `app.test.ts`: env vars must land before anything
 // transitively imports `db.ts`.
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-invitations-${randomUUID()}.sqlite`);
+await useTestDatabase("invitations");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -37,12 +36,9 @@ async function makeUser(isAdmin: 0 | 1 = 0) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)").run(
-    id,
-    email,
-    await hashPassword(password),
-    isAdmin,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)")
+    .run(id, email, await hashPassword(password), isAdmin);
   return { id, email, password };
 }
 
@@ -187,7 +183,7 @@ test("two truly simultaneous accepts of the same token: one wins, one gets ALREA
     assert.deepEqual(codes, [200, 409]);
     const loser = first.statusCode === 409 ? first : second;
     assert.equal(loser.json().code, "INVITATION_ALREADY_USED");
-    const count = db.prepare("SELECT COUNT(*) AS n FROM users WHERE email = ?").get(email) as { n: number };
+    const count = (await db.prepare("SELECT COUNT(*) AS n FROM users WHERE email = ?").get(email)) as { n: number };
     assert.equal(count.n, 1);
   } finally {
     await app.close();
@@ -215,7 +211,7 @@ test("accepting with a weak password is refused before the account is created", 
     });
     assert.equal(weak.statusCode, 400);
     assert.equal(weak.json().code, "PASSWORD_TOO_WEAK");
-    assert.equal(db.prepare("SELECT 1 FROM users WHERE email = ?").get(email), undefined);
+    assert.equal(await db.prepare("SELECT 1 FROM users WHERE email = ?").get(email), undefined);
   } finally {
     await app.close();
   }

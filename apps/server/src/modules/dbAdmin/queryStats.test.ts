@@ -4,8 +4,9 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-querystats-${randomUUID()}.sqlite`);
+await useTestDatabase("querystats");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -49,13 +50,9 @@ type App = Awaited<ReturnType<typeof buildApp>>;
 async function login(app: App, admin: boolean) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, ?)").run(
-    randomUUID(),
-    email,
-    await hashPassword(password),
-    admin ? 1 : 0,
-    admin ? "Ada Admin" : "Bob",
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, ?)")
+    .run(randomUUID(), email, await hashPassword(password), admin ? 1 : 0, admin ? "Ada Admin" : "Bob");
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -128,7 +125,7 @@ test("a database's journal: console opened, statements counted by shape without 
     assert.equal(bySql.get("SELECT * FROM missing WHERE id = ?")?.failures, 1);
     // Most frequent first; no value typed in a statement is kept.
     assert.equal(stats.stats[0].sql, "SELECT * FROM items WHERE id = ?");
-    assert.ok(!JSON.stringify(db.prepare("SELECT * FROM query_stats").all()).includes("secret-"));
+    assert.ok(!JSON.stringify(await db.prepare("SELECT * FROM query_stats").all()).includes("secret-"));
     const slowest = (
       await call(app, admin, "GET", `/api/admin/connections/${conn}/query-stats?sort=slowest`)
     ).json() as {
@@ -163,12 +160,14 @@ test("a database's journal: console opened, statements counted by shape without 
     }
 
     // Retention: a day past it goes, and so does what is left of a deleted connection.
-    db.prepare("UPDATE query_stats SET day = date('now', '-40 days') WHERE normalized_sql LIKE 'INSERT%'").run();
-    assert.equal(purgeOldQueryStats(30), 1);
-    db.prepare(
-      "INSERT INTO query_stats (connection_id, query_hash, day, normalized_sql, last_at) VALUES ('gone', 'h', date('now'), 'SELECT ?', datetime('now'))",
-    ).run();
-    assert.equal(purgeOldQueryStats(0), 1);
+    await db.prepare("UPDATE query_stats SET day = utc_today('-40 days') WHERE normalized_sql LIKE 'INSERT%'").run();
+    assert.equal(await purgeOldQueryStats(30), 1);
+    await db
+      .prepare(
+        "INSERT INTO query_stats (connection_id, query_hash, day, normalized_sql, last_at) VALUES ('gone', 'h', utc_today(), 'SELECT ?', utc_now())",
+      )
+      .run();
+    assert.equal(await purgeOldQueryStats(0), 1);
   } finally {
     await app.close();
   }

@@ -1,10 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { MysqlDriver } from "./mysql.js";
-import { analyzeDeploymentRisks, resolutionKeyOf } from "../riskAnalysis.js";
 import { TEST_DB_HINT } from "./testDbAvailability.js";
+import { useTestDatabase } from "../../../infrastructure/testDatabase.js";
 import { diffTargetAgainstLive, generateMigrationSql, generateRollbackSql } from "@nebuladb/dbml-engine";
 import type { Project } from "@nebuladb/shared";
+
+// `riskAnalysis.ts` reaches `infrastructure/db.ts`, and importing that connects: it needs
+// NebulaDB's own database — not to be confused with the target this file deploys to.
+await useTestDatabase("mysqldriver");
+
+const { MysqlDriver } = await import("./mysql.js");
+const { analyzeDeploymentRisks, resolutionKeyOf } = await import("../riskAnalysis.js");
 
 // Matches docker-compose.test.yml's `nebuladb-test-mysql` service.
 const config = {

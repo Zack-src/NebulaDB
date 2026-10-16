@@ -1,10 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-bundle-${randomUUID()}.sqlite`);
+await useTestDatabase("bundle");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -23,12 +22,9 @@ const headers = (cookie?: string) => ({ host: HOST, origin: `http://${HOST}`, ..
 async function makeUser(app: App, isAdmin: 0 | 1 = 0) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)").run(
-    randomUUID(),
-    email,
-    await hashPassword(password),
-    isAdmin,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)")
+    .run(randomUUID(), email, await hashPassword(password), isAdmin);
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -76,11 +72,9 @@ test("a bundle carries locks, seeds and generator settings, and restores them on
         .statusCode,
       200,
     );
-    db.prepare("INSERT INTO generator_configs (project_id, table_id, config_json) VALUES (?, ?, ?)").run(
-      source,
-      users.id,
-      JSON.stringify({ rows: 5, seed: 1, locale: "en", columns: {} }),
-    );
+    await db
+      .prepare("INSERT INTO generator_configs (project_id, table_id, config_json) VALUES (?, ?, ?)")
+      .run(source, users.id, JSON.stringify({ rows: 5, seed: 1, locale: "en", columns: {} }));
 
     const exported = await call(app, cookie, "GET", `/api/projects/${source}/export/bundle`);
     assert.equal(exported.statusCode, 200, exported.body);
@@ -113,7 +107,7 @@ test("a bundle carries locks, seeds and generator settings, and restores them on
     assert.equal(again.seeds[0].content, SEED.content);
     assert.equal(again.generators.length, 1);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -140,7 +134,7 @@ test("a lock above the importer's authority is skipped, not applied; a bad bundl
     const bad = await call(app, cookie, "POST", `/api/projects/${id}/import/bundle`, { source: '{"format":"other"}' });
     assert.equal(bad.statusCode, 400);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

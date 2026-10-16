@@ -448,7 +448,7 @@ export class ApiError extends Error {
  * path) must never reach the client.
  */
 export function registerErrorHandler(app: FastifyInstance): void {
-  app.setErrorHandler((err: FastifyError, req: FastifyRequest, reply: FastifyReply) => {
+  app.setErrorHandler(async (err: FastifyError, req: FastifyRequest, reply: FastifyReply) => {
     if (err instanceof ApiError) {
       return reply.code(err.status).send(err.toPayload());
     }
@@ -460,7 +460,7 @@ export function registerErrorHandler(app: FastifyInstance): void {
     }
     req.log.error({ err }, "unhandled error");
     tallyErrorForMetrics("server");
-    recordError("server", err.message, {
+    await recordError("server", err.message, {
       stack: err.stack,
       context: `${req.method} ${req.url}`,
       user: req.user ? { id: req.user.id, email: req.user.email } : null,

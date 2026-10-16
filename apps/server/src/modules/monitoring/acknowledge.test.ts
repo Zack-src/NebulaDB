@@ -5,8 +5,9 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-acknowledge-${randomUUID()}.sqlite`);
+await useTestDatabase("acknowledge");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -25,12 +26,9 @@ async function login(app: App) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, ?)").run(
-    id,
-    email,
-    await hashPassword(password),
-    "Alice Admin",
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, ?)")
+    .run(id, email, await hashPassword(password), "Alice Admin");
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -48,15 +46,13 @@ const call = (app: App, cookie: string, method: "GET" | "POST" | "PUT", url: str
     ...(payload === undefined ? {} : { payload: payload as object }),
   });
 
-function grant(projectId: string, userId: string, permission: string): void {
+async function grant(projectId: string, userId: string, permission: string): Promise<void> {
   const teamId = randomUUID();
-  db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(teamId, `team-${teamId}`);
-  db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, userId);
-  db.prepare("INSERT INTO project_teams (project_id, team_id, permission) VALUES (?, ?, ?)").run(
-    projectId,
-    teamId,
-    permission,
-  );
+  await db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(teamId, `team-${teamId}`);
+  await db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, userId);
+  await db
+    .prepare("INSERT INTO project_teams (project_id, team_id, permission) VALUES (?, ?, ?)")
+    .run(projectId, teamId, permission);
 }
 
 interface Event {
@@ -74,7 +70,7 @@ test("acknowledge: an administrator takes note of an open finding — it stays o
     const owner = await login(app);
     const editor = await login(app);
     const project = (await call(app, owner.cookie, "POST", "/api/projects", { name: "Shop" })).json() as { id: string };
-    grant(project.id, editor.id, "edit");
+    await grant(project.id, editor.id, "edit");
     const base = `/api/projects/${project.id}`;
     const targetFile = join(mkdtempSync(join(tmpdir(), "nebuladb-ack-")), "shop.sqlite");
     const connId = (
@@ -119,7 +115,9 @@ test("acknowledge: an administrator takes note of an open finding — it stays o
     const again = await call(app, owner.cookie, "POST", ack, {});
     assert.equal(again.statusCode, 409);
     assert.equal(again.json().code, "MONITORING_EVENT_NOT_OPEN");
-    const audited = db.prepare("SELECT detail FROM audit_log WHERE action = 'monitoring.acknowledge'").all() as {
+    const audited = (await db
+      .prepare("SELECT detail FROM audit_log WHERE action = 'monitoring.acknowledge'")
+      .all()) as {
       detail: string;
     }[];
     assert.deepEqual(
@@ -159,7 +157,7 @@ test("acknowledge: an administrator takes note of an open finding — it stays o
     assert.equal(viaKey.statusCode, 200, viaKey.body);
     assert.equal(viaKey.json().event.acknowledgement.note, "CI");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

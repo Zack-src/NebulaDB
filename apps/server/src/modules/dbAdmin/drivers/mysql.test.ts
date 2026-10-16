@@ -1,12 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { useTestDatabase } from "../../../infrastructure/testDatabase.js";
 
-// The module under test reaches `infrastructure/db.ts` through `shared/errors.ts`. Without
-// this, importing it would open — and migrate — the developer's real `./data` database.
-process.env.NEBULADB_DB_PATH ??= join(tmpdir(), `nebuladb-test-grants-${randomUUID()}.sqlite`);
+// The module under test reaches `infrastructure/db.ts` through `shared/errors.ts`, and
+// importing that connects: it needs a database to connect to, even with nothing to store.
+await useTestDatabase("grants");
 
 const { parseGrantLine } = await import("./mysql.js");
 

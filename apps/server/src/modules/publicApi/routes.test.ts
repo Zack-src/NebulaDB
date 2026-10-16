@@ -3,10 +3,11 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
 // Same rationale as `app.test.ts`: env vars must land before anything
 // transitively imports `db.ts`/`shared/crypto.ts`.
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-publicapi-${randomUUID()}.sqlite`);
+await useTestDatabase("publicapi");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -43,11 +44,9 @@ async function makeUser() {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, NULL)").run(
-    id,
-    email,
-    await hashPassword(password),
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, NULL)")
+    .run(id, email, await hashPassword(password));
   return { id, email, password };
 }
 
@@ -55,17 +54,15 @@ async function makeAdmin() {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 1, NULL)").run(
-    id,
-    email,
-    await hashPassword(password),
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 1, NULL)")
+    .run(id, email, await hashPassword(password));
   return { id, email, password };
 }
 
-function seedCanvasTable(projectId: string, projectName: string) {
-  const room = getRoom(projectId);
-  room.doc.transact(() => {
+async function seedCanvasTable(projectId: string, projectName: string) {
+  const room = await getRoom(projectId);
+  await room.write(() => {
     writeProjectToDoc(room.doc, {
       id: projectId,
       name: projectName,
@@ -101,7 +98,7 @@ async function createProjectWithKey(
     payload: { name: `Project ${randomUUID()}` },
   });
   const project = created.json();
-  seedCanvasTable(project.id, project.name);
+  await seedCanvasTable(project.id, project.name);
 
   const keyRes = await app.inject({
     method: "POST",
@@ -146,7 +143,7 @@ test("/api/v1 export: dbml/sql/svg all work with a Bearer API key and reflect th
     assert.match(svg.body, /<svg /);
     assert.match(svg.body, /widgets/);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -174,7 +171,7 @@ test("/api/v1 import: a projects:write-scoped key can push a schema edit", async
     });
     assert.match(dbml.body, /gadgets/);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -195,7 +192,7 @@ test("/api/v1: a read-only key is refused write access, not silently downgraded"
     assert.equal(res.statusCode, 403);
     assert.equal(res.json().code, "API_SCOPE_INSUFFICIENT");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -219,7 +216,7 @@ test("/api/v1: a revoked key is rejected as unauthenticated, not as forbidden", 
     assert.equal(res.statusCode, 401);
     assert.equal(res.json().code, "AUTH_REQUIRED");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -240,7 +237,7 @@ test("/api/v1: a project-restricted key is refused against a different project",
     assert.equal(res.statusCode, 403);
     assert.equal(res.json().code, "API_KEY_PROJECT_RESTRICTED");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -269,7 +266,7 @@ test("/api/v1/projects lists exactly what getEffectivePermission grants the key'
     );
     assert.ok(v1Ids.includes(project.id));
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -307,7 +304,7 @@ test("/api/v1 deploy: a deployments:trigger-scoped key runs the same pipeline as
     assert.equal(history.statusCode, 200);
     assert.equal(history.json().history.length, 1);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -367,7 +364,7 @@ test("/api/v1 rollback: a deployments:trigger-scoped key can roll back a past de
     assert.equal(again.statusCode, 400);
     assert.equal(again.json().code, "ROLLBACK_ALREADY_ATTEMPTED");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -391,7 +388,7 @@ test("/api/v1 export: png is a rasterised image, not the raw SVG text", async ()
     assert.equal(bytes[0], 0x89);
     assert.equal(bytes.subarray(1, 4).toString("ascii"), "PNG");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -443,7 +440,7 @@ test("/api/v1 project CRUD: create, rename/archive, delete — same lifecycle th
     });
     assert.equal(getAfterDelete.statusCode, 404);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -466,10 +463,12 @@ test("/api/v1 migration export: same rule and scope as reading deployment histor
       },
     });
     const connId = connRes.json().connection.id;
-    db.prepare(
-      `INSERT INTO deployment_history (id, project_id, connection_id, connection_name, engine, sql, success, executed_statements, total_statements)
+    await db
+      .prepare(
+        `INSERT INTO deployment_history (id, project_id, connection_id, connection_name, engine, sql, success, executed_statements, total_statements)
        VALUES (?, ?, ?, 'Local file', 'sqlite', 'CREATE TABLE widgets (id INTEGER);', 1, 1, 1)`,
-    ).run(randomUUID(), project.id, connId);
+      )
+      .run(randomUUID(), project.id, connId);
 
     const url = `/api/v1/projects/${project.id}/connections/${connId}/history/export?format=flyway`;
     const ok = await app.inject({ method: "GET", url, headers: bearer(plaintextKey) });
@@ -500,7 +499,7 @@ test("/api/v1 migration export: same rule and scope as reading deployment histor
     const notAdmin = await app.inject({ method: "GET", url, headers: bearer(strangerKey) });
     assert.equal(notAdmin.statusCode, 403, "a key is not enough without project administrator");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -527,7 +526,7 @@ test("/api/v1 history: exposes the same schema revision log as the session-authe
     assert.equal(res.statusCode, 200);
     assert.ok(res.json().revisions.length > 0);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -540,7 +539,7 @@ test("/api/v1 IAM: list, grant and revoke a team's access to a project", async (
     const { project, plaintextKey } = await createProjectWithKey(app, cookie, ["projects:read", "projects:write"]);
 
     const teamId = randomUUID();
-    db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(teamId, `Team ${teamId}`);
+    await db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(teamId, `Team ${teamId}`);
 
     const empty = await app.inject({
       method: "GET",
@@ -581,7 +580,7 @@ test("/api/v1 IAM: list, grant and revoke a team's access to a project", async (
     });
     assert.deepEqual(afterRevoke.json().teams, []);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -666,7 +665,7 @@ test("/api/v1 connections: CRUD, test, and pull all work with a connections:mana
     assert.equal(deleted.statusCode, 200);
     assert.equal(deleted.json().deleted, true);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -687,7 +686,7 @@ test("/api/v1 connections: a projects:write-only key is refused — connections 
     assert.equal(res.statusCode, 403);
     assert.equal(res.json().code, "API_SCOPE_INSUFFICIENT");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -754,7 +753,7 @@ test("/api/v1 teams: CRUD and membership all work with a teams:manage key owned 
     assert.equal(deleted.statusCode, 200);
     assert.equal(deleted.json().deleted, true);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -781,7 +780,7 @@ test("/api/v1 teams: a non-admin key is refused regardless of scope — team man
     assert.equal(res.statusCode, 403);
     assert.equal(res.json().code, "ADMIN_REQUIRED");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -797,7 +796,7 @@ test("/api/v1 teams: a project-restricted key is refused outright — team manag
     assert.equal(res.statusCode, 403);
     assert.equal(res.json().code, "API_KEY_PROJECT_RESTRICTED");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -819,13 +818,11 @@ test("/api/v1 IAM grant: a projects:write scope alone is not enough without proj
     // to import/write the schema, but not enough to manage IAM itself.
     const editor = await makeUser();
     const teamId = randomUUID();
-    db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(teamId, `Team ${teamId}`);
-    db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, editor.id);
-    db.prepare("INSERT INTO project_teams (project_id, team_id, permission) VALUES (?, ?, ?)").run(
-      project.id,
-      teamId,
-      "edit",
-    );
+    await db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(teamId, `Team ${teamId}`);
+    await db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, editor.id);
+    await db
+      .prepare("INSERT INTO project_teams (project_id, team_id, permission) VALUES (?, ?, ?)")
+      .run(project.id, teamId, "edit");
 
     const editorCookie = await loginAs(app, editor.email, editor.password);
     const keyRes = await app.inject({
@@ -845,7 +842,7 @@ test("/api/v1 IAM grant: a projects:write scope alone is not enough without proj
     assert.equal(res.statusCode, 403);
     assert.equal(res.json().code, "FORBIDDEN");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -856,7 +853,7 @@ test("/api/v1 dictionary: the schema's notes as JSON or as a document, format ch
     const owner = await makeUser();
     const cookie = await loginAs(app, owner.email, owner.password);
     const { project, plaintextKey } = await createProjectWithKey(app, cookie, ["projects:read"]);
-    const room = getRoom(project.id);
+    const room = await getRoom(project.id);
     const table = getTablesMap(room.doc).get("t-widgets")!;
     getTablesMap(room.doc).set("t-widgets", { ...table, note: "Things we sell. [owner: catalogue] [class: internal]" });
     const get = (query = "") =>
@@ -886,7 +883,7 @@ test("/api/v1 dictionary: the schema's notes as JSON or as a document, format ch
       401,
     );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -925,7 +922,7 @@ test("/api/v1 bundle: a project exports as one file and imports back with the ri
     assert.equal(bad.statusCode, 400);
     assert.equal(bad.json().code, "BUNDLE_INVALID");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -968,7 +965,7 @@ test("/api/v1 plan: a deployment is planned without running, and the plan says w
     });
     assert.equal(missing.json().code, "CONNECTION_NOT_FOUND");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

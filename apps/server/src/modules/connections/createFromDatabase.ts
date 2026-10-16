@@ -21,14 +21,14 @@ export async function createProjectFromDatabase(
   name: string,
   connectionConfig: Omit<DatabaseConnectionConfig, "id" | "projectId">,
 ): Promise<CreateProjectFromDatabaseResult> {
-  const project = createProjectForUser(userId, name);
+  const project = await createProjectForUser(userId, name);
 
   try {
-    const conn = saveConnection(project.id, { ...connectionConfig, projectId: project.id });
+    const conn = await saveConnection(project.id, { ...connectionConfig, projectId: project.id });
     const result = await pullConnectionSchema(project.id, project.name, conn.id, authorDisplayName);
     return { id: project.id, name: project.name, connectionId: conn.id, tablesCount: result.tablesCount };
   } catch (err) {
-    deleteProject(project.id);
+    await deleteProject(project.id);
     throw err;
   }
 }

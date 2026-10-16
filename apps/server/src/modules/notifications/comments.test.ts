@@ -1,11 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import * as decoding from "lib0/decoding.js";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-comment-notices-${randomUUID()}.sqlite`);
+await useTestDatabase("comment-notices");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -23,12 +22,9 @@ async function login(app: App, displayName: string | null = null) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, ?)").run(
-    id,
-    email,
-    await hashPassword(password),
-    displayName,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, ?)")
+    .run(id, email, await hashPassword(password), displayName);
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -47,15 +43,13 @@ const call = (app: App, cookie: string, method: "GET" | "POST", url: string, pay
   });
 
 /** Puts the account in a team granted on the project — which also makes the project restricted to its teams. */
-function grant(projectId: string, userId: string, permission: string): string {
+async function grant(projectId: string, userId: string, permission: string): Promise<string> {
   const teamId = randomUUID();
-  db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(teamId, `team-${teamId}`);
-  db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, userId);
-  db.prepare("INSERT INTO project_teams (project_id, team_id, permission) VALUES (?, ?, ?)").run(
-    projectId,
-    teamId,
-    permission,
-  );
+  await db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(teamId, `team-${teamId}`);
+  await db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, userId);
+  await db
+    .prepare("INSERT INTO project_teams (project_id, team_id, permission) VALUES (?, ?, ?)")
+    .run(projectId, teamId, permission);
   return teamId;
 }
 
@@ -106,8 +100,8 @@ test("mentionable: only accounts that can see the project, filtered as you type,
     const alicia = await login(app, "Alicia Roy");
     const outsider = await login(app, "Alice Outsider");
     // A team grant makes the project restricted: only its members, the owner and admins see it.
-    grant(project.id, alice.id, "edit");
-    grant(project.id, alicia.id, "view");
+    await grant(project.id, alice.id, "edit");
+    await grant(project.id, alicia.id, "view");
 
     const all = (await call(app, owner.cookie, "GET", `${base}/mentionable`)).json() as { users: { id: string }[] };
     assert.deepEqual(all.users.map((u) => u.id).sort(), [alice.id, alicia.id].sort());
@@ -142,7 +136,7 @@ test("mentionable: only accounts that can see the project, filtered as you type,
     assert.equal((await call(app, alicia.cookie, "GET", `${base}/mentionable`)).statusCode, 403);
     assert.equal((await call(app, outsider.cookie, "GET", `${base}/mentionable`)).statusCode, 403);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -155,13 +149,13 @@ test("comment notices: a mention notifies its person — follower or not — nev
     const viewer = await login(app);
     const stranger = await login(app);
     const lost = await login(app);
-    grant(project.id, editor.id, "edit");
-    grant(project.id, viewer.id, "view");
-    const lostTeam = grant(project.id, lost.id, "edit");
+    await grant(project.id, editor.id, "edit");
+    await grant(project.id, viewer.id, "view");
+    const lostTeam = await grant(project.id, lost.id, "edit");
 
     const text = [owner, editor, viewer, stranger, lost].map((p) => mention("someone", p.id)).join(" ");
     // The grant goes between the moment the comment is written and the moment it is announced.
-    db.prepare("DELETE FROM project_teams WHERE team_id = ?").run(lostTeam);
+    await db.prepare("DELETE FROM project_teams WHERE team_id = ?").run(lostTeam);
     const res = await call(app, owner.cookie, "POST", `${base}/comment-notices`, {
       text,
       tableName: "customers",
@@ -181,10 +175,10 @@ test("comment notices: a mention notifies its person — follower or not — nev
     }
     for (const person of [owner, stranger, lost]) assert.equal((await inbox(app, person.cookie)).unread, 0);
     // Nobody followed the project: a mention is an address, not a subscription.
-    const { n } = db.prepare("SELECT COUNT(*) AS n FROM subscriptions").get() as { n: number };
+    const { n } = (await db.prepare("SELECT COUNT(*) AS n FROM subscriptions").get()) as { n: number };
     assert.equal(n, 0);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -196,10 +190,10 @@ test("comment notices: a reply reaches those who wrote in the thread; a mention 
     const first = await login(app, "Firsty");
     const second = await login(app);
     const gone = await login(app);
-    grant(project.id, first.id, "edit");
-    grant(project.id, second.id, "edit");
-    const goneTeam = grant(project.id, gone.id, "view");
-    db.prepare("DELETE FROM project_teams WHERE team_id = ?").run(goneTeam);
+    await grant(project.id, first.id, "edit");
+    await grant(project.id, second.id, "edit");
+    const goneTeam = await grant(project.id, gone.id, "view");
+    await db.prepare("DELETE FROM project_teams WHERE team_id = ?").run(goneTeam);
 
     const res = await call(app, first.cookie, "POST", `${base}/comment-notices`, {
       text: `I agree ${mention("O", owner.id)}`,
@@ -220,7 +214,7 @@ test("comment notices: a reply reaches those who wrote in the thread; a mention 
     assert.equal((await inbox(app, first.cookie)).unread, 0);
     assert.equal((await inbox(app, gone.cookie)).unread, 0);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -231,7 +225,7 @@ test("comment notices: who may announce, what is accepted, and that deleting the
     const { owner, project, base } = await shop(app);
     const viewer = await login(app);
     const stranger = await login(app);
-    grant(project.id, viewer.id, "view");
+    await grant(project.id, viewer.id, "view");
     const notice = { text: "hi", tableName: "t" };
     assert.equal((await call(app, viewer.cookie, "POST", `${base}/comment-notices`, notice)).statusCode, 403);
     assert.equal((await call(app, stranger.cookie, "POST", `${base}/comment-notices`, notice)).statusCode, 403);
@@ -252,13 +246,13 @@ test("comment notices: who may announce, what is accepted, and that deleting the
     assert.equal((await inbox(app, viewer.cookie)).unread, 1);
     // The account's own purge (users/repository.ts) removes every notification it holds.
     const { purgeUserAndBelongings } = await import("../users/repository.js");
-    purgeUserAndBelongings(viewer.id, "gone@example.com", null);
-    const left = db.prepare("SELECT COUNT(*) AS n FROM notifications WHERE user_id = ?").get(viewer.id) as {
+    await purgeUserAndBelongings(viewer.id, "gone@example.com", null);
+    const left = (await db.prepare("SELECT COUNT(*) AS n FROM notifications WHERE user_id = ?").get(viewer.id)) as {
       n: number;
     };
     assert.equal(left.n, 0);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -271,8 +265,8 @@ test("comment notices: a mentioned person with the project open is told at once,
     const { owner, project, base } = await shop(app);
     const mentioned = await login(app);
     const bystander = await login(app);
-    grant(project.id, mentioned.id, "edit");
-    grant(project.id, bystander.id, "edit");
+    await grant(project.id, mentioned.id, "edit");
+    await grant(project.id, bystander.id, "edit");
     const mentionedTab = await openProject(app, mentioned.cookie, project.id);
     const bystanderTab = await openProject(app, bystander.cookie, project.id);
     const ownerTab = await openProject(app, owner.cookie, project.id);
@@ -293,7 +287,7 @@ test("comment notices: a mentioned person with the project open is told at once,
     assert.deepEqual(ownerTab.types(), ["lint-changed"]);
   } finally {
     for (const socket of sockets) socket.terminate();
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

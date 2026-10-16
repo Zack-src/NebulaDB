@@ -5,8 +5,9 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-risks-${randomUUID()}.sqlite`);
+await useTestDatabase("risks");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -30,11 +31,9 @@ function headers(extra: Record<string, string> = {}) {
 async function adminCookie(app: App) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 1, NULL)").run(
-    randomUUID(),
-    email,
-    await hashPassword(password),
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 1, NULL)")
+    .run(randomUUID(), email, await hashPassword(password));
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -76,9 +75,9 @@ function users(fields: Partial<Table["fields"][number]>[]): Table {
   };
 }
 
-function setCanvas(projectId: string, table: Table) {
-  const room = getRoom(projectId);
-  room.doc.transact(() => {
+async function setCanvas(projectId: string, table: Table) {
+  const room = await getRoom(projectId);
+  await room.write(() => {
     writeProjectToDoc(room.doc, {
       id: projectId,
       name: "Shop",
@@ -112,7 +111,7 @@ test("risks: a plan reports what it would do to the data, as counts; a duplicate
     const cookie = await adminCookie(app);
     const { projectId, base } = await setup(app, cookie);
     // email becomes unique (two rows share one), nickname goes (two values).
-    setCanvas(
+    await setCanvas(
       projectId,
       users([
         { name: "id", type: "INTEGER", pk: true },
@@ -137,7 +136,7 @@ test("risks: a plan reports what it would do to the data, as counts; a duplicate
     assert.equal(blocked.json().code, "DEPLOYMENT_BLOCKED_BY_RISK");
     assert.deepEqual(blocked.json().risks, ["UNIQUE_VIOLATION users.email"]);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -147,7 +146,7 @@ test("risks: 'cancel' now cancels; accepted risks and the reason are kept with t
   try {
     const cookie = await adminCookie(app);
     const { projectId, base } = await setup(app, cookie);
-    setCanvas(projectId, users([{ name: "id", type: "INTEGER", pk: true }, { name: "email" }]));
+    await setCanvas(projectId, users([{ name: "id", type: "INTEGER", pk: true }, { name: "email" }]));
 
     const cancelled = await call(app, cookie, "POST", `${base}/apply-deployment`, {
       resolutions: { "column:users.nickname": { strategy: "CANCEL" } },
@@ -178,7 +177,7 @@ test("risks: 'cancel' now cancels; accepted risks and the reason are kept with t
     ]);
     assert.equal(entry.riskNote, "nicknames move to the profile service");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -188,7 +187,7 @@ test("risks: on the production stage a critical risk needs an explicit answer", 
   try {
     const cookie = await adminCookie(app);
     const { projectId, base } = await setup(app, cookie, "Prod");
-    setCanvas(projectId, users([{ name: "id", type: "INTEGER", pk: true }, { name: "email" }]));
+    await setCanvas(projectId, users([{ name: "id", type: "INTEGER", pk: true }, { name: "email" }]));
 
     const silent = await call(app, cookie, "POST", `${base}/apply-deployment`, { confirmName: "Shop db" });
     assert.equal(silent.statusCode, 409);
@@ -201,7 +200,7 @@ test("risks: on the production stage a critical risk needs an explicit answer", 
     });
     assert.equal(kept.statusCode, 200, kept.body);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

@@ -21,15 +21,15 @@ export interface ResetTarget {
 }
 
 /** The account a reset may be issued for: exists and isn't disabled. `undefined` otherwise — the caller must not reveal which. */
-export function findResettableUser(email: string): ResetTarget | undefined {
-  return db.prepare("SELECT id, email FROM users WHERE email = ? AND disabled_at IS NULL").get(email) as
+export async function findResettableUser(email: string): Promise<ResetTarget | undefined> {
+  return (await db.prepare("SELECT id, email FROM users WHERE email = ? AND disabled_at IS NULL").get(email)) as
     ResetTarget | undefined;
 }
 
-function hasRecentRequest(userId: string): boolean {
+async function hasRecentRequest(userId: string): Promise<boolean> {
   const since = new Date(Date.now() - RESET_REQUEST_COOLDOWN_MS).toISOString();
   return Boolean(
-    db
+    await db
       .prepare("SELECT 1 FROM password_reset_tokens WHERE user_id = ? AND used_at IS NULL AND created_at >= ?")
       .get(userId, since),
   );
@@ -40,18 +40,18 @@ function hasRecentRequest(userId: string): boolean {
  * only the most recent email's link works, so an older one sitting in an
  * inbox can't be used later. Returns `null` inside the cooldown window.
  */
-export function issueResetToken(userId: string): string | null {
-  if (hasRecentRequest(userId)) return null;
+export async function issueResetToken(userId: string): Promise<string | null> {
+  if (await hasRecentRequest(userId)) return null;
   const token = crypto.randomBytes(32).toString("base64url");
   const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MINUTES * 60_000).toISOString();
-  db.transaction(() => {
-    db.prepare("DELETE FROM password_reset_tokens WHERE user_id = ? AND used_at IS NULL").run(userId);
+  await db.transaction(async () => {
+    await db.prepare("DELETE FROM password_reset_tokens WHERE user_id = ? AND used_at IS NULL").run(userId);
     // `created_at` written explicitly in the same ISO format `hasRecentRequest`
-    // compares against — SQLite's `datetime('now')` default uses a space, not a `T`.
-    db.prepare(
-      "INSERT INTO password_reset_tokens (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)",
-    ).run(hashToken(token), userId, expiresAt, new Date().toISOString());
-  })();
+    // compares against — the column's `utc_now()` default uses a space, not a `T`.
+    await db
+      .prepare("INSERT INTO password_reset_tokens (token_hash, user_id, expires_at, created_at) VALUES (?, ?, ?, ?)")
+      .run(hashToken(token), userId, expiresAt, new Date().toISOString());
+  });
   return token;
 }
 
@@ -62,33 +62,35 @@ export function issueResetToken(userId: string): string | null {
  * account on success, `null` for a token that is unknown, used, expired, or
  * belongs to an account disabled since the email went out.
  */
-export function consumeResetToken(token: string, newPasswordHash: string): ResetTarget | null {
+export async function consumeResetToken(token: string, newPasswordHash: string): Promise<ResetTarget | null> {
   const tokenHash = hashToken(token);
-  return db.transaction((): ResetTarget | null => {
-    const row = db
+  return await db.transaction(async (): Promise<ResetTarget | null> => {
+    const row = (await db
       .prepare(
         `SELECT u.id, u.email FROM password_reset_tokens t JOIN users u ON u.id = t.user_id
          WHERE t.token_hash = ? AND t.used_at IS NULL AND t.expires_at > ? AND u.disabled_at IS NULL`,
       )
-      .get(tokenHash, new Date().toISOString()) as ResetTarget | undefined;
+      .get(tokenHash, new Date().toISOString())) as ResetTarget | undefined;
     if (!row) return null;
-    const claimed = db
+    const claimed = await db
       .prepare("UPDATE password_reset_tokens SET used_at = ? WHERE token_hash = ? AND used_at IS NULL")
       .run(new Date().toISOString(), tokenHash);
     if (claimed.changes === 0) return null;
-    db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(newPasswordHash, row.id);
+    await db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(newPasswordHash, row.id);
     // Every other session goes: whoever prompted the reset may be the person
     // the account needs protecting from. Other outstanding links go too.
-    db.prepare("DELETE FROM sessions WHERE user_id = ?").run(row.id);
-    db.prepare("DELETE FROM password_reset_tokens WHERE user_id = ? AND used_at IS NULL").run(row.id);
+    await db.prepare("DELETE FROM sessions WHERE user_id = ?").run(row.id);
+    await db.prepare("DELETE FROM password_reset_tokens WHERE user_id = ? AND used_at IS NULL").run(row.id);
     return row;
-  })();
+  });
 }
 
 /** Hourly sweep, alongside sessions — expired and used tokens carry no information. */
-export function purgeExpiredResetTokens(): number {
+export async function purgeExpiredResetTokens(): Promise<number> {
   const cutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-  return db
-    .prepare("DELETE FROM password_reset_tokens WHERE expires_at < ? OR (used_at IS NOT NULL AND used_at < ?)")
-    .run(new Date().toISOString(), cutoff).changes;
+  return (
+    await db
+      .prepare("DELETE FROM password_reset_tokens WHERE expires_at < ? OR (used_at IS NOT NULL AND used_at < ?)")
+      .run(new Date().toISOString(), cutoff)
+  ).changes;
 }

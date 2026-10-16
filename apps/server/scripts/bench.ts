@@ -13,15 +13,16 @@
  *   npm run bench -w apps/server                # default sizes
  *   npm run bench -w apps/server -- --tables=500 # one specific size
  *
- * Uses a throwaway sqlite db (same trick as app.test.ts) — never touches
- * the real dev/prod database.
+ * Uses a throwaway database on the test PostgreSQL (the one the test suite
+ * uses: `docker compose -f docker-compose.test.yml up -d nebuladb-test-postgres`)
+ * — never touches a real one.
  */
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { parseArgs } from "node:util";
+import { createThrowawayDatabase } from "../src/infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-bench-${randomUUID()}.sqlite`);
+const scratch = await createThrowawayDatabase("bench");
+process.env.NEBULADB_DATABASE_URL = scratch.url;
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "bench-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -29,7 +30,7 @@ process.env.NEBULADB_LOG_LEVEL = "silent";
 const { buildApp } = await import("../src/app.js");
 const { db } = await import("../src/infrastructure/db.js");
 const { hashPassword } = await import("../src/modules/auth/password.js");
-const { getRoom, closeRoom } = await import("../src/realtime/room.js");
+const { getRoom, closeRoom } = await import("../src/realtime/roomRegistry.js");
 const { getPerfReport, resetPerfReport } = await import("../src/infrastructure/perf.js");
 const syncProtocol = await import("y-protocols/sync.js");
 const encoding = await import("lib0/encoding.js");
@@ -92,11 +93,9 @@ async function benchRest(app: Awaited<ReturnType<typeof buildApp>>, tableCount: 
   const email = `bench-${randomUUID()}@example.com`;
   const password = "bench-password-123!";
   const userId = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, 'bench')").run(
-    userId,
-    email,
-    await hashPassword(password),
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, 'bench')")
+    .run(userId, email, await hashPassword(password));
 
   const loginRes = await app.inject({
     method: "POST",
@@ -147,7 +146,7 @@ async function benchRest(app: Awaited<ReturnType<typeof buildApp>>, tableCount: 
     exportSamples.push(performance.now() - start);
   }
 
-  closeRoom(projectId);
+  await closeRoom(projectId);
   return [
     { label: `import (${tableCount} tables)`, samples: importSamples },
     { label: `GET project (${tableCount} tables)`, samples: fetchSamples },
@@ -161,21 +160,20 @@ function fakeSocket() {
 }
 
 /** Drives the WebSocket room's message path directly: N small field-name edits, applied as real Yjs sync-protocol frames through `Room.receive` — the same code path a live drag/typing session hits, minus the network. */
-function benchRoom(tableCount: number, editCount: number): Timing {
+async function benchRoom(tableCount: number, editCount: number): Promise<Timing> {
   // `appendRevision` foreign-keys `revisions.project_id` to a real `projects`
   // row — without one every write in this benchmark would silently fail
   // (caught and logged, not thrown) and understate the persisted cost.
   const ownerId = randomUUID();
   const projectId = `bench-room-${randomUUID()}`;
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, 'x', 0, 'bench')").run(
-    ownerId,
-    `${ownerId}@example.com`,
-  );
-  db.prepare("INSERT INTO projects (id, name, owner_id) VALUES (?, ?, ?)").run(projectId, "bench-room", ownerId);
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, 'x', 0, 'bench')")
+    .run(ownerId, `${ownerId}@example.com`);
+  await db.prepare("INSERT INTO projects (id, name, owner_id) VALUES (?, ?, ?)").run(projectId, "bench-room", ownerId);
 
-  const room = getRoom(projectId);
+  const room = await getRoom(projectId);
   const socket = fakeSocket();
-  room.join(socket, "bench-user", () => ({ canWrite: true }));
+  await room.join(socket, "bench-user", () => ({ canWrite: true }));
 
   // Seed the doc with `tableCount` tables directly (bypassing import — this
   // benchmark is about the *edit* path, not the import path already covered above).
@@ -195,7 +193,7 @@ function benchRoom(tableCount: number, editCount: number): Timing {
   const seedEncoder = encoding.createEncoder();
   encoding.writeVarUint(seedEncoder, 0);
   syncProtocol.writeUpdate(seedEncoder, Y.encodeStateAsUpdate(seedDoc));
-  room.receive(socket, encoding.toUint8Array(seedEncoder));
+  await room.receive(socket, encoding.toUint8Array(seedEncoder));
   resetPerfReport();
 
   const samples: number[] = [];
@@ -211,12 +209,15 @@ function benchRoom(tableCount: number, editCount: number): Timing {
     encoding.writeVarUint(encoder, 0);
     syncProtocol.writeUpdate(encoder, Y.encodeStateAsUpdate(editDoc, Y.encodeStateVector(seedDoc)));
 
+    // What a client waits for: the frame handled and broadcast. Its revision
+    // is stored behind it — `persistence.appendRevision` below says how long
+    // that takes.
     const start = performance.now();
-    room.receive(socket, encoding.toUint8Array(encoder));
+    await room.receive(socket, encoding.toUint8Array(encoder));
     samples.push(performance.now() - start);
   }
 
-  closeRoom(projectId);
+  await closeRoom(projectId);
   return { label: `room.receive (${tableCount} tables, ${editCount} edits)`, samples };
 }
 
@@ -240,7 +241,7 @@ async function main() {
   console.log("\n=== WebSocket room: field-edit throughput, across schema size ===");
   const roomTimings: Timing[] = [];
   for (const size of sizes) {
-    roomTimings.push(benchRoom(size, editCount));
+    roomTimings.push(await benchRoom(size, editCount));
   }
   report(roomTimings);
 
@@ -248,7 +249,8 @@ async function main() {
   console.table(getPerfReport());
 
   await app.close();
-  db.close();
+  await db.close();
+  await scratch.drop();
   process.exit(0);
 }
 

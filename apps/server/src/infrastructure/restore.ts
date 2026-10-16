@@ -40,12 +40,13 @@ export function nameFromFilename(filename: string): string {
   return base.replace(/_/g, " ").trim() || "Restored project";
 }
 
-function main(): void {
+async function main(): Promise<void> {
   const { backupDir, ownerEmail } = parseArgs(process.argv.slice(2));
 
   let ownerId: string | null = null;
   if (ownerEmail) {
-    const owner = db.prepare("SELECT id FROM users WHERE email = ?").get(ownerEmail) as { id: string } | undefined;
+    const owner = (await db.prepare("SELECT id FROM users WHERE email = ?").get(ownerEmail)) as
+      { id: string } | undefined;
     if (!owner) {
       console.error(
         `No user with email ${ownerEmail} — aborting rather than restoring ownerless projects by accident.`,
@@ -78,11 +79,13 @@ function main(): void {
       const parsed = applyVisualMetadata(toProject(database, name, source), source);
 
       const id = crypto.randomUUID();
-      db.prepare("INSERT INTO projects (id, name, status, owner_id) VALUES (?, ?, 'active', ?)").run(id, name, ownerId);
+      await db
+        .prepare("INSERT INTO projects (id, name, status, owner_id) VALUES (?, ?, 'active', ?)")
+        .run(id, name, ownerId);
 
       const doc = new Y.Doc();
       doc.transact(() => writeProjectToDoc(doc, { ...parsed, id, name }));
-      saveSnapshot(id, doc);
+      await saveSnapshot(id, doc);
       doc.destroy();
 
       console.log(`ok    ${file} -> "${name}" (${parsed.tables.length} table(s), id ${id})`);
@@ -101,5 +104,6 @@ function main(): void {
 // — not when this module is imported for its exported helpers, e.g. by
 // restore.test.ts.
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
-  main();
+  await main();
+  await db.close();
 }

@@ -10,7 +10,7 @@ import type { SessionUser } from "../auth/session.js";
 /** Uses the requesting administrator's own SQL account, never an implicit service identity. */
 export const accountProvisioner = {
   async create(connectionId: string, name: string, password: string): Promise<void> {
-    const connection = getConnectionById(connectionId)!;
+    const connection = (await getConnectionById(connectionId))!;
     const driver = await createAdminDriver(connection, "adminWrite");
     try {
       await driver.execute(
@@ -36,9 +36,9 @@ export async function provisionAccounts(
   const results: ProvisionResult[] = [];
   for (const user of users)
     for (const entry of entries) {
-      const connection = getConnectionById(entry.connectionId);
+      const connection = await getConnectionById(entry.connectionId);
       if (!connection || connection.authMode !== "personal" || connection.readOnly) continue;
-      const current = personalCredentialStatus(connection, user.id);
+      const current = await personalCredentialStatus(connection, user.id);
       if (current.username) {
         results.push({ userId: user.id, connectionId: connection.id, status: "existing", username: current.username });
         continue;
@@ -48,8 +48,8 @@ export async function provisionAccounts(
       const password = crypto.randomBytes(24).toString("base64url");
       try {
         await accountProvisioner.create(connection.id, username, password);
-        savePersonalCredentials(connection.id, user.id, username, password);
-        auditUser(
+        await savePersonalCredentials(connection.id, user.id, username, password);
+        await auditUser(
           admin,
           "dbuser.create",
           { type: "connection", id: connection.id },
@@ -57,7 +57,7 @@ export async function provisionAccounts(
         );
         results.push({ userId: user.id, connectionId: connection.id, username, status: "created" });
       } catch {
-        auditUser(
+        await auditUser(
           admin,
           "dbuser.create_failed",
           { type: "connection", id: connection.id },
@@ -86,7 +86,7 @@ export async function provisionInvitedAccounts(
   for (const entry of entries) {
     const name = entry.sqlUsername;
     if (!entry.createAccount || !name) continue;
-    const connection = getConnectionById(entry.connectionId);
+    const connection = await getConnectionById(entry.connectionId);
     if (!connection || connection.authMode !== "personal" || connection.readOnly) continue;
     const label = `${connection.name}: ${name}`;
     const target = { type: "connection", id: connection.id };
@@ -100,11 +100,11 @@ export async function provisionInvitedAccounts(
           await driver.close().catch(() => {});
         }
       });
-      savePersonalCredentials(connection.id, user.id, name, password);
-      auditUser(user, "dbuser.create", target, `${label} (invitation)`);
+      await savePersonalCredentials(connection.id, user.id, name, password);
+      await auditUser(user, "dbuser.create", target, `${label} (invitation)`);
     } catch (err) {
       log.error({ err }, "invitation: database account not created");
-      auditUser(user, "dbuser.create_failed", target, `${label} (invitation)`);
+      await auditUser(user, "dbuser.create_failed", target, `${label} (invitation)`);
     }
   }
 }

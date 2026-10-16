@@ -1,18 +1,17 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { useTestDatabase } from "./infrastructure/testDatabase.js";
 
-// `db.ts` opens its sqlite file at import time (see its module-level `new
-// Database(DB_PATH)`), so the env var has to be set before anything that
-// transitively imports it — a static `import` at the top of this file would
-// already have run by then. A fresh temp path per test run also means this
-// suite never touches the real dev/prod database, and `NEBULADB_SECRET` is
-// set once here so any test that happens to exercise the connections module
-// doesn't have to know that's a prerequisite. See `session.test.ts` for the
-// same pattern.
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-app-${randomUUID()}.sqlite`);
+// `db.ts` connects and migrates at import time, so the database it is to use
+// has to exist — and `NEBULADB_DATABASE_URL` point at it — before anything
+// that transitively imports it: a static `import` at the top of this file
+// would already have run by then. A database of its own per test file also
+// means this suite never touches a real one, and `NEBULADB_SECRET` is set once
+// here so any test that happens to exercise the connections module doesn't
+// have to know that's a prerequisite. See `session.test.ts` for the same
+// pattern.
+await useTestDatabase("app");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 // Otherwise every request this suite makes (dozens, across 8 tests) logs a
@@ -38,22 +37,24 @@ function headers(extra: Record<string, string> = {}) {
   return { host: HOST, origin: ORIGIN, ...extra };
 }
 
-function insertUser(overrides: { email?: string; isAdmin?: 0 | 1; passwordHash: string; displayName?: string }) {
+async function insertUser(overrides: { email?: string; isAdmin?: 0 | 1; passwordHash: string; displayName?: string }) {
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, ?)").run(
-    id,
-    overrides.email ?? `${id}@example.com`,
-    overrides.passwordHash,
-    overrides.isAdmin ?? 0,
-    overrides.displayName ?? null,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, ?)")
+    .run(
+      id,
+      overrides.email ?? `${id}@example.com`,
+      overrides.passwordHash,
+      overrides.isAdmin ?? 0,
+      overrides.displayName ?? null,
+    );
   return id;
 }
 
 async function makeUser(opts: { isAdmin?: 0 | 1; password?: string } = {}) {
   const password = opts.password ?? "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
-  const id = insertUser({ email, isAdmin: opts.isAdmin, passwordHash: await hashPassword(password) });
+  const id = await insertUser({ email, isAdmin: opts.isAdmin, passwordHash: await hashPassword(password) });
   return { id, email, password };
 }
 
@@ -132,7 +133,7 @@ test("login: wrong password, disabled account, and a successful login round-trip
     assert.equal(me.json().id, id);
 
     // Disabled after the fact — login must refuse even the right password.
-    db.prepare("UPDATE users SET disabled_at = datetime('now') WHERE id = ?").run(id);
+    await db.prepare("UPDATE users SET disabled_at = utc_now() WHERE id = ?").run(id);
     const disabled = await login(app, email, password);
     assert.equal(disabled.res.statusCode, 403);
     assert.equal(disabled.body.code, "ACCOUNT_DISABLED");

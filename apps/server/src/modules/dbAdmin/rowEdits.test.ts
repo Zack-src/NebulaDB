@@ -5,10 +5,11 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
 import type { DbAdminTableDescription } from "@nebuladb/shared";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
 // Same rationale as `app.test.ts`: env vars must land before anything
 // transitively imports `db.ts`/`shared/crypto.ts`.
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-rowedits-${randomUUID()}.sqlite`);
+await useTestDatabase("rowedits");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -30,12 +31,9 @@ const headers = (extra: Record<string, string> = {}) => ({ host: HOST, origin: `
 async function makeUser(app: App, isAdmin: 0 | 1 = 0) {
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)").run(
-    id,
-    email,
-    await hashPassword(PASSWORD),
-    isAdmin,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)")
+    .run(id, email, await hashPassword(PASSWORD), isAdmin);
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -122,7 +120,7 @@ async function withApp(fn: (app: App) => Promise<void>) {
     resetConnectionBudgets();
     await fn(app);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 }
@@ -223,14 +221,14 @@ test("rows: a batch is previewed as the statements that run, then applied in one
       t: "text",
     });
 
-    const audit = db
+    const audit = (await db
       .prepare("SELECT detail FROM audit_log WHERE action = 'dbadmin.rows' AND target_id = ?")
-      .all(id) as { detail: string }[];
+      .all(id)) as { detail: string }[];
     assert.equal(audit.length, 1, "one entry per applied batch, none for the preview");
     assert.match(audit[0].detail, /^WRITE ok on people: 2 insert, 2 update, 1 delete \d+ms: DELETE FROM "people"/);
-    const stats = db
+    const stats = (await db
       .prepare("SELECT normalized_sql, executions FROM query_stats WHERE connection_id = ? ORDER BY normalized_sql")
-      .all(id) as { normalized_sql: string }[];
+      .all(id)) as { normalized_sql: string }[];
     assert.ok(stats.some((s) => s.normalized_sql === `UPDATE "people" SET "name" = ? WHERE "id" = ?`));
   });
 });
@@ -277,9 +275,9 @@ test("rows: a stale row, a wrong row count or a refused statement apply nothing"
     assert.match(failed.json().reason, /UNIQUE constraint failed: people\.name/);
     assert.equal(failed.json().statement, `INSERT INTO "people" ("name") VALUES ('Linus')`);
     assert.equal(count(), 3n);
-    const trail = db
-      .prepare("SELECT detail FROM audit_log WHERE action = 'dbadmin.rows' AND target_id = ? ORDER BY rowid")
-      .all(id) as { detail: string }[];
+    const trail = (await db
+      .prepare("SELECT detail FROM audit_log WHERE action = 'dbadmin.rows' AND target_id = ? ORDER BY seq")
+      .all(id)) as { detail: string }[];
     assert.equal(trail.length, 4);
     assert.ok(trail.every((entry) => entry.detail.startsWith("WRITE failed, nothing applied on ")));
   });
@@ -382,9 +380,9 @@ test("rows: the rights of a write-mode statement, enforced on the server", async
     const confirmed = await edit(app, writer.cookie, base, { operations, execute: true, confirmWrite: true });
     assert.equal(confirmed.statusCode, 200, confirmed.body);
     assert.equal(peek<{ name: string }>(filePath, "SELECT name FROM people WHERE id = 1").name, "Ada L.");
-    const memberTrail = db
+    const memberTrail = (await db
       .prepare("SELECT detail FROM audit_log WHERE action = 'dbaccess.rows' AND actor_id = ?")
-      .get(writer.id) as { detail: string };
+      .get(writer.id)) as { detail: string };
     assert.match(memberTrail.detail, /^\[write access\] WRITE ok on people/);
 
     // `read`: rows, no editing, and the server refuses whatever is sent.

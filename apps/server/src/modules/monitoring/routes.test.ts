@@ -5,8 +5,9 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-monitoring-${randomUUID()}.sqlite`);
+await useTestDatabase("monitoring");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -29,11 +30,9 @@ function headers(extra: Record<string, string> = {}) {
 async function login(app: App) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, NULL)").run(
-    randomUUID(),
-    email,
-    await hashPassword(password),
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, NULL)")
+    .run(randomUUID(), email, await hashPassword(password));
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -66,8 +65,8 @@ test("monitoring: a change made outside Nebula is found once, marked, waved off,
       id: string;
       name: string;
     };
-    const room = getRoom(project.id);
-    room.doc.transact(() => {
+    const room = await getRoom(project.id);
+    await room.write(() => {
       writeProjectToDoc(room.doc, {
         id: project.id,
         name: project.name,
@@ -139,7 +138,7 @@ test("monitoring: a change made outside Nebula is found once, marked, waved off,
 
     // The same state is not reported twice — neither at the next pass nor by the scheduler.
     assert.equal((await check()).result?.changes, 0);
-    db.prepare("UPDATE monitor_settings SET last_checked_at = datetime('now', '-1 hour')").run();
+    await db.prepare("UPDATE monitor_settings SET last_checked_at = utc_now('-1 hour')").run();
     await runDueMonitoring();
     assert.equal(((await call(app, owner, "GET", `${base}/monitoring`)).json() as Monitoring).events.length, 1);
 
@@ -165,7 +164,7 @@ test("monitoring: a change made outside Nebula is found once, marked, waved off,
     assert.equal(after.events[0].status, "resolved");
     assert.equal((await check()).result?.changes, 0);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -238,7 +237,7 @@ test("monitoring: an unreachable database is reported once, never as a change; o
     const back = (await call(app, owner, "POST", `${base}/monitoring/check`)).json() as Monitoring;
     assert.equal(back.events.find((e) => e.kind === "unreachable")?.status, "resolved");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

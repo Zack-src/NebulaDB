@@ -1,4 +1,4 @@
-import { readEnv, defaultDbPath } from "./shared/brandMigration.js";
+import { readEnv } from "./shared/brandMigration.js";
 /**
  * Single place where environment configuration is read, validated and
  * documented. Everything else imports `config` rather than touching
@@ -270,13 +270,53 @@ function readDatabaseBackupRetentionDays(): number {
   return days;
 }
 
-const dbPath = readEnv("NEBULADB_DB_PATH") ?? defaultDbPath();
+/**
+ * Where NebulaDB keeps its own data: a PostgreSQL database, and nothing else.
+ * Required — there is no sensible default for a host and a password, and a
+ * guessed one would only move the failure from boot to the first query.
+ */
+function readDatabaseUrl(): string {
+  const raw = readEnv("NEBULADB_DATABASE_URL")?.trim();
+  if (!raw) {
+    fail(
+      "NEBULADB_DATABASE_URL is required, e.g. postgres://nebuladb:password@localhost:5432/nebuladb" +
+        (readEnv("NEBULADB_DB_PATH")
+          ? " — NEBULADB_DB_PATH is no longer read: NebulaDB stores its data in PostgreSQL. " +
+            "Move an existing instance with `npm run migrate-from-sqlite -- <path-to-sqlite-file>`."
+          : ""),
+    );
+  }
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    // The value holds a password: say what is wrong without echoing it.
+    fail("NEBULADB_DATABASE_URL must be a PostgreSQL connection URL (postgres://user:password@host:5432/database)");
+  }
+  if (url.protocol !== "postgres:" && url.protocol !== "postgresql:") {
+    fail(`NEBULADB_DATABASE_URL must use the postgres:// scheme (got ${JSON.stringify(url.protocol)})`);
+  }
+  return raw;
+}
+
+/** Most connections the server keeps open to its own database at once. */
+function readDatabasePoolSize(): number {
+  const raw = readEnv("NEBULADB_DATABASE_POOL_SIZE");
+  if (raw === undefined || raw.trim() === "") return 10;
+  const size = Number(raw);
+  if (!Number.isInteger(size) || size < 1 || size > 200) {
+    fail(`NEBULADB_DATABASE_POOL_SIZE must be an integer between 1 and 200 (got ${JSON.stringify(raw)})`);
+  }
+  return size;
+}
+
 const publicUrl = readPublicUrl();
 
 export const config = {
   isProduction,
   port: readPort(),
-  dbPath,
+  databaseUrl: readDatabaseUrl(),
+  databasePoolSize: readDatabasePoolSize(),
   cookieSecure: readCookieSecure(),
   /** Max REST body — DBML/SQL imports are the big ones. */
   bodyLimit: readSizeMb("NEBULADB_MAX_BODY_MB", 4),
@@ -290,11 +330,10 @@ export const config = {
   backupKeep: readBackupKeep(),
   /**
    * Backups of the *connected* databases (the "Sauvegardes" tab), not of
-   * NebulaDB's own data above. Next to the app database by default, so the
-   * volume that persists one persists the other.
+   * NebulaDB's own data above. `./data` is where they have always been by
+   * default — it used to be "next to the SQLite file".
    */
-  databaseBackupDir:
-    readEnv("NEBULADB_DATABASE_BACKUP_DIR")?.trim() || path.join(path.dirname(dbPath), "database-backups"),
+  databaseBackupDir: readEnv("NEBULADB_DATABASE_BACKUP_DIR")?.trim() || path.join("data", "database-backups"),
   databaseBackupMaxBytes: readDatabaseBackupMaxBytes(),
   databaseBackupRetentionDays: readDatabaseBackupRetentionDays(),
   /** 0 keeps audit entries indefinitely. */
@@ -306,8 +345,8 @@ export const config = {
   publicUrl,
   /**
    * When set, a SQLite connection may only open a file inside this directory.
-   * Unset keeps the historical behaviour (any path the process can read,
-   * except the app's own database) — see `drivers/sqlite.ts`.
+   * Unset keeps the historical behaviour (any path the process can read) —
+   * see `drivers/sqlite.ts`.
    */
   /** 0 disables the background checks. */
   connectionHealthIntervalMinutes: readConnectionHealthIntervalMinutes(),

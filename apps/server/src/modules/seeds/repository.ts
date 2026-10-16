@@ -38,28 +38,31 @@ function rowToSummary(row: SeedRow): TableSeedSummary {
   };
 }
 
-export function listSeeds(projectId: string): TableSeedSummary[] {
+export async function listSeeds(projectId: string): Promise<TableSeedSummary[]> {
   return (
-    db
+    (await db
       .prepare(
-        "SELECT project_id, table_id, table_name, options_json, row_count, bytes, updated_by_name, updated_at, '' AS content FROM table_seeds WHERE project_id = ? ORDER BY table_name COLLATE NOCASE",
+        "SELECT project_id, table_id, table_name, options_json, row_count, bytes, updated_by_name, updated_at, '' AS content FROM table_seeds WHERE project_id = ? ORDER BY LOWER(table_name)",
       )
-      .all(projectId) as SeedRow[]
+      .all(projectId)) as SeedRow[]
   ).map(rowToSummary);
 }
 
-export function getSeed(projectId: string, tableId: string): TableSeed | null {
-  const row = db.prepare("SELECT * FROM table_seeds WHERE project_id = ? AND table_id = ?").get(projectId, tableId) as
-    SeedRow | undefined;
+export async function getSeed(projectId: string, tableId: string): Promise<TableSeed | null> {
+  const row = (await db
+    .prepare("SELECT * FROM table_seeds WHERE project_id = ? AND table_id = ?")
+    .get(projectId, tableId)) as SeedRow | undefined;
   return row ? { ...rowToSummary(row), content: row.content } : null;
 }
 
 /** Every seed of a project with its file — what a deployment inserts. */
-export function listSeedsWithContent(projectId: string): TableSeed[] {
-  return (db.prepare("SELECT * FROM table_seeds WHERE project_id = ?").all(projectId) as SeedRow[]).map((row) => ({
-    ...rowToSummary(row),
-    content: row.content,
-  }));
+export async function listSeedsWithContent(projectId: string): Promise<TableSeed[]> {
+  return ((await db.prepare("SELECT * FROM table_seeds WHERE project_id = ?").all(projectId)) as SeedRow[]).map(
+    (row) => ({
+      ...rowToSummary(row),
+      content: row.content,
+    }),
+  );
 }
 
 /**
@@ -103,7 +106,7 @@ export function parseSeedInput(body: unknown): { content: string; options: SeedO
   };
 }
 
-export function upsertSeed(input: {
+export async function upsertSeed(input: {
   projectId: string;
   tableId: string;
   tableName: string;
@@ -112,30 +115,33 @@ export function upsertSeed(input: {
   rowCount: number;
   updatedBy: string;
   updatedByName: string;
-}): TableSeed {
-  db.prepare(
-    `INSERT INTO table_seeds (project_id, table_id, table_name, content, options_json, row_count, bytes, updated_by, updated_by_name, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, datetime('now'))
+}): Promise<TableSeed> {
+  await db
+    .prepare(
+      `INSERT INTO table_seeds (project_id, table_id, table_name, content, options_json, row_count, bytes, updated_by, updated_by_name, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, utc_now())
      ON CONFLICT(project_id, table_id) DO UPDATE SET
        table_name = excluded.table_name, content = excluded.content, options_json = excluded.options_json,
        row_count = excluded.row_count, bytes = excluded.bytes, updated_by = excluded.updated_by,
        updated_by_name = excluded.updated_by_name, updated_at = excluded.updated_at`,
-  ).run(
-    input.projectId,
-    input.tableId,
-    input.tableName,
-    input.content,
-    JSON.stringify(input.options),
-    input.rowCount,
-    Buffer.byteLength(input.content, "utf8"),
-    input.updatedBy,
-    input.updatedByName,
-  );
-  return getSeed(input.projectId, input.tableId)!;
+    )
+    .run(
+      input.projectId,
+      input.tableId,
+      input.tableName,
+      input.content,
+      JSON.stringify(input.options),
+      input.rowCount,
+      Buffer.byteLength(input.content, "utf8"),
+      input.updatedBy,
+      input.updatedByName,
+    );
+  return (await getSeed(input.projectId, input.tableId))!;
 }
 
-export function deleteSeed(projectId: string, tableId: string): boolean {
+export async function deleteSeed(projectId: string, tableId: string): Promise<boolean> {
   return (
-    db.prepare("DELETE FROM table_seeds WHERE project_id = ? AND table_id = ?").run(projectId, tableId).changes > 0
+    (await db.prepare("DELETE FROM table_seeds WHERE project_id = ? AND table_id = ?").run(projectId, tableId))
+      .changes > 0
   );
 }

@@ -22,26 +22,17 @@ function realPath(target: string): string {
 }
 
 /**
- * Refuses to open NebulaDB's own database file as a "live" SQLite target: a project
- * administrator could otherwise read and write the table holding every password hash,
- * session token and audit entry. Narrow on its own; `NEBULADB_SQLITE_DIR` turns it into a
- * real path allowlist.
+ * Restricts where a "live" SQLite target may be. NebulaDB's own data used to be a SQLite file
+ * too, and opening that one was refused outright; it now lives in PostgreSQL, behind credentials
+ * of its own, so what is left is the path allowlist `NEBULADB_SQLITE_DIR` turns on.
  */
 export function assertSqlitePathAllowed(requestedPath: string): void {
   if (requestedPath === ":memory:") return;
-  const resolvedRequested = realPath(requestedPath);
-  const resolvedApp = realPath(appConfig.dbPath);
-  if (resolvedRequested === resolvedApp) {
-    throw new ApiError("CONNECTION_TARGET_FORBIDDEN", {
-      message: "refusing to open NebulaDB's own database file as a live connection target",
-    });
-  }
-  // The full allowlist the narrow check above never was: opt-in through
-  // `NEBULADB_SQLITE_DIR`, because an existing install's connections may
-  // legitimately point anywhere on disk and must keep working after an upgrade.
+  // Opt-in, because an existing install's connections may legitimately point
+  // anywhere on disk and must keep working after an upgrade.
   if (appConfig.sqliteAllowedDir) {
     const allowed = realPath(appConfig.sqliteAllowedDir);
-    const relative = path.relative(allowed, resolvedRequested);
+    const relative = path.relative(allowed, realPath(requestedPath));
     if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
       throw new ApiError("CONNECTION_TARGET_FORBIDDEN", {
         message: "SQLite connections are restricted to the directory configured in NEBULADB_SQLITE_DIR",

@@ -31,18 +31,18 @@ const CHECK_LIMIT = { config: { rateLimit: { max: 10, timeWindow: "1 minute" } }
  * Saves what an administrator chose for the watch; switching it on or off, or changing its pace, is audited.
  * A watch imposed from a connection is the instance administrators' alone, and only its ignored tables change here.
  */
-export function saveMonitoringFor(
+export async function saveMonitoringFor(
   user: { id: string; email: string; displayName: string; isAdmin: boolean },
   projectId: string,
   body: unknown,
   req: FastifyRequest,
-): MonitorSettings {
-  const before = getMonitorSettings(projectId);
+): Promise<MonitorSettings> {
+  const before = await getMonitorSettings(projectId);
   // Otherwise ignoring every table would switch off what the connection imposes.
   if (before.forced && !user.isAdmin) throw new ApiError("MONITORING_LOCKED");
-  const settings = saveMonitorSettings(projectId, parseMonitorSettings(body), user.displayName);
+  const settings = await saveMonitorSettings(projectId, parseMonitorSettings(body), user.displayName);
   if (before.enabled !== settings.enabled || before.intervalMinutes !== settings.intervalMinutes) {
-    auditUser(
+    await auditUser(
       user,
       "project.monitoring",
       { type: "project", id: projectId },
@@ -63,18 +63,35 @@ type RouteUser = { id: string; email: string; displayName: string; isAdmin: bool
  * is not the project's to silence — only an instance administrator may, or muting would be a way
  * around the imposition. Audited, with the reason.
  */
-export function muteAlertsFor(user: RouteUser, projectId: string, body: unknown, req: FastifyRequest): MonitorSettings {
-  if (getMonitorSettings(projectId).forced && !user.isAdmin) throw new ApiError("MONITORING_MUTE_LOCKED");
+export async function muteAlertsFor(
+  user: RouteUser,
+  projectId: string,
+  body: unknown,
+  req: FastifyRequest,
+): Promise<MonitorSettings> {
+  if ((await getMonitorSettings(projectId)).forced && !user.isAdmin) throw new ApiError("MONITORING_MUTE_LOCKED");
   const { minutes, reason } = parseMute(body);
-  const mute = setMute(projectId, minutes, reason, user.displayName);
-  auditUser(user, "monitoring.mute", { type: "project", id: projectId }, `until ${mute.until} UTC: ${reason}`, req);
-  return getMonitorSettings(projectId);
+  const mute = await setMute(projectId, minutes, reason, user.displayName);
+  await auditUser(
+    user,
+    "monitoring.mute",
+    { type: "project", id: projectId },
+    `until ${mute.until} UTC: ${reason}`,
+    req,
+  );
+  return await getMonitorSettings(projectId);
 }
 
 /** Lifts the mute — always open to a project administrator: it only brings the alerts back. */
-export function unmuteAlertsFor(user: RouteUser, projectId: string, req: FastifyRequest): MonitorSettings {
-  if (clearMute(projectId)) auditUser(user, "monitoring.unmute", { type: "project", id: projectId }, undefined, req);
-  return getMonitorSettings(projectId);
+export async function unmuteAlertsFor(
+  user: RouteUser,
+  projectId: string,
+  req: FastifyRequest,
+): Promise<MonitorSettings> {
+  if (await clearMute(projectId)) {
+    await auditUser(user, "monitoring.unmute", { type: "project", id: projectId }, undefined, req);
+  }
+  return await getMonitorSettings(projectId);
 }
 
 /**
@@ -82,23 +99,24 @@ export function unmuteAlertsFor(user: RouteUser, projectId: string, req: Fastify
  * optional note, the finding stays open. The accounts watch's findings are the instance
  * administrators' to see, hence to acknowledge — for anyone else they do not exist.
  */
-export function acknowledgeEventFor(
+export async function acknowledgeEventFor(
   user: { id: string; email: string; displayName: string; isAdmin: boolean },
   projectId: string,
   eventId: string,
   body: unknown,
   req: FastifyRequest,
-): DriftEvent {
+): Promise<DriftEvent> {
   const raw = ((body ?? {}) as { note?: unknown }).note;
   if (raw !== undefined && raw !== null && (typeof raw !== "string" || raw.length > MAX_NOTE)) {
     throw new ApiError("MONITORING_INVALID");
   }
   const note = typeof raw === "string" && raw.trim() ? raw.trim() : null;
-  const event = getDriftEvent(projectId, eventId);
+  const event = await getDriftEvent(projectId, eventId);
   if (!event || (event.kind === "accounts" && !user.isAdmin)) throw new ApiError("MONITORING_EVENT_NOT_FOUND");
-  if (!acknowledgeDriftEvent(projectId, eventId, user.displayName, note))
+  if (!(await acknowledgeDriftEvent(projectId, eventId, user.displayName, note))) {
     throw new ApiError("MONITORING_EVENT_NOT_OPEN");
-  auditUser(
+  }
+  await auditUser(
     user,
     "monitoring.acknowledge",
     { type: "connection", id: event.connectionId },
@@ -108,7 +126,7 @@ export function acknowledgeEventFor(
   );
   // The editor's banner of the people who are not administrators goes at once.
   notifyProject(projectId, { type: "drift-changed" });
-  return getDriftEvent(projectId, eventId)!;
+  return (await getDriftEvent(projectId, eventId))!;
 }
 
 /**
@@ -126,79 +144,79 @@ export function registerMonitoringRoutes(app: FastifyInstance): void {
    * database's accounts — the console's "Utilisateurs" tab is the instance
    * administrators' — so its state and findings are theirs only.
    */
-  const monitoringView = (req: FastifyRequest, id: string) => {
+  const monitoringView = async (req: FastifyRequest, id: string) => {
     const admin = requireUser(req).isAdmin;
     return {
-      settings: getMonitorSettings(id),
-      events: listDriftEvents(id, 50, admin),
-      accounts: admin ? accountWatchState(id, true) : null,
+      settings: await getMonitorSettings(id),
+      events: await listDriftEvents(id, 50, admin),
+      accounts: admin ? await accountWatchState(id, true) : null,
     };
   };
 
   app.get("/api/projects/:id/monitoring", async (req) => {
     const { id } = req.params as { id: string };
-    requireProjectAccess(req, id, "view");
-    return monitoringView(req, id);
+    await requireProjectAccess(req, id, "view");
+    return await monitoringView(req, id);
   });
 
   app.put("/api/projects/:id/monitoring", async (req) => {
     const { id } = req.params as { id: string };
-    const { user } = requireProjectAdmin(req, id);
-    return { settings: saveMonitoringFor(user, id, req.body, req) };
+    const { user } = await requireProjectAdmin(req, id);
+    return { settings: await saveMonitoringFor(user, id, req.body, req) };
   });
 
   app.post("/api/projects/:id/monitoring/check", CHECK_LIMIT, async (req) => {
     const { id } = req.params as { id: string };
-    requireProjectAccess(req, id, "deploy");
+    await requireProjectAccess(req, id, "deploy");
     const result = await checkProjectMonitoring(id);
-    return { result, ...monitoringView(req, id) };
+    return { result, ...(await monitoringView(req, id)) };
   });
 
   app.put("/api/projects/:id/monitoring/mute", async (req) => {
     const { id } = req.params as { id: string };
-    const { user } = requireProjectAdmin(req, id);
-    return { settings: muteAlertsFor(user, id, req.body, req) };
+    const { user } = await requireProjectAdmin(req, id);
+    return { settings: await muteAlertsFor(user, id, req.body, req) };
   });
 
   app.delete("/api/projects/:id/monitoring/mute", async (req) => {
     const { id } = req.params as { id: string };
-    const { user } = requireProjectAdmin(req, id);
-    return { settings: unmuteAlertsFor(user, id, req) };
+    const { user } = await requireProjectAdmin(req, id);
+    return { settings: await unmuteAlertsFor(user, id, req) };
   });
 
   app.post("/api/projects/:id/monitoring/events/:eventId/acknowledge", async (req) => {
     const { id, eventId } = req.params as { id: string; eventId: string };
-    const { user } = requireProjectAdmin(req, id);
-    acknowledgeEventFor(user, id, eventId, req.body, req);
-    return monitoringView(req, id);
+    const { user } = await requireProjectAdmin(req, id);
+    await acknowledgeEventFor(user, id, eventId, req.body, req);
+    return await monitoringView(req, id);
   });
 
   // Turning the accounts watch on or off: instance administrators only.
   app.put("/api/projects/:id/monitoring/accounts", async (req) => {
     const user = requireAdmin(req);
     const { id } = req.params as { id: string };
-    if (!getProjectRow(id)) throw new ApiError("NOT_FOUND");
+    if (!(await getProjectRow(id))) throw new ApiError("NOT_FOUND");
     const { enabled } = (req.body ?? {}) as { enabled?: unknown };
     if (typeof enabled !== "boolean") throw new ApiError("MONITORING_INVALID");
-    if (isAccountWatchOn(id) !== enabled) {
-      setAccountWatch(id, enabled);
-      auditUser(user, "monitoring.accounts.watch", { type: "project", id }, enabled ? "on" : "off", req);
+    if ((await isAccountWatchOn(id)) !== enabled) {
+      await setAccountWatch(id, enabled);
+      await auditUser(user, "monitoring.accounts.watch", { type: "project", id }, enabled ? "on" : "off", req);
     }
-    return monitoringView(req, id);
+    return await monitoringView(req, id);
   });
 
   // "This is how it should be": the state last read becomes the reference.
   app.post("/api/projects/:id/monitoring/accounts/accept", CHECK_LIMIT, async (req) => {
     const user = requireAdmin(req);
     const { id } = req.params as { id: string };
-    if (!getProjectRow(id)) throw new ApiError("NOT_FOUND");
+    if (!(await getProjectRow(id))) throw new ApiError("NOT_FOUND");
     const { connectionId } = (req.body ?? {}) as { connectionId?: unknown };
-    if (typeof connectionId !== "string" || !acceptAccountState(id, connectionId)) {
+    if (typeof connectionId !== "string" || !(await acceptAccountState(id, connectionId))) {
       throw new ApiError("MONITORING_INVALID");
     }
-    auditUser(user, "monitoring.accounts.accept", { type: "connection", id: connectionId }, undefined, req, {
+    await auditUser(user, "monitoring.accounts.accept", { type: "connection", id: connectionId }, undefined, req, {
       projectId: id,
     });
-    return monitoringView(req, id);
+    return await monitoringView(req, id);
   });
 }

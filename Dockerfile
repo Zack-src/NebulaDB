@@ -2,9 +2,10 @@ FROM node:22-bookworm-slim
 
 WORKDIR /app
 
-# better-sqlite3 compiles a native addon at install time when no prebuilt
-# binary matches this platform/arch — these make that always work rather
-# than depending on prebuild-install's luck.
+# better-sqlite3 (SQLite as a target engine, and `migrate-from-sqlite`)
+# compiles a native addon at install time when no prebuilt binary matches
+# this platform/arch — these make that always work rather than depending on
+# prebuild-install's luck.
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ \
   && rm -rf /var/lib/apt/lists/*
 
@@ -28,7 +29,9 @@ RUN npm run build
 
 ENV NODE_ENV=production
 ENV PORT=3001
-ENV NEBULADB_DB_PATH=/data/nebuladb.sqlite
+# NebulaDB's own data is in PostgreSQL (NEBULADB_DATABASE_URL, no default);
+# /data keeps the files: backups of connected databases.
+ENV NEBULADB_DATABASE_BACKUP_DIR=/data/database-backups
 
 # Don't run as root. `/data` is created and chowned here so the named volume
 # mounted over it inherits this ownership when Docker first populates it.

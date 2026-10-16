@@ -5,8 +5,9 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { DbQueryStat } from "@nebuladb/shared";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-indexsuggest-${randomUUID()}.sqlite`);
+await useTestDatabase("indexsuggest");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -249,13 +250,9 @@ type App = Awaited<ReturnType<typeof buildApp>>;
 async function login(app: App, admin: boolean) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, ?)").run(
-    randomUUID(),
-    email,
-    await hashPassword(password),
-    admin ? 1 : 0,
-    admin ? "Ada Admin" : "Bob",
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, ?)")
+    .run(randomUUID(), email, await hashPassword(password), admin ? 1 : 0, admin ? "Ada Admin" : "Bob");
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",

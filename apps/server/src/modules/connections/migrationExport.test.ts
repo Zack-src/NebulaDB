@@ -5,10 +5,11 @@ import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
 // Same rationale as `app.test.ts`: env vars must land before anything
 // transitively imports `db.ts`/`shared/crypto.ts`.
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-migexport-${randomUUID()}.sqlite`);
+await useTestDatabase("migexport");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -42,12 +43,9 @@ async function makeUser(displayName: string | null = null) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, ?)").run(
-    id,
-    email,
-    await hashPassword(password),
-    displayName,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, ?)")
+    .run(id, email, await hashPassword(password), displayName);
   return { id, email, password };
 }
 
@@ -58,7 +56,7 @@ const UP_2 =
 const DOWN_2 = "-- WARNING: nothing to see\n\nBEGIN;\nDROP INDEX idx_label;\nCOMMIT;\n";
 
 /** Two deployments, a rollback of the second, then a partial failure. */
-function seedHistory(projectId: string, connectionId: string, author: string) {
+async function seedHistory(projectId: string, connectionId: string, author: string) {
   const base = {
     projectId,
     connectionId,
@@ -77,7 +75,7 @@ function seedHistory(projectId: string, connectionId: string, author: string) {
     schemaHash: "aaaa1111bbbb2222",
     seedReport: [{ tableName: "widgets", inserted: 4, skipped: false }],
   });
-  const second = recordDeployment({
+  const second = await recordDeployment({
     ...base,
     sql: UP_2,
     rollbackSql: DOWN_2,
@@ -86,7 +84,7 @@ function seedHistory(projectId: string, connectionId: string, author: string) {
     totalStatements: 4,
     schemaHash: "cccc3333dddd4444",
   });
-  recordDeployment({
+  await recordDeployment({
     ...base,
     sql: DOWN_2,
     rollbackSql: null,
@@ -95,7 +93,7 @@ function seedHistory(projectId: string, connectionId: string, author: string) {
     executedStatements: 3,
     totalStatements: 3,
   });
-  recordDeployment({
+  await recordDeployment({
     ...base,
     sql: "BEGIN;\nDROP TABLE nope;\nCOMMIT;\n",
     rollbackSql: "BEGIN;\nCREATE TABLE nope (id INT);\nCOMMIT;\n",
@@ -125,7 +123,7 @@ async function setup(app: Awaited<ReturnType<typeof buildApp>>, displayName: str
     payload: { name: "Staging DB", engine: "sqlite", database: ":memory:" },
   });
   const connId = connRes.json().connection.id as string;
-  seedHistory(project.id, connId, owner.email);
+  await seedHistory(project.id, connId, owner.email);
   return { owner, cookie, project, connId };
 }
 
@@ -212,7 +210,7 @@ test("migration export, plain SQL: numbered files, undo files, transaction wrapp
       assert.ok(!/ECONNREFUSED|hunter2|db\.internal|password=/.test(content), `${name} leaks a failure message`);
     }
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -243,7 +241,7 @@ test("migration export, Flyway: V<version>__<description> and U undo files, no t
       /-- WARNING: nothing to see\n\nDROP INDEX idx_label;\n$/,
     );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -290,7 +288,7 @@ test("migration export, Liquibase: formatted SQL changesets, rollback lines, mas
       ].join("\n"),
     );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -302,7 +300,7 @@ test("migration export: a later deployment only adds files; names of the earlier
     const before = [...(await download(app, cookie, project.id, connId, "flyway")).keys()].filter(
       (n) => n !== "README.md",
     );
-    recordDeployment({
+    await recordDeployment({
       projectId: project.id,
       connectionId: connId,
       connectionName: "Staging DB",
@@ -325,7 +323,7 @@ test("migration export: a later deployment only adds files; names of the earlier
       ["migrations/V0004__schema_ffff6666.sql"],
     );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -353,17 +351,17 @@ test("migration export: project administrators only, a known format, a connectio
     const unknown = await app.inject({ method: "GET", url: url(randomUUID()), headers: headers({ cookie }) });
     assert.equal(unknown.statusCode, 404);
 
-    const exports = () =>
-      db
+    const exports = async () =>
+      (await db
         .prepare("SELECT detail FROM audit_log WHERE action = 'connection.migrations_export' AND connection_id = ?")
-        .all(connId) as { detail: string }[];
-    assert.equal(exports().length, 0, "refused requests are not audited as exports");
+        .all(connId)) as { detail: string }[];
+    assert.equal((await exports()).length, 0, "refused requests are not audited as exports");
     await download(app, cookie, project.id, connId, "sql");
-    const after = exports();
+    const after = await exports();
     assert.equal(after.length, 1);
     assert.match(after[0]!.detail, /sql, \d+ files/);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -391,7 +389,7 @@ test("migration export: Flyway or Liquibase, when installed, accept the files", 
         : spawnSync("liquibase", [`--changelog-file=${join(dir, "migrations/changelog-master.yaml")}`, "validate"]);
     assert.equal(run.status, 0, String(run.stdout) + String(run.stderr));
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

@@ -45,56 +45,63 @@ function toEntry(row: Row, viewerId: string): DbSavedQuery {
 }
 
 /** The viewer's own queries first, then the ones others shared, each by name. */
-export function listSavedQueries(connectionId: string, viewerId: string): DbSavedQuery[] {
-  const rows = db
+export async function listSavedQueries(connectionId: string, viewerId: string): Promise<DbSavedQuery[]> {
+  const rows = (await db
     .prepare(
       `${SELECT} WHERE q.connection_id = ? AND (q.user_id = ? OR q.shared = 1)
         ORDER BY CASE WHEN q.user_id = ? THEN 0 ELSE 1 END, LOWER(q.name), q.id`,
     )
-    .all(connectionId, viewerId, viewerId) as Row[];
+    .all(connectionId, viewerId, viewerId)) as Row[];
   return rows.map((row) => toEntry(row, viewerId));
 }
 
-export function getSavedQuery(connectionId: string, id: string, viewerId: string): DbSavedQuery | null {
-  const row = db.prepare(`${SELECT} WHERE q.connection_id = ? AND q.id = ?`).get(connectionId, id) as Row | undefined;
+export async function getSavedQuery(connectionId: string, id: string, viewerId: string): Promise<DbSavedQuery | null> {
+  const row = (await db.prepare(`${SELECT} WHERE q.connection_id = ? AND q.id = ?`).get(connectionId, id)) as
+    Row | undefined;
   return row ? toEntry(row, viewerId) : null;
 }
 
 /** Who wrote a query and whether it is shared — what an access decision needs, nothing more. */
-export function getSavedQueryRecord(connectionId: string, id: string): SavedQueryRecord | null {
-  const row = db
+export async function getSavedQueryRecord(connectionId: string, id: string): Promise<SavedQueryRecord | null> {
+  const row = (await db
     .prepare("SELECT id, user_id, name, shared FROM saved_queries WHERE connection_id = ? AND id = ?")
-    .get(connectionId, id) as Pick<Row, "id" | "user_id" | "name" | "shared"> | undefined;
+    .get(connectionId, id)) as Pick<Row, "id" | "user_id" | "name" | "shared"> | undefined;
   return row ? { id: row.id, userId: row.user_id, name: row.name, shared: row.shared === 1 } : null;
 }
 
-export function countSavedQueries(connectionId: string, userId: string): number {
-  const row = db
+export async function countSavedQueries(connectionId: string, userId: string): Promise<number> {
+  const row = (await db
     .prepare("SELECT COUNT(*) AS n FROM saved_queries WHERE connection_id = ? AND user_id = ?")
-    .get(connectionId, userId) as { n: number };
+    .get(connectionId, userId)) as { n: number };
   return row.n;
 }
 
 /** The id of the caller's own query of that name on the connection, if any. */
-export function findOwnSavedQueryByName(connectionId: string, userId: string, name: string): string | null {
-  const row = db
+export async function findOwnSavedQueryByName(
+  connectionId: string,
+  userId: string,
+  name: string,
+): Promise<string | null> {
+  const row = (await db
     .prepare("SELECT id FROM saved_queries WHERE connection_id = ? AND user_id = ? AND name = ?")
-    .get(connectionId, userId, name) as { id: string } | undefined;
+    .get(connectionId, userId, name)) as { id: string } | undefined;
   return row?.id ?? null;
 }
 
-export function insertSavedQuery(input: {
+export async function insertSavedQuery(input: {
   connectionId: string;
   userId: string;
   name: string;
   sql: string;
   description: string | null;
-}): string {
+}): Promise<string> {
   const id = crypto.randomUUID();
-  db.prepare(
-    `INSERT INTO saved_queries (id, connection_id, user_id, name, sql, description)
+  await db
+    .prepare(
+      `INSERT INTO saved_queries (id, connection_id, user_id, name, sql, description)
      VALUES (?, ?, ?, ?, ?, ?)`,
-  ).run(id, input.connectionId, input.userId, input.name, input.sql, input.description);
+    )
+    .run(id, input.connectionId, input.userId, input.name, input.sql, input.description);
   return id;
 }
 
@@ -105,7 +112,7 @@ export interface SavedQueryChanges {
   shared?: boolean;
 }
 
-export function updateSavedQuery(id: string, changes: SavedQueryChanges): void {
+export async function updateSavedQuery(id: string, changes: SavedQueryChanges): Promise<void> {
   const sets: string[] = [];
   const values: (string | number | null)[] = [];
   if (changes.name !== undefined) {
@@ -125,12 +132,11 @@ export function updateSavedQuery(id: string, changes: SavedQueryChanges): void {
     values.push(changes.shared ? 1 : 0);
   }
   if (sets.length === 0) return;
-  db.prepare(`UPDATE saved_queries SET ${sets.join(", ")}, updated_at = datetime('now') WHERE id = ?`).run(
-    ...values,
-    id,
-  );
+  await db
+    .prepare(`UPDATE saved_queries SET ${sets.join(", ")}, updated_at = utc_now() WHERE id = ?`)
+    .run(...values, id);
 }
 
-export function deleteSavedQuery(id: string): boolean {
-  return db.prepare("DELETE FROM saved_queries WHERE id = ?").run(id).changes > 0;
+export async function deleteSavedQuery(id: string): Promise<boolean> {
+  return (await db.prepare("DELETE FROM saved_queries WHERE id = ?").run(id)).changes > 0;
 }

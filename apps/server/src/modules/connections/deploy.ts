@@ -28,13 +28,13 @@ import { backupOrRefuse } from "../backups/runner.js";
 
 const RISK_NOTE_MAX = 1000;
 
-function isProductionStage(conn: { environmentId?: string | null }): boolean {
-  return Boolean(conn.environmentId && getEnvironment(conn.environmentId)?.production);
+async function isProductionStage(conn: { environmentId?: string | null }): Promise<boolean> {
+  return Boolean(conn.environmentId && (await getEnvironment(conn.environmentId))?.production);
 }
 
 /** A stage whose protection is `review`: a deployment to it carries an approved review request, or does not run. */
-export function stageAsksForReview(conn: { environmentId?: string | null }): boolean {
-  return Boolean(conn.environmentId && getEnvironment(conn.environmentId)?.protection === "review");
+export async function stageAsksForReview(conn: { environmentId?: string | null }): Promise<boolean> {
+  return Boolean(conn.environmentId && (await getEnvironment(conn.environmentId))?.protection === "review");
 }
 
 /**
@@ -42,11 +42,11 @@ export function stageAsksForReview(conn: { environmentId?: string | null }): boo
  * typed its name: the same rule for the editor, the deployments tab and the
  * public API, checked here rather than trusted to a dialog.
  */
-function assertProductionConfirmed(
+async function assertProductionConfirmed(
   conn: { name: string; environmentId?: string | null },
   confirmName: string | undefined,
-): void {
-  const stage = conn.environmentId ? getEnvironment(conn.environmentId) : null;
+): Promise<void> {
+  const stage = conn.environmentId ? await getEnvironment(conn.environmentId) : null;
   if (!stage?.production) return;
   if (typeof confirmName !== "string" || confirmName.trim() !== conn.name.trim()) {
     throw new ApiError("PRODUCTION_CONFIRMATION_REQUIRED", {
@@ -62,14 +62,14 @@ import { getLintSettings } from "../lint/repository.js";
 import { emitWebhookEvent } from "../webhooks/dispatcher.js";
 
 /** `deployment.completed` for the project's webhooks — success or failure, deploy or rollback. */
-function notifyDeployment(
+async function notifyDeployment(
   projectId: string,
   conn: { name: string; environment?: string | null; engine: string },
   kind: "deploy" | "rollback",
   result: { success: boolean; executedStatements: number; error?: string | null },
   executedBy: string,
-): void {
-  emitWebhookEvent(projectId, "deployment.completed", {
+): Promise<void> {
+  await emitWebhookEvent(projectId, "deployment.completed", {
     kind,
     connectionName: conn.name,
     environment: conn.environment ?? null,
@@ -80,7 +80,7 @@ function notifyDeployment(
     executedBy,
   });
   // The deployment history is read by those who may deploy, so is this.
-  notifyFollowers(
+  await notifyFollowers(
     projectId,
     "deployment",
     { kind, connection: conn.name, environment: conn.environment ?? null, success: result.success, by: executedBy },
@@ -101,7 +101,7 @@ async function rememberDeployedState(
   source: FingerprintSource,
 ): Promise<void> {
   try {
-    saveReferenceFingerprint(projectId, connectionId, await driver.introspectSchema(), source);
+    await saveReferenceFingerprint(projectId, connectionId, await driver.introspectSchema(), source);
   } catch (err) {
     console.error("[drift] could not record the reference fingerprint:", err);
   }
@@ -154,11 +154,11 @@ async function planDeployment(
   const acceptedRisks = settleRisks(
     await analyzeDeploymentRisks(driver, diff, conn.engine),
     resolutions,
-    isProductionStage(conn),
+    await isProductionStage(conn),
   );
   // Seeds are checked before anything runs: a seed that cannot go in must
   // not leave the database half-deployed.
-  const seeds = skipSeeds ? null : prepareSeeds(projectId, canvasProject);
+  const seeds = skipSeeds ? null : await prepareSeeds(projectId, canvasProject);
   if (seeds) assertSeedsDeployable(seeds);
   return { diff, acceptedRisks, seeds, sql: generateMigrationSql(diff, conn.engine, resolutions) };
 }
@@ -220,14 +220,14 @@ export async function freezeDeployment(
   resolutions: MigrationResolutionMap,
   options: { skipSeeds?: boolean } = {},
 ): Promise<FrozenDeployment> {
-  const conn = getProjectConnection(projectId, connId);
+  const conn = await getProjectConnection(projectId, connId);
   if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
   if (conn.readOnly) throw new ApiError("CONNECTION_READ_ONLY");
-  if (!stageAsksForReview(conn)) throw new ApiError("DEPLOYMENT_REVIEW_NOT_REQUIRED");
+  if (!(await stageAsksForReview(conn))) throw new ApiError("DEPLOYMENT_REVIEW_NOT_REQUIRED");
 
-  const writtenProject = readProjectFromDoc(getRoom(projectId).doc, projectId, projectName);
-  assertLintAllowsDeployment(writtenProject, getLintSettings(projectId));
-  const canvasProject = schemaForConnection(writtenProject, conn);
+  const writtenProject = readProjectFromDoc((await getRoom(projectId)).doc, projectId, projectName);
+  assertLintAllowsDeployment(writtenProject, await getLintSettings(projectId));
+  const canvasProject = await schemaForConnection(writtenProject, conn);
 
   const driver = await createDatabaseDriver(conn);
   try {
@@ -298,27 +298,27 @@ export async function deployToConnection(
   } = {},
 ): Promise<DeployToConnectionResult> {
   const { confirmName } = options;
-  const conn = getProjectConnection(projectId, connId);
+  const conn = await getProjectConnection(projectId, connId);
   if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
   if (conn.readOnly) throw new ApiError("CONNECTION_READ_ONLY");
   // Here rather than in a route: the editor, the deployments tab and the
   // public API all end up in this function, and none of them gets around it.
-  if (stageAsksForReview(conn) && !options.review) {
+  if ((await stageAsksForReview(conn)) && !options.review) {
     throw new ApiError("DEPLOYMENT_REVIEW_REQUIRED", {
       details: { connection: conn.name, environment: conn.environment ?? null },
     });
   }
-  assertProductionConfirmed(conn, confirmName);
+  await assertProductionConfirmed(conn, confirmName);
 
-  const room = getRoom(projectId);
+  const room = await getRoom(projectId);
   const writtenProject = readProjectFromDoc(room.doc, projectId, projectName);
   // Before a connection is even opened: nothing of the target is needed to
   // know the schema breaks the project's own rules, or names a variable the
   // stage does not define.
-  assertLintAllowsDeployment(writtenProject, getLintSettings(projectId));
+  assertLintAllowsDeployment(writtenProject, await getLintSettings(projectId));
   const schemaHash = schemaHashOf(writtenProject);
-  assertStageOrder(projectId, conn, schemaHash, options.skipStageOrder === true);
-  const canvasProject = schemaForConnection(writtenProject, conn);
+  await assertStageOrder(projectId, conn, schemaHash, options.skipStageOrder === true);
+  const canvasProject = await schemaForConnection(writtenProject, conn);
 
   const driver = await createDatabaseDriver(conn);
   try {
@@ -343,7 +343,7 @@ export async function deployToConnection(
     // taken is worse than none asked for.
     const willWrite = diff.hasChanges || Boolean(seeds && seeds.seeds.length > 0);
     const backup =
-      willWrite && (options.backupBefore ?? isProductionStage(conn))
+      willWrite && (options.backupBefore ?? (await isProductionStage(conn)))
         ? await backupOrRefuse({
             connection: conn,
             trigger: "pre-deployment",
@@ -355,7 +355,7 @@ export async function deployToConnection(
     const seedReport: SeedResult[] =
       result.success && seeds && seeds.seeds.length > 0 ? await applySeeds(driver, seeds, conn.engine) : [];
 
-    recordDeployment({
+    await recordDeployment({
       projectId,
       connectionId: conn.id,
       connectionName: conn.name,
@@ -375,7 +375,7 @@ export async function deployToConnection(
       schemaHash,
       reviewId: options.review?.id ?? null,
     });
-    notifyDeployment(projectId, conn, "deploy", result, executedByEmail);
+    await notifyDeployment(projectId, conn, "deploy", result, executedByEmail);
 
     if (!result.success) {
       throw new ApiError("MIGRATION_FAILED", {
@@ -419,23 +419,23 @@ export async function rollbackConnectionDeployment(
   /** As for `deployToConnection`. */
   confirmName?: string,
 ): Promise<RollbackConnectionResult> {
-  const entry = getDeploymentHistoryEntry(historyId);
+  const entry = await getDeploymentHistoryEntry(historyId);
   if (!entry || entry.connectionId !== connId || entry.projectId !== projectId) {
     throw new ApiError("DEPLOYMENT_HISTORY_NOT_FOUND");
   }
   if (!entry.rollbackSql) throw new ApiError("ROLLBACK_NOT_AVAILABLE");
   if (entry.rolledBack) throw new ApiError("ROLLBACK_ALREADY_ATTEMPTED");
 
-  const conn = getProjectConnection(projectId, connId);
+  const conn = await getProjectConnection(projectId, connId);
   if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
   if (conn.readOnly) throw new ApiError("CONNECTION_READ_ONLY");
-  assertProductionConfirmed(conn, confirmName);
+  await assertProductionConfirmed(conn, confirmName);
 
   const driver = await createDatabaseDriver(conn);
   try {
     const result = await driver.executeMigration(entry.rollbackSql);
 
-    recordDeployment({
+    await recordDeployment({
       projectId,
       connectionId: conn.id,
       connectionName: conn.name,
@@ -450,7 +450,7 @@ export async function rollbackConnectionDeployment(
       error: result.error,
       executedByEmail,
     });
-    notifyDeployment(projectId, conn, "rollback", result, executedByEmail);
+    await notifyDeployment(projectId, conn, "rollback", result, executedByEmail);
 
     if (!result.success) {
       throw new ApiError("ROLLBACK_FAILED", {

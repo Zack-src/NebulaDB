@@ -5,8 +5,9 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-alerts-${randomUUID()}.sqlite`);
+await useTestDatabase("alerts");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -34,11 +35,9 @@ async function login(app: App) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, NULL)").run(
-    id,
-    email,
-    await hashPassword(password),
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, NULL)")
+    .run(id, email, await hashPassword(password));
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -56,15 +55,13 @@ const call = (app: App, cookie: string, method: "GET" | "POST" | "PUT", url: str
     ...(payload === undefined ? {} : { payload: payload as object }),
   });
 
-function grant(projectId: string, userId: string, permission: string): void {
+async function grant(projectId: string, userId: string, permission: string): Promise<void> {
   const teamId = randomUUID();
-  db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(teamId, `team-${teamId}`);
-  db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, userId);
-  db.prepare("INSERT INTO project_teams (project_id, team_id, permission) VALUES (?, ?, ?)").run(
-    projectId,
-    teamId,
-    permission,
-  );
+  await db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(teamId, `team-${teamId}`);
+  await db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, userId);
+  await db
+    .prepare("INSERT INTO project_teams (project_id, team_id, permission) VALUES (?, ?, ?)")
+    .run(projectId, teamId, permission);
 }
 
 const mailedTo = () => sent.map((mail) => mail.to).sort();
@@ -78,9 +75,9 @@ test("alerts by email: only those who opted in, who may see the finding, and onl
     const optedOut = await login(app);
     const project = (await call(app, owner.cookie, "POST", "/api/projects", { name: "Shop" })).json() as { id: string };
     const base = `/api/projects/${project.id}`;
-    grant(project.id, coAdmin.id, "administrator");
-    grant(project.id, editor.id, "edit");
-    grant(project.id, optedOut.id, "edit");
+    await grant(project.id, coAdmin.id, "administrator");
+    await grant(project.id, editor.id, "edit");
+    await grant(project.id, optedOut.id, "edit");
 
     const follow = (who: { cookie: string }, emailDrift?: boolean) =>
       call(app, who.cookie, "PUT", `${base}/subscription`, {
@@ -145,8 +142,8 @@ test("alerts by email: only those who opted in, who may see the finding, and onl
 
     // Access lost since: nothing more, by mail either.
     sent.length = 0;
-    db.prepare("DELETE FROM team_members WHERE user_id = ?").run(editor.id);
-    announceDrift(project.id, {
+    await db.prepare("DELETE FROM team_members WHERE user_id = ?").run(editor.id);
+    await announceDrift(project.id, {
       kind: "external",
       connectionName: "Shop db",
       environment: null,
@@ -156,7 +153,7 @@ test("alerts by email: only those who opted in, who may see the finding, and onl
     });
     assert.deepEqual(mailedTo(), [coAdmin.email, owner.email].sort());
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -170,12 +167,12 @@ test("alerts by email: an accounts finding is mailed to project administrators a
       id: string;
     };
     const base = `/api/projects/${project.id}`;
-    grant(project.id, editor.id, "edit");
+    await grant(project.id, editor.id, "edit");
     for (const who of [owner, editor]) {
       await call(app, who.cookie, "PUT", `${base}/subscription`, { events: ["drift"], emailDrift: true });
     }
     sent.length = 0;
-    announceDrift(project.id, {
+    await announceDrift(project.id, {
       kind: "accounts",
       connectionName: "Vault db",
       environment: "production",
@@ -192,7 +189,7 @@ test("alerts by email: an accounts finding is mailed to project administrators a
     assert.match(sent[0].text, /2 changement\(s\)/);
     assert.doesNotMatch(body, /mallory/);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

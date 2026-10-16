@@ -19,23 +19,23 @@ import {
  * says whether the database answers, and must not read "offline" because the
  * administrator who clicked has no personal account on it.
  */
-export function checkConnectionHealth(id: string): Promise<AdminConnectionSummary | null> {
-  if (connectionOwner(id)) return Promise.resolve(null);
-  const connection = getConnectionById(id);
+export async function checkConnectionHealth(id: string): Promise<AdminConnectionSummary | null> {
+  if (await connectionOwner(id)) return Promise.resolve(null);
+  const connection = await getConnectionById(id);
   return connection?.authMode === "personal" && !connection.user
     ? probeConnection(id)
     : asUnattended(() => probeConnection(id));
 }
 
 async function probeConnection(id: string): Promise<AdminConnectionSummary | null> {
-  const config = getConnectionById(id);
+  const config = await getConnectionById(id);
   if (!config) return null;
   const startedAt = Date.now();
   try {
     const driver = await createDatabaseDriver(config);
     try {
       const result = await driver.testConnection();
-      recordConnectionHealth(id, {
+      await recordConnectionHealth(id, {
         ok: result.ok,
         version: result.version,
         error: result.error,
@@ -45,13 +45,13 @@ async function probeConnection(id: string): Promise<AdminConnectionSummary | nul
       await driver.close().catch(() => {});
     }
   } catch (err) {
-    recordConnectionHealth(id, {
+    await recordConnectionHealth(id, {
       ok: false,
       error: err instanceof Error ? err.message : String(err),
       latencyMs: Date.now() - startedAt,
     });
   }
-  return getAdminConnection(id);
+  return await getAdminConnection(id);
 }
 
 let timer: NodeJS.Timeout | null = null;
@@ -64,11 +64,11 @@ let timer: NodeJS.Timeout | null = null;
 export function startConnectionHealthChecks(intervalMinutes: number): void {
   if (intervalMinutes <= 0 || timer) return;
   let running = false;
-  timer = setInterval(async () => {
+  const pass = async () => {
     if (running) return;
     running = true;
     try {
-      for (const connection of listAllConnections()) {
+      for (const connection of await listAllConnections()) {
         if (connection.authMode === "personal" && !connection.user) continue;
         await checkConnectionHealth(connection.id);
       }
@@ -77,6 +77,7 @@ export function startConnectionHealthChecks(intervalMinutes: number): void {
     } finally {
       running = false;
     }
-  }, intervalMinutes * 60_000);
+  };
+  timer = setInterval(() => void pass(), intervalMinutes * 60_000);
   timer.unref();
 }

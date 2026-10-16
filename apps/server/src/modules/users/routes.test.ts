@@ -1,10 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-users-${randomUUID()}.sqlite`);
+await useTestDatabase("users");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -35,12 +34,9 @@ async function makeUser(isAdmin: 0 | 1 = 0) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)").run(
-    id,
-    email,
-    await hashPassword(password),
-    isAdmin,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)")
+    .run(id, email, await hashPassword(password), isAdmin);
   return { id, email, password };
 }
 
@@ -312,9 +308,9 @@ test("PATCH /api/users/:id/admin gives and takes back the administrator role, fr
     assert.equal((await setAdmin(plainCookie, admin.id, { admin: false })).statusCode, 200);
     assert.equal((await setAdmin(adminCookie, plain.id, { admin: false })).statusCode, 403);
 
-    const trail = db
+    const trail = await db
       .prepare(
-        "SELECT action, actor_id, detail FROM audit_log WHERE action IN ('user.promote', 'user.demote') ORDER BY rowid",
+        "SELECT action, actor_id, detail FROM audit_log WHERE action IN ('user.promote', 'user.demote') ORDER BY seq",
       )
       .all();
     assert.deepEqual(trail, [
@@ -359,7 +355,37 @@ test("DELETE /api/users/:id refuses self-delete, refuses removing the last admin
     });
     assert.equal(deleted.statusCode, 200);
     assert.equal(deleted.json().transferred, true);
-    assert.equal(db.prepare("SELECT 1 FROM users WHERE id = ?").get(target.id), undefined);
+    assert.equal(await db.prepare("SELECT 1 FROM users WHERE id = ?").get(target.id), undefined);
+  } finally {
+    await app.close();
+  }
+});
+
+test("two administrators removing each other at the same moment do not leave the instance without one", async () => {
+  const app = await buildApp();
+  try {
+    // The only two active administrators, whatever earlier tests left behind.
+    await db.prepare("UPDATE users SET is_admin = 0").run();
+    const first = await makeUser(1);
+    const second = await makeUser(1);
+    const firstCookie = await loginAs(app, first.email, first.password);
+    const secondCookie = await loginAs(app, second.email, second.password);
+    const disable = (cookie: string, id: string) =>
+      app.inject({
+        method: "PATCH",
+        url: `/api/users/${id}/disabled`,
+        headers: headers({ cookie }),
+        payload: { disabled: true },
+      });
+
+    const results = await Promise.all([disable(firstCookie, second.id), disable(secondCookie, first.id)]);
+    const active = (await db
+      .prepare("SELECT COUNT(*) AS n FROM users WHERE is_admin = 1 AND disabled_at IS NULL")
+      .get()) as { n: number };
+    assert.equal(active.n, 1, "exactly one of them is still there");
+    // The other request was refused — for being the last administrator, or
+    // because its own session went with the account it had just lost.
+    assert.deepEqual(results.map((res) => res.statusCode === 200).sort(), [false, true]);
   } finally {
     await app.close();
   }

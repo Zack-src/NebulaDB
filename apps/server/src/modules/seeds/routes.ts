@@ -16,9 +16,14 @@ import { deleteSeed, getSeed, listSeeds, parseSeedInput, upsertSeed } from "./re
  * whoever the lock binds may not change or remove its seed. (A `structure`
  * lock leaves the seed alone — it is the rows, not the shape.)
  */
-function assertSeedEditable(userId: string, projectId: string, tableId: string, tableName: string): void {
-  const lock = getTableLock(projectId, tableId);
-  if (lock?.level === "full" && !canOverrideLock(lockAuthorityOf(userId, projectId), lock)) {
+async function assertSeedEditable(
+  userId: string,
+  projectId: string,
+  tableId: string,
+  tableName: string,
+): Promise<void> {
+  const lock = await getTableLock(projectId, tableId);
+  if (lock?.level === "full" && !canOverrideLock(await lockAuthorityOf(userId, projectId), lock)) {
     throw new ApiError("TABLE_LOCKED", {
       message: `locked table(s) cannot be changed: ${tableName}`,
       details: { tables: [tableName] },
@@ -36,11 +41,11 @@ const FROM_DATABASE_LIMIT = { config: { rateLimit: { max: 10, timeWindow: "1 min
 export function registerSeedRoutes(app: FastifyInstance): void {
   app.get("/api/projects/:id/seeds", async (req) => {
     const { id } = req.params as { id: string };
-    const { project } = requireProjectAccess(req, id, "view");
+    const { project } = await requireProjectAccess(req, id, "view");
     // Listed under the names the tables have now.
-    const names = new Map(readProjectReadOnly(id, project.name).tables.map((table) => [table.id, table.name]));
+    const names = new Map((await readProjectReadOnly(id, project.name)).tables.map((table) => [table.id, table.name]));
     return {
-      seeds: listSeeds(id)
+      seeds: (await listSeeds(id))
         .filter((seed) => names.has(seed.tableId))
         .map((seed) => ({ ...seed, tableName: names.get(seed.tableId)! })),
     };
@@ -48,20 +53,20 @@ export function registerSeedRoutes(app: FastifyInstance): void {
 
   app.get("/api/projects/:id/seeds/:tableId", async (req) => {
     const { id, tableId } = req.params as { id: string; tableId: string };
-    requireProjectAccess(req, id, "view");
-    const seed = getSeed(id, tableId);
+    await requireProjectAccess(req, id, "view");
+    const seed = await getSeed(id, tableId);
     if (!seed) throw new ApiError("SEED_NOT_FOUND");
     return { seed };
   });
 
   app.put("/api/projects/:id/seeds/:tableId", { bodyLimit: 3 * 1024 * 1024 }, async (req) => {
     const { id, tableId } = req.params as { id: string; tableId: string };
-    const { user, project } = requireProjectAccess(req, id, "edit");
-    const table = readProjectReadOnly(id, project.name).tables.find((t) => t.id === tableId);
+    const { user, project } = await requireProjectAccess(req, id, "edit");
+    const table = (await readProjectReadOnly(id, project.name)).tables.find((t) => t.id === tableId);
     if (!table) throw new ApiError("TABLE_NOT_FOUND");
-    assertSeedEditable(user.id, id, tableId, table.name);
+    await assertSeedEditable(user.id, id, tableId, table.name);
     const input = parseSeedInput(req.body);
-    const seed = upsertSeed({
+    const seed = await upsertSeed({
       projectId: id,
       tableId,
       tableName: table.name,
@@ -69,8 +74,8 @@ export function registerSeedRoutes(app: FastifyInstance): void {
       updatedBy: user.id,
       updatedByName: user.displayName,
     });
-    auditUser(user, "seed.set", { type: "project", id }, `${table.name}: ${input.rowCount} row(s)`, req);
-    notifyFollowers(
+    await auditUser(user, "seed.set", { type: "project", id }, `${table.name}: ${input.rowCount} row(s)`, req);
+    await notifyFollowers(
       id,
       "seed",
       { removed: false, table: table.name, rows: input.rowCount, by: user.displayName },
@@ -87,14 +92,14 @@ export function registerSeedRoutes(app: FastifyInstance): void {
   app.post("/api/projects/:id/seeds/:tableId/from-database", FROM_DATABASE_LIMIT, async (req) => {
     const { id, tableId } = req.params as { id: string; tableId: string };
     const user = requireAdmin(req);
-    const { project } = requireProjectAccess(req, id, "edit");
+    const { project } = await requireProjectAccess(req, id, "edit");
     const { connectionId } = (req.body ?? {}) as { connectionId?: unknown };
-    const connection = typeof connectionId === "string" ? getProjectConnection(id, connectionId) : null;
+    const connection = typeof connectionId === "string" ? await getProjectConnection(id, connectionId) : null;
     if (!connection) throw new ApiError("CONNECTION_NOT_FOUND");
-    const table = readProjectReadOnly(id, project.name).tables.find((t) => t.id === tableId);
+    const table = (await readProjectReadOnly(id, project.name)).tables.find((t) => t.id === tableId);
     if (!table) throw new ApiError("TABLE_NOT_FOUND");
     const seed = await readTableAsSeed(connection, table);
-    auditUser(
+    await auditUser(
       user,
       "seed.read_database",
       { type: "project", id },
@@ -107,15 +112,20 @@ export function registerSeedRoutes(app: FastifyInstance): void {
 
   app.delete("/api/projects/:id/seeds/:tableId", async (req) => {
     const { id, tableId } = req.params as { id: string; tableId: string };
-    const { user, project } = requireProjectAccess(req, id, "edit");
-    const existing = getSeed(id, tableId);
+    const { user, project } = await requireProjectAccess(req, id, "edit");
+    const existing = await getSeed(id, tableId);
     if (!existing) throw new ApiError("SEED_NOT_FOUND");
     const tableName =
-      readProjectReadOnly(id, project.name).tables.find((t) => t.id === tableId)?.name ?? existing.tableName;
-    assertSeedEditable(user.id, id, tableId, tableName);
-    deleteSeed(id, tableId);
-    auditUser(user, "seed.remove", { type: "project", id }, tableName, req);
-    notifyFollowers(id, "seed", { removed: true, table: tableName, by: user.displayName }, { actor: { id: user.id } });
+      (await readProjectReadOnly(id, project.name)).tables.find((t) => t.id === tableId)?.name ?? existing.tableName;
+    await assertSeedEditable(user.id, id, tableId, tableName);
+    await deleteSeed(id, tableId);
+    await auditUser(user, "seed.remove", { type: "project", id }, tableName, req);
+    await notifyFollowers(
+      id,
+      "seed",
+      { removed: true, table: tableName, by: user.displayName },
+      { actor: { id: user.id } },
+    );
     notifyProject(id, { type: "seeds-changed" });
     return { deleted: true };
   });

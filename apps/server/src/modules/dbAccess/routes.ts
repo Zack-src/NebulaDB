@@ -29,9 +29,9 @@ export function registerDbAccessRoutes(app: FastifyInstance): void {
   app.post("/api/admin/teams/:id/db-accounts", WRITE_LIMIT, async (req) => {
     const admin = requireAdmin(req);
     const { id } = req.params as { id: string };
-    if (!getTeam(id)) throw new ApiError("NOT_FOUND");
-    const entries = getTeamDbAccess(id).map((g) => ({ connectionId: g.connectionId, level: g.level }));
-    const users = listTeamMembers(id);
+    if (!(await getTeam(id))) throw new ApiError("NOT_FOUND");
+    const entries = (await getTeamDbAccess(id)).map((g) => ({ connectionId: g.connectionId, level: g.level }));
+    const users = await listTeamMembers(id);
     if (users.length * entries.length > 500)
       throw new ApiError("DB_ADMIN_INPUT_INVALID", { message: "at most 500 accounts per batch" });
     return { results: await provisionAccounts(admin, users, entries) };
@@ -39,10 +39,10 @@ export function registerDbAccessRoutes(app: FastifyInstance): void {
   app.post("/api/admin/users/:id/db-accounts", WRITE_LIMIT, async (req) => {
     const admin = requireAdmin(req);
     const { id } = req.params as { id: string };
-    const user = db.prepare("SELECT id, email FROM users WHERE id = ?").get(id) as
+    const user = (await db.prepare("SELECT id, email FROM users WHERE id = ?").get(id)) as
       { id: string; email: string } | undefined;
     if (!user) throw new ApiError("NOT_FOUND");
-    const access = getUserDbAccess(id);
+    const access = await getUserDbAccess(id);
     const entries = [...access.grants, ...access.inherited].filter((g) => g.level);
     const unique = [...new Map(entries.map((g) => [g.connectionId, g])).values()];
     return { results: await provisionAccounts(admin, [user], unique) };
@@ -51,41 +51,41 @@ export function registerDbAccessRoutes(app: FastifyInstance): void {
   app.get("/api/me/db-access", READ_LIMIT, async (req): Promise<MyDbAccess> => {
     const user = requireUser(req);
     if (req.apiKey) return { connections: [] };
-    return { connections: listAccessibleConnections(user.id) };
+    return { connections: await listAccessibleConnections(user.id) };
   });
 
   app.get("/api/admin/users/:id/db-access", READ_LIMIT, async (req): Promise<UserDbAccess> => {
     requireAdmin(req);
     const { id } = req.params as { id: string };
-    if (!userExists(id)) throw new ApiError("NOT_FOUND");
-    return getUserDbAccess(id);
+    if (!(await userExists(id))) throw new ApiError("NOT_FOUND");
+    return await getUserDbAccess(id);
   });
 
   // Replaces the user's own grants and database account names; what their teams give is untouched.
   app.put("/api/admin/users/:id/db-access", WRITE_LIMIT, async (req): Promise<UserDbAccess> => {
     const admin = requireAdmin(req);
     const { id } = req.params as { id: string };
-    if (!userExists(id)) throw new ApiError("NOT_FOUND");
-    const entries = parseGrantEntries((req.body as { grants?: unknown } | undefined)?.grants, true);
-    replaceUserGrants(id, entries, admin.id);
-    auditUser(admin, "dbaccess.user.set", { type: "user", id }, describeGrants(entries), req);
-    return getUserDbAccess(id);
+    if (!(await userExists(id))) throw new ApiError("NOT_FOUND");
+    const entries = await parseGrantEntries((req.body as { grants?: unknown } | undefined)?.grants, true);
+    await replaceUserGrants(id, entries, admin.id);
+    await auditUser(admin, "dbaccess.user.set", { type: "user", id }, await describeGrants(entries), req);
+    return await getUserDbAccess(id);
   });
 
   app.get("/api/admin/teams/:id/db-access", READ_LIMIT, async (req) => {
     requireAdmin(req);
     const { id } = req.params as { id: string };
-    if (!getTeam(id)) throw new ApiError("NOT_FOUND");
-    return { grants: getTeamDbAccess(id) };
+    if (!(await getTeam(id))) throw new ApiError("NOT_FOUND");
+    return { grants: await getTeamDbAccess(id) };
   });
 
   app.put("/api/admin/teams/:id/db-access", WRITE_LIMIT, async (req) => {
     const admin = requireAdmin(req);
     const { id } = req.params as { id: string };
-    if (!getTeam(id)) throw new ApiError("NOT_FOUND");
-    const entries = parseGrantEntries((req.body as { grants?: unknown } | undefined)?.grants, false);
-    replaceTeamGrants(id, entries, admin.id);
-    auditUser(admin, "dbaccess.team.set", { type: "team", id }, describeGrants(entries), req);
-    return { grants: getTeamDbAccess(id) };
+    if (!(await getTeam(id))) throw new ApiError("NOT_FOUND");
+    const entries = await parseGrantEntries((req.body as { grants?: unknown } | undefined)?.grants, false);
+    await replaceTeamGrants(id, entries, admin.id);
+    await auditUser(admin, "dbaccess.team.set", { type: "team", id }, await describeGrants(entries), req);
+    return { grants: await getTeamDbAccess(id) };
   });
 }

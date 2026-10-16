@@ -293,13 +293,13 @@ function buildReadme(input: MigrationExportInput, migrations: Migration[]): stri
 const slugOrDefault = (text: string, fallback: string) => slug(text).replace(/_/g, "-") || fallback;
 
 /** The archive for one connection of one project, and the name to download it as. */
-export function exportMigrations(
+export async function exportMigrations(
   projectId: string,
   projectName: string,
   connection: { id: string; name: string },
   format: MigrationFormat,
-): { fileName: string; archive: Buffer; files: number } {
-  const entries = listDeploymentsForExport(projectId, connection.id);
+): Promise<{ fileName: string; archive: Buffer; files: number }> {
+  const entries = await listDeploymentsForExport(projectId, connection.id);
   const files = buildMigrationExport({
     projectName,
     connectionName: connection.name,

@@ -5,8 +5,9 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as decoding from "lib0/decoding.js";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-notifications-${randomUUID()}.sqlite`);
+await useTestDatabase("notifications");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -24,11 +25,9 @@ async function login(app: App) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, NULL)").run(
-    id,
-    email,
-    await hashPassword(password),
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, NULL)")
+    .run(id, email, await hashPassword(password));
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -46,15 +45,13 @@ const call = (app: App, cookie: string, method: "GET" | "POST" | "PUT" | "DELETE
     ...(payload === undefined ? {} : { payload: payload as object }),
   });
 
-function grant(projectId: string, userId: string, permission: string): string {
+async function grant(projectId: string, userId: string, permission: string): Promise<string> {
   const teamId = randomUUID();
-  db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(teamId, `team-${teamId}`);
-  db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, userId);
-  db.prepare("INSERT INTO project_teams (project_id, team_id, permission) VALUES (?, ?, ?)").run(
-    projectId,
-    teamId,
-    permission,
-  );
+  await db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(teamId, `team-${teamId}`);
+  await db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, userId);
+  await db
+    .prepare("INSERT INTO project_teams (project_id, team_id, permission) VALUES (?, ?, ?)")
+    .run(projectId, teamId, permission);
   return teamId;
 }
 
@@ -76,9 +73,9 @@ test("notifications: followers are told what happened — not their own doing, n
     await call(app, owner.cookie, "POST", `${base}/import`, {
       source: "Table customers {\n  id integer [pk]\n  name varchar(40)\n}\n",
     });
-    grant(project.id, coAdmin.id, "administrator");
-    grant(project.id, editor.id, "edit");
-    const viewerTeam = grant(project.id, viewer.id, "view");
+    await grant(project.id, coAdmin.id, "administrator");
+    await grant(project.id, editor.id, "edit");
+    const viewerTeam = await grant(project.id, viewer.id, "view");
     const table = (
       (await call(app, owner.cookie, "GET", `${base}/content`)).json() as {
         tables: { id: string; fields: { id: string }[] }[];
@@ -175,7 +172,7 @@ test("notifications: followers are told what happened — not their own doing, n
     assert.equal((await call(app, editor.cookie, "POST", "/api/notifications/read", {})).json().unread, 0);
 
     // A grant that is gone, and a subscription that was ended, tell nothing more.
-    db.prepare("DELETE FROM project_teams WHERE team_id = ?").run(viewerTeam);
+    await db.prepare("DELETE FROM project_teams WHERE team_id = ?").run(viewerTeam);
     assert.equal((await follow(editor, [])).json().subscription, null);
     await call(app, owner.cookie, "PUT", `${base}/locks/${table.id}`, { level: "full" });
     assert.deepEqual(await events(viewer), ["lock", "lock"]);
@@ -183,12 +180,12 @@ test("notifications: followers are told what happened — not their own doing, n
 
     // Everything goes with the project.
     await call(app, owner.cookie, "DELETE", base);
-    const left = db
+    const left = (await db
       .prepare("SELECT (SELECT COUNT(*) FROM subscriptions) AS s, (SELECT COUNT(*) FROM notifications) AS n")
-      .get() as { s: number; n: number };
+      .get()) as { s: number; n: number };
     assert.deepEqual(left, { s: 0, n: 0 });
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -229,8 +226,8 @@ test("notifications: a follower with the project open is told at once — and no
     const project = (await call(app, owner.cookie, "POST", "/api/projects", { name: "Shop" })).json() as { id: string };
     const base = `/api/projects/${project.id}`;
     await call(app, owner.cookie, "POST", `${base}/import`, { source: "Table customers {\n  id integer [pk]\n}\n" });
-    grant(project.id, follower.id, "edit");
-    grant(project.id, bystander.id, "edit");
+    await grant(project.id, follower.id, "edit");
+    await grant(project.id, bystander.id, "edit");
     const [table] = ((await call(app, owner.cookie, "GET", `${base}/content`)).json() as { tables: { id: string }[] })
       .tables;
     // The owner follows locks too: the one who acts gets no notification, so no notice either.
@@ -260,7 +257,7 @@ test("notifications: a follower with the project open is told at once — and no
     assert.deepEqual(ownerTab.types(), ["locks-changed", "lint-changed"]);
   } finally {
     for (const socket of sockets) socket.terminate();
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

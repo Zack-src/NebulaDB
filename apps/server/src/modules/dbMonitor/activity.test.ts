@@ -1,11 +1,10 @@
 import { mock, test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import type { DbAdminSession } from "@nebuladb/shared";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-activity-${randomUUID()}.sqlite`);
+await useTestDatabase("activity");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -25,12 +24,9 @@ const headers = (extra: Record<string, string> = {}) => ({ host: HOST, origin: `
 async function makeUser(app: App, isAdmin: 0 | 1) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)").run(
-    randomUUID(),
-    email,
-    await hashPassword(password),
-    isAdmin,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)")
+    .run(randomUUID(), email, await hashPassword(password), isAdmin);
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -132,9 +128,9 @@ test("database-side activity: sampled, masked, grouped, and told apart by accoun
     assert.equal(read.mock.callCount(), before, "not sampled unless watched");
     const watch = await call(app, admin, "PUT", `${url}/watch`, { enabled: true });
     assert.equal(watch.json().enabled, true);
-    db.prepare(
-      "UPDATE db_activity_watch SET last_sampled_at = datetime('now', '-10 minutes') WHERE connection_id = ?",
-    ).run(connection.id);
+    await db
+      .prepare("UPDATE db_activity_watch SET last_sampled_at = utc_now('-10 minutes') WHERE connection_id = ?")
+      .run(connection.id);
     read.mock.mockImplementation(async () => {
       throw new Error("server unreachable");
     });
@@ -144,12 +140,12 @@ test("database-side activity: sampled, masked, grouped, and told apart by accoun
     assert.match(noted.lastError, /server unreachable/);
 
     // Retention and cleanup.
-    db.prepare("UPDATE db_activity SET day = date('now', '-30 days')").run();
-    assert.ok(purgeOldActivity(14) > 0);
+    await db.prepare("UPDATE db_activity SET day = utc_today('-30 days')").run();
+    assert.ok((await purgeOldActivity(14)) > 0);
     assert.deepEqual((await call(app, admin, "GET", `${url}?days=60`)).json().entries, []);
   } finally {
     read.mock.restore();
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -184,9 +180,11 @@ test("server traffic: differences between counter reads, a restart skipped, miss
       counters.mock.mockImplementation(async () => ({ queriesKind: "statements" as const, ...value }));
       await call(app, admin, "POST", `${url}/sample`);
       // Samples are seconds apart in a test: spread them over distinct hours of today.
-      db.prepare(
-        "UPDATE db_counter_samples SET taken_at = datetime('now', ?) WHERE connection_id = ? AND taken_at = (SELECT MAX(taken_at) FROM db_counter_samples WHERE connection_id = ?)",
-      ).run(`-${(reads.length - i) * 2} hours`, connection.id, connection.id);
+      await db
+        .prepare(
+          "UPDATE db_counter_samples SET taken_at = utc_now(?) WHERE connection_id = ? AND taken_at = (SELECT MAX(taken_at) FROM db_counter_samples WHERE connection_id = ?)",
+        )
+        .run(`-${(reads.length - i) * 2} hours`, connection.id, connection.id);
     }
     const traffic = (await call(app, admin, "GET", `${url}/traffic?days=1`)).json() as {
       kind: string;
@@ -210,7 +208,7 @@ test("server traffic: differences between counter reads, a restart skipped, miss
   } finally {
     read.mock.restore();
     counters.mock.restore();
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -252,13 +250,13 @@ test("health board: a fresh probe, the latency series, the parts the server give
     assert.equal(down.history[0].ok, false);
 
     // Each probe adds a point; an online server gives its parts.
-    db.prepare("UPDATE db_connections SET last_status = 'online' WHERE id = ?").run(connection.id);
+    await db.prepare("UPDATE db_connections SET last_status = 'online' WHERE id = ?").run(connection.id);
     const again = (await call(app, admin, "GET", url)).json();
     assert.equal(again.history.length, 2);
     assert.equal(again.status.ok, false, "the probe is what decides, not the stored status");
   } finally {
     reader.mock.restore();
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

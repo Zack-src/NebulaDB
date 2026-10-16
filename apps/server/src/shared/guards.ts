@@ -34,19 +34,23 @@ export interface ProjectAccess {
  * authenticated, project exists, permission level sufficient — which was
  * seventeen near-identical eight-line preambles across the project routes.
  */
-export function requireProjectAccess(req: FastifyRequest, projectId: string, level: PermissionLevel): ProjectAccess {
+export async function requireProjectAccess(
+  req: FastifyRequest,
+  projectId: string,
+  level: PermissionLevel,
+): Promise<ProjectAccess> {
   const user = requireUser(req);
-  const project = getProjectRow(projectId);
+  const project = await getProjectRow(projectId);
   if (!project) throw new ApiError("NOT_FOUND");
-  if (!hasPermission(user.id, projectId, level)) throw new ApiError("FORBIDDEN");
+  if (!(await hasPermission(user.id, projectId, level))) throw new ApiError("FORBIDDEN");
   return { user, project };
 }
 
 /** `administrator` on the project specifically — renames, deletion, team grants. */
-export function requireProjectAdmin(req: FastifyRequest, projectId: string): ProjectAccess {
+export async function requireProjectAdmin(req: FastifyRequest, projectId: string): Promise<ProjectAccess> {
   const user = requireUser(req);
-  const project = getProjectRow(projectId);
+  const project = await getProjectRow(projectId);
   if (!project) throw new ApiError("NOT_FOUND");
-  if (getEffectivePermission(user.id, projectId) !== "administrator") throw new ApiError("FORBIDDEN");
+  if ((await getEffectivePermission(user.id, projectId)) !== "administrator") throw new ApiError("FORBIDDEN");
   return { user, project };
 }

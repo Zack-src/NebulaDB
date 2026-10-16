@@ -3,8 +3,7 @@ import assert from "node:assert/strict";
 import crypto, { randomUUID } from "node:crypto";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
 /**
  * Webhooks end to end against a real HTTP receiver on localhost: what
@@ -32,7 +31,7 @@ await new Promise<void>((resolve) => receiver.listen(0, "127.0.0.1", resolve));
 const receiverUrl = `http://127.0.0.1:${(receiver.address() as AddressInfo).port}/hook`;
 after(() => new Promise<void>((resolve) => receiver.close(() => resolve())));
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-webhooks-${randomUUID()}.sqlite`);
+await useTestDatabase("webhooks");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -52,13 +51,9 @@ type App = Awaited<ReturnType<typeof buildApp>>;
 async function login(app: App, isAdmin: 0 | 1 = 0) {
   const email = `${randomUUID()}@example.com`;
   const password = "correct horse battery staple";
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, ?)").run(
-    randomUUID(),
-    email,
-    await hashPassword(password),
-    isAdmin,
-    email.slice(0, 6),
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, ?)")
+    .run(randomUUID(), email, await hashPassword(password), isAdmin, email.slice(0, 6));
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -78,10 +73,10 @@ async function newProject(app: App, cookie: string) {
   return res.json().id as string;
 }
 
-async function waitFor<T>(check: () => T | undefined, ms = 3000): Promise<T> {
+async function waitFor<T>(check: () => T | undefined | Promise<T | undefined>, ms = 3000): Promise<T> {
   const deadline = Date.now() + ms;
   for (;;) {
-    const value = check();
+    const value = await check();
     if (value !== undefined) return value;
     if (Date.now() > deadline) throw new Error("timed out waiting");
     await new Promise((r) => setTimeout(r, 20));
@@ -117,7 +112,7 @@ test("create → ping: the secret is shown once, and every request is signed wit
       headers: headers({ cookie }),
     });
     assert.doesNotMatch(listed.body, /whsec_/, "the secret is never shown again");
-    const stored = db.prepare("SELECT secret_encrypted FROM project_webhooks WHERE id = ?").get(webhook.id) as {
+    const stored = (await db.prepare("SELECT secret_encrypted FROM project_webhooks WHERE id = ?").get(webhook.id)) as {
       secret_encrypted: string;
     };
     assert.ok(!stored.secret_encrypted.includes(secret), "encrypted at rest");
@@ -136,7 +131,7 @@ test("create → ping: the secret is shown once, and every request is signed wit
     assert.equal(envelope.project.name, "Shop");
     assert.equal(envelope.id, r.headers["x-nebuladb-delivery"]);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -175,8 +170,11 @@ test("a rotated secret signs from then on, the old one no longer does; the same 
     assert.ok(verifySignature(secret, received[0]), "signed with the new secret");
     assert.ok(!verifySignature(created.secret, received[0]), "not with the old one");
     assert.equal(
-      (db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'webhook.rotate_secret'").get() as { n: number })
-        .n,
+      (
+        (await db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'webhook.rotate_secret'").get()) as {
+          n: number;
+        }
+      ).n,
       1,
     );
 
@@ -224,7 +222,7 @@ test("a rotated secret signs from then on, the old one no longer does; the same 
     assert.equal((await withKey(readKey, "GET", v1)).json().webhooks.length, 1);
     assert.equal((await app.inject({ method: "GET", url: v1, headers: { host: HOST } })).statusCode, 401);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -237,7 +235,7 @@ test("schema.changed: a burst of edits becomes one notification with a summary; 
   try {
     const cookie = await login(app);
     const projectId = await newProject(app, cookie);
-    closeAllRooms(); // the empty project is in the snapshot: that's the baseline
+    await closeAllRooms(); // the empty project is in the snapshot: that's the baseline
     await app.inject({
       method: "POST",
       url: `/api/projects/${projectId}/webhooks`,
@@ -255,7 +253,7 @@ test("schema.changed: a burst of edits becomes one notification with a summary; 
         },
       });
     }
-    flushSchemaChange(projectId);
+    await flushSchemaChange(projectId);
     await processDueDeliveries();
     assert.equal(received.length, 1, "two imports, one notification");
     const slack = JSON.parse(received[0].body) as { text: string };
@@ -263,19 +261,19 @@ test("schema.changed: a burst of edits becomes one notification with a summary; 
     assert.match(slack.text, /2 table\(s\) ajoutée\(s\)/);
 
     // Moving a table is a doc change but not a schema change.
-    const room = getRoom(projectId);
-    room.doc.transact(() => {
+    const room = await getRoom(projectId);
+    await room.write(() => {
       const tables = getTablesMap(room.doc);
       const [id, table] = [...tables.entries()][0];
       tables.set(id, { ...table, position: { x: table.position.x + 500, y: table.position.y } });
     }, "someone");
-    flushSchemaChange(projectId);
+    await flushSchemaChange(projectId);
     await processDueDeliveries();
     assert.equal(received.length, 1);
   } finally {
     setSchemaChangeQuietPeriod(30_000);
     resetWebhookState();
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -296,11 +294,15 @@ test("a failing endpoint is retried later, then succeeds; the log never stores t
 
     const { emitWebhookEvent } = await import("./dispatcher.js");
     respondWith = 500;
-    emitWebhookEvent(projectId, "deployment.completed", { kind: "deploy", success: true, connectionName: "prod" });
-    const pending = await waitFor(() => {
-      const row = db
+    await emitWebhookEvent(projectId, "deployment.completed", {
+      kind: "deploy",
+      success: true,
+      connectionName: "prod",
+    });
+    const pending = await waitFor(async () => {
+      const row = (await db
         .prepare("SELECT status, attempts, next_attempt_at, last_error FROM webhook_deliveries WHERE webhook_id = ?")
-        .get(hookId) as { status: string; attempts: number; next_attempt_at: string; last_error: string } | undefined;
+        .get(hookId)) as { status: string; attempts: number; next_attempt_at: string; last_error: string } | undefined;
       return row && row.attempts === 1 ? row : undefined;
     });
     assert.equal(pending.status, "pending");
@@ -308,10 +310,9 @@ test("a failing endpoint is retried later, then succeeds; the log never stores t
     assert.ok(new Date(pending.next_attempt_at).getTime() > Date.now(), "retry scheduled in the future");
 
     respondWith = 200;
-    db.prepare("UPDATE webhook_deliveries SET next_attempt_at = ? WHERE webhook_id = ?").run(
-      new Date(Date.now() - 1000).toISOString(),
-      hookId,
-    );
+    await db
+      .prepare("UPDATE webhook_deliveries SET next_attempt_at = ? WHERE webhook_id = ?")
+      .run(new Date(Date.now() - 1000).toISOString(), hookId);
     await processDueDeliveries();
     const log = await app.inject({
       method: "GET",
@@ -323,7 +324,7 @@ test("a failing endpoint is retried later, then succeeds; the log never stores t
     assert.equal(received.length, 2);
   } finally {
     respondWith = 200;
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -353,7 +354,7 @@ test("SSRF, validation and permissions", async () => {
     assert.equal(blocked.ok, false);
     assert.match(blocked.error ?? "", /refusing/);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -375,10 +376,10 @@ test("deleting a project removes its webhooks, deliveries, connections and scope
       headers: headers({ cookie }),
       payload: { name: "Local", engine: "sqlite", database: ":memory:" },
     });
-    const count = (table: string) =>
-      (db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE project_id = ?`).get(projectId) as { n: number }).n;
-    assert.equal(count("project_webhooks"), 1);
-    assert.equal(count("project_connection_links"), 1);
+    const count = async (table: string) =>
+      ((await db.prepare(`SELECT COUNT(*) AS n FROM ${table} WHERE project_id = ?`).get(projectId)) as { n: number }).n;
+    assert.equal(await count("project_webhooks"), 1);
+    assert.equal(await count("project_connection_links"), 1);
 
     const deleted = await app.inject({
       method: "DELETE",
@@ -386,10 +387,10 @@ test("deleting a project removes its webhooks, deliveries, connections and scope
       headers: headers({ cookie }),
     });
     assert.equal(deleted.statusCode, 200);
-    assert.equal(count("project_webhooks"), 0);
-    assert.equal(count("project_connection_links"), 0, "credentials must not outlive their project");
+    assert.equal(await count("project_webhooks"), 0);
+    assert.equal(await count("project_connection_links"), 0, "credentials must not outlive their project");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

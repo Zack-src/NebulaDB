@@ -4,8 +4,9 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-deploylevel-${randomUUID()}.sqlite`);
+await useTestDatabase("deploylevel");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -26,12 +27,9 @@ async function login(app: App, isAdmin: 0 | 1 = 0) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)").run(
-    id,
-    email,
-    await hashPassword(password),
-    isAdmin,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)")
+    .run(id, email, await hashPassword(password), isAdmin);
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -98,7 +96,7 @@ test("the deploy level: everything edit allows, the deployment operations, and n
     // 403; anything else means the guard let the caller through (a 404 for
     // the made-up ids below, a 400 for a body the route then rejects).
     const team = randomUUID();
-    db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(team, `team-${team}`);
+    await db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(team, `team-${team}`);
     const operations: [string, Method, string, unknown, Level][] = [
       ["list connections", "GET", `${base}/connections`, undefined, "view"],
       ["read drift marks", "GET", `${base}/drift`, undefined, "view"],
@@ -194,7 +192,7 @@ test("the deploy level: everything edit allows, the deployment operations, and n
     assert.equal(skip.statusCode, 403);
     assert.equal(skip.json().code, "ADMIN_REQUIRED");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -209,8 +207,8 @@ test("the deploy level is granted like the others, to a team or a person, and th
     };
     const base = `/api/projects/${project.id}`;
     const team = randomUUID();
-    db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(team, `team-${team}`);
-    db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(team, member.id);
+    await db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(team, `team-${team}`);
+    await db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(team, member.id);
 
     const unknown = await call(app, owner.cookie, "PUT", `${base}/teams/${team}`, { permission: "deployer" });
     assert.equal(unknown.statusCode, 400);
@@ -230,18 +228,16 @@ test("the deploy level is granted like the others, to a team or a person, and th
     assert.equal(await permission(), "administrator");
 
     // Grants written before the level existed read as they did.
-    db.prepare("UPDATE project_members SET permission = 'edit' WHERE project_id = ? AND user_id = ?").run(
-      project.id,
-      member.id,
-    );
-    db.prepare("UPDATE project_teams SET permission = 'view' WHERE project_id = ? AND team_id = ?").run(
-      project.id,
-      team,
-    );
+    await db
+      .prepare("UPDATE project_members SET permission = 'edit' WHERE project_id = ? AND user_id = ?")
+      .run(project.id, member.id);
+    await db
+      .prepare("UPDATE project_teams SET permission = 'view' WHERE project_id = ? AND team_id = ?")
+      .run(project.id, team);
     assert.equal(await permission(), "edit");
     assert.equal((await call(app, member.cookie, "GET", `${base}/pipeline`)).statusCode, 403);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -263,7 +259,7 @@ test("a deployment is announced to the followers who may deploy, not to those wh
     assert.equal(await told("deploy"), 1);
     assert.equal(await told("edit"), 0);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -318,7 +314,7 @@ test("/api/v1: a key acts at its owner's level — deploy reaches the deployment
     const grant = await v1call(keys.deploy, "PUT", `${v1}/iam/${randomUUID()}`, { permission: "deploy" });
     assert.equal(grant.statusCode, 403);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

@@ -18,8 +18,8 @@ const ALGORITHM = "aes-256-gcm";
  * id (a UUID the server generated), never anything a client sent, so there is
  * no path to escape with.
  */
-export function backupFilePath(id: string): string {
-  const row = db.prepare("SELECT dir FROM backups WHERE id = ?").get(id) as { dir: string | null } | undefined;
+export async function backupFilePath(id: string): Promise<string> {
+  const row = (await db.prepare("SELECT dir FROM backups WHERE id = ?").get(id)) as { dir: string | null } | undefined;
   return path.join(row?.dir ?? config.databaseBackupDir, `${id}.bak`);
 }
 
@@ -35,8 +35,8 @@ export function probeBackupDirectory(directory: string): void {
   rmSync(probe, { force: true });
 }
 
-export function removeBackupFile(id: string): void {
-  rmSync(backupFilePath(id), { force: true });
+export async function removeBackupFile(id: string): Promise<void> {
+  rmSync(await backupFilePath(id), { force: true });
 }
 
 /** A backup file's own key, kept next to it in the database — itself encrypted with the instance secret. */
@@ -68,8 +68,8 @@ export interface BackupWriter {
  * key; the instance secret only encrypts that key, so rotating the secret
  * does not mean rewriting gigabytes.
  */
-export function openBackupWriter(id: string): BackupWriter {
-  mkdirSync(path.dirname(backupFilePath(id)), { recursive: true });
+export async function openBackupWriter(id: string): Promise<BackupWriter> {
+  mkdirSync(path.dirname(await backupFilePath(id)), { recursive: true });
   const key = crypto.randomBytes(32);
   const iv = crypto.randomBytes(12);
   const gzip = createGzip();
@@ -83,7 +83,7 @@ export function openBackupWriter(id: string): BackupWriter {
       callback(null, chunk);
     },
   });
-  const written = pipelineAsync(gzip, cipher, tap, createWriteStream(backupFilePath(id), { mode: 0o600 }));
+  const written = pipelineAsync(gzip, cipher, tap, createWriteStream(await backupFilePath(id), { mode: 0o600 }));
   // Observed through `finish` / `write`; this only keeps a failure from being an unhandled rejection meanwhile.
   written.catch(() => {});
   let bytes = 0;
@@ -111,7 +111,7 @@ export function openBackupWriter(id: string): BackupWriter {
     async abort() {
       gzip.destroy();
       await written.catch(() => {});
-      removeBackupFile(id);
+      await removeBackupFile(id);
     },
   };
 }
@@ -131,7 +131,7 @@ function decipherFor(keyEncrypted: string): crypto.DecipherGCM {
 export async function backupFileChecksum(id: string): Promise<string | null> {
   const hash = crypto.createHash("sha256");
   try {
-    for await (const chunk of createReadStream(backupFilePath(id))) hash.update(chunk as Buffer);
+    for await (const chunk of createReadStream(await backupFilePath(id))) hash.update(chunk as Buffer);
   } catch {
     return null;
   }
@@ -139,13 +139,18 @@ export async function backupFileChecksum(id: string): Promise<string | null> {
 }
 
 /** The decrypted file, still gzipped: what a download sends. */
-export function openBackupDownload(id: string, keyEncrypted: string): Readable {
-  return pipeline(createReadStream(backupFilePath(id)), decipherFor(keyEncrypted), () => {});
+export async function openBackupDownload(id: string, keyEncrypted: string): Promise<Readable> {
+  return pipeline(createReadStream(await backupFilePath(id)), decipherFor(keyEncrypted), () => {});
 }
 
 /** The file's lines, parsed, one at a time. Throws if the file was altered: the cipher's tag no longer matches. */
 export async function* readBackupLines(id: string, keyEncrypted: string): AsyncGenerator<unknown> {
-  const source = pipeline(createReadStream(backupFilePath(id)), decipherFor(keyEncrypted), createGunzip(), () => {});
+  const source = pipeline(
+    createReadStream(await backupFilePath(id)),
+    decipherFor(keyEncrypted),
+    createGunzip(),
+    () => {},
+  );
   const decoder = new StringDecoder("utf8");
   let pending = "";
   try {

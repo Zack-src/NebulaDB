@@ -5,8 +5,9 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-environments-${randomUUID()}.sqlite`);
+await useTestDatabase("environments");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -40,19 +41,16 @@ async function loginAs(app: App, email: string, password: string) {
 async function makeUser(isAdmin: 0 | 1 = 0) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)").run(
-    randomUUID(),
-    email,
-    await hashPassword(password),
-    isAdmin,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)")
+    .run(randomUUID(), email, await hashPassword(password), isAdmin);
   return { email, password };
 }
 
 /** One table on the project's live canvas, so a deployment has something to do. */
-function seedCanvasTable(projectId: string, projectName: string) {
-  const room = getRoom(projectId);
-  room.doc.transact(() => {
+async function seedCanvasTable(projectId: string, projectName: string) {
+  const room = await getRoom(projectId);
+  await room.write(() => {
     writeProjectToDoc(room.doc, {
       id: projectId,
       name: projectName,
@@ -149,13 +147,13 @@ test("environments: everyone reads the chain, only an instance administrator sha
     );
 
     const actions = (
-      db.prepare("SELECT action FROM audit_log WHERE action LIKE 'environment.%' ORDER BY rowid").all() as {
+      (await db.prepare("SELECT action FROM audit_log WHERE action LIKE 'environment.%' ORDER BY seq").all()) as {
         action: string;
       }[]
     ).map((row) => row.action);
     assert.deepEqual(actions, ["environment.create", "environment.reorder", "environment.update"]);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -210,7 +208,7 @@ test("environments: a connection points at a stage, follows its renames, and los
     }[];
     assert.equal(listed.find((c) => c.id === connId)?.environment, "Recette");
     assert.equal(
-      (db.prepare("SELECT environment FROM db_connections WHERE id = ?").get(connId) as { environment: string })
+      ((await db.prepare("SELECT environment FROM db_connections WHERE id = ?").get(connId)) as { environment: string })
         .environment,
       "Recette",
       "the stored name that history and webhooks read follows the rename",
@@ -224,16 +222,19 @@ test("environments: a connection points at a stage, follows its renames, and los
     await call(app, cookie, "PUT", `/api/projects/${project.id}/connections/${connId}`, { environmentId: staging.id });
 
     assert.equal((await call(app, cookie, "DELETE", `/api/admin/environments/${staging.id}`)).statusCode, 200);
-    assert.deepEqual(db.prepare("SELECT environment, environment_id FROM db_connections WHERE id = ?").get(connId), {
-      environment: null,
-      environment_id: null,
-    });
+    assert.deepEqual(
+      await db.prepare("SELECT environment, environment_id FROM db_connections WHERE id = ?").get(connId),
+      {
+        environment: null,
+        environment_id: null,
+      },
+    );
     assert.deepEqual(
       (await stages(app, cookie)).map((s) => [s.name, s.position]),
       [["DEV", 0]],
     );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -250,7 +251,7 @@ test("environments: deploying to the production stage needs the connection's nam
       id: string;
       name: string;
     };
-    seedCanvasTable(project.id, project.name);
+    await seedCanvasTable(project.id, project.name);
     const targetFile = join(mkdtempSync(join(tmpdir(), "nebuladb-env-")), "prod.sqlite");
     const created = await call(app, cookie, "POST", `/api/projects/${project.id}/connections`, {
       name: "Shop live",
@@ -290,7 +291,7 @@ test("environments: deploying to the production stage needs the connection's nam
     assert.equal((await rollback({})).json().code, "PRODUCTION_CONFIRMATION_REQUIRED");
     assert.equal((await rollback({ confirmName: "Shop live" })).statusCode, 200);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -406,7 +407,41 @@ test("variables: one schema deployed under each stage's names; an undefined vari
     assert.equal(orders.name, "{{table_prefix}}orders");
     assert.ok(orders.fields.some((field) => field.name === "note"));
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
+    await app.close();
+  }
+});
+
+test("stages created at the same moment each get a place of their own, and a name only once", async () => {
+  const app = await buildApp();
+  try {
+    const admin = await makeUser(1);
+    const cookie = await loginAs(app, admin.email, admin.password);
+    const create = (name: string) =>
+      app.inject({ method: "POST", url: "/api/admin/environments", headers: headers({ cookie }), payload: { name } });
+
+    const tag = randomUUID().slice(0, 8);
+    const created = await Promise.all([`QA ${tag}`, `UAT ${tag}`, `Perf ${tag}`, `Demo ${tag}`].map(create));
+    assert.deepEqual(
+      created.map((res) => res.statusCode),
+      [200, 200, 200, 200],
+    );
+    const positions = (
+      (await db.prepare("SELECT position FROM environments ORDER BY position").all()) as { position: number }[]
+    ).map((row) => row.position);
+    assert.equal(new Set(positions).size, positions.length, `no two stages share a position: ${positions.join(",")}`);
+
+    const twins = await Promise.all([create(`Twin ${tag}`), create(`twin ${tag}`), create(`TWIN ${tag}`)]);
+    assert.deepEqual(
+      twins.map((res) => res.statusCode).sort(),
+      [200, 409, 409],
+      "the name goes to one of them; the others are told it is taken",
+    );
+    assert.ok(
+      twins.filter((res) => res.statusCode === 409).every((res) => res.json().code === "ENVIRONMENT_NAME_TAKEN"),
+    );
+  } finally {
+    await closeAllRooms();
     await app.close();
   }
 });

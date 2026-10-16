@@ -4,27 +4,31 @@ import { getEffectivePermission } from "../../../shared/permissions.js";
 import { requireProjectAccess, requireProjectAdmin, requireUser } from "../../../shared/guards.js";
 import { getProjectSummary, listProjectSummaries } from "../repository.js";
 import { createProjectForUser, deleteProject, updateProject } from "../projectCrud.js";
+import { mapAsync } from "../../../shared/async.js";
 
 export function registerProjectCrudRoutes(app: FastifyInstance): void {
   app.get("/api/projects", async (req) => {
     const user = requireUser(req);
-    return listProjectSummaries()
-      .map((row) => ({ ...row, permission: getEffectivePermission(user.id, row.id) }))
-      .filter((row) => row.permission !== null);
+    return (
+      await mapAsync(await listProjectSummaries(), async (row) => ({
+        ...row,
+        permission: await getEffectivePermission(user.id, row.id),
+      }))
+    ).filter((row) => row.permission !== null);
   });
 
   app.post("/api/projects", async (req, reply) => {
     const user = requireUser(req);
     const body = (req.body ?? {}) as { name?: unknown };
-    const { id, name } = createProjectForUser(user.id, body.name);
-    auditUser(user, "project.create", { type: "project", id }, name, req);
+    const { id, name } = await createProjectForUser(user.id, body.name);
+    await auditUser(user, "project.create", { type: "project", id }, name, req);
     return reply.code(201).send({ id, name, permission: "administrator" });
   });
 
   app.get("/api/projects/:id", async (req) => {
     const { id } = req.params as { id: string };
-    const { user } = requireProjectAccess(req, id, "view");
-    return { ...getProjectSummary(id)!, permission: getEffectivePermission(user.id, id) };
+    const { user } = await requireProjectAccess(req, id, "view");
+    return { ...(await getProjectSummary(id))!, permission: await getEffectivePermission(user.id, id) };
   });
 
   // Handles both renaming and archive/trash/restore transitions — a project
@@ -32,9 +36,9 @@ export function registerProjectCrudRoutes(app: FastifyInstance): void {
   // split them into two endpoints.
   app.patch("/api/projects/:id", async (req) => {
     const { id } = req.params as { id: string };
-    const { user } = requireProjectAdmin(req, id);
+    const { user } = await requireProjectAdmin(req, id);
     const { name, status } = (req.body ?? {}) as { name?: string; status?: string };
-    const changed = updateProject(id, { name, status });
+    const changed = await updateProject(id, { name, status });
 
     if (changed.status !== undefined) {
       // Only the destructive-ish transitions are worth a row: renames are
@@ -42,11 +46,11 @@ export function registerProjectCrudRoutes(app: FastifyInstance): void {
       // question that gets asked after the fact.
       const action = changed.status === "active" ? "project.restore" : "project.archive";
       const detached = changed.detachedConnections ? `, detached from ${changed.detachedConnections.join(", ")}` : "";
-      auditUser(user, action, { type: "project", id }, `status set to ${changed.status}${detached}`, req);
+      await auditUser(user, action, { type: "project", id }, `status set to ${changed.status}${detached}`, req);
     }
 
     return {
-      ...getProjectSummary(id)!,
+      ...(await getProjectSummary(id))!,
       permission: "administrator" as const,
       ...(changed.detachedConnections && { detachedConnections: changed.detachedConnections }),
     };
@@ -57,9 +61,9 @@ export function registerProjectCrudRoutes(app: FastifyInstance): void {
   // PATCH above, so it can be restored; this one can't be undone.
   app.delete("/api/projects/:id", async (req) => {
     const { id } = req.params as { id: string };
-    const { user, project } = requireProjectAdmin(req, id);
-    deleteProject(id);
-    auditUser(user, "project.delete", { type: "project", id }, project.name, req);
+    const { user, project } = await requireProjectAdmin(req, id);
+    await deleteProject(id);
+    await auditUser(user, "project.delete", { type: "project", id }, project.name, req);
     return { deleted: true };
   });
 }

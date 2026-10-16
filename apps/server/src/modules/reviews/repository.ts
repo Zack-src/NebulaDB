@@ -136,63 +136,65 @@ export interface NewReview {
  * for that connection: returns `null` then. The check and the insert are one
  * transaction, and the table's unique index on open requests is the last word.
  */
-export function insertReview(input: NewReview): StoredReview | null {
+export async function insertReview(input: NewReview): Promise<StoredReview | null> {
   const id = crypto.randomUUID();
-  const inserted = db.transaction(() => {
-    if (findOpenReview(input.projectId, input.connectionId)) return false;
-    db.prepare(
-      `INSERT INTO deployment_reviews
+  const inserted = await db.transaction(async () => {
+    if (await findOpenReview(input.projectId, input.connectionId)) return false;
+    await db
+      .prepare(
+        `INSERT INTO deployment_reviews
          (id, project_id, connection_id, connection_name, environment_id, environment, engine, status, schema_hash,
           sql, resolutions_json, risks_json, seeds_hash, skip_seeds, risk_note, message, requested_by,
           requested_by_email, requested_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      id,
-      input.projectId,
-      input.connectionId,
-      input.connectionName,
-      input.environmentId,
-      input.environment,
-      input.engine,
-      input.schemaHash,
-      input.sql,
-      JSON.stringify(input.resolutions),
-      JSON.stringify(input.risks),
-      input.seedsHash,
-      input.skipSeeds ? 1 : 0,
-      input.riskNote,
-      input.message,
-      input.requestedBy,
-      input.requestedByEmail,
-      sqlTime(input.requestedAt),
-    );
+      )
+      .run(
+        id,
+        input.projectId,
+        input.connectionId,
+        input.connectionName,
+        input.environmentId,
+        input.environment,
+        input.engine,
+        input.schemaHash,
+        input.sql,
+        JSON.stringify(input.resolutions),
+        JSON.stringify(input.risks),
+        input.seedsHash,
+        input.skipSeeds ? 1 : 0,
+        input.riskNote,
+        input.message,
+        input.requestedBy,
+        input.requestedByEmail,
+        sqlTime(input.requestedAt),
+      );
     return true;
-  })();
-  return inserted ? getReview(id) : null;
+  });
+  return inserted ? await getReview(id) : null;
 }
 
-export function getReview(id: string): StoredReview | null {
-  const row = db.prepare("SELECT * FROM deployment_reviews WHERE id = ?").get(id) as ReviewRow | undefined;
+export async function getReview(id: string): Promise<StoredReview | null> {
+  const row = (await db.prepare("SELECT * FROM deployment_reviews WHERE id = ?").get(id)) as ReviewRow | undefined;
   return row ? rowToReview(row) : null;
 }
 
 /** The project's request still waiting for a decision or a deployment on this connection, if any. */
-export function findOpenReview(projectId: string, connectionId: string): StoredReview | null {
-  const row = db
+export async function findOpenReview(projectId: string, connectionId: string): Promise<StoredReview | null> {
+  const row = (await db
     .prepare(
       `SELECT * FROM deployment_reviews
         WHERE project_id = ? AND connection_id = ? AND status IN ('pending', 'approved')`,
     )
-    .get(projectId, connectionId) as ReviewRow | undefined;
+    .get(projectId, connectionId)) as ReviewRow | undefined;
   return row ? rowToReview(row) : null;
 }
 
 /** The project's requests, newest first — open and closed. */
-export function listProjectReviews(projectId: string, limit: number): StoredReview[] {
+export async function listProjectReviews(projectId: string, limit: number): Promise<StoredReview[]> {
   return (
-    db
+    (await db
       .prepare("SELECT * FROM deployment_reviews WHERE project_id = ? ORDER BY requested_at DESC, id LIMIT ?")
-      .all(projectId, limit) as ReviewRow[]
+      .all(projectId, limit)) as ReviewRow[]
   ).map(rowToReview);
 }
 
@@ -207,7 +209,7 @@ export interface OpenReviewState {
 }
 
 /** Every open request (of one project, or of the instance) with its connection's present stage. */
-export function listOpenReviewStates(projectId?: string): OpenReviewState[] {
+export async function listOpenReviewStates(projectId?: string): Promise<OpenReviewState[]> {
   const open = `
     SELECT r.*, l.connection_id AS linked_connection_id, c.environment_id AS current_environment_id,
            e.protection AS current_protection
@@ -217,7 +219,7 @@ export function listOpenReviewStates(projectId?: string): OpenReviewState[] {
       LEFT JOIN environments e ON e.id = c.environment_id
      WHERE r.status IN ('pending', 'approved')`;
   const rows = (
-    projectId ? db.prepare(`${open} AND r.project_id = ?`).all(projectId) : db.prepare(open).all()
+    projectId ? await db.prepare(`${open} AND r.project_id = ?`).all(projectId) : await db.prepare(open).all()
   ) as (ReviewRow & {
     linked_connection_id: string | null;
     current_environment_id: string | null;
@@ -236,63 +238,71 @@ export function listOpenReviewStates(projectId?: string): OpenReviewState[] {
  * approval. Returns whether a row changed: `false` means someone else decided
  * or withdrew it in between.
  */
-export function decideReview(
+export async function decideReview(
   id: string,
   decision: { status: "approved" | "rejected"; by: string; byEmail: string; comment: string | null; at: Date },
   expiresAt: Date | null,
-): boolean {
+): Promise<boolean> {
   const at = sqlTime(decision.at);
   return (
-    db
-      .prepare(
-        `UPDATE deployment_reviews
+    (
+      await db
+        .prepare(
+          `UPDATE deployment_reviews
             SET status = ?, decided_by = ?, decided_by_email = ?, decided_at = ?, decision_comment = ?, expires_at = ?,
                 closed_at = ?
           WHERE id = ? AND status = 'pending'`,
-      )
-      .run(
-        decision.status,
-        decision.by,
-        decision.byEmail,
-        at,
-        decision.comment,
-        expiresAt ? sqlTime(expiresAt) : null,
-        decision.status === "rejected" ? at : null,
-        id,
-      ).changes > 0
+        )
+        .run(
+          decision.status,
+          decision.by,
+          decision.byEmail,
+          at,
+          decision.comment,
+          expiresAt ? sqlTime(expiresAt) : null,
+          decision.status === "rejected" ? at : null,
+          id,
+        )
+    ).changes > 0
   );
 }
 
 /** Closes an open request for good. Returns whether a row changed. */
-export function closeReview(
+export async function closeReview(
   id: string,
   status: "withdrawn" | "expired" | "stale" | "cancelled",
   reason: DeploymentReviewCloseReason | null,
   at: Date,
-): boolean {
+): Promise<boolean> {
   return (
-    db
-      .prepare(
-        `UPDATE deployment_reviews SET status = ?, close_reason = ?, closed_at = ?
+    (
+      await db
+        .prepare(
+          `UPDATE deployment_reviews SET status = ?, close_reason = ?, closed_at = ?
           WHERE id = ? AND status IN ('pending', 'approved')`,
-      )
-      .run(status, reason, sqlTime(at), id).changes > 0
+        )
+        .run(status, reason, sqlTime(at), id)
+    ).changes > 0
   );
 }
 
 /** An approved request was carried out: it points at the deployment it became. */
-export function markReviewDeployed(id: string, at: Date): void {
-  db.prepare(
-    `UPDATE deployment_reviews
+export async function markReviewDeployed(id: string, at: Date): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE deployment_reviews
         SET status = 'deployed', closed_at = ?,
             deployment_id = (SELECT h.id FROM deployment_history h
                               WHERE h.review_id = deployment_reviews.id AND h.success = 1
                               ORDER BY h.created_at DESC LIMIT 1)
       WHERE id = ? AND status = 'approved'`,
-  ).run(sqlTime(at), id);
+    )
+    .run(sqlTime(at), id);
 }
 
 /** The accounts that could be asked to look at something on the instance: every enabled one. */
-export function listEnabledUserIds(): string[] {
-  return (db.prepare("SELECT id FROM users WHERE disabled_at IS NULL").all() as { id: string }[]).map((row) => row.id);
+export async function listEnabledUserIds(): Promise<string[]> {
+  return ((await db.prepare("SELECT id FROM users WHERE disabled_at IS NULL").all()) as { id: string }[]).map(
+    (row) => row.id,
+  );
 }

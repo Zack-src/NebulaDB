@@ -32,9 +32,9 @@ export function pageFromQuery(req: FastifyRequest): { limit: number; offset: num
 /** What the query route accepts of a statement, and so what a saved query may hold. */
 export const MAX_SQL_LENGTH = 200_000;
 
-export function loadConnection(id: string): DatabaseConnectionConfig {
-  const connection = getConnectionById(id);
-  if (!connection || connectionOwner(id)) throw new ApiError("CONNECTION_NOT_FOUND");
+export async function loadConnection(id: string): Promise<DatabaseConnectionConfig> {
+  const connection = await getConnectionById(id);
+  if (!connection || (await connectionOwner(id))) throw new ApiError("CONNECTION_NOT_FOUND");
   return connection;
 }
 
@@ -43,10 +43,10 @@ export function loadConnection(id: string): DatabaseConnectionConfig {
  * administrators only; under `/api/connections`, whoever `requireDbConsoleUser`
  * lets in — administrators, and members an administrator granted the connection to.
  */
-export const CONSOLE_ROUTES: [string, (req: FastifyRequest, id: string) => DbConsoleUser][] = [
+export const CONSOLE_ROUTES: [string, (req: FastifyRequest, id: string) => Promise<DbConsoleUser>][] = [
   [
     "/api/admin/connections",
-    (req, id) => ({ user: requireAdmin(req), connection: loadConnection(id), access: "admin" }),
+    async (req, id) => ({ user: requireAdmin(req), connection: await loadConnection(id), access: "admin" }),
   ],
   ["/api/connections", requireDbConsoleUser],
 ];

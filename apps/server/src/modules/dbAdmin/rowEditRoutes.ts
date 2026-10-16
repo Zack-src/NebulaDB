@@ -41,7 +41,7 @@ export function registerRowEditRoutes(app: FastifyInstance): void {
     // nothing may, the rows are those of `/rows`: the explorer asks only here.
     app.get(`${prefix}/:id/editable-rows`, READ_LIMIT, async (req): Promise<DbEditableRows> => {
       const { id } = req.params as { id: string };
-      const { connection, access } = guard(req, id);
+      const { connection, access } = await guard(req, id);
       const ref = refFromQuery(req);
       requireName(ref.table, "table");
       const page = pageFromQuery(req);
@@ -64,7 +64,7 @@ export function registerRowEditRoutes(app: FastifyInstance): void {
     // `execute: false` is the dry run: the same plan, shown instead of run.
     app.post(`${prefix}/:id/row-edits`, WRITE_LIMIT, async (req): Promise<DbRowEditResult> => {
       const { id } = req.params as { id: string };
-      const { user, connection, access } = guard(req, id);
+      const { user, connection, access } = await guard(req, id);
       const member = access !== "admin";
       const body = (req.body ?? {}) as {
         database?: unknown;
@@ -90,11 +90,11 @@ export function registerRowEditRoutes(app: FastifyInstance): void {
       const startedAt = Date.now();
       let statements: RowStatement[] = [];
       const outcomes: RowStatementOutcome[] = [];
-      const record = (error: string | null) => {
+      const record = async (error: string | null) => {
         const durationMs = Date.now() - startedAt;
         // The journal's statement figures count each statement that ran, by its shape (values masked).
         for (const outcome of outcomes) {
-          recordQueryStat({
+          await recordQueryStat({
             connectionId: id,
             userId: user.id,
             sql: outcome.statement.display,
@@ -106,7 +106,7 @@ export function registerRowEditRoutes(app: FastifyInstance): void {
         // One entry for the batch, statements as shown — like a statement of the SQL console, values included.
         const counts = countRowEdits(statements);
         const target = [ref.database, ref.schema, ref.table].filter(Boolean).join(".");
-        auditUser(
+        await auditUser(
           user,
           member ? "dbaccess.rows" : "dbadmin.rows",
           { type: "connection", id },
@@ -135,11 +135,11 @@ export function registerRowEditRoutes(app: FastifyInstance): void {
           }
           return { sql: statements.map((s) => s.display), executed: execute, counts: countRowEdits(statements) };
         });
-        if (execute) record(null);
+        if (execute) await record(null);
         return result;
       } catch (err) {
         // A refused attempt is in the trail like any other; a dry run changes nothing and leaves none.
-        if (execute) record(err instanceof Error ? err.message : String(err));
+        if (execute) await record(err instanceof Error ? err.message : String(err));
         throw err;
       }
     });

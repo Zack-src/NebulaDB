@@ -4,10 +4,11 @@ Self-hosted DBML schema editor with real-time collaboration, history, and a work
 
 ## Run it
 
-Node 22–25 required.
+Node 22–25 and a PostgreSQL database (13 or later) for NebulaDB's own data.
 
 ```bash
 npm install
+# apps/server/.env: NEBULADB_DATABASE_URL=postgres://nebuladb:password@localhost:5432/nebuladb
 npm run bootstrap-admin -- you@example.com 'a-strong-password'   # first admin, once
 npm run dev                                                       # server :3001 + web :5173
 ```
@@ -19,7 +20,7 @@ npm run build
 npm start                                                         # http://localhost:3001
 ```
 
-Docker (data in the `nebuladb-data` volume):
+Docker (with its own PostgreSQL; data in the `nebuladb-postgres` and `nebuladb-data` volumes — set `NEBULADB_POSTGRES_PASSWORD` first, letters and digits only since it goes into a URL):
 
 ```bash
 docker compose up --build
@@ -31,30 +32,31 @@ Other accounts are created by invitation from the admin console.
 
 Environment variables, or `apps/server/.env` (see [`.env.example`](apps/server/.env.example)). Invalid values stop the server at boot with a `[config]` message.
 
-| Variable                                                                     | Default                  | What it does                                                                                                |
-| ---------------------------------------------------------------------------- | ------------------------ | ----------------------------------------------------------------------------------------------------------- |
-| `PORT`                                                                       | `3001`                   | HTTP and WebSocket port.                                                                                    |
-| `NEBULADB_DB_PATH`                                                           | `./data/nebuladb.sqlite` | SQLite file for all app data.                                                                               |
-| `NEBULADB_SECRET`                                                            | —                        | Encrypts stored database credentials and 2FA secrets. Required before using either. `openssl rand -hex 32`. |
-| `NEBULADB_SECRET_PREVIOUS`                                                   | —                        | Old secret, only while rotating (`npm run rotate-secret`).                                                  |
-| `NEBULADB_COOKIE_SECURE`                                                     | `false`                  | Set `true` behind TLS.                                                                                      |
-| `NEBULADB_ALLOWED_ORIGINS`                                                   | —                        | Extra allowed origins, comma-separated.                                                                     |
-| `NEBULADB_PUBLIC_URL`                                                        | —                        | Public URL, used in emails. Required with SMTP.                                                             |
-| `NEBULADB_SMTP_HOST` / `_PORT` / `_SECURE` / `_USER` / `_PASSWORD` / `_FROM` | — / `587`                | Email for invitations and password reset. Off when no host.                                                 |
-| `NEBULADB_LOG_LEVEL`                                                         | `info`                   | `fatal` … `trace`, `silent`.                                                                                |
-| `NEBULADB_MAX_BODY_MB`                                                       | `4`                      | Max request body.                                                                                           |
-| `NEBULADB_MAX_WS_FRAME_MB`                                                   | `8`                      | Max WebSocket frame.                                                                                        |
-| `NEBULADB_BACKUP_INTERVAL_HOURS`                                             | `0` (off)                | Automatic backups of every project.                                                                         |
-| `NEBULADB_BACKUP_DIR`                                                        | `./backups`              | Where they go.                                                                                              |
-| `NEBULADB_BACKUP_KEEP`                                                       | `7`                      | How many to keep.                                                                                           |
-| `NEBULADB_DATABASE_BACKUP_DIR`                                               | next to the app database | Backups of connected databases.                                                                             |
-| `NEBULADB_DATABASE_BACKUP_MAX_MB`                                            | `512`                    | Max data read by one backup.                                                                                |
-| `NEBULADB_DATABASE_BACKUP_RETENTION_DAYS`                                    | `30`                     | Days kept; `0` = forever.                                                                                   |
-| `NEBULADB_AUDIT_RETENTION_DAYS`                                              | `365`                    | Audit log retention; `0` = forever.                                                                         |
-| `NEBULADB_QUERY_STATS_RETENTION_DAYS`                                        | `30`                     | SQL console statistics retention.                                                                           |
-| `NEBULADB_DB_ACTIVITY_RETENTION_DAYS`                                        | `14`                     | Database activity history retention.                                                                        |
-| `NEBULADB_CONNECTION_HEALTH_INTERVAL_MINUTES`                                | `15`                     | Connection health checks; `0` = off.                                                                        |
-| `NEBULADB_SQLITE_DIR`                                                        | —                        | Restrict SQLite connections to this folder.                                                                 |
+| Variable                                                                     | Default                   | What it does                                                                                                |
+| ---------------------------------------------------------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `PORT`                                                                       | `3001`                    | HTTP and WebSocket port.                                                                                    |
+| `NEBULADB_DATABASE_URL`                                                      | — (required)              | PostgreSQL database for all app data, `postgres://user:password@host:5432/db`. Tables are created at boot.  |
+| `NEBULADB_DATABASE_POOL_SIZE`                                                | `10`                      | Most connections the server opens to it.                                                                    |
+| `NEBULADB_SECRET`                                                            | —                         | Encrypts stored database credentials and 2FA secrets. Required before using either. `openssl rand -hex 32`. |
+| `NEBULADB_SECRET_PREVIOUS`                                                   | —                         | Old secret, only while rotating (`npm run rotate-secret`).                                                  |
+| `NEBULADB_COOKIE_SECURE`                                                     | `false`                   | Set `true` behind TLS.                                                                                      |
+| `NEBULADB_ALLOWED_ORIGINS`                                                   | —                         | Extra allowed origins, comma-separated.                                                                     |
+| `NEBULADB_PUBLIC_URL`                                                        | —                         | Public URL, used in emails. Required with SMTP.                                                             |
+| `NEBULADB_SMTP_HOST` / `_PORT` / `_SECURE` / `_USER` / `_PASSWORD` / `_FROM` | — / `587`                 | Email for invitations and password reset. Off when no host.                                                 |
+| `NEBULADB_LOG_LEVEL`                                                         | `info`                    | `fatal` … `trace`, `silent`.                                                                                |
+| `NEBULADB_MAX_BODY_MB`                                                       | `4`                       | Max request body.                                                                                           |
+| `NEBULADB_MAX_WS_FRAME_MB`                                                   | `8`                       | Max WebSocket frame.                                                                                        |
+| `NEBULADB_BACKUP_INTERVAL_HOURS`                                             | `0` (off)                 | Automatic backups of every project.                                                                         |
+| `NEBULADB_BACKUP_DIR`                                                        | `./backups`               | Where they go.                                                                                              |
+| `NEBULADB_BACKUP_KEEP`                                                       | `7`                       | How many to keep.                                                                                           |
+| `NEBULADB_DATABASE_BACKUP_DIR`                                               | `./data/database-backups` | Backups of connected databases.                                                                             |
+| `NEBULADB_DATABASE_BACKUP_MAX_MB`                                            | `512`                     | Max data read by one backup.                                                                                |
+| `NEBULADB_DATABASE_BACKUP_RETENTION_DAYS`                                    | `30`                      | Days kept; `0` = forever.                                                                                   |
+| `NEBULADB_AUDIT_RETENTION_DAYS`                                              | `365`                     | Audit log retention; `0` = forever.                                                                         |
+| `NEBULADB_QUERY_STATS_RETENTION_DAYS`                                        | `30`                      | SQL console statistics retention.                                                                           |
+| `NEBULADB_DB_ACTIVITY_RETENTION_DAYS`                                        | `14`                      | Database activity history retention.                                                                        |
+| `NEBULADB_CONNECTION_HEALTH_INTERVAL_MINUTES`                                | `15`                      | Connection health checks; `0` = off.                                                                        |
+| `NEBULADB_SQLITE_DIR`                                                        | —                         | Restrict SQLite connections to this folder.                                                                 |
 
 ## Features
 
@@ -78,7 +80,15 @@ Docs: [feature status](docs/etat-des-features.md) · [roadmap](docs/todo.md) · 
 
 ## Operations
 
-**Single process.** State lives in SQLite and in-memory rooms: never run two instances on the same data.
+**Single process.** Data lives in PostgreSQL, but each open project's live document lives in the server's memory: never run two instances on the same database.
+
+**Moving from SQLite.** Releases before PostgreSQL kept everything in one SQLite file (`./data/nebuladb.sqlite`, or `/data/nebuladb.sqlite` in Docker). Start the last SQLite release on it once so it is up to date, stop it, point `NEBULADB_DATABASE_URL` at a new, empty PostgreSQL database, then:
+
+```bash
+npm run migrate-from-sqlite -- ./data/nebuladb.sqlite
+```
+
+Every table is copied in one transaction; the tool refuses a file at another schema version and a database that already holds data. The SQLite file is only read: keep it as a backup.
 
 **Reverse proxy.** Terminate TLS and set `NEBULADB_COOKIE_SECURE=true`, forward the WebSocket on `/ws/`, and keep the `Host` header (or set `NEBULADB_ALLOWED_ORIGINS`).
 
@@ -116,10 +126,17 @@ npm run restore -- <dir> [--owner <email>]      # each file becomes a new projec
 | `npm run bench:web -- --cpu 6`    | Canvas benchmark; results go to `bench-results/`. |
 
 ```
-apps/server     Fastify + WebSocket server, SQLite, database drivers
+apps/server     Fastify + WebSocket server, PostgreSQL storage, database drivers
 apps/web        Svelte 5 app: canvas (Svelte Flow), DBML editor, SQL space, admin
 packages/shared       Schema model, protocol, Yjs binding
 packages/dbml-engine  DBML ⇄ SQL ⇄ model conversion, diff, validation, lint
 ```
 
-Tests that talk to real databases skip themselves unless `docker compose -f docker-compose.test.yml up -d` is running.
+The server tests need the throwaway PostgreSQL of `docker-compose.test.yml` (each test file gets a database of its own on it, dropped afterwards):
+
+```bash
+docker compose -f docker-compose.test.yml up -d nebuladb-test-postgres
+npm run build -w apps/server && npm test -w apps/server
+```
+
+`NEBULADB_TEST_PG_HOST` / `_PORT` / `_USER` / `_PASSWORD` / `_DATABASE` point them elsewhere. Tests of the other engines (MySQL, SQL Server, Oracle) skip themselves unless their containers run (`docker compose -f docker-compose.test.yml up -d`).

@@ -1,10 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-generator-${randomUUID()}.sqlite`);
+await useTestDatabase("generator");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -26,11 +25,9 @@ function headers(extra: Record<string, string> = {}) {
 async function userCookie(app: App) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, NULL)").run(
-    randomUUID(),
-    email,
-    await hashPassword(password),
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, NULL)")
+    .run(randomUUID(), email, await hashPassword(password));
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -49,9 +46,9 @@ function call(app: App, cookie: string, method: "GET" | "POST" | "PUT", url: str
   });
 }
 
-function seedCanvas(projectId: string) {
-  const room = getRoom(projectId);
-  room.doc.transact(() => {
+async function seedCanvas(projectId: string) {
+  const room = await getRoom(projectId);
+  await room.write(() => {
     writeProjectToDoc(room.doc, {
       id: projectId,
       name: "Shop",
@@ -98,7 +95,7 @@ test("generator: settings kept, rows generated from the schema and the parents' 
   try {
     const owner = await userCookie(app);
     const project = (await call(app, owner, "POST", "/api/projects", { name: "Shop" })).json() as { id: string };
-    seedCanvas(project.id);
+    await seedCanvas(project.id);
     const base = `/api/projects/${project.id}`;
     const config = {
       rows: 30,
@@ -161,7 +158,7 @@ test("generator: settings kept, rows generated from the schema and the parents' 
     const unknownProvider = await call(app, owner, "POST", `${base}/generators/t-orders/run`, { provider: "ai:x" });
     assert.equal(unknownProvider.json().code, "GENERATOR_INVALID");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

@@ -4,10 +4,11 @@ import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
 // Same rationale as `app.test.ts`: env vars must land before anything
 // transitively imports `db.ts`/`shared/crypto.ts`.
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-savedqueries-${randomUUID()}.sqlite`);
+await useTestDatabase("savedqueries");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -30,13 +31,9 @@ const PASSWORD = "correct horse battery staple";
 async function makeUser(app: App, isAdmin: 0 | 1 = 0, displayName: string | null = null) {
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, ?)").run(
-    id,
-    email,
-    await hashPassword(PASSWORD),
-    isAdmin,
-    displayName,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, ?)")
+    .run(id, email, await hashPassword(PASSWORD), isAdmin, displayName);
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -156,7 +153,7 @@ test("a saved query is private to its author until shared, then read-only for ev
       );
     }
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -183,13 +180,13 @@ test("someone without access to the connection sees nothing and can save nothing
       403,
     );
     // Nor with an API key, even the member's own.
-    const key = createApiKey(ada.id, "saved", ["projects:read"], null).plaintextKey;
+    const key = (await createApiKey(ada.id, "saved", ["projects:read"], null)).plaintextKey;
     assert.equal((await call(app, key, "GET", saved(connection.id))).statusCode, 404);
     // A revoked grant applies to the next request.
     await call(app, admin.cookie, "PUT", `/api/admin/users/${ada.id}/db-access`, { grants: [] });
     assert.equal((await call(app, ada.cookie, "GET", saved(connection.id))).statusCode, 404);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -234,7 +231,7 @@ test("names are unique per person and connection; overwriting is explicit", asyn
       200,
     );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -265,16 +262,16 @@ test("a name, a statement and a description are bounded; a count too", async () 
     );
     const adminId = admin.id;
     const count = (
-      db.prepare("SELECT COUNT(*) AS n FROM saved_queries WHERE user_id = ?").get(adminId) as { n: number }
+      (await db.prepare("SELECT COUNT(*) AS n FROM saved_queries WHERE user_id = ?").get(adminId)) as { n: number }
     ).n;
-    for (let i = count; i < 200; i++) insert.run(randomUUID(), connection.id, adminId, `fill ${i}`, "SELECT 1");
+    for (let i = count; i < 200; i++) await insert.run(randomUUID(), connection.id, adminId, `fill ${i}`, "SELECT 1");
     const full = await post({ name: "one too many", sql: "SELECT 1" });
     assert.equal(full.statusCode, 409);
     assert.equal(full.json().code, "SAVED_QUERY_LIMIT");
     // Overwriting at the ceiling is still allowed.
     assert.equal((await post({ name: "big", sql: "SELECT 2", overwrite: true })).statusCode, 200);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -309,7 +306,7 @@ test("only the author edits or deletes; an administrator can delete any", async 
       404,
     );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -334,7 +331,7 @@ test("saving gives no right: a read member can save a write and is refused when 
     assert.equal(forced.statusCode, 403);
     assert.equal(forced.json().code, "DB_ACCESS_WRITE_FORBIDDEN");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -354,13 +351,14 @@ test("saved queries go with the connection and with the account", async () => {
     await call(app, ada.cookie, "PATCH", saved(connection.id, `/${shared.id}`), { shared: true });
     await create(bob.cookie, connection.id, "B");
     await create(admin.cookie, other.id, "Elsewhere");
-    const rows = (id: string) =>
-      (db.prepare("SELECT COUNT(*) AS n FROM saved_queries WHERE connection_id = ?").get(id) as { n: number }).n;
-    assert.equal(rows(connection.id), 2);
+    const rows = async (id: string) =>
+      ((await db.prepare("SELECT COUNT(*) AS n FROM saved_queries WHERE connection_id = ?").get(id)) as { n: number })
+        .n;
+    assert.equal(await rows(connection.id), 2);
 
     // Deleting the account removes what it saved, shared ones included.
-    deleteUserAccount(ada.id, ada.email, null);
-    assert.equal(rows(connection.id), 1);
+    await deleteUserAccount(ada.id, ada.email, null);
+    assert.equal(await rows(connection.id), 1);
     assert.deepEqual(
       (await call(app, bob.cookie, "GET", saved(connection.id))).json().queries.map((q: { name: string }) => q.name),
       ["B"],
@@ -368,10 +366,10 @@ test("saved queries go with the connection and with the account", async () => {
 
     const removed = await call(app, admin.cookie, "DELETE", `/api/admin/connections/${connection.id}?force=true`);
     assert.equal(removed.statusCode, 200, removed.body);
-    assert.equal(rows(connection.id), 0);
-    assert.equal(rows(other.id), 1);
+    assert.equal(await rows(connection.id), 0);
+    assert.equal(await rows(other.id), 1);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

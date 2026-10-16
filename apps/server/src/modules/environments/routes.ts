@@ -20,20 +20,20 @@ const WRITE_LIMIT = { config: { rateLimit: { max: 60, timeWindow: "1 minute" } }
 export function registerEnvironmentRoutes(app: FastifyInstance): void {
   app.get("/api/environments", async (req) => {
     requireUser(req);
-    return { environments: listEnvironments() };
+    return { environments: await listEnvironments() };
   });
 
   app.post("/api/admin/environments", WRITE_LIMIT, async (req) => {
     const user = requireAdmin(req);
-    const stage = createEnvironment(req.body);
-    auditUser(user, "environment.create", { type: "environment", id: stage.id }, stage.name, req);
+    const stage = await createEnvironment(req.body);
+    await auditUser(user, "environment.create", { type: "environment", id: stage.id }, stage.name, req);
     return { environment: stage };
   });
 
   app.patch("/api/admin/environments/:id", WRITE_LIMIT, async (req) => {
     const user = requireAdmin(req);
     const { id } = req.params as { id: string };
-    const { before, after } = updateEnvironment(id, req.body);
+    const { before, after } = await updateEnvironment(id, req.body);
     const changes = [
       before.name !== after.name ? `name ${before.name} -> ${after.name}` : null,
       before.color !== after.color ? `color ${before.color} -> ${after.color}` : null,
@@ -41,32 +41,38 @@ export function registerEnvironmentRoutes(app: FastifyInstance): void {
       before.production !== after.production ? `production ${before.production} -> ${after.production}` : null,
     ].filter(Boolean);
     if (changes.length > 0) {
-      auditUser(user, "environment.update", { type: "environment", id }, `${after.name}: ${changes.join(", ")}`, req);
+      await auditUser(
+        user,
+        "environment.update",
+        { type: "environment", id },
+        `${after.name}: ${changes.join(", ")}`,
+        req,
+      );
     }
     // A stage that stops asking for a review leaves its open requests without an object.
-    if (before.protection !== after.protection) reconcileReviews(undefined, { user, req });
+    if (before.protection !== after.protection) await reconcileReviews(undefined, { user, req });
     return { environment: after };
   });
 
   app.delete("/api/admin/environments/:id", WRITE_LIMIT, async (req) => {
     const user = requireAdmin(req);
     const { id } = req.params as { id: string };
-    const removed = deleteEnvironment(id);
-    auditUser(
+    const removed = await deleteEnvironment(id);
+    await auditUser(
       user,
       "environment.delete",
       { type: "environment", id },
       `${removed.name} (${removed.connectionCount} connection(s) left without a stage)`,
       req,
     );
-    reconcileReviews(undefined, { user, req });
+    await reconcileReviews(undefined, { user, req });
     return { deleted: true };
   });
 
   app.put("/api/admin/environments/order", WRITE_LIMIT, async (req) => {
     const user = requireAdmin(req);
-    const environments = reorderEnvironments((req.body as { ids?: unknown } | null)?.ids);
-    auditUser(user, "environment.reorder", null, environments.map((stage) => stage.name).join(" > "), req);
+    const environments = await reorderEnvironments((req.body as { ids?: unknown } | null)?.ids);
+    await auditUser(user, "environment.reorder", null, environments.map((stage) => stage.name).join(" > "), req);
     return { environments };
   });
 }

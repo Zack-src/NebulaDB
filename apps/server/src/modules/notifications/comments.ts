@@ -32,20 +32,20 @@ const shownName = (row: UserRow) => row.display_name?.trim() || row.email.split(
  * the person was in when they last opened the project. The author is left out:
  * mentioning oneself notifies nobody.
  */
-export function listMentionable(projectId: string, query: unknown, actorId: string): MentionableUser[] {
+export async function listMentionable(projectId: string, query: unknown, actorId: string): Promise<MentionableUser[]> {
   const q = typeof query === "string" ? query.trim().toLowerCase().slice(0, 40) : "";
   const like = `%${q.replace(/[\\%_]/g, String.raw`\$&`)}%`;
-  const rows = db
+  const rows = (await db
     .prepare(
       `SELECT id, email, display_name FROM users
         WHERE disabled_at IS NULL AND id != ?
           AND (? = '' OR lower(coalesce(display_name, '')) LIKE ? ESCAPE '\\' OR lower(email) LIKE ? ESCAPE '\\')
         ORDER BY lower(coalesce(nullif(trim(display_name), ''), email)) LIMIT 500`,
     )
-    .all(actorId, q, like, like) as UserRow[];
+    .all(actorId, q, like, like)) as UserRow[];
   const found: MentionableUser[] = [];
   for (const row of rows) {
-    if (!getEffectivePermission(row.id, projectId)) continue;
+    if (!(await getEffectivePermission(row.id, projectId))) continue;
     found.push({ id: row.id, name: shownName(row) });
     if (found.length === MENTIONABLE_LISTED) break;
   }
@@ -94,11 +94,11 @@ export function parseCommentNotice(body: unknown): CommentNotice {
  * The notification holds names, never the comment text. Never throws. Returns how many people
  * were told.
  */
-export function notifyCommentAddressees(
+export async function notifyCommentAddressees(
   projectId: string,
   actor: { id: string; displayName: string },
   notice: CommentNotice,
-): number {
+): Promise<number> {
   try {
     const mentioned = extractMentionedUserIds(notice.text);
     const recipients = new Map<string, DirectNotificationEvent>();
@@ -113,13 +113,13 @@ export function notifyCommentAddressees(
     );
     const trim = db.prepare(
       `DELETE FROM notifications WHERE user_id = ? AND id NOT IN
-         (SELECT id FROM notifications WHERE user_id = ? ORDER BY rowid DESC LIMIT ${KEPT_PER_USER})`,
+         (SELECT id FROM notifications WHERE user_id = ? ORDER BY seq DESC LIMIT ${KEPT_PER_USER})`,
     );
     const told = new Set<string>();
     for (const [userId, event] of recipients) {
-      if (!exists.get(userId) || !getEffectivePermission(userId, projectId)) continue;
-      insert.run(crypto.randomUUID(), userId, projectId, event, params);
-      trim.run(userId, userId);
+      if (!(await exists.get(userId)) || !(await getEffectivePermission(userId, projectId))) continue;
+      await insert.run(crypto.randomUUID(), userId, projectId, event, params);
+      await trim.run(userId, userId);
       told.add(userId);
     }
     // Those with the project open learn it now; no one else in the room learns who was addressed.

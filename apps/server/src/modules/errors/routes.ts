@@ -25,7 +25,7 @@ export function registerErrorRoutes(app: FastifyInstance): void {
     if (source !== undefined && source !== "server" && source !== "client") {
       throw new ApiError("ERROR_LOG_SOURCE_INVALID");
     }
-    return listErrorLog({ limit: parsedLimit, before, source: source as "server" | "client" | undefined });
+    return await listErrorLog({ limit: parsedLimit, before, source: source as "server" | "client" | undefined });
   });
 
   /**
@@ -42,7 +42,7 @@ export function registerErrorRoutes(app: FastifyInstance): void {
     if (!body.message || typeof body.message !== "string") throw new ApiError("CLIENT_ERROR_MESSAGE_REQUIRED");
 
     tallyErrorForMetrics("client");
-    recordError("client", body.message.slice(0, MAX_REPORTED_MESSAGE), {
+    await recordError("client", body.message.slice(0, MAX_REPORTED_MESSAGE), {
       stack: typeof body.stack === "string" ? body.stack.slice(0, MAX_REPORTED_STACK) : null,
       context: typeof body.context === "string" ? body.context.slice(0, MAX_REPORTED_CONTEXT) : null,
       user: { id: user.id, email: user.email },

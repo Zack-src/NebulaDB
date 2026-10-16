@@ -40,23 +40,26 @@ export function backupTimestamp(date = new Date()): string {
  * `log` defaults to no-op: the CLI wants per-project output, the scheduler
  * wants one summary line and not a page of noise every few hours.
  */
-export function runBackup(outDir: string, log: (line: string) => void = () => {}): BackupResult {
+export async function runBackup(outDir: string, log: (line: string) => void = () => {}): Promise<BackupResult> {
   mkdirSync(outDir, { recursive: true });
 
-  const projects = db.prepare("SELECT id, name FROM projects ORDER BY name").all() as { id: string; name: string }[];
+  const projects = (await db.prepare("SELECT id, name FROM projects ORDER BY name").all()) as {
+    id: string;
+    name: string;
+  }[];
   const usedNames = new Map<string, number>();
   let backedUp = 0;
   let skipped = 0;
 
   for (const project of projects) {
-    const revisions = listRevisions(project.id);
+    const revisions = await listRevisions(project.id);
     if (revisions.length === 0) {
       log(`skip  ${project.name} — no revisions yet (nothing committed to back up)`);
       skipped++;
       continue;
     }
 
-    const doc = reconstructDocAtRevision(project.id, revisions[revisions.length - 1].id);
+    const doc = await reconstructDocAtRevision(project.id, revisions[revisions.length - 1].id);
     if (!doc) {
       log(`skip  ${project.name} — revision log could not be replayed`);
       skipped++;

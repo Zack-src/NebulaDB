@@ -18,12 +18,17 @@ import { run } from "./cli.js";
  */
 
 const dir = mkdtempSync(join(tmpdir(), "nebuladb-cli-it-"));
-process.env.NEBULADB_DB_PATH = join(dir, "instance.sqlite");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
 
 const SERVER_DIST = new URL("../../../apps/server/dist/", import.meta.url);
+
+// A throwaway PostgreSQL database, as the server's own tests use (`NEBULADB_TEST_PG_*`).
+const { useTestDatabase } = (await import(new URL("infrastructure/testDatabase.js", SERVER_DIST).href)) as {
+  useTestDatabase(label: string): Promise<string>;
+};
+await useTestDatabase("cli");
 
 interface ServerApp {
   listen(options: { port: number; host: string }): Promise<string>;
@@ -31,13 +36,13 @@ interface ServerApp {
 }
 const { buildApp } = (await import(new URL("app.js", SERVER_DIST).href)) as { buildApp(): Promise<ServerApp> };
 const { db } = (await import(new URL("infrastructure/db.js", SERVER_DIST).href)) as {
-  db: { prepare(sql: string): { run(...values: unknown[]): unknown } };
+  db: { prepare(sql: string): { run(...values: unknown[]): Promise<unknown> } };
 };
 const { hashPassword } = (await import(new URL("modules/auth/password.js", SERVER_DIST).href)) as {
   hashPassword(password: string): Promise<string>;
 };
 const { closeAllRooms } = (await import(new URL("realtime/roomRegistry.js", SERVER_DIST).href)) as {
-  closeAllRooms(): void;
+  closeAllRooms(): Promise<void>;
 };
 
 /** The fields of the app's answers the setup reads. */
@@ -72,11 +77,9 @@ let productionConnectionId: string;
 async function createAdmin(): Promise<{ email: string; password: string }> {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 1, NULL)").run(
-    randomUUID(),
-    email,
-    await hashPassword(password),
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 1, NULL)")
+    .run(randomUUID(), email, await hashPassword(password));
   return { email, password };
 }
 
@@ -137,7 +140,7 @@ before(async () => {
 });
 
 after(async () => {
-  closeAllRooms();
+  await closeAllRooms();
   await app.close();
 });
 

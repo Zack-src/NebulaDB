@@ -18,28 +18,28 @@ import { listMentionable, notifyCommentAddressees, parseCommentNotice } from "./
  * is signed in, and nobody reads or changes someone else's.
  */
 export function registerNotificationRoutes(app: FastifyInstance): void {
-  app.get("/api/notifications", async (req) => listNotifications(requireUser(req).id));
+  app.get("/api/notifications", async (req) => await listNotifications(requireUser(req).id));
 
   app.post("/api/notifications/read", async (req) => {
     const user = requireUser(req);
     const { ids } = (req.body ?? {}) as { ids?: unknown };
-    return { marked: markNotificationsRead(user.id, ids), ...listNotifications(user.id) };
+    return { marked: await markNotificationsRead(user.id, ids), ...(await listNotifications(user.id)) };
   });
 
   app.get("/api/projects/:id/subscription", async (req) => {
     const { id } = req.params as { id: string };
-    const { user } = requireProjectAccess(req, id, "view");
-    return { subscription: getProjectSubscription(user.id, id) };
+    const { user } = await requireProjectAccess(req, id, "view");
+    return { subscription: await getProjectSubscription(user.id, id) };
   });
 
   // An empty list of events is how one stops following. `emailDrift`: also by email, where the instance sends any.
   app.put("/api/projects/:id/subscription", async (req) => {
     const { id } = req.params as { id: string };
-    const { user } = requireProjectAccess(req, id, "view");
+    const { user } = await requireProjectAccess(req, id, "view");
     const events = parseSubscription(req.body);
     const emailDrift = parseEmailDrift(req.body, events);
     if (emailDrift && !isMailEnabled()) throw new ApiError("EMAIL_ALERTS_UNAVAILABLE");
-    return { subscription: saveProjectSubscription(user.id, id, events, emailDrift) };
+    return { subscription: await saveProjectSubscription(user.id, id, events, emailDrift) };
   });
 
   // Comments live in the shared document, which the server does not read for
@@ -47,13 +47,13 @@ export function registerNotificationRoutes(app: FastifyInstance): void {
   // is told. Writing a comment takes `edit` — the same right as the document.
   app.get("/api/projects/:id/mentionable", async (req) => {
     const { id } = req.params as { id: string };
-    const { user } = requireProjectAccess(req, id, "edit");
-    return { users: listMentionable(id, (req.query as { q?: unknown }).q, user.id) };
+    const { user } = await requireProjectAccess(req, id, "edit");
+    return { users: await listMentionable(id, (req.query as { q?: unknown }).q, user.id) };
   });
 
   app.post("/api/projects/:id/comment-notices", async (req) => {
     const { id } = req.params as { id: string };
-    const { user } = requireProjectAccess(req, id, "edit");
-    return { notified: notifyCommentAddressees(id, user, parseCommentNotice(req.body)) };
+    const { user } = await requireProjectAccess(req, id, "edit");
+    return { notified: await notifyCommentAddressees(id, user, parseCommentNotice(req.body)) };
   });
 }

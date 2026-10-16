@@ -7,6 +7,7 @@ import {
   type MigrationResolutionMap,
 } from "@nebuladb/shared";
 import { getRoom, notifyProject } from "../../realtime/roomRegistry.js";
+import { filterAsync, mapAsync } from "../../shared/async.js";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { canDeployProject } from "../../shared/permissions.js";
@@ -61,7 +62,11 @@ const text = (value: unknown): string | null =>
 const isExpired = (review: StoredReview, now: Date) =>
   review.status === "approved" && review.expiresAt !== null && review.expiresAt <= sqlTime(now);
 
-function toReview(review: StoredReview, user: SessionUser, currentSchemaHash: string | null): DeploymentReview {
+async function toReview(
+  review: StoredReview,
+  user: SessionUser,
+  currentSchemaHash: string | null,
+): Promise<DeploymentReview> {
   const open = review.status === "pending" || review.status === "approved";
   const author = review.requestedBy === user.id;
   return {
@@ -89,21 +94,24 @@ function toReview(review: StoredReview, user: SessionUser, currentSchemaHash: st
     ...(review.deploymentId ? { deploymentId: review.deploymentId } : {}),
     schemaChanged: open && currentSchemaHash !== null && currentSchemaHash !== review.schemaHash,
     viewer: {
-      canDecide: review.status === "pending" && !author && canDeployProject(user.id, review.projectId),
+      canDecide: review.status === "pending" && !author && (await canDeployProject(user.id, review.projectId)),
       canDeploy: review.status === "approved" && (author || review.decidedBy === user.id),
       canWithdraw: open && author,
     },
   };
 }
 
-function currentSchemaHash(projectId: string): string | null {
-  const project = getProjectRow(projectId);
-  return project ? schemaHashOf(readProjectFromDoc(getRoom(projectId).doc, projectId, project.name)) : null;
+async function currentSchemaHash(projectId: string): Promise<string | null> {
+  const project = await getProjectRow(projectId);
+  return project ? schemaHashOf(readProjectFromDoc((await getRoom(projectId)).doc, projectId, project.name)) : null;
 }
 
 /** Those who could approve a request: everyone who may deploy on the project (instance administrators included), but its author. */
-function reviewersOf(review: StoredReview): string[] {
-  return listEnabledUserIds().filter((id) => id !== review.requestedBy && canDeployProject(id, review.projectId));
+async function reviewersOf(review: StoredReview): Promise<string[]> {
+  return await filterAsync(
+    (await listEnabledUserIds()).filter((id) => id !== review.requestedBy),
+    (id) => canDeployProject(id, review.projectId),
+  );
 }
 
 type ReviewAction =
@@ -113,14 +121,14 @@ type ReviewAction =
  * Says what happened to a request: to the accounts it concerns (the bell),
  * to the project's webhooks, and to the open editors, whose list is stale.
  */
-function announce(
+async function announce(
   review: StoredReview,
   action: ReviewAction,
   by: string | null,
   to: Iterable<string | null>,
   reason: DeploymentReviewCloseReason | null = null,
-): void {
-  notifyDirectly(
+): Promise<void> {
+  await notifyDirectly(
     review.projectId,
     [...to].filter((id): id is string => id !== null),
     "review",
@@ -128,7 +136,7 @@ function announce(
   );
   // A deployment has its own event (`deployment.completed`); the review's end is in it.
   if (action !== "deployed") {
-    emitWebhookEvent(review.projectId, "deployment.review", {
+    await emitWebhookEvent(review.projectId, "deployment.review", {
       action,
       reviewId: review.id,
       connectionName: review.connectionName,
@@ -152,9 +160,9 @@ function announce(
  * author learns at once, and the change is in the audit trail under whoever
  * made it (`actor`).
  */
-export function reconcileReviews(projectId?: string, actor?: ReviewActor): void {
+export async function reconcileReviews(projectId?: string, actor?: ReviewActor): Promise<void> {
   const now = new Date();
-  for (const { review, linked, currentEnvironmentId, currentProtection } of listOpenReviewStates(projectId)) {
+  for (const { review, linked, currentEnvironmentId, currentProtection } of await listOpenReviewStates(projectId)) {
     const reason: DeploymentReviewCloseReason | null =
       !linked || currentEnvironmentId !== review.environmentId
         ? "connection"
@@ -162,9 +170,9 @@ export function reconcileReviews(projectId?: string, actor?: ReviewActor): void 
           ? "protection"
           : null;
     if (reason) {
-      if (!closeReview(review.id, "cancelled", reason, now)) continue;
+      if (!(await closeReview(review.id, "cancelled", reason, now))) continue;
       if (actor) {
-        auditUser(
+        await auditUser(
           actor.user,
           "connection.review.cancel",
           { type: "project", id: review.projectId },
@@ -173,32 +181,32 @@ export function reconcileReviews(projectId?: string, actor?: ReviewActor): void 
           { connectionId: review.connectionId },
         );
       }
-      announce(review, "cancelled", actor?.user.email ?? null, [review.requestedBy], reason);
-    } else if (isExpired(review, now) && closeReview(review.id, "expired", null, now)) {
-      announce(review, "expired", null, [review.requestedBy, review.decidedBy]);
+      await announce(review, "cancelled", actor?.user.email ?? null, [review.requestedBy], reason);
+    } else if (isExpired(review, now) && (await closeReview(review.id, "expired", null, now))) {
+      await announce(review, "expired", null, [review.requestedBy, review.decidedBy]);
     }
   }
 }
 
 /** The project's requests, newest first, with what the caller may do with each. */
-export function listReviews(user: SessionUser, projectId: string): DeploymentReview[] {
-  reconcileReviews(projectId);
-  const hash = currentSchemaHash(projectId);
-  return listProjectReviews(projectId, LISTED).map((review) => toReview(review, user, hash));
+export async function listReviews(user: SessionUser, projectId: string): Promise<DeploymentReview[]> {
+  await reconcileReviews(projectId);
+  const hash = await currentSchemaHash(projectId);
+  return await mapAsync(await listProjectReviews(projectId, LISTED), (review) => toReview(review, user, hash));
 }
 
 /** A request of this project, after `reconcileReviews`: what every action below starts from. */
-function requireReview(projectId: string, reviewId: string): StoredReview {
-  reconcileReviews(projectId);
-  const review = getReview(reviewId);
+async function requireReview(projectId: string, reviewId: string): Promise<StoredReview> {
+  await reconcileReviews(projectId);
+  const review = await getReview(reviewId);
   if (!review || review.projectId !== projectId) throw new ApiError("DEPLOYMENT_REVIEW_NOT_FOUND");
   return review;
 }
 
 /** Closes a request whose plan no longer holds, and tells its author. */
-function closeAsStale(review: StoredReview, reason: DeploymentReviewCloseReason, by: SessionUser): void {
-  if (!closeReview(review.id, "stale", reason, new Date())) return;
-  announce(review, "stale", by.email, [review.requestedBy === by.id ? null : review.requestedBy], reason);
+async function closeAsStale(review: StoredReview, reason: DeploymentReviewCloseReason, by: SessionUser): Promise<void> {
+  if (!(await closeReview(review.id, "stale", reason, new Date()))) return;
+  await announce(review, "stale", by.email, [review.requestedBy === by.id ? null : review.requestedBy], reason);
 }
 
 /**
@@ -213,11 +221,11 @@ export async function requestReview(
   body: { resolutions?: MigrationResolutionMap; skipSeeds?: unknown; riskNote?: unknown; message?: unknown },
 ): Promise<DeploymentReview> {
   const { user } = actor;
-  reconcileReviews(project.id);
+  await reconcileReviews(project.id);
   const resolutions = body.resolutions && typeof body.resolutions === "object" ? body.resolutions : {};
   const skipSeeds = body.skipSeeds === true;
   const frozen = await freezeDeployment(project.id, project.name, connId, resolutions, { skipSeeds });
-  const review = insertReview({
+  const review = await insertReview({
     projectId: project.id,
     connectionId: frozen.connection.id,
     connectionName: frozen.connection.name,
@@ -238,7 +246,7 @@ export async function requestReview(
   });
   if (!review) throw new ApiError("DEPLOYMENT_REVIEW_ALREADY_OPEN");
 
-  auditUser(
+  await auditUser(
     user,
     "connection.review.request",
     { type: "project", id: project.id },
@@ -246,8 +254,8 @@ export async function requestReview(
     actor.req,
     { connectionId: review.connectionId },
   );
-  announce(review, "requested", user.email, reviewersOf(review));
-  return toReview(review, user, review.schemaHash);
+  await announce(review, "requested", user.email, await reviewersOf(review));
+  return await toReview(review, user, review.schemaHash);
 }
 
 /**
@@ -256,35 +264,35 @@ export async function requestReview(
  * the request froze — if the project's has moved since, the request is closed
  * as stale instead of approved for something nobody read.
  */
-export function decideOnReview(
+export async function decideOnReview(
   actor: ReviewActor,
   projectId: string,
   reviewId: string,
   decision: "approved" | "rejected",
   comment: unknown,
-): DeploymentReview {
+): Promise<DeploymentReview> {
   const { user } = actor;
-  const review = requireReview(projectId, reviewId);
+  const review = await requireReview(projectId, reviewId);
   if (review.status !== "pending") throw new ApiError("DEPLOYMENT_REVIEW_NOT_PENDING");
   if (review.requestedBy === user.id) throw new ApiError("DEPLOYMENT_REVIEW_SELF_DECISION");
 
-  if (decision === "approved" && currentSchemaHash(projectId) !== review.schemaHash) {
-    closeAsStale(review, "schema", user);
+  if (decision === "approved" && (await currentSchemaHash(projectId)) !== review.schemaHash) {
+    await closeAsStale(review, "schema", user);
     throw new ApiError("DEPLOYMENT_REVIEW_STALE", { details: { reason: "schema" } });
   }
 
   const now = new Date();
   const expiresAt =
     decision === "approved" ? new Date(now.getTime() + REVIEW_APPROVAL_TTL_DAYS * 24 * 3_600_000) : null;
-  const decided = decideReview(
+  const decided = await decideReview(
     review.id,
     { status: decision, by: user.id, byEmail: user.email, comment: text(comment), at: now },
     expiresAt,
   );
   if (!decided) throw new ApiError("DEPLOYMENT_REVIEW_NOT_PENDING");
 
-  const after = getReview(review.id)!;
-  auditUser(
+  const after = (await getReview(review.id))!;
+  await auditUser(
     user,
     decision === "approved" ? "connection.review.approve" : "connection.review.reject",
     { type: "project", id: projectId },
@@ -292,18 +300,24 @@ export function decideOnReview(
     actor.req,
     { connectionId: review.connectionId },
   );
-  announce(after, decision, user.email, [review.requestedBy]);
-  return toReview(after, user, review.schemaHash);
+  await announce(after, decision, user.email, [review.requestedBy]);
+  return await toReview(after, user, review.schemaHash);
 }
 
 /** The author takes their request back, pending or already approved. */
-export function withdrawReview(actor: ReviewActor, projectId: string, reviewId: string): DeploymentReview {
+export async function withdrawReview(
+  actor: ReviewActor,
+  projectId: string,
+  reviewId: string,
+): Promise<DeploymentReview> {
   const { user } = actor;
-  const review = requireReview(projectId, reviewId);
+  const review = await requireReview(projectId, reviewId);
   if (review.requestedBy !== user.id) throw new ApiError("DEPLOYMENT_REVIEW_NOT_YOURS");
-  if (!closeReview(review.id, "withdrawn", null, new Date())) throw new ApiError("DEPLOYMENT_REVIEW_NOT_PENDING");
+  if (!(await closeReview(review.id, "withdrawn", null, new Date()))) {
+    throw new ApiError("DEPLOYMENT_REVIEW_NOT_PENDING");
+  }
 
-  auditUser(
+  await auditUser(
     user,
     "connection.review.withdraw",
     { type: "project", id: projectId },
@@ -312,8 +326,8 @@ export function withdrawReview(actor: ReviewActor, projectId: string, reviewId: 
     { connectionId: review.connectionId },
   );
   // Those asked to look no longer have to; an approver learns their approval will not be used.
-  announce(review, "withdrawn", user.email, review.decidedBy ? [review.decidedBy] : reviewersOf(review));
-  return toReview(getReview(review.id)!, user, null);
+  await announce(review, "withdrawn", user.email, review.decidedBy ? [review.decidedBy] : await reviewersOf(review));
+  return await toReview((await getReview(review.id))!, user, null);
 }
 
 /**
@@ -329,14 +343,14 @@ export async function deployReview(
   options: { confirmName?: string; backupBefore?: unknown; skipStageOrder?: unknown; skipReason?: unknown },
 ): Promise<DeployToConnectionResult> {
   const { user } = actor;
-  const review = requireReview(project.id, reviewId);
+  const review = await requireReview(project.id, reviewId);
   if (review.status === "expired") throw new ApiError("DEPLOYMENT_REVIEW_EXPIRED");
   if (review.status !== "approved" || !review.connectionId) throw new ApiError("DEPLOYMENT_REVIEW_NOT_APPROVED");
   if (review.requestedBy !== user.id && review.decidedBy !== user.id) {
     throw new ApiError("DEPLOYMENT_REVIEW_NOT_YOURS");
   }
   // As for any deployment: an instance administrator's, with a reason, audited.
-  const skipStageOrder = stageSkipFor(actor.req, project.id, review.connectionId, options);
+  const skipStageOrder = await stageSkipFor(actor.req, project.id, review.connectionId, options);
 
   let result: DeployToConnectionResult;
   try {
@@ -356,13 +370,13 @@ export async function deployReview(
     });
   } catch (err) {
     if (err instanceof ApiError && err.code === "DEPLOYMENT_REVIEW_STALE") {
-      closeAsStale(review, (err.details?.reason as DeploymentReviewCloseReason | undefined) ?? "database", user);
+      await closeAsStale(review, (err.details?.reason as DeploymentReviewCloseReason | undefined) ?? "database", user);
     }
     throw err;
   }
 
-  markReviewDeployed(review.id, new Date());
-  auditUser(
+  await markReviewDeployed(review.id, new Date());
+  await auditUser(
     user,
     "connection.deploy",
     { type: "project", id: project.id },
@@ -371,6 +385,8 @@ export async function deployReview(
     { connectionId: review.connectionId },
   );
   // The other half of the pair learns it ran, whether or not they follow the project.
-  announce(review, "deployed", user.email, [review.requestedBy === user.id ? review.decidedBy : review.requestedBy]);
+  await announce(review, "deployed", user.email, [
+    review.requestedBy === user.id ? review.decidedBy : review.requestedBy,
+  ]);
   return result;
 }

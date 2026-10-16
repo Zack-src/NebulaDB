@@ -3,10 +3,11 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
 // Same rationale as `app.test.ts`: env vars must land before anything
 // transitively imports `db.ts`/`shared/crypto.ts`.
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-connroutes-${randomUUID()}.sqlite`);
+await useTestDatabase("connroutes");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -39,19 +40,16 @@ async function makeUser(isAdmin: 0 | 1 = 0) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)").run(
-    id,
-    email,
-    await hashPassword(password),
-    isAdmin,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)")
+    .run(id, email, await hashPassword(password), isAdmin);
   return { id, email, password };
 }
 
 /** Seeds the project's live canvas doc with a single table — bypasses the WebSocket entirely, using the same `writeProjectToDoc` the real sync path calls. */
-function seedCanvasTable(projectId: string, projectName: string) {
-  const room = getRoom(projectId);
-  room.doc.transact(() => {
+async function seedCanvasTable(projectId: string, projectName: string) {
+  const room = await getRoom(projectId);
+  await room.write(() => {
     writeProjectToDoc(room.doc, {
       id: projectId,
       name: projectName,
@@ -88,7 +86,7 @@ test("deployment history + rollback: full lifecycle against a real SQLite target
       payload: { name: "Deploy target project" },
     });
     const project = created.json();
-    seedCanvasTable(project.id, project.name);
+    await seedCanvasTable(project.id, project.name);
 
     const connRes = await app.inject({
       method: "POST",
@@ -198,7 +196,7 @@ test("deployment history + rollback: full lifecycle against a real SQLite target
     // module scope, outside the Fastify instance `app.close()` tears down —
     // without this, the timer keeps the process alive after the test run
     // finishes instead of exiting cleanly.
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -218,8 +216,8 @@ test("plan-deployment surfaces a type-translation risk for a column type the tar
     });
     const project = created.json();
 
-    const room = getRoom(project.id);
-    room.doc.transact(() => {
+    const room = await getRoom(project.id);
+    await room.write(() => {
       writeProjectToDoc(room.doc, {
         id: project.id,
         name: project.name,
@@ -275,7 +273,7 @@ test("plan-deployment surfaces a type-translation risk for a column type the tar
     assert.equal(apply.statusCode, 200);
     assert.match(apply.json().sql, /"id" text/);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -325,7 +323,7 @@ test("deployment history and rollback are admin-only, not just view", async () =
     // module scope, outside the Fastify instance `app.close()` tears down —
     // without this, the timer keeps the process alive after the test run
     // finishes instead of exiting cleanly.
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -392,7 +390,7 @@ test("rollback on an unknown history entry, or one with no rollback SQL, is refu
     // module scope, outside the Fastify instance `app.close()` tears down —
     // without this, the timer keeps the process alive after the test run
     // finishes instead of exiting cleanly.
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -488,7 +486,7 @@ test("from-database creates a project pre-populated with the live schema, no sep
     });
     assert.equal(connections.json().connections[0].id, body.connectionId);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -500,14 +498,14 @@ test("from-database rolls back the project (and its connection) if introspection
     const cookie = await loginAs(app, owner.email, owner.password);
     const projectName = `Should not survive ${randomUUID()}`;
 
-    // Pointing at NebulaDB's own database file trips `assertNotAppDatabase`
-    // in the SQLite driver's constructor — a deterministic, realistic
-    // introspection failure to verify the rollback against.
+    // The cloud metadata address is refused when the driver is opened (see
+    // `hostGuard.ts`) — a deterministic introspection failure, with nothing
+    // to reach, to verify the rollback against.
     const res = await app.inject({
       method: "POST",
       url: "/api/projects/from-database",
       headers: headers({ cookie }),
-      payload: { projectName, engine: "sqlite", filePath: process.env.NEBULADB_DB_PATH },
+      payload: { projectName, engine: "postgres", host: "169.254.169.254", database: "app", user: "app" },
     });
     assert.equal(res.statusCode, 400);
     assert.equal(res.json().code, "CONNECTION_TARGET_FORBIDDEN");
@@ -520,7 +518,7 @@ test("from-database rolls back the project (and its connection) if introspection
     const after = await app.inject({ method: "GET", url: "/api/projects", headers: headers({ cookie }) });
     assert.ok(!after.json().some((p: { name: string }) => p.name === projectName));
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

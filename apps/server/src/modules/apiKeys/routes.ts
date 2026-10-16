@@ -16,7 +16,7 @@ const MAX_NAME_LENGTH = 100;
 export function registerApiKeyRoutes(app: FastifyInstance): void {
   app.get("/api/keys", async (req) => {
     const user = requireSessionUser(req);
-    return { keys: listApiKeysByUser(user.id) };
+    return { keys: await listApiKeysByUser(user.id) };
   });
 
   app.post("/api/keys", async (req, reply) => {
@@ -35,19 +35,19 @@ export function registerApiKeyRoutes(app: FastifyInstance): void {
     const projectId = body.projectId ?? null;
     // A project-restricted key still has to name a project the caller can
     // actually see — otherwise this would be a way to probe for project ids.
-    if (projectId) requireProjectAccess(req, projectId, "view");
+    if (projectId) await requireProjectAccess(req, projectId, "view");
 
-    const created = createApiKey(user.id, name, scopes, projectId);
-    auditUser(user, "apikey.create", { type: "user", id: user.id }, `${name} (${scopes.join(", ")})`, req);
+    const created = await createApiKey(user.id, name, scopes, projectId);
+    await auditUser(user, "apikey.create", { type: "user", id: user.id }, `${name} (${scopes.join(", ")})`, req);
     return reply.code(201).send(created);
   });
 
   app.delete("/api/keys/:id", async (req) => {
     const user = requireSessionUser(req);
     const { id } = req.params as { id: string };
-    const ok = revokeApiKey(user.id, id);
+    const ok = await revokeApiKey(user.id, id);
     if (!ok) throw new ApiError("API_KEY_NOT_FOUND");
-    auditUser(user, "apikey.revoke", { type: "user", id: user.id }, id, req);
+    await auditUser(user, "apikey.revoke", { type: "user", id: user.id }, id, req);
     return { revoked: true };
   });
 

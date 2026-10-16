@@ -34,13 +34,14 @@ const RETRY_DELAYS_MS = [60_000, 5 * 60_000, 30 * 60_000, 2 * 3_600_000, 6 * 3_6
 const AUTO_DISABLE_AFTER = 20;
 const BATCH = 20;
 
-function projectInfo(projectId: string): { id: string; name: string; url: string | null } | null {
-  const row = db.prepare("SELECT name FROM projects WHERE id = ?").get(projectId) as { name: string } | undefined;
+async function projectInfo(projectId: string): Promise<{ id: string; name: string; url: string | null } | null> {
+  const row = (await db.prepare("SELECT name FROM projects WHERE id = ?").get(projectId)) as
+    { name: string } | undefined;
   if (!row) return null;
   return { id: projectId, name: row.name, url: config.publicUrl ? `${config.publicUrl}/project/${projectId}` : null };
 }
 
-function enqueue(
+async function enqueue(
   webhook: WebhookRow,
   event: WebhookEvent,
   project: WebhookEnvelope["project"],
@@ -48,37 +49,37 @@ function enqueue(
 ) {
   const id = crypto.randomUUID();
   const envelope: WebhookEnvelope = { id, event, occurredAt: new Date().toISOString(), project, data };
-  insertDelivery({ id, webhookId: webhook.id, event, payload: JSON.stringify(envelope) });
+  await insertDelivery({ id, webhookId: webhook.id, event, payload: JSON.stringify(envelope) });
   return id;
 }
 
 /** Queues `event` for every enabled webhook of the project subscribed to it, then nudges the worker. */
-export function emitWebhookEvent(
+export async function emitWebhookEvent(
   projectId: string,
   event: Exclude<WebhookEvent, "ping">,
   data: Record<string, unknown>,
-): void {
-  const subscribers = listSubscribers(projectId, event);
+): Promise<void> {
+  const subscribers = await listSubscribers(projectId, event);
   if (subscribers.length === 0) return;
-  const project = projectInfo(projectId);
+  const project = await projectInfo(projectId);
   if (!project) return;
-  for (const webhook of subscribers) enqueue(webhook, event, project, data);
+  for (const webhook of subscribers) await enqueue(webhook, event, project, data);
   kick();
 }
 
 /** The "send a test" button: queues a `ping` for one webhook and delivers it right away, returning the outcome. */
 export async function sendPing(webhook: WebhookRow): Promise<DeliveryRow> {
-  const project = projectInfo(webhook.project_id)!;
-  const id = enqueue(webhook, "ping", project, { message: "Test depuis NebulaDB" });
-  await attempt(getDelivery(id)!);
-  return getDelivery(id)!;
+  const project = (await projectInfo(webhook.project_id))!;
+  const id = await enqueue(webhook, "ping", project, { message: "Test depuis NebulaDB" });
+  await attempt((await getDelivery(id))!);
+  return (await getDelivery(id))!;
 }
 
 async function attempt(delivery: DeliveryRow): Promise<void> {
-  const webhook = getWebhookById(delivery.webhook_id);
+  const webhook = await getWebhookById(delivery.webhook_id);
   const attempts = delivery.attempts + 1;
   if (!webhook || (webhook.enabled !== 1 && delivery.event !== "ping")) {
-    recordAttempt(delivery.id, {
+    await recordAttempt(delivery.id, {
       status: "failed",
       attempts: delivery.attempts,
       nextAttemptAt: null,
@@ -94,7 +95,7 @@ async function attempt(delivery: DeliveryRow): Promise<void> {
   try {
     secret = decryptPayload<string>(webhook.secret_encrypted);
   } catch {
-    recordAttempt(delivery.id, {
+    await recordAttempt(delivery.id, {
       status: "failed",
       attempts,
       nextAttemptAt: null,
@@ -115,20 +116,20 @@ async function attempt(delivery: DeliveryRow): Promise<void> {
   });
 
   if (result.ok) {
-    recordAttempt(delivery.id, {
+    await recordAttempt(delivery.id, {
       status: "succeeded",
       attempts,
       nextAttemptAt: null,
       error: null,
       responseStatus: result.status,
     });
-    recordWebhookOutcome(webhook.id, true);
+    await recordWebhookOutcome(webhook.id, true);
     return;
   }
 
   const delay = delivery.event === "ping" ? undefined : RETRY_DELAYS_MS[attempts - 1];
   if (delay !== undefined) {
-    recordAttempt(delivery.id, {
+    await recordAttempt(delivery.id, {
       status: "pending",
       attempts,
       nextAttemptAt: new Date(Date.now() + delay).toISOString(),
@@ -137,7 +138,7 @@ async function attempt(delivery: DeliveryRow): Promise<void> {
     });
     return;
   }
-  recordAttempt(delivery.id, {
+  await recordAttempt(delivery.id, {
     status: "failed",
     attempts,
     nextAttemptAt: null,
@@ -146,9 +147,9 @@ async function attempt(delivery: DeliveryRow): Promise<void> {
   });
   // A failed ping is feedback for the person testing, not a sign the endpoint is dead.
   if (delivery.event === "ping") return;
-  const failures = recordWebhookOutcome(webhook.id, false);
+  const failures = await recordWebhookOutcome(webhook.id, false);
   if (failures >= AUTO_DISABLE_AFTER) {
-    disableWebhook(webhook.id, `désactivé automatiquement après ${failures} livraisons échouées d'affilée`);
+    await disableWebhook(webhook.id, `désactivé automatiquement après ${failures} livraisons échouées d'affilée`);
   }
 }
 
@@ -156,7 +157,7 @@ let running: Promise<void> | null = null;
 
 async function drainDueDeliveries(): Promise<void> {
   for (;;) {
-    const due = listDueDeliveries(new Date().toISOString(), BATCH);
+    const due = await listDueDeliveries(new Date().toISOString(), BATCH);
     if (due.length === 0) return;
     for (const delivery of due) await attempt(delivery);
   }
@@ -166,9 +167,8 @@ async function drainDueDeliveries(): Promise<void> {
 export function processDueDeliveries(): Promise<void> {
   if (running) return running;
   // Cleared from `.finally` on purpose, not from a `finally` block inside the
-  // async function: with nothing due, that function completes synchronously,
-  // so its `finally` would run *before* this assignment and leave `running`
-  // pinned to a settled promise — silently stopping the queue for good.
+  // async function: `running` must be cleared by the same promise it holds,
+  // whenever that settles, and never before this assignment has been made.
   running = drainDueDeliveries().finally(() => {
     running = null;
   });
@@ -220,9 +220,9 @@ export function setSchemaChangeQuietPeriod(ms: number): void {
  */
 const hasWebhooksCache = new Map<string, boolean>();
 
-export function invalidateWebhookCache(projectId: string): void {
+export async function invalidateWebhookCache(projectId: string): Promise<void> {
   hasWebhooksCache.delete(projectId);
-  if (countWebhooks(projectId) === 0) {
+  if ((await countWebhooks(projectId)) === 0) {
     lastNotified.delete(projectId);
     const entry = pending.get(projectId);
     if (entry) clearTimeout(entry.timer);
@@ -230,40 +230,44 @@ export function invalidateWebhookCache(projectId: string): void {
   }
 }
 
-function projectHasWebhooks(projectId: string): boolean {
+async function projectHasWebhooks(projectId: string): Promise<boolean> {
   let has = hasWebhooksCache.get(projectId);
   if (has === undefined) {
-    has = countWebhooks(projectId) > 0;
+    has = (await countWebhooks(projectId)) > 0;
     hasWebhooksCache.set(projectId, has);
   }
   return has;
 }
 
 /** Called for every doc update (see `setRoomDocChangeListener`); a Map lookup unless the project has webhooks. */
-export function noteSchemaChange(projectId: string, author: string): void {
-  if (!projectHasWebhooks(projectId)) return;
+export async function noteSchemaChange(projectId: string, author: string): Promise<void> {
+  if (!(await projectHasWebhooks(projectId))) return;
   if (!lastNotified.has(projectId)) {
-    const name = projectInfo(projectId)?.name ?? "";
-    lastNotified.set(projectId, readSnapshotProject(projectId, name));
+    const name = (await projectInfo(projectId))?.name ?? "";
+    lastNotified.set(projectId, await readSnapshotProject(projectId, name));
   }
   const entry = pending.get(projectId) ?? { timer: undefined as unknown as NodeJS.Timeout, authors: new Set<string>() };
   clearTimeout(entry.timer);
   if (author && author !== "system") entry.authors.add(author);
-  entry.timer = setTimeout(() => flushSchemaChange(projectId), quietPeriodMs);
+  entry.timer = setTimeout(() => {
+    flushSchemaChange(projectId).catch((err: unknown) => {
+      console.error("[webhooks] schema change notification failed:", err);
+    });
+  }, quietPeriodMs);
   entry.timer.unref();
   pending.set(projectId, entry);
 }
 
-export function flushSchemaChange(projectId: string): void {
+export async function flushSchemaChange(projectId: string): Promise<void> {
   const entry = pending.get(projectId);
   if (!entry) return;
   clearTimeout(entry.timer);
   pending.delete(projectId);
-  if (listSubscribers(projectId, "schema.changed").length === 0) return;
-  const project = projectInfo(projectId);
+  if ((await listSubscribers(projectId, "schema.changed")).length === 0) return;
+  const project = await projectInfo(projectId);
   if (!project) return;
 
-  const current = readProjectReadOnly(projectId, project.name);
+  const current = await readProjectReadOnly(projectId, project.name);
   const baseline = lastNotified.get(projectId);
   lastNotified.set(projectId, current);
   let changes: Record<string, number> | null = null;
@@ -278,7 +282,7 @@ export function flushSchemaChange(projectId: string): void {
     // Nothing structural moved (a table dragged, a colour changed): not worth a notification.
     if (Object.values(changes).every((n) => n === 0)) return;
   }
-  emitWebhookEvent(projectId, "schema.changed", {
+  await emitWebhookEvent(projectId, "schema.changed", {
     authors: [...entry.authors],
     changes,
     tableCount: current.tables.length,

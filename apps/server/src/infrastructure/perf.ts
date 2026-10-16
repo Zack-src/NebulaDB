@@ -33,6 +33,20 @@ export function timeSync<T>(label: string, fn: () => T): T {
   }
 }
 
+/**
+ * `timeSync` for a call that waits on the database. What is recorded is how
+ * long the caller waited — mostly the round trip, during which the event loop
+ * is free — so a high figure here means a slow database, not a stalled server.
+ */
+export async function timeAsync<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  const start = Date.now();
+  try {
+    return await fn();
+  } finally {
+    record(label, Date.now() - start);
+  }
+}
+
 export interface PerfReportRow {
   label: string;
   count: number;

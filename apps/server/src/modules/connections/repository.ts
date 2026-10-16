@@ -15,6 +15,7 @@ import { decryptPayload, encryptPayload } from "../../shared/crypto.js";
 import { ApiError } from "../../shared/errors.js";
 import { deleteBackupsOfConnection } from "../backups/repository.js";
 import { getEnvironment, resolveConnectionEnvironment } from "../environments/repository.js";
+import { mapAsync } from "../../shared/async.js";
 
 interface ConnectionRow {
   id: string;
@@ -74,10 +75,12 @@ function maskConnectionString(value: string | undefined): string | undefined {
 }
 
 /** The connection's stage as the summary shows it — name, colour, production — or nothing. */
-function stageFields(
+async function stageFields(
   row: ConnectionRow,
-): Pick<DatabaseConnectionSummary, "environment" | "environmentId" | "environmentColor" | "production" | "protection"> {
-  const stage = row.environment_id ? getEnvironment(row.environment_id) : null;
+): Promise<
+  Pick<DatabaseConnectionSummary, "environment" | "environmentId" | "environmentColor" | "production" | "protection">
+> {
+  const stage = row.environment_id ? await getEnvironment(row.environment_id) : null;
   if (!stage) return {};
   return {
     environment: stage.name,
@@ -88,14 +91,14 @@ function stageFields(
   };
 }
 
-function rowToSummary(row: ConnectionRow, projectId: string): DatabaseConnectionSummary {
+async function rowToSummary(row: ConnectionRow, projectId: string): Promise<DatabaseConnectionSummary> {
   const config = decryptPayload<DatabaseConnectionConfig>(row.config_encrypted);
   return {
     id: row.id,
     projectId,
     name: row.name,
     engine: row.engine as DatabaseEngine,
-    ...stageFields(row),
+    ...(await stageFields(row)),
     host: config.host,
     port: config.port,
     database: config.database,
@@ -147,8 +150,8 @@ function assertAuthModeFits(
   }
 }
 
-function getRow(id: string): ConnectionRow | undefined {
-  return db.prepare("SELECT * FROM db_connections WHERE id = ?").get(id) as ConnectionRow | undefined;
+async function getRow(id: string): Promise<ConnectionRow | undefined> {
+  return (await db.prepare("SELECT * FROM db_connections WHERE id = ?").get(id)) as ConnectionRow | undefined;
 }
 
 /** The fields kept only in their own plain columns never go into the encrypted blob. */
@@ -176,10 +179,10 @@ function toBlob(config: Partial<DatabaseConnectionConfig>): string {
  * own: a connection is a server, and each project attached to it can have its
  * database there. `null`: the connection's own.
  */
-function linkDatabase(projectId: string, connectionId: string): string | null {
-  const row = db
+async function linkDatabase(projectId: string, connectionId: string): Promise<string | null> {
+  const row = (await db
     .prepare("SELECT database_name FROM project_connection_links WHERE project_id = ? AND connection_id = ?")
-    .get(projectId, connectionId) as { database_name: string | null } | undefined;
+    .get(projectId, connectionId)) as { database_name: string | null } | undefined;
   return row?.database_name ?? null;
 }
 
@@ -188,34 +191,34 @@ function takesLinkDatabase(config: Pick<DatabaseConnectionConfig, "engine" | "co
   return config.engine !== "sqlite" && !config.connectionString?.trim();
 }
 
-function projectSummary(row: ConnectionRow, projectId: string): DatabaseConnectionSummary {
-  const summary = rowToSummary(row, projectId);
-  const database = linkDatabase(projectId, row.id);
+async function projectSummary(row: ConnectionRow, projectId: string): Promise<DatabaseConnectionSummary> {
+  const summary = await rowToSummary(row, projectId);
+  const database = await linkDatabase(projectId, row.id);
   return database && takesLinkDatabase(summary) ? { ...summary, database } : summary;
 }
 
-export function listConnectionsByProject(projectId: string): DatabaseConnectionSummary[] {
-  const rows = db
+export async function listConnectionsByProject(projectId: string): Promise<DatabaseConnectionSummary[]> {
+  const rows = (await db
     .prepare(
       `SELECT c.* FROM db_connections c
          JOIN project_connection_links l ON l.connection_id = c.id
         WHERE l.project_id = ? ORDER BY c.created_at ASC`,
     )
-    .all(projectId) as ConnectionRow[];
-  return rows.map((row) => projectSummary(row, projectId));
+    .all(projectId)) as ConnectionRow[];
+  return mapAsync(rows, (row) => projectSummary(row, projectId));
 }
 
-export function isConnectionLinked(projectId: string, connectionId: string): boolean {
+export async function isConnectionLinked(projectId: string, connectionId: string): Promise<boolean> {
   return (
-    db
+    (await db
       .prepare("SELECT 1 FROM project_connection_links WHERE project_id = ? AND connection_id = ?")
-      .get(projectId, connectionId) !== undefined
+      .get(projectId, connectionId)) !== undefined
   );
 }
 
 /** The decrypted config, with no project context — the admin console's view of a connection. */
-export function getConnectionById(id: string): DatabaseConnectionConfig | null {
-  const row = getRow(id);
+export async function getConnectionById(id: string): Promise<DatabaseConnectionConfig | null> {
+  const row = await getRow(id);
   return row ? rowToConfig(row, "") : null;
 }
 
@@ -229,68 +232,82 @@ export function getConnectionById(id: string): DatabaseConnectionConfig | null {
  * deployment, pull, comparison, watch and backup of a project goes through
  * here, so none of them can land in another project's database on the server.
  */
-export function getProjectConnection(projectId: string, connectionId: string): DatabaseConnectionConfig | null {
-  if (!isConnectionLinked(projectId, connectionId)) return null;
-  const row = getRow(connectionId);
+export async function getProjectConnection(
+  projectId: string,
+  connectionId: string,
+): Promise<DatabaseConnectionConfig | null> {
+  if (!(await isConnectionLinked(projectId, connectionId))) return null;
+  const row = await getRow(connectionId);
   if (!row) return null;
   const config = rowToConfig(row, projectId);
-  const database = linkDatabase(projectId, connectionId);
+  const database = await linkDatabase(projectId, connectionId);
   return database && takesLinkDatabase(config) ? { ...config, database } : config;
 }
 
-export function getConnectionOrigin(id: string): ConnectionOrigin | null {
-  const row = getRow(id);
+export async function getConnectionOrigin(id: string): Promise<ConnectionOrigin | null> {
+  const row = await getRow(id);
   return row ? (row.origin as ConnectionOrigin) : null;
 }
 
-function insertConnection(config: ConnectionInput, origin: ConnectionOrigin, createdBy: string | null): string {
+async function insertConnection(
+  config: ConnectionInput,
+  origin: ConnectionOrigin,
+  createdBy: string | null,
+): Promise<string> {
   const id = crypto.randomUUID();
-  const stage = resolveConnectionEnvironment(config) ?? null;
-  db.prepare(
-    `INSERT INTO db_connections
+  const stage = (await resolveConnectionEnvironment(config)) ?? null;
+  await db
+    .prepare(
+      `INSERT INTO db_connections
        (id, name, engine, environment, environment_id, config_encrypted, tags, origin, read_only, created_by)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-  ).run(
-    id,
-    config.name.trim(),
-    config.engine,
-    stage?.name ?? null,
-    stage?.id ?? null,
-    toBlob(config),
-    JSON.stringify(normalizeTags(config.tags)),
-    origin,
-    config.readOnly ? 1 : 0,
-    createdBy,
-  );
+    )
+    .run(
+      id,
+      config.name.trim(),
+      config.engine,
+      stage?.name ?? null,
+      stage?.id ?? null,
+      toBlob(config),
+      JSON.stringify(normalizeTags(config.tags)),
+      origin,
+      config.readOnly ? 1 : 0,
+      createdBy,
+    );
   return id;
 }
 
 /** Creates a connection from inside a project and attaches it to that project. */
-export function saveConnection(projectId: string, config: ConnectionInput): DatabaseConnectionSummary {
-  const id = db.transaction(() => {
-    const newId = insertConnection(config, "project", null);
-    db.prepare("INSERT INTO project_connection_links (project_id, connection_id) VALUES (?, ?)").run(projectId, newId);
+export async function saveConnection(projectId: string, config: ConnectionInput): Promise<DatabaseConnectionSummary> {
+  const id = await db.transaction(async () => {
+    const newId = await insertConnection(config, "project", null);
+    await db
+      .prepare("INSERT INTO project_connection_links (project_id, connection_id) VALUES (?, ?)")
+      .run(projectId, newId);
     return newId;
-  })();
-  return rowToSummary(getRow(id)!, projectId);
+  });
+  return await rowToSummary((await getRow(id))!, projectId);
 }
 
 /** Creates a connection from the admin console, attached to nothing yet. */
-export function createGlobalConnection(config: ConnectionInput, createdBy: string): AdminConnectionSummary {
-  const id = insertConnection(config, "admin", createdBy);
+export async function createGlobalConnection(
+  config: ConnectionInput,
+  createdBy: string,
+): Promise<AdminConnectionSummary> {
+  const id = await insertConnection(config, "admin", createdBy);
   // The insert is shared with project-created connections, which never carry a policy.
-  if (config.structurePolicy) applyUpdate(id, { structurePolicy: config.structurePolicy }, true);
-  if (config.forcedMonitoring) applyUpdate(id, { forcedMonitoring: config.forcedMonitoring }, true);
+  if (config.structurePolicy) await applyUpdate(id, { structurePolicy: config.structurePolicy }, true);
+  if (config.forcedMonitoring) await applyUpdate(id, { forcedMonitoring: config.forcedMonitoring }, true);
   if (config.authMode && config.authMode !== "shared") {
     try {
-      applyUpdate(id, { authMode: config.authMode }, true);
+      await applyUpdate(id, { authMode: config.authMode }, true);
     } catch (err) {
       // Not half-created: a connection refused for its mode does not stay behind as a shared one.
-      deleteConnection(id);
+      await deleteConnection(id);
       throw err;
     }
   }
-  return getAdminConnection(id)!;
+  return (await getAdminConnection(id))!;
 }
 
 function rowStructurePolicy(row: ConnectionRow): StructurePolicySetting | null {
@@ -308,8 +325,12 @@ function rowForcedMonitoring(row: ConnectionRow): ForcedMonitoring | null {
  * administrator's to set. A project route passes `false`, and whatever it
  * sent for them is ignored rather than trusted.
  */
-function applyUpdate(id: string, updates: Partial<DatabaseConnectionConfig>, allowPolicy = false): boolean {
-  const row = getRow(id);
+async function applyUpdate(
+  id: string,
+  updates: Partial<DatabaseConnectionConfig>,
+  allowPolicy = false,
+): Promise<boolean> {
+  const row = await getRow(id);
   if (!row) return false;
   const existing = rowToConfig(row, "");
 
@@ -345,7 +366,7 @@ function applyUpdate(id: string, updates: Partial<DatabaseConnectionConfig>, all
   // (not in the encrypted blob): they are operator labels and a policy flag,
   // not secrets, and are read on paths that have no reason to decrypt.
   // A stage, never free text: `resolveConnectionEnvironment` refuses an unknown name.
-  const resolved = resolveConnectionEnvironment(updates);
+  const resolved = await resolveConnectionEnvironment(updates);
   const stage =
     resolved !== undefined
       ? resolved
@@ -363,45 +384,47 @@ function applyUpdate(id: string, updates: Partial<DatabaseConnectionConfig>, all
   const authMode = allowPolicy && updates.authMode !== undefined ? updates.authMode : row.auth_mode;
   assertAuthModeFits(authMode, merged);
 
-  db.prepare(
-    `UPDATE db_connections
+  await db
+    .prepare(
+      `UPDATE db_connections
         SET name = ?, engine = ?, environment = ?, environment_id = ?, config_encrypted = ?, tags = ?, read_only = ?,
             structure_policy = ?, structure_policy_sql = ?, monitor_forced = ?, monitor_interval_minutes = ?,
-            auth_mode = ?, updated_at = datetime('now')
+            auth_mode = ?, updated_at = utc_now()
       WHERE id = ?`,
-  ).run(
-    merged.name,
-    merged.engine,
-    stage?.name ?? null,
-    stage?.id ?? null,
-    toBlob(merged),
-    JSON.stringify(tags),
-    readOnly ? 1 : 0,
-    policy?.policy ?? null,
-    policy?.applyToSql === false ? 0 : 1,
-    watch ? 1 : 0,
-    watch?.intervalMinutes ?? row.monitor_interval_minutes,
-    authMode,
-    id,
-  );
+    )
+    .run(
+      merged.name,
+      merged.engine,
+      stage?.name ?? null,
+      stage?.id ?? null,
+      toBlob(merged),
+      JSON.stringify(tags),
+      readOnly ? 1 : 0,
+      policy?.policy ?? null,
+      policy?.applyToSql === false ? 0 : 1,
+      watch ? 1 : 0,
+      watch?.intervalMinutes ?? row.monitor_interval_minutes,
+      authMode,
+      id,
+    );
   return true;
 }
 
-export function updateConnection(
+export async function updateConnection(
   id: string,
   updates: Partial<DatabaseConnectionConfig>,
   projectId = "",
-): DatabaseConnectionSummary | null {
-  if (!applyUpdate(id, updates)) return null;
-  return projectId ? projectSummary(getRow(id)!, projectId) : rowToSummary(getRow(id)!, "");
+): Promise<DatabaseConnectionSummary | null> {
+  if (!(await applyUpdate(id, updates))) return null;
+  return projectId ? await projectSummary((await getRow(id))!, projectId) : await rowToSummary((await getRow(id))!, "");
 }
 
-export function updateGlobalConnection(
+export async function updateGlobalConnection(
   id: string,
   updates: Partial<DatabaseConnectionConfig>,
-): AdminConnectionSummary | null {
-  if (!applyUpdate(id, updates, true)) return null;
-  return getAdminConnection(id);
+): Promise<AdminConnectionSummary | null> {
+  if (!(await applyUpdate(id, updates, true))) return null;
+  return await getAdminConnection(id);
 }
 
 /**
@@ -409,20 +432,20 @@ export function updateGlobalConnection(
  * keeps its own snapshot of the name; its backups go with it — they hold its
  * data, and nothing would list them any more.
  */
-export function deleteConnection(id: string): boolean {
-  deleteBackupsOfConnection(id);
-  return db.transaction(() => {
-    db.prepare("DELETE FROM project_connection_links WHERE connection_id = ?").run(id);
-    db.prepare("DELETE FROM admin_query_history WHERE connection_id = ?").run(id);
-    db.prepare("DELETE FROM saved_queries WHERE connection_id = ?").run(id);
-    db.prepare("DELETE FROM schema_fingerprints WHERE connection_id = ?").run(id);
-    db.prepare("DELETE FROM db_connection_credentials WHERE connection_id = ?").run(id);
-    db.prepare("DELETE FROM db_access_grants WHERE connection_id = ?").run(id);
-    db.prepare("DELETE FROM db_account_hints WHERE connection_id = ?").run(id);
-    db.prepare("DELETE FROM account_baselines WHERE connection_id = ?").run(id);
-    db.prepare("DELETE FROM query_stats WHERE connection_id = ?").run(id);
-    return db.prepare("DELETE FROM db_connections WHERE id = ?").run(id).changes > 0;
-  })();
+export async function deleteConnection(id: string): Promise<boolean> {
+  await deleteBackupsOfConnection(id);
+  return await db.transaction(async () => {
+    await db.prepare("DELETE FROM project_connection_links WHERE connection_id = ?").run(id);
+    await db.prepare("DELETE FROM admin_query_history WHERE connection_id = ?").run(id);
+    await db.prepare("DELETE FROM saved_queries WHERE connection_id = ?").run(id);
+    await db.prepare("DELETE FROM schema_fingerprints WHERE connection_id = ?").run(id);
+    await db.prepare("DELETE FROM db_connection_credentials WHERE connection_id = ?").run(id);
+    await db.prepare("DELETE FROM db_access_grants WHERE connection_id = ?").run(id);
+    await db.prepare("DELETE FROM db_account_hints WHERE connection_id = ?").run(id);
+    await db.prepare("DELETE FROM account_baselines WHERE connection_id = ?").run(id);
+    await db.prepare("DELETE FROM query_stats WHERE connection_id = ?").run(id);
+    return (await db.prepare("DELETE FROM db_connections WHERE id = ?").run(id)).changes > 0;
+  });
 }
 
 /**
@@ -430,44 +453,51 @@ export function deleteConnection(id: string): boolean {
  * through a project and is now attached to nothing is deleted with its
  * credentials; an admin-created one stays in the global list.
  */
-export function unlinkProjectConnection(projectId: string, connectionId: string): boolean {
-  return db.transaction(() => {
-    const removed = db
-      .prepare("DELETE FROM project_connection_links WHERE project_id = ? AND connection_id = ?")
-      .run(projectId, connectionId).changes;
+export async function unlinkProjectConnection(projectId: string, connectionId: string): Promise<boolean> {
+  return await db.transaction(async () => {
+    const removed = (
+      await db
+        .prepare("DELETE FROM project_connection_links WHERE project_id = ? AND connection_id = ?")
+        .run(projectId, connectionId)
+    ).changes;
     if (removed === 0) return false;
-    db.prepare("DELETE FROM schema_fingerprints WHERE project_id = ? AND connection_id = ?").run(
-      projectId,
-      connectionId,
-    );
-    db.prepare("DELETE FROM account_baselines WHERE project_id = ? AND connection_id = ?").run(projectId, connectionId);
-    pruneOrphanProjectConnections();
+    await db
+      .prepare("DELETE FROM schema_fingerprints WHERE project_id = ? AND connection_id = ?")
+      .run(projectId, connectionId);
+    await db
+      .prepare("DELETE FROM account_baselines WHERE project_id = ? AND connection_id = ?")
+      .run(projectId, connectionId);
+    await pruneOrphanProjectConnections();
     return true;
-  })();
+  });
 }
 
-function pruneOrphanProjectConnections(): void {
-  db.prepare(
-    `DELETE FROM db_connections
+async function pruneOrphanProjectConnections(): Promise<void> {
+  await db
+    .prepare(
+      `DELETE FROM db_connections
       WHERE origin = 'project' AND owner_user_id IS NULL
         AND NOT EXISTS (SELECT 1 FROM project_connection_links l WHERE l.connection_id = db_connections.id)`,
-  ).run();
-  db.prepare("DELETE FROM db_connection_credentials WHERE connection_id NOT IN (SELECT id FROM db_connections)").run();
-  db.prepare("DELETE FROM db_access_grants WHERE connection_id NOT IN (SELECT id FROM db_connections)").run();
-  db.prepare("DELETE FROM db_account_hints WHERE connection_id NOT IN (SELECT id FROM db_connections)").run();
+    )
+    .run();
+  await db
+    .prepare("DELETE FROM db_connection_credentials WHERE connection_id NOT IN (SELECT id FROM db_connections)")
+    .run();
+  await db.prepare("DELETE FROM db_access_grants WHERE connection_id NOT IN (SELECT id FROM db_connections)").run();
+  await db.prepare("DELETE FROM db_account_hints WHERE connection_id NOT IN (SELECT id FROM db_connections)").run();
 }
 
-function rowToAdminSummary(row: ConnectionRow): AdminConnectionSummary {
-  const projects = db
+async function rowToAdminSummary(row: ConnectionRow): Promise<AdminConnectionSummary> {
+  const projects = (await db
     .prepare(
       `SELECT p.id AS id, p.name AS name, l.database_name AS database, p.status = 'trashed' AS trashed
          FROM project_connection_links l
          JOIN projects p ON p.id = l.project_id
-        WHERE l.connection_id = ? ORDER BY p.name COLLATE NOCASE`,
+        WHERE l.connection_id = ? ORDER BY LOWER(p.name)`,
     )
-    .all(row.id) as { id: string; name: string; database: string | null; trashed: number }[];
+    .all(row.id)) as { id: string; name: string; database: string | null; trashed: number }[];
   return {
-    ...rowToSummary(row, ""),
+    ...(await rowToSummary(row, "")),
     origin: row.origin as ConnectionOrigin,
     tags: parseTags(row.tags),
     readOnly: row.read_only === 1,
@@ -489,16 +519,16 @@ function rowToAdminSummary(row: ConnectionRow): AdminConnectionSummary {
   };
 }
 
-export function listAllConnections(): AdminConnectionSummary[] {
-  const rows = db
-    .prepare("SELECT * FROM db_connections WHERE owner_user_id IS NULL ORDER BY name COLLATE NOCASE, created_at")
-    .all() as ConnectionRow[];
-  return rows.map(rowToAdminSummary);
+export async function listAllConnections(): Promise<AdminConnectionSummary[]> {
+  const rows = (await db
+    .prepare("SELECT * FROM db_connections WHERE owner_user_id IS NULL ORDER BY LOWER(name), created_at")
+    .all()) as ConnectionRow[];
+  return mapAsync(rows, rowToAdminSummary);
 }
 
-export function getAdminConnection(id: string): AdminConnectionSummary | null {
-  const row = getRow(id);
-  return row && !row.owner_user_id ? rowToAdminSummary(row) : null;
+export async function getAdminConnection(id: string): Promise<AdminConnectionSummary | null> {
+  const row = await getRow(id);
+  return row && !row.owner_user_id ? await rowToAdminSummary(row) : null;
 }
 
 /** One project a connection is attached to. `database` left out keeps what the link has; `null` goes back to the connection's own. */
@@ -511,17 +541,17 @@ export interface ConnectionProjectLink {
 const LINK_DATABASE_NAME = /^[A-Za-z0-9_$.-]{1,128}$/;
 
 /** What `links` would make of the connection's links, or the refusal — nothing is written. */
-function resolveLinks(connectionId: string, links: ConnectionProjectLink[]) {
-  const row = getRow(connectionId);
+async function resolveLinks(connectionId: string, links: ConnectionProjectLink[]) {
+  const row = await getRow(connectionId);
   if (!row) throw new ApiError("CONNECTION_NOT_FOUND");
   const config = rowToConfig(row, "");
   const named = takesLinkDatabase(config);
 
   const before = new Map(
     (
-      db
+      (await db
         .prepare("SELECT project_id, database_name FROM project_connection_links WHERE connection_id = ?")
-        .all(connectionId) as { project_id: string; database_name: string | null }[]
+        .all(connectionId)) as { project_id: string; database_name: string | null }[]
     ).map((link) => [link.project_id, link.database_name]),
   );
   const wanted = new Map<string, string | null>();
@@ -530,7 +560,7 @@ function resolveLinks(connectionId: string, links: ConnectionProjectLink[]) {
   const trashed = new Set<string>();
   for (const link of links) {
     // An unknown project is left out, not refused — and takes no database from a real one.
-    const project = status.get(link.projectId) as { status: string } | undefined;
+    const project = (await status.get(link.projectId)) as { status: string } | undefined;
     if (!project) continue;
     if (project.status === "trashed") trashed.add(link.projectId);
     const database = link.database === undefined ? (before.get(link.projectId) ?? null) : link.database?.trim() || null;
@@ -554,8 +584,8 @@ function resolveLinks(connectionId: string, links: ConnectionProjectLink[]) {
 }
 
 /** Refuses what `setConnectionProjects` would refuse, without changing anything. */
-export function checkConnectionProjects(connectionId: string, links: ConnectionProjectLink[]): void {
-  resolveLinks(connectionId, links);
+export async function checkConnectionProjects(connectionId: string, links: ConnectionProjectLink[]): Promise<void> {
+  await resolveLinks(connectionId, links);
 }
 
 /**
@@ -566,32 +596,34 @@ export function checkConnectionProjects(connectionId: string, links: ConnectionP
  * second deployment would see the first project's tables as ones to drop.
  * Refused whole (`CONNECTION_DATABASE_TAKEN`) rather than half applied.
  */
-export function setConnectionProjects(connectionId: string, links: ConnectionProjectLink[]): void {
-  db.transaction(() => {
-    const { before, wanted } = resolveLinks(connectionId, links);
+export async function setConnectionProjects(connectionId: string, links: ConnectionProjectLink[]): Promise<void> {
+  await db.transaction(async () => {
+    const { before, wanted } = await resolveLinks(connectionId, links);
 
-    db.prepare("DELETE FROM project_connection_links WHERE connection_id = ?").run(connectionId);
+    await db.prepare("DELETE FROM project_connection_links WHERE connection_id = ?").run(connectionId);
     const insert = db.prepare(
-      `INSERT OR IGNORE INTO project_connection_links (project_id, connection_id, database_name)
-       SELECT id, ?, ? FROM projects WHERE id = ?`,
+      `INSERT INTO project_connection_links (project_id, connection_id, database_name)
+       SELECT id, ?, ? FROM projects WHERE id = ? ON CONFLICT DO NOTHING`,
     );
     // What was read from one database says nothing about another: a link that
     // changes database starts over, like one that was just made.
     const forget = db.prepare("DELETE FROM schema_fingerprints WHERE connection_id = ? AND project_id = ?");
     const forgetAccounts = db.prepare("DELETE FROM account_baselines WHERE connection_id = ? AND project_id = ?");
     for (const [projectId, database] of wanted) {
-      insert.run(connectionId, database, projectId);
+      await insert.run(connectionId, database, projectId);
       if (before.has(projectId) && before.get(projectId) !== database) {
-        forget.run(connectionId, projectId);
-        forgetAccounts.run(connectionId, projectId);
+        await forget.run(connectionId, projectId);
+        await forgetAccounts.run(connectionId, projectId);
       }
     }
-    db.prepare(
-      `DELETE FROM schema_fingerprints
+    await db
+      .prepare(
+        `DELETE FROM schema_fingerprints
         WHERE connection_id = ?
           AND project_id NOT IN (SELECT project_id FROM project_connection_links WHERE connection_id = ?)`,
-    ).run(connectionId, connectionId);
-  })();
+      )
+      .run(connectionId, connectionId);
+  });
 }
 
 /**
@@ -600,25 +632,25 @@ export function setConnectionProjects(connectionId: string, links: ConnectionPro
  * detached from the connection — never two projects on one database. Returns
  * the connections it lost.
  */
-export function detachTakenLinks(projectId: string): string[] {
-  const links = db
+export async function detachTakenLinks(projectId: string): Promise<string[]> {
+  const links = (await db
     .prepare("SELECT connection_id, database_name FROM project_connection_links WHERE project_id = ?")
-    .all(projectId) as { connection_id: string; database_name: string | null }[];
+    .all(projectId)) as { connection_id: string; database_name: string | null }[];
   const others = db.prepare(
     `SELECT l.database_name FROM project_connection_links l JOIN projects p ON p.id = l.project_id
       WHERE l.connection_id = ? AND l.project_id <> ? AND p.status <> 'trashed'`,
   );
   const lost: string[] = [];
   for (const link of links) {
-    const row = getRow(link.connection_id);
+    const row = await getRow(link.connection_id);
     if (!row) continue;
     const config = rowToConfig(row, "");
     if (!takesLinkDatabase(config)) continue;
     const effective = (name: string | null) => (name ?? config.database ?? "").toLowerCase();
-    const taken = (others.all(link.connection_id, projectId) as { database_name: string | null }[]).some(
+    const taken = ((await others.all(link.connection_id, projectId)) as { database_name: string | null }[]).some(
       (other) => effective(other.database_name) === effective(link.database_name),
     );
-    if (taken && unlinkProjectConnection(projectId, link.connection_id)) lost.push(row.name);
+    if (taken && (await unlinkProjectConnection(projectId, link.connection_id))) lost.push(row.name);
   }
   return lost;
 }
@@ -630,14 +662,14 @@ export function detachTakenLinks(projectId: string): string[] {
  * its own. Hosts are compared as written: this stops the obvious way round,
  * while the database's own accounts remain what actually decides.
  */
-export function isAdminManagedTarget(
+export async function isAdminManagedTarget(
   config: Pick<DatabaseConnectionConfig, "engine" | "host" | "port" | "connectionString">,
-): boolean {
+): Promise<boolean> {
   const target = serverOf(config);
   if (!target) return false;
-  const rows = db
+  const rows = (await db
     .prepare("SELECT * FROM db_connections WHERE origin = 'admin' AND owner_user_id IS NULL AND engine = ?")
-    .all(config.engine) as ConnectionRow[];
+    .all(config.engine)) as ConnectionRow[];
   return rows.some((row) => serverOf(rowToConfig(row, "")) === target);
 }
 
@@ -676,45 +708,47 @@ export interface HealthResult {
   error?: string;
 }
 
-export function recordConnectionHealth(id: string, result: HealthResult): void {
-  db.prepare(
-    `UPDATE db_connections
-        SET last_status = ?, last_checked_at = datetime('now'), last_version = ?, last_latency_ms = ?, last_error = ?
+export async function recordConnectionHealth(id: string, result: HealthResult): Promise<void> {
+  await db
+    .prepare(
+      `UPDATE db_connections
+        SET last_status = ?, last_checked_at = utc_now(), last_version = ?, last_latency_ms = ?, last_error = ?
       WHERE id = ?`,
-  ).run(
-    result.ok ? "online" : "offline",
-    result.version ?? null,
-    Math.round(result.latencyMs),
-    result.ok ? null : (result.error ?? "unreachable").slice(0, 500),
-    id,
-  );
+    )
+    .run(
+      result.ok ? "online" : "offline",
+      result.version ?? null,
+      Math.round(result.latencyMs),
+      result.ok ? null : (result.error ?? "unreachable").slice(0, 500),
+      id,
+    );
   // A short series for the "Santé" tab; a week is kept.
-  db.prepare("INSERT INTO db_health_samples (connection_id, ok, latency_ms) VALUES (?, ?, ?)").run(
-    id,
-    result.ok ? 1 : 0,
-    Math.round(result.latencyMs),
-  );
-  db.prepare("DELETE FROM db_health_samples WHERE connection_id = ? AND at < datetime('now', '-7 days')").run(id);
+  await db
+    .prepare("INSERT INTO db_health_samples (connection_id, ok, latency_ms) VALUES (?, ?, ?)")
+    .run(id, result.ok ? 1 : 0, Math.round(result.latencyMs));
+  await db.prepare("DELETE FROM db_health_samples WHERE connection_id = ? AND at < utc_now('-7 days')").run(id);
 }
 
-export function connectionOwner(id: string): string | null {
-  return getRow(id)?.owner_user_id ?? null;
+export async function connectionOwner(id: string): Promise<string | null> {
+  return (await getRow(id))?.owner_user_id ?? null;
 }
-export function listPrivateConnections(userId: string): DatabaseConnectionSummary[] {
-  return (
-    db
-      .prepare("SELECT * FROM db_connections WHERE owner_user_id = ? ORDER BY name COLLATE NOCASE")
-      .all(userId) as ConnectionRow[]
-  ).map((row) => rowToSummary(row, ""));
+export async function listPrivateConnections(userId: string): Promise<DatabaseConnectionSummary[]> {
+  const rows = (await db
+    .prepare("SELECT * FROM db_connections WHERE owner_user_id = ? ORDER BY LOWER(name)")
+    .all(userId)) as ConnectionRow[];
+  return mapAsync(rows, (row) => rowToSummary(row, ""));
 }
-export function createPrivateConnection(config: ConnectionInput, userId: string): DatabaseConnectionSummary {
-  return db.transaction(() => {
-    const id = insertConnection({ ...config, authMode: "shared" }, "project", userId);
-    db.prepare("UPDATE db_connections SET owner_user_id = ? WHERE id = ?").run(userId, id);
-    return rowToSummary(getRow(id)!, "");
-  })();
+export async function createPrivateConnection(
+  config: ConnectionInput,
+  userId: string,
+): Promise<DatabaseConnectionSummary> {
+  return await db.transaction(async () => {
+    const id = await insertConnection({ ...config, authMode: "shared" }, "project", userId);
+    await db.prepare("UPDATE db_connections SET owner_user_id = ? WHERE id = ?").run(userId, id);
+    return await rowToSummary((await getRow(id))!, "");
+  });
 }
-export function connectionSummary(id: string): DatabaseConnectionSummary | null {
-  const row = getRow(id);
-  return row ? rowToSummary(row, "") : null;
+export async function connectionSummary(id: string): Promise<DatabaseConnectionSummary | null> {
+  const row = await getRow(id);
+  return row ? await rowToSummary(row, "") : null;
 }
