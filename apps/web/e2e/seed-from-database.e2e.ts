@@ -4,7 +4,7 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
-import { login, startE2eEnvironment } from "./harness.js";
+import { clickRevealedOnHover, login, startE2eEnvironment } from "./harness.js";
 
 /**
  * "Export as initial data": from a table in the database console, the rows it
@@ -70,15 +70,12 @@ test("seeds: a table's rows in the database become its initial data, after revie
     );
     target.close();
 
-    await page.goto(`${env.baseUrl}/project/${projectId}/data`);
-    await page.getByRole("button", { name: /countries/ }).click();
-    await page.getByRole("gridcell", { name: "Belgique" }).waitFor();
-    await snap("explorer");
-    await page.getByRole("button", { name: "Données initiales", exact: true }).click();
-
-    // Back on the schema, the table's dialog holds the database's rows — not saved yet.
-    await page.waitForURL(`${env.baseUrl}/project/${projectId}`);
+    // From the table on the schema: its initial data dialog takes the database's rows — not saved yet.
+    await page.goto(`${env.baseUrl}/project/${projectId}`);
+    const node = page.locator(".svelte-flow__node").filter({ hasText: "countries" });
+    await clickRevealedOnHover(node, node.getByRole("button", { name: "Données initiales (CSV)" }));
     const dialog = page.getByRole("dialog", { name: "Données initiales — countries" });
+    await dialog.getByRole("button", { name: "Reprendre les lignes de la base" }).click();
     await dialog.getByText("Lignes de « Base boutique »").waitFor();
     await dialog.getByText("3 lignes").waitFor();
     const preview = dialog.getByRole("table", { name: /Aperçu/ });
