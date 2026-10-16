@@ -22,8 +22,8 @@ const headers = (extra: Record<string, string> = {}) => ({ host: HOST, origin: `
 const PASSWORD = "correct horse battery staple";
 
 const app = await buildApp();
-after(async () => {
-  closeAllRooms();
+void after(async () => {
+  await closeAllRooms();
   await app.close();
 });
 
