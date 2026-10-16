@@ -5,6 +5,13 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, type Browser, type Locator, type Page } from "playwright-core";
 
+// The server's own helper, from its build like the server itself (`npm run build` comes first).
+const { createThrowawayDatabase } = (await import(
+  new URL("../../server/dist/infrastructure/testDatabase.js", import.meta.url).href
+)) as {
+  createThrowawayDatabase(label: string): Promise<{ url: string; drop(): Promise<void> }>;
+};
+
 /**
  * Shared boot/teardown for every `*.e2e.ts` file — spawn a real server
  * (built `apps/server/dist`) against a throwaway SQLite file, launch a real
@@ -159,9 +166,12 @@ export async function startE2eEnvironment(
 ): Promise<E2eEnvironment> {
   const baseUrl = `http://127.0.0.1:${port}`;
   const dataDir = mkdtempSync(join(tmpdir(), "nebuladb-e2e-"));
+  // A throwaway database on the test PostgreSQL, as the server's own tests use (`NEBULADB_TEST_PG_*`).
+  const database = await createThrowawayDatabase(`e2e_${port}`);
   const env: NodeJS.ProcessEnv = {
     ...process.env,
-    NEBULADB_DB_PATH: join(dataDir, "nebuladb.sqlite"),
+    NEBULADB_DATABASE_URL: database.url,
+    NEBULADB_DATABASE_BACKUP_DIR: join(dataDir, "database-backups"),
     NEBULADB_COOKIE_SECURE: "false",
     NEBULADB_SECRET: "e2e-test-secret-do-not-use-in-production",
     NEBULADB_LOG_LEVEL: "silent",
@@ -182,6 +192,7 @@ export async function startE2eEnvironment(
       await new Promise((resolve) => server!.once("exit", resolve)).catch(() => {});
     }
     rmSync(dataDir, { recursive: true, force: true });
+    await database.drop().catch(() => {});
   };
 
   try {
