@@ -45,6 +45,8 @@ export interface VariantEntry {
   syncedAt: string;
   syncedByName: string | null;
   canEdit: boolean;
+  /** May rename, trash or detach it. */
+  canManage: boolean;
   status: VariantStatus;
 }
 
@@ -107,4 +109,19 @@ export function detachVariant(projectId: string): Promise<void> {
 /** What `otherId` has differently from `projectId`. */
 export async function compareProjects(projectId: string, otherId: string): Promise<ProjectDiff> {
   return (await request<{ diff: ProjectDiff }>(`/api/projects/${projectId}/compare/${otherId}`)).diff;
+}
+
+/** `from`: `"original"`, or another variant of the same original. */
+export function resetVariant(projectId: string, from: string): Promise<{ reset: true; from: string }> {
+  return request(`/api/projects/${projectId}/variant/reset`, { method: "POST", body: { from } });
+}
+
+export interface ProjectFamily {
+  originalId: string;
+  members: { id: string; name: string; original: boolean }[];
+}
+
+/** The original and its variants the caller can see; `null` for a project without any. */
+export async function fetchFamily(projectId: string): Promise<ProjectFamily | null> {
+  return (await request<{ family: ProjectFamily | null }>(`/api/projects/${projectId}/family`)).family;
 }

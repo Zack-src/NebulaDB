@@ -1,6 +1,15 @@
 <script lang="ts">
   import Icon from "@/components/icons/Icon.svelte";
-  import { ChevronRightIcon, DatabaseIcon, FolderIcon, PencilIcon, PlusIcon, TrashIcon } from "@/components/icons/Icons";
+  import {
+    ChevronRightIcon,
+    CopyIcon,
+    DatabaseIcon,
+    FolderIcon,
+    PencilIcon,
+    PlusIcon,
+    TrashIcon,
+  } from "@/components/icons/Icons";
+  import ContextMenu, { type ContextMenuEntry } from "@/components/overlays/ContextMenu.svelte";
   import type { ProjectFolder } from "@nebuladb/shared";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import FolderNameModal from "@/features/projects/components/FolderNameModal.svelte";
@@ -8,6 +17,7 @@
   import { countInFolder, folderPath, shownFolderOf } from "@/features/projects/components/folderTree";
   import {
     createFolder,
+    createVariant,
     deleteFolder,
     fetchFolders,
     moveProjectToFolder,
@@ -142,7 +152,7 @@
 
   async function saveFolder(name: string) {
     if (folderDialog?.mode === "rename") await updateFolder(folderDialog.folder.id, { name });
-    else await createFolder(name, currentFolderId);
+    else await createFolder(name, newFolderParent);
     await loadFolders();
   }
 
@@ -165,6 +175,93 @@
     await moveProjectToFolder(moveTarget.id, folderId);
     onProjectsChanged?.();
   }
+
+  // ---- right click: what can be done here, on a project, on a folder ----
+  let contextMenu = $state<{ x: number; y: number; label: string; entries: ContextMenuEntry[] } | null>(null);
+  let variantSource = $state.raw<ProjectSummary | null>(null);
+  let newFolderParent = $state<string | null>(null);
+
+  function openMenu(event: MouseEvent, label: string, entries: ContextMenuEntry[]) {
+    event.preventDefault();
+    event.stopPropagation();
+    contextMenu = { x: event.clientX, y: event.clientY, label, entries };
+  }
+
+  function newFolderIn(parentId: string | null) {
+    newFolderParent = parentId;
+    folderDialog = { mode: "create" };
+  }
+
+  const onEmptyArea = (event: MouseEvent) =>
+    section === "active" &&
+    openMenu(event, t("projects.menu.list"), [
+      { label: t("folders.new"), icon: FolderIcon, onSelect: () => newFolderIn(currentFolderId) },
+      { label: t("projects.newProject"), icon: PlusIcon, onSelect: () => void handleCreate() },
+    ]);
+
+  function onProjectMenu(event: MouseEvent, project: ProjectSummary) {
+    const admin = project.permission === "administrator";
+    const entries: ContextMenuEntry[] = [{ label: t("projects.menu.open"), onSelect: () => onOpen(project) }];
+    if (section === "active") {
+      if (admin) {
+        entries.push({ label: t("common.rename"), icon: PencilIcon, onSelect: () => (renamingId = project.id) });
+        entries.push({ label: t("folders.move"), icon: FolderIcon, onSelect: () => (moveTarget = project) });
+      }
+      if (!project.variantOf)
+        entries.push({ label: t("variants.create"), icon: CopyIcon, onSelect: () => (variantSource = project) });
+      if (admin)
+        entries.push("separator", {
+          label: t("projects.card.moveToTrash"),
+          icon: TrashIcon,
+          danger: true,
+          onSelect: () => onSetStatus(project, "trashed"),
+        });
+    }
+    openMenu(event, project.name, entries);
+  }
+
+  function onFolderMenu(event: MouseEvent, folder: ProjectFolder) {
+    openMenu(event, folder.name, [
+      { label: t("projects.menu.open"), onSelect: () => (currentFolderId = folder.id) },
+      { label: t("folders.newInside"), icon: FolderIcon, onSelect: () => newFolderIn(folder.id) },
+      { label: t("common.rename"), icon: PencilIcon, onSelect: () => (folderDialog = { mode: "rename", folder }) },
+      "separator",
+      { label: t("common.delete"), icon: TrashIcon, danger: true, onSelect: () => (folderToDelete = folder) },
+    ]);
+  }
+
+  // ---- drag and drop: a project onto a folder tile or a step of the path ----
+  const DRAG_TYPE = "application/x-nebuladb-project";
+  let dragging = $state<string | null>(null);
+  let dropTarget = $state<string | null>(null);
+  const TOP = "__top__";
+
+  function dropProps(folderId: string | null) {
+    const key = folderId ?? TOP;
+    return {
+      ondragover: (event: DragEvent) => {
+        if (!dragging) return;
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+        dropTarget = key;
+      },
+      ondragleave: () => {
+        if (dropTarget === key) dropTarget = null;
+      },
+      ondrop: (event: DragEvent) => {
+        event.preventDefault();
+        const projectId = event.dataTransfer?.getData(DRAG_TYPE) || dragging;
+        dropTarget = null;
+        dragging = null;
+        if (!projectId) return;
+        moveProjectToFolder(projectId, folderId)
+          .then(() => onProjectsChanged?.())
+          .catch((err: unknown) => (folderError = describeApiError(err, t)));
+      },
+    };
+  }
+  const dropClass = (folderId: string | null) =>
+    dragging && dropTarget === (folderId ?? TOP) ? "ring-2 ring-primary ring-offset-1 ring-offset-bg" : "";
 
   const visibleProjects = $derived(
     projects
@@ -215,7 +312,8 @@
 </script>
 
 <div class="flex h-full min-h-0">
-  <div class="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-6 md:px-6">
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-6 md:px-6" oncontextmenu={onEmptyArea} data-testid="project-list">
     <div class="mx-auto max-w-[1040px]">
       <div class="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div class="flex items-center gap-2.5">
@@ -234,7 +332,7 @@
             placeholder={t("projects.searchPlaceholder")}
             bind:value={searchQuery}
           />
-          <Button onclick={() => (folderDialog = { mode: "create" })} class="shrink-0 gap-2 text-xs">
+          <Button onclick={() => newFolderIn(currentFolderId)} class="shrink-0 gap-2 text-xs">
             <Icon icon={FolderIcon} size={14} />
             {t("folders.new")}
           </Button>
@@ -261,16 +359,18 @@
       {#if browsingFolders && (breadcrumb.length > 0 || subfolders.length > 0)}
         <nav class="mb-3 flex flex-wrap items-center gap-1 text-xs" aria-label={t("folders.breadcrumb")}>
           <button
-            class="cursor-pointer rounded-sm border-0 bg-transparent px-1.5 py-0.5 text-text-muted hover:bg-surface-hover hover:text-text"
+            class={`cursor-pointer rounded-sm border-0 bg-transparent px-1.5 py-0.5 text-text-muted hover:bg-surface-hover hover:text-text ${dropClass(null)}`}
             aria-current={currentFolderId === null ? "page" : undefined}
-            onclick={() => (currentFolderId = null)}>{t("folders.top")}</button
+            onclick={() => (currentFolderId = null)}
+            {...dropProps(null)}>{t("folders.top")}</button
           >
           {#each breadcrumb as folder (folder.id)}
             <Icon icon={ChevronRightIcon} size={11} class="text-text-muted" />
             <button
-              class="cursor-pointer rounded-sm border-0 bg-transparent px-1.5 py-0.5 font-semibold text-text hover:bg-surface-hover"
+              class={`cursor-pointer rounded-sm border-0 bg-transparent px-1.5 py-0.5 font-semibold text-text hover:bg-surface-hover ${dropClass(folder.id)}`}
               aria-current={folder.id === currentFolderId ? "page" : undefined}
-              onclick={() => (currentFolderId = folder.id)}>{folder.name}</button
+              onclick={() => (currentFolderId = folder.id)}
+              {...dropProps(folder.id)}>{folder.name}</button
             >
           {/each}
         </nav>
@@ -279,8 +379,12 @@
         <div class="mb-4 grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
           {#each subfolders as folder (folder.id)}
             <div
-              class="group flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2.5 hover:border-border-strong"
+              class={`group flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2.5 hover:border-border-strong ${dropClass(folder.id)}`}
               data-testid="folder-tile"
+              role="group"
+              aria-label={folder.name}
+              oncontextmenu={(event) => onFolderMenu(event, folder)}
+              {...dropProps(folder.id)}
             >
               <button
                 class="flex min-w-0 flex-1 cursor-pointer items-center gap-2 border-0 bg-transparent p-0 text-left text-sm font-semibold text-text"
@@ -343,6 +447,22 @@
       {:else}
         <div class="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
           {#each visibleProjects as project (project.id)}
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div
+              class={dragging === project.id ? "opacity-50" : ""}
+              draggable={browsingFolders && project.permission === "administrator" && renamingId !== project.id}
+              ondragstart={(event) => {
+                dragging = project.id;
+                event.dataTransfer?.setData(DRAG_TYPE, project.id);
+                if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+              }}
+              ondragend={() => {
+                dragging = null;
+                dropTarget = null;
+              }}
+              oncontextmenu={(event) => onProjectMenu(event, project)}
+              data-testid="project-tile"
+            >
             <ProjectCard
               {project}
               {section}
@@ -362,6 +482,7 @@
               variantOfName={project.variantOf ? (projectNames.get(project.variantOf) ?? null) : null}
               variantCount={variantCounts.get(project.id) ?? 0}
             />
+            </div>
           {/each}
         </div>
       {/if}
@@ -398,6 +519,28 @@
   {/if}
   {#if webhooksTarget}
     <WebhooksModal project={webhooksTarget} onClose={() => (webhooksTarget = null)} />
+  {/if}
+  {#if contextMenu}
+    <ContextMenu
+      x={contextMenu.x}
+      y={contextMenu.y}
+      label={contextMenu.label}
+      entries={contextMenu.entries}
+      onClose={() => (contextMenu = null)}
+    />
+  {/if}
+  {#if variantSource}
+    <FolderNameModal
+      title={t("variants.createOf", { name: variantSource.name })}
+      label={t("variants.createName")}
+      placeholder={t("variants.createPlaceholder", { name: variantSource.name })}
+      onSave={async (name) => {
+        if (!variantSource) return;
+        await createVariant(variantSource.id, name);
+        onProjectsChanged?.();
+      }}
+      onClose={() => (variantSource = null)}
+    />
   {/if}
   {#if folderDialog}
     <FolderNameModal
