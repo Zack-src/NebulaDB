@@ -19,6 +19,10 @@ export interface ProjectSummaryRow {
   name: string;
   status: ProjectStatus;
   created_at: string;
+  /** The folder it is sorted into; `null` at the top of the list. */
+  folderId: string | null;
+  /** For a client variant: the project it was copied from. */
+  variantOf: string | null;
 }
 
 export interface ProjectTeamGrantRow {
@@ -27,19 +31,20 @@ export interface ProjectTeamGrantRow {
   permission: string;
 }
 
+const SUMMARY_SELECT = `SELECT p.id, p.name, p.status, p.created_at, p.folder_id AS "folderId",
+    v.base_project_id AS "variantOf"
+  FROM projects p LEFT JOIN project_variants v ON v.project_id = p.id`;
+
 export async function getProjectRow(id: string): Promise<ProjectRow | undefined> {
   return (await db.prepare("SELECT id, name, owner_id FROM projects WHERE id = ?").get(id)) as ProjectRow | undefined;
 }
 
 export async function getProjectSummary(id: string): Promise<ProjectSummaryRow | undefined> {
-  return (await db.prepare("SELECT id, name, status, created_at FROM projects WHERE id = ?").get(id)) as
-    ProjectSummaryRow | undefined;
+  return (await db.prepare(`${SUMMARY_SELECT} WHERE p.id = ?`).get(id)) as ProjectSummaryRow | undefined;
 }
 
 export async function listProjectSummaries(): Promise<ProjectSummaryRow[]> {
-  return (await db
-    .prepare("SELECT id, name, status, created_at FROM projects ORDER BY created_at DESC")
-    .all()) as ProjectSummaryRow[];
+  return (await db.prepare(`${SUMMARY_SELECT} ORDER BY p.created_at DESC`).all()) as ProjectSummaryRow[];
 }
 
 export async function countProjectsOwnedBy(userId: string): Promise<number> {
@@ -102,6 +107,8 @@ export async function deleteProjectCascade(id: string): Promise<void> {
     await db.prepare("DELETE FROM schema_fingerprints WHERE project_id = ?").run(id);
     await db.prepare("DELETE FROM project_teams WHERE project_id = ?").run(id);
     await db.prepare("DELETE FROM project_members WHERE project_id = ?").run(id);
+    // A variant loses its link; the variants of a deleted original become projects of their own.
+    await db.prepare("DELETE FROM project_variants WHERE project_id = ? OR base_project_id = ?").run(id, id);
     await db.prepare("DELETE FROM revisions WHERE project_id = ?").run(id);
     await db.prepare("DELETE FROM snapshots WHERE project_id = ?").run(id);
     await db.prepare("DELETE FROM projects WHERE id = ?").run(id);

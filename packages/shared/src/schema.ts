@@ -577,3 +577,12 @@ export interface SsoSettings {
 export interface SsoSettingsInput extends Partial<Omit<SsoSettings, "hasClientSecret">> {
   clientSecret?: string | null;
 }
+
+/** A folder of the project list. Folders nest through `parentId`; `null` is the top. */
+export interface ProjectFolder {
+  id: string;
+  name: string;
+  parentId: string | null;
+  createdBy: string | null;
+  createdAt: string;
+}

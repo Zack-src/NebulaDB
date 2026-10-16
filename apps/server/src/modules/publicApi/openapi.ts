@@ -1037,6 +1037,8 @@ const COMPONENTS: Record<string, Schema> = {
     status: { type: "string", enum: ["active", "archived", "trashed"] },
     created_at: str,
     permission: PERMISSION,
+    folderId: { type: ["string", "null"], description: "The folder of the project list it is sorted into" },
+    variantOf: { type: ["string", "null"], description: "For a client variant: the project it was copied from" },
   }),
   Revision: obj({ id: str, author: str, label: { type: ["string", "null"] }, createdAt: str }),
   PipelineConnection: obj({

@@ -851,6 +851,38 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 8,
+    name: "project_folders, projects.folder_id, project_variants",
+    up: async (db) => {
+      // Folders the project list is sorted into, shared by everybody, nested
+      // through `parent_id`. A project is in one folder or at the top.
+      //
+      // A variant is a project copied from another (its original) for one
+      // client. `synced_json` is the original's schema as the variant last
+      // received it: what the next sending is measured from.
+      await db.exec(`
+        CREATE TABLE project_folders (
+          id ${T} PRIMARY KEY,
+          name ${T} NOT NULL,
+          parent_id ${T} REFERENCES project_folders(id),
+          created_by ${T},
+          created_at ${T} NOT NULL DEFAULT utc_now()
+        );
+        CREATE INDEX idx_project_folders_parent ON project_folders(parent_id);
+        ALTER TABLE projects ADD COLUMN folder_id ${T} REFERENCES project_folders(id);
+
+        CREATE TABLE project_variants (
+          project_id ${T} PRIMARY KEY REFERENCES projects(id),
+          base_project_id ${T} NOT NULL REFERENCES projects(id),
+          synced_json ${T} NOT NULL,
+          synced_at ${T} NOT NULL DEFAULT utc_now(),
+          synced_by_name ${T}
+        );
+        CREATE INDEX idx_project_variants_base ON project_variants(base_project_id);
+      `);
+    },
+  },
 ];
 
 // Any constant will do, as long as every NebulaDB process takes the same one.
