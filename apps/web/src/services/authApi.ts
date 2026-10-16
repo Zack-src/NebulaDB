@@ -86,6 +86,8 @@ export function regenerateBackupCodes(password: string): Promise<{ backupCodes: 
 export interface AuthFeatures {
   passwordReset: boolean;
   email: boolean;
+  /** Single sign-on: whether the login page offers it, and the button's words (empty: the default ones). */
+  sso?: { enabled: boolean; buttonLabel: string };
 }
 
 export function fetchAuthFeatures(): Promise<AuthFeatures> {

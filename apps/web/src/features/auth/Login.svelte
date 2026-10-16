@@ -13,6 +13,7 @@
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { fetchAuthFeatures, login } from "@/services/authApi";
+  import { ssoStartUrl } from "@/services/ssoApi";
   import type { Session } from "@/types";
   import MfaStep from "./MfaStep.svelte";
   import ForgotPasswordStep from "./ForgotPasswordStep.svelte";
@@ -51,11 +52,23 @@
   // Only offered when the server can actually send the email — a link that
   // leads to "this instance has no email" is worse than no link.
   let passwordResetAvailable = $state(false);
+  let sso = $state<{ enabled: boolean; buttonLabel: string } | null>(null);
   $effect(() => {
     fetchAuthFeatures()
-      .then((features) => (passwordResetAvailable = features.passwordReset))
+      .then((features) => {
+        passwordResetAvailable = features.passwordReset;
+        sso = features.sso?.enabled ? features.sso : null;
+      })
       .catch(() => {});
   });
+
+  // Back from the provider without a session: the server says why in `?sso=`, read once and taken off the address.
+  const SSO_REASONS = ["expired", "provider", "no_email", "unverified", "domain", "no_account", "disabled", "not_configured"];
+  const ssoReason = new URLSearchParams(window.location.search).get("sso");
+  const ssoError = ssoReason ? t(`login.sso.error.${SSO_REASONS.includes(ssoReason) ? ssoReason : "provider"}` as "login.sso.error.provider") : null;
+  if (ssoReason) window.history.replaceState(null, "", "/");
+  /** Where to come back after the provider: the page that asked for a login. */
+  const next = window.location.pathname + window.location.search;
 
   const signIn = useAsyncAction(async () => {
     const result = await login({ email: email.trim(), password, remember });
@@ -152,6 +165,21 @@
               </Button>
 
               {#if signIn.error}<ErrorText>{signIn.error}</ErrorText>{/if}
+
+              {#if sso}
+                <div class="flex items-center gap-2 text-[11px] text-text-muted" aria-hidden="true">
+                  <span class="h-px flex-1 bg-border"></span>{t("login.sso.or")}<span class="h-px flex-1 bg-border"></span>
+                </div>
+                <a
+                  href={ssoStartUrl(remember, next)}
+                  class="flex h-10 w-full items-center justify-center gap-2 rounded-md border border-border bg-surface-raised text-sm font-medium text-text no-underline hover:bg-surface-hover"
+                  data-testid="sso-login"
+                >
+                  <Icon icon={KeyIcon} size={14} />
+                  {sso.buttonLabel ? t("login.sso.with", { provider: sso.buttonLabel }) : t("login.sso.default")}
+                </a>
+              {/if}
+              {#if ssoError}<ErrorText>{ssoError}</ErrorText>{/if}
 
               {#if passwordResetAvailable}
                 <button

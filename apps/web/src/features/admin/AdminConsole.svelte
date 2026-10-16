@@ -7,6 +7,7 @@
   import ErrorsTab from "@/features/admin/ErrorsTab.svelte";
   import LintPresetsTab from "@/features/admin/lint/LintPresetsTab.svelte";
   import TeamsTab from "@/features/admin/TeamsTab.svelte";
+  import SsoTab from "@/features/admin/SsoTab.svelte";
   import UsersTab from "@/features/admin/UsersTab.svelte";
   import Button from "@/components/ui/Button.svelte";
   import BrandMark from "@/components/ui/BrandMark.svelte";
@@ -30,7 +31,7 @@
   const { t } = useTranslation();
   let section = $derived<Section>(initialSection);
   const groups = [
-    { label: "shell.people", keys: ["users", "teams"] },
+    { label: "shell.people", keys: ["users", "teams", "sso"] },
     { label: "shell.bases", keys: ["connections", "environments"] },
     { label: "shell.quality", keys: ["lint"] },
     { label: "shell.logs", keys: ["audit", "errors"] },
@@ -73,6 +74,7 @@
         {#if section === "connections"}<ConnectionsTab {initialConnectionId} />{/if}
         {#if section === "environments"}<EnvironmentsTab />{/if}
         {#if section === "lint"}<LintPresetsTab />{/if}
+        {#if section === "sso"}<SsoTab />{/if}
       </div>
     </div>
   </div>

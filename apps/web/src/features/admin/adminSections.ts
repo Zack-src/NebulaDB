@@ -9,6 +9,7 @@ export const ADMIN_SECTIONS = [
   { key: "connections", labelKey: "admin.section.connections" },
   { key: "environments", labelKey: "admin.section.environments" },
   { key: "lint", labelKey: "admin.section.lint" },
+  { key: "sso", labelKey: "admin.section.sso" },
 ] as const satisfies readonly { key: string; labelKey: TranslationKeyOf }[];
 
 export type AdminSection = (typeof ADMIN_SECTIONS)[number]["key"];
