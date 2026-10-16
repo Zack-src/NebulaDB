@@ -163,3 +163,35 @@ test("MysqlDriver connects, introspects, measures risks, deploys migrations", as
     await driver.close();
   }
 });
+
+test("MysqlDriver over TLS: encrypted when asked, the pinned address used, the certificate checked when asked", async (t) => {
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const plain = new MysqlDriver(config);
+  const up = (await plain.testConnection()).ok;
+  await plain.close().catch(() => {});
+  if (!up) return t.skip(`no MySQL test container (${TEST_DB_HINT})`);
+
+  // As `pinConnectionTarget` leaves it: the socket to the address, `host` kept for the certificate.
+  const pinned = { ...config, host: "localhost", pinnedAddress: "127.0.0.1", tlsHost: "localhost", ssl: true };
+  const encrypted = new MysqlDriver(pinned);
+  try {
+    assert.ok(
+      (await encrypted.queryScalar(
+        "SELECT COUNT(*) FROM performance_schema.session_status WHERE VARIABLE_NAME = 'Ssl_cipher' AND VARIABLE_VALUE <> ''",
+      )) === 1,
+    );
+  } finally {
+    await encrypted.close();
+  }
+
+  // MySQL's own self-signed certificate is not signed by the test authority.
+  const ca = readFileSync(fileURLToPath(new URL("../../../../test-fixtures/tls/ca.crt", import.meta.url)), "utf8");
+  const checked = new MysqlDriver({ ...pinned, sslVerify: true, sslCa: ca });
+  try {
+    const result = await checked.testConnection();
+    assert.equal(result.ok, false);
+  } finally {
+    await checked.close().catch(() => {});
+  }
+});

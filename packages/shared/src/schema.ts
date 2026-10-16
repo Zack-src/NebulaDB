@@ -236,6 +236,15 @@ export interface DatabaseConnectionConfig {
   user?: string;
   password?: string;
   ssl?: boolean;
+  /** With `ssl`: the server's certificate must be signed by a trusted authority and name the host. Off by default. */
+  sslVerify?: boolean;
+  /** PEM: the authority the server's certificate is checked against instead of the system ones. */
+  sslCa?: string;
+  /** PEM: a client certificate and its private key, for a server that asks for one. */
+  sslCert?: string;
+  sslKey?: string;
+  /** Reach the database through this SSH server; needs a host and a port, not a connection string. */
+  sshTunnel?: SshTunnelConfig | null;
   connectionString?: string;
   filePath?: string;
   /** Free-text labels an admin filters the global connection list by. */
@@ -257,6 +266,36 @@ export interface DatabaseConnectionConfig {
   authMode?: ConnectionAuthMode;
   createdAt?: string;
   updatedAt?: string;
+}
+
+/**
+ * An SSH server the database is reached through: the connection opens a
+ * tunnel from it to the database's host and port. `password` and `privateKey`
+ * never leave the server; on update, an empty or missing one keeps the stored one.
+ */
+export interface SshTunnelConfig {
+  host: string;
+  port?: number;
+  user: string;
+  password?: string;
+  /** PEM / OpenSSH private key, with its `passphrase` when it is encrypted. */
+  privateKey?: string;
+  passphrase?: string;
+  /**
+   * `SHA256:…` fingerprint of the server's host key, as `ssh-keygen -lf` prints it. When set, a
+   * server answering with another key is refused; when not, any key is accepted.
+   */
+  hostKeyFingerprint?: string;
+}
+
+/** The tunnel as a summary shows it: everything but the secrets. */
+export interface SshTunnelSummary {
+  host: string;
+  port: number;
+  user: string;
+  hasPassword: boolean;
+  hasPrivateKey: boolean;
+  hostKeyFingerprint?: string;
 }
 
 /** A watch an instance administrator imposes from a connection: on, at least this often, and not the project's to change. */
@@ -282,6 +321,12 @@ export interface DatabaseConnectionSummary {
   user?: string;
   hasPassword?: boolean;
   ssl?: boolean;
+  sslVerify?: boolean;
+  /** Certificates are not secret and are shown; the client key never is. */
+  sslCa?: string;
+  sslCert?: string;
+  hasSslKey?: boolean;
+  sshTunnel?: SshTunnelSummary;
   connectionString?: string;
   filePath?: string;
   /** `personal`: every user connects with their own account — see `ConnectionAuthMode`. */

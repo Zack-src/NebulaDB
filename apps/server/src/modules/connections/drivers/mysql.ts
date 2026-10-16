@@ -1,3 +1,4 @@
+import net from "node:net";
 import mysql from "mysql2/promise";
 import { q } from "@nebuladb/dbml-engine";
 import type { RowDataPacket } from "mysql2/promise";
@@ -9,6 +10,7 @@ import type {
   RowValue,
   TestConnectionResult,
 } from "./interface.js";
+import { driverTlsOptions } from "./tls.js";
 
 interface VersionRow extends RowDataPacket {
   version: string;
@@ -37,19 +39,42 @@ interface ForeignKeyRow extends RowDataPacket {
   REFERENCED_COLUMN_NAME: string;
 }
 
+/**
+ * mysql2 checks the server's certificate against `host`, so `host` stays the
+ * name the user typed and the socket is opened to the pinned address (or the
+ * tunnel's local end) through `stream`.
+ */
+function mysqlTls(config: DriverConnectionConfig): mysql.SslOptions | undefined {
+  const tls = driverTlsOptions(config);
+  if (!tls) return undefined;
+  return {
+    ca: tls.ca as string | undefined,
+    cert: tls.cert as string | undefined,
+    key: tls.key as string | undefined,
+    rejectUnauthorized: tls.rejectUnauthorized,
+    verifyIdentity: tls.rejectUnauthorized,
+  };
+}
+
 /** Shared with the admin driver (`admin/mysql.ts`). */
 export function mysqlPoolConfig(config: DriverConnectionConfig, database?: string): mysql.PoolOptions {
+  const ssl = mysqlTls(config);
   if (config.connectionString) {
     return {
       uri: config.connectionString,
       waitForConnections: true,
       connectionLimit: 5,
+      ...(ssl ? { ssl } : {}),
       ...(database ? { database } : {}),
     };
   }
+  const port = config.port || 3306;
+  const address = config.pinnedAddress;
   return {
-    host: config.pinnedAddress || config.host || "localhost",
-    port: config.port || 3306,
+    host: config.tlsHost || config.host || "localhost",
+    ...(address ? { stream: () => net.connect(port, address) } : {}),
+    ...(ssl ? { ssl } : {}),
+    port,
     database: database || config.database || "mysql",
     user: config.user || "root",
     password: config.password,

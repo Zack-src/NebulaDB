@@ -5,6 +5,8 @@ export interface TestConnectionResult {
   version?: string;
   database?: string;
   error?: string;
+  /** Through an SSH tunnel: the SSH server's host key, so a form can pin it. */
+  sshHostKeyFingerprint?: string;
 }
 
 export interface MigrationExecutionResult {
@@ -38,6 +40,8 @@ export interface DriverConnectionConfig extends DatabaseConnectionConfig {
   pinnedAddress?: string;
   /** The original host name, for SNI and certificate checks once the socket targets an IP. */
   tlsServerName?: string;
-  /** Whether the server certificate must be verified (a Postgres URL's `sslmode`); off by default, as before. */
+  /** The name the server's certificate must carry — the host the user typed, whatever address the socket goes to. */
+  tlsHost?: string;
+  /** Whether the server certificate must be verified (a Postgres URL's `sslmode`); wins over the stored `sslVerify`. */
   tlsVerify?: boolean;
 }

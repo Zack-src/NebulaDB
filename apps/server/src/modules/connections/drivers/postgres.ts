@@ -8,6 +8,7 @@ import type {
   RowValue,
   TestConnectionResult,
 } from "./interface.js";
+import { driverTlsOptions } from "./tls.js";
 
 const { Pool } = pg;
 
@@ -22,9 +23,7 @@ interface ColumnRow {
 
 /** Shared with the admin driver (`admin/postgres.ts`) so both connect to the same pinned address the same way. */
 export function postgresPoolConfig(config: DriverConnectionConfig, database?: string): pg.PoolConfig {
-  const ssl = config.ssl
-    ? { rejectUnauthorized: config.tlsVerify ?? false, servername: config.tlsServerName }
-    : undefined;
+  const ssl = driverTlsOptions(config);
   if (config.connectionString) {
     return {
       connectionString: config.connectionString,

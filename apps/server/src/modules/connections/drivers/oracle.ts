@@ -27,14 +27,26 @@ interface ForeignKeyRow {
   R_COLUMN_NAME: string;
 }
 
-/** Shared with the admin driver (`admin/oracle.ts`). */
+/**
+ * Shared with the admin driver (`admin/oracle.ts`). With TLS the connection
+ * goes over `tcps`, the authority handed over as the wallet's PEM content.
+ * Untested: there is no Oracle with TLS in the test setup.
+ */
 export function oraclePoolAttributes(config: DriverConnectionConfig): oracledb.PoolAttributes {
   const address = config.pinnedAddress || config.host || "localhost";
   const host = address.includes(":") ? `[${address}]` : address;
+  const tls = config.ssl
+    ? {
+        ...(config.sslCa?.trim() ? { walletContent: config.sslCa } : {}),
+        sslServerDNMatch: config.tlsVerify ?? config.sslVerify ?? false,
+      }
+    : {};
+  const target = `${config.ssl ? "tcps://" : ""}${host}:${config.port || 1521}/${config.database || "FREEPDB1"}`;
   return {
     user: config.user || "system",
     password: config.password,
-    connectString: config.connectionString || `${host}:${config.port || 1521}/${config.database || "FREEPDB1"}`,
+    ...tls,
+    connectString: config.connectionString || target,
     poolMin: 0,
     poolMax: 5,
   };

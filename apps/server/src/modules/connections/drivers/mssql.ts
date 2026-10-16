@@ -9,6 +9,7 @@ import type {
   RowValue,
   TestConnectionResult,
 } from "./interface.js";
+import { driverTlsOptions } from "./tls.js";
 
 interface ColumnRow {
   TABLE_NAME: string;
@@ -42,13 +43,15 @@ export function mssqlPoolConfig(config: DriverConnectionConfig, database?: strin
     return { connectionString: config.connectionString, ...(database ? { database } : {}) } as unknown as sql.config;
   }
   const port = config.port || 1433;
+  const tls = driverTlsOptions(config);
   const options: Record<string, unknown> = {
-    encrypt: Boolean(config.ssl),
-    trustServerCertificate: !config.ssl,
+    encrypt: Boolean(tls),
+    trustServerCertificate: !tls?.rejectUnauthorized,
   };
+  if (tls) options.cryptoCredentialsDetails = { ca: tls.ca, cert: tls.cert, key: tls.key };
   if (config.pinnedAddress) options.connector = pinnedConnector(config.pinnedAddress, port);
   return {
-    server: config.host || "localhost",
+    server: config.tlsHost || config.host || "localhost",
     port,
     database: database || config.database || "master",
     user: config.user || "sa",
