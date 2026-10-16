@@ -22,6 +22,8 @@ export interface TestConnectionResponse {
   version?: string;
   database?: string;
   error?: string;
+  /** Through an SSH tunnel: the SSH server's host key, to pin it. */
+  sshHostKeyFingerprint?: string;
 }
 
 export interface PlanDeploymentResponse {

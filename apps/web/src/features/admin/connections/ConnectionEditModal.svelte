@@ -21,6 +21,10 @@
   import { CheckCircleIcon, CheckIcon } from "@/components/icons/Icons";
   import { INPUT_CLASS } from "@/components/ui/inputStyles";
   import ConnectionFormFields, { DEFAULT_PORTS } from "@/features/connections/ConnectionFormFields.svelte";
+  import ConnectionSecurityFields, {
+    securityForm,
+    securityPayload,
+  } from "@/features/connections/ConnectionSecurityFields.svelte";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
@@ -76,6 +80,9 @@
   let connectionString = $state(initial?.connectionString ?? "");
   let filePath = $state(initial?.filePath ?? "");
   let useUri = $state(Boolean(initial?.connectionString));
+  let security = $state(securityForm(initial));
+  /** TLS details and a tunnel need a network engine reached by host and port. */
+  const securityAvailable = $derived(!useUri && engine !== "sqlite" && engine !== "bigquery");
   let tags = $state((initial?.tags ?? []).join(", "));
   let readOnly = $state(Boolean(initial?.readOnly));
   let authMode = $state<ConnectionAuthMode>(initial?.authMode ?? "personal");
@@ -176,10 +183,11 @@
       structurePolicy:
         structurePolicy === "inherit" ? null : { policy: structurePolicy, applyToSql: structureApplyToSql },
       forcedMonitoring: forceMonitoring ? { intervalMinutes: monitoringInterval } : null,
+      ...securityPayload(security, network && ssl, securityAvailable),
     };
   }
 
-  type TabId = "connection" | "rules" | "projects";
+  type TabId = "connection" | "security" | "rules" | "projects";
   let activeTab = $state<TabId>("connection");
   /** Where a refused save is explained: the server's code names the field it objected to. */
   const ERROR_TABS: Record<string, TabId> = {
@@ -192,10 +200,12 @@
     CONNECTION_ENGINE_INVALID: "connection",
     CONNECTION_AUTH_MODE_INVALID: "connection",
     CONNECTION_TARGET_FORBIDDEN: "connection",
+    CONNECTION_TLS_INVALID: "security",
+    CONNECTION_SSH_INVALID: "security",
   };
   let errorTab = $state<TabId | null>(null);
 
-  let testResult = $state.raw<{ ok: boolean; message: string } | null>(null);
+  let testResult = $state.raw<{ ok: boolean; message: string; fingerprint?: string } | null>(null);
   const test = useAsyncAction(async () => {
     testResult = null;
     // The result is shown on the first tab, wherever the test was started from.
@@ -208,6 +218,11 @@
             message: `${t("connections.testSuccess")}: ${res.version ?? ""} ${res.database ? `(${res.database})` : ""}`,
           }
         : { ok: false, message: res.error || t("connections.testFailed") };
+      // The SSH server's key, seen for the first time: filled in to be checked and kept on save.
+      if (res.sshHostKeyFingerprint && security.sshEnabled && !security.sshFingerprint.trim()) {
+        security.sshFingerprint = res.sshHostKeyFingerprint;
+        testResult = { ...testResult, fingerprint: res.sshHostKeyFingerprint };
+      }
     } catch (err) {
       testResult = { ok: false, message: describeApiError(err, t) };
     }
@@ -234,6 +249,11 @@
       id: "connection",
       label: t("admin.connections.tabConnection"),
       badge: errorTab === "connection" || (!name.trim() && activeTab !== "connection") ? "!" : undefined,
+    },
+    {
+      id: "security",
+      label: t("admin.connections.tabSecurity"),
+      badge: errorTab === "security" ? "!" : security.sshEnabled && securityAvailable ? "SSH" : undefined,
     },
     { id: "rules", label: t("admin.connections.tabRules"), badge: errorTab === "rules" ? "!" : undefined },
     {
@@ -328,6 +348,7 @@
 
         {#if testResult}
           <div
+            data-testid="connection-test-result"
             class={`flex items-center gap-2 rounded-sm border p-2 text-xs ${
               testResult.ok
                 ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
@@ -337,7 +358,19 @@
             {#if testResult.ok}<Icon icon={CheckCircleIcon} size={14} />{/if}
             <span>{testResult.message}</span>
           </div>
+          {#if testResult.fingerprint}
+            <p class="m-0 text-xs text-text-muted" data-testid="ssh-fingerprint-seen">
+              {t("connections.security.sshFingerprintSeen", { fingerprint: testResult.fingerprint })}
+            </p>
+          {/if}
         {/if}
+      </div>
+      <div
+        role="tabpanel"
+        aria-label={t("admin.connections.tabSecurity")}
+        class={`col-start-1 row-start-1 space-y-4 ${activeTab === "security" ? "" : "invisible"}`}
+      >
+        <ConnectionSecurityFields bind:form={security} bind:ssl available={securityAvailable} />
       </div>
       <div
         role="tabpanel"
