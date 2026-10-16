@@ -54,8 +54,8 @@ un moteur cible pour les projets).
 
 ## G. Dette repérée en route
 
-- [!] G1. Remettre à niveau les 11 tests navigateur (e2e) qui échouent déjà sur `de5c5f6` : ils — interrompu sans commit
-  attendent des éléments retirés par la refonte (« Ouvrir », onglet « Données & SQL », « Déployer »)
+- [x] G1. Remettre à niveau les 11 tests navigateur (e2e) qui échouent déjà sur `de5c5f6` : ils — `0ec4721` à `9988177`
+      attendent des éléments retirés par la refonte (« Ouvrir », onglet « Données & SQL », « Déployer »)
 - [x] G3. Test serveur instable sous charge : « /api/v1 backups: a running backup is cancelled with a key » — `bb090e9`
 - [x] G2. Formater `bundle.ts` et `bundle.test.ts` (avertissement Prettier antérieur à ce lot) — `c2e7b46`
 
@@ -89,6 +89,7 @@ un moteur cible pour les projets).
 | 2026-10-15 | F4    | `85ea884` | CLI `nebuladb` (+ plan et bundle exposés en `/api/v1`) ; action GitHub non faite                                                                                                                                |
 | 2026-10-16 | A7    | `81a9e94` | PostgreSQL fusionné : migrations 46–50 devenues 2–6, code ajouté depuis converti ; 415 tests serveur sur PostgreSQL, 35 CLI                                                                                     |
 | 2026-10-16 | A6    | `1468cb8` | Image Docker construite, pile `docker compose` démarrée (migrations, admin, projet, import, web OK) ; copie de l'instance locale (schéma 50) basculée vers PostgreSQL : 210 lignes, le serveur redémarre dessus |
+| 2026-10-16 | G1    | `9988177` | Harnais sur PostgreSQL, 12 tests remis à l'interface actuelle ; `npm run test:e2e` : 45/45, aucun bug applicatif trouvé                                                                                         |
 
 Dernière vérification complète (2026-10-15, version stable) : build complet, 391 tests serveur, 154 tests web, 158 tests du moteur DBML, 35 tests CLI, typecheck, lint, Prettier et imports circulaires propres.
 Non vérifié : tests navigateur (e2e) et essai à la main des écrans.
