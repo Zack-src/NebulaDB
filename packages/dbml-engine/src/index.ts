@@ -15,3 +15,4 @@ export * from "./deploymentProbes.js";
 export * from "./lint.js";
 export * from "./dictionary.js";
 export * from "./variables.js";
+export * from "./variants.js";
