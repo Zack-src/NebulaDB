@@ -67,7 +67,7 @@ un moteur cible pour les projets).
 - [x] H3. Formulaire de connexion : onglet « Sécurité » pour TLS et SSH, empreinte remplie au test
 - [x] H4. SSO OIDC côté serveur : découverte, PKCE, compte lié par l'identifiant du fournisseur, création à la volée optionnelle
 - [x] H5. SSO OIDC côté interface : bouton sur l'écran de connexion, réglages dans l'administration
-- [ ] H6. Documentation, CHANGELOG, vérification complète
+- [x] H6. Documentation, CHANGELOG, vérification complète
 
 ## En attente d'une décision de Zack
 
@@ -99,6 +99,9 @@ un moteur cible pour les projets).
 | 2026-10-16 | A6    | `1468cb8` | Image Docker construite, pile `docker compose` démarrée (migrations, admin, projet, import, web OK) ; copie de l'instance locale (schéma 50) basculée vers PostgreSQL : 210 lignes, le serveur redémarre dessus                                            |
 | 2026-10-16 | G1    | `9988177` | Harnais sur PostgreSQL, 12 tests remis à l'interface actuelle ; `npm run test:e2e` : 45/45, aucun bug applicatif trouvé                                                                                                                                    |
 | 2026-10-16 | —     | `a4b3e2b` | Nettoyage complet (copies et branches d'agents, conteneurs de test, anciennes bases SQLite) ; installation neuve sur PostgreSQL ; les commandes en ligne lisent `.env` ; tout repassé : 415 serveur, 154 web, 158 moteur, 78 shared, 35 CLI, 45 navigateur |
+| 2026-10-16 | H1–H3 | `ff111f4` | TLS (autorité, certificat client, vérification) et tunnel SSH par connexion, onglet Sécurité ; PostgreSQL et MySQL essayés, tunnel essayé avec un serveur SSH simulé ; SQL Server / Oracle non essayés                                                     |
+| 2026-10-16 | H4–H5 | `cb1d2c4` | SSO OpenID Connect (PKCE, compte lié par `sub`, création optionnelle, domaines) ; essayé avec un fournisseur simulé, jamais avec un vrai Keycloak / Entra ID                                                                                               |
+| 2026-10-16 | H6    | `c6b9c29` | CHANGELOG et docs ; 433 serveur, 154 web, 158 moteur, 78 shared, 35 CLI, 47/47 navigateur ; un `await` manquant corrigé dans un test d'export                                                                                                              |
 
 Dernière vérification complète (2026-10-15, version stable) : build complet, 391 tests serveur, 154 tests web, 158 tests du moteur DBML, 35 tests CLI, typecheck, lint, Prettier et imports circulaires propres.
 Non vérifié : tests navigateur (e2e) et essai à la main des écrans.
