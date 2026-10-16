@@ -85,6 +85,16 @@ Choix faits : une variante ne peut pas avoir elle-même de variantes (un seul ni
 zones, notes) reste propre à chaque projet et n'est jamais envoyée ; un changement non envoyé est considéré comme un
 choix du client et ne revient pas au prochain envoi.
 
+## J. Lot 8 — confort des variantes et des dossiers (demandé le 2026-10-16)
+
+- [x] J1. Moteur et serveur : réinitialiser une variante sur l'original, ou la remplacer par une autre variante
+      (structure remplacée, mise en page gardée pour les tables communes)
+- [x] J2. Interface : renommer, supprimer, réinitialiser, copier depuis une autre variante (onglet Variantes)
+- [x] J3. Interface : passer d'une variante à l'autre depuis l'en-tête du projet
+- [x] J4. Interface : clic droit dans la liste des projets (nouveau dossier, actions d'un projet ou d'un dossier),
+      glisser-déposer d'un projet dans un dossier ou dans le fil d'Ariane
+- [x] J5. Tests navigateur, documentation, vérification complète
+
 ## En attente d'une décision de Zack
 
 - IA optionnelle (quel service, quelles données peuvent sortir de l'instance)
@@ -121,6 +131,9 @@ choix du client et ne revient pas au prochain envoi.
 | 2026-10-16 | I2–I3 | `47f8fcf` | Dossiers (imbriqués, partagés, suppression qui remonte le contenu) et variantes (copie, état, aperçu, envoi, détachement, comparaison) ; migration 8                                                                                                       |
 | 2026-10-16 | I4–I5 | `82fb0f9` | Dossiers dans la liste des projets, onglet « Variantes », envoi avec choix des variantes et des changements, comparaison                                                                                                                                   |
 | 2026-10-16 | I6    | —         | Docs et CHANGELOG ; 436 serveur, 157 web, 164 moteur, 78 shared, 35 CLI, 48/48 navigateur ; jamais essayé sur un vrai projet client                                                                                                                        |
+| 2026-10-16 | J1    | `82cf204` | Réinitialiser une variante sur l'original ou la remplacer par une autre (mise en page gardée), famille d'un projet                                                                                                                                         |
+| 2026-10-16 | J2–J4 | `1cc39ab` | Clic droit et glisser-déposer dans la liste, sélecteur Original / Variante dans l'en-tête, renommer / corbeille / réinitialiser / copier                                                                                                                   |
+| 2026-10-16 | J5    | —         | Docs et CHANGELOG ; 437 serveur, 157 web, 165 moteur, 78 shared, 35 CLI ; nouveau test navigateur du parcours                                                                                                                                              |
 
 Dernière vérification complète (2026-10-15, version stable) : build complet, 391 tests serveur, 154 tests web, 158 tests du moteur DBML, 35 tests CLI, typecheck, lint, Prettier et imports circulaires propres.
 Non vérifié : tests navigateur (e2e) et essai à la main des écrans.

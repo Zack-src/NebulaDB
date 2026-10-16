@@ -56,6 +56,14 @@ has a dated entry for. Version 1.0.0 is the first release under the NebulaDB nam
   variant's own and is not offered again. Only the structure travels (tables, columns, indexes, relations,
   enums, table groups) — positions and layout never. A variant can also take its original's changes from its
   own tab, and be detached to become an independent project.
+- A variant can be **reset** to its original (its structure becomes the original's again, its layout kept) or
+  **copied from another variant** of the same original; it can be renamed and put in the trash from the
+  original's Variantes tab ("Actions"). The previous version stays in the History tab. Audited as
+  `project.variant.reset`.
+- **Switching** between an original and its variants from the project header (the "Original" / "Variante" pill).
+- In the project list, a **right click** offers a new folder or project (empty area), the project's actions —
+  open, rename, move, new client variant, trash — and the folder's — open, new subfolder, rename, delete. A
+  project is **dragged** onto a folder, or onto a step of the folder path, to move it.
 - **Comparison** of any two versions (original and client, or two clients): tables only one side has, and the
   columns that differ with each side's definition.
 - Audited as `folder.create|update|delete`, `project.folder`, `project.variant.create|push|detach`. Migration 8

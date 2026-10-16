@@ -61,15 +61,16 @@ utilisé ».
 
 ## 2. Projet racine et déclinaisons ★
 
-| Fonctionnalité                                                                 | État | Reste / remarque                                                                                                        |
-| ------------------------------------------------------------------------------ | :--: | ----------------------------------------------------------------------------------------------------------------------- |
-| ★ Projet original et variantes par client                                      |  🧪  | Copie complète, onglet « Variantes » ; testé côté serveur et en navigateur, jamais essayé sur un vrai projet client     |
-| Envoi des changements de l'original, au choix des variantes et des changements |  🧪  | Fusion à trois sources par identifiant ; conflit quand le client a modifié la même chose (sa version gardée par défaut) |
-| Comparaison original / client et client / client                               |  🧪  | Tables et colonnes ; les relations sont seulement comptées                                                              |
-| Dossiers de projets imbriqués dans la liste                                    |  🧪  | Partagés par l'instance, visibles s'ils mènent à un projet accessible                                                   |
-| Publication de versions de l'original, épinglage par variante                  |  ❌  | L'envoi se fait à la demande, pas par version publiée                                                                   |
-| Variantes de variantes (base → secteur → client)                               |  ❌  | Un seul niveau, choix fait le 2026-10-16                                                                                |
-| Export DBML « surcouche » d'une variante                                       |  ❌  | Une variante s'exporte comme n'importe quel projet                                                                      |
+| Fonctionnalité                                                                                    | État | Reste / remarque                                                                                                        |
+| ------------------------------------------------------------------------------------------------- | :--: | ----------------------------------------------------------------------------------------------------------------------- |
+| ★ Projet original et variantes par client                                                         |  🧪  | Copie complète, onglet « Variantes » ; testé côté serveur et en navigateur, jamais essayé sur un vrai projet client     |
+| Envoi des changements de l'original, au choix des variantes et des changements                    |  🧪  | Fusion à trois sources par identifiant ; conflit quand le client a modifié la même chose (sa version gardée par défaut) |
+| Comparaison original / client et client / client                                                  |  🧪  | Tables et colonnes ; les relations sont seulement comptées                                                              |
+| Réinitialiser une variante, copier une autre variante, passer de l'une à l'autre depuis l'en-tête |  🧪  | Testé en navigateur                                                                                                     |
+| Dossiers de projets imbriqués dans la liste                                                       |  🧪  | Partagés par l'instance, visibles s'ils mènent à un projet accessible ; clic droit et glisser-déposer                   |
+| Publication de versions de l'original, épinglage par variante                                     |  ❌  | L'envoi se fait à la demande, pas par version publiée                                                                   |
+| Variantes de variantes (base → secteur → client)                                                  |  ❌  | Un seul niveau, choix fait le 2026-10-16                                                                                |
+| Export DBML « surcouche » d'une variante                                                          |  ❌  | Une variante s'exporte comme n'importe quel projet                                                                      |
 
 Choix faits : un seul niveau de variantes ; seule la structure est envoyée (tables, colonnes, index, relations,
 enums, groupes), jamais la mise en page ; un changement non envoyé devient propre au client et n'est plus proposé.
