@@ -64,8 +64,12 @@ test("admin: add a connection, explore it, query it and drop a table", { timeout
     await page.getByRole("img", { name: /^En ligne/ }).waitFor();
     await snap("list");
 
-    // Explorer.
-    await page.getByRole("button", { name: "Ouvrir" }).click();
+    // Explorer: the console of a database lives in the "Bases" workspace.
+    await page.goto(`${env.baseUrl}/#bases`);
+    await page
+      .getByRole("button", { name: /Boutique/ })
+      .first()
+      .click();
     await page.getByRole("button", { name: /customers/ }).click();
     await page.getByRole("gridcell", { name: "ada@example.com" }).waitFor();
     await snap("explorer-data");

@@ -42,11 +42,13 @@ const tablesOf = (file: string) => {
   }
 };
 
+/** The explorer and the SQL console of a database live in the "Bases" workspace. */
 async function openConsole(page: Page, baseUrl: string): Promise<void> {
-  await page.goto(baseUrl);
-  await page.getByRole("button", { name: "Admin", exact: true }).click();
-  await page.getByRole("button", { name: "Connexions base de données" }).click();
-  await page.getByRole("button", { name: "Ouvrir" }).click();
+  await page.goto(`${baseUrl}/#bases`);
+  await page
+    .getByRole("button", { name: /Base boutique/ })
+    .first()
+    .click();
   await page.getByRole("button", { name: /invoices/ }).waitFor();
 }
 
@@ -137,7 +139,7 @@ test(
       await page.getByRole("option", { name: /Avertir/ }).click();
       await page.getByText("Politique de structure par défaut enregistrée.").waitFor();
 
-      await page.getByRole("button", { name: "Ouvrir" }).click();
+      await openConsole(page, env.baseUrl);
       await page.getByRole("tab", { name: "Console SQL" }).click();
       await page.getByRole("switch", { name: "Mode écriture" }).click();
       await fillCodeEditor(editor, "ALTER TABLE invoices ADD COLUMN note TEXT");
