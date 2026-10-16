@@ -42,6 +42,7 @@
     ClockIcon,
     CodeIcon,
     NoteIcon,
+    LayersIcon,
     SparklesIcon,
   } from "@/components/icons/Icons";
   import type { WorkspaceTab } from "@/features/projects/projectRouting.svelte";
@@ -188,6 +189,7 @@
     history: ClockIcon,
     problems: AlertTriangleIcon,
     dictionary: NoteIcon,
+    variants: LayersIcon,
   };
   const workspaceTabs = $derived(
     visibleWorkspaceTabs(project.permission).map(
@@ -635,6 +637,10 @@
         onSaveTableNote={quality.saveTableNote}
         onSaveFieldNote={quality.saveFieldNote}
       />
+    {/await}
+  {:else if tab === "variants"}
+    {#await import("@/features/workspace/variants/VariantsPanel.svelte") then { default: VariantsPanel }}
+      <VariantsPanel {project} onOpenProject={props.onOpenProject} />
     {/await}
   {:else if tab === "history" && liveProject}
     {#await import("@/features/editor/history/HistoryPanel.svelte") then { default: HistoryPanel }}
