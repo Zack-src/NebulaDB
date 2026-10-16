@@ -1,3 +1,4 @@
+import "./loadEnv.js";
 import { db } from "./infrastructure/db.js";
 import { normalizeEmail } from "./modules/auth/email.js";
 import { checkPassword, hashPassword } from "./modules/auth/password.js";

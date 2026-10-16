@@ -1,3 +1,4 @@
+import "../loadEnv.js";
 import path from "node:path";
 import { backupTimestamp, runBackup } from "./backupRunner.js";
 import { db } from "./db.js";

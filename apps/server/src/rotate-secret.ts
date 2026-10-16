@@ -1,3 +1,4 @@
+import "./loadEnv.js";
 import { readEnv } from "./shared/brandMigration.js";
 import { db } from "./infrastructure/db.js";
 import { reencryptPayload } from "./shared/crypto.js";
