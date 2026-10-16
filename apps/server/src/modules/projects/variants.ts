@@ -109,7 +109,16 @@ export async function listVariants(
   userId: string,
   baseId: string,
 ): Promise<
-  { id: string; name: string; syncedAt: string; syncedByName: string | null; canEdit: boolean; status: VariantStatus }[]
+  {
+    id: string;
+    name: string;
+    syncedAt: string;
+    syncedByName: string | null;
+    canEdit: boolean;
+    /** May rename it, trash it, detach it: administrator of the variant. */
+    canManage: boolean;
+    status: VariantStatus;
+  }[]
 > {
   const rows = (await db
     .prepare(
@@ -127,6 +136,7 @@ export async function listVariants(
       syncedAt: row.synced_at,
       syncedByName: row.synced_by_name,
       canEdit: await hasPermission(userId, row.project_id, "edit"),
+      canManage: await hasPermission(userId, row.project_id, "administrator"),
       status: variantStatus(parseSynced(row), base, await readProject(row.project_id)),
     });
   }
