@@ -37,7 +37,6 @@
 </script>
 
 <div>
-  <h2 class="mb-4 text-lg font-semibold">{t("admin.section.shareLinks")}</h2>
   <div class="mb-4 max-w-[640px]">
     <SettingSwitch
       label={t("shareLinks.admin.enabled")}

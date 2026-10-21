@@ -1,6 +1,17 @@
 <script lang="ts">
   import Icon from "@/components/icons/Icon.svelte";
-  import { ChevronLeftIcon } from "@/components/icons/Icons";
+  import {
+    AlertTriangleIcon,
+    ChevronLeftIcon,
+    ClockIcon,
+    DatabaseIcon,
+    KeyIcon,
+    LayersIcon,
+    LinkIcon,
+    SearchIcon,
+    UserIcon,
+    UsersIcon,
+  } from "@/components/icons/Icons";
   import ActivityTab from "@/features/admin/ActivityTab.svelte";
   import ConnectionsTab from "@/features/admin/ConnectionsTab.svelte";
   import EnvironmentsTab from "@/features/admin/EnvironmentsTab.svelte";
@@ -31,6 +42,17 @@
 
   const { t } = useTranslation();
   let section = $derived<Section>(initialSection);
+  const ICONS = {
+    users: UserIcon,
+    teams: UsersIcon,
+    sso: KeyIcon,
+    connections: DatabaseIcon,
+    environments: LayersIcon,
+    lint: SearchIcon,
+    shareLinks: LinkIcon,
+    audit: ClockIcon,
+    errors: AlertTriangleIcon,
+  } as const;
   const groups = [
     { label: "shell.people", keys: ["users", "teams", "sso"] },
     { label: "shell.bases", keys: ["connections", "environments"] },
@@ -56,9 +78,10 @@
         <div class="admin-group">
           <h2>{t(group.label)}</h2>
           {#each SECTIONS.filter((item) => (group.keys as readonly string[]).includes(item.key)) as item (item.key)}
-            <button aria-current={section === item.key ? "page" : undefined} onclick={() => (section = item.key)}
-              >{t(item.labelKey)}</button
-            >
+            <button aria-current={section === item.key ? "page" : undefined} onclick={() => (section = item.key)}>
+              <Icon icon={ICONS[item.key]} size={16} />
+              <span>{t(item.labelKey)}</span>
+            </button>
           {/each}
         </div>
       {/each}
@@ -66,11 +89,12 @@
     <div class="admin-content">
       <!-- The connections section hosts a data grid and a SQL console, which need the width the list tabs don't. -->
       <div class={`mx-auto ${section === "connections" ? "max-w-[1600px]" : "max-w-[880px]"}`}>
+        <h1 class="mb-5 flex items-center gap-2.5 text-xl font-semibold text-text" data-testid="admin-section-title">
+          <Icon icon={ICONS[section]} size={20} />
+          {t(SECTIONS.find((item) => item.key === section)?.labelKey ?? "admin.title")}
+        </h1>
         {#if section === "teams"}<TeamsTab />{/if}
-        {#if section === "users"}
-          <h2 class="mb-4 text-lg font-semibold">{t("admin.section.users")}</h2>
-          <UsersTab />
-        {/if}
+        {#if section === "users"}<UsersTab />{/if}
         {#if section === "audit"}<ActivityTab />{/if}
         {#if section === "errors"}<ErrorsTab />{/if}
         {#if section === "connections"}<ConnectionsTab {initialConnectionId} />{/if}
@@ -86,38 +110,49 @@
 <style>
   .admin-workspace {
     display: grid;
-    grid-template-columns: 190px minmax(0, 1fr);
+    grid-template-columns: 260px minmax(0, 1fr);
     flex: 1;
     min-height: 0;
   }
   .admin-navigation {
     overflow: auto;
     border-right: 1px solid var(--color-border);
-    padding: 16px 10px;
+    padding: 20px 14px;
     background: var(--color-surface);
   }
   .admin-group {
-    margin-bottom: 20px;
+    margin-bottom: 8px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--color-border);
+  }
+  .admin-group:last-child {
+    border-bottom: 0;
   }
   .admin-group h2 {
-    font-size: 10px;
+    font-size: 12px;
     text-transform: uppercase;
     letter-spacing: 0.08em;
-    color: var(--color-text-muted);
-    font-weight: 600;
-    padding: 0 9px 6px;
+    color: var(--color-text);
+    font-weight: 700;
+    padding: 4px 10px 8px;
   }
   .admin-group button {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 10px;
     width: 100%;
     text-align: left;
-    padding: 7px 9px;
-    border-radius: 6px;
-    font-size: 12px;
+    padding: 10px 12px;
+    margin-bottom: 2px;
+    border-radius: 8px;
+    font-size: 13px;
+    line-height: 1.3;
+    white-space: nowrap;
     color: var(--color-text-secondary);
   }
   .admin-group button:hover {
     background: var(--color-surface-hover);
+    color: var(--color-text);
   }
   .admin-group button[aria-current="page"] {
     background: var(--color-primary-light);
@@ -140,6 +175,7 @@
     .admin-navigation {
       display: flex;
       gap: 16px;
+      overflow-x: auto;
       border-right: 0;
       border-bottom: 1px solid var(--color-border);
       padding: 8px 12px;
@@ -149,6 +185,8 @@
       flex: none;
       gap: 4px;
       margin: 0;
+      padding: 0;
+      border-bottom: 0;
     }
     .admin-group h2 {
       display: none;

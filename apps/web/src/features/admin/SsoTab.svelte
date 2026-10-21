@@ -86,7 +86,6 @@
 </script>
 
 <div class="max-w-[640px] space-y-4" data-testid="sso-settings">
-  <h2 class="m-0 text-lg font-semibold">{t("admin.section.sso")}</h2>
   <p class="m-0 text-xs text-text-muted">{t("admin.sso.hint")}</p>
 
   {#if loadError}<ErrorText>{loadError}</ErrorText>{/if}
