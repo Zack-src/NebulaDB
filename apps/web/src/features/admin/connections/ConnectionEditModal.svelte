@@ -310,36 +310,37 @@
           bind:connectionString
           bind:filePath
           bind:useUri
-        />
-
-
-        {#if personalPossible}
-          <div>
-            <div id="auth-mode-label" class={LABEL}>{t("admin.connections.authMode")}</div>
-            <RadioGroup
-              bind:value={authMode}
-              aria-labelledby="auth-mode-label"
-              options={[
-                { value: "shared", label: t("admin.connections.authShared"), hint: t("admin.connections.authSharedHint") },
-                {
-                  value: "personal",
-                  label: t("admin.connections.authPersonal"),
-                  hint: t("admin.connections.authPersonalHint"),
-                },
-              ]}
-            />
-            {#if authMode === "personal" && initial}
-              <p class="m-0 mt-2 text-xs text-text-muted" data-testid="credential-holders">
-                {(holders.data ?? []).length > 0
-                  ? t("admin.connections.authHolders", {
-                      count: (holders.data ?? []).length,
-                      people: (holders.data ?? []).map((holder) => `${holder.email} (${holder.username})`).join(", "),
-                    })
-                  : t("admin.connections.authNoHolder")}
-              </p>
+        >
+          {#snippet beforeDetails()}
+            {#if personalPossible}
+              <div>
+                <div id="auth-mode-label" class={LABEL}>{t("admin.connections.authMode")}</div>
+                <RadioGroup
+                  bind:value={authMode}
+                  aria-labelledby="auth-mode-label"
+                  options={[
+                    { value: "shared", label: t("admin.connections.authShared"), hint: t("admin.connections.authSharedHint") },
+                    {
+                      value: "personal",
+                      label: t("admin.connections.authPersonal"),
+                      hint: t("admin.connections.authPersonalHint"),
+                    },
+                  ]}
+                />
+                {#if authMode === "personal" && initial}
+                  <p class="m-0 mt-2 text-xs text-text-muted" data-testid="credential-holders">
+                    {(holders.data ?? []).length > 0
+                      ? t("admin.connections.authHolders", {
+                          count: (holders.data ?? []).length,
+                          people: (holders.data ?? []).map((holder) => `${holder.email} (${holder.username})`).join(", "),
+                        })
+                      : t("admin.connections.authNoHolder")}
+                  </p>
+                {/if}
+              </div>
             {/if}
-          </div>
-        {/if}
+          {/snippet}
+        </ConnectionFormFields>
 
         <div>
           <!-- svelte-ignore a11y_label_has_associated_control -->

@@ -137,7 +137,7 @@ test(
       const portOf = (dialog: Locator) => dialog.getByRole("spinbutton", { name: "Port" });
       const readOnlyOf = (dialog: Locator) => dialog.getByRole("checkbox", { name: /^Lecture seule/ });
       const sslOf = (dialog: Locator) => dialog.getByRole("checkbox", { name: "Activer SSL / TLS" });
-      const uriOf = (dialog: Locator) => dialog.getByRole("checkbox", { name: "Utiliser une URI de connexion" });
+      const uriOf = (dialog: Locator) => dialog.getByRole("radio", { name: "URI de connexion" });
       const projectOf = (dialog: Locator, name: string) => dialog.getByRole("checkbox", { name, exact: true });
       const accountMode = (dialog: Locator) => dialog.getByRole("radio", { name: /^Le compte de chacun/ });
       const importButton = { name: "Importer le schéma de la base" };
@@ -271,7 +271,7 @@ test(
       await creating.getByPlaceholder("ex: Production DB").fill("Par URI");
       await portOf(creating).waitFor();
       assert.equal(await uriOf(creating).isChecked(), false);
-      await creating.getByText("Utiliser une URI de connexion", { exact: true }).click();
+      await uriOf(creating).click();
       await shows(() => uriOf(creating).isChecked(), true, "the URI toggle is ticked");
       const uri = fieldUnder(creating, "URI de connexion");
       await uri.waitFor();
@@ -300,7 +300,7 @@ test(
         await fieldUnder(editing, "URI de connexion").inputValue(),
         "postgres://app:***@db.internal:6543/shop",
       );
-      await editing.getByText("Utiliser une URI de connexion", { exact: true }).click();
+      await editing.getByRole("radio", { name: "Hôte et port" }).click();
       await shows(() => uriOf(editing).isChecked(), false, "the URI toggle is unticked");
       await portOf(editing).waitFor();
       assert.equal(await fieldUnder(editing, "URI de connexion").count(), 0);

@@ -51,7 +51,7 @@ test(
       await page.getByRole("button", { name: "Nouvelle connexion" }).click();
       const form = page.getByRole("dialog");
       await form.getByPlaceholder("ex: Production DB").fill("Boutique live");
-      const mode = form.getByRole("radiogroup", { name: "Compte utilisé pour se connecter" });
+      const mode = form.getByRole("radiogroup", { name: "Compte de connexion à la base" });
       // Each person's own account is the default for a network engine; the other choice is one click away.
       assert.equal(await mode.getByRole("radio", { name: /Le compte de chacun/ }).isChecked(), true);
       await mode.getByText("Un compte partagé", { exact: true }).click();

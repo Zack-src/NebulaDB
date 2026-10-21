@@ -14,11 +14,13 @@
 </script>
 
 <script lang="ts">
+  import type { Snippet } from "svelte";
   import type { EnvironmentStage } from "@nebuladb/shared";
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import Hint from "@/components/ui/Hint.svelte";
   import { INPUT_CLASS } from "@/components/ui/inputStyles";
   import NumberInput from "@/components/ui/NumberInput.svelte";
+  import SegmentedControl from "@/components/ui/SegmentedControl.svelte";
   import Select from "@/components/ui/Select.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { fetchEnvironments } from "@/services/environmentsApi";
@@ -46,6 +48,7 @@
     showCredentials = true,
     showEnvironment = true,
     showSsl = true,
+    beforeDetails,
   }: {
     /** The deployment stage (Admin → Environnements); `""` for none. */
     environmentId: string;
@@ -64,10 +67,13 @@
     showEnvironment?: boolean;
     /** `false` where TLS has a tab of its own (the admin console's Sécurité tab). */
     showSsl?: boolean;
+    /** Rendered between the engine and the connection details: the admin console puts the account choice there. */
+    beforeDetails?: Snippet;
   } = $props();
 
   const { t } = useTranslation();
-  const LABEL = "mb-1 block text-xs font-medium text-text-muted";
+  const LABEL = "mb-1.5 block text-xs font-medium text-text-muted";
+  const FIELD = `${INPUT_CLASS} w-full`;
 
   let stages = $state.raw<EnvironmentStage[]>([]);
   $effect(() => {
@@ -120,66 +126,81 @@
     />
   </div>
 
-  {#if showEnvironment}<div class="col-span-2">
+  {#if showEnvironment}
+    <div class="col-span-2 sm:col-span-1">
       <!-- svelte-ignore a11y_label_has_associated_control -->
       <label id="connection-environment" class={LABEL}>{t("connections.environment")}</label>
       <Select
+        class="w-full"
         aria-labelledby="connection-environment"
         value={environmentId}
         options={stageOptions}
         onChange={(value) => (environmentId = value)}
       />
-      <Hint>{t("connections.environmentHint")}</Hint>
-    </div>{/if}
+    </div>
+    <div class="col-span-2 -mt-1.5"><Hint>{t("connections.environmentHint")}</Hint></div>
+  {/if}
 </div>
+
+{@render beforeDetails?.()}
 
 {#if engine === "sqlite"}
   <div>
     <!-- svelte-ignore a11y_label_has_associated_control -->
     <label class={LABEL}>{t("connections.filePath")}</label>
-    <input class={INPUT_CLASS} bind:value={filePath} placeholder="./data/app.sqlite" />
+    <input class={FIELD} bind:value={filePath} placeholder="./data/app.sqlite" />
     <Hint>{t("connections.sqliteHint")}</Hint>
   </div>
 {:else if engine === "bigquery"}
   <!-- The same fields as any other engine underneath: the project is the host, the dataset the database, the key the password. -->
   <div class="space-y-3">
-    <div class="grid grid-cols-2 gap-2">
+    <div class="grid grid-cols-2 gap-3">
       <div>
         <!-- svelte-ignore a11y_label_has_associated_control -->
         <label class={LABEL}>{t("connections.bigqueryProject")}</label>
-        <input class={INPUT_CLASS} bind:value={host} placeholder="my-gcp-project" />
+        <input class={FIELD} bind:value={host} placeholder="my-gcp-project" />
       </div>
       <div>
         <!-- svelte-ignore a11y_label_has_associated_control -->
         <label class={LABEL}>{t("connections.bigqueryDataset")}</label>
-        <input class={INPUT_CLASS} bind:value={database} placeholder="my_dataset" />
+        <input class={FIELD} bind:value={database} placeholder="my_dataset" />
       </div>
     </div>
     {#if showCredentials}<div>
         <!-- svelte-ignore a11y_label_has_associated_control -->
         <label class={LABEL}>{t("connections.bigqueryKey")}</label>
-        <input class={INPUT_CLASS} type="password" bind:value={password} placeholder={passwordPlaceholder} />
+        <input class={FIELD} type="password" bind:value={password} placeholder={passwordPlaceholder} />
         <Hint>{t("connections.bigqueryHint")}</Hint>
       </div>{/if}
   </div>
 {:else}
-  <div class="flex items-center gap-2 pt-1">
-    <Checkbox bind:checked={useUri}><span class="text-xs">{t("connections.useUri")}</span></Checkbox>
+  <div>
+    <div id="connection-address-mode" class={LABEL}>{t("connections.addressMode")}</div>
+    <SegmentedControl
+      size="sm"
+      aria-labelledby="connection-address-mode"
+      value={useUri ? "uri" : "host"}
+      onChange={(mode) => (useUri = mode === "uri")}
+      options={[
+        { value: "host", label: t("connections.addressHost") },
+        { value: "uri", label: t("connections.addressUri") },
+      ]}
+    />
   </div>
 
   {#if useUri}
     <div>
       <!-- svelte-ignore a11y_label_has_associated_control -->
       <label class={LABEL}>{t("connections.connectionUri")}</label>
-      <input class={INPUT_CLASS} type="password" bind:value={connectionString} placeholder={uriPlaceholder} />
+      <input class={FIELD} type="password" bind:value={connectionString} placeholder={uriPlaceholder} />
     </div>
   {:else}
     <div class="space-y-3">
-      <div class="grid grid-cols-3 gap-2">
-        <div class="col-span-2">
+      <div class="grid grid-cols-4 gap-3">
+        <div class="col-span-3">
           <!-- svelte-ignore a11y_label_has_associated_control -->
           <label class={LABEL}>{t("connections.host")}</label>
-          <input class={INPUT_CLASS} bind:value={host} />
+          <input class={FIELD} bind:value={host} />
         </div>
         <div>
           <!-- svelte-ignore a11y_label_has_associated_control -->
@@ -194,23 +215,31 @@
         </div>
       </div>
 
-      <div class="grid grid-cols-3 gap-2">
-        <div class="col-span-1">
+      <div class={`grid gap-3 ${showCredentials ? "grid-cols-3" : "grid-cols-1"}`}>
+        <div>
           <!-- svelte-ignore a11y_label_has_associated_control -->
           <label class={LABEL}>{engine === "oracle" ? t("connections.oracleService") : t("connections.database")}</label
           >
-          <input class={INPUT_CLASS} bind:value={database} />
+          <input class={FIELD} bind:value={database} />
         </div>
-        {#if showCredentials}<div class="col-span-1">
+        {#if showCredentials}
+          <div>
             <!-- svelte-ignore a11y_label_has_associated_control -->
             <label class={LABEL}>{t("connections.user")}</label>
-            <input class={INPUT_CLASS} bind:value={user} />
+            <input class={FIELD} bind:value={user} autocomplete="off" />
           </div>
-          <div class="col-span-1">
+          <div>
             <!-- svelte-ignore a11y_label_has_associated_control -->
             <label class={LABEL}>{t("connections.password")}</label>
-            <input class={INPUT_CLASS} type="password" bind:value={password} placeholder={passwordPlaceholder} />
-          </div>{/if}
+            <input
+              class={FIELD}
+              type="password"
+              bind:value={password}
+              placeholder={passwordPlaceholder}
+              autocomplete="new-password"
+            />
+          </div>
+        {/if}
       </div>
 
       {#if showSsl}<div>
