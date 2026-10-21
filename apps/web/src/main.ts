@@ -9,7 +9,13 @@ try {
   // A browser that blocks storage can still open the application.
 }
 
-// Load preference readers only after historical keys have been copied.
-void import("@/app/Root.svelte").then(({ default: Root }) => {
+// Load preference readers only after historical keys have been copied. A share
+// link's page (`/share/<token>`) is its own small root: it must not start the
+// app, which checks the session and talks to the authenticated API.
+const root = window.location.pathname.startsWith("/share/")
+  ? import("@/features/share/ShareRoot.svelte")
+  : import("@/app/Root.svelte");
+
+void root.then(({ default: Root }) => {
   mount(Root, { target: document.getElementById("root")! });
 });

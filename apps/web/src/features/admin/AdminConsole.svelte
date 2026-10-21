@@ -6,6 +6,7 @@
   import EnvironmentsTab from "@/features/admin/EnvironmentsTab.svelte";
   import ErrorsTab from "@/features/admin/ErrorsTab.svelte";
   import LintPresetsTab from "@/features/admin/lint/LintPresetsTab.svelte";
+  import ShareLinksTab from "@/features/admin/ShareLinksTab.svelte";
   import TeamsTab from "@/features/admin/TeamsTab.svelte";
   import SsoTab from "@/features/admin/SsoTab.svelte";
   import UsersTab from "@/features/admin/UsersTab.svelte";
@@ -34,6 +35,7 @@
     { label: "shell.people", keys: ["users", "teams", "sso"] },
     { label: "shell.bases", keys: ["connections", "environments"] },
     { label: "shell.quality", keys: ["lint"] },
+    { label: "admin.group.sharing", keys: ["shareLinks"] },
     { label: "shell.logs", keys: ["audit", "errors"] },
   ] as const;
 </script>
@@ -75,6 +77,7 @@
         {#if section === "environments"}<EnvironmentsTab />{/if}
         {#if section === "lint"}<LintPresetsTab />{/if}
         {#if section === "sso"}<SsoTab />{/if}
+        {#if section === "shareLinks"}<ShareLinksTab />{/if}
       </div>
     </div>
   </div>

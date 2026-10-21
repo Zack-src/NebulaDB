@@ -8,6 +8,7 @@
   import Icon from "@/components/icons/Icon.svelte";
   import {
     ArchiveIcon,
+    EyeIcon,
     FolderIcon,
     LayersIcon,
     LinkIcon,
@@ -43,6 +44,7 @@
     onMove,
     variantOfName = null,
     variantCount = 0,
+    onManageShareLinks,
   }: {
     project: ProjectSummary;
     section: ProjectStatus;
@@ -64,6 +66,7 @@
     variantOfName?: string | null;
     /** For an original: how many client variants it has. */
     variantCount?: number;
+    onManageShareLinks: () => void;
   } = $props();
 
   const { t } = useTranslation();
@@ -188,6 +191,15 @@
               onclick={action(onManageWebhooks)}
             >
               <Icon icon={LinkIcon} size={13} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              data-tooltip={t("projects.card.shareLinks")}
+              aria-label={t("projects.card.shareLinks")}
+              onclick={action(onManageShareLinks)}
+            >
+              <Icon icon={EyeIcon} size={13} />
             </Button>
             {#if section === "archived"}
               <Button

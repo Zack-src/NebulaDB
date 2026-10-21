@@ -285,7 +285,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     app.get("/project/:id/:tab", (_req, reply) => reply.sendFile("index.html"));
     // A share link's public page: the same bundle, which routes on the path
     // before the app starts (`main.ts`); the headers come from the share hook above.
-    app.get("/share/:token", (_req, reply) => reply.sendFile("index.html"));
+    // `cacheControl: false`: the static plugin would overwrite the `no-store` set above.
+    app.get("/share/:token", (_req, reply) => reply.sendFile("index.html", { cacheControl: false }));
     app.log.info(`serving built web app from ${webDist}`);
   }
 

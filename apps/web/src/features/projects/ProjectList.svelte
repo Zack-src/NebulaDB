@@ -32,6 +32,7 @@
   import DeleteProjectModal from "@/features/projects/components/DeleteProjectModal.svelte";
   import EmptyTrashModal from "@/features/projects/components/EmptyTrashModal.svelte";
   import NewProjectFromDatabaseModal from "@/features/projects/NewProjectFromDatabaseModal.svelte";
+  import ShareLinksModal from "@/features/projects/components/ShareLinksModal.svelte";
   import WebhooksModal from "@/features/projects/components/WebhooksModal.svelte";
   import GlobalSearchResults from "@/features/projects/components/GlobalSearchResults.svelte";
   import type { SearchHit } from "@/services/searchApi";
@@ -89,6 +90,7 @@
   let deletePending = $state(false);
   let teamsTarget = $state.raw<ProjectSummary | null>(null);
   let webhooksTarget = $state.raw<ProjectSummary | null>(null);
+  let shareLinksTarget = $state.raw<ProjectSummary | null>(null);
   let emptyTrashOpen = $state(false);
   let emptyTrashError = $state<string | null>(null);
   let emptyTrashPending = $state(false);
@@ -481,6 +483,7 @@
               onMove={() => (moveTarget = project)}
               variantOfName={project.variantOf ? (projectNames.get(project.variantOf) ?? null) : null}
               variantCount={variantCounts.get(project.id) ?? 0}
+              onManageShareLinks={() => (shareLinksTarget = project)}
             />
             </div>
           {/each}
@@ -568,6 +571,9 @@
       onMove={moveProject}
       onClose={() => (moveTarget = null)}
     />
+  {/if}
+  {#if shareLinksTarget}
+    <ShareLinksModal project={shareLinksTarget} onClose={() => (shareLinksTarget = null)} />
   {/if}
   {#if teamsTarget}
     <ProjectTeamsModal project={teamsTarget} onClose={() => (teamsTarget = null)} />

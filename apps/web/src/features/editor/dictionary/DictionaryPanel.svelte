@@ -23,9 +23,9 @@
   import SegmentedControl from "@/components/ui/SegmentedControl.svelte";
   import Select from "@/components/ui/Select.svelte";
   import TextArea from "@/components/ui/TextArea.svelte";
-  import { formatDate } from "@/i18n/formatters";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { triggerDownload } from "@/utils/download";
+  import { dictionaryPdfLabels } from "./dictionaryPdfLabels";
 
   /**
    * "Dictionnaire": what each table and column means — description, owner,
@@ -132,31 +132,7 @@
     makingPdf = true;
     try {
       const { dictionaryToPdf } = await import("./dictionaryPdf");
-      const blob = await dictionaryToPdf(dictionary, {
-        title: t("dictionary.pdf.title", { name: project.name }),
-        date: formatDate(new Date(), i18n.locale),
-        summary: t("dictionary.described", {
-          percent,
-          tables: `${dictionary.completeness.describedTables}/${dictionary.completeness.tables}`,
-          columns: `${dictionary.completeness.describedColumns}/${dictionary.completeness.columns}`,
-        }),
-        column: t("dictionary.pdf.column"),
-        type: t("dictionary.pdf.type"),
-        constraints: t("dictionary.pdf.constraints"),
-        classification: t("dictionary.pdf.classification"),
-        description: t("dictionary.pdf.description"),
-        value: t("dictionary.pdf.value"),
-        owner: t("dictionary.owner"),
-        tags: t("dictionary.pdf.tags"),
-        usedBy: t("dictionary.pdf.usedBy"),
-        enums: t("dictionary.enums"),
-        classes: {
-          public: t("dictionary.class.public"),
-          internal: t("dictionary.class.internal"),
-          personal: t("dictionary.class.personal"),
-          sensitive: t("dictionary.class.sensitive"),
-        },
-      });
+      const blob = await dictionaryToPdf(dictionary, dictionaryPdfLabels(dictionary, t, i18n.locale));
       triggerDownload(URL.createObjectURL(blob), `${fileBase}.pdf`, true);
     } finally {
       makingPdf = false;
