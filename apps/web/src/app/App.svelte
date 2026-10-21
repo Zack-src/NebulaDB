@@ -8,6 +8,7 @@
   import ErrorBoundary from "@/app/ErrorBoundary.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import ProjectEditor from "@/features/editor/ProjectEditor.svelte";
+  import ProjectOpeningSkeleton from "@/features/editor/ProjectOpeningSkeleton.svelte";
   import ProjectListScreen from "@/features/projects/ProjectListScreen.svelte";
   import Login from "@/features/auth/Login.svelte";
   import SettingsPage from "@/features/settings/SettingsPage.svelte";
@@ -162,6 +163,9 @@
           </ErrorBoundary>
         {/key}
       </div>
+    {:else if routing.opening && viewMode === "app"}
+      <!-- 2b. A deep link whose project is still being resolved: the editor's shape, not the project list. -->
+      <ProjectOpeningSkeleton />
     {:else if viewMode === "settings"}
       <!-- 3. Settings View -->
       <SettingsPage

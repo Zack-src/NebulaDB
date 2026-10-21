@@ -238,6 +238,7 @@
   "projects.globalSearch.kind.field": "colonne",
   "projects.globalSearch.kind.enum": "enum",
   "projects.linkGone": "Ce projet n'existe plus.",
+  "projects.opening": "Ouverture du projet…",
   "projects.linkForbidden": "Vous n'avez pas accès à ce projet.",
   "projects.emptyTrashPartialFailure_one": "{{count}} projet n'a pas pu être supprimé.",
   "projects.emptyTrashPartialFailure_other": "{{count}} projets n'ont pas pu être supprimés.",
