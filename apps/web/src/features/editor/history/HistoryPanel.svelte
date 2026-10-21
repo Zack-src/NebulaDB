@@ -88,7 +88,7 @@
   let diff = $state.raw<ProjectDiff | null>(null);
   let loadingPreview = $state(false);
   let error = $state<string | null>(null);
-  let labelInput: HTMLInputElement | undefined = $state();
+  let labelInput: HTMLInputElement | null = $state(null);
   /** Bumped to re-read the selected revision against the current schema after a partial restore. */
   let comparedAt = $state(0);
 
