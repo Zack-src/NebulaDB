@@ -2,7 +2,7 @@
   import type { ConflictResolutionStrategy, MigrationResolutionMap, SchemaRisk } from "@nebuladb/shared";
   import Badge from "@/components/ui/Badge.svelte";
   import Icon from "@/components/icons/Icon.svelte";
-  import { AlertTriangleIcon, CheckCircleIcon } from "@/components/icons/Icons";
+  import { AlertTriangleIcon, CheckCircleIcon, InfoIcon } from "@/components/icons/Icons";
   import { INPUT_CLASS } from "@/components/ui/inputStyles";
   import RadioGroup from "@/components/ui/RadioGroup.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
@@ -51,14 +51,21 @@
           }`}
         >
           <div class="flex items-start gap-2.5">
-            <Icon
-              icon={AlertTriangleIcon}
-              size={16}
-              class={risk.severity === "critical" ? "text-rose-400" : risk.severity === "info" ? "text-text-muted" : "text-amber-400"}
-            />
+            <!-- As tall as the first line of the title, so the icon sits on its centre. -->
+            <span class="flex h-5 w-4 flex-none items-center justify-center">
+              <Icon
+                icon={risk.severity === "info" ? InfoIcon : AlertTriangleIcon}
+                size={16}
+                class={risk.severity === "critical"
+                  ? "text-rose-400"
+                  : risk.severity === "info"
+                    ? "text-primary"
+                    : "text-amber-400"}
+              />
+            </span>
             <div class="flex-1 space-y-2">
-              <div class="flex items-center justify-between">
-                <h4 class="font-bold text-text">
+              <div class="flex items-start justify-between gap-3">
+                <h4 class="text-[13px] font-bold leading-5 text-text">
                   {#if risk.type === "DROP_COLUMN_WITH_DATA"}
                     <span>{t("deployment.riskDropColumn", { col: risk.columnName || "", table: risk.tableName })}</span>
                   {/if}
@@ -100,6 +107,7 @@
                     </span>
                   {/if}
                 </h4>
+                {#if risk.type !== "TYPE_TRANSLATION_SUGGESTED"}
                 <Badge tone={risk.severity === "critical" ? "danger" : risk.severity === "info" ? "muted" : "warning"}>
                   {#if risk.unmeasured}
                     {t("deployment.riskUnmeasured")}
@@ -110,10 +118,13 @@
                     {t("deployment.rowsAffected")}
                   {/if}
                 </Badge>
+                {/if}
               </div>
 
               <!-- Strategy selector radio group — nothing to decide for a check that passed -->
-              {#if risk.severity === "info"}
+              {#if risk.type === "TYPE_TRANSLATION_SUGGESTED"}
+                <!-- Nothing was measured and nothing is asked: the translated type is in the title. -->
+              {:else if risk.severity === "info"}
                 <p class="text-text-muted">{t("deployment.riskFits")}</p>
               {:else}
                 <div class="space-y-1.5 pt-1">
