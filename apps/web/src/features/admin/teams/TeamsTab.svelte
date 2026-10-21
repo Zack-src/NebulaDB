@@ -13,7 +13,7 @@
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { createTeam, deleteTeam, fetchTeams } from "@/services/teamsApi";
-  import TeamDetailView from "@/features/admin/TeamDetailView.svelte";
+  import TeamDetailView from "@/features/admin/teams/TeamDetailView.svelte";
 
   const { t } = useTranslation();
   const teams = useAsyncResource(fetchTeams);

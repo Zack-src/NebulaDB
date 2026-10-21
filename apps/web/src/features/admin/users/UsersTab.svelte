@@ -29,10 +29,10 @@
   import { copyText } from "@/utils/clipboard";
   import type { InvitationSummary } from "@/types";
   import type { UserSummary } from "@/types";
-  import ResetPasswordModal from "@/features/admin/ResetPasswordModal.svelte";
-  import DeleteUserModal from "@/features/admin/DeleteUserModal.svelte";
-  import UserDbAccessModal from "@/features/admin/UserDbAccessModal.svelte";
-  import UserAccessModal from "@/features/admin/UserAccessModal.svelte";
+  import ResetPasswordModal from "@/features/admin/users/ResetPasswordModal.svelte";
+  import DeleteUserModal from "@/features/admin/users/DeleteUserModal.svelte";
+  import UserDbAccessModal from "@/features/admin/users/UserDbAccessModal.svelte";
+  import UserAccessModal from "@/features/admin/users/UserAccessModal.svelte";
 
   const { t } = useTranslation();
   const users = useAsyncResource(fetchUsers);

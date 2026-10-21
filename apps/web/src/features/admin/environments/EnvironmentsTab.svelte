@@ -17,7 +17,7 @@
   import SegmentedControl from "@/components/ui/SegmentedControl.svelte";
   import Switch from "@/components/ui/Switch.svelte";
   import { toast } from "@/components/ui/toast.svelte";
-  import StageVariables from "@/features/admin/StageVariables.svelte";
+  import StageVariables from "@/features/admin/environments/StageVariables.svelte";
   import EnvironmentBadge, { STAGE_COLOR } from "@/features/environments/EnvironmentBadge.svelte";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";

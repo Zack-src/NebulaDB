@@ -12,15 +12,15 @@
     UserIcon,
     UsersIcon,
   } from "@/components/icons/Icons";
-  import ActivityTab from "@/features/admin/ActivityTab.svelte";
-  import ConnectionsTab from "@/features/admin/ConnectionsTab.svelte";
-  import EnvironmentsTab from "@/features/admin/EnvironmentsTab.svelte";
-  import ErrorsTab from "@/features/admin/ErrorsTab.svelte";
+  import ActivityTab from "@/features/admin/logs/ActivityTab.svelte";
+  import ConnectionsTab from "@/features/admin/connections/ConnectionsTab.svelte";
+  import EnvironmentsTab from "@/features/admin/environments/EnvironmentsTab.svelte";
+  import ErrorsTab from "@/features/admin/logs/ErrorsTab.svelte";
   import LintPresetsTab from "@/features/admin/lint/LintPresetsTab.svelte";
-  import ShareLinksTab from "@/features/admin/ShareLinksTab.svelte";
-  import TeamsTab from "@/features/admin/TeamsTab.svelte";
-  import SsoTab from "@/features/admin/SsoTab.svelte";
-  import UsersTab from "@/features/admin/UsersTab.svelte";
+  import ShareLinksTab from "@/features/admin/shareLinks/ShareLinksTab.svelte";
+  import TeamsTab from "@/features/admin/teams/TeamsTab.svelte";
+  import SsoTab from "@/features/admin/sso/SsoTab.svelte";
+  import UsersTab from "@/features/admin/users/UsersTab.svelte";
   import Button from "@/components/ui/Button.svelte";
   import BrandMark from "@/components/ui/BrandMark.svelte";
   import { APP_HEADER, APP_SHELL } from "@/components/ui/layout";

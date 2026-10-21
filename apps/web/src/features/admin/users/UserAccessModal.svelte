@@ -18,7 +18,7 @@
   import { addTeamMember, fetchTeams, removeTeamMember } from "@/services/teamsApi";
   import { fetchUserAccess } from "@/services/usersApi";
   import type { PermissionLevel, UserSummary } from "@/types";
-  import { permissionOptions } from "./permissionOptions";
+  import { permissionOptions } from "../access/permissionOptions";
 
   /**
    * Admin → Utilisateurs → "Équipes et projets": the person's side of what the

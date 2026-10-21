@@ -16,11 +16,11 @@
   import { fetchUsers } from "@/services/usersApi";
   import { fetchProjects, grantProjectTeam, revokeProjectTeam } from "@/services/projectsApi";
   import type { PermissionLevel } from "@/types";
-  import { permissionOptions } from "./permissionOptions";
+  import { permissionOptions } from "../access/permissionOptions";
   import { toast } from "@/components/ui/toast.svelte";
   import { fetchTeamDbAccess, saveTeamDbAccess } from "@/services/dbAccessApi";
   import { listAdminConnections } from "@/services/dbAdminApi";
-  import DbAccessEditor, { draftFromGrants, grantsFromDraft, type DbAccessDraft } from "./DbAccessEditor.svelte";
+  import DbAccessEditor, { draftFromGrants, grantsFromDraft, type DbAccessDraft } from "../access/DbAccessEditor.svelte";
 
   let { teamId, onClose, onChanged }: { teamId: string; onClose: () => void; onChanged: () => void } = $props();
 

@@ -11,7 +11,7 @@
   import { createInvitation } from "@/services/invitationsApi";
   import { fetchTeams } from "@/services/teamsApi";
   import { listAdminConnections } from "@/services/dbAdminApi";
-  import DbAccessEditor, { grantsFromDraft, type DbAccessDraft } from "./DbAccessEditor.svelte";
+  import DbAccessEditor, { grantsFromDraft, type DbAccessDraft } from "../access/DbAccessEditor.svelte";
 
   const { t } = useTranslation();
   let { onCreated }: { onCreated: () => void } = $props();

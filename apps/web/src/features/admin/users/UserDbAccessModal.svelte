@@ -12,7 +12,7 @@
   import { fetchUserDbAccess, saveUserDbAccess } from "@/services/dbAccessApi";
   import { listAdminConnections } from "@/services/dbAdminApi";
   import type { UserSummary } from "@/types";
-  import DbAccessEditor, { draftFromGrants, grantsFromDraft, type DbAccessDraft } from "./DbAccessEditor.svelte";
+  import DbAccessEditor, { draftFromGrants, grantsFromDraft, type DbAccessDraft } from "../access/DbAccessEditor.svelte";
 
   /**
    * Admin → Utilisateurs → "Accès aux bases": which databases this person may
