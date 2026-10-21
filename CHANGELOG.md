@@ -70,6 +70,13 @@ has a dated entry for. Version 1.0.0 is the first release under the NebulaDB nam
   (`project_folders`, `projects.folder_id`, `project_variants`). `GET /api/projects` and `/api/v1/projects` add
   `folderId` and `variantOf`.
 
+### Added — GitHub Action
+
+- `actions/nebuladb`: a composite GitHub Action running one `nebuladb` CLI command (`lint`, `drift-check`,
+  `deploy-plan`, `deploy`) from a workflow. The API key reaches the CLI through the environment only, the
+  CLI's exit code becomes the step's, and its output goes to the job summary. By default the action builds
+  the CLI from its own checkout, so it always matches the instance's version.
+
 ### Added — backups to S3 and SFTP
 
 - A database's backups can go to an **S3-compatible bucket** (AWS S3, MinIO, Scaleway, OVH…) or an **SFTP

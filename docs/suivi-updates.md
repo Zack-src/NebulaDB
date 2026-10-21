@@ -47,7 +47,7 @@ un moteur cible pour les projets).
 - [x] F1. Alertes de surveillance : e-mail, acquittement, mise en sourdine — `a9c6b69`, `0c8bc97`, `8f6a98e`
 - [x] F2. Dictionnaire : description multi-ligne, export PDF — `7c33923`, `692f305`
 - [x] F3. Export des migrations en fichiers versionnés (Flyway / Liquibase) — `4b743d1`
-- [~] F4. CLI / action GitHub — CLI faite (`4ca2137`, `85ea884`) ; action GitHub non faite
+- [x] F4. CLI / action GitHub — CLI (`4ca2137`, `85ea884`), action dans `actions/nebuladb`
 - [x] F5. Suggestions d'index à partir des statistiques de requêtes — `a5c7745`
 - [x] F6. Lien de partage en lecture seule (diagramme, dictionnaire) — repris de `agent/share-links`, passé sur PostgreSQL
 - [x] F7. Sauvegardes vers S3 / SFTP (en plus du dossier ou partage monté) — repris de `agent/backup-remote`, passé sur PostgreSQL

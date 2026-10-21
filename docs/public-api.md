@@ -344,6 +344,9 @@ jobs:
         run: bash ci/nebula-deploy.sh
 ```
 
+Or with the [NebulaDB GitHub Action](../actions/nebuladb/README.md), which runs the same checks through
+the `nebuladb` CLI (`command: lint`, `drift-check`, `deploy-plan` or `deploy`) without a script to maintain.
+
 What the deployment step meets on its way:
 
 - **`confirmName`** is the connection's name, as `GET

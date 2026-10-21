@@ -72,6 +72,9 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: GitHub Action script
+        run: bash actions/nebuladb/run.test.sh
+
       - name: Test
         run: npm test
 
