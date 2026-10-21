@@ -64,11 +64,11 @@
         }
         event.stopPropagation();
       }}
-      class="w-full border-b border-border bg-transparent px-3 py-2.5 text-[13px] text-text outline-hidden placeholder:text-text-muted"
+      class="w-full border-b border-border bg-transparent px-3 py-2.5 text-body text-text outline-hidden placeholder:text-text-muted"
     />
     <div bind:this={list} class="min-h-0 flex-1 overflow-y-auto py-1">
       {#if filtered.length === 0}
-        <div class="px-3 py-2 text-[12px] text-text-muted">{t("commandPalette.noMatch")}</div>
+        <div class="px-3 py-2 text-label text-text-muted">{t("commandPalette.noMatch")}</div>
       {/if}
       {#each filtered as item, i (item.id)}
         <button
@@ -76,13 +76,13 @@
           type="button"
           onmouseenter={() => (index = i)}
           onclick={() => commit(item)}
-          class={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-[12.5px] ${
+          class={`flex w-full items-center gap-2 px-3 py-1.5 text-left text-body-sm ${
             i === index ? "bg-primary text-white" : "text-text hover:bg-surface-hover"
           }`}
         >
           {#if item.kind}
             <span
-              class={`shrink-0 rounded px-1 py-px text-[10px] uppercase tracking-wide ${
+              class={`shrink-0 rounded px-1 py-px text-micro uppercase tracking-wide ${
                 i === index ? "bg-white/20 text-white" : "bg-border text-text-muted"
               }`}
             >
@@ -91,10 +91,10 @@
           {/if}
           <span class="truncate">{item.label}</span>
           {#if item.detail}
-            <span class={`truncate text-[11px] ${i === index ? "text-white/70" : "text-text-muted"}`}>{item.detail}</span>
+            <span class={`truncate text-caption ${i === index ? "text-white/70" : "text-text-muted"}`}>{item.detail}</span>
           {/if}
           {#if item.hint}
-            <span class={`ml-auto shrink-0 text-[11px] ${i === index ? "text-white/70" : "text-text-muted"}`}>{item.hint}</span>
+            <span class={`ml-auto shrink-0 text-caption ${i === index ? "text-white/70" : "text-text-muted"}`}>{item.hint}</span>
           {/if}
         </button>
       {/each}

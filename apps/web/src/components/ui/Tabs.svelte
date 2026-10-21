@@ -43,7 +43,7 @@
         role="tab"
         aria-selected={active}
         onclick={() => onChange(tab.id)}
-        class={`-mb-px flex items-center gap-2 border-b-2 pb-2.5 text-[12.5px] font-semibold transition-colors duration-150 ${FOCUS_RING} ${
+        class={`-mb-px flex items-center gap-2 border-b-2 pb-2.5 text-body-sm font-semibold transition-colors duration-150 ${FOCUS_RING} ${
           active
             ? "border-primary text-text"
             : "border-transparent text-text-muted hover:border-border-strong hover:text-text-secondary"
@@ -53,7 +53,7 @@
         {tab.label}
         {#if tab.badge !== undefined}
           <span
-            class={`rounded-full px-1.5 py-px text-[10px] font-bold tabular-nums ${
+            class={`rounded-full px-1.5 py-px text-micro font-bold tabular-nums ${
               active ? "bg-primary-light text-primary" : "bg-surface-hover text-text-muted"
             }`}
           >
@@ -71,7 +71,7 @@
         role="tab"
         aria-selected={active}
         onclick={() => onChange(tab.id)}
-        class={`flex h-7 flex-1 items-center justify-center gap-1.5 rounded-md px-3 text-[12.5px] font-medium transition-colors duration-150 ${FOCUS_RING} ${
+        class={`flex h-7 flex-1 items-center justify-center gap-1.5 rounded-md px-3 text-body-sm font-medium transition-colors duration-150 ${FOCUS_RING} ${
           active
             ? "border border-border-strong bg-surface-raised font-semibold text-text shadow-xs"
             : "border border-transparent text-text-muted hover:bg-surface-hover hover:text-text"
@@ -91,7 +91,7 @@
         role="tab"
         aria-selected={active}
         onclick={() => onChange(tab.id)}
-        class={`flex h-7 items-center gap-1.5 rounded-full px-3 text-[12.5px] font-medium transition-colors duration-150 ${FOCUS_RING} ${
+        class={`flex h-7 items-center gap-1.5 rounded-full px-3 text-body-sm font-medium transition-colors duration-150 ${FOCUS_RING} ${
           active
             ? "border border-primary bg-primary font-semibold text-white"
             : "border border-border bg-surface-raised text-text-secondary hover:bg-surface-hover hover:text-text"

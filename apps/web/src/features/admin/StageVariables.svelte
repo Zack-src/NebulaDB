@@ -91,7 +91,7 @@
           placeholder="table_prefix"
           {disabled}
         />
-        {#if nameProblem}<span class="text-[11.5px] text-danger">{nameProblem}</span>{/if}
+        {#if nameProblem}<span class="text-label text-danger">{nameProblem}</span>{/if}
       </div>
       <span class="pt-1 font-mono text-xs text-text-muted">=</span>
       <div class="flex min-w-[160px] flex-1 flex-col gap-1">
@@ -107,7 +107,7 @@
             if (event.key === "Enter") save();
           }}
         />
-        {#if valueProblem}<span class="text-[11.5px] text-danger">{valueProblem}</span>{/if}
+        {#if valueProblem}<span class="text-label text-danger">{valueProblem}</span>{/if}
       </div>
       <Button
         variant="ghost"
@@ -122,7 +122,7 @@
     </div>
   {/each}
   {#if rows.length > VARIABLES_MAX}
-    <span class="text-[11.5px] text-danger">{t("environments.variablesTooMany", { max: VARIABLES_MAX })}</span>
+    <span class="text-label text-danger">{t("environments.variablesTooMany", { max: VARIABLES_MAX })}</span>
   {/if}
   {#if missing.length > 0}
     <div class="flex flex-wrap items-center gap-1.5">

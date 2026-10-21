@@ -82,7 +82,7 @@
           {migrationExport.pending ? t("deployment.exporting") : t("deployment.exportMigrations")}
         </Button>
       </div>
-      <p class="m-0 text-right text-[11px] text-text-muted">{t("deployment.exportHint")}</p>
+      <p class="m-0 text-right text-caption text-text-muted">{t("deployment.exportHint")}</p>
       {#if migrationExport.error}<ErrorText>{migrationExport.error}</ErrorText>{/if}
     </div>
     <ul class="m-0 max-h-96 list-none space-y-2 overflow-y-auto p-0 pr-1">
@@ -101,10 +101,10 @@
               {#if entry.environment}<Badge tone="muted">{entry.environment}</Badge>{/if}
               {#if entry.rolledBack}<Badge tone="warning">{t("deployment.rolledBackBadge")}</Badge>{/if}
             </div>
-            <span class="text-[11px] text-text-muted">{formatRelativeTime(entry.createdAt, i18n.locale)}</span>
+            <span class="text-caption text-text-muted">{formatRelativeTime(entry.createdAt, i18n.locale)}</span>
           </div>
 
-          <div class="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-[11px] text-text-muted">
+          <div class="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-caption text-text-muted">
             <span>
               {t("deployment.historyStatements", { executed: entry.executedStatements, total: entry.totalStatements })}
               {entry.executedByEmail ? ` · ${t("deployment.historyBy", { email: entry.executedByEmail })}` : ""}
@@ -117,7 +117,7 @@
           </div>
 
           {#if entry.seedReport && entry.seedReport.length > 0}
-            <p class="mt-1.5 font-mono text-[11px] text-text-muted">
+            <p class="mt-1.5 font-mono text-caption text-text-muted">
               {t("seeds.historyLine", {
                 tables: entry.seedReport
                   .map((result) =>
@@ -128,10 +128,10 @@
             </p>
           {/if}
           {#if entry.backupId}
-            <p class="mt-1.5 text-[11px] text-text-muted">{t("deployment.historyBackup")}</p>
+            <p class="mt-1.5 text-caption text-text-muted">{t("deployment.historyBackup")}</p>
           {/if}
           {#if entry.review}
-            <p class="mt-1.5 text-[11px] text-text-muted" data-testid="history-review">
+            <p class="mt-1.5 text-caption text-text-muted" data-testid="history-review">
               {entry.review.approvedByEmail
                 ? t("review.historyLine", {
                     requester: entry.review.requestedByEmail,
@@ -142,7 +142,7 @@
             </p>
           {/if}
           {#if entry.acceptedRisks && entry.acceptedRisks.length > 0}
-            <div class="mt-2 rounded-sm border border-border bg-surface-raised p-2 text-[11px]">
+            <div class="mt-2 rounded-sm border border-border bg-surface-raised p-2 text-caption">
               <span class="mb-1 block font-semibold text-text">{t("deployment.historyAcceptedRisks")}</span>
               <ul class="m-0 list-none space-y-0.5 p-0">
                 {#each entry.acceptedRisks as risk, index (index)}

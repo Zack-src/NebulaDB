@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageIntro from "@/components/layout/PageIntro.svelte";
   import {
     ENVIRONMENT_COLORS,
     ENVIRONMENT_NAME_MAX,
@@ -109,7 +110,7 @@
 </script>
 
 <div>
-  <p class="mb-5 max-w-[680px] text-xs leading-relaxed text-text-muted">{t("environments.hint")}</p>
+  <PageIntro>{t("environments.hint")}</PageIntro>
 
   {#if stages.data && list.length > 0 && !hasProduction}
     <p class="mb-3 text-xs text-warning">{t("environments.noProduction")}</p>

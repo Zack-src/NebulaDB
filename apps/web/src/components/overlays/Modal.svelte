@@ -117,7 +117,7 @@
     onkeydown={handleKeyDown}
   >
     <div class="flex shrink-0 items-center justify-between gap-3 border-b border-border px-4 py-3">
-      <span class="truncate text-[14px] font-bold tracking-[-0.01em]">{title}</span>
+      <span class="truncate text-title font-bold tracking-[-0.01em]">{title}</span>
       <Button variant="ghost" size="icon-sm" onclick={() => onClose()} data-tooltip={t("common.close")}>
         <Icon icon={CloseIcon} size={15} />
       </Button>

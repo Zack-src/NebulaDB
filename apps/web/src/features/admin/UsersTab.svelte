@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Table, { TABLE_CELL, TABLE_ROW } from "@/components/ui/Table.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import {
     LinkIcon,
@@ -92,6 +93,12 @@
     users.reload();
   });
 
+  const columns = $derived([
+    { label: t("common.name") },
+    { label: t("admin.users.status") },
+    { label: t("admin.errors.column.date") },
+    { label: t("admin.users.actions"), align: "right" as const },
+  ]);
   const rows = $derived(memberRows(users.data ?? [], invitations.data ?? []));
   const error = $derived(users.error ?? invitations.error ?? toggleDisabled.error ?? revoke.error ?? copyLink.error);
 </script>
@@ -105,22 +112,13 @@
     <h2 class="m-0 mb-2 text-xs font-semibold uppercase tracking-wider text-text-muted">
       {t("admin.users.membersTitle", { count: rows.length })}
     </h2>
-    <div class="overflow-x-auto rounded-md border border-border">
-      <table class="w-full text-left text-xs" aria-label={t("admin.section.users")}>
-        <thead class="border-b border-border bg-surface-raised text-text-secondary">
-          <tr
-            ><th class="px-3 py-2">{t("common.name")}</th><th class="px-3 py-2">{t("admin.users.status")}</th><th
-              class="px-3 py-2">{t("admin.errors.column.date")}</th
-            ><th class="px-3 py-2 text-right">{t("admin.users.actions")}</th></tr
-          >
-        </thead>
-        <tbody>
+    <Table label={t("admin.section.users")} {columns}>
           {#each rows as row (row.id)}
             {@const user = row.user}
             {@const invitation = row.invitation}
             {@const disabled = Boolean(user?.disabledAt)}
-            <tr class="border-b border-border bg-surface last:border-b-0" data-email={user?.email ?? invitation?.email}>
-              <td class="px-3 py-2.5">
+            <tr class={TABLE_ROW} data-email={user?.email ?? invitation?.email}>
+              <td class={TABLE_CELL.comfortable}>
                 <div class="flex items-center gap-2.5">
                   <AccountAvatar name={user?.displayName ?? invitation?.email ?? "?"} />
                   <div class="min-w-0">
@@ -149,7 +147,7 @@
                   </div>
                 {/if}
               </td>
-              <td class="px-3 py-2.5">
+              <td class={TABLE_CELL.comfortable}>
                 {#if disabled}<Badge tone="danger">{t("admin.users.disabled")}</Badge>
                 {:else if invitation}<Badge
                     tone={invitation.status === "accepted"
@@ -160,7 +158,7 @@
                   >
                 {:else}<Badge tone="success">{t("admin.users.active")}</Badge>{/if}
               </td>
-              <td class="whitespace-nowrap px-3 py-2.5 text-text-muted"
+              <td class={`${TABLE_CELL.comfortable} whitespace-nowrap text-text-muted`}
                 >{formatDate(user?.createdAt ?? invitation!.createdAt, i18n.locale)}</td
               >
               <td class="px-3 py-2.5"
@@ -245,9 +243,7 @@
               >
             </tr>
           {/each}
-        </tbody>
-      </table>
-    </div>
+    </Table>
   {/if}
   {#if resetTarget}
     <ResetPasswordModal targetUser={resetTarget} onClose={() => (resetTarget = null)} />

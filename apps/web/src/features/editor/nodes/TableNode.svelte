@@ -171,7 +171,7 @@
   <!-- A sibling of the table box, not a child of it: the box has
        `overflow-hidden` for its rows, which would clip a label above it. -->
   <div
-    class="pointer-events-none absolute -top-[19px] left-0 z-10 whitespace-nowrap rounded-full px-[7px] py-0.5 text-[10.5px] font-semibold text-white shadow-sm"
+    class="pointer-events-none absolute -top-[19px] left-0 z-10 whitespace-nowrap rounded-full px-[7px] py-0.5 text-micro font-semibold text-white shadow-sm"
     style:background={primaryRemoteSelector.color}
   >
     {primaryRemoteSelector.name}{remoteSelectedBy && remoteSelectedBy.length > 1

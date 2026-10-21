@@ -11,6 +11,8 @@
 </script>
 
 <script lang="ts">
+  import Table, { TABLE_CELL, TABLE_ROW } from "@/components/ui/Table.svelte";
+  import PageToolbar from "@/components/layout/PageToolbar.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
@@ -34,10 +36,17 @@
   const entries = useAsyncResource(() => fetchErrorLog(source ? { source } : {}));
 
   const rows = $derived(entries.data ?? []);
+  const columns = $derived([
+    { label: t("admin.errors.column.date") },
+    { label: t("admin.errors.column.source") },
+    { label: t("admin.errors.column.message") },
+    { label: t("admin.errors.column.user") },
+    { label: t("admin.errors.column.context") },
+  ]);
 </script>
 
 <div>
-  <div class="mb-3 flex items-center gap-3">
+  <PageToolbar>
     <Select
       size="sm"
       class="w-44"
@@ -45,54 +54,41 @@
       options={SOURCE_FILTERS.map((filter) => ({ value: filter.value, label: t(filter.labelKey) }))}
       aria-label={t("admin.errors.column.source")}
     />
-    <span class="text-xs text-text-muted">
+    <span class="text-label text-text-muted">
       {entries.loading ? t("common.loading") : t("admin.errors.entryCount", { count: rows.length })}
     </span>
-  </div>
+  </PageToolbar>
 
   {#if entries.error}<ErrorText>{entries.error}</ErrorText>{/if}
 
   {#if !entries.loading && rows.length === 0}
     <EmptyState>{t("admin.errors.empty")}</EmptyState>
   {:else}
-    <div class="overflow-x-auto rounded-lg border border-border">
-      <table class="w-full min-w-[720px] text-left text-[12.5px]">
-        <thead class="bg-surface-raised/60 text-[11px] uppercase tracking-wide text-text-muted">
-          <tr>
-            <th class="px-3 py-2 font-semibold">{t("admin.errors.column.date")}</th>
-            <th class="px-3 py-2 font-semibold">{t("admin.errors.column.source")}</th>
-            <th class="px-3 py-2 font-semibold">{t("admin.errors.column.message")}</th>
-            <th class="px-3 py-2 font-semibold">{t("admin.errors.column.user")}</th>
-            <th class="px-3 py-2 font-semibold">{t("admin.errors.column.context")}</th>
-          </tr>
-        </thead>
-        <tbody>
+    <Table label={t("admin.section.errors")} columns={columns} minWidth={720}>
           {#each rows as entry (entry.id)}
             <tr
-              class="cursor-pointer border-t border-border/60 hover:bg-surface-hover/60"
+              class={`${TABLE_ROW} cursor-pointer hover:bg-surface-hover/60`}
               onclick={() => (expandedId = expandedId === entry.id ? null : entry.id)}
             >
-              <td class="whitespace-nowrap px-3 py-2 text-text-muted">{formatDateTime(entry.createdAt, i18n.locale)}</td>
-              <td class="px-3 py-2">
+              <td class={`${TABLE_CELL.comfortable} whitespace-nowrap text-text-muted`}>{formatDateTime(entry.createdAt, i18n.locale)}</td>
+              <td class={TABLE_CELL.comfortable}>
                 <Badge tone={entry.source === "server" ? "danger" : "warning"}>{entry.source}</Badge>
               </td>
-              <td class="max-w-[320px] truncate px-3 py-2 font-mono text-[11.5px]">{entry.message}</td>
-              <td class="px-3 py-2 text-text-secondary">{entry.userEmail ?? EMPTY_CELL}</td>
-              <td class="max-w-[220px] truncate px-3 py-2 font-mono text-[11px] text-text-muted">
+              <td class={`${TABLE_CELL.comfortable} max-w-[320px] truncate font-mono text-caption`}>{entry.message}</td>
+              <td class={`${TABLE_CELL.comfortable} text-text-secondary`}>{entry.userEmail ?? EMPTY_CELL}</td>
+              <td class={`${TABLE_CELL.comfortable} max-w-[220px] truncate font-mono text-caption text-text-muted`}>
                 {entry.context ?? EMPTY_CELL}
               </td>
             </tr>
             {#if expandedId === entry.id && entry.stack}
-              <tr class="border-t border-border/60 bg-surface-raised/40">
-                <td colspan={5} class="px-3 py-2">
-                  <pre class="max-h-64 overflow-auto whitespace-pre-wrap font-mono text-[11px] text-text-muted">{entry.stack}</pre>
+              <tr class={`${TABLE_ROW} bg-surface-raised/40`}>
+                <td colspan={5} class={TABLE_CELL.comfortable}>
+                  <pre class="max-h-64 overflow-auto whitespace-pre-wrap font-mono text-caption text-text-muted">{entry.stack}</pre>
                 </td>
               </tr>
             {/if}
           {/each}
-        </tbody>
-      </table>
-    </div>
+    </Table>
   {/if}
 
   <Hint>{t("admin.errors.scopeNote")}</Hint>

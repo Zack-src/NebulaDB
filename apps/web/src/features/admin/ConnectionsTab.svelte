@@ -1,4 +1,6 @@
 <script lang="ts">
+  import PageToolbar from "@/components/layout/PageToolbar.svelte";
+  import PageIntro from "@/components/layout/PageIntro.svelte";
   import { untrack } from "svelte";
   import type { AdminConnectionSummary } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
@@ -124,15 +126,15 @@
   <DbConsole mode="monitoring" connection={consoleFor} onClose={() => (consoleFor = null)} />
 {:else}
   <div>
-    <p class="mb-4 max-w-[640px] text-xs text-text-muted">{t("admin.connections.hint")}</p>
+    <PageIntro>{t("admin.connections.hint")}</PageIntro>
 
-    <div class="mb-3 flex items-center gap-2">
+    <PageToolbar>
       <input class={`${INPUT_SM_CLASS} w-64`} bind:value={filter} placeholder={t("admin.connections.filter")} />
       <Button class="ml-auto" size="sm" variant="primary" onclick={() => (editing = "new")}>
         <Icon icon={PlusIcon} size={12} />
         {t("connections.newConnection")}
       </Button>
-    </div>
+    </PageToolbar>
 
     {#if defaultPolicy.data}
       {@const current = defaultPolicy.data}
@@ -192,7 +194,7 @@
                 />{/if}
               {#if c.readOnly}<Badge tone="warning">{t("dbadmin.readOnly")}</Badge>{/if}
               {#each c.tags as tag (tag)}<Badge tone="muted">{tag}</Badge>{/each}
-              <span class="block truncate font-mono text-[11px] text-text-muted">{target(c)}</span>
+              <span class="block truncate font-mono text-caption text-text-muted">{target(c)}</span>
             </ListMain>
             <span
               class="shrink-0 text-xs text-text-muted"
@@ -261,7 +263,7 @@
   >
     <Hint>{t("admin.connections.deleteHint")}</Hint>
     {#if connection.projects.length > 0}
-      <p class="mb-3 text-[12.5px] text-warning">
+      <p class="mb-3 text-body-sm text-warning">
         {t("admin.connections.deleteInUse", { projects: connection.projects.map((p) => p.name).join(", ") })}
       </p>
     {/if}

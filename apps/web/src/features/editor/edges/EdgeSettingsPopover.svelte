@@ -85,7 +85,7 @@
     },
   ];
 
-  const SECTION_LABEL = "text-[11px] font-semibold uppercase tracking-wider text-text-muted";
+  const SECTION_LABEL = "text-caption font-semibold uppercase tracking-wider text-text-muted";
 </script>
 
 <div
@@ -132,11 +132,11 @@
         >
           <div class="flex w-full items-center justify-between">
             <span class="text-xs font-semibold text-text">{t(option.labelKey)}</span>
-            <span class={`rounded border border-border bg-bg px-1.5 py-0.5 font-mono text-[10px] ${option.notationClass}`}>
+            <span class={`rounded border border-border bg-bg px-1.5 py-0.5 font-mono text-micro ${option.notationClass}`}>
               {option.notation}
             </span>
           </div>
-          <p class="text-[11px] leading-snug text-text-secondary">{t(option.descKey)}</p>
+          <p class="text-caption leading-snug text-text-secondary">{t(option.descKey)}</p>
         </button>
       {/each}
     </div>

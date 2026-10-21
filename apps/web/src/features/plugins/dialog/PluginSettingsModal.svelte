@@ -41,7 +41,7 @@
         <div class="flex items-center justify-between">
           <!-- svelte-ignore a11y_label_has_associated_control -->
           <label class="text-xs font-semibold text-text">{s.label}</label>
-          {#if s.description}<span class="text-[11px] text-text-muted">{s.description}</span>{/if}
+          {#if s.description}<span class="text-caption text-text-muted">{s.description}</span>{/if}
         </div>
 
         {#if s.type === "boolean"}

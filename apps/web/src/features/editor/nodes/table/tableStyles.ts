@@ -127,7 +127,7 @@ export const TABLE_ADD_BTN_CLASS =
 export const ROW_ACTION_PLACEHOLDER_CLASS = "h-5 w-5 shrink-0";
 
 export const POPOVER_HEADER_CLASS = "flex items-center justify-between border-b border-border pb-2";
-export const POPOVER_TITLE_CLASS = "text-[11px] font-bold uppercase tracking-[0.06em] text-text-secondary";
+export const POPOVER_TITLE_CLASS = "text-caption font-bold uppercase tracking-[0.06em] text-text-secondary";
 export const POPOVER_GROUP_CLASS = "flex flex-col gap-1.5";
 export const POPOVER_LABEL_CLASS = `${LABEL_XS_CLASS} uppercase tracking-[0.04em]`;
 /** Popover fields use the app-wide dense field style so the canvas matches the rest of the UI. */
@@ -136,7 +136,7 @@ export const POPOVER_INPUT_CLASS = `${INPUT_XS_CLASS} w-full`;
 export const POPOVER_INPUT_MONO_CLASS = `${INPUT_XS_CLASS} w-full font-mono`;
 
 export const FIELD_TYPE_CHIP_CLASS =
-  "cursor-pointer rounded-full border border-border bg-bg px-[7px] py-0.5 font-mono text-[10.5px] text-text-secondary " +
+  "cursor-pointer rounded-full border border-border bg-bg px-[7px] py-0.5 font-mono text-micro text-text-secondary " +
   "transition-all duration-100 hover:border-primary-border hover:text-text";
 export const FIELD_TYPE_CHIP_ACTIVE_CLASS = "border-primary-border bg-primary-light font-semibold text-primary-hover";
 
@@ -150,7 +150,7 @@ export const FIELD_TYPE_CHIP_ACTIVE_CLASS = "border-primary-border bg-primary-li
  * `<button>`s that had fallen out of that convention.
  */
 export const KW_TOGGLE_BASE_CLASS =
-  "flex select-none items-center justify-center gap-[5px] rounded-sm border border-border bg-bg px-2 py-[5px] text-[11px] " +
+  "flex select-none items-center justify-center gap-[5px] rounded-sm border border-border bg-bg px-2 py-[5px] text-caption " +
   "font-medium text-text-secondary transition-all duration-100 hover:bg-surface-hover hover:text-text";
 /**
  * All four attribute toggles share one visual pattern — `text-{c}-hover

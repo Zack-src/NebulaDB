@@ -174,7 +174,7 @@
         <BrandMark />
         <div>
           <h1 class="text-base font-bold text-text">{t("componentCatalogue.title")}</h1>
-          <p class="text-[12.5px] text-text-muted">{t("componentCatalogue.subtitle")}</p>
+          <p class="text-body-sm text-text-muted">{t("componentCatalogue.subtitle")}</p>
         </div>
       </div>
       <div class="flex gap-1.5">
@@ -191,7 +191,7 @@
       <div class="flex flex-col gap-2.5">
         {#each BUTTON_VARIANTS as variant (variant)}
           <div class="flex flex-wrap items-center gap-3">
-            <span class="w-24 shrink-0 text-[11.5px] text-text-muted">{variant}</span>
+            <span class="w-24 shrink-0 text-label text-text-muted">{variant}</span>
             {#each BUTTON_SIZES as size (size)}
               <Button {variant} {size}>{size}</Button>
             {/each}
@@ -218,10 +218,10 @@
         {#each CARD_VARIANTS as variant (variant)}
           <Card {variant} interactive={variant === "default"}>
             <CardHeader>
-              <span class="text-[12.5px] font-semibold text-text">{variant}</span>
+              <span class="text-body-sm font-semibold text-text">{variant}</span>
             </CardHeader>
             <CardBody>
-              <p class="text-[12.5px] text-text-muted">
+              <p class="text-body-sm text-text-muted">
                 {variant === "default" ? "interactive (survolez-moi)" : "contenu de démonstration"}
               </p>
             </CardBody>

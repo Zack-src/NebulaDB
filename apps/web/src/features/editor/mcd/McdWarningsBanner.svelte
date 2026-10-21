@@ -23,7 +23,7 @@
 </script>
 
 <div
-  class="absolute left-1/2 top-3 z-10 max-w-[520px] -translate-x-1/2 rounded-sm border border-warning bg-surface px-3 py-2 text-[12px] text-text shadow-md"
+  class="absolute left-1/2 top-3 z-10 max-w-[520px] -translate-x-1/2 rounded-sm border border-warning bg-surface px-3 py-2 text-label text-text shadow-md"
 >
   <div class="mb-1 font-semibold text-warning">{t("mcd.warning.title")}</div>
   <ul class="flex flex-col gap-0.5">

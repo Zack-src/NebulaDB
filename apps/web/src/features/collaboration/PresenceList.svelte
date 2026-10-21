@@ -16,7 +16,7 @@
   let { localName, remote }: { localName: string; remote: Map<number, AwarenessState> } = $props();
 
   const AVATAR_CLASS =
-    "-ml-2 inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border-2 border-surface text-[11px] font-bold text-white first:ml-0";
+    "-ml-2 inline-flex h-[26px] w-[26px] shrink-0 items-center justify-center rounded-full border-2 border-surface text-caption font-bold text-white first:ml-0";
 </script>
 
 {#snippet avatar(name: string, color: string)}

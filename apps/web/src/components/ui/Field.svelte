@@ -17,8 +17,8 @@
   <span class={LABEL_CLASS}>{label}</span>
   <Input class={className} invalid={Boolean(error)} wrapperClassName="w-full" bind:value {...rest} />
   {#if error}
-    <span class="text-[11.5px] text-danger">{error}</span>
+    <span class="text-label text-danger">{error}</span>
   {:else if hint}
-    <span class="text-[11.5px] text-text-muted">{hint}</span>
+    <span class="text-label text-text-muted">{hint}</span>
   {/if}
 </label>

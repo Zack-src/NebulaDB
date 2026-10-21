@@ -167,7 +167,7 @@
               {#if signIn.error}<ErrorText>{signIn.error}</ErrorText>{/if}
 
               {#if sso}
-                <div class="flex items-center gap-2 text-[11px] text-text-muted" aria-hidden="true">
+                <div class="flex items-center gap-2 text-caption text-text-muted" aria-hidden="true">
                   <span class="h-px flex-1 bg-border"></span>{t("login.sso.or")}<span class="h-px flex-1 bg-border"></span>
                 </div>
                 <a
@@ -184,7 +184,7 @@
               {#if passwordResetAvailable}
                 <button
                   type="button"
-                  class="block text-[11px] text-text-muted hover:text-text underline-offset-2 hover:underline"
+                  class="block text-caption text-text-muted hover:text-text underline-offset-2 hover:underline"
                   onclick={() => {
                     signIn.clearError();
                     forgotOpen = true;
@@ -204,7 +204,7 @@
                   <Icon icon={KeyIcon} size={14} class="text-warning" />
                   {t("login.haveInviteLink")}
                 </div>
-                <p class="text-[11px] text-text-muted">{t("login.haveInviteLinkHint")}</p>
+                <p class="text-caption text-text-muted">{t("login.haveInviteLinkHint")}</p>
               </div>
             </div>
           {/if}

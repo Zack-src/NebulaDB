@@ -66,7 +66,7 @@
       onkeydown={(event) => event.key === "Enter" && handleInvite()}
     />
     <Checkbox bind:checked={invitingAsAdmin} class="whitespace-nowrap">
-      <span class="text-[13px] text-text-muted">{t("common.admin")}</span>
+      <span class="text-body text-text-muted">{t("common.admin")}</span>
     </Checkbox>
     <Button variant="primary" onclick={handleInvite} disabled={invite.pending || !email.trim()}>
       <Icon icon={PlusIcon} size={14} />
@@ -94,7 +94,7 @@
             <div class="flex flex-wrap gap-x-4 gap-y-1.5">
               {#each teams.data ?? [] as team (team.id)}
                 <Checkbox checked={teamIds.includes(team.id)} onChange={(checked) => toggleTeam(team.id, checked)}>
-                  <span class="text-[13px]">{team.name}</span>
+                  <span class="text-body">{team.name}</span>
                 </Checkbox>
               {/each}
             </div>

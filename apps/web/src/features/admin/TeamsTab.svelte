@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageToolbar from "@/components/layout/PageToolbar.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { PlusIcon, TrashIcon, UsersIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
@@ -39,9 +40,9 @@
 </script>
 
 <div>
-  <div class="mb-7 flex max-w-[420px] gap-2">
+  <PageToolbar>
     <input
-      class={`${INPUT_CLASS} flex-1`}
+      class={`${INPUT_CLASS} min-w-[240px] flex-1`}
       placeholder={t("admin.teams.namePlaceholder")}
       bind:value={newTeamName}
       onkeydown={(event) => event.key === "Enter" && handleCreate()}
@@ -50,7 +51,7 @@
       <Icon icon={PlusIcon} size={14} />
       {t("admin.teams.create")}
     </Button>
-  </div>
+  </PageToolbar>
   {#if error}<ErrorText>{error}</ErrorText>{/if}
   {#if rows.length === 0}
     <EmptyState>{teams.loading ? t("common.loading") : t("admin.teams.empty")}</EmptyState>

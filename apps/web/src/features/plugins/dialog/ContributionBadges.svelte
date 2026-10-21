@@ -24,10 +24,10 @@
 <div class="flex flex-wrap gap-1.5 mt-2">
   {#each Object.keys(counts) as ContributionKind[] as kind (kind)}
     <span
-      class={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10.5px] font-medium border ${KIND_LABELS[kind].color}`}
+      class={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-micro font-medium border ${KIND_LABELS[kind].color}`}
     >
       <span>{KIND_LABELS[kind].label}</span>
-      <span class="opacity-75 font-mono text-[9.5px]">({counts[kind] ?? 0})</span>
+      <span class="opacity-75 font-mono text-micro">({counts[kind] ?? 0})</span>
     </span>
   {/each}
 </div>

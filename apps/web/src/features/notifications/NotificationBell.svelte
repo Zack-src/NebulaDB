@@ -116,7 +116,7 @@
   </Button>
   {#if inbox.unread > 0}
     <span
-      class="pointer-events-none absolute -right-0.5 -top-0.5 min-w-[15px] rounded-full bg-danger px-1 text-center text-[9px] font-bold leading-[15px] text-white"
+      class="pointer-events-none absolute -right-0.5 -top-0.5 min-w-[15px] rounded-full bg-danger px-1 text-center text-micro font-bold leading-[15px] text-white"
       data-testid="notification-count"
     >
       {inbox.unread > 99 ? "99+" : inbox.unread}

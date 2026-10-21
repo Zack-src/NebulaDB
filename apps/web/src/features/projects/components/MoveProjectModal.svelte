@@ -48,7 +48,7 @@
         >
           <Icon icon={FolderIcon} size={13} class="text-text-muted" />
           {choice.label}
-          {#if choice.id === currentFolderId}<span class="ml-auto text-[11px] text-text-muted">{t("folders.here")}</span>{/if}
+          {#if choice.id === currentFolderId}<span class="ml-auto text-caption text-text-muted">{t("folders.here")}</span>{/if}
         </button>
       </li>
     {/each}

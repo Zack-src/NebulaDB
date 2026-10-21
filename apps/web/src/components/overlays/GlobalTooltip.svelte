@@ -151,7 +151,7 @@
     <div
       use:portal
       bind:this={box}
-      class={`pointer-events-none fixed left-0 top-0 z-[var(--z-tooltip)] w-max whitespace-pre-line rounded-sm border border-border-strong bg-surface-raised font-sans text-[11px] font-medium leading-[1.35] text-text shadow-md ${
+      class={`pointer-events-none fixed left-0 top-0 z-[var(--z-tooltip)] w-max whitespace-pre-line rounded-sm border border-border-strong bg-surface-raised font-sans text-caption font-medium leading-[1.35] text-text shadow-md ${
         tooltip.note
           ? "max-h-[70vh] max-w-[340px] overflow-hidden rounded-md px-2.5 py-2 text-left"
           : "max-w-[240px] px-2 py-[5px] text-center"
@@ -161,7 +161,7 @@
       {tooltip.text}
       {#if tooltip.note}
         <span class="my-1.5 block h-px bg-border"></span>
-        <span class="block break-words text-[11.5px] font-normal leading-[1.45] text-text-secondary">{tooltip.note}</span>
+        <span class="block break-words text-label font-normal leading-[1.45] text-text-secondary">{tooltip.note}</span>
       {/if}
     </div>
   {/key}

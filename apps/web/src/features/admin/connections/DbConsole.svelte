@@ -96,7 +96,7 @@
         {t("dbadmin.backToConnections")}
       </Button>
     {/if}
-    <span class="text-[14px] font-semibold">{connection.name}</span>
+    <span class="text-title font-semibold">{connection.name}</span>
     <Badge tone="admin">{t(`connections.engine.${connection.engine}`)}</Badge>
     {#if connection.environment}<EnvironmentBadge
         name={connection.environment}

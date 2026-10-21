@@ -127,7 +127,7 @@
   <div>
     <div class="flex items-center justify-between">
       <label class={LABEL} for={id}>{label}</label>
-      <label class="cursor-pointer text-[11px] text-accent hover:underline">
+      <label class="cursor-pointer text-caption text-accent hover:underline">
         {t("connections.security.loadFile")}
         <input type="file" class="hidden" accept=".pem,.crt,.cer,.key,.txt,*/*" onchange={(e) => void load(e, apply)} />
       </label>
@@ -136,7 +136,7 @@
       {id}
       variant="code"
       rows={3}
-      class="w-full text-[11px]"
+      class="w-full text-caption"
       {value}
       oninput={(e) => apply((e.currentTarget as HTMLTextAreaElement).value)}
       {placeholder}

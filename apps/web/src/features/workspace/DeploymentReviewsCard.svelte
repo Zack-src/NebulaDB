@@ -198,7 +198,7 @@
           {/if}
 
           {#if review.risks.length > 0}
-            <div class="mt-2 text-[11px]">
+            <div class="mt-2 text-caption">
               <span class="mb-1 block font-semibold text-text">{t("review.risks")}</span>
               <ul class="m-0 list-none space-y-0.5 p-0">
                 {#each review.risks as risk, index (index)}

@@ -6,7 +6,7 @@
    * minimum.
    */
   const REORDER_BTN_CLASS =
-    "nodrag relative flex h-3 w-4 items-center justify-center text-[9px] leading-none text-text-muted " +
+    "nodrag relative flex h-3 w-4 items-center justify-center text-micro leading-none text-text-muted " +
     "transition-colors hover:text-text disabled:opacity-20 " +
     "before:absolute before:left-1/2 before:top-1/2 before:h-5 before:w-6 before:-translate-x-1/2 before:-translate-y-1/2 before:content-['']";
 </script>

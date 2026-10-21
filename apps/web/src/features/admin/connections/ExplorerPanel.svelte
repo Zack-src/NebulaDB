@@ -215,9 +215,9 @@
           <Icon icon={TableIcon} size={12} class="shrink-0 text-text-muted" />
           <span class="min-w-0 flex-1 truncate">{table.name}</span>
           {#if table.kind === "view"}
-            <span class="shrink-0 text-[10px] text-text-muted uppercase">{t("dbadmin.explorer.view")}</span>
+            <span class="shrink-0 text-micro text-text-muted uppercase">{t("dbadmin.explorer.view")}</span>
           {:else if table.rowEstimate !== null}
-            <span class="shrink-0 text-[10px] text-text-muted tabular-nums">~{formatNumber(table.rowEstimate, i18n.locale)}</span>
+            <span class="shrink-0 text-micro text-text-muted tabular-nums">~{formatNumber(table.rowEstimate, i18n.locale)}</span>
           {/if}
         </button>
       {/each}
@@ -236,7 +236,7 @@
       {@const table = selected}
       {@const tableRef = ref}
       <div class="mb-2 flex flex-wrap items-center gap-2">
-        <span class="font-mono text-[13px] font-semibold">{table.schema ? `${table.schema}.` : ""}{table.name}</span>
+        <span class="font-mono text-body font-semibold">{table.schema ? `${table.schema}.` : ""}{table.name}</span>
         <Badge tone="muted">{table.kind === "view" ? t("dbadmin.explorer.view") : t("dbadmin.explorer.table")}</Badge>
         {#if table.sizeBytes !== null}<span class="text-xs text-text-muted">{formatBytes(table.sizeBytes)}</span>{/if}
         <div class="ml-auto flex items-center gap-2">

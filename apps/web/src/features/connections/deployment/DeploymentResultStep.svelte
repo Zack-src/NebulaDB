@@ -34,7 +34,7 @@
     <p class="mt-1 text-text-muted" data-testid="deploy-backup">{t("deployment.backupTaken")}</p>
   {/if}
   {#if result.seedReport.length > 0}
-    <ul class="mt-3 space-y-0.5 text-left font-mono text-[11px]" data-testid="seed-report">
+    <ul class="mt-3 space-y-0.5 text-left font-mono text-caption" data-testid="seed-report">
       {#each result.seedReport as seed (seed.tableName)}
         <li class={seed.error ? "text-danger" : "text-text"}>
           {seed.tableName} :
@@ -48,7 +48,7 @@
     </ul>
   {/if}
   {#if result.irreversibleWarnings.length > 0}
-    <div class="mt-3 space-y-1 rounded-sm border border-amber-500/40 bg-amber-500/5 p-2.5 text-left text-[11px] text-amber-300">
+    <div class="mt-3 space-y-1 rounded-sm border border-amber-500/40 bg-amber-500/5 p-2.5 text-left text-caption text-amber-300">
       <p class="font-semibold">{t("deployment.rollbackIrreversibleTitle")}</p>
       <ul class="list-disc space-y-0.5 pl-4">
         {#each result.irreversibleWarnings as warning (warning)}

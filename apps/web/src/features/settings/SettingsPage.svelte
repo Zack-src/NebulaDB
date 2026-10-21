@@ -61,7 +61,7 @@
 
   <div class="flex-1 flex flex-col md:flex-row max-w-6xl w-full mx-auto px-4 md:px-6 py-6 gap-6">
     <aside class="w-full md:w-48 shrink-0 space-y-1">
-      <div class="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-text-muted">
+      <div class="px-3 py-2 text-caption font-bold uppercase tracking-wider text-text-muted">
         {t("settings.navHeading")}
       </div>
       {#each SETTINGS_SECTIONS as section (section.id)}

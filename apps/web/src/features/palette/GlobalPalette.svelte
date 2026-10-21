@@ -252,13 +252,13 @@
           index = 0;
         }}
         onkeydown={onInputKeyDown}
-        class="w-full border-b border-border bg-transparent px-3 py-2.5 text-[13px] text-text outline-hidden placeholder:text-text-muted"
+        class="w-full border-b border-border bg-transparent px-3 py-2.5 text-body text-text outline-hidden placeholder:text-text-muted"
       />
       <div bind:this={list} id="global-palette-list" role="listbox" class="min-h-0 flex-1 overflow-y-auto py-1">
         {#each groups as group (group.id)}
           <div
             role="presentation"
-            class="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wide text-text-muted"
+            class="px-3 pb-1 pt-2 text-micro font-semibold uppercase tracking-wide text-text-muted"
           >
             {GROUP_LABEL[group.id]()}
           </div>
@@ -274,13 +274,13 @@
               data-idx={i}
               onmouseenter={() => (index = i)}
               onclick={() => commit(entry)}
-              class={`flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-[12.5px] ${
+              class={`flex w-full cursor-pointer items-center gap-2 px-3 py-1.5 text-left text-body-sm ${
                 i === active ? "bg-primary text-white" : "text-text hover:bg-surface-hover"
               }`}
             >
               {#if entry.kind}
                 <span
-                  class={`shrink-0 rounded px-1 py-px text-[10px] uppercase tracking-wide ${
+                  class={`shrink-0 rounded px-1 py-px text-micro uppercase tracking-wide ${
                     i === active ? "bg-white/20 text-white" : "bg-border text-text-muted"
                   }`}
                 >
@@ -289,7 +289,7 @@
               {/if}
               <span class="truncate">{entry.label}</span>
               {#if entry.detail}
-                <span class={`truncate text-[11px] ${i === active ? "text-white/70" : "text-text-muted"}`}
+                <span class={`truncate text-caption ${i === active ? "text-white/70" : "text-text-muted"}`}
                   >{entry.detail}</span
                 >
               {/if}
@@ -297,12 +297,12 @@
           {/each}
         {/each}
         {#if flat.length === 0 && !searching}
-          <div class="px-3 py-2 text-[12px] text-text-muted">{t("commandPalette.noMatch")}</div>
+          <div class="px-3 py-2 text-label text-text-muted">{t("commandPalette.noMatch")}</div>
         {/if}
         {#if searching}
-          <div class="px-3 py-2 text-[12px] text-text-muted">{t("common.loading")}</div>
+          <div class="px-3 py-2 text-label text-text-muted">{t("common.loading")}</div>
         {:else if searchFailed}
-          <div class="px-3 py-2 text-[12px] text-text-muted">{t("palette.searchFailed")}</div>
+          <div class="px-3 py-2 text-label text-text-muted">{t("palette.searchFailed")}</div>
         {/if}
       </div>
     </div>

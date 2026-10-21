@@ -69,7 +69,7 @@
         <Icon icon={ChevronLeftIcon} size={16} />
       </Button>
       <BrandMark size={24} iconSize={13} />
-      <span class="mr-1.5 whitespace-nowrap text-[13.5px] font-semibold">{t("admin.title")}</span>
+      <span class="mr-1.5 whitespace-nowrap text-body font-semibold">{t("admin.title")}</span>
     </header>
   {/if}
   <div class="admin-workspace">

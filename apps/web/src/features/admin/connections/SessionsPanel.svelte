@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Table, { TABLE_ROW } from "@/components/ui/Table.svelte";
   import type { DbAdminSession } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { CloseIcon, RestoreIcon } from "@/components/icons/Icons";
@@ -23,6 +24,17 @@
     if (seconds < 3600) return `${Math.floor(seconds / 60)} min`;
     return `${Math.floor(seconds / 3600)} h ${Math.floor((seconds % 3600) / 60)} min`;
   }
+
+  const tableColumns = $derived([
+    { label: "ID" },
+    { label: t("dbadmin.sessions.user") },
+    { label: t("dbadmin.database") },
+    { label: t("dbadmin.sessions.client") },
+    { label: t("dbadmin.sessions.state") },
+    { label: t("dbadmin.sessions.duration") },
+    { label: t("dbadmin.sessions.query") },
+    { label: "" },
+  ]);
 </script>
 
 <div>
@@ -37,23 +49,9 @@
   {#if (sessions.data ?? []).length === 0}
     <EmptyState>{sessions.loading ? t("common.loading") : t("dbadmin.sessions.empty")}</EmptyState>
   {:else}
-    <div class="overflow-x-auto rounded-md border border-border">
-      <table class="w-full border-collapse text-xs">
-        <thead class="bg-surface-raised text-left text-text-secondary">
-          <tr>
-            <th class="px-2 py-1.5 font-semibold">ID</th>
-            <th class="px-2 py-1.5 font-semibold">{t("dbadmin.sessions.user")}</th>
-            <th class="px-2 py-1.5 font-semibold">{t("dbadmin.database")}</th>
-            <th class="px-2 py-1.5 font-semibold">{t("dbadmin.sessions.client")}</th>
-            <th class="px-2 py-1.5 font-semibold">{t("dbadmin.sessions.state")}</th>
-            <th class="px-2 py-1.5 font-semibold">{t("dbadmin.sessions.duration")}</th>
-            <th class="px-2 py-1.5 font-semibold">{t("dbadmin.sessions.query")}</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
+    <Table label={t("dbadmin.sessions.hint")} columns={tableColumns} density="compact">
           {#each sessions.data ?? [] as session (session.id)}
-            <tr class="border-t border-border/60 align-top">
+            <tr class={`${TABLE_ROW} align-top`}>
               <td class="px-2 py-1 font-mono">{session.id}</td>
               <td class="px-2 py-1">{session.user ?? ""}</td>
               <td class="px-2 py-1">{session.database ?? ""}</td>
@@ -74,9 +72,7 @@
               </td>
             </tr>
           {/each}
-        </tbody>
-      </table>
-    </div>
+        </Table>
   {/if}
 </div>
 

@@ -103,7 +103,7 @@
                       <span class="font-mono">{change.label}</span>
                       <Badge tone={ACTION_TONE[change.action]} class="ml-1">{t(`variants.action.${change.action}`)}</Badge>
                       <Badge tone="danger" class="ml-1">{t("variants.sync.conflict")}</Badge>
-                      <span class="block text-[11px] text-text-muted">{t(`variants.sync.${change.conflict}`)}</span>
+                      <span class="block text-caption text-text-muted">{t(`variants.sync.${change.conflict}`)}</span>
                     </span>
                     <SegmentedControl
                       size="xs"
@@ -124,7 +124,7 @@
                       <span class="text-xs">
                         <span class="font-mono">{change.label}</span>
                         <Badge tone={ACTION_TONE[change.action]} class="ml-1">{t(`variants.action.${change.action}`)}</Badge>
-                        <span class="ml-1 text-[11px] text-text-muted">{t(`variants.kind.${change.kind}`)}</span>
+                        <span class="ml-1 text-caption text-text-muted">{t(`variants.kind.${change.kind}`)}</span>
                       </span>
                     </Checkbox>
                   {/if}

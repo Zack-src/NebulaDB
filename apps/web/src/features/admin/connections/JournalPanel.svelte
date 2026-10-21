@@ -13,6 +13,7 @@
 </script>
 
 <script lang="ts">
+  import Table, { TABLE_ROW } from "@/components/ui/Table.svelte";
   import type { DbQueryStatSort } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { ChevronRightIcon, CopyIcon, DownloadIcon } from "@/components/icons/Icons";
@@ -176,6 +177,14 @@
   });
   const ms = (value: number) =>
     value >= 1000 ? `${(value / 1000).toLocaleString(i18n.locale, { maximumFractionDigits: 1 })} s` : `${value} ms`;
+  const tableColumns = $derived([
+    { label: t("journal.dbside.account") },
+    { label: t("journal.dbside.client") },
+    { label: t("journal.queries.statement") },
+    { label: t("journal.dbside.seen"), align: "right" as const },
+    { label: t("journal.dbside.longest"), align: "right" as const },
+    { label: t("journal.queries.last") },
+  ]);
 </script>
 
 <div data-testid="connection-journal">
@@ -246,19 +255,19 @@
           <li data-testid="journal-entry" data-action={entry.action}>
             <button
               type="button"
-              class="flex w-full cursor-pointer items-center gap-3 border-0 bg-transparent px-3 py-2 text-left text-[12.5px] hover:bg-surface-hover"
+              class="flex w-full cursor-pointer items-center gap-3 border-0 bg-transparent px-3 py-2 text-left text-body-sm hover:bg-surface-hover"
               aria-expanded={open}
               onclick={() => (expanded = open ? null : entry.id)}
             >
               <span class="w-[130px] shrink-0 text-xs text-text-muted">
                 {formatDateTime(parseServerTime(entry.createdAt), i18n.locale)}
               </span>
-              <span class="w-[96px] shrink-0 text-[10px] font-bold uppercase text-text-secondary">
+              <span class="w-[96px] shrink-0 text-micro font-bold uppercase text-text-secondary">
                 {t(`activity.category.${entry.category}`)}
               </span>
               <span class="w-[140px] shrink-0 truncate">{entry.actorName ?? entry.actorEmail ?? t("journal.system")}</span>
-              <span class="shrink-0 font-mono text-[11.5px]">{entry.action}</span>
-              <span class="min-w-0 flex-1 truncate font-mono text-[11.5px] text-text-secondary">
+              <span class="shrink-0 font-mono text-label">{entry.action}</span>
+              <span class="min-w-0 flex-1 truncate font-mono text-label text-text-secondary">
                 {[entry.projectName, entry.detail].filter(Boolean).join(" · ")}
               </span>
               <Icon icon={ChevronRightIcon} size={12} class={`shrink-0 text-text-muted ${open ? "rotate-90" : ""}`} />
@@ -327,27 +336,15 @@
     {#if activity.data && activity.data.entries.length === 0}
       <EmptyState>{t("journal.dbside.empty")}</EmptyState>
     {:else if activity.data}
-      <div class="overflow-x-auto rounded-lg border border-border">
-        <table class="w-full border-collapse text-[12px]" aria-label={t("journal.dbside")}>
-          <thead class="bg-surface-raised text-left text-[11px] text-text-muted">
-            <tr>
-              <th class="px-3 py-1.5 font-semibold">{t("journal.dbside.account")}</th>
-              <th class="px-2 py-1.5 font-semibold">{t("journal.dbside.client")}</th>
-              <th class="px-2 py-1.5 font-semibold">{t("journal.queries.statement")}</th>
-              <th class="px-2 py-1.5 text-right font-semibold">{t("journal.dbside.seen")}</th>
-              <th class="px-2 py-1.5 text-right font-semibold">{t("journal.dbside.longest")}</th>
-              <th class="px-3 py-1.5 font-semibold">{t("journal.queries.last")}</th>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-border/60">
+      <Table label={t("journal.dbside")} columns={tableColumns} density="compact">
             {#each activity.data.entries as entry (entry.fingerprint)}
-              <tr data-testid="db-activity" data-user={entry.user ?? ""}>
+              <tr class={TABLE_ROW} data-testid="db-activity" data-user={entry.user ?? ""}>
                 <td class="px-3 py-1.5">
                   {entry.user ?? "—"}
                   {#if entry.knownAccount}<Badge tone="muted">{t("journal.dbside.nebulaAccount")}</Badge>{/if}
                 </td>
                 <td class="px-2 py-1.5 text-text-muted">{[entry.client, entry.database].filter(Boolean).join(" · ") || "—"}</td>
-                <td class="max-w-[360px] truncate px-2 py-1.5 font-mono text-[11.5px]" title={entry.sql}>
+                <td class="max-w-[360px] truncate px-2 py-1.5 font-mono text-label" title={entry.sql}>
                   {entry.sql || t("journal.dbside.noStatement")}
                 </td>
                 <td class="px-2 py-1.5 text-right tabular-nums">{entry.seen}</td>
@@ -355,9 +352,7 @@
                 <td class="px-3 py-1.5 text-text-muted">{formatDateTime(parseServerTime(entry.lastAt), i18n.locale)}</td>
               </tr>
             {/each}
-          </tbody>
-        </table>
-      </div>
+          </Table>
     {/if}
     {#if traffic.data}
       <div class="mt-4 mb-2 flex items-center gap-2">
@@ -372,8 +367,8 @@
         <EmptyState>{t("journal.dbside.trafficEmpty")}</EmptyState>
       {:else}
         <div class="overflow-x-auto rounded-lg border border-border">
-          <table class="w-full border-collapse text-[12px]" aria-label={t("journal.dbside.traffic")}>
-            <thead class="bg-surface-raised text-left text-[11px] text-text-muted">
+          <table class="w-full border-collapse text-label" aria-label={t("journal.dbside.traffic")}>
+            <thead class="bg-surface-raised text-left text-caption text-text-muted">
               <tr>
                 <th class="px-3 py-1.5 font-semibold">{t("journal.dbside.period")}</th>
                 <th class="px-2 py-1.5 text-right font-semibold">{t("journal.dbside.queries")}</th>
@@ -425,8 +420,8 @@
       <EmptyState>{t("journal.queries.empty")}</EmptyState>
     {:else if stats.data}
       <div class="overflow-x-auto rounded-lg border border-border">
-        <table class="w-full border-collapse text-[12px]" aria-label={t("journal.queries")}>
-          <thead class="bg-surface-raised text-left text-[11px] text-text-muted">
+        <table class="w-full border-collapse text-label" aria-label={t("journal.queries")}>
+          <thead class="bg-surface-raised text-left text-caption text-text-muted">
             <tr>
               <th class="px-3 py-1.5 font-semibold">{t("journal.queries.statement")}</th>
               <th class="px-2 py-1.5 text-right font-semibold">{t("journal.queries.executions")}</th>
@@ -440,7 +435,7 @@
           <tbody class="divide-y divide-border/60">
             {#each stats.data as stat (stat.hash)}
               <tr data-testid="query-stat">
-                <td class="max-w-[420px] truncate px-3 py-1.5 font-mono text-[11.5px]" title={stat.sql}>{stat.sql}</td>
+                <td class="max-w-[420px] truncate px-3 py-1.5 font-mono text-label" title={stat.sql}>{stat.sql}</td>
                 <td class="px-2 py-1.5 text-right tabular-nums">
                   {stat.executions}
                   {#if stat.failures > 0}
@@ -472,9 +467,9 @@
       <ul class="m-0 flex list-none flex-col gap-3 p-0" aria-label={t("journal.indexes")}>
         {#each suggestions.data.suggestions as suggestion (`${suggestion.schema}.${suggestion.table}.${suggestion.columns.join(",")}`)}
           {@const index = { table: suggestion.table, schema: suggestion.schema, columns: suggestion.columns }}
-          <li class="rounded-lg border border-border p-3 text-[12px]" data-testid="index-suggestion">
+          <li class="rounded-lg border border-border p-3 text-label" data-testid="index-suggestion">
             <div class="flex flex-wrap items-baseline gap-x-2">
-              <span class="font-mono text-[12.5px] font-bold">
+              <span class="font-mono text-body-sm font-bold">
                 {[suggestion.schema, suggestion.table].filter(Boolean).join(".")} ({suggestion.columns.join(", ")})
               </span>
               <span class="text-text-muted">
@@ -485,11 +480,11 @@
                 })}
               </span>
             </div>
-            <div class="mt-2 text-[11px] text-text-muted">{t("journal.indexes.statements")}</div>
+            <div class="mt-2 text-caption text-text-muted">{t("journal.indexes.statements")}</div>
             <ul class="m-0 mt-1 list-none p-0">
               {#each suggestion.statements.slice(0, MAX_SHOWN_STATEMENTS) as statement (statement.hash)}
                 <li class="flex items-baseline gap-3 py-0.5">
-                  <span class="min-w-0 flex-1 truncate font-mono text-[11.5px]" title={statement.sql}>{statement.sql}</span>
+                  <span class="min-w-0 flex-1 truncate font-mono text-label" title={statement.sql}>{statement.sql}</span>
                   <span class="shrink-0 tabular-nums text-text-muted">
                     {statement.executions} × {ms(statement.avgMs)} = {ms(statement.totalMs)}
                   </span>
@@ -497,7 +492,7 @@
               {/each}
             </ul>
             {#if suggestion.statementCount > MAX_SHOWN_STATEMENTS}
-              <div class="text-[11px] text-text-muted">
+              <div class="text-caption text-text-muted">
                 {t("journal.indexes.moreStatements", { count: suggestion.statementCount - MAX_SHOWN_STATEMENTS })}
               </div>
             {/if}
@@ -518,7 +513,7 @@
             {:else}
               <div class="mt-2 text-text-muted">{t("journal.indexes.noProject")}</div>
               <div class="mt-2 flex items-start gap-2">
-                <code class="min-w-0 flex-1 break-all rounded-sm bg-surface-raised px-2 py-1 font-mono text-[11.5px]">
+                <code class="min-w-0 flex-1 break-all rounded-sm bg-surface-raised px-2 py-1 font-mono text-label">
                   {suggestion.createStatement}
                 </code>
                 <Button size="sm" variant="ghost" onclick={() => void copyCreate(suggestion.createStatement)}>

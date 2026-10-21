@@ -50,7 +50,7 @@
   {#if hint}<Hint>{hint}</Hint>{/if}
   <div class="mb-1 text-xs font-semibold text-text-secondary">{t("dbadmin.statement.preview")}</div>
   <pre
-    class="max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-surface-raised p-2.5 font-mono text-[12px] leading-normal text-text">{preview.loading
+    class="max-h-56 overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-surface-raised p-2.5 font-mono text-label leading-normal text-text">{preview.loading
       ? t("common.loading")
       : (preview.data?.sql ?? []).map((line) => `${line};`).join("\n")}</pre>
   {#if preview.error}<ErrorText>{preview.error}</ErrorText>{/if}

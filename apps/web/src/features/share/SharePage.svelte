@@ -69,10 +69,10 @@
 <div class={APP_SHELL}>
   <header class={APP_HEADER}>
     <BrandMark size={24} iconSize={13} />
-    <span class="truncate text-[13.5px] font-semibold" data-testid="share-project-name">{shared?.projectName ?? ""}</span>
+    <span class="truncate text-body font-semibold" data-testid="share-project-name">{shared?.projectName ?? ""}</span>
     {#if shared}
       <Badge tone="muted">{t("share.readOnly")}</Badge>
-      <span class="hidden text-[11px] text-text-muted sm:inline">
+      <span class="hidden text-caption text-text-muted sm:inline">
         {t("share.expiresOn", { date: formatDate(shared.expiresAt, i18n.locale) })}
       </span>
     {/if}

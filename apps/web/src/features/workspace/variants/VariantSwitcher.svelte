@@ -36,7 +36,7 @@
     {#snippet trigger(props)}
       <button
         {...props}
-        class="flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border border-border bg-surface px-1.5 py-0.5 text-[11px] font-medium text-text-secondary hover:bg-surface-hover hover:text-text"
+        class="flex shrink-0 cursor-pointer items-center gap-1 rounded-sm border border-border bg-surface px-1.5 py-0.5 text-caption font-medium text-text-secondary hover:bg-surface-hover hover:text-text"
         data-testid="variant-switcher"
       >
         <Icon icon={LayersIcon} size={11} class="text-primary" />

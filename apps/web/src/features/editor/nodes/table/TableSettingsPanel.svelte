@@ -143,7 +143,7 @@
         {#if onAddIndex && !addingIndex}
           <button
             type="button"
-            class="flex items-center gap-1 text-[11px] font-semibold text-primary hover:text-primary-hover"
+            class="flex items-center gap-1 text-caption font-semibold text-primary hover:text-primary-hover"
             onclick={() => (addingIndex = true)}
           >
             <Icon icon={PlusIcon} size={11} />
@@ -153,7 +153,7 @@
       </div>
 
       {#if table.indexes.length === 0 && !addingIndex}
-        <p class="text-[11px] italic text-text-muted">{t("table.index.empty")}</p>
+        <p class="text-caption italic text-text-muted">{t("table.index.empty")}</p>
       {/if}
 
       <div class="flex flex-col gap-1.5">

@@ -36,7 +36,7 @@
         <div class="flex items-center gap-2 px-3 py-2">
           <span class="font-mono text-xs font-semibold">{table.name}</span>
           {#if table.renamedFrom}
-            <span class="text-[11px] text-text-muted">{t("variants.compare.renamedFrom", { name: table.renamedFrom })}</span>
+            <span class="text-caption text-text-muted">{t("variants.compare.renamedFrom", { name: table.renamedFrom })}</span>
           {/if}
           <Badge tone={TONE[table.status]} class="ml-auto">
             {t(
@@ -50,7 +50,7 @@
           </Badge>
         </div>
         {#if table.fields.length > 0}
-          <table class="w-full border-t border-border text-[11px]">
+          <table class="w-full border-t border-border text-caption">
             <thead class="text-left text-text-muted">
               <tr>
                 <th class="px-3 py-1 font-medium">{t("variants.compare.column")}</th>

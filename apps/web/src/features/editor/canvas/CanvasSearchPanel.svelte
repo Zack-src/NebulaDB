@@ -53,10 +53,10 @@
       }}
       placeholder={t("canvas.search.placeholder")}
       aria-label={t("canvas.search.placeholder")}
-      class="h-6 w-44 border-none bg-transparent px-1 text-[12.5px] text-text placeholder:text-text-muted focus:outline-hidden"
+      class="h-6 w-44 border-none bg-transparent px-1 text-body-sm text-text placeholder:text-text-muted focus:outline-hidden"
     />
     {#if hasQuery}
-      <span class="shrink-0 whitespace-nowrap px-0.5 text-[11px] tabular-nums text-text-muted">
+      <span class="shrink-0 whitespace-nowrap px-0.5 text-caption tabular-nums text-text-muted">
         {matchCount > 0 ? `${activeIndex + 1}/${matchCount}` : "0/0"}
       </span>
     {/if}

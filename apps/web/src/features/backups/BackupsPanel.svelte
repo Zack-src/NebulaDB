@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Table, { TABLE_ROW } from "@/components/ui/Table.svelte";
   import BackupScopeDialog from "./BackupScopeDialog.svelte";
   import type { AdminConnectionSummary, BackupDestination, BackupSchedule, BackupSummary } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
@@ -77,6 +78,16 @@
     cancelled: "muted",
   };
   const when = (value: string) => formatDateTime(parseServerTime(value), i18n.locale);
+
+  const tableColumns = $derived([
+    { label: t("backups.col.date") },
+    { label: t("backups.col.trigger") },
+    { label: t("backups.col.status") },
+    { label: t("backups.col.content") },
+    { label: t("backups.col.size") },
+    { label: t("backups.col.kept") },
+    { label: "" },
+  ]);
 </script>
 
 <section data-testid="backups" aria-labelledby="backups-title">
@@ -112,22 +123,9 @@
   {#if list.length === 0}
     <EmptyState>{backups.loading ? t("common.loading") : t("backups.empty")}</EmptyState>
   {:else}
-    <div class="mt-3 overflow-x-auto rounded-md border border-border">
-      <table class="w-full border-collapse text-xs">
-        <thead class="bg-surface-raised text-left text-text-secondary">
-          <tr>
-            <th class="px-2 py-1.5 font-semibold">{t("backups.col.date")}</th>
-            <th class="px-2 py-1.5 font-semibold">{t("backups.col.trigger")}</th>
-            <th class="px-2 py-1.5 font-semibold">{t("backups.col.status")}</th>
-            <th class="px-2 py-1.5 font-semibold">{t("backups.col.content")}</th>
-            <th class="px-2 py-1.5 font-semibold">{t("backups.col.size")}</th>
-            <th class="px-2 py-1.5 font-semibold">{t("backups.col.kept")}</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
+    <Table label={t("backups.title")} columns={tableColumns} density="compact">
           {#each list as backup (backup.id)}
-            <tr class="border-t border-border/60 align-top" data-status={backup.status} data-trigger={backup.trigger}>
+            <tr class={`${TABLE_ROW} align-top`} data-status={backup.status} data-trigger={backup.trigger}>
               <td class="whitespace-nowrap px-2 py-1.5">
                 {when(backup.startedAt)}
                 {#if backup.storage.kind !== "local"}
@@ -214,9 +212,7 @@
               </td>
             </tr>
           {/each}
-        </tbody>
-      </table>
-    </div>
+        </Table>
   {/if}
 </section>
 

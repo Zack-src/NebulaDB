@@ -483,7 +483,7 @@
                 </div>
                 {#if namesDatabase && projectIds.includes(project.id) && (issue || state)}
                   <p
-                    class={`m-0 mt-0.5 pl-6 text-[11px] ${issue ? "text-danger" : state === "exists" ? "text-success" : "text-text-muted"}`}
+                    class={`m-0 mt-0.5 pl-6 text-caption ${issue ? "text-danger" : state === "exists" ? "text-success" : "text-text-muted"}`}
                     data-testid="project-database-state"
                   >
                     {issue

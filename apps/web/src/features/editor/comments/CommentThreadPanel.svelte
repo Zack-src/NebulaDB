@@ -65,8 +65,8 @@
     {#each comments as c (c.id)}
       <div class="rounded-sm bg-surface p-1.5">
         <div class="mb-0.5 flex items-baseline gap-1.5">
-          <span class="text-[11.5px] font-bold text-text">{c.author}</span>
-          <span class="flex-1 text-[10.5px] text-text-muted">{formatTimestamp(c.createdAt)}</span>
+          <span class="text-label font-bold text-text">{c.author}</span>
+          <span class="flex-1 text-micro text-text-muted">{formatTimestamp(c.createdAt)}</span>
           {#if c.author === currentUser}
             <button
               class="flex h-5 w-5 shrink-0 items-center justify-center rounded-sm text-text-muted transition-colors hover:bg-danger-light hover:text-danger"
@@ -78,7 +78,7 @@
             </button>
           {/if}
         </div>
-        <div class="whitespace-pre-wrap break-words text-[12.5px] leading-[1.4] text-text-secondary"><CommentText text={c.text} /></div>
+        <div class="whitespace-pre-wrap break-words text-body-sm leading-[1.4] text-text-secondary"><CommentText text={c.text} /></div>
       </div>
     {/each}
   </div>

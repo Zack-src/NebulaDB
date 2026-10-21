@@ -7,7 +7,7 @@
   import EmptyState from "@/components/ui/EmptyState.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import List from "@/components/ui/List.svelte";
-  import Switch from "@/components/ui/Switch.svelte";
+  import SettingSwitch from "@/components/ui/SettingSwitch.svelte";
   import { toast } from "@/components/ui/toast.svelte";
   import { SHARE_CONTENT_KEY, SHARE_STATUS_KEY, SHARE_STATUS_TONE, shareLinkFacts } from "@/features/share/shareLinkLabels";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
@@ -68,17 +68,16 @@
 </script>
 
 <div>
-  <!-- Same width, radius and padding as the rows of the list below. -->
-  <label
-    class="mb-4 flex cursor-pointer items-center gap-3 rounded-sm border border-border bg-surface px-3 py-2.5 transition-colors hover:border-border-strong"
-  >
-    <Icon icon={LinkIcon} size={16} class="shrink-0 text-text-muted" />
-    <span class="min-w-0 flex-1">
-      <span class="block text-xs font-semibold text-text">{t("shareLinks.admin.enabled")}</span>
-      <span class="block text-[11px] leading-normal text-text-muted">{t("shareLinks.admin.enabledHint")}</span>
-    </span>
-    <Switch size="sm" checked={enabled} disabled={!links.data || toggle.pending} onChange={(next) => void toggle.run(next)} />
-  </label>
+  <div class="mb-4">
+    <SettingSwitch
+      icon={LinkIcon}
+      label={t("shareLinks.admin.enabled")}
+      hint={t("shareLinks.admin.enabledHint")}
+      checked={enabled}
+      disabled={!links.data || toggle.pending}
+      onChange={(next) => void toggle.run(next)}
+    />
+  </div>
   {#if error}<ErrorText>{error}</ErrorText>{/if}
 
   {#if !links.data || links.data.links.length === 0}
@@ -114,7 +113,7 @@
             {/if}
           </div>
 
-          <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-[11px] text-text-muted">
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-caption text-text-muted">
             <span class="flex items-center gap-1.5">
               {#if link.createdByName}
                 <AccountAvatar name={link.createdByName} />
@@ -129,7 +128,7 @@
 
           <div class="flex items-center gap-2">
             <code
-              class="min-w-0 flex-1 select-all truncate rounded-sm border border-border bg-surface-raised px-2 py-1 font-mono text-[11px] text-text-secondary"
+              class="min-w-0 flex-1 select-all truncate rounded-sm border border-border bg-surface-raised px-2 py-1 font-mono text-caption text-text-secondary"
               aria-label={t("shareLinks.admin.address")}
             >
               {#if shown[link.id] && addresses[link.id]}
@@ -154,7 +153,7 @@
                 {t("shareLinks.admin.copy")}
               </Button>
             {:else if link.status === "active"}
-              <span class="text-[11px] text-text-muted" data-tooltip={t("shareLinks.admin.notKeptHint")}>
+              <span class="text-caption text-text-muted" data-tooltip={t("shareLinks.admin.notKeptHint")}>
                 {t("shareLinks.admin.notKept")}
               </span>
             {/if}

@@ -5,7 +5,7 @@
   let { children, as = "div", onclick }: { children: Snippet; as?: "div" | "button"; onclick?: () => void } =
     $props();
 
-  const className = "flex min-w-0 flex-1 items-center gap-2 text-[13px]";
+  const className = "flex min-w-0 flex-1 items-center gap-2 text-body";
 </script>
 
 {#if as === "button"}

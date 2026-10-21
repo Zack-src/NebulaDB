@@ -259,7 +259,7 @@
               </Checkbox>
               <div class="flex min-w-0 flex-1 flex-col gap-1">
                 <div class="flex flex-wrap gap-1.5">{@render statusBadges(variant.status)}</div>
-                <span class="text-[11px] text-text-muted">
+                <span class="text-caption text-text-muted">
                   {t("variants.lastSync", { date: formatDate(variant.syncedAt, i18n.locale), who: variant.syncedByName ?? "—" })}
                 </span>
               </div>

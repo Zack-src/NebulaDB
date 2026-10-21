@@ -116,11 +116,11 @@
     {@const created = justCreated}
     <div class="rounded-lg border border-primary/50 bg-primary/10 p-3 space-y-2">
       <p class="text-xs font-semibold text-text">{t("settings.billing.apiKeys.createdOnce")}</p>
-      <code class="block break-all rounded-md bg-surface-raised px-2 py-1.5 text-[11.5px] text-text">
+      <code class="block break-all rounded-md bg-surface-raised px-2 py-1.5 text-label text-text">
         {created.plaintextKey}
       </code>
       <p class="text-xs text-text-muted">{t("settings.billing.apiKeys.example")}</p>
-      <code class="block break-all rounded-md bg-surface-raised px-2 py-1.5 text-[11.5px] text-text-secondary">
+      <code class="block break-all rounded-md bg-surface-raised px-2 py-1.5 text-label text-text-secondary">
         {example}
       </code>
       <div class="flex items-center gap-2">
@@ -140,7 +140,7 @@
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2 flex-wrap">
             <span class="font-semibold text-text truncate">{key.name}</span>
-            <code class="text-[11px] text-text-muted">{key.keyPrefix}…</code>
+            <code class="text-caption text-text-muted">{key.keyPrefix}…</code>
             {#each key.scopes as scope (scope)}
               <Badge tone="muted">{t(SCOPE_LABEL_KEY[scope])}</Badge>
             {/each}

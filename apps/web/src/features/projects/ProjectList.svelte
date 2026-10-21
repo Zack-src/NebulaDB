@@ -394,7 +394,7 @@
               >
                 <Icon icon={FolderIcon} size={16} class="shrink-0 text-primary" />
                 <span class="truncate">{folder.name}</span>
-                <span class="shrink-0 text-[11px] font-normal text-text-muted">
+                <span class="shrink-0 text-caption font-normal text-text-muted">
                   {t("folders.count", { count: countInFolder(folders, activeProjects, folder.id) })}
                 </span>
               </button>

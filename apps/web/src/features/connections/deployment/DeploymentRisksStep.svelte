@@ -65,7 +65,7 @@
             </span>
             <div class="flex-1 space-y-2">
               <div class="flex items-start justify-between gap-3">
-                <h4 class="text-[13px] font-bold leading-5 text-text">
+                <h4 class="text-body font-bold leading-5 text-text">
                   {#if risk.type === "DROP_COLUMN_WITH_DATA"}
                     <span>{t("deployment.riskDropColumn", { col: risk.columnName || "", table: risk.tableName })}</span>
                   {/if}
@@ -146,7 +146,7 @@
                   {#if currentRes?.strategy === "BACKFILL_DEFAULT"}
                     <div class="pt-1.5">
                       <!-- svelte-ignore a11y_label_has_associated_control -->
-                      <label class="mb-1 block text-[11px] font-medium text-text">
+                      <label class="mb-1 block text-caption font-medium text-text">
                         {t("deployment.enterDefaultValue")}
                       </label>
                       <input

@@ -46,13 +46,13 @@
             <Icon icon={PuzzleIcon} size={14} />
           </div>
           <span class="text-xs font-bold text-text">{record.manifest.name}</span>
-          {#if record.manifest.version}<span class="text-[10px] text-text-muted">v{record.manifest.version}</span>{/if}
+          {#if record.manifest.version}<span class="text-micro text-text-muted">v{record.manifest.version}</span>{/if}
           <Badge tone={record.source === "builtin" ? "muted" : "success"}>
             {t(record.source === "builtin" ? "plugins.builtin" : "plugins.installed")}
           </Badge>
           <span class="flex-1"></span>
 
-          <label class="flex cursor-pointer items-center gap-1.5 text-[11px] font-medium text-text-muted">
+          <label class="flex cursor-pointer items-center gap-1.5 text-caption font-medium text-text-muted">
             <input
               type="checkbox"
               class="h-4 w-4 rounded accent-primary cursor-pointer"
@@ -103,7 +103,7 @@
         </div>
 
         {#if record.manifest.description}
-          <p class="text-[11.5px] text-text-muted">{record.manifest.description}</p>
+          <p class="text-label text-text-muted">{record.manifest.description}</p>
         {/if}
 
         <ContributionBadges contributions={record.contributions} />

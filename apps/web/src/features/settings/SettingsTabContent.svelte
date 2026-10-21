@@ -52,7 +52,7 @@
   import SqlAccounts from "@/features/settings/SqlAccounts.svelte";
   import PersonalData from "@/features/settings/PersonalData.svelte";
   import TwoFactorAuth from "@/features/settings/TwoFactorAuth.svelte";
-  import SettingSwitch from "@/features/settings/SettingSwitch.svelte";
+  import SettingSwitch from "@/components/ui/SettingSwitch.svelte";
   import type { SettingsPanelState, SettingsTab } from "@/features/settings/settingsPanelState.svelte";
 
   /**
@@ -220,7 +220,7 @@
           </div>
           <div>
             <div class="font-bold text-xs text-text">{session.displayName}</div>
-            <div class="text-[11px] text-text-muted">{session.email}</div>
+            <div class="text-caption text-text-muted">{session.email}</div>
           </div>
         </div>
         <Badge tone={session.isAdmin ? "admin" : "success"}>

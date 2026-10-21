@@ -1,4 +1,5 @@
 <script lang="ts">
+  import PageIntro from "@/components/layout/PageIntro.svelte";
   import Button from "@/components/ui/Button.svelte";
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
@@ -86,7 +87,7 @@
 </script>
 
 <div class="space-y-4" data-testid="sso-settings">
-  <p class="m-0 text-xs text-text-muted">{t("admin.sso.hint")}</p>
+  <PageIntro>{t("admin.sso.hint")}</PageIntro>
 
   {#if loadError}<ErrorText>{loadError}</ErrorText>{/if}
   {#if loaded}

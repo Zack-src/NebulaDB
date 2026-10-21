@@ -33,7 +33,7 @@
 </script>
 
 <span
-  class={`inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-[10px] font-bold uppercase ${className}`.trim()}
+  class={`inline-flex items-center gap-1 rounded-full border px-1.5 py-px text-micro font-bold uppercase ${className}`.trim()}
   style:color={shade}
   style:border-color={`color-mix(in srgb, ${shade} 45%, transparent)`}
   style:background-color={`color-mix(in srgb, ${shade} 14%, transparent)`}

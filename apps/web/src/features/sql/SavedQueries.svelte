@@ -123,7 +123,7 @@
     <div class="max-h-56 space-y-1 overflow-y-auto">
       {#each mine as query (query.id)}{@render row(query)}{/each}
       {#if mine.length > 0 && others.length > 0}
-        <div class="px-2 pt-1 text-[10px] font-bold uppercase text-text-muted">{t("dbadmin.sql.saved.sharedByOthers")}</div>
+        <div class="px-2 pt-1 text-micro font-bold uppercase text-text-muted">{t("dbadmin.sql.saved.sharedByOthers")}</div>
       {/if}
       {#each others as query (query.id)}{@render row(query)}{/each}
     </div>

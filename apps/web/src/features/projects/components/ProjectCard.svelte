@@ -233,7 +233,7 @@
       {/if}
     </div>
 
-    <div class="flex items-center gap-1.5 text-[11px] text-text-muted">
+    <div class="flex items-center gap-1.5 text-caption text-text-muted">
       <span class="h-1.5 w-1.5 shrink-0 rounded-full" style:background={accent}></span>
       {t("projects.card.createdOn", { date: formatDate(project.created_at, i18n.locale) })}
       {#if project.permission === "view"}
@@ -242,7 +242,7 @@
     </div>
 
     {#if project.variantOf || variantCount > 0}
-      <div class="mt-1 flex items-center gap-1 text-[11px] text-text-muted" data-testid="variant-badge">
+      <div class="mt-1 flex items-center gap-1 text-caption text-text-muted" data-testid="variant-badge">
         <Icon icon={LayersIcon} size={11} class="text-primary" />
         {project.variantOf
           ? variantOfName

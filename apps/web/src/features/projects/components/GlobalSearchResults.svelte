@@ -125,9 +125,9 @@
                       >{after}
                     </span>
                     {#if hit.kind === "field" && hit.fieldType}
-                      <span class="font-mono text-[10px] text-text-muted">{hit.fieldType}</span>
+                      <span class="font-mono text-micro text-text-muted">{hit.fieldType}</span>
                     {/if}
-                    <span class="ml-auto text-[10px] text-text-muted">
+                    <span class="ml-auto text-micro text-text-muted">
                       {hit.kind === "table"
                         ? t("projects.globalSearch.kind.table")
                         : hit.kind === "field"

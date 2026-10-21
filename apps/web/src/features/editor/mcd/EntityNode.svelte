@@ -41,7 +41,7 @@
     {/if}
     {#if data.hasWarning}
       <span
-        class={`${data.lock ? "" : "ml-auto"} shrink-0 text-[11px]`}
+        class={`${data.lock ? "" : "ml-auto"} shrink-0 text-caption`}
         data-tooltip="Cette table peut cacher une association non reconstruite — voir l'avertissement"
       >
         ⚠

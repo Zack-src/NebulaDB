@@ -195,18 +195,18 @@
         <li data-testid="activity-entry">
           <button
             type="button"
-            class="flex w-full cursor-pointer items-center gap-3 border-0 bg-transparent px-3 py-2 text-left text-[12.5px] hover:bg-surface-hover"
+            class="flex w-full cursor-pointer items-center gap-3 border-0 bg-transparent px-3 py-2 text-left text-body-sm hover:bg-surface-hover"
             aria-expanded={open}
             onclick={() => (expanded = open ? null : entry.id)}
           >
             <span class="w-[130px] shrink-0 text-xs text-text-muted">
               {formatDateTime(parseServerTime(entry.createdAt), i18n.locale)}
             </span>
-            <span class={`w-[96px] shrink-0 text-[10px] font-bold uppercase ${CATEGORY_TONE[entry.category]}`}>
+            <span class={`w-[96px] shrink-0 text-micro font-bold uppercase ${CATEGORY_TONE[entry.category]}`}>
               {t(`activity.category.${entry.category}`)}
             </span>
             <span class="w-[150px] shrink-0 truncate">{entry.actorName ?? entry.actorEmail ?? "—"}</span>
-            <span class={`shrink-0 font-mono text-[11.5px] ${SEVERE.test(entry.action) ? "text-danger" : ""}`}>
+            <span class={`shrink-0 font-mono text-label ${SEVERE.test(entry.action) ? "text-danger" : ""}`}>
               {entry.action}
             </span>
             <span class="min-w-0 flex-1 truncate text-text-secondary">

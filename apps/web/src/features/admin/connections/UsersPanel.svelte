@@ -352,7 +352,7 @@
       {@const locked = overview.readOnly || p.system}
       {@const lockedTip = readOnlyTip ?? (p.system ? t("dbadmin.systemObject") : undefined)}
       <div class="flex flex-wrap items-center gap-2">
-        <span class="font-mono text-[13px] font-semibold">{p.name}{p.host ? `@${p.host}` : ""}</span>
+        <span class="font-mono text-body font-semibold">{p.name}{p.host ? `@${p.host}` : ""}</span>
         <Badge tone={p.kind === "role" ? "muted" : "success"}>{t(`dbadmin.users.kind.${p.kind}`)}</Badge>
         {#if p.kind === "user" && !p.canLogin}<Badge tone="danger">{t("dbadmin.users.locked")}</Badge>{/if}
         <div class="ml-auto flex flex-wrap items-center gap-1.5">

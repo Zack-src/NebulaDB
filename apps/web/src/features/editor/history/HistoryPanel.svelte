@@ -259,7 +259,7 @@
                   aria-current={entry.id === selectedId ? "true" : undefined}
                   onclick={() => (selectedId = entry.id)}
                 >
-                  <div class="flex items-center gap-1 truncate text-[12.5px] font-semibold text-text">
+                  <div class="flex items-center gap-1 truncate text-body-sm font-semibold text-text">
                     {entry.label ? `🏷 ${entry.label}` : entry.author === currentUser ? t("history.you") : entry.author}
                   </div>
                   <div class="mt-px text-caption text-text-muted">
@@ -350,7 +350,7 @@
       <div
         class="mb-2.5 max-h-[160px] overflow-y-auto rounded-sm border border-border bg-[var(--color-bg-canvas)] px-2.5 py-2"
       >
-        <div class="mb-1 text-[11px] font-semibold uppercase tracking-[0.04em] text-text-muted">
+        <div class="mb-1 text-caption font-semibold uppercase tracking-[0.04em] text-text-muted">
           {t("history.changesSince")}
         </div>
         {#if loadingPreview}

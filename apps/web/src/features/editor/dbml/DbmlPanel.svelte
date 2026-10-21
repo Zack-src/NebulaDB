@@ -284,8 +284,8 @@
   ></div>
   <div class="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2.5">
     <Icon icon={CodeIcon} size={14} class="text-text-muted" />
-    <span class="text-[13px] font-semibold text-text">{DBML_LABEL}</span>
-    {#if flashMessage.message}<span class="truncate text-[11.5px] text-text-muted">{flashMessage.message}</span>{/if}
+    <span class="text-body font-semibold text-text">{DBML_LABEL}</span>
+    {#if flashMessage.message}<span class="truncate text-label text-text-muted">{flashMessage.message}</span>{/if}
     <span class="ml-auto"></span>
     {#if props.onConvertTypes}
       <Button
@@ -342,7 +342,7 @@
       <button
         type="button"
         onclick={() => (errorHiddenFor = errorHidden ? null : problemIdentity)}
-        class="text-[11px] font-medium text-text-muted underline decoration-dotted hover:text-text"
+        class="text-caption font-medium text-text-muted underline decoration-dotted hover:text-text"
       >
         {t(errorHidden ? "dbml.showParseError" : "dbml.hideParseError")}
       </button>

@@ -104,14 +104,14 @@
             {#if column.primaryKey}<Icon icon={KeyIcon} size={11} class="shrink-0 text-warning" />{/if}
             {column.name}
           </div>
-          <div class="truncate font-mono text-[11px] text-text-muted" title={column.type}>{column.type}</div>
+          <div class="truncate font-mono text-caption text-text-muted" title={column.type}>{column.type}</div>
         </div>
         <div class="min-w-0">
           {#if reason}
             <div class="truncate rounded-sm bg-surface-raised px-2 py-1 font-mono text-xs text-text-muted" title={value ?? ""}>
               {#if value === null}<span class="italic">{NULL_LABEL}</span>{:else if value === undefined}<span class="italic">{t("dbadmin.rows.default")}</span>{:else}{value}{/if}
             </div>
-            <p class="mt-0.5 text-[11px] text-text-muted">{reason}</p>
+            <p class="mt-0.5 text-caption text-text-muted">{reason}</p>
           {:else}
             <div class="flex items-start gap-1.5">
               <div class="min-w-0 flex-1">
@@ -168,9 +168,9 @@
               {/if}
             </div>
             {#if problem}
-              <p class="mt-0.5 text-[11px] text-danger">{t(`dbadmin.rows.problem.${problem}`)}</p>
+              <p class="mt-0.5 text-caption text-danger">{t(`dbadmin.rows.problem.${problem}`)}</p>
             {:else if isNew && value === undefined && !column.hasDefault && !column.nullable}
-              <p class="mt-0.5 text-[11px] text-warning">{t("dbadmin.rows.requiredHint")}</p>
+              <p class="mt-0.5 text-caption text-warning">{t("dbadmin.rows.requiredHint")}</p>
             {/if}
           {/if}
         </div>

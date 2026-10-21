@@ -124,7 +124,7 @@
     <Button size="xs" variant="ghost" aria-label={t("share.zoomOut")} onclick={() => (view = zoomAt(view, 1 / ZOOM_STEP, centre()))}
       >−</Button
     >
-    <span class="w-12 text-center text-[11px] tabular-nums text-text-muted">{Math.round(view.scale * 100)} %</span>
+    <span class="w-12 text-center text-caption tabular-nums text-text-muted">{Math.round(view.scale * 100)} %</span>
     <Button size="xs" variant="ghost" aria-label={t("share.zoomIn")} onclick={() => (view = zoomAt(view, ZOOM_STEP, centre()))}
       >+</Button
     >

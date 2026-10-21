@@ -121,7 +121,7 @@
       <p class="mb-2 font-semibold">{t("shareLinks.urlOnce")}</p>
       <div class="flex items-center gap-2">
         <code
-          class="flex-1 overflow-x-auto break-all rounded bg-surface px-2 py-1 font-mono text-[11px]"
+          class="flex-1 overflow-x-auto break-all rounded bg-surface px-2 py-1 font-mono text-caption"
           data-testid="share-link-url">{newUrl}</code
         >
         <Button size="sm" onclick={copyUrl}>{copied ? t("common.copied") : t("common.copy")}</Button>
@@ -140,13 +140,13 @@
           <ListRow>
             <ListMain>
               <span class="truncate text-xs font-semibold text-text">{link.label}</span>
-              <code class="text-[11px] text-text-muted">{link.tokenPrefix}…</code>
+              <code class="text-caption text-text-muted">{link.tokenPrefix}…</code>
               <Badge tone="muted">{t(SHARE_CONTENT_KEY[link.shows])}</Badge>
               {#if link.status !== "active"}
                 <Badge tone={SHARE_STATUS_TONE[link.status]}>{t(SHARE_STATUS_KEY[link.status])}</Badge>
               {/if}
             </ListMain>
-            <span class="text-[11px] text-text-muted">{shareLinkFacts(link, t, i18n.locale)}</span>
+            <span class="text-caption text-text-muted">{shareLinkFacts(link, t, i18n.locale)}</span>
             {#if link.status === "active"}
               <Button
                 variant="ghost"

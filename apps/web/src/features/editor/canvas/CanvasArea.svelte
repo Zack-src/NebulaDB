@@ -450,7 +450,7 @@
     <Panel position="bottom-center" class="nodrag nopan pointer-events-none !bottom-4 flex flex-col items-center gap-2">
       {#if props.statusMessage}
         <span
-          class="pointer-events-auto rounded-full border border-border bg-surface-raised/95 px-3 py-1 text-[11.5px] text-text-secondary shadow-lg backdrop-blur-md"
+          class="pointer-events-auto rounded-full border border-border bg-surface-raised/95 px-3 py-1 text-label text-text-secondary shadow-lg backdrop-blur-md"
         >
           {props.statusMessage}
         </span>
