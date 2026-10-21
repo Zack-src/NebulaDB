@@ -21,6 +21,8 @@ const TARGETS = [
   { table: "backups", key: "id", column: "key_encrypted" },
   // Remote backup destinations (S3 keys, SFTP password or private key).
   { table: "backup_destinations", key: "id", column: "secret_encrypted" },
+  // Share links whose token can be copied again from the admin console.
+  { table: "share_links", key: "id", column: "token_encrypted" },
 ];
 
 async function main(): Promise<void> {

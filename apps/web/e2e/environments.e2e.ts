@@ -39,9 +39,11 @@ test(
       await page.getByRole("button", { name: "Environnements" }).click();
       const chain = page.getByLabel("Chaîne de déploiement");
       const chainNames = async () =>
-        (await chain.locator("[data-production], span.rounded-full").allInnerTexts())
-          .map((s) => s.trim())
-          .filter(Boolean);
+        (
+          await chain
+            .locator("li[data-stage]")
+            .evaluateAll((items) => items.map((item) => item.getAttribute("data-stage") ?? ""))
+        ).map((name) => name.toUpperCase());
       await chain.getByText("Prod", { exact: true }).waitFor();
       assert.deepEqual(await chainNames(), ["DEV", "STAGING", "PROD"]);
 

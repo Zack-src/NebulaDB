@@ -1,11 +1,14 @@
 import crypto from "node:crypto";
 import { db } from "../../infrastructure/db.js";
+import { decryptPayload, encryptPayload } from "../../shared/crypto.js";
 
 /**
  * Read-only links to a project's diagram and data dictionary for people with
  * no account. Same secret handling as API keys (`apiKeys/repository.ts`): the
  * token is 32 random bytes, only its SHA-256 is stored, it is returned in full
- * once at creation, and the lists show a short prefix.
+ * once at creation, and the lists show a short prefix. Unlike an API key it is
+ * also kept encrypted with the instance secret (`token_encrypted`), so an
+ * administrator can copy a link again — see `revealShareToken`.
  */
 
 export const SHARE_CONTENTS = ["diagram", "dictionary", "both"] as const;
@@ -38,6 +41,8 @@ export interface ShareLinkSummary {
   projectId: string;
   label: string;
   tokenPrefix: string;
+  /** Whether an administrator can still copy the full address (false for links made before it was kept). */
+  copyable: boolean;
   shows: ShareContent;
   status: ShareLinkStatus;
   createdAt: string;
@@ -58,6 +63,7 @@ interface ShareLinkRow {
   project_id: string;
   label: string;
   token_prefix: string;
+  copyable: boolean;
   shows: ShareContent;
   created_at: string;
   created_by_name: string | null;
@@ -68,7 +74,7 @@ interface ShareLinkRow {
   project_name?: string;
 }
 
-const SUMMARY_COLUMNS = `s.id, s.project_id, s.label, s.token_prefix, s.shows, s.created_at, s.expires_at, s.revoked_at,
+const SUMMARY_COLUMNS = `s.id, s.project_id, s.label, s.token_prefix, (s.token_encrypted IS NOT NULL) AS copyable, s.shows, s.created_at, s.expires_at, s.revoked_at,
   s.view_count, s.last_viewed_at, COALESCE(u.display_name, u.email) AS created_by_name`;
 
 function statusOf(row: { revoked_at: string | null; expires_at: string }, now: string): ShareLinkStatus {
@@ -82,6 +88,7 @@ function toSummary(row: ShareLinkRow, now: string): ShareLinkSummary {
     projectId: row.project_id,
     label: row.label,
     tokenPrefix: row.token_prefix,
+    copyable: row.copyable === true,
     shows: row.shows,
     status: statusOf(row, now),
     createdAt: row.created_at,
@@ -141,11 +148,18 @@ export async function createShareLink(input: {
   const token = `${TOKEN_PREFIX}_${crypto.randomBytes(32).toString("base64url")}`;
   const now = new Date();
   const createdAt = now.toISOString();
+  // Without NEBULADB_SECRET nothing can be encrypted: the link works, it just cannot be copied again.
+  let tokenEncrypted: string | null;
+  try {
+    tokenEncrypted = encryptPayload(token);
+  } catch {
+    tokenEncrypted = null;
+  }
   const expiresAt = new Date(now.getTime() + input.expiresInDays * DAY_MS).toISOString();
   await db
     .prepare(
-      `INSERT INTO share_links (id, project_id, label, token_hash, token_prefix, shows, created_by, created_at, expires_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO share_links (id, project_id, label, token_hash, token_prefix, token_encrypted, shows, created_by, created_at, expires_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     )
     .run(
       id,
@@ -153,6 +167,7 @@ export async function createShareLink(input: {
       input.label,
       hashShareToken(token),
       token.slice(0, DISPLAY_PREFIX_LENGTH),
+      tokenEncrypted,
       input.shows,
       input.userId,
       createdAt,
@@ -178,6 +193,20 @@ export async function listProjectShareLinks(projectId: string): Promise<ShareLin
     )
     .all(projectId)) as ShareLinkRow[];
   return rows.map((row) => toSummary(row, now));
+}
+
+/**
+ * The full token of a link that still works, for an instance administrator who
+ * needs to copy it again; `null` when the link is revoked, expired, unknown or
+ * was made without its token being kept.
+ */
+export async function revealShareToken(id: string): Promise<{ token: string; link: ShareLinkSummary } | null> {
+  const row = (await db
+    .prepare("SELECT token_encrypted FROM share_links WHERE id = ? AND revoked_at IS NULL AND expires_at > ?")
+    .get(id, new Date().toISOString())) as { token_encrypted: string | null } | undefined;
+  if (!row?.token_encrypted) return null;
+  const link = await getShareLink(id);
+  return link ? { token: decryptPayload<string>(row.token_encrypted), link } : null;
 }
 
 /** Every link of the instance, newest first, for its administrators. */

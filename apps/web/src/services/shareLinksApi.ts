@@ -8,8 +8,10 @@ export interface ShareLink {
   id: string;
   projectId: string;
   label: string;
-  /** The first characters of the token — the token itself is shown once, at creation. */
+  /** The first characters of the token — an instance administrator can reveal the rest from the admin console. */
   tokenPrefix: string;
+  /** Whether an instance administrator can copy the full address again (links made before it was kept cannot). */
+  copyable: boolean;
   shows: ShareContent;
   status: ShareLinkStatus;
   createdAt: string;
@@ -64,4 +66,9 @@ export async function setShareLinksEnabled(enabled: boolean): Promise<boolean> {
 /** The address a token opens — what the person who created the link sends on. */
 export function shareUrl(token: string, origin = window.location.origin): string {
   return `${origin}/share/${token}`;
+}
+
+/** An instance administrator's request for a working link's full token, to copy its address again; audited. */
+export async function revealShareLink(id: string): Promise<{ token: string }> {
+  return request<{ token: string }>(`/api/admin/share-links/${id}/reveal`, { method: "POST" });
 }

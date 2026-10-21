@@ -87,8 +87,8 @@
       {/each}
     </nav>
     <div class="admin-content">
-      <!-- The connections section hosts a data grid and a SQL console, which need the width the list tabs don't. -->
-      <div class={`mx-auto ${section === "connections" ? "max-w-[1600px]" : "max-w-[880px]"}`}>
+      <!-- One width for every section, wide enough for the connections data grid and SQL console. -->
+      <div class="mx-auto max-w-[1200px]">
         <h1 class="mb-5 flex items-center gap-2.5 text-xl font-semibold text-text" data-testid="admin-section-title">
           <Icon icon={ICONS[section]} size={20} />
           {t(SECTIONS.find((item) => item.key === section)?.labelKey ?? "admin.title")}

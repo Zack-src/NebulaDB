@@ -77,7 +77,7 @@ test(
       await dialog.getByRole("button", { name: "Créer le lien" }).click();
       const url = (await dialog.getByTestId("share-link-url").innerText()).trim();
       assert.match(url, new RegExp(`^${env.baseUrl}/share/nds_[A-Za-z0-9_-]{43}$`));
-      await dialog.getByText("Actif", { exact: true }).waitFor();
+      await dialog.getByText("Pour les auditeurs", { exact: true }).waitFor();
 
       // A stranger: a fresh browser context, no cookie at all.
       const stranger = await env.browser.newContext();

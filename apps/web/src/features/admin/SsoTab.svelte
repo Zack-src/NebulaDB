@@ -85,7 +85,7 @@
   }
 </script>
 
-<div class="max-w-[640px] space-y-4" data-testid="sso-settings">
+<div class="space-y-4" data-testid="sso-settings">
   <p class="m-0 text-xs text-text-muted">{t("admin.sso.hint")}</p>
 
   {#if loadError}<ErrorText>{loadError}</ErrorText>{/if}

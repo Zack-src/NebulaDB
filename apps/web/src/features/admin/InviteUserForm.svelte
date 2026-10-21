@@ -54,10 +54,13 @@
   const error = $derived(invite.error ?? teams.error ?? connections.error);
 </script>
 
-<div>
-  <div class="mb-7 flex max-w-[720px] flex-wrap items-center gap-2">
+<section class="mb-6 rounded-md border border-border bg-surface p-3.5" aria-label={t("admin.invitations.title")}>
+  <h2 class="m-0 mb-2.5 text-xs font-semibold uppercase tracking-wider text-text-muted">
+    {t("admin.invitations.title")}
+  </h2>
+  <div class="flex flex-wrap items-center gap-2">
     <input
-      class={`${INPUT_CLASS} flex-1`}
+      class={`${INPUT_CLASS} min-w-[240px] flex-1`}
       placeholder={t("admin.invitations.emailPlaceholder")}
       bind:value={email}
       onkeydown={(event) => event.key === "Enter" && handleInvite()}
@@ -70,13 +73,13 @@
       {t("admin.invitations.invite")}
     </Button>
   </div>
-  <div class="-mt-5 mb-6">
+  <div class="mt-2">
     <Button size="sm" variant="ghost" onclick={() => (showGrants = !showGrants)} aria-expanded={showGrants}>
       {grantCount > 0 ? t("admin.invitations.grantsWithCount", { count: grantCount }) : t("admin.invitations.grants")}
     </Button>
     {#if showGrants}
       <div
-        class="mt-2 flex max-w-[720px] flex-col gap-4 rounded-md border border-border p-3"
+        class="mt-2 flex flex-col gap-4 rounded-sm border border-border bg-surface-raised p-3"
         data-testid="invitation-grants"
       >
         <div>
@@ -111,11 +114,11 @@
     {/if}
   </div>
   {#if lastInvite}
-    <p class="-mt-4 mb-5 text-xs text-text-muted" role="status">
+    <p class="mb-0 mt-3 text-xs text-text-muted" role="status">
       {lastInvite.emailSent
         ? t("admin.invitations.emailSent", { email: lastInvite.email })
         : t("admin.invitations.emailNotSent", { email: lastInvite.email })}
     </p>
   {/if}
   {#if error}<ErrorText>{error}</ErrorText>{/if}
-</div>
+</section>

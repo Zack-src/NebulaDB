@@ -16,6 +16,7 @@ import {
   listProjectShareLinks,
   recordShareView,
   resolveShareToken,
+  revealShareToken,
   revokeShareLink,
   setShareLinksEnabled,
   shareLinksEnabled,
@@ -108,6 +109,17 @@ export function registerShareLinkRoutes(app: FastifyInstance): void {
     requireSessionUser(req);
     requireAdmin(req);
     return { enabled: await shareLinksEnabled(), links: await listAllShareLinks() };
+  });
+
+  /** The full token of a working link, so an administrator can copy its address; every reveal is audited. */
+  app.post("/api/admin/share-links/:linkId/reveal", async (req) => {
+    requireSessionUser(req);
+    const user = requireAdmin(req);
+    const { linkId } = req.params as { linkId: string };
+    const revealed = await revealShareToken(linkId);
+    if (!revealed) throw new ApiError("SHARE_LINK_NOT_FOUND");
+    await auditUser(user, "share.reveal", { type: "project", id: revealed.link.projectId }, describe(revealed.link), req);
+    return { token: revealed.token };
   });
 
   app.delete("/api/admin/share-links/:linkId", async (req) => {

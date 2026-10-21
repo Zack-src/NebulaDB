@@ -13,6 +13,7 @@
   } from "@/components/icons/Icons";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Button from "@/components/ui/Button.svelte";
+  import AccountAvatar from "@/components/ui/AccountAvatar.svelte";
   import Badge from "@/components/ui/Badge.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
@@ -101,6 +102,9 @@
   {#if rows.length === 0}
     <EmptyState>{users.loading || invitations.loading ? t("common.loading") : t("admin.users.empty")}</EmptyState>
   {:else}
+    <h2 class="m-0 mb-2 text-xs font-semibold uppercase tracking-wider text-text-muted">
+      {t("admin.users.membersTitle", { count: rows.length })}
+    </h2>
     <div class="overflow-x-auto rounded-md border border-border">
       <table class="w-full text-left text-xs" aria-label={t("admin.section.users")}>
         <thead class="border-b border-border bg-surface-raised text-text-secondary">
@@ -117,15 +121,20 @@
             {@const disabled = Boolean(user?.disabledAt)}
             <tr class="border-b border-border bg-surface last:border-b-0" data-email={user?.email ?? invitation?.email}>
               <td class="px-3 py-2.5">
-                <div class="flex flex-wrap items-center gap-2">
-                  {#if user}<strong class={disabled ? "line-through text-text-muted" : "font-medium"}
-                      >{user.displayName}</strong
-                    >{/if}
-                  {#if user?.isAdmin ?? invitation?.isAdmin}<Badge tone="admin">{t("common.admin")}</Badge>{/if}
+                <div class="flex items-center gap-2.5">
+                  <AccountAvatar name={user?.displayName ?? invitation?.email ?? "?"} />
+                  <div class="min-w-0">
+                    <div class="flex flex-wrap items-center gap-2">
+                      {#if user}<strong class={disabled ? "line-through text-text-muted" : "font-medium"}
+                          >{user.displayName}</strong
+                        >{/if}
+                      {#if user?.isAdmin ?? invitation?.isAdmin}<Badge tone="admin">{t("common.admin")}</Badge>{/if}
+                    </div>
+                    <span class="text-text-secondary">{user?.email ?? invitation?.email}</span>
+                  </div>
                 </div>
-                <span class="text-text-secondary">{user?.email ?? invitation?.email}</span>
                 {#if invitation && !user}
-                  <div class="mt-1 flex flex-wrap gap-1">
+                  <div class="mt-1.5 flex flex-wrap gap-1 pl-[38px]">
                     {#each invitation.teams ?? [] as team (team.id)}<Badge tone="muted">{team.name}</Badge>{/each}
                     {#each invitation.databases ?? [] as grant (grant.connectionId)}
                       <span

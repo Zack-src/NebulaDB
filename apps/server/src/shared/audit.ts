@@ -145,6 +145,7 @@ export const AUDIT_ACTIONS = [
   "monitoring.accounts.accept",
   "share.create",
   "share.revoke",
+  "share.reveal",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];

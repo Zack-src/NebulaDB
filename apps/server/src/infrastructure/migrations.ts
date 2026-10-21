@@ -936,6 +936,16 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 11,
+    name: "share_links.token_encrypted: the link can be copied again from the admin console",
+    up: async (db) => {
+      // The token encrypted with the instance secret (`encryptPayload`), so an administrator can copy
+      // a link again. NULL for links made before this column or without a secret configured: those
+      // can only be revoked, as before. Lookup still goes through `token_hash`.
+      await db.exec(`ALTER TABLE share_links ADD COLUMN token_encrypted ${T}`);
+    },
+  },
 ];
 
 // Any constant will do, as long as every NebulaDB process takes the same one.

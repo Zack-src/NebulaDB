@@ -31,6 +31,7 @@ test("variables: typed on a stage, kept, and used by a deployment to that stage"
 
     await page.getByRole("button", { name: "Admin", exact: true }).click();
     await page.getByRole("button", { name: "Environnements" }).click();
+    await page.locator('[data-stage="DEV"]').getByRole("button", { name: "Configurer" }).click();
     const group = page.getByRole("group", { name: "Variables de DEV" });
     await group.waitFor();
 
@@ -51,6 +52,7 @@ test("variables: typed on a stage, kept, and used by a deployment to that stage"
     await page.reload();
     await page.getByRole("button", { name: "Admin", exact: true }).click();
     await page.getByRole("button", { name: "Environnements" }).click();
+    await page.locator('[data-stage="DEV"]').getByRole("button", { name: "Configurer" }).click();
     assert.equal(await page.getByLabel("Valeur de table_prefix sur DEV").inputValue(), "dev_");
     assert.equal(await page.getByLabel("Valeur de schema sur DEV").inputValue(), "");
 

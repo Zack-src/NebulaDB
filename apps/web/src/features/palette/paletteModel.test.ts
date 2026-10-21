@@ -27,8 +27,8 @@ test("an instance administrator also gets every admin console tab", () => {
   const entries = navigationTargets({ isAdmin: true }, null, t);
   const admin = entries.filter((entry) => entry.id.startsWith("admin:"));
   assert.deepEqual(ids(admin), [
-    "admin:teams",
     "admin:users",
+    "admin:teams",
     "admin:audit",
     "admin:errors",
     "admin:connections",

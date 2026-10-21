@@ -142,7 +142,9 @@
               <span class="truncate text-xs font-semibold text-text">{link.label}</span>
               <code class="text-[11px] text-text-muted">{link.tokenPrefix}…</code>
               <Badge tone="muted">{t(SHARE_CONTENT_KEY[link.shows])}</Badge>
-              <Badge tone={SHARE_STATUS_TONE[link.status]}>{t(SHARE_STATUS_KEY[link.status])}</Badge>
+              {#if link.status !== "active"}
+                <Badge tone={SHARE_STATUS_TONE[link.status]}>{t(SHARE_STATUS_KEY[link.status])}</Badge>
+              {/if}
             </ListMain>
             <span class="text-[11px] text-text-muted">{shareLinkFacts(link, t, i18n.locale)}</span>
             {#if link.status === "active"}

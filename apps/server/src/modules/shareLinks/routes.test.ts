@@ -495,6 +495,44 @@ test("an instance administrator sees and revokes every link", async () => {
   }
 });
 
+test("an instance administrator can copy a working link's address again, audited; nobody else, and not a dead link", async () => {
+  const app = await buildApp({ logStream });
+  try {
+    const admin = await makeUser(app, 1);
+    const owner = await makeUser(app);
+    const projectId = await newProject(app, owner.cookie, "Reveal");
+    await enable(app, admin);
+    const { token, link } = await createLink(app, owner, projectId, { label: "to-copy" });
+
+    const listed = (await call(app, admin.cookie, "GET", "/api/admin/share-links")).json();
+    assert.equal(listed.links.find((l: { id: string }) => l.id === link.id).copyable, true);
+
+    const reveal = `/api/admin/share-links/${link.id}/reveal`;
+    assert.equal((await call(app, owner.cookie, "POST", reveal)).statusCode, 403);
+    const revealed = await call(app, admin.cookie, "POST", reveal);
+    assert.equal(revealed.statusCode, 200);
+    assert.deepEqual(revealed.json(), { token });
+    const audited = (await db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'share.reveal'").get()) as {
+      n: number | string;
+    };
+    assert.equal(Number(audited.n), 1);
+
+    // A link made before the token was kept has nothing to reveal.
+    await db.prepare("UPDATE share_links SET token_encrypted = NULL WHERE id = ?").run(link.id);
+    assert.equal((await call(app, admin.cookie, "POST", reveal)).statusCode, 404);
+
+    const second = await createLink(app, owner, projectId, { label: "revoked-one" });
+    await call(app, admin.cookie, "DELETE", `/api/admin/share-links/${second.link.id}`);
+    assert.equal(
+      (await call(app, admin.cookie, "POST", `/api/admin/share-links/${second.link.id}/reveal`)).statusCode,
+      404,
+    );
+  } finally {
+    await closeAllRooms();
+    await app.close();
+  }
+});
+
 test("public routes are rate-limited per IP", async () => {
   const app = await buildApp({ logStream });
   try {
