@@ -1,5 +1,7 @@
 <script lang="ts">
   import Icon from "@/components/icons/Icon.svelte";
+  import NavHeading from "@/components/ui/NavHeading.svelte";
+  import NavItem from "@/components/ui/NavItem.svelte";
   import {
     AlertTriangleIcon,
     ChevronLeftIcon,
@@ -76,12 +78,14 @@
     <nav class="admin-navigation" aria-label={t("admin.title")}>
       {#each groups as group (group.label)}
         <div class="admin-group">
-          <h2>{t(group.label)}</h2>
+          <NavHeading label={t(group.label)} />
           {#each SECTIONS.filter((item) => (group.keys as readonly string[]).includes(item.key)) as item (item.key)}
-            <button aria-current={section === item.key ? "page" : undefined} onclick={() => (section = item.key)}>
-              <Icon icon={ICONS[item.key]} size={16} />
-              <span>{t(item.labelKey)}</span>
-            </button>
+            <NavItem
+              label={t(item.labelKey)}
+              icon={ICONS[item.key]}
+              active={section === item.key}
+              onclick={() => (section = item.key)}
+            />
           {/each}
         </div>
       {/each}
@@ -121,47 +125,15 @@
     background: var(--color-surface);
   }
   .admin-group {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
     margin-bottom: 8px;
     padding-bottom: 16px;
     border-bottom: 1px solid var(--color-border);
   }
   .admin-group:last-child {
     border-bottom: 0;
-  }
-  .admin-group h2 {
-    font-size: 12px;
-    text-transform: uppercase;
-    letter-spacing: 0.08em;
-    color: var(--color-text);
-    font-weight: 700;
-    padding: 4px 10px 8px;
-  }
-  .admin-group button {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    width: 100%;
-    text-align: left;
-    padding: 10px 12px;
-    margin-bottom: 2px;
-    border-radius: 8px;
-    font-size: 13px;
-    line-height: 1.3;
-    white-space: nowrap;
-    color: var(--color-text-secondary);
-  }
-  .admin-group button:hover {
-    background: var(--color-surface-hover);
-    color: var(--color-text);
-  }
-  .admin-group button[aria-current="page"] {
-    background: var(--color-primary-light);
-    color: var(--color-primary-text);
-    font-weight: 600;
-  }
-  .admin-group button:focus-visible {
-    outline: 2px solid var(--color-primary-text);
-    outline-offset: 2px;
   }
   .admin-content {
     min-width: 0;
@@ -181,19 +153,18 @@
       padding: 8px 12px;
     }
     .admin-group {
-      display: flex;
       flex: none;
+      flex-direction: row;
       gap: 4px;
       margin: 0;
       padding: 0;
       border-bottom: 0;
     }
-    .admin-group h2 {
+    .admin-group :global(h2) {
       display: none;
     }
-    .admin-group button {
+    .admin-group :global(button) {
       width: auto;
-      white-space: nowrap;
     }
     .admin-content {
       padding: 20px 16px;

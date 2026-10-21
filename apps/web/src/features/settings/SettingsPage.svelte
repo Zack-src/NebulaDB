@@ -1,4 +1,5 @@
 <script lang="ts">
+  import NavItem from "@/components/ui/NavItem.svelte";
   import Button from "@/components/ui/Button.svelte";
   import BrandMark from "@/components/ui/BrandMark.svelte";
   import Icon from "@/components/icons/Icon.svelte";
@@ -65,18 +66,12 @@
         {t("settings.navHeading")}
       </div>
       {#each SETTINGS_SECTIONS as section (section.id)}
-        <button
+        <NavItem
+          label={t(section.labelKey)}
+          icon={section.icon}
+          active={state.activeTab === section.id}
           onclick={() => state.setActiveTab(section.id)}
-          aria-current={state.activeTab === section.id ? "page" : undefined}
-          class={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-medium transition-colors text-left ${
-            state.activeTab === section.id
-              ? "bg-primary-light text-primary"
-              : "text-text-secondary hover:bg-surface-hover hover:text-text"
-          }`}
-        >
-          <Icon icon={section.icon} size={16} />
-          <span>{t(section.labelKey)}</span>
-        </button>
+        />
       {/each}
     </aside>
 
