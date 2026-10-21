@@ -271,7 +271,17 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const webDist = path.resolve(__dirname, "../../web/dist");
   if (existsSync(webDist)) {
-    await app.register(fastifyStatic, { root: webDist });
+    await app.register(fastifyStatic, {
+      root: webDist,
+      // `npm run build -w apps/web` leaves a .br and a .gz beside each script and stylesheet: the browser gets the
+      // smaller one its Accept-Encoding allows, at no per-request cost.
+      preCompressed: true,
+      // Everything under /assets carries a content hash in its name, so a given URL never changes: cache it
+      // for good. index.html and the other files keep the default and are revalidated.
+      setHeaders(reply, filePath) {
+        if (filePath.split(path.sep).includes("assets")) reply.header("Cache-Control", "public, max-age=31536000, immutable");
+      },
+    });
     // The SPA has client-side "routes" outside App.svelte's in-memory view-switching:
     // a freshly loaded (not client-navigated) `/invite/:token` or `/project/:id`
     // link, e.g. pasted into a browser or opened from a bookmark. @fastify/static

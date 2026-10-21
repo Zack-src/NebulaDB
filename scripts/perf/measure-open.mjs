@@ -1,7 +1,7 @@
 // Measures how long a project takes to show up: when its DBML code is on screen and when its graph is.
 //
 //   PERF_EMAIL=… PERF_PASSWORD=… node scripts/perf/measure-open.mjs --label 00-baseline
-//     [--project DeepDetect] [--runs 7] [--base http://localhost:3001] [--conditions fast,slowcpu,cold4g]
+//     [--project DeepDetect] [--runs 7] [--base http://localhost:3001] [--conditions fast,slowcpu,cold4g,warm4g] [--merge] [--commit <sha served>]
 //
 // Needs the web app built (`npm run build`) and served by the server (`npm start` or the dev server on
 // :3001), and a project of that name the account can open. Results go to docs/perf/open-project/<label>.json.
@@ -15,11 +15,15 @@
 // Conditions:
 //   fast     this machine, HTTP cache warm (a re-open)
 //   slowcpu  CPU throttled 4x (a much slower laptop), cache warm
-//   cold4g   this machine, nothing cached, network limited to 9 Mbit/s with 50 ms latency (a first visit)
+//   cold4g   this machine, nothing cached, through a proxy limited to 9 Mbit/s with a 50 ms round trip (a first visit)
+//   warm4g   same link, HTTP cache warm (a re-open on a slow link: every revalidation costs a round trip)
+// The slow link is a TCP proxy (throttle-proxy.mjs), not Chrome's network emulation, which slows a WebSocket frame ~10x
+// more than the same bytes over HTTP.
 import { execSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { chromium } from "playwright-core";
+import { startThrottleProxy } from "./throttle-proxy.mjs";
 
 const args = Object.fromEntries(
   process.argv
@@ -37,9 +41,10 @@ if (!EMAIL || !PASSWORD) throw new Error("Set PERF_EMAIL and PERF_PASSWORD (an a
 const CONDITIONS = {
   fast: { cpu: 1, cold: false, net: null },
   slowcpu: { cpu: 4, cold: false, net: null },
-  cold4g: { cpu: 1, cold: true, net: { latency: 50, down: (9 * 1e6) / 8, up: (3 * 1e6) / 8 } },
+  cold4g: { cpu: 1, cold: true, net: { rttMs: 50, mbit: 9 } },
+  warm4g: { cpu: 1, cold: false, net: { rttMs: 50, mbit: 9 } },
 };
-const wanted = (args.conditions ?? "fast,slowcpu,cold4g").split(",");
+const wanted = (args.conditions ?? "fast,slowcpu,cold4g,warm4g").split(",");
 
 /** Runs in the page before anything else: cheap live collections, read on every frame. */
 const INIT = () => {
@@ -75,8 +80,8 @@ const INIT = () => {
 const median = (a) => { const v = a.filter((x) => x != null && Number.isFinite(x)).sort((x, y) => x - y); return v.length ? v[Math.floor(v.length / 2)] : null; };
 const quantile = (a, q) => { const v = a.filter((x) => x != null && Number.isFinite(x)).sort((x, y) => x - y); return v.length ? v[Math.min(v.length - 1, Math.floor(q * (v.length - 1)))] : null; };
 
-async function login(ctx) {
-  const res = await ctx.request.post(`${BASE}/api/auth/login`, { data: { email: EMAIL, password: PASSWORD }, headers: { origin: BASE } });
+async function login(ctx, base) {
+  const res = await ctx.request.post(`${base}/api/auth/login`, { data: { email: EMAIL, password: PASSWORD }, headers: { origin: base } });
   if (!res.ok()) throw new Error(`login failed: ${res.status()}`);
 }
 
@@ -85,7 +90,6 @@ async function openOnce(browser, cond, ctx) {
   await page.addInitScript(INIT);
   const cdp = await ctx.newCDPSession(page);
   await cdp.send("Network.enable");
-  if (cond.net) await cdp.send("Network.emulateNetworkConditions", { offline: false, latency: cond.net.latency, downloadThroughput: cond.net.down, uploadThroughput: cond.net.up });
   if (cond.cpu > 1) await cdp.send("Emulation.setCPUThrottlingRate", { rate: cond.cpu });
   await cdp.send("Page.enable");
   let requests = 0, bytes = 0;
@@ -95,7 +99,7 @@ async function openOnce(browser, cond, ctx) {
   cdp.on("Page.screencastFrame", (f) => { frames.push(f.metadata.timestamp * 1000); cdp.send("Page.screencastFrameAck", { sessionId: f.sessionId }).catch(() => {}); });
   await page.goto("about:blank");
   await cdp.send("Page.startScreencast", { format: "jpeg", quality: 30, maxWidth: 320, maxHeight: 180, everyNthFrame: 1 });
-  await page.goto(`${BASE}/project/${cond.projectId}`, { waitUntil: "commit" });
+  await page.goto(`${cond.base}/project/${cond.projectId}`, { waitUntil: "commit" });
   const started = Date.now();
   let settled = false;
   while (Date.now() - started < 90000) {
@@ -137,16 +141,19 @@ async function openOnce(browser, cond, ctx) {
 
 const browser = await chromium.launch({ channel: "chrome", headless: true }).catch(() => chromium.launch({ channel: "msedge", headless: true }));
 const sha = (() => { try { return execSync("git rev-parse --short HEAD", { encoding: "utf8" }).trim(); } catch { return null; } })();
-const result = { label: LABEL, commit: sha, date: new Date().toISOString(), project: PROJECT, runs: RUNS, base: BASE, browser: browser.version(), conditions: {} };
+const served = args.commit ?? sha;
+const result = { label: LABEL, commit: served, date: new Date().toISOString(), project: PROJECT, runs: RUNS, base: BASE, browser: browser.version(), conditions: {} };
 
 for (const name of wanted) {
   const cond = { ...CONDITIONS[name] };
+  const proxy = cond.net ? await startThrottleProxy({ targetHost: new URL(BASE).hostname, targetPort: Number(new URL(BASE).port), ...cond.net }) : null;
+  cond.base = proxy ? `http://127.0.0.1:${proxy.port}` : BASE;
   const raw = [];
   let ctx = null;
   const fresh = async () => {
     const c = await browser.newContext({ viewport: { width: 1600, height: 900 } });
-    await login(c);
-    const list = await (await c.request.get(`${BASE}/api/projects`)).json();
+    await login(c, cond.base);
+    const list = await (await c.request.get(`${cond.base}/api/projects`)).json();
     cond.projectId = (list.projects ?? list).find((p) => p.name === PROJECT)?.id;
     if (!cond.projectId) throw new Error(`project "${PROJECT}" not found`);
     return c;
@@ -162,9 +169,10 @@ for (const name of wanted) {
     process.stdout.write(`${name} ${i + 1}/${RUNS} code ${raw.at(-1).codeVisible} graph ${raw.at(-1).graphComplete}\n`);
   }
   if (ctx) await ctx.close();
+  if (proxy) await proxy.close();
   const keys = ["fcp", "wsFirstMessage", "codeVisible", "graphFirstVisible", "graphComplete", "codeDom", "firstNodeDom", "completeDom", "longTasks", "longTaskMs", "longestMs", "domElements", "heapMB", "requests", "transferKB"];
   result.conditions[name] = {
-    cpu: cond.cpu, cold: cond.cold, net: cond.net ? { latencyMs: cond.net.latency, downMbit: (cond.net.down * 8) / 1e6 } : null,
+    cpu: cond.cpu, cold: cond.cold, net: cond.net ? { rttMs: cond.net.rttMs, downMbit: cond.net.mbit } : null,
     median: Object.fromEntries(keys.map((k) => [k, (() => { const v = median(raw.map((r) => r[k])); return v == null ? null : Math.round(v * 10) / 10; })()])),
     p25: Object.fromEntries(keys.slice(2, 5).map((k) => [k, quantile(raw.map((r) => r[k]), 0.25)])),
     p75: Object.fromEntries(keys.slice(2, 5).map((k) => [k, quantile(raw.map((r) => r[k]), 0.75)])),
@@ -176,7 +184,13 @@ await browser.close();
 
 const outDir = path.resolve("docs/perf/open-project");
 fs.mkdirSync(outDir, { recursive: true });
-fs.writeFileSync(path.join(outDir, `${LABEL}.json`), JSON.stringify(result, null, 1));
+const outFile = path.join(outDir, `${LABEL}.json`);
+// --merge: keep the conditions already measured for this label and replace the ones just run.
+if (args.merge && fs.existsSync(outFile)) {
+  const previous = JSON.parse(fs.readFileSync(outFile, "utf8"));
+  result.conditions = { ...previous.conditions, ...result.conditions };
+}
+fs.writeFileSync(outFile, JSON.stringify(result, null, 1));
 console.log(`\n${LABEL} (${sha})`);
 for (const [name, c] of Object.entries(result.conditions)) {
   const m = c.median;
