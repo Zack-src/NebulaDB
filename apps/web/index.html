@@ -25,6 +25,37 @@
         } catch (e) {}
       })();
     </script>
+    <!--
+      Deep link to a project: ask for what it needs now, not once the bundle has been parsed and the app
+      has mounted. The session, the project summary and the live document are all known from the URL, so
+      they travel while the JavaScript downloads; `src/utils/earlyStart.ts` hands them to the code that
+      would have asked later. Silent on any failure: the application then asks the usual way.
+    -->
+    <script>
+      (function () {
+        try {
+          var match = location.pathname.match(/^\/project\/([^\/]+)/);
+          if (!match) return;
+          var id = match[1];
+          var early = (window.__nebulaEarly = { id: id, at: performance.now(), responses: {}, ws: null });
+          early.responses["/api/auth/me"] = fetch("/api/auth/me");
+          early.responses["/api/projects/" + id] = fetch("/api/projects/" + id);
+          var socket = new WebSocket((location.protocol === "https:" ? "wss:" : "ws:") + "//" + location.host + "/ws/" + id);
+          socket.binaryType = "arraybuffer";
+          var ws = (early.ws = { socket: socket, buffered: [], step1Sent: true, taken: false });
+          // Yjs sync step 1 for an empty document: message type 0, step 0, a state vector of one byte (0).
+          socket.addEventListener("open", function () {
+            socket.send(new Uint8Array([0, 0, 1, 0]));
+          });
+          socket.addEventListener("message", function (event) {
+            if (!ws.taken) ws.buffered.push(event.data);
+          });
+          setTimeout(function () {
+            if (!ws.taken) socket.close();
+          }, 15000);
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

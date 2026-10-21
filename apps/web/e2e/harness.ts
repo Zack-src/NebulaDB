@@ -91,7 +91,7 @@ async function launchBrowser(): Promise<Browser> {
  */
 export async function clickRevealedOnHover(table: Locator, control: Locator): Promise<void> {
   let last = "";
-  let stableSince = 0;
+  let stableSince = Date.now();
   for (let attempt = 0; attempt < 200 && Date.now() - stableSince < 1200; attempt++) {
     const now = JSON.stringify(await table.boundingBox());
     if (now !== last) {

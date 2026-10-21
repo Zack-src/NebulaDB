@@ -1,3 +1,4 @@
+import { takeEarlyResponse } from "@/utils/earlyStart";
 import { ApiError, NetworkError } from "./ApiError";
 
 /**
@@ -40,7 +41,21 @@ function toRequestInit(options: RequestOptions): RequestInit {
   };
 }
 
+/** A plain GET that `index.html` already sent for this page load, if it is this one. */
+function earlyResponse(path: string, options: RequestOptions): Promise<Response> | null {
+  const plain = (options.method ?? "GET") === "GET" && options.body === undefined && !options.signal && !options.query;
+  return plain ? takeEarlyResponse(path) : null;
+}
+
 async function send(path: string, options: RequestOptions): Promise<Response> {
+  const early = earlyResponse(path, options);
+  if (early) {
+    try {
+      return await early;
+    } catch {
+      // The early request failed: ask again the usual way, which reports its own failure.
+    }
+  }
   try {
     return await fetch(buildUrl(path, options.query), toRequestInit(options));
   } catch (err) {

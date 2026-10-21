@@ -5,6 +5,7 @@ import * as encoding from "lib0/encoding.js";
 import * as decoding from "lib0/decoding.js";
 import type { ServerNotice } from "@nebuladb/shared";
 import { hashColor } from "@/features/collaboration/awarenessColor";
+import { takeEarlySocket, type EarlySocket } from "@/utils/earlyStart";
 
 const MESSAGE_SYNC = 0;
 const MESSAGE_AWARENESS = 1;
@@ -138,21 +139,29 @@ export function connectProject(
     );
   };
 
+  /** The socket `index.html` opened while the bundle was downloading, for the first connection only. */
+  let early: EarlySocket | null = takeEarlySocket(projectId);
+
   const open = () => {
     if (closedByUs) return;
-    const ws = new WebSocket(url);
+    const adopted = early;
+    early = null;
+    const ws = adopted ? adopted.socket : new WebSocket(url);
     socket = ws;
     ws.binaryType = "arraybuffer";
 
-    ws.addEventListener("open", () => {
+    const onOpen = () => {
       if (ws !== socket) return;
       attempts = 0;
       setStatus("connected");
 
-      const encoder = encoding.createEncoder();
-      encoding.writeVarUint(encoder, MESSAGE_SYNC);
-      syncProtocol.writeSyncStep1(encoder, doc);
-      ws.send(encoding.toUint8Array(encoder));
+      // An early socket already sent the request for the document (for an empty one, which is ours).
+      if (!adopted?.step1Sent) {
+        const encoder = encoding.createEncoder();
+        encoding.writeVarUint(encoder, MESSAGE_SYNC);
+        syncProtocol.writeSyncStep1(encoder, doc);
+        ws.send(encoding.toUint8Array(encoder));
+      }
 
       // Set local state only once the socket is open: the awareness "update"
       // listener below drops updates while `readyState !== OPEN`, so setting
@@ -160,10 +169,10 @@ export function connectProject(
       // this also re-publishes our cursor, which the server dropped when the
       // old connection closed.
       awareness.setLocalState(localAwarenessState());
-    });
+    };
 
-    ws.addEventListener("message", (event) => {
-      const decoder = decoding.createDecoder(new Uint8Array(event.data as ArrayBuffer));
+    const onMessage = (data: ArrayBuffer) => {
+      const decoder = decoding.createDecoder(new Uint8Array(data));
       const messageType = decoding.readVarUint(decoder);
 
       if (messageType === MESSAGE_SYNC) {
@@ -181,7 +190,13 @@ export function connectProject(
           // A notice this build cannot read is not worth breaking the sync loop over.
         }
       }
-    });
+    };
+
+    if (adopted && ws.readyState === WebSocket.OPEN) onOpen();
+    else ws.addEventListener("open", onOpen);
+    ws.addEventListener("message", (event) => onMessage(event.data as ArrayBuffer));
+    // What the early socket received before anyone was listening, in the order it came.
+    if (adopted) for (const data of adopted.buffered.splice(0)) onMessage(data);
 
     const onGone = () => {
       if (ws !== socket) return;
