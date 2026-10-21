@@ -165,7 +165,9 @@
 - **Sauvegardes** des bases connectées : immédiates ou planifiées, chiffrées, téléchargeables,
   restauration de tables choisies.
 - **Emplacement des sauvegardes** au choix par base : dossier local ou partage réseau monté sur
-  le serveur, testé avant d'être enregistré.
+  le serveur, bucket compatible S3 (AWS, MinIO, Scaleway, OVH…) ou serveur SFTP, testé (écrit, relu,
+  supprimé) avant d'être enregistré. Les clés sont chiffrées sur l'instance et jamais réaffichées ;
+  l'empreinte de la clé d'hôte SFTP est obligatoire.
 - **Politique de structure** : sur une base modélisée par un projet, la console refuse par défaut
   les `CREATE / ALTER / DROP` et renvoie vers le schéma.
 

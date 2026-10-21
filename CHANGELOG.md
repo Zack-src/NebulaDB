@@ -70,6 +70,23 @@ has a dated entry for. Version 1.0.0 is the first release under the NebulaDB nam
   (`project_folders`, `projects.folder_id`, `project_variants`). `GET /api/projects` and `/api/v1/projects` add
   `folderId` and `variantOf`.
 
+### Added — backups to S3 and SFTP
+
+- A database's backups can go to an **S3-compatible bucket** (AWS S3, MinIO, Scaleway, OVH…) or an **SFTP
+  server** instead of a folder of the server: Admin → Connexions → Monitoring → Sauvegardes → Emplacement.
+  The destination is tried (a file written, read back, deleted) before it is kept. What reaches it is already
+  gzipped and encrypted with the backup's own key, so the remote never sees plain data.
+- The keys, password or private key are encrypted with the instance secret (`npm run rotate-secret`
+  re-encrypts them) and are never returned; leaving them empty keeps the saved ones, but only while the
+  bucket and endpoint, or the host, port and user, stay the same. An SFTP destination requires the server's
+  host key fingerprint and refuses any other key. S3 and SFTP hosts go through the same outbound check as
+  database connections (no cloud metadata addresses, checked again at connect time).
+- A backup remembers where it was written, so changing a connection's destination leaves the older backups
+  readable. A remote that cannot be reached answers `BACKUP_STORAGE_UNREACHABLE` with its own reason and
+  the backup record is kept. Deleting a connection removes its remote files in the background.
+- Migration 10 adds `backup_destinations`, `db_connections.backup_destination_id` and `backups.destination_id`.
+  `docker-compose.test.yml` gains MinIO and SFTP containers for the destination tests.
+
 ### Added — read-only share links
 
 - A project administrator can create a **share link** (project card, eye icon) to the project's diagram, its
