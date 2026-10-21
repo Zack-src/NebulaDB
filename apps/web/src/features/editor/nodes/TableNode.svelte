@@ -68,6 +68,12 @@
   );
 
   let isTableHovered = $state(false);
+  /**
+   * The header buttons only show on hover or selection (CSS `invisible` otherwise), so they are not mounted
+   * until then: six icons a table, 800 of them on a 130-table schema, for nothing at rest. Once shown they
+   * stay, so a popover opened from one is not torn down when the pointer moves onto it.
+   */
+  let actionsShown = $state(false);
   // Nothing should keep this table "hovered" after it disappears mid-hover (a
   // delete, a view switch).
   $effect(() => () => {
@@ -202,6 +208,7 @@
   onmouseenter={() => {
     if (lite) canvas.upgradeLite(id);
     isTableHovered = true;
+    actionsShown = true;
     data.onTableHoverChange?.(table.id);
   }}
   onmouseleave={() => {
@@ -306,6 +313,7 @@
       </button>
     {/if}
 
+    {#if actionsShown || selected || tableComments.length > 0}
     <div class={HEADER_ACTIONS_CLASS}>
       {#if issues.length > 0}
         <span
@@ -398,6 +406,7 @@
         />
       {/if}
     </div>
+    {/if}
     {/if}
   </div>
   {#each rows as field (field.id)}
