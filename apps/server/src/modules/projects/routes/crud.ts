@@ -1,10 +1,13 @@
 import type { FastifyInstance } from "fastify";
+import { projectToDbml } from "@nebuladb/dbml-engine";
+import { buildProjectPreview } from "@nebuladb/shared";
 import { auditUser } from "../../../shared/audit.js";
 import { getEffectivePermission } from "../../../shared/permissions.js";
 import { requireProjectAccess, requireProjectAdmin, requireUser } from "../../../shared/guards.js";
 import { getProjectSummary, listProjectSummaries } from "../repository.js";
 import { createProjectForUser, deleteProject, updateProject } from "../projectCrud.js";
 import { mapAsync } from "../../../shared/async.js";
+import { readProjectReadOnly } from "../../../realtime/readOnlyProject.js";
 
 export function registerProjectCrudRoutes(app: FastifyInstance): void {
   app.get("/api/projects", async (req) => {
@@ -29,6 +32,20 @@ export function registerProjectCrudRoutes(app: FastifyInstance): void {
     const { id } = req.params as { id: string };
     const { user } = await requireProjectAccess(req, id, "view");
     return { ...(await getProjectSummary(id))!, permission: await getEffectivePermission(user.id, id) };
+  });
+
+  /**
+   * A light picture of the project for the page to paint while the editor loads: the first lines of its DBML and a
+   * box per table and a line per relation (`ProjectPreview`). Read from the live document, so it is as fresh as the
+   * editor will be.
+   */
+  app.get("/api/projects/:id/preview", async (req, reply) => {
+    const { id } = req.params as { id: string };
+    await requireProjectAccess(req, id, "view");
+    const summary = (await getProjectSummary(id))!;
+    const project = await readProjectReadOnly(id, summary.name);
+    reply.header("Cache-Control", "no-store");
+    return buildProjectPreview(project, projectToDbml(project));
   });
 
   // Handles both renaming and archive/trash/restore transitions — a project

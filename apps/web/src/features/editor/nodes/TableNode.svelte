@@ -9,7 +9,7 @@
   import { untrack } from "svelte";
   import { Handle, Position, type NodeProps } from "@xyflow/svelte";
   import { readableNote } from "@nebuladb/dbml-engine";
-  import { MAX_NAME_LENGTH, type Field } from "@nebuladb/shared";
+  import { estimateTableBox, MAX_NAME_LENGTH, type Field } from "@nebuladb/shared";
   import { autofocus } from "@/actions/autofocus";
   import Icon from "@/components/icons/Icon.svelte";
   import {
@@ -25,7 +25,6 @@
   import TableSettingsPopover from "@/features/editor/nodes/table/TableSettingsPopover.svelte";
   import TableNodeRow from "@/features/editor/nodes/table/TableNodeRow.svelte";
   import { getCanvasContext } from "@/features/editor/canvas/canvasContext";
-  import { estimateLiteSize } from "@/features/editor/nodes/table/liteSize";
   import { scheduleNodeInternalsUpdate } from "@/features/editor/canvas/nodeInternalsBatch";
   import type { TableNodeType } from "@/features/editor/nodes/nodeTypes";
   import { useDismissablePopover } from "@/hooks/dismissablePopover.svelte";
@@ -154,7 +153,7 @@
   );
   const rows = $derived(lite ? [] : allRows);
   /** What a lite table reserves, so the fitted view is close to the final one. */
-  const liteSize = $derived(lite ? estimateLiteSize(table, allRows) : null);
+  const liteSize = $derived(lite ? estimateTableBox(table, allRows) : null);
 
   // The columns came back: the flow has to look at this node's handles again.
   let wasLite = untrack(() => lite);

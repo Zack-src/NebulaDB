@@ -21,6 +21,8 @@ export interface EarlySocket {
 
 interface EarlyStart {
   id: string;
+  /** Removes the picture of the project `index.html` painted while the editor loaded. */
+  dismissSnapshot?: () => void;
   /** `performance.now()` when the inline script ran. */
   at: number;
   responses: Record<string, Promise<Response> | undefined>;
@@ -58,4 +60,9 @@ export function takeEarlySocket(projectId: string): EarlySocket | null {
   ws.taken = true;
   early.ws = null;
   return ws;
+}
+
+/** The editor has its own canvas on screen: the picture painted before it can go. */
+export function dismissEarlySnapshot(): void {
+  if (typeof window !== "undefined") window.__nebulaEarly?.dismissSnapshot?.();
 }

@@ -69,6 +69,7 @@
   import { useEditorKeyboardShortcuts } from "@/features/editor/hooks/editorKeyboardShortcuts.svelte";
   import { useCanvasClipboard } from "@/features/editor/hooks/canvasClipboard.svelte";
   import { useProgressiveDetail } from "@/features/editor/hooks/progressiveDetail.svelte";
+  import { dismissEarlySnapshot } from "@/utils/earlyStart";
   import { useFlashMessage } from "@/hooks/flashMessage.svelte";
   import { useCanvasCommandRunner } from "@/features/editor/hooks/canvasCommandRunner.svelte";
   import ProjectToolbar from "@/features/editor/ProjectToolbar.svelte";
@@ -726,7 +727,11 @@
               liteSettled={detail.settled}
               onUpgradeLite={detail.upgrade}
               onUpgradeAllLite={detail.upgradeAll}
-              onFirstFit={detail.start}
+              onFirstFit={() => {
+                detail.start();
+                // Two frames on, the canvas is painted: the picture that stood in for it can go.
+                requestAnimationFrame(() => requestAnimationFrame(dismissEarlySnapshot));
+              }}
             />
           {:else if liveProject}
             <McdCanvas

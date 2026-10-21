@@ -66,6 +66,8 @@ const INIT = () => {
     flow: document.getElementsByClassName("svelte-flow"),
     content: document.getElementsByClassName("cm-content"),
     rows: document.getElementsByClassName("table-node-row"),
+    snapCode: document.getElementsByClassName("nebula-snapshot-code"),
+    snapGraph: document.getElementsByClassName("nebula-snapshot-graph"),
   };
   let last = {};
   const tick = () => {
@@ -74,6 +76,7 @@ const INIT = () => {
     const vp = live.flow[0]?.getElementsByClassName("svelte-flow__viewport")[0];
     s.vp = vp ? vp.style.transform : "";
     s.code = (live.content[0]?.textContent.length ?? 0) > 500 ? 1 : 0;
+    s.snap = (live.snapCode[0]?.textContent.length ?? 0) > 500 && live.snapGraph.length > 0 ? 1 : 0;
     for (const k of Object.keys(s)) if (s[k] !== last[k]) T.events.push([now, k, s[k]]);
     last = s;
     requestAnimationFrame(tick);
@@ -127,11 +130,12 @@ async function openOnce(browser, cond, ctx) {
     const vpEvents = t.events.filter((e) => e[1] === "vp" && firstNode !== null && e[0] >= firstNode);
     const fitted = vpEvents.length ? vpEvents[0][0] : first("vp", (v) => v !== "");
     const drawn = edgesDrawn !== null && fitted !== null ? Math.max(edgesDrawn, fitted) : complete;
+    const snapshot = first("snap");
     const lt = t.lt.filter((x) => x[0] <= complete);
     const nav = performance.getEntriesByType("navigation")[0];
     return {
       origin: performance.timeOrigin,
-      codeDom: first("code"), firstNodeDom: firstNode, drawnDom: drawn, completeDom: complete,
+      codeDom: first("code"), firstNodeDom: firstNode, drawnDom: drawn, completeDom: complete, snapshotDom: snapshot,
       fcp: performance.getEntriesByType("paint").find((p) => p.name === "first-contentful-paint")?.startTime ?? null,
       wsFirstMessage: t.ws, nodes: document.getElementsByClassName("svelte-flow__node").length, edges: document.getElementsByClassName("svelte-flow__edge").length,
       longTasks: lt.length, longTaskMs: lt.reduce((a, x) => a + x[1], 0), longestMs: Math.max(0, ...lt.map((x) => x[1])),
@@ -141,10 +145,15 @@ async function openOnce(browser, cond, ctx) {
     };
   });
   await page.close();
+  const minOf = (a, b) => (a == null ? b : b == null ? a : Math.min(a, b));
   const painted = (domMs) => { if (domMs == null) return null; const t = m.origin + domMs; const f = frames.find((x) => x >= t); return f ? Math.round(f - m.origin) : null; };
   return {
     settled, ...m,
-    codeVisible: painted(m.codeDom), graphFirstVisible: painted(m.firstNodeDom), graphDrawn: painted(m.drawnDom), graphComplete: painted(m.completeDom),
+    // What the user sees: the picture painted by index.html counts, since it shows the code and the graph.
+    codeVisible: painted(minOf(m.codeDom, m.snapshotDom)), graphFirstVisible: painted(minOf(m.firstNodeDom, m.snapshotDom)),
+    graphDrawn: painted(minOf(m.drawnDom, m.snapshotDom)), graphComplete: painted(m.completeDom),
+    // The editor itself, ignoring the picture: when it can be used.
+    liveCodeVisible: painted(m.codeDom), liveGraphDrawn: painted(m.drawnDom), snapshotVisible: painted(m.snapshotDom),
     requests, transferKB: Math.round(bytes / 1024),
   };
 }
@@ -180,12 +189,12 @@ for (const name of wanted) {
   }
   if (ctx) await ctx.close();
   if (proxy) await proxy.close();
-  const keys = ["fcp", "wsFirstMessage", "codeVisible", "graphFirstVisible", "graphDrawn", "graphComplete", "codeDom", "firstNodeDom", "drawnDom", "completeDom", "longTasks", "longTaskMs", "longestMs", "domElements", "heapMB", "requests", "transferKB"];
+  const keys = ["fcp", "wsFirstMessage", "codeVisible", "graphFirstVisible", "graphDrawn", "graphComplete", "liveCodeVisible", "liveGraphDrawn", "snapshotVisible", "codeDom", "firstNodeDom", "drawnDom", "completeDom", "longTasks", "longTaskMs", "longestMs", "domElements", "heapMB", "requests", "transferKB"];
   result.conditions[name] = {
     cpu: cond.cpu, cold: cond.cold, net: cond.net ? { rttMs: cond.net.rttMs, downMbit: cond.net.mbit } : null,
     median: Object.fromEntries(keys.map((k) => [k, (() => { const v = median(raw.map((r) => r[k])); return v == null ? null : Math.round(v * 10) / 10; })()])),
-    p25: Object.fromEntries(keys.slice(2, 6).map((k) => [k, quantile(raw.map((r) => r[k]), 0.25)])),
-    p75: Object.fromEntries(keys.slice(2, 6).map((k) => [k, quantile(raw.map((r) => r[k]), 0.75)])),
+    p25: Object.fromEntries(keys.slice(2, 9).map((k) => [k, quantile(raw.map((r) => r[k]), 0.25)])),
+    p75: Object.fromEntries(keys.slice(2, 9).map((k) => [k, quantile(raw.map((r) => r[k]), 0.75)])),
     unsettledRuns: raw.filter((r) => !r.settled).length,
     raw,
   };
@@ -204,5 +213,5 @@ fs.writeFileSync(outFile, JSON.stringify(result, null, 1));
 console.log(`\n${LABEL} (${sha})`);
 for (const [name, c] of Object.entries(result.conditions)) {
   const m = c.median;
-  console.log(`${name.padEnd(8)} code ${String(m.codeVisible).padStart(5)} ms | graph first ${String(m.graphFirstVisible).padStart(5)} | drawn ${String(m.graphDrawn).padStart(5)} | complete ${String(m.graphComplete).padStart(5)} | long tasks ${m.longTasks} (${Math.round(m.longTaskMs)} ms, max ${Math.round(m.longestMs)}) | ${m.requests} req ${m.transferKB} KB | heap ${m.heapMB} MB`);
+  console.log(`${name.padEnd(8)} code ${String(m.codeVisible).padStart(5)} ms | graph first ${String(m.graphFirstVisible).padStart(5)} | drawn ${String(m.graphDrawn).padStart(5)} | complete ${String(m.graphComplete).padStart(5)} | live code ${m.liveCodeVisible} drawn ${m.liveGraphDrawn} (picture ${m.snapshotVisible}) | long tasks ${m.longTasks} (${Math.round(m.longTaskMs)} ms, max ${Math.round(m.longestMs)}) | ${m.requests} req ${m.transferKB} KB | heap ${m.heapMB} MB`);
 }

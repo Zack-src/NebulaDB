@@ -475,3 +475,47 @@ test("GET /api/projects/:id/content returns the schema as JSON for a viewer, wit
     await app.close();
   }
 });
+
+test("GET /api/projects/:id/preview: the first lines of the DBML and a box per table, and nothing without a session", async () => {
+  const app = await buildApp();
+  try {
+    const owner = await makeUser();
+    const ownerCookie = await loginAs(app, owner.email, owner.password);
+    const { id } = await makeProject(app, ownerCookie, "Shop");
+    await app.inject({
+      method: "POST",
+      url: `/api/projects/${id}/import`,
+      headers: headers({ cookie: ownerCookie }),
+      payload: {
+        source:
+          "Table customers {\n id int [pk]\n}\nTable orders {\n id int [pk]\n customer_id int [ref: > customers.id]\n}",
+      },
+    });
+    await (await (await import("../../realtime/roomRegistry.js")).getRoom(id)).flush();
+    await closeAllRooms();
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/projects/${id}/preview`,
+      headers: headers({ cookie: ownerCookie }),
+    });
+    assert.equal(res.statusCode, 200);
+    const preview = res.json() as {
+      dbml: string;
+      nodes: { name: string; w: number; h: number }[];
+      edges: [number, number][];
+    };
+    assert.match(preview.dbml, /Table customers/);
+    assert.deepEqual(preview.nodes.map((node) => node.name).sort(), ["customers", "orders"]);
+    assert.ok(preview.nodes.every((node) => node.w >= 190 && node.h >= 34));
+    assert.equal(preview.edges.length, 1);
+
+    assert.equal(
+      (await app.inject({ method: "GET", url: `/api/projects/${id}/preview`, headers: headers() })).statusCode,
+      401,
+    );
+  } finally {
+    await closeAllRooms();
+    await app.close();
+  }
+});

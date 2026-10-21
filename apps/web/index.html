@@ -53,6 +53,80 @@
           setTimeout(function () {
             if (!ws.taken) socket.close();
           }, 15000);
+          // A light picture of the project (the first lines of its DBML, a box per table), painted as soon
+          // as it arrives, long before the editor exists. The editor removes it once its own canvas is up.
+          early.dismissSnapshot = function () {
+            var el = document.getElementById("nebula-snapshot");
+            if (el) el.remove();
+          };
+          setTimeout(early.dismissSnapshot, 10000);
+          fetch("/api/projects/" + id + "/preview")
+            .then(function (r) {
+              return r.ok ? r.json() : null;
+            })
+            .then(function (preview) {
+              if (!preview) return;
+              if (document.body) paintSnapshot(preview);
+              else document.addEventListener("DOMContentLoaded", function () { paintSnapshot(preview); });
+            })
+            .catch(function () {});
+          function esc(text) {
+            return String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+          }
+          function paintSnapshot(preview) {
+            if (document.getElementById("nebula-snapshot") || !preview.nodes || preview.nodes.length === 0) return;
+            var W = window.innerWidth;
+            var H = window.innerHeight;
+            // Same geometry as the editor: 85px of bars on top, the DBML panel at its saved width, the canvas beside it.
+            var TOP = 85;
+            var panel = Number(localStorage.getItem("nebuladb.dbmlPanelWidth")) || 440;
+            panel = Math.min(1200, Math.max(280, panel));
+            var paneW = W - panel;
+            var paneH = H - TOP;
+            var nodes = preview.nodes;
+            var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+            for (var i = 0; i < nodes.length; i++) {
+              var n = nodes[i];
+              x0 = Math.min(x0, n.x); y0 = Math.min(y0, n.y);
+              x1 = Math.max(x1, n.x + n.w); y1 = Math.max(y1, n.y + n.h);
+            }
+            // Svelte Flow's own fit (padding 0.1, minimum zoom 0.05), so the picture sits where the canvas will.
+            var pad = function (v) { return Math.floor((v - v / 1.1) * 0.5); };
+            var zoom = Math.min(2, Math.max(0.05, Math.min((paneW - 2 * pad(paneW)) / (x1 - x0), (paneH - 2 * pad(paneH)) / (y1 - y0))));
+            var tx = paneW / 2 - (x0 + (x1 - x0) / 2) * zoom;
+            var ty = paneH / 2 - (y0 + (y1 - y0) / 2) * zoom;
+            var edges = "";
+            for (var e = 0; e < preview.edges.length; e++) {
+              var a = nodes[preview.edges[e][0]], b = nodes[preview.edges[e][1]];
+              edges += '<line x1="' + (a.x + a.w / 2) + '" y1="' + (a.y + a.h / 2) + '" x2="' + (b.x + b.w / 2) + '" y2="' + (b.y + b.h / 2) + '"/>';
+            }
+            var boxes = "";
+            var titles = zoom >= 0.25;
+            for (var k = 0; k < nodes.length; k++) {
+              var t = nodes[k];
+              boxes += '<rect class="b" x="' + t.x + '" y="' + t.y + '" width="' + t.w + '" height="' + t.h + '" rx="3"/>' +
+                '<rect x="' + t.x + '" y="' + t.y + '" width="' + t.w + '" height="34" rx="3" fill="' + (t.color || "#334155") + '"/>';
+              if (titles) boxes += '<text x="' + (t.x + 10) + '" y="' + (t.y + 22) + '">' + esc(t.name) + "</text>";
+            }
+            var root = document.createElement("div");
+            root.id = "nebula-snapshot";
+            root.setAttribute("aria-hidden", "true");
+            root.style.cssText = "position:fixed;inset:0;z-index:20;pointer-events:none;background:var(--color-bg)";
+            root.innerHTML =
+              '<style>#nebula-snapshot .bar{position:absolute;left:0;right:0;background:var(--color-surface);border-bottom:1px solid var(--color-border)}' +
+              '#nebula-snapshot pre{position:absolute;margin:0;overflow:hidden;white-space:pre-wrap;word-break:break-word;color:var(--color-text);font:13px/20.8px "IBM Plex Mono",ui-monospace,Consolas,monospace;background:var(--color-surface);border-right:1px solid var(--color-border)}' +
+              '#nebula-snapshot svg{position:absolute;overflow:hidden}' +
+              '#nebula-snapshot .b{fill:var(--color-surface);stroke:var(--color-border)}' +
+              '#nebula-snapshot line{stroke:var(--color-border-strong);stroke-opacity:.45;vector-effect:non-scaling-stroke}' +
+              '#nebula-snapshot rect{vector-effect:non-scaling-stroke}' +
+              '#nebula-snapshot text{fill:#fff;font:600 13px "IBM Plex Sans",system-ui,sans-serif}</style>' +
+              '<div class="bar" style="top:0;height:48px"></div><div class="bar" style="top:48px;height:37px"></div>' +
+              '<div class="bar" style="top:' + TOP + 'px;left:0;width:' + panel + 'px;height:52px"></div>' +
+              '<pre class="nebula-snapshot-code" style="left:0;top:' + (TOP + 52) + "px;width:" + panel + "px;height:" + (H - TOP - 52) + 'px;padding:8px 14px 0 52px;box-sizing:border-box">' + esc(preview.dbml) + "</pre>" +
+              '<div style="position:absolute;left:' + panel + "px;top:" + TOP + "px;width:" + paneW + "px;height:" + paneH + 'px;background:var(--color-bg-canvas)"></div>' +
+              '<svg class="nebula-snapshot-graph" style="left:' + panel + "px;top:" + TOP + 'px" width="' + paneW + '" height="' + paneH + '"><g transform="translate(' + tx + " " + ty + ") scale(" + zoom + ')">' + edges + boxes + "</g></svg>";
+            document.body.appendChild(root);
+          }
         } catch (e) {}
       })();
     </script>
