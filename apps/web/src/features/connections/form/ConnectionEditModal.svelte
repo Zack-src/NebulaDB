@@ -19,7 +19,6 @@
   import Icon from "@/components/icons/Icon.svelte";
   import Input from "@/components/ui/Input.svelte";
   import { CheckCircleIcon, CheckIcon } from "@/components/icons/Icons";
-  import { INPUT_CLASS } from "@/components/ui/inputStyles";
   import ConnectionFormFields, { DEFAULT_PORTS } from "@/features/connections/form/ConnectionFormFields.svelte";
   import ConnectionSecurityFields, {
     securityForm,
@@ -292,7 +291,7 @@
         <div>
           <!-- svelte-ignore a11y_label_has_associated_control -->
           <label class={LABEL}>{t("common.name")}</label>
-          <input class={`${INPUT_CLASS} w-full`} bind:value={name} placeholder="ex: Production DB" />
+          <Input class="w-full" bind:value={name} placeholder="ex: Production DB" />
         </div>
 
         <ConnectionFormFields
@@ -345,7 +344,7 @@
         <div>
           <!-- svelte-ignore a11y_label_has_associated_control -->
           <label class={LABEL}>{t("admin.connections.tags")}</label>
-          <input class={`${INPUT_CLASS} w-full`} bind:value={tags} placeholder={t("admin.connections.tagsPlaceholder")} />
+          <Input class="w-full" bind:value={tags} placeholder={t("admin.connections.tagsPlaceholder")} />
         </div>
 
         {#if testResult}

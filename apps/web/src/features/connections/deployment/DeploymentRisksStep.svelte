@@ -1,9 +1,9 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import type { ConflictResolutionStrategy, MigrationResolutionMap, SchemaRisk } from "@nebuladb/shared";
   import Badge from "@/components/ui/Badge.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { AlertTriangleIcon, CheckCircleIcon, InfoIcon } from "@/components/icons/Icons";
-  import { INPUT_CLASS } from "@/components/ui/inputStyles";
   import RadioGroup from "@/components/ui/RadioGroup.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import type { TranslationKeyOf } from "@/types";
@@ -149,8 +149,8 @@
                       <label class="mb-1 block text-caption font-medium text-text">
                         {t("deployment.enterDefaultValue")}
                       </label>
-                      <input
-                        class={INPUT_CLASS}
+                      <Input
+                       
                         value={currentRes.value ?? ""}
                         oninput={(e) => onStrategyChange(risk, "BACKFILL_DEFAULT", e.currentTarget.value)}
                         placeholder="ex: 'default_value' or 0"

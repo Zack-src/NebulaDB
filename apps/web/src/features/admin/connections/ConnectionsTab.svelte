@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import PageToolbar from "@/components/layout/PageToolbar.svelte";
   import PageIntro from "@/components/layout/PageIntro.svelte";
   import { untrack } from "svelte";
@@ -11,7 +12,6 @@
   import EmptyState from "@/components/ui/EmptyState.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
-  import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
   import List from "@/components/ui/List.svelte";
   import ListMain from "@/components/ui/ListMain.svelte";
   import ListRow from "@/components/ui/ListRow.svelte";
@@ -129,7 +129,7 @@
     <PageIntro>{t("admin.connections.hint")}</PageIntro>
 
     <PageToolbar>
-      <input class={`${INPUT_SM_CLASS} w-64`} bind:value={filter} placeholder={t("admin.connections.filter")} />
+      <Input inputSize="sm" class="w-64" bind:value={filter} placeholder={t("admin.connections.filter")} />
       <Button class="ml-auto" size="sm" variant="primary" onclick={() => (editing = "new")}>
         <Icon icon={PlusIcon} size={12} />
         {t("connections.newConnection")}

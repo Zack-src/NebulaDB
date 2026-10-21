@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import type { BackupDestination, BackupDestinationInput, BackupDestinationKind } from "@nebuladb/shared";
   import Button from "@/components/ui/Button.svelte";
   import Checkbox from "@/components/ui/Checkbox.svelte";
@@ -132,8 +133,8 @@
 
   <div class="mt-2 space-y-2" oninput={touched} role="presentation">
     {#if kind === "local"}
-      <input
-        class={`${INPUT_SM_CLASS} w-full font-mono`}
+      <Input inputSize="sm"
+        class="w-full font-mono"
         aria-label={t("backups.destination.label")}
         placeholder={t("backups.destination.placeholder", { directory: destination.defaultDirectory })}
         bind:value={directory}
@@ -144,9 +145,9 @@
       <div class="grid grid-cols-2 gap-2">
         <div class="col-span-2">
           <label class={LABEL} for={`${uid}-endpoint`}>{t("backups.destination.s3.endpoint")}</label>
-          <input
+          <Input inputSize="sm"
             id={`${uid}-endpoint`}
-            class={`${INPUT_SM_CLASS} w-full font-mono`}
+            class="w-full font-mono"
             bind:value={endpoint}
             placeholder="https://minio.example.com:9000"
             spellcheck={false}
@@ -154,13 +155,13 @@
         </div>
         <div>
           <label class={LABEL} for={`${uid}-bucket`}>{t("backups.destination.s3.bucket")}</label>
-          <input id={`${uid}-bucket`} class={`${INPUT_SM_CLASS} w-full font-mono`} bind:value={bucket} spellcheck={false} />
+          <Input inputSize="sm" id={`${uid}-bucket`} class="w-full font-mono" bind:value={bucket} spellcheck={false} />
         </div>
         <div>
           <label class={LABEL} for={`${uid}-region`}>{t("backups.destination.s3.region")}</label>
-          <input
+          <Input inputSize="sm"
             id={`${uid}-region`}
-            class={`${INPUT_SM_CLASS} w-full font-mono`}
+            class="w-full font-mono"
             bind:value={region}
             placeholder="us-east-1"
             spellcheck={false}
@@ -168,9 +169,9 @@
         </div>
         <div class="col-span-2">
           <label class={LABEL} for={`${uid}-prefix`}>{t("backups.destination.s3.prefix")}</label>
-          <input
+          <Input inputSize="sm"
             id={`${uid}-prefix`}
-            class={`${INPUT_SM_CLASS} w-full font-mono`}
+            class="w-full font-mono"
             bind:value={prefix}
             placeholder="nebula/backups"
             spellcheck={false}
@@ -178,9 +179,9 @@
         </div>
         <div>
           <label class={LABEL} for={`${uid}-key`}>{t("backups.destination.s3.accessKeyId")}</label>
-          <input
+          <Input inputSize="sm"
             id={`${uid}-key`}
-            class={`${INPUT_SM_CLASS} w-full font-mono`}
+            class="w-full font-mono"
             bind:value={accessKeyId}
             autocomplete="off"
             placeholder={hasSavedCredentials ? "••••••••" : ""}
@@ -188,10 +189,10 @@
         </div>
         <div>
           <label class={LABEL} for={`${uid}-secret`}>{t("backups.destination.s3.secretAccessKey")}</label>
-          <input
+          <Input inputSize="sm"
             id={`${uid}-secret`}
             type="password"
-            class={`${INPUT_SM_CLASS} w-full font-mono`}
+            class="w-full font-mono"
             bind:value={secretAccessKey}
             autocomplete="new-password"
             placeholder={hasSavedCredentials ? "••••••••" : ""}
@@ -205,7 +206,7 @@
       <div class="grid grid-cols-2 gap-2">
         <div>
           <label class={LABEL} for={`${uid}-host`}>{t("backups.destination.sftp.host")}</label>
-          <input id={`${uid}-host`} class={`${INPUT_SM_CLASS} w-full font-mono`} bind:value={host} spellcheck={false} />
+          <Input inputSize="sm" id={`${uid}-host`} class="w-full font-mono" bind:value={host} spellcheck={false} />
         </div>
         <div>
           <span class={LABEL}>{t("backups.destination.sftp.port")}</span>
@@ -213,27 +214,27 @@
         </div>
         <div>
           <label class={LABEL} for={`${uid}-user`}>{t("backups.destination.sftp.username")}</label>
-          <input
+          <Input inputSize="sm"
             id={`${uid}-user`}
-            class={`${INPUT_SM_CLASS} w-full font-mono`}
+            class="w-full font-mono"
             bind:value={username}
             autocomplete="off"
           />
         </div>
         <div>
           <label class={LABEL} for={`${uid}-dir`}>{t("backups.destination.sftp.remoteDir")}</label>
-          <input
+          <Input inputSize="sm"
             id={`${uid}-dir`}
-            class={`${INPUT_SM_CLASS} w-full font-mono`}
+            class="w-full font-mono"
             bind:value={remoteDir}
             placeholder="/upload/nebula"
           />
         </div>
         <div class="col-span-2">
           <label class={LABEL} for={`${uid}-fp`}>{t("backups.destination.sftp.fingerprint")}</label>
-          <input
+          <Input inputSize="sm"
             id={`${uid}-fp`}
-            class={`${INPUT_SM_CLASS} w-full font-mono`}
+            class="w-full font-mono"
             bind:value={hostKeyFingerprint}
             placeholder="SHA256:…"
             spellcheck={false}
@@ -252,9 +253,9 @@
         ]}
       />
       {#if authMethod === "password"}
-        <input
+        <Input inputSize="sm"
           type="password"
-          class={`${INPUT_SM_CLASS} w-full`}
+          class="w-full"
           aria-label={t("backups.destination.sftp.password")}
           bind:value={password}
           autocomplete="new-password"
@@ -268,9 +269,9 @@
           spellcheck={false}
           placeholder={hasSavedCredentials ? "••••••••" : "-----BEGIN OPENSSH PRIVATE KEY-----"}
         ></textarea>
-        <input
+        <Input inputSize="sm"
           type="password"
-          class={`${INPUT_SM_CLASS} w-full`}
+          class="w-full"
           aria-label={t("backups.destination.sftp.passphrase")}
           placeholder={t("backups.destination.sftp.passphrase")}
           bind:value={passphrase}

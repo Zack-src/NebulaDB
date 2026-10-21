@@ -1,10 +1,9 @@
 <script lang="ts">
-  import { autofocus } from "@/actions/autofocus";
+  import Input from "@/components/ui/Input.svelte";
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
-  import { INPUT_CLASS } from "@/components/ui/inputStyles";
   import Select from "@/components/ui/Select.svelte";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
@@ -59,7 +58,7 @@
   <label class="mt-4 block text-xs font-semibold text-text-secondary">
     {t("admin.deleteUser.typeToConfirmPrefix")} <span class="font-mono text-text">{targetUser.email}</span>
     {t("admin.deleteUser.typeToConfirmSuffix")}
-    <input class={`${INPUT_CLASS} mt-1 w-full`} bind:value={confirmation} use:autofocus autocomplete="off" />
+    <Input class="mt-1 w-full" bind:value={confirmation} autofocus autocomplete="off" />
   </label>
 
   <Button variant="danger" class="mt-4" onclick={() => void remove.run()} disabled={remove.pending || !confirmed}>

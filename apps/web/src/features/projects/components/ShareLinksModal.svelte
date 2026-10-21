@@ -4,6 +4,7 @@
 </script>
 
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { PlusIcon, TrashIcon } from "@/components/icons/Icons";
   import Modal from "@/components/overlays/Modal.svelte";
@@ -16,7 +17,6 @@
   import ListMain from "@/components/ui/ListMain.svelte";
   import ListRow from "@/components/ui/ListRow.svelte";
   import Select from "@/components/ui/Select.svelte";
-  import { INPUT_CLASS } from "@/components/ui/inputStyles";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { i18n, useTranslation } from "@/i18n/i18n.svelte";
@@ -85,8 +85,8 @@
       if (label.trim()) void create.run();
     }}
   >
-    <input
-      class={`${INPUT_CLASS} min-w-[200px] flex-1`}
+    <Input
+      class="min-w-[200px] flex-1"
       placeholder={t("shareLinks.labelPlaceholder")}
       aria-label={t("shareLinks.label")}
       maxlength={100}

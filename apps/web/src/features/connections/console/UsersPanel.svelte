@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import type {
     DatabaseEngine,
     DbAccessLevel,
@@ -16,7 +17,6 @@
   import EmptyState from "@/components/ui/EmptyState.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
-  import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
   import Select from "@/components/ui/Select.svelte";
   import { toast } from "@/components/ui/toast.svelte";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
@@ -250,7 +250,7 @@
       />
     {/if}
     <div class="flex items-center gap-1">
-      <input class={`${INPUT_SM_CLASS} min-w-0 flex-1`} bind:value={filter} placeholder={t("dbadmin.users.filter")} />
+      <Input inputSize="sm" class="min-w-0 flex-1" bind:value={filter} placeholder={t("dbadmin.users.filter")} />
       <Button size="sm" variant="primary" disabled={overview.readOnly} data-tooltip={readOnlyTip} onclick={() => (creating = !creating)}>
         <Icon icon={PlusIcon} size={12} />
         {t("common.add")}
@@ -269,13 +269,13 @@
           ]}
           aria-label={t("dbadmin.users.kindLabel")}
         />
-        <input class={`${INPUT_SM_CLASS} w-full`} bind:value={newName} placeholder={t("common.name")} autocomplete="off" />
+        <Input inputSize="sm" class="w-full" bind:value={newName} placeholder={t("common.name")} autocomplete="off" />
         {#if capabilities.principalHost && newKind === "user"}
-          <input class={`${INPUT_SM_CLASS} w-full`} bind:value={newHost} placeholder={t("dbadmin.users.host")} autocomplete="off" />
+          <Input inputSize="sm" class="w-full" bind:value={newHost} placeholder={t("dbadmin.users.host")} autocomplete="off" />
         {/if}
         {#if createNeedsPassword}
           <div class="flex items-center gap-1">
-            <input class={`${INPUT_SM_CLASS} min-w-0 flex-1 font-mono`} bind:value={newPassword} placeholder={t("connections.password")} autocomplete="off" />
+            <Input inputSize="sm" class="min-w-0 flex-1 font-mono" bind:value={newPassword} placeholder={t("connections.password")} autocomplete="off" />
             <Button size="sm" variant="ghost" onclick={generatePassword}>{t("dbadmin.users.generate")}</Button>
           </div>
           <Hint>{t("dbadmin.users.passwordOnce")}</Hint>
@@ -398,7 +398,7 @@
 
       {#if changingPassword}
         <div class="flex items-center gap-1.5">
-          <input class={`${INPUT_SM_CLASS} min-w-0 flex-1 font-mono`} bind:value={passwordValue} placeholder={t("dbadmin.users.newPassword")} autocomplete="off" />
+          <Input inputSize="sm" class="min-w-0 flex-1 font-mono" bind:value={passwordValue} placeholder={t("dbadmin.users.newPassword")} autocomplete="off" />
           <Button
             size="sm"
             variant="primary"
@@ -518,10 +518,10 @@
               />
             {/if}
             {#if needsSchema}
-              <input class={`${INPUT_SM_CLASS} w-32`} bind:value={grantSchema} placeholder={t("dbadmin.schema")} autocomplete="off" />
+              <Input inputSize="sm" class="w-32" bind:value={grantSchema} placeholder={t("dbadmin.schema")} autocomplete="off" />
             {/if}
             {#if needsTable}
-              <input class={`${INPUT_SM_CLASS} w-40`} bind:value={grantTable} placeholder={t("dbadmin.explorer.table")} autocomplete="off" />
+              <Input inputSize="sm" class="w-40" bind:value={grantTable} placeholder={t("dbadmin.explorer.table")} autocomplete="off" />
             {/if}
           </div>
           <div class="flex flex-wrap gap-x-3 gap-y-1">

@@ -3,11 +3,10 @@
 </script>
 
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import { NodeResizer, type NodeProps } from "@xyflow/svelte";
   import { MAX_NAME_LENGTH } from "@nebuladb/shared";
-  import { autofocus } from "@/actions/autofocus";
   import ColorSwatchPicker from "@/components/inputs/ColorSwatchPicker.svelte";
-  import { INPUT_XS_CLASS } from "@/components/ui/inputStyles";
   import type { ZoneNodeType } from "@/features/editor/nodes/nodeTypes";
   import { useDraftValue } from "@/hooks/draftValue.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
@@ -41,9 +40,9 @@
 >
   <div class="absolute left-2.5 top-2 flex items-center gap-1.5">
     {#if editing}
-      <input
-        use:autofocus
-        class={`nodrag ${INPUT_XS_CLASS} text-[calc(12.5px_*_var(--canvas-font-scale))] font-bold`}
+      <Input inputSize="xs"
+        autofocus
+        class="nodrag text-[calc(12.5px_*_var(--canvas-font-scale))] font-bold"
         bind:value={draft.value}
         onblur={() => {
           draft.commit();

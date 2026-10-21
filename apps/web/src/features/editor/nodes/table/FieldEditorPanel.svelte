@@ -3,6 +3,7 @@
 </script>
 
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import {
     MAX_DEFAULT_LENGTH,
     MAX_NAME_LENGTH,
@@ -14,7 +15,6 @@
     type Field,
     type RefAction,
   } from "@nebuladb/shared";
-  import { autofocus } from "@/actions/autofocus";
   import { anchoredPlacement, provisionalPopoverStyle } from "@/actions/placement";
   import { portal } from "@/actions/portal";
   import type { FieldRefInfo } from "@/features/editor/nodes/table/fieldRefInfo";
@@ -47,8 +47,6 @@
     KW_TOGGLE_BASE_CLASS,
     POPOVER_GROUP_CLASS,
     POPOVER_HEADER_CLASS,
-    POPOVER_INPUT_CLASS,
-    POPOVER_INPUT_MONO_CLASS,
     POPOVER_LABEL_CLASS,
     POPOVER_TITLE_CLASS,
   } from "@/features/editor/nodes/table/tableStyles";
@@ -218,9 +216,10 @@
   <div class={POPOVER_GROUP_CLASS}>
     <!-- svelte-ignore a11y_label_has_associated_control -->
     <label class={POPOVER_LABEL_CLASS}>{t("field.nameLabel")}</label>
-    <input
-      use:autofocus
-      class={POPOVER_INPUT_CLASS}
+    <Input
+      autofocus
+      inputSize="xs"
+      class="w-full"
       bind:value={name.value}
       maxlength={MAX_NAME_LENGTH}
       onblur={() => name.commit()}
@@ -232,8 +231,8 @@
   <div class={POPOVER_GROUP_CLASS}>
     <!-- svelte-ignore a11y_label_has_associated_control -->
     <label class={POPOVER_LABEL_CLASS}>{t("field.typeLabel")}</label>
-    <input
-      class={POPOVER_INPUT_MONO_CLASS}
+    <Input
+      inputSize="xs" class="w-full font-mono"
       bind:value={type.value}
       maxlength={MAX_TYPE_LENGTH}
       onblur={() => type.commit()}
@@ -333,8 +332,8 @@
   <div class={POPOVER_GROUP_CLASS}>
     <!-- svelte-ignore a11y_label_has_associated_control -->
     <label class={POPOVER_LABEL_CLASS}>{t("field.defaultLabel")}</label>
-    <input
-      class={POPOVER_INPUT_MONO_CLASS}
+    <Input
+      inputSize="xs" class="w-full font-mono"
       bind:value={defaultValue.value}
       maxlength={MAX_DEFAULT_LENGTH}
       onblur={() => defaultValue.commit()}
@@ -346,8 +345,8 @@
   <div class={POPOVER_GROUP_CLASS}>
     <!-- svelte-ignore a11y_label_has_associated_control -->
     <label class={POPOVER_LABEL_CLASS}>{t("field.noteLabel")}</label>
-    <input
-      class={POPOVER_INPUT_CLASS}
+    <Input
+      inputSize="xs" class="w-full"
       bind:value={note.value}
       maxlength={MAX_NOTE_LENGTH}
       onblur={() => note.commit()}

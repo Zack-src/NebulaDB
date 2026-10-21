@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import type { DatabaseEngine, DeploymentHistoryEntry } from "@nebuladb/shared";
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";
@@ -6,7 +7,7 @@
   import Hint from "@/components/ui/Hint.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { AlertTriangleIcon } from "@/components/icons/Icons";
-  import { INPUT_CLASS, TEXTAREA_CODE_CLASS } from "@/components/ui/inputStyles";
+  import { TEXTAREA_CODE_CLASS } from "@/components/ui/inputStyles";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { rollbackDeployment } from "@/services/connectionsApi";
@@ -57,7 +58,7 @@
     {#if production}
       <label class="block text-xs text-text">
         <span class="mb-1 block font-semibold text-danger">{t("environments.typeToConfirm", { name: connectionName })}</span>
-        <input class={INPUT_CLASS} bind:value={typed} autocomplete="off" aria-label={t("environments.typeToConfirmLabel")} />
+        <Input bind:value={typed} autocomplete="off" aria-label={t("environments.typeToConfirmLabel")} />
       </label>
     {/if}
 

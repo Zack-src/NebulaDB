@@ -15,6 +15,7 @@
 </script>
 
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import { untrack } from "svelte";
   import type { Project } from "@nebuladb/shared";
   import { diffProjects, type ProjectDiff } from "@nebuladb/dbml-engine";
@@ -23,7 +24,7 @@
   import Button from "@/components/ui/Button.svelte";
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
-  import { INPUT_CLASS, TEXTAREA_CODE_CLASS } from "@/components/ui/inputStyles";
+  import { TEXTAREA_CODE_CLASS } from "@/components/ui/inputStyles";
   import { toast } from "@/components/ui/toast.svelte";
   import { parseServerTime } from "@/features/sql/format";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
@@ -316,9 +317,9 @@
       <div class="mb-2.5 flex flex-wrap items-center justify-between gap-2">
         <div class="flex min-w-[220px] flex-1 gap-1.5">
           {#key selectedId}
-            <input
-              bind:this={labelInput}
-              class={`${INPUT_CLASS} flex-1`}
+            <Input
+              bind:ref={labelInput}
+              class="flex-1"
               value={untrack(() => revisions.find((revision) => revision.id === selectedId)?.label ?? "")}
               placeholder={t("history.labelPlaceholder")}
               disabled={!selectedId || !canRestore}

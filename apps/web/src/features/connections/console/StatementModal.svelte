@@ -1,11 +1,10 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import type { DbAdminStatementsResult } from "@nebuladb/shared";
-  import { autofocus } from "@/actions/autofocus";
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
-  import { INPUT_CLASS } from "@/components/ui/inputStyles";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
@@ -58,7 +57,7 @@
   {#if confirmName !== undefined && preview.data}
     <label class="mt-4 block text-xs font-semibold text-text-secondary">
       {t("dbadmin.statement.typeToConfirm")} <span class="font-mono text-text">{confirmName}</span>
-      <input class={`${INPUT_CLASS} mt-1 w-full`} bind:value={confirmation} use:autofocus autocomplete="off" />
+      <Input class="mt-1 w-full" bind:value={confirmation} autofocus autocomplete="off" />
     </label>
   {/if}
 

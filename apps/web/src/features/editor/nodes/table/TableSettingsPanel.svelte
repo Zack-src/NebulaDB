@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import { MAX_NAME_LENGTH, type Table, type TableIndex } from "@nebuladb/shared";
   import { anchoredPlacement, provisionalPopoverStyle } from "@/actions/placement";
   import { portal } from "@/actions/portal";
@@ -14,7 +15,6 @@
     DEFAULT_HEADER_COLOR,
     POPOVER_GROUP_CLASS,
     POPOVER_HEADER_CLASS,
-    POPOVER_INPUT_CLASS,
     POPOVER_LABEL_CLASS,
     POPOVER_TITLE_CLASS,
   } from "@/features/editor/nodes/table/tableStyles";
@@ -89,8 +89,8 @@
   <div class={POPOVER_GROUP_CLASS}>
     <!-- svelte-ignore a11y_label_has_associated_control -->
     <label class={POPOVER_LABEL_CLASS}>{t("table.nameLabel")}</label>
-    <input
-      class={POPOVER_INPUT_CLASS}
+    <Input
+      inputSize="xs" class="w-full"
       disabled={nameLocked}
       bind:value={name.value}
       maxlength={MAX_NAME_LENGTH}

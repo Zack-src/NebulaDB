@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import PageIntro from "@/components/layout/PageIntro.svelte";
   import {
     ENVIRONMENT_COLORS,
@@ -13,7 +14,6 @@
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
-  import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
   import SegmentedControl from "@/components/ui/SegmentedControl.svelte";
   import Switch from "@/components/ui/Switch.svelte";
   import { toast } from "@/components/ui/toast.svelte";
@@ -157,8 +157,8 @@
               style:background-color={`color-mix(in srgb, ${shade} 14%, transparent)`}>{index + 1}</span
             >
             {#key stage.name}
-              <input
-                class={`${INPUT_SM_CLASS} w-44 font-semibold`}
+              <Input inputSize="sm"
+                class="w-44 font-semibold"
                 value={stage.name}
                 maxlength={ENVIRONMENT_NAME_MAX}
                 aria-label={t("environments.name")}
@@ -298,8 +298,8 @@
         void add.run();
       }}
     >
-      <input
-        class={`${INPUT_SM_CLASS} w-56`}
+      <Input inputSize="sm"
+        class="w-56"
         bind:value={newName}
         maxlength={ENVIRONMENT_NAME_MAX}
         placeholder={t("environments.newPlaceholder")}

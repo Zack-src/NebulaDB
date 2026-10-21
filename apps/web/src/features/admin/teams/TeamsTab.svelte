@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import PageToolbar from "@/components/layout/PageToolbar.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { PlusIcon, TrashIcon, UsersIcon } from "@/components/icons/Icons";
@@ -8,7 +9,6 @@
   import ListMain from "@/components/ui/ListMain.svelte";
   import ListRow from "@/components/ui/ListRow.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
-  import { INPUT_CLASS } from "@/components/ui/inputStyles";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
@@ -41,8 +41,8 @@
 
 <div>
   <PageToolbar>
-    <input
-      class={`${INPUT_CLASS} min-w-[240px] flex-1`}
+    <Input
+      class="min-w-[240px] flex-1"
       placeholder={t("admin.teams.namePlaceholder")}
       bind:value={newTeamName}
       onkeydown={(event) => event.key === "Enter" && handleCreate()}

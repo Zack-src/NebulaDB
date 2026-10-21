@@ -14,12 +14,12 @@
 </script>
 
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import type { Snippet } from "svelte";
   import type { EnvironmentStage } from "@nebuladb/shared";
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import Hint from "@/components/ui/Hint.svelte";
-  import { INPUT_CLASS } from "@/components/ui/inputStyles";
-  import NumberInput from "@/components/ui/NumberInput.svelte";
+    import NumberInput from "@/components/ui/NumberInput.svelte";
   import SegmentedControl from "@/components/ui/SegmentedControl.svelte";
   import Select from "@/components/ui/Select.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
@@ -73,7 +73,6 @@
 
   const { t } = useTranslation();
   const LABEL = "mb-1.5 block text-xs font-medium text-text-muted";
-  const FIELD = `${INPUT_CLASS} w-full`;
 
   let stages = $state.raw<EnvironmentStage[]>([]);
   $effect(() => {
@@ -148,7 +147,7 @@
   <div>
     <!-- svelte-ignore a11y_label_has_associated_control -->
     <label class={LABEL}>{t("connections.filePath")}</label>
-    <input class={FIELD} bind:value={filePath} placeholder="./data/app.sqlite" />
+    <Input class="w-full" bind:value={filePath} placeholder="./data/app.sqlite" />
     <Hint>{t("connections.sqliteHint")}</Hint>
   </div>
 {:else if engine === "bigquery"}
@@ -158,18 +157,18 @@
       <div>
         <!-- svelte-ignore a11y_label_has_associated_control -->
         <label class={LABEL}>{t("connections.bigqueryProject")}</label>
-        <input class={FIELD} bind:value={host} placeholder="my-gcp-project" />
+        <Input class="w-full" bind:value={host} placeholder="my-gcp-project" />
       </div>
       <div>
         <!-- svelte-ignore a11y_label_has_associated_control -->
         <label class={LABEL}>{t("connections.bigqueryDataset")}</label>
-        <input class={FIELD} bind:value={database} placeholder="my_dataset" />
+        <Input class="w-full" bind:value={database} placeholder="my_dataset" />
       </div>
     </div>
     {#if showCredentials}<div>
         <!-- svelte-ignore a11y_label_has_associated_control -->
         <label class={LABEL}>{t("connections.bigqueryKey")}</label>
-        <input class={FIELD} type="password" bind:value={password} placeholder={passwordPlaceholder} />
+        <Input class="w-full" type="password" bind:value={password} placeholder={passwordPlaceholder} />
         <Hint>{t("connections.bigqueryHint")}</Hint>
       </div>{/if}
   </div>
@@ -192,7 +191,7 @@
     <div>
       <!-- svelte-ignore a11y_label_has_associated_control -->
       <label class={LABEL}>{t("connections.connectionUri")}</label>
-      <input class={FIELD} type="password" bind:value={connectionString} placeholder={uriPlaceholder} />
+      <Input class="w-full" type="password" bind:value={connectionString} placeholder={uriPlaceholder} />
     </div>
   {:else}
     <div class="space-y-3">
@@ -200,7 +199,7 @@
         <div class="col-span-3">
           <!-- svelte-ignore a11y_label_has_associated_control -->
           <label class={LABEL}>{t("connections.host")}</label>
-          <input class={FIELD} bind:value={host} />
+          <Input class="w-full" bind:value={host} />
         </div>
         <div>
           <!-- svelte-ignore a11y_label_has_associated_control -->
@@ -220,19 +219,19 @@
           <!-- svelte-ignore a11y_label_has_associated_control -->
           <label class={LABEL}>{engine === "oracle" ? t("connections.oracleService") : t("connections.database")}</label
           >
-          <input class={FIELD} bind:value={database} />
+          <Input class="w-full" bind:value={database} />
         </div>
         {#if showCredentials}
           <div>
             <!-- svelte-ignore a11y_label_has_associated_control -->
             <label class={LABEL}>{t("connections.user")}</label>
-            <input class={FIELD} bind:value={user} autocomplete="off" />
+            <Input class="w-full" bind:value={user} autocomplete="off" />
           </div>
           <div>
             <!-- svelte-ignore a11y_label_has_associated_control -->
             <label class={LABEL}>{t("connections.password")}</label>
-            <input
-              class={FIELD}
+            <Input
+              class="w-full"
               type="password"
               bind:value={password}
               placeholder={passwordPlaceholder}

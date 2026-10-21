@@ -1,10 +1,10 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
-  import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
@@ -77,8 +77,8 @@
         {/each}
       </ul>
     {/if}
-    <input
-      class={INPUT_SM_CLASS}
+    <Input inputSize="sm"
+     
       maxlength={500}
       placeholder={t("backups.scope.note")}
       aria-label={t("backups.scope.note")}

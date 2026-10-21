@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import {
     completenessPercent,
     dictionaryToHtml,
@@ -10,7 +11,6 @@
   import Badge, { type BadgeTone } from "@/components/ui/Badge.svelte";
   import Button from "@/components/ui/Button.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
-  import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
   import { dictionaryPdfLabels } from "@/features/editor/dictionary/dictionaryPdfLabels";
   import { i18n, useTranslation } from "@/i18n/i18n.svelte";
   import { triggerDownload } from "@/utils/download";
@@ -97,8 +97,8 @@
           columns: `${dictionary.completeness.describedColumns}/${dictionary.completeness.columns}`,
         })}
       </span>
-      <input
-        class={`${INPUT_SM_CLASS} w-52`}
+      <Input inputSize="sm"
+        class="w-52"
         type="search"
         placeholder={t("dictionary.search")}
         aria-label={t("dictionary.search")}

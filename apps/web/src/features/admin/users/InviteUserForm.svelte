@@ -1,10 +1,10 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { PlusIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Checkbox from "@/components/ui/Checkbox.svelte";
-  import { INPUT_CLASS } from "@/components/ui/inputStyles";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
@@ -59,8 +59,8 @@
     {t("admin.invitations.title")}
   </h2>
   <div class="flex flex-wrap items-center gap-2">
-    <input
-      class={`${INPUT_CLASS} min-w-[240px] flex-1`}
+    <Input
+      class="min-w-[240px] flex-1"
       placeholder={t("admin.invitations.emailPlaceholder")}
       bind:value={email}
       onkeydown={(event) => event.key === "Enter" && handleInvite()}

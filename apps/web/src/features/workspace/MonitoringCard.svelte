@@ -8,7 +8,6 @@
   import Hint from "@/components/ui/Hint.svelte";
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import Input from "@/components/ui/Input.svelte";
-  import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
   import Popover from "@/components/ui/Popover.svelte";
   import Select from "@/components/ui/Select.svelte";
   import Switch from "@/components/ui/Switch.svelte";
@@ -329,11 +328,11 @@
               options={muteOptions}
               onChange={(minutes) => muting && (muting.minutes = minutes)}
             />
-            <input
-              class={`${INPUT_SM_CLASS} min-w-[200px] flex-1`}
+            <Input inputSize="sm"
+              class="min-w-[200px] flex-1"
               aria-label={t("monitoring.mute.reason")}
               placeholder={t("monitoring.mute.reason")}
-              maxlength="200"
+              maxlength={200}
               required
               bind:value={muting.reason}
             />
@@ -446,11 +445,11 @@
             void acknowledge.run();
           }}
         >
-          <input
-            class={`${INPUT_SM_CLASS} min-w-[200px] flex-1`}
+          <Input inputSize="sm"
+            class="min-w-[200px] flex-1"
             aria-label={t("monitoring.acknowledgeNote")}
             placeholder={t("monitoring.acknowledgeNote")}
-            maxlength="500"
+            maxlength={500}
             bind:value={acknowledging.note}
           />
           <Button size="xs" variant="primary" type="submit" disabled={acknowledge.pending}>

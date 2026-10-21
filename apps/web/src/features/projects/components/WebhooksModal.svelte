@@ -32,6 +32,7 @@
 </script>
 
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { KeyIcon, PlusIcon, TrashIcon } from "@/components/icons/Icons";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
@@ -47,7 +48,6 @@
   import ListRow from "@/components/ui/ListRow.svelte";
   import Select from "@/components/ui/Select.svelte";
   import Switch from "@/components/ui/Switch.svelte";
-  import { INPUT_CLASS } from "@/components/ui/inputStyles";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { formatDateTime } from "@/i18n/formatters";
@@ -149,8 +149,8 @@
     }}
   >
     <div class="flex flex-wrap items-center gap-2">
-      <input
-        class={`${INPUT_CLASS} min-w-[240px] flex-1`}
+      <Input
+        class="min-w-[240px] flex-1"
         type="url"
         placeholder="https://hooks.slack.com/services/…"
         aria-label={t("webhooks.url")}

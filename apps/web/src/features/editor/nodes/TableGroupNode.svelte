@@ -3,10 +3,9 @@
 </script>
 
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import type { NodeProps } from "@xyflow/svelte";
   import { MAX_NAME_LENGTH } from "@nebuladb/shared";
-  import { autofocus } from "@/actions/autofocus";
-  import { INPUT_XS_CLASS } from "@/components/ui/inputStyles";
   import type { TableGroupNodeType } from "@/features/editor/nodes/nodeTypes";
   import { useDraftValue } from "@/hooks/draftValue.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
@@ -39,9 +38,9 @@
     style:border-color="{ACCENT}80"
   >
     {#if editing}
-      <input
-        use:autofocus
-        class={`nodrag ${INPUT_XS_CLASS} h-[20px] text-caption font-bold`}
+      <Input inputSize="xs"
+        autofocus
+        class="nodrag h-[20px] text-caption font-bold"
         bind:value={draft.value}
         maxlength={MAX_NAME_LENGTH}
         onblur={() => {

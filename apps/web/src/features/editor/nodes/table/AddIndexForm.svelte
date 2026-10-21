@@ -1,9 +1,10 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import type { Table } from "@nebuladb/shared";
   import Button from "@/components/ui/Button.svelte";
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
-  import { POPOVER_INPUT_CLASS, POPOVER_LABEL_CLASS } from "@/features/editor/nodes/table/tableStyles";
+  import { POPOVER_LABEL_CLASS } from "@/features/editor/nodes/table/tableStyles";
   import type { IndexOptions } from "./TableSettingsPopover.svelte";
 
   /**
@@ -54,7 +55,7 @@
     <Checkbox bind:checked={unique}><span class="text-xs">{t("field.unique")}</span></Checkbox>
     <Checkbox bind:checked={primaryKey}><span class="text-xs">{t("field.primaryKey")}</span></Checkbox>
   </div>
-  <input class={POPOVER_INPUT_CLASS} bind:value={indexName} placeholder={t("table.index.namePlaceholder")} />
+  <Input inputSize="xs" class="w-full" bind:value={indexName} placeholder={t("table.index.namePlaceholder")} />
   <div class="flex justify-end gap-2">
     <Button variant="ghost" size="sm" onclick={onCancel}>{t("common.cancel")}</Button>
     <Button variant="primary" size="sm" disabled={selectedFieldIds.length === 0} onclick={submit}>

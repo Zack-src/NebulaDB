@@ -83,13 +83,13 @@
 </script>
 
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import Button from "@/components/ui/Button.svelte";
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import Hint from "@/components/ui/Hint.svelte";
   import NumberInput from "@/components/ui/NumberInput.svelte";
   import SegmentedControl from "@/components/ui/SegmentedControl.svelte";
   import TextArea from "@/components/ui/TextArea.svelte";
-  import { INPUT_CLASS } from "@/components/ui/inputStyles";
   import { useTranslation } from "@/i18n/i18n.svelte";
 
   /**
@@ -205,7 +205,7 @@
       <div class="grid grid-cols-3 gap-2">
         <div>
           <label class={LABEL} for={`${uid}-ssh-host`}>{t("connections.security.sshHost")}</label>
-          <input id={`${uid}-ssh-host`} class={`${INPUT_CLASS} w-full`} bind:value={form.sshHost} placeholder="bastion.example.com" />
+          <Input id={`${uid}-ssh-host`} class="w-full" bind:value={form.sshHost} placeholder="bastion.example.com" />
         </div>
         <div>
           <div class={LABEL} id={`${uid}-ssh-port`}>{t("connections.port")}</div>
@@ -218,7 +218,7 @@
         </div>
         <div>
           <label class={LABEL} for={`${uid}-ssh-user`}>{t("connections.security.sshUser")}</label>
-          <input id={`${uid}-ssh-user`} class={`${INPUT_CLASS} w-full`} bind:value={form.sshUser} autocomplete="off" />
+          <Input id={`${uid}-ssh-user`} class="w-full" bind:value={form.sshUser} autocomplete="off" />
         </div>
       </div>
       <SegmentedControl
@@ -233,10 +233,10 @@
       {#if form.sshAuth === "password"}
         <div>
           <label class={LABEL} for={`${uid}-ssh-password`}>{t("connections.security.sshPassword")}</label>
-          <input
+          <Input
             id={`${uid}-ssh-password`}
             type="password"
-            class={`${INPUT_CLASS} w-full`}
+            class="w-full"
             bind:value={form.sshPassword}
             autocomplete="new-password"
             placeholder={form.sshHasPassword ? "••••••••" : ""}
@@ -252,10 +252,10 @@
         )}
         <div>
           <label class={LABEL} for={`${uid}-ssh-passphrase`}>{t("connections.security.sshPassphrase")}</label>
-          <input
+          <Input
             id={`${uid}-ssh-passphrase`}
             type="password"
-            class={`${INPUT_CLASS} w-full`}
+            class="w-full"
             bind:value={form.sshPassphrase}
             autocomplete="new-password"
           />
@@ -263,9 +263,9 @@
       {/if}
       <div>
         <label class={LABEL} for={`${uid}-ssh-fingerprint`}>{t("connections.security.sshFingerprint")}</label>
-        <input
+        <Input
           id={`${uid}-ssh-fingerprint`}
-          class={`${INPUT_CLASS} w-full font-mono`}
+          class="w-full font-mono"
           bind:value={form.sshFingerprint}
           placeholder="SHA256:…"
           spellcheck={false}

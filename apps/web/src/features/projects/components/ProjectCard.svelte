@@ -3,8 +3,8 @@
 </script>
 
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import { MAX_NAME_LENGTH } from "@nebuladb/shared";
-  import { autofocus } from "@/actions/autofocus";
   import Icon from "@/components/icons/Icon.svelte";
   import {
     ArchiveIcon,
@@ -19,7 +19,6 @@
   } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
   import Badge from "@/components/ui/Badge.svelte";
-  import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
   import { formatDate } from "@/i18n/formatters";
   import { i18n, useTranslation } from "@/i18n/i18n.svelte";
   import type { ProjectStatus, ProjectSummary } from "@/types";
@@ -109,9 +108,9 @@
   <div class="p-3">
     <div class="flex flex-wrap items-start gap-2">
       {#if isRenaming}
-        <input
-          use:autofocus
-          class={`${INPUT_SM_CLASS} mb-0.5 w-full font-semibold`}
+        <Input inputSize="sm"
+          autofocus
+          class="mb-0.5 w-full font-semibold"
           value={nameDraft}
           maxlength={MAX_NAME_LENGTH}
           onclick={(event) => event.stopPropagation()}

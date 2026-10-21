@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import type { DatabaseConnectionSummary, DatabaseEngine } from "@nebuladb/shared";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
@@ -13,8 +14,7 @@
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
-  import { INPUT_CLASS } from "@/components/ui/inputStyles";
-  const { t } = useTranslation();
+    const { t } = useTranslation();
   const connections = useAsyncResource(fetchMyConnections);
   let editing = $state(false);
   let id = $state<string | undefined>();
@@ -91,7 +91,7 @@
 {#if editing}
   <Modal title={t("personalConnections.title")} onClose={() => (editing = false)} dismissable={!save.pending}>
     <label class="mb-4 block text-xs"
-      >{t("common.name")}<input class={`${INPUT_CLASS} mt-1 w-full`} bind:value={name} /></label
+      >{t("common.name")}<Input class="mt-1 w-full" bind:value={name} /></label
     >
     <ConnectionFormFields
       bind:engine

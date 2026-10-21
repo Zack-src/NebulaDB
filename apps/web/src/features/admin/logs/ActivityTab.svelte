@@ -13,13 +13,13 @@
 </script>
 
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { ChevronRightIcon, DownloadIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
-  import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
   import Select from "@/components/ui/Select.svelte";
   import { parseServerTime } from "@/features/sql/format";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
@@ -153,8 +153,8 @@
         search = searchDraft.trim();
       }}
     >
-      <input
-        class={`${INPUT_SM_CLASS} w-full`}
+      <Input inputSize="sm"
+        class="w-full"
         type="search"
         bind:value={searchDraft}
         onblur={() => (search = searchDraft.trim())}

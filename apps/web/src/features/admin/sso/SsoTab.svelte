@@ -1,10 +1,10 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import PageIntro from "@/components/layout/PageIntro.svelte";
   import Button from "@/components/ui/Button.svelte";
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
-  import { INPUT_CLASS } from "@/components/ui/inputStyles";
   import { toast } from "@/components/ui/toast.svelte";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
@@ -104,9 +104,9 @@
 
     <div>
       <label class={LABEL} for={`${uid}-issuer`}>{t("admin.sso.issuer")}</label>
-      <input
+      <Input
         id={`${uid}-issuer`}
-        class={`${INPUT_CLASS} w-full`}
+        class="w-full"
         bind:value={issuer}
         placeholder="https://keycloak.example.com/realms/acme"
         spellcheck={false}
@@ -117,14 +117,14 @@
     <div class="grid grid-cols-2 gap-3">
       <div>
         <label class={LABEL} for={`${uid}-client`}>{t("admin.sso.clientId")}</label>
-        <input id={`${uid}-client`} class={`${INPUT_CLASS} w-full`} bind:value={clientId} spellcheck={false} />
+        <Input id={`${uid}-client`} class="w-full" bind:value={clientId} spellcheck={false} />
       </div>
       <div>
         <label class={LABEL} for={`${uid}-secret`}>{t("admin.sso.clientSecret")}</label>
-        <input
+        <Input
           id={`${uid}-secret`}
           type="password"
-          class={`${INPUT_CLASS} w-full`}
+          class="w-full"
           bind:value={clientSecret}
           autocomplete="new-password"
           placeholder={hasClientSecret && !removeSecret ? "••••••••" : ""}
@@ -141,9 +141,9 @@
 
     <div>
       <label class={LABEL} for={`${uid}-label`}>{t("admin.sso.buttonLabel")}</label>
-      <input
+      <Input
         id={`${uid}-label`}
-        class={`${INPUT_CLASS} w-full`}
+        class="w-full"
         bind:value={buttonLabel}
         maxlength={80}
         placeholder={t("login.sso.default")}
@@ -152,9 +152,9 @@
 
     <div>
       <label class={LABEL} for={`${uid}-domains`}>{t("admin.sso.domains")}</label>
-      <input
+      <Input
         id={`${uid}-domains`}
-        class={`${INPUT_CLASS} w-full`}
+        class="w-full"
         bind:value={domains}
         placeholder="acme.com, acme.fr"
         spellcheck={false}

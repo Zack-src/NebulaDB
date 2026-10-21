@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import type {
     DatabaseEngine,
     DbAdminObjectRef,
@@ -19,7 +20,6 @@
   import Button from "@/components/ui/Button.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
-  import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
   import Select from "@/components/ui/Select.svelte";
   import Tabs from "@/components/ui/Tabs.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
@@ -199,7 +199,7 @@
         aria-label={t("dbadmin.schema")}
       />
     {/if}
-    <input class={`${INPUT_SM_CLASS} w-full`} bind:value={filter} placeholder={t("dbadmin.explorer.filterTables")} />
+    <Input inputSize="sm" class="w-full" bind:value={filter} placeholder={t("dbadmin.explorer.filterTables")} />
 
     {#if schemas.error ?? tables.error}<ErrorText>{schemas.error ?? tables.error}</ErrorText>{/if}
     <div class="max-h-[460px] space-y-0.5 overflow-y-auto">

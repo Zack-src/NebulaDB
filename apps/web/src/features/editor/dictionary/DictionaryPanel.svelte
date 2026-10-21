@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import {
     DATA_CLASSIFICATIONS,
     buildDictionary,
@@ -19,7 +20,6 @@
   import Button from "@/components/ui/Button.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
   import Hint from "@/components/ui/Hint.svelte";
-  import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
   import SegmentedControl from "@/components/ui/SegmentedControl.svelte";
   import Select from "@/components/ui/Select.svelte";
   import TextArea from "@/components/ui/TextArea.svelte";
@@ -183,8 +183,8 @@
           })}
         </span>
       </div>
-      <input
-        class={`${INPUT_SM_CLASS} w-52`}
+      <Input inputSize="sm"
+        class="w-52"
         type="search"
         placeholder={t("dictionary.search")}
         aria-label={t("dictionary.search")}
@@ -213,8 +213,8 @@
             <Badge tone={TONE[table.classification]}>{t(`dictionary.class.${table.classification}`)}</Badge>
           {/if}
           <span class="flex-1"></span>
-          <input
-            class={`${INPUT_SM_CLASS} w-40`}
+          <Input inputSize="sm"
+            class="w-40"
             placeholder={t("dictionary.owner")}
             aria-label={t("dictionary.ownerOf", { name: table.name })}
             value={table.owner ?? ""}
@@ -245,8 +245,8 @@
             disabled={!editable}
             onchange={(event) => patchTable(table, { description: event.currentTarget.value })}
           />
-          <input
-            class={`${INPUT_SM_CLASS} min-w-[140px] flex-1`}
+          <Input inputSize="sm"
+            class="min-w-[140px] flex-1"
             placeholder={t("dictionary.tags")}
             aria-label={t("dictionary.tagsOf", { name: table.name })}
             value={table.tags.join(", ")}
@@ -291,8 +291,8 @@
                   />
                 </td>
                 <td class="w-40 py-1 pl-1 pr-3">
-                  <input
-                    class={`${INPUT_SM_CLASS} w-full`}
+                  <Input inputSize="sm"
+                    class="w-full"
                     placeholder={t("dictionary.tags")}
                     aria-label={t("dictionary.tagsOf", { name: `${table.name}.${column.name}` })}
                     value={column.tags.join(", ")}

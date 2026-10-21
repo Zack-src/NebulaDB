@@ -1,8 +1,9 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import { untrack } from "svelte";
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";
-  import { INPUT_CLASS, SELECT_CLASS } from "@/components/ui/inputStyles";
+  import { SELECT_CLASS } from "@/components/ui/inputStyles";
   import { pluginRegistry } from "@/features/plugins/registry";
   import type { PluginSettingDef, PluginSettingValue, PluginSettings } from "@/features/plugins/types";
   import { useTranslation } from "@/i18n/i18n.svelte";
@@ -57,18 +58,18 @@
         {/if}
 
         {#if s.type === "string"}
-          <input
+          <Input
             type="text"
-            class={INPUT_CLASS}
+           
             value={String(val ?? "")}
             oninput={(e) => handleChange(s.key, e.currentTarget.value)}
           />
         {/if}
 
         {#if s.type === "number"}
-          <input
+          <Input
             type="number"
-            class={INPUT_CLASS}
+           
             value={Number(val ?? 0)}
             oninput={(e) => handleChange(s.key, Number(e.currentTarget.value))}
           />

@@ -19,6 +19,7 @@
 </script>
 
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import { untrack } from "svelte";
   import type { DatabaseConnectionSummary, DeploymentReview } from "@nebuladb/shared";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
@@ -26,7 +27,7 @@
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
-  import { INPUT_SM_CLASS, TEXTAREA_CODE_CLASS } from "@/components/ui/inputStyles";
+  import { TEXTAREA_CODE_CLASS } from "@/components/ui/inputStyles";
   import { toast } from "@/components/ui/toast.svelte";
   import DeploymentStageSkip from "@/features/connections/deployment/DeploymentStageSkip.svelte";
   import { STRATEGY_LABEL } from "@/features/connections/deployment/deploymentModel";
@@ -230,8 +231,8 @@
 
           <div class="mt-2 flex flex-wrap items-center gap-2">
             {#if review.viewer.canDecide}
-              <input
-                class={`${INPUT_SM_CLASS} min-w-[200px] flex-1`}
+              <Input inputSize="sm"
+                class="min-w-[200px] flex-1"
                 placeholder={t("review.commentPlaceholder")}
                 aria-label={t("review.comment")}
                 maxlength={1000}
