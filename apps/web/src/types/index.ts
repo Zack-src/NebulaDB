@@ -1,16 +1,8 @@
 import type { DbAccessGrant } from "@nebuladb/shared";
-import type {
-  EnumNodeType,
-  StickyNoteNodeType,
-  TableGroupNodeType,
-  TableNodeType,
-  ZoneNodeType,
-} from "@/features/editor/nodes/nodeTypes";
 
 /** Re-exported so components can type a lookup table of dictionary keys without reaching into i18n internals. */
 export type { TranslationKey as TranslationKeyOf } from "@/i18n/translate";
 
-export type CanvasNode = TableNodeType | ZoneNodeType | StickyNoteNodeType | EnumNodeType | TableGroupNodeType;
 export type ProjectStatus = "active" | "archived" | "trashed";
 /** Each level includes the ones before it; `deploy` adds the deployment operations to `edit`. */
 export type PermissionLevel = "view" | "edit" | "deploy" | "administrator";

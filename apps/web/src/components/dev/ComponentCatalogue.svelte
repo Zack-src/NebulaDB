@@ -30,6 +30,9 @@
   import SegmentedControl from "@/components/ui/SegmentedControl.svelte";
   import Select, { type SelectOption } from "@/components/ui/Select.svelte";
   import Switch from "@/components/ui/Switch.svelte";
+  import SettingSwitch from "@/components/ui/SettingSwitch.svelte";
+  import NavItem from "@/components/ui/NavItem.svelte";
+  import Table, { TABLE_CELL, TABLE_ROW } from "@/components/ui/Table.svelte";
   import TextArea from "@/components/ui/TextArea.svelte";
   import { toast } from "@/components/ui/toast.svelte";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
@@ -46,6 +49,7 @@
   import { applyThemePreset, type ThemePreset } from "@/utils/theme";
   import Section from "./CatalogueSection.svelte";
 
+  let settingOn = $state(true);
   const ENGINE_OPTIONS: SelectOption<string>[] = [
     { value: "postgres", label: "PostgreSQL", icon: DatabaseIcon },
     { value: "mysql", label: "MySQL / MariaDB", icon: DatabaseIcon },
@@ -264,6 +268,26 @@
       </div>
       <div class="mt-3 max-w-sm">
         <EmptyState>{t("componentCatalogue.emptyState")}</EmptyState>
+      </div>
+    </Section>
+
+    <Section title="Table / SettingSwitch / NavItem" description="Le tableau de page, la ligne de réglage (même taille qu'une ligne de liste) et l'entrée de navigation latérale.">
+      <Table label={t("componentCatalogue.checkboxDisabled")} columns={[{ label: t("common.name") }, { label: t("admin.users.status") }]}>
+        <tr class={TABLE_ROW}>
+          <td class={TABLE_CELL.comfortable}>{t("componentCatalogue.checkboxDisabled")}</td>
+          <td class={TABLE_CELL.comfortable}><Badge tone="success">{t("componentCatalogue.menuShowGrid")}</Badge></td>
+        </tr>
+      </Table>
+      <div class="mt-3 flex max-w-sm flex-col gap-2">
+        <SettingSwitch
+          icon={DatabaseIcon}
+          label={t("componentCatalogue.checkboxDisabled")}
+          hint={t("componentCatalogue.menuShowGrid")}
+          checked={settingOn}
+          onChange={(next) => (settingOn = next)}
+        />
+        <NavItem label={t("componentCatalogue.checkboxDisabled")} icon={TableIcon} active onclick={() => {}} />
+        <NavItem label={t("componentCatalogue.menuLocked")} icon={SearchIcon} onclick={() => {}} />
       </div>
     </Section>
 

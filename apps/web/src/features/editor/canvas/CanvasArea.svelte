@@ -48,7 +48,8 @@
   import { useEscapeKey } from "@/hooks/escapeKey.svelte";
   import { loadGridStyle, loadSnapToGrid } from "@/utils/preferences";
   import type { CanvasCommandContribution, ResolvedContribution } from "@/features/plugins/types";
-  import type { CanvasExportHandle, CanvasNavigateHandle, CanvasNode } from "@/types";
+  import type { CanvasExportHandle, CanvasNavigateHandle } from "@/types";
+import type { CanvasNode } from "@/features/editor/nodes/nodeTypes";
   import type { RefEdgeType } from "@/features/editor/edges/refEdgeTypes";
   import type { CanvasNodesState } from "@/features/editor/hooks/useCanvasNodes/canvasNodes.svelte";
   import type { EditorViewMode } from "@/features/editor/mcd/ViewModeToggle.svelte";

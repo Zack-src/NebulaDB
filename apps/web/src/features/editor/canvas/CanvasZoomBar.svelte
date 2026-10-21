@@ -48,7 +48,7 @@
     data-tooltip-pos="top"
     aria-label={t("canvas.zoom.out")}
   >
-    <span class="text-[17px] leading-none">−</span>
+    <span class="text-heading leading-none">−</span>
   </button>
   <ToolbarMenu
     tooltip={t("canvas.zoom.label")}
@@ -105,7 +105,7 @@
     data-tooltip-pos="top"
     aria-label={t("canvas.zoom.in")}
   >
-    <span class="text-[17px] leading-none">+</span>
+    <span class="text-heading leading-none">+</span>
   </button>
 
   <span class={CANVAS_TOOLBAR_DIVIDER_CLASS}></span>

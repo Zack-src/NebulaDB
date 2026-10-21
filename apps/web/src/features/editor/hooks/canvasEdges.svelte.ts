@@ -16,7 +16,7 @@ import {
   type TableBox,
 } from "@/features/editor/edges/refGeometry";
 import { selectionDrag } from "@/features/editor/canvas/selectionDragState.svelte";
-import type { CanvasNode } from "@/types/index";
+import type { CanvasNode } from "@/features/editor/nodes/nodeTypes";
 import { time } from "@/utils/perfMonitor";
 
 /** A table's box for side picking: its live node when rendered, the stored position (and a default size) until it has been measured. */

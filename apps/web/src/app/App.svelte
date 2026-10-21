@@ -16,7 +16,7 @@
   import AdminConsole from "@/features/admin/AdminConsole.svelte";
   import { APP_SHELL } from "@/components/ui/layout";
   import type { CreateProjectFromDatabaseResponse } from "@/services/connectionsApi";
-  import WorkspaceShell from "@/components/layout/WorkspaceShell.svelte";
+  import WorkspaceShell from "@/app/WorkspaceShell.svelte";
   import { shellHash, shellViewFromHash, type ShellView } from "@/app/shellNavigation";
   import DatabaseWorkspace from "@/features/workspace/DatabaseWorkspace.svelte";
   import GlobalPalette from "@/features/palette/GlobalPalette.svelte";

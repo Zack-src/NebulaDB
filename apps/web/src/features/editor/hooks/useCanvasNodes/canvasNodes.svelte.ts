@@ -16,7 +16,7 @@ import type { ValidationIssue } from "@nebuladb/dbml-engine";
 import { DEFAULT_PALETTE } from "@/components/inputs/colorSwatches";
 import { DEFAULT_TABLE_HEIGHT, DEFAULT_TABLE_WIDTH } from "@/features/editor/edges/refGeometry";
 import { NO_TABLE_LOCKS, type TableLocksView } from "@/features/editor/locks/tableLocks.svelte";
-import type { CanvasNode } from "@/types/index";
+import type { CanvasNode } from "@/features/editor/nodes/nodeTypes";
 import { time } from "@/utils/perfMonitor";
 import { buildZoneNodes } from "./buildZoneNodes";
 import { buildTableNodes } from "./buildTableNodes";

@@ -67,7 +67,7 @@
       </div>
       <div class="rounded-lg border border-border p-3">
         <div class="text-caption text-text-muted">{t("health.latency")}</div>
-        <div class="mt-1 text-[15px] font-semibold tabular-nums">{data.status.latencyMs ?? "—"} ms</div>
+        <div class="mt-1 text-heading font-semibold tabular-nums">{data.status.latencyMs ?? "—"} ms</div>
         {#if line}
           <svg viewBox="0 0 200 40" class="mt-1 h-10 w-full text-primary" role="img" aria-label={t("health.latencySeries")}>
             <polyline points={line} fill="none" stroke="currentColor" stroke-width="1.5" />
@@ -84,7 +84,7 @@
       <div class="rounded-lg border border-border p-3" data-testid="health-sessions">
         <div class="text-caption text-text-muted">{t("health.sessions")}</div>
         {#if data.sessions}
-          <div class="mt-1 text-[15px] font-semibold tabular-nums">{data.sessions.total}</div>
+          <div class="mt-1 text-heading font-semibold tabular-nums">{data.sessions.total}</div>
           <div class="text-caption text-text-muted">
             {t("health.sessionsSplit", { active: data.sessions.active, idle: data.sessions.idle })}
           </div>

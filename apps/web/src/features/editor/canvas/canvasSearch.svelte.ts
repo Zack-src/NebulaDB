@@ -1,4 +1,4 @@
-import type { CanvasNode } from "@/types";
+import type { CanvasNode } from "@/features/editor/nodes/nodeTypes";
 
 /** True when the keystroke landed in a text field — a global shortcut must not steal it. */
 function isTypingTarget(target: EventTarget | null): boolean {
