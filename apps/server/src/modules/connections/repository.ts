@@ -13,6 +13,7 @@ import type {
 import { db } from "../../infrastructure/db.js";
 import { decryptPayload, encryptPayload } from "../../shared/crypto.js";
 import { ApiError } from "../../shared/errors.js";
+import { pruneUnusedDestinations } from "../backups/destinations.js";
 import { deleteBackupsOfConnection } from "../backups/repository.js";
 import { getEnvironment, resolveConnectionEnvironment } from "../environments/repository.js";
 import { mapAsync } from "../../shared/async.js";
@@ -441,7 +442,7 @@ export async function updateGlobalConnection(
  */
 export async function deleteConnection(id: string): Promise<boolean> {
   await deleteBackupsOfConnection(id);
-  return await db.transaction(async () => {
+  const deleted = await db.transaction(async () => {
     await db.prepare("DELETE FROM project_connection_links WHERE connection_id = ?").run(id);
     await db.prepare("DELETE FROM admin_query_history WHERE connection_id = ?").run(id);
     await db.prepare("DELETE FROM saved_queries WHERE connection_id = ?").run(id);
@@ -453,6 +454,9 @@ export async function deleteConnection(id: string): Promise<boolean> {
     await db.prepare("DELETE FROM query_stats WHERE connection_id = ?").run(id);
     return (await db.prepare("DELETE FROM db_connections WHERE id = ?").run(id)).changes > 0;
   });
+  // The connection's remote destination, and its credentials, go with it.
+  await pruneUnusedDestinations();
+  return deleted;
 }
 
 /**

@@ -19,6 +19,8 @@ const TARGETS = [
   { table: "users", key: "id", column: "totp_secret_encrypted" },
   // Each backup file has its own key; this is that key, not the file.
   { table: "backups", key: "id", column: "key_encrypted" },
+  // Remote backup destinations (S3 keys, SFTP password or private key).
+  { table: "backup_destinations", key: "id", column: "secret_encrypted" },
 ];
 
 async function main(): Promise<void> {

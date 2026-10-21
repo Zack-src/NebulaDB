@@ -1,11 +1,19 @@
 import path from "node:path";
 import type { Readable } from "node:stream";
 import type { FastifyRequest } from "fastify";
-import type { BackupList, BackupSummary, DatabaseConnectionConfig } from "@nebuladb/shared";
+import type { BackupDestination, BackupList, BackupSummary, DatabaseConnectionConfig } from "@nebuladb/shared";
 import { config } from "../../config.js";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { connectionOwner, getConnectionById } from "../connections/repository.js";
+import {
+  connectionDestinationId,
+  insertRemoteDestination,
+  loadRemoteDestination,
+  loadRemoteSettings,
+  pruneUnusedDestinations,
+  setConnectionDestinationId,
+} from "./destinations.js";
 import {
   deleteBackup,
   getBackup,
@@ -17,7 +25,10 @@ import {
 } from "./repository.js";
 import { cancelBackup, startBackup } from "./runner.js";
 import { getBackupSchedule } from "./schedule.js";
-import { backupFileChecksum, openBackupDownload, probeBackupDirectory } from "./storage.js";
+import { backupFileChecksum, openBackupDownload } from "./storage.js";
+import { LocalStore, openRemoteStore, remoteLabel, storeReason, type RemoteDestination } from "./stores/index.js";
+import { normalizePrefix } from "./stores/s3.js";
+import { normalizeFingerprint } from "./stores/sftp.js";
 
 /**
  * What can be done with a database's backups, once — the app's routes and
@@ -31,46 +42,188 @@ const MAX_TABLES = 2000;
 const MAX_NOTE = 500;
 const MAX_DIRECTORY = 1024;
 
-const destinationOf = async (connectionId: string) => ({
-  directory: await getBackupDirectory(connectionId),
-  defaultDirectory: path.resolve(config.databaseBackupDir),
-});
+async function destinationOf(connectionId: string): Promise<BackupDestination> {
+  const id = await connectionDestinationId(connectionId);
+  const remote = id ? await loadRemoteSettings(id) : null;
+  return {
+    kind: remote?.kind ?? "local",
+    directory: await getBackupDirectory(connectionId),
+    defaultDirectory: path.resolve(config.databaseBackupDir),
+    s3: remote?.kind === "s3" ? remote.settings : null,
+    sftp: remote?.kind === "sftp" ? { ...remote.settings, authMethod: await remoteAuthMethod(id!) } : null,
+    hasCredentials: remote !== null,
+  };
+}
+
+/** Which credential an SFTP destination holds, without handing it out. */
+async function remoteAuthMethod(destinationId: string): Promise<"password" | "privateKey"> {
+  try {
+    const remote = await loadRemoteDestination(destinationId);
+    return remote?.kind === "sftp" && remote.secret.privateKey ? "privateKey" : "password";
+  } catch {
+    return "password";
+  }
+}
+
+const invalid = () => new ApiError("BACKUP_DESTINATION_INVALID");
+
+/** A string field of at most `max` characters without NUL; `fallback` when absent or empty. */
+function text(value: unknown, max: number, fallback?: string): string {
+  if (value === undefined || value === null || value === "") {
+    if (fallback !== undefined) return fallback;
+    throw invalid();
+  }
+  if (typeof value !== "string" || value.length > max || value.includes("\0")) throw invalid();
+  return value.trim();
+}
+
+/** A credential that may be left out (kept as saved): absent, empty, or a bounded string. */
+function optionalSecret(value: unknown, max: number): string | undefined {
+  if (value === undefined || value === null || value === "") return undefined;
+  if (typeof value !== "string" || value.length > max || value.includes("\0")) throw invalid();
+  return value;
+}
+
+/**
+ * The remote a request describes. A credential left out is taken from the
+ * connection's saved destination — but only while the place it opens is the
+ * same (bucket and endpoint, or host, port and user): saved keys are never
+ * sent somewhere new, so they cannot be redirected to a server of one's own.
+ */
+async function parseRemote(body: Record<string, unknown>, connectionId: string): Promise<RemoteDestination> {
+  const savedId = await connectionDestinationId(connectionId);
+  const saved = savedId ? await loadRemoteDestination(savedId) : null;
+  if (body.kind === "s3") {
+    const input = (body.s3 ?? {}) as Record<string, unknown>;
+    if (typeof input !== "object" || Array.isArray(input)) throw invalid();
+    let endpoint = text(input.endpoint, 512, "");
+    if (endpoint) {
+      let url: URL;
+      try {
+        url = new URL(endpoint);
+      } catch {
+        throw invalid();
+      }
+      if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || !url.hostname) throw invalid();
+      endpoint = url.origin + (url.pathname === "/" ? "" : url.pathname.replace(/\/+$/, ""));
+    }
+    const bucket = text(input.bucket, 63);
+    if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(bucket)) throw invalid();
+    const prefix = normalizePrefix(text(input.prefix, 512, ""));
+    if (prefix.split("/").includes("..")) throw invalid();
+    const settings = {
+      endpoint,
+      region: text(input.region, 64, "us-east-1"),
+      bucket,
+      prefix: prefix.replace(/\/$/, ""),
+      pathStyle: input.pathStyle === true,
+    };
+    const same = saved?.kind === "s3" && saved.settings.endpoint === endpoint && saved.settings.bucket === bucket;
+    const accessKeyId = optionalSecret(input.accessKeyId, 256) ?? (same ? saved.secret.accessKeyId : undefined);
+    const secretAccessKey =
+      optionalSecret(input.secretAccessKey, 256) ?? (same ? saved.secret.secretAccessKey : undefined);
+    if (!accessKeyId || !secretAccessKey) throw invalid();
+    return { kind: "s3", settings, secret: { accessKeyId, secretAccessKey } };
+  }
+  const input = (body.sftp ?? {}) as Record<string, unknown>;
+  if (typeof input !== "object" || Array.isArray(input)) throw invalid();
+  const host = text(input.host, 255);
+  if (/\s/.test(host)) throw invalid();
+  const port = input.port === undefined || input.port === "" ? 22 : Number(input.port);
+  if (!Number.isInteger(port) || port < 1 || port > 65535) throw invalid();
+  const fingerprint =
+    typeof input.hostKeyFingerprint === "string" ? normalizeFingerprint(input.hostKeyFingerprint) : null;
+  if (!fingerprint) throw invalid();
+  const settings = {
+    host,
+    port,
+    username: text(input.username, 128),
+    remoteDir: path.posix.normalize(text(input.remoteDir, MAX_DIRECTORY, "/")),
+    hostKeyFingerprint: fingerprint,
+  };
+  const password = optionalSecret(input.password, 1024);
+  const privateKey = optionalSecret(input.privateKey, 16384);
+  const passphrase = optionalSecret(input.passphrase, 1024);
+  if (privateKey !== undefined && !privateKey.includes("PRIVATE KEY")) throw invalid();
+  if (password !== undefined || privateKey !== undefined) {
+    return { kind: "sftp", settings, secret: { password, privateKey, passphrase } };
+  }
+  const same =
+    saved?.kind === "sftp" &&
+    saved.settings.host === host &&
+    saved.settings.port === port &&
+    saved.settings.username === settings.username;
+  if (!same) throw invalid();
+  return { kind: "sftp", settings, secret: saved.secret };
+}
 
 /**
  * Where a connection's next backups are written: a folder of the server —
  * local, or a network share mounted there (or a `\\server\share` path on
- * Windows) — or `null` for the instance's own. Tried before it is kept: a
- * folder nothing can be written to is refused with the system's reason. The
+ * Windows) — or `null` for the instance's own; or an S3-compatible bucket, or
+ * an SFTP server. Tried before it is kept: a destination nothing can be written
+ * to is refused with its own reason (the system's, or the remote's). A remote's
+ * host goes through the same outbound check as database connections, and an
+ * SFTP server whose host key is not the fingerprint given is refused. The
  * backups already taken stay where they are, and stay readable.
  */
 export async function saveBackupDestination(user: Actor, connectionId: string, rawBody: unknown, req: FastifyRequest) {
   const connection = await requireConnection(connectionId);
-  const { directory: raw } = (rawBody ?? {}) as { directory?: unknown };
-  let directory: string | null = null;
-  if (raw !== null && raw !== undefined && raw !== "") {
-    if (typeof raw !== "string" || raw.length > MAX_DIRECTORY || raw.includes("\0") || !path.isAbsolute(raw.trim())) {
-      throw new ApiError("BACKUP_DESTINATION_INVALID");
+  const body = (rawBody ?? {}) as Record<string, unknown>;
+  if (typeof body !== "object" || Array.isArray(body)) throw invalid();
+  const kind = body.kind ?? "local";
+  if (kind !== "local" && kind !== "s3" && kind !== "sftp") throw invalid();
+
+  let described: string;
+  if (kind === "local") {
+    const raw = body.directory;
+    let directory: string | null = null;
+    if (raw !== null && raw !== undefined && raw !== "") {
+      if (typeof raw !== "string" || raw.length > MAX_DIRECTORY || raw.includes("\0") || !path.isAbsolute(raw.trim())) {
+        throw invalid();
+      }
+      directory = path.normalize(raw.trim());
+      await tryDestination(() => new LocalStore(directory!).probe());
     }
-    directory = path.normalize(raw.trim());
-    try {
-      probeBackupDirectory(directory);
-    } catch (err) {
-      throw new ApiError("BACKUP_DESTINATION_UNUSABLE", {
-        details: { reason: err instanceof Error ? err.message : String(err) },
-      });
+    if (
+      directory !== (await getBackupDirectory(connectionId)) ||
+      (await connectionDestinationId(connectionId)) !== null
+    ) {
+      await setBackupDirectory(connectionId, directory);
+      await setConnectionDestinationId(connectionId, null);
     }
+    described = directory ?? "instance default";
+  } else {
+    const remote = await parseRemote(body, connectionId);
+    await tryDestination(() => openRemoteStore(remote).probe());
+    const savedId = await connectionDestinationId(connectionId);
+    const saved = savedId ? await loadRemoteDestination(savedId) : null;
+    const unchanged = saved && JSON.stringify(saved) === JSON.stringify(remote);
+    if (!unchanged) {
+      await setConnectionDestinationId(connectionId, await insertRemoteDestination(remote));
+      await setBackupDirectory(connectionId, null);
+    }
+    described = remoteLabel(remote);
   }
-  if (directory !== (await getBackupDirectory(connectionId))) {
-    await setBackupDirectory(connectionId, directory);
-    await auditUser(
-      user,
-      "backup.destination",
-      { type: "connection", id: connectionId },
-      `${connection.name}: ${directory ?? "instance default"}`,
-      req,
-    );
-  }
+  await pruneUnusedDestinations();
+  await auditUser(
+    user,
+    "backup.destination",
+    { type: "connection", id: connectionId },
+    `${connection.name}: ${described}`,
+    req,
+  );
   return await destinationOf(connectionId);
+}
+
+/** Runs the write test; its failure is reported with the reason the system or the remote gave. A refused host stays what it is. */
+async function tryDestination(probe: () => Promise<void>): Promise<void> {
+  try {
+    await probe();
+  } catch (err) {
+    if (err instanceof ApiError) throw err;
+    throw new ApiError("BACKUP_DESTINATION_UNUSABLE", { details: { reason: storeReason(err) } });
+  }
 }
 
 export async function requireConnection(id: string): Promise<DatabaseConnectionConfig> {

@@ -913,6 +913,29 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 10,
+    name: "remote backup destinations: backup_destinations, db_connections.backup_destination_id, backups.destination_id",
+    up: async (db) => {
+      // NULL on both columns: a folder of the server (`backup_dir` / `dir`), as before. A remote
+      // destination is a row nobody edits — a change writes a new one — and a backup keeps the id of
+      // the row it was written to, so older backups stay readable when a connection's destination
+      // changes. `secret_encrypted` holds the credentials (encrypted with the instance secret);
+      // `settings_json` and `label` hold nothing secret.
+      await db.exec(`
+        CREATE TABLE backup_destinations (
+          id ${T} PRIMARY KEY,
+          kind ${T} NOT NULL,
+          settings_json ${T} NOT NULL,
+          label ${T} NOT NULL,
+          secret_encrypted ${T} NOT NULL,
+          created_at ${T} NOT NULL DEFAULT utc_now()
+        );
+        ALTER TABLE db_connections ADD COLUMN backup_destination_id ${T};
+        ALTER TABLE backups ADD COLUMN destination_id ${T};
+      `);
+    },
+  },
 ];
 
 // Any constant will do, as long as every NebulaDB process takes the same one.

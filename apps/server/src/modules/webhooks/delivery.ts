@@ -1,9 +1,8 @@
 import crypto from "node:crypto";
-import dns from "node:dns";
 import http from "node:http";
 import https from "node:https";
-import { isIP, type LookupFunction } from "node:net";
-import { isBlockedAddress } from "../connections/hostGuard.js";
+import { isIP } from "node:net";
+import { guardedLookup, isBlockedAddress } from "../connections/hostGuard.js";
 import type { WebhookEvent, WebhookFormat } from "./repository.js";
 
 /**
@@ -26,23 +25,6 @@ export interface WebhookEnvelope {
   project: { id: string; name: string; url: string | null };
   data: Record<string, unknown>;
 }
-
-const guardedLookup: LookupFunction = (hostname, options, callback) => {
-  dns.lookup(hostname, { ...options, all: true }, (err, addresses) => {
-    if (err) return callback(err, "", 4);
-    const list = addresses as dns.LookupAddress[];
-    const blocked = list.find((entry) => isBlockedAddress(entry.address));
-    if (blocked) {
-      return callback(
-        Object.assign(new Error(`refusing to deliver to ${blocked.address}`), { code: "EBLOCKED" }),
-        "",
-        4,
-      );
-    }
-    if (options.all) return callback(null, list as unknown as string, 4);
-    return callback(null, list[0].address, list[0].family);
-  });
-};
 
 /** `t=<unix seconds>,v1=<hex HMAC-SHA256 of "<t>.<body>">` — the timestamp is signed too, so a captured request can't be replayed later with a fresh one. */
 export function signBody(secret: string, body: string, timestamp: number): string {

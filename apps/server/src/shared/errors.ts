@@ -164,9 +164,12 @@ export const ERROR_CATALOG = {
   LINT_PRESET_LIMIT: { status: 409, message: "the library holds 100 lint presets at most" },
   BACKUP_DESTINATION_INVALID: {
     status: 400,
-    message: "directory must be an absolute path of the server (1024 characters at most), or null for the default",
+    message:
+      "destination: a directory (absolute path of the server, 1024 characters at most, or null for the default), or " +
+      "an s3 (endpoint, region, bucket, prefix, pathStyle, accessKeyId, secretAccessKey) or sftp (host, port, " +
+      "username, remoteDir, hostKeyFingerprint as SHA256:…, password or privateKey) object",
   },
-  BACKUP_DESTINATION_UNUSABLE: { status: 400, message: "backups cannot be written to this directory" },
+  BACKUP_DESTINATION_UNUSABLE: { status: 400, message: "backups cannot be written to this destination" },
   BACKUP_INVALID: {
     status: 400,
     message:
@@ -401,6 +404,7 @@ export const ERROR_CATALOG = {
     status: 409,
     message: "the stored backup file is missing or no longer matches its checksum",
   },
+  BACKUP_STORAGE_UNREACHABLE: { status: 502, message: "the storage holding this backup cannot be reached" },
   RESTORE_CONFIRMATION_REQUIRED: {
     status: 409,
     message: "a restore replaces data — send the target connection's name as confirmName",

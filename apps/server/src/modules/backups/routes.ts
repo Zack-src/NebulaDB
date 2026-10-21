@@ -63,7 +63,7 @@ export function registerBackupRoutes(app: FastifyInstance): void {
     return { schedule };
   });
 
-  // Tries the folder (creates it, writes a file there) before keeping it.
+  // Tries the destination (a file written, read back and deleted there) before keeping it.
   app.put("/api/admin/connections/:id/backup-destination", READ_LIMIT, async (req) => {
     const user = requireAdmin(req);
     const { id } = req.params as { id: string };

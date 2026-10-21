@@ -42,3 +42,23 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
+
+  # Backup destinations (apps/server/src/modules/backups/stores/*.test.ts).
+  nebuladb-test-minio:
+    # Docker Hub no longer carries minio/minio; Chainguard publishes a maintained build.
+    image: cgr.dev/chainguard/minio:latest
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: nebuladb_test
+      MINIO_ROOT_PASSWORD: nebuladb_test_secret
+    ports:
+      - "59000:9000"
+    tmpfs:
+      - /data:mode=1777
+
+  nebuladb-test-sftp:
+    image: atmoz/sftp:alpine
+    # user:password:uid:gid:folder — the folder is the only writable one inside the user's chroot.
+    command: nebuladb_test:nebuladb_test_pw:::upload
+    ports:
+      - "52222:22"

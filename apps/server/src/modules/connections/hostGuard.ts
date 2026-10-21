@@ -1,5 +1,6 @@
-import dns from "node:dns/promises";
-import net from "node:net";
+import dns from "node:dns";
+import dnsPromises from "node:dns/promises";
+import net, { type LookupFunction } from "node:net";
 import { ApiError } from "../../shared/errors.js";
 
 /**
@@ -47,7 +48,7 @@ export async function assertHostAllowed(host: string | undefined): Promise<void>
   // Resolve and re-check: a hostname (not a literal IP) could point at the
   // metadata address without the string itself ever mentioning it.
   try {
-    const records = await dns.lookup(trimmed, { all: true });
+    const records = await dnsPromises.lookup(trimmed, { all: true });
     for (const { address } of records) {
       if (BLOCKED_HOSTS.has(address) || address === BLOCKED_IPV6) {
         throw new ApiError("CONNECTION_TARGET_FORBIDDEN", {
@@ -92,10 +93,32 @@ export async function resolveAllowedHost(host: string | undefined): Promise<Pinn
 
   let records: { address: string }[];
   try {
-    records = await dns.lookup(hostname, { all: true });
+    records = await dnsPromises.lookup(hostname, { all: true });
   } catch {
     return null;
   }
   if (records.some(({ address }) => isBlockedAddress(address))) throw forbidden();
   return records.length > 0 ? { hostname, address: records[0].address } : null;
 }
+
+/**
+ * A `lookup` for `http`/`https`/`net` agents that refuses a blocked address at connect time —
+ * the address actually dialled is the one checked, so DNS rebinding has no gap. Used by
+ * webhook delivery and by the S3 backup destination.
+ */
+export const guardedLookup: LookupFunction = (hostname, options, callback) => {
+  dns.lookup(hostname, { ...options, all: true }, (err, addresses) => {
+    if (err) return callback(err, "", 4);
+    const list = addresses as dns.LookupAddress[];
+    const blocked = list.find((entry) => isBlockedAddress(entry.address));
+    if (blocked) {
+      return callback(
+        Object.assign(new Error(`refusing to connect to ${blocked.address}`), { code: "EBLOCKED" }),
+        "",
+        4,
+      );
+    }
+    if (options.all) return callback(null, list as unknown as string, 4);
+    return callback(null, list[0].address, list[0].family);
+  });
+};

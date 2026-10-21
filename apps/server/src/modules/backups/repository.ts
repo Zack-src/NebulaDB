@@ -1,8 +1,10 @@
 import crypto from "node:crypto";
+import path from "node:path";
 import type { BackupStatus, BackupSummary, BackupTableInfo, BackupTrigger, DatabaseEngine } from "@nebuladb/shared";
 import { config } from "../../config.js";
 import { db } from "../../infrastructure/db.js";
-import { removeBackupFile, type StoredBackup } from "./storage.js";
+import { DESTINATION_COLUMNS, pruneUnusedDestinations } from "./destinations.js";
+import { backupStore, removeBackupFile, removeFromStore, type StoredBackup } from "./storage.js";
 
 interface BackupRow {
   id: string;
@@ -25,6 +27,9 @@ interface BackupRow {
   finished_at: string | null;
   pinned: number;
   expires_at: string | null;
+  dir: string | null;
+  destination_kind: string | null;
+  destination_label: string | null;
 }
 
 /**
@@ -38,7 +43,7 @@ function selectBackups(where: string): string {
       ? `CASE WHEN pinned = 1 OR status = 'running' OR (trigger = 'scheduled' AND status = 'done') THEN NULL
               ELSE utc_shift(started_at, '+${config.databaseBackupRetentionDays} days') END`
       : "NULL";
-  return `SELECT *, ${expires} AS expires_at FROM backups WHERE ${where}`;
+  return `SELECT *, ${expires} AS expires_at, ${DESTINATION_COLUMNS} FROM backups WHERE ${where}`;
 }
 
 function rowToSummary(row: BackupRow): BackupSummary {
@@ -62,6 +67,9 @@ function rowToSummary(row: BackupRow): BackupSummary {
     finishedAt: row.finished_at,
     pinned: row.pinned === 1,
     expiresAt: row.expires_at,
+    storage: row.destination_kind
+      ? { kind: row.destination_kind as "s3" | "sftp", location: row.destination_label ?? "" }
+      : { kind: "local", location: path.resolve(row.dir ?? config.databaseBackupDir) },
   };
 }
 
@@ -79,8 +87,10 @@ export async function insertBackup(input: NewBackup): Promise<string> {
   const id = crypto.randomUUID();
   await db
     .prepare(
-      `INSERT INTO backups (id, connection_id, connection_name, engine, trigger, status, scope_json, note, created_by, created_by_name, dir)
-     VALUES (?, ?, ?, ?, ?, 'running', ?, ?, ?, ?, (SELECT backup_dir FROM db_connections WHERE id = ?))`,
+      `INSERT INTO backups (id, connection_id, connection_name, engine, trigger, status, scope_json, note, created_by, created_by_name, dir, destination_id)
+     VALUES (?, ?, ?, ?, ?, 'running', ?, ?, ?, ?,
+       (SELECT CASE WHEN backup_destination_id IS NULL THEN backup_dir END FROM db_connections WHERE id = ?),
+       (SELECT backup_destination_id FROM db_connections WHERE id = ?))`,
     )
     .run(
       id,
@@ -92,6 +102,7 @@ export async function insertBackup(input: NewBackup): Promise<string> {
       input.note,
       input.createdBy?.id ?? null,
       input.createdBy?.displayName ?? null,
+      input.connectionId,
       input.connectionId,
     );
   return id;
@@ -172,30 +183,65 @@ export async function setBackupPinned(id: string, pinned: boolean): Promise<void
   await db.prepare("UPDATE backups SET pinned = ? WHERE id = ?").run(pinned ? 1 : 0, id);
 }
 
+/**
+ * Removes the file, then the record. A store that cannot be reached leaves the
+ * record in place — and says so — rather than orphaning a file nobody lists.
+ */
 export async function deleteBackup(id: string): Promise<void> {
   await removeBackupFile(id);
   await db.prepare("DELETE FROM backups WHERE id = ?").run(id);
+  await pruneUnusedDestinations();
 }
 
-/** A connection that goes takes its backups with it: nothing would list them, and they hold its data. */
+/** Deletes each backup in turn; the ones whose store cannot be reached stay (the next sweep tries again). */
+async function deleteBackups(ids: { id: string }[]): Promise<number> {
+  let deleted = 0;
+  for (const { id } of ids) {
+    try {
+      await deleteBackup(id);
+      deleted++;
+    } catch (err) {
+      console.warn(`[backups] could not remove backup ${id}:`, err instanceof Error ? err.message : err);
+    }
+  }
+  return deleted;
+}
+
+/**
+ * A connection that goes takes its backups with it: nothing would list them, and they hold its data.
+ * The stores are resolved first, while the records and the connection's destination are still there;
+ * files in a remote store are then removed in the background — the connection goes either way — and a
+ * failure is logged. (`pruneUnusedDestinations` runs once the connection row itself is gone.)
+ */
 export async function deleteBackupsOfConnection(connectionId: string): Promise<number> {
   const ids = (await db.prepare("SELECT id FROM backups WHERE connection_id = ?").all(connectionId)) as {
     id: string;
   }[];
-  for (const { id } of ids) await deleteBackup(id);
+  const stores = await Promise.all(ids.map(async ({ id }) => ({ id, store: await backupStore(id).catch(() => null) })));
+  await db.prepare("DELETE FROM backups WHERE connection_id = ?").run(connectionId);
   await db.prepare("DELETE FROM backup_schedules WHERE connection_id = ?").run(connectionId);
+  void Promise.allSettled(stores.map(({ id, store }) => (store ? removeFromStore(store, id) : Promise.resolve()))).then(
+    (results) => {
+      for (const result of results) {
+        if (result.status === "rejected") {
+          console.warn("[backups] a deleted connection's backup file was left behind:", result.reason);
+        }
+      }
+    },
+  );
   return ids.length;
 }
 
 /**
  * A backup still `running` when the server starts was cut short by the
  * restart: its file is partial and has no key. Said so, rather than left
- * spinning forever.
+ * spinning forever. (A multipart upload to S3 that was cut short leaves no
+ * object; its parts are the bucket's lifecycle rule to expire.)
  */
 export async function failInterruptedBackups(): Promise<number> {
   const ids = (await db.prepare("SELECT id FROM backups WHERE status = 'running'").all()) as { id: string }[];
   for (const { id } of ids) {
-    await removeBackupFile(id);
+    await removeBackupFile(id).catch(() => {});
     await markBackupEnded(id, "failed", "interrupted by a server restart");
   }
   return ids.length;
@@ -209,8 +255,7 @@ export async function pruneScheduledBackups(connectionId: string, keep: number):
         ORDER BY started_at DESC, seq DESC OFFSET ?`,
     )
     .all(connectionId, keep)) as { id: string }[];
-  for (const { id } of ids) await deleteBackup(id);
-  return ids.length;
+  return deleteBackups(ids);
 }
 
 /** Removes what is past the retention, pinned and scheduled backups excepted. `0` days keeps everything. */
@@ -222,6 +267,5 @@ export async function purgeExpiredBackups(): Promise<number> {
           AND NOT (trigger = 'scheduled' AND status = 'done')`,
     )
     .all(`-${config.databaseBackupRetentionDays} days`)) as { id: string }[];
-  for (const { id } of ids) await deleteBackup(id);
-  return ids.length;
+  return deleteBackups(ids);
 }
