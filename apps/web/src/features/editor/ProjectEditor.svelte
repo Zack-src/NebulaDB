@@ -15,7 +15,7 @@
 </script>
 
 <script lang="ts">
-  import { untrack } from "svelte";
+  import { onMount, untrack } from "svelte";
   import { SvelteFlowProvider } from "@xyflow/svelte";
   import {
     getMetaMap,
@@ -324,6 +324,24 @@
   // What the canvas should centre on as soon as it can: the table a search hit
   // or a link asked for when the project opened, or one requested later from
   // another tab (the console sending a structural change to the schema).
+  /**
+   * The canvas is mounted one task after the first paint. Building its tables is the longest single piece
+   * of work in opening a project; done first, it holds back the code that is ready long before it.
+   */
+  let canvasReady = $state(false);
+  onMount(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const reveal = () => (canvasReady = true);
+    const frame = requestAnimationFrame(() => (timer = setTimeout(reveal, 0)));
+    // A hidden tab pauses animation frames; the canvas must still come.
+    const safety = setTimeout(reveal, 250);
+    return () => {
+      cancelAnimationFrame(frame);
+      clearTimeout(timer);
+      clearTimeout(safety);
+    };
+  });
+
   let focusRequest = $state.raw<{ tableName: string; fieldName?: string } | null>(untrack(() => props.initialFocus) ?? null);
   provideWorkspace({
     openInSchema: (projectId, tableName, fieldName) => {
@@ -650,6 +668,7 @@
         <Icon icon={ChevronRightIcon} size={15} />
       </button>
     {/if}
+    {#if canvasReady}
     <SvelteFlowProvider>
       <!-- Keyed on the view mode: a fresh mount each switch (never a diff),
            which also replays this entrance animation every time — a quick
@@ -711,6 +730,9 @@
         </div>
       {/key}
     </SvelteFlowProvider>
+    {:else}
+      <div class="flex min-h-0 min-w-0 flex-1 bg-[var(--color-bg-canvas)]"></div>
+    {/if}
   </div>
   {#if sql.open && canUseSql && databases.activeConnection}
     <Splitter
