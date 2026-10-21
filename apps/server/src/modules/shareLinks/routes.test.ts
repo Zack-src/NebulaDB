@@ -134,7 +134,7 @@ test("off by default: nobody creates a link until an instance administrator turn
       .all()) as { actor_id: string; detail: string }[];
     assert.deepEqual(audit, [{ actor_id: admin.id, detail: "off -> on" }]);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -196,7 +196,7 @@ test("only the project's administrators manage its links, from a session, within
     assert.equal(limited.statusCode, 409);
     assert.equal(limited.json().code, "SHARE_LINK_LIMIT_REACHED");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -264,7 +264,7 @@ test("token lifecycle: shown once, stored hashed, listed by prefix, counted, rev
     );
     assert.ok(audit.every((row) => row.detail.includes(token.slice(0, 10)) && !row.detail.includes(token)));
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -314,7 +314,7 @@ test("every way of not working answers the same: malformed, unknown, revoked, ex
 
     // Deleting the project deletes its links.
     await call(app, owner.cookie, "PATCH", `/api/projects/${projectId}`, { status: "trashed" });
-    closeAllRooms();
+    await closeAllRooms();
     assert.equal((await call(app, owner.cookie, "DELETE", `/api/projects/${projectId}`)).statusCode, 200);
     assert.equal(
       ((await db.prepare("SELECT COUNT(*) AS n FROM share_links WHERE project_id = ?").get(projectId)) as { n: number })
@@ -323,7 +323,7 @@ test("every way of not working answers the same: malformed, unknown, revoked, ex
     );
     await assertSameRefusal(app, dictionaryOnly.token);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -398,7 +398,7 @@ test("the public answer: the schema as it is now, and nothing about people, comm
     );
     assert.match((await view(app, token, "/diagram.svg")).body, /orders/);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -462,7 +462,7 @@ test("headers, no session either way, and the authenticated API stays closed to 
       assert.equal(status, 401);
     }
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -490,7 +490,7 @@ test("an instance administrator sees and revokes every link", async () => {
     };
     assert.equal(row.revoked_by, admin.id);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -535,7 +535,7 @@ test("the token never reaches the logs", async () => {
     assert.ok(!logged.includes(token), "with the token taken out");
     assert.ok(!logged.includes(token.slice(4)), "all of it");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

@@ -82,7 +82,9 @@ export class SftpStore implements BackupStore {
     } catch (err) {
       await client.end().catch(() => {});
       if (seen && seen !== this.expected) {
-        throw new Error(`the server's host key (${seen}) does not match the saved fingerprint (${this.expected})`);
+        throw new Error(`the server's host key (${seen}) does not match the saved fingerprint (${this.expected})`, {
+          cause: err,
+        });
       }
       throw err;
     }

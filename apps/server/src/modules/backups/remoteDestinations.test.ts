@@ -180,7 +180,7 @@ test("a remote destination is checked before it is kept: bad input, the metadata
     assert.equal(kept.kind, "local");
     assert.equal(kept.hasCredentials, false);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -234,7 +234,7 @@ test("credentials stay encrypted at rest and are never returned; a connection ta
     await call(app, admin, "DELETE", `/api/admin/connections/${connId}`);
     assert.equal(await scalar("SELECT COUNT(*) AS n FROM backup_destinations WHERE id = ?", id), 0);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -283,7 +283,7 @@ test("a backup whose remote cannot be reached fails clearly, and is not forgotte
     assert.equal(await scalar("SELECT COUNT(*) AS n FROM backups WHERE id = ?", backup.id), 1);
   } finally {
     console.warn = warn;
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -468,7 +468,7 @@ async function exercise(remote: Remote): Promise<void> {
     assert.deepEqual(await remote.list(), []);
     assert.equal(await scalar("SELECT COUNT(*) AS n FROM backup_destinations"), destinationsBefore);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 }

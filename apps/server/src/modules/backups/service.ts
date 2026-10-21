@@ -84,47 +84,42 @@ function optionalSecret(value: unknown, max: number): string | undefined {
   return value;
 }
 
-/**
- * The remote a request describes. A credential left out is taken from the
- * connection's saved destination — but only while the place it opens is the
- * same (bucket and endpoint, or host, port and user): saved keys are never
- * sent somewhere new, so they cannot be redirected to a server of one's own.
- */
-async function parseRemote(body: Record<string, unknown>, connectionId: string): Promise<RemoteDestination> {
-  const savedId = await connectionDestinationId(connectionId);
-  const saved = savedId ? await loadRemoteDestination(savedId) : null;
-  if (body.kind === "s3") {
-    const input = (body.s3 ?? {}) as Record<string, unknown>;
-    if (typeof input !== "object" || Array.isArray(input)) throw invalid();
-    let endpoint = text(input.endpoint, 512, "");
-    if (endpoint) {
-      let url: URL;
-      try {
-        url = new URL(endpoint);
-      } catch {
-        throw invalid();
-      }
-      if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || !url.hostname) throw invalid();
-      endpoint = url.origin + (url.pathname === "/" ? "" : url.pathname.replace(/\/+$/, ""));
+type SavedRemote = RemoteDestination | null;
+
+function parseS3(body: Record<string, unknown>, saved: SavedRemote): RemoteDestination {
+  const input = (body.s3 ?? {}) as Record<string, unknown>;
+  if (typeof input !== "object" || Array.isArray(input)) throw invalid();
+  let endpoint = text(input.endpoint, 512, "");
+  if (endpoint) {
+    let url: URL;
+    try {
+      url = new URL(endpoint);
+    } catch {
+      throw invalid();
     }
-    const bucket = text(input.bucket, 63);
-    if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(bucket)) throw invalid();
-    const prefix = normalizePrefix(text(input.prefix, 512, ""));
-    if (prefix.split("/").includes("..")) throw invalid();
-    const settings = {
-      endpoint,
-      region: text(input.region, 64, "us-east-1"),
-      bucket,
-      prefix: prefix.replace(/\/$/, ""),
-      pathStyle: input.pathStyle === true,
-    };
-    const same = saved?.kind === "s3" && saved.settings.endpoint === endpoint && saved.settings.bucket === bucket;
-    const accessKeyId = optionalSecret(input.accessKeyId, 256) ?? (same ? saved.secret.accessKeyId : undefined);
-    const secretAccessKey =
-      optionalSecret(input.secretAccessKey, 256) ?? (same ? saved.secret.secretAccessKey : undefined);
-    if (!accessKeyId || !secretAccessKey) throw invalid();
-    return { kind: "s3", settings, secret: { accessKeyId, secretAccessKey } };
+    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password || !url.hostname) throw invalid();
+    endpoint = url.origin + (url.pathname === "/" ? "" : url.pathname.replace(/\/+$/, ""));
   }
+  const bucket = text(input.bucket, 63);
+  if (!/^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$/.test(bucket)) throw invalid();
+  const prefix = normalizePrefix(text(input.prefix, 512, ""));
+  if (prefix.split("/").includes("..")) throw invalid();
+  const settings = {
+    endpoint,
+    region: text(input.region, 64, "us-east-1"),
+    bucket,
+    prefix: prefix.replace(/\/$/, ""),
+    pathStyle: input.pathStyle === true,
+  };
+  const same = saved?.kind === "s3" && saved.settings.endpoint === endpoint && saved.settings.bucket === bucket;
+  const accessKeyId = optionalSecret(input.accessKeyId, 256) ?? (same ? saved.secret.accessKeyId : undefined);
+  const secretAccessKey =
+    optionalSecret(input.secretAccessKey, 256) ?? (same ? saved.secret.secretAccessKey : undefined);
+  if (!accessKeyId || !secretAccessKey) throw invalid();
+  return { kind: "s3", settings, secret: { accessKeyId, secretAccessKey } };
+}
+
+function parseSftp(body: Record<string, unknown>, saved: SavedRemote): RemoteDestination {
   const input = (body.sftp ?? {}) as Record<string, unknown>;
   if (typeof input !== "object" || Array.isArray(input)) throw invalid();
   const host = text(input.host, 255);
@@ -155,6 +150,18 @@ async function parseRemote(body: Record<string, unknown>, connectionId: string):
     saved.settings.username === settings.username;
   if (!same) throw invalid();
   return { kind: "sftp", settings, secret: saved.secret };
+}
+
+/**
+ * The remote a request describes. A credential left out is taken from the
+ * connection's saved destination — but only while the place it opens is the
+ * same (bucket and endpoint, or host, port and user): saved keys are never
+ * sent somewhere new, so they cannot be redirected to a server of one's own.
+ */
+async function parseRemote(body: Record<string, unknown>, connectionId: string): Promise<RemoteDestination> {
+  const savedId = await connectionDestinationId(connectionId);
+  const saved = savedId ? await loadRemoteDestination(savedId) : null;
+  return body.kind === "s3" ? parseS3(body, saved) : parseSftp(body, saved);
 }
 
 /**
