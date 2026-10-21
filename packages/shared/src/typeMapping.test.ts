@@ -64,6 +64,11 @@ test("translateType: text has no native type on mssql/oracle", () => {
 test("translateType: timestamp has no native type on mssql", () => {
   assert.equal(translateType("timestamp", "mysql").changed, false); // mysql does have TIMESTAMP
   assert.equal(translateType("timestamp", "mssql").type, "datetime2");
+  // `datetime` and `datetime2` are SQL Server's own date-times: written as such, they are left alone.
+  assert.equal(translateType("datetime", "mssql").changed, false);
+  assert.equal(translateType("datetime2", "mssql").changed, false);
+  assert.equal(translateType("datetime2(3)", "mssql").changed, false);
+  assert.equal(translateType("datetime", "postgres").type, "timestamp");
 });
 
 test("translateType: int is a valid spelling on every engine but Oracle", () => {

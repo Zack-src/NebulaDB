@@ -250,6 +250,8 @@ const FAMILIES: Record<string, FamilyDef> = {
       mysql: ["timestamp", "datetime"],
       sqlite: ["timestamp", "datetime"],
       oracle: ["timestamp"],
+      // SQL Server's own `timestamp` is a row version, not a date: it stays translated.
+      mssql: ["datetime", "datetime2"],
       // TIMESTAMP is a point in time, DATETIME a date and a time without a zone: both exist, neither is forced.
       bigquery: ["timestamp", "datetime"],
     },
