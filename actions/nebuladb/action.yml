@@ -1,0 +1,104 @@
+name: NebulaDB
+description: Lint a schema, check databases for drift, plan or run a deployment on a NebulaDB instance.
+author: NebulaDB
+
+inputs:
+  command:
+    description: "What to run: lint, drift-check, deploy-plan or deploy."
+    required: true
+  url:
+    description: The instance's address, for example https://nebula.example.com.
+    required: true
+  api-key:
+    description: A NebulaDB API key. Pass it from a secret; it is only handed to the CLI through the environment.
+    required: true
+  project:
+    description: The project's id.
+    required: true
+  connection:
+    description: The connection's id (deploy-plan and deploy).
+    required: false
+  confirm-name:
+    description: The connection's exact name, which the production stage asks for (deploy).
+    required: false
+  resolutions-file:
+    description: A JSON file answering the deployment's risks (deploy-plan and deploy). Nothing is answered for you.
+    required: false
+  fail-on:
+    description: "lint: also fail on warnings (warning) or only on errors (error)."
+    required: false
+    default: error
+  ignore-unreachable:
+    description: "drift-check: do not fail on a database that could not be read (true or false)."
+    required: false
+    default: "false"
+  no-backup:
+    description: "deploy: ask the server not to back up first (true or false). The production stage may still insist."
+    required: false
+    default: "false"
+  insecure:
+    description: Allow a plain http:// address to a host other than localhost (true or false).
+    required: false
+    default: "false"
+  cli-version:
+    description: "'source' builds the CLI from this action's own checkout (always matches the instance's version); anything else is the version of @nebuladb/cli to install from npm."
+    required: false
+    default: source
+
+outputs:
+  result:
+    description: Path of the JSON result of the command.
+    value: ${{ steps.run.outputs.result }}
+  exit-code:
+    description: The CLI's exit code (0 done, 1 refused or a check found something, 2 usage, 3 unreachable or key refused).
+    value: ${{ steps.run.outputs.exit-code }}
+
+runs:
+  using: composite
+  steps:
+    - uses: actions/setup-node@v4
+      with:
+        node-version: "22"
+
+    - name: Install the NebulaDB CLI
+      shell: bash
+      env:
+        CLI_VERSION: ${{ inputs.cli-version }}
+        ACTION_PATH: ${{ github.action_path }}
+      run: |
+        set -euo pipefail
+        prefix="$RUNNER_TEMP/nebuladb-cli"
+        mkdir -p "$prefix"
+        if [ "$CLI_VERSION" = "source" ]; then
+          # The CLI has no runtime dependency: compiling it is all it takes.
+          build="$RUNNER_TEMP/nebuladb-cli-build"
+          mkdir -p "$build"
+          cp -R "$ACTION_PATH/../../packages/cli/src" "$build/src"
+          cp "$ACTION_PATH/../../tsconfig.base.json" "$build/tsconfig.base.json"
+          printf '%s' '{"extends":"./tsconfig.base.json","compilerOptions":{"outDir":"dist","rootDir":"src","declaration":false,"sourceMap":false},"include":["src"],"exclude":["src/**/*.test.ts"]}' > "$build/tsconfig.json"
+          (cd "$build" && npm init -y >/dev/null && npm install --no-audit --no-fund --silent typescript@7 @types/node@22 && npx tsc -p tsconfig.json)
+          printf '%s' '{"type":"module"}' > "$build/dist/package.json"
+          echo "$build/dist/bin.js" > "$prefix/bin-path"
+        else
+          (cd "$prefix" && npm init -y >/dev/null && npm install --no-audit --no-fund --silent "@nebuladb/cli@$CLI_VERSION")
+          echo "$prefix/node_modules/@nebuladb/cli/dist/bin.js" > "$prefix/bin-path"
+        fi
+
+    - name: Run
+      id: run
+      shell: bash
+      env:
+        NEBULADB_URL: ${{ inputs.url }}
+        NEBULADB_API_KEY: ${{ inputs.api-key }}
+        INPUT_COMMAND: ${{ inputs.command }}
+        INPUT_PROJECT: ${{ inputs.project }}
+        INPUT_CONNECTION: ${{ inputs.connection }}
+        INPUT_CONFIRM_NAME: ${{ inputs.confirm-name }}
+        INPUT_RESOLUTIONS_FILE: ${{ inputs.resolutions-file }}
+        INPUT_FAIL_ON: ${{ inputs.fail-on }}
+        INPUT_IGNORE_UNREACHABLE: ${{ inputs.ignore-unreachable }}
+        INPUT_NO_BACKUP: ${{ inputs.no-backup }}
+        INPUT_INSECURE: ${{ inputs.insecure }}
+      run: |
+        NEBULADB_BIN="node $(cat "$RUNNER_TEMP/nebuladb-cli/bin-path")" \
+          bash "${{ github.action_path }}/run.sh"
