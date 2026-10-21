@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import fastifyCookie from "@fastify/cookie";
 import fastifyRateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
@@ -45,6 +45,7 @@ import { registerReviewRoutes } from "./modules/reviews/routes.js";
 import { registerBackupRoutes } from "./modules/backups/routes.js";
 import { lockedTableIdsFor } from "./modules/tableLocks/access.js";
 import { registerTableLockRoutes } from "./modules/tableLocks/routes.js";
+import { registerShareLinkRoutes } from "./modules/shareLinks/routes.js";
 import { registerWebhookRoutes } from "./modules/webhooks/routes.js";
 import { noteSchemaChange } from "./modules/webhooks/dispatcher.js";
 import { registerUserRoutes } from "./modules/users/index.js";
@@ -52,6 +53,7 @@ import { getRoom, liveRoomCount, setRoomLogger } from "./realtime/roomRegistry.j
 import { setRoomDocChangeListener } from "./realtime/room.js";
 import { renderPrometheusMetrics } from "./infrastructure/metrics.js";
 import { ApiError, registerErrorHandler } from "./shared/errors.js";
+import { isSharePath, redactShareTokens } from "./shared/logRedaction.js";
 import { getEffectivePermission, permissionAtLeast } from "./shared/permissions.js";
 
 /**
@@ -64,7 +66,29 @@ import { getEffectivePermission, permissionAtLeast } from "./shared/permissions.
  * timers left running past the test, no process-level handlers registered
  * twice if more than one test file imports it.
  */
-export async function buildApp(): Promise<FastifyInstance> {
+export interface BuildAppOptions {
+  /** Where the logger writes instead of stdout — a test reading what got logged. */
+  logStream?: { write(line: string): void };
+}
+
+/**
+ * Sent with the share page and every answer of its API (`modules/shareLinks`):
+ * never cached, never indexed, no `Referer` carrying the token anywhere, not
+ * framable, and nothing fetched from anywhere but this server.
+ */
+const SHARE_HEADERS: Record<string, string> = {
+  "Cache-Control": "no-store",
+  "Referrer-Policy": "no-referrer",
+  "X-Robots-Tag": "noindex, nofollow",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Content-Security-Policy":
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
+    "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; " +
+    "base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+};
+
+export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
   // `bodyLimit` bounds REST payloads (the DBML/SQL import route is the big one);
   // `maxPayload` bounds a single WebSocket frame, which was previously unbounded
   // — a client could send an arbitrarily large Yjs update and the server would
@@ -84,9 +108,22 @@ export async function buildApp(): Promise<FastifyInstance> {
       // where the cookie *is* the credential and a log line containing it is a
       // log line someone can log in with.
       redact: {
-        paths: ["req.headers.cookie", "req.headers.authorization", 'res.headers["set-cookie"]'],
+        paths: ["req.headers.cookie", "req.headers.authorization", "req.headers.referer", 'res.headers["set-cookie"]'],
         censor: "[redacted]",
       },
+      // Fastify's own request serializer, with the share-link token taken out
+      // of the URL: `/share/<token>` is a credential in the request line, and
+      // the "incoming request" line would otherwise write it to every log.
+      serializers: {
+        req: (req: FastifyRequest) => ({
+          method: req.method,
+          url: redactShareTokens(req.url),
+          host: req.host,
+          remoteAddress: req.ip,
+          remotePort: req.socket?.remotePort,
+        }),
+      },
+      ...(options.logStream ? { stream: options.logStream } : {}),
     },
     bodyLimit: config.bodyLimit,
   });
@@ -113,6 +150,16 @@ export async function buildApp(): Promise<FastifyInstance> {
   // database connection is opened as (`infrastructure/actor.ts`).
   app.addHook("onRequest", (_req, _reply, done) => runInActorScope(done));
   app.addHook("onRequest", async (req, reply) => {
+    // A share link's page and API work without an account and must not touch
+    // the viewer's own one: no session read (or rolled forward, which would
+    // set a cookie), no API key. A signed-in viewer is just as anonymous there.
+    if (isSharePath(req.url)) {
+      req.user = null;
+      req.apiKey = null;
+      setActor(null);
+      reply.headers(SHARE_HEADERS);
+      return;
+    }
     req.user = await resolveSession(req, reply);
     if (!req.user) {
       const resolved = await resolveApiKey(req);
@@ -204,6 +251,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerReviewRoutes(app);
   registerBackupRoutes(app);
   registerWebhookRoutes(app);
+  registerShareLinkRoutes(app);
   registerConvertRoutes(app);
   registerEnvironmentRoutes(app);
   registerConnectionRoutes(app);
@@ -235,6 +283,9 @@ export async function buildApp(): Promise<FastifyInstance> {
     app.get("/project/:id", (_req, reply) => reply.sendFile("index.html"));
     // `/project/:id/data`, `/deployments`, `/history` — the workspace tabs.
     app.get("/project/:id/:tab", (_req, reply) => reply.sendFile("index.html"));
+    // A share link's public page: the same bundle, which routes on the path
+    // before the app starts (`main.ts`); the headers come from the share hook above.
+    app.get("/share/:token", (_req, reply) => reply.sendFile("index.html"));
     app.log.info(`serving built web app from ${webDist}`);
   }
 

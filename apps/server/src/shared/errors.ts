@@ -1,5 +1,6 @@
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { recordError, tallyErrorForMetrics } from "./errorLog.js";
+import { redactShareTokens } from "./logRedaction.js";
 
 /**
  * Every error the API can return, in one place.
@@ -192,6 +193,10 @@ export const ERROR_CATALOG = {
     message:
       "events must be a non-empty array of schema.changed, deployment.completed, deployment.review, drift.detected",
   },
+  SHARE_LINK_LABEL_REQUIRED: { status: 400, message: "label is required" },
+  SHARE_LINK_CONTENT_INVALID: { status: 400, message: "shows must be one of diagram, dictionary, both" },
+  SHARE_LINK_EXPIRY_INVALID: { status: 400, message: "expiresInDays must be a whole number of days from 1 to 365" },
+  SHARE_LINK_SETTING_INVALID: { status: 400, message: "enabled must be a boolean" },
   API_KEY_SCOPES_INVALID: {
     status: 400,
     message: "scopes must be a non-empty array of projects:read, projects:write, deployments:trigger",
@@ -238,6 +243,7 @@ export const ERROR_CATALOG = {
   ACCOUNT_DISABLED: { status: 403, message: "this account has been disabled" },
   ORIGIN_INVALID: { status: 403, message: "invalid origin" },
   ORIGIN_MISMATCH: { status: 403, message: "cross-origin request refused" },
+  SHARE_LINKS_DISABLED: { status: 403, message: "share links are turned off on this instance" },
 
   // --- 404 ---
   NOT_FOUND: { status: 404, message: "not found" },
@@ -248,6 +254,8 @@ export const ERROR_CATALOG = {
   CONNECTION_NOT_FOUND: { status: 404, message: "connection not found" },
   API_KEY_NOT_FOUND: { status: 404, message: "no such API key" },
   WEBHOOK_NOT_FOUND: { status: 404, message: "no such webhook on this project" },
+  /** One answer for an unknown, revoked or expired token, or links turned off: the viewer learns nothing more. */
+  SHARE_LINK_NOT_FOUND: { status: 404, message: "this link does not exist or no longer works" },
   DEPLOYMENT_REVIEW_NOT_FOUND: { status: 404, message: "no such review request on this project" },
   TABLE_NOT_FOUND: { status: 404, message: "no such table in this project" },
   ENVIRONMENT_NOT_FOUND: { status: 404, message: "no such environment stage" },
@@ -271,6 +279,7 @@ export const ERROR_CATALOG = {
     message: "this connection is still attached to one or more projects — confirm to delete it anyway",
   },
   WEBHOOK_LIMIT_REACHED: { status: 409, message: "a project can have at most 10 webhooks" },
+  SHARE_LINK_LIMIT_REACHED: { status: 409, message: "a project can have at most 50 active share links" },
 
   // --- 429 ---
   ACCOUNT_LOCKED: { status: 429, message: "too many failed attempts — this account is temporarily locked" },
@@ -493,7 +502,7 @@ export function registerErrorHandler(app: FastifyInstance): void {
     tallyErrorForMetrics("server");
     await recordError("server", err.message, {
       stack: err.stack,
-      context: `${req.method} ${req.url}`,
+      context: `${req.method} ${redactShareTokens(req.url)}`,
       user: req.user ? { id: req.user.id, email: req.user.email } : null,
     });
     return reply.code(500).send(new ApiError("INTERNAL_ERROR").toPayload());

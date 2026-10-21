@@ -883,6 +883,36 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 9,
+    name: "share_links table",
+    up: async (db) => {
+      // A read-only link to a project's diagram and/or dictionary for people
+      // with no account. Only the SHA-256 of the token is kept, like an API
+      // key; `token_prefix` is what the list shows. `shows` is `diagram`,
+      // `dictionary` or `both`. A revoked link keeps its row (and its counter)
+      // so the list can still say who revoked it and when; `created_by` and
+      // `revoked_by` are plain user ids, cleared when the account goes.
+      await db.exec(`
+        CREATE TABLE share_links (
+          id ${T} PRIMARY KEY,
+          project_id ${T} NOT NULL REFERENCES projects(id),
+          label ${T} NOT NULL,
+          token_hash ${T} NOT NULL UNIQUE,
+          token_prefix ${T} NOT NULL,
+          shows ${T} NOT NULL,
+          created_by ${T},
+          created_at ${T} NOT NULL,
+          expires_at ${T} NOT NULL,
+          revoked_at ${T},
+          revoked_by ${T},
+          view_count INTEGER NOT NULL DEFAULT 0,
+          last_viewed_at ${T}
+        );
+        CREATE INDEX idx_share_links_project ON share_links(project_id, created_at);
+      `);
+    },
+  },
 ];
 
 // Any constant will do, as long as every NebulaDB process takes the same one.

@@ -95,6 +95,7 @@ export async function deleteProjectCascade(id: string): Promise<void> {
     await db.prepare("DELETE FROM db_access_grants WHERE connection_id NOT IN (SELECT id FROM db_connections)").run();
     await db.prepare("DELETE FROM db_account_hints WHERE connection_id NOT IN (SELECT id FROM db_connections)").run();
     await db.prepare("DELETE FROM api_keys WHERE project_id = ?").run(id);
+    await db.prepare("DELETE FROM share_links WHERE project_id = ?").run(id);
     await db.prepare("DELETE FROM table_locks WHERE project_id = ?").run(id);
     await db.prepare("DELETE FROM table_seeds WHERE project_id = ?").run(id);
     await db.prepare("DELETE FROM generator_configs WHERE project_id = ?").run(id);

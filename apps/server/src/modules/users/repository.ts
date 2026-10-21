@@ -108,6 +108,9 @@ const purgeUserAndBelongingsTx = async (userId: string, email: string, transferT
     await db.prepare("DELETE FROM db_account_hints WHERE user_id = ?").run(userId);
     await db.prepare("DELETE FROM saved_queries WHERE user_id = ?").run(userId);
     await db.prepare("DELETE FROM invitations WHERE invited_by = ? AND accepted_at IS NULL").run(userId);
+    // A share link belongs to its project, not to whoever made it: it stays, without the name.
+    await db.prepare("UPDATE share_links SET created_by = NULL WHERE created_by = ?").run(userId);
+    await db.prepare("UPDATE share_links SET revoked_by = NULL WHERE revoked_by = ?").run(userId);
     await db.prepare("DELETE FROM login_attempts WHERE email = ?").run(email);
     await db.prepare("DELETE FROM users WHERE id = ?").run(userId);
   });
