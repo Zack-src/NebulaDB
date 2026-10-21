@@ -2,6 +2,7 @@
   import type { DatabaseConnectionSummary } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { DatabaseIcon } from "@/components/icons/Icons";
+  import Button from "@/components/ui/Button.svelte";
   import Badge from "@/components/ui/Badge.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
   import DeploymentPanel from "@/features/connections/deployment/DeploymentPanel.svelte";
@@ -25,6 +26,7 @@
     canDeploy,
     canManage,
     canSkipStage = false,
+    onOpenConnectionsAdmin,
     onDeployed = () => {},
     onShowProblems,
     reviewsKey = 0,
@@ -48,6 +50,8 @@
     /** The project's administrators: the watch's settings are theirs. */
     canManage: boolean;
     canSkipStage?: boolean;
+    /** Takes an instance administrator to Admin → Connections to attach a database. */
+    onOpenConnectionsAdmin?: () => void;
     onDeployed?: () => void;
     onShowProblems?: () => void;
     /** Changes when the server says a review request was made, decided or closed. */
@@ -62,7 +66,17 @@
 <div class="min-h-0 flex-1 overflow-y-auto bg-bg">
   <div class="mx-auto flex max-w-3xl flex-col gap-4 px-6 py-6">
     {#if !connection}
-      <EmptyState>{t("workspace.deployments.noConnection")}</EmptyState>
+      <EmptyState>
+        <p class="m-0 mb-3">{t("workspace.deployments.noConnection")}</p>
+        {#if onOpenConnectionsAdmin}
+          <Button variant="outline" size="sm" onclick={onOpenConnectionsAdmin}>
+            <Icon icon={DatabaseIcon} size={13} />
+            {t("workspace.deployments.openConnections")}
+          </Button>
+        {:else}
+          <p class="m-0">{t("workspace.deployments.noConnectionMember")}</p>
+        {/if}
+      </EmptyState>
     {:else}
       <div class="flex flex-wrap items-center gap-2">
         <Icon icon={DatabaseIcon} size={16} class="text-text-muted" />

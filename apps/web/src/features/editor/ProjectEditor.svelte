@@ -96,6 +96,8 @@
     onTabChange?: (tab: WorkspaceTab) => void;
     /** Opens another project by id — where a notification leads. */
     onOpenProject?: (projectId: string) => void;
+    /** Opens Admin → Connections; only given to an instance administrator, who is the one who can attach a database. */
+    onOpenConnectionsAdmin?: () => void;
   } = $props();
 
   const { t } = useTranslation();
@@ -603,6 +605,7 @@
       {reviewsSeen}
       onDeployed={() => (deploymentsSeen += 1)}
       onOpenProject={props.onOpenProject}
+      onOpenConnectionsAdmin={props.onOpenConnectionsAdmin}
       {setTab}
       onOpenTable={(tableName, fieldName) => {
         setTab("schema");

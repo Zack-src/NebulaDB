@@ -157,6 +157,7 @@
               tab={routing.tab}
               onTabChange={routing.setTab}
               onOpenProject={openProjectById}
+              onOpenConnectionsAdmin={session.isAdmin ? () => openAdmin("connections") : undefined}
             />
           </ErrorBoundary>
         {/key}

@@ -32,6 +32,7 @@
     reviewsSeen,
     onDeployed,
     onOpenProject,
+    onOpenConnectionsAdmin,
     setTab,
     onOpenTable,
     onPreviewRevision,
@@ -52,6 +53,7 @@
     reviewsSeen: number;
     onDeployed: () => void;
     onOpenProject?: (projectId: string) => void;
+    onOpenConnectionsAdmin?: () => void;
     setTab: (tab: WorkspaceTab) => void;
     /** Leaves the panel for the schema, centred on a table (and a column). */
     onOpenTable: (tableName: string, fieldName?: string) => void;
@@ -74,6 +76,7 @@
       {canDeploy}
       canManage={isProjectAdmin}
       canSkipStage={session.isAdmin}
+      {onOpenConnectionsAdmin}
       onDeployed={onDeployed}
       onShowProblems={() => setTab("problems")}
     />
