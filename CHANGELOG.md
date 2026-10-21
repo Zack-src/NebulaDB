@@ -70,6 +70,18 @@ has a dated entry for. Version 1.0.0 is the first release under the NebulaDB nam
   (`project_folders`, `projects.folder_id`, `project_variants`). `GET /api/projects` and `/api/v1/projects` add
   `folderId` and `variantOf`.
 
+### Added — read-only share links
+
+- A project administrator can create a **share link** (project card, eye icon) to the project's diagram, its
+  data dictionary or both, for people with no account. Off by default: an instance administrator turns
+  the feature on in Administration → Share links, where every link of the instance is listed and can be revoked.
+  A link lasts 1 to 365 days (30 by default), at most 50 live links per project.
+- Only the SHA-256 of the token is stored; the full address is shown once, at creation. The public page and its
+  API never read the viewer's session, send `no-store`, `no-referrer` and `noindex` headers, and keep the token
+  out of the logs. The dictionary shown leaves out the owner annotations. Revoked, expired, unknown links and a
+  trashed project all answer the same way.
+- Migration 9 adds the `share_links` table.
+
 ### Added — single sign-on (OpenID Connect)
 
 - Admin → **Connexion unique (SSO)**: one OpenID Connect provider (Keycloak, Entra ID, Google

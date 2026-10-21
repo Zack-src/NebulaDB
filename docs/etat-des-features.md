@@ -187,18 +187,19 @@ antérieur, maintenant bien visible dans l'onglet Journal).
 
 ## 11. Autour
 
-| Fonctionnalité                                           | État | Reste / remarque                                                                                          |
-| -------------------------------------------------------- | :--: | --------------------------------------------------------------------------------------------------------- |
-| API publique, clés à portées, OpenAPI                    |  🟡  | Pas de quotas par clé ni de clé multi-projets ; rien de nouveau n'y est exposé (accès aux bases, comptes) |
-| Webhooks                                                 |  ✅  | Rotation de secret sans période de grâce                                                                  |
-| Notifications sur les projets suivis, mentions, réponses |  🟡  | Pas d'e-mail, pas de résumé quotidien                                                                     |
-| Plugins                                                  |  🟡  | Pas de partage en équipe                                                                                  |
-| Visite guidée, thèmes, français + anglais                |  ✅  |                                                                                                           |
-| Composants de formulaire maison                          |  🧪  | Une dizaine d'écrans migrés jamais cliqués                                                                |
-| Refonte visuelle, accessibilité, mobile                  |  ❌  |                                                                                                           |
-| Revue de sécurité indépendante, relecture juridique      |  ❌  | Dues avant tout usage réel                                                                                |
-| Première version taguée                                  |  ❌  | Tous les paquets sont encore en `0.0.1`                                                                   |
-| CI GitHub                                                |  🟡  | Corrigée en local (formatage) ; aucun run tant que ce n'est pas poussé                                    |
+| Fonctionnalité                                              | État | Reste / remarque                                                                                                                        |
+| ----------------------------------------------------------- | :--: | --------------------------------------------------------------------------------------------------------------------------------------- |
+| API publique, clés à portées, OpenAPI                       |  🟡  | Pas de quotas par clé ni de clé multi-projets ; rien de nouveau n'y est exposé (accès aux bases, comptes)                               |
+| Webhooks                                                    |  ✅  | Rotation de secret sans période de grâce                                                                                                |
+| Liens de partage en lecture seule (diagramme, dictionnaire) |  🧪  | Désactivés par défaut, activés par un administrateur ; jeton haché, durée de 1 à 365 jours, révocation ; testé serveur et en navigateur |
+| Notifications sur les projets suivis, mentions, réponses    |  🟡  | Pas d'e-mail, pas de résumé quotidien                                                                                                   |
+| Plugins                                                     |  🟡  | Pas de partage en équipe                                                                                                                |
+| Visite guidée, thèmes, français + anglais                   |  ✅  |                                                                                                                                         |
+| Composants de formulaire maison                             |  🧪  | Une dizaine d'écrans migrés jamais cliqués                                                                                              |
+| Refonte visuelle, accessibilité, mobile                     |  ❌  |                                                                                                                                         |
+| Revue de sécurité indépendante, relecture juridique         |  ❌  | Dues avant tout usage réel                                                                                                              |
+| Première version taguée                                     |  ❌  | Tous les paquets sont encore en `0.0.1`                                                                                                 |
+| CI GitHub                                                   |  🟡  | Corrigée en local (formatage) ; aucun run tant que ce n'est pas poussé                                                                  |
 
 ## Lecture d'ensemble
 

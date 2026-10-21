@@ -49,7 +49,7 @@ un moteur cible pour les projets).
 - [x] F3. Export des migrations en fichiers versionnés (Flyway / Liquibase) — `4b743d1`
 - [~] F4. CLI / action GitHub — CLI faite (`4ca2137`, `85ea884`) ; action GitHub non faite
 - [x] F5. Suggestions d'index à partir des statistiques de requêtes — `a5c7745`
-- [!] F6. Lien de partage en lecture seule (diagramme, dictionnaire) — interrompu : serveur commité, interface inachevée, non intégré (branche `agent/share-links`)
+- [x] F6. Lien de partage en lecture seule (diagramme, dictionnaire) — repris de `agent/share-links`, passé sur PostgreSQL
 - [!] F7. Sauvegardes vers S3 / SFTP (en plus du dossier ou partage monté) — interrompu sans commit, non intégré (copie `agent/backup-remote`)
 
 ## G. Dette repérée en route
