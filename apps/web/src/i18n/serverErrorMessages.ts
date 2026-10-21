@@ -187,6 +187,7 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   BACKUP_ALREADY_RUNNING: "errors.backupAlreadyRunning",
   BACKUP_NOT_READY: "errors.backupNotReady",
   BACKUP_CORRUPTED: "errors.backupCorrupted",
+  BACKUP_STORAGE_UNREACHABLE: "errors.backupStorageUnreachable",
   RESTORE_CONFIRMATION_REQUIRED: "errors.restoreConfirmationRequired",
   RESTORE_TARGET_MISMATCH: "errors.restoreTargetMismatch",
 };
@@ -223,7 +224,8 @@ export function describeApiError(error: unknown, t: Translator): string {
     if (
       error.code === "PERSONAL_CREDENTIALS_REJECTED" ||
       error.code === "PERSONAL_PASSWORD_REJECTED" ||
-      error.code === "BACKUP_DESTINATION_UNUSABLE"
+      error.code === "BACKUP_DESTINATION_UNUSABLE" ||
+      error.code === "BACKUP_STORAGE_UNREACHABLE"
     ) {
       return t(key, { reason: String(error.details.reason ?? "") });
     }

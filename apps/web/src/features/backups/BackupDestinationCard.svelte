@@ -1,61 +1,297 @@
 <script lang="ts">
-  import type { BackupDestination } from "@nebuladb/shared";
+  import type { BackupDestination, BackupDestinationInput, BackupDestinationKind } from "@nebuladb/shared";
   import Button from "@/components/ui/Button.svelte";
+  import Checkbox from "@/components/ui/Checkbox.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
   import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
+  import NumberInput from "@/components/ui/NumberInput.svelte";
+  import SegmentedControl from "@/components/ui/SegmentedControl.svelte";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { saveBackupDestination } from "@/services/backupsApi";
 
   /**
-   * "Emplacement": the folder of the server this database's backups are written
-   * to — a local one or a mounted network share. The server creates it and
-   * writes a file there before keeping it, so a path that cannot work is
-   * refused here rather than at the next backup.
+   * "Emplacement": where this database's backups are written — a folder of the
+   * server (local, or a mounted network share), an S3-compatible bucket or an
+   * SFTP server. The server writes a file there, reads it back and deletes it
+   * before keeping anything, so a destination that cannot work is refused here
+   * rather than at the next backup. Credentials are never sent back: a saved
+   * one is kept while its field is left empty.
    */
   let {
     connectionId,
     destination,
     onSaved,
-  }: { connectionId: string; destination: BackupDestination; onSaved: (destination: BackupDestination) => void } = $props();
+  }: {
+    connectionId: string;
+    destination: BackupDestination;
+    onSaved: (destination: BackupDestination) => void;
+  } = $props();
 
   const { t } = useTranslation();
-  let draft = $state<string | null>(null);
+  const LABEL = "mb-1 block text-text-muted";
+  const uid = $props.id();
+
+  let kind = $state<BackupDestinationKind>("local");
+  let directory = $state("");
+  let endpoint = $state("");
+  let region = $state("");
+  let bucket = $state("");
+  let prefix = $state("");
+  let pathStyle = $state(false);
+  let accessKeyId = $state("");
+  let secretAccessKey = $state("");
+  let host = $state("");
+  let port = $state(22);
+  let username = $state("");
+  let remoteDir = $state("");
+  let hostKeyFingerprint = $state("");
+  let authMethod = $state<"password" | "privateKey">("password");
+  let password = $state("");
+  let privateKey = $state("");
+  let passphrase = $state("");
   let saved = $state(false);
-  const value = $derived(draft ?? destination.directory ?? "");
-  const changed = $derived(value.trim() !== (destination.directory ?? ""));
-  const save = useAsyncAction(async (directory: string | null) => {
+
+  /** Fills the form from what the server says is saved (credentials excepted: they never come back). */
+  function load(source: BackupDestination) {
+    kind = source.kind;
+    directory = source.directory ?? "";
+    endpoint = source.s3?.endpoint ?? "";
+    region = source.s3?.region ?? "";
+    bucket = source.s3?.bucket ?? "";
+    prefix = source.s3?.prefix ?? "";
+    pathStyle = source.s3?.pathStyle ?? false;
+    host = source.sftp?.host ?? "";
+    port = source.sftp?.port ?? 22;
+    username = source.sftp?.username ?? "";
+    remoteDir = source.sftp?.remoteDir ?? "";
+    hostKeyFingerprint = source.sftp?.hostKeyFingerprint ?? "";
+    authMethod = source.sftp?.authMethod ?? "password";
+    accessKeyId = secretAccessKey = password = privateKey = passphrase = "";
+  }
+  $effect(() => load(destination));
+
+  const hasSavedCredentials = $derived(destination.kind === kind && destination.hasCredentials);
+
+  function input(): BackupDestinationInput {
+    if (kind === "s3") {
+      return {
+        kind,
+        s3: {
+          endpoint: endpoint.trim(),
+          region: region.trim(),
+          bucket: bucket.trim(),
+          prefix: prefix.trim(),
+          pathStyle,
+          accessKeyId: accessKeyId.trim(),
+          secretAccessKey,
+        },
+      };
+    }
+    if (kind === "sftp") {
+      return {
+        kind,
+        sftp: {
+          host: host.trim(),
+          port,
+          username: username.trim(),
+          remoteDir: remoteDir.trim(),
+          hostKeyFingerprint: hostKeyFingerprint.trim(),
+          ...(authMethod === "password" ? { password } : { privateKey, passphrase }),
+        },
+      };
+    }
+    return { kind, directory: directory.trim() || null };
+  }
+
+  const save = useAsyncAction(async (body: BackupDestinationInput) => {
     saved = false;
-    onSaved(await saveBackupDestination(connectionId, directory));
-    draft = null;
+    onSaved(await saveBackupDestination(connectionId, body));
     saved = true;
   });
+  const touched = () => (saved = false);
 </script>
 
 <div class="mt-3 rounded-md border border-border bg-surface p-3 text-xs" data-testid="backup-destination">
   <div class="mb-1 font-semibold text-text">{t("backups.destination.title")}</div>
   <Hint>{t("backups.destination.hint")}</Hint>
-  <div class="mt-2 flex flex-wrap items-center gap-2">
-    <input
-      class={`${INPUT_SM_CLASS} min-w-[240px] flex-1 font-mono`}
-      aria-label={t("backups.destination.label")}
-      placeholder={t("backups.destination.placeholder", { directory: destination.defaultDirectory })}
-      {value}
-      disabled={save.pending}
-      oninput={(event) => {
-        draft = event.currentTarget.value;
-        saved = false;
-      }}
-      onkeydown={(event) => {
-        if (event.key === "Enter" && changed) void save.run(value.trim() || null);
-      }}
+  <div class="mt-2">
+    <SegmentedControl
+      size="sm"
+      aria-label={t("backups.destination.kind")}
+      bind:value={kind}
+      onChange={touched}
+      options={[
+        { value: "local", label: t("backups.destination.kind.local") },
+        { value: "s3", label: t("backups.destination.kind.s3") },
+        { value: "sftp", label: t("backups.destination.kind.sftp") },
+      ]}
     />
-    <Button size="xs" variant="outline" disabled={!changed || save.pending} onclick={() => void save.run(value.trim() || null)}>
+  </div>
+
+  <div class="mt-2 space-y-2" oninput={touched} role="presentation">
+    {#if kind === "local"}
+      <input
+        class={`${INPUT_SM_CLASS} w-full font-mono`}
+        aria-label={t("backups.destination.label")}
+        placeholder={t("backups.destination.placeholder", { directory: destination.defaultDirectory })}
+        bind:value={directory}
+        disabled={save.pending}
+      />
+    {:else if kind === "s3"}
+      <Hint>{t("backups.destination.s3Hint")}</Hint>
+      <div class="grid grid-cols-2 gap-2">
+        <div class="col-span-2">
+          <label class={LABEL} for={`${uid}-endpoint`}>{t("backups.destination.s3.endpoint")}</label>
+          <input
+            id={`${uid}-endpoint`}
+            class={`${INPUT_SM_CLASS} w-full font-mono`}
+            bind:value={endpoint}
+            placeholder="https://minio.example.com:9000"
+            spellcheck={false}
+          />
+        </div>
+        <div>
+          <label class={LABEL} for={`${uid}-bucket`}>{t("backups.destination.s3.bucket")}</label>
+          <input id={`${uid}-bucket`} class={`${INPUT_SM_CLASS} w-full font-mono`} bind:value={bucket} spellcheck={false} />
+        </div>
+        <div>
+          <label class={LABEL} for={`${uid}-region`}>{t("backups.destination.s3.region")}</label>
+          <input
+            id={`${uid}-region`}
+            class={`${INPUT_SM_CLASS} w-full font-mono`}
+            bind:value={region}
+            placeholder="us-east-1"
+            spellcheck={false}
+          />
+        </div>
+        <div class="col-span-2">
+          <label class={LABEL} for={`${uid}-prefix`}>{t("backups.destination.s3.prefix")}</label>
+          <input
+            id={`${uid}-prefix`}
+            class={`${INPUT_SM_CLASS} w-full font-mono`}
+            bind:value={prefix}
+            placeholder="nebula/backups"
+            spellcheck={false}
+          />
+        </div>
+        <div>
+          <label class={LABEL} for={`${uid}-key`}>{t("backups.destination.s3.accessKeyId")}</label>
+          <input
+            id={`${uid}-key`}
+            class={`${INPUT_SM_CLASS} w-full font-mono`}
+            bind:value={accessKeyId}
+            autocomplete="off"
+            placeholder={hasSavedCredentials ? "••••••••" : ""}
+          />
+        </div>
+        <div>
+          <label class={LABEL} for={`${uid}-secret`}>{t("backups.destination.s3.secretAccessKey")}</label>
+          <input
+            id={`${uid}-secret`}
+            type="password"
+            class={`${INPUT_SM_CLASS} w-full font-mono`}
+            bind:value={secretAccessKey}
+            autocomplete="new-password"
+            placeholder={hasSavedCredentials ? "••••••••" : ""}
+          />
+        </div>
+      </div>
+      <Checkbox bind:checked={pathStyle}>{t("backups.destination.s3.pathStyle")}</Checkbox>
+      {#if hasSavedCredentials}<Hint>{t("backups.destination.keepCredentials")}</Hint>{/if}
+    {:else}
+      <Hint>{t("backups.destination.sftpHint")}</Hint>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class={LABEL} for={`${uid}-host`}>{t("backups.destination.sftp.host")}</label>
+          <input id={`${uid}-host`} class={`${INPUT_SM_CLASS} w-full font-mono`} bind:value={host} spellcheck={false} />
+        </div>
+        <div>
+          <span class={LABEL}>{t("backups.destination.sftp.port")}</span>
+          <NumberInput min={1} max={65535} value={port} onChange={(value) => (port = value ?? 22)} />
+        </div>
+        <div>
+          <label class={LABEL} for={`${uid}-user`}>{t("backups.destination.sftp.username")}</label>
+          <input
+            id={`${uid}-user`}
+            class={`${INPUT_SM_CLASS} w-full font-mono`}
+            bind:value={username}
+            autocomplete="off"
+          />
+        </div>
+        <div>
+          <label class={LABEL} for={`${uid}-dir`}>{t("backups.destination.sftp.remoteDir")}</label>
+          <input
+            id={`${uid}-dir`}
+            class={`${INPUT_SM_CLASS} w-full font-mono`}
+            bind:value={remoteDir}
+            placeholder="/upload/nebula"
+          />
+        </div>
+        <div class="col-span-2">
+          <label class={LABEL} for={`${uid}-fp`}>{t("backups.destination.sftp.fingerprint")}</label>
+          <input
+            id={`${uid}-fp`}
+            class={`${INPUT_SM_CLASS} w-full font-mono`}
+            bind:value={hostKeyFingerprint}
+            placeholder="SHA256:…"
+            spellcheck={false}
+          />
+          <Hint>{t("backups.destination.sftp.fingerprintHint")}</Hint>
+        </div>
+      </div>
+      <SegmentedControl
+        size="sm"
+        aria-label={t("backups.destination.sftp.auth")}
+        bind:value={authMethod}
+        onChange={touched}
+        options={[
+          { value: "password", label: t("backups.destination.sftp.password") },
+          { value: "privateKey", label: t("backups.destination.sftp.privateKey") },
+        ]}
+      />
+      {#if authMethod === "password"}
+        <input
+          type="password"
+          class={`${INPUT_SM_CLASS} w-full`}
+          aria-label={t("backups.destination.sftp.password")}
+          bind:value={password}
+          autocomplete="new-password"
+          placeholder={hasSavedCredentials ? "••••••••" : ""}
+        />
+      {:else}
+        <textarea
+          class={`${INPUT_SM_CLASS} h-20 w-full font-mono`}
+          aria-label={t("backups.destination.sftp.privateKey")}
+          bind:value={privateKey}
+          spellcheck={false}
+          placeholder={hasSavedCredentials ? "••••••••" : "-----BEGIN OPENSSH PRIVATE KEY-----"}
+        ></textarea>
+        <input
+          type="password"
+          class={`${INPUT_SM_CLASS} w-full`}
+          aria-label={t("backups.destination.sftp.passphrase")}
+          placeholder={t("backups.destination.sftp.passphrase")}
+          bind:value={passphrase}
+          autocomplete="new-password"
+        />
+      {/if}
+      {#if hasSavedCredentials}<Hint>{t("backups.destination.keepCredentials")}</Hint>{/if}
+    {/if}
+  </div>
+
+  <div class="mt-2 flex flex-wrap items-center gap-2">
+    <Button size="xs" variant="outline" disabled={save.pending} onclick={() => void save.run(input())}>
       {save.pending ? t("common.loading") : t("backups.destination.save")}
     </Button>
-    {#if destination.directory}
-      <Button size="xs" variant="ghost" disabled={save.pending} onclick={() => void save.run(null)}>
+    {#if destination.kind !== "local" || destination.directory}
+      <Button
+        size="xs"
+        variant="ghost"
+        disabled={save.pending}
+        onclick={() => void save.run({ kind: "local", directory: null })}
+      >
         {t("backups.destination.reset")}
       </Button>
     {/if}

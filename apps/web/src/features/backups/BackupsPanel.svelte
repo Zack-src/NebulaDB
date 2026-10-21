@@ -128,7 +128,14 @@
         <tbody>
           {#each list as backup (backup.id)}
             <tr class="border-t border-border/60 align-top" data-status={backup.status} data-trigger={backup.trigger}>
-              <td class="whitespace-nowrap px-2 py-1.5">{when(backup.startedAt)}</td>
+              <td class="whitespace-nowrap px-2 py-1.5">
+                {when(backup.startedAt)}
+                {#if backup.storage.kind !== "local"}
+                  <span class="block font-mono text-text-muted" title={backup.storage.location}>
+                    {t(`backups.storage.${backup.storage.kind}`)} · {backup.storage.location}
+                  </span>
+                {/if}
+              </td>
               <td class="px-2 py-1.5">
                 {t(`backups.trigger.${backup.trigger}`)}
                 {#if backup.createdByName}<span class="text-text-muted"> · {backup.createdByName}</span>{/if}
