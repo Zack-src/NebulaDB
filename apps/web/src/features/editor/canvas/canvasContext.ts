@@ -27,6 +27,10 @@ export interface CanvasContext {
   readonly zoom: number;
   /** Replaces the table's selection outline with a column selection — deselects every node. */
   deselectAllNodes: () => void;
+  /** Tables still mounted "lite" (a header, no columns) while a big schema opens — see `progressiveDetail`. */
+  readonly lite: ReadonlySet<string>;
+  /** Brings a lite table's columns back now: the pointer is on it. */
+  upgradeLite: (tableId: string) => void;
 }
 
 /** 5% zoom steps are visually indistinguishable in stroke width/arrow size. */

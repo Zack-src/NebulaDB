@@ -25,6 +25,7 @@
   import TableSettingsPopover from "@/features/editor/nodes/table/TableSettingsPopover.svelte";
   import TableNodeRow from "@/features/editor/nodes/table/TableNodeRow.svelte";
   import { getCanvasContext } from "@/features/editor/canvas/canvasContext";
+  import { estimateLiteSize } from "@/features/editor/nodes/table/liteSize";
   import { scheduleNodeInternalsUpdate } from "@/features/editor/canvas/nodeInternalsBatch";
   import type { TableNodeType } from "@/features/editor/nodes/nodeTypes";
   import { useDismissablePopover } from "@/hooks/dismissablePopover.svelte";
@@ -135,13 +136,28 @@
   });
   const isPkField = (field: Field) => field.pk || pkIndexFieldIds.has(field.id);
 
-  const rows = $derived(
+  /** Mounted without its columns while a big schema opens — see `progressiveDetail`. */
+  const lite = $derived(canvas.lite.has(id));
+  /** The columns this table shows at its detail level, whether or not they are drawn yet. */
+  const allRows = $derived(
     table.detailLevel === "compact"
       ? []
       : table.detailLevel === "full"
         ? table.fields
         : table.fields.filter((f) => isPkField(f) || data.refFieldIds.has(f.id)),
   );
+  const rows = $derived(lite ? [] : allRows);
+  /** What a lite table reserves, so the fitted view is close to the final one. */
+  const liteSize = $derived(lite ? estimateLiteSize(table, allRows) : null);
+
+  // The columns came back: the flow has to look at this node's handles again.
+  let wasLite = untrack(() => lite);
+  $effect(() => {
+    const now = lite;
+    if (now === wasLite) return;
+    wasLite = now;
+    scheduleNodeInternalsUpdate(id);
+  });
 
   // Each column row carries its own left/right handles, keyed by field id, so
   // reordering columns moves a handle's on-screen position without changing
@@ -184,6 +200,7 @@
   bind:this={root}
   class={`group table-node ${TABLE_NODE_CLASS} ${selected ? `is-selected ${TABLE_NODE_SELECTED_CLASS}` : ""} ${lock ? "is-locked border-dashed" : ""}`}
   onmouseenter={() => {
+    if (lite) canvas.upgradeLite(id);
     isTableHovered = true;
     data.onTableHoverChange?.(table.id);
   }}
@@ -194,6 +211,8 @@
   style:border-color={selected ? "var(--color-primary)" : table.style?.borderColor}
   style:outline={primaryRemoteSelector ? `2px solid ${primaryRemoteSelector.color}` : undefined}
   style:outline-offset={primaryRemoteSelector ? "2px" : undefined}
+  style:min-width={liteSize ? `calc(${liteSize.width}px * var(--canvas-font-scale))` : undefined}
+  style:min-height={liteSize ? `calc(${liteSize.height}px * var(--canvas-font-scale))` : undefined}
 >
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
@@ -239,6 +258,7 @@
       </span>
     {/if}
 
+    {#if !lite}
     {#if lock}
       <!-- Outside the hover-only actions: a lock has to be visible at rest. -->
       {#if data.onManageLock}
@@ -378,6 +398,7 @@
         />
       {/if}
     </div>
+    {/if}
   </div>
   {#each rows as field (field.id)}
     <TableNodeRow
@@ -403,7 +424,7 @@
       onReorderField={data.onReorderField}
     />
   {/each}
-  {#if data.onAddField && table.detailLevel !== "compact"}
+  {#if data.onAddField && table.detailLevel !== "compact" && !lite}
     <div class={TABLE_FOOTER_CLASS}>
       <button
         type="button"

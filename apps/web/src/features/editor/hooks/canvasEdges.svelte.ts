@@ -49,6 +49,8 @@ export interface CanvasEdgesInput {
   onPaletteChange: (palette: string[]) => void;
   /** False for a `view` grant — the relation keeps its colour picker and waypoints hidden rather than writing changes the server discards. */
   canWrite: () => boolean;
+  /** Tables still mounted lite (no columns): their relations attach to the header, like a compact table's. Absent: none. */
+  lite?: () => ReadonlySet<string>;
   /** Tables a lock forbids this user to alter: the relations they carry are not offered for editing. Absent: none. */
   frozenTableIds?: () => ReadonlySet<string>;
   /**
@@ -165,6 +167,7 @@ export class CanvasEdgesState {
     const onSelectEdge = this.input.onSelectEdge;
     const canWrite = this.input.canWrite();
     const frozen = this.input.frozenTableIds?.() ?? NO_FROZEN_TABLES;
+    const lite = this.input.lite?.() ?? NO_FROZEN_TABLES;
     const issuesByRef = this.input.issuesByRef();
     const showValidationIssues = this.input.showValidationIssues();
     const selectedEdgeId = this.input.selectedEdgeId;
@@ -208,8 +211,8 @@ export class CanvasEdgesState {
         const isSelfRef = ref.from.tableId === ref.to.tableId;
         const { fromSide, toSide } = pickHandleSides(fromBox, toBox);
 
-        const fromCompact = fromTable?.detailLevel === "compact";
-        const toCompact = toTable?.detailLevel === "compact";
+        const fromCompact = fromTable?.detailLevel === "compact" || lite.has(ref.from.tableId);
+        const toCompact = toTable?.detailLevel === "compact" || lite.has(ref.to.tableId);
 
         let sourceHandle: string;
         let targetHandle: string;

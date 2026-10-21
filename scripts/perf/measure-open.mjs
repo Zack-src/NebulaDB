@@ -9,7 +9,10 @@
 // What is timed, from the start of the navigation to a `/project/:id` link:
 //   codeVisible        first painted frame where the DBML editor holds the schema's text
 //   graphFirstVisible  first painted frame where at least one table is on the canvas
-//   graphComplete      first painted frame after the canvas stopped changing (all tables, relations, fit)
+//   graphDrawn         first painted frame where the relations are drawn and the view is fitted: the graph is there
+//   graphComplete      first painted frame after the canvas stopped changing (a schema that fills in its columns
+//                      in the background keeps changing after graphDrawn; one built at once does not)
+// graphComplete also waits for the columns of every table (`.table-node-row`) to be on the canvas.
 // "Painted" comes from the screencast: the first frame at or after the moment the DOM reached that state.
 //
 // Conditions:
@@ -62,11 +65,12 @@ const INIT = () => {
     edges: document.getElementsByClassName("svelte-flow__edge"),
     flow: document.getElementsByClassName("svelte-flow"),
     content: document.getElementsByClassName("cm-content"),
+    rows: document.getElementsByClassName("table-node-row"),
   };
   let last = {};
   const tick = () => {
     const now = performance.now();
-    const s = { nodes: live.nodes.length, edges: live.edges.length };
+    const s = { nodes: live.nodes.length, edges: live.edges.length, rows: live.rows.length };
     const vp = live.flow[0]?.getElementsByClassName("svelte-flow__viewport")[0];
     s.vp = vp ? vp.style.transform : "";
     s.code = (live.content[0]?.textContent.length ?? 0) > 500 ? 1 : 0;
@@ -116,12 +120,18 @@ async function openOnce(browser, cond, ctx) {
     const t = window.__perf;
     const first = (k, p = (v) => v > 0) => t.events.find((e) => e[1] === k && p(e[2]))?.[0] ?? null;
     const lastOf = (...ks) => t.events.filter((e) => ks.includes(e[1])).reduce((a, e) => Math.max(a, e[0]), 0);
-    const complete = lastOf("nodes", "edges", "vp");
+    const complete = lastOf("nodes", "edges", "vp", "rows");
+    const finalEdges = t.events.filter((e) => e[1] === "edges").reduce((a, e) => e[2], 0);
+    const edgesDrawn = t.events.find((e) => e[1] === "edges" && e[2] >= finalEdges * 0.95 && finalEdges > 0)?.[0] ?? null;
+    const firstNode = first("nodes");
+    const vpEvents = t.events.filter((e) => e[1] === "vp" && firstNode !== null && e[0] >= firstNode);
+    const fitted = vpEvents.length ? vpEvents[0][0] : first("vp", (v) => v !== "");
+    const drawn = edgesDrawn !== null && fitted !== null ? Math.max(edgesDrawn, fitted) : complete;
     const lt = t.lt.filter((x) => x[0] <= complete);
     const nav = performance.getEntriesByType("navigation")[0];
     return {
       origin: performance.timeOrigin,
-      codeDom: first("code"), firstNodeDom: first("nodes"), completeDom: complete,
+      codeDom: first("code"), firstNodeDom: firstNode, drawnDom: drawn, completeDom: complete,
       fcp: performance.getEntriesByType("paint").find((p) => p.name === "first-contentful-paint")?.startTime ?? null,
       wsFirstMessage: t.ws, nodes: document.getElementsByClassName("svelte-flow__node").length, edges: document.getElementsByClassName("svelte-flow__edge").length,
       longTasks: lt.length, longTaskMs: lt.reduce((a, x) => a + x[1], 0), longestMs: Math.max(0, ...lt.map((x) => x[1])),
@@ -134,7 +144,7 @@ async function openOnce(browser, cond, ctx) {
   const painted = (domMs) => { if (domMs == null) return null; const t = m.origin + domMs; const f = frames.find((x) => x >= t); return f ? Math.round(f - m.origin) : null; };
   return {
     settled, ...m,
-    codeVisible: painted(m.codeDom), graphFirstVisible: painted(m.firstNodeDom), graphComplete: painted(m.completeDom),
+    codeVisible: painted(m.codeDom), graphFirstVisible: painted(m.firstNodeDom), graphDrawn: painted(m.drawnDom), graphComplete: painted(m.completeDom),
     requests, transferKB: Math.round(bytes / 1024),
   };
 }
@@ -170,12 +180,12 @@ for (const name of wanted) {
   }
   if (ctx) await ctx.close();
   if (proxy) await proxy.close();
-  const keys = ["fcp", "wsFirstMessage", "codeVisible", "graphFirstVisible", "graphComplete", "codeDom", "firstNodeDom", "completeDom", "longTasks", "longTaskMs", "longestMs", "domElements", "heapMB", "requests", "transferKB"];
+  const keys = ["fcp", "wsFirstMessage", "codeVisible", "graphFirstVisible", "graphDrawn", "graphComplete", "codeDom", "firstNodeDom", "drawnDom", "completeDom", "longTasks", "longTaskMs", "longestMs", "domElements", "heapMB", "requests", "transferKB"];
   result.conditions[name] = {
     cpu: cond.cpu, cold: cond.cold, net: cond.net ? { rttMs: cond.net.rttMs, downMbit: cond.net.mbit } : null,
     median: Object.fromEntries(keys.map((k) => [k, (() => { const v = median(raw.map((r) => r[k])); return v == null ? null : Math.round(v * 10) / 10; })()])),
-    p25: Object.fromEntries(keys.slice(2, 5).map((k) => [k, quantile(raw.map((r) => r[k]), 0.25)])),
-    p75: Object.fromEntries(keys.slice(2, 5).map((k) => [k, quantile(raw.map((r) => r[k]), 0.75)])),
+    p25: Object.fromEntries(keys.slice(2, 6).map((k) => [k, quantile(raw.map((r) => r[k]), 0.25)])),
+    p75: Object.fromEntries(keys.slice(2, 6).map((k) => [k, quantile(raw.map((r) => r[k]), 0.75)])),
     unsettledRuns: raw.filter((r) => !r.settled).length,
     raw,
   };
@@ -194,5 +204,5 @@ fs.writeFileSync(outFile, JSON.stringify(result, null, 1));
 console.log(`\n${LABEL} (${sha})`);
 for (const [name, c] of Object.entries(result.conditions)) {
   const m = c.median;
-  console.log(`${name.padEnd(8)} code ${String(m.codeVisible).padStart(5)} ms | graph first ${String(m.graphFirstVisible).padStart(5)} | graph complete ${String(m.graphComplete).padStart(5)} | long tasks ${m.longTasks} (${Math.round(m.longTaskMs)} ms, max ${Math.round(m.longestMs)}) | ${m.requests} req ${m.transferKB} KB | heap ${m.heapMB} MB`);
+  console.log(`${name.padEnd(8)} code ${String(m.codeVisible).padStart(5)} ms | graph first ${String(m.graphFirstVisible).padStart(5)} | drawn ${String(m.graphDrawn).padStart(5)} | complete ${String(m.graphComplete).padStart(5)} | long tasks ${m.longTasks} (${Math.round(m.longTaskMs)} ms, max ${Math.round(m.longestMs)}) | ${m.requests} req ${m.transferKB} KB | heap ${m.heapMB} MB`);
 }

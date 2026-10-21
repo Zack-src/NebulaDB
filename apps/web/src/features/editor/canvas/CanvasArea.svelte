@@ -17,6 +17,8 @@
   const edgeTypes = { ref: RefEdge } as unknown as EdgeTypes;
 
   const GRID_SIZE = 10;
+  /** From this zoom a column's text can be read, so the lite tables must have taken theirs back. */
+  const READABLE_ZOOM = 0.3;
   /**
    * With "highlight every relation" on, the marching-dash animation runs on
    * every relation at once, and a dash offset is not something the compositor
@@ -140,6 +142,14 @@ import type { CanvasNode } from "@/features/editor/nodes/nodeTypes";
     onSetViewMode: (mode: EditorViewMode) => void;
     /** True from the first frame of a pan/zoom to its last — see `ProjectEditor`'s hover gate. */
     onViewportMovingChange: (moving: boolean) => void;
+    /** Tables still lite while a big schema opens (see `progressiveDetail`), and what to do about them. */
+    lite: ReadonlySet<string>;
+    liteActive: boolean;
+    liteSettled: boolean;
+    onUpgradeLite: (tableId: string) => void;
+    onUpgradeAllLite: () => void;
+    /** The nodes are measured and the first fit is done: the columns can start coming back. */
+    onFirstFit: () => void;
   } = $props();
 
   const flow = useSvelteFlow<CanvasNode, RefEdgeType>();
@@ -191,6 +201,10 @@ import type { CanvasNode } from "@/features/editor/nodes/nodeTypes";
       return zoom;
     },
     deselectAllNodes: () => props.nodesState.setSelection(() => false),
+    get lite() {
+      return props.lite;
+    },
+    upgradeLite: (tableId) => props.onUpgradeLite(tableId),
   });
 
   // One batched re-measure per tick, replacing the separate call each table
@@ -277,6 +291,25 @@ import type { CanvasNode } from "@/features/editor/nodes/nodeTypes";
     untrack(() => {
       if (props.nodesState.nodes.length > 0) void flow.fitView();
     });
+  });
+  // The first fit is done once the flow has measured the nodes: tell the editor, which then lets the lite
+  // tables take their columns back.
+  let announcedFirstFit = false;
+  $effect(() => {
+    if (announcedFirstFit || !flowStore.nodesInitialized) return;
+    announcedFirstFit = true;
+    props.onFirstFit();
+  });
+  // Zoomed in far enough to read a column: waiting for the batches would show headers where the user is looking.
+  $effect(() => {
+    // Only a zoom the user made: the viewport starts at 1 before the first fit brings it down.
+    if (props.liteActive && userMovedViewport && zoom >= READABLE_ZOOM) untrack(() => props.onUpgradeAllLite());
+  });
+  // The tables were fitted as headers with a guessed size. With their columns back they are a little larger:
+  // fit once more, unless the user has already taken the view somewhere.
+  $effect(() => {
+    if (!props.liteActive || !props.liteSettled || initialViewport || userMovedViewport) return;
+    untrack(() => void flow.fitView());
   });
   const onMoveStart = (event: MouseEvent | TouchEvent | null) => {
     if (event) userMovedViewport = true;

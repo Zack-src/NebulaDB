@@ -68,6 +68,7 @@
   import { activeDetailLevelOf, createProjectMutations } from "@/features/editor/hooks/projectMutations";
   import { useEditorKeyboardShortcuts } from "@/features/editor/hooks/editorKeyboardShortcuts.svelte";
   import { useCanvasClipboard } from "@/features/editor/hooks/canvasClipboard.svelte";
+  import { useProgressiveDetail } from "@/features/editor/hooks/progressiveDetail.svelte";
   import { useFlashMessage } from "@/hooks/flashMessage.svelte";
   import { useCanvasCommandRunner } from "@/features/editor/hooks/canvasCommandRunner.svelte";
   import ProjectToolbar from "@/features/editor/ProjectToolbar.svelte";
@@ -484,6 +485,9 @@
     selectedTableIds: () => untrack(() => selectedTableIds),
   });
 
+  // A big schema opens with its tables lite and gives them their columns back in the background.
+  const detail = useProgressiveDetail(() => liveProject?.tables ?? []);
+
   const edgesState = new CanvasEdgesState({
     liveProject: () => renderProject,
     doc: () => doc,
@@ -500,6 +504,7 @@
     dragging: () => nodesState.dragging,
     issuesByRef: () => quality.issuesByRef,
     frozenTableIds: () => tableLocks.view.frozen,
+    lite: () => detail.lite,
     showValidationIssues: () => showValidationIssues,
     selectedTableIds: () => selectedTableIds,
   });
@@ -716,6 +721,12 @@
               {viewMode}
               onSetViewMode={(mode) => (viewMode = mode)}
               onViewportMovingChange={setViewportMoving}
+              lite={detail.lite}
+              liteActive={detail.active}
+              liteSettled={detail.settled}
+              onUpgradeLite={detail.upgrade}
+              onUpgradeAllLite={detail.upgradeAll}
+              onFirstFit={detail.start}
             />
           {:else if liveProject}
             <McdCanvas
