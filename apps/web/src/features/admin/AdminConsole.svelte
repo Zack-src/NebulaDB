@@ -1,4 +1,6 @@
 <script lang="ts">
+  import PageHeader from "@/components/layout/PageHeader.svelte";
+  import PageContainer from "@/components/layout/PageContainer.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import NavHeading from "@/components/ui/NavHeading.svelte";
   import NavItem from "@/components/ui/NavItem.svelte";
@@ -92,11 +94,12 @@
     </nav>
     <div class="admin-content">
       <!-- One width for every section, wide enough for the connections data grid and SQL console. -->
-      <div class="mx-auto max-w-[1200px]">
-        <h1 class="mb-5 flex items-center gap-2.5 text-xl font-semibold text-text" data-testid="admin-section-title">
-          <Icon icon={ICONS[section]} size={20} />
-          {t(SECTIONS.find((item) => item.key === section)?.labelKey ?? "admin.title")}
-        </h1>
+      <PageContainer>
+        <PageHeader
+          title={t(SECTIONS.find((item) => item.key === section)?.labelKey ?? "admin.title")}
+          icon={ICONS[section]}
+          testid="admin-section-title"
+        />
         {#if section === "teams"}<TeamsTab />{/if}
         {#if section === "users"}<UsersTab />{/if}
         {#if section === "audit"}<ActivityTab />{/if}
@@ -106,7 +109,7 @@
         {#if section === "lint"}<LintPresetsTab />{/if}
         {#if section === "sso"}<SsoTab />{/if}
         {#if section === "shareLinks"}<ShareLinksTab />{/if}
-      </div>
+      </PageContainer>
     </div>
   </div>
 </div>

@@ -1,7 +1,9 @@
 <script lang="ts">
+  import PageContainer from "@/components/layout/PageContainer.svelte";
+  import PageHeader from "@/components/layout/PageHeader.svelte";
+  import FolderNavigator from "@/features/projects/components/FolderNavigator.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import {
-    ChevronRightIcon,
     CopyIcon,
     DatabaseIcon,
     FolderIcon,
@@ -14,7 +16,7 @@
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import FolderNameModal from "@/features/projects/components/FolderNameModal.svelte";
   import MoveProjectModal from "@/features/projects/components/MoveProjectModal.svelte";
-  import { countInFolder, folderPath, shownFolderOf } from "@/features/projects/components/folderTree";
+  import { folderPath, shownFolderOf } from "@/features/projects/components/folderTree";
   import {
     createFolder,
     createVariant,
@@ -316,41 +318,31 @@
 <div class="flex h-full min-h-0">
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div class="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-6 md:px-6" oncontextmenu={onEmptyArea} data-testid="project-list">
-    <div class="mx-auto max-w-[1040px]">
-      <div class="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-center">
-        <div class="flex items-center gap-2.5">
-          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-light text-primary">
-            <Icon icon={FolderIcon} size={18} />
-          </span>
-          <div>
-            <h1 class="text-xl font-semibold tracking-tight">{t("projects.title")}</h1>
-            <p class="text-xs text-text-muted">{t("projects.subtitle")}</p>
-          </div>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-2">
+    <PageContainer>
+      <PageHeader title={t("projects.title")} icon={FolderIcon} description={t("projects.subtitle")}>
+        {#snippet actions()}
           <Input
             wrapperClassName="w-full sm:w-56"
             placeholder={t("projects.searchPlaceholder")}
             bind:value={searchQuery}
           />
-          <Button onclick={() => newFolderIn(currentFolderId)} class="shrink-0 gap-2 text-xs">
+          <Button onclick={() => newFolderIn(currentFolderId)} class="shrink-0 gap-2 text-label">
             <Icon icon={FolderIcon} size={14} />
             {t("folders.new")}
           </Button>
-          <Button variant="primary" onclick={handleCreate} disabled={creating} class="shrink-0 gap-2 text-xs">
+          <Button variant="primary" onclick={handleCreate} disabled={creating} class="shrink-0 gap-2 text-label">
             <Icon icon={PlusIcon} size={14} />
             {creating ? t("projects.creating") : t("projects.newProject")}
           </Button>
           <Button
             onclick={() => (newFromDatabaseOpen = true)}
-            class="shrink-0 gap-2 text-xs"
+            class="shrink-0 gap-2 text-label"
             aria-label={t("projects.newFromDatabase")}
           >
             <Icon icon={DatabaseIcon} size={14} />
           </Button>
-        </div>
-      </div>
+        {/snippet}
+      </PageHeader>
 
       <div class="mb-4">
         <ProjectTabs {projects} {section} onSectionChange={(next) => (section = next)} />
@@ -358,68 +350,20 @@
 
       {#if createError}<ErrorText>{createError}</ErrorText>{/if}
       {#if folderError}<ErrorText>{folderError}</ErrorText>{/if}
-      {#if browsingFolders && (breadcrumb.length > 0 || subfolders.length > 0)}
-        <nav class="mb-3 flex flex-wrap items-center gap-1 text-xs" aria-label={t("folders.breadcrumb")}>
-          <button
-            class={`cursor-pointer rounded-sm border-0 bg-transparent px-1.5 py-0.5 text-text-muted hover:bg-surface-hover hover:text-text ${dropClass(null)}`}
-            aria-current={currentFolderId === null ? "page" : undefined}
-            onclick={() => (currentFolderId = null)}
-            {...dropProps(null)}>{t("folders.top")}</button
-          >
-          {#each breadcrumb as folder (folder.id)}
-            <Icon icon={ChevronRightIcon} size={11} class="text-text-muted" />
-            <button
-              class={`cursor-pointer rounded-sm border-0 bg-transparent px-1.5 py-0.5 font-semibold text-text hover:bg-surface-hover ${dropClass(folder.id)}`}
-              aria-current={folder.id === currentFolderId ? "page" : undefined}
-              onclick={() => (currentFolderId = folder.id)}
-              {...dropProps(folder.id)}>{folder.name}</button
-            >
-          {/each}
-        </nav>
-      {/if}
-      {#if subfolders.length > 0}
-        <div class="mb-4 grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-3">
-          {#each subfolders as folder (folder.id)}
-            <div
-              class={`group flex items-center gap-2 rounded-lg border border-border bg-surface px-3 py-2.5 hover:border-border-strong ${dropClass(folder.id)}`}
-              data-testid="folder-tile"
-              role="group"
-              aria-label={folder.name}
-              oncontextmenu={(event) => onFolderMenu(event, folder)}
-              {...dropProps(folder.id)}
-            >
-              <button
-                class="flex min-w-0 flex-1 cursor-pointer items-center gap-2 border-0 bg-transparent p-0 text-left text-sm font-semibold text-text"
-                onclick={() => (currentFolderId = folder.id)}
-              >
-                <Icon icon={FolderIcon} size={16} class="shrink-0 text-primary" />
-                <span class="truncate">{folder.name}</span>
-                <span class="shrink-0 text-caption font-normal text-text-muted">
-                  {t("folders.count", { count: countInFolder(folders, activeProjects, folder.id) })}
-                </span>
-              </button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t("folders.rename", { name: folder.name })}
-                data-tooltip={t("common.rename")}
-                onclick={() => (folderDialog = { mode: "rename", folder })}
-              >
-                <Icon icon={PencilIcon} size={12} />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t("folders.delete", { name: folder.name })}
-                data-tooltip={t("common.delete")}
-                onclick={() => (folderToDelete = folder)}
-              >
-                <Icon icon={TrashIcon} size={12} />
-              </Button>
-            </div>
-          {/each}
-        </div>
-      {/if}
+      <FolderNavigator
+        {folders}
+        {activeProjects}
+        {breadcrumb}
+        {subfolders}
+        {currentFolderId}
+        showBreadcrumb={browsingFolders && (breadcrumb.length > 0 || subfolders.length > 0)}
+        onOpenFolder={(id) => (currentFolderId = id)}
+        onRenameFolder={(folder) => (folderDialog = { mode: "rename", folder })}
+        onDeleteFolder={(folder) => (folderToDelete = folder)}
+        onFolderMenu={onFolderMenu}
+        {dropProps}
+        {dropClass}
+      />
       {#if section === "trashed" && deletableTrash.length > 0}
         <div class="mb-3 flex justify-end">
           <Button
@@ -490,7 +434,7 @@
         </div>
       {/if}
       <GlobalSearchResults query={searchQuery} onOpenHit={onOpenSearchHit} />
-    </div>
+    </PageContainer>
   </div>
 
   {#if deleteTarget}

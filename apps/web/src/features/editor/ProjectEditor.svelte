@@ -28,7 +28,6 @@
   import { SeedsState } from "@/features/editor/seeds/seeds.svelte";
   import Splitter from "@/components/ui/Splitter.svelte";
   import { SqlDrawerState } from "@/features/sql/sqlDrawer.svelte";
-  import { fingerprintSchema } from "@nebuladb/dbml-engine";
   import { LintState } from "@/features/editor/lint/lint.svelte";
   import { ProjectConnectionsState } from "@/features/editor/projectConnections.svelte";
   import { HistoryPreviewState } from "@/features/editor/history/historyPreview.svelte";
@@ -72,6 +71,8 @@
   import { useFlashMessage } from "@/hooks/flashMessage.svelte";
   import { useCanvasCommandRunner } from "@/features/editor/hooks/canvasCommandRunner.svelte";
   import ProjectToolbar from "@/features/editor/ProjectToolbar.svelte";
+  import EditorDialogs from "@/features/editor/EditorDialogs.svelte";
+  import ProjectTabPanels from "@/features/editor/ProjectTabPanels.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { useCanvasCommands } from "@/features/plugins/plugins.svelte";
   import { inboxPush } from "@/features/notifications/inboxPush.svelte";
@@ -206,6 +207,13 @@
   let localTab = $state<WorkspaceTab>("schema");
   const requestedTab = $derived(props.tab ?? localTab);
   const tab = $derived(workspaceTabs.some((item) => item.id === requestedTab) ? requestedTab : "schema");
+  /** The tabs that replace the editor; a dictionary or history that has no document yet falls back to the schema. */
+  const showsPanel = $derived(
+    tab === "deployments" ||
+      tab === "problems" ||
+      tab === "variants" ||
+      (Boolean(liveProject) && (tab === "dictionary" || tab === "history")),
+  );
   const setTab = (next: WorkspaceTab) => {
     localTab = next;
     props.onTabChange?.(next);
@@ -432,16 +440,10 @@
     viewData: () => (canUseSql ? sql.viewTableData : null),
     historyDiff: () => (tab === "schema" ? history.diffStatus : null),
   });
-  const seedDialogTable = $derived(
-    seedDialogTableId ? (liveProject?.tables.find((table) => table.id === seedDialogTableId) ?? null) : null,
-  );
   /** A `full` lock freezes the rows as well as the shape, for whoever it binds. */
   const seedEditable = (tableId: string) =>
     canWrite &&
     !(tableLocks.view.byTable.get(tableId)?.level === "full" && tableLocks.view.frozen.has(tableId));
-  const lockDialogTable = $derived(
-    lockDialogTableId ? (liveProject?.tables.find((table) => table.id === lockDialogTableId) ?? null) : null,
-  );
 
   // Same array back while the selected set is unchanged — a drag frame
   // replaces `nodes` without changing which tables are selected, and nothing
@@ -583,80 +585,31 @@
   <!-- The other tabs replace the editor rather than cover it: an unmounted
        canvas has no keyboard shortcuts, clipboard handlers or selection to act
        on by accident. The document connection lives above, so nothing is lost. -->
-  {#if tab === "deployments"}
-    {#await import("@/features/workspace/DeploymentsTab.svelte") then { default: DeploymentsTab }}
-      <DeploymentsTab
-        projectId={project.id}
-        connection={databases.activeConnection}
-        connections={databases.connections}
-        refreshKey={deploymentsSeen}
-        reviewsKey={reviewsSeen}
-        schemaHash={liveProject ? fingerprintSchema(liveProject).hash : undefined}
-        tableNames={liveProject?.tables.map((table) => table.name) ?? []}
-        onDeployTo={(id) => {
-          databases.connectionId = id;
-        }}
-        onOpenTable={(tableName) => {
-          setTab("schema");
-          focusRequest = { tableName };
-        }}
-        {canDeploy}
-        canManage={isProjectAdmin}
-        canSkipStage={props.session.isAdmin}
-        onDeployed={() => (deploymentsSeen += 1)}
-        onShowProblems={() => setTab("problems")}
-      />
-    {/await}
-  {:else if tab === "problems"}
-    {#await import("@/features/editor/lint/ProblemsPanel.svelte") then { default: ProblemsPanel }}
-      <ProblemsPanel
-        findings={quality.findings}
-        settings={lint.settings}
-        source={lint.source}
-        presets={lint.presets}
-        canFix={quality.canEditTable}
-        canManage={isProjectAdmin}
-        onOpenTable={(tableName, fieldName) => {
-          setTab("schema");
-          focusRequest = { tableName, fieldName };
-        }}
-        onFix={quality.fix}
-        onSaveSettings={lint.save}
-        onChoosePreset={lint.choosePreset}
-      />
-    {/await}
-  {:else if tab === "dictionary" && liveProject}
-    {#await import("@/features/editor/dictionary/DictionaryPanel.svelte") then { default: DictionaryPanel }}
-      <DictionaryPanel
-        project={liveProject}
-        canEdit={quality.canEditTable}
-        onOpenTable={(tableName, fieldName) => {
-          setTab("schema");
-          focusRequest = { tableName, fieldName };
-        }}
-        onSaveTableNote={quality.saveTableNote}
-        onSaveFieldNote={quality.saveFieldNote}
-      />
-    {/await}
-  {:else if tab === "variants"}
-    {#await import("@/features/workspace/variants/VariantsPanel.svelte") then { default: VariantsPanel }}
-      <VariantsPanel {project} onOpenProject={props.onOpenProject} />
-    {/await}
-  {:else if tab === "history" && liveProject}
-    {#await import("@/features/editor/history/HistoryPanel.svelte") then { default: HistoryPanel }}
-      <HistoryPanel
-        projectId={project.id}
-        currentProject={liveProject}
-        currentUser={user}
-        initialRevisionId={history.revisionId}
-        canRestore={canWrite}
-        onPreview={previewRevision}
-        onClose={() => {
-          history.close();
-          setTab("schema");
-        }}
-      />
-    {/await}
+  {#if showsPanel}
+    <ProjectTabPanels
+      {tab}
+      {project}
+      {liveProject}
+      session={props.session}
+      {user}
+      {databases}
+      {quality}
+      {lint}
+      {history}
+      {canWrite}
+      {canDeploy}
+      {isProjectAdmin}
+      {deploymentsSeen}
+      {reviewsSeen}
+      onDeployed={() => (deploymentsSeen += 1)}
+      onOpenProject={props.onOpenProject}
+      {setTab}
+      onOpenTable={(tableName, fieldName) => {
+        setTab("schema");
+        focusRequest = { tableName, fieldName };
+      }}
+      onPreviewRevision={previewRevision}
+    />
   {:else}
   {#if history.preview && history.diff}
     <HistoryPreviewBanner
@@ -782,92 +735,29 @@
   </div>
   {/if}
 
-  <!-- Dialogs are code-split: none of them is in the chunk a project view loads. -->
-  {#if showImport && canWrite}
-    {#await import("@/features/editor/io/ImportDialog.svelte") then { default: ImportDialog }}
-      <ImportDialog projectId={project.id} onClose={() => (showImport = false)} />
-    {/await}
-  {/if}
-  {#if showExport && liveProject}
-    {#await import("@/features/editor/io/ExportDialog.svelte") then { default: ExportDialog }}
-      <ExportDialog
-        projectId={project.id}
-        projectName={project.name}
-        project={liveProject}
-        {captureCanvasImage}
-        onClose={() => (showExport = false)}
-      />
-    {/await}
-  {/if}
-  {#if showConvertTypes && liveProject && canWrite}
-    {#await import("@/features/editor/ConvertTypesModal.svelte") then { default: ConvertTypesModal }}
-      <ConvertTypesModal
-        project={liveProject}
-        onApply={mutations.convertFieldTypes}
-        onClose={() => (showConvertTypes = false)}
-      />
-    {/await}
-  {/if}
-  {#if showPlugins}
-    {#await import("@/features/plugins/PluginManagerDialog.svelte") then { default: PluginManagerDialog }}
-      <PluginManagerDialog onClose={() => (showPlugins = false)} />
-    {/await}
-  {/if}
-  {#if showLocksList && liveProject}
-    {#await import("@/features/editor/locks/TableLocksList.svelte") then { default: TableLocksList }}
-      <TableLocksList
-        projectId={project.id}
-        view={tableLocks.view}
-        tableNames={new Map(liveProject.tables.map((table) => [table.id, table.name]))}
-        onOpenTable={(tableName) => {
-          showLocksList = false;
-          setTab("schema");
-          focusRequest = { tableName };
-        }}
-        onManage={(tableId) => {
-          showLocksList = false;
-          openLockDialog(tableId);
-        }}
-        onChanged={() => void tableLocks.refresh()}
-        onClose={() => (showLocksList = false)}
-      />
-    {/await}
-  {/if}
-  {#if lockDialogTable && tableLocks.view.canManage}
-    {#await import("@/features/editor/locks/TableLockDialog.svelte") then { default: TableLockDialog }}
-      <TableLockDialog
-        projectId={project.id}
-        tableId={lockDialogTable.id}
-        tableName={lockDialogTable.name}
-        lock={tableLocks.view.byTable.get(lockDialogTable.id) ?? null}
-        canManage={tableLocks.view.canManage}
-        onChanged={() => void tableLocks.refresh()}
-        onClose={() => (lockDialogTableId = null)}
-      />
-    {/await}
-  {/if}
-  {#if seedDialogTable}
-    {#await import("@/features/editor/seeds/SeedDialog.svelte") then { default: SeedDialog }}
-      <!-- Keyed: another table is another file. -->
-      {#key seedDialogTable.id}
-        <SeedDialog
-          projectId={project.id}
-          table={seedDialogTable}
-          refs={liveProject?.refs ?? []}
-          existing={seeds.byTable.get(seedDialogTable.id) ?? null}
-          canEdit={seedEditable(seedDialogTable.id)}
-          database={props.session.isAdmin && databases.activeConnection
-            ? { id: databases.activeConnection.id, name: databases.activeConnection.name }
-            : null}
-          loadFromDatabase={seedFromDatabase}
-          onClose={() => {
-            seedDialogTableId = null;
-            void seeds.refresh();
-          }}
-        />
-      {/key}
-    {/await}
-  {/if}
+  <EditorDialogs
+    {project}
+    {liveProject}
+    session={props.session}
+    {canWrite}
+    bind:showImport
+    bind:showExport
+    bind:showConvertTypes
+    bind:showPlugins
+    bind:showLocksList
+    bind:lockDialogTableId
+    bind:seedDialogTableId
+    {seedFromDatabase}
+    {tableLocks}
+    {seeds}
+    {databases}
+    {captureCanvasImage}
+    onConvertFieldTypes={mutations.convertFieldTypes}
+    onOpenTable={(tableName) => {
+      setTab("schema");
+      focusRequest = { tableName };
+    }}
+  />
   <!-- Diagnostics overlay for editor stutter/freezes — hidden until Ctrl+Shift+P, see PerfHud. -->
   {#await import("@/components/dev/PerfHud.svelte") then { default: PerfHud }}
     <PerfHud />

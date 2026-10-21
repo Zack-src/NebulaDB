@@ -1,4 +1,7 @@
 <script lang="ts">
+  import { DatabaseIcon } from "@/components/icons/Icons";
+  import PageHeader from "@/components/layout/PageHeader.svelte";
+  import PageContainer from "@/components/layout/PageContainer.svelte";
   import { useAuthSession } from "@/features/auth/authSession.svelte";
   import { useProjects } from "@/features/projects/projects.svelte";
   import { useProjectRouting } from "@/features/projects/projectRouting.svelte";
@@ -179,10 +182,10 @@
       {/key}
     {:else if viewMode === "bases"}
       <div class="min-h-0 flex-1 overflow-auto p-4 md:p-6">
-        <div class="mx-auto max-w-[1240px]">
-          <h1 class="mb-5 text-xl font-semibold tracking-tight">{t("shell.bases")}</h1>
+        <PageContainer>
+          <PageHeader title={t("shell.bases")} icon={DatabaseIcon} />
           <DatabaseWorkspace {session} />
-        </div>
+        </PageContainer>
       </div>
     {:else}
       <!-- 5. Default Workspace Dashboard View -->
