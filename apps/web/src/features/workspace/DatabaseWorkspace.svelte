@@ -5,8 +5,8 @@
   import { fetchMyConnections } from "@/services/personalConnectionsApi";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
-  import PersonalAccountButton from "@/features/connections/PersonalAccountButton.svelte";
-  import DbConsole from "@/features/admin/connections/DbConsole.svelte";
+  import PersonalAccountButton from "@/features/connections/personal/PersonalAccountButton.svelte";
+  import DbConsole from "@/features/connections/console/DbConsole.svelte";
   let { session }: { session: Session } = $props();
   const { t } = useTranslation();
   const connections = useAsyncResource(fetchMyConnections);

@@ -6,7 +6,7 @@
   import { INPUT_CLASS } from "@/components/ui/inputStyles";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { describeApiError } from "@/i18n/serverErrorMessages";
-  import ConnectionFormFields from "@/features/connections/ConnectionFormFields.svelte";
+  import ConnectionFormFields from "@/features/connections/form/ConnectionFormFields.svelte";
   import { createProjectFromDatabase, type CreateProjectFromDatabaseResponse } from "@/services/connectionsApi";
 
   /**

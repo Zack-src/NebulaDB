@@ -4,7 +4,7 @@
   import { DatabaseIcon } from "@/components/icons/Icons";
   import Badge from "@/components/ui/Badge.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
-  import DeploymentPanel from "@/features/connections/DeploymentPanel.svelte";
+  import DeploymentPanel from "@/features/connections/deployment/DeploymentPanel.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import EnvironmentBadge from "@/features/environments/EnvironmentBadge.svelte";
   import CompareEnvironmentsCard from "./CompareEnvironmentsCard.svelte";

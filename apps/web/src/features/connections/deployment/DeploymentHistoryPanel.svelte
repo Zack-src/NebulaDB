@@ -13,7 +13,7 @@
   import { exportMigrations, listDeploymentHistory, type MigrationExportFormat } from "@/services/connectionsApi";
   import { triggerDownload } from "@/utils/download";
   import RollbackConfirmModal from "./RollbackConfirmModal.svelte";
-  import { STRATEGY_LABEL } from "./deployment/deploymentModel";
+  import { STRATEGY_LABEL } from "./deploymentModel";
   import type { TranslationKeyOf } from "@/types";
 
   /**

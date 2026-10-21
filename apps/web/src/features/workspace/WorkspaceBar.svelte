@@ -4,7 +4,7 @@
   import { CodeIcon, DatabaseIcon, LockIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
   import Select from "@/components/ui/Select.svelte";
-  import PersonalAccountButton from "@/features/connections/PersonalAccountButton.svelte";
+  import PersonalAccountButton from "@/features/connections/personal/PersonalAccountButton.svelte";
   import EnvironmentBadge, { STAGE_COLOR } from "@/features/environments/EnvironmentBadge.svelte";
   import Tabs, { type TabItem } from "@/components/ui/Tabs.svelte";
   import type { WorkspaceTab } from "@/features/projects/projectRouting.svelte";

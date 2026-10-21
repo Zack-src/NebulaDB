@@ -1,5 +1,5 @@
 <script lang="ts">
-  import PersonalAccountDialog from "@/features/connections/PersonalAccountDialog.svelte";
+  import PersonalAccountDialog from "@/features/connections/personal/PersonalAccountDialog.svelte";
   import type { AdminConnectionSummary } from "@nebuladb/shared";
   let assigning = $state<AdminConnectionSummary | null>(null);
   import Modal from "@/components/overlays/Modal.svelte";

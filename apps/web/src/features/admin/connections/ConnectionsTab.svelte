@@ -15,9 +15,9 @@
   import List from "@/components/ui/List.svelte";
   import ListMain from "@/components/ui/ListMain.svelte";
   import ListRow from "@/components/ui/ListRow.svelte";
-  import ConnectionEditModal from "@/features/admin/connections/ConnectionEditModal.svelte";
-  import PersonalAccountButton from "@/features/connections/PersonalAccountButton.svelte";
-  import DbConsole from "@/features/admin/connections/DbConsole.svelte";
+  import ConnectionEditModal from "@/features/connections/form/ConnectionEditModal.svelte";
+  import PersonalAccountButton from "@/features/connections/personal/PersonalAccountButton.svelte";
+  import DbConsole from "@/features/connections/console/DbConsole.svelte";
   import EnvironmentBadge from "@/features/environments/EnvironmentBadge.svelte";
   import { parseServerTime } from "@/features/sql/format";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
@@ -245,7 +245,7 @@
 {/if}
 
 {#if diff}
-  {#await import("@/features/connections/DatabaseDifferencesDialog.svelte") then { default: DatabaseDifferencesDialog }}
+  {#await import("@/features/connections/deployment/DatabaseDifferencesDialog.svelte") then { default: DatabaseDifferencesDialog }}
     <DatabaseDifferencesDialog
       projectId={diff.projectId}
       initialConnectionId={diff.connectionId}

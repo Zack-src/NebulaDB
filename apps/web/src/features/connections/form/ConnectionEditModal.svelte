@@ -20,11 +20,11 @@
   import Input from "@/components/ui/Input.svelte";
   import { CheckCircleIcon, CheckIcon } from "@/components/icons/Icons";
   import { INPUT_CLASS } from "@/components/ui/inputStyles";
-  import ConnectionFormFields, { DEFAULT_PORTS } from "@/features/connections/ConnectionFormFields.svelte";
+  import ConnectionFormFields, { DEFAULT_PORTS } from "@/features/connections/form/ConnectionFormFields.svelte";
   import ConnectionSecurityFields, {
     securityForm,
     securityPayload,
-  } from "@/features/connections/ConnectionSecurityFields.svelte";
+  } from "@/features/connections/form/ConnectionSecurityFields.svelte";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
@@ -41,7 +41,7 @@
     type AdminConnectionInput,
   } from "@/services/dbAdminApi";
   import { fetchProjects } from "@/services/projectsApi";
-  import { findDatabaseIssues } from "./projectDatabases";
+  import { findDatabaseIssues } from "../console/projectDatabases";
 
   /**
    * Create or edit one instance-level connection, and choose which projects

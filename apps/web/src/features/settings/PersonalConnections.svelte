@@ -8,7 +8,7 @@
     fetchMyConnections,
     savePersonalConnection,
   } from "@/services/personalConnectionsApi";
-  import ConnectionFormFields, { DEFAULT_PORTS } from "@/features/connections/ConnectionFormFields.svelte";
+  import ConnectionFormFields, { DEFAULT_PORTS } from "@/features/connections/form/ConnectionFormFields.svelte";
   import Modal from "@/components/overlays/Modal.svelte";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Button from "@/components/ui/Button.svelte";

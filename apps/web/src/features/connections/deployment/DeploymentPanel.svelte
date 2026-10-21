@@ -24,13 +24,13 @@
   import { copyText } from "@/utils/clipboard";
   import { DATA_LOSS_STRATEGIES, generateMigrationSql, type MigrationDialect } from "@nebuladb/dbml-engine";
   import DeploymentHistoryPanel from "./DeploymentHistoryPanel.svelte";
-  import DeploymentDiffStep from "./deployment/DeploymentDiffStep.svelte";
-  import DeploymentResultStep from "./deployment/DeploymentResultStep.svelte";
-  import DeploymentRisksStep from "./deployment/DeploymentRisksStep.svelte";
-  import DeploymentSqlStep from "./deployment/DeploymentSqlStep.svelte";
-  import DeploymentStageSkip from "./deployment/DeploymentStageSkip.svelte";
-  import DeploymentStepTabs from "./deployment/DeploymentStepTabs.svelte";
-  import { riskKey, type DeploymentStep } from "./deployment/deploymentModel";
+  import DeploymentDiffStep from "./DeploymentDiffStep.svelte";
+  import DeploymentResultStep from "./DeploymentResultStep.svelte";
+  import DeploymentRisksStep from "./DeploymentRisksStep.svelte";
+  import DeploymentSqlStep from "./DeploymentSqlStep.svelte";
+  import DeploymentStageSkip from "./DeploymentStageSkip.svelte";
+  import DeploymentStepTabs from "./DeploymentStepTabs.svelte";
+  import { riskKey, type DeploymentStep } from "./deploymentModel";
 
   /**
    * The deployment panel: picks a connection, plans the deployment against
