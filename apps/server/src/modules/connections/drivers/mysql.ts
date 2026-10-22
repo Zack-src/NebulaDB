@@ -3,7 +3,8 @@ import mysql from "mysql2/promise";
 import { q } from "@nebuladb/dbml-engine";
 import type { RowDataPacket } from "mysql2/promise";
 import type { Project, Ref, Table, TableIndex } from "@nebuladb/shared";
-import type {
+import {
+  oneBatch,
   DatabaseDriver,
   DriverConnectionConfig,
   MigrationExecutionResult,
@@ -206,14 +207,25 @@ export class MysqlDriver implements DatabaseDriver {
    * whole table back. Returns the number of rows inserted.
    */
   async insertRows(table: string, columns: string[], rows: RowValue[][]): Promise<number> {
-    if (rows.length === 0) return 0;
+    return this.insertRowBatches(table, columns, oneBatch(rows));
+  }
+
+  /**
+   * `insertRows` for a seed too big to hold: the batches arrive one after the other (read from a file) and
+   * all go in the same transaction.
+   */
+  async insertRowBatches(table: string, columns: string[], batches: AsyncIterable<RowValue[][]>): Promise<number> {
     const conn = await this.pool.getConnection();
     const head = `INSERT INTO ${q(table, "mysql")} (${columns.map((c) => q(c, "mysql")).join(", ")}) VALUES ?`;
     try {
       await conn.beginTransaction();
-      for (let i = 0; i < rows.length; i += 500) await conn.query(head, [rows.slice(i, i + 500)]);
+      let total = 0;
+      for await (const rows of batches) {
+        for (let i = 0; i < rows.length; i += 500) await conn.query(head, [rows.slice(i, i + 500)]);
+        total += rows.length;
+      }
       await conn.commit();
-      return rows.length;
+      return total;
     } catch (err) {
       await conn.rollback().catch(() => {});
       throw err;

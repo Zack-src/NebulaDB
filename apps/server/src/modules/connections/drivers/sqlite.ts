@@ -5,7 +5,7 @@ import Database from "better-sqlite3";
 import type { DatabaseConnectionConfig, Project, Ref, Table, TableIndex } from "@nebuladb/shared";
 import { config as appConfig } from "../../../config.js";
 import { ApiError } from "../../../shared/errors.js";
-import type { DatabaseDriver, MigrationExecutionResult, RowValue, TestConnectionResult } from "./interface.js";
+import { oneBatch, DatabaseDriver, MigrationExecutionResult, RowValue, TestConnectionResult } from "./interface.js";
 
 /** Follows symlinks as far as the path exists, so a link inside the allowed directory can't point back out of it. */
 function realPath(target: string): string {
@@ -155,14 +155,31 @@ export class SqliteDriver implements DatabaseDriver {
    * whole table back. Returns the number of rows inserted.
    */
   async insertRows(table: string, columns: string[], rows: RowValue[][]): Promise<number> {
-    if (rows.length === 0) return 0;
+    return this.insertRowBatches(table, columns, oneBatch(rows));
+  }
+
+  /**
+   * `insertRows` for a seed too big to hold: the batches arrive one after the other (read from a file) and
+   * all go in the same transaction.
+   */
+  async insertRowBatches(table: string, columns: string[], batches: AsyncIterable<RowValue[][]>): Promise<number> {
     const statement = this.db.prepare(
       `INSERT INTO ${q(table, "sqlite")} (${columns.map((c) => q(c, "sqlite")).join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`,
     );
-    this.db.transaction((all: RowValue[][]) => {
-      for (const row of all) statement.run(...row);
-    })(rows);
-    return rows.length;
+    // better-sqlite3 transactions are synchronous: begin and commit by hand around the awaited batches.
+    let total = 0;
+    this.db.exec("BEGIN");
+    try {
+      for await (const rows of batches) {
+        for (const row of rows) statement.run(...row);
+        total += rows.length;
+      }
+      this.db.exec("COMMIT");
+    } catch (err) {
+      this.db.exec("ROLLBACK");
+      throw err;
+    }
+    return total;
   }
 
   /**

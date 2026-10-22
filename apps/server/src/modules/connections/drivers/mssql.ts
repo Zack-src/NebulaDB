@@ -2,7 +2,8 @@ import net from "node:net";
 import { q } from "@nebuladb/dbml-engine";
 import sql from "mssql";
 import type { Project, Ref, Table, TableIndex } from "@nebuladb/shared";
-import type {
+import {
+  oneBatch,
   DatabaseDriver,
   DriverConnectionConfig,
   MigrationExecutionResult,
@@ -202,7 +203,14 @@ export class MssqlDriver implements DatabaseDriver {
    * nothing stays on the pooled connection, even when the insert fails.
    */
   async insertRows(table: string, columns: string[], rows: RowValue[][]): Promise<number> {
-    if (rows.length === 0) return 0;
+    return this.insertRowBatches(table, columns, oneBatch(rows));
+  }
+
+  /**
+   * `insertRows` for a seed too big to hold: the batches arrive one after the other (read from a file) and
+   * all go in the same transaction.
+   */
+  async insertRowBatches(table: string, columns: string[], batches: AsyncIterable<RowValue[][]>): Promise<number> {
     const pool = await this.ready;
     const target = q(table, "mssql");
     const identity = await pool
@@ -219,6 +227,8 @@ export class MssqlDriver implements DatabaseDriver {
     const tail = keepsIdentity ? `; SET IDENTITY_INSERT ${target} OFF` : "";
     await transaction.begin();
     try {
+      let total = 0;
+      for await (const rows of batches) {
       for (let i = 0; i < rows.length; i += batch) {
         const chunk = rows.slice(i, i + batch);
         const request = new sql.Request(transaction);
@@ -241,8 +251,10 @@ export class MssqlDriver implements DatabaseDriver {
           .join(", ");
         await request.query(head + values + tail);
       }
+      total += rows.length;
+      }
       await transaction.commit();
-      return rows.length;
+      return total;
     } catch (err) {
       await transaction.rollback().catch(() => {});
       throw err;

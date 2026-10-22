@@ -1,7 +1,8 @@
 import oracledb from "oracledb";
 import { q } from "@nebuladb/dbml-engine";
 import type { Project, Ref, Table, TableIndex } from "@nebuladb/shared";
-import type {
+import {
+  oneBatch,
   DatabaseDriver,
   DriverConnectionConfig,
   MigrationExecutionResult,
@@ -198,13 +199,25 @@ export class OracleDriver implements DatabaseDriver {
    * whole table back. Returns the number of rows inserted.
    */
   async insertRows(table: string, columns: string[], rows: RowValue[][]): Promise<number> {
-    if (rows.length === 0) return 0;
+    return this.insertRowBatches(table, columns, oneBatch(rows));
+  }
+
+  /**
+   * `insertRows` for a seed too big to hold: the batches arrive one after the other (read from a file) and
+   * all go in the same transaction.
+   */
+  async insertRowBatches(table: string, columns: string[], batches: AsyncIterable<RowValue[][]>): Promise<number> {
     const conn = await this.getConnection();
     const statement = `INSERT INTO ${q(table, "oracle")} (${columns.map((c) => q(c, "oracle")).join(", ")}) VALUES (${columns.map((_, i) => `:${i + 1}`).join(", ")})`;
     try {
-      await conn.executeMany(statement, rows, { autoCommit: false });
+      let total = 0;
+      for await (const rows of batches) {
+        if (rows.length === 0) continue;
+        await conn.executeMany(statement, rows, { autoCommit: false });
+        total += rows.length;
+      }
       await conn.commit();
-      return rows.length;
+      return total;
     } catch (err) {
       await conn.rollback().catch(() => {});
       throw err;

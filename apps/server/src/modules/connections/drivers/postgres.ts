@@ -1,7 +1,8 @@
 import pg from "pg";
 import { q } from "@nebuladb/dbml-engine";
 import type { Project, Ref, Table, TableIndex } from "@nebuladb/shared";
-import type {
+import {
+  oneBatch,
   DatabaseDriver,
   DriverConnectionConfig,
   MigrationExecutionResult,
@@ -195,20 +196,31 @@ export class PostgresDriver implements DatabaseDriver {
    * whole table back. Returns the number of rows inserted.
    */
   async insertRows(table: string, columns: string[], rows: RowValue[][]): Promise<number> {
-    if (rows.length === 0) return 0;
+    return this.insertRowBatches(table, columns, oneBatch(rows));
+  }
+
+  /**
+   * `insertRows` for a seed too big to hold: the batches arrive one after the other (read from a file) and
+   * all go in the same transaction.
+   */
+  async insertRowBatches(table: string, columns: string[], batches: AsyncIterable<RowValue[][]>): Promise<number> {
     const client = await this.pool.connect();
     const head = `INSERT INTO ${q(table, "postgres")} (${columns.map((c) => q(c, "postgres")).join(", ")}) VALUES `;
     const batch = Math.max(1, Math.min(500, Math.floor(30000 / columns.length)));
     try {
       await client.query("BEGIN");
-      for (let i = 0; i < rows.length; i += batch) {
-        const chunk = rows.slice(i, i + batch);
-        let n = 0;
-        const values = chunk.map((row) => `(${row.map(() => `$${++n}`).join(", ")})`).join(", ");
-        await client.query(head + values, chunk.flat());
+      let total = 0;
+      for await (const rows of batches) {
+        for (let i = 0; i < rows.length; i += batch) {
+          const chunk = rows.slice(i, i + batch);
+          let n = 0;
+          const values = chunk.map((row) => `(${row.map(() => `${++n}`).join(", ")})`).join(", ");
+          await client.query(head + values, chunk.flat());
+        }
+        total += rows.length;
       }
       await client.query("COMMIT");
-      return rows.length;
+      return total;
     } catch (err) {
       await client.query("ROLLBACK").catch(() => {});
       throw err;
