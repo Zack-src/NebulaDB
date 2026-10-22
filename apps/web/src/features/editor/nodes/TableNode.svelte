@@ -17,11 +17,9 @@
     CodeIcon,
     DatabaseIcon,
     LockIcon,
-    LockOpenIcon,
     FileSpreadsheetIcon,
     PlusIcon,
   } from "@/components/icons/Icons";
-  import CommentThread from "@/features/editor/comments/CommentThread.svelte";
   import TableSettingsPopover from "@/features/editor/nodes/table/TableSettingsPopover.svelte";
   import TableNodeRow from "@/features/editor/nodes/table/TableNodeRow.svelte";
   import { getCanvasContext } from "@/features/editor/canvas/canvasContext";
@@ -117,6 +115,19 @@
   const tableComments = $derived(table.comments?.filter((c) => !c.fieldId) ?? []);
   const headerColor = $derived(table.style?.color ?? DEFAULT_HEADER_COLOR);
   const issues = $derived(data.issues ?? []);
+  /**
+   * What the header actions will take once mounted (see `actionsShown`): 24px per button, 13px for the
+   * validation icon, 3px between. Reserved until then, so the table is its final width from the first paint.
+   */
+  const reservedActionsWidth = $derived.by(() => {
+    const widths = [
+      ...(issues.length > 0 ? [13] : []),
+      ...(data.onGoToDbml ? [24] : []),
+      ...(data.onViewData ? [24] : []),
+      ...(data.readOnly ? [] : [24]),
+    ];
+    return widths.length === 0 ? 0 : widths.reduce((sum, w) => sum + w, 0) + (widths.length - 1) * 3;
+  });
   const hasErrorIssue = $derived(issues.some((issue) => issue.severity === "error"));
 
   /**
@@ -311,6 +322,9 @@
       </button>
     {/if}
 
+    {#if !(actionsShown || selected || tableComments.length > 0)}
+      <div class="ml-auto shrink-0" style:width="{reservedActionsWidth}px" aria-hidden="true"></div>
+    {/if}
     {#if actionsShown || selected || tableComments.length > 0}
     <div class={HEADER_ACTIONS_CLASS}>
       {#if issues.length > 0}
@@ -351,45 +365,7 @@
           <Icon icon={DatabaseIcon} size={13} />
         </button>
       {/if}
-      {#if !data.seed && data.onManageSeed}
-        <button
-          type="button"
-          class={`${HEADER_BTN_CLASS} nodrag`}
-          onclick={(event) => {
-            event.stopPropagation();
-            data.onManageSeed?.();
-          }}
-          ondblclick={(event) => event.stopPropagation()}
-          data-tooltip={t("seeds.addTooltip")}
-          aria-label={t("seeds.addTooltip")}
-        >
-          <Icon icon={FileSpreadsheetIcon} size={13} />
-        </button>
-      {/if}
-      {#if !lock && data.onManageLock}
-        <button
-          type="button"
-          class={`${HEADER_BTN_CLASS} nodrag`}
-          onclick={(event) => {
-            event.stopPropagation();
-            data.onManageLock?.();
-          }}
-          ondblclick={(event) => event.stopPropagation()}
-          data-tooltip={t("locks.lockTooltip")}
-          aria-label={t("locks.lockTooltip")}
-        >
-          <Icon icon={LockOpenIcon} size={13} />
-        </button>
-      {/if}
-      {#if !data.readOnly}
-        <CommentThread
-          comments={tableComments}
-          currentUser={data.currentUser}
-          onAdd={(text) => data.onAddComment(text)}
-          onDelete={data.onDeleteComment}
-          triggerClassName={HEADER_BTN_CLASS}
-          tooltip={t("table.comments")}
-        />
+            {#if !data.readOnly}
         <TableSettingsPopover
           {table}
           palette={data.palette}
@@ -400,6 +376,14 @@
           onDeleteIndex={data.onDeleteIndex}
           onDuplicate={data.onDuplicate}
           nameLocked={data.structureLocked}
+          comments={tableComments}
+          currentUser={data.currentUser}
+          onAddComment={(text) => data.onAddComment(text)}
+          onDeleteComment={data.onDeleteComment}
+          onManageLock={data.onManageLock}
+          locked={Boolean(lock)}
+          onManageSeed={data.seed ? undefined : data.onManageSeed}
+          onDelete={data.structureLocked ? undefined : () => canvas.deleteTable(id)}
           triggerClassName={HEADER_BTN_CLASS}
         />
       {/if}

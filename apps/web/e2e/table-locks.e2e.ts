@@ -112,15 +112,22 @@ test(
       await tableHeader(editor, "users").waitFor({ timeout: 10_000 });
       await addColumn(editor, "users").waitFor();
       // An editor is not offered the lock button at all.
-      assert.equal(await editor.getByRole("button", { name: "Verrouiller la table…" }).count(), 0);
+      await clickRevealedOnHover(
+        tableNode(editor, "users"),
+        tableNode(editor, "users").getByRole("button", { name: "Paramètres de la table" }),
+      );
+      await editor.getByText("Paramètres de la table", { exact: true }).waitFor();
+      assert.equal(await editor.getByRole("button", { name: "Verrouiller la table" }).count(), 0);
+      await editor.keyboard.press("Escape");
 
       // --- The administrator locks `users` ---
       await admin.goto(`${env.baseUrl}/project/${projectId}`);
       await tableHeader(admin, "users").waitFor({ timeout: 10_000 });
       await clickRevealedOnHover(
         tableNode(admin, "users"),
-        tableNode(admin, "users").getByRole("button", { name: "Verrouiller la table…" }),
+        tableNode(admin, "users").getByRole("button", { name: "Paramètres de la table" }),
       );
+      await admin.getByRole("button", { name: "Verrouiller la table" }).click();
       const dialog = admin.getByRole("dialog", { name: "Verrou de la table « users »" });
       await dialog.getByRole("radio", { name: /Structure/ }).waitFor();
       await dialog.getByLabel("Motif (visible par tous)").fill("Table de référence RH");

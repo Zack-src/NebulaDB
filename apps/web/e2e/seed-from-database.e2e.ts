@@ -73,7 +73,8 @@ test("seeds: a table's rows in the database become its initial data, after revie
     // From the table on the schema: its initial data dialog takes the database's rows — not saved yet.
     await page.goto(`${env.baseUrl}/project/${projectId}`);
     const node = page.locator(".svelte-flow__node").filter({ hasText: "countries" });
-    await clickRevealedOnHover(node, node.getByRole("button", { name: "Données initiales (CSV)" }));
+    await clickRevealedOnHover(node, node.getByRole("button", { name: "Paramètres de la table" }));
+    await page.getByRole("button", { name: "Données initiales (CSV)" }).click();
     const dialog = page.getByRole("dialog", { name: "Données initiales — countries" });
     await dialog.getByRole("button", { name: "Reprendre les lignes de la base" }).click();
     await dialog.getByText("Lignes de « Base boutique »").waitFor();

@@ -205,6 +205,7 @@ import type { CanvasNode } from "@/features/editor/nodes/nodeTypes";
       return props.lite;
     },
     upgradeLite: (tableId) => props.onUpgradeLite(tableId),
+    deleteTable: (tableId) => props.nodesState.deleteNodes([tableId]),
   });
 
   // One batched re-measure per tick, replacing the separate call each table

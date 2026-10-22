@@ -27,6 +27,8 @@ export interface CanvasContext {
   readonly zoom: number;
   /** Replaces the table's selection outline with a column selection — deselects every node. */
   deselectAllNodes: () => void;
+  /** Removes a table and the relations touching it (a locked table is kept, and the user told). */
+  deleteTable: (tableId: string) => void;
   /** Tables still mounted "lite" (a header, no columns) while a big schema opens — see `progressiveDetail`. */
   readonly lite: ReadonlySet<string>;
   /** Brings a lite table's columns back now: the pointer is on it. */

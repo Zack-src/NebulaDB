@@ -71,8 +71,9 @@ test("seeds: CSV in the editor, checked, shown on the table, deployed", { timeou
     const node = (name: string) => page.locator(".svelte-flow__node").filter({ hasText: name });
     await clickRevealedOnHover(
       node("customers"),
-      node("customers").getByRole("button", { name: "Données initiales (CSV)" }),
+      node("customers").getByRole("button", { name: "Paramètres de la table" }),
     );
+    await page.getByRole("button", { name: "Données initiales (CSV)" }).click();
     const dialog = page.getByRole("dialog", { name: "Données initiales — customers" });
     await dialog.waitFor();
 
@@ -103,7 +104,8 @@ test("seeds: CSV in the editor, checked, shown on the table, deployed", { timeou
     await node("customers").getByRole("button", { name: "Données initiales : 2 lignes" }).waitFor();
 
     // orders: generated rows, their customer drawn from the customers' initial data.
-    await clickRevealedOnHover(node("orders"), node("orders").getByRole("button", { name: "Données initiales (CSV)" }));
+    await clickRevealedOnHover(node("orders"), node("orders").getByRole("button", { name: "Paramètres de la table" }));
+    await page.getByRole("button", { name: "Données initiales (CSV)" }).click();
     const orders = page.getByRole("dialog", { name: "Données initiales — orders" });
     await orders.getByRole("tab", { name: "Générer" }).click();
     await orders.getByRole("spinbutton", { name: "Lignes" }).fill("8");
