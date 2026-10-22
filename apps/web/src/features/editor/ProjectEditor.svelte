@@ -70,6 +70,7 @@
   import { useCanvasClipboard } from "@/features/editor/hooks/canvasClipboard.svelte";
   import { useProgressiveDetail } from "@/features/editor/hooks/progressiveDetail.svelte";
   import { dismissEarlySnapshot } from "@/utils/earlyStart";
+  import OpeningProgress from "@/features/editor/OpeningProgress.svelte";
   import { useFlashMessage } from "@/hooks/flashMessage.svelte";
   import { useCanvasCommandRunner } from "@/features/editor/hooks/canvasCommandRunner.svelte";
   import ProjectToolbar from "@/features/editor/ProjectToolbar.svelte";
@@ -674,6 +675,7 @@
         <Icon icon={ChevronRightIcon} size={15} />
       </button>
     {/if}
+    <OpeningProgress working={detail.active && !detail.settled} progress={detail.progress} />
     {#if canvasReady}
     <SvelteFlowProvider>
       <!-- Keyed on the view mode: a fresh mount each switch (never a diff),

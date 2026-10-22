@@ -239,6 +239,7 @@
   "projects.globalSearch.kind.enum": "enum",
   "projects.linkGone": "That project no longer exists.",
   "projects.opening": "Opening the project…",
+  "editor.opening.columns": "Loading columns",
   "projects.linkForbidden": "You don't have access to that project.",
   "projects.emptyTrashPartialFailure_one": "{{count}} project could not be deleted.",
   "projects.emptyTrashPartialFailure_other": "{{count}} projects could not be deleted.",

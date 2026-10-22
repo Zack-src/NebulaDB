@@ -33,6 +33,7 @@
   import SettingSwitch from "@/components/ui/SettingSwitch.svelte";
   import NavItem from "@/components/ui/NavItem.svelte";
   import Table, { TABLE_CELL, TABLE_ROW } from "@/components/ui/Table.svelte";
+  import ProgressBar from "@/components/ui/ProgressBar.svelte";
   import TextArea from "@/components/ui/TextArea.svelte";
   import { toast } from "@/components/ui/toast.svelte";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
@@ -288,6 +289,13 @@
         />
         <NavItem label={t("componentCatalogue.checkboxDisabled")} icon={TableIcon} active onclick={() => {}} />
         <NavItem label={t("componentCatalogue.menuLocked")} icon={SearchIcon} onclick={() => {}} />
+      </div>
+    </Section>
+
+    <Section title="ProgressBar" description="Une barre fine pour une attente : valeur connue ou balayage indéterminé. À afficher avec useDelayedFlag, jamais pour un clignement.">
+      <div class="flex max-w-sm flex-col gap-3">
+        <ProgressBar value={60} label={t("componentCatalogue.menuShowGrid")} />
+        <ProgressBar label={t("componentCatalogue.menuShowGrid")} />
       </div>
     </Section>
 

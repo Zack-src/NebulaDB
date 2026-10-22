@@ -33,6 +33,8 @@ export interface ProgressiveDetail {
   readonly active: boolean;
   /** True once every table has its columns: the canvas can be fitted a last time. */
   readonly settled: boolean;
+  /** How much of the schema has its columns back, 0 to 1 (0 until the upgrade begins). */
+  readonly progress: number;
   /** Brings one table's columns back now (the pointer is on it). */
   upgrade: (tableId: string) => void;
   /** Brings every table's columns back now (the view is zoomed in enough to read them). */
@@ -46,6 +48,7 @@ export function useProgressiveDetail(tables: () => readonly Table[]): Progressiv
   let settled = $state(false);
   let began = $state(false);
   let canvasShown = false;
+  let total = $state(0);
   let queue: string[] = [];
   let batchSize = 1;
   let timer: ReturnType<typeof setTimeout> | undefined;
@@ -88,6 +91,7 @@ export function useProgressiveDetail(tables: () => readonly Table[]): Progressiv
       .sort((a, b) => a.d - b.d)
       .map((entry) => entry.id);
     batchSize = Math.max(1, Math.ceil(queue.length / BATCHES));
+    total = queue.length;
     lite = new Set(queue);
     if (canvasShown) begin();
     return () => clearTimeout(timer);
@@ -102,6 +106,9 @@ export function useProgressiveDetail(tables: () => readonly Table[]): Progressiv
     },
     get settled() {
       return settled;
+    },
+    get progress() {
+      return total === 0 ? 0 : 1 - lite.size / total;
     },
     upgrade(tableId) {
       if (!lite.has(tableId)) return;
