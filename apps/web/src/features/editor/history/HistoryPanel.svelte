@@ -18,13 +18,12 @@
   import Input from "@/components/ui/Input.svelte";
   import { untrack } from "svelte";
   import type { Project } from "@nebuladb/shared";
-  import { diffProjects, type ProjectDiff } from "@nebuladb/dbml-engine";
+  import { diffProjects, projectToDbml, type ProjectDiff } from "@nebuladb/dbml-engine";
   import Icon from "@/components/icons/Icon.svelte";
   import { ChevronRightIcon, CopyIcon, EyeIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
-  import { TEXTAREA_CODE_CLASS } from "@/components/ui/inputStyles";
   import { toast } from "@/components/ui/toast.svelte";
   import { parseServerTime } from "@/features/sql/format";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
@@ -32,7 +31,6 @@
   import { describeApiError } from "@/i18n/serverErrorMessages";
   import { i18n, useTranslation } from "@/i18n/i18n.svelte";
   import {
-    exportRevisionDbml,
     fetchHistoryMarkers,
     fetchRevisionProject,
     fetchRevisions,
@@ -41,6 +39,7 @@
     restoreRevision,
     type RevisionSummary,
   } from "@/services/projectsApi";
+  import DbmlDiffView from "./DbmlDiffView.svelte";
   import DiffSummary from "./DiffSummary.svelte";
   import { buildTimeline, type RevisionEntry } from "./timeline";
 
@@ -87,7 +86,11 @@
   let onlyMine = $state(false);
   let expanded = $state.raw<ReadonlySet<string>>(new Set());
   let selectedId = $state<string | null>(untrack(() => initialRevisionId));
-  let preview = $state("");
+  /** The DBML of the selected revision and of the schema as it was on screen when it was picked. */
+  let revisionDbml = $state("");
+  let currentDbml = $state("");
+  /** The revision the two texts above belong to: until it is the selected one, they are stale. */
+  let dbmlFor = $state<string | null>(null);
   let revisionProject = $state.raw<Project | null>(null);
   let diff = $state.raw<ProjectDiff | null>(null);
   let loadingPreview = $state(false);
@@ -129,15 +132,19 @@
     void comparedAt;
     if (!id) return;
     loadingPreview = true;
-    Promise.all([exportRevisionDbml(pid, id), fetchRevisionProject(pid, id)])
-      .then(([dbml, loaded]) => {
-        preview = dbml;
+    fetchRevisionProject(pid, id)
+      .then((loaded) => {
         revisionProject = loaded;
         // `currentProject` deliberately untracked: it's a new object on every
         // doc change, and re-diffing on every remote edit while the panel is
         // open would be noisy — the comparison point is "this revision vs.
         // what was on screen when I picked it". The diagram preview is live.
-        diff = diffProjects(loaded, untrack(() => currentProject));
+        const now = untrack(() => currentProject);
+        diff = diffProjects(loaded, now);
+        // Both written by the same serializer, so a line differs only when the schema does.
+        revisionDbml = projectToDbml(loaded);
+        currentDbml = projectToDbml(now);
+        dbmlFor = id;
       })
       .catch((err: unknown) => (error = describeApiError(err, t)))
       .finally(() => (loadingPreview = false));
@@ -394,7 +401,16 @@
           />
         {/if}
       </div>
-      <textarea readonly class={`${TEXTAREA_CODE_CLASS} flex-1`} value={loadingPreview ? loadingLabel : preview}></textarea>
+      {#if loadingPreview || (selected && dbmlFor !== selected.id)}
+        <div class="text-xs text-text-muted">{loadingLabel}</div>
+      {:else if selected}
+        <DbmlDiffView
+          before={revisionDbml}
+          after={currentDbml}
+          beforeLabel={t("history.dbmlDiff.before", { date: when(selected.createdAt) })}
+          afterLabel={t("history.dbmlDiff.after")}
+        />
+      {/if}
     </div>
   </div>
   {#if shownError}<div class="px-3.5 pb-3"><ErrorText>{shownError}</ErrorText></div>{/if}
