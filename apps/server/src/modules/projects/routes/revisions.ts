@@ -15,6 +15,8 @@ import {
 import { getRoom } from "../../../realtime/roomRegistry.js";
 import { lockGuardFor } from "../../tableLocks/access.js";
 import { listHistoryMarkers, restoreAuditDetail } from "../historyMarkers.js";
+import { createProjectForUser } from "../projectCrud.js";
+import { db } from "../../../infrastructure/db.js";
 
 /** More table ids than any partial restore needs; the cap only keeps the request bounded. */
 const MAX_RESTORE_TABLES = 500;
@@ -104,6 +106,24 @@ export function registerProjectRevisionRoutes(app: FastifyInstance): void {
       req,
     );
     return { restored: true };
+  });
+
+  // A revision becomes a project of its own: the schema as it stood then, owned by the caller. Copying is
+  // reading, as for a variant: whoever may see the history may start a project from it. Locks, seeds and
+  // settings are not part of history, so the new project starts without them.
+  app.post("/api/projects/:id/revisions/:revisionId/fork", async (req, reply) => {
+    const { id, revisionId } = req.params as { id: string; revisionId: string };
+    const { user, project } = await requireProjectAccess(req, id, "view");
+    const requested = (req.body as { name?: unknown } | null | undefined)?.name;
+    const revision = readProjectFromDoc(await loadRevisionDoc(id, revisionId), project.id, project.name);
+    const created = await createProjectForUser(user.id, requested ?? `${project.name} (copy)`);
+    const room = await getRoom(created.id);
+    await room.write(() => writeProjectToDoc(room.doc, { ...revision, id: created.id, name: created.name }), user.displayName);
+    await db
+      .prepare("UPDATE projects SET folder_id = (SELECT folder_id FROM projects WHERE id = ?) WHERE id = ?")
+      .run(id, created.id);
+    await auditUser(user, "project.create", { type: "project", id: created.id }, `${created.name} (revision of ${project.name})`, req);
+    return reply.code(201).send({ ...created, permission: "administrator" });
   });
 
   app.get("/api/projects/:id/snapshot", async (req) => {

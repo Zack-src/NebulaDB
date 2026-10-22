@@ -224,6 +224,61 @@ test("revisions: listed after an edit, labelable, restorable; a view grant can r
   }
 });
 
+test("a revision can start a project of its own: that schema, the caller as administrator, the original untouched", async () => {
+  const app = await buildApp();
+  try {
+    const owner = await makeUser();
+    const ownerCookie = await loginAs(app, owner.email, owner.password);
+    const project = await makeProject(app, ownerCookie, "Source");
+    const send = (url: string, cookie: string, payload?: unknown) =>
+      app.inject({ method: "POST", url, headers: headers({ cookie }), payload: payload as object });
+
+    await send(`/api/projects/${project.id}/import`, ownerCookie, { source: SAMPLE_DBML });
+    const list = await app.inject({
+      method: "GET",
+      url: `/api/projects/${project.id}/revisions`,
+      headers: headers({ cookie: ownerCookie }),
+    });
+    const firstRevisionId = (list.json() as { id: string }[])[0].id;
+    await send(`/api/projects/${project.id}/import`, ownerCookie, {
+      source: `${SAMPLE_DBML}
+Table orders {
+  id int [pk]
+}
+`,
+    });
+
+    const forkUrl = `/api/projects/${project.id}/revisions/${firstRevisionId}/fork`;
+    assert.equal((await send(forkUrl, "", { name: "Nope" })).statusCode, 401);
+    assert.equal(
+      (await send(`/api/projects/${project.id}/revisions/${randomUUID()}/fork`, ownerCookie, { name: "Nope" })).statusCode,
+      404,
+    );
+    assert.equal((await send(forkUrl, ownerCookie, { name: "  " })).statusCode, 400);
+
+    const forked = await send(forkUrl, ownerCookie, { name: "Source v1" });
+    assert.equal(forked.statusCode, 201);
+    const created = forked.json() as { id: string; name: string; permission: string };
+    assert.equal(created.name, "Source v1");
+    assert.equal(created.permission, "administrator");
+    assert.notEqual(created.id, project.id);
+
+    const tablesOf = async (id: string) =>
+      (
+        (
+          await app.inject({ method: "GET", url: `/api/projects/${id}/snapshot`, headers: headers({ cookie: ownerCookie }) })
+        ).json() as { tables: { name: string }[] }
+      ).tables
+        .map((table) => table.name)
+        .sort();
+    assert.deepEqual(await tablesOf(created.id), ["users"]);
+    assert.deepEqual(await tablesOf(project.id), ["orders", "users"]);
+  } finally {
+    await closeAllRooms();
+    await app.close();
+  }
+});
+
 test("revisions: partial restore puts back only the tables asked for; the timeline lists the restore, deployments only for administrators", async () => {
   const app = await buildApp();
   try {

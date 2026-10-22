@@ -116,6 +116,7 @@
       initialRevisionId={history.revisionId}
       canRestore={canWrite}
       onPreview={onPreviewRevision}
+      {onOpenProject}
       onClose={() => {
         history.close();
         setTab("schema");

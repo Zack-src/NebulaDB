@@ -20,7 +20,7 @@
   import type { Project } from "@nebuladb/shared";
   import { diffProjects, type ProjectDiff } from "@nebuladb/dbml-engine";
   import Icon from "@/components/icons/Icon.svelte";
-  import { ChevronRightIcon, EyeIcon } from "@/components/icons/Icons";
+  import { ChevronRightIcon, CopyIcon, EyeIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
@@ -36,6 +36,7 @@
     fetchHistoryMarkers,
     fetchRevisionProject,
     fetchRevisions,
+    forkRevision,
     labelRevision,
     restoreRevision,
     type RevisionSummary,
@@ -61,6 +62,7 @@
     initialRevisionId = null,
     onClose,
     onPreview,
+    onOpenProject,
     canRestore = true,
   }: {
     projectId: string;
@@ -73,6 +75,8 @@
     onClose: () => void;
     /** Shows the difference with this revision on the diagram (the workspace switches to the schema tab). */
     onPreview: (revision: RevisionSummary, project: Project) => void;
+    /** Opens the project a revision was turned into. */
+    onOpenProject?: (projectId: string) => void;
     /** False for a view-only grant: the timeline and previews stay, labelling and restoring go. */
     canRestore?: boolean;
   } = $props();
@@ -182,6 +186,18 @@
     onClose();
   });
 
+  // The revision as a project of its own: nothing here changes, the new project opens.
+  const fork = useAsyncAction(async () => {
+    if (!selectedId || !selected) return;
+    const created = await forkRevision(
+      projectId,
+      selectedId,
+      t("history.forkName", { project: currentProject.name, date: when(selected.createdAt) }),
+    );
+    toast.success(t("history.forked", { name: created.name }));
+    onOpenProject?.(created.id);
+  });
+
   // Stays on the page: one table back is a step, the user may want another.
   let restoringTableId = $state<string | null>(null);
   const restoreTable = useAsyncAction(async (tableId: string, tableName: string) => {
@@ -199,8 +215,8 @@
   });
 
   const loadingLabel = $derived(t("common.loading"));
-  const shownError = $derived(error ?? saveLabel.error ?? restore.error ?? restoreTable.error);
-  const busy = $derived(restore.pending || restoreTable.pending);
+  const shownError = $derived(error ?? saveLabel.error ?? restore.error ?? fork.error ?? restoreTable.error);
+  const busy = $derived(restore.pending || restoreTable.pending || fork.pending);
 </script>
 
 {#snippet tableSummary(entry: Pick<RevisionEntry, "tables" | "moreTables" | "refs">)}
@@ -340,6 +356,16 @@
           >
             <Icon icon={EyeIcon} size={13} />
             {t("history.previewOnDiagram")}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onclick={() => void fork.run()}
+            disabled={!selectedId || busy}
+            data-tooltip={t("history.restoreAsProjectHint")}
+          >
+            <Icon icon={CopyIcon} size={13} />
+            {fork.pending ? t("history.restoringAsProject") : t("history.restoreAsProject")}
           </Button>
           {#if canRestore}
             <Button variant="primary" size="sm" onclick={() => void restore.run()} disabled={!selectedId || busy}>
