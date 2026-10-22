@@ -5,11 +5,12 @@ import type { Table } from "@nebuladb/shared";
  * DOM elements per table, a quarter of a second of work for 130 tables on a fast machine and a second
  * or more on a slow one, with the canvas empty throughout. Tables are therefore mounted "lite" first (a
  * header, no columns), which is enough to place and fit the whole schema, and take their columns back
- * in a few batches afterwards, the ones nearest the middle of the view first.
+ * in three batches afterwards, the ones nearest the middle of the view first.
  *
  * Few batches, not many: every batch makes the flow rebuild its lookups for all the nodes and relations,
- * so that cost is paid per batch, however few tables it holds. Measured on 132 tables, thirty small batches
- * cost four times what one large one did.
+ * so that cost is paid per batch, however few tables it holds. On 132 tables, batches of 2, 3, 4, 6 and 12
+ * had every column back after 694, 754, 897, 1104 and 1825 ms; thirty small ones cost four times what one
+ * large one did. Three keeps each blocking step short while paying the per-batch cost three times.
  *
  * A small schema does not need it and never goes lite. A table added later does not either: only the
  * tables present at the first load are ever in the set.
@@ -18,7 +19,7 @@ import type { Table } from "@nebuladb/shared";
 /** Below this many tables, mounting everything at once is quick enough to be left alone. */
 export const LITE_MIN_TABLES = 24;
 /** How many batches the tables come back in. */
-const BATCHES = 6;
+const BATCHES = 3;
 /** Between two batches, so the browser draws and answers input in between. */
 const GAP_MS = 120;
 /** After the canvas is fitted, before the first batch. */
