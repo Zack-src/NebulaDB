@@ -237,6 +237,8 @@ export function projectToDbml(project: Project, options?: { includeVisualMetadat
       lines.push(`  ${quoteIdent(field.name)} ${field.type}${settingsStr}`);
     }
 
+    // One `indexes` block holding every index: DBML has a single one per table.
+    const indexLines: string[] = [];
     for (const idx of table.indexes) {
       if (idx.fieldIds.length === 0) continue;
       const cols = idx.fieldIds
@@ -248,8 +250,9 @@ export function projectToDbml(project: Project, options?: { includeVisualMetadat
       if (idx.unique) idxSettings.push("unique");
       if (idx.name) idxSettings.push(`name: ${quoteNoteText(idx.name)}`);
       const idxSettingsStr = idxSettings.length ? ` [${idxSettings.join(", ")}]` : "";
-      lines.push(`\n  indexes {`, `    (${cols.join(", ")})${idxSettingsStr}`, `  }`);
+      indexLines.push(`    (${cols.join(", ")})${idxSettingsStr}`);
     }
+    if (indexLines.length > 0) lines.push(`\n  indexes {`, ...indexLines, `  }`);
 
     if (table.note) {
       lines.push("", `  Note: ${quoteNoteText(table.note)}`);

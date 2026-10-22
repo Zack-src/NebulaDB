@@ -866,3 +866,27 @@ Table links {
   assert.equal(JSON.stringify(project), before, "the project is not modified");
   assert.equal(projectToDbml(project), dbmlBefore, "the serialized DBML keeps unique");
 });
+
+test("several indexes of a table are written in a single indexes block", () => {
+  const source = `
+Table user {
+  id int [pk]
+  id_col1 int
+  id_col2 int
+
+  indexes {
+    id_col1
+    id_col2
+    (id_col1, id_col2) [unique]
+  }
+}
+`;
+  const project = toProject(parseDbml(source), "Test");
+  assert.equal(project.tables[0].indexes.length, 3);
+
+  const dbml = projectToDbml(project);
+  assert.equal(dbml.match(/indexes \{/g)?.length, 1);
+  const again = toProject(parseDbml(dbml), "Test");
+  assert.equal(again.tables[0].indexes.length, 3);
+  assert.equal(projectToDbml(again), dbml, "stable on a second round");
+});
