@@ -25,10 +25,6 @@ export function rowStateClass(isLinked: boolean, isForeignKey: boolean, isSelect
     .join(" ");
 }
 export const ROW_NAME_CLASS = "table-row-name overflow-hidden text-ellipsis font-medium text-text";
-/** Inline column rename — same glassy-fill idea as `TABLE_NAME_INPUT_CLASS`, just sized to sit inline in a row instead of the header. */
-export const ROW_NAME_INPUT_CLASS =
-  "min-w-0 flex-1 rounded-sm border border-primary-border bg-bg px-1 py-px font-medium text-text caret-text " +
-  "shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)] focus:outline-hidden focus:ring-2 focus:ring-primary/30";
 
 export const ROW_TYPE_CLASS =
   "ml-1 shrink-0 whitespace-nowrap rounded-full border border-border bg-bg px-1.5 py-px font-mono " +
@@ -99,15 +95,6 @@ export const TABLE_HEADER_CLASS =
   "relative flex h-[calc(34px_*_var(--canvas-font-scale))] items-center gap-1.5 px-2 pl-2.5 " +
   "text-[calc(13px_*_var(--canvas-font-scale))] font-semibold";
 export const TABLE_NAME_CLASS = "overflow-hidden text-ellipsis whitespace-nowrap tracking-[-0.01em]";
-/** Inline rename, sitting on the table's coloured header — glassy fill + white ring rather than a
- *  light box punched into the header, so it reads as the same surface being edited. */
-export const TABLE_NAME_INPUT_CLASS =
-  "w-full rounded-md border border-white/25 bg-black/25 px-2 py-[3px] " +
-  "text-[calc(13px_*_var(--canvas-font-scale))] font-semibold text-white caret-white " +
-  "shadow-[inset_0_1px_2px_rgba(0,0,0,0.25)] backdrop-blur-[2px] placeholder:text-white/50 " +
-  "transition-[border-color,box-shadow] duration-150 ease-out " +
-  "focus:border-white/70 focus:outline-hidden focus:ring-[3px] focus:ring-white/20";
-
 export const HEADER_ACTIONS_CLASS =
   "invisible ml-auto flex items-center gap-[3px] " +
   "group-hover:visible group-[.is-selected]:visible has-[.has-comments]:visible has-[.has-open-popover]:visible";

@@ -10,7 +10,7 @@
   import { Handle, Position, type NodeProps } from "@xyflow/svelte";
   import { readableNote } from "@nebuladb/dbml-engine";
   import { estimateTableBox, MAX_NAME_LENGTH, type Field } from "@nebuladb/shared";
-  import { autofocus } from "@/actions/autofocus";
+  import InlineNameInput from "@/features/editor/nodes/table/InlineNameInput.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import {
     AlertTriangleIcon,
@@ -39,7 +39,6 @@
     TABLE_FOOTER_CLASS,
     TABLE_HEADER_CLASS,
     TABLE_NAME_CLASS,
-    TABLE_NAME_INPUT_CLASS,
     TABLE_NODE_CLASS,
     TABLE_NODE_SELECTED_CLASS,
   } from "@/features/editor/nodes/table/tableStyles";
@@ -234,9 +233,8 @@
     <Handle type="target" position={Position.Right} id="header-right-target" />
     <Handle type="source" position={Position.Right} id="header-right-source" />
     {#if renaming}
-      <input
-        use:autofocus
-        class={`nodrag ${TABLE_NAME_INPUT_CLASS}`}
+      <InlineNameInput
+        class={`nodrag ${TABLE_NAME_CLASS}`}
         bind:value={nameDraft.value}
         onblur={() => {
           nameDraft.commit();

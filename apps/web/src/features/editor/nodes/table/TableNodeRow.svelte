@@ -7,7 +7,7 @@
   import { Handle, Position } from "@xyflow/svelte";
   import { readableNote } from "@nebuladb/dbml-engine";
   import { MAX_NAME_LENGTH, type Comment, type Field, type RefAction } from "@nebuladb/shared";
-  import { autofocus } from "@/actions/autofocus";
+  import InlineNameInput from "@/features/editor/nodes/table/InlineNameInput.svelte";
   import type { FieldRefInfo } from "@/features/editor/nodes/table/fieldRefInfo";
   import CommentThread from "@/features/editor/comments/CommentThread.svelte";
   import Icon from "@/components/icons/Icon.svelte";
@@ -27,7 +27,6 @@
     ROW_DRAG_HANDLE_CLASS,
     ROW_DRAG_HANDLE_PLACEHOLDER_CLASS,
     ROW_NAME_CLASS,
-    ROW_NAME_INPUT_CLASS,
     ROW_TYPE_CLASS,
     rowDropIndicatorClass,
     rowStateClass,
@@ -167,9 +166,8 @@
     </span>
   {/if}
   {#if renaming}
-    <input
-      use:autofocus
-      class={`nodrag ${ROW_NAME_INPUT_CLASS}`}
+    <InlineNameInput
+      class={`nodrag ${ROW_NAME_CLASS}`}
       bind:value={nameDraft.value}
       onclick={(event) => event.stopPropagation()}
       onblur={() => {
