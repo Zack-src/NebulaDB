@@ -15,3 +15,6 @@ backups/
 !apps/*/src/**/backups/
 .claude/worktrees/
 
+
+# Seed files kept on the server (NEBULADB_SEED_DIR)
+/data/

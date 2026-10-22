@@ -19,6 +19,19 @@ has a dated entry for. Version 1.0.0 is the first release under the NebulaDB nam
 
 ## [Unreleased]
 
+### Added — initial data of any size
+
+- A table's initial data is no longer capped at 2 MB / 50 000 rows. Past 2 MB the CSV is sent as a raw
+  stream (progress shown), **kept as a file on the server** (`NEBULADB_SEED_DIR`, default `data/seeds`) and
+  read as a stream: checked as it arrives (types, lengths, NOT NULL, row width, primary key / UNIQUE,
+  foreign keys against the parent seed) and inserted in batches inside one transaction per table.
+  Up to `NEBULADB_SEED_FILE_MAX_GB` (default 20) per file; the checks that need to remember keys give up,
+  and say so, past `NEBULADB_SEED_MAX_KEYS` values (default 5 000 000).
+- Instance administrators can import a file, or a whole folder of `<table>.csv`, from the server's own disk
+  with the new `NEBULADB_SEED_IMPORT_DIR` (unset: off). Columns are matched to the table's by name.
+- **Database migration 12** adds `table_seeds.storage`, `file_name` and `check_json`. A project bundle does
+  not carry the seeds kept as files (they stay in `NEBULADB_SEED_DIR`: back that folder up with the database).
+
 ### Changed — NebulaDB's own data moves to PostgreSQL (read before upgrading)
 
 - NebulaDB now stores its users, projects, revisions, connections and everything else in

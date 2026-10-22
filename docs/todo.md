@@ -203,7 +203,7 @@ the answer may change.
 - [ ] **Deployment safety extras:** pre-deploy impact analysis, deployment windows and one-click
       freeze, review before deploy (1–2 approvers) — three small items nobody arbitrated.
       _Phase 32 / 38._
-- [ ] **Seeds:** a size cap or streaming past 2 MB / 50 000 rows; what happens to a mapping when
+- [ ] **Seeds:** (size past 2 MB / 50 000 rows is done: files on the server, read as streams;) what happens to a mapping when
       a column is renamed in the DBML text; a DBML annotation for seeds that stays valid DBML
       (today a seed is not in the DBML at all). _Phase 33._
 - [ ] **Field-level merge inside one table** (two people editing different columns of the same

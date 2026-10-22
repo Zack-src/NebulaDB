@@ -1,31 +1,37 @@
 import {
+  SeedValidator,
   normalizeSeedValue,
-  parseCsv,
-  seedColumnValues,
   seedInsertOrder,
-  seedRows,
-  validateSeed,
   type DatabaseEngine,
   type Field,
   type Project,
   type SeedPlanEntry,
   type SeedResult,
   type Table,
-  type TableSeed,
 } from "@nebuladb/shared";
 import { q, type MigrationDialect } from "@nebuladb/dbml-engine";
+import { config } from "../../config.js";
 import { ApiError } from "../../shared/errors.js";
-import type { DatabaseDriver } from "../connections/drivers/interface.js";
-import { listSeedsWithContent } from "./repository.js";
+import type { DatabaseDriver, RowValue } from "../connections/drivers/interface.js";
+import { listSeedsWithContent, type StoredSeed } from "./repository.js";
+import { seedRowStream } from "./seedFiles.js";
+
+/** Rows sent to the database in one go while a seed is read: small enough to stay cheap in memory, big enough to keep the round trips few. */
+const INSERT_BATCH_ROWS = 2000;
 
 /** One seed, read against the table it belongs to as the schema has it now. */
 interface PreparedSeed {
-  seed: TableSeed;
+  seed: StoredSeed;
   table: Table;
   columns: Field[];
-  rows: (string | null)[][];
+  /** Data rows the seed holds (header excluded). */
+  rowCount: number;
   errors: number;
   warnings: number;
+  /** Checks given up on for lack of room: the seed is then only partly checked. */
+  unchecked: string[];
+  /** The rows to insert, in batches, as the target engine wants them — read from memory or from the file as they are asked for. */
+  batches(engine: DatabaseEngine): AsyncGenerator<RowValue[][]>;
 }
 
 export interface PreparedSeeds {
@@ -40,6 +46,10 @@ export interface PreparedSeeds {
  * foreign-key order. A seed whose table no longer exists is left out (it
  * belongs to nothing being deployed). Parents are validated first so a
  * child's foreign keys are checked against the rows its parent will insert.
+ *
+ * Every seed is read as a stream, row by row: a file of several gigabytes is checked without being held. The
+ * keys a child's foreign keys need are gathered from the parent as it goes, up to `config.seedMaxKeys` values
+ * in all; past that a check is given up on (`unchecked`) rather than the server running out of memory.
  */
 export async function prepareSeeds(projectId: string, project: Project): Promise<PreparedSeeds> {
   const tables = new Map(project.tables.map((table) => [table.id, table]));
@@ -48,18 +58,64 @@ export async function prepareSeeds(projectId: string, project: Project): Promise
     seeds.map((seed) => seed.tableId),
     project.refs,
   );
+  const seededIds = new Set(seeds.map((seed) => seed.tableId));
   const byTable = new Map(seeds.map((seed) => [seed.tableId, seed]));
   const parentValues = new Map<string, Set<string>>();
+  const incompleteParents = new Set<string>();
   const prepared: PreparedSeed[] = [];
   for (const tableId of order) {
     const seed = byTable.get(tableId)!;
     const table = tables.get(tableId)!;
-    const parsed = parseCsv(seed.content, seed.options.separator);
-    const { issues, total } = validateSeed(table, parsed, seed.options, { parentValues, refs: project.refs });
-    const warnings = issues.filter((issue) => issue.severity === "warning").length;
-    const { columns, rows } = seedRows(parsed, seed.options, table);
-    for (const [key, values] of seedColumnValues(table, parsed, seed.options)) parentValues.set(key, values);
-    prepared.push({ seed, table, columns, rows, errors: total - warnings, warnings });
+    // Only the columns another seeded table points at are worth keeping the values of.
+    const wanted = new Set(
+      project.refs
+        .filter((ref) => ref.to.tableId === tableId && ref.from.tableId !== tableId && seededIds.has(ref.from.tableId))
+        .map((ref) => ref.to.fieldId),
+    );
+    const validator = new SeedValidator(
+      table,
+      seed.options,
+      { parentValues, incompleteParents, refs: project.refs },
+      { maxKeys: config.seedMaxKeys, collect: wanted },
+    );
+    for await (const cells of seedRowStream(seed)) validator.add(cells);
+    const result = validator.finish();
+    for (const [key, values] of result.values) parentValues.set(key, values);
+    for (const fieldId of wanted) {
+      const key = `${tableId}.${fieldId}`;
+      if (!result.values.has(key)) incompleteParents.add(key);
+    }
+    const columns = seed.options.mapping
+      .map((fieldId) => (fieldId ? table.fields.find((field) => field.id === fieldId) : undefined))
+      .filter((field): field is Field => field !== undefined);
+    const picked = seed.options.mapping.flatMap((fieldId, index) =>
+      fieldId && table.fields.some((field) => field.id === fieldId) ? [index] : [],
+    );
+    prepared.push({
+      seed,
+      table,
+      columns,
+      rowCount: result.rows,
+      errors: result.total - result.warnings,
+      warnings: result.warnings,
+      unchecked: result.unchecked,
+      async *batches(engine) {
+        let batch: RowValue[][] = [];
+        let header = seed.options.header;
+        for await (const cells of seedRowStream(seed)) {
+          if (header) {
+            header = false;
+            continue;
+          }
+          batch.push(picked.map((index, i) => normalizeSeedValue(cells[index] ?? null, columns[i], engine)));
+          if (batch.length >= INSERT_BATCH_ROWS) {
+            yield batch;
+            batch = [];
+          }
+        }
+        if (batch.length > 0) yield batch;
+      },
+    });
   }
   return {
     seeds: prepared,
@@ -95,19 +151,20 @@ export async function planSeeds(
   createdTables: ReadonlySet<string>,
 ): Promise<SeedPlanEntry[]> {
   const plan: SeedPlanEntry[] = [];
-  for (const { seed, table, rows, errors, warnings } of prepared.seeds) {
+  for (const { seed, table, rowCount, errors, warnings, unchecked } of prepared.seeds) {
     const existing = createdTables.has(table.name.toLowerCase()) ? 0 : await existingRows(driver, table.name, engine);
     const action: SeedPlanEntry["action"] =
       existing === null ? "unmeasured" : seed.options.mode === "if-empty" && existing > 0 ? "skip-not-empty" : "insert";
     plan.push({
       tableId: table.id,
       tableName: table.name,
-      rows: rows.length,
+      rows: rowCount,
       mode: seed.options.mode,
       action,
       existingRows: existing,
       errors,
       warnings,
+      ...(unchecked.length > 0 ? { unchecked } : {}),
     });
   }
   return plan;
@@ -115,8 +172,8 @@ export async function planSeeds(
 
 /**
  * Inserts the seeds after the DDL, parents first, each table in its own
- * transaction. A table that fails stops the rest (its children would fail on
- * their foreign keys anyway) and is reported; what went in before it stays.
+ * transaction, however many batches its rows take. A table that fails stops the rest (its children would fail
+ * on their foreign keys anyway) and is reported; what went in before it stays.
  */
 export async function applySeeds(
   driver: DatabaseDriver,
@@ -124,7 +181,7 @@ export async function applySeeds(
   engine: DatabaseEngine,
 ): Promise<SeedResult[]> {
   const results: SeedResult[] = [];
-  for (const { seed, table, columns, rows } of prepared.seeds) {
+  for (const { seed, table, columns, batches } of prepared.seeds) {
     if (seed.options.mode === "if-empty") {
       const existing = await existingRows(driver, table.name, engine);
       if (existing === null || existing > 0) {
@@ -133,11 +190,10 @@ export async function applySeeds(
       }
     }
     try {
-      const values = rows.map((row) => row.map((value, i) => normalizeSeedValue(value, columns[i], engine)));
-      const inserted = await driver.insertRows(
+      const inserted = await driver.insertRowBatches(
         table.name,
         columns.map((field) => field.name),
-        values,
+        batches(engine),
       );
       results.push({ tableName: table.name, inserted, skipped: false });
     } catch (err) {

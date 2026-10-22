@@ -47,8 +47,9 @@ export async function buildBundle(project: Project): Promise<ProjectBundle> {
       lockedByName: lock.lockedByName,
       lockedAt: lock.lockedAt,
     }));
+  // A seed kept as a file stays on the server: a bundle is one JSON document, not the place for gigabytes of rows.
   const seeds: BundleSeed[] = (await listSeedsWithContent(projectId))
-    .filter((seed) => tableIds.has(seed.tableId))
+    .filter((seed) => tableIds.has(seed.tableId) && seed.storage !== "file")
     .map((seed) => ({
       tableId: seed.tableId,
       tableName: names.get(seed.tableId) ?? seed.tableName,

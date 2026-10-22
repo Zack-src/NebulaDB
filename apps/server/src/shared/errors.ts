@@ -115,6 +115,11 @@ export const ERROR_CATALOG = {
     status: 400,
     message: "a seed needs CSV content (at most 2 MB, 50 000 rows) and valid options: separator, header, mapping, mode",
   },
+  SEED_IMPORT_UNAVAILABLE: {
+    status: 400,
+    message:
+      "importing a seed file by path needs the server setting NEBULADB_SEED_IMPORT_DIR, and the file must be inside that folder",
+  },
   MONITORING_INVALID: {
     status: 400,
     message: "monitoring: enabled (boolean), intervalMinutes (5, 15, 60, 360 or 1440), ignoreTables (names)",

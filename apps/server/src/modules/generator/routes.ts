@@ -18,7 +18,8 @@ async function parentValuesFor(projectId: string, tables: readonly Table[]) {
   const values = new Map<string, Set<string>>();
   for (const seed of await listSeedsWithContent(projectId)) {
     const table = byId.get(seed.tableId);
-    if (!table) continue;
+    // A seed kept as a file is too big to offer as a source of parent keys: generated rows only point at small seeds.
+    if (!table || seed.storage === "file") continue;
     for (const [key, set] of seedColumnValues(table, parseCsv(seed.content, seed.options.separator), seed.options)) {
       values.set(key, set);
     }

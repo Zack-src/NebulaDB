@@ -123,7 +123,14 @@ function countStatements(sql: string): number {
 function seedsHashOf(seeds: PreparedSeeds | null): string | null {
   if (!seeds || seeds.seeds.length === 0) return null;
   const hash = crypto.createHash("sha256");
-  for (const { seed, table } of seeds.seeds) hash.update(JSON.stringify([table.name, seed.options, seed.content]));
+  for (const { seed, table } of seeds.seeds) hash.update(
+      JSON.stringify([
+        table.name,
+        seed.options,
+        // A file is not read again to be compared: what identifies it is when it was last replaced.
+        seed.storage === "file" ? [seed.updatedAt, seed.bytes, seed.rowCount] : seed.content,
+      ]),
+    );
   return hash.digest("hex");
 }
 

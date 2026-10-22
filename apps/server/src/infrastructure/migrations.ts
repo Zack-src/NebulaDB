@@ -946,6 +946,20 @@ export const MIGRATIONS: Migration[] = [
       await db.exec(`ALTER TABLE share_links ADD COLUMN token_encrypted ${T}`);
     },
   },
+  {
+    version: 12,
+    name: "table_seeds.storage: a seed kept as a file on disk instead of in the database",
+    up: async (db) => {
+      // `inline`: the CSV is `content` (the seeds so far). `file`: `content` is empty and the CSV is the file
+      // `file_name` under the seed directory — read as a stream, never as one string. `check_json` is what the
+      // upload's check found (value overflows, checks given up on), so a list does not have to read the file.
+      await db.exec(`
+        ALTER TABLE table_seeds ADD COLUMN storage ${T} NOT NULL DEFAULT 'inline';
+        ALTER TABLE table_seeds ADD COLUMN file_name ${T};
+        ALTER TABLE table_seeds ADD COLUMN check_json ${T};
+      `);
+    },
+  },
 ];
 
 // Any constant will do, as long as every NebulaDB process takes the same one.

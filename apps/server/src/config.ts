@@ -45,6 +45,15 @@ function readCookieSecure(): boolean {
   return raw === "true";
 }
 
+/** A positive whole number from the environment, or the fallback. */
+function readCount(name: string, fallback: number, max: number): number {
+  const raw = readEnv(name);
+  if (raw === undefined || raw.trim() === "") return fallback;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > max) fail(`${name} must be a whole number between 1 and ${max} (got ${JSON.stringify(raw)})`);
+  return n;
+}
+
 function readSizeMb(name: string, fallbackMb: number): number {
   const raw = readEnv(name);
   if (raw === undefined || raw.trim() === "") return fallbackMb * 1024 * 1024;
@@ -333,6 +342,16 @@ export const config = {
    * NebulaDB's own data above. `./data` is where they have always been by
    * default — it used to be "next to the SQLite file".
    */
+  /**
+   * Initial data too big for the database: one CSV file per table, kept here (`seeds/<project>/<table>.csv`).
+   * `seedFileMaxBytes` caps one file (in GB: NEBULADB_SEED_FILE_MAX_GB), `seedMaxKeys` how many key values the
+   * checks of a big seed may hold in memory (NEBULADB_SEED_MAX_KEYS), `seedImportDir` the only folder an
+   * administrator may import a seed file from by path (NEBULADB_SEED_IMPORT_DIR; unset: the feature is off).
+   */
+  seedDir: readEnv("NEBULADB_SEED_DIR")?.trim() || path.join("data", "seeds"),
+  seedFileMaxBytes: readCount("NEBULADB_SEED_FILE_MAX_GB", 20, 1024) * 1024 ** 3,
+  seedMaxKeys: readCount("NEBULADB_SEED_MAX_KEYS", 5_000_000, 500_000_000),
+  seedImportDir: readEnv("NEBULADB_SEED_IMPORT_DIR")?.trim() || null,
   databaseBackupDir: readEnv("NEBULADB_DATABASE_BACKUP_DIR")?.trim() || path.join("data", "database-backups"),
   databaseBackupMaxBytes: readDatabaseBackupMaxBytes(),
   databaseBackupRetentionDays: readDatabaseBackupRetentionDays(),
