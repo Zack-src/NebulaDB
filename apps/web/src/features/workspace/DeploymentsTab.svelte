@@ -8,23 +8,18 @@
   import DeploymentPanel from "@/features/connections/deployment/DeploymentPanel.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import EnvironmentBadge from "@/features/environments/EnvironmentBadge.svelte";
-  import CompareEnvironmentsCard from "./CompareEnvironmentsCard.svelte";
   import DeploymentReviewsCard from "./DeploymentReviewsCard.svelte";
   import PipelineCard from "./PipelineCard.svelte";
-  import MonitoringCard from "./MonitoringCard.svelte";
 
-  /** Deployment planning, application, pipeline and monitoring for the project. */
+  /** Deployment planning, application and pipeline for the project. */
   let {
     projectId,
     connection,
     connections = [],
-    onOpenTable = () => {},
     refreshKey = 0,
     schemaHash,
-    tableNames = [],
     onDeployTo = () => {},
     canDeploy,
-    canManage,
     canSkipStage = false,
     onOpenConnectionsAdmin,
     onDeployed = () => {},
@@ -34,21 +29,16 @@
     projectId: string;
     /** The workspace's current connection; `null` when the project has none. */
     connection: DatabaseConnectionSummary | null;
-    /** Every database of the project — two or more can be compared with each other. */
+    /** Every database of the project. */
     connections?: DatabaseConnectionSummary[];
-    onOpenTable?: (tableName: string) => void;
     /** Changes when a deployment completes: what the pipeline shows may be stale. */
     refreshKey?: number;
     /** The fingerprint of the schema as it is now: the pipeline follows it. */
     schemaHash?: string;
-    /** The tables of the schema as it is now: offered when choosing which to ignore in the watch. */
-    tableNames?: string[];
     /** Selects one of the project's databases for deployment. */
     onDeployTo?: (connectionId: string) => void;
     /** The project's `deploy` level or above: without it the plan can be read, not applied. */
     canDeploy: boolean;
-    /** The project's administrators: the watch's settings are theirs. */
-    canManage: boolean;
     canSkipStage?: boolean;
     /** Takes an instance administrator to Admin → Connections to attach a database. */
     onOpenConnectionsAdmin?: () => void;
@@ -110,11 +100,6 @@
         {onDeployed}
       />
       <PipelineCard {projectId} {refreshKey} {schemaHash} {canDeploy} {onDeployTo} />
-      <!-- The watch covers all the project's databases, not only the current one. -->
-      <MonitoringCard {projectId} {canManage} canCheck={canDeploy} {tableNames} />
-      {#if connections.length > 1}
-        <CompareEnvironmentsCard {projectId} {connections} currentId={connection.id} {onOpenTable} />
-      {/if}
     {/if}
   </div>
 </div>

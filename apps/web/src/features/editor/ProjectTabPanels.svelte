@@ -70,11 +70,8 @@
       refreshKey={deploymentsSeen}
       reviewsKey={reviewsSeen}
       schemaHash={liveProject ? fingerprintSchema(liveProject).hash : undefined}
-      tableNames={liveProject?.tables.map((table) => table.name) ?? []}
       onDeployTo={(id) => (databases.connectionId = id)}
-      onOpenTable={(tableName) => onOpenTable(tableName)}
       {canDeploy}
-      canManage={isProjectAdmin}
       canSkipStage={session.isAdmin}
       {onOpenConnectionsAdmin}
       onDeployed={onDeployed}
