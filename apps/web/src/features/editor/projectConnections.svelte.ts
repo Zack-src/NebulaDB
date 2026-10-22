@@ -19,12 +19,7 @@ export class ProjectConnectionsState {
     private readonly isAdmin: () => boolean,
   ) {
     $effect(() => {
-      listProjectConnections(this.projectId())
-        .then((list) => {
-          this.connections = list;
-          if (!list.some((connection) => connection.id === this.connectionId)) this.connectionId = list[0]?.id ?? null;
-        })
-        .catch(() => {});
+      void this.refresh();
     });
     $effect(() => {
       this.projectId();
@@ -47,6 +42,19 @@ export class ProjectConnectionsState {
   }
 
   mayQuery = (id: string | null | undefined): boolean => this.isAdmin() || (id ? this.dbAccess.has(id) : false);
+
+  /** Whether Nebula has deployed the project to the selected database: only then is there something of its own to look at. */
+  get deployed(): boolean {
+    return this.activeConnection?.deployed === true;
+  }
+
+  refresh = (): Promise<void> =>
+    listProjectConnections(this.projectId())
+      .then((list) => {
+        this.connections = list;
+        if (!list.some((connection) => connection.id === this.connectionId)) this.connectionId = list[0]?.id ?? null;
+      })
+      .catch(() => {});
 
   refreshDrift = (): Promise<void> =>
     fetchProjectDrift(this.projectId())

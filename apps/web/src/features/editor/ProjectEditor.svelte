@@ -323,6 +323,10 @@
     visible: () => tab === "schema",
   });
   const canUseSql = $derived(sql.usable);
+  // A deployment made meanwhile (Deployments tab) is known again when the schema comes back.
+  $effect(() => {
+    if (tab === "schema") void databases.refresh();
+  });
 
   // What the canvas should centre on as soon as it can: the table a search hit
   // or a link asked for when the project opened, or one requested later from
@@ -460,7 +464,7 @@
     seeds: () => seeds.byTable,
     onManageSeed: openSeedDialog,
     onLockedTablesKept: tellLockedTablesKept,
-    viewData: () => (canUseSql ? sql.viewTableData : null),
+    viewData: () => (canUseSql && databases.deployed ? sql.viewTableData : null),
     historyDiff: () => (tab === "schema" ? history.diffStatus : null),
   });
   /** A `full` lock freezes the rows as well as the shape, for whoever it binds. */

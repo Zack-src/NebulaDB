@@ -331,6 +331,8 @@ export interface DatabaseConnectionSummary {
   filePath?: string;
   /** `personal`: every user connects with their own account — see `ConnectionAuthMode`. */
   authMode: ConnectionAuthMode;
+  /** Set on a project's own list: Nebula has deployed the project to this connection at least once. */
+  deployed?: boolean;
   createdAt: string;
   updatedAt: string;
 }

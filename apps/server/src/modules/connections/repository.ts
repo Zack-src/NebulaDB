@@ -197,7 +197,19 @@ function takesLinkDatabase(config: Pick<DatabaseConnectionConfig, "engine" | "co
 async function projectSummary(row: ConnectionRow, projectId: string): Promise<DatabaseConnectionSummary> {
   const summary = await rowToSummary(row, projectId);
   const database = await linkDatabase(projectId, row.id);
-  return database && takesLinkDatabase(summary) ? { ...summary, database } : summary;
+  const deployed = await hasDeployed(projectId, row.id);
+  return database && takesLinkDatabase(summary) ? { ...summary, database, deployed } : { ...summary, deployed };
+}
+
+/** Nebula has successfully deployed this project to the connection at least once. */
+async function hasDeployed(projectId: string, connectionId: string): Promise<boolean> {
+  return (
+    (await db
+      .prepare(
+        "SELECT 1 FROM deployment_history WHERE project_id = ? AND connection_id = ? AND success = 1 AND rollback_of IS NULL LIMIT 1",
+      )
+      .get(projectId, connectionId)) !== undefined
+  );
 }
 
 export async function listConnectionsByProject(projectId: string): Promise<DatabaseConnectionSummary[]> {

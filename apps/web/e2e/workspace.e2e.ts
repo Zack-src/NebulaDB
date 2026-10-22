@@ -86,6 +86,13 @@ test(
             headers: json,
             body: JSON.stringify({ projectIds: [id] }),
           });
+          // "Voir les données" is offered once Nebula has deployed the project to the database.
+          const dep = await fetch(`/api/projects/${id}/connections/${connectionId}/apply-deployment`, {
+            method: "POST",
+            headers: json,
+            body: JSON.stringify({ resolutions: {}, confirmName: "Base boutique" }),
+          });
+          if (!dep.ok) throw new Error(`deploy failed: ${dep.status} ${await dep.text()}`);
           return id;
         },
         { dbml: SCHEMA, filePath: targetFile },
@@ -172,12 +179,12 @@ test(
       // --- History: a page with its own address ---
       await tab("Historique").click();
       await page.waitForURL(`**/project/${projectId}/history`);
-      await page.getByRole("button", { name: "Restaurer" }).waitFor();
+      await page.getByRole("button", { name: "Restaurer cette version" }).waitFor();
       assert.equal(await page.locator(".svelte-flow__pane").count(), 0, "the canvas is not mounted behind another tab");
       await snap("history");
       // A reload lands on the same tab…
       await page.reload();
-      await page.getByRole("button", { name: "Restaurer" }).waitFor();
+      await page.getByRole("button", { name: "Restaurer cette version" }).waitFor();
       assert.equal(await tab("Historique").getAttribute("aria-selected"), "true");
 
       // --- Deployments ---
@@ -189,7 +196,7 @@ test(
       await snap("deployments");
       // …and back / forward walk the tabs.
       await page.goBack();
-      await page.getByRole("button", { name: "Restaurer" }).waitFor();
+      await page.getByRole("button", { name: "Restaurer cette version" }).waitFor();
       await page.goForward();
       await page.getByRole("heading", { name: "Base boutique" }).waitFor();
 
