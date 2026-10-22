@@ -466,7 +466,7 @@
   "plugins.myPlugins": "Mes Plugins",
   "plugins.studio": "Studio & Créateur",
   "plugins.logs": "Console & Logs",
-  "plugins.installOneClick": "Installer en 1-clic",
+  "plugins.installOneClick": "Installer",
   "plugins.viewCode": "Voir le code",
   "plugins.testAndValidate": "Tester & Valider",
   "plugins.saveAndInstall": "Enregistrer & Installer",
