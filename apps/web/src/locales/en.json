@@ -762,6 +762,7 @@
   "admin.teams.memberCount_one": "{{count}} member",
   "admin.teams.memberCount_other": "{{count}} members",
   "admin.teams.detailTitle": "Team: {{name}}",
+  "admin.teams.back": "Back to teams",
   "admin.teams.addMemberPlaceholder": "Add a member…",
   "admin.teams.noMembers": "No members yet.",
   "admin.teams.removeMember": "Remove from team",

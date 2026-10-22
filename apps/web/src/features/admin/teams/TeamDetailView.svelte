@@ -1,7 +1,6 @@
 <script lang="ts">
-  import Modal from "@/components/overlays/Modal.svelte";
   import Icon from "@/components/icons/Icon.svelte";
-  import { PlusIcon, TrashIcon } from "@/components/icons/Icons";
+  import { ChevronLeftIcon, PlusIcon, TrashIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import List from "@/components/ui/List.svelte";
@@ -109,7 +108,16 @@
   );
 </script>
 
-<Modal title={team.data ? t("admin.teams.detailTitle", { name: team.data.name }) : t("admin.teams.one")} {onClose}>
+<div class="flex flex-col">
+  <div class="mb-4 flex items-center gap-2">
+    <Button variant="ghost" size="sm" onclick={onClose}>
+      <Icon icon={ChevronLeftIcon} size={14} />
+      {t("admin.teams.back")}
+    </Button>
+    <h2 class="m-0 text-body font-semibold text-text" data-testid="team-detail-title">
+      {team.data ? t("admin.teams.detailTitle", { name: team.data.name }) : t("admin.teams.one")}
+    </h2>
+  </div>
   <p class="mb-2 text-xs text-text-muted">{t("dbAccess.provisionHint")}</p>
   <Button
     size="sm"
@@ -225,4 +233,4 @@
       {/if}
     </section>
   {/if}
-</Modal>
+</div>

@@ -40,6 +40,9 @@
 </script>
 
 <div>
+  {#if selectedTeamId}
+    <TeamDetailView teamId={selectedTeamId} onClose={() => (selectedTeamId = null)} onChanged={teams.reload} />
+  {:else}
   <PageToolbar>
     <Input
       class="min-w-[240px] flex-1"
@@ -76,7 +79,5 @@
       {/each}
     </List>
   {/if}
-  {#if selectedTeamId}
-    <TeamDetailView teamId={selectedTeamId} onClose={() => (selectedTeamId = null)} onChanged={teams.reload} />
   {/if}
 </div>
