@@ -44,7 +44,7 @@
 </script>
 
 <label
-  class={`group inline-flex items-start gap-2 text-body ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"} ${className}`.trim()}
+  class={`group relative inline-flex items-start gap-2 text-body ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"} ${className}`.trim()}
 >
   <input
     bind:this={input}
