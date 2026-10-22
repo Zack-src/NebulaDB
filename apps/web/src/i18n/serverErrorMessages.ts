@@ -144,6 +144,7 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   SSO_NOT_CONFIGURED: "errors.ssoNotConfigured",
   DEPLOYMENT_BLOCKED_BY_RISK: "errors.deploymentBlockedByRisk",
   SEED_INVALID: "errors.seedInvalid",
+  SEED_IMPORT_UNAVAILABLE: "errors.seedImportUnavailable",
   BUNDLE_INVALID: "errors.bundleInvalid",
   GENERATOR_INVALID: "errors.generatorInvalid",
   ACTIVITY_QUERY_INVALID: "errors.activityQueryInvalid",

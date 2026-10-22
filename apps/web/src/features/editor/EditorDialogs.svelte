@@ -140,6 +140,7 @@
           ? { id: databases.activeConnection.id, name: databases.activeConnection.name }
           : null}
         loadFromDatabase={seedFromDatabase}
+        isAdmin={session.isAdmin}
         onClose={() => {
           seedDialogTableId = null;
           void seeds.refresh();
