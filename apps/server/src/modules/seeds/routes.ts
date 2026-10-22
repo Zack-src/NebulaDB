@@ -9,7 +9,8 @@ import { getProjectConnection } from "../connections/repository.js";
 import { readTableAsSeed } from "./fromDatabase.js";
 import { canOverrideLock, lockAuthorityOf } from "../tableLocks/access.js";
 import { getTableLock } from "../tableLocks/repository.js";
-import { deleteSeed, getSeed, listSeeds, parseSeedInput, upsertSeed } from "./repository.js";
+import { parseCsv, seedOverflows } from "@nebuladb/shared";
+import { deleteSeed, getSeed, listSeedsWithContent, parseSeedInput, upsertSeed } from "./repository.js";
 
 /**
  * A `full` table lock freezes the table's data as well as its structure:
@@ -43,11 +44,16 @@ export function registerSeedRoutes(app: FastifyInstance): void {
     const { id } = req.params as { id: string };
     const { project } = await requireProjectAccess(req, id, "view");
     // Listed under the names the tables have now.
-    const names = new Map((await readProjectReadOnly(id, project.name)).tables.map((table) => [table.id, table.name]));
+    const tables = new Map((await readProjectReadOnly(id, project.name)).tables.map((table) => [table.id, table]));
     return {
-      seeds: (await listSeeds(id))
-        .filter((seed) => names.has(seed.tableId))
-        .map((seed) => ({ ...seed, tableName: names.get(seed.tableId)! })),
+      seeds: (await listSeedsWithContent(id))
+        .filter((seed) => tables.has(seed.tableId))
+        .map(({ content, ...seed }) => {
+          const table = tables.get(seed.tableId)!;
+          // What the schema now allows against what the file holds: shrinking a varchar flags the seed here.
+          const overflows = seedOverflows(table, parseCsv(content, seed.options.separator), seed.options);
+          return { ...seed, tableName: table.name, ...(overflows.length > 0 ? { overflows } : {}) };
+        }),
     };
   });
 

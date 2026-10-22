@@ -7,6 +7,7 @@ import {
   parseCsv,
   seedColumnValues,
   seedInsertOrder,
+  seedOverflows,
   suggestMapping,
   validateSeed,
 } from "./seeds.js";
@@ -153,4 +154,30 @@ test("normalizeSeedValue spells booleans per engine", () => {
   assert.equal(normalizeSeedValue("no", flag, "mysql"), "0");
   assert.equal(normalizeSeedValue(null, flag, "mysql"), null);
   assert.equal(normalizeSeedValue("yes", { ...flag, type: "text" }, "mysql"), "yes");
+});
+
+test("seedOverflows names the columns whose values are longer than the declared length", () => {
+  const users = table("users", [
+    { name: "id", type: "int" },
+    { name: "code", type: "varchar(5)" },
+    { name: "bio", type: "varchar(max)" },
+    { name: "label", type: "nvarchar(3)" },
+  ]);
+  const parsed = [
+    ["id", "code", "bio", "label"],
+    ["1", "abc", "x".repeat(500), "ab"],
+    ["2", "abcdefgh", "y", "abcd"],
+    ["3", "abcdef", null, "é€😀"],
+  ];
+  const options = { header: true, mapping: users.fields.map((field) => field.id) };
+  assert.deepEqual(seedOverflows(users, parsed, options), [
+    { column: "code", limit: 5, longest: 8, count: 2 },
+    { column: "label", limit: 3, longest: 4, count: 1 },
+  ]);
+  // The same file fits once the column is long enough.
+  const widened = table("users", [{ name: "code", type: "varchar(10)" }]);
+  assert.deepEqual(
+    seedOverflows(widened, [["code"], ["abcdefgh"]], { header: true, mapping: ["users.code"] }),
+    [],
+  );
 });

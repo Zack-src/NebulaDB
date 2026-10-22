@@ -39,6 +39,8 @@ export interface TableSeedSummary {
   options: SeedOptions;
   updatedAt: string;
   updatedByName: string | null;
+  /** Set by the list: the columns whose values are longer than the schema now allows. Absent when all fit. */
+  overflows?: SeedOverflow[];
 }
 
 export interface TableSeed extends TableSeedSummary {
@@ -220,6 +222,43 @@ function fitsType(value: string, family: TypeFamily): boolean {
 function declaredLength(type: string): number | null {
   const match = /^\s*(?:n?var)?char(?:acter)?(?:\s+varying)?2?\s*\(\s*(\d+)/i.exec(type);
   return match ? Number(match[1]) : null;
+}
+
+/** A column whose seed values do not fit the length it declares (`varchar(50)`): the limit, the longest value, how many are too long. */
+export interface SeedOverflow {
+  column: string;
+  limit: number;
+  longest: number;
+  count: number;
+}
+
+/**
+ * The columns of `table` whose seed holds values longer than the declared length. Only that check, so it is
+ * cheap enough to run again whenever the schema changes — `validateSeed` reports the same overflow row by row.
+ */
+export function seedOverflows(
+  table: Table,
+  parsed: (string | null)[][],
+  options: Pick<SeedOptions, "header" | "mapping">,
+): SeedOverflow[] {
+  const { columns, rows } = seedRows(parsed, options, table);
+  const found: SeedOverflow[] = [];
+  columns.forEach((field, index) => {
+    const limit = declaredLength(field.type);
+    if (limit === null) return;
+    let longest = 0;
+    let count = 0;
+    for (const row of rows) {
+      const value = row[index];
+      if (value === null || value === undefined) continue;
+      const length = [...value].length;
+      if (length <= limit) continue;
+      count++;
+      longest = Math.max(longest, length);
+    }
+    if (count > 0) found.push({ column: field.name, limit, longest, count });
+  });
+  return found;
 }
 
 /** What a field must receive when a seed leaves it out: NOT NULL without a default nor an auto value. */

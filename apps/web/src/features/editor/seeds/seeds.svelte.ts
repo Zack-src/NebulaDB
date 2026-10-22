@@ -1,6 +1,9 @@
 import type { TableSeedSummary } from "@nebuladb/shared";
 import { fetchSeeds } from "@/services/seedsApi";
 
+/** Quiet time after the last schema edit before the seeds are checked again. */
+const SCHEMA_REFRESH_DELAY_MS = 1200;
+
 const NO_SEEDS: ReadonlyMap<string, TableSeedSummary> = new Map();
 
 /**
@@ -12,11 +15,29 @@ export class SeedsState {
   byTable = $state.raw<ReadonlyMap<string, TableSeedSummary>>(NO_SEEDS);
   private requested = 0;
 
-  constructor(private readonly projectId: () => string) {
+  /**
+   * `schemaKey` changes whenever something a seed is checked against does (a column's type or length):
+   * the server's overflow check is then asked again, once the typing has paused.
+   */
+  constructor(
+    private readonly projectId: () => string,
+    private readonly schemaKey: () => string = () => "",
+  ) {
     $effect(() => {
       this.projectId();
       this.byTable = NO_SEEDS;
       void this.refresh();
+    });
+    let lastKey: string | null = null;
+    $effect(() => {
+      const key = this.schemaKey();
+      if (lastKey === null || key === lastKey) {
+        lastKey = key;
+        return;
+      }
+      lastKey = key;
+      const timer = setTimeout(() => void this.refresh(), SCHEMA_REFRESH_DELAY_MS);
+      return () => clearTimeout(timer);
     });
   }
 

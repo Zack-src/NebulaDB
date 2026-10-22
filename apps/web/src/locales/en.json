@@ -1378,6 +1378,7 @@
   "seeds.nodeTooltip_one": "Initial data: {{count}} row",
   "seeds.nodeTooltip_other": "Initial data: {{count}} rows",
   "seeds.addTooltip": "Initial data (CSV)",
+  "seeds.overflowFinding": "The initial data of \"{{table}}\" does not fit {{column}} ({{limit}} characters at most): {{count}} value(s), up to {{longest}} characters.",
   "seeds.planTitle": "Initial data",
   "seeds.skip": "Leave out",
   "seeds.planInsert_one": "+{{count}} row",

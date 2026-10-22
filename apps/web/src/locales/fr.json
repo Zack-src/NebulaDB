@@ -1378,6 +1378,7 @@
   "seeds.nodeTooltip_one": "Données initiales : {{count}} ligne",
   "seeds.nodeTooltip_other": "Données initiales : {{count}} lignes",
   "seeds.addTooltip": "Données initiales (CSV)",
+  "seeds.overflowFinding": "Les données initiales de « {{table}} » dépassent {{column}} ({{limit}} caractères au plus) : {{count}} valeur(s), jusqu'à {{longest}} caractères.",
   "seeds.planTitle": "Données initiales",
   "seeds.skip": "Ne pas insérer",
   "seeds.planInsert_one": "+{{count}} ligne",

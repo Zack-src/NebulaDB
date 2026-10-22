@@ -128,7 +128,10 @@
   const openLockDialog = (tableId: string) => (lockDialogTableId = tableId);
   let showLocksList = $state(false);
   // Tables' initial rows (seeds): mirrored for the canvas icon; the dialog edits them.
-  const seeds = new SeedsState(() => project.id);
+  const seeds = new SeedsState(
+    () => project.id,
+    () => seedSchemaKey,
+  );
   let seedDialogTableId = $state<string | null>(null);
   /** Set when the dialog was opened from the console to take the database's rows. */
   let seedFromDatabase = $state(false);
@@ -287,7 +290,15 @@
   }
 
   // Findings, canvas issues, frozen tables, safe fixes and dictionary notes — see `SchemaQuality`.
+  // The columns of the tables that have a seed: what its values are checked against (see `SeedsState`).
+  const seedSchemaKey: string = $derived(
+    (liveProject?.tables ?? [])
+      .filter((table) => seeds.byTable.has(table.id))
+      .map((table) => `${table.id}:${table.fields.map((field) => `${field.id}=${field.name}:${field.type}`).join(",")}`)
+      .join("|"),
+  );
   const quality = new SchemaQuality({
+    seeds: () => seeds.byTable,
     project: () => liveProject,
     writeDoc: () => writeDoc,
     canWrite: () => canWrite,
