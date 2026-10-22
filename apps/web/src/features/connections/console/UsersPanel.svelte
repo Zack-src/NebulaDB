@@ -26,6 +26,7 @@
   import { applyUserAction, fetchGrants, fetchPrincipals, type ConnectionOverview } from "@/services/dbAdminApi";
   import { fetchUsers } from "@/services/usersApi";
   import StatementModal from "./StatementModal.svelte";
+  import { generatePassword } from "@/utils/password";
 
   /**
    * Accounts, roles and privileges of the target server, in one model for
@@ -135,12 +136,6 @@
       toast.success(t("dbadmin.users.associated", { account: name, user: target.displayName }));
     },
   );
-
-  function generatePassword() {
-    const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789-_+=";
-    const bytes = crypto.getRandomValues(new Uint8Array(24));
-    newPassword = Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
-  }
 
   function submitCreate() {
     pending = {
@@ -276,7 +271,7 @@
         {#if createNeedsPassword}
           <div class="flex items-center gap-1">
             <Input inputSize="sm" class="min-w-0 flex-1 font-mono" bind:value={newPassword} placeholder={t("connections.password")} autocomplete="off" />
-            <Button size="sm" variant="ghost" onclick={generatePassword}>{t("dbadmin.users.generate")}</Button>
+            <Button size="sm" variant="ghost" onclick={() => (newPassword = generatePassword())}>{t("dbadmin.users.generate")}</Button>
           </div>
           <Hint>{t("dbadmin.users.passwordOnce")}</Hint>
           {#if canAssociate}

@@ -803,6 +803,8 @@
   "admin.deleteUser.confirm": "Supprimer définitivement",
   "admin.resetPassword.title": "Réinitialiser le mot de passe — {{email}}",
   "admin.resetPassword.submitting": "Réinitialisation…",
+  "admin.resetPassword.generate": "Générer",
+  "admin.resetPassword.generatedHint": "Notez ce mot de passe maintenant : Nebula ne le conserve pas et ne pourra pas le réafficher.",
   "admin.resetPassword.success": "Mot de passe réinitialisé — {{email}} a été déconnecté partout et devra utiliser le nouveau mot de passe pour se reconnecter.",
   "admin.errors.filter.all": "Toutes les sources",
   "admin.errors.filter.server": "Serveur",

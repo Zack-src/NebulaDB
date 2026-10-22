@@ -803,6 +803,8 @@
   "admin.deleteUser.confirm": "Delete permanently",
   "admin.resetPassword.title": "Reset password — {{email}}",
   "admin.resetPassword.submitting": "Resetting…",
+  "admin.resetPassword.generate": "Generate",
+  "admin.resetPassword.generatedHint": "Note this password now: Nebula does not keep it and cannot show it again.",
   "admin.resetPassword.success": "Password reset — {{email}} has been signed out everywhere and needs the new password to sign back in.",
   "admin.errors.filter.all": "All sources",
   "admin.errors.filter.server": "Server",
