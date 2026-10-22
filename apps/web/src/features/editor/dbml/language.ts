@@ -290,6 +290,8 @@ export const nebulaEditorTheme = EditorView.theme(
     },
     ".cm-foldGutter span": { color: "var(--color-editor-muted)", cursor: "pointer" },
     ".cm-activeLine": { backgroundColor: "var(--color-editor-active-line)" },
+    // The selection is drawn behind the lines: an opaque active line would hide it on the line holding the cursor.
+    "&:has(.cm-selectionBackground) .cm-activeLine": { backgroundColor: "transparent" },
     ".cm-activeLineGutter": {
       backgroundColor: "var(--color-editor-active-line)",
       color: "var(--color-editor-active-gutter-text)",
