@@ -134,7 +134,20 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   // of correlation.
   setRoomLogger(app.log);
   setRoomDocChangeListener(noteSchemaChange);
-  await app.register(websocket, { options: { maxPayload: config.wsMaxPayload } });
+  await app.register(websocket, {
+    options: {
+      maxPayload: config.wsMaxPayload,
+      // The document a client receives on connecting is the whole project (150 KB for a 130-table schema, ~30 KB
+      // compressed) and shares the link with the page's own scripts. Only messages over 1 KB are compressed
+      // (cursors and small edits are not), and no state is kept between messages so a connection costs little.
+      perMessageDeflate: {
+        threshold: 1024,
+        serverNoContextTakeover: true,
+        clientNoContextTakeover: true,
+        zlibDeflateOptions: { level: 6 },
+      },
+    },
+  });
   await app.register(fastifyCookie);
   // Global ceiling, deliberately loose — the collaborative UI is chatty. The
   // routes that actually need protecting set their own much tighter limits.
