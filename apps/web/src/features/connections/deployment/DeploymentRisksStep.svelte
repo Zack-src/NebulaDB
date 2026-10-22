@@ -72,6 +72,9 @@
                   {#if risk.type === "DROP_TABLE_WITH_DATA"}
                     <span>{t("deployment.riskDropTable", { table: risk.tableName })}</span>
                   {/if}
+                  {#if risk.type === "UNMANAGED_TABLE"}
+                    <span>{t("deployment.riskUnmanagedTable", { table: risk.tableName })}</span>
+                  {/if}
                   {#if risk.type === "ALTER_COLUMN_TYPE"}
                     <span>{t("deployment.riskAlterType", { col: risk.columnName || "", table: risk.tableName })}</span>
                   {/if}

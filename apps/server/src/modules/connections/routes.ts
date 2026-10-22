@@ -15,7 +15,8 @@ import { projectPipeline, schemaHashOf } from "../pipeline/pipeline.js";
 import { schemaForConnection } from "../environments/variables.js";
 import { checkDrift, dismissOutOfSchema, listProjectDrift } from "./drift.js";
 import { pullConnectionSchema } from "./pull.js";
-import { analyzeDeploymentRisks } from "./riskAnalysis.js";
+import { deployedTablesOf } from "./drift.js";
+import { analyzeDeploymentRisks, withKeepDefaults } from "./riskAnalysis.js";
 import { planSeeds, prepareSeeds } from "../seeds/deploySeeds.js";
 import { createProjectFromDatabase } from "./createFromDatabase.js";
 import { listDeploymentHistory } from "./deploymentHistory.js";
@@ -100,11 +101,11 @@ export async function planDeployment(id: string, project: { id: string; name: st
   try {
     const liveProject = await driver.introspectSchema();
     const diff = diffTargetAgainstLive(liveProject, canvasProject);
-    const risks = await analyzeDeploymentRisks(driver, diff, conn.engine);
+    const risks = await analyzeDeploymentRisks(driver, diff, conn.engine, await deployedTablesOf(id, connId));
     const preparedSeeds = await prepareSeeds(id, canvasProject);
     const created = new Set(diff.tables.filter((t) => t.status === "added").map((t) => t.name.toLowerCase()));
     const seeds = await planSeeds(driver, preparedSeeds, conn.engine, created);
-    const initialSql = generateMigrationSql(diff, conn.engine, {});
+    const initialSql = generateMigrationSql(diff, conn.engine, withKeepDefaults(risks, {}));
 
     return {
       diff,

@@ -28,14 +28,19 @@ import { closeDriftEvents, currentAcknowledgement } from "../monitoring/reposito
 
 export type FingerprintSource = "deploy" | "rollback" | "pull";
 
+/** The reference as stored: the fingerprint, and the tables the database holds that the schema does not (lower-case). */
+export type ReferenceSnapshot = SchemaFingerprint & { unmanaged?: string[] };
+
 /** The live schema is now the agreed state: remember it, and clear any out-of-schema mark. */
 export async function saveReferenceFingerprint(
   projectId: string,
   connectionId: string,
   live: Pick<Project, "tables" | "refs">,
   source: FingerprintSource,
+  /** Tables of `live` that the schema does not have: kept, or made by hand, never counted as deployed. */
+  unmanaged: string[] = [],
 ): Promise<void> {
-  const fingerprint = fingerprintSchema(live);
+  const fingerprint: ReferenceSnapshot = { ...fingerprintSchema(live), ...(unmanaged.length > 0 ? { unmanaged } : {}) };
   await db.transaction(async () => {
     await db
       .prepare(
@@ -58,18 +63,33 @@ export async function saveReferenceFingerprint(
   notifyProject(projectId, { type: "drift-changed" });
 }
 
-export async function loadReference(projectId: string, connectionId: string): Promise<SchemaFingerprint | null> {
+export async function loadReference(projectId: string, connectionId: string): Promise<ReferenceSnapshot | null> {
   const row = (await db
     .prepare("SELECT snapshot_json FROM schema_fingerprints WHERE project_id = ? AND connection_id = ?")
     .get(projectId, connectionId)) as { snapshot_json: string } | undefined;
   if (!row) return null;
   try {
-    const parsed = JSON.parse(row.snapshot_json) as SchemaFingerprint;
+    const parsed = JSON.parse(row.snapshot_json) as ReferenceSnapshot;
     // A reference taken by an older canonical form says nothing comparable.
     return parsed.version === FINGERPRINT_VERSION ? parsed : null;
   } catch {
     return null;
   }
+}
+
+/**
+ * The tables (lower-case names) Nebula put on this database: those of the last deployment's or pull's state,
+ * minus any the schema did not have then. `null` when there is no usable reference: nothing was deployed.
+ */
+export async function deployedTablesOf(projectId: string, connectionId: string): Promise<Set<string> | null> {
+  const reference = await loadReference(projectId, connectionId);
+  if (!reference) return null;
+  const unmanaged = new Set(reference.unmanaged ?? []);
+  return new Set(
+    Object.values(reference.tables)
+      .map((table) => table.name.toLowerCase())
+      .filter((name) => !unmanaged.has(name)),
+  );
 }
 
 /** When the reference was taken — `null` when there is none. */

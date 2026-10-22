@@ -17,11 +17,11 @@ import {
 import { ApiError } from "../../shared/errors.js";
 import { getRoom } from "../../realtime/roomRegistry.js";
 import { createDatabaseDriver } from "./drivers/index.js";
-import { saveReferenceFingerprint, type FingerprintSource } from "./drift.js";
+import { deployedTablesOf, loadReference, saveReferenceFingerprint, type FingerprintSource } from "./drift.js";
 import type { DatabaseDriver } from "./drivers/interface.js";
 import { getProjectConnection } from "./repository.js";
 import { getEnvironment } from "../environments/repository.js";
-import { analyzeDeploymentRisks, settleRisks } from "./riskAnalysis.js";
+import { analyzeDeploymentRisks, settleRisks, withKeepDefaults } from "./riskAnalysis.js";
 import { applySeeds, assertSeedsDeployable, prepareSeeds, type PreparedSeeds } from "../seeds/deploySeeds.js";
 import type { SeedResult } from "@nebuladb/shared";
 import { backupOrRefuse } from "../backups/runner.js";
@@ -99,9 +99,16 @@ async function rememberDeployedState(
   projectId: string,
   connectionId: string,
   source: FingerprintSource,
+  /** The tables the schema has: what the database holds beyond them was not deployed by Nebula. Unknown for a rollback. */
+  schemaTables?: Project["tables"],
 ): Promise<void> {
   try {
-    await saveReferenceFingerprint(projectId, connectionId, await driver.introspectSchema(), source);
+    const live = await driver.introspectSchema();
+    const inSchema = schemaTables && new Set(schemaTables.map((table) => table.name.toLowerCase()));
+    const unmanaged = inSchema
+      ? live.tables.map((table) => table.name.toLowerCase()).filter((name) => !inSchema.has(name))
+      : ((await loadReference(projectId, connectionId))?.unmanaged ?? []);
+    await saveReferenceFingerprint(projectId, connectionId, live, source, unmanaged);
   } catch (err) {
     console.error("[drift] could not record the reference fingerprint:", err);
   }
@@ -151,16 +158,13 @@ async function planDeployment(
   const diff = diffTargetAgainstLive(liveProject, canvasProject);
   // Measured again here, whatever the plan said: the data may have moved
   // since, and an API caller may never have looked at a plan at all.
-  const acceptedRisks = settleRisks(
-    await analyzeDeploymentRisks(driver, diff, conn.engine),
-    resolutions,
-    await isProductionStage(conn),
-  );
+  const risks = await analyzeDeploymentRisks(driver, diff, conn.engine, await deployedTablesOf(projectId, conn.id));
+  const acceptedRisks = settleRisks(risks, resolutions, await isProductionStage(conn));
   // Seeds are checked before anything runs: a seed that cannot go in must
   // not leave the database half-deployed.
   const seeds = skipSeeds ? null : await prepareSeeds(projectId, canvasProject);
   if (seeds) assertSeedsDeployable(seeds);
-  return { diff, acceptedRisks, seeds, sql: generateMigrationSql(diff, conn.engine, resolutions) };
+  return { diff, acceptedRisks, seeds, sql: generateMigrationSql(diff, conn.engine, withKeepDefaults(risks, resolutions)) };
 }
 
 /** What a review request froze, as far as a deployment has to match it. */
@@ -384,7 +388,7 @@ export async function deployToConnection(
       });
     }
 
-    await rememberDeployedState(driver, projectId, conn.id, "deploy");
+    await rememberDeployedState(driver, projectId, conn.id, "deploy", canvasProject.tables);
 
     return {
       success: true,

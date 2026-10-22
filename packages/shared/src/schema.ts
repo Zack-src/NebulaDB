@@ -496,6 +496,8 @@ export interface AcceptedRisk {
 
 export type SchemaDiffRiskType =
   | "DROP_TABLE_WITH_DATA"
+  /** A table the database holds that the schema does not have and Nebula never deployed: made by hand, empty or not. */
+  | "UNMANAGED_TABLE"
   | "DROP_COLUMN_WITH_DATA"
   | "ALTER_COLUMN_TYPE"
   | "NULL_TO_NOT_NULL"

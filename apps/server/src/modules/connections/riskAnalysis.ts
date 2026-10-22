@@ -31,10 +31,12 @@ export async function analyzeDeploymentRisks(
   driver: DatabaseDriver,
   diff: MigrationDiff,
   engine: DatabaseEngine,
+  /** The tables Nebula deployed there (see `planRiskProbes`); left out when unknown. */
+  deployedTables?: ReadonlySet<string> | null,
 ): Promise<SchemaRisk[]> {
   const risks: SchemaRisk[] = [];
   const deadline = Date.now() + TOTAL_BUDGET_MS;
-  for (const probe of planRiskProbes(diff, engine)) {
+  for (const probe of planRiskProbes(diff, engine, deployedTables)) {
     let value: number | null;
     const remaining = deadline - Date.now();
     if (remaining <= 0) {
@@ -52,6 +54,21 @@ export async function analyzeDeploymentRisks(
     if (risk) risks.push(risk);
   }
   return [...risks, ...detectTypeTranslationRisks(diff, engine)];
+}
+
+/**
+ * The answers a deployment runs with: those sent, plus "keep it" for every risk left unanswered whose default is
+ * to keep. Without one the SQL generator drops the table or column, while the deployment record says it was kept.
+ */
+export function withKeepDefaults(risks: SchemaRisk[], resolutions: MigrationResolutionMap): MigrationResolutionMap {
+  const answers = { ...resolutions };
+  for (const risk of risks) {
+    const key = resolutionKeyOf(risk);
+    if (risk.severity !== "info" && risk.defaultStrategy === "KEEP_IN_DB" && !answers[key]) {
+      answers[key] = { strategy: "KEEP_IN_DB" };
+    }
+  }
+  return answers;
 }
 
 /** The key a risk's answer is filed under in a `MigrationResolutionMap`. */
