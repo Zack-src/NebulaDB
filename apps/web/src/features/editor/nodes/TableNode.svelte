@@ -234,6 +234,7 @@
     <Handle type="source" position={Position.Right} id="header-right-source" />
     {#if renaming}
       <InlineNameInput
+        reserve={table.name}
         class={`nodrag ${TABLE_NAME_CLASS}`}
         bind:value={nameDraft.value}
         onblur={() => {

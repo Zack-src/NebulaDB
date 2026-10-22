@@ -167,6 +167,7 @@
   {/if}
   {#if renaming}
     <InlineNameInput
+      reserve={field.name}
       class={`nodrag ${ROW_NAME_CLASS}`}
       bind:value={nameDraft.value}
       onclick={(event) => event.stopPropagation()}
