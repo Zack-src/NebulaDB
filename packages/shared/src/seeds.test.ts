@@ -9,8 +9,8 @@ import {
   seedInsertOrder,
   seedOverflows,
   suggestMapping,
-  validateSeed,
 } from "./seeds.js";
+import { CsvStreamParser, SeedValidator, validateSeed } from "./seedStream.js";
 
 function table(id: string, fields: Partial<Field>[], extra: Partial<Table> = {}): Table {
   return {
@@ -180,4 +180,38 @@ test("seedOverflows names the columns whose values are longer than the declared 
     seedOverflows(widened, [["code"], ["abcdefgh"]], { header: true, mapping: ["users.code"] }),
     [],
   );
+});
+
+test("CsvStreamParser gives the rows parseCsv gives, whatever the pieces it is fed in", () => {
+  const text = '﻿id;name;note\r\n1;"Ada; ""the first""";\r\n2;Grace;"two\nlines"\n\n3;"";x\r4;last;end';
+  const expected = parseCsv(text, ";");
+  for (const size of [1, 2, 3, 5, 7, 64]) {
+    const parser = new CsvStreamParser(";");
+    const rows: (string | null)[][] = [];
+    for (let i = 0; i < text.length; i += size) rows.push(...parser.push(text.slice(i, i + size)));
+    rows.push(...parser.end());
+    assert.deepEqual(rows, expected, `pieces of ${size}`);
+  }
+  assert.deepEqual(expected[1], ["1", 'Ada; "the first"', null]);
+  assert.deepEqual(expected[3], ["3", "", "x"]);
+});
+
+test("SeedValidator drops a check it has no room for, and says so", () => {
+  const users = table("users", [{ name: "id", type: "int", pk: true }, { name: "code", type: "varchar(3)", unique: true }]);
+  const options = { header: true, mapping: ["users.id", "users.code"] };
+  const rows: (string | null)[][] = [["id", "code"], ["1", "aaa"], ["2", "bbb"], ["3", "ccc"], ["3", "ddd"], ["4", "aaa"]];
+
+  const roomy = new SeedValidator(users, options, {}, { collect: new Set(["users.id"]) });
+  rows.forEach((row) => roomy.add(row));
+  const full = roomy.finish();
+  assert.deepEqual(full.issues.map((i) => [i.kind, i.row]), [["unique", 4], ["unique", 5]]);
+  assert.equal(full.rows, 5);
+  assert.deepEqual([...(full.values.get("users.users.id") ?? [])], ["1", "2", "3", "4"]);
+  assert.deepEqual(full.unchecked, []);
+
+  const tight = new SeedValidator(users, options, {}, { maxKeys: 3 });
+  rows.forEach((row) => tight.add(row));
+  const partial = tight.finish();
+  assert.ok(partial.unchecked.length > 0, "a set was dropped");
+  assert.ok(partial.issues.length < full.issues.length + 1);
 });

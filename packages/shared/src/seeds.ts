@@ -34,13 +34,20 @@ export interface TableSeedSummary {
   tableId: string;
   tableName: string;
   format: "csv";
+  /**
+   * `inline`: the CSV is kept in the database (up to `SEED_MAX_BYTES`, what the dialog edits). `file`: a big seed kept
+   * as a file on the server and only ever read as a stream — its content is never sent to the browser.
+   */
+  storage: "inline" | "file";
   rowCount: number;
   bytes: number;
   options: SeedOptions;
   updatedAt: string;
   updatedByName: string | null;
-  /** Set by the list: the columns whose values are longer than the schema now allows. Absent when all fit. */
+  /** Set by the list: the columns whose values are longer than the schema now allows. Absent when all fit. For a file, as of its upload. */
   overflows?: SeedOverflow[];
+  /** A file seed: checks that were given up on for lack of room (`unique: code`), so the file is only partly checked. */
+  unchecked?: string[];
 }
 
 export interface TableSeed extends TableSeedSummary {
@@ -184,9 +191,9 @@ export function seedRows(
   };
 }
 
-type TypeFamily = "integer" | "decimal" | "boolean" | "date" | "datetime" | "uuid" | "text";
+export type TypeFamily = "integer" | "decimal" | "boolean" | "date" | "datetime" | "uuid" | "text";
 
-function typeFamily(type: string): TypeFamily {
+export function typeFamily(type: string): TypeFamily {
   const t = type.toLowerCase().trim();
   if (/^(tiny|small|medium|big)?int(eger)?\d*\b|^(small|big)?serial\b|^int[248]\b/.test(t)) return "integer";
   if (/^(numeric|decimal|number|float\d*|double|real|money)\b/.test(t)) return "decimal";
@@ -200,7 +207,7 @@ function typeFamily(type: string): TypeFamily {
 const BOOLEAN_TRUE = new Set(["true", "t", "1", "yes", "y", "oui"]);
 const BOOLEAN_FALSE = new Set(["false", "f", "0", "no", "n", "non"]);
 
-function fitsType(value: string, family: TypeFamily): boolean {
+export function fitsType(value: string, family: TypeFamily): boolean {
   switch (family) {
     case "integer":
       return /^[-+]?\d+$/.test(value.trim());
@@ -219,7 +226,7 @@ function fitsType(value: string, family: TypeFamily): boolean {
   }
 }
 
-function declaredLength(type: string): number | null {
+export function declaredLength(type: string): number | null {
   const match = /^\s*(?:n?var)?char(?:acter)?(?:\s+varying)?2?\s*\(\s*(\d+)/i.exec(type);
   return match ? Number(match[1]) : null;
 }
@@ -262,7 +269,7 @@ export function seedOverflows(
 }
 
 /** What a field must receive when a seed leaves it out: NOT NULL without a default nor an auto value. */
-function isRequired(field: Field): boolean {
+export function isRequired(field: Field): boolean {
   return (
     Boolean(field.notNull || field.pk) && !field.increment && (field.default === undefined || field.default === "")
   );
@@ -272,108 +279,8 @@ export interface SeedValidationContext {
   /** Values of the referenced columns known from other seeds, keyed `tableId.fieldId` — a foreign key is only checked against those. */
   parentValues?: ReadonlyMap<string, ReadonlySet<string>>;
   refs?: readonly Ref[];
-}
-
-/**
- * What would make the insert fail or surprise: a NULL in a NOT NULL column,
- * a value that is not of the column's type or longer than its limit, a
- * duplicate under a primary key or UNIQUE, a foreign key with no parent among
- * the parent table's own seed, a required column the CSV does not fill, a row
- * of the wrong width. Formula-looking text (`=`, `+`, `-`, `@` first) is a
- * warning: stored as text, but run by a spreadsheet that opens an export. So
- * is a CSV column mapped to a table column that no longer exists: its values
- * are left out, which nobody asked for.
- */
-export function validateSeed(
-  table: Table,
-  parsed: (string | null)[][],
-  options: Pick<SeedOptions, "header" | "mapping">,
-  context: SeedValidationContext = {},
-): { issues: SeedIssue[]; total: number } {
-  const issues: SeedIssue[] = [];
-  let total = 0;
-  const report = (issue: SeedIssue) => {
-    total++;
-    if (issues.length < SEED_MAX_ISSUES) issues.push(issue);
-  };
-  const { columns, rows, width } = seedRows(parsed, options, table);
-
-  options.mapping.forEach((fieldId, index) => {
-    if (!fieldId || table.fields.some((field) => field.id === fieldId)) return;
-    // Named as the file names it; by position when the file has no header.
-    const header = options.header ? parsed[0]?.[index] : null;
-    report({ kind: "column-gone", row: 0, value: header || `#${index + 1}`, severity: "warning" });
-  });
-
-  const mapped = new Set(columns.map((field) => field.id));
-  for (const field of table.fields) {
-    if (!mapped.has(field.id) && isRequired(field))
-      report({ kind: "missing-column", row: 0, column: field.name, severity: "error" });
-  }
-  const body = options.header ? parsed.slice(1) : parsed;
-  body.forEach((cells, index) => {
-    if (cells.length !== width)
-      report({ kind: "width", row: index + 1, value: String(cells.length), severity: "error" });
-  });
-
-  const families = columns.map((field) => typeFamily(field.type));
-  const limits = columns.map((field) => declaredLength(field.type));
-  const uniqueSets: { label: string; indexes: number[]; seen: Set<string> }[] = [];
-  const pkIndexes = columns.map((field, i) => (field.pk ? i : -1)).filter((i) => i >= 0);
-  if (pkIndexes.length > 0)
-    uniqueSets.push({ label: pkIndexes.map((i) => columns[i].name).join(", "), indexes: pkIndexes, seen: new Set() });
-  columns.forEach((field, i) => {
-    if (field.unique && !field.pk) uniqueSets.push({ label: field.name, indexes: [i], seen: new Set() });
-  });
-  for (const index of table.indexes) {
-    if (!index.unique && !index.pk) continue;
-    const positions = index.fieldIds.map((id) => columns.findIndex((field) => field.id === id));
-    if (positions.some((p) => p < 0)) continue;
-    uniqueSets.push({ label: positions.map((p) => columns[p].name).join(", "), indexes: positions, seen: new Set() });
-  }
-
-  const foreignKeys = (context.refs ?? [])
-    .filter((ref) => ref.from.tableId === table.id)
-    .map((ref) => ({
-      position: columns.findIndex((field) => field.id === ref.from.fieldId),
-      parent: context.parentValues?.get(`${ref.to.tableId}.${ref.to.fieldId}`),
-    }))
-    .filter((fk) => fk.position >= 0 && fk.parent !== undefined);
-
-  rows.forEach((row, r) => {
-    const rowNumber = r + 1;
-    row.forEach((value, c) => {
-      const field = columns[c];
-      if (value === null) {
-        if (field.notNull || field.pk)
-          report({ kind: "not-null", row: rowNumber, column: field.name, severity: "error" });
-        return;
-      }
-      if (!fitsType(value, families[c])) {
-        report({ kind: "type", row: rowNumber, column: field.name, value, severity: "error" });
-      } else if (limits[c] !== null && [...value].length > limits[c]!) {
-        report({ kind: "length", row: rowNumber, column: field.name, value, severity: "error" });
-      }
-      if (families[c] === "text" && /^[=+\-@\t\r]/.test(value) && !/^[-+]?\d/.test(value)) {
-        report({ kind: "formula", row: rowNumber, column: field.name, value, severity: "warning" });
-      }
-    });
-    for (const set of uniqueSets) {
-      const parts = set.indexes.map((i) => row[i]);
-      if (parts.some((part) => part === null)) continue;
-      const key = JSON.stringify(parts);
-      if (set.seen.has(key))
-        report({ kind: "unique", row: rowNumber, column: set.label, value: parts.join(", "), severity: "error" });
-      set.seen.add(key);
-    }
-    for (const fk of foreignKeys) {
-      const value = row[fk.position];
-      if (value !== null && !fk.parent!.has(value)) {
-        report({ kind: "foreign-key", row: rowNumber, column: columns[fk.position].name, value, severity: "error" });
-      }
-    }
-  });
-  return { issues, total };
+  /** Keys (`tableId.fieldId`) whose values in `parentValues` are partial: a foreign key towards them is not checked. */
+  incompleteParents?: ReadonlySet<string>;
 }
 
 /** The values a seed gives each column, keyed `tableId.fieldId` — what children's foreign keys are checked against. */
@@ -449,4 +356,6 @@ export interface SeedPlanEntry {
   existingRows: number | null;
   errors: number;
   warnings: number;
+  /** Checks given up on for lack of memory (a big seed): the seed is only partly checked. */
+  unchecked?: string[];
 }

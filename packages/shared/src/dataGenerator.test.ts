@@ -2,7 +2,8 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import type { Field, Ref, Table } from "./schema.js";
 import { generateRows, suggestGenerator, toCsv } from "./dataGenerator.js";
-import { parseCsv, seedColumnValues, validateSeed } from "./seeds.js";
+import { parseCsv, seedColumnValues } from "./seeds.js";
+import { validateSeed } from "./seedStream.js";
 
 function table(id: string, fields: Partial<Field>[]): Table {
   return {
