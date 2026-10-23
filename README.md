@@ -55,26 +55,30 @@ Environment variables, or `apps/server/.env` (see [`.env.example`](apps/server/.
 | `NEBULADB_AUDIT_RETENTION_DAYS`                                              | `365`                     | Audit log retention; `0` = forever.                                                                         |
 | `NEBULADB_QUERY_STATS_RETENTION_DAYS`                                        | `30`                      | SQL console statistics retention.                                                                           |
 | `NEBULADB_DB_ACTIVITY_RETENTION_DAYS`                                        | `14`                      | Database activity history retention.                                                                        |
+| `NEBULADB_SEED_DIR`                                                          | `./data/seeds`            | Where initial data too big for the database is kept (one CSV per table).                                    |
+| `NEBULADB_SEED_FILE_MAX_GB`                                                  | `20`                      | Largest seed file, in GB.                                                                                   |
+| `NEBULADB_SEED_MAX_KEYS`                                                     | `5000000`                 | Key values a big seed's checks may keep in memory.                                                          |
+| `NEBULADB_SEED_IMPORT_DIR`                                                   | — (off)                   | Folder administrators may import seed files from by path.                                                   |
 | `NEBULADB_CONNECTION_HEALTH_INTERVAL_MINUTES`                                | `15`                      | Connection health checks; `0` = off.                                                                        |
 | `NEBULADB_SQLITE_DIR`                                                        | —                         | Restrict SQLite connections to this folder.                                                                 |
 
 ## Features
 
-| Area            | What you get                                                                                                              |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Editing         | DBML text and visual canvas, synced both ways. Tables, zones, notes, enums, groups.                                       |
-| Views           | Logical (tables), conceptual (Merise MCD), three detail levels per table, auto-layout.                                    |
-| Collaboration   | Live cursors and edits (Yjs), comments with @mentions, undo/redo.                                                         |
-| History         | Every change is a revision: timeline, labels, diff, non-destructive restore.                                              |
-| Import / export | DBML and SQL (Postgres, MySQL, MSSQL); PNG, SVG, PDF.                                                                     |
-| Live databases  | Connect PostgreSQL, MySQL/MariaDB, SQL Server, Oracle or SQLite; pull the schema, diff, deploy with preview and rollback. |
-| SQL space       | Query console, data browser, journal, statistics, health, account watch.                                                  |
-| Governance      | Table locks, structure policy, environments chain, deployment risk checks.                                                |
-| Data            | Seeds from CSV or a database, test-data generator.                                                                        |
-| Quality         | Schema linter with presets, validation panel.                                                                             |
-| Access          | Invitations, teams, per-project roles, 2FA, API keys, [public API](docs/public-api.md), [webhooks](docs/webhooks.md).     |
-| Extensibility   | Sandboxed browser plugins: exporters, importers, canvas and editor commands.                                              |
-| Operations      | Backups, audit log, `/api/health`, `/api/metrics`, French and English UI.                                                 |
+| Area            | What you get                                                                                                                                                               |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Editing         | DBML text and visual canvas, synced both ways. Tables, zones, notes, enums, groups.                                                                                        |
+| Views           | Logical (tables), conceptual (Merise MCD), three detail levels per table, auto-layout.                                                                                     |
+| Collaboration   | Live cursors and edits (Yjs), comments with @mentions, undo/redo, read-only share links, per-client variants, folders.                                                     |
+| History         | Every change is a revision: timeline, labels, diff, non-destructive restore.                                                                                               |
+| Import / export | Import DBML, bundle, SQL (Postgres, MySQL, MSSQL, SQLite), JSON Schema. Export DBML, bundle, SQL, TypeScript, Prisma, Mermaid, PNG, SVG, PDF, Flyway/Liquibase migrations. |
+| Live databases  | Connect PostgreSQL, MySQL/MariaDB, SQL Server, Oracle, BigQuery or SQLite; pull the schema, diff, deploy with preview and rollback.                                        |
+| SQL space       | Query console, data browser, journal, statistics, health, account watch.                                                                                                   |
+| Governance      | Table locks, structure policy, environments chain, deployment reviews and risk checks.                                                                                     |
+| Data            | Seeds from CSV or a database, test-data generator.                                                                                                                         |
+| Quality         | Schema linter with presets, validation panel.                                                                                                                              |
+| Access          | Invitations, teams, per-project roles, 2FA, OpenID Connect SSO, API keys, [public API](docs/public-api.md), [webhooks](docs/webhooks.md).                                  |
+| Extensibility   | Sandboxed browser plugins: exporters, importers, canvas and editor commands.                                                                                               |
+| Operations      | Backups, audit log, `/api/health`, `/api/metrics`, French and English UI.                                                                                                  |
 
 Docs: [feature status](docs/etat-des-features.md) · [roadmap](docs/todo.md) · [public API](docs/public-api.md) · [webhooks](docs/webhooks.md)
 
@@ -113,7 +117,7 @@ npm run restore -- <dir> [--owner <email>]      # each file becomes a new projec
 
 **Logs** are JSON on stdout; rotation is up to Docker (`docker-compose.yml` caps them) or your process manager.
 
-**Upgrading from AthanorDB:** see [`docs/renommage-nebuladb.md`](docs/renommage-nebuladb.md).
+**Upgrading from AthanorDB:** the old `ATHANORDB_*` variables are still read when the `NEBULADB_*` one is not set; rename them when convenient.
 
 ## Develop
 

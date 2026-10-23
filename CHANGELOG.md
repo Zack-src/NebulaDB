@@ -6,7 +6,7 @@ release changes the database, the configuration, or anything they have to do by
 hand.
 
 Database migrations run automatically at boot (`apps/server/src/infrastructure/migrations.ts`,
-tracked with `PRAGMA user_version`) and are one-way — take a backup before
+recorded in the `schema_migrations` table) and are one-way — take a backup before
 upgrading (`npm run backup -- <dir>`).
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
