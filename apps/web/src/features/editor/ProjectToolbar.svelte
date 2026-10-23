@@ -13,6 +13,7 @@
 
 <script lang="ts">
   import FollowMenu from "@/features/notifications/FollowMenu.svelte";
+  import PaletteButton from "@/features/palette/PaletteButton.svelte";
   import NotificationBell from "@/features/notifications/NotificationBell.svelte";
   import PresenceList from "@/features/collaboration/PresenceList.svelte";
   import VariantSwitcher from "@/features/workspace/variants/VariantSwitcher.svelte";
@@ -125,6 +126,7 @@
 
     <PresenceList localName={props.localUser} remote={props.remoteAwareness} />
 
+    <PaletteButton />
     {#if props.follow}
       <FollowMenu projectId={props.follow.projectId} />
       <NotificationBell onOpenProject={props.follow.onOpenProject} />

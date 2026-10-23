@@ -4,6 +4,7 @@
   import { autofocus } from "@/actions/autofocus";
   import type { AdminSection } from "@/features/admin/adminSections";
   import type { WorkspaceTab } from "@/features/projects/projectRouting.svelte";
+  import { OPEN_PALETTE_EVENT } from "@/features/palette/paletteEvents";
   import { openProjectSource } from "@/features/palette/openProjectSource";
   import {
     MIN_SERVER_QUERY,
@@ -127,6 +128,15 @@
     // Capture phase on window and mounted with the shell, so it runs ahead of the canvas's plugin shortcuts.
     window.addEventListener("keydown", onKeyDown, true);
     return () => window.removeEventListener("keydown", onKeyDown, true);
+  });
+
+  // The header's palette button asks for the palette the same way the shortcut does.
+  $effect(() => {
+    const onOpenRequest = () => {
+      if (!open && !document.querySelector('[role="dialog"][aria-modal="true"]')) openPalette();
+    };
+    window.addEventListener(OPEN_PALETTE_EVENT, onOpenRequest);
+    return () => window.removeEventListener(OPEN_PALETTE_EVENT, onOpenRequest);
   });
 
   // Connections are fetched when the palette opens — only ever for an instance administrator.
