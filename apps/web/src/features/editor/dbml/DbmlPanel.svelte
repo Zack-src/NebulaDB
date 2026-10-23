@@ -34,6 +34,7 @@
   import { ApiError } from "@/services/ApiError";
   import type { TranslationKeyOf } from "@/types";
   import { exportDbml, importSource } from "@/services/projectsApi";
+  import { KEEPALIVE_MAX_BYTES } from "@/services/httpClient";
   import { time } from "@/utils/perfMonitor";
   import { useFlashMessage } from "@/hooks/flashMessage.svelte";
   import {
@@ -218,7 +219,10 @@
   // reloading inside that window would otherwise drop the edit on the floor.
   // Flush whatever's still pending instead of discarding it.
   $effect(() => {
-    const flushPending = () => {
+    const flushPending = (event?: Event) => {
+      // A buffer too big for `keepalive` (see `KEEPALIVE_MAX_BYTES`) cannot outlive the page:
+      // let the browser ask before it is lost.
+      if (event && syncState === "pending" && new Blob([text]).size > KEEPALIVE_MAX_BYTES) event.preventDefault();
       if (debounce) clearTimeout(debounce);
       debounce = null;
       // `keepalive` lets this survive the tab actually closing/reloading

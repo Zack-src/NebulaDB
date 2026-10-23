@@ -32,12 +32,17 @@ function buildUrl(path: string, query?: RequestOptions["query"]): string {
   return serialised ? `${path}?${serialised}` : path;
 }
 
-function toRequestInit(options: RequestOptions): RequestInit {
+/** A `keepalive` request may carry 64 KiB at most; `fetch` rejects a larger one outright. */
+export const KEEPALIVE_MAX_BYTES = 60_000;
+
+export function toRequestInit(options: RequestOptions): RequestInit {
+  const body = options.body === undefined ? undefined : JSON.stringify(options.body);
+  const keepalive = options.keepalive && (body === undefined || new Blob([body]).size <= KEEPALIVE_MAX_BYTES);
   return {
     method: options.method ?? "GET",
     signal: options.signal,
-    keepalive: options.keepalive,
-    ...(options.body === undefined ? {} : { headers: JSON_HEADERS, body: JSON.stringify(options.body) }),
+    keepalive: keepalive || undefined,
+    ...(body === undefined ? {} : { headers: JSON_HEADERS, body }),
   };
 }
 

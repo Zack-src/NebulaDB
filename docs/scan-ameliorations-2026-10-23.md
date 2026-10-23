@@ -48,7 +48,7 @@ mais ce document ne le remplace pas : il le complète (les agents ont signalé l
 
 ### Lot B — Perte de données & stabilité
 
-- [ ] **[P1][S] Éditions DBML perdues au-delà de ~30 Ko** — `apps/web/src/features/editor/dbml/DbmlPanel.svelte:220-237` — flush en `keepalive` refusé au-delà de 64 Kio. → Flush via WebSocket/Yjs, `keepalive` seulement pour petits payloads. _(§3)_
+- [x] **[P1][S] Éditions DBML perdues au-delà de ~30 Ko** — `apps/web/src/features/editor/dbml/DbmlPanel.svelte:220-237` — flush en `keepalive` refusé au-delà de 64 Kio. → Flush via WebSocket/Yjs, `keepalive` seulement pour petits payloads. _(§3)_
 - [ ] **[P0][L] Parse DBML synchrone ×2 sur l'event loop à chaque auto-sync** — `projects/routes/importExport.ts:34,54`, `dbmlSource.ts:37-61` — ~2 × 950 ms à 500 tables, toutes les rooms gelées. → Worker thread + cache de la baseline. _(§3)_
 - [ ] **[P0][M] `GET /revisions` rejoue tout l'historique (O(R×T))** — `realtime/persistence.ts:88-121` — 4,4 s de gel pour 2 000 révisions. → Pagination + résumés de diff pré-calculés à l'écriture. _(§3)_
 - [ ] **[P1][M] Restauration non transactionnelle** — `backups/restore.ts:99-162,213-215` — tables vidées puis échec partiel ; identity/séquences non gérées. _(§2)_
