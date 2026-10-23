@@ -9,6 +9,7 @@
   import { PlusIcon, TrashIcon } from "@/components/icons/Icons";
   import Modal from "@/components/overlays/Modal.svelte";
   import Badge from "@/components/ui/Badge.svelte";
+  import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Button from "@/components/ui/Button.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
@@ -55,6 +56,7 @@
     label = "";
     links.reload();
   });
+  let linkToRevoke = $state<{ id: string; label: string } | null>(null);
   const revoke = useAsyncAction(async (id: string) => {
     await revokeShareLink(project.id, id);
     links.reload();
@@ -154,7 +156,7 @@
                 data-tooltip={t("shareLinks.revoke")}
                 aria-label={t("shareLinks.revokeNamed", { label: link.label })}
                 disabled={revoke.pending}
-                onclick={() => void revoke.run(link.id)}
+                onclick={() => (linkToRevoke = link)}
               >
                 <Icon icon={TrashIcon} size={13} />
               </Button>
@@ -165,3 +167,18 @@
     {/if}
   </div>
 </Modal>
+
+{#if linkToRevoke}
+  {@const target = linkToRevoke}
+  <ConfirmDialog
+    title={t("shareLinks.revokeTitle", { label: target.label })}
+    message={t("shareLinks.revokeMessage")}
+    confirmLabel={t("shareLinks.revoke")}
+    danger="danger"
+    onConfirm={() => {
+      linkToRevoke = null;
+      void revoke.run(target.id);
+    }}
+    onCancel={() => (linkToRevoke = null)}
+  />
+{/if}

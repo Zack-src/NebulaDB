@@ -21,6 +21,7 @@
 </script>
 
 <script lang="ts">
+  import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Button from "@/components/ui/Button.svelte";
   import Field from "@/components/ui/Field.svelte";
   import Badge from "@/components/ui/Badge.svelte";
@@ -65,6 +66,7 @@
     keys.reload();
   });
 
+  let keyToRevoke = $state<{ id: string; name: string } | null>(null);
   const revoke = useAsyncAction(async (id: string) => {
     await revokeApiKey(id);
     keys.reload();
@@ -152,7 +154,7 @@
               : t("settings.billing.apiKeys.neverUsed")}
           </div>
         </div>
-        <Button variant="danger-ghost" size="sm" disabled={revoke.pending} onclick={() => void revoke.run(key.id)}>
+        <Button variant="danger-ghost" size="sm" disabled={revoke.pending} onclick={() => (keyToRevoke = key)}>
           {t("settings.billing.apiKeys.revoke")}
         </Button>
       </li>
@@ -189,3 +191,18 @@
     </Button>
   </div>
 </div>
+
+{#if keyToRevoke}
+  {@const target = keyToRevoke}
+  <ConfirmDialog
+    title={t("settings.billing.apiKeys.revokeTitle", { name: target.name })}
+    message={t("settings.billing.apiKeys.revokeMessage")}
+    confirmLabel={t("settings.billing.apiKeys.revoke")}
+    danger="danger"
+    onConfirm={() => {
+      keyToRevoke = null;
+      void revoke.run(target.id);
+    }}
+    onCancel={() => (keyToRevoke = null)}
+  />
+{/if}

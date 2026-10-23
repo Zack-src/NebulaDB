@@ -3,6 +3,7 @@
   import { CopyIcon, EyeIcon, LinkIcon, TrashIcon } from "@/components/icons/Icons";
   import AccountAvatar from "@/components/ui/AccountAvatar.svelte";
   import Badge from "@/components/ui/Badge.svelte";
+  import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Button from "@/components/ui/Button.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
@@ -42,6 +43,7 @@
     await setShareLinksEnabled(enabled);
     links.reload();
   });
+  let linkToRevoke = $state<{ id: string; label: string } | null>(null);
   const revoke = useAsyncAction(async (id: string) => {
     await revokeAnyShareLink(id);
     delete addresses[id];
@@ -106,7 +108,7 @@
                 data-tooltip={t("shareLinks.revoke")}
                 aria-label={t("shareLinks.revokeNamed", { label: link.label })}
                 disabled={revoke.pending}
-                onclick={() => void revoke.run(link.id)}
+                onclick={() => (linkToRevoke = link)}
               >
                 <Icon icon={TrashIcon} size={13} />
               </Button>
@@ -163,3 +165,18 @@
     </List>
   {/if}
 </div>
+
+{#if linkToRevoke}
+  {@const target = linkToRevoke}
+  <ConfirmDialog
+    title={t("shareLinks.revokeTitle", { label: target.label })}
+    message={t("shareLinks.revokeMessage")}
+    confirmLabel={t("shareLinks.revoke")}
+    danger="danger"
+    onConfirm={() => {
+      linkToRevoke = null;
+      void revoke.run(target.id);
+    }}
+    onCancel={() => (linkToRevoke = null)}
+  />
+{/if}

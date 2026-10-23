@@ -1,4 +1,5 @@
 <script lang="ts">
+  import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { ChevronLeftIcon, PlusIcon, TrashIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
@@ -54,6 +55,9 @@
     await removeTeamMember(teamId, userId);
     applyMembershipChange();
   });
+
+  let memberToRemove = $state<{ id: string; displayName: string } | null>(null);
+  let projectToRemove = $state<{ projectId: string; projectName: string } | null>(null);
 
   const members = $derived(team.data?.members ?? []);
   const assignableUsers = $derived(
@@ -157,7 +161,7 @@
               variant="ghost"
               size="icon"
               data-tooltip={t("admin.teams.removeMember")}
-              onclick={() => void removeMember.run(member.id)}
+              onclick={() => (memberToRemove = member)}
             >
               <Icon icon={TrashIcon} size={13} />
             </Button>
@@ -205,7 +209,7 @@
                 size="icon"
                 data-tooltip={t("admin.teams.removeProject")}
                 aria-label={t("admin.teams.removeProject")}
-                onclick={() => void revokeProject.run(project.projectId)}
+                onclick={() => (projectToRemove = project)}
               >
                 <Icon icon={TrashIcon} size={13} />
               </Button>
@@ -234,3 +238,32 @@
     </section>
   {/if}
 </div>
+
+{#if memberToRemove}
+  {@const target = memberToRemove}
+  <ConfirmDialog
+    title={t("admin.teams.removeMemberTitle", { name: target.displayName })}
+    message={t("admin.teams.removeMemberMessage")}
+    confirmLabel={t("admin.teams.removeMember")}
+    danger="warning"
+    onConfirm={() => {
+      memberToRemove = null;
+      void removeMember.run(target.id);
+    }}
+    onCancel={() => (memberToRemove = null)}
+  />
+{/if}
+{#if projectToRemove}
+  {@const target = projectToRemove}
+  <ConfirmDialog
+    title={t("admin.teams.removeProjectTitle", { name: target.projectName })}
+    message={t("admin.teams.removeProjectMessage")}
+    confirmLabel={t("admin.teams.removeProject")}
+    danger="warning"
+    onConfirm={() => {
+      projectToRemove = null;
+      void revokeProject.run(target.projectId);
+    }}
+    onCancel={() => (projectToRemove = null)}
+  />
+{/if}
