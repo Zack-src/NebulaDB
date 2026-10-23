@@ -39,7 +39,7 @@ export function oraclePoolAttributes(config: DriverConnectionConfig): oracledb.P
   const tls = config.ssl
     ? {
         ...(config.sslCa?.trim() ? { walletContent: config.sslCa } : {}),
-        sslServerDNMatch: config.tlsVerify ?? config.sslVerify ?? false,
+        sslServerDNMatch: config.tlsVerify ?? config.sslVerify ?? true,
       }
     : {};
   const target = `${config.ssl ? "tcps://" : ""}${host}:${config.port || 1521}/${config.database || "FREEPDB1"}`;

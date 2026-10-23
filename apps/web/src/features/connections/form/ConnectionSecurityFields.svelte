@@ -27,7 +27,7 @@
   export function securityForm(summary: DatabaseConnectionSummary | null): SecurityForm {
     const tunnel = summary?.sshTunnel;
     return {
-      sslVerify: Boolean(summary?.sslVerify),
+      sslVerify: summary?.sslVerify ?? true,
       sslCa: summary?.sslCa ?? "",
       sslCert: summary?.sslCert ?? "",
       sslKey: "",

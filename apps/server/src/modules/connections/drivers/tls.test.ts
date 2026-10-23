@@ -105,7 +105,8 @@ async function postgresUp(): Promise<boolean> {
 test("TLS options: nothing without ssl, the authority and the client pair when given", () => {
   assert.equal(driverTlsOptions(configFor(1, { ssl: false })), undefined);
   const plain = driverTlsOptions(configFor(1, {}))!;
-  assert.equal(plain.rejectUnauthorized, false);
+  assert.equal(plain.rejectUnauthorized, true);
+  assert.equal(driverTlsOptions(configFor(1, { sslVerify: false }))!.rejectUnauthorized, false);
   assert.equal(plain.ca, undefined);
   const full = driverTlsOptions(configFor(1, { sslVerify: true, sslCa: ca, sslCert: clientCert, sslKey: clientKey }))!;
   assert.equal(full.rejectUnauthorized, true);

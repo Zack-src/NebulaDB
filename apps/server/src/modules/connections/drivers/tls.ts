@@ -13,7 +13,7 @@ import type { DriverConnectionConfig } from "./interface.js";
  */
 export function driverTlsOptions(config: DriverConnectionConfig): tls.ConnectionOptions | undefined {
   if (!config.ssl) return undefined;
-  const verify = config.tlsVerify ?? config.sslVerify ?? false;
+  const verify = config.tlsVerify ?? config.sslVerify ?? true;
   const options: tls.ConnectionOptions = { rejectUnauthorized: verify };
   if (config.sslCa?.trim()) options.ca = config.sslCa;
   if (config.sslCert?.trim()) options.cert = config.sslCert;
