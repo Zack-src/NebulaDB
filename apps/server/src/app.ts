@@ -126,6 +126,13 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       ...(options.logStream ? { stream: options.logStream } : {}),
     },
     bodyLimit: config.bodyLimit,
+    // Behind a reverse proxy, `req.ip` (rate limits, audit log, session list)
+    // comes from `X-Forwarded-For` only for the proxies trusted here.
+    // A hop count is what Fastify does at runtime for a number, which its types don't accept.
+    trustProxy:
+      typeof config.trustProxy === "number"
+        ? ((hops) => (_address: string, hop: number) => hop < hops)(config.trustProxy)
+        : config.trustProxy,
   });
   registerErrorHandler(app);
   // Every `Room` logs through this from here on instead of bare `console` —

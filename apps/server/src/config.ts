@@ -6,6 +6,7 @@ import { readEnv } from "./shared/brandMigration.js";
  * falling back to a default halfway through a request.
  */
 
+import { isIP } from "node:net";
 import path from "node:path";
 
 const isProduction = process.env.NODE_ENV === "production";
@@ -160,6 +161,57 @@ function readAllowedOrigins(): string[] {
     .split(",")
     .map((o) => o.trim().replace(/\/$/, ""))
     .filter(Boolean);
+}
+
+export type TrustProxy = boolean | number | string[];
+
+/**
+ * Which reverse proxies the server believes about the client address
+ * (`X-Forwarded-For`, `-Proto`, `-Host`), handed to Fastify's `trustProxy`.
+ * Without it, behind nginx every request comes from 127.0.0.1: the per-IP rate
+ * limits become one limit for the whole instance, and the IPs in the audit log
+ * and the session list are all the proxy's.
+ *
+ * - unset, `""` or `false`: trust no proxy (direct exposure).
+ * - `true`: trust every hop — only when nothing but the proxy can reach the server.
+ * - a whole number `n`: trust the last `n` hops (`1` for a single nginx).
+ * - a comma-separated list of IPs/CIDRs: trust only proxies at those addresses.
+ *
+ * Throws on anything else; `readTrustProxy` turns that into a boot failure.
+ */
+export function parseTrustProxy(raw: string | undefined): TrustProxy {
+  const value = raw?.trim() ?? "";
+  if (value === "" || value === "false") return false;
+  if (value === "true") return true;
+  if (/^\d+$/.test(value)) {
+    const hops = Number(value);
+    if (hops < 1 || hops > 100) throw new Error(`a hop count must be between 1 and 100 (got ${JSON.stringify(raw)})`);
+    return hops;
+  }
+  const entries = value
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean);
+  for (const entry of entries) {
+    const [address, prefix, extra] = entry.split("/");
+    const family = isIP(address ?? "");
+    const prefixOk =
+      prefix === undefined || (/^\d+$/.test(prefix) && Number(prefix) <= (family === 6 ? 128 : 32));
+    if (!family || !prefixOk || extra !== undefined) {
+      throw new Error(
+        `must be "true", "false", a hop count, or a comma-separated list of IP addresses/CIDRs (got ${JSON.stringify(entry)})`,
+      );
+    }
+  }
+  return entries;
+}
+
+function readTrustProxy(): TrustProxy {
+  try {
+    return parseTrustProxy(readEnv("NEBULADB_TRUST_PROXY"));
+  } catch (err) {
+    fail(`NEBULADB_TRUST_PROXY ${(err as Error).message}`);
+  }
 }
 
 /**
@@ -332,6 +384,7 @@ export const config = {
   /** Max single WebSocket frame — a Yjs sync/update for a large schema. */
   wsMaxPayload: readSizeMb("NEBULADB_MAX_WS_FRAME_MB", 8),
   allowedOrigins: readAllowedOrigins(),
+  trustProxy: readTrustProxy(),
   logLevel: readLogLevel(),
   /** 0 disables scheduled backups entirely. */
   backupIntervalHours: readBackupIntervalHours(),
