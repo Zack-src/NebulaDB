@@ -63,7 +63,7 @@
   });
 
   // Back from the provider without a session: the server says why in `?sso=`, read once and taken off the address.
-  const SSO_REASONS = ["expired", "provider", "no_email", "unverified", "domain", "no_account", "disabled", "not_configured"];
+  const SSO_REASONS = ["expired", "provider", "no_email", "unverified", "domain", "no_account", "account_exists", "disabled", "not_configured"];
   const ssoReason = new URLSearchParams(window.location.search).get("sso");
   const ssoError = ssoReason ? t(`login.sso.error.${SSO_REASONS.includes(ssoReason) ? ssoReason : "provider"}` as "login.sso.error.provider") : null;
   if (ssoReason) window.history.replaceState(null, "", "/");

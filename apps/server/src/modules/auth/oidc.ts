@@ -6,6 +6,7 @@ import { decryptPayload, encryptPayload } from "../../shared/crypto.js";
 import { ApiError } from "../../shared/errors.js";
 import { resolveAllowedHost } from "../connections/hostGuard.js";
 import { normalizeEmail } from "./email.js";
+import { isTotpEnabled } from "./totpRepository.js";
 
 /**
  * Single sign-on through one OpenID Connect provider (Keycloak, Entra ID,
@@ -238,7 +239,15 @@ export async function startLogin(
 }
 
 export type SsoRefusal =
-  "expired" | "provider" | "no_email" | "unverified" | "domain" | "no_account" | "disabled" | "not_configured";
+  | "expired"
+  | "provider"
+  | "no_email"
+  | "unverified"
+  | "domain"
+  | "no_account"
+  | "account_exists"
+  | "disabled"
+  | "not_configured";
 
 export class SsoLoginError extends Error {
   constructor(
@@ -344,6 +353,11 @@ export async function resolveSsoUser(
   let outcome: "linked" | "created" = "linked";
   if (user) {
     if (user.disabled_at) throw new SsoLoginError("disabled");
+    // Tying an identity to an account that already exists hands it that account without its
+    // password or second factor: only when the provider itself vouches for the address (a
+    // domain on the list is not that), and never for an administrator or an account with 2FA.
+    if (identity.emailVerified !== true) throw new SsoLoginError("unverified");
+    if (user.is_admin || (await isTotpEnabled(user.id))) throw new SsoLoginError("account_exists");
   } else {
     if (!stored.autoCreate) throw new SsoLoginError("no_account");
     const id = crypto.randomUUID();

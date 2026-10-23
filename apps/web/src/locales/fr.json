@@ -2191,6 +2191,7 @@
   "login.sso.error.provider": "Le fournisseur d'identité a refusé ou n'a pas répondu correctement. Recommencez, ou prévenez un administrateur.",
   "login.sso.error.no_email": "Le fournisseur n'a pas transmis d'adresse e-mail pour ce compte.",
   "login.sso.error.unverified": "Le fournisseur n'indique pas que votre adresse e-mail est vérifiée : Nebula ne peut pas la rattacher à un compte.",
+  "login.sso.error.account_exists": "Un compte existe déjà avec cette adresse e-mail et il est administrateur ou protégé par la double authentification : connectez-vous avec son mot de passe, ou demandez à un administrateur de le rattacher.",
   "login.sso.error.domain": "Votre adresse e-mail n'appartient pas à un domaine autorisé sur cette instance.",
   "login.sso.error.no_account": "Aucun compte Nebula ne correspond à cette adresse. Demandez une invitation à un administrateur.",
   "login.sso.error.disabled": "Ce compte a été désactivé.",

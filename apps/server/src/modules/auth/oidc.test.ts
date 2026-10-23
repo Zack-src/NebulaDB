@@ -241,6 +241,25 @@ test("SSO login: an existing account by verified address, then always by the pro
   assert.equal(disabled.location, "/?sso=disabled");
 });
 
+test("SSO login: an existing administrator, or an account with two-step verification, is never tied by address", async () => {
+  const cookie = await adminCookie();
+  await configure(cookie, { autoCreate: false, allowedDomains: [] });
+  const admin = `root-${randomUUID().slice(0, 6)}@example.com`;
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin) VALUES (?, ?, ?, 1)")
+    .run(randomUUID(), admin, await hashPassword(PASSWORD));
+  const protectedEmail = `safe-${randomUUID().slice(0, 6)}@example.com`;
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, totp_enabled_at) VALUES (?, ?, ?, utc_now())")
+    .run(randomUUID(), protectedEmail, await hashPassword(PASSWORD));
+
+  for (const email of [admin, protectedEmail]) {
+    const refused = await signIn({ sub: randomUUID(), email, email_verified: true });
+    assert.equal(refused.session, null);
+    assert.equal(refused.location, "/?sso=account_exists");
+  }
+});
+
 test("SSO login: accounts created on first sign-in, only in the allowed domains, never administrators", async () => {
   const cookie = await adminCookie();
   await configure(cookie, { autoCreate: true, allowedDomains: ["Corp.example", "@lab.example"] });

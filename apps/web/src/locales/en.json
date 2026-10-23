@@ -2191,6 +2191,7 @@
   "login.sso.error.provider": "The identity provider refused or did not answer properly. Try again, or tell an administrator.",
   "login.sso.error.no_email": "The provider sent no e-mail address for this account.",
   "login.sso.error.unverified": "The provider does not say your e-mail address is verified: Nebula cannot tie it to an account.",
+  "login.sso.error.account_exists": "An account with this e-mail address already exists and is an administrator's or protected by two-step verification: sign in with its password, or ask an administrator to link it.",
   "login.sso.error.domain": "Your e-mail address is not in a domain allowed on this instance.",
   "login.sso.error.no_account": "No Nebula account has this address. Ask an administrator for an invitation.",
   "login.sso.error.disabled": "This account has been disabled.",
