@@ -25,7 +25,7 @@
 
   const TAB = "border-b-2 px-3 py-2 font-medium transition-colors";
   const tabState = (step: DeploymentStep) =>
-    activeStep === step ? "border-accent text-accent" : "border-transparent text-text-muted hover:text-text";
+    activeStep === step ? "border-primary text-primary" : "border-transparent text-text-muted hover:text-text";
 </script>
 
 <div class="flex border-b border-border text-xs">

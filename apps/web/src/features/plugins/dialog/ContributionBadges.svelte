@@ -3,9 +3,9 @@
 
   const KIND_LABELS: Record<ContributionKind, { label: string; color: string }> = {
     exporter: { label: "Export", color: "bg-accent-cyan/15 text-accent-cyan border-accent-cyan/30" },
-    importer: { label: "Import", color: "bg-accent-teal/15 text-accent-teal border-accent-teal/30" },
+    importer: { label: "Import", color: "bg-success/15 text-success border-success/30" },
     canvasCommand: { label: "Canvas", color: "bg-primary/15 text-primary border-primary/30" },
-    editorCommand: { label: "Éditeur", color: "bg-accent-orange/15 text-accent-orange border-accent-orange/30" },
+    editorCommand: { label: "Éditeur", color: "bg-warning/15 text-warning border-warning/30" },
   };
 </script>
 

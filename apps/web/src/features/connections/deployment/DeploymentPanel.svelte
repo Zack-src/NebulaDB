@@ -271,7 +271,7 @@
         class="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-border bg-surface-raised p-2.5"
       >
         <div class="flex items-center gap-2">
-          <Icon icon={DatabaseIcon} size={16} class="text-accent" />
+          <Icon icon={DatabaseIcon} size={16} class="text-primary" />
           <span class="text-xs font-semibold text-text">{t("deployment.targetDatabase")}:</span>
           <strong class="text-xs">{selectedConn?.name}</strong>
         </div>
