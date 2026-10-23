@@ -181,7 +181,7 @@ test("someone without access to the connection sees nothing and can save nothing
     );
     // Nor with an API key, even the member's own.
     const key = (await createApiKey(ada.id, "saved", ["projects:read"], null)).plaintextKey;
-    assert.equal((await call(app, key, "GET", saved(connection.id))).statusCode, 404);
+    assert.equal((await call(app, key, "GET", saved(connection.id))).statusCode, 401);
     // A revoked grant applies to the next request.
     await call(app, admin.cookie, "PUT", `/api/admin/users/${ada.id}/db-access`, { grants: [] });
     assert.equal((await call(app, ada.cookie, "GET", saved(connection.id))).statusCode, 404);

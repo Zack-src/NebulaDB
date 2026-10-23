@@ -291,7 +291,7 @@ test("PATCH /api/users/:id/admin gives and takes back the administrator role, fr
       headers: headers({ authorization: `Bearer ${key.json().plaintextKey}` }),
       payload: { admin: true },
     });
-    assert.equal(viaKey.statusCode, 403);
+    assert.equal(viaKey.statusCode, 401);
 
     const promoted = await setAdmin(adminCookie, plain.id, { admin: true });
     assert.equal(promoted.statusCode, 200, promoted.body);

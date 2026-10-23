@@ -174,7 +174,10 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       return;
     }
     req.user = await resolveSession(req, reply);
-    if (!req.user) {
+    // An API key is only good for the public API: the internal routes check
+    // neither its scopes nor its project restriction, so a key resolved there
+    // would be a full session.
+    if (!req.user && req.url.startsWith("/api/v1/")) {
       const resolved = await resolveApiKey(req);
       req.user = resolved?.user ?? null;
       req.apiKey = resolved?.apiKey ?? null;

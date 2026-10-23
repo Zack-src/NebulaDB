@@ -353,7 +353,7 @@ test("a member reaches a database only once an instance administrator grants it,
 
     // An API key of the same member does not carry the grant.
     const key = (await createApiKey(member.id, "ci", ["projects:read"], null)).plaintextKey;
-    assert.equal((await query(app, key, connection.id, { sql: "SELECT 1" })).statusCode, 404);
+    assert.equal((await query(app, key, connection.id, { sql: "SELECT 1" })).statusCode, 401);
 
     // Revoked: the very next request is refused.
     assert.equal((await grantUser(app, admin.cookie, member.id, [])).statusCode, 200);
