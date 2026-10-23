@@ -95,12 +95,29 @@ const grantUser = (app: App, adminCookie: string, userId: string, grants: unknow
 const query = (app: App, cookie: string, connectionId: string, body: Record<string, unknown>) =>
   call(app, cookie, "POST", `/api/connections/${connectionId}/query`, body);
 
+test("a member cannot create or edit a personal SQLite connection", async () => {
+  const app = await buildApp();
+  try {
+    resetConnectionBudgets();
+    const member = await makeUser(app);
+    const sqlite = { name: "Mine", engine: "sqlite", filePath: seedTarget() };
+    const refused = await call(app, member.cookie, "POST", "/api/me/connections", sqlite);
+    assert.equal(refused.statusCode, 400);
+    assert.equal(refused.json().code, "CONNECTION_TARGET_FORBIDDEN");
+    assert.equal((await call(app, member.cookie, "GET", "/api/me/connections")).json().personal.length, 0);
+  } finally {
+    await closeAllRooms();
+    await app.close();
+  }
+});
+
 test("private databases are usable only by their owner, absent from admin lists, and audited", async () => {
   const app = await buildApp();
   try {
     resetConnectionBudgets();
     const admin = await makeUser(app, 1);
-    const owner = await makeUser(app);
+    // Only an administrator may point a personal connection at SQLite; another administrator still cannot see it.
+    const owner = await makeUser(app, 1);
     const stranger = await makeUser(app);
     const created = await call(app, owner.cookie, "POST", "/api/me/connections", {
       name: "Private sandbox",

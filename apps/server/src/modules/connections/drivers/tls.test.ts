@@ -135,8 +135,12 @@ test("PostgreSQL over TLS: the server's certificate is checked against the conne
     assert.equal(misnamed.ok, false);
     assert.match(misnamed.error ?? "", /altnames|does not match/i);
 
-    // Without the check, as before: encrypted, whoever signed it.
-    const unchecked = await attempt(configFor(front.port, {}));
+    // Verified unless said otherwise.
+    const byDefault = await attempt(configFor(front.port, {}));
+    assert.equal(byDefault.ok, false);
+
+    // Without the check, when it was turned off: encrypted, whoever signed it.
+    const unchecked = await attempt(configFor(front.port, { sslVerify: false }));
     assert.equal(unchecked.ok, true, unchecked.error ?? "");
   } finally {
     await front.close();
