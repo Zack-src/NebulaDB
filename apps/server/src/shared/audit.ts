@@ -29,6 +29,7 @@ export const AUDIT_ACTIONS = [
   "user.password.reset",
   "user.password.reset_request",
   "user.password.reset_self",
+  "user.password.change",
   "user.disable",
   "user.enable",
   "user.promote",

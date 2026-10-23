@@ -1,7 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { auditUser } from "../../../shared/audit.js";
 import { checkPassword, hashPassword, verifyPassword } from "../../auth/password.js";
-import { clearSessionCookie } from "../../auth/session.js";
+import { clearSessionCookie, currentSessionId, revokeAllSessions } from "../../auth/session.js";
 import { ApiError } from "../../../shared/errors.js";
 import { requireUser } from "../../../shared/guards.js";
 import { revalidateAllRooms } from "../../../realtime/roomRegistry.js";
@@ -76,6 +76,11 @@ export function registerAccountRoutes(app: FastifyInstance): void {
 
     await verifyOwnPassword(user.id, currentPassword, "CURRENT_PASSWORD_INCORRECT");
     await updatePasswordHash(user.id, await hashPassword(check.password));
+    // Like a reset: whoever held a stolen session must not outlive the change. This
+    // session stays, so the person who just changed it isn't signed out.
+    await revokeAllSessions(user.id, currentSessionId(req));
+    await revalidateAllRooms();
+    await auditUser(user, "user.password.change", { type: "user", id: user.id }, undefined, req);
     return { changed: true };
   });
 }
