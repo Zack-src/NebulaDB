@@ -1,6 +1,8 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
+import v8 from "node:v8";
+import vm from "node:vm";
 import * as Y from "yjs";
 import * as syncProtocol from "y-protocols/sync.js";
 import * as encoding from "lib0/encoding.js";
@@ -13,7 +15,8 @@ import { useTestDatabase } from "../infrastructure/testDatabase.js";
 await useTestDatabase("roomregistry");
 
 const { db } = await import("../infrastructure/db.js");
-const { closeAllRooms, closeRoom, getRoom, liveRoomCount, peekRoom } = await import("./roomRegistry.js");
+const { closeAllRooms, closeRoom, getRoom, liveRoomCount, peekRoom, sweepIdleRooms } =
+  await import("./roomRegistry.js");
 const { latestRevisionId, listRevisions } = await import("./persistence.js");
 const { deleteProjectCascade } = await import("../modules/projects/repository.js");
 
@@ -170,3 +173,124 @@ test("a socket that closes while it is being let in neither joins nor empties th
   assert.equal(peekRoom(projectId), room, "the room is still there for the client that stayed");
   assert.ok(liveRoomCount() >= 1);
 });
+
+// ---- Rooms opened by a REST call: nobody connects, so nobody ever leaves ---------------
+
+const IDLE = 2 * 60_000;
+
+/** Runs a garbage collection (the flag is turned on at runtime, so the test needs no special command line). */
+async function collect(): Promise<void> {
+  v8.setFlagsFromString("--expose-gc");
+  const gc = vm.runInNewContext("gc") as () => void;
+  for (let i = 0; i < 5; i++) {
+    gc();
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
+}
+
+test("a room opened only by a REST call stays resident until it is swept, and is then evicted", async (t) => {
+  t.after(closeAllRooms);
+  const before = liveRoomCount();
+  const ids = await Promise.all(Array.from({ length: 5 }, newProject));
+  await Promise.all(ids.map((id) => getRoom(id)));
+  assert.equal(liveRoomCount(), before + 5);
+
+  // Used a moment ago: left alone.
+  assert.equal(sweepIdleRooms(Date.now(), IDLE), 0);
+  assert.equal(liveRoomCount(), before + 5);
+
+  // Idle for longer than the limit: gone.
+  assert.equal(sweepIdleRooms(Date.now() + IDLE + 1, IDLE), 5);
+  assert.equal(liveRoomCount(), before);
+  for (const id of ids) assert.equal(peekRoom(id), undefined);
+});
+
+test("asking for a room again keeps it from being swept", async (t) => {
+  t.after(closeAllRooms);
+  const projectId = await newProject();
+  await getRoom(projectId);
+  const later = Date.now() + IDLE;
+  // Asked for again just before the sweep.
+  const originalNow = Date.now;
+  Date.now = () => later - 1000;
+  try {
+    await getRoom(projectId);
+  } finally {
+    Date.now = originalNow;
+  }
+  assert.equal(sweepIdleRooms(later + 1, IDLE), 0);
+  assert.ok(peekRoom(projectId));
+});
+
+test("a room with a client connected is never swept, however long it has been since it was asked for", async (t) => {
+  t.after(closeAllRooms);
+  const projectId = await newProject();
+  const room = await getRoom(projectId);
+  const socket = fakeSocket();
+  await room.join(socket, "ada", () => ({ canWrite: true }));
+
+  assert.equal(sweepIdleRooms(Date.now() + 10 * IDLE, IDLE), 0);
+  assert.equal(peekRoom(projectId), room);
+
+  // Once the client leaves, the usual eviction takes it (the sweep has nothing left to do).
+  await room.leave(socket);
+  assert.equal(peekRoom(projectId), undefined);
+  assert.equal(sweepIdleRooms(Date.now() + 10 * IDLE, IDLE), 0);
+});
+
+test("a swept room has stored what a REST call wrote, and the project reopens with it", async (t) => {
+  t.after(closeAllRooms);
+  const projectId = await newProject();
+  const room = await getRoom(projectId);
+  await room.write(() => room.doc.getMap("meta").set("name", "written over REST"), "ada");
+
+  assert.equal(sweepIdleRooms(Date.now() + IDLE + 1, IDLE), 1);
+  await flushAndSettle(projectId);
+
+  const reopened = await getRoom(projectId);
+  assert.notEqual(reopened, room);
+  assert.equal(reopened.doc.getMap("meta").get("name"), "written over REST");
+});
+
+test("a write to a swept room fails loudly instead of being lost", async (t) => {
+  t.after(closeAllRooms);
+  const projectId = await newProject();
+  const room = await getRoom(projectId);
+  sweepIdleRooms(Date.now() + IDLE + 1, IDLE);
+  await assert.rejects(
+    room.write(() => room.doc.getMap("meta").set("name", "late"), "ada"),
+    /closed before/,
+  );
+});
+
+/** Opens a project's room and hands back only a weak reference to its document, so this frame keeps nothing alive. */
+async function openWatched(): Promise<WeakRef<object>> {
+  const room = await getRoom(await newProject());
+  room.doc.getMap("meta").set("payload", "x".repeat(10_000));
+  return new WeakRef(room.doc);
+}
+
+test("swept rooms can be garbage collected: their documents are not kept alive", async (t) => {
+  t.after(closeAllRooms);
+  const refs: WeakRef<object>[] = [];
+  for (let i = 0; i < 10; i++) refs.push(await openWatched());
+  assert.equal(sweepIdleRooms(Date.now() + IDLE + 1, IDLE), 10);
+  await flushAndSettle();
+  await collect();
+  const alive = refs.filter((ref) => ref.deref() !== undefined).length;
+  assert.equal(alive, 0, `${alive} of ${refs.length} documents are still in memory after the sweep`);
+});
+
+test("rooms that are never swept are kept alive (the leak this guards against)", async (t) => {
+  t.after(closeAllRooms);
+  const refs: WeakRef<object>[] = [];
+  for (let i = 0; i < 10; i++) refs.push(await openWatched());
+  await collect();
+  assert.equal(refs.filter((ref) => ref.deref() !== undefined).length, 10);
+});
+
+/** Waits for what evicted rooms still had to store, as `flushAllRooms` does at shutdown. */
+async function flushAndSettle(_projectId?: string): Promise<void> {
+  const { flushAllRooms } = await import("./roomRegistry.js");
+  await flushAllRooms();
+}
