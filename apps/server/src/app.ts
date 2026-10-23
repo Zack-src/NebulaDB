@@ -131,7 +131,10 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     // A hop count is what Fastify does at runtime for a number, which its types don't accept.
     trustProxy:
       typeof config.trustProxy === "number"
-        ? ((hops) => (_address: string, hop: number) => hop < hops)(config.trustProxy)
+        ? (
+            (hops) => (_address: string, hop: number) =>
+              hop < hops
+          )(config.trustProxy)
         : config.trustProxy,
   });
   registerErrorHandler(app);
@@ -208,15 +211,25 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   /**
    * Throws unless the request's `Origin` is the request's own host or listed in
    * NEBULADB_ALLOWED_ORIGINS. A missing `Origin` passes (curl, scripts, backup
-   * tooling — browsers always send one where it matters). `Origin: null` (a
+   * tooling — browsers always send one where it matters), unless the browser says the request
+   * is cross-site (`Sec-Fetch-Site`). `Origin: null` (a
    * sandboxed iframe, a `data:` page, a redirect chain) passes only when the
    * request doesn't ride on the session cookie: that is the one case a page
    * elsewhere could use to act as the signed-in user.
    */
   function assertOriginAllowed(req: FastifyRequest, what: string): void {
     const origin = req.headers.origin;
-    if (!origin) return;
     const cookieAuthenticated = req.user != null && req.apiKey == null;
+    if (!origin) {
+      // A browser that names the request as coming from another site is not a script: refuse it
+      // whatever it left out. (`same-origin` and `none` — typing a URL — are the only others.)
+      const site = req.headers["sec-fetch-site"];
+      if (cookieAuthenticated && (site === "cross-site" || site === "same-site")) {
+        req.log.warn({ site }, `rejected ${what} with Sec-Fetch-Site: ${site} and no Origin`);
+        throw new ApiError("ORIGIN_MISMATCH");
+      }
+      return;
+    }
     if (origin === "null") {
       if (!cookieAuthenticated) return;
       req.log.warn({ host: req.headers.host }, `rejected ${what} with Origin: null`);
@@ -235,6 +248,16 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     req.log.warn({ origin, host: req.headers.host }, `rejected cross-origin ${what}`);
     throw new ApiError("ORIGIN_MISMATCH");
   }
+
+  /**
+   * What the API answers is for the person who asked: an answer that names no `Cache-Control` is told
+   * not to be stored, so a shared cache between the browser and the server cannot keep one user's data
+   * for another. Routes that choose their own policy (downloads, the public share page) keep it.
+   */
+  app.addHook("onSend", async (req, reply, payload) => {
+    if (req.url.startsWith("/api/") && !reply.hasHeader("cache-control")) reply.header("Cache-Control", "no-store");
+    return payload;
+  });
 
   /** CSRF defence on top of `SameSite=Lax`, for every state-changing request. */
   app.addHook("onRequest", async (req) => {
@@ -327,7 +350,8 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       // Everything under /assets carries a content hash in its name, so a given URL never changes: cache it
       // for good. index.html and the other files keep the default and are revalidated.
       setHeaders(reply, filePath) {
-        if (filePath.split(path.sep).includes("assets")) reply.header("Cache-Control", "public, max-age=31536000, immutable");
+        if (filePath.split(path.sep).includes("assets"))
+          reply.header("Cache-Control", "public, max-age=31536000, immutable");
       },
     });
     // The SPA has client-side "routes" outside App.svelte's in-memory view-switching:

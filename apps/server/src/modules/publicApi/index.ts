@@ -70,12 +70,17 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
   app.get("/api/v1/projects", API_RATE_LIMIT, async (req) => {
     const user = requireUser(req);
     requireScope(req, "projects:read");
+    // A key restricted to one project sees that project and no other, not even to list it.
+    const only = req.apiKey?.projectId ?? null;
     return {
       projects: (
-        await mapAsync(await listProjectSummaries(), async (row) => ({
-          ...row,
-          permission: await getEffectivePermission(user.id, row.id),
-        }))
+        await mapAsync(
+          (await listProjectSummaries()).filter((row) => only === null || row.id === only),
+          async (row) => ({
+            ...row,
+            permission: await getEffectivePermission(user.id, row.id),
+          }),
+        )
       ).filter((row) => row.permission !== null),
     };
   });
