@@ -39,6 +39,24 @@ function escapeXml(value: string): string {
     .replace(/'/g, "&apos;");
 }
 
+/**
+ * Position and size come from the stored document, which an editor can write by hand: anything but a
+ * finite number would otherwise be interpolated unescaped into an attribute (`x="${x}"`).
+ */
+function finite(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function sanitizeTable(table: Table): Table {
+  return {
+    ...table,
+    position: { x: finite(table.position?.x, 0), y: finite(table.position?.y, 0) },
+    size: table.size
+      ? { width: finite(table.size.width, DEFAULT_WIDTH), height: finite(table.size.height, HEADER_HEIGHT) }
+      : table.size,
+  };
+}
+
 function tableHeight(table: Table): number {
   return table.size?.height ?? HEADER_HEIGHT + Math.max(table.fields.length, 1) * ROW_HEIGHT;
 }
@@ -116,7 +134,8 @@ function renderRef(ref: Ref, tablesById: Map<string, Table>): string | null {
  * not schema structure). Empty project renders a fixed-size empty canvas
  * rather than throwing.
  */
-export function projectToSvg(project: Project): string {
+export function projectToSvg(source: Project): string {
+  const project = { ...source, tables: source.tables.map(sanitizeTable) };
   const tablesById = new Map(project.tables.map((t) => [t.id, t]));
 
   if (project.tables.length === 0) {
