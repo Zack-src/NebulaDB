@@ -357,6 +357,16 @@ async function applyUpdate(
     // Preserve existing password if not provided in updates
     password: updates.password !== undefined && updates.password !== "" ? updates.password : existing.password,
   };
+  // The stored password is only kept for the server it was saved for: pointing the connection at
+  // another host, port or user without typing a password would otherwise send the old one there.
+  if (
+    !updates.password &&
+    ((updates.host !== undefined && updates.host !== existing.host) ||
+      (updates.port !== undefined && updates.port !== existing.port) ||
+      (updates.user !== undefined && updates.user !== existing.user))
+  ) {
+    delete merged.password;
+  }
   // The summary only ever hands out a masked connection string; getting that
   // mask back means "unchanged", not "store these asterisks".
   if (
