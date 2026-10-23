@@ -19,6 +19,15 @@ has a dated entry for. Version 1.0.0 is the first release under the NebulaDB nam
 
 ## [Unreleased]
 
+### Changed — safer defaults for outbound connections (read before upgrading)
+
+- Webhooks to loopback, private and link-local addresses are **refused by default**. A receiver on your LAN
+  needs `NEBULADB_WEBHOOK_ALLOWED_HOSTS` (or `NEBULADB_WEBHOOK_BLOCK_PRIVATE=0` to go back to the old behaviour).
+- A connection that uses TLS now **verifies the server certificate** unless "verify" was explicitly unchecked.
+  A connection saved without that setting and pointing at a self-signed certificate needs its CA, or the box unchecked.
+- An SSH tunnel remembers the host key it first connected to and refuses a different one afterwards.
+- SQLite connections can only be created by administrators.
+
 ### Added — initial data of any size
 
 - A table's initial data is no longer capped at 2 MB / 50 000 rows. Past 2 MB the CSV is sent as a raw

@@ -5,14 +5,15 @@ import { assertHostAllowed, isBlockedAddress, lookupRefusing, normalizeAddress }
 
 /**
  * Where a webhook may point, on top of the metadata block every outbound request gets
- * (`connections/hostGuard.ts`). Both rules are instance settings, off by default so an
- * existing install keeps delivering to its LAN receivers:
+ * (`connections/hostGuard.ts`). Both rules are instance settings:
  *
  * - `NEBULADB_WEBHOOK_ALLOWED_HOSTS` — comma-separated host names (`hooks.example.com`),
  *   wildcards (`*.example.com`, subdomains only), IP addresses or CIDR ranges. When set, a
  *   webhook may only target a listed host. Listed hosts are also exempt from the next rule.
- * - `NEBULADB_WEBHOOK_BLOCK_PRIVATE=1` — refuse loopback, private (RFC 1918, ULA), CGNAT,
- *   link-local, multicast and reserved addresses, checked on the address actually dialled.
+ * - `NEBULADB_WEBHOOK_BLOCK_PRIVATE` — on unless set to `0`: refuse loopback, private
+ *   (RFC 1918, ULA), CGNAT, link-local, multicast and reserved addresses, checked on the
+ *   address actually dialled. Any account can register a webhook, so an open default would let
+ *   it probe and call the server's own network.
  */
 
 const PRIVATE_RANGES = new net.BlockList();
@@ -92,7 +93,7 @@ function nameListed(list: AllowList, hostname: string): boolean {
   return list.names.includes(name) || list.suffixes.some((suffix) => name.endsWith(suffix));
 }
 
-const blockPrivate = () => process.env.NEBULADB_WEBHOOK_BLOCK_PRIVATE === "1";
+const blockPrivate = () => process.env.NEBULADB_WEBHOOK_BLOCK_PRIVATE !== "0";
 
 /** Whether the host in a webhook URL is one the instance lets webhooks target at all. */
 export function isWebhookHostListed(hostname: string): boolean {

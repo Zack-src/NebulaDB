@@ -14,9 +14,9 @@ import { isWebhookAddressRefused, isWebhookHostListed, webhookLookup } from "./t
  *   "delivery failed", so the test button and the log can't be used to scan ports. Only the
  *   receiver's HTTP status is reported.
  *
- * Private/LAN targets stay allowed by default, as for database connections; an instance can
- * refuse them (`NEBULADB_WEBHOOK_BLOCK_PRIVATE=1`) or restrict webhooks to listed hosts
- * (`NEBULADB_WEBHOOK_ALLOWED_HOSTS`).
+ * Private/LAN targets are refused by default; an instance can allow them
+ * (`NEBULADB_WEBHOOK_BLOCK_PRIVATE=0`), list the hosts that may be targeted
+ * (`NEBULADB_WEBHOOK_ALLOWED_HOSTS`, which also exempts them from the private block).
  */
 
 const DELIVERY_TIMEOUT_MS = 10_000;

@@ -11,6 +11,8 @@ await useTestDatabase("reviews");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
+// The test webhook points at localhost.
+process.env.NEBULADB_WEBHOOK_BLOCK_PRIVATE = "0";
 // Not what is under test here, and it would write a file per production deployment.
 process.env.NEBULADB_DATABASE_BACKUP_DIR = mkdtempSync(join(tmpdir(), "nebuladb-reviews-backups-"));
 

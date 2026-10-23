@@ -35,6 +35,8 @@ await useTestDatabase("webhooks");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
+// The receivers sit on localhost; the test of the block itself turns it back on.
+process.env.NEBULADB_WEBHOOK_BLOCK_PRIVATE = "0";
 
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
@@ -380,7 +382,7 @@ test("a failed delivery says only that it failed, never the system error", async
   assert.deepEqual(unresolvable, { ok: false, status: null, error: "delivery failed" });
 });
 
-test("NEBULADB_WEBHOOK_BLOCK_PRIVATE and NEBULADB_WEBHOOK_ALLOWED_HOSTS are opt-in instance rules", async () => {
+test("NEBULADB_WEBHOOK_BLOCK_PRIVATE (on by default) and NEBULADB_WEBHOOK_ALLOWED_HOSTS are instance rules", async () => {
   const { deliver } = await import("./delivery.js");
   const app = await buildApp();
   const port = (receiver.address() as AddressInfo).port;
@@ -395,10 +397,11 @@ test("NEBULADB_WEBHOOK_BLOCK_PRIVATE and NEBULADB_WEBHOOK_ALLOWED_HOSTS are opt-
         payload: { url },
       });
 
-    // Off by default: the localhost receiver is reachable (the other tests rely on it too).
+    // Off here (the suite sets it), so the localhost receiver is reachable.
     assert.equal((await deliver(receiverUrl, "{}", {})).ok, true);
 
-    process.env.NEBULADB_WEBHOOK_BLOCK_PRIVATE = "1";
+    // Unset, it is on.
+    delete process.env.NEBULADB_WEBHOOK_BLOCK_PRIVATE;
     assert.equal((await create(receiverUrl)).json().code, "WEBHOOK_URL_INVALID");
     assert.equal((await create(`http://localhost:${port}/hook`)).json().code, "WEBHOOK_URL_INVALID");
     assert.equal((await create("http://[::ffff:7f00:1]/hook")).json().code, "WEBHOOK_URL_INVALID");
@@ -414,7 +417,7 @@ test("NEBULADB_WEBHOOK_BLOCK_PRIVATE and NEBULADB_WEBHOOK_ALLOWED_HOSTS are opt-
     assert.equal((await create(`http://localhost:${port}/hook`)).json().code, "WEBHOOK_URL_INVALID");
     assert.equal((await deliver(`http://localhost:${port}/hook`, "{}", {})).error, "delivery target not allowed");
 
-    delete process.env.NEBULADB_WEBHOOK_BLOCK_PRIVATE;
+    process.env.NEBULADB_WEBHOOK_BLOCK_PRIVATE = "0";
     process.env.NEBULADB_WEBHOOK_ALLOWED_HOSTS = "localhost";
     assert.equal((await deliver(`http://localhost:${port}/hook`, "{}", {})).ok, true);
     assert.equal((await deliver(receiverUrl, "{}", {})).error, "delivery target not allowed");
@@ -422,7 +425,7 @@ test("NEBULADB_WEBHOOK_BLOCK_PRIVATE and NEBULADB_WEBHOOK_ALLOWED_HOSTS are opt-
     process.env.NEBULADB_WEBHOOK_ALLOWED_HOSTS = "169.254.169.254";
     assert.equal((await deliver("http://169.254.169.254/", "{}", {})).error, "delivery target not allowed");
   } finally {
-    delete process.env.NEBULADB_WEBHOOK_BLOCK_PRIVATE;
+    process.env.NEBULADB_WEBHOOK_BLOCK_PRIVATE = "0";
     delete process.env.NEBULADB_WEBHOOK_ALLOWED_HOSTS;
     await closeAllRooms();
     await app.close();
