@@ -49,8 +49,8 @@ export function registerAccountRoutes(app: FastifyInstance): void {
    */
   app.delete("/api/users/me", CREDENTIAL_RATE_LIMIT, async (req, reply) => {
     const user = requireUser(req);
-    const { password } = (req.body ?? {}) as { password?: string };
-    if (!password) throw new ApiError("PASSWORD_REQUIRED_FOR_DELETION");
+    const { password } = (req.body ?? {}) as { password?: unknown };
+    if (typeof password !== "string" || !password) throw new ApiError("PASSWORD_REQUIRED_FOR_DELETION");
     await verifyOwnPassword(user.id, password, "PASSWORD_INCORRECT");
 
     const owned = await unlessLastAdmin(user.id, "LAST_ADMIN_SELF", () => deleteUserAccount(user.id, user.email, null));

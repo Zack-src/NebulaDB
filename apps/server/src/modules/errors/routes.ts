@@ -38,7 +38,7 @@ export function registerErrorRoutes(app: FastifyInstance): void {
    */
   app.post("/api/errors/client", CLIENT_ERROR_RATE_LIMIT, async (req, reply) => {
     const user = requireUser(req);
-    const body = req.body as { message?: string; stack?: string; context?: string };
+    const body = (req.body ?? {}) as { message?: string; stack?: string; context?: string };
     if (!body.message || typeof body.message !== "string") throw new ApiError("CLIENT_ERROR_MESSAGE_REQUIRED");
 
     tallyErrorForMetrics("client");

@@ -501,6 +501,11 @@ export function registerErrorHandler(app: FastifyInstance): void {
     if (err instanceof ApiError) {
       return reply.code(err.status).send(err.toPayload());
     }
+    // PostgreSQL refusing a value (a NUL character in text, a number out of range, a malformed UUID…) is the
+    // client's input, not a server fault: SQLSTATE class 22. The database's own message stays out of the response.
+    if (typeof err.code === "string" && /^22[0-9A-Z]{3}$/.test(err.code)) {
+      return reply.code(400).send({ error: "a submitted value is not valid", code: "VALUE_INVALID" });
+    }
     // Fastify's own errors (body too large, malformed JSON, rate limit) already
     // carry a sensible status; keep it and pass their message through.
     const status = err.statusCode ?? 500;

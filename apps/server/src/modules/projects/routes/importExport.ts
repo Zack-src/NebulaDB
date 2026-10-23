@@ -120,8 +120,8 @@ export function registerProjectImportExportRoutes(app: FastifyInstance): void {
 
   app.get("/api/projects/:id/export/sql", async (req, reply) => {
     const { id } = req.params as { id: string };
-    const dialect = requireSqlDialect((req.query as { dialect?: string }).dialect);
     const { user, project } = await requireProjectAccess(req, id, "view");
+    const dialect = requireSqlDialect((req.query as { dialect?: string }).dialect);
     const current = readProjectFromDoc((await getRoom(id)).doc, project.id, project.name);
     await auditUser(user, "project.export", { type: "project", id }, `sql/${dialect}`, req);
     return sendSql(reply, current, dialect);
@@ -137,8 +137,8 @@ export function registerProjectImportExportRoutes(app: FastifyInstance): void {
 
   app.get("/api/projects/:id/revisions/:revisionId/export/sql", async (req, reply) => {
     const { id, revisionId } = req.params as { id: string; revisionId: string };
-    const dialect = requireSqlDialect((req.query as { dialect?: string }).dialect);
     const { project } = await requireProjectAccess(req, id, "view");
+    const dialect = requireSqlDialect((req.query as { dialect?: string }).dialect);
     return sendSql(reply, await loadRevisionProject(id, revisionId, project.name), dialect);
   });
 }
