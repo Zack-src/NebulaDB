@@ -54,7 +54,7 @@ mais ce document ne le remplace pas : il le complète (les agents ont signalé l
 - [ ] **[P1][M] Restauration non transactionnelle** — `backups/restore.ts:99-162,213-215` — tables vidées puis échec partiel ; identity/séquences non gérées. _(§2)_
 - [ ] **[P1][M] Déploiements : pas de verrou par connexion, rollback sans review/lint/sauvegarde, MSSQL hors transaction** — `environments/deploy.ts:396-420`, `connections/drivers/mssql.ts:282-303` _(§2)_
 - [ ] **[P1][M] Sauvegarde d'instance = DBML seulement** ↔ — comptes, connexions, historique, seeds, audit perdus ; pas de runbook PostgreSQL. _(§4, §8)_
-- [ ] **[P1][M] Fuites mémoire : rooms ouvertes par REST jamais évincées (serveur), Y.Doc/Awareness jamais détruits (client)** — `realtime/roomRegistry.ts:41-57`, `collaboration/yjsClient.ts:93-94,261` _(§3)_
+- [x] **[P1][M] Fuites mémoire : rooms ouvertes par REST jamais évincées (serveur), Y.Doc/Awareness jamais détruits (client)** — `realtime/roomRegistry.ts:41-57`, `collaboration/yjsClient.ts:93-94,261` _(§3)_
 - [ ] **[P1][M] N+1 permissions sur `/api/projects` et `/api/search`, sans pagination + écriture `sessions` à chaque requête** — `projects/routes/crud.ts:13-21`, `auth/session.ts:197-219` _(§3)_
 
 ### Lot C — Régressions produit & premier démarrage
