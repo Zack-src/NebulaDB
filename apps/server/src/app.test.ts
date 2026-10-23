@@ -442,3 +442,65 @@ test("changing the password is limited like the login, per account", async () =>
     await app.close();
   }
 });
+
+test("CSRF hook: Origin: null is refused with the session cookie, allowed without one", async () => {
+  const app = await buildApp();
+  try {
+    const { email, password } = await makeUser();
+    const { cookie } = await login(app, email, password);
+    assert.ok(cookie);
+
+    const withCookie = await app.inject({
+      method: "PATCH",
+      url: "/api/users/me",
+      headers: { host: HOST, origin: "null", cookie: cookie! },
+      payload: { displayName: "From a sandboxed iframe" },
+    });
+    assert.equal(withCookie.statusCode, 403);
+    assert.equal(withCookie.json().code, "ORIGIN_MISMATCH");
+
+    const withoutCookie = await app.inject({ method: "POST", url: "/api/auth/logout", headers: { host: HOST, origin: "null" } });
+    assert.equal(withoutCookie.statusCode, 200);
+
+    // The cookie still works from the app's own origin.
+    const sameOrigin = await app.inject({
+      method: "PATCH",
+      url: "/api/users/me",
+      headers: headers({ cookie: cookie! }),
+      payload: { displayName: "From the app" },
+    });
+    assert.equal(sameOrigin.statusCode, 200);
+  } finally {
+    await app.close();
+  }
+});
+
+test("WebSocket upgrade: a foreign or null Origin is refused; the app's own or none gets through", async () => {
+  const app = await buildApp();
+  try {
+    const { email, password } = await makeUser();
+    const { cookie } = await login(app, email, password);
+    assert.ok(cookie);
+    // An unknown project: an upgrade that passes the origin check stops at the
+    // project lookup instead, which tells the two apart.
+    const upgrade = (origin?: string) =>
+      app.inject({
+        method: "GET",
+        url: `/ws/${randomUUID()}`,
+        headers: { host: HOST, cookie: cookie!, ...(origin === undefined ? {} : { origin }) },
+      });
+
+    for (const origin of ["http://evil.example.com", "http://sibling.localhost:3001", "null"]) {
+      const res = await upgrade(origin);
+      assert.equal(res.statusCode, 403, origin);
+      assert.equal(res.json().code, "ORIGIN_MISMATCH", origin);
+    }
+    for (const origin of [ORIGIN, undefined]) {
+      const res = await upgrade(origin);
+      assert.equal(res.statusCode, 404, String(origin));
+      assert.equal(res.json().code, "PROJECT_NOT_FOUND", String(origin));
+    }
+  } finally {
+    await app.close();
+  }
+});

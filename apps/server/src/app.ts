@@ -206,14 +206,22 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
   /**
-   * CSRF defence on top of `SameSite=Lax`: a state-changing request carrying an `Origin`
-   * must match the request's host or be listed in NEBULADB_ALLOWED_ORIGINS. A missing
-   * `Origin` is allowed (curl, scripts, backup tooling).
+   * Throws unless the request's `Origin` is the request's own host or listed in
+   * NEBULADB_ALLOWED_ORIGINS. A missing `Origin` passes (curl, scripts, backup
+   * tooling — browsers always send one where it matters). `Origin: null` (a
+   * sandboxed iframe, a `data:` page, a redirect chain) passes only when the
+   * request doesn't ride on the session cookie: that is the one case a page
+   * elsewhere could use to act as the signed-in user.
    */
-  app.addHook("onRequest", async (req) => {
-    if (SAFE_METHODS.has(req.method)) return;
+  function assertOriginAllowed(req: FastifyRequest, what: string): void {
     const origin = req.headers.origin;
-    if (!origin || origin === "null") return;
+    if (!origin) return;
+    const cookieAuthenticated = req.user != null && req.apiKey == null;
+    if (origin === "null") {
+      if (!cookieAuthenticated) return;
+      req.log.warn({ host: req.headers.host }, `rejected ${what} with Origin: null`);
+      throw new ApiError("ORIGIN_MISMATCH");
+    }
 
     let originHost: string;
     try {
@@ -224,8 +232,14 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     if (originHost === req.headers.host) return;
     if (config.allowedOrigins.includes(origin.replace(/\/$/, ""))) return;
 
-    req.log.warn({ origin, host: req.headers.host }, "rejected cross-origin state-changing request");
+    req.log.warn({ origin, host: req.headers.host }, `rejected cross-origin ${what}`);
     throw new ApiError("ORIGIN_MISMATCH");
+  }
+
+  /** CSRF defence on top of `SameSite=Lax`, for every state-changing request. */
+  app.addHook("onRequest", async (req) => {
+    if (SAFE_METHODS.has(req.method)) return;
+    assertOriginAllowed(req, "state-changing request");
   });
 
   /**
@@ -344,6 +358,11 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
         // stricter and simpler than closing the socket post-upgrade.
         preHandler: async (req) => {
           if (!req.user) throw new ApiError("AUTH_REQUIRED");
+          // The upgrade is a GET, so the CSRF hook skips it, and `SameSite=Lax`
+          // still sends the cookie from a same-site page (a sibling subdomain,
+          // another port): without this, such a page could open the socket as
+          // the victim, read the whole schema and write to it.
+          assertOriginAllowed(req, "WebSocket upgrade");
           const { projectId } = req.params as { projectId: string };
           // Every REST route checks the project exists before touching its room —
           // this was the one path that didn't. Skipping it let anyone crash the
