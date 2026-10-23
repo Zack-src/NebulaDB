@@ -124,6 +124,11 @@ export async function reachTarget(
   if (!config.sshTunnel || config.connectionString) return { config: await pinConnectionTarget(config), tunnel: null };
   const host = config.host?.trim() || "localhost";
   const tunnel = await openSshTunnel(config.sshTunnel, { host, port: config.port || DEFAULT_PORTS[config.engine] });
+  // First connection of a saved connection: remember the key, so a changed one is refused from now on.
+  if (config.id && !config.sshTunnel.hostKeyFingerprint && tunnel.hostKeyFingerprint) {
+    const { pinSshHostKey } = await import("./repository.js");
+    await pinSshHostKey(config.id, tunnel.hostKeyFingerprint).catch(() => {});
+  }
   return {
     config: {
       ...config,

@@ -178,6 +178,19 @@ function toBlob(config: Partial<DatabaseConnectionConfig>): string {
 }
 
 /**
+ * Trust on first use: keeps the SSH host key a tunnel was first opened against, so a later
+ * connection to another key is refused. Does nothing if the connection already has one.
+ */
+export async function pinSshHostKey(id: string, fingerprint: string): Promise<void> {
+  const row = await getRow(id);
+  if (!row) return;
+  const payload = decryptPayload<DatabaseConnectionConfig>(row.config_encrypted);
+  if (!payload.sshTunnel || payload.sshTunnel.hostKeyFingerprint) return;
+  payload.sshTunnel.hostKeyFingerprint = fingerprint;
+  await db.prepare("UPDATE db_connections SET config_encrypted = ? WHERE id = ?").run(encryptPayload(payload), id);
+}
+
+/**
  * The database a project uses on a connection, when the link names one of its
  * own: a connection is a server, and each project attached to it can have its
  * database there. `null`: the connection's own.
