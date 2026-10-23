@@ -105,7 +105,7 @@
 - **Vérifier les différences** entre le projet et une base, carte Pipeline montrant où en est
   chaque base. (La comparaison de deux environnements existe côté serveur, sans écran pour le moment.)
 - **Surveillance des modifications faites hors Nebula** : la base est relue périodiquement ; un
-  écart déclenche une notification et un webhook. Elle s'impose depuis la connexion (voir
+  écart déclenche un bandeau dans l'éditeur, une notification et un webhook. Elle s'impose depuis la connexion (voir
   « Surveillance imposée ») ; l'écran de réglage par projet a été retiré, l'API reste disponible.
 
 ## 8. Requêtes SQL et exploration des données
