@@ -121,3 +121,15 @@ test("rotation: the previous secret keeps old payloads readable, and reencryptPa
     else process.env.NEBULADB_SECRET_PREVIOUS = prevPrevious;
   }
 });
+
+test("a payload whose auth tag was truncated is refused", () => {
+  const prevSecret = process.env.NEBULADB_SECRET;
+  process.env.NEBULADB_SECRET = "truncated-tag-test-secret";
+  try {
+    const [version, iv, tag, data] = encryptPayload({ password: "x" }).split(":");
+    assert.throws(() => decryptPayload([version, iv, tag.slice(0, 8), data].join(":")));
+  } finally {
+    if (prevSecret === undefined) delete process.env.NEBULADB_SECRET;
+    else process.env.NEBULADB_SECRET = prevSecret;
+  }
+});
