@@ -11,7 +11,7 @@ project can have up to 10.
 | `schema.changed`       | The schema changed, once the project has seen **30 seconds without an edit**. A burst of edits becomes one notification listing every author. Moving tables or changing colours doesn't count.                                                         |
 | `deployment.completed` | A deployment or a rollback to a connected database finished — successfully or not.                                                                                                                                                                     |
 | `deployment.review`    | A review request for a deployment to a stage whose protection is "Revue" was made, approved, rejected, withdrawn, or closed (expired, out of date, cancelled). The deployment of an approved request is a `deployment.completed`.                      |
-| `drift.detected`       | The project's watch (Déploiements → Surveillance) found a database changed outside Nebula since the last deployment or pull — or, with the accounts watch on, its accounts or privileges changed (`kind: "accounts"`). Once per state of the database. |
+| `drift.detected`       | The project's watch (switched on through the API, or imposed by an instance administrator on the connection; the project card has no screen for it) found a database changed outside Nebula since the last deployment or pull — or, with the accounts watch on, its accounts or privileges changed (`kind: "accounts"`). Once per state of the database. |
 | `ping`                 | Only when someone clicks **Tester** — never subscribed to.                                                                                                                                                                                             |
 
 ## Formats
@@ -60,7 +60,7 @@ connectionName, environment, added, removed, changed }` — the last three are
 table names. `partial-deployment` means a deployment failed half-way since the
 reference and explains the change.
 
-When an instance administrator turned on the project's **accounts watch**,
+When the project's **accounts watch** was turned on (instance administrators only, `PUT /api/projects/:id/monitoring/accounts`; no screen for it),
 `drift.detected` is also sent with `kind: "accounts"`: the database's accounts,
 roles or privileges changed and no action in Nebula's console explains it.
 `data` is then `{ kind: "accounts", connectionName, environment, added: [],
