@@ -220,6 +220,7 @@ export function registerExplorerRoutes(app: FastifyInstance): void {
           driver.runQuery(sql, {
             database,
             readOnly,
+            singleStatement: member && !readOnly,
             // Members get the default ceilings, which are also their maximum.
             maxRows: clamp(body.maxRows, DEFAULT_MAX_ROWS, member ? DEFAULT_MAX_ROWS : MAX_MAX_ROWS),
             timeoutMs: clamp(body.timeoutMs, DEFAULT_TIMEOUT_MS, member ? DEFAULT_TIMEOUT_MS : MAX_TIMEOUT_MS),

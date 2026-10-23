@@ -231,7 +231,8 @@ export class PostgresAdminDriver implements DatabaseAdminDriver {
     if (!options.readOnly) {
       await client.query(`SET statement_timeout = ${timeout}`);
       // Simple protocol: a pasted script of several statements runs as one batch; the last result is shown.
-      const raw = await client.query({ text: sql, rowMode: "array" });
+      // A member's write goes through the extended protocol instead, where the server refuses a second statement.
+      const raw = await client.query(options.singleStatement ? extended(sql) : { text: sql, rowMode: "array" });
       const res = (Array.isArray(raw) ? raw[raw.length - 1] : raw) as pg.QueryArrayResult;
       return toResult(
         (res.fields ?? []).map((f) => f.name),

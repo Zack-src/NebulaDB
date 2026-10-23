@@ -19,6 +19,8 @@ import type {
 export interface RunQueryOptions {
   database?: string;
   readOnly: boolean;
+  /** A member's data write: the engine itself must refuse a second statement, whatever the text guard saw. */
+  singleStatement?: boolean;
   timeoutMs: number;
   maxRows: number;
 }
