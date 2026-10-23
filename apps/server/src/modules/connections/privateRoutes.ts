@@ -35,6 +35,18 @@ function input(raw: unknown): Omit<DatabaseConnectionConfig, "id" | "projectId">
     filePath: body.filePath,
   };
 }
+/**
+ * SQLite runs in the server process and a query without end blocks it for everyone, and `:memory:`
+ * or a file path is the server's own disk: only an administrator may point a connection at it.
+ */
+function assertEngineAllowed(engine: string, isAdmin: boolean): void {
+  if (engine === "sqlite" && !isAdmin) {
+    throw new ApiError("CONNECTION_TARGET_FORBIDDEN", {
+      message: "SQLite connections can only be created by an administrator",
+    });
+  }
+}
+
 export function registerPrivateConnectionRoutes(app: FastifyInstance): void {
   app.get("/api/me/connections", LIMIT, async (req) => {
     const user = requireUser(req);
@@ -51,7 +63,9 @@ export function registerPrivateConnectionRoutes(app: FastifyInstance): void {
     if (req.apiKey) throw new ApiError("FORBIDDEN");
     if ((await listPrivateConnections(user.id)).length >= 50)
       throw new ApiError("DB_ADMIN_INPUT_INVALID", { message: "personal connection limit reached" });
-    const connection = await createPrivateConnection(input(req.body), user.id);
+    const config = input(req.body);
+    assertEngineAllowed(config.engine, user.isAdmin);
+    const connection = await createPrivateConnection(config, user.id);
     await auditUser(
       user,
       "dbconn.create",
@@ -65,7 +79,9 @@ export function registerPrivateConnectionRoutes(app: FastifyInstance): void {
     const user = requireUser(req);
     const { id } = req.params as { id: string };
     if (req.apiKey || (await connectionOwner(id)) !== user.id) throw new ApiError("CONNECTION_NOT_FOUND");
-    const connection = await updateConnection(id, input(req.body));
+    const config = input(req.body);
+    assertEngineAllowed(config.engine, user.isAdmin);
+    const connection = await updateConnection(id, config);
     await auditUser(user, "dbconn.update", { type: "connection", id }, `private: ${connection?.name}`, req);
     return { connection };
   });
