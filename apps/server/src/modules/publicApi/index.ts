@@ -181,7 +181,12 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
     requireScope(req, "projects:read", id);
     const current = readProjectFromDoc((await getRoom(id)).doc, project.id, project.name);
     await auditUser(user, "project.export", { type: "project", id }, "svg (v1)", req);
-    return reply.type("image/svg+xml").send(projectToSvg(current));
+    // Served on the app's origin to a signed-in browser too: nothing in it may run or load.
+    return reply
+      .type("image/svg+xml")
+      .header("Content-Security-Policy", "default-src 'none'; style-src 'unsafe-inline'; sandbox")
+      .header("X-Content-Type-Options", "nosniff")
+      .send(projectToSvg(current));
   });
 
   app.get("/api/v1/projects/:id/export/png", API_RATE_LIMIT, async (req, reply) => {
