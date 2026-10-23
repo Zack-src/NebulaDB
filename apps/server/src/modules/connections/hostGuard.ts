@@ -47,6 +47,24 @@ function ipv6Groups(address: string): number[] | null {
   return groups.length === 8 && groups.every((g) => Number.isInteger(g) && g >= 0 && g <= 0xffff) ? groups : null;
 }
 
+const dotted = (high: number, low: number) => [high >> 8, high & 0xff, low >> 8, low & 0xff].join(".");
+
+/**
+ * The IPv4 address an IPv6 one carries inside it, for the forms that deliver the packet to that IPv4
+ * host: IPv4-mapped (`::ffff:a.b.c.d`), SIIT (`::ffff:0:a.b.c.d`), the NAT64 well-known prefix
+ * (`64:ff9b::a.b.c.d`), 6to4 (`2002:aabb:ccdd::`) and the deprecated IPv4-compatible form (`::a.b.c.d`).
+ * `::` and `::1` are themselves, not an embedded address.
+ */
+function embeddedIPv4(groups: number[]): string | null {
+  const zeros = (from: number, to: number) => groups.slice(from, to).every((g) => g === 0);
+  if (zeros(0, 5) && groups[5] === 0xffff) return dotted(groups[6], groups[7]);
+  if (zeros(0, 4) && groups[4] === 0xffff && groups[5] === 0) return dotted(groups[6], groups[7]);
+  if (groups[0] === 0x64 && groups[1] === 0xff9b && zeros(2, 6)) return dotted(groups[6], groups[7]);
+  if (groups[0] === 0x2002) return dotted(groups[1], groups[2]);
+  if (zeros(0, 6) && (groups[6] !== 0 || groups[7] > 1)) return dotted(groups[6], groups[7]);
+  return null;
+}
+
 /**
  * The canonical form of an IP literal: lower-case, no brackets or zone id, and an
  * IPv4-mapped IPv6 address (`::ffff:169.254.169.254`, `::ffff:a9fe:a9fe`, expanded forms)
@@ -61,9 +79,8 @@ export function normalizeAddress(address: string): string {
   if (net.isIPv4(text)) return text;
   const groups = ipv6Groups(text);
   if (!groups) return text;
-  if (groups.slice(0, 5).every((g) => g === 0) && groups[5] === 0xffff) {
-    return [groups[6] >> 8, groups[6] & 0xff, groups[7] >> 8, groups[7] & 0xff].join(".");
-  }
+  const embedded = embeddedIPv4(groups);
+  if (embedded) return embedded;
   return text.split("%")[0];
 }
 

@@ -7,7 +7,7 @@
  * through this before they are logged or stored (`app.ts`'s request
  * serializer, the error log).
  */
-const SHARE_SEGMENT = /(\/(?:share|reset-password|invite|invitations)\/)[^/?#]+/g;
+const SHARE_SEGMENT = /(\/(?:share|reset-password|invite|invitations)\/)[^/?#]+/gi;
 
 export function redactShareTokens(url: string): string {
   return url.replace(SHARE_SEGMENT, "$1[redacted]");
