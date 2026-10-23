@@ -5,6 +5,9 @@ services:
       - "3001:3001"
     environment:
       NEBULADB_DATABASE_URL: postgres://nebuladb:${NEBULADB_POSTGRES_PASSWORD:?set NEBULADB_POSTGRES_PASSWORD}@postgres:5432/nebuladb
+      # Encrypts stored database credentials, 2FA secrets and webhook secrets; connections, 2FA and
+      # webhooks fail without it. `openssl rand -hex 32`, kept in the .env next to this file.
+      NEBULADB_SECRET: ${NEBULADB_SECRET:-}
     # Backups of connected databases are still files: they stay on this volume.
     volumes:
       - nebuladb-data:/data
