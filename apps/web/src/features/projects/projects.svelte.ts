@@ -15,6 +15,8 @@ export interface ProjectsHandle {
    * request took.
    */
   readonly loaded: boolean;
+  /** True when the last fetch failed — the list is then unknown, not empty. */
+  readonly loadFailed: boolean;
   refreshProjects: () => void;
   createProject: (name: string) => Promise<CreateProjectResult>;
   renameProject: (project: ProjectSummary, name: string) => Promise<void>;
@@ -34,14 +36,18 @@ export function useProjects(active: () => boolean): ProjectsHandle {
   const isActive = $derived(active());
   let fetched = $state.raw<ProjectSummary[]>([]);
   let fetchSettled = $state(false);
+  let fetchFailed = $state(false);
 
   const refreshProjects = () => {
     projectsApi
       .fetchProjects()
       .then((list) => {
         fetched = list;
+        fetchFailed = false;
       })
-      .catch(() => {})
+      .catch(() => {
+        fetchFailed = true;
+      })
       // Settled, not succeeded: a failed fetch must still stop the placeholder,
       // or a server that's down leaves the dashboard loading forever.
       .finally(() => {
@@ -58,6 +64,7 @@ export function useProjects(active: () => boolean): ProjectsHandle {
     const loggedIn = isActive;
     fetched = [];
     fetchSettled = false;
+    fetchFailed = false;
     if (loggedIn) refreshProjects();
   });
 
@@ -114,6 +121,9 @@ export function useProjects(active: () => boolean): ProjectsHandle {
     // is simply not shown, and it is refetched on the next login.
     get projects() {
       return isActive ? fetched : EMPTY_PROJECTS;
+    },
+    get loadFailed() {
+      return isActive && fetchFailed;
     },
     get loaded() {
       return isActive && fetchSettled;

@@ -1,5 +1,6 @@
 {
   "common.save": "Save",
+  "common.retry": "Retry",
   "common.cancel": "Cancel",
   "common.close": "Close",
   "common.delete": "Delete",
@@ -231,6 +232,7 @@
   "projects.projectNamePlaceholder": "e.g. Production Database",
   "projects.createFromDatabase": "Create Project & Import Schema",
   "projects.creatingFromDatabase": "Connecting & importing…",
+  "projects.loadFailed": "Failed to load your projects.",
   "projects.noSearchMatch": "No project matches your search.",
   "projects.globalSearch.title": "Inside your schemas",
   "projects.globalSearch.empty": "No table, column or enum contains “{{query}}”.",

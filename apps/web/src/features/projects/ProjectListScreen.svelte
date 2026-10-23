@@ -15,6 +15,9 @@
     projects: ProjectSummary[];
     /** False until the first project fetch settles — the list shows placeholders rather than an empty state. */
     projectsLoaded: boolean;
+    /** The last project fetch failed: the list shows an error with a retry, not "no projects". */
+    projectsLoadFailed?: boolean;
+    onRetryProjects?: () => void;
     openLinkError: string | null;
     onOpenProject: (p: ProjectSummary) => void;
     onOpenAdmin: () => void;
@@ -58,6 +61,8 @@
     <ProjectList
       projects={props.projects}
       loaded={props.projectsLoaded}
+      loadFailed={props.projectsLoadFailed}
+      onRetry={props.onRetryProjects}
       onCreateProject={props.onCreateProject}
       onOpen={props.onOpenProject}
       onOpenSearchHit={props.onOpenSearchHit}

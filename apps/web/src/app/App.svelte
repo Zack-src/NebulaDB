@@ -199,6 +199,8 @@
         embedded
         projects={projectsHandle.projects}
         projectsLoaded={projectsHandle.loaded}
+        projectsLoadFailed={projectsHandle.loadFailed}
+        onRetryProjects={projectsHandle.refreshProjects}
         openLinkError={routing.openLinkError}
         onOpenProject={(project) => {
           viewMode = "app";

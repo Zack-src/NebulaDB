@@ -51,6 +51,8 @@
   let {
     projects,
     loaded,
+    loadFailed = false,
+    onRetry,
     onCreateProject,
     onOpen,
     onOpenSearchHit,
@@ -63,6 +65,8 @@
   }: {
     projects: ProjectSummary[];
     loaded: boolean;
+    loadFailed?: boolean;
+    onRetry?: () => void;
     onCreateProject: (name: string) => Promise<CreateProjectResult>;
     onOpen: (project: ProjectSummary) => void;
     onOpenSearchHit: (hit: SearchHit) => void;
@@ -379,7 +383,12 @@
           </Button>
         </div>
       {/if}
-      {#if !loaded}
+      {#if loadFailed && projects.length === 0}
+        <div class="flex flex-col items-center gap-3 py-10">
+          <ErrorText>{t("projects.loadFailed")}</ErrorText>
+          {#if onRetry}<Button size="sm" variant="outline" onclick={onRetry}>{t("common.retry")}</Button>{/if}
+        </div>
+      {:else if !loaded}
         <!-- Placeholders, not the empty state: before the fetch settles an
              empty array means "unknown", and claiming the user has no
              projects is a wrong statement rather than a slow one. -->

@@ -1,5 +1,6 @@
 {
   "common.save": "Enregistrer",
+  "common.retry": "Réessayer",
   "common.cancel": "Annuler",
   "common.close": "Fermer",
   "common.delete": "Supprimer",
@@ -231,6 +232,7 @@
   "projects.projectNamePlaceholder": "ex : Base de données Production",
   "projects.createFromDatabase": "Créer le projet et importer le schéma",
   "projects.creatingFromDatabase": "Connexion et import…",
+  "projects.loadFailed": "Impossible de charger vos projets.",
   "projects.noSearchMatch": "Aucun projet ne correspond à votre recherche.",
   "projects.globalSearch.title": "Dans le contenu de vos schémas",
   "projects.globalSearch.empty": "Aucune table, colonne ni enum ne contient « {{query}} ».",
