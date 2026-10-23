@@ -349,11 +349,81 @@ test("SSRF, validation and permissions", async () => {
     // An open project is *viewable* by everyone, but webhooks are admin-only.
     assert.equal((await create(viewer, { url: receiverUrl })).statusCode, 403);
 
+    // The IPv4-mapped IPv6 spelling of the same address, which WHATWG URL rewrites to hex.
+    assert.equal(
+      (await create(owner, { url: "http://[::ffff:169.254.169.254]/latest/meta-data" })).json().code,
+      "CONNECTION_TARGET_FORBIDDEN",
+    );
+
     const { deliver } = await import("./delivery.js");
-    const blocked = await deliver("http://169.254.169.254/", "{}", {});
-    assert.equal(blocked.ok, false);
-    assert.match(blocked.error ?? "", /refusing/);
+    for (const url of ["http://169.254.169.254/", "http://[::ffff:a9fe:a9fe]/", "http://100.100.100.200/"]) {
+      const blocked = await deliver(url, "{}", {});
+      assert.equal(blocked.ok, false, url);
+      assert.equal(blocked.error, "delivery target not allowed", url);
+    }
   } finally {
+    await closeAllRooms();
+    await app.close();
+  }
+});
+
+test("a failed delivery says only that it failed, never the system error", async () => {
+  const { deliver } = await import("./delivery.js");
+  const closed = http.createServer();
+  await new Promise<void>((resolve) => closed.listen(0, "127.0.0.1", resolve));
+  const port = (closed.address() as AddressInfo).port;
+  await new Promise<void>((resolve) => closed.close(() => resolve()));
+
+  const refused = await deliver(`http://127.0.0.1:${port}/`, "{}", {});
+  assert.deepEqual(refused, { ok: false, status: null, error: "delivery failed" });
+  const unresolvable = await deliver("http://does-not-exist.invalid/", "{}", {});
+  assert.deepEqual(unresolvable, { ok: false, status: null, error: "delivery failed" });
+});
+
+test("NEBULADB_WEBHOOK_BLOCK_PRIVATE and NEBULADB_WEBHOOK_ALLOWED_HOSTS are opt-in instance rules", async () => {
+  const { deliver } = await import("./delivery.js");
+  const app = await buildApp();
+  const port = (receiver.address() as AddressInfo).port;
+  try {
+    const owner = await login(app);
+    const projectId = await newProject(app, owner);
+    const create = (url: string) =>
+      app.inject({
+        method: "POST",
+        url: `/api/projects/${projectId}/webhooks`,
+        headers: headers({ cookie: owner }),
+        payload: { url },
+      });
+
+    // Off by default: the localhost receiver is reachable (the other tests rely on it too).
+    assert.equal((await deliver(receiverUrl, "{}", {})).ok, true);
+
+    process.env.NEBULADB_WEBHOOK_BLOCK_PRIVATE = "1";
+    assert.equal((await create(receiverUrl)).json().code, "WEBHOOK_URL_INVALID");
+    assert.equal((await create(`http://localhost:${port}/hook`)).json().code, "WEBHOOK_URL_INVALID");
+    assert.equal((await create("http://[::ffff:7f00:1]/hook")).json().code, "WEBHOOK_URL_INVALID");
+    assert.equal((await deliver(receiverUrl, "{}", {})).error, "delivery target not allowed");
+    // A name is judged on the address it resolves to, at connect time.
+    assert.equal((await deliver(`http://localhost:${port}/hook`, "{}", {})).error, "delivery target not allowed");
+
+    // A listed host is exempt from the private block…
+    process.env.NEBULADB_WEBHOOK_ALLOWED_HOSTS = "127.0.0.1, *.example.com";
+    assert.equal((await deliver(receiverUrl, "{}", {})).ok, true);
+    assert.equal((await create(receiverUrl)).statusCode, 201);
+    // …and, once a list is set, only listed hosts may be targeted.
+    assert.equal((await create(`http://localhost:${port}/hook`)).json().code, "WEBHOOK_URL_INVALID");
+    assert.equal((await deliver(`http://localhost:${port}/hook`, "{}", {})).error, "delivery target not allowed");
+
+    delete process.env.NEBULADB_WEBHOOK_BLOCK_PRIVATE;
+    process.env.NEBULADB_WEBHOOK_ALLOWED_HOSTS = "localhost";
+    assert.equal((await deliver(`http://localhost:${port}/hook`, "{}", {})).ok, true);
+    assert.equal((await deliver(receiverUrl, "{}", {})).error, "delivery target not allowed");
+    // The metadata block can't be listed away.
+    process.env.NEBULADB_WEBHOOK_ALLOWED_HOSTS = "169.254.169.254";
+    assert.equal((await deliver("http://169.254.169.254/", "{}", {})).error, "delivery target not allowed");
+  } finally {
+    delete process.env.NEBULADB_WEBHOOK_BLOCK_PRIVATE;
+    delete process.env.NEBULADB_WEBHOOK_ALLOWED_HOSTS;
     await closeAllRooms();
     await app.close();
   }

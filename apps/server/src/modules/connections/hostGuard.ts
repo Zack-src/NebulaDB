@@ -151,19 +151,27 @@ export async function resolveAllowedHost(host: string | undefined): Promise<Pinn
  * the address actually dialled is the one checked, so DNS rebinding has no gap. Used by
  * webhook delivery and by the S3 backup destination.
  */
-export const guardedLookup: LookupFunction = (hostname, options, callback) => {
-  dns.lookup(hostname, { ...options, all: true }, (err, addresses) => {
-    if (err) return callback(err, "", 4);
-    const list = addresses as dns.LookupAddress[];
-    const blocked = list.find((entry) => isBlockedAddress(entry.address));
-    if (blocked) {
-      return callback(
-        Object.assign(new Error(`refusing to connect to ${blocked.address}`), { code: "EBLOCKED" }),
-        "",
-        4,
-      );
-    }
-    if (options.all) return callback(null, list as unknown as string, 4);
-    return callback(null, list[0].address, list[0].family);
-  });
-};
+export const guardedLookup: LookupFunction = lookupRefusing(isBlockedAddress);
+
+/**
+ * A `lookup` hook that fails with `EBLOCKED` when any resolved address matches `refuse` —
+ * `guardedLookup` with a caller's own, stricter rule (webhooks' optional private-network block).
+ */
+export function lookupRefusing(refuse: (address: string, hostname: string) => boolean): LookupFunction {
+  return (hostname, options, callback) => {
+    dns.lookup(hostname, { ...options, all: true }, (err, addresses) => {
+      if (err) return callback(err, "", 4);
+      const list = addresses as dns.LookupAddress[];
+      const blocked = list.find((entry) => refuse(entry.address, hostname));
+      if (blocked) {
+        return callback(
+          Object.assign(new Error(`refusing to connect to ${blocked.address}`), { code: "EBLOCKED" }),
+          "",
+          4,
+        );
+      }
+      if (options.all) return callback(null, list as unknown as string, 4);
+      return callback(null, list[0].address, list[0].family);
+    });
+  };
+}

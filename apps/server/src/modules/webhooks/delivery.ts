@@ -2,21 +2,27 @@ import crypto from "node:crypto";
 import http from "node:http";
 import https from "node:https";
 import { isIP } from "node:net";
-import { guardedLookup, isBlockedAddress } from "../connections/hostGuard.js";
 import type { WebhookEvent, WebhookFormat } from "./repository.js";
+import { isWebhookAddressRefused, isWebhookHostListed, webhookLookup } from "./targetPolicy.js";
 
 /**
  * One HTTP delivery of one webhook payload, via `node:http`/`https` rather than `fetch`:
  * - **No redirects**: a 3xx is a failed delivery.
- * - **The address is checked at connect time** (`lookup` hook, `isBlockedAddress`), so DNS
+ * - **The address is checked at connect time** (`lookup` hook, `targetPolicy.ts`), so DNS
  *   can't answer differently a second time.
+ * - **Errors are generic**: a refused connection, a timeout or a DNS failure all read
+ *   "delivery failed", so the test button and the log can't be used to scan ports. Only the
+ *   receiver's HTTP status is reported.
  *
- * Private/LAN targets stay allowed, as for database connections. Only project administrators
- * can register a webhook.
+ * Private/LAN targets stay allowed by default, as for database connections; an instance can
+ * refuse them (`NEBULADB_WEBHOOK_BLOCK_PRIVATE=1`) or restrict webhooks to listed hosts
+ * (`NEBULADB_WEBHOOK_ALLOWED_HOSTS`).
  */
 
 const DELIVERY_TIMEOUT_MS = 10_000;
 const USER_AGENT = "NebulaDB-Webhooks/1";
+const TARGET_REFUSED = "delivery target not allowed";
+const DELIVERY_FAILED = "delivery failed";
 
 export interface WebhookEnvelope {
   id: string;
@@ -107,11 +113,11 @@ export function deliver(url: string, body: string, headers: Record<string, strin
       resolve({ ok: false, status: null, error: "invalid URL" });
       return;
     }
-    // Node skips `lookup` entirely for a literal IP, so the guard above never
-    // sees `http://169.254.169.254/` — check that case here.
-    const literalHost = target.hostname.replace(/^\[|\]$/g, "");
-    if (isIP(literalHost) && isBlockedAddress(literalHost)) {
-      resolve({ ok: false, status: null, error: `refusing to deliver to ${literalHost}` });
+    const host = target.hostname.replace(/^\[|\]$/g, "");
+    // Node skips `lookup` entirely for a literal IP, so the connect-time check
+    // never sees `http://169.254.169.254/` — check that case here.
+    if (!isWebhookHostListed(host) || (isIP(host) && isWebhookAddressRefused(host, host))) {
+      resolve({ ok: false, status: null, error: TARGET_REFUSED });
       return;
     }
     const client = target.protocol === "https:" ? https : http;
@@ -119,7 +125,7 @@ export function deliver(url: string, body: string, headers: Record<string, strin
       target,
       {
         method: "POST",
-        lookup: guardedLookup,
+        lookup: webhookLookup,
         timeout: DELIVERY_TIMEOUT_MS,
         headers: {
           "content-type": "application/json",
@@ -138,9 +144,11 @@ export function deliver(url: string, body: string, headers: Record<string, strin
         resolve({ ok, status, error: ok ? null : `HTTP ${status}` });
       },
     );
-    req.on("timeout", () => req.destroy(new Error(`timed out after ${DELIVERY_TIMEOUT_MS / 1000}s`)));
+    req.on("timeout", () => req.destroy(new Error("timed out")));
     req.on("error", (err: NodeJS.ErrnoException) => {
-      resolve({ ok: false, status: null, error: err.code === "EBLOCKED" ? err.message : err.message.slice(0, 200) });
+      // Never the system message (ECONNREFUSED, EHOSTUNREACH, timeout…): told apart, they
+      // map which internal hosts and ports answer.
+      resolve({ ok: false, status: null, error: err.code === "EBLOCKED" ? TARGET_REFUSED : DELIVERY_FAILED });
     });
     req.end(body);
   });

@@ -3,8 +3,8 @@ import type { FastifyRequest } from "fastify";
 import { auditUser } from "../../shared/audit.js";
 import { encryptPayload } from "../../shared/crypto.js";
 import { ApiError } from "../../shared/errors.js";
-import { assertHostAllowed } from "../connections/hostGuard.js";
 import { invalidateWebhookCache, sendPing } from "./dispatcher.js";
+import { assertWebhookTargetAllowed } from "./targetPolicy.js";
 import {
   SUBSCRIBABLE_EVENTS,
   WEBHOOK_FORMATS,
@@ -49,7 +49,7 @@ async function parseUrl(raw: unknown): Promise<string> {
     throw new ApiError("WEBHOOK_URL_INVALID", { message: "put credentials in the receiving service, not in the URL" });
   }
   // Early, friendly refusal; the real enforcement is the connect-time check in `delivery.ts`.
-  await assertHostAllowed(url.hostname);
+  await assertWebhookTargetAllowed(url.hostname);
   return url.toString();
 }
 

@@ -62,8 +62,8 @@ Environment variables, or `apps/server/.env` (see [`.env.example`](apps/server/.
 | `NEBULADB_SEED_IMPORT_DIR`                                                   | — (off)                   | Folder administrators may import seed files from by path.                                                   |
 | `NEBULADB_CONNECTION_HEALTH_INTERVAL_MINUTES`                                | `15`                      | Connection health checks; `0` = off.                                                                        |
 | `NEBULADB_SQLITE_DIR`                                                        | —                         | Restrict SQLite connections to this folder.                                                                 |
-| `NEBULADB_WEBHOOK_BLOCK_PRIVATE`                                             | `0` (off)                 | `1` refuses webhooks to loopback, private, link-local and reserved addresses. |
-| `NEBULADB_WEBHOOK_ALLOWED_HOSTS`                                             | —                         | Webhooks may only target these hosts (`a.com`, `*.a.com`, IP or CIDR, comma-separated); exempt from the line above. |
+| `NEBULADB_WEBHOOK_BLOCK_PRIVATE`                                             | `0` (off)                 | `1` refuses webhooks to loopback, private, link-local and reserved addresses.                               |
+| `NEBULADB_WEBHOOK_ALLOWED_HOSTS`                                             | —                         | Comma-separated hosts (`a.com`, `*.a.com`, IP, CIDR) webhooks are limited to; exempt from the above.        |
 
 ## Features
 
