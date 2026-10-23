@@ -1,8 +1,10 @@
 # NebulaDB — état des fonctionnalités
 
-État au **2026-10-05**, sur le commit `60b490c` (`main`) **plus les modifications de la session du
-jour, non commitées** (accès aux bases, surveillance des comptes, journal par base, mentions,
-corrections moteur, correctif CI).
+État au **2026-10-23**, sur la branche `updates` (tag `v1.0.0` posé ; la colonne « état » des lignes
+non listées dans la mise à jour du 2026-10-23 date du 2026-10-05 et n'a pas été revérifiée).
+Mise à jour du 2026-10-23 : lignes corrigées après relecture du code (CLI, action GitHub, complétion SQL,
+requêtes enregistrées, édition de lignes, suggestions d'index, Prisma / JSON Schema, version taguée),
+et écrans retirés signalés.
 
 Ce document liste tout ce que l'outil doit permettre, fonctionnalité par fonctionnalité, avec
 son état. Il réunit le besoin exprimé par le propriétaire du produit, ce que le code fait déjà
@@ -49,15 +51,15 @@ utilisé ».
 | Conversion de types entre moteurs                                                                  |  🧪  | Écran jamais cliqué par un test                                                              |
 | Linter de schéma (profils, corrections, blocage de déploiement)                                    |  ✅  | Le motif de nommage se règle en règle personnalisée                                          |
 | Lint : bibliothèque de modèles, modèle par défaut, version propre au projet, règles personnalisées |  🧪  | Testé côté serveur et en navigateur ; jamais utilisé à la main                               |
-| Dictionnaire de données                                                                            |  🟡  | Pas d'export PDF ; description sur une seule ligne                                           |
+| Dictionnaire de données                                                                            |  🟡  | Export Markdown, CSV, HTML et PDF ; description sur une seule ligne                          |
 | Verrous de table                                                                                   |  🟡  | Un plugin annonce « fait » alors que le verrou a refusé                                      |
 | Historique, aperçu sur le graphe, restauration d'une seule table                                   |  🟡  | Rétention et compaction des révisions non décidées                                           |
 | Comparaison de deux projets, avec SQL de migration                                                 |  ✅  | Le diff contre une base réelle ne signale plus `decimal` ni les clés primaires à tort        |
 | Collaboration temps réel, présence, commentaires                                                   |  ✅  |                                                                                              |
 | Mentions `@` dans les commentaires                                                                 |  ✅  | Ancien commentaire sans identifiant d'auteur ; nom d'une mention non mis à jour au renommage |
 | Fusion par champ (deux personnes sur la même table)                                                |  ❌  |                                                                                              |
-| Points de passage des relations, détection d'une relation inversée                                 |  ❌  | Attend une décision du propriétaire                                                          |
-| Export Prisma / TypeORM / GraphQL / JSON Schema                                                    |  ❌  | Prévu sous forme de plugins                                                                  |
+| Points de passage des relations, détection d'une relation inversée                                 |  ✅  | Points de passage déplaçables et routage réglable                                            |
+| Export Prisma / TypeORM / GraphQL / JSON Schema                                                    |  🟡  | Prisma, JSON Schema, TypeScript et Mermaid livrés ; TypeORM et GraphQL non faits             |
 
 ## 2. Projet racine et déclinaisons ★
 
@@ -98,7 +100,7 @@ enums, groupes), jamais la mise en page ; un changement non envoyé devient prop
 | Mesure des risques sur les données existantes                                                                      |  ✅  | Vérifié sur PostgreSQL et MySQL ; très grosses tables à tester                                                                          |
 | Confirmation et sauvegarde automatique en production                                                               |  ✅  |                                                                                                                                         |
 | Pipeline sans saut d'étape                                                                                         |  ✅  |                                                                                                                                         |
-| Comparaison de deux environnements                                                                                 |  🧪  | Faux « différent » attendus entre deux moteurs différents                                                                               |
+| Comparaison de deux environnements                                                                                 |  🧪  | Serveur seulement : l'écran a été retiré ; faux « différent » attendus entre deux moteurs différents                                    |
 | Historique des déploiements, retour arrière « au mieux »                                                           |  🟡  | MySQL : pas de retour à travers un échec en cours de lot                                                                                |
 | Données initiales CSV, reprise des lignes depuis la base                                                           |  🧪  | Reprise jamais essayée ailleurs que sur SQLite                                                                                          |
 | Générateur de données de test                                                                                      |  🟡  | Générateurs « regex » et « copie d'une colonne » absents                                                                                |
@@ -107,7 +109,7 @@ enums, groupes), jamais la mise en page ; un changement non envoyé devient prop
 | Revue avant une étape « Revue » (demande, approbation par une autre personne, déploiement de la demande approuvée) |  🧪  | Testée côté serveur et par `/api/v1` ; écrans jamais cliqués ; approbation valable 7 jours                                              |
 | Fenêtres de déploiement, gel                                                                                       |  ❌  |                                                                                                                                         |
 | Bouton « revenir avant ce déploiement », sauvegardes natives                                                       |  ❌  |                                                                                                                                         |
-| Action GitHub / CLI                                                                                                |  ❌  | Un exemple CI est écrit, jamais lancé                                                                                                   |
+| Action GitHub / CLI                                                                                                |  🧪  | CLI `packages/cli` et action `actions/nebuladb` livrées (lint, dérive, déploiement) ; jamais lancées en CI réelle                       |
 
 ## 5. Comptes Nebula et groupes ★
 
@@ -149,8 +151,8 @@ enums, groupes), jamais la mise en page ; un changement non envoyé devient prop
 | Grille de résultats                                                |  🧪  | Jamais utilisée sur un vrai gros résultat                                                                |
 | Historique de ses requêtes, journalisation de chaque requête       |  ✅  |                                                                                                          |
 | Changement de structure renvoyé vers le schéma                     |  ✅  | Contournable par une procédure ou un bloc `DO` (admin d'instance)                                        |
-| Éditeur SQL avec complétion depuis le schéma                       |  ❌  | Simple zone de texte aujourd'hui                                                                         |
-| Requêtes enregistrées, EXPLAIN visuel, édition de lignes           |  ❌  |                                                                                                          |
+| Éditeur SQL avec complétion depuis le schéma                       |  ✅  | Complétion depuis le schéma                                                                              |
+| Requêtes enregistrées, EXPLAIN visuel, édition de lignes           |  🟡  | Requêtes enregistrées et édition de lignes livrées ; EXPLAIN visuel non fait                             |
 
 ## 8. Journaux ★
 
@@ -173,7 +175,7 @@ antérieur, maintenant bien visible dans l'onglet Journal).
 | ★ Temps et fréquence d'utilisation par requête        |  🟡  | Requêtes lancées depuis Nebula seulement, regroupées par forme ; rien côté serveur de base                                                                                 |
 | Tableau de santé (onglet « Santé »)                   |  🟡  | Sonde, latence, tailles, sessions, verrous bloquants ; vérifié sur PostgreSQL (blocage compris), pas de croissance par table ni de carte sur la liste des connexions       |
 | Trafic par connexion (compteurs du serveur)           |  🟡  | Requêtes, octets, lignes selon le moteur (PostgreSQL : transactions, pas d'octets) ; vérifié sur PostgreSQL, MySQL, SQL Server ; pas de ventilation par compte ni d'alerte |
-| Suggestions d'index                                   |  ❌  |                                                                                                                                                                            |
+| Suggestions d'index                                   |  ✅  | Proposées dans le journal, ajout à l'index du projet                                                                                                                       |
 | ★ Conseiller de requêtes et de schéma, IA optionnelle |  ❌  | Dépend de la collecte côté serveur de base                                                                                                                                 |
 
 ## 10. Modifications faites hors Nebula ★
@@ -184,7 +186,7 @@ antérieur, maintenant bien visible dans l'onglet Journal).
 | Bandeau, différences, resynchroniser, ignorer      |  🟡  | Pas de traitement ligne par ligne                                                                             |
 | Webhook et notification dans l'application         |  ✅  |                                                                                                               |
 | ★ Surveillance des utilisateurs et des permissions |  🧪  | Lecture vérifiée sur PostgreSQL, MySQL, SQL Server ; Oracle lu dans le code seulement ; option jamais cliquée |
-| Alerte par e-mail, acquittement, mise en sourdine  |  ❌  |                                                                                                               |
+| Alerte par e-mail, acquittement, mise en sourdine  |  🟡  | Serveur complet (alertes, acquittement, sourdine) ; l'écran de réglage a été retiré                           |
 
 ## 11. Autour
 
@@ -195,12 +197,12 @@ antérieur, maintenant bien visible dans l'onglet Journal).
 | Liens de partage en lecture seule (diagramme, dictionnaire) |  🧪  | Désactivés par défaut, activés par un administrateur ; jeton haché, durée de 1 à 365 jours, révocation ; testé serveur et en navigateur |
 | Notifications sur les projets suivis, mentions, réponses    |  🟡  | Pas d'e-mail, pas de résumé quotidien                                                                                                   |
 | Plugins                                                     |  🟡  | Pas de partage en équipe                                                                                                                |
-| Visite guidée, thèmes, français + anglais                   |  ✅  |                                                                                                                                         |
+| Visite guidée, thèmes, français + anglais                   |  🟡  | Thèmes et français + anglais livrés ; la visite guidée a été retirée                                                                    |
 | Composants de formulaire maison                             |  🧪  | Une dizaine d'écrans migrés jamais cliqués                                                                                              |
 | Refonte visuelle, accessibilité, mobile                     |  ❌  |                                                                                                                                         |
 | Revue de sécurité indépendante, relecture juridique         |  ❌  | Dues avant tout usage réel                                                                                                              |
-| Première version taguée                                     |  ❌  | Tous les paquets sont encore en `0.0.1`                                                                                                 |
-| CI GitHub                                                   |  🟡  | Corrigée en local (formatage) ; aucun run tant que ce n'est pas poussé                                                                  |
+| Première version taguée                                     |  ✅  | `v1.0.0` ; tous les paquets sont en `1.0.0`                                                                                             |
+| CI GitHub                                                   |  🟡  | Workflow `.github/workflows/ci.yml` en place ; audit des dépendances et Dependabot suivis dans `docs/scan-ameliorations-2026-10-23.md`  |
 
 ## Lecture d'ensemble
 
