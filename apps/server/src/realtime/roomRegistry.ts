@@ -13,6 +13,24 @@ const opening = new Map<string, Promise<Room>>();
 /** What an evicted room still had to store. Its project is not reopened before that lands, or it would load the state from before. */
 const settling = new Map<string, Promise<void>>();
 
+/** When each room was last asked for, to evict the ones only REST calls opened (no client ever leaves them). */
+const lastUsed = new Map<string, number>();
+const IDLE_MS = 2 * 60_000;
+const SWEEP_MS = 60_000;
+
+/** Evicts the rooms nobody is connected to and nobody has asked for in a while. */
+export function sweepIdleRooms(now = Date.now(), idleMs = IDLE_MS): number {
+  let evicted = 0;
+  for (const [projectId, room] of rooms) {
+    if (now - (lastUsed.get(projectId) ?? 0) < idleMs) continue;
+    if (room.evictIfIdle()) evicted++;
+  }
+  return evicted;
+}
+
+const sweeper = setInterval(() => sweepIdleRooms(), SWEEP_MS);
+sweeper.unref();
+
 /**
  * Falls back to `console` so a `Room` created before `setRoomLogger` runs
  * (or in a test that never calls it) still logs somewhere, but every real
@@ -39,6 +57,7 @@ export function setRoomLogger(logger: RoomLogger): void {
  * stored nowhere.
  */
 export async function getRoom(projectId: string): Promise<Room> {
+  lastUsed.set(projectId, Date.now());
   const live = rooms.get(projectId);
   if (live) return live;
   let pending = opening.get(projectId);
@@ -58,6 +77,7 @@ async function openRoom(projectId: string): Promise<Room> {
 
 function evictRoom(projectId: string, room: Room, settled: Promise<void>): void {
   if (rooms.get(projectId) === room) rooms.delete(projectId);
+  lastUsed.delete(projectId);
   settling.set(projectId, settled);
   void settled.then(() => {
     if (settling.get(projectId) === settled) settling.delete(projectId);

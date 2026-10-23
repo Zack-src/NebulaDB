@@ -384,21 +384,34 @@ export class Room {
     if (meta.awarenessClientIds.size > 0) {
       awarenessProtocol.removeAwarenessStates(this.awareness, Array.from(meta.awarenessClientIds), null);
     }
-    if (this.conns.size === 0) {
-      if (this.snapshotTimer) {
-        clearTimeout(this.snapshotTimer);
-        this.snapshotTimer = null;
-      }
-      if (!this.destroyed) this.queueSnapshot("failed to save snapshot on last client leaving");
-      // Evict once nobody's connected — every project ever opened otherwise
-      // keeps a live Y.Doc + Awareness resident in memory for the process's
-      // entire lifetime. Safe: `getRoom` recreates it on demand from the
-      // snapshot queued above — which is why it is handed that write to wait
-      // for, where a synchronous store had already finished it.
-      this.onEmpty(this.writes);
-      this.dispose();
-    }
+    if (this.conns.size === 0) this.empty();
     return this.writes;
+  }
+
+  /** Nobody is connected: store the room's state and let go of it. */
+  private empty(): void {
+    if (this.snapshotTimer) {
+      clearTimeout(this.snapshotTimer);
+      this.snapshotTimer = null;
+    }
+    if (!this.destroyed) this.queueSnapshot("failed to save snapshot on last client leaving");
+    // Evict once nobody's connected — every project ever opened otherwise
+    // keeps a live Y.Doc + Awareness resident in memory for the process's
+    // entire lifetime. Safe: `getRoom` recreates it on demand from the
+    // snapshot queued above — which is why it is handed that write to wait
+    // for, where a synchronous store had already finished it.
+    this.onEmpty(this.writes);
+    this.dispose();
+  }
+
+  /**
+   * Evicts a room that was opened for a REST call and never had a client, which `leave` would
+   * never reach. `false` (and nothing done) while anyone is connected.
+   */
+  evictIfIdle(): boolean {
+    if (this.disposed || this.destroyed || this.conns.size > 0) return false;
+    this.empty();
+    return true;
   }
 
   /**
