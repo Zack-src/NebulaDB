@@ -38,8 +38,7 @@
 - Trois niveaux de détail par table, disposition automatique, minimap, zoom, recherche dans le
   diagramme, sélection au lasso.
 - **Vue conceptuelle MCD (Merise)** en plus de la vue logique.
-- Thèmes clair / sombre, interface en français et en anglais, visite guidée à la première
-  ouverture.
+- Thèmes clair / sombre, interface en français et en anglais.
 
 ### Import / export
 
@@ -103,11 +102,11 @@
 - **Variables par environnement** dans les noms de tables et de schémas
   (`{{table_prefix}}orders`).
 - **Historique des déploiements** et **retour arrière**.
-- **Vérifier les différences** entre le projet et une base, **comparer deux environnements**,
-  carte Pipeline montrant où en est chaque base.
+- **Vérifier les différences** entre le projet et une base, carte Pipeline montrant où en est
+  chaque base. (La comparaison de deux environnements existe côté serveur, sans écran pour le moment.)
 - **Surveillance des modifications faites hors Nebula** : la base est relue périodiquement ; un
-  écart déclenche un bandeau dans l'éditeur, une notification et un webhook. Option pour
-  surveiller aussi les comptes et privilèges.
+  écart déclenche une notification et un webhook. Elle s'impose depuis la connexion (voir
+  « Surveillance imposée ») ; l'écran de réglage par projet a été retiré, l'API reste disponible.
 
 ## 8. Requêtes SQL et exploration des données
 
@@ -198,9 +197,10 @@
 
 ## 12. Hébergement
 
-- Auto-hébergé : un seul processus, données dans SQLite, image Docker fournie ; aucune requête
+- Auto-hébergé : un seul processus, données dans PostgreSQL (fourni par le `docker-compose.yml`), image Docker fournie ; aucune requête
   vers un service tiers.
-- Sauvegarde et restauration des projets en ligne de commande, sauvegardes planifiées.
+- Sauvegarde et restauration des projets en ligne de commande, sauvegardes planifiées ; reprise
+  d'une ancienne instance SQLite avec `npm run migrate-from-sqlite`.
 - `/api/health` et `/api/metrics` pour la supervision.
 
 ## À savoir avant la démo
@@ -208,10 +208,12 @@
 Points que `docs/etat-des-features.md` signale comme écrits mais jamais éprouvés en conditions
 réelles ; à essayer avant de les montrer en direct.
 
-- **Oracle** : jamais testé sur une vraie base. **BigQuery** : ajouté au dernier commit.
-- Sauvegardes et restauration des bases : vérifiées de bout en bout sur SQLite seulement.
+- **Oracle** : jamais testé sur une vraie base. **BigQuery** : jamais essayé sur un vrai projet Google Cloud.
+- Sauvegardes et restauration des bases : vérifiées de bout en bout sur SQLite seulement (voir `docs/etat-des-features.md`).
 - Envoi d'e-mails : jamais passé par un vrai relais SMTP.
 - Compte SQL personnel et invitation enrichie : testés automatiquement, jamais utilisés à la main.
 - Comparaison de deux environnements, variables par environnement, conversion de types : idem.
-- Absents de l'outil, si la question est posée : variantes d'un projet par client, conseiller de
-  requêtes / IA, suggestions d'index, SSO, tunnel SSH, complétion dans l'éditeur SQL.
+- Retirés de l'interface depuis la dernière version : visite guidée, modèles de projet,
+  comparaison de deux environnements, réglage de la surveillance par projet.
+- Absents de l'outil, si la question est posée : conseiller de requêtes / IA, passkeys, publication
+  de versions de l'original pour les variantes.
