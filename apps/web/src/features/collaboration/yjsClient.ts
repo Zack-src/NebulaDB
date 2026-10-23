@@ -275,6 +275,10 @@ export function connectProject(
       const ws = socket;
       socket = null;
       if (ws && (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING)) ws.close();
+      // Nothing uses the connection after this, and both hold on to the page otherwise: the
+      // awareness keeps an interval timer running, the document every update it ever saw.
+      awareness.destroy();
+      doc.destroy();
     },
   };
 }
