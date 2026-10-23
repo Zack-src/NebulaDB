@@ -224,6 +224,15 @@
     isTableHovered = false;
     data.onTableHoverChange?.(null);
   }}
+  onfocusin={() => {
+    // Keyboard focus inside the table reveals (mounts) the row actions like hovering does.
+    if (lite) canvas.upgradeLite(id);
+    isTableHovered = true;
+    actionsShown = true;
+  }}
+  onfocusout={(event) => {
+    if (!(event.relatedTarget instanceof Node && root?.contains(event.relatedTarget))) isTableHovered = false;
+  }}
   style:border-color={selected ? "var(--color-primary)" : table.style?.borderColor}
   style:outline={primaryRemoteSelector ? `2px solid ${primaryRemoteSelector.color}` : undefined}
   style:outline-offset={primaryRemoteSelector ? "2px" : undefined}

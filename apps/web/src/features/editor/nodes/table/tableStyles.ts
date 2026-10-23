@@ -40,7 +40,7 @@ export const ROW_TYPE_CLASS =
  */
 export const ROW_DRAG_HANDLE_CLASS =
   "invisible flex h-5 w-3.5 shrink-0 cursor-grab items-center justify-center rounded-sm text-text-muted " +
-  "hover:text-text group-hover:visible active:cursor-grabbing";
+  "hover:text-text group-hover:visible focus-within:visible [@media(hover:none)]:visible active:cursor-grabbing";
 /** Drop-position indicator while another column is dragged over this row — an inset line so it doesn't shift row height/layout. */
 export function rowDropIndicatorClass(side: "before" | "after" | null): string {
   if (side === "before") return "shadow-[inset_0_2px_0_0_var(--color-primary)]";
@@ -62,7 +62,8 @@ export const KW_BADGE_COLOR: Record<"unique" | "notNull" | "increment" | "note",
 
 export const ROW_ACTIONS_CLASS =
   "invisible ml-auto flex items-center gap-[3px] " +
-  "group-hover:visible has-[.has-comments]:visible has-[.has-open-popover]:visible";
+  "group-hover:visible focus-within:visible [@media(hover:none)]:visible " +
+  "has-[.has-comments]:visible has-[.has-open-popover]:visible";
 export const ROW_ACTION_BTN_CLASS =
   "flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm px-1 text-text-muted transition-colors duration-100 " +
   "hover:bg-surface-hover hover:text-text [&.has-comments]:bg-surface-hover [&.has-comments]:text-text " +
