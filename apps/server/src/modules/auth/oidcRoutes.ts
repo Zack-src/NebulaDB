@@ -34,7 +34,10 @@ function redirectUri(req: FastifyRequest): string {
 
 /** A path inside the app, never another site: `/project/…`, not `//evil.example` or `https://…`. */
 function safeNext(value: unknown): string {
-  return typeof value === "string" && /^\/(?![/\\])/.test(value) && value.length <= 500 ? value : "/";
+  // No control character or space either: browsers strip tabs and newlines from a `Location`, so `/\t/evil.example` becomes `//evil.example`.
+  return typeof value === "string" && /^\/(?![/\\])[^\s\u0000-\u001f\u007f]*$/.test(value) && value.length <= 500
+    ? value
+    : "/";
 }
 
 function pendingCookieOptions(maxAgeMs: number) {
