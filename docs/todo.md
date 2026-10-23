@@ -105,7 +105,7 @@ rollback is still to do; 2026-10-04: lot 17's schema linter and data dictionary)
       (`pg_stat_activity`, `performance_schema`, DMVs, `V$SESSION`…), none of which can be
       run on a machine with only SQLite — and nothing reads the level yet. Build it with its
       first consumer, on a machine with the engines.
-- [ ] **Migrations** — next migration number is **36** (29 is `backups`, 30 `backup_schedules`, 31 `lint_settings`, 32 `environments.variables_json`, 33 `deployment_history.schema_hash`, 34 `subscriptions` + `notifications`, 35 `db_connections.auth_mode` + `db_connection_credentials`). Every item below that adds a table
+- [ ] **Migrations** — PostgreSQL numbering: the SQLite history is the baseline (`schema_migrations` version 1) and the next number is **13** (the last one, 12, is `table_seeds.storage`). Every item below that adds a table
       gets its own migration, tested on a populated database (`infrastructure/migrations.test.ts`).
       Reminder from `memory`: saving `migrations.ts` while `npm run dev` runs migrates the real dev
       DB, one way — work on a copy.
@@ -162,7 +162,7 @@ the answer may change.
 - [ ] **First tagged release:** when, and from which commit. _V1 checklist / Phase 25._
 - [ ] **Mobile / tablet:** desktop-only stated in writing, or responsive. _Phase 22._
 - [ ] **Language policy:** fr + en, both complete — written down as the rule. _V1 checklist._
-- [ ] **Out of V1, said plainly:** SSO, passkeys, offline mode, plugin marketplace — confirm the
+- [ ] **Out of V1, said plainly:** passkeys, offline mode, plugin marketplace — confirm the
       list the user guide ends with. _V1 checklist._
 
 **Open since before — features (each blocks its item):**
@@ -468,8 +468,8 @@ Take a backup first (`npm run backup -- <dir>`); migrations are one-way. Try the
       that calls the `/api/v1` routes added by the next commit, `8450675`. Together they are
       green; `git bisect` landing on the first one alone would see a failure. Squash the two
       before pushing, or accept it.
-- [ ] **No tag, every workspace still `0.0.1`:** the changelog's "Unreleased" section now
-      covers Phases 29–36. Decide whether this push is the first tagged release (block A).
+- [x] **No tag, every workspace still `0.0.1`:** done — `v1.0.0` is tagged and every workspace is
+      at `1.0.0`. The changelog's "Unreleased" section still covers everything since.
 
 ### D. Reviews owed (the Phase 27 rule: before the item is closed, not after)
 
@@ -490,7 +490,7 @@ for each of these; none has been done.
       screening (`sqlGuard.ts#assertDataStatement`), which account a member runs as on a shared
       connection, invitations granting on acceptance, the connection-account protection — before
       anyone is given `write`. _Phase 31._
-- [ ] **Legal review** of the terms-of-service and privacy-policy templates — now including §2.8 (personal
+- [ ] **Legal review** of the terms-of-service and privacy-policy templates (the templates were removed from the repository with `docs/legal/`; moot until they come back) — now including §2.8 (personal
       database accounts) and its retention line. _V1 checklist._
 - [ ] **Accessibility audit** of the Svelte UI: none has been run. _Phase 22._
 
@@ -504,9 +504,8 @@ what was left is below. **`0.y.z` stays until this list is clear, then `1.0.0` i
 a credible V1; what costs most (DB link, public API, SSO) was V2 material — and the DB link and
 API have since shipped.
 
-- [ ] **First tagged release** — **S**, a deliberate release action (see Phase 25): every
-      workspace is still `0.0.1`, `git tag -l` is empty.
-- [ ] **Legal review of the templates** — not code. The terms-of-service and privacy-policy
+- [x] **First tagged release** — **S**: `v1.0.0` tagged, every workspace at `1.0.0`.
+- [ ] **Legal review of the templates** (removed from the repository with `docs/legal/`; moot until they come back) — not code. The terms-of-service and privacy-policy
       templates are written from the code's verified behaviour; the operator fills the `[…]` markers and
       has a lawyer read them. Remember: the instance operator, not this project, is publisher and
       data controller.
@@ -529,8 +528,8 @@ API have since shipped.
       Déploiements tab for administrators.
 - [ ] **Written decisions** (cost one sentence if assumed): mobile / tablet (Phase 22), and
       the language policy (fr + en, see open decisions).
-- [ ] **Out of V1, stated plainly rather than implied:** SSO, passkeys (TOTP 2FA is done), real
-      offline mode, plugin marketplace. Keep this list in sync with the product.
+- [ ] **Out of V1, stated plainly rather than implied:** passkeys (TOTP 2FA and OpenID Connect SSO are
+      done), real offline mode, plugin marketplace. Keep this list in sync with the product.
 
 ---
 
@@ -1411,14 +1410,14 @@ file_ref, options_json, updated_at)`; an abstract `SeedSource` interface (`csv` 
   **Not done:** views / functions / procedures; Oracle checked by code only (no container);
   the window between the two reads around a console change attributes to Nebula anything
   done elsewhere in those milliseconds; `/api/v1` does not expose the accounts watch.
-- [ ] **Drift UI** — **L**. Editor banner ("modifiée en dehors d'Nebula — n différences" with
-      Voir / Mettre à jour le schéma / Réappliquer le schéma / Ignorer), differences page reusing
-      `editor/compare/` with per-line Import / Revert / Ignore (ignore list = exceptions), "divergent"
-      badge on nodes and a red dot on the project list, admin **alert centre** (bell, ack, history).
-- [ ] **Alert channels and noise control** — **M**. In-app, e-mail (SMTP exists —
-      `infrastructure/mailer.ts`), webhook (new event `drift.detected` in `modules/webhooks/`,
-      signing and retries already there; update `docs/webhooks.md`). One alert per detection (not
-      per table), grace delay, mute, acknowledge, reminder after N hours.
+- [~] **Drift UI** — editor banner (`editor/drift/DriftBanner.svelte`) and notifications exist; the per-project watch settings screen, the differences page and the alert centre do not. Original plan: **L**. Editor banner ("modifiée en dehors d'Nebula — n différences" with
+  Voir / Mettre à jour le schéma / Réappliquer le schéma / Ignorer), differences page reusing
+  `editor/compare/` with per-line Import / Revert / Ignore (ignore list = exceptions), "divergent"
+  badge on nodes and a red dot on the project list, admin **alert centre** (bell, ack, history).
+- [~] **Alert channels and noise control** — e-mail, `drift.detected` webhook, acknowledge and mute are built on the server (`modules/monitoring/`); the UI for mute and watch settings was removed. Original plan: **M**. In-app, e-mail (SMTP exists —
+  `infrastructure/mailer.ts`), webhook (new event `drift.detected` in `modules/webhooks/`,
+  signing and retries already there; update `docs/webhooks.md`). One alert per detection (not
+  per table), grace delay, mute, acknowledge, reminder after N hours.
 - [ ] **Database-side logs, levels 1–2** — **XL**. New `modules/dbMonitor/` with per-engine
       collectors next to `dbAdmin/drivers`. Level 1: sessions / recent statements
       (`pg_stat_activity` / `pg_stat_statements`, `performance_schema`, DMVs, `V$SESSION`); level
@@ -1428,10 +1427,10 @@ file_ref, options_json, updated_at)`; an abstract `SeedSource` interface (`csv` 
       script and verifies it works. Table `db_activity_log` (short, capped retention; statement
       text truncated and literals masked). Capability map shown in the connection editor.
       Open: default retention; syslog / SIEM export.
-- [ ] **Health dashboard** — **L**. "Santé" tab + card on the connections list: latency,
-      version, uptime, size and growth per table, sessions, blocking locks (link to the sessions
-      panel and its existing **kill**), slow statements (link to Phase 36). Short aggregated
-      series kept server-side, rate-limited sampling.
+- [~] **Health dashboard** — `HealthPanel` (probe, latency, sizes, sessions, blocking locks) is built; the card on the connections list and growth per table are not. Original plan: **L**. "Santé" tab + card on the connections list: latency,
+  version, uptime, size and growth per table, sessions, blocking locks (link to the sessions
+  panel and its existing **kill**), slow statements (link to Phase 36). Short aggregated
+  series kept server-side, rate-limited sampling.
 - [ ] **Traffic: queries and data volume** — first piece of "Nebula's own traffic" done
       2026-10-05: per connection, the SQL console's statements grouped by shape
       (`dbAdmin/sqlShape.ts`: comments dropped, every literal → `?`, lists collapsed), counted per
@@ -1495,6 +1494,11 @@ ANALYZE`, **read-only statements only**, explicit confirmation, time cap) in the
   drift alerts and this centre are one list but drift has no acknowledge / mute yet.
 
 ## Phase 35 — Derived projects: base + variants (plan §10)
+
+> Delivered differently from the plan below: a variant is a full copy of the original (one level), with
+> a "Variantes" tab and an on-demand three-way merge (see `docs/etat-des-features.md`, section 2). The
+> overlay model, published versions and pinning below were not built; the items stay open as the
+> original design.
 
 A base project (e.g. **DeepDetect**) and variants (**L'Oréal**, **La Poste**) that inherit it,
 customise it, and may target another engine. **Needs first:** stable ids, role matrix, locks.
@@ -1650,14 +1654,14 @@ source, presets }` and takes `{ settings }` (own version) or `{ presetId }`. UI:
   note is still edited in the schema, not in this tab); AI-assisted filling; the
   RGPD report and masking of Phase 38 that this classification prepares.
 
-- [ ] **Index suggestions and clean-up** — **L**. Ranked list (impact) of indexes to create
-      (from analysed queries + stats), duplicates / redundant, and unused ones (`pg_stat_user_
+- [~] **Index suggestions and clean-up** — suggestions from the SQL journal, added to the project's indexes, are built (`journal.indexes`); unused-index and redundancy analysis are not. Original plan: **L**. Ranked list (impact) of indexes to create
+  (from analysed queries + stats), duplicates / redundant, and unused ones (`pg_stat_user_
 indexes`, `sys.dm_db_index_usage_stats`, `performance_schema`, Oracle views) with an
-      adjustable duration threshold and a warning when stats were **reset recently**; also unused
-      tables / columns. **Never applied directly:** each suggestion becomes a _pending change in
-      the schema_ ("＋ proposé") that follows the normal path (review, plan, promotion, backup).
-      Generated DDL adapted to the engine (`CREATE INDEX CONCURRENTLY`, `ONLINE = ON`, size / time
-      estimate). **Blocked by:** health dashboard (Phase 34) and the query collection below.
+  adjustable duration threshold and a warning when stats were **reset recently**; also unused
+  tables / columns. **Never applied directly:** each suggestion becomes a _pending change in
+  the schema_ ("＋ proposé") that follows the normal path (review, plan, promotion, backup).
+  Generated DDL adapted to the engine (`CREATE INDEX CONCURRENTLY`, `ONLINE = ON`, size / time
+  estimate). **Blocked by:** health dashboard (Phase 34) and the query collection below.
 - [ ] **Query advisor (opt-in per connection, off by default)** — **XL**. Detect SQL
       statements run on a database and propose (a) **query rewrites** and (b) **database changes**.
   - _Activation:_ admin-only, off on Prod until explicitly confirmed; sources (engine stats —
@@ -1798,8 +1802,8 @@ column}` — names, never the comment text; a mention of someone without access 
       **Not done:** mentions in sticky notes / column notes; e-mail; editing a comment (there is
       none); a deleted account's mentions keep its old name; a thread's authors are known only
       for comments written since `authorId` exists.
-- [ ] **Export to other ecosystems** (Prisma, TypeORM, GraphQL SDL, JSON Schema) — **M each**,
-      as plugins, deliberately not core.
+- [~] **Export to other ecosystems** — Prisma and JSON Schema are done (built-in exporters, with TypeScript and Mermaid); TypeORM and GraphQL SDL are not — **M each**,
+  as plugins, deliberately not core.
 - [ ] **Not done on the API:** per-key usage quotas, multi-project key scoping, request
       validation from the OpenAPI schemas. **Done 2026-10-05:** webhooks under `/api/v1` (list,
       create, change, delete, test, deliveries — `publicApi/webhookRoutes.ts`, read behind
@@ -1939,8 +1943,7 @@ NOT IN (SELECT id FROM projects)` is worth running on existing instances (migrat
     roles is not intercepted.
   - Column-level grants are readable but not grantable from the UI (Phase F); declaring intended
     grants in the project so drift covers permissions is still open.
-- [ ] **Phase E — CI/CD automation** — **L**. The `/api/v1` deploy-trigger endpoint is the
-      primitive; the GitHub Action, CLI wrapper and docs aren't built. Overlaps Phase 38 idea 25.
+- [x] **Phase E — CI/CD automation** — the CLI (`packages/cli`) and the GitHub Action (`actions/nebuladb`) are built on the `/api/v1` primitives; a real CI run of them is still owed (see the CI example item under "Verify"). Overlaps Phase 38 idea 25.
 - [ ] **Database console follow-ups** — from the console plan's phase 4: data **import**,
       schema comparison **between two connections** (now covered by Phase 32 environment
       comparison), SSH tunnel and custom CA for TLS (done: a connection's Sécurité tab), CodeMirror SQL editor with
@@ -2003,12 +2006,11 @@ DIR`; project-scoped connection access fixed; per-target rate limiting (`connect
 ## Open decisions (revisit as needed)
 
 - **Auth model** — resolved: e-mail / password with sessions, per-project / team permissions,
-  invitations, admin console. No external IdP.
+  invitations, admin console. OpenID Connect SSO has since been added (`modules/auth/oidc.ts`).
 - **Canvas library** — resolved 2026-09-22: React Flow → **Svelte Flow** with the full Svelte 5
   rewrite (−58 % blocking time, −36 % mount time, −7 % critical-path bundle).
-- **History storage** — Yjs update log + periodic SQLite snapshots.
-- **SQLite as a SQL import / export dialect** — `@dbml/core` can't import it; export ships as the
-  example plugin; import would need a dedicated DDL parser — not planned unless asked.
+- **History storage** — Yjs update log + periodic snapshots, now in PostgreSQL.
+- **SQLite as a SQL import / export dialect** — superseded: SQLite DDL import and export both ship as built-in plugins (`coreImport.ts`, `coreExport.ts`).
 - **Plugin trust model** — sandboxed Worker + per-browser install, no server-side plugin store.
 - **Desktop-only or responsive?** — undecided (Phase 22).
 - **Is "local-first" the architecture or the marketing?** — the marketing; all state is server-
