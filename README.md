@@ -41,6 +41,7 @@ Environment variables, or `apps/server/.env` (see [`.env.example`](apps/server/.
 | `NEBULADB_SECRET_PREVIOUS`                                                   | —                         | Old secret, only while rotating (`npm run rotate-secret`).                                                  |
 | `NEBULADB_COOKIE_SECURE`                                                     | `false`                   | Set `true` behind TLS.                                                                                      |
 | `NEBULADB_ALLOWED_ORIGINS`                                                   | —                         | Extra allowed origins, comma-separated.                                                                     |
+| `NEBULADB_TRUST_PROXY`                                                       | `false`                   | Behind a reverse proxy: `1` (hops), or its IPs/CIDRs. Client IP then comes from `X-Forwarded-For`.          |
 | `NEBULADB_PUBLIC_URL`                                                        | —                         | Public URL, used in emails. Required with SMTP.                                                             |
 | `NEBULADB_SMTP_HOST` / `_PORT` / `_SECURE` / `_USER` / `_PASSWORD` / `_FROM` | — / `587`                 | Email for invitations and password reset. Off when no host.                                                 |
 | `NEBULADB_LOG_LEVEL`                                                         | `info`                    | `fatal` … `trace`, `silent`.                                                                                |
@@ -94,12 +95,13 @@ npm run migrate-from-sqlite -- ./data/nebuladb.sqlite
 
 Every table is copied in one transaction; the tool refuses a file at another schema version and a database that already holds data. The SQLite file is only read: keep it as a backup.
 
-**Reverse proxy.** Terminate TLS and set `NEBULADB_COOKIE_SECURE=true`, forward the WebSocket on `/ws/`, and keep the `Host` header (or set `NEBULADB_ALLOWED_ORIGINS`).
+**Reverse proxy.** Terminate TLS and set `NEBULADB_COOKIE_SECURE=true`, forward the WebSocket on `/ws/`, and keep the `Host` header (or set `NEBULADB_ALLOWED_ORIGINS`). Pass the client address in `X-Forwarded-For` and set `NEBULADB_TRUST_PROXY=1` (or the proxy's address): otherwise every client shares the proxy's IP, and one script hitting the login limit locks everyone out.
 
 ```nginx
 location / {
     proxy_pass http://127.0.0.1:3001;
     proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
@@ -115,7 +117,27 @@ npm run backup [-- <dir>]                       # every project to .dbml files
 npm run restore -- <dir> [--owner <email>]      # each file becomes a new project
 ```
 
-**Logs** are JSON on stdout; rotation is up to Docker (`docker-compose.yml` caps them) or your process manager.
+**Logs and retention.** What NebulaDB keeps, and for how long. Purges run at boot and then hourly.
+
+| Log (table)                                     | Kept                                    | Setting                                   |
+| ----------------------------------------------- | --------------------------------------- | ----------------------------------------- |
+| Audit (`audit_log`)                             | 365 days                                | `NEBULADB_AUDIT_RETENTION_DAYS`           |
+| SQL console statistics (`query_stats`)          | 30 days                                 | `NEBULADB_QUERY_STATS_RETENTION_DAYS`     |
+| Database activity (`db_activity`)               | 14 days                                 | `NEBULADB_DB_ACTIVITY_RETENTION_DAYS`     |
+| Backups of connected databases (`backups`)      | 30 days, pinned ones kept               | `NEBULADB_DATABASE_BACKUP_RETENTION_DAYS` |
+| Project backups (`npm run backup`, scheduled)   | the last 7                              | `NEBULADB_BACKUP_KEEP`                    |
+| Webhook deliveries (`webhook_deliveries`)       | 30 days                                 | fixed                                     |
+| Server errors (`error_log`)                     | the last 2,000                          | fixed                                     |
+| Connection health samples (`db_health_samples`) | 7 days                                  | fixed                                     |
+| SQL console history (`admin_query_history`)     | the last 200 entries                    | fixed                                     |
+| Notifications (`notifications`)                 | the last 200 per user                   | fixed                                     |
+| Drift events (`drift_events`)                   | never purged (removed with the project) | none                                      |
+| Deployment history (`deployment_history`)       | never purged (removed with the project) | none                                      |
+| Application logs (pino, stdout)                 | not stored by NebulaDB                  | see below                                 |
+
+`0` means keep everything where a setting accepts it.
+
+**Log rotation.** The application logs are JSON on stdout and NebulaDB does not rotate them: the host does. In Docker, `docker-compose.yml` caps them with the `json-file` driver (`max-size: "10m"`, `max-file: "5"`); on another setup use `docker logs --log-opt max-size=…` when you `docker run`, journald (`SystemMaxUse=`, `journalctl --vacuum-time=30d`) or your process manager's own rotation.
 
 **Upgrading from AthanorDB:** the old `ATHANORDB_*` variables are still read when the `NEBULADB_*` one is not set; rename them when convenient.
 
