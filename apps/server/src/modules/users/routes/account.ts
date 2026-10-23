@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { auditUser } from "../../../shared/audit.js";
 import { checkPassword, hashPassword, verifyPassword } from "../../auth/password.js";
+import { CREDENTIAL_RATE_LIMIT } from "../../auth/rateLimits.js";
 import { clearSessionCookie, currentSessionId, revokeAllSessions } from "../../auth/session.js";
 import { ApiError } from "../../../shared/errors.js";
 import { requireUser } from "../../../shared/guards.js";
@@ -46,7 +47,7 @@ export function registerAccountRoutes(app: FastifyInstance): void {
    * shared with a whole team, and letting a departing user hand them to an
    * arbitrary account (or take them down with them) isn't theirs to decide.
    */
-  app.delete("/api/users/me", async (req, reply) => {
+  app.delete("/api/users/me", CREDENTIAL_RATE_LIMIT, async (req, reply) => {
     const user = requireUser(req);
     const { password } = (req.body ?? {}) as { password?: string };
     if (!password) throw new ApiError("PASSWORD_REQUIRED_FOR_DELETION");
@@ -66,7 +67,7 @@ export function registerAccountRoutes(app: FastifyInstance): void {
   });
 
   // Self-service: requires the current password, unlike the admin reset.
-  app.patch("/api/users/me/password", async (req) => {
+  app.patch("/api/users/me/password", CREDENTIAL_RATE_LIMIT, async (req) => {
     const user = requireUser(req);
     const { currentPassword, newPassword } = (req.body ?? {}) as { currentPassword?: string; newPassword?: string };
     if (!currentPassword || !newPassword) throw new ApiError("PASSWORDS_REQUIRED");

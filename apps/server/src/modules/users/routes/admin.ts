@@ -1,6 +1,7 @@
 import type { FastifyInstance } from "fastify";
 import { auditUser } from "../../../shared/audit.js";
 import { checkPassword, hashPassword } from "../../auth/password.js";
+import { CREDENTIAL_RATE_LIMIT } from "../../auth/rateLimits.js";
 import { ApiError } from "../../../shared/errors.js";
 import { requireAdmin } from "../../../shared/guards.js";
 import { revalidateAllRooms } from "../../../realtime/roomRegistry.js";
@@ -48,7 +49,7 @@ export function registerUserAdminRoutes(app: FastifyInstance): void {
   // recovering a user who can't provide one. Kills every existing session for
   // that account so the old password can't keep being used anywhere it's
   // still logged in.
-  app.patch("/api/users/:id/password", async (req) => {
+  app.patch("/api/users/:id/password", CREDENTIAL_RATE_LIMIT, async (req) => {
     const admin = requireAdmin(req);
     const { id } = req.params as { id: string };
     if (!(await userExists(id))) throw new ApiError("NOT_FOUND");

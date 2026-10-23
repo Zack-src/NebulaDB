@@ -156,12 +156,23 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
     },
   });
   await app.register(fastifyCookie);
-  // Global ceiling, deliberately loose — the collaborative UI is chatty. The
-  // routes that actually need protecting set their own much tighter limits.
+  // Global ceiling on every API route, deliberately loose — the UI is chatty.
+  // The routes that actually need protecting set their own much tighter limits
+  // (`config.rateLimit`), which replace this one for them.
   await app.register(fastifyRateLimit, {
-    global: false,
+    global: true,
     max: 300,
     timeWindow: "1 minute",
+    // Only the API is counted: the WebSocket upgrade (`/ws/`, one per open
+    // project, and the edits go over the socket afterwards), the built web app
+    // and its client-side routes are left alone.
+    allowList: (req) => !req.url.startsWith("/api/"),
+    // A signed-in caller is counted per account — so a team behind one NAT
+    // doesn't share a single budget, and a stolen session guessing passwords
+    // gains nothing from more IPs — everyone else per IP. The session hook
+    // below has run by the time this does: app-wide `onRequest` hooks come
+    // before the per-route one the plugin adds.
+    keyGenerator: (req) => (req.user ? `user:${req.user.id}` : req.ip),
   });
 
   // Resolves the session cookie (or, without one, an `Authorization: Bearer` API key)

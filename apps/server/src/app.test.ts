@@ -389,3 +389,56 @@ test("POST /api/errors/client records a client-reported error, then GET /api/err
     await app.close();
   }
 });
+
+test("global rate limit: 300/min per IP on the API, per account once signed in; /ws/ is not counted", async () => {
+  const app = await buildApp();
+  try {
+    const { email, password } = await makeUser();
+    const { cookie } = await login(app, email, password);
+    assert.ok(cookie);
+
+    // Anonymous calls from one IP share one budget (the login above used the
+    // login route's own limit, not this one).
+    let anonymousLimited = 0;
+    for (let i = 0; i < 300 && !anonymousLimited; i++) {
+      const res = await app.inject({ method: "GET", url: "/api/auth/me", headers: headers() });
+      if (res.statusCode === 429) anonymousLimited = i + 1;
+    }
+    assert.equal(anonymousLimited, 0, "300 calls should fit in the budget");
+    const over = await app.inject({ method: "GET", url: "/api/auth/me", headers: headers() });
+    assert.equal(over.statusCode, 429);
+
+    // Same IP, signed in: counted against the account, not the exhausted IP.
+    const signedIn = await app.inject({ method: "GET", url: "/api/auth/me", headers: headers({ cookie: cookie! }) });
+    assert.equal(signedIn.statusCode, 200);
+
+    // The WebSocket upgrade isn't API traffic: refused for want of a session, not throttled.
+    const ws = await app.inject({ method: "GET", url: `/ws/${randomUUID()}`, headers: headers() });
+    assert.notEqual(ws.statusCode, 429);
+  } finally {
+    await app.close();
+  }
+});
+
+test("changing the password is limited like the login, per account", async () => {
+  const app = await buildApp();
+  try {
+    const { email, password } = await makeUser();
+    const { cookie } = await login(app, email, password);
+    assert.ok(cookie);
+    const statuses: number[] = [];
+    for (let i = 0; i < 11; i++) {
+      const res = await app.inject({
+        method: "PATCH",
+        url: "/api/users/me/password",
+        headers: headers({ cookie: cookie! }),
+        payload: { currentPassword: "not the current one", newPassword: "another long enough passphrase" },
+      });
+      statuses.push(res.statusCode);
+    }
+    assert.ok(statuses.slice(0, 10).every((s) => s !== 429), `limited too early: ${statuses.join(",")}`);
+    assert.equal(statuses[10], 429);
+  } finally {
+    await app.close();
+  }
+});

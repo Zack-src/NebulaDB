@@ -4,6 +4,7 @@ import { ApiError } from "../../shared/errors.js";
 import { requireUser } from "../../shared/guards.js";
 import { getPasswordHash } from "../users/repository.js";
 import { verifyPassword } from "./password.js";
+import { CREDENTIAL_RATE_LIMIT } from "./rateLimits.js";
 import { base32Encode, generateBackupCodes, generateSecret, otpauthUrl, verifyTotp } from "./totp.js";
 import {
   confirmTotp,
@@ -51,7 +52,7 @@ export function registerTotpRoutes(app: FastifyInstance): void {
    * scan. Issues backup codes in the same step, shown to the caller exactly
    * once: only their hash is kept from here on (`totpRepository.ts`).
    */
-  app.post("/api/auth/totp/confirm", async (req) => {
+  app.post("/api/auth/totp/confirm", CREDENTIAL_RATE_LIMIT, async (req) => {
     const user = requireUser(req);
     const { code } = (req.body ?? {}) as { code?: string };
     const state = await getTotpState(user.id);
@@ -76,7 +77,7 @@ export function registerTotpRoutes(app: FastifyInstance): void {
    * password still can't turn it off. A user who has genuinely lost their
    * device uses a backup code here instead of a TOTP code.
    */
-  app.post("/api/auth/totp/disable", async (req) => {
+  app.post("/api/auth/totp/disable", CREDENTIAL_RATE_LIMIT, async (req) => {
     const user = requireUser(req);
     const { password, code } = (req.body ?? {}) as { password?: string; code?: string };
     if (!(await getTotpState(user.id)).enabled) throw new ApiError("TOTP_NOT_ENABLED");
@@ -95,7 +96,7 @@ export function registerTotpRoutes(app: FastifyInstance): void {
   });
 
   /** Invalidates every existing backup code and issues a fresh set — for "I used my last one" or "I think an old export leaked". */
-  app.post("/api/auth/totp/regenerate-backup-codes", async (req) => {
+  app.post("/api/auth/totp/regenerate-backup-codes", CREDENTIAL_RATE_LIMIT, async (req) => {
     const user = requireUser(req);
     const { password } = (req.body ?? {}) as { password?: string };
     if (!(await getTotpState(user.id)).enabled) throw new ApiError("TOTP_NOT_ENABLED");
