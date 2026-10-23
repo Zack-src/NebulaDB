@@ -356,6 +356,8 @@ test("moving a locked table, or editing another one, sends no notice and reverts
   const room = await roomWithSchema(t);
   const { socket, sent } = fakeSocket();
   await room.join(socket, "erin", () => ({ canWrite: true, lockedTableIds: new Set(["users"]) }));
+  // Revisions are stored behind the edit that makes them: wait for the setup's before counting.
+  await room.flush();
   const revisionsBefore = (await listRevisions(roomProjectId(room))).length;
 
   await room.receive(
@@ -376,6 +378,7 @@ test("moving a locked table, or editing another one, sends no notice and reverts
   assert.deepEqual(tableOf(room.doc, "users")!.position, { x: 10, y: 20 });
   assert.ok(room.doc.getMap("refs").has("r2"));
   assert.deepEqual(noticesSent(sent), []);
+  await room.flush();
   assert.equal(
     (await listRevisions(roomProjectId(room))).length,
     revisionsBefore + 1,
