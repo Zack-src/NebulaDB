@@ -22,6 +22,7 @@
     onShowProblems,
     onShowInGraph,
     onShowInCode,
+    tableExists,
     onClose,
   }: {
     projectId: string;
@@ -40,6 +41,8 @@
     onShowInGraph: (tableName: string, fieldName?: string) => void;
     /** Scrolls the DBML code to a table. */
     onShowInCode: (tableName: string) => void;
+    /** Whether the diagram has this table. */
+    tableExists: (tableName: string) => boolean;
     onClose: () => void;
   } = $props();
 
@@ -59,7 +62,6 @@
     <!-- Keyed on the database: the analysis it holds is for that one. -->
     {#key connection?.id}
     <DeploymentsTab
-      compact
       {projectId}
       {connection}
       {connections}
@@ -74,6 +76,7 @@
       {onShowProblems}
       {onShowInGraph}
       {onShowInCode}
+      {tableExists}
     />
     {/key}
   </div>

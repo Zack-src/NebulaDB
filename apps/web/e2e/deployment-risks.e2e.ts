@@ -95,7 +95,7 @@ test(
         .waitFor();
 
       // The history keeps the decision and its reason.
-      await modal.getByRole("button", { name: "Historique" }).click();
+      await modal.getByRole("tab", { name: "Historique" }).click();
       await modal.getByText("Risques de ce déploiement").waitFor();
       await modal.getByText("« notes moved to the CRM »").waitFor();
       await modal.getByText(/colonne supprimée/).waitFor();

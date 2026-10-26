@@ -99,10 +99,10 @@ test(
       );
 
       await page.goto(`${env.baseUrl}/project/${projectId}`);
-      const tab = (name: string) => page.getByRole("tab", { name, exact: true });
+      const tab = (name: string) => page.getByRole("tab", { name, exact: true }).first();
       const canvasTable = (name: string) => page.locator(".svelte-flow__node").filter({ hasText: name });
       await canvasTable("invoices").waitFor();
-      for (const name of ["Schéma", "Déploiements", "Historique"]) await tab(name).waitFor();
+      for (const name of ["Schéma", "Historique"]) await tab(name).waitFor();
       assert.equal(await tab("Schéma").getAttribute("aria-selected"), "true");
       const avatars = page.locator(".account-avatar");
       assert.equal(await avatars.count(), 1);
@@ -187,18 +187,18 @@ test(
       await page.getByRole("button", { name: "Restaurer cette version" }).waitFor();
       assert.equal(await tab("Historique").getAttribute("aria-selected"), "true");
 
-      // --- Deployments ---
-      await tab("Déploiements").click();
-      await page.waitForURL(`**/project/${projectId}/deployments`);
-      await page.getByRole("heading", { name: "Base boutique" }).waitFor();
+      // --- Deployments: a panel beside the schema, not a tab ---
+      await tab("Schéma").click();
+      await page.getByRole("button", { name: "Déploiement", exact: true }).click();
+      await page.getByText("Base boutique").first().waitFor();
       await page.getByTestId("deployment-panel").getByRole("button", { name: "Actualiser", exact: true }).waitFor();
       assert.equal(await page.getByRole("dialog").count(), 0);
       await snap("deployments");
-      // …and back / forward walk the tabs.
-      await page.goBack();
+      // The panel keeps its place across a detour to another tab.
+      await tab("Historique").click();
       await page.getByRole("button", { name: "Restaurer cette version" }).waitFor();
-      await page.goForward();
-      await page.getByRole("heading", { name: "Base boutique" }).waitFor();
+      await tab("Schéma").click();
+      await page.getByTestId("deployment-panel").getByRole("button", { name: "Actualiser", exact: true }).waitFor();
 
       await tab("Schéma").click();
       // The editor is whole again: the DBML panel is back with the schema in it.

@@ -13,6 +13,9 @@
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { CheckIcon, DatabaseIcon } from "@/components/icons/Icons";
+  import Badge from "@/components/ui/Badge.svelte";
+  import Tabs, { type TabItem } from "@/components/ui/Tabs.svelte";
+  import EnvironmentBadge from "@/features/environments/EnvironmentBadge.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import {
     applyDeployment,
@@ -30,7 +33,6 @@
   import DeploymentRisksStep from "./DeploymentRisksStep.svelte";
   import DeploymentSqlStep from "./DeploymentSqlStep.svelte";
   import DeploymentStageSkip from "./DeploymentStageSkip.svelte";
-  import DeploymentStepTabs from "./DeploymentStepTabs.svelte";
   import { riskKey, type DeploymentStep } from "./deploymentModel";
 
   /**
@@ -50,6 +52,7 @@
     onReviewRequested = () => {},
     onShowInGraph,
     onShowInCode,
+    tableExists,
   }: {
     projectId: string;
     schemaHash?: string;
@@ -72,6 +75,8 @@
     onShowInGraph?: (tableName: string, fieldName?: string) => void;
     /** Scrolls the DBML code to the table a conflict names. */
     onShowInCode?: (tableName: string) => void;
+    /** Whether the diagram has this table: see `DeploymentRisksStep`. */
+    tableExists?: (tableName: string) => boolean;
   } = $props();
 
   const { t } = useTranslation();
@@ -175,6 +180,11 @@
     void untrack(() => runAnalysis(connId));
   });
 
+  // A finished deployment has nothing left to protect: when the schema moves on after it, the analysis starts again by itself.
+  $effect(() => {
+    if (stale && deployResult !== null) untrack(() => void runAnalysis(selectedConnId));
+  });
+
   function handleStrategyChange(risk: SchemaRisk, strategy: ConflictResolutionStrategy, value?: string) {
     const key = riskKey(risk);
     resolutions = {
@@ -272,61 +282,86 @@
   const sqlPreview = $derived(
     plan ? generateMigrationSql(plan.diff, plan.engine as MigrationDialect, resolutions) : "-- No SQL generated",
   );
+  const stepTabs = $derived.by(() => {
+    const items: TabItem<DeploymentStep>[] = [
+      { id: "diff", label: t("deployment.stepDiffShort"), badge: diff ? diff.tables.length : undefined },
+      { id: "risks", label: t("deployment.stepRisksShort"), badge: risks.length > 0 ? risks.length : undefined },
+      { id: "sql", label: t("deployment.stepSqlShort") },
+      { id: "history", label: t("deployment.stepHistoryShort") },
+    ];
+    if (deployResult) items.push({ id: "done", label: t("deployment.stepDoneShort") });
+    return items;
+  });
+  /** The bar of actions under the steps: only there when the step on screen has something to do. */
+  const hasFooter = $derived(
+    (activeStep === "diff" && hasWork) || activeStep === "risks" || (activeStep === "sql" && !readOnly),
+  );
 </script>
 
 {#if loading}
-  <section data-testid="deployment-panel" class="rounded-md border border-border bg-surface p-4">
-    <div class="flex h-48 items-center justify-center text-xs text-text-muted">{t("common.loading")}</div>
+  <section data-testid="deployment-panel" class="px-3 py-4">
+    <div class="flex h-32 items-center justify-center text-xs text-text-muted">{t("common.loading")}</div>
   </section>
 {:else if connections.length === 0}
-  <section data-testid="deployment-panel" class="rounded-md border border-border bg-surface p-4">
+  <section data-testid="deployment-panel" class="px-3 py-4">
     <div class="space-y-4 py-4 text-center">
       <Icon icon={DatabaseIcon} size={32} class="mx-auto text-text-muted" />
       <div>
         <h3 class="text-sm font-bold text-text">{t("deployment.noConnectionTitle")}</h3>
         <p class="mt-1 text-xs text-text-muted">{t("deployment.noConnectionDesc")}</p>
       </div>
-      <div class="flex justify-center gap-2 pt-2"></div>
     </div>
   </section>
 {:else}
-  <section data-testid="deployment-panel" class="rounded-md border border-border bg-surface p-4">
-    <div class="space-y-4">
-      <!-- Header toolbar: connection selection -->
-      <div
-        class="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-border bg-surface-raised p-2.5"
+  <section data-testid="deployment-panel" class="flex min-h-full flex-col">
+    <!-- One line says which database this is about and offers the analysis again. -->
+    <div class="flex items-center gap-2 border-b border-border px-3 py-2">
+      <Icon icon={DatabaseIcon} size={14} class="shrink-0 text-text-muted" />
+      <strong class="min-w-0 truncate text-body-sm text-text" title={selectedConn?.name}>{selectedConn?.name}</strong>
+      {#if selectedConn}
+        <Badge tone="admin">{t(`connections.engine.${selectedConn.engine}`)}</Badge>
+        {#if selectedConn.environment}
+          <EnvironmentBadge
+            name={selectedConn.environment}
+            color={selectedConn.environmentColor}
+            production={selectedConn.production}
+          />
+        {/if}
+      {/if}
+      <span class="flex-1"></span>
+      <Button
+        size="xs"
+        variant="ghost"
+        onclick={() => void runAnalysis(selectedConnId)}
+        disabled={analyzing}
+        data-tooltip={t("deployment.refreshDiff")}
+        data-tooltip-pos="bottom"
       >
-        <div class="flex items-center gap-2">
-          <Icon icon={DatabaseIcon} size={16} class="text-primary" />
-          <span class="text-xs font-semibold text-text">{t("deployment.targetDatabase")}:</span>
-          <strong class="text-xs">{selectedConn?.name}</strong>
-        </div>
+        {analyzing ? t("deployment.analyzing") : t("deployment.refreshDiff")}
+      </Button>
+    </div>
 
-        <div class="flex items-center gap-2">
-          <Button size="xs" variant="ghost" onclick={() => void runAnalysis(selectedConnId)} disabled={analyzing}>
-            {analyzing ? t("deployment.analyzing") : t("deployment.refreshDiff")}
-          </Button>
-        </div>
-      </div>
+    <Tabs
+      variant="line"
+      tabs={stepTabs}
+      activeTab={activeStep}
+      onChange={(id) => (activeStep = id)}
+      aria-label={t("workspace.deployments.title")}
+      class="px-3 pt-1"
+    />
 
+    <div class="min-h-0 flex-1 space-y-3 px-3 py-3">
       {#if stale}
         <div
           role="status"
           class="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-text"
         >
-          <span>{t("deployment.stale")}</span>
+          <span class="min-w-0 flex-1 basis-48">{t("deployment.stale")}</span>
           <Button size="xs" variant="outline" onclick={() => void runAnalysis(selectedConnId)}>
             {t("deployment.staleAction")}
           </Button>
         </div>
       {/if}
-
-      <DeploymentStepTabs
-        bind:activeStep
-        tableCount={diff?.tables.length}
-        riskCount={risks.length}
-        hasResult={deployResult !== null}
-      />
 
       {#if activeStep === "diff"}
         <DeploymentDiffStep
@@ -348,6 +383,7 @@
           onStrategyChange={handleStrategyChange}
           {onShowInGraph}
           {onShowInCode}
+          {tableExists}
         />
       {/if}
 
@@ -398,9 +434,11 @@
           }}
         />
       {/if}
+    </div>
 
-      <!-- Modal footer actions -->
-      <div class="flex items-center justify-between border-t border-border pt-4">
+    {#if hasFooter}
+      <!-- Stays at the foot of the panel while a long list of conflicts or a long script scrolls. -->
+      <div class="sticky bottom-0 z-10 flex items-center justify-between gap-2 border-t border-border bg-surface px-3 py-2">
         <div class="flex items-center gap-2">
           {#if activeStep === "risks"}
             <Button size="sm" variant="ghost" onclick={() => (activeStep = "diff")}>{t("common.back")}</Button>
@@ -448,7 +486,7 @@
           {/if}
         </div>
       </div>
-    </div>
+    {/if}
   </section>
 {/if}
 

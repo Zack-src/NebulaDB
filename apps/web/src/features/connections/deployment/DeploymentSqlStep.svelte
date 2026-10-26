@@ -53,7 +53,7 @@
   </div>
   <textarea
     readonly
-    class={`${TEXTAREA_CODE_CLASS} h-72 w-full`}
+    class={`${TEXTAREA_CODE_CLASS} h-56 w-full`}
     value={sql}
   ></textarea>
   {#if losesData && !readOnly}
