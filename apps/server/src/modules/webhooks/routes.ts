@@ -9,6 +9,9 @@ import {
   rotateWebhookSecret,
   webhookDeliveries,
 } from "./service.js";
+import { parseParams, idParams, paramsOf } from "../../shared/validate.js";
+
+const idHookIdParams = paramsOf("id", "hookId");
 
 /**
  * Project-administrator only, same bar as database connections: a webhook
@@ -22,45 +25,45 @@ export const WEBHOOK_TEST_RATE_LIMIT = { config: { rateLimit: { max: 10, timeWin
 
 export function registerWebhookRoutes(app: FastifyInstance): void {
   app.get("/api/projects/:id/webhooks", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     await requireProjectAdmin(req, id);
     return await projectWebhooks(id);
   });
 
   /** The signing secret is returned here once and never again — store it in the receiving service now. */
   app.post("/api/projects/:id/webhooks", async (req, reply) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAdmin(req, id);
     return reply.code(201).send(await createWebhookFor(user, id, req.body, req));
   });
 
   app.patch("/api/projects/:id/webhooks/:hookId", async (req) => {
-    const { id, hookId } = req.params as { id: string; hookId: string };
+    const { id, hookId } = parseParams(idHookIdParams, req);
     const { user } = await requireProjectAdmin(req, id);
     return changeWebhook(user, id, hookId, req.body, req);
   });
 
   app.delete("/api/projects/:id/webhooks/:hookId", async (req) => {
-    const { id, hookId } = req.params as { id: string; hookId: string };
+    const { id, hookId } = parseParams(idHookIdParams, req);
     const { user } = await requireProjectAdmin(req, id);
     await removeWebhook(user, id, hookId, req);
     return { deleted: true };
   });
 
   app.post("/api/projects/:id/webhooks/:hookId/rotate-secret", WEBHOOK_TEST_RATE_LIMIT, async (req) => {
-    const { id, hookId } = req.params as { id: string; hookId: string };
+    const { id, hookId } = parseParams(idHookIdParams, req);
     const { user } = await requireProjectAdmin(req, id);
     return await rotateWebhookSecret(user, id, hookId, req);
   });
 
   app.post("/api/projects/:id/webhooks/:hookId/test", WEBHOOK_TEST_RATE_LIMIT, async (req) => {
-    const { id, hookId } = req.params as { id: string; hookId: string };
+    const { id, hookId } = parseParams(idHookIdParams, req);
     await requireProjectAdmin(req, id);
     return pingWebhook(id, hookId);
   });
 
   app.get("/api/projects/:id/webhooks/:hookId/deliveries", async (req) => {
-    const { id, hookId } = req.params as { id: string; hookId: string };
+    const { id, hookId } = parseParams(idHookIdParams, req);
     await requireProjectAdmin(req, id);
     return await webhookDeliveries(id, hookId);
   });

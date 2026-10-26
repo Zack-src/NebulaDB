@@ -24,6 +24,9 @@ import {
   saveMonitorSettings,
   setMute,
 } from "./repository.js";
+import { parseParams, idParams, paramsOf } from "../../shared/validate.js";
+
+const idEventIdParams = paramsOf("id", "eventId");
 
 const CHECK_LIMIT = { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } };
 
@@ -154,38 +157,38 @@ export function registerMonitoringRoutes(app: FastifyInstance): void {
   };
 
   app.get("/api/projects/:id/monitoring", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     await requireProjectAccess(req, id, "view");
     return await monitoringView(req, id);
   });
 
   app.put("/api/projects/:id/monitoring", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAdmin(req, id);
     return { settings: await saveMonitoringFor(user, id, req.body, req) };
   });
 
   app.post("/api/projects/:id/monitoring/check", CHECK_LIMIT, async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     await requireProjectAccess(req, id, "deploy");
     const result = await checkProjectMonitoring(id);
     return { result, ...(await monitoringView(req, id)) };
   });
 
   app.put("/api/projects/:id/monitoring/mute", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAdmin(req, id);
     return { settings: await muteAlertsFor(user, id, req.body, req) };
   });
 
   app.delete("/api/projects/:id/monitoring/mute", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAdmin(req, id);
     return { settings: await unmuteAlertsFor(user, id, req) };
   });
 
   app.post("/api/projects/:id/monitoring/events/:eventId/acknowledge", async (req) => {
-    const { id, eventId } = req.params as { id: string; eventId: string };
+    const { id, eventId } = parseParams(idEventIdParams, req);
     const { user } = await requireProjectAdmin(req, id);
     await acknowledgeEventFor(user, id, eventId, req.body, req);
     return await monitoringView(req, id);
@@ -194,7 +197,7 @@ export function registerMonitoringRoutes(app: FastifyInstance): void {
   // Turning the accounts watch on or off: instance administrators only.
   app.put("/api/projects/:id/monitoring/accounts", async (req) => {
     const user = requireAdmin(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     if (!(await getProjectRow(id))) throw new ApiError("NOT_FOUND");
     const { enabled } = (req.body ?? {}) as { enabled?: unknown };
     if (typeof enabled !== "boolean") throw new ApiError("MONITORING_INVALID");
@@ -208,7 +211,7 @@ export function registerMonitoringRoutes(app: FastifyInstance): void {
   // "This is how it should be": the state last read becomes the reference.
   app.post("/api/projects/:id/monitoring/accounts/accept", CHECK_LIMIT, async (req) => {
     const user = requireAdmin(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     if (!(await getProjectRow(id))) throw new ApiError("NOT_FOUND");
     const { connectionId } = (req.body ?? {}) as { connectionId?: unknown };
     if (typeof connectionId !== "string" || !(await acceptAccountState(id, connectionId))) {

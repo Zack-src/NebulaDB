@@ -5,6 +5,9 @@ import { ApiError } from "../../shared/errors.js";
 import { requireProjectAccess } from "../../shared/guards.js";
 import { liftLock, listLocksFor, placeLock } from "../tableLocks/service.js";
 import { API_RATE_LIMIT } from "./rateLimits.js";
+import { parseParams, idParams, paramsOf } from "../../shared/validate.js";
+
+const idTableParams = paramsOf("id", "table");
 
 /**
  * A script names a table the way its DBML does, so `:table` is the table's
@@ -36,21 +39,21 @@ async function resolveTableId(projectId: string, projectName: string, table: str
  */
 export function registerPublicLockRoutes(app: FastifyInstance): void {
   app.get("/api/v1/projects/:id/locks", API_RATE_LIMIT, async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user, project } = await requireProjectAccess(req, id, "view");
     requireScope(req, "projects:read", id);
     return await listLocksFor(user.id, id, project.name);
   });
 
   app.put("/api/v1/projects/:id/locks/:table", API_RATE_LIMIT, async (req) => {
-    const { id, table } = req.params as { id: string; table: string };
+    const { id, table } = parseParams(idTableParams, req);
     const { user, project } = await requireProjectAccess(req, id, "view");
     requireScope(req, "projects:write", id);
     return await placeLock(user, id, await resolveTableId(id, project.name, table), req.body, req);
   });
 
   app.delete("/api/v1/projects/:id/locks/:table", API_RATE_LIMIT, async (req) => {
-    const { id, table } = req.params as { id: string; table: string };
+    const { id, table } = parseParams(idTableParams, req);
     const { user, project } = await requireProjectAccess(req, id, "view");
     requireScope(req, "projects:write", id);
     await liftLock(user, id, await resolveTableId(id, project.name, table), req);

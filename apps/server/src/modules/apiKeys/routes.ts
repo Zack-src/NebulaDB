@@ -4,6 +4,14 @@ import { ApiError } from "../../shared/errors.js";
 import { requireProjectAccess } from "../../shared/guards.js";
 import { requireSessionUser } from "./auth.js";
 import { API_KEY_SCOPES, createApiKey, isApiKeyScope, listApiKeysByUser, revokeApiKey } from "./repository.js";
+import { idParams, parseBody, parseParams, z } from "../../shared/validate.js";
+
+/** `scopes` keeps its dedicated error code (API_KEY_SCOPES_INVALID), so it stays `unknown`. */
+const createKeyBody = z.object({
+  name: z.string().optional(),
+  scopes: z.unknown().optional(),
+  projectId: z.string().nullable().optional(),
+});
 
 const MAX_NAME_LENGTH = 100;
 
@@ -21,7 +29,7 @@ export function registerApiKeyRoutes(app: FastifyInstance): void {
 
   app.post("/api/keys", async (req, reply) => {
     const user = requireSessionUser(req);
-    const body = (req.body ?? {}) as { name?: string; scopes?: unknown; projectId?: string | null };
+    const body = parseBody(createKeyBody, req);
 
     const name = body.name?.trim();
     if (!name) throw new ApiError("API_KEY_NAME_REQUIRED");
@@ -44,7 +52,7 @@ export function registerApiKeyRoutes(app: FastifyInstance): void {
 
   app.delete("/api/keys/:id", async (req) => {
     const user = requireSessionUser(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const ok = await revokeApiKey(user.id, id);
     if (!ok) throw new ApiError("API_KEY_NOT_FOUND");
     await auditUser(user, "apikey.revoke", { type: "user", id: user.id }, id, req);

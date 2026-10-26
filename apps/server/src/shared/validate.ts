@@ -56,3 +56,8 @@ export function parseParams<S extends z.ZodType>(schema: S, req: FastifyRequest)
 
 /** Route params shared by every `/:id` route. */
 export const idParams = z.object({ id: z.string() });
+
+/** Route params made only of plain string segments, e.g. paramsOf("id", "hookId"). */
+export function paramsOf<K extends string>(...keys: K[]) {
+  return z.object(Object.fromEntries(keys.map((k) => [k, z.string()])) as Record<K, z.ZodString>);
+}

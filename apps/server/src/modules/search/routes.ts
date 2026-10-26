@@ -3,6 +3,9 @@ import { getEffectivePermissions } from "../../shared/permissions.js";
 import { requireUser } from "../../shared/guards.js";
 import { listProjectSummaries } from "../projects/repository.js";
 import { MIN_QUERY_LENGTH, searchProjects } from "./searchIndex.js";
+import { parseQuery, z } from "../../shared/validate.js";
+
+const searchQuery = z.object({ q: z.unknown().optional() });
 
 /** The client searches as the user types (debounced); this caps a script hammering it, not a person. */
 const SEARCH_RATE_LIMIT = { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } };
@@ -16,7 +19,7 @@ export function registerSearchRoutes(app: FastifyInstance): void {
    */
   app.get("/api/search", SEARCH_RATE_LIMIT, async (req) => {
     const user = requireUser(req);
-    const q = String((req.query as { q?: unknown }).q ?? "")
+    const q = String(parseQuery(searchQuery, req).q ?? "")
       .trim()
       .slice(0, MAX_QUERY_LENGTH);
     if (q.length < MIN_QUERY_LENGTH) return { hits: [], truncated: false };

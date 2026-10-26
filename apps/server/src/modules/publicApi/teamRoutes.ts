@@ -17,6 +17,12 @@ import {
   type TeamMemberRow,
 } from "../teams/repository.js";
 import { API_RATE_LIMIT } from "./rateLimits.js";
+import { idParams, paramsOf, parseBody, parseParams, z } from "../../shared/validate.js";
+
+/** `name` stays `unknown`: a missing or non-string name is `NAME_REQUIRED`, decided by `parseTeamName`. */
+const nameBody = z.object({ name: z.unknown().optional() });
+
+const idUserIdParams = paramsOf("id", "userId");
 
 const MAX_TEAM_NAME_LENGTH = 200;
 
@@ -65,7 +71,7 @@ export function registerPublicTeamRoutes(app: FastifyInstance): void {
   app.get("/api/v1/teams/:id", API_RATE_LIMIT, async (req) => {
     requireAdmin(req);
     requireGlobalScope(req, "teams:manage");
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const team = await requireTeam(id);
     return {
       id: team.id,
@@ -78,7 +84,7 @@ export function registerPublicTeamRoutes(app: FastifyInstance): void {
   app.post("/api/v1/teams", API_RATE_LIMIT, async (req, reply) => {
     const admin = requireAdmin(req);
     requireGlobalScope(req, "teams:manage");
-    const name = parseTeamName((req.body as { name?: unknown } | undefined)?.name);
+    const name = parseTeamName(parseBody(nameBody, req).name);
     const id = crypto.randomUUID();
     await insertTeam(id, name);
     await auditUser(admin, "team.create", { type: "team", id }, `${name} (v1)`, req);
@@ -88,9 +94,9 @@ export function registerPublicTeamRoutes(app: FastifyInstance): void {
   app.patch("/api/v1/teams/:id", API_RATE_LIMIT, async (req) => {
     requireAdmin(req);
     requireGlobalScope(req, "teams:manage");
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     await requireTeam(id);
-    const name = parseTeamName((req.body as { name?: unknown } | undefined)?.name);
+    const name = parseTeamName(parseBody(nameBody, req).name);
     await updateTeamName(id, name);
     return { id, name };
   });
@@ -98,7 +104,7 @@ export function registerPublicTeamRoutes(app: FastifyInstance): void {
   app.delete("/api/v1/teams/:id", API_RATE_LIMIT, async (req) => {
     const admin = requireAdmin(req);
     requireGlobalScope(req, "teams:manage");
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     await requireTeam(id);
     await deleteTeamCascade(id);
     await auditUser(admin, "team.delete", { type: "team", id }, "v1", req);
@@ -113,7 +119,7 @@ export function registerPublicTeamRoutes(app: FastifyInstance): void {
   app.post("/api/v1/teams/:id/members", API_RATE_LIMIT, async (req) => {
     const admin = requireAdmin(req);
     requireGlobalScope(req, "teams:manage");
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     await requireTeam(id);
     const { userId } = (req.body ?? {}) as { userId?: string };
     if (!userId || !(await userExists(userId))) throw new ApiError("USER_ID_INVALID");
@@ -126,7 +132,7 @@ export function registerPublicTeamRoutes(app: FastifyInstance): void {
   app.delete("/api/v1/teams/:id/members/:userId", API_RATE_LIMIT, async (req) => {
     const admin = requireAdmin(req);
     requireGlobalScope(req, "teams:manage");
-    const { id, userId } = req.params as { id: string; userId: string };
+    const { id, userId } = parseParams(idUserIdParams, req);
     await removeTeamMember(id, userId);
     await auditUser(admin, "team.member.remove", { type: "team", id }, `user ${userId} (v1)`, req);
     // The removed member may be connected right now to any project this team

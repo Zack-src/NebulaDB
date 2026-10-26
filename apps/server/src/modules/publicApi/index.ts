@@ -38,6 +38,11 @@ import { API_RATE_LIMIT } from "./rateLimits.js";
 import { buildOpenApiSpec } from "./openapi.js";
 import { config } from "../../config.js";
 import { mapAsync } from "../../shared/async.js";
+import { idParams, parseParams, parseQuery, z } from "../../shared/validate.js";
+
+const visualQuery = z.object({ visual: z.string().optional() });
+const dialectQuery = z.object({ dialect: z.string().optional() });
+const formatQuery = z.object({ format: z.string().optional() });
 
 const DICTIONARY_FORMATS: Record<string, { type: string; body: (dictionary: DataDictionary) => string }> = {
   json: { type: "application/json", body: (dictionary) => JSON.stringify(dictionary) },
@@ -93,7 +98,7 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
   });
 
   app.get("/api/v1/projects/:id", API_RATE_LIMIT, async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { project, user } = await requireProjectAccess(req, id, "view");
     requireScope(req, "projects:read", id);
     return { id: project.id, name: project.name, permission: await getEffectivePermission(user.id, id) };
@@ -101,7 +106,7 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
 
   // Renaming and archive/trash/restore transitions, same as the internal `/api/projects/:id` route.
   app.patch("/api/v1/projects/:id", API_RATE_LIMIT, async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAdmin(req, id);
     requireScope(req, "projects:write", id);
     const { name, status } = (req.body ?? {}) as { name?: string; status?: string };
@@ -122,7 +127,7 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
 
   // Permanent delete — irreversible. Moving to trash is the PATCH above (`status: "trashed"`), which can be restored.
   app.delete("/api/v1/projects/:id", API_RATE_LIMIT, async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user, project } = await requireProjectAdmin(req, id);
     requireScope(req, "projects:write", id);
     await deleteProject(id);
@@ -131,7 +136,7 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
   });
 
   app.get("/api/v1/projects/:id/history", API_RATE_LIMIT, async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     await requireProjectAccess(req, id, "view");
     requireScope(req, "projects:read", id);
     return { revisions: await listRevisions(id) };
@@ -139,7 +144,7 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
 
   // What the schema linter finds, with the project's own rules — the same findings as the editor's problems panel.
   app.get("/api/v1/projects/:id/lint", API_RATE_LIMIT, async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { project } = await requireProjectAccess(req, id, "view");
     requireScope(req, "projects:read", id);
     return await lintReport(id, project.name);
@@ -147,8 +152,8 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
 
   // The data dictionary — what the schema's notes say each table and column is — as JSON or as a document.
   app.get("/api/v1/projects/:id/dictionary", API_RATE_LIMIT, async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const format = (req.query as { format?: string }).format ?? "json";
+    const { id } = parseParams(idParams, req);
+    const format = parseQuery(formatQuery, req).format ?? "json";
     const { project } = await requireProjectAccess(req, id, "view");
     requireScope(req, "projects:read", id);
     const render = DICTIONARY_FORMATS[format];
@@ -159,8 +164,8 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
   });
 
   app.get("/api/v1/projects/:id/export/dbml", API_RATE_LIMIT, async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const { visual } = req.query as { visual?: string };
+    const { id } = parseParams(idParams, req);
+    const { visual } = parseQuery(visualQuery, req);
     const { user, project } = await requireProjectAccess(req, id, "view");
     requireScope(req, "projects:read", id);
     const current = readProjectFromDoc((await getRoom(id)).doc, project.id, project.name);
@@ -169,8 +174,8 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
   });
 
   app.get("/api/v1/projects/:id/export/sql", API_RATE_LIMIT, async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const dialect = requireSqlDialect((req.query as { dialect?: string }).dialect);
+    const { id } = parseParams(idParams, req);
+    const dialect = requireSqlDialect(parseQuery(dialectQuery, req).dialect);
     const { user, project } = await requireProjectAccess(req, id, "view");
     requireScope(req, "projects:read", id);
     const current = readProjectFromDoc((await getRoom(id)).doc, project.id, project.name);
@@ -179,7 +184,7 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
   });
 
   app.get("/api/v1/projects/:id/export/svg", API_RATE_LIMIT, async (req, reply) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user, project } = await requireProjectAccess(req, id, "view");
     requireScope(req, "projects:read", id);
     const current = readProjectFromDoc((await getRoom(id)).doc, project.id, project.name);
@@ -193,7 +198,7 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
   });
 
   app.get("/api/v1/projects/:id/export/png", API_RATE_LIMIT, async (req, reply) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user, project } = await requireProjectAccess(req, id, "view");
     requireScope(req, "projects:read", id);
     const current = readProjectFromDoc((await getRoom(id)).doc, project.id, project.name);
@@ -203,7 +208,7 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
   });
 
   app.post("/api/v1/projects/:id/import", API_RATE_LIMIT, async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user, project } = await requireProjectAccess(req, id, "edit");
     requireScope(req, "projects:write", id);
     const body = (req.body ?? {}) as { source?: string; dialect?: string; baseline?: string };
@@ -229,7 +234,7 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
 
   // Everything about the project in one file — schema, layout, locks, seeds, generator settings. See `ProjectBundle`.
   app.get("/api/v1/projects/:id/export/bundle", API_RATE_LIMIT, async (req, reply) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user, project } = await requireProjectAccess(req, id, "view");
     requireScope(req, "projects:read", id);
     const current = readProjectFromDoc((await getRoom(id)).doc, project.id, project.name);
@@ -238,7 +243,7 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
   });
 
   app.post("/api/v1/projects/:id/import/bundle", { ...API_RATE_LIMIT, bodyLimit: 64 * 1024 * 1024 }, async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user, project } = await requireProjectAccess(req, id, "edit");
     requireScope(req, "projects:write", id);
     const { source } = (req.body ?? {}) as { source?: unknown };

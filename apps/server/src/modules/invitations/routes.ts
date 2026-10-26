@@ -14,6 +14,9 @@ import { requireAdmin } from "../../shared/guards.js";
 import { appUrl, isMailEnabled, sendMail } from "../../infrastructure/mailer.js";
 import { invitationEmail } from "../../shared/emailTemplates.js";
 import { filterAsync, mapAsync } from "../../shared/async.js";
+import { parseParams, paramsOf } from "../../shared/validate.js";
+
+const tokenParams = paramsOf("token");
 
 const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
@@ -153,7 +156,7 @@ export function registerInvitationRoutes(app: FastifyInstance): void {
 
   app.delete("/api/invitations/:token", async (req) => {
     const admin = requireAdmin(req);
-    const { token } = req.params as { token: string };
+    const { token } = parseParams(tokenParams, req);
     await db.prepare("DELETE FROM invitations WHERE token = ? AND accepted_at IS NULL").run(token);
     await auditUser(admin, "invitation.revoke", { type: "invitation", id: token }, undefined, req);
     return { revoked: true };
@@ -163,7 +166,7 @@ export function registerInvitationRoutes(app: FastifyInstance): void {
   // Rate limited per IP: the token is the only credential, and the route both
   // hashes a password (expensive) and creates an account.
   app.post("/api/invitations/:token/accept", ACCEPT_RATE_LIMIT, async (req) => {
-    const { token } = req.params as { token: string };
+    const { token } = parseParams(tokenParams, req);
     const invitation = (await db
       .prepare(`SELECT ${INVITATION_COLUMNS} FROM invitations WHERE token = ?`)
       .get(token)) as InvitationRow | undefined;

@@ -14,16 +14,20 @@ import {
   teamExists,
 } from "../repository.js";
 import { getUserIdentity } from "../../users/repository.js";
+import { parseParams, idParams, paramsOf } from "../../../shared/validate.js";
+
+const idTeamIdParams = paramsOf("id", "teamId");
+const idUserIdParams = paramsOf("id", "userId");
 
 export function registerProjectTeamRoutes(app: FastifyInstance): void {
   app.get("/api/projects/:id/teams", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     await requireProjectAccess(req, id, "view");
     return await listProjectTeams(id);
   });
 
   app.put("/api/projects/:id/teams/:teamId", async (req) => {
-    const { id, teamId } = req.params as { id: string; teamId: string };
+    const { id, teamId } = parseParams(idTeamIdParams, req);
     const { user } = await requireProjectAdmin(req, id);
     if (!(await teamExists(teamId))) throw new ApiError("TEAM_NOT_FOUND");
 
@@ -41,7 +45,7 @@ export function registerProjectTeamRoutes(app: FastifyInstance): void {
   });
 
   app.delete("/api/projects/:id/teams/:teamId", async (req) => {
-    const { id, teamId } = req.params as { id: string; teamId: string };
+    const { id, teamId } = parseParams(idTeamIdParams, req);
     const { user } = await requireProjectAdmin(req, id);
     await revokeTeamPermission(id, teamId);
     await revalidateRoom(id);
@@ -53,13 +57,13 @@ export function registerProjectTeamRoutes(app: FastifyInstance): void {
   // administrator of a project they did not create. Read by the project's
   // administrators only: it names accounts, which the team list does not.
   app.get("/api/projects/:id/members", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     await requireProjectAdmin(req, id);
     return await listProjectMembers(id);
   });
 
   app.put("/api/projects/:id/members/:userId", async (req) => {
-    const { id, userId } = req.params as { id: string; userId: string };
+    const { id, userId } = parseParams(idUserIdParams, req);
     const { user } = await requireProjectAdmin(req, id);
     const target = await getUserIdentity(userId);
     if (!target) throw new ApiError("USER_ID_INVALID");
@@ -76,7 +80,7 @@ export function registerProjectTeamRoutes(app: FastifyInstance): void {
   });
 
   app.delete("/api/projects/:id/members/:userId", async (req) => {
-    const { id, userId } = req.params as { id: string; userId: string };
+    const { id, userId } = parseParams(idUserIdParams, req);
     const { user } = await requireProjectAdmin(req, id);
     await revokeMemberPermission(id, userId);
     await revalidateRoom(id);

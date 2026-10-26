@@ -5,6 +5,7 @@ import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireAdmin, requireProjectAccess } from "../../shared/guards.js";
 import { projectPipeline, schemaHashOf } from "./pipeline.js";
+import { parseParams, idParams } from "../../shared/validate.js";
 
 const REASON_MAX = 300;
 
@@ -36,7 +37,7 @@ export async function stageSkipFor(
  */
 export function registerPipelineRoutes(app: FastifyInstance): void {
   app.get("/api/projects/:id/pipeline", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { project } = await requireProjectAccess(req, id, "deploy");
     const schema = readProjectFromDoc((await getRoom(id)).doc, id, project.name);
     return { pipeline: await projectPipeline(id, schemaHashOf(schema)) };

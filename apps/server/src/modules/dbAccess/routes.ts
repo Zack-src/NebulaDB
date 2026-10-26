@@ -15,6 +15,9 @@ import {
   replaceUserGrants,
 } from "./repository.js";
 import { describeGrants, parseGrantEntries } from "./service.js";
+import { idParams, parseBody, parseParams, z } from "../../shared/validate.js";
+
+const grantsBody = z.object({ grants: z.unknown().optional() });
 
 const READ_LIMIT = { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } };
 const WRITE_LIMIT = { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } };
@@ -28,7 +31,7 @@ const WRITE_LIMIT = { config: { rateLimit: { max: 60, timeWindow: "1 minute" } }
 export function registerDbAccessRoutes(app: FastifyInstance): void {
   app.post("/api/admin/teams/:id/db-accounts", WRITE_LIMIT, async (req) => {
     const admin = requireAdmin(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     if (!(await getTeam(id))) throw new ApiError("NOT_FOUND");
     const entries = (await getTeamDbAccess(id)).map((g) => ({ connectionId: g.connectionId, level: g.level }));
     const users = await listTeamMembers(id);
@@ -38,7 +41,7 @@ export function registerDbAccessRoutes(app: FastifyInstance): void {
   });
   app.post("/api/admin/users/:id/db-accounts", WRITE_LIMIT, async (req) => {
     const admin = requireAdmin(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const user = (await db.prepare("SELECT id, email FROM users WHERE id = ?").get(id)) as
       { id: string; email: string } | undefined;
     if (!user) throw new ApiError("NOT_FOUND");
@@ -56,7 +59,7 @@ export function registerDbAccessRoutes(app: FastifyInstance): void {
 
   app.get("/api/admin/users/:id/db-access", READ_LIMIT, async (req): Promise<UserDbAccess> => {
     requireAdmin(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     if (!(await userExists(id))) throw new ApiError("NOT_FOUND");
     return await getUserDbAccess(id);
   });
@@ -64,9 +67,9 @@ export function registerDbAccessRoutes(app: FastifyInstance): void {
   // Replaces the user's own grants and database account names; what their teams give is untouched.
   app.put("/api/admin/users/:id/db-access", WRITE_LIMIT, async (req): Promise<UserDbAccess> => {
     const admin = requireAdmin(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     if (!(await userExists(id))) throw new ApiError("NOT_FOUND");
-    const entries = await parseGrantEntries((req.body as { grants?: unknown } | undefined)?.grants, true);
+    const entries = await parseGrantEntries(parseBody(grantsBody, req).grants, true);
     await replaceUserGrants(id, entries, admin.id);
     await auditUser(admin, "dbaccess.user.set", { type: "user", id }, await describeGrants(entries), req);
     return await getUserDbAccess(id);
@@ -74,16 +77,16 @@ export function registerDbAccessRoutes(app: FastifyInstance): void {
 
   app.get("/api/admin/teams/:id/db-access", READ_LIMIT, async (req) => {
     requireAdmin(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     if (!(await getTeam(id))) throw new ApiError("NOT_FOUND");
     return { grants: await getTeamDbAccess(id) };
   });
 
   app.put("/api/admin/teams/:id/db-access", WRITE_LIMIT, async (req) => {
     const admin = requireAdmin(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     if (!(await getTeam(id))) throw new ApiError("NOT_FOUND");
-    const entries = await parseGrantEntries((req.body as { grants?: unknown } | undefined)?.grants, false);
+    const entries = await parseGrantEntries(parseBody(grantsBody, req).grants, false);
     await replaceTeamGrants(id, entries, admin.id);
     await auditUser(admin, "dbaccess.team.set", { type: "team", id }, await describeGrants(entries), req);
     return { grants: await getTeamDbAccess(id) };
