@@ -14,6 +14,7 @@
 </script>
 
 <script lang="ts">
+  const uid = $props.id();
   import Input from "@/components/ui/Input.svelte";
   import type { Snippet } from "svelte";
   import type { EnvironmentStage } from "@nebuladb/shared";
@@ -145,9 +146,8 @@
 
 {#if engine === "sqlite"}
   <div>
-    <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label class={LABEL}>{t("connections.filePath")}</label>
-    <Input class="w-full" bind:value={filePath} placeholder="./data/app.sqlite" />
+    <label for={`${uid}-file`} class={LABEL}>{t("connections.filePath")}</label>
+    <Input id={`${uid}-file`} class="w-full" bind:value={filePath} placeholder="./data/app.sqlite" />
     <Hint>{t("connections.sqliteHint")}</Hint>
   </div>
 {:else if engine === "bigquery"}
@@ -155,20 +155,17 @@
   <div class="space-y-3">
     <div class="grid grid-cols-2 gap-3">
       <div>
-        <!-- svelte-ignore a11y_label_has_associated_control -->
-        <label class={LABEL}>{t("connections.bigqueryProject")}</label>
-        <Input class="w-full" bind:value={host} placeholder="my-gcp-project" />
+        <label for={`${uid}-bq-project`} class={LABEL}>{t("connections.bigqueryProject")}</label>
+        <Input id={`${uid}-bq-project`} class="w-full" bind:value={host} placeholder="my-gcp-project" />
       </div>
       <div>
-        <!-- svelte-ignore a11y_label_has_associated_control -->
-        <label class={LABEL}>{t("connections.bigqueryDataset")}</label>
-        <Input class="w-full" bind:value={database} placeholder="my_dataset" />
+        <label for={`${uid}-bq-dataset`} class={LABEL}>{t("connections.bigqueryDataset")}</label>
+        <Input id={`${uid}-bq-dataset`} class="w-full" bind:value={database} placeholder="my_dataset" />
       </div>
     </div>
     {#if showCredentials}<div>
-        <!-- svelte-ignore a11y_label_has_associated_control -->
-        <label class={LABEL}>{t("connections.bigqueryKey")}</label>
-        <Input class="w-full" type="password" bind:value={password} placeholder={passwordPlaceholder} />
+        <label for={`${uid}-bq-key`} class={LABEL}>{t("connections.bigqueryKey")}</label>
+        <Input id={`${uid}-bq-key`} class="w-full" type="password" bind:value={password} placeholder={passwordPlaceholder} />
         <Hint>{t("connections.bigqueryHint")}</Hint>
       </div>{/if}
   </div>
@@ -189,25 +186,22 @@
 
   {#if useUri}
     <div>
-      <!-- svelte-ignore a11y_label_has_associated_control -->
-      <label class={LABEL}>{t("connections.connectionUri")}</label>
-      <Input class="w-full" type="password" bind:value={connectionString} placeholder={uriPlaceholder} />
+      <label for={`${uid}-uri`} class={LABEL}>{t("connections.connectionUri")}</label>
+      <Input id={`${uid}-uri`} class="w-full" type="password" bind:value={connectionString} placeholder={uriPlaceholder} />
     </div>
   {:else}
     <div class="space-y-3">
       <div class="grid grid-cols-4 gap-3">
         <div class="col-span-3">
-          <!-- svelte-ignore a11y_label_has_associated_control -->
-          <label class={LABEL}>{t("connections.host")}</label>
-          <Input class="w-full" bind:value={host} />
+          <label for={`${uid}-host`} class={LABEL}>{t("connections.host")}</label>
+          <Input id={`${uid}-host`} class="w-full" bind:value={host} />
         </div>
         <div>
-          <!-- svelte-ignore a11y_label_has_associated_control -->
-          <label id="connection-port" class={LABEL}>{t("connections.port")}</label>
+          <label for={`${uid}-port`} class={LABEL}>{t("connections.port")}</label>
           <!-- 0 is no port at all: it stands for the field left empty. -->
           <NumberInput
             class="w-full"
-            aria-labelledby="connection-port"
+            id={`${uid}-port`}
             value={port || null}
             onChange={(value) => (port = value ?? 0)}
           />
@@ -216,21 +210,17 @@
 
       <div class={`grid gap-3 ${showCredentials ? "grid-cols-3" : "grid-cols-1"}`}>
         <div>
-          <!-- svelte-ignore a11y_label_has_associated_control -->
-          <label class={LABEL}>{engine === "oracle" ? t("connections.oracleService") : t("connections.database")}</label
-          >
-          <Input class="w-full" bind:value={database} />
+          <label for={`${uid}-database`} class={LABEL}>{engine === "oracle" ? t("connections.oracleService") : t("connections.database")}</label>
+          <Input id={`${uid}-database`} class="w-full" bind:value={database} />
         </div>
         {#if showCredentials}
           <div>
-            <!-- svelte-ignore a11y_label_has_associated_control -->
-            <label class={LABEL}>{t("connections.user")}</label>
-            <Input class="w-full" bind:value={user} autocomplete="off" />
+            <label for={`${uid}-user`} class={LABEL}>{t("connections.user")}</label>
+            <Input id={`${uid}-user`} class="w-full" bind:value={user} autocomplete="off" />
           </div>
           <div>
-            <!-- svelte-ignore a11y_label_has_associated_control -->
-            <label class={LABEL}>{t("connections.password")}</label>
-            <Input
+            <label for={`${uid}-password`} class={LABEL}>{t("connections.password")}</label>
+            <Input id={`${uid}-password`}
               class="w-full"
               type="password"
               bind:value={password}

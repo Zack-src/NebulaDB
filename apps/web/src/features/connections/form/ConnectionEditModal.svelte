@@ -289,9 +289,8 @@
         class={`col-start-1 row-start-1 space-y-4 ${activeTab === "connection" ? "" : "invisible"}`}
       >
         <div>
-          <!-- svelte-ignore a11y_label_has_associated_control -->
-          <label class={LABEL}>{t("common.name")}</label>
-          <Input class="w-full" bind:value={name} placeholder="ex: Production DB" />
+          <label for="connection-name" class={LABEL}>{t("common.name")}</label>
+          <Input id="connection-name" class="w-full" bind:value={name} placeholder="ex: Production DB" />
         </div>
 
         <ConnectionFormFields
@@ -342,9 +341,8 @@
         </ConnectionFormFields>
 
         <div>
-          <!-- svelte-ignore a11y_label_has_associated_control -->
-          <label class={LABEL}>{t("admin.connections.tags")}</label>
-          <Input class="w-full" bind:value={tags} placeholder={t("admin.connections.tagsPlaceholder")} />
+          <label for="connection-tags" class={LABEL}>{t("admin.connections.tags")}</label>
+          <Input id="connection-tags" class="w-full" bind:value={tags} placeholder={t("admin.connections.tagsPlaceholder")} />
         </div>
 
         {#if testResult}

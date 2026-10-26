@@ -40,8 +40,7 @@
       {@const val = currentValues[s.key] ?? s.default}
       <div class="flex flex-col gap-1.5">
         <div class="flex items-center justify-between">
-          <!-- svelte-ignore a11y_label_has_associated_control -->
-          <label class="text-xs font-semibold text-text">{s.label}</label>
+          <span class="text-xs font-semibold text-text">{s.label}</span>
           {#if s.description}<span class="text-caption text-text-muted">{s.description}</span>{/if}
         </div>
 
