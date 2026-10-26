@@ -80,7 +80,7 @@ mais ce document ne le remplace pas : il le complète (les agents ont signalé l
 ### Lot E — Socle d'ingénierie
 
 - [ ] **[P1][M] CI : e2e Playwright, Oracle/MSSQL/BigQuery, couverture, build + scan Docker, Dependabot/Renovate, CodeQL, release** _(§8)_
-- [ ] **[P1][L] Dockerfile multi-étapes, utilisateur non-root, digest épinglé** _(§8)_
+- [x] **[P1][L] Dockerfile multi-étapes, utilisateur non-root, digest épinglé** _(§8)_
 - [ ] **[P1][XL] Validation des entrées par schéma** (~289 casts `req.body as {...}`), OpenAPI générée plutôt que manuscrite (1 425 lignes) _(§5)_
 - [ ] **[P1][S] Rigueur TypeScript/ESLint** : `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, règles type-aware sur tout le monorepo, override mort `eslint.config.js:110` ↔ _(§5, §6)_
 - [x] **[P1][M] `.catch(() => {})` silencieux** (backups SFTP, webhooks, front : 17 occurrences) ↔ _(§5, §6)_
