@@ -522,3 +522,89 @@ test("from-database rolls back the project (and its connection) if introspection
     await app.close();
   }
 });
+
+test("a renamed column is offered as a rename, and deploying it keeps the data", async () => {
+  const app = await buildApp();
+  const targetFile = join(tmpdir(), `nebuladb-test-rename-${randomUUID()}.sqlite`);
+  try {
+    const { default: Database } = await import("better-sqlite3");
+    const target = new Database(targetFile);
+    target.exec(`CREATE TABLE items (id INTEGER PRIMARY KEY, id_analyse INTEGER);
+      INSERT INTO items (id, id_analyse) VALUES (1, 41), (2, 42);`);
+    target.close();
+
+    const owner = await makeUser();
+    const cookie = await loginAs(app, owner.email, owner.password);
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/projects",
+      headers: headers({ cookie }),
+      payload: { name: "Rename project" },
+    });
+    const project = created.json();
+    const room = await getRoom(project.id);
+    await room.write(() => {
+      writeProjectToDoc(room.doc, {
+        id: project.id,
+        name: project.name,
+        tables: [
+          {
+            id: "t-items",
+            name: "items",
+            fields: [
+              { id: "t-items.id", name: "id", type: "integer", pk: true },
+              { id: "t-items.id_analyze", name: "id_analyze", type: "integer" },
+            ],
+            indexes: [],
+            position: { x: 0, y: 0 },
+            detailLevel: "standard",
+          },
+        ],
+        refs: [],
+        enums: [],
+        zones: [],
+        stickyNotes: [],
+        tableGroups: [],
+      });
+    }, "test-seed");
+    const connRes = await app.inject({
+      method: "POST",
+      url: `/api/projects/${project.id}/connections`,
+      headers: headers({ cookie }),
+      payload: { name: "Local file", engine: "sqlite", filePath: targetFile },
+    });
+    const connId = connRes.json().connection.id;
+
+    const plan = await app.inject({
+      method: "POST",
+      url: `/api/projects/${project.id}/connections/${connId}/plan-deployment`,
+      headers: headers({ cookie }),
+      payload: {},
+    });
+    assert.equal(plan.statusCode, 200);
+    const rename = plan.json().risks.find((r: { type: string }) => r.type === "RENAME_COLUMN_SUGGESTED");
+    assert.ok(rename, "the dropped id_analyse and the new id_analyze are one column renamed");
+    assert.deepEqual([rename.tableName, rename.columnName, rename.detail], ["items", "id_analyse", "id_analyze"]);
+    assert.equal(rename.defaultStrategy, "RENAME_COLUMN");
+
+    const apply = await app.inject({
+      method: "POST",
+      url: `/api/projects/${project.id}/connections/${connId}/apply-deployment`,
+      headers: headers({ cookie }),
+      payload: { resolutions: {} },
+    });
+    assert.equal(apply.statusCode, 200, apply.body);
+    assert.match(apply.json().sql, /RENAME COLUMN "id_analyse" TO "id_analyze"/);
+    assert.doesNotMatch(apply.json().sql, /DROP COLUMN/);
+
+    const after = new Database(targetFile, { readonly: true });
+    assert.deepEqual(after.prepare("SELECT id, id_analyze FROM items ORDER BY id").all(), [
+      { id: 1, id_analyze: 41 },
+      { id: 2, id_analyze: 42 },
+    ]);
+    after.close();
+  } finally {
+    await closeAllRooms();
+    await app.close();
+  }
+});

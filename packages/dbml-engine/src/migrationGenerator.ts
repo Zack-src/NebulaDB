@@ -1,4 +1,5 @@
 import type { Field, MigrationResolutionMap, Project, Ref, RefAction, Table } from "@nebuladb/shared";
+import { chosenRenames, renameColumnStatement } from "./renameDetection.js";
 import { translateType } from "@nebuladb/shared";
 import { isCurrentTimeExpression } from "./migrationDiff.js";
 import type { MigrationDiff, MigrationFieldChange, MigrationTableChange } from "./migrationDiff.js";
@@ -539,14 +540,6 @@ function generateFieldAlterations(
   return [];
 }
 
-/**
- * Generates an incremental SQL migration script from a MigrationDiff, applying the user's conflict
- * strategies and wrapping the statements in a transaction.
- *
- * That wrapping is a safety net for Postgres and SQLite, whose DDL is transactional. It is **not**
- * one for MySQL: each DDL statement implicitly commits, so a failure on statement 3 of 5 has
- * already applied 1-2. The wrapping is kept there only for consistent output across dialects.
- */
 /** `ALTER TABLE … DROP CONSTRAINT` for a foreign key the schema no longer declares; `null` where the engine has no such statement (SQLite). */
 function dropForeignKeyStatement(ref: MigrationDiff["refs"][number], dialect: MigrationDialect): string | null {
   const fkName = ref.name || fkFallbackName(ref.fromTable, ref.fromField, ref.toTable);
@@ -558,6 +551,14 @@ function dropForeignKeyStatement(ref: MigrationDiff["refs"][number], dialect: Mi
   return null;
 }
 
+/**
+ * Generates an incremental SQL migration script from a MigrationDiff, applying the user's conflict
+ * strategies and wrapping the statements in a transaction.
+ *
+ * That wrapping is a safety net for Postgres and SQLite, whose DDL is transactional. It is **not**
+ * one for MySQL: each DDL statement implicitly commits, so a failure on statement 3 of 5 has
+ * already applied 1-2. The wrapping is kept there only for consistent output across dialects.
+ */
 export function generateMigrationSql(
   diff: MigrationDiff,
   dialect: MigrationDialect,
@@ -604,8 +605,14 @@ export function generateMigrationSql(
   }
 
   // 3. Modified Tables (Columns & Indexes)
+  const renames = chosenRenames(diff, resolutions);
   for (const table of diff.tables.filter((t) => t.status === "modified")) {
+    // A column the answers rename is renamed, not dropped and added again: its data goes with it.
+    const renamed = renames.get(table.name.toLowerCase()) ?? [];
+    for (const { from, to } of renamed) statements.push(renameColumnStatement(table.name, from, to, dialect));
+    const skip = new Set(renamed.flatMap(({ from, to }) => [`dropped:${from.toLowerCase()}`, `added:${to.toLowerCase()}`]));
     for (const field of table.fields) {
+      if (skip.has(`${field.status}:${field.name.toLowerCase()}`)) continue;
       const fieldStmts = generateFieldAlterations(table, field, dialect, resolutions);
       statements.push(...fieldStmts);
     }

@@ -223,6 +223,8 @@ const STRATEGY: Record<ConflictResolutionStrategy, Omit<StrategyOption, "key"> |
   PROCEED: { labelKey: "connections.strategy.proceed", descriptionKey: "connections.strategy.proceedDesc" },
   USE_TRANSLATED_TYPE: undefined,
   KEEP_AS_WRITTEN: undefined,
+  RENAME_COLUMN: undefined,
+  KEEP_SEPARATE: undefined,
 };
 
 function options(

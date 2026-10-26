@@ -13,6 +13,8 @@ export const STRATEGY_LABEL: Record<ConflictResolutionStrategy, TranslationKeyOf
   PROCEED: "connections.strategy.proceed",
   USE_TRANSLATED_TYPE: "connections.strategy.useTranslatedType",
   KEEP_AS_WRITTEN: "connections.strategy.keepAsWritten",
+  RENAME_COLUMN: "connections.strategy.renameColumn",
+  KEEP_SEPARATE: "connections.strategy.keepSeparate",
 };
 
 /** The tabs of the deployment dialog — `done` only exists once a deployment went through. */

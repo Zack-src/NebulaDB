@@ -46,7 +46,7 @@ function normalizeType(t: string | undefined): string {
   return t.toLowerCase().trim().replace(/\s+/g, " ");
 }
 
-function typesMatch(a: string, b: string): boolean {
+export function typesMatch(a: string, b: string): boolean {
   const normA = normalizeType(a);
   const normB = normalizeType(b);
   if (normA === normB) return true;

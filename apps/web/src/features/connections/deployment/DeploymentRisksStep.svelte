@@ -145,6 +145,9 @@
                   {#if risk.type === "FK_VIOLATION"}
                     <span>{t("deployment.riskForeignKey", { ref: risk.detail || "" })}</span>
                   {/if}
+                  {#if risk.type === "RENAME_COLUMN_SUGGESTED"}
+                    <span>{t("deployment.riskRename", { from: risk.columnName || "", to: risk.detail || "", table: risk.tableName })}</span>
+                  {/if}
                   {#if risk.type === "TYPE_TRANSLATION_SUGGESTED"}
                     <span>
                       {t("deployment.riskTypeTranslation", { col: risk.columnName || "", table: risk.tableName })}
@@ -154,7 +157,7 @@
                     </span>
                   {/if}
                 </h4>
-                {#if risk.type !== "TYPE_TRANSLATION_SUGGESTED"}
+                {#if risk.type !== "TYPE_TRANSLATION_SUGGESTED" && risk.type !== "RENAME_COLUMN_SUGGESTED"}
                 <Badge tone={risk.severity === "critical" ? "danger" : risk.severity === "info" ? "muted" : "warning"}>
                   {#if risk.unmeasured}
                     {t("deployment.riskUnmeasured")}
@@ -180,7 +183,7 @@
               {#if (onShowInGraph || onShowInCode) && risk.tableName && tableExists(risk.tableName)}
                 <div class="flex flex-wrap gap-1.5">
                   {#if onShowInGraph}
-                    <Button size="xs" variant="ghost" onclick={() => onShowInGraph(risk.tableName, risk.columnName)}>
+                    <Button size="xs" variant="ghost" onclick={() => onShowInGraph(risk.tableName, risk.type === "RENAME_COLUMN_SUGGESTED" ? risk.detail : risk.columnName)}>
                       <Icon icon={TableIcon} size={12} />
                       {t("deployment.showInGraph")}
                     </Button>

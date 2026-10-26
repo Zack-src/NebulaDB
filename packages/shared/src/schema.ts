@@ -509,7 +509,9 @@ export type SchemaDiffRiskType =
   /** A text column gets a shorter limit than it had (or a limit where it had none). */
   | "LENGTH_REDUCTION"
   /** A column's DBML type isn't the target engine's native spelling — see `translateType` in `typeMapping.ts`. */
-  | "TYPE_TRANSLATION_SUGGESTED";
+  | "TYPE_TRANSLATION_SUGGESTED"
+  /** A column dropped and a column of the same type added in the same table: probably one column renamed. */
+  | "RENAME_COLUMN_SUGGESTED";
 
 export type ConflictResolutionStrategy =
   | "DROP_DATA_CONFIRMED"
@@ -524,7 +526,11 @@ export type ConflictResolutionStrategy =
   /** Apply the engine-native type suggested for a `TYPE_TRANSLATION_SUGGESTED` risk. */
   | "USE_TRANSLATED_TYPE"
   /** Deploy/export the column type exactly as written in the canvas, skipping the suggested translation. */
-  | "KEEP_AS_WRITTEN";
+  | "KEEP_AS_WRITTEN"
+  /** `RENAME_COLUMN_SUGGESTED`: rename the column, its data goes with it. */
+  | "RENAME_COLUMN"
+  /** `RENAME_COLUMN_SUGGESTED`: they are two columns — drop the old one and add the new one, as the diff says. */
+  | "KEEP_SEPARATE";
 
 export interface StrategyOption {
   key: ConflictResolutionStrategy;
