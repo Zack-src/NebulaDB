@@ -20,6 +20,21 @@ export interface BackupResult {
   skipped: number;
 }
 
+/**
+ * What a project backup does and does not contain. Written next to the files
+ * (`LISEZMOI-SCOPE.txt`) and printed by the CLI so nobody mistakes a folder of
+ * `.dbml` files for a backup of the instance.
+ */
+export const BACKUP_SCOPE_NOTICE = [
+  "This folder is a DBML export of the project schemas only (tables, relations, notes, layout).",
+  "It does NOT contain: accounts, teams and permissions, sessions, API keys, database connections,",
+  "revision history, seeds, webhooks or the audit log.",
+  "For a complete instance backup, dump the PostgreSQL database (pg_dump) and keep NEBULADB_SECRET:",
+  "see docs/backup-restore.md.",
+].join("\n");
+
+export const BACKUP_SCOPE_FILENAME = "LISEZMOI-SCOPE.txt";
+
 export function sanitizeFilename(name: string): string {
   const cleaned = name.replace(/[^A-Za-z0-9_-]+/g, "_").replace(/^_+|_+$/g, "");
   return cleaned.length > 0 ? cleaned : "untitled";
@@ -42,6 +57,7 @@ export function backupTimestamp(date = new Date()): string {
  */
 export async function runBackup(outDir: string, log: (line: string) => void = () => {}): Promise<BackupResult> {
   mkdirSync(outDir, { recursive: true });
+  writeFileSync(path.join(outDir, BACKUP_SCOPE_FILENAME), BACKUP_SCOPE_NOTICE + "\n", "utf-8");
 
   const projects = (await db.prepare("SELECT id, name FROM projects ORDER BY name").all()) as {
     id: string;

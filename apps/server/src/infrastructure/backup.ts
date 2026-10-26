@@ -1,6 +1,6 @@
 import "../loadEnv.js";
 import path from "node:path";
-import { backupTimestamp, runBackup } from "./backupRunner.js";
+import { BACKUP_SCOPE_NOTICE, backupTimestamp, runBackup } from "./backupRunner.js";
 import { db } from "./db.js";
 
 /** CLI wrapper around `runBackup`: dumps every project to `.dbml` without the server running. Usage: `npm run backup -- [outputDir]`. */
@@ -13,6 +13,7 @@ async function main(): Promise<void> {
     return;
   }
   console.log(`\n${result.backedUp} project(s) backed up, ${result.skipped} skipped, written to ${result.dir}`);
+  console.log(`\nNote: ${BACKUP_SCOPE_NOTICE}`);
 }
 
 await main();
