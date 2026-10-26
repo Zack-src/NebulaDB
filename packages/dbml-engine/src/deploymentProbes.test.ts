@@ -168,3 +168,23 @@ test("a table the schema lacks is a conflict even when empty, unless Nebula depl
     "UNMANAGED_TABLE removed -> critical/KEEP_IN_DB",
   ]);
 });
+
+test("BigQuery does not enforce a foreign key: orphan rows are reported, and the key can be declared anyway", () => {
+  const probe = planRiskProbes(diffTargetAgainstLive(live, target), "bigquery").find((p) => p.type === "FK_VIOLATION")!;
+  const stock = riskFromProbe(probe, 9, "postgres")!;
+  assert.deepEqual(
+    stock.availableStrategies.map((s) => s.key),
+    ["CANCEL"],
+    "elsewhere the database refuses the key, so only fixing the data helps",
+  );
+  const risk = riskFromProbe(probe, 9, "bigquery")!;
+  assert.equal(risk.severity, "warning");
+  assert.equal(risk.affectedRowCount, 9);
+  assert.equal(risk.defaultStrategy, "PROCEED");
+  assert.deepEqual(
+    risk.availableStrategies.map((s) => s.key),
+    ["PROCEED", "CANCEL"],
+  );
+  assert.equal(risk.availableStrategies[0]!.labelKey, "connections.strategy.declareKey");
+  assert.equal(risk.availableStrategies[0]!.descriptionKey, "connections.strategy.declareKeyDesc");
+});

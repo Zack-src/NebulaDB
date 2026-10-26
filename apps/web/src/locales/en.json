@@ -918,6 +918,8 @@
   "connections.strategy.keepAsWrittenDesc": "Deploy the type exactly as written in the canvas.",
   "connections.strategy.proceed": "Deploy anyway",
   "connections.strategy.proceedDesc": "Could not be checked: run the change; the database refuses it if the data conflicts.",
+  "connections.strategy.declareKey": "Declare the key anyway",
+  "connections.strategy.declareKeyDesc": "BigQuery does not enforce foreign keys (it is declared NOT ENFORCED): the key is added as it is and the orphan rows stay in the database.",
   "deployment.checkDifferencesTitle": "Check Differences",
   "deployment.deploy": "Deploy",
   "deployment.targetDatabase": "Target DB",
