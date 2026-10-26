@@ -2,6 +2,7 @@
   import Input from "@/components/ui/Input.svelte";
   import type { ConflictResolutionStrategy, MigrationResolutionMap, SchemaRisk } from "@nebuladb/shared";
   import Badge from "@/components/ui/Badge.svelte";
+  import Button from "@/components/ui/Button.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { AlertTriangleIcon, CheckCircleIcon, InfoIcon } from "@/components/icons/Icons";
   import RadioGroup from "@/components/ui/RadioGroup.svelte";
@@ -31,6 +32,19 @@
 
   const { t } = useTranslation();
   const uid = $props.id();
+
+  /** The risks that can be settled by deleting the data: the ones a single click below can answer. */
+  const droppable = $derived(
+    risks.filter(
+      (risk) =>
+        risk.severity !== "info" &&
+        risk.type !== "TYPE_TRANSLATION_SUGGESTED" &&
+        risk.availableStrategies.some((option) => option.key === "DROP_DATA_CONFIRMED"),
+    ),
+  );
+  const allDropped = $derived(
+    droppable.length > 0 && droppable.every((risk) => resolutions[riskKey(risk)]?.strategy === "DROP_DATA_CONFIRMED"),
+  );
 </script>
 
 <!-- Step 2: Risk and Conflict Resolution -->
@@ -44,6 +58,20 @@
       <p class="mt-0.5 text-text-muted">{t("deployment.noRisksDesc")}</p>
     </div>
   {:else}
+    {#if droppable.length > 1}
+      <!-- Only picks the answer on each risk: nothing is deleted until the deployment itself is confirmed. -->
+      <div class="flex items-center justify-between gap-3">
+        <p class="m-0 text-xs text-text-muted">{t("deployment.dropAllHint")}</p>
+        <Button
+          size="xs"
+          variant="danger"
+          disabled={allDropped}
+          onclick={() => droppable.forEach((risk) => onStrategyChange(risk, "DROP_DATA_CONFIRMED"))}
+        >
+          {t("deployment.dropAll", { count: droppable.length })}
+        </Button>
+      </div>
+    {/if}
     <div class="max-h-84 space-y-3 overflow-y-auto pr-1">
       {#each risks as risk, index (risk.id)}
         {@const currentRes = resolutions[riskKey(risk)]}
