@@ -9,7 +9,7 @@ import { useTestDatabase } from "../infrastructure/testDatabase.js";
 await useTestDatabase("test");
 
 const { db } = await import("../infrastructure/db.js");
-const { getEffectivePermission, hasPermission, canManageProject, canDeployProject, isPermissionLevel } =
+const { getEffectivePermission, getEffectivePermissions, hasPermission, canManageProject, canDeployProject, isPermissionLevel } =
   await import("./permissions.js");
 
 async function makeUser(isAdmin: 0 | 1 = 0): Promise<string> {
@@ -139,6 +139,46 @@ test("deploy sits between edit and administrator", async () => {
   assert.equal(await canManageProject(deployer, project), false);
   assert.equal(isPermissionLevel("deploy"), true);
   assert.equal(isPermissionLevel("deployer"), false);
+});
+
+test("getEffectivePermissions agrees with getEffectivePermission for every project", async () => {
+  const owner = await makeUser();
+  const user = await makeUser();
+  const other = await makeUser();
+  const admin = await makeUser(1);
+  const open = await makeProject(owner);
+  const owned = await makeProject(user);
+  const restricted = await makeProject(owner);
+  const granted = await makeProject(owner);
+  const viaTeam = await makeProject(owner);
+  const team = await makeTeam();
+  await addMember(team, user);
+  await grantTeam(restricted, await makeTeam(), "view");
+  await db
+    .prepare("INSERT INTO project_members (project_id, user_id, permission) VALUES (?, ?, 'view')")
+    .run(granted, user);
+  await db
+    .prepare("INSERT INTO project_members (project_id, user_id, permission) VALUES (?, ?, 'edit')")
+    .run(viaTeam, user);
+  await grantTeam(viaTeam, team, "administrator");
+
+  for (const who of [user, other, owner, admin]) {
+    const map = await getEffectivePermissions(who);
+    for (const project of [open, owned, restricted, granted, viaTeam]) {
+      assert.equal(map.get(project), await getEffectivePermission(who, project), `${who} on ${project}`);
+    }
+  }
+  assert.equal((await getEffectivePermissions(user)).get(restricted), null);
+  assert.equal((await getEffectivePermissions(user)).get(viaTeam), "administrator");
+});
+
+test("known facts skip the lookups without changing the answer", async () => {
+  const owner = await makeUser();
+  const other = await makeUser();
+  const project = await makeProject(owner);
+  assert.equal(await getEffectivePermission(owner, project, { ownerId: owner }), "administrator");
+  assert.equal(await getEffectivePermission(other, project, { isAdmin: true }), "administrator");
+  assert.equal(await getEffectivePermission(other, project, { isAdmin: false, ownerId: owner }), "view");
 });
 
 test("canManageProject is true only at the administrator level", async () => {

@@ -1,9 +1,8 @@
 import type { FastifyInstance } from "fastify";
-import { getEffectivePermission } from "../../shared/permissions.js";
+import { getEffectivePermissions } from "../../shared/permissions.js";
 import { requireUser } from "../../shared/guards.js";
 import { listProjectSummaries } from "../projects/repository.js";
 import { MIN_QUERY_LENGTH, searchProjects } from "./searchIndex.js";
-import { filterAsync } from "../../shared/async.js";
 
 /** The client searches as the user types (debounced); this caps a script hammering it, not a person. */
 const SEARCH_RATE_LIMIT = { config: { rateLimit: { max: 120, timeWindow: "1 minute" } } };
@@ -22,9 +21,9 @@ export function registerSearchRoutes(app: FastifyInstance): void {
       .slice(0, MAX_QUERY_LENGTH);
     if (q.length < MIN_QUERY_LENGTH) return { hits: [], truncated: false };
 
-    const visible = await filterAsync(
-      await listProjectSummaries(),
-      async (project) => project.status !== "trashed" && (await getEffectivePermission(user.id, project.id)) !== null,
+    const permissions = await getEffectivePermissions(user.id, user.isAdmin);
+    const visible = (await listProjectSummaries()).filter(
+      (project) => project.status !== "trashed" && permissions.get(project.id) != null,
     );
     return await searchProjects(visible, q);
   });

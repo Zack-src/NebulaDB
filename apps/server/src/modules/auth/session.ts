@@ -24,6 +24,9 @@ const LEGACY_SESSION_COOKIE = "athanordb_sid";
 const LONG_SESSION_TTL_MS = 30 * 24 * 60 * 60 * 1000;
 const SHORT_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 
+/** Minimum gap between two expiry roll-forwards (and `last_seen_at` writes) of one session. */
+const SESSION_REFRESH_INTERVAL_MS = 60 * 1000;
+
 interface UserRow {
   id: string;
   email: string;
@@ -213,12 +216,20 @@ export async function resolveSession(req: FastifyRequest, reply: FastifyReply): 
   // `ttl_ms` existed has none stored, and gets the long default it was
   // originally created with.
   const ttlMs = session.ttl_ms ?? LONG_SESSION_TTL_MS;
-  const newExpiresAt = new Date(Date.now() + ttlMs).toISOString();
-  await db
-    .prepare("UPDATE sessions SET last_seen_at = utc_now(), expires_at = ? WHERE id = ?")
-    .run(newExpiresAt, session.id);
-  reply.setCookie(SESSION_COOKIE, session.id, cookieOptions(ttlMs === SHORT_SESSION_TTL_MS ? null : ttlMs));
-  if (req.cookies?.[LEGACY_SESSION_COOKIE]) reply.clearCookie(LEGACY_SESSION_COOKIE, { path: "/" });
+  // Throttled: the write (and the cookie) only happen once the stored expiry
+  // has fallen at least SESSION_REFRESH_INTERVAL_MS behind a fresh one, so a
+  // burst of requests costs one UPDATE instead of one each. Idle/absolute
+  // expiry stays accurate to within that interval.
+  const newExpiresAtMs = Date.now() + ttlMs;
+  // A request still carrying the historical cookie always refreshes, so it migrates to the new name.
+  const onLegacyCookie = !req.cookies?.[SESSION_COOKIE] && !!req.cookies?.[LEGACY_SESSION_COOKIE];
+  if (onLegacyCookie || newExpiresAtMs - new Date(session.expires_at).getTime() >= SESSION_REFRESH_INTERVAL_MS) {
+    await db
+      .prepare("UPDATE sessions SET last_seen_at = utc_now(), expires_at = ? WHERE id = ?")
+      .run(new Date(newExpiresAtMs).toISOString(), session.id);
+    reply.setCookie(SESSION_COOKIE, session.id, cookieOptions(ttlMs === SHORT_SESSION_TTL_MS ? null : ttlMs));
+    if (req.cookies?.[LEGACY_SESSION_COOKIE]) reply.clearCookie(LEGACY_SESSION_COOKIE, { path: "/" });
+  }
 
   return toSessionUser(user);
 }
