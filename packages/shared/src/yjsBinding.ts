@@ -155,7 +155,7 @@ export function readProjectFromDoc(doc: Y.Doc, fallbackId: string, fallbackName 
   return {
     id: (meta.get("id") as string | undefined) ?? fallbackId,
     name: (meta.get("name") as string | undefined) ?? fallbackName,
-    paletteColors: meta.get("paletteColors") as string[] | undefined,
+    ...(meta.get("paletteColors") !== undefined && { paletteColors: meta.get("paletteColors") as string[] }),
     // Legacy tables predate the `detailLevel` field (added after this doc
     // shape shipped) and have it `undefined` in the Yjs map. Left as-is, one
     // stray legacy table makes every "every table shares a level" check

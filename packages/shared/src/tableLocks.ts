@@ -210,10 +210,10 @@ export function revertLockViolations<T extends LockableSchema>(
     return {
       ...previous,
       position: table.position,
-      size: table.size,
-      style: table.style,
+      ...(table.size !== undefined && { size: table.size }),
+      ...(table.style !== undefined && { style: table.style }),
       detailLevel: table.detailLevel,
-      comments: table.comments,
+      ...(table.comments !== undefined && { comments: table.comments }),
     };
   });
   for (const id of violated) {

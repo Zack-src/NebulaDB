@@ -92,7 +92,7 @@ test("generated rows pass the seed checks: types, NOT NULL, lengths, unique, for
   const gold = parent.rows.filter((row) => row[7] === "gold").length;
   assert.ok(gold > 5 && gold < 70, `weights are followed (${gold} gold out of 300)`);
   assert.ok(
-    parent.rows.every((row) => row[3] === null || [...row[3]].length <= 4),
+    parent.rows.every((row) => row[3] === null || [...row[3]!].length <= 4),
     "cut to varchar(4)",
   );
 

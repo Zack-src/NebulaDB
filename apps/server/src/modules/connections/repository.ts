@@ -355,6 +355,7 @@ function rowForcedMonitoring(row: ConnectionRow): ForcedMonitoring | null {
  * administrator's to set. A project route passes `false`, and whatever it
  * sent for them is ignored rather than trusted.
  */
+// eslint-disable-next-line complexity -- a flat run of per-column branches; splitting it would only scatter the column list.
 async function applyUpdate(
   id: string,
   updates: Partial<DatabaseConnectionConfig>,

@@ -68,6 +68,16 @@ interface ClipState {
   changed: boolean;
 }
 
+/**
+ * The properties of `props` that hold a value. Clipping an optional field gives back `undefined`
+ * when it was absent, and spreading that would add the key (`exactOptionalPropertyTypes` rejects it).
+ */
+function defined<T extends object>(props: T): { [K in keyof T]?: Exclude<T[K], undefined> } {
+  return Object.fromEntries(Object.entries(props).filter(([, value]) => value !== undefined)) as {
+    [K in keyof T]?: Exclude<T[K], undefined>;
+  };
+}
+
 function clipText<T extends string | undefined>(value: T, max: number, state: ClipState): T {
   if (typeof value === "string" && value.length > max) {
     state.changed = true;
@@ -105,8 +115,10 @@ function clipStyle<T extends { color?: string; borderColor?: string } | undefine
   if (!style || typeof style !== "object") return style;
   return {
     ...style,
-    color: clipText(style.color, MAX_COLOR_LENGTH, state),
-    borderColor: clipText(style.borderColor, MAX_COLOR_LENGTH, state),
+    ...defined({
+      color: clipText(style.color, MAX_COLOR_LENGTH, state),
+      borderColor: clipText(style.borderColor, MAX_COLOR_LENGTH, state),
+    }),
   };
 }
 
@@ -115,13 +127,15 @@ function clipField(field: Field, state: ClipState): Field {
     ...field,
     name: clipText(field.name, MAX_NAME_LENGTH, state),
     type: clipText(field.type, MAX_TYPE_LENGTH, state),
-    default: clipText(field.default, MAX_DEFAULT_LENGTH, state),
-    note: clipText(field.note, MAX_NOTE_LENGTH, state),
+    ...defined({
+      default: clipText(field.default, MAX_DEFAULT_LENGTH, state),
+      note: clipText(field.note, MAX_NOTE_LENGTH, state),
+    }),
   };
 }
 
 function clipIndex(index: TableIndex, state: ClipState): TableIndex {
-  return { ...index, name: clipText(index.name, MAX_NAME_LENGTH, state) };
+  return { ...index, ...defined({ name: clipText(index.name, MAX_NAME_LENGTH, state) }) };
 }
 
 function clipComment(comment: Comment, state: ClipState): Comment {
@@ -136,7 +150,7 @@ function clipEnumValue(value: EnumValue, state: ClipState): EnumValue {
   return {
     ...value,
     name: clipText(value.name, MAX_NAME_LENGTH, state),
-    note: clipText(value.note, MAX_NOTE_LENGTH, state),
+    ...defined({ note: clipText(value.note, MAX_NOTE_LENGTH, state) }),
   };
 }
 
@@ -146,12 +160,14 @@ export function clampTable(table: Table): Table | null {
   const next: Table = {
     ...table,
     name: clipText(table.name, MAX_NAME_LENGTH, state),
-    schemaName: clipText(table.schemaName, MAX_NAME_LENGTH, state),
-    note: clipText(table.note, MAX_NOTE_LENGTH, state),
     fields: clipEach(table.fields, clipField, state, MAX_FIELDS_PER_TABLE) as Field[],
     indexes: clipEach(table.indexes, clipIndex, state, MAX_INDEXES_PER_TABLE) as TableIndex[],
-    comments: clipEach(table.comments, clipComment, state, MAX_COMMENTS_PER_TABLE),
-    style: clipStyle(table.style, state),
+    ...defined({
+      schemaName: clipText(table.schemaName, MAX_NAME_LENGTH, state),
+      note: clipText(table.note, MAX_NOTE_LENGTH, state),
+      comments: clipEach(table.comments, clipComment, state, MAX_COMMENTS_PER_TABLE),
+      style: clipStyle(table.style, state),
+    }),
   };
   return state.changed ? next : null;
 }
@@ -160,8 +176,10 @@ export function clampRef(ref: Ref): Ref | null {
   const state: ClipState = { changed: false };
   const next: Ref = {
     ...ref,
-    name: clipText(ref.name, MAX_NAME_LENGTH, state),
-    style: clipStyle(ref.style, state),
+    ...defined({
+      name: clipText(ref.name, MAX_NAME_LENGTH, state),
+      style: clipStyle(ref.style, state),
+    }),
   };
   return state.changed ? next : null;
 }
@@ -182,7 +200,7 @@ export function clampTableGroup(group: TableGroup): TableGroup | null {
     ...group,
     name: clipText(group.name, MAX_NAME_LENGTH, state),
     tableIds: clipArrayLength(group.tableIds, MAX_TABLES_PER_TABLE_GROUP, state) as string[],
-    note: clipText(group.note, MAX_NOTE_LENGTH, state),
+    ...defined({ note: clipText(group.note, MAX_NOTE_LENGTH, state) }),
   };
   return state.changed ? next : null;
 }
@@ -192,7 +210,7 @@ export function clampZone(zone: Zone): Zone | null {
   const next: Zone = {
     ...zone,
     label: clipText(zone.label, MAX_NAME_LENGTH, state),
-    style: clipStyle(zone.style, state),
+    ...defined({ style: clipStyle(zone.style, state) }),
   };
   return state.changed ? next : null;
 }
@@ -202,7 +220,7 @@ export function clampStickyNote(note: StickyNote): StickyNote | null {
   const next: StickyNote = {
     ...note,
     text: clipText(note.text, MAX_TEXT_LENGTH, state),
-    style: clipStyle(note.style, state),
+    ...defined({ style: clipStyle(note.style, state) }),
   };
   return state.changed ? next : null;
 }

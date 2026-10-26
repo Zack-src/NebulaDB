@@ -89,7 +89,7 @@ export function buildProjectPreview(project: Project, dbml: string): ProjectPrev
     const box = table.size
       ? { width: table.size.width, height: table.size.height }
       : estimateTableBox(table, visibleColumns(table, refFieldIds.get(table.id) ?? new Set()));
-    return { x: table.position.x, y: table.position.y, w: box.width, h: box.height, name: table.name, color: table.style?.color };
+    return { x: table.position.x, y: table.position.y, w: box.width, h: box.height, name: table.name, ...(table.style?.color !== undefined && { color: table.style.color }) };
   });
   const edges: [number, number][] = [];
   for (const ref of project.refs) {

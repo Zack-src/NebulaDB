@@ -71,14 +71,14 @@ test("writeProjectToDoc -> readProjectFromDoc round-trips a full project", () =>
   assert.deepEqual(users.position, { x: 10, y: 20 });
   assert.equal(users.style?.color, "#123456");
   assert.equal(users.fields.length, 2);
-  assert.equal(users.indexes[0].fieldIds[0], "f2");
+  assert.equal(users.indexes[0]!.fieldIds[0], "f2");
 });
 
 test("writeProjectToDoc fully replaces prior content (entities absent from the new write are removed)", () => {
   const doc = new Y.Doc();
   writeProjectToDoc(doc, sampleProject());
 
-  const trimmed: Project = { ...sampleProject(), tables: [sampleProject().tables[0]], refs: [], zones: [] };
+  const trimmed: Project = { ...sampleProject(), tables: [sampleProject().tables[0]!], refs: [], zones: [] };
   writeProjectToDoc(doc, trimmed);
 
   const result = readProjectFromDoc(doc, "fallback-id");
@@ -100,7 +100,7 @@ test("survives cross-doc sync via encodeStateAsUpdate/applyUpdate (the actual pe
   const restored = readProjectFromDoc(restoredDoc, "fallback-id");
   assert.equal(restored.tables.length, 2);
   assert.equal(restored.tables.find((t) => t.id === "t1")?.name, "users");
-  assert.equal(restored.refs[0].from.tableId, "t2");
+  assert.equal(restored.refs[0]!.from.tableId, "t2");
 });
 
 test("paletteColors round-trips through meta, and stays unset (not defaulted) when the project never customized one", () => {
@@ -142,7 +142,7 @@ test("reordering existing tables in a later write is reflected on read (Y.Map it
 
   // Same two tables, same content, just declared in the opposite order —
   // the DBML-editor equivalent of moving a table's block above another's.
-  const reordered: Project = { ...project, tables: [project.tables[1], project.tables[0]] };
+  const reordered: Project = { ...project, tables: [project.tables[1]!, project.tables[0]!] };
   writeProjectToDoc(doc, reordered);
 
   assert.deepEqual(

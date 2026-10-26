@@ -51,6 +51,7 @@ function redirectUri(req: FastifyRequest): string {
 /** A path inside the app, never another site: `/project/…`, not `//evil.example` or `https://…`. */
 function safeNext(value: unknown): string {
   // No control character or space either: browsers strip tabs and newlines from a `Location`, so `/\t/evil.example` becomes `//evil.example`.
+  // eslint-disable-next-line no-control-regex -- control characters are exactly what a redirect target must not contain
   return typeof value === "string" && /^\/(?![/\\])[^\s\u0000-\u001f\u007f]*$/.test(value) && value.length <= 500
     ? value
     : "/";

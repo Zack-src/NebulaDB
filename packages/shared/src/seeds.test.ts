@@ -96,7 +96,7 @@ test("validateSeed: a CSV column mapped to a column the table no longer has is a
     total: 1,
   });
   // Without a header the file's column is named by its position; an unmapped column is nobody's business.
-  assert.deepEqual(validateSeed(users, csv.slice(1), { header: false, mapping }).issues[0].value, "#3");
+  assert.deepEqual(validateSeed(users, csv.slice(1), { header: false, mapping }).issues[0]!.value, "#3");
   assert.equal(validateSeed(users, csv, { header: true, mapping: ["users.id", "users.email", null] }).total, 0);
 });
 
@@ -145,7 +145,7 @@ test("seedInsertOrder: parents first, self-references ignored, cycles reported",
   );
   const { cycles } = seedInsertOrder(["a", "b"], [ref("a", "b"), ref("b", "a")]);
   assert.equal(cycles.length, 1);
-  assert.deepEqual([...cycles[0]].sort(), ["a", "b"]);
+  assert.deepEqual([...cycles[0]!].sort(), ["a", "b"]);
 });
 
 test("normalizeSeedValue spells booleans per engine", () => {

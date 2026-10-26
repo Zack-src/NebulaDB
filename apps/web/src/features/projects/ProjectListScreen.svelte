@@ -1,5 +1,6 @@
 <script lang="ts">
   import NotificationBell from "@/features/notifications/NotificationBell.svelte";
+  import PaletteButton from "@/features/palette/PaletteButton.svelte";
   import ProjectList from "@/features/projects/ProjectList.svelte";
   import Navbar from "@/components/layout/Navbar.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
@@ -46,6 +47,7 @@
       onLogout={props.onLogout}
     >
       {#snippet actions()}
+        <PaletteButton />
         <NotificationBell onOpenProject={props.onOpenProjectById} />
       {/snippet}
     </Navbar>
