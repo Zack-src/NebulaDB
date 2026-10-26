@@ -19,6 +19,7 @@ import {
   type WebhookEvent,
   type WebhookRow,
 } from "./repository.js";
+import { reportBackground } from "../../shared/errorLog.js";
 
 /**
  * Turns app events into queued deliveries and works the queue.
@@ -177,7 +178,7 @@ export function processDueDeliveries(): Promise<void> {
 
 function kick(): void {
   setImmediate(() => {
-    processDueDeliveries().catch(() => {});
+    processDueDeliveries().catch(reportBackground("webhooks: delivery run"));
   });
 }
 
@@ -186,7 +187,7 @@ let workerTimer: NodeJS.Timeout | null = null;
 /** Picks up retries whose time has come. Started from `index.ts`, not `buildApp`, so tests drive it explicitly. */
 export function startWebhookWorker(intervalMs = 15_000): void {
   if (workerTimer) return;
-  workerTimer = setInterval(() => void processDueDeliveries().catch(() => {}), intervalMs);
+  workerTimer = setInterval(() => void processDueDeliveries().catch(reportBackground("webhooks: retry worker")), intervalMs);
   workerTimer.unref();
 }
 

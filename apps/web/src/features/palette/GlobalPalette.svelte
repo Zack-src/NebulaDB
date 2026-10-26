@@ -147,6 +147,7 @@
       .then((list) => {
         if (live) connections = list;
       })
+      // Offline: the palette simply lacks the connection entries.
       .catch(() => {});
     return () => {
       live = false;

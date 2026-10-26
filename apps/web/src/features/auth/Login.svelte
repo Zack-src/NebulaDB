@@ -59,6 +59,7 @@
         passwordResetAvailable = features.passwordReset;
         sso = features.sso?.enabled ? features.sso : null;
       })
+      // Unknown: no reset link and no SSO button, the password form still works.
       .catch(() => {});
   });
 

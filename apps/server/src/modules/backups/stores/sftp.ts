@@ -5,6 +5,7 @@ import SftpClient from "ssh2-sftp-client";
 import type { SftpDestinationSettings } from "@nebuladb/shared";
 import { resolveAllowedHost } from "../../connections/hostGuard.js";
 import { ObjectMissingError, type BackupStore, type SftpSecret } from "./types.js";
+import { reportBackground } from "../../../shared/errorLog.js";
 
 const CONNECT_TIMEOUT_MS = 15_000;
 const FINGERPRINT = /^SHA256:[A-Za-z0-9+/]{43}$/;
@@ -113,7 +114,7 @@ export class SftpStore implements BackupStore {
     } catch (err) {
       // Whatever the transfer was doing is dropped with its connection; the partial file goes over a fresh one.
       await client.end().catch(() => {});
-      await this.delete(name).catch(() => {});
+      await this.delete(name).catch(reportBackground("backups sftp: removing a partial upload"));
       throw err;
     } finally {
       await client.end().catch(() => {});
@@ -156,7 +157,7 @@ export class SftpStore implements BackupStore {
         const back = (await client.get(remote)) as Buffer;
         if (!back.equals(body)) throw new Error("the probe file read back differently from what was written");
       } finally {
-        await client.delete(remote, true).catch(() => {});
+        await client.delete(remote, true).catch(reportBackground("backups sftp: removing the probe file"));
       }
     });
   }

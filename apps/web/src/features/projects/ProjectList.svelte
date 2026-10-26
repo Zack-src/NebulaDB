@@ -44,7 +44,8 @@
   import EmptyState from "@/components/ui/EmptyState.svelte";
   import SkeletonCardGrid from "@/components/ui/SkeletonCardGrid.svelte";
   import Input from "@/components/ui/Input.svelte";
-  import { useTranslation } from "@/i18n/i18n.svelte";
+  import { toast } from "@/components/ui/toast.svelte";
+import { useTranslation } from "@/i18n/i18n.svelte";
   import type { CreateProjectResult } from "@/features/projects/projects.svelte";
   import type { ProjectStatus, ProjectSummary } from "@/types";
 
@@ -312,7 +313,7 @@
     if (section !== "active") section = "active";
     // Made inside the folder being shown.
     if (currentFolderId) {
-      await moveProjectToFolder(result.id, currentFolderId).catch(() => {});
+      await moveProjectToFolder(result.id, currentFolderId).catch(() => toast.warning(t("projects.moveToFolderFailed")));
       onProjectsChanged?.();
     }
     renamingId = result.id;

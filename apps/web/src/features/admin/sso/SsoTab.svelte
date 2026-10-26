@@ -81,7 +81,13 @@
   });
 
   async function copyRedirect() {
-    await navigator.clipboard?.writeText(redirectUri).catch(() => {});
+    try {
+      await navigator.clipboard.writeText(redirectUri);
+    } catch {
+      // Refused or unavailable: do not claim the address was copied.
+      toast.warning(t("admin.sso.copyFailed"));
+      return;
+    }
     toast.info(t("admin.sso.copied"));
   }
 </script>

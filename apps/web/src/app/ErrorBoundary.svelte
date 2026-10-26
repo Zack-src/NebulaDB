@@ -47,6 +47,7 @@
       message: err.message || String(err),
       stack: err.stack,
       context: `${window.location.pathname}${window.location.hash} :: ${err.stack?.split("\n")[1]?.trim() ?? ""}`,
+    // Reporting a crash must never raise a second one.
     }).catch(() => {});
   }
 

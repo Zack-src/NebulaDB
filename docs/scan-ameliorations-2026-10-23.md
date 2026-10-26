@@ -83,7 +83,7 @@ mais ce document ne le remplace pas : il le complète (les agents ont signalé l
 - [ ] **[P1][L] Dockerfile multi-étapes, utilisateur non-root, digest épinglé** _(§8)_
 - [ ] **[P1][XL] Validation des entrées par schéma** (~289 casts `req.body as {...}`), OpenAPI générée plutôt que manuscrite (1 425 lignes) _(§5)_
 - [ ] **[P1][S] Rigueur TypeScript/ESLint** : `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, règles type-aware sur tout le monorepo, override mort `eslint.config.js:110` ↔ _(§5, §6)_
-- [ ] **[P1][M] `.catch(() => {})` silencieux** (backups SFTP, webhooks, front : 17 occurrences) ↔ _(§5, §6)_
+- [x] **[P1][M] `.catch(() => {})` silencieux** (backups SFTP, webhooks, front : 17 occurrences) ↔ _(§5, §6)_
 - [ ] **[P1][XL] Fusionner les deux hiérarchies de drivers** `connections/drivers/*` et `dbAdmin/drivers/*` _(§5)_
 - [ ] **[P1][L] Tests unitaires front** (services `*Api.ts`, `httpClient`, `authSession`, états de l'éditeur) _(§6)_
 - [ ] **[P2][L] Découper les monolithes** : `ProjectEditor.svelte` (823 l.), `buildApp` (304 l.), `registerSeedRoutes` (302 l.), `migrations.ts` (998 l.) _(§5, §6)_

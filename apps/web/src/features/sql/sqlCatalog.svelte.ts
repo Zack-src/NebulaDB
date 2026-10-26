@@ -57,6 +57,7 @@ export class SqlCatalogState {
         .then((tables) => {
           if (this.#load === load) this.#databaseTables = tables;
         })
+        // Left as it is: completion falls back on the tables already known.
         .catch(() => {});
     });
   }
