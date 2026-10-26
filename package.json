@@ -47,6 +47,12 @@
   "allowScripts": {
     "better-sqlite3@13.0.3": true,
     "core-js@3.50.0": true,
-    "esbuild@0.28.2": true
+    "esbuild@0.28.2": true,
+    "ssh2@1.17.0": true,
+    "cpu-features": false,
+    "oracledb": false
+  },
+  "overrides": {
+    "@azure/msal-node": "^7.1.1"
   }
 }
