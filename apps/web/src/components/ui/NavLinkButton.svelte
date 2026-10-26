@@ -14,16 +14,19 @@
     icon,
     onNavigate,
     size = "sm",
+    variant = "outline",
   }: {
     label: string;
     icon?: IconDefinition;
     onNavigate?: () => void;
-    size?: "sm" | "md";
+    size?: "xs" | "sm" | "md";
+    /** `ghost` for a quiet link inside a sentence of hints, `outline` where it is the call to action. */
+    variant?: "outline" | "ghost";
   } = $props();
 </script>
 
 {#if onNavigate}
-  <Button variant="outline" {size} onclick={onNavigate}>
+  <Button {variant} {size} onclick={onNavigate}>
     {#if icon}<Icon {icon} size={13} />{/if}
     {label}
   </Button>

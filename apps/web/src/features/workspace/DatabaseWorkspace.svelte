@@ -54,9 +54,21 @@
     <div class="mt-4 flex flex-wrap items-center gap-2 text-xs text-text-muted">
       <span>{t(session.isAdmin ? "databaseWorkspace.adminHint" : "databaseWorkspace.memberHint")}</span>
       {#if session.isAdmin}
-        <NavLinkButton label={t("databaseWorkspace.openAdmin")} icon={DatabaseIcon} onNavigate={onOpenAdmin} />
+        <NavLinkButton
+          label={t("databaseWorkspace.openAdmin")}
+          icon={DatabaseIcon}
+          onNavigate={onOpenAdmin}
+          variant="ghost"
+          size="xs"
+        />
       {:else}
-        <NavLinkButton label={t("databaseWorkspace.openSettings")} icon={SettingsIcon} onNavigate={onOpenSettings} />
+        <NavLinkButton
+          label={t("databaseWorkspace.openSettings")}
+          icon={SettingsIcon}
+          onNavigate={onOpenSettings}
+          variant="ghost"
+          size="xs"
+        />
       {/if}
     </div>
   </section>
