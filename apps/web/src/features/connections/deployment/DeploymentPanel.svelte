@@ -26,7 +26,12 @@
     type PlanDeploymentResponse,
   } from "@/services/connectionsApi";
   import { copyText } from "@/utils/clipboard";
-  import { DATA_LOSS_STRATEGIES, generateMigrationSql, type MigrationDialect } from "@nebuladb/dbml-engine";
+  import {
+    DATA_LOSS_STRATEGIES,
+    generateMigrationSql,
+    supersededByRename,
+    type MigrationDialect,
+  } from "@nebuladb/dbml-engine";
   import DeploymentFailureBlock from "./DeploymentFailureBlock.svelte";
   import { parseDeploymentFailure, type DeploymentFailure } from "./deploymentFailure";
   import DeploymentHistoryPanel from "./DeploymentHistoryPanel.svelte";
@@ -272,7 +277,13 @@
   const needsReview = $derived(selectedConn?.protection === "review");
   const backupBefore = $derived(backupChoice ?? selectedConn?.production ?? false);
   const diff = $derived(plan?.diff);
-  const risks = $derived(plan?.risks ?? []);
+  const allRisks = $derived(plan?.risks ?? []);
+  /** What there is to answer: a drop that a chosen rename makes moot is left out, and the suggestions come first. */
+  const risks = $derived.by(() => {
+    const moot = supersededByRename(allRisks, resolutions);
+    const open = allRisks.filter((risk) => !moot.has(risk.id));
+    return [...open.filter((risk) => risk.type === "RENAME_COLUMN_SUGGESTED"), ...open.filter((risk) => risk.type !== "RENAME_COLUMN_SUGGESTED")];
+  });
   const seedPlan = $derived(plan?.seeds ?? []);
   const seedsToInsert = $derived(!skipSeeds && seedPlan.some((entry) => entry.action === "insert"));
   const seedsBroken = $derived(

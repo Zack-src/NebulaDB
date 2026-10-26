@@ -1,5 +1,12 @@
 import type { AcceptedRisk, DatabaseEngine, MigrationResolutionMap, SchemaRisk } from "@nebuladb/shared";
-import { detectTypeTranslationRisks, planRiskProbes, riskFromProbe, type MigrationDiff } from "@nebuladb/dbml-engine";
+import {
+  detectRenameCandidates,
+  detectTypeTranslationRisks,
+  planRiskProbes,
+  riskFromProbe,
+  supersededByRename,
+  type MigrationDiff,
+} from "@nebuladb/dbml-engine";
 import { ApiError } from "../../shared/errors.js";
 import type { DatabaseDriver } from "./drivers/interface.js";
 
@@ -53,7 +60,7 @@ export async function analyzeDeploymentRisks(
     const risk = riskFromProbe(probe, value, engine);
     if (risk) risks.push(risk);
   }
-  return [...risks, ...detectTypeTranslationRisks(diff, engine)];
+  return [...risks, ...detectRenameCandidates(diff), ...detectTypeTranslationRisks(diff, engine)];
 }
 
 /**
@@ -98,7 +105,10 @@ export function settleRisks(
   const blocked: string[] = [];
   const unresolved: string[] = [];
   const settled: AcceptedRisk[] = [];
+  // The drop of a column the answers rename is no drop: nothing to answer, nothing that stops the deployment.
+  const superseded = supersededByRename(risks, resolutions);
   for (const risk of risks) {
+    if (superseded.has(risk.id)) continue;
     if (risk.severity === "info" || risk.type === "TYPE_TRANSLATION_SUGGESTED") continue;
     const label = risk.columnName ? `${risk.tableName}.${risk.columnName}` : risk.tableName;
     const chosen = resolutions[resolutionKeyOf(risk)]?.strategy;
