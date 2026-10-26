@@ -192,7 +192,8 @@ the answer may change.
 - [ ] **Database-side logs:** default retention; syslog / SIEM export. **Traffic:** accept an
       estimate for PostgreSQL's data volume? _Phase 34._
 - [ ] **`NEBULADB_SQLITE_DIR` as the default:** a breaking change to schedule. A general
-      private-IP block: stays off by default? _Phase 27._
+      private-IP block: done for webhooks (on by default, `NEBULADB_WEBHOOK_BLOCK_PRIVATE`,
+      `NEBULADB_WEBHOOK_ALLOWED_HOSTS`); still open for database connections. _Phase 27._
 - [ ] **Roles beyond view / edit / administrator:** only on real demand — say when. _Phase 20._
 - [ ] **Visual overhaul:** before the new features or alongside them; Figma mock-ups first?
       _Phase 37._
