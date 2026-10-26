@@ -1,13 +1,10 @@
 <script lang="ts">
   import type { DatabaseConnectionSummary } from "@nebuladb/shared";
-  import Icon from "@/components/icons/Icon.svelte";
   import { DatabaseIcon } from "@/components/icons/Icons";
   import NavLinkButton from "@/components/ui/NavLinkButton.svelte";
-  import Badge from "@/components/ui/Badge.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
   import DeploymentPanel from "@/features/connections/deployment/DeploymentPanel.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
-  import EnvironmentBadge from "@/features/environments/EnvironmentBadge.svelte";
   import DeploymentReviewsCard from "./DeploymentReviewsCard.svelte";
   import PipelineCard from "./PipelineCard.svelte";
 
@@ -25,9 +22,9 @@
     onDeployed = () => {},
     onShowProblems,
     reviewsKey = 0,
-    compact = false,
     onShowInGraph,
     onShowInCode,
+    tableExists,
   }: {
     projectId: string;
     /** The workspace's current connection; `null` when the project has none. */
@@ -49,12 +46,12 @@
     onShowProblems?: () => void;
     /** Changes when the server says a review request was made, decided or closed. */
     reviewsKey?: number;
-    /** Beside the diagram (a drawer) rather than a page of its own: narrower margins, and the drawer does the scrolling. */
-    compact?: boolean;
     /** Centres the diagram on a table (and a column): offered on every conflict that names one. */
     onShowInGraph?: (tableName: string, fieldName?: string) => void;
     /** Scrolls the DBML code to a table. */
     onShowInCode?: (tableName: string) => void;
+    /** Whether the diagram has this table. */
+    tableExists?: (tableName: string) => boolean;
   } = $props();
 
   const { t } = useTranslation();
@@ -62,9 +59,9 @@
   let requested = $state(0);
 </script>
 
-<div class={compact ? "min-h-full bg-bg" : "min-h-0 flex-1 overflow-y-auto bg-bg"}>
-  <div class={compact ? "flex flex-col gap-3 px-3 py-3" : "mx-auto flex max-w-3xl flex-col gap-4 px-6 py-6"}>
-    {#if !connection}
+<div class="flex min-h-full flex-col bg-surface">
+  {#if !connection}
+    <div class="px-3 py-4">
       <EmptyState>
         <p class="m-0 mb-3">{t("workspace.deployments.noConnection")}</p>
         {#if onOpenConnectionsAdmin}
@@ -77,32 +74,23 @@
           <p class="m-0">{t("workspace.deployments.noConnectionMember")}</p>
         {/if}
       </EmptyState>
-    {:else}
-      <div class="flex flex-wrap items-center gap-2">
-        <Icon icon={DatabaseIcon} size={16} class="text-text-muted" />
-        <h2 class="m-0 text-heading font-bold text-text">{connection.name}</h2>
-        <Badge tone="admin">{t(`connections.engine.${connection.engine}`)}</Badge>
-        {#if connection.environment}
-          <EnvironmentBadge
-            name={connection.environment}
-            color={connection.environmentColor}
-            production={connection.production}
-          />
-        {/if}
-        <span class="flex-1"></span>
-      </div>
-      <DeploymentPanel
-        {projectId}
-        {schemaHash}
-        initialConnectionId={connection.id}
-        readOnly={!canDeploy}
-        {canSkipStage}
-        {onDeployed}
-        {onShowProblems}
-        {onShowInGraph}
-        {onShowInCode}
-        onReviewRequested={() => (requested += 1)}
-      />
+    </div>
+  {:else}
+    <DeploymentPanel
+      {projectId}
+      {schemaHash}
+      initialConnectionId={connection.id}
+      readOnly={!canDeploy}
+      {canSkipStage}
+      {onDeployed}
+      {onShowProblems}
+      {onShowInGraph}
+      {onShowInCode}
+      {tableExists}
+      onReviewRequested={() => (requested += 1)}
+    />
+    <!-- Follow-up under the panel: requests waiting for a colleague, and where each database stands. -->
+    <div class="flex flex-col gap-3 border-t border-border px-3 py-3">
       <DeploymentReviewsCard
         {projectId}
         {connections}
@@ -112,6 +100,6 @@
         {onDeployed}
       />
       <PipelineCard {projectId} {refreshKey} {schemaHash} {canDeploy} {onDeployTo} />
-    {/if}
-  </div>
+    </div>
+  {/if}
 </div>

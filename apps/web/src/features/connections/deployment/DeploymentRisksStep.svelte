@@ -24,6 +24,7 @@
     analyzing = false,
     onShowInGraph,
     onShowInCode,
+    tableExists = () => true,
   }: {
     risks: SchemaRisk[];
     resolutions: MigrationResolutionMap;
@@ -34,6 +35,8 @@
     onShowInGraph?: (tableName: string, fieldName?: string) => void;
     /** Scrolls the DBML code to the table a conflict names. */
     onShowInCode?: (tableName: string) => void;
+    /** Whether the diagram has this table: a table only the database holds has nothing to show. */
+    tableExists?: (tableName: string) => boolean;
   } = $props();
 
   const { t } = useTranslation();
@@ -66,11 +69,12 @@
   {:else}
     {#if droppable.length > 1}
       <!-- Only picks the answer on each risk: nothing is deleted until the deployment itself is confirmed. -->
-      <div class="flex items-center justify-between gap-3">
-        <p class="m-0 text-xs text-text-muted">{t("deployment.dropAllHint")}</p>
+      <div class="flex flex-col gap-1.5 rounded-sm border border-border bg-surface-raised p-2.5">
+        <p class="m-0 text-caption text-text-muted">{t("deployment.dropAllHint")}</p>
         <Button
           size="xs"
           variant="danger"
+          class="self-start"
           disabled={allDropped}
           onclick={() => droppable.forEach((risk) => onStrategyChange(risk, "DROP_DATA_CONFIRMED"))}
         >
@@ -82,7 +86,7 @@
       {#each risks as risk, index (risk.id)}
         {@const currentRes = resolutions[riskKey(risk)]}
         <div
-          class={`rounded-sm border p-3.5 text-xs ${
+          class={`rounded-sm border p-3 text-xs ${
             risk.severity === "critical"
               ? "border-rose-500/40 bg-rose-500/5"
               : risk.severity === "info"
@@ -104,8 +108,8 @@
               />
             </span>
             <div class="flex-1 space-y-2">
-              <div class="flex items-start justify-between gap-3">
-                <h4 class="text-body font-bold leading-5 text-text">
+              <div class="flex flex-wrap items-start justify-between gap-x-3 gap-y-1">
+                <h4 class="m-0 min-w-0 flex-1 basis-48 text-body font-bold leading-5 text-text">
                   {#if risk.type === "DROP_COLUMN_WITH_DATA"}
                     <span>{t("deployment.riskDropColumn", { col: risk.columnName || "", table: risk.tableName })}</span>
                   {/if}
@@ -164,7 +168,7 @@
                 {/if}
               </div>
 
-              {#if (onShowInGraph || onShowInCode) && risk.tableName}
+              {#if (onShowInGraph || onShowInCode) && risk.tableName && tableExists(risk.tableName)}
                 <div class="flex flex-wrap gap-1.5">
                   {#if onShowInGraph}
                     <Button size="xs" variant="ghost" onclick={() => onShowInGraph(risk.tableName, risk.columnName)}>

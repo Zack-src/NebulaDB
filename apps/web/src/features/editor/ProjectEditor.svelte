@@ -819,7 +819,7 @@ import { DeploymentDrawerState } from "@/features/workspace/drawerState.svelte";
   </div>
   {#if deployments.mounted}
     <!-- Kept mounted once opened, only hidden when closed: the analysis it holds can take long to redo. -->
-    <div class="flex min-h-0 shrink-0 flex-row" style:display={deployments.showing ? undefined : "none"}>
+    <div style:display={deployments.showing ? "contents" : "none"}>
       <Splitter
         bind:size={deployments.width}
         min={DeploymentDrawerState.MIN_WIDTH}
@@ -845,6 +845,7 @@ import { DeploymentDrawerState } from "@/features/workspace/drawerState.svelte";
             onShowProblems={() => setTab("problems")}
             onShowInGraph={(tableName, fieldName) => (focusRequest = { tableName, fieldName })}
             onShowInCode={goToDbml}
+            tableExists={(name) => liveProject?.tables.some((table) => table.name.toLowerCase() === name.toLowerCase()) ?? false}
             onClose={() => deployments.setOpen(false)}
           />
         {/await}

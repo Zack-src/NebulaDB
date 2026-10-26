@@ -144,7 +144,7 @@ test(
         [history[0].review?.requestedByEmail, history[0].review?.approvedByEmail],
         [ADMIN_EMAIL, COLLEAGUE_EMAIL],
       );
-      await panel.getByRole("button", { name: "Historique" }).click();
+      await panel.getByRole("tab", { name: "Historique" }).click();
       await panel.getByTestId("history-review").getByText(`approuvé par ${COLLEAGUE_EMAIL}`).waitFor();
       await snap("history");
 
