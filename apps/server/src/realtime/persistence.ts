@@ -35,11 +35,21 @@ export async function saveSnapshot(projectId: string, doc: Y.Doc): Promise<void>
   await saveSnapshotState(projectId, state);
 }
 
+/**
+ * What a revision changed over the one before it, worked out when it is written
+ * (the room has the doc at hand) so that listing the history never replays it.
+ * `changes` is absent when nothing in the schema moved (a table dragged on the canvas).
+ */
+export interface RevisionSummary {
+  changes?: RevisionChanges;
+}
+
 export async function appendRevision(
   projectId: string,
   author: string,
   update: Uint8Array,
   id: string = crypto.randomUUID(),
+  summary?: RevisionSummary,
 ): Promise<void> {
   // Runs on *every* Yjs update from *every* connected client — dragging a
   // table alone commits one on mouse-up, but a big multi-user session can
@@ -48,8 +58,18 @@ export async function appendRevision(
   // the room sends them one at a time (see `Room.persist`).
   await timeAsync("persistence.appendRevision", () =>
     db
-      .prepare(`INSERT INTO revisions (id, project_id, author, yjs_update, created_at) VALUES (?, ?, ?, ?, utc_now())`)
-      .run(id, projectId, author, Buffer.from(update)),
+      .prepare(
+        `INSERT INTO revisions (id, project_id, author, yjs_update, created_at, meaningful, changes_json)
+         VALUES (?, ?, ?, ?, utc_now(), ?, ?)`,
+      )
+      .run(
+        id,
+        projectId,
+        author,
+        Buffer.from(update),
+        summary ? summary.changes !== undefined : null,
+        summary?.changes ? JSON.stringify(summary.changes) : null,
+      ),
   );
 }
 
@@ -83,47 +103,75 @@ export async function listRevisions(projectId: string): Promise<RevisionMeta[]> 
  * only the *list* is filtered. A labeled revision is always kept.
  *
  * "Changed" is `diffProjects`'s notion (tables/fields/refs). Each kept revision carries
- * `changes`, the short form of that diff. Replays the log once into a scratch doc: O(revisions).
+ * `changes`, the short form of that diff, stored with the revision when the room wrote it, so
+ * this is a plain SELECT. Only revisions from before that column (`meaningful IS NULL`) are
+ * replayed, once per project, and their result stored: see `backfillRevisionSummaries`.
  */
 export async function listMeaningfulRevisions(projectId: string): Promise<RevisionMeta[]> {
+  const unsummarized = (await db
+    .prepare(`SELECT 1 AS found FROM revisions WHERE project_id = ? AND meaningful IS NULL LIMIT 1`)
+    .get(projectId)) as { found: number } | undefined;
+  if (unsummarized) await backfillRevisionSummaries(projectId);
+
   const rows = (await db
     .prepare(
-      `SELECT id, author, label, created_at AS "createdAt", yjs_update FROM revisions WHERE project_id = ? ORDER BY seq ASC`,
+      `SELECT id, author, label, created_at AS "createdAt", changes_json AS "changesJson"
+         FROM revisions
+        WHERE project_id = ? AND (meaningful OR label IS NOT NULL)
+        ORDER BY seq ASC`,
     )
-    .all(projectId)) as (RevisionMeta & { yjs_update: Buffer })[];
+    .all(projectId)) as (RevisionMeta & { changesJson: string | null })[];
+  return rows.map(({ changesJson, ...meta }) => ({
+    ...meta,
+    ...(changesJson ? { changes: JSON.parse(changesJson) as RevisionChanges } : {}),
+  }));
+}
 
-  return timeSync("persistence.listMeaningfulRevisions", () => {
+/**
+ * Replays a project's whole log once into a scratch doc to fill in the summaries of revisions
+ * stored before they were kept (O(revisions) of `diffProjects`, the cost the list used to pay on
+ * every call). Rows the room has summarized in the meantime are left alone.
+ */
+async function backfillRevisionSummaries(projectId: string): Promise<void> {
+  const rows = (await db
+    .prepare(`SELECT id, meaningful, yjs_update FROM revisions WHERE project_id = ? ORDER BY seq ASC`)
+    .all(projectId)) as { id: string; meaningful: boolean | null; yjs_update: Buffer }[];
+
+  const computed = timeSync("persistence.backfillRevisionSummaries", () => {
     const doc = new Y.Doc();
     try {
       let previousProject = readProjectFromDoc(doc, projectId);
-      const kept: RevisionMeta[] = [];
+      const out: { id: string; changes?: RevisionChanges }[] = [];
       for (const row of rows) {
         Y.applyUpdate(doc, new Uint8Array(row.yjs_update));
+        if (row.meaningful !== null) {
+          previousProject = readProjectFromDoc(doc, projectId);
+          continue;
+        }
         const project = readProjectFromDoc(doc, projectId);
         const diff = diffProjects(previousProject, project);
         const changed = diff.tables.length > 0 || diff.refs.length > 0;
-        if (changed || row.label) {
-          kept.push({
-            id: row.id,
-            author: row.author,
-            label: row.label,
-            createdAt: row.createdAt,
-            ...(changed ? { changes: summarizeChanges(diff) } : {}),
-          });
-        }
+        out.push({ id: row.id, ...(changed ? { changes: summarizeChanges(diff) } : {}) });
         previousProject = project;
       }
-      return kept;
+      return out;
     } finally {
       doc.destroy();
     }
   });
+
+  const update = db.prepare(
+    `UPDATE revisions SET meaningful = ?, changes_json = ? WHERE id = ? AND project_id = ? AND meaningful IS NULL`,
+  );
+  for (const { id, changes } of computed) {
+    await update.run(changes !== undefined, changes ? JSON.stringify(changes) : null, id, projectId);
+  }
 }
 
 /** Tables listed by name in a revision's summary; the rest are only counted. */
 const SUMMARY_TABLES = 8;
 
-function summarizeChanges(diff: ProjectDiff): RevisionChanges {
+export function summarizeChanges(diff: ProjectDiff): RevisionChanges {
   return {
     tables: diff.tables.slice(0, SUMMARY_TABLES).map((table) => ({ name: table.name, status: table.status })),
     moreTables: Math.max(0, diff.tables.length - SUMMARY_TABLES),
