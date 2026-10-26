@@ -146,10 +146,13 @@
   @media (max-width: 1023px) {
     .admin-workspace {
       grid-template-columns: 1fr;
+      /* Menu on its own height, the page takes the rest: with two auto rows a short page left the spare height to the menu row, and its buttons stretched to fill it. */
+      grid-template-rows: auto minmax(0, 1fr);
     }
     .admin-navigation {
       display: flex;
       gap: 16px;
+      align-items: flex-start;
       overflow-x: auto;
       border-right: 0;
       border-bottom: 1px solid var(--color-border);
