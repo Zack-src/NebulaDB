@@ -212,6 +212,12 @@ export function applyVisualMetadata(project: Project, source: string): Project {
   };
 }
 
+/** DBML types are one bare token; a multi-word SQL type (`double precision`, `timestamp with time zone`) must be double-quoted. Whitespace inside `(...)` (`decimal(10, 2)`) is fine. */
+function quoteTypeIfNeeded(type: string): string {
+  if (type.startsWith('"')) return type;
+  return /\s/.test(type.replace(/\([^)]*\)/g, "")) ? `"${type}"` : type;
+}
+
 /**
  * Convert NebulaDB's internal `Project` shape into DBML source text.
  * Round-trips table/field/index/ref/enum structure natively; pass
@@ -234,7 +240,7 @@ export function projectToDbml(project: Project, options?: { includeVisualMetadat
       if (field.default !== undefined) settings.push(`default: ${formatDefault(field.default, field.defaultKind)}`);
       if (field.note) settings.push(`note: ${quoteNoteText(field.note)}`);
       const settingsStr = settings.length ? ` [${settings.join(", ")}]` : "";
-      lines.push(`  ${quoteIdent(field.name)} ${field.type}${settingsStr}`);
+      lines.push(`  ${quoteIdent(field.name)} ${quoteTypeIfNeeded(field.type)}${settingsStr}`);
     }
 
     // One `indexes` block holding every index: DBML has a single one per table.
