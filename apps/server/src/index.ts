@@ -17,6 +17,7 @@ import { purgeOldDeliveries } from "./modules/webhooks/repository.js";
 import { purgeExpiredSessions } from "./modules/auth/session.js";
 import { purgeExpiredMfaChallenges } from "./modules/auth/totpRepository.js";
 import { closeAllRooms, flushAllRooms } from "./realtime/roomRegistry.js";
+import { closeParsePool } from "./modules/projects/parsePool.js";
 import { purgeOldAuditEntries } from "./shared/audit.js";
 import { purgeOldQueryStats } from "./modules/dbAdmin/queryStats.js";
 import { recordError, tallyErrorForMetrics } from "./shared/errorLog.js";
@@ -144,6 +145,7 @@ async function shutdown(signal: string): Promise<void> {
     if (flushed > 0) app.log.info(`flushed ${flushed} room snapshot(s)`);
     await closeAllRooms();
     await app.close();
+    await closeParsePool();
     await db.close();
     app.log.info("shutdown complete");
     process.exit(0);

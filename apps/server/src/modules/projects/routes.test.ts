@@ -120,6 +120,49 @@ test("import/export round-trip: DBML in, DBML/SQL out, a view grant can't import
   }
 });
 
+test("import of a schema big enough to be parsed in a worker thread: same responses, baseline still protects concurrent additions", async () => {
+  const app = await buildApp();
+  try {
+    const owner = await makeUser();
+    const cookie = await loginAs(app, owner.email, owner.password);
+    const project = await makeProject(app, cookie);
+    const padding = "padding to cross the parse pool inline threshold ".repeat(3);
+    const table = (name: string) => `Table ${name} {\n  id int [pk]\n  label varchar [note: '${padding}']\n}`;
+    const names = Array.from({ length: 60 }, (_, i) => `t${i}`);
+    const big = names.map(table).join("\n");
+    assert.ok(big.length > 8_192, "large enough to go through a worker thread");
+    const importDbml = (payload: Record<string, string>) =>
+      app.inject({ method: "POST", url: `/api/projects/${project.id}/import`, headers: headers({ cookie }), payload });
+
+    const first = await importDbml({ source: big });
+    assert.equal(first.statusCode, 200);
+    assert.deepEqual(first.json(), { imported: true, tables: 60 });
+
+    // Someone else adds a table while this buffer, still derived from `big`, is open...
+    const other = await importDbml({ source: `${big}\n${table("added_elsewhere")}` });
+    assert.deepEqual(other.json(), { imported: true, tables: 61 });
+
+    // ...and the buffer then deletes t59: the deletion goes through, the other addition survives.
+    const synced = await importDbml({ source: names.slice(0, 59).map(table).join("\n"), baseline: big });
+    assert.deepEqual(synced.json(), { imported: true, tables: 60 });
+    const exported = await app.inject({
+      method: "GET",
+      url: `/api/projects/${project.id}/export/dbml`,
+      headers: headers({ cookie }),
+    });
+    assert.match(exported.body, /Table "?added_elsewhere"?/);
+    assert.doesNotMatch(exported.body, /Table "?t59"?/);
+
+    const malformed = await importDbml({ source: `${big}\nTable broken {\n  id int [pk\n}` });
+    assert.equal(malformed.statusCode, 400);
+    assert.equal(malformed.json().code, "DBML_PARSE_FAILED");
+    assert.equal(typeof malformed.json().line, "number");
+  } finally {
+    await closeAllRooms();
+    await app.close();
+  }
+});
+
 test("revisions: listed after an edit, labelable, restorable; a view grant can read but not label or restore", async () => {
   const app = await buildApp();
   try {
