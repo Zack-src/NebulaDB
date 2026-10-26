@@ -18,3 +18,4 @@ backups/
 
 # Seed files kept on the server (NEBULADB_SEED_DIR)
 /data/
+graphify-out/
