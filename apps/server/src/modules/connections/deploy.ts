@@ -119,6 +119,35 @@ function countStatements(sql: string): number {
   return sql.split(";").filter((s) => s.trim().length > 0).length;
 }
 
+/** Longest statement kept in the details of a failed migration: the part that matters is at the start. */
+const FAILED_STATEMENT_MAX = 4000;
+
+/**
+ * Which statement of the script a driver gave up on, from the "statement N of M failed" its error starts with
+ * (what MySQL, SQL Server, Oracle and BigQuery report), with the statement itself: the person reads which table or
+ * column it is about instead of a bare position. Empty when the engine ran the script as one transaction and
+ * named no position (PostgreSQL, SQLite): its own message is then all there is.
+ */
+export function describeFailedStatement(
+  sql: string,
+  error: string | null | undefined,
+): { failedIndex: number; failedTotal: number; failedStatement: string } | Record<string, never> {
+  const match = /^statement (\d+) of (\d+) failed/.exec(error ?? "");
+  if (!match) return {};
+  const index = Number(match[1]);
+  const statements = sql
+    .split(";")
+    .map((statement) => statement.trim())
+    .filter((statement) => statement.length > 0 && !/^(BEGIN( TRANSACTION)?|START TRANSACTION|COMMIT)$/i.test(statement));
+  const statement = statements[index - 1];
+  if (statement === undefined) return {};
+  return {
+    failedIndex: index,
+    failedTotal: Number(match[2]),
+    failedStatement: statement.slice(0, FAILED_STATEMENT_MAX),
+  };
+}
+
 /** The seeds a deployment would insert, as one value: a request for review freezes it, a deployment compares. */
 function seedsHashOf(seeds: PreparedSeeds | null): string | null {
   if (!seeds || seeds.seeds.length === 0) return null;
@@ -391,7 +420,12 @@ export async function deployToConnection(
     if (!result.success) {
       throw new ApiError("MIGRATION_FAILED", {
         message: `migration failed: ${result.error}`,
-        details: { error: result.error, sql, executedStatements: result.executedStatements },
+        details: {
+          error: result.error,
+          sql,
+          executedStatements: result.executedStatements,
+          ...describeFailedStatement(sql, result.error),
+        },
       });
     }
 

@@ -930,6 +930,8 @@
   "deployment.dropAll": "Supprimer définitivement les données pour tout ({{count}})",
   "deployment.dropAllHint": "Sélectionne « Supprimer définitivement les données » sur chaque risque ci-dessous. Rien n'est supprimé tant que vous ne confirmez pas le déploiement.",
   "deployment.measuredBy": "Voir la requête qui a compté ceci",
+  "deployment.failedAt": "La base a refusé l'instruction {{index}} sur {{total}}",
+  "deployment.failedOn": "Sur",
   "deployment.stepDiff": "1. Changements",
   "deployment.stepDiffShort": "Changements",
   "deployment.stepRisksShort": "Conflits",

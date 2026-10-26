@@ -27,6 +27,8 @@
   } from "@/services/connectionsApi";
   import { copyText } from "@/utils/clipboard";
   import { DATA_LOSS_STRATEGIES, generateMigrationSql, type MigrationDialect } from "@nebuladb/dbml-engine";
+  import DeploymentFailureBlock from "./DeploymentFailureBlock.svelte";
+  import { parseDeploymentFailure, type DeploymentFailure } from "./deploymentFailure";
   import DeploymentHistoryPanel from "./DeploymentHistoryPanel.svelte";
   import DeploymentDiffStep from "./DeploymentDiffStep.svelte";
   import DeploymentResultStep from "./DeploymentResultStep.svelte";
@@ -99,6 +101,8 @@
   /** Leave the tables' initial data out of this deployment. */
   let skipSeeds = $state(false);
   let error = $state<string | null>(null);
+  /** Which statement the database refused, when the answer says: shown with the statement instead of a bare message. */
+  let failure = $state.raw<DeploymentFailure | null>(null);
   let copied = $state(false);
   /** Why the risks are accepted — kept with the deployment in its history. */
   let riskNote = $state("");
@@ -220,6 +224,7 @@
     confirmingProduction = false;
     deploying = true;
     error = null;
+    failure = null;
     try {
       deployResult = await applyDeployment(projectId, selectedConnId, resolutions, {
         confirmName,
@@ -234,6 +239,7 @@
     } catch (err) {
       // In the reader's language, like every other refusal of the server.
       error = describeApiError(err, t);
+      failure = err instanceof ApiError && err.code === "MIGRATION_FAILED" ? parseDeploymentFailure(err.details) : null;
       stageBlocked = err instanceof ApiError && err.code === "PIPELINE_STAGE_SKIPPED";
     } finally {
       skipStage = false;
@@ -423,7 +429,9 @@
         {/key}
       {/if}
 
-      {#if error}<ErrorText>{error}</ErrorText>{/if}
+      {#if failure}
+        <DeploymentFailureBlock {failure} {onShowInGraph} {onShowInCode} {tableExists} />
+      {:else if error}<ErrorText>{error}</ErrorText>{/if}
       {#if stageBlocked && canSkipStage}
         <DeploymentStageSkip
           bind:skipReason
