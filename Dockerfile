@@ -23,6 +23,7 @@ COPY apps/web/package.json apps/web/package.json
 COPY packages/shared/package.json packages/shared/package.json
 COPY packages/dbml-engine/package.json packages/dbml-engine/package.json
 COPY packages/cli/package.json packages/cli/package.json
+COPY packages/mcp/package.json packages/mcp/package.json
 
 # `--ignore-scripts` is what makes this manifests-first layer work at all: the
 # root package.json's `postinstall` builds packages/shared and
@@ -67,6 +68,8 @@ COPY --chown=node:node --from=build /app/packages/dbml-engine/package.json ./pac
 COPY --chown=node:node --from=build /app/packages/dbml-engine/dist ./packages/dbml-engine/dist
 COPY --chown=node:node --from=build /app/packages/cli/package.json ./packages/cli/package.json
 COPY --chown=node:node --from=build /app/packages/cli/dist ./packages/cli/dist
+COPY --chown=node:node --from=build /app/packages/mcp/package.json ./packages/mcp/package.json
+COPY --chown=node:node --from=build /app/packages/mcp/dist ./packages/mcp/dist
 COPY --chown=node:node --from=build /app/apps/server/package.json ./apps/server/package.json
 # Includes dist/modules/projects/parseWorker.js (DBML parsing worker).
 COPY --chown=node:node --from=build /app/apps/server/dist ./apps/server/dist
