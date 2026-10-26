@@ -2,7 +2,7 @@
   import type { DatabaseConnectionSummary } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { DatabaseIcon } from "@/components/icons/Icons";
-  import Button from "@/components/ui/Button.svelte";
+  import NavLinkButton from "@/components/ui/NavLinkButton.svelte";
   import Badge from "@/components/ui/Badge.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
   import DeploymentPanel from "@/features/connections/deployment/DeploymentPanel.svelte";
@@ -59,10 +59,11 @@
       <EmptyState>
         <p class="m-0 mb-3">{t("workspace.deployments.noConnection")}</p>
         {#if onOpenConnectionsAdmin}
-          <Button variant="outline" size="sm" onclick={onOpenConnectionsAdmin}>
-            <Icon icon={DatabaseIcon} size={13} />
-            {t("workspace.deployments.openConnections")}
-          </Button>
+          <NavLinkButton
+            label={t("workspace.deployments.openConnections")}
+            icon={DatabaseIcon}
+            onNavigate={onOpenConnectionsAdmin}
+          />
         {:else}
           <p class="m-0">{t("workspace.deployments.noConnectionMember")}</p>
         {/if}

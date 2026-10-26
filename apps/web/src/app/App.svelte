@@ -189,7 +189,11 @@
       <div class="min-h-0 flex-1 overflow-auto p-4 md:p-6">
         <PageContainer>
           <PageHeader title={t("shell.bases")} icon={DatabaseIcon} />
-          <DatabaseWorkspace {session} />
+          <DatabaseWorkspace
+            {session}
+            onOpenAdmin={() => openAdmin("connections")}
+            onOpenSettings={() => navigate("settings")}
+          />
         </PageContainer>
       </div>
     {:else}
