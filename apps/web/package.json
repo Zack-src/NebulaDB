@@ -8,6 +8,7 @@
     "build": "svelte-check --tsconfig ./tsconfig.json && vite build && node ../../scripts/precompress.mjs dist",
     "preview": "vite preview",
     "test": "tsx --test \"src/**/*.test.ts\"",
+    "test:coverage": "node -e \"require('fs').mkdirSync('coverage',{recursive:true})\" && tsx --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info \"src/**/*.test.ts\"",
     "test:e2e": "tsx --test --test-concurrency=8 e2e/**/*.e2e.ts",
     "check:circular": "madge --circular --extensions ts --ts-config tsconfig.json src",
     "check": "svelte-check --tsconfig ./tsconfig.json"

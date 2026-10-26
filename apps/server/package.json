@@ -9,6 +9,7 @@
     "dev": "tsx watch src/index.ts",
     "start": "node dist/index.js",
     "test": "node --test \"dist/**/*.test.js\"",
+    "test:coverage": "node -e \"require('fs').mkdirSync('coverage',{recursive:true})\" && node --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info \"dist/**/*.test.js\"",
     "bench": "tsx scripts/bench.ts",
     "check:circular": "madge --circular --extensions ts src/index.ts",
     "backup": "tsx src/infrastructure/backup.ts",
