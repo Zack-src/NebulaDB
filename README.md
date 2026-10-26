@@ -34,6 +34,12 @@ Docker, app included (its own PostgreSQL; data in the `nebuladb-postgres` and `n
 docker compose up --build
 ```
 
+First admin in Docker (the image has no dev tools, so use the compiled script):
+
+```bash
+docker compose exec nebuladb node apps/server/dist/bootstrap-admin.js you@example.com 'a-strong-password'
+```
+
 Other accounts are created by invitation from the admin console.
 
 ## Configuration
