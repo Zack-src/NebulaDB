@@ -17,13 +17,21 @@ import { lockGuardFor } from "../../tableLocks/access.js";
 import { listHistoryMarkers, restoreAuditDetail } from "../historyMarkers.js";
 import { createProjectForUser } from "../projectCrud.js";
 import { db } from "../../../infrastructure/db.js";
+import { idParams, parseBody, parseParams, z } from "../../../shared/validate.js";
+
+const revisionParams = z.object({ id: z.string(), revisionId: z.string() });
+/** `null` is accepted and means "clear the label". */
+const labelBody = z.object({ label: z.string().nullable().optional() });
+/** Element rules and their dedicated `RESTORE_TABLES_INVALID` code live in `parseRestoreTableIds`. */
+const restoreBody = z.object({ tableIds: z.unknown().optional() });
+/** The fork's name goes through `createProjectForUser`, which owns the value rules. */
+const forkBody = z.object({ name: z.unknown().optional() });
 
 /** More table ids than any partial restore needs; the cap only keeps the request bounded. */
 const MAX_RESTORE_TABLES = 500;
 
 /** `tableIds` of a restore body: absent for a whole restore, else a non-empty list of strings. */
-function parseRestoreTableIds(body: unknown): string[] | null {
-  const tableIds = (body as { tableIds?: unknown } | null | undefined)?.tableIds;
+function parseRestoreTableIds(tableIds: unknown): string[] | null {
   if (tableIds === undefined || tableIds === null) return null;
   if (
     !Array.isArray(tableIds) ||
@@ -45,37 +53,37 @@ async function loadRevisionDoc(projectId: string, revisionId: string): Promise<Y
 
 export function registerProjectRevisionRoutes(app: FastifyInstance): void {
   app.get("/api/projects/:id/revisions", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     await requireProjectAccess(req, id, "view");
     return await listMeaningfulRevisions(id);
   });
 
   // Locks, restores and (for project administrators) deployments, to place on the timeline.
   app.get("/api/projects/:id/history/markers", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAccess(req, id, "view");
     return await listHistoryMarkers(id, await canDeployProject(user.id, id));
   });
 
   app.patch("/api/projects/:id/revisions/:revisionId", async (req) => {
-    const { id, revisionId } = req.params as { id: string; revisionId: string };
+    const { id, revisionId } = parseParams(revisionParams, req);
     await requireProjectAccess(req, id, "edit");
-    const { label } = (req.body ?? {}) as { label?: string | null };
+    const { label } = parseBody(labelBody, req);
     const trimmed = typeof label === "string" ? label.trim() : "";
     if (!(await setRevisionLabel(id, revisionId, trimmed || null))) throw new ApiError("REVISION_NOT_FOUND");
     return { labeled: true };
   });
 
   app.get("/api/projects/:id/revisions/:revisionId", async (req) => {
-    const { id, revisionId } = req.params as { id: string; revisionId: string };
+    const { id, revisionId } = parseParams(revisionParams, req);
     const { project } = await requireProjectAccess(req, id, "view");
     return readProjectFromDoc(await loadRevisionDoc(id, revisionId), project.id, project.name);
   });
 
   app.post("/api/projects/:id/revisions/:revisionId/restore", async (req) => {
-    const { id, revisionId } = req.params as { id: string; revisionId: string };
+    const { id, revisionId } = parseParams(revisionParams, req);
     const { user, project } = await requireProjectAccess(req, id, "edit");
-    const tableIds = parseRestoreTableIds(req.body);
+    const tableIds = parseRestoreTableIds(parseBody(restoreBody, req).tableIds);
     const revision = readProjectFromDoc(await loadRevisionDoc(id, revisionId), project.id, project.name);
     const assertLocksAllow = await lockGuardFor(user.id, id);
     // From here to `room.write`, nothing waits: see `Room.write`.
@@ -112,9 +120,9 @@ export function registerProjectRevisionRoutes(app: FastifyInstance): void {
   // reading, as for a variant: whoever may see the history may start a project from it. Locks, seeds and
   // settings are not part of history, so the new project starts without them.
   app.post("/api/projects/:id/revisions/:revisionId/fork", async (req, reply) => {
-    const { id, revisionId } = req.params as { id: string; revisionId: string };
+    const { id, revisionId } = parseParams(revisionParams, req);
     const { user, project } = await requireProjectAccess(req, id, "view");
-    const requested = (req.body as { name?: unknown } | null | undefined)?.name;
+    const requested = parseBody(forkBody, req).name;
     const revision = readProjectFromDoc(await loadRevisionDoc(id, revisionId), project.id, project.name);
     const created = await createProjectForUser(user.id, requested ?? `${project.name} (copy)`);
     const room = await getRoom(created.id);
@@ -127,13 +135,13 @@ export function registerProjectRevisionRoutes(app: FastifyInstance): void {
   });
 
   app.get("/api/projects/:id/snapshot", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { project } = await requireProjectAccess(req, id, "view");
     return readProjectFromDoc((await getRoom(id)).doc, project.id, project.name);
   });
 
   app.post("/api/projects/:id/snapshot/restore", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user, project } = await requireProjectAccess(req, id, "edit");
     const snapshot = await loadSnapshot(id);
     if (!snapshot) throw new ApiError("SNAPSHOT_NOT_FOUND");

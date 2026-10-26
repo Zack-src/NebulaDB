@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireUser } from "../../shared/guards.js";
+import { parseBody, z } from "../../shared/validate.js";
 import { getPasswordHash } from "../users/repository.js";
 import { verifyPassword } from "./password.js";
 import { CREDENTIAL_RATE_LIMIT } from "./rateLimits.js";
@@ -16,6 +17,10 @@ import {
   replaceBackupCodes,
   startTotpSetup,
 } from "./totpRepository.js";
+
+const confirmBody = z.object({ code: z.string().optional() });
+const disableBody = z.object({ password: z.string().optional(), code: z.string().optional() });
+const passwordBody = z.object({ password: z.string().optional() });
 
 async function verifyOwnPassword(userId: string, password: string): Promise<void> {
   const hash = await getPasswordHash(userId);
@@ -54,7 +59,7 @@ export function registerTotpRoutes(app: FastifyInstance): void {
    */
   app.post("/api/auth/totp/confirm", CREDENTIAL_RATE_LIMIT, async (req) => {
     const user = requireUser(req);
-    const { code } = (req.body ?? {}) as { code?: string };
+    const { code } = parseBody(confirmBody, req);
     const state = await getTotpState(user.id);
     if (state.enabled) throw new ApiError("TOTP_ALREADY_ENABLED");
     if (!state.hasSecret) throw new ApiError("TOTP_SETUP_NOT_STARTED");
@@ -79,7 +84,7 @@ export function registerTotpRoutes(app: FastifyInstance): void {
    */
   app.post("/api/auth/totp/disable", CREDENTIAL_RATE_LIMIT, async (req) => {
     const user = requireUser(req);
-    const { password, code } = (req.body ?? {}) as { password?: string; code?: string };
+    const { password, code } = parseBody(disableBody, req);
     if (!(await getTotpState(user.id)).enabled) throw new ApiError("TOTP_NOT_ENABLED");
     if (!password) throw new ApiError("PASSWORDS_REQUIRED");
     if (!code) throw new ApiError("TOTP_CODE_REQUIRED");
@@ -98,7 +103,7 @@ export function registerTotpRoutes(app: FastifyInstance): void {
   /** Invalidates every existing backup code and issues a fresh set — for "I used my last one" or "I think an old export leaked". */
   app.post("/api/auth/totp/regenerate-backup-codes", CREDENTIAL_RATE_LIMIT, async (req) => {
     const user = requireUser(req);
-    const { password } = (req.body ?? {}) as { password?: string };
+    const { password } = parseBody(passwordBody, req);
     if (!(await getTotpState(user.id)).enabled) throw new ApiError("TOTP_NOT_ENABLED");
     if (!password) throw new ApiError("PASSWORDS_REQUIRED");
     await verifyOwnPassword(user.id, password);

@@ -1,9 +1,9 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import type { SsoSettingsInput } from "@nebuladb/shared";
 import { config } from "../../config.js";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireAdmin } from "../../shared/guards.js";
+import { parseBody, parseQuery, z } from "../../shared/validate.js";
 import {
   PENDING_TTL_MS,
   SsoLoginError,
@@ -17,7 +17,23 @@ import {
 } from "./oidc.js";
 import { createSession } from "./session.js";
 
-const PENDING_COOKIE = "nebuladb_sso";
+const startQuery = z.object({ next: z.string().optional(), remember: z.string().optional() });
+
+/** Structurally a `SsoSettingsInput`; value rules (https issuer, domain syntax, lengths) stay in `oidc.ts`. */
+const ssoSettingsBody = z.object({
+  enabled: z.boolean().optional(),
+  issuer: z.string().optional(),
+  clientId: z.string().optional(),
+  clientSecret: z.string().nullable().optional(),
+  buttonLabel: z.string().optional(),
+  autoCreate: z.boolean().optional(),
+  allowedDomains: z
+    .array(z.string())
+    .nullish()
+    .transform((v) => v ?? undefined),
+});
+
+const PENDING_COOKIE ="nebuladb_sso";
 const CALLBACK_PATH = "/api/auth/sso/callback";
 const SSO_RATE_LIMIT = { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } };
 const ADMIN_LIMIT = { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } };
@@ -57,7 +73,7 @@ function backToLogin(reply: FastifyReply, reason: string) {
 
 export function registerOidcRoutes(app: FastifyInstance): void {
   app.get("/api/auth/sso/start", SSO_RATE_LIMIT, async (req, reply) => {
-    const query = req.query as { next?: string; remember?: string };
+    const query = parseQuery(startQuery, req);
     try {
       const { url, pending } = await startLogin(redirectUri(req), safeNext(query.next), query.remember !== "0");
       reply.setCookie(PENDING_COOKIE, pending, pendingCookieOptions(PENDING_TTL_MS));
@@ -112,7 +128,7 @@ export function registerOidcRoutes(app: FastifyInstance): void {
 
   app.put("/api/admin/settings/sso", ADMIN_LIMIT, async (req) => {
     const user = requireAdmin(req);
-    const settings = await setSsoSettings((req.body ?? {}) as SsoSettingsInput, user.id);
+    const settings = await setSsoSettings(parseBody(ssoSettingsBody, req), user.id);
     await auditUser(
       user,
       "instance.sso",
@@ -125,6 +141,6 @@ export function registerOidcRoutes(app: FastifyInstance): void {
 
   app.post("/api/admin/settings/sso/test", ADMIN_LIMIT, async (req) => {
     requireAdmin(req);
-    return await testSsoSettings((req.body ?? {}) as SsoSettingsInput);
+    return await testSsoSettings(parseBody(ssoSettingsBody, req));
   });
 }

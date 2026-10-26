@@ -2411,6 +2411,7 @@
   "backups.storage.s3": "S3",
   "backups.storage.sftp": "SFTP",
   "errors.backupStorageUnreachable": "The storage holding this backup cannot be reached: {{reason}}",
+  "errors.validationFailed": "Some fields are missing or invalid: {{fields}}.",
   "connections.addressMode": "Server address",
   "connections.addressHost": "Host and port",
   "connections.addressUri": "Connection URI"

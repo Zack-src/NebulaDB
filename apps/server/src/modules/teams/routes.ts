@@ -2,6 +2,7 @@ import type { FastifyInstance } from "fastify";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireAdmin, requireUser } from "../../shared/guards.js";
+import { idParams, parseBody, parseParams, z } from "../../shared/validate.js";
 import { revalidateAllRooms } from "../../realtime/roomRegistry.js";
 import { listTeamProjects } from "../projects/repository.js";
 import {
@@ -18,6 +19,11 @@ import {
 } from "./repository.js";
 
 const MAX_TEAM_NAME_LENGTH = 200;
+
+/** `name` stays `unknown`: a missing or non-string name is `NAME_REQUIRED`, decided by `parseTeamName`. */
+const teamBody = z.object({ name: z.unknown().optional() });
+const addMemberBody = z.object({ userId: z.string().optional() });
+const memberParams = z.object({ id: z.string(), userId: z.string() });
 
 function toMemberSummary(row: TeamMemberRow) {
   return {
@@ -58,7 +64,7 @@ export function registerTeamRoutes(app: FastifyInstance): void {
 
   app.get("/api/teams/:id", async (req) => {
     requireAdmin(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const team = await requireTeam(id);
     return {
       id: team.id,
@@ -71,7 +77,7 @@ export function registerTeamRoutes(app: FastifyInstance): void {
 
   app.post("/api/teams", async (req, reply) => {
     const admin = requireAdmin(req);
-    const name = parseTeamName((req.body as { name?: unknown } | undefined)?.name);
+    const name = parseTeamName(parseBody(teamBody, req).name);
     const id = crypto.randomUUID();
     await insertTeam(id, name);
     await auditUser(admin, "team.create", { type: "team", id }, name, req);
@@ -80,16 +86,16 @@ export function registerTeamRoutes(app: FastifyInstance): void {
 
   app.patch("/api/teams/:id", async (req) => {
     requireAdmin(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     await requireTeam(id);
-    const name = parseTeamName((req.body as { name?: unknown } | undefined)?.name);
+    const name = parseTeamName(parseBody(teamBody, req).name);
     await updateTeamName(id, name);
     return { id, name };
   });
 
   app.delete("/api/teams/:id", async (req) => {
     const admin = requireAdmin(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     await requireTeam(id);
     await deleteTeamCascade(id);
     await auditUser(admin, "team.delete", { type: "team", id }, undefined, req);
@@ -103,9 +109,9 @@ export function registerTeamRoutes(app: FastifyInstance): void {
 
   app.post("/api/teams/:id/members", async (req) => {
     const admin = requireAdmin(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     await requireTeam(id);
-    const { userId } = (req.body ?? {}) as { userId?: string };
+    const { userId } = parseBody(addMemberBody, req);
     if (!userId || !(await userExists(userId))) throw new ApiError("USER_ID_INVALID");
     await addTeamMember(id, userId);
     await revalidateAllRooms();
@@ -115,7 +121,7 @@ export function registerTeamRoutes(app: FastifyInstance): void {
 
   app.delete("/api/teams/:id/members/:userId", async (req) => {
     const admin = requireAdmin(req);
-    const { id, userId } = req.params as { id: string; userId: string };
+    const { id, userId } = parseParams(memberParams, req);
     await removeTeamMember(id, userId);
     await auditUser(admin, "team.member.remove", { type: "team", id }, `user ${userId}`, req);
     // The removed member may be connected right now to any project this team

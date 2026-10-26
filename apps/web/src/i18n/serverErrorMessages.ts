@@ -191,6 +191,7 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   BACKUP_STORAGE_UNREACHABLE: "errors.backupStorageUnreachable",
   RESTORE_CONFIRMATION_REQUIRED: "errors.restoreConfirmationRequired",
   RESTORE_TARGET_MISMATCH: "errors.restoreTargetMismatch",
+  VALIDATION_FAILED: "errors.validationFailed",
 };
 
 /**
@@ -244,6 +245,14 @@ export function describeApiError(error: unknown, t: Translator): string {
         columns: Array.isArray(details.columns) ? details.columns.join(", ") : "",
         maxOperations: String(details.maxOperations ?? ""),
       });
+    }
+    // Lists the invalid fields by name (paths only; the server never echoes values).
+    if (error.code === "VALIDATION_FAILED") {
+      const fields = error.details.fields;
+      const names = Array.isArray(fields)
+        ? fields.map((f) => String((f as { path?: unknown }).path || "body")).join(", ")
+        : "";
+      return t(key, { fields: names });
     }
     const tables = error.details.tables;
     return error.code === "TABLE_LOCKED" && Array.isArray(tables) ? t(key, { tables: tables.join(", ") }) : t(key);

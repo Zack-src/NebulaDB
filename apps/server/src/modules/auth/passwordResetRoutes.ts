@@ -5,6 +5,7 @@ import { revalidateAllRooms } from "../../realtime/roomRegistry.js";
 import { auditUser } from "../../shared/audit.js";
 import { passwordResetEmail } from "../../shared/emailTemplates.js";
 import { ApiError } from "../../shared/errors.js";
+import { parseBody, z } from "../../shared/validate.js";
 import { normalizeEmail } from "./email.js";
 import { clearFailures } from "./lockout.js";
 import { checkPassword, hashPassword } from "./password.js";
@@ -14,6 +15,9 @@ import { RESET_TOKEN_TTL_MINUTES, consumeResetToken, findResettableUser, issueRe
 const REQUEST_RATE_LIMIT = { config: { rateLimit: { max: 5, timeWindow: "1 minute" } } };
 /** Same budget as login: the token is the only credential here, and each attempt pays for a scrypt hash. */
 const CONFIRM_RATE_LIMIT = { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } };
+
+const requestBody = z.object({ email: z.string().optional() });
+const confirmBody = z.object({ token: z.string().optional(), password: z.string().optional() });
 
 export function registerPasswordResetRoutes(app: FastifyInstance): void {
   /**
@@ -36,7 +40,7 @@ export function registerPasswordResetRoutes(app: FastifyInstance): void {
    */
   app.post("/api/auth/password-reset/request", REQUEST_RATE_LIMIT, async (req) => {
     if (!isMailEnabled()) throw new ApiError("PASSWORD_RESET_UNAVAILABLE");
-    const { email } = (req.body ?? {}) as { email?: string };
+    const { email } = parseBody(requestBody, req);
     const normalized = normalizeEmail(email);
     if (!normalized) throw new ApiError("EMAIL_INVALID");
 
@@ -53,7 +57,7 @@ export function registerPasswordResetRoutes(app: FastifyInstance): void {
   });
 
   app.post("/api/auth/password-reset/confirm", CONFIRM_RATE_LIMIT, async (req) => {
-    const { token, password } = (req.body ?? {}) as { token?: string; password?: string };
+    const { token, password } = parseBody(confirmBody, req);
     if (!token) throw new ApiError("PASSWORD_RESET_TOKEN_INVALID");
     const check = checkPassword(password);
     if (!check.ok) throw new ApiError("PASSWORD_TOO_WEAK", { message: check.error });
