@@ -7,6 +7,7 @@
   import { lintMessage } from "@/features/editor/lint/lintText";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import type { PlanDeploymentResponse } from "@/services/connectionsApi";
+  import AnalyzingNotice from "./AnalyzingNotice.svelte";
 
   /**
    * First step of the deployment dialog: what differs between the schema and
@@ -42,9 +43,7 @@
 <!-- Step 1: Schema Diff View -->
 <div class="space-y-3">
   {#if analyzing}
-    <div class="flex h-48 items-center justify-center text-xs text-text-muted">
-      {t("deployment.analyzingDiff")}
-    </div>
+    <AnalyzingNotice title={t("deployment.analyzing")} detail={t("deployment.analyzingDiff")} />
   {:else if !diff?.hasChanges && !seedsToInsert}
     <div class="rounded-sm border border-border bg-surface-raised p-6 text-center text-xs text-text-muted">
       <Icon icon={CheckCircleIcon} size={24} class="mx-auto mb-2 text-emerald-400" />

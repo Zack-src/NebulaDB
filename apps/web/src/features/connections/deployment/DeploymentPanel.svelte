@@ -303,7 +303,7 @@
       {/if}
 
       {#if activeStep === "risks"}
-        <DeploymentRisksStep {risks} {resolutions} onStrategyChange={handleStrategyChange} />
+        <DeploymentRisksStep {risks} {resolutions} {analyzing} onStrategyChange={handleStrategyChange} />
       {/if}
 
       {#if activeStep === "sql"}

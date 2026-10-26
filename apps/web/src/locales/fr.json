@@ -904,6 +904,7 @@
   "deployment.refreshDiff": "Actualiser",
   "deployment.analyzing": "Analyse en cours…",
   "deployment.analyzingDiff": "Comparaison du schéma du canvas avec la base de données réelle…",
+  "deployment.analyzingRisks": "Vérification des données de la base avant d'afficher un résultat.",
   "deployment.stepDiff": "1. Changements",
   "deployment.stepRisks": "2. Résolution des Conflits",
   "deployment.stepSql": "3. Aperçu SQL",
