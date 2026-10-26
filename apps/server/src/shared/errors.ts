@@ -13,6 +13,7 @@ import { redactShareTokens } from "./logRedaction.js";
 export const ERROR_CATALOG = {
   // --- 400 ---
   NAME_REQUIRED: { status: 400, message: "name is required" },
+  VALIDATION_FAILED: { status: 400, message: "the request has missing or invalid fields" },
   NAME_TOO_LONG: { status: 400, message: "name must be 200 characters or fewer" },
   NAME_OR_STATUS_REQUIRED: { status: 400, message: "name or status is required" },
   PROJECT_STATUS_INVALID: { status: 400, message: "status must be one of active, archived, trashed" },

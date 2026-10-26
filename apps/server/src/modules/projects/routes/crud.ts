@@ -7,6 +7,12 @@ import { requireProjectAccess, requireProjectAdmin, requireUser } from "../../..
 import { getProjectSummary, listProjectSummaries } from "../repository.js";
 import { createProjectForUser, deleteProject, updateProject } from "../projectCrud.js";
 import { readProjectReadOnly } from "../../../realtime/readOnlyProject.js";
+import { idParams, parseBody, parseParams, parseQuery, z } from "../../../shared/validate.js";
+
+const listQuery = z.object({ limit: z.string().optional(), offset: z.string().optional() });
+/** Values stay `unknown`: `parseProjectName` / `updateProject` own the value rules and their specific error codes. */
+const createBody = z.object({ name: z.unknown().optional() });
+const patchBody = z.object({ name: z.unknown().optional(), status: z.unknown().optional() });
 
 export function registerProjectCrudRoutes(app: FastifyInstance): void {
   app.get("/api/projects", async (req) => {
@@ -18,7 +24,7 @@ export function registerProjectCrudRoutes(app: FastifyInstance): void {
 
     // Optional paging: without `limit` the whole list comes back exactly as
     // before, so the web app (which sends neither) is unaffected.
-    const { limit, offset } = req.query as { limit?: string; offset?: string };
+    const { limit, offset } = parseQuery(listQuery, req);
     const lim = Number.parseInt(limit ?? "", 10);
     if (!Number.isFinite(lim) || lim < 1) return visible;
     const off = Math.max(0, Number.parseInt(offset ?? "", 10) || 0);
@@ -27,14 +33,14 @@ export function registerProjectCrudRoutes(app: FastifyInstance): void {
 
   app.post("/api/projects", async (req, reply) => {
     const user = requireUser(req);
-    const body = (req.body ?? {}) as { name?: unknown };
+    const body = parseBody(createBody, req);
     const { id, name } = await createProjectForUser(user.id, body.name);
     await auditUser(user, "project.create", { type: "project", id }, name, req);
     return reply.code(201).send({ id, name, permission: "administrator" });
   });
 
   app.get("/api/projects/:id", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAccess(req, id, "view");
     return { ...(await getProjectSummary(id))!, permission: await getEffectivePermission(user.id, id) };
   });
@@ -45,7 +51,7 @@ export function registerProjectCrudRoutes(app: FastifyInstance): void {
    * editor will be.
    */
   app.get("/api/projects/:id/preview", async (req, reply) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     await requireProjectAccess(req, id, "view");
     const summary = (await getProjectSummary(id))!;
     const project = await readProjectReadOnly(id, summary.name);
@@ -57,9 +63,9 @@ export function registerProjectCrudRoutes(app: FastifyInstance): void {
   // card action only ever changes one or the other, but there's no reason to
   // split them into two endpoints.
   app.patch("/api/projects/:id", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAdmin(req, id);
-    const { name, status } = (req.body ?? {}) as { name?: string; status?: string };
+    const { name, status } = parseBody(patchBody, req);
     const changed = await updateProject(id, { name, status });
 
     if (changed.status !== undefined) {
@@ -82,7 +88,7 @@ export function registerProjectCrudRoutes(app: FastifyInstance): void {
   // ("delete forever"). Moving a project to trash is just a status update via
   // PATCH above, so it can be restored; this one can't be undone.
   app.delete("/api/projects/:id", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user, project } = await requireProjectAdmin(req, id);
     await deleteProject(id);
     await auditUser(user, "project.delete", { type: "project", id }, project.name, req);

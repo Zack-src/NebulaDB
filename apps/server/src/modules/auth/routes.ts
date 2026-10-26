@@ -26,6 +26,15 @@ import {
 } from "./totpRepository.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireUser } from "../../shared/guards.js";
+import { idParams, parseBody, parseParams, z } from "../../shared/validate.js";
+
+const loginBody = z.object({
+  email: z.string().optional(),
+  password: z.string().optional(),
+  remember: z.boolean().optional(),
+});
+
+const loginTotpBody = z.object({ mfaToken: z.string().optional(), code: z.string().optional() });
 
 interface UserRow {
   id: string;
@@ -54,11 +63,7 @@ function toSessionResponse(row: UserRow) {
 
 export function registerAuthRoutes(app: FastifyInstance): void {
   app.post("/api/auth/login", LOGIN_RATE_LIMIT, async (req, reply) => {
-    const { email, password, remember } = (req.body ?? {}) as {
-      email?: string;
-      password?: string;
-      remember?: boolean;
-    };
+    const { email, password, remember } = parseBody(loginBody, req);
     const normalized = normalizeEmail(email);
     if (!normalized || !password) throw new ApiError("CREDENTIALS_REQUIRED");
     // Bail before hashing: an arbitrarily long password would otherwise make
@@ -119,7 +124,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
    * in again from the password step.
    */
   app.post("/api/auth/login/totp", LOGIN_RATE_LIMIT, async (req, reply) => {
-    const { mfaToken, code } = (req.body ?? {}) as { mfaToken?: string; code?: string };
+    const { mfaToken, code } = parseBody(loginTotpBody, req);
     if (!mfaToken || !code) throw new ApiError("MFA_TOKEN_REQUIRED");
 
     const challenge = await getMfaChallenge(mfaToken);
@@ -169,7 +174,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
 
   app.delete("/api/auth/sessions/:id", async (req, reply) => {
     const user = requireUser(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     if (!(await revokeSession(user.id, id))) throw new ApiError("NOT_FOUND");
     // Revoking the session the request itself is authenticated with is a
     // logout — clear the cookie too, or the browser keeps sending a dead id.
