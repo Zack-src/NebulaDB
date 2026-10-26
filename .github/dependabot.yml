@@ -6,6 +6,10 @@ updates:
       interval: weekly
     open-pull-requests-limit: 10
     groups:
+      aws-sdk:
+        patterns: ["@aws-sdk/*", "@smithy/*"]
+      codemirror:
+        patterns: ["@codemirror/*", "@lezer/*", "codemirror"]
       minor-and-patch:
         update-types:
           - minor
@@ -15,8 +19,14 @@ updates:
     directory: /
     schedule:
       interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
 
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: weekly
+    groups:
+      docker:
+        patterns: ["*"]
