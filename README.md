@@ -133,6 +133,11 @@ npm run backup [-- <dir>]                       # every project to .dbml files
 npm run restore -- <dir> [--owner <email>]      # each file becomes a new project
 ```
 
+`npm run backup` and `NEBULADB_BACKUP_INTERVAL_HOURS` export **project schemas as DBML only**. They do not
+contain accounts, teams, connections, revision history, seeds or the audit log. A complete instance backup is a
+PostgreSQL dump (`pg_dump`) plus `NEBULADB_SECRET` plus the `nebuladb-data` volume: see the runbook in
+[docs/backup-restore.md](docs/backup-restore.md) (commands, restore drill, verification).
+
 **Logs and retention.** What NebulaDB keeps, and for how long. Purges run at boot and then hourly.
 
 | Log (table)                                     | Kept                                    | Setting                                   |

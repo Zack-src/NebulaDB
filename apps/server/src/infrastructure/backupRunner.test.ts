@@ -12,7 +12,8 @@ await useTestDatabase("backup");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 
 const { db } = await import("./db.js");
-const { runBackup, pruneOldBackups, backupTimestamp, sanitizeFilename } = await import("./backupRunner.js");
+const { runBackup, pruneOldBackups, backupTimestamp, sanitizeFilename, BACKUP_SCOPE_FILENAME } =
+  await import("./backupRunner.js");
 const { appendRevision } = await import("../realtime/persistence.js");
 const { writeProjectToDoc, readProjectFromDoc } = await import("@nebuladb/shared");
 const { parseDbml, toProject, applyVisualMetadata } = await import("@nebuladb/dbml-engine");
@@ -154,4 +155,12 @@ test("sanitizeFilename never produces an empty or path-escaping name", () => {
   assert.equal(sanitizeFilename("../../etc/passwd"), "etc_passwd");
   assert.equal(sanitizeFilename("///"), "untitled");
   assert.equal(sanitizeFilename("Café Ventes"), "Caf_Ventes");
+});
+
+test("runBackup writes a scope notice saying the export is DBML-only", async () => {
+  const dir = scratch();
+  await runBackup(dir);
+  const notice = readFileSync(join(dir, BACKUP_SCOPE_FILENAME), "utf-8");
+  assert.match(notice, /DBML export of the project schemas only/);
+  assert.match(notice, /pg_dump/);
 });
