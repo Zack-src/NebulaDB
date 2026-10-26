@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { ApiError } from "@/services/ApiError";
   import { describeApiError } from "@/i18n/serverErrorMessages";
   import type {
@@ -47,6 +48,8 @@
     canSkipStage = false,
     onShowProblems,
     onReviewRequested = () => {},
+    onShowInGraph,
+    onShowInCode,
   }: {
     projectId: string;
     schemaHash?: string;
@@ -65,6 +68,10 @@
     canSkipStage?: boolean;
     /** Leaves the dialog for the schema's Problèmes tab — offered when lint errors block the deployment. */
     onShowProblems?: () => void;
+    /** Centres the diagram on the table (and column) a conflict names: offered when the panel sits beside it. */
+    onShowInGraph?: (tableName: string, fieldName?: string) => void;
+    /** Scrolls the DBML code to the table a conflict names. */
+    onShowInCode?: (tableName: string) => void;
   } = $props();
 
   const { t } = useTranslation();
@@ -73,6 +80,13 @@
   let loading = $state(true);
   let analyzing = $state(false);
   let plan = $state.raw<PlanDeploymentResponse | null>(null);
+  /** The schema fingerprint and connection the plan above was made for: what tells that it has gone stale. */
+  let analyzedHash = $state<string | undefined>(undefined);
+  let analyzedConnId = "";
+  /** The schema was edited after the analysis: the plan is kept (it can take long to redo) and flagged, not redone. */
+  const stale = $derived(
+    plan !== null && !analyzing && schemaHash !== undefined && analyzedHash !== undefined && schemaHash !== analyzedHash,
+  );
   let resolutions = $state.raw<MigrationResolutionMap>({});
   let activeStep = $state<DeploymentStep>("diff");
   let deploying = $state(false);
@@ -116,6 +130,12 @@
   async function runAnalysis(connId: string) {
     const version = ++analysisVersion;
     if (!connId) return;
+    // A refresh of the same database keeps the answers already given to the conflicts, and the step on screen.
+    const sameConnection = analyzedConnId === connId;
+    const previousResolutions = sameConnection ? resolutions : {};
+    const previousStep = activeStep;
+    analyzedConnId = connId;
+    analyzedHash = schemaHash;
     analyzing = true;
     error = null;
     plan = null;
@@ -129,13 +149,18 @@
       // Initialize resolutions from risks
       const initialRes: MigrationResolutionMap = {};
       for (const risk of res.risks) {
-        initialRes[riskKey(risk)] = {
-          strategy: risk.defaultStrategy,
-          value: risk.userProvidedValue,
-        };
+        const earlier = previousResolutions[riskKey(risk)];
+        const stillOffered = earlier && risk.availableStrategies.some((option) => option.key === earlier.strategy);
+        initialRes[riskKey(risk)] = stillOffered
+          ? earlier
+          : {
+              strategy: risk.defaultStrategy,
+              value: risk.userProvidedValue,
+            };
       }
       resolutions = initialRes;
-      activeStep = res.risks.length > 0 ? "risks" : "diff";
+      activeStep =
+        sameConnection && previousStep !== "done" ? previousStep : res.risks.length > 0 ? "risks" : "diff";
     } catch (err) {
       if (version === analysisVersion) error = describeApiError(err, t);
     } finally {
@@ -146,7 +171,8 @@
   $effect(() => {
     const connId = selectedConnId;
     if (!connId) return;
-    if (schemaHash || connId) void runAnalysis(connId);
+    // Not tracked: an edit of the schema flags the plan as stale (`stale`), it does not start the analysis again.
+    void untrack(() => runAnalysis(connId));
   });
 
   function handleStrategyChange(risk: SchemaRisk, strategy: ConflictResolutionStrategy, value?: string) {
@@ -283,6 +309,18 @@
         </div>
       </div>
 
+      {#if stale}
+        <div
+          role="status"
+          class="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-text"
+        >
+          <span>{t("deployment.stale")}</span>
+          <Button size="xs" variant="outline" onclick={() => void runAnalysis(selectedConnId)}>
+            {t("deployment.staleAction")}
+          </Button>
+        </div>
+      {/if}
+
       <DeploymentStepTabs
         bind:activeStep
         tableCount={diff?.tables.length}
@@ -303,7 +341,14 @@
       {/if}
 
       {#if activeStep === "risks"}
-        <DeploymentRisksStep {risks} {resolutions} {analyzing} onStrategyChange={handleStrategyChange} />
+        <DeploymentRisksStep
+          {risks}
+          {resolutions}
+          {analyzing}
+          onStrategyChange={handleStrategyChange}
+          {onShowInGraph}
+          {onShowInCode}
+        />
       {/if}
 
       {#if activeStep === "sql"}

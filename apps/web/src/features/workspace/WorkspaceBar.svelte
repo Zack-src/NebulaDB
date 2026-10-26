@@ -1,7 +1,7 @@
 <script lang="ts">
   import type { DatabaseConnectionSummary } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
-  import { CodeIcon, DatabaseIcon, LockIcon } from "@/components/icons/Icons";
+  import { CodeIcon, DatabaseIcon, LockIcon, SparklesIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
   import Select from "@/components/ui/Select.svelte";
   import PersonalAccountButton from "@/features/connections/personal/PersonalAccountButton.svelte";
@@ -26,6 +26,8 @@
     onConnectionChange,
     sqlOpen = false,
     onToggleSql,
+    deploymentsOpen = false,
+    onToggleDeployments,
     lockCount = 0,
     onShowLocks,
   }: {
@@ -38,6 +40,9 @@
     sqlOpen?: boolean;
     /** Present when the SQL drawer can be opened here: on the schema tab, for someone who may query the database. */
     onToggleSql?: () => void;
+    deploymentsOpen?: boolean;
+    /** Present when the deployment drawer can be opened here: for someone who may deploy. */
+    onToggleDeployments?: () => void;
     /** How many tables are locked; the button that lists them only shows when some are. */
     lockCount?: number;
     onShowLocks?: () => void;
@@ -62,7 +67,7 @@
 <div class="flex shrink-0 items-end justify-between gap-4 border-b border-border bg-surface px-4">
   <!-- `-mb-px`: the active tab's underline sits on the bar's own border instead of doubling it. -->
   <Tabs variant="line" {tabs} activeTab={tab} onChange={onTabChange} class="-mb-px !border-b-0 pt-2.5" />
-  {#if connections.length > 0 || (lockCount > 0 && onShowLocks)}
+  {#if connections.length > 0 || onToggleDeployments || (lockCount > 0 && onShowLocks)}
     <div class="flex items-center gap-2 py-1.5">
       {#if lockCount > 0 && onShowLocks}
         <Button
@@ -75,6 +80,19 @@
         >
           <Icon icon={LockIcon} size={13} />
           {lockCount}
+        </Button>
+      {/if}
+      {#if onToggleDeployments}
+        <Button
+          size="sm"
+          variant="ghost"
+          active={deploymentsOpen}
+          onclick={onToggleDeployments}
+          data-tooltip={t("workspace.deployments.toggle")}
+          data-tooltip-pos="bottom"
+        >
+          <Icon icon={SparklesIcon} size={13} />
+          {t("workspace.deployments.title")}
         </Button>
       {/if}
       {#if onToggleSql}

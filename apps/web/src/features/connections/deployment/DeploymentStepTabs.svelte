@@ -23,12 +23,12 @@
 
   const { t } = useTranslation();
 
-  const TAB = "border-b-2 px-3 py-2 font-medium transition-colors";
+  const TAB = "shrink-0 whitespace-nowrap border-b-2 px-3 py-2 font-medium transition-colors";
   const tabState = (step: DeploymentStep) =>
     activeStep === step ? "border-primary text-primary" : "border-transparent text-text-muted hover:text-text";
 </script>
 
-<div class="flex border-b border-border text-xs">
+<div class="flex overflow-x-auto border-b border-border text-xs">
   <button type="button" class={`${TAB} ${tabState("diff")}`} onclick={() => (activeStep = "diff")}>
     {t("deployment.stepDiff")}
     {tableCount !== undefined ? `(${tableCount})` : ""}
@@ -50,7 +50,7 @@
   {#if hasResult}
     <button
       type="button"
-      class={`border-b-2 px-3 py-2 font-medium text-emerald-400 ${
+      class={`shrink-0 whitespace-nowrap border-b-2 px-3 py-2 font-medium text-emerald-400 ${
         activeStep === "done" ? "border-emerald-400" : "border-transparent"
       }`}
       onclick={() => (activeStep = "done")}

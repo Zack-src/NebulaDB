@@ -25,6 +25,9 @@
     onDeployed = () => {},
     onShowProblems,
     reviewsKey = 0,
+    compact = false,
+    onShowInGraph,
+    onShowInCode,
   }: {
     projectId: string;
     /** The workspace's current connection; `null` when the project has none. */
@@ -46,6 +49,12 @@
     onShowProblems?: () => void;
     /** Changes when the server says a review request was made, decided or closed. */
     reviewsKey?: number;
+    /** Beside the diagram (a drawer) rather than a page of its own: narrower margins, and the drawer does the scrolling. */
+    compact?: boolean;
+    /** Centres the diagram on a table (and a column): offered on every conflict that names one. */
+    onShowInGraph?: (tableName: string, fieldName?: string) => void;
+    /** Scrolls the DBML code to a table. */
+    onShowInCode?: (tableName: string) => void;
   } = $props();
 
   const { t } = useTranslation();
@@ -53,8 +62,8 @@
   let requested = $state(0);
 </script>
 
-<div class="min-h-0 flex-1 overflow-y-auto bg-bg">
-  <div class="mx-auto flex max-w-3xl flex-col gap-4 px-6 py-6">
+<div class={compact ? "min-h-full bg-bg" : "min-h-0 flex-1 overflow-y-auto bg-bg"}>
+  <div class={compact ? "flex flex-col gap-3 px-3 py-3" : "mx-auto flex max-w-3xl flex-col gap-4 px-6 py-6"}>
     {#if !connection}
       <EmptyState>
         <p class="m-0 mb-3">{t("workspace.deployments.noConnection")}</p>
@@ -90,6 +99,8 @@
         {canSkipStage}
         {onDeployed}
         {onShowProblems}
+        {onShowInGraph}
+        {onShowInCode}
         onReviewRequested={() => (requested += 1)}
       />
       <DeploymentReviewsCard
