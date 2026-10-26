@@ -904,6 +904,7 @@
   "deployment.refreshDiff": "Refresh",
   "deployment.analyzing": "Analyzing…",
   "deployment.analyzingDiff": "Comparing canvas schema against live database…",
+  "deployment.analyzingRisks": "Checking the live data for risks before showing any result.",
   "deployment.stepDiff": "1. Changes",
   "deployment.stepRisks": "2. Conflict Resolution",
   "deployment.stepSql": "3. SQL Preview",

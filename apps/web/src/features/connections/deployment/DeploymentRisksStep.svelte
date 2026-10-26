@@ -7,6 +7,7 @@
   import RadioGroup from "@/components/ui/RadioGroup.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import type { TranslationKeyOf } from "@/types";
+  import AnalyzingNotice from "./AnalyzingNotice.svelte";
   import { riskKey } from "./deploymentModel";
 
   /**
@@ -19,10 +20,13 @@
     risks,
     resolutions,
     onStrategyChange,
+    analyzing = false,
   }: {
     risks: SchemaRisk[];
     resolutions: MigrationResolutionMap;
     onStrategyChange: (risk: SchemaRisk, strategy: ConflictResolutionStrategy, value?: string) => void;
+    /** The plan is still being analysed: `risks` is not an answer yet, so no verdict is shown. */
+    analyzing?: boolean;
   } = $props();
 
   const { t } = useTranslation();
@@ -31,7 +35,9 @@
 
 <!-- Step 2: Risk and Conflict Resolution -->
 <div class="space-y-4">
-  {#if risks.length === 0}
+  {#if analyzing}
+    <AnalyzingNotice title={t("deployment.analyzing")} detail={t("deployment.analyzingRisks")} />
+  {:else if risks.length === 0}
     <div class="rounded-sm border border-emerald-500/20 bg-emerald-500/10 p-4 text-center text-xs text-emerald-400">
       <Icon icon={CheckCircleIcon} size={20} class="mx-auto mb-1.5" />
       <p class="font-semibold">{t("deployment.noRisksDetected")}</p>
