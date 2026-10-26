@@ -168,6 +168,15 @@
                 {/if}
               </div>
 
+              {#if risk.measuredBy && !risk.unmeasured}
+                <details class="text-caption text-text-muted">
+                  <summary class="cursor-pointer select-none">{t("deployment.measuredBy")}</summary>
+                  <code class="mt-1 block select-all break-all rounded-sm bg-surface-raised p-2 font-mono text-text">
+                    {risk.measuredBy}
+                  </code>
+                </details>
+              {/if}
+
               {#if (onShowInGraph || onShowInCode) && risk.tableName && tableExists(risk.tableName)}
                 <div class="flex flex-wrap gap-1.5">
                   {#if onShowInGraph}
