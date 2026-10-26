@@ -3,7 +3,8 @@
 A command-line client for a NebulaDB instance's [public API](../../docs/public-api.md) (`/api/v1`): lint the
 schema, check the databases for drift, plan and run deployments, export and import projects — from a terminal,
 a script or a CI job, without writing HTTP calls by hand. It only speaks HTTP, so it works with any NebulaDB
-instance whatever it stores its data in. Node 22 or later, no runtime dependency.
+instance whatever it stores its data in. Two commands, `lint <file.dbml>` and `diff`, work offline on DBML files
+and need no instance at all. Node 22 or later.
 
 ```bash
 npx @nebuladb/cli --help
@@ -11,6 +12,8 @@ npx @nebuladb/cli --help
 ```
 
 ## Configuration
+
+(Not needed by the [offline commands](#offline-lint-and-diff-of-dbml-files).)
 
 | What     | How                                                             |
 | -------- | --------------------------------------------------------------- |
@@ -48,6 +51,32 @@ The command comes first, then its arguments and options (`nebuladb deploy run <p
 Every command takes `--json` (the result as JSON on stdout instead of text) and `--json-file <path>` (a copy of
 the JSON result in a file, while the text output stays). With `--json`, a failure is printed on stdout too, in
 the server's own `{ "error", "code", … }` shape.
+
+### Offline lint and diff of DBML files
+
+These run entirely in the process, with the same DBML engine and default lint rules as the app. No instance
+address and no API key are read and nothing touches the network, so they fit a pull request check.
+
+```bash
+nebuladb lint db/schema.dbml                      # file:line:column  severity  table.field: message [rule]
+nebuladb lint db/schema.dbml --fail-on warning --format json
+nebuladb diff old.dbml new.dbml                   # + added / - removed / ~ changed: tables, fields, refs
+nebuladb diff old.dbml new.dbml --format markdown --exit-code
+```
+
+`lint <file>` is selected over `lint <projectId>` when the argument ends in `.dbml` or contains a path separator
+(write `./schema` for a file without extension). Its `--format` is `text` (default), `json` or `markdown`, and
+`--fail-on error|warning` works as for a project. `diff` matches tables and fields by name (a renamed table or
+field shows as removed and added) and takes `--format text|json|markdown`.
+
+| Exit | Meaning                                                                                                   |
+| ---- | --------------------------------------------------------------------------------------------------------- |
+| 0    | Done: `lint` found nothing at or above `--fail-on`; `diff` always, unless `--exit-code` and files differ  |
+| 1    | Findings at or above `--fail-on`, `diff --exit-code` found a difference, or a DBML syntax error (`file:line:col: message`) |
+| 2    | Usage error, including a file that cannot be read                                                         |
+
+The line and column of a finding are those of the table or field declaration in the file. The DBML engine is
+loaded on demand, so the other commands start as fast as before.
 
 ### Lint and drift: gates for a pipeline
 

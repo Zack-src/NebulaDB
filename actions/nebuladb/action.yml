@@ -1,20 +1,47 @@
 name: NebulaDB
-description: Lint a schema, check databases for drift, plan or run a deployment on a NebulaDB instance.
+description: Lint or diff DBML files offline (with a pull-request comment), lint a schema, check databases for drift, plan or run a deployment on a NebulaDB instance.
 author: NebulaDB
 
 inputs:
   command:
-    description: "What to run: lint, drift-check, deploy-plan or deploy."
+    description: "What to run: lint, lint-file (offline), diff (offline), drift-check, deploy-plan or deploy."
     required: true
   url:
-    description: The instance's address, for example https://nebula.example.com.
-    required: true
+    description: The instance's address, for example https://nebula.example.com. Not needed for lint-file and diff.
+    required: false
   api-key:
-    description: A NebulaDB API key. Pass it from a secret; it is only handed to the CLI through the environment.
-    required: true
+    description: A NebulaDB API key. Pass it from a secret; it is only handed to the CLI through the environment. Not needed for lint-file and diff.
+    required: false
   project:
-    description: The project's id.
-    required: true
+    description: The project's id (every command but lint-file and diff).
+    required: false
+  file:
+    description: "lint-file and diff: the DBML file to lint, or the new version to compare (path in the workspace)."
+    required: false
+  base-file:
+    description: "diff: the old version, a DBML file in the workspace. Or give base-ref."
+    required: false
+  base-ref:
+    description: "diff: a git ref (origin/main, a SHA) to read `file` from as the old version. The checkout needs that ref (fetch-depth: 0)."
+    required: false
+  fail-on-changes:
+    description: "diff: fail when the two files differ (true or false)."
+    required: false
+    default: "false"
+  comment:
+    description: "Post the result as ONE pull-request comment, updated in place on each run (true or false). Needs pull-requests: write."
+    required: false
+    default: "false"
+  comment-tag:
+    description: "Names the sticky comment, so a lint and a diff step keep one each. Defaults to the command."
+    required: false
+  pr-number:
+    description: "The pull request to comment on. Defaults to the one that triggered the workflow."
+    required: false
+  github-token:
+    description: "The token the comment is posted with (needs pull-requests: write)."
+    required: false
+    default: ${{ github.token }}
   connection:
     description: The connection's id (deploy-plan and deploy).
     required: false
@@ -64,12 +91,18 @@ runs:
       shell: bash
       env:
         CLI_VERSION: ${{ inputs.cli-version }}
+        INPUT_COMMAND: ${{ inputs.command }}
         ACTION_PATH: ${{ github.action_path }}
       run: |
         set -euo pipefail
         prefix="$RUNNER_TEMP/nebuladb-cli"
         mkdir -p "$prefix"
-        if [ "$CLI_VERSION" = "source" ]; then
+        if [ "$CLI_VERSION" = "source" ] && { [ "$INPUT_COMMAND" = "lint-file" ] || [ "$INPUT_COMMAND" = "diff" ]; }; then
+          # The offline commands run the DBML engine: build it, with the CLI, from this checkout.
+          root="$ACTION_PATH/../.."
+          (cd "$root" && npm ci --ignore-scripts --no-audit --no-fund --silent -w packages/cli             && npm run build -w packages/shared -w packages/dbml-engine -w packages/cli)
+          echo "$root/packages/cli/dist/bin.js" > "$prefix/bin-path"
+        elif [ "$CLI_VERSION" = "source" ]; then
           # The CLI has no runtime dependency: compiling it is all it takes.
           build="$RUNNER_TEMP/nebuladb-cli-build"
           mkdir -p "$build"
@@ -92,6 +125,14 @@ runs:
         NEBULADB_API_KEY: ${{ inputs.api-key }}
         INPUT_COMMAND: ${{ inputs.command }}
         INPUT_PROJECT: ${{ inputs.project }}
+        INPUT_FILE: ${{ inputs.file }}
+        INPUT_BASE_FILE: ${{ inputs.base-file }}
+        INPUT_BASE_REF: ${{ inputs.base-ref }}
+        INPUT_FAIL_ON_CHANGES: ${{ inputs.fail-on-changes }}
+        INPUT_COMMENT: ${{ inputs.comment }}
+        INPUT_COMMENT_TAG: ${{ inputs.comment-tag }}
+        INPUT_PR_NUMBER: ${{ inputs.pr-number }}
+        GH_TOKEN: ${{ inputs.github-token }}
         INPUT_CONNECTION: ${{ inputs.connection }}
         INPUT_CONFIRM_NAME: ${{ inputs.confirm-name }}
         INPUT_RESOLUTIONS_FILE: ${{ inputs.resolutions-file }}
