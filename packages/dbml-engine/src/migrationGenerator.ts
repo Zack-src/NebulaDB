@@ -547,6 +547,17 @@ function generateFieldAlterations(
  * one for MySQL: each DDL statement implicitly commits, so a failure on statement 3 of 5 has
  * already applied 1-2. The wrapping is kept there only for consistent output across dialects.
  */
+/** `ALTER TABLE … DROP CONSTRAINT` for a foreign key the schema no longer declares; `null` where the engine has no such statement (SQLite). */
+function dropForeignKeyStatement(ref: MigrationDiff["refs"][number], dialect: MigrationDialect): string | null {
+  const fkName = ref.name || fkFallbackName(ref.fromTable, ref.fromField, ref.toTable);
+  if (dialect === "postgres" || dialect === "mssql" || dialect === "bigquery") {
+    return `ALTER TABLE ${q(ref.fromTable, dialect)} DROP CONSTRAINT IF EXISTS ${q(fkName, dialect)};`;
+  }
+  if (dialect === "mysql") return `ALTER TABLE ${q(ref.fromTable, dialect)} DROP FOREIGN KEY ${q(fkName, dialect)};`;
+  if (dialect === "oracle") return `ALTER TABLE ${q(ref.fromTable, dialect)} DROP CONSTRAINT ${q(fkName, dialect)};`;
+  return null;
+}
+
 export function generateMigrationSql(
   diff: MigrationDiff,
   dialect: MigrationDialect,
@@ -567,6 +578,15 @@ export function generateMigrationSql(
     statements.push("BEGIN TRANSACTION;");
   }
   // Oracle DDL autocommits and has no explicit transaction-start statement. BigQuery runs no DDL inside a transaction.
+
+  // 0. Dropped Refs (Foreign Keys) of tables that stay, before anything they hold on to goes: a column that is
+  // part of a foreign key cannot be dropped first (BigQuery, MySQL, SQL Server refuse), nor a table it points at.
+  const droppedTables = new Set(diff.tables.filter((t) => t.status === "dropped").map((t) => t.name.toLowerCase()));
+  const droppedFirst = diff.refs.filter((r) => r.status === "dropped" && !droppedTables.has(r.fromTable.toLowerCase()));
+  for (const ref of droppedFirst) {
+    const statement = dropForeignKeyStatement(ref, dialect);
+    if (statement) statements.push(statement);
+  }
 
   // 1. Dropped Tables
   for (const table of diff.tables.filter((t) => t.status === "dropped")) {
@@ -613,16 +633,10 @@ export function generateMigrationSql(
     }
   }
 
-  // 4. Dropped Refs (Foreign Keys) — see `fkFallbackName` for why the fallback isn't just `fk_<fromTable>_<fromField>`.
-  for (const ref of diff.refs.filter((r) => r.status === "dropped")) {
-    const fkName = ref.name || fkFallbackName(ref.fromTable, ref.fromField, ref.toTable);
-    if (dialect === "postgres" || dialect === "mssql" || dialect === "bigquery") {
-      statements.push(`ALTER TABLE ${q(ref.fromTable, dialect)} DROP CONSTRAINT IF EXISTS ${q(fkName, dialect)};`);
-    } else if (dialect === "mysql") {
-      statements.push(`ALTER TABLE ${q(ref.fromTable, dialect)} DROP FOREIGN KEY ${q(fkName, dialect)};`);
-    } else if (dialect === "oracle") {
-      statements.push(`ALTER TABLE ${q(ref.fromTable, dialect)} DROP CONSTRAINT ${q(fkName, dialect)};`);
-    }
+  // 4. Dropped Refs (Foreign Keys) of the tables dropped above — see `fkFallbackName` for why the fallback isn't just `fk_<fromTable>_<fromField>`.
+  for (const ref of diff.refs.filter((r) => r.status === "dropped" && droppedTables.has(r.fromTable.toLowerCase()))) {
+    const statement = dropForeignKeyStatement(ref, dialect);
+    if (statement) statements.push(statement);
   }
 
   // 5. Added Refs (Foreign Keys)
