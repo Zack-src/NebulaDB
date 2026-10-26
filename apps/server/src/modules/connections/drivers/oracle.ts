@@ -6,6 +6,7 @@ import {
   DatabaseDriver,
   DriverConnectionConfig,
   MigrationExecutionResult,
+  RestoreSession,
   RowValue,
   TestConnectionResult,
 } from "./interface.js";
@@ -281,6 +282,56 @@ export class OracleDriver implements DatabaseDriver {
     } finally {
       await conn.close().catch(() => {});
     }
+  }
+
+  /**
+   * A restore in one transaction: Oracle's `DELETE`s and inserts are DML,
+   * rolled back together. Identity counters are left as they are — moving
+   * one (`ALTER TABLE … MODIFY … START WITH LIMIT VALUE`) is DDL, which would
+   * commit the restore half-way — and a `GENERATED ALWAYS` identity refuses
+   * explicit ids outright (ORA-32795): such a restore fails and is rolled back.
+   */
+  async openRestoreSession(): Promise<RestoreSession> {
+    const conn = await this.getConnection();
+    let finished = false;
+    return {
+      atomic: true,
+      identities: "unchanged",
+      async describeTable(table) {
+        const res = await conn.execute<{ NAME: string; VIRTUAL: string; IDENTITY: string }>(
+          `SELECT column_name AS "NAME", virtual_column AS "VIRTUAL", identity_column AS "IDENTITY"
+           FROM user_tab_cols WHERE table_name = :1 AND hidden_column = 'NO'`,
+          [table],
+          { outFormat: oracledb.OUT_FORMAT_OBJECT },
+        );
+        const rows = res.rows ?? [];
+        return {
+          generated: rows.filter((row) => row.VIRTUAL === "YES").map((row) => row.NAME),
+          identity: rows.filter((row) => row.IDENTITY === "YES").map((row) => row.NAME),
+        };
+      },
+      async emptyTable(table) {
+        return (await conn.execute(`DELETE FROM ${q(table, "oracle")}`, [], { autoCommit: false })).rowsAffected ?? 0;
+      },
+      async insertRows(table, columns, rows) {
+        if (rows.length === 0) return 0;
+        const statement = `INSERT INTO ${q(table, "oracle")} (${columns.map((c) => q(c, "oracle")).join(", ")}) VALUES (${columns.map((_, i) => `:${i + 1}`).join(", ")})`;
+        await conn.executeMany(statement, rows, { autoCommit: false });
+        return rows.length;
+      },
+      async resyncIdentity() {},
+      async commit() {
+        await conn.commit();
+        finished = true;
+      },
+      async rollback() {
+        if (!finished) await conn.rollback().catch(() => {});
+        finished = true;
+      },
+      async release() {
+        await conn.close().catch(() => {});
+      },
+    };
   }
 
   async close(): Promise<void> {

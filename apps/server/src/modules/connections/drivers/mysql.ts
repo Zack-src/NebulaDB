@@ -1,13 +1,14 @@
 import net from "node:net";
 import mysql from "mysql2/promise";
 import { q } from "@nebuladb/dbml-engine";
-import type { RowDataPacket } from "mysql2/promise";
+import type { ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import type { Project, Ref, Table, TableIndex } from "@nebuladb/shared";
 import {
   oneBatch,
   DatabaseDriver,
   DriverConnectionConfig,
   MigrationExecutionResult,
+  RestoreSession,
   RowValue,
   TestConnectionResult,
 } from "./interface.js";
@@ -278,6 +279,84 @@ export class MysqlDriver implements DatabaseDriver {
       }
     }
     return { success: true, executedStatements: executed };
+  }
+
+  /**
+   * A restore on one connection: one transaction when every table is InnoDB
+   * (its `DELETE`s and inserts roll back), autocommitted statement by
+   * statement otherwise — a MyISAM table keeps what was done to it whatever
+   * happens next, and a half-rolled-back restore would report counts that are
+   * true for some tables only.
+   *
+   * `NO_AUTO_VALUE_ON_ZERO` for the session, so a restored `0` id stays `0`
+   * instead of drawing a new value; the previous mode is put back on release.
+   * The `AUTO_INCREMENT` counter needs nothing: inserting an explicit value
+   * raises it past that value, and moving it down would take an `ALTER
+   * TABLE`, which commits.
+   */
+  async openRestoreSession(tables: string[]): Promise<RestoreSession> {
+    const conn = await this.pool.getConnection();
+    let sqlMode: string | null = null;
+    let broken = false;
+    try {
+      const [engines] = await conn.query<RowDataPacket[]>(
+        `SELECT TABLE_NAME, ENGINE FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME IN (?)`,
+        [tables.length > 0 ? tables : [""]],
+      );
+      const atomic =
+        engines.length >= new Set(tables).size &&
+        engines.every((row) => String(row.ENGINE ?? "").toLowerCase() === "innodb");
+      const [[mode]] = await conn.query<RowDataPacket[]>("SELECT @@SESSION.sql_mode AS mode");
+      sqlMode = String(mode?.mode ?? "");
+      await conn.query("SET SESSION sql_mode = ?", [
+        [sqlMode, "NO_AUTO_VALUE_ON_ZERO"].filter((part) => part.length > 0).join(","),
+      ]);
+      if (atomic) await conn.beginTransaction();
+      return {
+        atomic,
+        identities: "automatic",
+        async describeTable(table) {
+          const [columns] = await conn.query<RowDataPacket[]>(
+            `SELECT COLUMN_NAME, EXTRA FROM information_schema.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = ?`,
+            [table],
+          );
+          const extra = (row: RowDataPacket) => String(row.EXTRA ?? "");
+          return {
+            // `VIRTUAL GENERATED` / `STORED GENERATED` (MariaDB: `PERSISTENT`) — not MySQL 8's `DEFAULT_GENERATED`, a plain default.
+            generated: columns
+              .filter((row) => /\b(VIRTUAL|STORED|PERSISTENT)\b/i.test(extra(row)))
+              .map((row) => String(row.COLUMN_NAME)),
+            identity: columns
+              .filter((row) => /auto_increment/i.test(extra(row)))
+              .map((row) => String(row.COLUMN_NAME)),
+          };
+        },
+        async emptyTable(table) {
+          const [result] = await conn.query<ResultSetHeader>(`DELETE FROM ${q(table, "mysql")}`);
+          return result.affectedRows;
+        },
+        async insertRows(table, columns, rows) {
+          const head = `INSERT INTO ${q(table, "mysql")} (${columns.map((c) => q(c, "mysql")).join(", ")}) VALUES ?`;
+          for (let i = 0; i < rows.length; i += 500) await conn.query(head, [rows.slice(i, i + 500)]);
+          return rows.length;
+        },
+        async resyncIdentity() {},
+        async commit() {
+          if (atomic) await conn.commit();
+        },
+        async rollback() {
+          if (atomic) await conn.rollback().catch(() => (broken = true));
+        },
+        async release() {
+          if (!broken) await conn.query("SET SESSION sql_mode = ?", [sqlMode]).catch(() => (broken = true));
+          if (broken) conn.destroy();
+          else conn.release();
+        },
+      };
+    } catch (err) {
+      conn.destroy();
+      throw err;
+    }
   }
 
   async close(): Promise<void> {

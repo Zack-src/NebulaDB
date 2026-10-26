@@ -11,7 +11,7 @@ import {
 } from "@nebuladb/shared";
 import { ApiError } from "../../shared/errors.js";
 import { createDatabaseDriver } from "../connections/drivers/index.js";
-import type { DatabaseDriver } from "../connections/drivers/interface.js";
+import type { DatabaseDriver, RestoreSession } from "../connections/drivers/interface.js";
 import { fromBackupCell } from "./format.js";
 import { getBackupKey } from "./repository.js";
 import { backupOrRefuse } from "./runner.js";
@@ -95,12 +95,75 @@ function planRestore(backup: BackupSummary, live: Project, chosen: string[] | un
   return planned;
 }
 
+/** What goes into a table's `INSERT`: the backup's columns minus the ones the target computes itself. */
+interface InsertShape {
+  columns: string[];
+  /** Positions in a backup row of `columns`' values. */
+  keep: number[];
+  identity: string[];
+}
+
+/**
+ * For a driver without a session of its own (BigQuery): each statement
+ * stands on its own, through the driver's usual methods — the restore as it
+ * always was, and said to be so (`atomic: false`).
+ */
+function statementSession(driver: DatabaseDriver, dialect: MigrationDialect): RestoreSession {
+  return {
+    atomic: false,
+    identities: "unchanged",
+    async describeTable() {
+      return { generated: [], identity: [] };
+    },
+    async emptyTable(table) {
+      const target = q(table, dialect);
+      const count = (await driver.queryScalar(`SELECT COUNT(*) FROM ${target}`)) ?? 0;
+      // BigQuery refuses a `DELETE` without a `WHERE`.
+      const outcome = await driver.executeMigration(`DELETE FROM ${target} WHERE TRUE;`);
+      if (!outcome.success) throw new Error(outcome.error ?? "delete failed");
+      return count;
+    },
+    insertRows: (table, columns, rows) => driver.insertRows(table, columns, rows),
+    async resyncIdentity() {},
+    async commit() {},
+    async rollback() {},
+    async release() {},
+  };
+}
+
+function messageOf(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
+
+/** Reads each table's columns in the target: generated ones are left out of the inserts (and reported), identity ones noted. */
+async function shapeTables(
+  session: RestoreSession,
+  planned: PlannedTable[],
+  results: Map<string, RestoreTableResult>,
+): Promise<Map<string, InsertShape> | null> {
+  const shapes = new Map<string, InsertShape>();
+  for (const table of planned) {
+    const result = results.get(table.name)!;
+    try {
+      const { generated, identity } = await session.describeTable(table.live.name);
+      const computed = new Set(generated.map((column) => column.toLowerCase()));
+      const keep = table.columns.flatMap((column, i) => (computed.has(column.toLowerCase()) ? [] : [i]));
+      const skipped = table.columns.filter((column) => computed.has(column.toLowerCase()));
+      if (skipped.length > 0) result.skippedColumns = skipped;
+      shapes.set(table.name, { columns: keep.map((i) => table.columns[i]), keep, identity });
+    } catch (err) {
+      result.error = messageOf(err);
+      return null;
+    }
+  }
+  return shapes;
+}
+
 /** Empties the planned tables, children first. Stops at the first table that refuses. */
 async function emptyTables(
-  driver: DatabaseDriver,
+  session: RestoreSession,
   planned: PlannedTable[],
   live: Project,
-  dialect: MigrationDialect,
   results: Map<string, RestoreTableResult>,
 ): Promise<boolean> {
   const byId = new Map(planned.map((table) => [table.live.id, table]));
@@ -108,35 +171,38 @@ async function emptyTables(
   for (const id of parentsFirst.reverse()) {
     const table = byId.get(id)!;
     const result = results.get(table.name)!;
-    const target = q(table.live.name, dialect);
     try {
-      result.deleted = (await driver.queryScalar(`SELECT COUNT(*) FROM ${target}`)) ?? 0;
-      const outcome = await driver.executeMigration(`DELETE FROM ${target};`);
-      if (!outcome.success) throw new Error(outcome.error ?? "delete failed");
+      result.deleted = await session.emptyTable(table.live.name);
     } catch (err) {
-      result.error = err instanceof Error ? err.message : String(err);
+      result.error = messageOf(err);
       return false;
     }
   }
   return true;
 }
 
-/** Streams the backup back in, in the order it was written (parents first), a batch at a time. */
+/**
+ * Streams the backup back in, in the order it was written (parents first), a
+ * batch at a time. Returns whether every table went in; throws when the file
+ * itself fails between tables (unreadable, altered): nothing to attribute it to.
+ */
 async function insertTables(
-  driver: DatabaseDriver,
+  session: RestoreSession,
   backupId: string,
   keyEncrypted: string,
   planned: PlannedTable[],
+  shapes: Map<string, InsertShape>,
   results: Map<string, RestoreTableResult>,
-): Promise<void> {
+): Promise<boolean> {
   const byName = new Map(planned.map((table) => [table.name, table]));
   let current: PlannedTable | null = null;
   let batch: BackupCell[][] = [];
   const flush = async () => {
     if (!current || batch.length === 0) return;
-    const rows = batch.map((row) => row.map(fromBackupCell));
+    const shape = shapes.get(current.name)!;
+    const rows = batch.map((row) => shape.keep.map((i) => fromBackupCell(row[i])));
     batch = [];
-    results.get(current.name)!.inserted += await driver.insertRows(current.live.name, current.columns, rows);
+    results.get(current.name)!.inserted += await session.insertRows(current.live.name, shape.columns, rows);
   };
   try {
     for await (const line of readBackupLines(backupId, keyEncrypted)) {
@@ -153,12 +219,52 @@ async function insertTables(
         current = null;
       }
     }
+    return true;
   } catch (err) {
-    const message = err instanceof Error ? err.message : String(err);
-    // Between tables, the failure is the file's own (unreadable, altered): nothing to attribute it to.
     if (!current) throw err;
-    results.get(current.name)!.error = message;
+    results.get(current.name)!.error = messageOf(err);
+    return false;
   }
+}
+
+/** Moves each table's identity counters past the rows it now holds; says, per table, how they ended up. */
+async function resyncIdentities(
+  session: RestoreSession,
+  planned: PlannedTable[],
+  shapes: Map<string, InsertShape>,
+  results: Map<string, RestoreTableResult>,
+): Promise<boolean> {
+  for (const table of planned) {
+    const { identity } = shapes.get(table.name)!;
+    if (identity.length === 0) continue;
+    const result = results.get(table.name)!;
+    try {
+      await session.resyncIdentity(table.live.name, identity);
+      result.identity = session.identities;
+    } catch (err) {
+      result.error = `the identity counter could not be moved past the restored rows: ${messageOf(err)}`;
+      return false;
+    }
+  }
+  return true;
+}
+
+/** Everything the restore does to the target, in order; stops at the first failure. Returns whether it all went through. */
+async function restoreInto(
+  session: RestoreSession,
+  backupId: string,
+  keyEncrypted: string,
+  planned: PlannedTable[],
+  live: Project,
+  results: Map<string, RestoreTableResult>,
+): Promise<boolean> {
+  const shapes = await shapeTables(session, planned, results);
+  return (
+    shapes !== null &&
+    (await emptyTables(session, planned, live, results)) &&
+    (await insertTables(session, backupId, keyEncrypted, planned, shapes, results)) &&
+    (await resyncIdentities(session, planned, shapes, results))
+  );
 }
 
 /**
@@ -166,9 +272,19 @@ async function insertTables(
  * and refilled. Data only — the tables must already exist (structure goes
  * through a deployment). Everything that can be checked is checked before the
  * first row is removed, and the target's current rows are backed up first
- * unless the caller explicitly declined. It is not one transaction across
- * tables: a failure half-way is reported per table, and the safety backup is
- * what brings the previous state back.
+ * unless the caller explicitly declined.
+ *
+ * Where the driver can (`RestoreSession.atomic`: PostgreSQL, SQLite, SQL
+ * Server, Oracle, MySQL when every table is InnoDB), the whole restore is one
+ * transaction: a failure anywhere rolls it all back and the target is left as
+ * it was (`rolledBack`). Elsewhere a failure half-way is reported per table,
+ * and the safety backup is what brings the previous state back.
+ *
+ * Rows keep their ids: identity columns take the backup's values (PostgreSQL
+ * `OVERRIDING SYSTEM VALUE`, SQL Server `IDENTITY_INSERT`, MySQL
+ * `NO_AUTO_VALUE_ON_ZERO`), columns the target computes itself are left out,
+ * and identity counters are moved past the restored rows where the engine
+ * does not do it on its own — each table's result says which.
  */
 export async function restoreBackup(
   backup: BackupSummary,
@@ -210,11 +326,47 @@ export async function restoreBackup(
     const results = new Map<string, RestoreTableResult>(
       planned.map((table) => [table.name, { name: table.name, deleted: null, inserted: 0 }]),
     );
-    if (await emptyTables(driver, planned, live, target.engine as MigrationDialect, results)) {
-      await insertTables(driver, backup.id, keyEncrypted, planned, results);
+    const session = driver.openRestoreSession
+      ? await driver.openRestoreSession(planned.map((table) => table.live.name))
+      : statementSession(driver, target.engine as MigrationDialect);
+    let succeeded: boolean;
+    try {
+      succeeded = await restoreInto(session, backup.id, keyEncrypted, planned, live, results);
+      if (succeeded) {
+        try {
+          await session.commit();
+        } catch (err) {
+          succeeded = false;
+          for (const result of results.values()) {
+            result.error ??= `the restore could not be committed: ${messageOf(err)}`;
+          }
+        }
+      }
+      if (!succeeded) await session.rollback();
+    } catch (err) {
+      await session.rollback();
+      throw err;
+    } finally {
+      await session.release();
+    }
+
+    const rolledBack = !succeeded && session.atomic;
+    if (rolledBack) {
+      // Nothing of it is left: the counts say so, the error says where it stopped.
+      for (const result of results.values()) {
+        result.deleted = null;
+        result.inserted = 0;
+        delete result.identity;
+      }
     }
     const tables = [...results.values()];
-    return { success: tables.every((table) => !table.error), tables, safetyBackupId: safety?.id ?? null };
+    return {
+      success: succeeded,
+      tables,
+      safetyBackupId: safety?.id ?? null,
+      atomic: session.atomic,
+      rolledBack,
+    };
   } finally {
     await driver.close().catch(() => {});
   }

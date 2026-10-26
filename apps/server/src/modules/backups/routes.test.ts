@@ -6,7 +6,8 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
 import Database from "better-sqlite3";
-import { useTestDatabase } from "../../infrastructure/testDatabase.js";
+import pg from "pg";
+import { createThrowawayDatabase, useTestDatabase } from "../../infrastructure/testDatabase.js";
 
 await useTestDatabase("backups");
 process.env.NEBULADB_COOKIE_SECURE = "false";
@@ -298,9 +299,10 @@ test("a backup is taken, stored encrypted, downloaded, and restored over changed
       };
     };
     assert.equal(result.success, true);
+    // `INTEGER PRIMARY KEY`: the rowid takes the restored ids, SQLite needs no counter moved.
     assert.deepEqual(
       result.tables.find((t) => t.name === "customers"),
-      { name: "customers", deleted: 2, inserted: 2 },
+      { name: "customers", deleted: 2, inserted: 2, identity: "automatic" },
     );
     assert.deepEqual(dump(file), original);
 
@@ -415,6 +417,8 @@ test("a restore refuses a read-only target, a target missing a column, and a fil
       success: true,
       tables: [{ name: "notes", deleted: 0, inserted: 1 }],
       safetyBackupId: null,
+      atomic: true,
+      rolledBack: false,
     });
 
     const path = await backupFilePath(backup.id);
@@ -429,6 +433,168 @@ test("a restore refuses a read-only target, a target missing a column, and a fil
   } finally {
     await closeAllRooms();
     await app.close();
+  }
+});
+
+test("a restore that fails half-way is rolled back: the target keeps what it had", async () => {
+  const app = await buildApp();
+  try {
+    const admin = await login(app, 1);
+    const connId = await connect(app, admin, "Rollback source", targetFile(SHOP));
+    const backup = await backUp(app, admin, connId);
+    assert.equal(backup.status, "done", backup.error ?? "");
+
+    // Same tables, other rows — and an order total the backup's 99.99 breaks, once customers are already refilled.
+    const strict = targetFile(
+      SHOP.replace("total REAL", "total REAL CHECK (total < 50)")
+        .replace(/INSERT INTO[^;]+;/g, "")
+        .concat(
+          "INSERT INTO customers (id, name) VALUES (7, 'kept');",
+          "INSERT INTO orders (id, customer_id, total) VALUES (70, 7, 1);",
+          "INSERT INTO notes (body) VALUES ('kept too');",
+        ),
+    );
+    const before = dump(strict);
+    const strictId = await connect(app, admin, "Strict", strict);
+    const restored = await call(app, admin, "POST", `/api/admin/backups/${backup.id}/restore`, {
+      connectionId: strictId,
+      confirmName: "Strict",
+      skipSafetyBackup: true,
+    });
+    assert.equal(restored.statusCode, 200, restored.body);
+    const { result } = restored.json() as {
+      result: {
+        success: boolean;
+        atomic: boolean;
+        rolledBack: boolean;
+        tables: { name: string; deleted: number | null; inserted: number; error?: string }[];
+      };
+    };
+    assert.equal(result.success, false);
+    assert.equal(result.atomic, true);
+    assert.equal(result.rolledBack, true);
+    const orders = result.tables.find((t) => t.name === "orders")!;
+    assert.match(orders.error ?? "", /CHECK constraint/i);
+    // Nothing of it is left, and the result does not pretend otherwise.
+    for (const table of result.tables) {
+      assert.equal(table.deleted, null, table.name);
+      assert.equal(table.inserted, 0, table.name);
+    }
+    assert.deepEqual(dump(strict), before);
+  } finally {
+    await closeAllRooms();
+    await app.close();
+  }
+});
+
+test("PostgreSQL: a restore keeps identity ids, skips generated columns, moves sequences — or rolls back", async () => {
+  const target = await createThrowawayDatabase("backups_restore_target");
+  const client = new pg.Client(target.url);
+  await client.connect();
+  const app = await buildApp();
+  try {
+    await client.query(`
+      CREATE TABLE authors (
+        id INT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        name TEXT NOT NULL,
+        shout TEXT GENERATED ALWAYS AS (upper(name)) STORED
+      );
+      CREATE TABLE books (id SERIAL PRIMARY KEY, author_id INT NOT NULL REFERENCES authors(id), title TEXT NOT NULL);
+      INSERT INTO authors (name) VALUES ('ada'), ('grace');
+      INSERT INTO books (author_id, title) VALUES (1, 'notes'), (2, 'cobol'), (1, 'engine');
+    `);
+    const snapshot = async () => ({
+      authors: (await client.query("SELECT id, name, shout FROM authors ORDER BY id")).rows,
+      books: (await client.query("SELECT id, author_id, title FROM books ORDER BY id")).rows,
+    });
+    const original = await snapshot();
+
+    const admin = await login(app, 1);
+    const { hostname, port, username, password, pathname } = new URL(target.url);
+    const res = await call(app, admin, "POST", "/api/admin/connections", {
+      name: "Library",
+      engine: "postgres",
+      host: hostname,
+      port: Number(port),
+      database: pathname.slice(1),
+      user: decodeURIComponent(username),
+      password: decodeURIComponent(password),
+    });
+    assert.equal(res.statusCode, 200, res.body);
+    const connId = res.json().connection.id as string;
+    const backup = await backUp(app, admin, connId);
+    assert.equal(backup.status, "done", backup.error ?? "");
+    assert.deepEqual(backup.tables.find((t) => t.name === "authors")?.columns, ["id", "name", "shout"]);
+
+    // Ids move on past what the backup holds.
+    await client.query(`
+      DELETE FROM books WHERE id = 3;
+      INSERT INTO authors (name) VALUES ('linus'), ('barbara');
+      INSERT INTO books (author_id, title) VALUES (3, 'kernel'), (4, 'clu');
+    `);
+
+    const restore = (body: Record<string, unknown> = {}) =>
+      call(app, admin, "POST", `/api/admin/backups/${backup.id}/restore`, {
+        confirmName: "Library",
+        skipSafetyBackup: true,
+        ...body,
+      });
+    const restored = await restore();
+    assert.equal(restored.statusCode, 200, restored.body);
+    const { result } = restored.json() as {
+      result: {
+        success: boolean;
+        atomic: boolean;
+        rolledBack: boolean;
+        tables: {
+          name: string;
+          deleted: number | null;
+          inserted: number;
+          error?: string;
+          skippedColumns?: string[];
+          identity?: string;
+        }[];
+      };
+    };
+    assert.equal(result.success, true, JSON.stringify(result));
+    assert.equal(result.atomic, true);
+    assert.equal(result.rolledBack, false);
+    assert.deepEqual(result.tables.find((t) => t.name === "authors"), {
+      name: "authors",
+      deleted: 4,
+      inserted: 2,
+      // Computed again by PostgreSQL from `name`, never written.
+      skippedColumns: ["shout"],
+      identity: "resynced",
+    });
+    assert.deepEqual(result.tables.find((t) => t.name === "books"), {
+      name: "books",
+      deleted: 4,
+      inserted: 3,
+      identity: "resynced",
+    });
+    assert.deepEqual(await snapshot(), original);
+    // The next ids follow the restored rows, not the ones the sequences had reached before.
+    assert.equal((await client.query("INSERT INTO authors (name) VALUES ('new') RETURNING id")).rows[0].id, 3);
+    assert.equal(
+      (await client.query("INSERT INTO books (author_id, title) VALUES (1, 'new') RETURNING id")).rows[0].id,
+      4,
+    );
+
+    // A constraint the backup's rows break, reached after both tables were emptied and `authors` refilled.
+    await client.query("ALTER TABLE books ADD CONSTRAINT short_title CHECK (length(title) < 6) NOT VALID");
+    const current = await snapshot();
+    const failed = (await restore()).json().result as typeof result;
+    assert.equal(failed.success, false);
+    assert.equal(failed.rolledBack, true);
+    assert.match(failed.tables.find((t) => t.name === "books")?.error ?? "", /short_title/);
+    assert.ok(failed.tables.every((t) => t.deleted === null && t.inserted === 0 && t.identity === undefined));
+    assert.deepEqual(await snapshot(), current);
+  } finally {
+    await closeAllRooms();
+    await app.close();
+    await client.end().catch(() => {});
+    await target.drop();
   }
 });
 

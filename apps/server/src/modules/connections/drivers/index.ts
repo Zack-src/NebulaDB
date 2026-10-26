@@ -37,13 +37,20 @@ export async function createDatabaseDriver(stored: DatabaseConnectionConfig): Pr
   return withWriteBudget(await openDriver(config), key);
 }
 
-/** Every `executeMigration` (deploy, rollback) also spends the much smaller per-target write budget. */
+/** Every `executeMigration` (deploy, rollback) and every restore also spends the much smaller per-target write budget. */
 function withWriteBudget(driver: DatabaseDriver, key: string): DatabaseDriver {
   const execute = driver.executeMigration.bind(driver);
   driver.executeMigration = (sql: string) => {
     takeConnectionBudget(key, "write");
     return execute(sql);
   };
+  const openRestoreSession = driver.openRestoreSession?.bind(driver);
+  if (openRestoreSession) {
+    driver.openRestoreSession = (tables: string[]) => {
+      takeConnectionBudget(key, "write");
+      return openRestoreSession(tables);
+    };
+  }
   return driver;
 }
 

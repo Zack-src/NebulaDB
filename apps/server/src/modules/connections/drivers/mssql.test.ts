@@ -104,3 +104,57 @@ test("MssqlDriver.insertRows keeps the ids a seed gives to identity columns", as
     await driver.close();
   }
 });
+
+test("MssqlDriver restore session: one transaction, identity ids kept, computed columns reported", async (t) => {
+  const driver = new MssqlDriver(config);
+  const connTest = await driver.testConnection();
+  if (!connTest.ok) {
+    await driver.close().catch(() => {});
+    t.skip(`no SQL Server test container reachable at ${config.host}:${config.port}: ${connTest.error}`);
+    return;
+  }
+  const RESTORE_DROP = "DROP TABLE IF EXISTS nebuladb_restore_items;";
+  try {
+    await driver.executeMigration(RESTORE_DROP);
+    await driver.executeMigration(`
+      CREATE TABLE nebuladb_restore_items (
+        id INT IDENTITY(1,1) PRIMARY KEY, name NVARCHAR(50) NOT NULL, shout AS UPPER(name), version ROWVERSION
+      );
+      INSERT INTO nebuladb_restore_items (name) VALUES ('a'), ('b'), ('c');
+    `);
+    const rows = async () =>
+      (await driver.queryRows("SELECT id, name, shout FROM nebuladb_restore_items ORDER BY id")).map((row) =>
+        row.map(String),
+      );
+    const before = await rows();
+
+    // Rolled back: the delete and the insert both disappear.
+    let session = await driver.openRestoreSession();
+    assert.equal(session.atomic, true);
+    const columns = await session.describeTable("nebuladb_restore_items");
+    assert.deepEqual(columns.identity, ["id"]);
+    assert.deepEqual([...columns.generated].sort(), ["shout", "version"]);
+    assert.equal(await session.emptyTable("nebuladb_restore_items"), 3);
+    await session.insertRows("nebuladb_restore_items", ["id", "name"], [["40", "x"]]);
+    await session.rollback();
+    await session.release();
+    assert.deepEqual(await rows(), before);
+
+    // Committed: the explicit ids stay, and the identity carries on after them.
+    session = await driver.openRestoreSession();
+    await session.describeTable("nebuladb_restore_items");
+    await session.emptyTable("nebuladb_restore_items");
+    await session.insertRows("nebuladb_restore_items", ["id", "name"], [["40", "x"], ["41", "y"]]);
+    await session.commit();
+    await session.release();
+    await driver.executeMigration("INSERT INTO nebuladb_restore_items (name) VALUES ('z')");
+    assert.deepEqual(await rows(), [
+      ["40", "x", "X"],
+      ["41", "y", "Y"],
+      ["42", "z", "Z"],
+    ]);
+  } finally {
+    await driver.executeMigration(RESTORE_DROP).catch(() => {});
+    await driver.close();
+  }
+});

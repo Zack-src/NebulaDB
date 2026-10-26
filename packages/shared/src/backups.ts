@@ -129,6 +129,16 @@ export interface RestoreTableResult {
   deleted: number | null;
   inserted: number;
   error?: string;
+  /** Columns the database computes itself (generated, computed, row version): the backup's values for them were left out. */
+  skippedColumns?: string[];
+  /**
+   * For a table with an identity / auto-increment column, whether its counter
+   * now follows the restored rows: moved by the restore (`resynced`), moved by
+   * the engine itself as rows with explicit ids went in (`automatic`), or left
+   * as it was (`unchanged` — new rows may collide with restored ids until it
+   * is moved by hand).
+   */
+  identity?: "resynced" | "automatic" | "unchanged";
 }
 
 export interface RestoreResult {
@@ -136,6 +146,14 @@ export interface RestoreResult {
   tables: RestoreTableResult[];
   /** The copy of the target's current rows taken just before; `null` when it was explicitly skipped. */
   safetyBackupId: Id | null;
+  /**
+   * The restore ran as one transaction on the target: a failure undoes all
+   * of it (`rolledBack`). `false` where the engine — or one of the tables —
+   * cannot: a failure then leaves the tables as `tables` reports them.
+   */
+  atomic: boolean;
+  /** A failed atomic restore was undone: the target is as it was before, and the counts in `tables` are zero. */
+  rolledBack: boolean;
 }
 
 /**

@@ -195,3 +195,62 @@ test("MysqlDriver over TLS: encrypted when asked, the pinned address used, the c
     await checked.close().catch(() => {});
   }
 });
+
+test("MysqlDriver restore session: atomic on InnoDB only, a 0 id kept, generated columns reported", async (t) => {
+  const driver = new MysqlDriver(config);
+  const connTest = await driver.testConnection();
+  if (!connTest.ok) {
+    await driver.close().catch(() => {});
+    t.skip(`no MySQL test container reachable at ${config.host}:${config.port} (${TEST_DB_HINT}): ${connTest.error}`);
+    return;
+  }
+  const DROP = "DROP TABLE IF EXISTS nebuladb_restore_items; DROP TABLE IF EXISTS nebuladb_restore_flat;";
+  try {
+    await driver.executeMigration(DROP);
+    await driver.executeMigration(`
+      CREATE TABLE nebuladb_restore_items (
+        id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(50) NOT NULL,
+        shout VARCHAR(50) AS (UPPER(name)) STORED, made TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB;
+      CREATE TABLE nebuladb_restore_flat (id INT PRIMARY KEY) ENGINE=MyISAM;
+      INSERT INTO nebuladb_restore_items (name) VALUES ('a'), ('b');
+    `);
+    const rows = async () =>
+      (await driver.queryRows("SELECT id, name, shout FROM nebuladb_restore_items ORDER BY id")).map((row) =>
+        row.map(String),
+      );
+    const before = await rows();
+
+    let session = await driver.openRestoreSession(["nebuladb_restore_items"]);
+    assert.equal(session.atomic, true);
+    const columns = await session.describeTable("nebuladb_restore_items");
+    // `made` has a default, not a generation expression: it is written like any column.
+    assert.deepEqual(columns, { generated: ["shout"], identity: ["id"] });
+    assert.equal(await session.emptyTable("nebuladb_restore_items"), 2);
+    await session.insertRows("nebuladb_restore_items", ["id", "name"], [["40", "x"]]);
+    await session.rollback();
+    await session.release();
+    assert.deepEqual(await rows(), before);
+
+    session = await driver.openRestoreSession(["nebuladb_restore_items"]);
+    await session.emptyTable("nebuladb_restore_items");
+    await session.insertRows("nebuladb_restore_items", ["id", "name"], [["0", "zero"], ["40", "x"]]);
+    await session.commit();
+    await session.release();
+    await driver.executeMigration("INSERT INTO nebuladb_restore_items (name) VALUES ('next')");
+    assert.deepEqual(await rows(), [
+      ["0", "zero", "ZERO"],
+      ["40", "x", "X"],
+      ["41", "next", "NEXT"],
+    ]);
+
+    // A MyISAM table cannot be rolled back: the session says so instead of pretending.
+    session = await driver.openRestoreSession(["nebuladb_restore_items", "nebuladb_restore_flat"]);
+    assert.equal(session.atomic, false);
+    await session.rollback();
+    await session.release();
+  } finally {
+    await driver.executeMigration(DROP).catch(() => {});
+    await driver.close();
+  }
+});
