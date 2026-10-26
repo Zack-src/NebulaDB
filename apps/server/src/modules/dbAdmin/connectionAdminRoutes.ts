@@ -16,7 +16,7 @@ import {
   updateGlobalConnection,
   type ConnectionProjectLink,
 } from "../connections/repository.js";
-import { quoteBacktick, quoteBracket, quoteDouble } from "./drivers/common.js";
+import { quoteIdentifier } from "../../shared/sqlQuoting.js";
 import { checkConnectionHealth } from "./health.js";
 import { READ_LIMIT, WRITE_LIMIT, assertWritable, loadConnection, withDriver } from "./routeKit.js";
 import {
@@ -76,20 +76,13 @@ function parseProjectLinks(body: { projectIds?: unknown; links?: unknown }): Con
 async function createMissingDatabases(connectionId: string, names: string[]): Promise<string[]> {
   const connection = await loadConnection(connectionId);
   assertWritable(connection);
-  const quote =
-    connection.engine === "postgres"
-      ? quoteDouble
-      : connection.engine === "mysql"
-        ? quoteBacktick
-        : connection.engine === "mssql"
-          ? quoteBracket
-          : null;
-  if (!quote) throw new ApiError("DB_ADMIN_UNSUPPORTED", { message: "creating a database is not supported here" });
+  const engine = connection.engine;
+  if (engine !== "postgres" && engine !== "mysql" && engine !== "mssql") throw new ApiError("DB_ADMIN_UNSUPPORTED", { message: "creating a database is not supported here" });
   return withDriver(connection, "adminWrite", async (driver) => {
     const existing = new Set((await driver.listDatabases()).map((d) => d.name.toLowerCase()));
     const missing = names.filter((name) => !existing.has(name.toLowerCase()));
     for (const name of missing) {
-      const sql = `CREATE DATABASE ${quote(name)}`;
+      const sql = `CREATE DATABASE ${quoteIdentifier(name, engine)}`;
       await driver.execute([{ sql, display: sql }]);
     }
     return missing;

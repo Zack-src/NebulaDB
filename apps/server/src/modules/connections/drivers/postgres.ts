@@ -11,6 +11,7 @@ import {
   RowValue,
   TestConnectionResult,
 } from "./interface.js";
+import { CONNECT_TIMEOUT_MS } from "../../../shared/sqlQuoting.js";
 import { driverTlsOptions } from "./tls.js";
 
 const { Pool } = pg;
@@ -31,7 +32,7 @@ export function postgresPoolConfig(config: DriverConnectionConfig, database?: st
     return {
       connectionString: config.connectionString,
       ssl,
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis: CONNECT_TIMEOUT_MS,
       ...(database ? { database } : {}),
     };
   }
@@ -42,7 +43,7 @@ export function postgresPoolConfig(config: DriverConnectionConfig, database?: st
     user: config.user || "postgres",
     password: config.password,
     ssl,
-    connectionTimeoutMillis: 5000,
+    connectionTimeoutMillis: CONNECT_TIMEOUT_MS,
   };
 }
 
