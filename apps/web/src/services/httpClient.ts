@@ -73,7 +73,8 @@ async function send(path: string, options: RequestOptions): Promise<Response> {
 
 /** Turns any non-2xx response into an `ApiError`, preserving `code` and any extra fields. */
 async function toApiError(res: Response): Promise<ApiError> {
-  const payload = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  // `?? {}`: a body of the JSON literal `null` parses fine but cannot be destructured.
+  const payload = ((await res.json().catch(() => ({}))) ?? {}) as Record<string, unknown>;
   const { error, code, ...details } = payload;
   return new ApiError(
     res.status,
