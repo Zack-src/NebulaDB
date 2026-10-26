@@ -5,6 +5,7 @@ import { config } from "../../config.js";
 import { db } from "../../infrastructure/db.js";
 import { DESTINATION_COLUMNS, pruneUnusedDestinations } from "./destinations.js";
 import { backupStore, removeBackupFile, removeFromStore, type StoredBackup } from "./storage.js";
+import { reportBackground } from "../../shared/errorLog.js";
 
 interface BackupRow {
   id: string;
@@ -241,7 +242,7 @@ export async function deleteBackupsOfConnection(connectionId: string): Promise<n
 export async function failInterruptedBackups(): Promise<number> {
   const ids = (await db.prepare("SELECT id FROM backups WHERE status = 'running'").all()) as { id: string }[];
   for (const { id } of ids) {
-    await removeBackupFile(id).catch(() => {});
+    await removeBackupFile(id).catch(reportBackground("backups: removing an interrupted backup file"));
     await markBackupEnded(id, "failed", "interrupted by a server restart");
   }
   return ids.length;

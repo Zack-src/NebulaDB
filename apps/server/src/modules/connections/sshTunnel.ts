@@ -6,6 +6,7 @@ import { ApiError } from "../../shared/errors.js";
 import type { DriverConnectionConfig } from "./drivers/interface.js";
 import { isBlockedAddress, resolveAllowedHost } from "./hostGuard.js";
 import { pinConnectionTarget } from "./targetPinning.js";
+import { reportBackground } from "../../shared/errorLog.js";
 
 const READY_TIMEOUT_MS = 10_000;
 
@@ -127,7 +128,7 @@ export async function reachTarget(
   // First connection of a saved connection: remember the key, so a changed one is refused from now on.
   if (config.id && !config.sshTunnel.hostKeyFingerprint && tunnel.hostKeyFingerprint) {
     const { pinSshHostKey } = await import("./repository.js");
-    await pinSshHostKey(config.id, tunnel.hostKeyFingerprint).catch(() => {});
+    await pinSshHostKey(config.id, tunnel.hostKeyFingerprint).catch(reportBackground("ssh tunnel: pinning the host key"));
   }
   return {
     config: {

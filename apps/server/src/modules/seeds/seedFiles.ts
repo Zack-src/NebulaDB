@@ -19,6 +19,7 @@ import {
 import { config } from "../../config.js";
 import { ApiError } from "../../shared/errors.js";
 import type { SeedFileCheck } from "./repository.js";
+import { reportBackground } from "../../shared/errorLog.js";
 
 /**
  * Seeds kept as files. A seed too big for the database is one CSV per table under `config.seedDir`
@@ -45,7 +46,7 @@ export function seedFilePath(fileName: string): string {
 
 export async function removeSeedFile(fileName: string | null | undefined): Promise<void> {
   if (!fileName) return;
-  await fsp.rm(seedFilePath(fileName), { force: true }).catch(() => {});
+  await fsp.rm(seedFilePath(fileName), { force: true }).catch(reportBackground("seeds: removing a seed file"));
 }
 
 /** Every row of a seed, header included, in file order — from memory for a small seed, from the file as a stream for a big one. */

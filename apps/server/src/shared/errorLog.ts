@@ -125,3 +125,13 @@ export function tallyErrorForMetrics(source: ErrorSource): void {
 export function getErrorCountsSinceBoot(): Record<ErrorSource, number> {
   return { ...sessionCounts };
 }
+
+/** For a background `.catch`: the failure lands in the error log (never throws) instead of vanishing. */
+export function reportBackground(context: string): (err: unknown) => void {
+  return (err) => {
+    void recordError("server", err instanceof Error ? err.message : String(err), {
+      stack: err instanceof Error ? err.stack : null,
+      context,
+    });
+  };
+}

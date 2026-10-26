@@ -9,6 +9,7 @@ import { decryptPayload, encryptPayload } from "../../shared/crypto.js";
 import { ApiError } from "../../shared/errors.js";
 import { backupPlacement, loadRemoteDestination } from "./destinations.js";
 import { LocalStore, ObjectMissingError, openRemoteStore, storeReason, type BackupStore } from "./stores/index.js";
+import { reportBackground } from "../../shared/errorLog.js";
 
 const ALGORITHM = "aes-256-gcm";
 
@@ -159,7 +160,7 @@ export async function openBackupWriter(id: string): Promise<BackupWriter> {
         () => true,
         () => false,
       );
-      if (complete) await store.delete(name).catch(() => {});
+      if (complete) await store.delete(name).catch(reportBackground("backups: removing a backup file"));
     },
   };
 }

@@ -33,6 +33,7 @@ export class ProjectConnectionsState {
         .then(
           (answer) => (this.dbAccess = new Map(answer.connections.map((entry) => [entry.connectionId, entry.level]))),
         )
+        // Offline or the perf harness: no access level known, nothing extra is offered.
         .catch(() => {});
     });
   }
@@ -54,6 +55,7 @@ export class ProjectConnectionsState {
         this.connections = list;
         if (!list.some((connection) => connection.id === this.connectionId)) this.connectionId = list[0]?.id ?? null;
       })
+      // Offline or the perf harness: the list stays as it was.
       .catch(() => {});
 
   refreshDrift = (): Promise<void> =>
