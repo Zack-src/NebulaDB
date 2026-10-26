@@ -37,6 +37,7 @@
   import SavedQueries from "./SavedQueries.svelte";
   import SaveQueryDialog from "./SaveQueryDialog.svelte";
   import { SqlCatalogState } from "./sqlCatalog.svelte";
+  import { getSqlDraft, setSqlDraft } from "./sqlDrafts";
   import SqlEditor from "./SqlEditor.svelte";
   import StructureRedirectDialog, { describeStructuralAction } from "./StructureRedirectDialog.svelte";
 
@@ -55,6 +56,7 @@
     compact = false,
     readOnly = false,
     fixedDatabase = false,
+    draftKey,
   }: {
     connectionId: string;
     /** The connection's engine: the dialect the editor highlights and completes. */
@@ -74,13 +76,19 @@
     compact?: boolean;
     readOnly?: boolean;
     fixedDatabase?: boolean;
+    /** Keeps what is typed while the panel is away (another tab, another database): see `sqlDrafts`. */
+    draftKey?: string;
   } = $props();
 
   const { t } = useTranslation();
   const RUN_SHORTCUT = "Ctrl + Enter";
   /** A member granted `read` has no write mode at all; the server would refuse it anyway. */
   const canWrite = $derived(!readOnly && overview.access !== "read");
-  let sql = $state("");
+  // svelte-ignore state_referenced_locally
+  let sql = $state(draftKey ? getSqlDraft(draftKey) : "");
+  $effect(() => {
+    if (draftKey) setSqlDraft(draftKey, sql);
+  });
   // What the editor completes from — loaded once per database, see `SqlCatalogState`.
   const catalog = new SqlCatalogState({
     connectionId: () => connectionId,
