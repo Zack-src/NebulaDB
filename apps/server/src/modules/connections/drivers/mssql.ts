@@ -7,6 +7,7 @@ import {
   DatabaseDriver,
   DriverConnectionConfig,
   MigrationExecutionResult,
+  RestoreSession,
   RowValue,
   TestConnectionResult,
 } from "./interface.js";
@@ -220,39 +221,10 @@ export class MssqlDriver implements DatabaseDriver {
     const identityColumns = new Set(identity.recordset.map((row) => row.name.toLowerCase()));
     const keepsIdentity = columns.some((column) => identityColumns.has(column.toLowerCase()));
     const transaction = new sql.Transaction(pool);
-    // SQL Server caps a statement at 2100 parameters and a VALUES list at 1000 rows.
-    const batch = Math.max(1, Math.min(1000, Math.floor(2000 / columns.length)));
-    const insert = `INSERT INTO ${target} (${columns.map((c) => q(c, "mssql")).join(", ")}) VALUES `;
-    const head = keepsIdentity ? `SET IDENTITY_INSERT ${target} ON; ${insert}` : insert;
-    const tail = keepsIdentity ? `; SET IDENTITY_INSERT ${target} OFF` : "";
     await transaction.begin();
     try {
       let total = 0;
-      for await (const rows of batches) {
-      for (let i = 0; i < rows.length; i += batch) {
-        const chunk = rows.slice(i, i + batch);
-        const request = new sql.Request(transaction);
-        let n = 0;
-        const values = chunk
-          .map(
-            (row) =>
-              `(${row
-                .map((value) => {
-                  const name = `p${n++}`;
-                  request.input(
-                    name,
-                    value instanceof Uint8Array ? sql.VarBinary(sql.MAX) : sql.NVarChar(sql.MAX),
-                    value,
-                  );
-                  return `@${name}`;
-                })
-                .join(", ")})`,
-          )
-          .join(", ");
-        await request.query(head + values + tail);
-      }
-      total += rows.length;
-      }
+      for await (const rows of batches) total += await insertChunks(transaction, table, columns, rows, keepsIdentity);
       await transaction.commit();
       return total;
     } catch (err) {
@@ -302,7 +274,104 @@ export class MssqlDriver implements DatabaseDriver {
     return { success: true, executedStatements: executed };
   }
 
+  /**
+   * A restore in one transaction: SQL Server rolls back the `DELETE`s and the
+   * inserts together. Identity values go in under `IDENTITY_INSERT` (see
+   * `insertRowBatches`), and the identity then follows on its own: an explicit
+   * value above the current one becomes the current one, so no `DBCC
+   * CHECKIDENT` — which needs more rights than the inserts — is run.
+   */
+  async openRestoreSession(): Promise<RestoreSession> {
+    const pool = await this.ready;
+    const transaction = new sql.Transaction(pool);
+    await transaction.begin();
+    const identityOf = new Map<string, Set<string>>();
+    let finished = false;
+    return {
+      atomic: true,
+      identities: "automatic",
+      async describeTable(table) {
+        // Computed columns, `rowversion` (system type `timestamp`) and the period columns of a temporal table are all written by the server.
+        const result = await new sql.Request(transaction)
+          .input("table", sql.NVarChar(sql.MAX), q(table, "mssql"))
+          .query<{ name: string; is_identity: boolean; generated: number }>(
+            `SELECT c.name, c.is_identity,
+                    CASE WHEN c.is_computed = 1 OR TYPE_NAME(c.system_type_id) = 'timestamp'
+                           OR ISNULL(COLUMNPROPERTY(c.object_id, c.name, 'GeneratedAlwaysType'), 0) <> 0
+                         THEN 1 ELSE 0 END AS generated
+             FROM sys.columns c WHERE c.object_id = OBJECT_ID(@table)`,
+          );
+        const identity = result.recordset.filter((row) => row.is_identity).map((row) => row.name);
+        identityOf.set(table, new Set(identity.map((name) => name.toLowerCase())));
+        return {
+          generated: result.recordset.filter((row) => row.generated === 1).map((row) => row.name),
+          identity,
+        };
+      },
+      async emptyTable(table) {
+        const result = await new sql.Request(transaction).query(`DELETE FROM ${q(table, "mssql")}`);
+        return result.rowsAffected[0] ?? 0;
+      },
+      async insertRows(table, columns, rows) {
+        const identity = identityOf.get(table);
+        const keepsIdentity = columns.some((column) => identity?.has(column.toLowerCase()));
+        return insertChunks(transaction, table, columns, rows, keepsIdentity);
+      },
+      async resyncIdentity() {},
+      async commit() {
+        await transaction.commit();
+        finished = true;
+      },
+      async rollback() {
+        if (!finished) await transaction.rollback().catch(() => {});
+        finished = true;
+      },
+      async release() {},
+    };
+  }
+
   async close(): Promise<void> {
     await this.pool.close();
   }
+}
+
+/**
+ * One table's rows as multi-row `INSERT`s with bound parameters, inside
+ * `transaction`. `keepsIdentity`: the rows carry the identity column's
+ * values, which SQL Server only takes under `IDENTITY_INSERT`. The option is
+ * set inside each parameterized batch: it ends with the batch, so nothing
+ * stays on the pooled connection, even when the insert fails.
+ */
+async function insertChunks(
+  transaction: sql.Transaction,
+  table: string,
+  columns: string[],
+  rows: RowValue[][],
+  keepsIdentity: boolean,
+): Promise<number> {
+  const target = q(table, "mssql");
+  // SQL Server caps a statement at 2100 parameters and a VALUES list at 1000 rows.
+  const batch = Math.max(1, Math.min(1000, Math.floor(2000 / columns.length)));
+  const insert = `INSERT INTO ${target} (${columns.map((c) => q(c, "mssql")).join(", ")}) VALUES `;
+  const head = keepsIdentity ? `SET IDENTITY_INSERT ${target} ON; ${insert}` : insert;
+  const tail = keepsIdentity ? `; SET IDENTITY_INSERT ${target} OFF` : "";
+  for (let i = 0; i < rows.length; i += batch) {
+    const chunk = rows.slice(i, i + batch);
+    const request = new sql.Request(transaction);
+    let n = 0;
+    const values = chunk
+      .map(
+        (row) =>
+          `(${row
+            .map((value) => {
+              const name = `p${n++}`;
+              request.input(name, value instanceof Uint8Array ? sql.VarBinary(sql.MAX) : sql.NVarChar(sql.MAX), value);
+              return `@${name}`;
+            })
+            .join(", ")})`,
+      )
+      .join(", ");
+    await request.query(head + values + tail);
+  }
+  return rows.length;
 }

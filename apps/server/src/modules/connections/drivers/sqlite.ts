@@ -5,7 +5,14 @@ import Database from "better-sqlite3";
 import type { DatabaseConnectionConfig, Project, Ref, Table, TableIndex } from "@nebuladb/shared";
 import { config as appConfig } from "../../../config.js";
 import { ApiError } from "../../../shared/errors.js";
-import { oneBatch, DatabaseDriver, MigrationExecutionResult, RowValue, TestConnectionResult } from "./interface.js";
+import {
+  oneBatch,
+  DatabaseDriver,
+  MigrationExecutionResult,
+  RestoreSession,
+  RowValue,
+  TestConnectionResult,
+} from "./interface.js";
 
 /** Follows symlinks as far as the path exists, so a link inside the allowed directory can't point back out of it. */
 function realPath(target: string): string {
@@ -215,6 +222,53 @@ export class SqliteDriver implements DatabaseDriver {
         error: err instanceof Error ? err.message : String(err),
       };
     }
+  }
+
+  /**
+   * A restore in one transaction (`BEGIN IMMEDIATE`: the write lock is taken
+   * up front rather than on the first `DELETE`). Identity needs no help: an
+   * `INTEGER PRIMARY KEY` takes the explicit value as its rowid, and
+   * `AUTOINCREMENT` raises `sqlite_sequence` past it on its own.
+   */
+  async openRestoreSession(): Promise<RestoreSession> {
+    const db = this.db;
+    db.exec("BEGIN IMMEDIATE");
+    return {
+      atomic: true,
+      identities: "automatic",
+      async describeTable(table) {
+        const columns = db.prepare(`PRAGMA table_xinfo(${q(table, "sqlite")})`).all() as {
+          name: string;
+          type: string;
+          pk: number;
+          hidden: number;
+        }[];
+        const pk = columns.filter((column) => column.pk > 0);
+        return {
+          // 2: virtual generated column, 3: stored one.
+          generated: columns.filter((column) => column.hidden === 2 || column.hidden === 3).map((c) => c.name),
+          identity: pk.length === 1 && pk[0].type.toUpperCase() === "INTEGER" ? [pk[0].name] : [],
+        };
+      },
+      async emptyTable(table) {
+        return db.prepare(`DELETE FROM ${q(table, "sqlite")}`).run().changes;
+      },
+      async insertRows(table, columns, rows) {
+        const statement = db.prepare(
+          `INSERT INTO ${q(table, "sqlite")} (${columns.map((c) => q(c, "sqlite")).join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`,
+        );
+        for (const row of rows) statement.run(...row);
+        return rows.length;
+      },
+      async resyncIdentity() {},
+      async commit() {
+        db.exec("COMMIT");
+      },
+      async rollback() {
+        if (db.inTransaction) db.exec("ROLLBACK");
+      },
+      async release() {},
+    };
   }
 
   async close(): Promise<void> {

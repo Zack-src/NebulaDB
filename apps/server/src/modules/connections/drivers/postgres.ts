@@ -6,6 +6,8 @@ import {
   DatabaseDriver,
   DriverConnectionConfig,
   MigrationExecutionResult,
+  RestoreSession,
+  RestoreTableColumns,
   RowValue,
   TestConnectionResult,
 } from "./interface.js";
@@ -205,20 +207,10 @@ export class PostgresDriver implements DatabaseDriver {
    */
   async insertRowBatches(table: string, columns: string[], batches: AsyncIterable<RowValue[][]>): Promise<number> {
     const client = await this.pool.connect();
-    const head = `INSERT INTO ${q(table, "postgres")} (${columns.map((c) => q(c, "postgres")).join(", ")}) VALUES `;
-    const batch = Math.max(1, Math.min(500, Math.floor(30000 / columns.length)));
     try {
       await client.query("BEGIN");
       let total = 0;
-      for await (const rows of batches) {
-        for (let i = 0; i < rows.length; i += batch) {
-          const chunk = rows.slice(i, i + batch);
-          let n = 0;
-          const values = chunk.map((row) => `(${row.map(() => `${++n}`).join(", ")})`).join(", ");
-          await client.query(head + values, chunk.flat());
-        }
-        total += rows.length;
-      }
+      for await (const rows of batches) total += await insertChunks(client, table, columns, rows, false);
       await client.query("COMMIT");
       return total;
     } catch (err) {
@@ -272,7 +264,142 @@ export class PostgresDriver implements DatabaseDriver {
     }
   }
 
+  /** A restore in one transaction: PostgreSQL rolls back the `DELETE`s, the inserts and the `setval`s together. */
+  async openRestoreSession(): Promise<RestoreSession> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+    } catch (err) {
+      client.release(true);
+      throw err;
+    }
+    return new PostgresRestoreSession(client);
+  }
+
   async close(): Promise<void> {
     await this.pool.end();
+  }
+}
+
+/**
+ * One table's rows as multi-row `INSERT`s with bound parameters, on a client
+ * already inside a transaction. `overriding` lets explicit values into
+ * `GENERATED ALWAYS` identity columns, which PostgreSQL otherwise refuses.
+ */
+async function insertChunks(
+  client: pg.PoolClient,
+  table: string,
+  columns: string[],
+  rows: RowValue[][],
+  overriding: boolean,
+): Promise<number> {
+  const head =
+    `INSERT INTO ${q(table, "postgres")} (${columns.map((c) => q(c, "postgres")).join(", ")}) ` +
+    `${overriding ? "OVERRIDING SYSTEM VALUE " : ""}VALUES `;
+  const batch = Math.max(1, Math.min(500, Math.floor(30000 / columns.length)));
+  for (let i = 0; i < rows.length; i += batch) {
+    const chunk = rows.slice(i, i + batch);
+    let n = 0;
+    const values = chunk.map((row) => `(${row.map(() => "$" + ++n).join(", ")})`).join(", ");
+    await client.query(head + values, chunk.flat());
+  }
+  return rows.length;
+}
+
+interface RestoreColumnRow {
+  name: string;
+  always: boolean;
+  generated: boolean;
+  sequence: string | null;
+}
+
+/**
+ * Names resolve like the rest of the driver: unqualified, through the search
+ * path. Serial and identity columns are both found by the sequence they own
+ * (`pg_get_serial_sequence`); a sequence only named in a `DEFAULT nextval(…)`
+ * is not owned by the column and is left alone.
+ */
+const RESTORE_COLUMNS_SQL = `
+  WITH t AS (
+    SELECT c.relname, n.nspname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE c.oid = $1::text::regclass
+  )
+  SELECT ic.column_name AS name,
+         (ic.is_identity = 'YES' AND ic.identity_generation = 'ALWAYS') AS always,
+         (ic.is_generated = 'ALWAYS') AS generated,
+         pg_get_serial_sequence($1::text, ic.column_name) AS sequence
+  FROM information_schema.columns ic JOIN t ON ic.table_schema = t.nspname AND ic.table_name = t.relname`;
+
+class PostgresRestoreSession implements RestoreSession {
+  readonly atomic = true;
+  readonly identities = "resynced" as const;
+  /** Per table, as `describeTable` found them: `GENERATED ALWAYS` identity columns, and each counter's sequence. */
+  private always = new Map<string, Set<string>>();
+  private sequences = new Map<string, Map<string, string>>();
+  private broken = false;
+  private released = false;
+
+  constructor(private client: pg.PoolClient) {}
+
+  async describeTable(table: string): Promise<RestoreTableColumns> {
+    const { rows } = await this.client.query<RestoreColumnRow>(RESTORE_COLUMNS_SQL, [q(table, "postgres")]);
+    this.always.set(table, new Set(rows.filter((row) => row.always).map((row) => row.name.toLowerCase())));
+    const sequences = new Map(
+      rows.filter((row) => row.sequence).map((row) => [row.name.toLowerCase(), row.sequence!] as const),
+    );
+    this.sequences.set(table, sequences);
+    return {
+      generated: rows.filter((row) => row.generated).map((row) => row.name),
+      identity: rows.filter((row) => row.sequence).map((row) => row.name),
+    };
+  }
+
+  async emptyTable(table: string): Promise<number> {
+    return (await this.client.query(`DELETE FROM ${q(table, "postgres")}`)).rowCount ?? 0;
+  }
+
+  async insertRows(table: string, columns: string[], rows: RowValue[][]): Promise<number> {
+    const always = this.always.get(table);
+    const overriding = columns.some((column) => always?.has(column.toLowerCase()));
+    return insertChunks(this.client, table, columns, rows, overriding);
+  }
+
+  /**
+   * `setval` to the highest value now in the column (the lowest for a
+   * descending sequence), kept within the sequence's bounds, so the next
+   * `nextval` comes after the restored rows. An empty table leaves its
+   * sequence where it was: nothing can collide with it.
+   */
+  async resyncIdentity(table: string, columns: string[]): Promise<void> {
+    for (const column of columns) {
+      const sequence = this.sequences.get(table)?.get(column.toLowerCase());
+      if (!sequence) continue;
+      const col = q(column, "postgres");
+      await this.client.query(
+        `SELECT setval(s.seqrelid, GREATEST(s.seqmin, LEAST(s.seqmax, CASE WHEN s.seqincrement > 0 THEN x.hi ELSE x.lo END)))
+         FROM pg_sequence s, (SELECT MAX(${col})::bigint AS hi, MIN(${col})::bigint AS lo FROM ${q(table, "postgres")}) x
+         WHERE s.seqrelid = $1::text::regclass AND x.hi IS NOT NULL`,
+        [sequence],
+      );
+    }
+  }
+
+  async commit(): Promise<void> {
+    await this.client.query("COMMIT");
+  }
+
+  async rollback(): Promise<void> {
+    try {
+      await this.client.query("ROLLBACK");
+    } catch {
+      // The connection is gone: so is the transaction. Not handed back to the pool.
+      this.broken = true;
+    }
+  }
+
+  async release(): Promise<void> {
+    if (this.released) return;
+    this.released = true;
+    this.client.release(this.broken);
   }
 }
