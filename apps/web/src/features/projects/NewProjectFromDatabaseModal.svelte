@@ -79,9 +79,8 @@
     <p class="text-xs text-text-muted">{t("projects.newFromDatabaseDesc")}</p>
 
     <div>
-      <!-- svelte-ignore a11y_label_has_associated_control -->
-      <label class="mb-1 block text-xs font-medium text-text-muted">{t("projects.projectName")}</label>
-      <Input bind:value={name} placeholder={t("projects.projectNamePlaceholder")} />
+      <label for="new-project-db-name" class="mb-1 block text-xs font-medium text-text-muted">{t("projects.projectName")}</label>
+      <Input id="new-project-db-name" bind:value={name} placeholder={t("projects.projectNamePlaceholder")} />
     </div>
 
     <ConnectionFormFields

@@ -1,4 +1,5 @@
 <script lang="ts">
+  const uid = $props.id();
   import Input from "@/components/ui/Input.svelte";
   import { MAX_NAME_LENGTH, type Comment, type Table, type TableIndex } from "@nebuladb/shared";
   import CommentThreadBody from "@/features/editor/comments/CommentThreadBody.svelte";
@@ -123,9 +124,8 @@
   </div>
 
   <div class={POPOVER_GROUP_CLASS}>
-    <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label class={POPOVER_LABEL_CLASS}>{t("table.nameLabel")}</label>
-    <Input
+    <label for={`${uid}-f1`} class={POPOVER_LABEL_CLASS}>{t("table.nameLabel")}</label>
+    <Input id={`${uid}-f1`}
       inputSize="xs" class="w-full"
       disabled={nameLocked}
       bind:value={name.value}
@@ -137,8 +137,7 @@
   </div>
 
   <div class={POPOVER_GROUP_CLASS}>
-    <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label class={POPOVER_LABEL_CLASS}>{t("table.headerColor")}</label>
+    <span class={POPOVER_LABEL_CLASS}>{t("table.headerColor")}</span>
     <div class={`${SWATCH_GRID_CLASS} mt-1`}>
       {#each palette as color (color)}
         <button
@@ -203,11 +202,10 @@
 
   {#if onAddComment && onDeleteComment}
     <div class={POPOVER_GROUP_CLASS}>
-      <!-- svelte-ignore a11y_label_has_associated_control -->
-      <label class={POPOVER_LABEL_CLASS}>
+      <span class={POPOVER_LABEL_CLASS}>
         {t("table.comments")}
         {comments.length > 0 ? `(${comments.length})` : ""}
-      </label>
+      </span>
       <div class="rounded-md border border-border bg-surface-raised">
         <CommentThreadBody {comments} {currentUser} onAdd={onAddComment} onDelete={onDeleteComment} />
       </div>
@@ -217,11 +215,10 @@
   {#if onAddIndex || table.indexes.length > 0}
     <div class={POPOVER_GROUP_CLASS}>
       <div class="flex items-center justify-between">
-        <!-- svelte-ignore a11y_label_has_associated_control -->
-        <label class={POPOVER_LABEL_CLASS}>
+        <span class={POPOVER_LABEL_CLASS}>
           {t("table.index.sectionTitle")}
           {table.indexes.length > 0 ? `(${table.indexes.length})` : ""}
-        </label>
+        </span>
         {#if onAddIndex && !addingIndex}
           <button
             type="button"

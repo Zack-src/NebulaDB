@@ -3,6 +3,7 @@
 </script>
 
 <script lang="ts">
+  const uid = $props.id();
   import Input from "@/components/ui/Input.svelte";
   import {
     MAX_DEFAULT_LENGTH,
@@ -214,9 +215,8 @@
   </div>
 
   <div class={POPOVER_GROUP_CLASS}>
-    <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label class={POPOVER_LABEL_CLASS}>{t("field.nameLabel")}</label>
-    <Input
+    <label for={`${uid}-f1`} class={POPOVER_LABEL_CLASS}>{t("field.nameLabel")}</label>
+    <Input id={`${uid}-f1`}
       autofocus
       inputSize="xs"
       class="w-full"
@@ -229,9 +229,8 @@
   </div>
 
   <div class={POPOVER_GROUP_CLASS}>
-    <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label class={POPOVER_LABEL_CLASS}>{t("field.typeLabel")}</label>
-    <Input
+    <label for={`${uid}-f2`} class={POPOVER_LABEL_CLASS}>{t("field.typeLabel")}</label>
+    <Input id={`${uid}-f2`}
       inputSize="xs" class="w-full font-mono"
       bind:value={type.value}
       maxlength={MAX_TYPE_LENGTH}
@@ -256,8 +255,7 @@
   </div>
 
   <div class={POPOVER_GROUP_CLASS}>
-    <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label class={POPOVER_LABEL_CLASS}>{t("field.attributesLabel")}</label>
+    <span class={POPOVER_LABEL_CLASS}>{t("field.attributesLabel")}</span>
     <div class="grid grid-cols-2 gap-[5px]">
       {#each attributeToggles as toggle (toggle.labelKey)}
         <button
@@ -279,8 +277,7 @@
        selects, labeled by what it points at. -->
   {#if fieldRefs && fieldRefs.length > 0}
     <div class={`${POPOVER_GROUP_CLASS} border-t border-border pt-3`}>
-      <!-- svelte-ignore a11y_label_has_associated_control -->
-      <label class={POPOVER_LABEL_CLASS}>{t("field.referentialActionsLabel")}</label>
+      <span class={POPOVER_LABEL_CLASS}>{t("field.referentialActionsLabel")}</span>
       {#each fieldRefs as fr (fr.refId)}
         <div class="flex flex-col gap-2">
           {#if fieldRefs.length > 1}
@@ -288,9 +285,9 @@
           {/if}
           <div class="grid grid-cols-2 gap-2">
             <div class="flex flex-col gap-1">
-              <!-- svelte-ignore a11y_label_has_associated_control -->
-              <label class="text-micro text-text-muted">{t("edge.onDelete")}</label>
+              <label for={`${uid}-del-${fr.refId}`} class="text-micro text-text-muted">{t("edge.onDelete")}</label>
               <select
+                id={`${uid}-del-${fr.refId}`}
                 class={ACTION_SELECT_CLASS}
                 value={fr.onDelete ?? ""}
                 disabled={!onUpdateRefAction}
@@ -306,9 +303,9 @@
               </select>
             </div>
             <div class="flex flex-col gap-1">
-              <!-- svelte-ignore a11y_label_has_associated_control -->
-              <label class="text-micro text-text-muted">{t("edge.onUpdate")}</label>
+              <label for={`${uid}-upd-${fr.refId}`} class="text-micro text-text-muted">{t("edge.onUpdate")}</label>
               <select
+                id={`${uid}-upd-${fr.refId}`}
                 class={ACTION_SELECT_CLASS}
                 value={fr.onUpdate ?? ""}
                 disabled={!onUpdateRefAction}
@@ -330,9 +327,8 @@
   {/if}
 
   <div class={POPOVER_GROUP_CLASS}>
-    <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label class={POPOVER_LABEL_CLASS}>{t("field.defaultLabel")}</label>
-    <Input
+    <label for={`${uid}-f6`} class={POPOVER_LABEL_CLASS}>{t("field.defaultLabel")}</label>
+    <Input id={`${uid}-f6`}
       inputSize="xs" class="w-full font-mono"
       bind:value={defaultValue.value}
       maxlength={MAX_DEFAULT_LENGTH}
@@ -343,9 +339,8 @@
   </div>
 
   <div class={POPOVER_GROUP_CLASS}>
-    <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label class={POPOVER_LABEL_CLASS}>{t("field.noteLabel")}</label>
-    <Input
+    <label for={`${uid}-f7`} class={POPOVER_LABEL_CLASS}>{t("field.noteLabel")}</label>
+    <Input id={`${uid}-f7`}
       inputSize="xs" class="w-full"
       bind:value={note.value}
       maxlength={MAX_NOTE_LENGTH}
@@ -356,8 +351,7 @@
   </div>
 
   <div class={`${POPOVER_GROUP_CLASS} border-t border-border pt-3`}>
-    <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label class={POPOVER_LABEL_CLASS}>{t("comments.title")}</label>
+    <span class={POPOVER_LABEL_CLASS}>{t("comments.title")}</span>
     {#if comments.length > 0}
       <div class="flex max-h-[160px] flex-col gap-1.5 overflow-y-auto">
         {#each comments as comment (comment.id)}

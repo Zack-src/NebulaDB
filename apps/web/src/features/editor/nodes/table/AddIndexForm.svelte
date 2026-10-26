@@ -42,8 +42,7 @@
 </script>
 
 <div class="flex flex-col gap-2 rounded-md border border-border-strong/80 bg-surface p-2.5">
-  <!-- svelte-ignore a11y_label_has_associated_control -->
-  <label class={POPOVER_LABEL_CLASS}>{t("table.index.columns")}</label>
+  <span class={POPOVER_LABEL_CLASS}>{t("table.index.columns")}</span>
   <div class="flex max-h-32 flex-col gap-1 overflow-y-auto">
     {#each table.fields as field (field.id)}
       <Checkbox checked={selectedFieldIds.includes(field.id)} onChange={() => toggleField(field.id)}>

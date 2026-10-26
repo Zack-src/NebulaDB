@@ -116,8 +116,7 @@
 
   <!-- Cardinality, with a plain-language explanation of each option -->
   <div class="flex flex-col gap-2">
-    <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label class={SECTION_LABEL}>{t("edge.cardinality")}</label>
+    <span class={SECTION_LABEL}>{t("edge.cardinality")}</span>
     <div class="flex flex-col gap-1.5">
       {#each CARDINALITY_OPTIONS as option (option.value)}
         <button
@@ -145,8 +144,7 @@
   <!-- Referential actions (ON DELETE / ON UPDATE) -->
   <div class="grid grid-cols-2 gap-2 border-t border-border pt-2.5">
     <div class="flex flex-col gap-1">
-      <!-- svelte-ignore a11y_label_has_associated_control -->
-      <label class={SECTION_LABEL}>{t("edge.onDelete")}</label>
+      <span class={SECTION_LABEL}>{t("edge.onDelete")}</span>
       <select
         class={ACTION_SELECT_CLASS}
         value={onDelete ?? ""}
@@ -160,8 +158,7 @@
       </select>
     </div>
     <div class="flex flex-col gap-1">
-      <!-- svelte-ignore a11y_label_has_associated_control -->
-      <label class={SECTION_LABEL}>{t("edge.onUpdate")}</label>
+      <span class={SECTION_LABEL}>{t("edge.onUpdate")}</span>
       <select
         class={ACTION_SELECT_CLASS}
         value={onUpdate ?? ""}
@@ -178,8 +175,7 @@
 
   <!-- Relation colour -->
   <div class="flex flex-col gap-2 border-t border-border pt-2.5">
-    <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label class={SECTION_LABEL}>{t("edge.color")}</label>
+    <span class={SECTION_LABEL}>{t("edge.color")}</span>
     <div class="flex items-center gap-2">
       <ColorSwatchPicker
         value={color ?? "#818cf8"}
