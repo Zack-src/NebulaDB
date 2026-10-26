@@ -845,6 +845,7 @@ import { DeploymentDrawerState } from "@/features/workspace/drawerState.svelte";
             onShowProblems={() => setTab("problems")}
             onShowInGraph={(tableName, fieldName) => (focusRequest = { tableName, fieldName })}
             onShowInCode={goToDbml}
+            canClean={isProjectAdmin}
             tableExists={(name) => liveProject?.tables.some((table) => table.name.toLowerCase() === name.toLowerCase()) ?? false}
             onClose={() => deployments.setOpen(false)}
           />

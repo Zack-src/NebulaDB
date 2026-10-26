@@ -23,6 +23,7 @@
     onShowInGraph,
     onShowInCode,
     tableExists,
+    canClean,
     onClose,
   }: {
     projectId: string;
@@ -43,6 +44,8 @@
     onShowInCode: (tableName: string) => void;
     /** Whether the diagram has this table. */
     tableExists: (tableName: string) => boolean;
+    /** The person may start over (project administrators). */
+    canClean: boolean;
     onClose: () => void;
   } = $props();
 
@@ -77,6 +80,7 @@
       {onShowInGraph}
       {onShowInCode}
       {tableExists}
+      {canClean}
     />
     {/key}
   </div>

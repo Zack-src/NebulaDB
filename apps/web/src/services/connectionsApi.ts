@@ -183,11 +183,32 @@ export async function applyDeployment(
     /** Deploy although the stage before is not level — instance administrators, with `skipReason`. */
     skipStageOrder?: boolean;
     skipReason?: string;
+    /** Start over: drop the tables and write the schema again (project administrators; never on production). */
+    clean?: { includeUnmanaged: boolean };
   } = {},
 ): Promise<ApplyDeploymentResponse> {
   return request<ApplyDeploymentResponse>(`/api/projects/${projectId}/connections/${connId}/apply-deployment`, {
     method: "POST",
     body: { resolutions, ...options },
+  });
+}
+
+/** What a clean deployment would drop and write, counted but not run. */
+export interface CleanDeploymentPreview {
+  engine: string;
+  sql: string;
+  dropTables: { name: string; rows: number | null }[];
+  createTables: string[];
+}
+
+export async function previewCleanDeployment(
+  projectId: string,
+  connId: string,
+  includeUnmanaged: boolean,
+): Promise<CleanDeploymentPreview> {
+  return request<CleanDeploymentPreview>(`/api/projects/${projectId}/connections/${connId}/plan-clean-deployment`, {
+    method: "POST",
+    body: { includeUnmanaged },
   });
 }
 

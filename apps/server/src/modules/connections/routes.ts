@@ -7,7 +7,7 @@ import { ApiError } from "../../shared/errors.js";
 import { requireProjectAccess, requireProjectAdmin, requireUser } from "../../shared/guards.js";
 import { getRoom } from "../../realtime/roomRegistry.js";
 import { createDatabaseDriver, testConnectionConfig } from "./drivers/index.js";
-import { deployToConnection, rollbackConnectionDeployment } from "./deploy.js";
+import { deployToConnection, previewCleanDeployment, rollbackConnectionDeployment } from "./deploy.js";
 import { compareConnections } from "./compare.js";
 import { blockingLintFindings } from "../lint/check.js";
 import { getLintSettings } from "../lint/repository.js";
@@ -307,8 +307,9 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
   // 8. Apply deployment: Generate DDL with resolutions & execute transactionally
   app.post("/api/projects/:id/connections/:connId/apply-deployment", CONNECTION_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
-    const { user, project } = await requireProjectAccess(req, id, "deploy");
     const body = (req.body ?? {}) as {
+      /** Start over (drop every table, write the schema again): for a project administrator only. */
+      clean?: { includeUnmanaged?: boolean };
       resolutions?: MigrationResolutionMap;
       confirmName?: string;
       riskNote?: string;
@@ -317,6 +318,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
       skipStageOrder?: boolean;
       skipReason?: string;
     };
+    const { user, project } = await requireProjectAccess(req, id, body.clean ? "administrator" : "deploy");
 
     const skipStageOrder = await stageSkipFor(req, id, connId, body);
 
@@ -326,18 +328,27 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
       skipSeeds: body.skipSeeds === true,
       backupBefore: typeof body.backupBefore === "boolean" ? body.backupBefore : undefined,
       skipStageOrder,
+      ...(body.clean ? { clean: { includeUnmanaged: body.clean.includeUnmanaged === true } } : {}),
     });
 
     await auditUser(
       user,
       "connection.deploy",
       { type: "project", id },
-      `${connId}: executed ${result.executedStatements} statements`,
+      `${connId}: ${body.clean ? "clean deployment, " : ""}executed ${result.executedStatements} statements`,
       req,
       { connectionId: connId },
     );
 
     return result;
+  });
+
+  // 8 bis. What a clean deployment would drop and write — read-only, for the dialog that asks to confirm it.
+  app.post("/api/projects/:id/connections/:connId/plan-clean-deployment", CONNECTION_RATE_LIMIT, async (req) => {
+    const { id, connId } = req.params as { id: string; connId: string };
+    const { project } = await requireProjectAccess(req, id, "administrator");
+    const body = (req.body ?? {}) as { includeUnmanaged?: boolean };
+    return previewCleanDeployment(id, project.name, connId, { includeUnmanaged: body.includeUnmanaged === true });
   });
 
   // 9. Deployment history for a connection — what actually ran, and when.

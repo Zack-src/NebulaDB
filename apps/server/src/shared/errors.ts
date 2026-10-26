@@ -318,6 +318,16 @@ export const ERROR_CATALOG = {
       "this stage asks for a review — request one for this deployment, and deploy the request once another person " +
       "has approved it",
   },
+  CLEAN_DEPLOYMENT_NOT_ALLOWED: {
+    status: 409,
+    message:
+      "a clean deployment drops every table of the database and is not offered on the production stage, nor on a " +
+      "stage that asks for a review",
+  },
+  CLEAN_DEPLOYMENT_CONFIRMATION_REQUIRED: {
+    status: 400,
+    message: "a clean deployment drops all the data: retype the connection's name to confirm it",
+  },
   DEPLOYMENT_REVIEW_NOT_REQUIRED: {
     status: 409,
     message: "this connection is not on a stage that asks for a review — deploy to it directly",

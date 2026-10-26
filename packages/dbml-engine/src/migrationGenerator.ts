@@ -541,7 +541,7 @@ function generateFieldAlterations(
 }
 
 /** `ALTER TABLE … DROP CONSTRAINT` for a foreign key the schema no longer declares; `null` where the engine has no such statement (SQLite). */
-function dropForeignKeyStatement(ref: MigrationDiff["refs"][number], dialect: MigrationDialect): string | null {
+export function dropForeignKeyStatement(ref: MigrationDiff["refs"][number], dialect: MigrationDialect): string | null {
   const fkName = ref.name || fkFallbackName(ref.fromTable, ref.fromField, ref.toTable);
   if (dialect === "postgres" || dialect === "mssql" || dialect === "bigquery") {
     return `ALTER TABLE ${q(ref.fromTable, dialect)} DROP CONSTRAINT IF EXISTS ${q(fkName, dialect)};`;
