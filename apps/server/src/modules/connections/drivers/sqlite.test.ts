@@ -87,3 +87,19 @@ test("SqliteDriver reads rows untruncated and inserts back what it read, bytes i
   assert.deepEqual(rows[1].slice(1), [null, "", null]);
   await driver.close();
 });
+
+test("SqliteDriver introspects a table whose name contains a double quote", async () => {
+  const driver = new SqliteDriver({
+    id: "test-conn-quote",
+    projectId: "p1",
+    name: "Test SQLite",
+    engine: "sqlite",
+    database: ":memory:",
+  });
+  await driver.executeMigration(`CREATE TABLE "we""ird" (id INTEGER PRIMARY KEY, label TEXT);`);
+  const project = await driver.introspectSchema();
+  const table = project.tables.find((t) => t.name === 'we"ird');
+  assert.ok(table, "the table is found under its real name");
+  assert.deepEqual(table.fields.map((f) => f.name), ["id", "label"]);
+  await driver.close();
+});

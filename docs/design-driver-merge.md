@@ -73,3 +73,5 @@ Règles de passage : une étape par PR ; avant d'ouvrir l'étape suivante, la su
 ## 6. Recommandation pour l'étape 2
 
 Traiter d'abord le `PRAGMA table_info("${tableName}")` non échappé de `connections/drivers/sqlite.ts` (corriger avec `quoteDouble` ; un nom de table contenant `"` casse aujourd'hui l'introspection), puis aligner le timeout de connexion de mysql côté `connections`, en deux commits séparés. Ne pas toucher à `packages/dbml-engine` tant que son `q()` doit rester utilisable dans le navigateur.
+
+**Fait (étape 2) :** les `PRAGMA table_info` et `foreign_key_list` de `connections/drivers/sqlite.ts` échappent maintenant le nom de table (test avec un nom contenant `"`), et le pool MySQL de `connections` utilise `CONNECT_TIMEOUT_MS`. L'étape 3 (requêtes de catalogue communes) reste à faire.
