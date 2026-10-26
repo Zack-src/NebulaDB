@@ -9,7 +9,7 @@ import {
   translateDefaultExpression,
 } from "./migrationGenerator.js";
 import { generateRollbackSql } from "./rollbackGenerator.js";
-import type { Project, Ref, Table } from "@nebuladb/shared";
+import type { Field, Project, Ref, Table } from "@nebuladb/shared";
 
 interface ShorthandField {
   name: string;
@@ -321,4 +321,26 @@ test("a relation from a table to itself is left out of what goes to BigQuery, an
   const raw = generateMigrationSql(diffTargetAgainstLive(makeSimpleProject([]), project), "bigquery");
   assert.equal(raw.match(/ADD CONSTRAINT/g)?.length, 1);
   assert.ok(raw.includes("-- BigQuery refuses a foreign key from a table to itself"));
+});
+
+test("BigQuery defaults take the type of their column: a number on a text column is quoted, a quoted number on a numeric one is not", () => {
+  const column = (type: string, value: string): Field =>
+    ({ id: "f", name: "c", type, default: value, defaultKind: "number" }) as Field;
+  assert.equal(formatColumnDef(column("STRING", "0"), "bigquery"), "`c` STRING DEFAULT '0'");
+  assert.equal(formatColumnDef(column("varchar(20)", "1.5"), "bigquery"), "`c` varchar(20) DEFAULT '1.5'");
+  assert.equal(formatColumnDef(column("INT64", "0"), "bigquery"), "`c` INT64 DEFAULT 0");
+  assert.equal(
+    formatColumnDef({ ...column("INT64", "0"), defaultKind: "string" } as Field, "bigquery"),
+    "`c` INT64 DEFAULT 0",
+    "a quoted number written for a numeric column becomes the number",
+  );
+  assert.equal(
+    formatColumnDef({ ...column("STRING", "hello"), defaultKind: "string" } as Field, "bigquery"),
+    "`c` STRING DEFAULT 'hello'",
+  );
+  assert.equal(
+    formatColumnDef({ ...column("BOOL", "true"), defaultKind: "string" } as Field, "bigquery"),
+    "`c` BOOL DEFAULT TRUE",
+  );
+  assert.equal(formatColumnDef(column("int", "0"), "postgres"), "\"c\" int DEFAULT 0", "other engines convert by themselves");
 });

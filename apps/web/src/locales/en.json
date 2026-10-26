@@ -930,6 +930,8 @@
   "deployment.dropAll": "Delete all data permanently ({{count}})",
   "deployment.dropAllHint": "Selects “Delete data permanently” on every risk below. Nothing is deleted until you confirm the deployment.",
   "deployment.measuredBy": "Show the query that counted this",
+  "deployment.failedAt": "The database refused statement {{index}} of {{total}}",
+  "deployment.failedOn": "On",
   "deployment.stepDiff": "1. Changes",
   "deployment.stepDiffShort": "Changes",
   "deployment.stepRisksShort": "Conflicts",

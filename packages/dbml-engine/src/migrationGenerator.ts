@@ -204,6 +204,47 @@ export function translateDefaultExpression(literal: string, dialect: MigrationDi
   return dialect === "mssql" ? "GETDATE()" : "CURRENT_TIMESTAMP";
 }
 
+const BQ_STRING_TYPES = new Set(["STRING", "VARCHAR", "TEXT", "CHAR", "CHARACTER", "NVARCHAR", "NCHAR"]);
+const BQ_NUMBER_TYPES = new Set([
+  "INT64",
+  "INT",
+  "INTEGER",
+  "BIGINT",
+  "SMALLINT",
+  "TINYINT",
+  "BYTEINT",
+  "FLOAT64",
+  "FLOAT",
+  "DOUBLE",
+  "NUMERIC",
+  "DECIMAL",
+  "BIGNUMERIC",
+  "BIGDECIMAL",
+]);
+const PLAIN_NUMBER = /^[+-]?\d+(\.\d+)?$/;
+
+/**
+ * A BigQuery `DEFAULT` must have exactly the type of its column: `STRING DEFAULT 0` is refused ("Column default
+ * expression has type INT64 which cannot be assigned to column type STRING"), where other engines convert. A
+ * number or a boolean written for a text column is therefore quoted, and a quoted number or boolean written for a
+ * numeric or boolean column is unquoted. Anything else (an expression, a real string) is left as it is.
+ */
+export function coerceBigQueryDefault(literal: string, type: string): string {
+  const base = type
+    .trim()
+    .toUpperCase()
+    .replace(/[(<].*$/s, "")
+    .trim();
+  const bare = literal.trim();
+  const quoted = /^'((?:[^']|'')*)'$/s.exec(bare);
+  if (BQ_STRING_TYPES.has(base)) {
+    return PLAIN_NUMBER.test(bare) || /^(true|false)$/i.test(bare) ? quoteSqlString(bare) : literal;
+  }
+  if (quoted && BQ_NUMBER_TYPES.has(base) && PLAIN_NUMBER.test(quoted[1]!)) return quoted[1]!;
+  if (quoted && base === "BOOL" && /^(true|false)$/i.test(quoted[1]!)) return quoted[1]!.toUpperCase();
+  return literal;
+}
+
 /**
  * What makes the database number an `increment` column itself — the clauses
  * the SQL export (`projectToSql`) writes, so a deployed table and an exported
@@ -238,7 +279,7 @@ export function formatColumnDef(
     // GoogleSQL: the type, the default, then NOT NULL. Keys are table constraints (never enforced) and UNIQUE does not exist.
     const parts = [q(field.name, dialect), type];
     const literal = defaultOf((d) => (isSqlExpression(d) ? d : quoteSqlString(d)));
-    if (literal !== null) parts.push(`DEFAULT ${literal}`);
+    if (literal !== null) parts.push(`DEFAULT ${coerceBigQueryDefault(literal, type)}`);
     if (field.notNull || field.pk) parts.push("NOT NULL");
     return parts.join(" ");
   }
