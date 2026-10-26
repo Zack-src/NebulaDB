@@ -2,8 +2,15 @@ services:
   nebuladb:
     build: .
     ports:
-      - "3001:3001"
+      - "${PORT:-3001}:3001"
+    # The same root .env as `npm run dev` (optional settings: SMTP, retention...);
+    # the values below always win over it.
+    env_file:
+      - path: .env
+        required: false
     environment:
+      # Inside the container; the host side is PORT above.
+      PORT: 3001
       NEBULADB_DATABASE_URL: postgres://nebuladb:${NEBULADB_POSTGRES_PASSWORD:?set NEBULADB_POSTGRES_PASSWORD}@postgres:5432/nebuladb
       # Encrypts stored database credentials, 2FA secrets and webhook secrets; connections, 2FA and
       # webhooks fail without it. `openssl rand -hex 32`, kept in the .env next to this file.

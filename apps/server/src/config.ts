@@ -51,7 +51,8 @@ function readCount(name: string, fallback: number, max: number): number {
   const raw = readEnv(name);
   if (raw === undefined || raw.trim() === "") return fallback;
   const n = Number(raw);
-  if (!Number.isInteger(n) || n < 1 || n > max) fail(`${name} must be a whole number between 1 and ${max} (got ${JSON.stringify(raw)})`);
+  if (!Number.isInteger(n) || n < 1 || n > max)
+    fail(`${name} must be a whole number between 1 and ${max} (got ${JSON.stringify(raw)})`);
   return n;
 }
 
@@ -195,8 +196,7 @@ export function parseTrustProxy(raw: string | undefined): TrustProxy {
   for (const entry of entries) {
     const [address, prefix, extra] = entry.split("/");
     const family = isIP(address ?? "");
-    const prefixOk =
-      prefix === undefined || (/^\d+$/.test(prefix) && Number(prefix) <= (family === 6 ? 128 : 32));
+    const prefixOk = prefix === undefined || (/^\d+$/.test(prefix) && Number(prefix) <= (family === 6 ? 128 : 32));
     if (!family || !prefixOk || extra !== undefined) {
       throw new Error(
         `must be "true", "false", a hop count, or a comma-separated list of IP addresses/CIDRs (got ${JSON.stringify(entry)})`,
@@ -341,6 +341,7 @@ function readDatabaseUrl(): string {
   if (!raw) {
     fail(
       "NEBULADB_DATABASE_URL is required, e.g. postgres://nebuladb:password@localhost:5432/nebuladb" +
+        " (locally: set NEBULADB_POSTGRES_PASSWORD in the root .env and run `npm run db:up`)" +
         (readEnv("NEBULADB_DB_PATH")
           ? " — NEBULADB_DB_PATH is no longer read: NebulaDB stores its data in PostgreSQL. " +
             "Move an existing instance with `npm run migrate-from-sqlite -- <path-to-sqlite-file>`."

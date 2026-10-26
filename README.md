@@ -4,23 +4,31 @@ Self-hosted DBML schema editor with real-time collaboration, history, and a work
 
 ## Run it
 
-Node 22–25 and a PostgreSQL database (13 or later) for NebulaDB's own data.
+Node 22–25 and Docker Desktop (or your own PostgreSQL 13+, via `NEBULADB_DATABASE_URL`).
 
 ```bash
+cp .env.example .env      # one file: set NEBULADB_POSTGRES_PASSWORD and NEBULADB_SECRET
 npm install
-# apps/server/.env: NEBULADB_DATABASE_URL=postgres://nebuladb:password@localhost:5432/nebuladb
+npm run db:up             # PostgreSQL in Docker, localhost:5433 (NEBULADB_POSTGRES_PORT)
+npm run build
 npm run bootstrap-admin -- you@example.com 'a-strong-password'   # first admin, once
-npm run dev                                                       # server :3001 + web :5173
+npm run dev               # server :3001 (PORT) + web http://localhost:5173 (NEBULADB_WEB_PORT)
 ```
+
+**One `.env`.** Only the two values above are needed; everything reads this file (`npm run dev`, `npm start`, the server scripts, `npm run db:up`, `docker compose`). The server derives its database URL from `NEBULADB_POSTGRES_PASSWORD` and `NEBULADB_POSTGRES_PORT`; the web dev proxy follows `PORT`. Change a port in `.env` and everything follows. The password is fixed when the database volume is first created: change it later in the database too (`ALTER USER nebuladb PASSWORD '…'`).
+
+**The database runs in the background.** `npm run db:up` starts only the PostgreSQL container, waits until it accepts connections, then gives the terminal back; closing the terminal does not stop it. Docker restarts it with Docker Desktop, so after a reboot it is usually already up (running `db:up` again is harmless). `npm run db:down` stops it; the data stays in the `nebuladb-postgres` volume. Only `npm run dev` keeps a terminal busy (Ctrl+C stops it, not the database).
+
+Day to day: `npm run db:up` (if Docker Desktop was closed), then `npm run dev`.
 
 Production (one process, one port; the server also serves the web app):
 
 ```bash
 npm run build
-npm start                                                         # http://localhost:3001
+npm start                 # http://localhost:3001 (PORT)
 ```
 
-Docker (with its own PostgreSQL; data in the `nebuladb-postgres` and `nebuladb-data` volumes — set `NEBULADB_POSTGRES_PASSWORD` first, letters and digits only since it goes into a URL):
+Docker, app included (its own PostgreSQL; data in the `nebuladb-postgres` and `nebuladb-data` volumes; same `.env`, app published on `PORT`). Stop `npm run dev` first, both use `PORT`:
 
 ```bash
 docker compose up --build
@@ -30,40 +38,40 @@ Other accounts are created by invitation from the admin console.
 
 ## Configuration
 
-Environment variables, or `apps/server/.env` (see [`.env.example`](apps/server/.env.example)). Invalid values stop the server at boot with a `[config]` message.
+Environment variables, or the root `.env` (see [`.env.example`](.env.example); an optional `apps/server/.env` overrides it for the server only). Invalid values stop the server at boot with a `[config]` message.
 
-| Variable                                                                     | Default                   | What it does                                                                                                |
-| ---------------------------------------------------------------------------- | ------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `PORT`                                                                       | `3001`                    | HTTP and WebSocket port.                                                                                    |
-| `NEBULADB_DATABASE_URL`                                                      | — (required)              | PostgreSQL database for all app data, `postgres://user:password@host:5432/db`. Tables are created at boot.  |
-| `NEBULADB_DATABASE_POOL_SIZE`                                                | `10`                      | Most connections the server opens to it.                                                                    |
-| `NEBULADB_SECRET`                                                            | —                         | Encrypts stored database credentials and 2FA secrets. Required before using either. `openssl rand -hex 32`. |
-| `NEBULADB_SECRET_PREVIOUS`                                                   | —                         | Old secret, only while rotating (`npm run rotate-secret`).                                                  |
-| `NEBULADB_COOKIE_SECURE`                                                     | `false`                   | Set `true` behind TLS.                                                                                      |
-| `NEBULADB_ALLOWED_ORIGINS`                                                   | —                         | Extra allowed origins (API writes, WebSocket), comma-separated.                                             |
-| `NEBULADB_TRUST_PROXY`                                                       | `false`                   | Behind a reverse proxy: `1` (hops), or its IPs/CIDRs. Client IP then comes from `X-Forwarded-For`.          |
-| `NEBULADB_PUBLIC_URL`                                                        | —                         | Public URL, used in emails. Required with SMTP.                                                             |
-| `NEBULADB_SMTP_HOST` / `_PORT` / `_SECURE` / `_USER` / `_PASSWORD` / `_FROM` | — / `587`                 | Email for invitations and password reset. Off when no host.                                                 |
-| `NEBULADB_LOG_LEVEL`                                                         | `info`                    | `fatal` … `trace`, `silent`.                                                                                |
-| `NEBULADB_MAX_BODY_MB`                                                       | `4`                       | Max request body.                                                                                           |
-| `NEBULADB_MAX_WS_FRAME_MB`                                                   | `8`                       | Max WebSocket frame.                                                                                        |
-| `NEBULADB_BACKUP_INTERVAL_HOURS`                                             | `0` (off)                 | Automatic backups of every project.                                                                         |
-| `NEBULADB_BACKUP_DIR`                                                        | `./backups`               | Where they go.                                                                                              |
-| `NEBULADB_BACKUP_KEEP`                                                       | `7`                       | How many to keep.                                                                                           |
-| `NEBULADB_DATABASE_BACKUP_DIR`                                               | `./data/database-backups` | Backups of connected databases.                                                                             |
-| `NEBULADB_DATABASE_BACKUP_MAX_MB`                                            | `512`                     | Max data read by one backup.                                                                                |
-| `NEBULADB_DATABASE_BACKUP_RETENTION_DAYS`                                    | `30`                      | Days kept; `0` = forever.                                                                                   |
-| `NEBULADB_AUDIT_RETENTION_DAYS`                                              | `365`                     | Audit log retention; `0` = forever.                                                                         |
-| `NEBULADB_QUERY_STATS_RETENTION_DAYS`                                        | `30`                      | SQL console statistics retention.                                                                           |
-| `NEBULADB_DB_ACTIVITY_RETENTION_DAYS`                                        | `14`                      | Database activity history retention.                                                                        |
-| `NEBULADB_SEED_DIR`                                                          | `./data/seeds`            | Where initial data too big for the database is kept (one CSV per table).                                    |
-| `NEBULADB_SEED_FILE_MAX_GB`                                                  | `20`                      | Largest seed file, in GB.                                                                                   |
-| `NEBULADB_SEED_MAX_KEYS`                                                     | `5000000`                 | Key values a big seed's checks may keep in memory.                                                          |
-| `NEBULADB_SEED_IMPORT_DIR`                                                   | — (off)                   | Folder administrators may import seed files from by path.                                                   |
-| `NEBULADB_CONNECTION_HEALTH_INTERVAL_MINUTES`                                | `15`                      | Connection health checks; `0` = off.                                                                        |
-| `NEBULADB_SQLITE_DIR`                                                        | —                         | Restrict SQLite connections to this folder.                                                                 |
-| `NEBULADB_WEBHOOK_BLOCK_PRIVATE`                                             | `1` (on)                  | Webhooks to loopback, private, link-local and reserved addresses are refused; `0` allows them.              |
-| `NEBULADB_WEBHOOK_ALLOWED_HOSTS`                                             | —                         | Comma-separated hosts (`a.com`, `*.a.com`, IP, CIDR) webhooks are limited to; exempt from the above.        |
+| Variable                                                                     | Default                           | What it does                                                                                                                                                                            |
+| ---------------------------------------------------------------------------- | --------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `PORT`                                                                       | `3001`                            | HTTP and WebSocket port.                                                                                                                                                                |
+| `NEBULADB_DATABASE_URL`                                                      | from `NEBULADB_POSTGRES_PASSWORD` | PostgreSQL database for all app data, `postgres://user:password@host:5432/db`. Tables are created at boot. Unset: the `npm run db:up` one on `localhost:NEBULADB_POSTGRES_PORT` (5433). |
+| `NEBULADB_DATABASE_POOL_SIZE`                                                | `10`                              | Most connections the server opens to it.                                                                                                                                                |
+| `NEBULADB_SECRET`                                                            | —                                 | Encrypts stored database credentials and 2FA secrets. Required before using either. `openssl rand -hex 32`.                                                                             |
+| `NEBULADB_SECRET_PREVIOUS`                                                   | —                                 | Old secret, only while rotating (`npm run rotate-secret`).                                                                                                                              |
+| `NEBULADB_COOKIE_SECURE`                                                     | `false`                           | Set `true` behind TLS.                                                                                                                                                                  |
+| `NEBULADB_ALLOWED_ORIGINS`                                                   | —                                 | Extra allowed origins (API writes, WebSocket), comma-separated.                                                                                                                         |
+| `NEBULADB_TRUST_PROXY`                                                       | `false`                           | Behind a reverse proxy: `1` (hops), or its IPs/CIDRs. Client IP then comes from `X-Forwarded-For`.                                                                                      |
+| `NEBULADB_PUBLIC_URL`                                                        | —                                 | Public URL, used in emails. Required with SMTP.                                                                                                                                         |
+| `NEBULADB_SMTP_HOST` / `_PORT` / `_SECURE` / `_USER` / `_PASSWORD` / `_FROM` | — / `587`                         | Email for invitations and password reset. Off when no host.                                                                                                                             |
+| `NEBULADB_LOG_LEVEL`                                                         | `info`                            | `fatal` … `trace`, `silent`.                                                                                                                                                            |
+| `NEBULADB_MAX_BODY_MB`                                                       | `4`                               | Max request body.                                                                                                                                                                       |
+| `NEBULADB_MAX_WS_FRAME_MB`                                                   | `8`                               | Max WebSocket frame.                                                                                                                                                                    |
+| `NEBULADB_BACKUP_INTERVAL_HOURS`                                             | `0` (off)                         | Automatic backups of every project.                                                                                                                                                     |
+| `NEBULADB_BACKUP_DIR`                                                        | `./backups`                       | Where they go.                                                                                                                                                                          |
+| `NEBULADB_BACKUP_KEEP`                                                       | `7`                               | How many to keep.                                                                                                                                                                       |
+| `NEBULADB_DATABASE_BACKUP_DIR`                                               | `./data/database-backups`         | Backups of connected databases.                                                                                                                                                         |
+| `NEBULADB_DATABASE_BACKUP_MAX_MB`                                            | `512`                             | Max data read by one backup.                                                                                                                                                            |
+| `NEBULADB_DATABASE_BACKUP_RETENTION_DAYS`                                    | `30`                              | Days kept; `0` = forever.                                                                                                                                                               |
+| `NEBULADB_AUDIT_RETENTION_DAYS`                                              | `365`                             | Audit log retention; `0` = forever.                                                                                                                                                     |
+| `NEBULADB_QUERY_STATS_RETENTION_DAYS`                                        | `30`                              | SQL console statistics retention.                                                                                                                                                       |
+| `NEBULADB_DB_ACTIVITY_RETENTION_DAYS`                                        | `14`                              | Database activity history retention.                                                                                                                                                    |
+| `NEBULADB_SEED_DIR`                                                          | `./data/seeds`                    | Where initial data too big for the database is kept (one CSV per table).                                                                                                                |
+| `NEBULADB_SEED_FILE_MAX_GB`                                                  | `20`                              | Largest seed file, in GB.                                                                                                                                                               |
+| `NEBULADB_SEED_MAX_KEYS`                                                     | `5000000`                         | Key values a big seed's checks may keep in memory.                                                                                                                                      |
+| `NEBULADB_SEED_IMPORT_DIR`                                                   | — (off)                           | Folder administrators may import seed files from by path.                                                                                                                               |
+| `NEBULADB_CONNECTION_HEALTH_INTERVAL_MINUTES`                                | `15`                              | Connection health checks; `0` = off.                                                                                                                                                    |
+| `NEBULADB_SQLITE_DIR`                                                        | —                                 | Restrict SQLite connections to this folder.                                                                                                                                             |
+| `NEBULADB_WEBHOOK_BLOCK_PRIVATE`                                             | `1` (on)                          | Webhooks to loopback, private, link-local and reserved addresses are refused; `0` allows them.                                                                                          |
+| `NEBULADB_WEBHOOK_ALLOWED_HOSTS`                                             | —                                 | Comma-separated hosts (`a.com`, `*.a.com`, IP, CIDR) webhooks are limited to; exempt from the above.                                                                                    |
 
 ## Features
 
@@ -147,6 +155,7 @@ npm run restore -- <dir> [--owner <email>]      # each file becomes a new projec
 
 | Command                           | Does                                              |
 | --------------------------------- | ------------------------------------------------- |
+| `npm run db:up` / `db:down`       | Start / stop the local PostgreSQL (Docker).       |
 | `npm run dev`                     | Server and web with hot reload.                   |
 | `npm run build`                   | Build everything.                                 |
 | `npm test` / `npm run test:e2e`   | Unit / browser tests.                             |
