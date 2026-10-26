@@ -187,6 +187,7 @@ function lineCommentEnd(sql: string, from: number): number {
 }
 
 /** Where the literal or quoted identifier opening at `i` ends, or -1 if none opens there. */
+// eslint-disable-next-line complexity -- one flat switch over engines and their quoting rules; splitting it would scatter them.
 function literalEnd(sql: string, i: number, engine: DatabaseEngine, mode: LexMode, run: string): number {
   const ch = sql[i];
   switch (engine) {

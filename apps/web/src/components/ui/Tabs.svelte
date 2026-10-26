@@ -64,7 +64,8 @@
 </script>
 
 {#if variant === "line"}
-  <!-- svelte-ignore a11y_interactive_supports_focus -- the tabs inside carry the roving tabindex -->
+  <!-- The tabs inside carry the roving tabindex. -->
+  <!-- svelte-ignore a11y_interactive_supports_focus -->
   <div role="tablist" aria-label={ariaLabel} onkeydown={onKeydown} class={`flex gap-5 border-b border-border ${className}`.trim()}>
     {#each tabs as tab (tab.id)}
       {@const active = tab.id === activeTab}
@@ -97,7 +98,8 @@
     {/each}
   </div>
 {:else if variant === "boxed"}
-  <!-- svelte-ignore a11y_interactive_supports_focus -- the tabs inside carry the roving tabindex -->
+  <!-- The tabs inside carry the roving tabindex. -->
+  <!-- svelte-ignore a11y_interactive_supports_focus -->
   <div role="tablist" aria-label={ariaLabel} onkeydown={onKeydown} class={`flex gap-1 rounded-lg border border-border bg-surface p-1 ${className}`.trim()}>
     {#each tabs as tab (tab.id)}
       {@const active = tab.id === activeTab}
@@ -122,7 +124,8 @@
   </div>
 {:else}
   <!-- Default: pill -->
-  <!-- svelte-ignore a11y_interactive_supports_focus -- the tabs inside carry the roving tabindex -->
+  <!-- The tabs inside carry the roving tabindex. -->
+  <!-- svelte-ignore a11y_interactive_supports_focus -->
   <div role="tablist" aria-label={ariaLabel} onkeydown={onKeydown} class={`flex flex-wrap gap-1.5 ${className}`.trim()}>
     {#each tabs as tab (tab.id)}
       {@const active = tab.id === activeTab}

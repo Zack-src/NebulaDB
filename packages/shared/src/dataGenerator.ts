@@ -340,7 +340,8 @@ export interface GeneratedRows {
 }
 
 function pick<T>(random: () => number, items: readonly T[]): T {
-  return items[Math.floor(random() * items.length)];
+  // `random()` is in [0, 1), so the index is always inside a non-empty list.
+  return items[Math.floor(random() * items.length)] as T;
 }
 
 function slug(text: string): string {
@@ -418,7 +419,7 @@ function valueFor(
     }
     case "uuid": {
       const hex = Array.from({ length: 32 }, () => Math.floor(random() * 16).toString(16)).join("");
-      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-${((parseInt(hex[16], 16) & 3) | 8).toString(16)}${hex.slice(17, 20)}-${hex.slice(20)}`;
+      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-4${hex.slice(13, 16)}-${((parseInt(hex.charAt(16), 16) & 3) | 8).toString(16)}${hex.slice(17, 20)}-${hex.slice(20)}`;
     }
     case "oneOf": {
       const values = config.values ?? [];
@@ -427,10 +428,10 @@ function valueFor(
       const total = weights.reduce((sum, w) => sum + Math.max(0, w), 0) || 1;
       let roll = random() * total;
       for (let i = 0; i < values.length; i++) {
-        roll -= Math.max(0, weights[i]);
-        if (roll < 0) return values[i];
+        roll -= Math.max(0, weights[i] ?? 0);
+        if (roll < 0) return values[i] ?? null;
       }
-      return values[values.length - 1];
+      return values[values.length - 1] ?? null;
     }
     case "fixed":
       return config.value ?? "";

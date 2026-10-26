@@ -38,7 +38,7 @@ function routes(): Route[] {
   const out: Route[] = [];
   const stack: string[] = [];
   for (const line of app.printRoutes({ commonPrefix: false, includeMeta: false }).split("\n")) {
-    const match = /^((?:│   |    )*)(?:├── |└── )(.*?) \(([A-Z, ]+)\)$/.exec(line);
+    const match = /^((?:│ {3}| {4})*)(?:├── |└── )(.*?) \(([A-Z, ]+)\)$/.exec(line);
     if (!match) continue;
     const depth = match[1].length / 4;
     stack.length = depth;

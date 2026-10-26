@@ -189,7 +189,7 @@ export class SeedValidator {
     this.overflowAt = picked.map(() => ({ longest: 0, count: 0 }));
 
     const pk = picked.map((field, i) => (field.pk ? i : -1)).filter((i) => i >= 0);
-    if (pk.length > 0) this.uniqueSets.push({ label: pk.map((i) => picked[i].name).join(", "), indexes: pk, seen: new Set() });
+    if (pk.length > 0) this.uniqueSets.push({ label: pk.map((i) => picked[i]?.name).join(", "), indexes: pk, seen: new Set() });
     picked.forEach((field, i) => {
       if (field.unique && !field.pk) this.uniqueSets.push({ label: field.name, indexes: [i], seen: new Set() });
     });
@@ -197,7 +197,7 @@ export class SeedValidator {
       if (!index.unique && !index.pk) continue;
       const positions = index.fieldIds.map((id) => picked.findIndex((field) => field.id === id));
       if (positions.some((p) => p < 0)) continue;
-      this.uniqueSets.push({ label: positions.map((p) => picked[p].name).join(", "), indexes: positions, seen: new Set() });
+      this.uniqueSets.push({ label: positions.map((p) => picked[p]?.name).join(", "), indexes: positions, seen: new Set() });
     }
 
     this.foreignKeys = (context.refs ?? [])
@@ -264,31 +264,35 @@ export class SeedValidator {
     const row = this.picked.map((index) => cells[index] ?? null);
     row.forEach((value, c) => {
       const field = this.columns[c];
+      const family = this.families[c];
+      if (!field || !family) return;
       if (value === null) {
         if (field.notNull || field.pk) this.report({ kind: "not-null", row: rowNumber, column: field.name, severity: "error" });
         return;
       }
-      if (!fitsType(value, this.families[c])) {
+      if (!fitsType(value, family)) {
         this.report({ kind: "type", row: rowNumber, column: field.name, value, severity: "error" });
       } else {
-        const limit = this.limits[c];
+        const limit = this.limits[c] ?? null;
         if (limit !== null && value.length > limit) {
           const length = [...value].length;
           if (length > limit) {
             this.report({ kind: "length", row: rowNumber, column: field.name, value, severity: "error" });
             const seen = this.overflowAt[c];
-            seen.count++;
-            seen.longest = Math.max(seen.longest, length);
+            if (seen) {
+              seen.count++;
+              seen.longest = Math.max(seen.longest, length);
+            }
           }
         }
       }
-      if (this.families[c] === "text" && /^[=+\-@\t\r]/.test(value) && !/^[-+]?\d/.test(value)) {
+      if (family === "text" && /^[=+\-@\t\r]/.test(value) && !/^[-+]?\d/.test(value)) {
         this.report({ kind: "formula", row: rowNumber, column: field.name, value, severity: "warning" });
       }
     });
 
     for (const set of this.uniqueSets) {
-      const parts = set.indexes.map((i) => row[i]);
+      const parts = set.indexes.map((i) => row[i] ?? null);
       if (parts.some((part) => part === null)) continue;
       const key = parts.length === 1 ? (parts[0] as string) : parts.join(NUL);
       if (this.remember(set, key)) {
@@ -296,18 +300,18 @@ export class SeedValidator {
       }
     }
     for (const fk of this.foreignKeys) {
-      const value = row[fk.position];
+      const value = row[fk.position] ?? null;
       if (value !== null && !fk.parent.has(value)) {
-        this.report({ kind: "foreign-key", row: rowNumber, column: this.columns[fk.position].name, value, severity: "error" });
+        this.report({ kind: "foreign-key", row: rowNumber, column: this.columns[fk.position]?.name ?? "", value, severity: "error" });
       }
     }
     for (const gathered of this.gather) {
-      const value = row[gathered.position];
+      const value = row[gathered.position] ?? null;
       if (value === null || gathered.set === null) continue;
       if (gathered.set.has(value)) continue;
       if (this.budget <= 0) {
         gathered.set = null;
-        this.unchecked.push(`values: ${this.columns[gathered.position].name}`);
+        this.unchecked.push(`values: ${this.columns[gathered.position]?.name}`);
         continue;
       }
       this.budget--;
@@ -319,9 +323,10 @@ export class SeedValidator {
     if (!this.started) this.start(null);
     const overflows: SeedOverflow[] = [];
     this.columns.forEach((field, c) => {
-      const limit = this.limits[c];
-      if (limit !== null && this.overflowAt[c].count > 0) {
-        overflows.push({ column: field.name, limit, longest: this.overflowAt[c].longest, count: this.overflowAt[c].count });
+      const limit = this.limits[c] ?? null;
+      const overflow = this.overflowAt[c];
+      if (limit !== null && overflow && overflow.count > 0) {
+        overflows.push({ column: field.name, limit, longest: overflow.longest, count: overflow.count });
       }
     });
     const values = new Map<string, Set<string>>();

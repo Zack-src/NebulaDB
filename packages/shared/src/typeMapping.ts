@@ -15,7 +15,7 @@ export function normalizeTypeString(raw: string): { name: string; args: string[]
   if (!trimmed) return null;
   const match = trimmed.match(/^([a-z][a-z0-9_ ]*?)\s*(?:\(([^)]*)\))?$/);
   if (!match) return null;
-  const name = match[1].trim().replace(/\s+/g, " ");
+  const name = (match[1] ?? "").trim().replace(/\s+/g, " ");
   const args = match[2] ? match[2].split(",").map((a) => a.trim()) : [];
   return { name, args };
 }
@@ -355,7 +355,7 @@ export function translateType(raw: string, targetEngine: DatabaseEngine): TypeTr
         ? unbounded === FAMILIES.binary
           ? "longblob"
           : "longtext"
-        : unbounded.render[targetEngine]([]);
+        : (unbounded?.render[targetEngine]([]) ?? "text");
     return { original, type, changed: true };
   }
 
@@ -403,7 +403,7 @@ const NEUTRAL_FAMILY: Record<string, string> = {
 export function neutralType(raw: string): string {
   const parsed = normalizeTypeString(raw ?? "");
   if (!parsed) return (raw ?? "").trim().toLowerCase();
-  const name = Object.keys(FAMILIES).find((key) => FAMILIES[key].recognizedAs.includes(parsed.name));
+  const name = Object.keys(FAMILIES).find((key) => FAMILIES[key]?.recognizedAs.includes(parsed.name));
   if (!name) return (raw ?? "").trim().toLowerCase().replace(/s+/g, "");
   const family = NEUTRAL_FAMILY[name] ?? name;
   const sized = (family === "text" || family === "decimal") && parsed.args.length > 0 && !parsed.args.includes("max");

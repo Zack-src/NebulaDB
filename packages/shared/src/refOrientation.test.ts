@@ -74,8 +74,8 @@ test("normalizeRefOrientation flips only what's inverted, reverses waypoints, an
   };
 
   const normalized = normalizeRefOrientation(project);
-  assert.deepEqual(normalized.refs[0].from, { tableId: "posts", fieldId: "posts.author_id" });
-  assert.deepEqual(normalized.refs[0].routingPoints, [
+  assert.deepEqual(normalized.refs[0]!.from, { tableId: "posts", fieldId: "posts.author_id" });
+  assert.deepEqual(normalized.refs[0]!.routingPoints, [
     { x: 2, y: 2 },
     { x: 1, y: 1 },
   ]);

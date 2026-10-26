@@ -9,7 +9,6 @@
   import { APP_HEADER } from "@/components/ui/layout";
   import Icon from "@/components/icons/Icon.svelte";
   import { ChevronLeftIcon, LogOutIcon, SettingsIcon, UsersIcon } from "@/components/icons/Icons";
-  import PaletteButton from "@/features/palette/PaletteButton.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import type { Session } from "@/types";
 
@@ -71,7 +70,6 @@
       </Button>
     {/if}
 
-    <PaletteButton />
     {#if actions}{@render actions()}{/if}
     {#if onOpenSettings}
       <Button

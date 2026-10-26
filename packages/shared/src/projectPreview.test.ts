@@ -32,9 +32,9 @@ test("the preview places each table and joins the ends of each relation", () => 
   } as unknown as Project;
   const preview = buildProjectPreview(project, Array.from({ length: 200 }, (_, i) => `line ${i}`).join("\n"));
   assert.deepEqual(preview.edges, [[1, 0]]);
-  assert.equal(preview.nodes[1].x, 300);
+  assert.equal(preview.nodes[1]!.x, 300);
   // Standard detail shows the keys and the foreign-key column, not "note": 2 rows.
-  assert.equal(preview.nodes[1].h, 65 + 27 * 2);
+  assert.equal(preview.nodes[1]!.h, 65 + 27 * 2);
   assert.equal(preview.dbml.split("\n").length, PREVIEW_DBML_LINES);
   assert.equal(preview.totalLines, 200);
 });

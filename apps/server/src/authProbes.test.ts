@@ -299,7 +299,7 @@ test("a user who is only a viewer cannot change a project through any mutating r
   const stack: string[] = [];
   const found: { method: string; path: string }[] = [];
   for (const line of routes) {
-    const match = /^((?:│   |    )*)(?:├── |└── )(.*?) \(([A-Z, ]+)\)$/.exec(line);
+    const match = /^((?:│ {3}| {4})*)(?:├── |└── )(.*?) \(([A-Z, ]+)\)$/.exec(line);
     if (!match) continue;
     const depth = match[1].length / 4;
     stack.length = depth;
