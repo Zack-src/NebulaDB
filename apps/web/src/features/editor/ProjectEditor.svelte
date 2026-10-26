@@ -28,6 +28,8 @@
   import { SeedsState } from "@/features/editor/seeds/seeds.svelte";
   import Splitter from "@/components/ui/Splitter.svelte";
   import { SqlDrawerState } from "@/features/sql/sqlDrawer.svelte";
+import { fingerprintSchema } from "@nebuladb/dbml-engine";
+import { DeploymentDrawerState } from "@/features/workspace/drawerState.svelte";
   import { LintState } from "@/features/editor/lint/lint.svelte";
   import { ProjectConnectionsState } from "@/features/editor/projectConnections.svelte";
   import { HistoryPreviewState } from "@/features/editor/history/historyPreview.svelte";
@@ -201,7 +203,10 @@
     variants: LayersIcon,
   };
   const workspaceTabs = $derived(
-    visibleWorkspaceTabs(project.permission).map(
+    // Deployments is not a tab of its own: it opens beside the diagram (`deployments` below), the URL segment stays.
+    visibleWorkspaceTabs(project.permission)
+      .filter((id) => id !== "deployments")
+      .map(
       (id): TabItem<WorkspaceTab> => ({
         id,
         label: t(`workspace.tab.${id}`),
@@ -217,15 +222,35 @@
   const tab = $derived(workspaceTabs.some((item) => item.id === requestedTab) ? requestedTab : "schema");
   /** The tabs that replace the editor; a dictionary or history that has no document yet falls back to the schema. */
   const showsPanel = $derived(
-    tab === "deployments" ||
-      tab === "problems" ||
+    tab === "problems" ||
       tab === "variants" ||
       (Boolean(liveProject) && (tab === "dictionary" || tab === "history")),
   );
+  // The deployment panel beside the diagram — see `DeploymentDrawerState`.
+  const deployments = new DeploymentDrawerState({
+    allowed: () => canDeploy,
+    visible: () => tab === "schema",
+  });
+  /** Only worked out once the drawer has been opened: fingerprinting a big schema on every edit is not free. */
+  const schemaHash = $derived(deployments.mounted && liveProject ? fingerprintSchema(liveProject).hash : undefined);
   const setTab = (next: WorkspaceTab) => {
+    if (next === "deployments") {
+      // A link to the deployments (drift banner, palette, an old URL) opens the drawer over the schema.
+      localTab = "schema";
+      props.onTabChange?.("schema");
+      if (deployments.usable) deployments.setOpen(true);
+      return;
+    }
     localTab = next;
     props.onTabChange?.(next);
   };
+
+  // `/project/:id/deployments`, as bookmarked or linked before the drawer existed.
+  $effect(() => {
+    if (props.tab !== "deployments") return;
+    if (deployments.usable) deployments.setOpen(true);
+    props.onTabChange?.("schema");
+  });
 
   const history = new HistoryPreviewState(
     () => project.id,
@@ -608,6 +633,8 @@
     onConnectionChange={(id) => (databases.connectionId = id)}
     sqlOpen={sql.open}
     onToggleSql={canUseSql && tab === "schema" ? () => sql.setOpen(!sql.open) : undefined}
+    deploymentsOpen={deployments.open}
+    onToggleDeployments={deployments.usable && tab === "schema" ? () => deployments.setOpen(!deployments.open) : undefined}
     lockCount={tableLocks.view.byTable.size}
     onShowLocks={() => (showLocksList = true)}
   />
@@ -627,25 +654,22 @@
   <!-- The other tabs replace the editor rather than cover it: an unmounted
        canvas has no keyboard shortcuts, clipboard handlers or selection to act
        on by accident. The document connection lives above, so nothing is lost. -->
+  <!-- Row: the editor or a tab panel, and — kept mounted once opened — the deployment drawer, which stays alive
+       across tab switches so the analysis it holds is not lost when someone goes to fix the schema or the problems. -->
+  <div class="flex min-h-0 min-w-0 flex-1 flex-row">
+  <div class="flex min-h-0 min-w-0 flex-1 flex-col">
   {#if showsPanel}
     <ProjectTabPanels
       {tab}
       {project}
       {liveProject}
-      session={props.session}
       {user}
-      {databases}
       {quality}
       {lint}
       {history}
       {canWrite}
-      {canDeploy}
       {isProjectAdmin}
-      {deploymentsSeen}
-      {reviewsSeen}
-      onDeployed={() => (deploymentsSeen += 1)}
       onOpenProject={props.onOpenProject}
-      onOpenConnectionsAdmin={props.onOpenConnectionsAdmin}
       {setTab}
       onOpenTable={(tableName, fieldName) => {
         setTab("schema");
@@ -792,6 +816,42 @@
   {/if}
   </div>
   {/if}
+  </div>
+  {#if deployments.mounted}
+    <!-- Kept mounted once opened, only hidden when closed: the analysis it holds can take long to redo. -->
+    <div class="flex min-h-0 shrink-0 flex-row" style:display={deployments.showing ? undefined : "none"}>
+      <Splitter
+        bind:size={deployments.width}
+        min={DeploymentDrawerState.MIN_WIDTH}
+        max={DeploymentDrawerState.MAX_WIDTH}
+        edge="left"
+        aria-label={t("workspace.deployments.resize")}
+        onCommit={deployments.rememberWidth}
+      />
+      <div class="flex min-h-0 max-w-[85%] shrink-0 flex-col border-l border-border" style:width="{deployments.width}px">
+        {#await import("@/features/workspace/DeploymentDrawer.svelte") then { default: DeploymentDrawer }}
+          <DeploymentDrawer
+            projectId={project.id}
+            connection={databases.activeConnection}
+            connections={databases.connections}
+            refreshKey={deploymentsSeen}
+            reviewsKey={reviewsSeen}
+            {schemaHash}
+            onDeployTo={(id) => (databases.connectionId = id)}
+            {canDeploy}
+            canSkipStage={props.session.isAdmin}
+            onOpenConnectionsAdmin={props.onOpenConnectionsAdmin}
+            onDeployed={() => (deploymentsSeen += 1)}
+            onShowProblems={() => setTab("problems")}
+            onShowInGraph={(tableName, fieldName) => (focusRequest = { tableName, fieldName })}
+            onShowInCode={goToDbml}
+            onClose={() => deployments.setOpen(false)}
+          />
+        {/await}
+      </div>
+    </div>
+  {/if}
+  </div>
 
   <EditorDialogs
     {project}

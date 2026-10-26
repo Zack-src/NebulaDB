@@ -3,11 +3,9 @@
   import type { HistoryPreviewState } from "@/features/editor/history/historyPreview.svelte";
   import type { LintState } from "@/features/editor/lint/lint.svelte";
   import type { SchemaQuality } from "@/features/editor/lint/schemaQuality.svelte";
-  import type { ProjectConnectionsState } from "@/features/editor/projectConnections.svelte";
   import type { WorkspaceTab } from "@/features/projects/projectRouting.svelte";
   import type { RevisionSummary } from "@/services/projectsApi";
-  import type { ProjectSummary, Session } from "@/types/index";
-  import { fingerprintSchema } from "@nebuladb/dbml-engine";
+  import type { ProjectSummary } from "@/types/index";
 
   /**
    * The workspace tabs that replace the editor rather than cover it — an
@@ -19,20 +17,13 @@
     tab,
     project,
     liveProject,
-    session,
     user,
-    databases,
     quality,
     lint,
     history,
     canWrite,
-    canDeploy,
     isProjectAdmin,
-    deploymentsSeen,
-    reviewsSeen,
-    onDeployed,
     onOpenProject,
-    onOpenConnectionsAdmin,
     setTab,
     onOpenTable,
     onPreviewRevision,
@@ -40,20 +31,13 @@
     tab: WorkspaceTab;
     project: ProjectSummary;
     liveProject: Project | null;
-    session: Session;
     user: string;
-    databases: ProjectConnectionsState;
     quality: SchemaQuality;
     lint: LintState;
     history: HistoryPreviewState;
     canWrite: boolean;
-    canDeploy: boolean;
     isProjectAdmin: boolean;
-    deploymentsSeen: number;
-    reviewsSeen: number;
-    onDeployed: () => void;
     onOpenProject?: (projectId: string) => void;
-    onOpenConnectionsAdmin?: () => void;
     setTab: (tab: WorkspaceTab) => void;
     /** Leaves the panel for the schema, centred on a table (and a column). */
     onOpenTable: (tableName: string, fieldName?: string) => void;
@@ -61,24 +45,7 @@
   } = $props();
 </script>
 
-{#if tab === "deployments"}
-  {#await import("@/features/workspace/DeploymentsTab.svelte") then { default: DeploymentsTab }}
-    <DeploymentsTab
-      projectId={project.id}
-      connection={databases.activeConnection}
-      connections={databases.connections}
-      refreshKey={deploymentsSeen}
-      reviewsKey={reviewsSeen}
-      schemaHash={liveProject ? fingerprintSchema(liveProject).hash : undefined}
-      onDeployTo={(id) => (databases.connectionId = id)}
-      {canDeploy}
-      canSkipStage={session.isAdmin}
-      {onOpenConnectionsAdmin}
-      onDeployed={onDeployed}
-      onShowProblems={() => setTab("problems")}
-    />
-  {/await}
-{:else if tab === "problems"}
+{#if tab === "problems"}
   {#await import("@/features/editor/lint/ProblemsPanel.svelte") then { default: ProblemsPanel }}
     <ProblemsPanel
       findings={quality.findings}

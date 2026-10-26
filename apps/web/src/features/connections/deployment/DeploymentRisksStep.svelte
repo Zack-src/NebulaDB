@@ -4,7 +4,7 @@
   import Badge from "@/components/ui/Badge.svelte";
   import Button from "@/components/ui/Button.svelte";
   import Icon from "@/components/icons/Icon.svelte";
-  import { AlertTriangleIcon, CheckCircleIcon, InfoIcon } from "@/components/icons/Icons";
+  import { AlertTriangleIcon, CheckCircleIcon, CodeIcon, InfoIcon, TableIcon } from "@/components/icons/Icons";
   import RadioGroup from "@/components/ui/RadioGroup.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import type { TranslationKeyOf } from "@/types";
@@ -22,12 +22,18 @@
     resolutions,
     onStrategyChange,
     analyzing = false,
+    onShowInGraph,
+    onShowInCode,
   }: {
     risks: SchemaRisk[];
     resolutions: MigrationResolutionMap;
     onStrategyChange: (risk: SchemaRisk, strategy: ConflictResolutionStrategy, value?: string) => void;
     /** The plan is still being analysed: `risks` is not an answer yet, so no verdict is shown. */
     analyzing?: boolean;
+    /** Centres the diagram on the table (and column) a conflict names. Absent where there is no diagram beside the panel. */
+    onShowInGraph?: (tableName: string, fieldName?: string) => void;
+    /** Scrolls the DBML code to the table a conflict names. */
+    onShowInCode?: (tableName: string) => void;
   } = $props();
 
   const { t } = useTranslation();
@@ -72,7 +78,7 @@
         </Button>
       </div>
     {/if}
-    <div class="max-h-84 space-y-3 overflow-y-auto pr-1">
+    <div class="space-y-3">
       {#each risks as risk, index (risk.id)}
         {@const currentRes = resolutions[riskKey(risk)]}
         <div
@@ -157,6 +163,23 @@
                 </Badge>
                 {/if}
               </div>
+
+              {#if (onShowInGraph || onShowInCode) && risk.tableName}
+                <div class="flex flex-wrap gap-1.5">
+                  {#if onShowInGraph}
+                    <Button size="xs" variant="ghost" onclick={() => onShowInGraph(risk.tableName, risk.columnName)}>
+                      <Icon icon={TableIcon} size={12} />
+                      {t("deployment.showInGraph")}
+                    </Button>
+                  {/if}
+                  {#if onShowInCode}
+                    <Button size="xs" variant="ghost" onclick={() => onShowInCode(risk.tableName)}>
+                      <Icon icon={CodeIcon} size={12} />
+                      {t("deployment.showInCode")}
+                    </Button>
+                  {/if}
+                </div>
+              {/if}
 
               <!-- Strategy selector radio group — nothing to decide for a check that passed -->
               {#if risk.type === "TYPE_TRANSLATION_SUGGESTED"}
