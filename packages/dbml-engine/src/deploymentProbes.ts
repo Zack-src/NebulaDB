@@ -254,6 +254,7 @@ export function riskFromProbe(
     columnName: probe.columnName,
     detail: probe.detail,
     resolutionKey: probe.resolutionKey,
+    measuredBy: probe.sql,
   };
   const make = (
     severity: SchemaRisk["severity"],

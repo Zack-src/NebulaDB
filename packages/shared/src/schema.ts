@@ -548,6 +548,8 @@ export interface SchemaRisk {
   resolutionKey?: string;
   /** The target could not be measured (timeout, error): the risk is a possibility, not a finding. */
   unmeasured?: boolean;
+  /** The aggregate query that produced `affectedRowCount`, to run again by hand against the database. */
+  measuredBy?: string;
   /** `LENGTH_REDUCTION`: the longest value today, and the new limit. */
   measuredMax?: number;
   limit?: number;

@@ -929,6 +929,7 @@
   "deployment.analyzingRisks": "Checking the live data for risks before showing any result.",
   "deployment.dropAll": "Delete all data permanently ({{count}})",
   "deployment.dropAllHint": "Selects “Delete data permanently” on every risk below. Nothing is deleted until you confirm the deployment.",
+  "deployment.measuredBy": "Show the query that counted this",
   "deployment.stepDiff": "1. Changes",
   "deployment.stepDiffShort": "Changes",
   "deployment.stepRisksShort": "Conflicts",
