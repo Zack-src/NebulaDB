@@ -126,9 +126,13 @@ put the new one in the receiving service straight away.
   explicit error until they are recreated.
 - URLs must be `http(s)` and can't carry credentials. The cloud metadata
   endpoint is refused — checked against the address actually connected to,
-  so a hostname that changes its DNS answer can't get around it. Like database
-  connections, private and LAN addresses are allowed on purpose (an internal
-  chat or CI server is the normal case for a self-hosted instance).
+  so a hostname that changes its DNS answer can't get around it. Loopback,
+  private (RFC 1918, ULA), CGNAT, link-local, multicast and reserved addresses
+  are **refused by default**, because any account can register a webhook. For a
+  receiver on your LAN (an internal chat or CI server), an instance administrator
+  lists it in `NEBULADB_WEBHOOK_ALLOWED_HOSTS` (host names, `*.example.com`,
+  IPs or CIDR ranges; when set, webhooks may only target listed hosts), or sets
+  `NEBULADB_WEBHOOK_BLOCK_PRIVATE=0` to allow private addresses again.
 - Payloads carry the project name, change counts and, for deployments and
   their reviews, the emails of those involved. Nothing of the schema itself
   is sent.
