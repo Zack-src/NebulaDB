@@ -1,5 +1,10 @@
 import { parseArgs } from "node:util";
 
+/** `lint <project-id>` asks a server, `lint <file.dbml>` runs here: a path to a DBML file tells them apart. */
+export function looksLikeFile(argument: string): boolean {
+  return /\.dbml$/i.test(argument) || /[\\/]/.test(argument);
+}
+
 /** The command line is wrong: an unknown command or flag, a missing argument, a value out of range. Exit code 2. */
 export class UsageError extends Error {}
 
@@ -19,6 +24,8 @@ export type CommandId =
   | "project.export"
   | "project.import"
   | "lint"
+  | "lint.file"
+  | "diff.files"
   | "drift.check"
   | "deploy.plan"
   | "deploy.run"
@@ -32,6 +39,8 @@ export interface CommandSpec {
   positionals: string[];
   options: Record<string, OptionSpec>;
   summary: string;
+  /** Runs on local files with the DBML engine: no instance address and no API key. */
+  offline?: boolean;
 }
 
 export const GLOBAL_OPTIONS: Record<string, OptionSpec> = {
@@ -103,6 +112,43 @@ export const COMMANDS: CommandSpec[] = [
       },
     },
     summary: "Lint the schema with the project's rules; fails on errors",
+  },
+  {
+    id: "lint.file",
+    words: ["lint"],
+    positionals: ["file.dbml"],
+    options: {
+      format: {
+        type: "string",
+        valueName: "text|json|markdown",
+        choices: ["text", "json", "markdown"],
+        description: "How to print the findings (default: text)",
+      },
+      "fail-on": {
+        type: "string",
+        valueName: "error|warning",
+        choices: ["error", "warning"],
+        description: "The lowest severity that fails the run (default: error)",
+      },
+    },
+    summary: "Lint a DBML file offline with the default rules (a path selects this form; no instance needed)",
+    offline: true,
+  },
+  {
+    id: "diff.files",
+    words: ["diff"],
+    positionals: ["old.dbml", "new.dbml"],
+    options: {
+      format: {
+        type: "string",
+        valueName: "text|json|markdown",
+        choices: ["text", "json", "markdown"],
+        description: "How to print the changes (default: text)",
+      },
+      "exit-code": { type: "boolean", description: "Exit with 1 when the two files differ (like git diff)" },
+    },
+    summary: "Compare two DBML files offline (no instance needed)",
+    offline: true,
   },
   {
     id: "drift.check",
@@ -192,8 +238,14 @@ function selectCommand(argv: string[]): { command: CommandSpec; rest: string[] }
     words.push(token);
   }
   for (const command of COMMANDS) {
+    if (command.id === "lint.file") continue;
     if (command.words.every((word, index) => words[index] === word)) {
-      return { command, rest: argv.slice(command.words.length) };
+      const rest = argv.slice(command.words.length);
+      // `lint <file.dbml>` is the offline form of `lint <projectId>`: a path tells them apart.
+      if (command.id === "lint" && rest.some((token) => !token.startsWith("-") && looksLikeFile(token))) {
+        return { command: COMMANDS.find((c) => c.id === "lint.file")!, rest };
+      }
+      return { command, rest };
     }
   }
   return null;

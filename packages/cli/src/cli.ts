@@ -5,6 +5,7 @@ import { ApiClient, ApiError, NetworkError, type FetchLike } from "./client.js";
 import { HANDLERS } from "./commands.js";
 import { resolveConfig } from "./config.js";
 import { formatApiError } from "./format.js";
+import { DbmlSyntaxError, OFFLINE_HANDLERS } from "./offline.js";
 
 export const EXIT_OK = 0;
 /** The server refused, or a check (lint, drift, a plan) found something. */
@@ -55,9 +56,19 @@ export async function run(argv: string[], io: Io): Promise<number> {
     }
 
     jsonFile = typeof parsed.values["json-file"] === "string" ? parsed.values["json-file"] : undefined;
+    if (parsed.command.offline) {
+      // Local files only: no instance address, no key, no network.
+      const outcome = await OFFLINE_HANDLERS[parsed.command.id]({
+        positionals: parsed.positionals,
+        values: parsed.values,
+      });
+      out(`${outcome.text}\n`);
+      await writeJsonFile(jsonFile, outcome.data, out);
+      return outcome.failed ? EXIT_FAILED : EXIT_OK;
+    }
     const config = resolveConfig(parsed.values, io.env);
     const client = new ApiClient(config, io.fetch);
-    const outcome = await HANDLERS[parsed.command.id]({
+    const outcome = await HANDLERS[parsed.command.id as keyof typeof HANDLERS]({
       client,
       positionals: parsed.positionals,
       values: parsed.values,
@@ -73,6 +84,9 @@ export async function run(argv: string[], io: Io): Promise<number> {
         error: error.message,
         code: "USAGE",
       });
+    }
+    if (error instanceof DbmlSyntaxError) {
+      return fail(EXIT_FAILED, error.message, { error: error.message, code: "DBML_SYNTAX" });
     }
     if (error instanceof ApiError) {
       return fail(error.isAuth ? EXIT_NETWORK : EXIT_FAILED, formatApiError(error), {
