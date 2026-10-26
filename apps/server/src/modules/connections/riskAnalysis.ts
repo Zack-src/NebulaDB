@@ -50,7 +50,7 @@ export async function analyzeDeploymentRisks(
         value = null;
       }
     }
-    const risk = riskFromProbe(probe, value);
+    const risk = riskFromProbe(probe, value, engine);
     if (risk) risks.push(risk);
   }
   return [...risks, ...detectTypeTranslationRisks(diff, engine)];

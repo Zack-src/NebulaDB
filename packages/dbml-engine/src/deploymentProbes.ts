@@ -241,7 +241,12 @@ function options(
  * `value === null`: the measurement could not be taken (timeout, missing
  * column) — reported as a warning rather than silently passed.
  */
-export function riskFromProbe(probe: RiskProbe, value: number | null): SchemaRisk | null {
+export function riskFromProbe(
+  probe: RiskProbe,
+  value: number | null,
+  /** The target's engine, for the few answers that depend on it (BigQuery does not enforce a foreign key). */
+  dialect?: MigrationDialect,
+): SchemaRisk | null {
   const base = {
     id: `risk-${probe.resolutionKey}-${probe.type}`,
     type: probe.type,
@@ -256,13 +261,19 @@ export function riskFromProbe(probe: RiskProbe, value: number | null): SchemaRis
     keys: ConflictResolutionStrategy[],
     fallback: ConflictResolutionStrategy,
     extra: Partial<SchemaRisk> = {},
+    /** Label and description keys that replace the stock ones of "deploy anyway". */
+    proceedKey?: string,
   ): SchemaRisk => ({
     ...base,
     severity,
     affectedRowCount,
     availableStrategies: options(
       keys,
-      probe.type === "DROP_COLUMN_WITH_DATA" ? { KEEP_IN_DB: "connections.strategy.keepColumn" } : {},
+      probe.type === "DROP_COLUMN_WITH_DATA"
+        ? { KEEP_IN_DB: "connections.strategy.keepColumn" }
+        : proceedKey
+          ? { PROCEED: proceedKey }
+          : {},
     ),
     defaultStrategy: fallback,
     selectedStrategy: fallback,
@@ -304,6 +315,11 @@ export function riskFromProbe(probe: RiskProbe, value: number | null): SchemaRis
     }
     case "UNIQUE_VIOLATION":
     case "FK_VIOLATION":
+      // BigQuery declares a foreign key `NOT ENFORCED`: orphan rows never make it refuse the constraint, so
+      // they are reported, and the person may declare the key anyway instead of being stuck with "cancel".
+      if (dialect === "bigquery" && probe.type === "FK_VIOLATION") {
+        return make("warning", n, ["PROCEED", "CANCEL"], "PROCEED", {}, "connections.strategy.declareKey");
+      }
       // The database would refuse the constraint: the data has to be fixed first.
       if (value === null) return make("warning", 0, ["PROCEED", "CANCEL"], "PROCEED");
       return make("critical", n, ["CANCEL"], "CANCEL");

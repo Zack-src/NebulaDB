@@ -918,6 +918,8 @@
   "connections.strategy.keepAsWrittenDesc": "Déployer le type exactement tel qu'écrit dans le canvas.",
   "connections.strategy.proceed": "Déployer quand même",
   "connections.strategy.proceedDesc": "Non vérifiable : appliquer le changement ; la base le refusera si les données sont en conflit.",
+  "connections.strategy.declareKey": "Déclarer la clé quand même",
+  "connections.strategy.declareKeyDesc": "BigQuery n'applique pas les clés étrangères (elle est déclarée NOT ENFORCED) : la clé est ajoutée telle quelle et les lignes orphelines restent en base.",
   "deployment.checkDifferencesTitle": "Vérifier les différences",
   "deployment.deploy": "Déployer",
   "deployment.targetDatabase": "Base cible",
