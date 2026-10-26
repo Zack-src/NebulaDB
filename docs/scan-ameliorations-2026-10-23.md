@@ -49,13 +49,13 @@ mais ce document ne le remplace pas : il le complète (les agents ont signalé l
 ### Lot B — Perte de données & stabilité
 
 - [x] **[P1][S] Éditions DBML perdues au-delà de ~30 Ko** — `apps/web/src/features/editor/dbml/DbmlPanel.svelte:220-237` — flush en `keepalive` refusé au-delà de 64 Kio. → Flush via WebSocket/Yjs, `keepalive` seulement pour petits payloads. _(§3)_
-- [ ] **[P0][L] Parse DBML synchrone ×2 sur l'event loop à chaque auto-sync** — `projects/routes/importExport.ts:34,54`, `dbmlSource.ts:37-61` — ~2 × 950 ms à 500 tables, toutes les rooms gelées. → Worker thread + cache de la baseline. _(§3)_
-- [ ] **[P0][M] `GET /revisions` rejoue tout l'historique (O(R×T))** — `realtime/persistence.ts:88-121` — 4,4 s de gel pour 2 000 révisions. → Pagination + résumés de diff pré-calculés à l'écriture. _(§3)_
-- [ ] **[P1][M] Restauration non transactionnelle** — `backups/restore.ts:99-162,213-215` — tables vidées puis échec partiel ; identity/séquences non gérées. _(§2)_
+- [x] **[P0][L] Parse DBML synchrone ×2 sur l'event loop à chaque auto-sync** — `projects/routes/importExport.ts:34,54`, `dbmlSource.ts:37-61` — ~2 × 950 ms à 500 tables, toutes les rooms gelées. → Worker thread + cache de la baseline. _(§3)_
+- [x] **[P0][M] `GET /revisions` rejoue tout l'historique (O(R×T))** — `realtime/persistence.ts:88-121` — 4,4 s de gel pour 2 000 révisions. → Pagination + résumés de diff pré-calculés à l'écriture. _(§3)_
+- [x] **[P1][M] Restauration non transactionnelle** — `backups/restore.ts:99-162,213-215` — tables vidées puis échec partiel ; identity/séquences non gérées. _(§2)_
 - [ ] **[P1][M] Déploiements : pas de verrou par connexion, rollback sans review/lint/sauvegarde, MSSQL hors transaction** — `environments/deploy.ts:396-420`, `connections/drivers/mssql.ts:282-303` _(§2)_
 - [ ] **[P1][M] Sauvegarde d'instance = DBML seulement** ↔ — comptes, connexions, historique, seeds, audit perdus ; pas de runbook PostgreSQL. _(§4, §8)_
 - [x] **[P1][M] Fuites mémoire : rooms ouvertes par REST jamais évincées (serveur), Y.Doc/Awareness jamais détruits (client)** — `realtime/roomRegistry.ts:41-57`, `collaboration/yjsClient.ts:93-94,261` _(§3)_
-- [ ] **[P1][M] N+1 permissions sur `/api/projects` et `/api/search`, sans pagination + écriture `sessions` à chaque requête** — `projects/routes/crud.ts:13-21`, `auth/session.ts:197-219` _(§3)_
+- [x] **[P1][M] N+1 permissions sur `/api/projects` et `/api/search`, sans pagination + écriture `sessions` à chaque requête** — `projects/routes/crud.ts:13-21`, `auth/session.ts:197-219` _(§3)_
 
 ### Lot C — Régressions produit & premier démarrage
 
@@ -307,7 +307,7 @@ Confiance : **confirmé** (vérifié à la lecture du code, chemin d'exécution 
 
 #### Sauvegardes
 
-- [ ] **[P1][M] Restauration sans gestion identity/colonnes générées ni recalage des séquences** — `backups/restore.ts` — (confirmé)
+- [x] **[P1][M] Restauration sans gestion identity/colonnes générées ni recalage des séquences** — `backups/restore.ts` — (confirmé)
 - [ ] **[P2][M] Sauvegarde logique incohérente (OFFSET hors snapshot)** — Pagination keyset dans une transaction REPEATABLE READ / snapshot. — (confirmé)
 
 #### Points forts
@@ -434,7 +434,7 @@ Légende : P0 = bloque tout le serveur ou perd des données à l'échelle visée
 
 ### Temps réel
 
-- [ ] **[P0][M] `GET /revisions` rejoue tout l'historique de façon synchrone, en O(R × T)** — `apps/server/src/realtime/persistence.ts:88-121` ; `apps/server/src/modules/projects/routes/revisions.ts:47-51`
+- [x] **[P0][M] `GET /revisions` rejoue tout l'historique de façon synchrone, en O(R × T)** — `apps/server/src/realtime/persistence.ts:88-121` ; `apps/server/src/modules/projects/routes/revisions.ts:47-51`
   - **Problème :** à chaque ouverture du panneau Historique, le serveur charge **tous** les BLOBs (2,7 Mo pour 2 000 révisions). Pour chaque révision, il fait `applyUpdate`, puis `readProjectFromDoc` et `diffProjects` sur le projet entier. Mesuré : **4,4 s d'event loop bloqué** pour 2 000 révisions sur 500 tables. N'importe quel lecteur `view` gèle ainsi l'instance. Le coût augmente sans limite, puisqu'il n'y a pas de compaction (déjà dans `docs/todo.md:180`).
   - **Correctif :** calculer le résumé `changes` **à l'écriture**. La room a déjà le doc, et `pendingChecks` sait quelles tables ont été touchées : il suffit de comparer ces seules tables, puis de stocker `changes_json` et `meaningful` dans `revisions`. `GET /revisions` devient un simple `SELECT` paginé (keyset sur `seq`). Pour l'historique existant, faire un backfill hors ligne, dans un worker.
   - (confiance haute, mesuré)
