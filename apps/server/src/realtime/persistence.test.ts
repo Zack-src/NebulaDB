@@ -119,3 +119,33 @@ test("listMeaningfulRevisions keeps a labeled revision even when it changed noth
   assert.equal(meaningful[1].id, noOpId);
   assert.equal(meaningful[1].label, "checkpoint");
 });
+
+test("a revision's summary is stored once: listing again does not replay the log", async () => {
+  const projectId = randomUUID();
+  await db.prepare("INSERT INTO projects (id, name) VALUES (?, ?)").run(projectId, "Test project");
+  const doc = new Y.Doc();
+  const table = {
+    id: "t1",
+    name: "users",
+    fields: [{ id: "f1", name: "id", type: "int", pk: true }],
+    indexes: [],
+    position: { x: 0, y: 0 },
+    detailLevel: "standard" as const,
+  };
+  await commit(doc, projectId, "alice", makeProject({ tables: [table] }));
+  const first = await listMeaningfulRevisions(projectId);
+  assert.equal(first.length, 1);
+
+  // Unreadable updates: a second listing that replayed them would throw.
+  await db.prepare("UPDATE revisions SET yjs_update = ? WHERE project_id = ?").run(Buffer.from([255, 255]), projectId);
+  assert.deepEqual(await listMeaningfulRevisions(projectId), first);
+
+  // A summary given with the revision is used as is, with no replay to fill it in.
+  await appendRevision(projectId, "bob", new Uint8Array([0]), randomUUID(), {
+    changes: { tables: [{ name: "orders", status: "added" }], moreTables: 0, refs: 0 },
+  });
+  await appendRevision(projectId, "bob", new Uint8Array([0]), randomUUID(), {});
+  const listed = await listMeaningfulRevisions(projectId);
+  assert.equal(listed.length, 2);
+  assert.equal(listed[1]!.changes?.tables[0]?.name, "orders");
+});

@@ -16,14 +16,17 @@ import {
   getRefsMap,
   getTablesMap,
   isRefInverted,
+  readProjectFromDoc,
   reverseRef,
   revertLockViolations,
   type LockableSchema,
+  type Project,
   type Ref,
   type ServerNotice,
   type Table,
 } from "@nebuladb/shared";
-import { appendRevision, saveSnapshotState, loadSnapshot } from "./persistence.js";
+import { diffProjects } from "@nebuladb/dbml-engine";
+import { appendRevision, saveSnapshotState, loadSnapshot, summarizeChanges, type RevisionSummary } from "./persistence.js";
 import { timeAsync, timeSync } from "../infrastructure/perf.js";
 import { LIMIT_ORIGIN, enforceLimits } from "./room/limits.js";
 import type { RoomLogger } from "./room/logger.js";
@@ -129,6 +132,8 @@ export class Room {
   /** Tail of the incoming-frame queue. Never rejects either. */
   private inbox: Promise<void> = Promise.resolve();
   private latestRevision: string | null = null;
+  /** The project as the previous revision left it: what the next revision's summary is a diff against. */
+  private summarizedProject: Project;
   /** Settles once the doc-change listener has heard of every change so far. Never rejects. */
   private told: Promise<void> = Promise.resolve();
 
@@ -153,6 +158,7 @@ export class Room {
     snapshot: Uint8Array | undefined,
   ) {
     if (snapshot) Y.applyUpdate(this.doc, snapshot);
+    this.summarizedProject = readProjectFromDoc(this.doc, projectId);
 
     this.awareness = new awarenessProtocol.Awareness(this.doc);
 
@@ -224,6 +230,25 @@ export class Room {
     this.log.warn({ room: this.projectId, repaired: inverted.length }, "re-oriented inverted refs");
   }
 
+  /**
+   * What this change did to the schema, stored with its revision so the history list never has to
+   * replay the log. Undefined when it cannot be worked out: the revision is then summarized later,
+   * like those stored before summaries existed.
+   */
+  private summarizeRevision(): RevisionSummary | undefined {
+    try {
+      return timeSync("room.summarizeRevision", () => {
+        const project = readProjectFromDoc(this.doc, this.projectId);
+        const diff = diffProjects(this.summarizedProject, project);
+        this.summarizedProject = project;
+        return diff.tables.length > 0 || diff.refs.length > 0 ? { changes: summarizeChanges(diff) } : {};
+      });
+    } catch (err) {
+      this.log.error({ err, room: this.projectId }, "failed to summarize revision");
+      return undefined;
+    }
+  }
+
   /** Body of the `doc.on("update")` handler above — split out only so `timeSync` can wrap it. */
   private handleDocUpdate(update: Uint8Array, origin: unknown): void {
     // A project deleted out from under a still-open room (e.g. someone has
@@ -247,7 +272,10 @@ export class Room {
     // which revision a change became without waiting for it to be stored.
     const revisionId = crypto.randomUUID();
     this.latestRevision = revisionId;
-    void this.persist("failed to append revision", () => appendRevision(this.projectId, author, update, revisionId));
+    const summary = this.summarizeRevision();
+    void this.persist("failed to append revision", () =>
+      appendRevision(this.projectId, author, update, revisionId, summary),
+    );
     this.scheduleSnapshot();
     // Same resilience rule as the revision write above: a listener's failure
     // must never take the room down with it. Automatic repairs aren't news.

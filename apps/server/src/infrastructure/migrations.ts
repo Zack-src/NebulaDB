@@ -960,6 +960,18 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 13,
+    name: "revisions.meaningful / changes_json: the history list no longer replays the whole log",
+    up: async (db) => {
+      // Worked out by the room when it writes a revision (`realtime/room.ts`). NULL for revisions
+      // from before this column: the first listing of such a project fills them in.
+      await db.exec(`
+        ALTER TABLE revisions ADD COLUMN meaningful BOOLEAN;
+        ALTER TABLE revisions ADD COLUMN changes_json ${T};
+      `);
+    },
+  },
 ];
 
 // Any constant will do, as long as every NebulaDB process takes the same one.
