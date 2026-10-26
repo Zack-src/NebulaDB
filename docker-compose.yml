@@ -1,6 +1,8 @@
 services:
   nebuladb:
     build: .
+    # tini as PID 1: signal forwarding and zombie reaping.
+    init: true
     ports:
       - "${PORT:-3001}:3001"
     # The same root .env as `npm run dev` (optional settings: SMTP, retention...);
