@@ -82,7 +82,7 @@ export class SqliteDriver implements DatabaseDriver {
 
     for (let idx = 0; idx < tablesRows.length; idx++) {
       const tableName = tablesRows[idx].name;
-      const colInfo = this.db.prepare(`PRAGMA table_info("${tableName}")`).all() as {
+      const colInfo = this.db.prepare(`PRAGMA table_info(${q(tableName, "sqlite")})`).all() as {
         cid: number;
         name: string;
         type: string;
@@ -101,7 +101,7 @@ export class SqliteDriver implements DatabaseDriver {
       }));
 
       // Foreign keys
-      const fkInfo = this.db.prepare(`PRAGMA foreign_key_list("${tableName}")`).all() as {
+      const fkInfo = this.db.prepare(`PRAGMA foreign_key_list(${q(tableName, "sqlite")})`).all() as {
         id: number;
         seq: number;
         table: string;

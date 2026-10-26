@@ -13,6 +13,7 @@ import {
   TestConnectionResult,
 } from "./interface.js";
 import { driverTlsOptions } from "./tls.js";
+import { CONNECT_TIMEOUT_MS } from "../../../shared/sqlQuoting.js";
 
 interface VersionRow extends RowDataPacket {
   version: string;
@@ -66,6 +67,7 @@ export function mysqlPoolConfig(config: DriverConnectionConfig, database?: strin
       uri: config.connectionString,
       waitForConnections: true,
       connectionLimit: 5,
+      connectTimeout: CONNECT_TIMEOUT_MS,
       ...(ssl ? { ssl } : {}),
       ...(database ? { database } : {}),
     };
@@ -82,6 +84,7 @@ export function mysqlPoolConfig(config: DriverConnectionConfig, database?: strin
     password: config.password,
     waitForConnections: true,
     connectionLimit: 5,
+    connectTimeout: CONNECT_TIMEOUT_MS,
   };
 }
 
