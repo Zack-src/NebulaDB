@@ -131,11 +131,20 @@ location / {
 ```bash
 npm run backup [-- <dir>]                       # every project to .dbml files
 npm run restore -- <dir> [--owner <email>]      # each file becomes a new project
+npm run export-instance [-- <file.jsonl.gz>]    # all of NebulaDB's own data, no pg_dump needed
+npm run import-instance -- <file.jsonl.gz>      # into a new, empty database only
+# Docker image (no tsx): node apps/server/dist/export-instance.js / import-instance.js
 ```
+
+`export-instance` writes every application table (accounts, projects, revision history, connections, audit log…)
+to one gzip'd JSONL archive, from a consistent snapshot while the server runs. Secrets stay encrypted: the archive
+restores only with the same `NEBULADB_SECRET`. `import-instance` restores it into a new, migrated database in one
+transaction (it refuses a database that already holds data, and an archive from a newer schema), verifying row
+counts and checksums. Sessions and other short-lived tables, and the seed files of the data volume, are not included.
 
 `npm run backup` and `NEBULADB_BACKUP_INTERVAL_HOURS` export **project schemas as DBML only**. They do not
 contain accounts, teams, connections, revision history, seeds or the audit log. A complete instance backup is a
-PostgreSQL dump (`pg_dump`) plus `NEBULADB_SECRET` plus the `nebuladb-data` volume: see the runbook in
+PostgreSQL dump (`pg_dump`) or an `export-instance` archive, plus `NEBULADB_SECRET` plus the `nebuladb-data` volume: see the runbook in
 [docs/backup-restore.md](docs/backup-restore.md) (commands, restore drill, verification).
 
 **Logs and retention.** What NebulaDB keeps, and for how long. Purges run at boot and then hourly.
