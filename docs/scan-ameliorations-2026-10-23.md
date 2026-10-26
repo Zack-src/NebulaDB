@@ -73,8 +73,8 @@ mais ce document ne le remplace pas : il le complète (les agents ont signalé l
 - [x] **[P1][S] Classes `text-accent` / `border-accent` / `bg-accent/15` qui ne génèrent rien** — `tailwind.config.js:51`, `DeploymentStepTabs.svelte:28` _(§7)_
 - [x] **[P1][S] Échec de chargement des projets affiché comme « aucun projet »** — `projects/projects.svelte.ts:38-50` _(§7)_
 - [x] **[P1][S] Suppressions/révocations sans confirmation** (équipe, clé API, sessions, lien de partage) _(§7)_
-- [ ] **[P1][M] Formulaires : 40 `<label>` orphelins, pas d'`aria-invalid` / `aria-describedby`** — `ConnectionFormFields.svelte`, `components/ui/Field.svelte:29-37` _(§7)_
-- [ ] **[P1][M] `Tabs` sans navigation clavier ARIA (16 écrans)** — `components/ui/Tabs.svelte:39-104` _(§7)_
+- [x] **[P1][M] Formulaires : 40 `<label>` orphelins, pas d'`aria-invalid` / `aria-describedby`** — `ConnectionFormFields.svelte`, `components/ui/Field.svelte:29-37` _(§7)_
+- [x] **[P1][M] `Tabs` sans navigation clavier ARIA (16 écrans)** — `components/ui/Tabs.svelte:39-104` _(§7)_
 - [x] **[P1][S] Palette Ctrl+K sans point d'entrée visible ; pas d'aide des raccourcis** _(§7)_
 
 ### Lot E — Socle d'ingénierie
