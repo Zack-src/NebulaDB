@@ -1,7 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { parseProjectBundle, readProjectFromDoc, writeProjectToDoc } from "@nebuladb/shared";
 import {
-  applyVisualMetadata,
   buildDictionary,
   dictionaryToCsv,
   dictionaryToHtml,
@@ -11,7 +10,6 @@ import {
   preserveConcurrentAdditions,
   projectToDbml,
   projectToSvg,
-  toProject,
 } from "@nebuladb/dbml-engine";
 import { lockGuardFor } from "../tableLocks/access.js";
 import { lintReport } from "../lint/check.js";
@@ -26,7 +24,7 @@ import { svgToPng } from "../../shared/svgToPng.js";
 import { getProjectSummary, listProjectSummaries } from "../projects/repository.js";
 import { createProjectForUser, deleteProject, updateProject } from "../projects/projectCrud.js";
 import { applyBundle, buildBundle } from "../projects/bundle.js";
-import { parseBaselineProject, parseSource, requireSqlDialect, sendSql } from "../projects/dbmlSource.js";
+import { parseBaselineProject, parseSourceProject, requireSqlDialect, sendSql } from "../projects/dbmlSource.js";
 import { registerPublicBackupRoutes } from "./backupRoutes.js";
 import { registerPublicCredentialRoutes } from "./credentialRoutes.js";
 import { registerPublicIamRoutes } from "./iamRoutes.js";
@@ -212,19 +210,17 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
     if (!body.source?.trim()) throw new ApiError("SOURCE_REQUIRED");
 
     const dialect = body.dialect ? requireSqlDialect(body.dialect) : null;
-    const database = parseSource(body.source, dialect);
-    const parsed = dialect
-      ? toProject(database, project.name, body.source)
-      : applyVisualMetadata(toProject(database, project.name, body.source), body.source);
+    const [parsed, baseline] = await Promise.all([
+      parseSourceProject(body.source, dialect, project.name),
+      body.baseline?.trim() ? parseBaselineProject(body.baseline, project.name) : null,
+    ]);
 
     const assertLocksAllow = await lockGuardFor(user.id, id);
     // From here to `room.write`, nothing waits: see `Room.write`.
     const room = await getRoom(id);
     const current = readProjectFromDoc(room.doc, project.id, project.name);
     const merged = mergeProjectIntoExisting(current, parsed);
-    const reconciled = body.baseline?.trim()
-      ? preserveConcurrentAdditions(current, merged, parseBaselineProject(body.baseline, project.name))
-      : merged;
+    const reconciled = baseline ? preserveConcurrentAdditions(current, merged, baseline) : merged;
     assertLocksAllow(current, reconciled);
     await room.write(() => writeProjectToDoc(room.doc, reconciled), user.displayName);
     await auditUser(user, "project.import", { type: "project", id }, `${reconciled.tables.length} table(s) (v1)`, req);

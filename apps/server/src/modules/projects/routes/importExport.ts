@@ -1,12 +1,6 @@
 import type { FastifyInstance } from "fastify";
 import { parseProjectBundle, readProjectFromDoc, writeProjectToDoc, type Project } from "@nebuladb/shared";
-import {
-  applyVisualMetadata,
-  mergeProjectIntoExisting,
-  preserveConcurrentAdditions,
-  projectToDbml,
-  toProject,
-} from "@nebuladb/dbml-engine";
+import { mergeProjectIntoExisting, preserveConcurrentAdditions, projectToDbml } from "@nebuladb/dbml-engine";
 import { auditUser } from "../../../shared/audit.js";
 import { ApiError } from "../../../shared/errors.js";
 import { requireProjectAccess } from "../../../shared/guards.js";
@@ -15,7 +9,7 @@ import { reconstructDocAtRevision } from "../../../realtime/persistence.js";
 import { getRoom } from "../../../realtime/roomRegistry.js";
 import { readProjectReadOnly } from "../../../realtime/readOnlyProject.js";
 import { applyBundle, buildBundle } from "../bundle.js";
-import { parseBaselineProject, parseSource, requireSqlDialect, sendSql } from "../dbmlSource.js";
+import { parseBaselineProject, parseSourceProject, requireSqlDialect, sendSql } from "../dbmlSource.js";
 
 async function loadRevisionProject(projectId: string, revisionId: string, name: string): Promise<Project> {
   const doc = await reconstructDocAtRevision(projectId, revisionId);
@@ -31,10 +25,12 @@ export function registerProjectImportExportRoutes(app: FastifyInstance): void {
     if (!body.source?.trim()) throw new ApiError("SOURCE_REQUIRED");
 
     const dialect = body.dialect ? requireSqlDialect(body.dialect) : null;
-    const database = parseSource(body.source, dialect);
-    const parsed = dialect
-      ? toProject(database, project.name, body.source)
-      : applyVisualMetadata(toProject(database, project.name, body.source), body.source);
+    // Both parses happen here, off the event loop and before the room is
+    // read: nothing may wait between reading `current` and writing it back.
+    const [parsed, baseline] = await Promise.all([
+      parseSourceProject(body.source, dialect, project.name),
+      body.baseline?.trim() ? parseBaselineProject(body.baseline, project.name) : null,
+    ]);
 
     const assertLocksAllow = await lockGuardFor(user.id, id);
     // From here to `room.write`, nothing waits: see `Room.write`.
@@ -50,9 +46,7 @@ export function registerProjectImportExportRoutes(app: FastifyInstance): void {
     // somebody else while this buffer was open, and must not be deleted by
     // it. Optional: an import with no baseline (the import dialog, a script,
     // an older client) keeps the previous replace-everything behaviour.
-    const reconciled = body.baseline?.trim()
-      ? preserveConcurrentAdditions(current, merged, parseBaselineProject(body.baseline, project.name))
-      : merged;
+    const reconciled = baseline ? preserveConcurrentAdditions(current, merged, baseline) : merged;
     assertLocksAllow(current, reconciled);
     await room.write(() => writeProjectToDoc(room.doc, reconciled), user.displayName);
     // An import can restructure an entire schema in one call, which is the
