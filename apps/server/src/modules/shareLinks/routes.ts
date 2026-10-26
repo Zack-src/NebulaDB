@@ -23,6 +23,11 @@ import {
   type ShareLinkSummary,
 } from "./repository.js";
 import { publicDictionary } from "./view.js";
+import { parseParams, idParams, paramsOf } from "../../shared/validate.js";
+
+const idLinkIdParams = paramsOf("id", "linkId");
+const linkIdParams = paramsOf("linkId");
+const tokenParams = paramsOf("token");
 
 const MAX_LABEL_LENGTH = 100;
 
@@ -60,7 +65,7 @@ export function registerShareLinkRoutes(app: FastifyInstance): void {
 
   app.get("/api/projects/:id/share-links", async (req) => {
     requireSessionUser(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     await requireProjectAdmin(req, id);
     return { enabled: await shareLinksEnabled(), links: await listProjectShareLinks(id) };
   });
@@ -68,7 +73,7 @@ export function registerShareLinkRoutes(app: FastifyInstance): void {
   /** The token is returned here once and never again. */
   app.post("/api/projects/:id/share-links", async (req, reply) => {
     requireSessionUser(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAdmin(req, id);
     if (!(await shareLinksEnabled())) throw new ApiError("SHARE_LINKS_DISABLED");
 
@@ -95,7 +100,7 @@ export function registerShareLinkRoutes(app: FastifyInstance): void {
 
   app.delete("/api/projects/:id/share-links/:linkId", async (req) => {
     requireSessionUser(req);
-    const { id, linkId } = req.params as { id: string; linkId: string };
+    const { id, linkId } = parseParams(idLinkIdParams, req);
     const { user } = await requireProjectAdmin(req, id);
     const link = await revokeShareLink(linkId, user.id, id);
     if (!link) throw new ApiError("SHARE_LINK_NOT_FOUND");
@@ -115,7 +120,7 @@ export function registerShareLinkRoutes(app: FastifyInstance): void {
   app.post("/api/admin/share-links/:linkId/reveal", async (req) => {
     requireSessionUser(req);
     const user = requireAdmin(req);
-    const { linkId } = req.params as { linkId: string };
+    const { linkId } = parseParams(linkIdParams, req);
     const revealed = await revealShareToken(linkId);
     if (!revealed) throw new ApiError("SHARE_LINK_NOT_FOUND");
     await auditUser(user, "share.reveal", { type: "project", id: revealed.link.projectId }, describe(revealed.link), req);
@@ -125,7 +130,7 @@ export function registerShareLinkRoutes(app: FastifyInstance): void {
   app.delete("/api/admin/share-links/:linkId", async (req) => {
     requireSessionUser(req);
     const user = requireAdmin(req);
-    const { linkId } = req.params as { linkId: string };
+    const { linkId } = parseParams(linkIdParams, req);
     const link = await revokeShareLink(linkId, user.id, null);
     if (!link) throw new ApiError("SHARE_LINK_NOT_FOUND");
     await auditUser(user, "share.revoke", { type: "project", id: link.projectId }, describe(link), req);
@@ -153,7 +158,7 @@ export function registerShareLinkRoutes(app: FastifyInstance): void {
 
   /** What the page shows, read from the project as it is now. Counts one view. */
   app.get("/api/share/:token", PUBLIC_RATE_LIMIT, async (req) => {
-    const { token } = req.params as { token: string };
+    const { token } = parseParams(tokenParams, req);
     const link = await resolveShareToken(token);
     if (!link) throw new ApiError("SHARE_LINK_NOT_FOUND");
     await recordShareView(link.linkId);
@@ -167,7 +172,7 @@ export function registerShareLinkRoutes(app: FastifyInstance): void {
   });
 
   app.get("/api/share/:token/diagram.svg", PUBLIC_RATE_LIMIT, async (req, reply) => {
-    const { token } = req.params as { token: string };
+    const { token } = parseParams(tokenParams, req);
     const link = await resolveShareToken(token);
     if (!link || link.shows === "dictionary") throw new ApiError("SHARE_LINK_NOT_FOUND");
     const project = await readProjectReadOnly(link.projectId, link.projectName);

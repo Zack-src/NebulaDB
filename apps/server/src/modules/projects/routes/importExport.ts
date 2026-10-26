@@ -10,6 +10,12 @@ import { getRoom } from "../../../realtime/roomRegistry.js";
 import { readProjectReadOnly } from "../../../realtime/readOnlyProject.js";
 import { applyBundle, buildBundle } from "../bundle.js";
 import { parseBaselineProject, parseSourceProject, requireSqlDialect, sendSql } from "../dbmlSource.js";
+import { idParams, paramsOf, parseParams, parseQuery, z } from "../../../shared/validate.js";
+
+const visualQuery = z.object({ visual: z.string().optional() });
+const dialectQuery = z.object({ dialect: z.string().optional() });
+
+const idRevisionIdParams = paramsOf("id", "revisionId");
 
 async function loadRevisionProject(projectId: string, revisionId: string, name: string): Promise<Project> {
   const doc = await reconstructDocAtRevision(projectId, revisionId);
@@ -19,7 +25,7 @@ async function loadRevisionProject(projectId: string, revisionId: string, name: 
 
 export function registerProjectImportExportRoutes(app: FastifyInstance): void {
   app.post("/api/projects/:id/import", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user, project } = await requireProjectAccess(req, id, "edit");
     const body = (req.body ?? {}) as { source?: string; dialect?: string; baseline?: string };
     if (!body.source?.trim()) throw new ApiError("SOURCE_REQUIRED");
@@ -56,8 +62,8 @@ export function registerProjectImportExportRoutes(app: FastifyInstance): void {
   });
 
   app.get("/api/projects/:id/export/dbml", async (req, reply) => {
-    const { id } = req.params as { id: string };
-    const { visual } = req.query as { visual?: string };
+    const { id } = parseParams(idParams, req);
+    const { visual } = parseQuery(visualQuery, req);
     const { user, project } = await requireProjectAccess(req, id, "view");
     const current = readProjectFromDoc((await getRoom(id)).doc, project.id, project.name);
     // Exports are the exfiltration path for a schema — the one read operation
@@ -70,7 +76,7 @@ export function registerProjectImportExportRoutes(app: FastifyInstance): void {
   // Everything about the project in one file — schema and layout, but also the
   // locks, seeds and generator settings that DBML cannot carry. See `ProjectBundle`.
   app.get("/api/projects/:id/export/bundle", async (req, reply) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user, project } = await requireProjectAccess(req, id, "view");
     const current = readProjectFromDoc((await getRoom(id)).doc, project.id, project.name);
     await auditUser(user, "project.export", { type: "project", id }, "bundle", req);
@@ -78,7 +84,7 @@ export function registerProjectImportExportRoutes(app: FastifyInstance): void {
   });
 
   app.post("/api/projects/:id/import/bundle", { bodyLimit: 64 * 1024 * 1024 }, async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user, project } = await requireProjectAccess(req, id, "edit");
     const { source } = (req.body ?? {}) as { source?: unknown };
     if (typeof source !== "string" || !source.trim()) throw new ApiError("SOURCE_REQUIRED");
@@ -106,33 +112,33 @@ export function registerProjectImportExportRoutes(app: FastifyInstance): void {
    * other exports: it hands over the whole schema.
    */
   app.get("/api/projects/:id/content", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user, project } = await requireProjectAccess(req, id, "view");
     await auditUser(user, "project.export", { type: "project", id }, "json (compare)", req);
     return await readProjectReadOnly(id, project.name);
   });
 
   app.get("/api/projects/:id/export/sql", async (req, reply) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user, project } = await requireProjectAccess(req, id, "view");
-    const dialect = requireSqlDialect((req.query as { dialect?: string }).dialect);
+    const dialect = requireSqlDialect(parseQuery(dialectQuery, req).dialect);
     const current = readProjectFromDoc((await getRoom(id)).doc, project.id, project.name);
     await auditUser(user, "project.export", { type: "project", id }, `sql/${dialect}`, req);
     return sendSql(reply, current, dialect);
   });
 
   app.get("/api/projects/:id/revisions/:revisionId/export/dbml", async (req, reply) => {
-    const { id, revisionId } = req.params as { id: string; revisionId: string };
-    const { visual } = req.query as { visual?: string };
+    const { id, revisionId } = parseParams(idRevisionIdParams, req);
+    const { visual } = parseQuery(visualQuery, req);
     const { project } = await requireProjectAccess(req, id, "view");
     const historical = await loadRevisionProject(id, revisionId, project.name);
     return reply.type("text/plain").send(projectToDbml(historical, { includeVisualMetadata: visual === "1" }));
   });
 
   app.get("/api/projects/:id/revisions/:revisionId/export/sql", async (req, reply) => {
-    const { id, revisionId } = req.params as { id: string; revisionId: string };
+    const { id, revisionId } = parseParams(idRevisionIdParams, req);
     const { project } = await requireProjectAccess(req, id, "view");
-    const dialect = requireSqlDialect((req.query as { dialect?: string }).dialect);
+    const dialect = requireSqlDialect(parseQuery(dialectQuery, req).dialect);
     return sendSql(reply, await loadRevisionProject(id, revisionId, project.name), dialect);
   });
 }

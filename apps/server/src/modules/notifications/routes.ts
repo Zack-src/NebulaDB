@@ -11,6 +11,10 @@ import {
   saveProjectSubscription,
 } from "./repository.js";
 import { listMentionable, notifyCommentAddressees, parseCommentNotice } from "./comments.js";
+import { idParams, parseBody, parseParams, parseQuery, z } from "../../shared/validate.js";
+
+const readBody = z.object({ ids: z.unknown().optional() });
+const mentionableQuery = z.object({ q: z.unknown().optional() });
 
 /**
  * Following a project, and the notifications that follow from it. All of it
@@ -22,19 +26,19 @@ export function registerNotificationRoutes(app: FastifyInstance): void {
 
   app.post("/api/notifications/read", async (req) => {
     const user = requireUser(req);
-    const { ids } = (req.body ?? {}) as { ids?: unknown };
+    const { ids } = parseBody(readBody, req);
     return { marked: await markNotificationsRead(user.id, ids), ...(await listNotifications(user.id)) };
   });
 
   app.get("/api/projects/:id/subscription", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAccess(req, id, "view");
     return { subscription: await getProjectSubscription(user.id, id) };
   });
 
   // An empty list of events is how one stops following. `emailDrift`: also by email, where the instance sends any.
   app.put("/api/projects/:id/subscription", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAccess(req, id, "view");
     const events = parseSubscription(req.body);
     const emailDrift = parseEmailDrift(req.body, events);
@@ -46,13 +50,13 @@ export function registerNotificationRoutes(app: FastifyInstance): void {
   // them: the client that writes one says so here, and the server decides who
   // is told. Writing a comment takes `edit` — the same right as the document.
   app.get("/api/projects/:id/mentionable", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAccess(req, id, "edit");
-    return { users: await listMentionable(id, (req.query as { q?: unknown }).q, user.id) };
+    return { users: await listMentionable(id, parseQuery(mentionableQuery, req).q, user.id) };
   });
 
   app.post("/api/projects/:id/comment-notices", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAccess(req, id, "edit");
     return { notified: await notifyCommentAddressees(id, user, parseCommentNotice(req.body)) };
   });

@@ -20,6 +20,13 @@ import {
 } from "../repository.js";
 import { deleteUserAccount, toUserSummary, unlessLastAdmin } from "../service.js";
 import { listUserProjects } from "../../projects/repository.js";
+import { idParams, parseBody, parseParams, z } from "../../../shared/validate.js";
+
+// Fields with dedicated error codes (PASSWORD_TOO_WEAK, DISABLED_MUST_BE_BOOLEAN, ...) stay `unknown`.
+const resetPasswordBody = z.object({ newPassword: z.unknown().optional() });
+const disabledBody = z.object({ disabled: z.unknown().optional() });
+const adminBody = z.object({ admin: z.unknown().optional() });
+const deleteBody = z.object({ transferProjectsTo: z.string().optional() });
 
 async function requireTargetUser(id: string): Promise<UserIdentityRow> {
   const target = await getUserIdentity(id);
@@ -40,7 +47,7 @@ export function registerUserAdminRoutes(app: FastifyInstance): void {
   // they own or were given a level on themselves.
   app.get("/api/users/:id/access", async (req) => {
     requireAdmin(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     await requireTargetUser(id);
     return { teams: await listTeamMembershipsOf(id), projects: await listUserProjects(id) };
   });
@@ -51,10 +58,10 @@ export function registerUserAdminRoutes(app: FastifyInstance): void {
   // still logged in.
   app.patch("/api/users/:id/password", CREDENTIAL_RATE_LIMIT, async (req) => {
     const admin = requireAdmin(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     if (!(await userExists(id))) throw new ApiError("NOT_FOUND");
 
-    const { newPassword } = (req.body ?? {}) as { newPassword?: string };
+    const { newPassword } = parseBody(resetPasswordBody, req);
     const check = checkPassword(newPassword, "newPassword");
     if (!check.ok) throw new ApiError("PASSWORD_TOO_WEAK", { message: check.error });
 
@@ -71,10 +78,10 @@ export function registerUserAdminRoutes(app: FastifyInstance): void {
    */
   app.patch("/api/users/:id/disabled", async (req) => {
     const admin = requireAdmin(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const target = await requireTargetUser(id);
 
-    const { disabled } = (req.body ?? {}) as { disabled?: boolean };
+    const { disabled } = parseBody(disabledBody, req);
     if (typeof disabled !== "boolean") throw new ApiError("DISABLED_MUST_BE_BOOLEAN");
     if (disabled && id === admin.id) throw new ApiError("CANNOT_DISABLE_SELF");
 
@@ -102,11 +109,12 @@ export function registerUserAdminRoutes(app: FastifyInstance): void {
   app.patch("/api/users/:id/admin", async (req) => {
     const admin = requireAdmin(req);
     if (req.apiKey) throw new ApiError("FORBIDDEN");
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const target = await requireTargetUser(id);
 
-    const body = (req.body ?? {}) as { admin?: boolean };
-    if (typeof body.admin !== "boolean") throw new ApiError("ADMIN_MUST_BE_BOOLEAN");
+    const parsed = parseBody(adminBody, req);
+    if (typeof parsed.admin !== "boolean") throw new ApiError("ADMIN_MUST_BE_BOOLEAN");
+    const body = { admin: parsed.admin };
     if (!body.admin && id === admin.id) throw new ApiError("CANNOT_DEMOTE_SELF");
 
     if ((await isAdminUser(id)) !== body.admin) {
@@ -132,11 +140,11 @@ export function registerUserAdminRoutes(app: FastifyInstance): void {
    */
   app.delete("/api/users/:id", async (req) => {
     const admin = requireAdmin(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const target = await requireTargetUser(id);
     if (id === admin.id) throw new ApiError("CANNOT_DELETE_SELF");
 
-    const { transferProjectsTo } = (req.body ?? {}) as { transferProjectsTo?: string };
+    const { transferProjectsTo } = parseBody(deleteBody, req);
     if (transferProjectsTo !== undefined && (transferProjectsTo === id || !(await userExists(transferProjectsTo)))) {
       throw new ApiError("TRANSFER_TARGET_INVALID");
     }

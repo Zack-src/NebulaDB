@@ -16,6 +16,7 @@ import { readAccountLines } from "./accountReader.js";
 import { announceDrift } from "./alerts.js";
 import { alreadyReported, insertDriftEvent } from "./repository.js";
 import { mapAsync } from "../../shared/async.js";
+import { parseParams, idParams } from "../../shared/validate.js";
 
 /**
  * The accounts watch: a database's accounts, memberships and privileges compared with the
@@ -369,7 +370,7 @@ export function registerAccountWatchHooks(app: FastifyInstance): void {
   app.addHook("preHandler", async (req) => {
     if (req.method !== "POST" || req.routeOptions.url !== ACCOUNT_ROUTE) return;
     if (!req.user?.isAdmin || (req.body as { execute?: unknown } | null)?.execute !== true) return;
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     try {
       const before = await beforeNebulaAccountChange(id);
       if (before) pending.set(req, { connectionId: id, before });

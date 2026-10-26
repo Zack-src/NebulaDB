@@ -10,6 +10,7 @@ import {
   setDefaultLintPreset,
   updateLintPreset,
 } from "./repository.js";
+import { parseParams, idParams } from "../../shared/validate.js";
 
 const WRITE_LIMIT = { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } };
 
@@ -56,7 +57,7 @@ export function registerLintPresetRoutes(app: FastifyInstance): void {
 
   app.put("/api/admin/lint-presets/:id", WRITE_LIMIT, async (req) => {
     const user = requireAdmin(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { preset, affected } = await updateLintPreset(id, req.body);
     await auditUser(
       user,
@@ -71,7 +72,7 @@ export function registerLintPresetRoutes(app: FastifyInstance): void {
 
   app.delete("/api/admin/lint-presets/:id", WRITE_LIMIT, async (req) => {
     const user = requireAdmin(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { detached } = await deleteLintPreset(id);
     await auditUser(
       user,
@@ -86,7 +87,7 @@ export function registerLintPresetRoutes(app: FastifyInstance): void {
 
   app.post("/api/admin/lint-presets/:id/apply", WRITE_LIMIT, async (req) => {
     const user = requireAdmin(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { projectIds } = (req.body ?? {}) as { projectIds?: unknown };
     const { applied, skipped } = await applyLintPreset(id, projectIds, user.displayName ?? user.email);
     await auditUser(user, "lint.preset.apply", { type: "lint-preset", id }, `${applied.length} project(s)`, req);

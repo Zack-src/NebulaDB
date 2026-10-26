@@ -8,6 +8,12 @@ import { requireUser } from "../../../shared/guards.js";
 import { revalidateAllRooms } from "../../../realtime/roomRegistry.js";
 import { getPasswordHash, updateDisplayName, updatePasswordHash } from "../repository.js";
 import { buildPersonalDataExport, deleteUserAccount, unlessLastAdmin } from "../service.js";
+import { parseBody, z } from "../../../shared/validate.js";
+
+const displayNameBody = z.object({ displayName: z.string().optional() });
+// `password` keeps its dedicated error code (PASSWORD_REQUIRED_FOR_DELETION), so it stays `unknown`.
+const deleteSelfBody = z.object({ password: z.unknown().optional() });
+const changePasswordBody = z.object({ currentPassword: z.string().optional(), newPassword: z.string().optional() });
 
 const MAX_DISPLAY_NAME_LENGTH = 64;
 
@@ -25,7 +31,7 @@ async function verifyOwnPassword(
 export function registerAccountRoutes(app: FastifyInstance): void {
   app.patch("/api/users/me", async (req) => {
     const user = requireUser(req);
-    const { displayName } = (req.body ?? {}) as { displayName?: string };
+    const { displayName } = parseBody(displayNameBody, req);
     const trimmed = displayName?.trim().slice(0, MAX_DISPLAY_NAME_LENGTH);
     if (!trimmed) throw new ApiError("DISPLAY_NAME_REQUIRED");
     await updateDisplayName(user.id, trimmed);
@@ -49,7 +55,7 @@ export function registerAccountRoutes(app: FastifyInstance): void {
    */
   app.delete("/api/users/me", CREDENTIAL_RATE_LIMIT, async (req, reply) => {
     const user = requireUser(req);
-    const { password } = (req.body ?? {}) as { password?: unknown };
+    const { password } = parseBody(deleteSelfBody, req);
     if (typeof password !== "string" || !password) throw new ApiError("PASSWORD_REQUIRED_FOR_DELETION");
     await verifyOwnPassword(user.id, password, "PASSWORD_INCORRECT");
 
@@ -69,7 +75,7 @@ export function registerAccountRoutes(app: FastifyInstance): void {
   // Self-service: requires the current password, unlike the admin reset.
   app.patch("/api/users/me/password", CREDENTIAL_RATE_LIMIT, async (req) => {
     const user = requireUser(req);
-    const { currentPassword, newPassword } = (req.body ?? {}) as { currentPassword?: string; newPassword?: string };
+    const { currentPassword, newPassword } = parseBody(changePasswordBody, req);
     if (!currentPassword || !newPassword) throw new ApiError("PASSWORDS_REQUIRED");
 
     const check = checkPassword(newPassword, "newPassword");

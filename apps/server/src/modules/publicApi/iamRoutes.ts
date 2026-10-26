@@ -7,18 +7,21 @@ import { revalidateRoom } from "../../realtime/roomRegistry.js";
 import { isPermissionLevel } from "../../shared/permissions.js";
 import { grantTeamPermission, listProjectTeams, revokeTeamPermission, teamExists } from "../projects/repository.js";
 import { API_RATE_LIMIT } from "./rateLimits.js";
+import { parseParams, idParams, paramsOf } from "../../shared/validate.js";
+
+const idTeamIdParams = paramsOf("id", "teamId");
 
 /** IAM: which teams can access a project, at what level (`project_teams` grants — see `shared/permissions.ts`). */
 export function registerPublicIamRoutes(app: FastifyInstance): void {
   app.get("/api/v1/projects/:id/iam", API_RATE_LIMIT, async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     await requireProjectAccess(req, id, "view");
     requireScope(req, "projects:read", id);
     return { teams: await listProjectTeams(id) };
   });
 
   app.put("/api/v1/projects/:id/iam/:teamId", API_RATE_LIMIT, async (req) => {
-    const { id, teamId } = req.params as { id: string; teamId: string };
+    const { id, teamId } = parseParams(idTeamIdParams, req);
     const { user } = await requireProjectAdmin(req, id);
     requireScope(req, "projects:write", id);
     if (!(await teamExists(teamId))) throw new ApiError("TEAM_NOT_FOUND");
@@ -35,7 +38,7 @@ export function registerPublicIamRoutes(app: FastifyInstance): void {
   });
 
   app.delete("/api/v1/projects/:id/iam/:teamId", API_RATE_LIMIT, async (req) => {
-    const { id, teamId } = req.params as { id: string; teamId: string };
+    const { id, teamId } = parseParams(idTeamIdParams, req);
     const { user } = await requireProjectAdmin(req, id);
     requireScope(req, "projects:write", id);
     await revokeTeamPermission(id, teamId);

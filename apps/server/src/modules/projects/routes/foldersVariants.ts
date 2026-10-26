@@ -27,6 +27,15 @@ import {
   resetVariant,
   statusOf,
 } from "../variants.js";
+import { idParams, paramsOf, parseBody, parseParams, z } from "../../../shared/validate.js";
+
+// These fields keep dedicated error codes (VARIANT_TARGETS_INVALID, ...), so they stay `unknown` here.
+const folderBody = z.object({ folderId: z.unknown().optional() });
+const variantNameBody = z.object({ name: z.unknown().optional() });
+const variantsBody = z.object({ variants: z.unknown().optional() });
+const resetBody = z.object({ from: z.unknown().optional() });
+
+const idOtherIdParams = paramsOf("id", "otherId");
 
 const MAX_TARGETS = 100;
 
@@ -72,7 +81,7 @@ export function registerFolderAndVariantRoutes(app: FastifyInstance): void {
 
   app.patch("/api/project-folders/:id", async (req) => {
     const user = requireUser(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const folder = await getFolder(id);
     if (!folder) throw new ApiError("FOLDER_NOT_FOUND");
     if (!mayManageFolder(user, folder)) throw new ApiError("FOLDER_FORBIDDEN");
@@ -83,7 +92,7 @@ export function registerFolderAndVariantRoutes(app: FastifyInstance): void {
 
   app.delete("/api/project-folders/:id", async (req) => {
     const user = requireUser(req);
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const folder = await getFolder(id);
     if (!folder) throw new ApiError("FOLDER_NOT_FOUND");
     if (!mayManageFolder(user, folder)) throw new ApiError("FOLDER_FORBIDDEN");
@@ -93,9 +102,9 @@ export function registerFolderAndVariantRoutes(app: FastifyInstance): void {
   });
 
   app.put("/api/projects/:id/folder", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAdmin(req, id);
-    const folderId = await setProjectFolder(id, (req.body as { folderId?: unknown } | undefined)?.folderId ?? null);
+    const folderId = await setProjectFolder(id, parseBody(folderBody, req).folderId ?? null);
     await auditUser(user, "project.folder", { type: "project", id }, folderId ?? "top", req);
     return { folderId };
   });
@@ -104,16 +113,16 @@ export function registerFolderAndVariantRoutes(app: FastifyInstance): void {
 
   // Copying is reading: whoever may export the original may start a variant of it, as a project of their own.
   app.post("/api/projects/:id/variants", async (req, reply) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user, project } = await requireProjectAccess(req, id, "view");
-    const created = await createVariant(user, id, (req.body as { name?: unknown } | undefined)?.name);
+    const created = await createVariant(user, id, parseBody(variantNameBody, req).name);
     await auditUser(user, "project.variant.create", { type: "project", id: created.id }, `of ${project.name}`, req);
     return reply.code(201).send({ ...created, permission: "administrator", variantOf: id });
   });
 
   /** For an original: its variants. For a variant: its original and how far behind it is. Both can be true of neither. */
   app.get("/api/projects/:id/variants", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAccess(req, id, "view");
     const link = await getVariantLink(id);
     if (link) {
@@ -134,15 +143,15 @@ export function registerFolderAndVariantRoutes(app: FastifyInstance): void {
   });
 
   app.get("/api/projects/:id/family", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAccess(req, id, "view");
     return { family: await familyOf(user.id, id) };
   });
 
   app.post("/api/projects/:id/variants/preview", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAccess(req, id, "view");
-    const targets = parseTargets((req.body as { variants?: unknown } | undefined)?.variants);
+    const targets = parseTargets(parseBody(variantsBody, req).variants);
     return {
       variants: await previewSync(
         user.id,
@@ -153,9 +162,9 @@ export function registerFolderAndVariantRoutes(app: FastifyInstance): void {
   });
 
   app.post("/api/projects/:id/variants/push", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user, project } = await requireProjectAccess(req, id, "view");
-    const targets = parseTargets((req.body as { variants?: unknown } | undefined)?.variants);
+    const targets = parseTargets(parseBody(variantsBody, req).variants);
     const results = await pushToVariants(user, id, targets);
     for (const result of results.filter((r) => !r.error)) {
       await auditUser(
@@ -171,9 +180,9 @@ export function registerFolderAndVariantRoutes(app: FastifyInstance): void {
 
   /** `from`: `"original"` (start again from the original) or the id of another variant of the same original. */
   app.post("/api/projects/:id/variant/reset", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAccess(req, id, "edit");
-    const from = (req.body as { from?: unknown } | undefined)?.from;
+    const from = parseBody(resetBody, req).from;
     if (typeof from !== "string" || !from) throw new ApiError("VARIANT_TARGETS_INVALID");
     await resetVariant(user, id, from);
     await auditUser(
@@ -187,7 +196,7 @@ export function registerFolderAndVariantRoutes(app: FastifyInstance): void {
   });
 
   app.delete("/api/projects/:id/variant", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAdmin(req, id);
     if (!(await detachVariant(id))) throw new ApiError("VARIANT_NOT_FOUND");
     await auditUser(user, "project.variant.detach", { type: "project", id }, undefined, req);
@@ -196,7 +205,7 @@ export function registerFolderAndVariantRoutes(app: FastifyInstance): void {
 
   /** `:id` against `:otherId`: what `:otherId` has differently, matched by id (meaningful between an original and its variants). */
   app.get("/api/projects/:id/compare/:otherId", async (req) => {
-    const { id, otherId } = req.params as { id: string; otherId: string };
+    const { id, otherId } = parseParams(idOtherIdParams, req);
     const { user } = await requireProjectAccess(req, id, "view");
     await requireProjectAccess(req, otherId, "view");
     await auditUser(user, "project.export", { type: "project", id: otherId }, `compare with ${id}`, req);

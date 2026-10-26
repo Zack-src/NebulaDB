@@ -10,6 +10,15 @@ import {
 } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireAdmin } from "../../shared/guards.js";
+import { parseQuery, z } from "../../shared/validate.js";
+
+const auditQuery = z.object({
+  limit: z.string().optional(),
+  before: z.string().optional(),
+  action: z.string().optional(),
+  targetId: z.string().optional(),
+});
+const exportQuery = z.object({ format: z.string().optional() });
 
 /**
  * Read-only view of the audit trail, admin-only.
@@ -22,12 +31,7 @@ import { requireAdmin } from "../../shared/guards.js";
 export function registerAuditRoutes(app: FastifyInstance): void {
   app.get("/api/audit", async (req) => {
     requireAdmin(req);
-    const { limit, before, action, targetId } = req.query as {
-      limit?: string;
-      before?: string;
-      action?: string;
-      targetId?: string;
-    };
+    const { limit, before, action, targetId } = parseQuery(auditQuery, req);
     const parsedLimit = limit ? Number(limit) : undefined;
     if (parsedLimit !== undefined && !Number.isFinite(parsedLimit)) throw new ApiError("LIMIT_MUST_BE_NUMBER");
     return await listAuditLog({ limit: parsedLimit, before, action, targetId });
@@ -42,7 +46,7 @@ export function registerAuditRoutes(app: FastifyInstance): void {
   // Everything the filters match (up to ACTIVITY_EXPORT_MAX rows), as CSV or JSON.
   app.get("/api/admin/activity/export", async (req, reply) => {
     requireAdmin(req);
-    const { format } = req.query as { format?: string };
+    const { format } = parseQuery(exportQuery, req);
     const { entries } = await listActivity(
       { ...parseActivityQuery(req.query), limit: ACTIVITY_EXPORT_MAX },
       ACTIVITY_EXPORT_MAX,

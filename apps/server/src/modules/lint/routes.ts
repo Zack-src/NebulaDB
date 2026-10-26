@@ -11,6 +11,7 @@ import {
   saveLintSettings,
   setProjectPreset,
 } from "./repository.js";
+import { parseParams, idParams } from "../../shared/validate.js";
 
 /** What the editor needs to lint: the settings that apply, where they come from, and (to those who may choose) the presets on offer. */
 async function lintState(projectId: string, canChoose: boolean) {
@@ -27,13 +28,13 @@ async function lintState(projectId: string, canChoose: boolean) {
  */
 export function registerLintRoutes(app: FastifyInstance): void {
   app.get("/api/projects/:id/lint", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAccess(req, id, "view");
     return await lintState(id, (await getEffectivePermission(user.id, id)) === "administrator");
   });
 
   app.put("/api/projects/:id/lint", async (req) => {
-    const { id } = req.params as { id: string };
+    const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAdmin(req, id);
     const body = (req.body ?? {}) as { settings?: unknown; presetId?: unknown; profile?: unknown };
     const by = user.displayName ?? user.email;

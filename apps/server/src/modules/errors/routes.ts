@@ -2,6 +2,13 @@ import type { FastifyInstance } from "fastify";
 import { listErrorLog, recordError, tallyErrorForMetrics } from "../../shared/errorLog.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireAdmin, requireUser } from "../../shared/guards.js";
+import { parseQuery, z } from "../../shared/validate.js";
+
+const errorLogQuery = z.object({
+  limit: z.string().optional(),
+  before: z.string().optional(),
+  source: z.string().optional(),
+});
 
 /** A caught client render exception is a small, fixed shape — never trust it beyond that. */
 const MAX_REPORTED_MESSAGE = 2000;
@@ -19,7 +26,7 @@ export function registerErrorRoutes(app: FastifyInstance): void {
    */
   app.get("/api/errors", async (req) => {
     requireAdmin(req);
-    const { limit, before, source } = req.query as { limit?: string; before?: string; source?: string };
+    const { limit, before, source } = parseQuery(errorLogQuery, req);
     const parsedLimit = limit ? Number(limit) : undefined;
     if (parsedLimit !== undefined && !Number.isFinite(parsedLimit)) throw new ApiError("LIMIT_MUST_BE_NUMBER");
     if (source !== undefined && source !== "server" && source !== "client") {

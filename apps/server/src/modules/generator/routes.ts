@@ -6,6 +6,9 @@ import { requireProjectAccess } from "../../shared/guards.js";
 import { listSeedsWithContent } from "../seeds/repository.js";
 import { getDataGeneratorProvider } from "./providers.js";
 import { getGeneratorConfig, parseGeneratorConfig, saveGeneratorConfig } from "./repository.js";
+import { parseParams, paramsOf } from "../../shared/validate.js";
+
+const idTableIdParams = paramsOf("id", "tableId");
 
 const RUN_LIMIT = { config: { rateLimit: { max: 60, timeWindow: "1 minute" } } };
 
@@ -35,13 +38,13 @@ async function parentValuesFor(projectId: string, tables: readonly Table[]) {
  */
 export function registerGeneratorRoutes(app: FastifyInstance): void {
   app.get("/api/projects/:id/generators/:tableId", async (req) => {
-    const { id, tableId } = req.params as { id: string; tableId: string };
+    const { id, tableId } = parseParams(idTableIdParams, req);
     await requireProjectAccess(req, id, "view");
     return { config: await getGeneratorConfig(id, tableId) };
   });
 
   app.put("/api/projects/:id/generators/:tableId", async (req) => {
-    const { id, tableId } = req.params as { id: string; tableId: string };
+    const { id, tableId } = parseParams(idTableIdParams, req);
     const { user, project } = await requireProjectAccess(req, id, "edit");
     if (!(await readProjectReadOnly(id, project.name)).tables.some((t) => t.id === tableId))
       throw new ApiError("TABLE_NOT_FOUND");
@@ -52,7 +55,7 @@ export function registerGeneratorRoutes(app: FastifyInstance): void {
 
   // Generating reads only the schema and the project's seeds: anyone who can open the project may.
   app.post("/api/projects/:id/generators/:tableId/run", RUN_LIMIT, async (req) => {
-    const { id, tableId } = req.params as { id: string; tableId: string };
+    const { id, tableId } = parseParams(idTableIdParams, req);
     const { project } = await requireProjectAccess(req, id, "view");
     const schema = await readProjectReadOnly(id, project.name);
     const table = schema.tables.find((t) => t.id === tableId);
