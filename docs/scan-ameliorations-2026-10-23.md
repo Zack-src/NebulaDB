@@ -85,15 +85,15 @@ mais ce document ne le remplace pas : il le complète (les agents ont signalé l
 - [ ] **[P1][S] Rigueur TypeScript/ESLint** : `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, règles type-aware sur tout le monorepo, override mort `eslint.config.js:110` ↔ _(§5, §6)_
 - [x] **[P1][M] `.catch(() => {})` silencieux** (backups SFTP, webhooks, front : 17 occurrences) ↔ _(§5, §6)_
 - [ ] **[P1][XL] Fusionner les deux hiérarchies de drivers** `connections/drivers/*` et `dbAdmin/drivers/*` _(§5)_
-- [ ] **[P1][L] Tests unitaires front** (services `*Api.ts`, `httpClient`, `authSession`, états de l'éditeur) _(§6)_
+- [x] **[P1][L] Tests unitaires front** (services `*Api.ts`, `httpClient`, `authSession`, états de l'éditeur) _(§6)_
 - [ ] **[P2][L] Découper les monolithes** : `ProjectEditor.svelte` (823 l.), `buildApp` (304 l.), `registerSeedRoutes` (302 l.), `migrations.ts` (998 l.) _(§5, §6)_
 
 ### Lot F — Évolutions produit à plus forte valeur
 
-- [ ] **[P1][M] CLI hors ligne** (`nebuladb lint|diff <fichier.dbml>`) **+ commentaire de PR dans l'action GitHub** _(§4)_
+- [x] **[P1][M] CLI hors ligne** (`nebuladb lint|diff <fichier.dbml>`) **+ commentaire de PR dans l'action GitHub** _(§4)_
 - [ ] **[P1][L] Import ORM & concurrents** (Prisma, Rails, Django, Drizzle, dbdiagram, DrawSQL, ChartDB) _(§4)_
 - [ ] **[P1][L] Demandes de changement de schéma** (branches + revue, sur le moteur de fusion 3-voies des variantes) _(§4)_
-- [ ] **[P1][M] Serveur MCP NebulaDB** pour exposer le schéma aux agents de code _(§4)_
+- [x] **[P1][M] Serveur MCP NebulaDB** pour exposer le schéma aux agents de code _(§4)_
 - [ ] **[P1][M] CHECK, types d'index, index partiels, colonnes générées** dans le modèle _(§4)_
 - [ ] **[P1][M] Export SQL pour les 6 dialectes** (manquent Oracle, BigQuery) _(§4)_
 - [ ] **[P2][M] i18n** : e-mails et messages Slack/Discord FR uniquement, 45 libellés de plugins en dur _(§4, §6)_
