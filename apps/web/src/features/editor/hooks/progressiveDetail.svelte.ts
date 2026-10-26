@@ -1,3 +1,4 @@
+import { untrack } from "svelte";
 import type { Table } from "@nebuladb/shared";
 
 /**
@@ -24,12 +25,21 @@ const BATCHES = 3;
 const GAP_MS = 120;
 /** After the canvas is fitted, before the first batch. */
 const FIRST_DELAY_MS = 100;
+/** How long relations keep to the header of a table that just got its columns back: see `edgeLite`. */
+const EDGE_LAG_MS = 150;
 
 const EMPTY: ReadonlySet<string> = new Set();
 
 export interface ProgressiveDetail {
   /** Ids of the tables still lite. Replaced (never mutated) as tables are upgraded. */
   readonly lite: ReadonlySet<string>;
+  /**
+   * `lite`, as the relations must read it. A table going lite is drawn from its header at once; one
+   * getting its columns back keeps its relations on the header for a moment longer: the flow only learns
+   * the handles of the new rows once the node is rendered and measured, and a relation asking for one
+   * before that is refused with a warning (Svelte Flow error 008) and drawn late.
+   */
+  readonly edgeLite: ReadonlySet<string>;
   /** The schema was big enough to be mounted lite: otherwise there is nothing to wait for. */
   readonly active: boolean;
   /** True once every table has its columns: the canvas can be fitted a last time. */
@@ -46,6 +56,7 @@ export interface ProgressiveDetail {
 
 export function useProgressiveDetail(tables: () => readonly Table[]): ProgressiveDetail {
   let lite = $state.raw<ReadonlySet<string>>(EMPTY);
+  let edgeLite = $state.raw<ReadonlySet<string>>(EMPTY);
   let settled = $state(false);
   let began = $state(false);
   let canvasShown = false;
@@ -98,9 +109,24 @@ export function useProgressiveDetail(tables: () => readonly Table[]): Progressiv
     return () => clearTimeout(timer);
   });
 
+  $effect(() => {
+    const current = lite;
+    const shown = untrack(() => edgeLite);
+    if ([...current].some((id) => !shown.has(id))) {
+      edgeLite = current;
+      return;
+    }
+    if (current.size === shown.size) return;
+    const lag = setTimeout(() => (edgeLite = current), EDGE_LAG_MS);
+    return () => clearTimeout(lag);
+  });
+
   return {
     get lite() {
       return lite;
+    },
+    get edgeLite() {
+      return edgeLite;
     },
     get active() {
       return began;

@@ -521,7 +521,7 @@
     dragging: () => nodesState.dragging,
     issuesByRef: () => quality.issuesByRef,
     frozenTableIds: () => tableLocks.view.frozen,
-    lite: () => detail.lite,
+    lite: () => detail.edgeLite,
     showValidationIssues: () => showValidationIssues,
     selectedTableIds: () => selectedTableIds,
   });
