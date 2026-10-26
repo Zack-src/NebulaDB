@@ -25,6 +25,7 @@
     onShowInGraph,
     onShowInCode,
     tableExists,
+    canClean = false,
   }: {
     projectId: string;
     /** The workspace's current connection; `null` when the project has none. */
@@ -52,6 +53,8 @@
     onShowInCode?: (tableName: string) => void;
     /** Whether the diagram has this table. */
     tableExists?: (tableName: string) => boolean;
+    /** The person may start over: see `DeploymentPanel`. */
+    canClean?: boolean;
   } = $props();
 
   const { t } = useTranslation();
@@ -87,6 +90,7 @@
       {onShowInGraph}
       {onShowInCode}
       {tableExists}
+      {canClean}
       onReviewRequested={() => (requested += 1)}
     />
     <!-- Follow-up under the panel: requests waiting for a colleague, and where each database stands. -->

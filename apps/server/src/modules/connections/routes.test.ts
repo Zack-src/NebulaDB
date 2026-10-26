@@ -608,3 +608,106 @@ test("a renamed column is offered as a rename, and deploying it keeps the data",
     await app.close();
   }
 });
+
+test("a clean deployment drops the tables and writes the schema again, only on a retyped name", async () => {
+  const app = await buildApp();
+  const targetFile = join(tmpdir(), `nebuladb-test-clean-${randomUUID()}.sqlite`);
+  try {
+    const { default: Database } = await import("better-sqlite3");
+    const target = new Database(targetFile);
+    // The database holds data, and a shape the schema no longer has: a diff would have to drop a key column.
+    target.exec(`CREATE TABLE items (id INTEGER PRIMARY KEY, old_name TEXT);
+      INSERT INTO items VALUES (1, 'a'), (2, 'b');
+      CREATE TABLE made_by_hand (id INTEGER PRIMARY KEY);`);
+    target.close();
+
+    const owner = await makeUser();
+    const cookie = await loginAs(app, owner.email, owner.password);
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/projects",
+      headers: headers({ cookie }),
+      payload: { name: "Clean project" },
+    });
+    const project = created.json();
+    const room = await getRoom(project.id);
+    await room.write(() => {
+      writeProjectToDoc(room.doc, {
+        id: project.id,
+        name: project.name,
+        tables: [
+          {
+            id: "t-items",
+            name: "items",
+            fields: [
+              { id: "t-items.id", name: "id", type: "integer", pk: true },
+              { id: "t-items.new_name", name: "new_name", type: "text" },
+            ],
+            indexes: [],
+            position: { x: 0, y: 0 },
+            detailLevel: "standard",
+          },
+        ],
+        refs: [],
+        enums: [],
+        zones: [],
+        stickyNotes: [],
+        tableGroups: [],
+      });
+    }, "test-seed");
+    const connRes = await app.inject({
+      method: "POST",
+      url: `/api/projects/${project.id}/connections`,
+      headers: headers({ cookie }),
+      payload: { name: "Dev file", engine: "sqlite", filePath: targetFile },
+    });
+    const connId = connRes.json().connection.id;
+    const base = `/api/projects/${project.id}/connections/${connId}`;
+
+    // The preview counts what would go, and leaves the table nobody told Nebula about alone.
+    const preview = await app.inject({ method: "POST", url: `${base}/plan-clean-deployment`, headers: headers({ cookie }), payload: {} });
+    assert.equal(preview.statusCode, 200, preview.body);
+    assert.deepEqual(preview.json().dropTables, [{ name: "items", rows: 2 }]);
+    assert.deepEqual(preview.json().createTables, ["items"]);
+    const withAll = await app.inject({
+      method: "POST",
+      url: `${base}/plan-clean-deployment`,
+      headers: headers({ cookie }),
+      payload: { includeUnmanaged: true },
+    });
+    assert.deepEqual(withAll.json().dropTables.map((t: { name: string }) => t.name).sort(), ["items", "made_by_hand"]);
+
+    // Without the name retyped, nothing happens.
+    const refused = await app.inject({
+      method: "POST",
+      url: `${base}/apply-deployment`,
+      headers: headers({ cookie }),
+      payload: { clean: {}, backupBefore: false },
+    });
+    assert.equal(refused.statusCode, 400);
+    assert.equal(refused.json().code, "CLEAN_DEPLOYMENT_CONFIRMATION_REQUIRED");
+    const untouched = new Database(targetFile, { readonly: true });
+    assert.equal((untouched.prepare("SELECT COUNT(*) AS n FROM items").get() as { n: number }).n, 2);
+    untouched.close();
+
+    const applied = await app.inject({
+      method: "POST",
+      url: `${base}/apply-deployment`,
+      headers: headers({ cookie }),
+      payload: { clean: {}, confirmName: "Dev file", backupBefore: false },
+    });
+    assert.equal(applied.statusCode, 200, applied.body);
+    assert.match(applied.json().sql, /DROP TABLE IF EXISTS "items"/);
+    assert.equal(applied.json().rollbackAvailable, false);
+
+    const after = new Database(targetFile, { readonly: true });
+    const columns = (after.prepare("PRAGMA table_info(items)").all() as { name: string }[]).map((c) => c.name);
+    assert.deepEqual(columns, ["id", "new_name"]);
+    assert.equal((after.prepare("SELECT COUNT(*) AS n FROM items").get() as { n: number }).n, 0, "the data went with the tables");
+    assert.ok(after.prepare("SELECT 1 FROM sqlite_master WHERE name = 'made_by_hand'").get(), "a table out of scope stays");
+    after.close();
+  } finally {
+    await closeAllRooms();
+    await app.close();
+  }
+});

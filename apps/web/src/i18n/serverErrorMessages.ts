@@ -167,6 +167,8 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   VARIABLES_UNRESOLVED: "errors.variablesUnresolved",
   PIPELINE_STAGE_SKIPPED: "errors.pipelineStageSkipped",
   DEPLOYMENT_REVIEW_REQUIRED: "errors.deploymentReviewRequired",
+  CLEAN_DEPLOYMENT_NOT_ALLOWED: "errors.cleanDeploymentNotAllowed",
+  CLEAN_DEPLOYMENT_CONFIRMATION_REQUIRED: "errors.cleanDeploymentConfirmationRequired",
   DEPLOYMENT_REVIEW_NOT_REQUIRED: "errors.deploymentReviewNotRequired",
   DEPLOYMENT_REVIEW_NOTHING_TO_DEPLOY: "errors.deploymentReviewNothingToDeploy",
   DEPLOYMENT_REVIEW_ALREADY_OPEN: "errors.deploymentReviewAlreadyOpen",

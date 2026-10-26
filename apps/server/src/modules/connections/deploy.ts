@@ -12,9 +12,11 @@ import {
   diffTargetAgainstLive,
   generateMigrationSql,
   generateRollbackSql,
+  planCleanDeployment,
   type MigrationDiff,
 } from "@nebuladb/dbml-engine";
 import { ApiError } from "../../shared/errors.js";
+import { quoteIdentifier } from "../../shared/sqlQuoting.js";
 import { getRoom } from "../../realtime/roomRegistry.js";
 import { createDatabaseDriver } from "./drivers/index.js";
 import { deployedTablesOf, loadReference, saveReferenceFingerprint, type FingerprintSource } from "./drift.js";
@@ -27,6 +29,23 @@ import type { SeedResult } from "@nebuladb/shared";
 import { backupOrRefuse } from "../backups/runner.js";
 
 const RISK_NOTE_MAX = 1000;
+
+/** What the history keeps as the reason of a deployment: the one given, led by "clean deployment" when it started over. */
+function noteOf(options: { riskNote?: string; clean?: CleanOptions }): string | null {
+  const given = typeof options.riskNote === "string" ? options.riskNote.trim() : "";
+  const note = options.clean ? `clean deployment${given ? ` — ${given}` : ""}` : given;
+  return note ? note.slice(0, RISK_NOTE_MAX) : null;
+}
+
+/** A clean deployment is for a database whose data may go: not production, not a stage that asks for a review, and only on a retyped name. */
+async function assertCleanAllowed(conn: { name: string; environmentId?: string | null }, confirmName: string | undefined) {
+  if ((await isProductionStage(conn)) || (await stageAsksForReview(conn))) {
+    throw new ApiError("CLEAN_DEPLOYMENT_NOT_ALLOWED", { details: { connection: conn.name } });
+  }
+  if (typeof confirmName !== "string" || confirmName.trim() !== conn.name.trim()) {
+    throw new ApiError("CLEAN_DEPLOYMENT_CONFIRMATION_REQUIRED", { details: { connection: conn.name } });
+  }
+}
 
 async function isProductionStage(conn: { environmentId?: string | null }): Promise<boolean> {
   return Boolean(conn.environmentId && (await getEnvironment(conn.environmentId))?.production);
@@ -167,6 +186,20 @@ function seedsHashOf(seeds: PreparedSeeds | null): string | null {
 const riskIdentity = (risk: AcceptedRisk) =>
   [risk.type, risk.tableName, risk.columnName ?? "", risk.detail ?? "", risk.strategy].join("\u0000");
 
+/** A deployment that drops the database's tables and writes the schema again: see `planCleanDeployment`. */
+export interface CleanOptions {
+  /** Also drop the tables the database holds that Nebula never deployed and the schema does not have. */
+  includeUnmanaged: boolean;
+}
+
+/** The live tables a clean deployment drops: those of the schema and those Nebula deployed, or every one. */
+function cleanScope(live: Project, canvas: Project, deployed: Set<string> | null, includeUnmanaged: boolean): Set<string> {
+  const names = new Set(live.tables.map((table) => table.name.toLowerCase()));
+  if (includeUnmanaged) return names;
+  const mine = new Set([...canvas.tables.map((table) => table.name.toLowerCase()), ...(deployed ?? [])]);
+  return new Set([...names].filter((name) => mine.has(name)));
+}
+
 interface DeploymentPlan {
   diff: MigrationDiff;
   acceptedRisks: AcceptedRisk[];
@@ -189,9 +222,17 @@ async function planDeployment(
   canvasProject: Project,
   resolutions: MigrationResolutionMap,
   skipSeeds: boolean,
+  clean: CleanOptions | null = null,
 ): Promise<DeploymentPlan> {
   const liveProject = await driver.introspectSchema();
   const diff = diffTargetAgainstLive(liveProject, canvasProject);
+  if (clean) {
+    // Nothing to settle: no diff of columns, no conflicts. The seeds still go in after the tables.
+    const scope = cleanScope(liveProject, canvasProject, await deployedTablesOf(projectId, conn.id), clean.includeUnmanaged);
+    const seeds = skipSeeds ? null : await prepareSeeds(projectId, canvasProject);
+    if (seeds) assertSeedsDeployable(seeds);
+    return { diff, acceptedRisks: [], seeds, sql: planCleanDeployment(liveProject, canvasProject, conn.engine, scope).sql };
+  }
   // Measured again here, whatever the plan said: the data may have moved
   // since, and an API caller may never have looked at a plan at all.
   const risks = await analyzeDeploymentRisks(driver, diff, conn.engine, await deployedTablesOf(projectId, conn.id));
@@ -287,6 +328,69 @@ export async function freezeDeployment(
   }
 }
 
+export interface CleanDeploymentPreview {
+  engine: string;
+  sql: string;
+  /** The tables the script drops, with the rows they hold when that could be counted quickly. */
+  dropTables: { name: string; rows: number | null }[];
+  createTables: string[];
+}
+
+/** Longest a row count may take, and how many are asked for at once. */
+const COUNT_TIMEOUT_MS = 5_000;
+const COUNT_CONCURRENCY = 4;
+
+/**
+ * What a clean deployment would drop and write, without running anything: the preview of the dialog that asks
+ * for the confirmation. Refuses as the deployment would (production, a stage that asks for a review).
+ */
+export async function previewCleanDeployment(
+  projectId: string,
+  projectName: string,
+  connId: string,
+  options: CleanOptions,
+): Promise<CleanDeploymentPreview> {
+  const conn = await getProjectConnection(projectId, connId);
+  if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
+  if (conn.readOnly) throw new ApiError("CONNECTION_READ_ONLY");
+  if ((await isProductionStage(conn)) || (await stageAsksForReview(conn))) {
+    throw new ApiError("CLEAN_DEPLOYMENT_NOT_ALLOWED", { details: { connection: conn.name } });
+  }
+  const written = readProjectFromDoc((await getRoom(projectId)).doc, projectId, projectName);
+  const canvasProject = await schemaForConnection(written, conn);
+  const driver = await createDatabaseDriver(conn);
+  try {
+    const live = await driver.introspectSchema();
+    const scope = cleanScope(live, canvasProject, await deployedTablesOf(projectId, conn.id), options.includeUnmanaged);
+    const plan = planCleanDeployment(live, canvasProject, conn.engine, scope);
+    const rows = new Map<string, number | null>();
+    const queue = [...plan.dropTables];
+    const worker = async () => {
+      for (let name = queue.shift(); name !== undefined; name = queue.shift()) {
+        try {
+          const count = await Promise.race([
+            driver.queryScalar(`SELECT COUNT(*) FROM ${quoteIdentifier(name, conn.engine)}`),
+            new Promise<never>((_, reject) => setTimeout(() => reject(new Error("count timed out")), COUNT_TIMEOUT_MS)),
+          ]);
+          rows.set(name, count);
+        } catch {
+          // Not counted: the dialog says "unknown" rather than showing a number nobody measured.
+          rows.set(name, null);
+        }
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(COUNT_CONCURRENCY, plan.dropTables.length) }, worker));
+    return {
+      engine: conn.engine,
+      sql: plan.sql,
+      dropTables: plan.dropTables.map((name) => ({ name, rows: rows.get(name) ?? null })),
+      createTables: plan.createTables,
+    };
+  } finally {
+    await driver.close().catch(() => {});
+  }
+}
+
 export interface DeployToConnectionResult {
   success: boolean;
   executedStatements: number;
@@ -335,6 +439,8 @@ export async function deployToConnection(
      * whose protection is `review`; the plan must still be the one it froze.
      */
     review?: ReviewedPlan;
+    /** Start over: drop the tables and write the schema again (see `CleanOptions`). Never on production. */
+    clean?: CleanOptions;
   } = {},
 ): Promise<DeployToConnectionResult> {
   const { confirmName } = options;
@@ -349,6 +455,7 @@ export async function deployToConnection(
     });
   }
   await assertProductionConfirmed(conn, confirmName);
+  if (options.clean) await assertCleanAllowed(conn, confirmName);
 
   const room = await getRoom(projectId);
   const writtenProject = readProjectFromDoc(room.doc, projectId, projectName);
@@ -362,16 +469,28 @@ export async function deployToConnection(
 
   const driver = await createDatabaseDriver(conn);
   try {
-    const plan = await planDeployment(driver, projectId, conn, canvasProject, resolutions, options.skipSeeds === true);
+    const plan = await planDeployment(
+      driver,
+      projectId,
+      conn,
+      canvasProject,
+      resolutions,
+      options.skipSeeds === true,
+      options.clean ?? null,
+    );
     if (options.review) assertStillAsReviewed(options.review, schemaHash, plan);
     const { diff, acceptedRisks, seeds, sql } = plan;
-    const { sql: rollbackSqlRaw, irreversible } = generateRollbackSql(diff, conn.engine, resolutions);
+    const { sql: rollbackSqlRaw, irreversible } = options.clean
+      ? { sql: "", irreversible: ["A clean deployment dropped every table with its data: only the backup taken before it restores them."] }
+      : generateRollbackSql(diff, conn.engine, resolutions);
     // The warnings are prepended as SQL comments rather than kept in a
     // separate column: whoever reads `rollbackSql` later (the history list,
     // a manual copy-paste into a client) sees them right next to the
     // statements they qualify, not only if they also thought to check
     // another field.
-    const rollbackSql = diff.hasChanges
+    const rollbackSql = options.clean
+      ? null
+      : diff.hasChanges
       ? irreversible.length > 0
         ? `${irreversible.map((w) => `-- WARNING: ${w}`).join("\n")}\n\n${rollbackSqlRaw}`
         : rollbackSqlRaw
@@ -381,9 +500,10 @@ export async function deployToConnection(
     // refuse the deployment has had its say. A backup that does not complete
     // refuses it too (`BACKUP_FAILED`): a safety copy that silently was not
     // taken is worse than none asked for.
-    const willWrite = diff.hasChanges || Boolean(seeds && seeds.seeds.length > 0);
+    const willWrite = Boolean(options.clean) || diff.hasChanges || Boolean(seeds && seeds.seeds.length > 0);
+    // A clean deployment is backed up unless the caller says otherwise: what it drops is not coming back.
     const backup =
-      willWrite && (options.backupBefore ?? (await isProductionStage(conn)))
+      willWrite && (options.backupBefore ?? (options.clean ? true : await isProductionStage(conn)))
         ? await backupOrRefuse({
             connection: conn,
             trigger: "pre-deployment",
@@ -409,7 +529,7 @@ export async function deployToConnection(
       error: result.error,
       executedByEmail,
       acceptedRisks,
-      riskNote: typeof options.riskNote === "string" ? options.riskNote.slice(0, RISK_NOTE_MAX) : null,
+      riskNote: noteOf(options),
       seedReport,
       backupId: backup?.id ?? null,
       schemaHash,

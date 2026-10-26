@@ -10,6 +10,7 @@ export * from "./migrationGenerator.js";
 export * from "./rollbackGenerator.js";
 export * from "./typeTranslationRisks.js";
 export * from "./renameDetection.js";
+export * from "./cleanDeployment.js";
 export * from "./schemaHash.js";
 export * from "./partialRestore.js";
 export * from "./deploymentProbes.js";

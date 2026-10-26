@@ -32,6 +32,7 @@
     supersededByRename,
     type MigrationDialect,
   } from "@nebuladb/dbml-engine";
+  import CleanDeploymentDialog from "./CleanDeploymentDialog.svelte";
   import DeploymentFailureBlock from "./DeploymentFailureBlock.svelte";
   import { parseDeploymentFailure, type DeploymentFailure } from "./deploymentFailure";
   import DeploymentHistoryPanel from "./DeploymentHistoryPanel.svelte";
@@ -60,6 +61,7 @@
     onShowInGraph,
     onShowInCode,
     tableExists,
+    canClean = false,
   }: {
     projectId: string;
     schemaHash?: string;
@@ -84,6 +86,8 @@
     onShowInCode?: (tableName: string) => void;
     /** Whether the diagram has this table: see `DeploymentRisksStep`. */
     tableExists?: (tableName: string) => boolean;
+    /** The person may start over (drop the tables and write the schema again): project administrators. */
+    canClean?: boolean;
   } = $props();
 
   const { t } = useTranslation();
@@ -108,6 +112,8 @@
   let error = $state<string | null>(null);
   /** Which statement the database refused, when the answer says: shown with the statement instead of a bare message. */
   let failure = $state.raw<DeploymentFailure | null>(null);
+  /** The "start over" dialog is open. */
+  let cleaning = $state(false);
   let copied = $state(false);
   /** Why the risks are accepted — kept with the deployment in its history. */
   let riskNote = $state("");
@@ -346,6 +352,17 @@
         {/if}
       {/if}
       <span class="flex-1"></span>
+      {#if canClean && !readOnly && selectedConn && !selectedConn.production && selectedConn.protection !== "review"}
+        <Button
+          size="xs"
+          variant="ghost"
+          onclick={() => (cleaning = true)}
+          data-tooltip={t("deployment.clean.openHint")}
+          data-tooltip-pos="bottom"
+        >
+          {t("deployment.clean.open")}
+        </Button>
+      {/if}
       <Button
         size="xs"
         variant="ghost"
@@ -507,6 +524,22 @@
       </div>
     {/if}
   </section>
+{/if}
+
+{#if cleaning && selectedConn}
+  <CleanDeploymentDialog
+    {projectId}
+    connId={selectedConn.id}
+    connectionName={selectedConn.name}
+    onClose={() => (cleaning = false)}
+    onDone={() => {
+      onDeployed();
+      void runAnalysis(selectedConn.id);
+    }}
+    {onShowInGraph}
+    {onShowInCode}
+    {tableExists}
+  />
 {/if}
 
 {#if confirmingProduction && selectedConn}
