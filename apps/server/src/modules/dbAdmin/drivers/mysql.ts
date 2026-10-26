@@ -19,6 +19,7 @@ import type {
 import { ApiError } from "../../../shared/errors.js";
 import type { DriverConnectionConfig } from "../../connections/drivers/interface.js";
 import { mysqlPoolConfig } from "../../connections/drivers/mysql.js";
+import { CONNECT_TIMEOUT_MS } from "../../../shared/sqlQuoting.js";
 import { assertReadOnlyStatement } from "../sqlGuard.js";
 import {
   MASK,
@@ -163,7 +164,7 @@ export class MysqlAdminDriver implements DatabaseAdminDriver {
 
   constructor(config: DriverConnectionConfig) {
     this.defaultDatabase = config.database || undefined;
-    this.pool = mysql.createPool({ ...mysqlPoolConfig(config), connectionLimit: 2, connectTimeout: 5000 });
+    this.pool = mysql.createPool({ ...mysqlPoolConfig(config), connectionLimit: 2, connectTimeout: CONNECT_TIMEOUT_MS });
   }
 
   private async rows<T>(sql: string, params: unknown[] = []): Promise<T[]> {

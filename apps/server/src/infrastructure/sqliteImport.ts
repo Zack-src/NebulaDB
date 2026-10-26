@@ -1,4 +1,5 @@
 import Database from "better-sqlite3";
+import { quoteDouble } from "../shared/sqlQuoting.js";
 import { db } from "./db.js";
 import { SQLITE_FINAL_VERSION, SQLITE_LAST_DEV_VERSION } from "./migrations.js";
 
@@ -33,9 +34,7 @@ export interface TableCopy {
 
 export class SqliteImportRefused extends Error {}
 
-function quote(identifier: string): string {
-  return `"${identifier.replace(/"/g, '""')}"`;
-}
+const quote = quoteDouble;
 
 async function targetTables(): Promise<string[]> {
   const rows = (await db

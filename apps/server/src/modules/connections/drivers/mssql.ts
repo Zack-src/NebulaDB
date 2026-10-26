@@ -11,6 +11,7 @@ import {
   RowValue,
   TestConnectionResult,
 } from "./interface.js";
+import { CONNECT_TIMEOUT_MS } from "../../../shared/sqlQuoting.js";
 import { driverTlsOptions } from "./tls.js";
 
 interface ColumnRow {
@@ -59,7 +60,7 @@ export function mssqlPoolConfig(config: DriverConnectionConfig, database?: strin
     user: config.user || "sa",
     password: config.password,
     options,
-    connectionTimeout: 5000,
+    connectionTimeout: CONNECT_TIMEOUT_MS,
   };
 }
 
