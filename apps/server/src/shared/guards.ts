@@ -42,7 +42,8 @@ export async function requireProjectAccess(
   const user = requireUser(req);
   const project = await getProjectRow(projectId);
   if (!project) throw new ApiError("NOT_FOUND");
-  if (!(await hasPermission(user.id, projectId, level))) throw new ApiError("FORBIDDEN");
+  const known = { isAdmin: user.isAdmin, ownerId: project.owner_id };
+  if (!(await hasPermission(user.id, projectId, level, known))) throw new ApiError("FORBIDDEN");
   return { user, project };
 }
 
@@ -51,6 +52,7 @@ export async function requireProjectAdmin(req: FastifyRequest, projectId: string
   const user = requireUser(req);
   const project = await getProjectRow(projectId);
   if (!project) throw new ApiError("NOT_FOUND");
-  if ((await getEffectivePermission(user.id, projectId)) !== "administrator") throw new ApiError("FORBIDDEN");
+  const known = { isAdmin: user.isAdmin, ownerId: project.owner_id };
+  if ((await getEffectivePermission(user.id, projectId, known)) !== "administrator") throw new ApiError("FORBIDDEN");
   return { user, project };
 }

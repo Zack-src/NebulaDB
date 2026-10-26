@@ -89,6 +89,32 @@ test("historical cookies renew under the new name and are revoked on logout", as
   );
 });
 
+test("resolveSession throttles the roll-forward write to once per refresh interval", async () => {
+  const userId = await insertUser({ email: "throttle@example.com" });
+  const { reply, cookiesSet } = mockReply();
+  await createSession(userId, reply as unknown as FastifyReply);
+  const sessionId = cookiesSet[0].value;
+  const req = mockRequest({ nebuladb_sid: sessionId });
+  const expiry = async () =>
+    ((await db.prepare("SELECT expires_at FROM sessions WHERE id = ?").get(sessionId)) as { expires_at: string })
+      .expires_at;
+
+  // Fresh session: nothing to roll forward, so no write and no Set-Cookie.
+  const before = await expiry();
+  const first = mockReply();
+  assert.equal((await resolveSession(req, first.reply as unknown as FastifyReply))?.id, userId);
+  assert.equal(await expiry(), before);
+  assert.equal(first.cookiesSet.length, 0);
+
+  // Expiry 2 minutes behind where a fresh one would be: rolled forward again.
+  const stale = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000 - 120_000).toISOString();
+  await db.prepare("UPDATE sessions SET expires_at = ? WHERE id = ?").run(stale, sessionId);
+  const second = mockReply();
+  assert.ok(await resolveSession(req, second.reply as unknown as FastifyReply));
+  assert.ok(new Date(await expiry()).getTime() > new Date(stale).getTime() + 100_000);
+  assert.equal(second.cookiesSet.length, 1);
+});
+
 function mockRequest(cookies: Record<string, string> = {}, user: unknown = undefined) {
   return { cookies, user } as unknown as FastifyRequest;
 }

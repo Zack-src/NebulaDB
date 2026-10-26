@@ -2,22 +2,27 @@ import type { FastifyInstance } from "fastify";
 import { projectToDbml } from "@nebuladb/dbml-engine";
 import { buildProjectPreview } from "@nebuladb/shared";
 import { auditUser } from "../../../shared/audit.js";
-import { getEffectivePermission } from "../../../shared/permissions.js";
+import { getEffectivePermission, getEffectivePermissions } from "../../../shared/permissions.js";
 import { requireProjectAccess, requireProjectAdmin, requireUser } from "../../../shared/guards.js";
 import { getProjectSummary, listProjectSummaries } from "../repository.js";
 import { createProjectForUser, deleteProject, updateProject } from "../projectCrud.js";
-import { mapAsync } from "../../../shared/async.js";
 import { readProjectReadOnly } from "../../../realtime/readOnlyProject.js";
 
 export function registerProjectCrudRoutes(app: FastifyInstance): void {
   app.get("/api/projects", async (req) => {
     const user = requireUser(req);
-    return (
-      await mapAsync(await listProjectSummaries(), async (row) => ({
-        ...row,
-        permission: await getEffectivePermission(user.id, row.id),
-      }))
-    ).filter((row) => row.permission !== null);
+    const permissions = await getEffectivePermissions(user.id, user.isAdmin);
+    const visible = (await listProjectSummaries())
+      .map((row) => ({ ...row, permission: permissions.get(row.id) ?? null }))
+      .filter((row) => row.permission !== null);
+
+    // Optional paging: without `limit` the whole list comes back exactly as
+    // before, so the web app (which sends neither) is unaffected.
+    const { limit, offset } = req.query as { limit?: string; offset?: string };
+    const lim = Number.parseInt(limit ?? "", 10);
+    if (!Number.isFinite(lim) || lim < 1) return visible;
+    const off = Math.max(0, Number.parseInt(offset ?? "", 10) || 0);
+    return visible.slice(off, off + Math.min(lim, 500));
   });
 
   app.post("/api/projects", async (req, reply) => {
