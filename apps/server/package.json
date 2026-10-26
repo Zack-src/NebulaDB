@@ -16,6 +16,10 @@
     "restore": "tsx src/infrastructure/restore.ts",
     "bootstrap-admin": "tsx src/bootstrap-admin.ts",
     "bootstrap-admin:prod": "node dist/bootstrap-admin.js",
+    "export-instance": "tsx src/export-instance.ts",
+    "export-instance:prod": "node dist/export-instance.js",
+    "import-instance": "tsx src/import-instance.ts",
+    "import-instance:prod": "node dist/import-instance.js",
     "rotate-secret": "tsx src/rotate-secret.ts",
     "migrate-from-sqlite": "tsx src/migrate-from-sqlite.ts"
   },

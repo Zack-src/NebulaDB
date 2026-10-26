@@ -29,7 +29,8 @@ export const BACKUP_SCOPE_NOTICE = [
   "This folder is a DBML export of the project schemas only (tables, relations, notes, layout).",
   "It does NOT contain: accounts, teams and permissions, sessions, API keys, database connections,",
   "revision history, seeds, webhooks or the audit log.",
-  "For a complete instance backup, dump the PostgreSQL database (pg_dump) and keep NEBULADB_SECRET:",
+  "For a complete instance backup, dump the PostgreSQL database (pg_dump, or `npm run export-instance`)",
+  "and keep NEBULADB_SECRET:",
   "see docs/backup-restore.md.",
 ].join("\n");
 

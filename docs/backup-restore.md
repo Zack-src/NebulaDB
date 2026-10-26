@@ -10,6 +10,8 @@ Ce document décrit ce que NebulaDB sauvegarde réellement, et comment sauvegard
 | Onglet « Sauvegardes » (bases connectées)                     | Dumps des bases **clientes** connectées, dans `NEBULADB_DATABASE_BACKUP_DIR`       | Les données propres de NebulaDB                                                                         |
 | `pg_dump` de la base `nebuladb` (ce document)                 | Toutes les données de NebulaDB : comptes, projets, révisions, connexions chiffrées, audit | Le contenu du volume `nebuladb-data` (voir plus bas) et la clé `NEBULADB_SECRET`                          |
 
+| `npm run export-instance` / `import-instance` (archive JSONL, sans `pg_dump`) | Toutes les tables applicatives : comptes, projets, révisions, connexions (chiffrées), audit | Sessions et tables éphémères (`sessions`, `mfa_challenges`, `login_attempts`, `password_reset_tokens`), volume `nebuladb-data`, clé `NEBULADB_SECRET` |
+
 Conclusion : l'export DBML planifié est utile (export lisible, versionnable, réimportable projet par projet) mais **ce n'est pas une sauvegarde d'instance**. Chaque dossier produit contient un fichier `LISEZMOI-SCOPE.txt` qui le rappelle.
 
 ## 2. Ce qu'il faut sauvegarder pour une instance complète
@@ -59,6 +61,30 @@ docker compose up -d nebuladb
 
 Restaurez toujours dans une version de NebulaDB identique ou plus récente que celle du dump : une version plus ancienne ne connaît pas le schéma.
 
+### Alternative sans `pg_dump` : `export-instance` / `import-instance`
+
+L'image Docker n'embarque pas `pg_dump`. Deux commandes Node font un export/import logique des données propres de NebulaDB (même `DATABASE_URL` que le serveur) :
+
+```bash
+# Export (le serveur peut tourner : lecture seule, instantané cohérent)
+docker compose exec nebuladb node apps/server/dist/export-instance.js /data/nebuladb-instance.jsonl.gz
+# Hors Docker : npm run export-instance -- [fichier.jsonl.gz]
+
+# Import : base NEUVE et vide uniquement, serveur arrêté
+docker compose run --rm nebuladb node apps/server/dist/import-instance.js /data/nebuladb-instance.jsonl.gz
+# Hors Docker : npm run import-instance -- fichier.jsonl.gz
+```
+
+Fonctionnement :
+
+- L'archive est un fichier JSONL compressé (gzip) : un en-tête (version du schéma lue dans `schema_migrations`, colonnes de chaque table), une ligne par enregistrement, puis un manifeste (nombre de lignes et SHA-256 par table). Les tables sont découvertes dans `information_schema` et écrites dans l'ordre des clés étrangères ; seules les tables éphémères listées ci-dessus sont exclues. La lecture se fait par pages (curseur sur la clé primaire) : la mémoire reste constante. Les `BYTEA` (révisions Yjs, snapshots) sont en base64.
+- **Les secrets restent chiffrés** (identifiants de connexion, secrets 2FA, secrets de webhooks) : ils ne sont jamais déchiffrés. L'archive n'est exploitable qu'avec la **même** valeur de `NEBULADB_SECRET` ; conservez-la séparément de l'archive.
+- L'import applique les migrations puis restaure en **une seule transaction**, clés étrangères actives, remet les compteurs d'identité à la suite des lignes restaurées, et compare nombres de lignes et empreintes au manifeste avant de valider. Toute erreur annule tout.
+- Il **refuse** une base qui contient déjà des données (comptes, projets, ou toute autre table ; il n'existe pas d'option pour passer outre) et une archive dont la version de schéma est plus récente que le code. Une archive plus ancienne est acceptée si toutes ses colonnes existent encore.
+- Non couvert : les fichiers de seeds et les sauvegardes de bases connectées du volume `nebuladb-data` (à copier comme en section 3), le `.env`, et les sessions (les utilisateurs devront se reconnecter).
+
+Chemin complet sans `pg_dump` : `export-instance`, copie du volume, conservation de `NEBULADB_SECRET` ; à la restauration, base vide, `import-instance`, restauration du volume, démarrage.
+
 ## 5. Vérification après restauration
 
 - `GET /api/health` répond `ok`.
@@ -83,5 +109,5 @@ Si seuls des exports DBML existent, `npm run restore -- <dossier> [--owner <emai
 
 ## 8. Limites connues
 
-- Pas d'export JSONL table par table ni de restauration logique intégrée à NebulaDB : le chemin supporté est `pg_dump` / `pg_restore`.
+- `import-instance` ne fusionne pas dans une base existante et ne restaure pas les sessions ; `pg_dump` / `pg_restore` reste le chemin le plus rapide pour de très grosses bases. L'export logique n'est ni planifié ni intégré à l'interface : à lancer depuis cron ou une tâche planifiée.
 - La sauvegarde planifiée intégrée ne couvre pas PostgreSQL et ne prévient pas dans l'interface que son contenu est limité au DBML ; seuls `LISEZMOI-SCOPE.txt`, la sortie de `npm run backup` et ce document le disent.
