@@ -85,7 +85,7 @@ export function uploadSeedFile(
     xhr.onload = () => {
       let payload: Record<string, unknown> = {};
       try {
-        payload = JSON.parse(xhr.responseText || "{}") as Record<string, unknown>;
+        payload = (JSON.parse(xhr.responseText || "{}") ?? {}) as Record<string, unknown>;
       } catch {
         // Not JSON: reported below with the status alone.
       }
