@@ -65,7 +65,7 @@ mais ce document ne le remplace pas : il le complète (les agents ont signalé l
 - [ ] **[P1][M] Visite guidée et modèles de projet retirés (`a1d0b78`) mais marqués faits** ↔ — + état vide du premier projet sans action. _(§4, §7)_
 - [ ] **[P1][M] Assistant de premier démarrage `/setup` + projet d'exemple (SQLite livrée)** _(§4)_
 - [ ] **[P1][S] Décider et ajouter une LICENSE** (v1.0.0 taguée sans licence) ; restaurer SECURITY.md / CONTRIBUTING.md ↔ _(§4, §8)_
-- [ ] **[P2][S] Docs périmées** : `etat-des-features.md`, `presentation-features.md` (parle encore de SQLite), README (lien mort), `webhooks.md`, cases non cochées dans `todo.md`, CHANGELOG (`PRAGMA user_version`). _(§4, §8)_
+- [x] **[P2][S] Docs périmées** : `etat-des-features.md`, `presentation-features.md` (parle encore de SQLite), README (lien mort), `webhooks.md`, cases non cochées dans `todo.md`, CHANGELOG (`PRAGMA user_version`). _(§4, §8)_
 
 ### Lot D — UX / accessibilité visibles tout de suite
 
