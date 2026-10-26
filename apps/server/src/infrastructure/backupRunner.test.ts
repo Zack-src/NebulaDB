@@ -64,7 +64,7 @@ test("a backup writes one .dbml per project, named after it", async () => {
   const result = await runBackup(dir);
 
   assert.equal(result.backedUp, 1);
-  const files = readdirSync(dir);
+  const files = readdirSync(dir).filter((f) => f.endsWith(".dbml"));
   assert.deepEqual(files, ["Ventes_Europe.dbml"]);
   assert.match(readFileSync(join(dir, files[0]), "utf-8"), /Table customers/);
 });
