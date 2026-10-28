@@ -254,3 +254,57 @@ test("MysqlDriver restore session: atomic on InnoDB only, a 0 id kept, generated
     await driver.close();
   }
 });
+
+test("MysqlDriver introspects the indexes made on their own, not the keys", async (t) => {
+  const driver = new MysqlDriver(config);
+  const connTest = await driver.testConnection();
+  if (!connTest.ok) {
+    await driver.close().catch(() => {});
+    t.skip(`no MySQL test container reachable at ${config.host}:${config.port} (${TEST_DB_HINT}): ${connTest.error}`);
+    return;
+  }
+  try {
+    await driver.executeMigration(`DROP TABLE IF EXISTS idx_accounts`);
+    const created = await driver.executeMigration(`
+      CREATE TABLE idx_accounts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(100) UNIQUE,
+        org_id INT,
+        slug VARCHAR(100),
+        created_at DATETIME,
+        INDEX idx_accounts_org_created (org_id, created_at),
+        UNIQUE INDEX idx_accounts_org_slug (org_id, slug),
+        INDEX idx_accounts_lower_slug ((lower(slug)))
+      )
+    `);
+    assert.equal(created.success, true, created.error ?? "");
+
+    const schema = await driver.introspectSchema();
+    const table = schema.tables.find((tbl) => tbl.name === "idx_accounts");
+    assert.ok(table);
+    assert.deepEqual(
+      table.indexes.map((i) => ({ fieldIds: i.fieldIds, unique: !!i.unique })).sort((a, b) => a.fieldIds.join().localeCompare(b.fieldIds.join())),
+      [
+        { fieldIds: ["idx_accounts.org_id", "idx_accounts.created_at"], unique: false },
+        { fieldIds: ["idx_accounts.org_id", "idx_accounts.slug"], unique: true },
+      ].sort((a, b) => a.fieldIds.join().localeCompare(b.fieldIds.join())),
+      "the primary key and the UNIQUE column are not indexes",
+    );
+    assert.equal(table.fields.find((f) => f.name === "id")?.pk, true);
+    assert.equal(table.fields.find((f) => f.name === "email")?.unique, true);
+    assert.equal(table.fields.find((f) => f.name === "slug")?.unique, undefined);
+
+    // The project names its indexes its own way: only columns and uniqueness are compared, so nothing is left to deploy.
+    const target: Project = {
+      ...schema,
+      tables: schema.tables.map((tbl) => ({
+        ...tbl,
+        indexes: tbl.indexes.map((i, n) => ({ ...i, id: `p${n}`, name: `idx_${tbl.name}_${n}` })),
+      })),
+    };
+    assert.equal(diffTargetAgainstLive(schema, target).hasChanges, false);
+  } finally {
+    await driver.executeMigration(`DROP TABLE IF EXISTS idx_accounts`).catch(() => {});
+    await driver.close();
+  }
+});

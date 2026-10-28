@@ -34,6 +34,13 @@ interface ColumnRow extends RowDataPacket {
   COLUMN_KEY: string;
 }
 
+interface IndexRow extends RowDataPacket {
+  TABLE_NAME: string;
+  INDEX_NAME: string;
+  COLUMN_NAME: string;
+  NON_UNIQUE: number;
+}
+
 interface ForeignKeyRow extends RowDataPacket {
   CONSTRAINT_NAME: string;
   TABLE_NAME: string;
@@ -141,6 +148,47 @@ export class MysqlDriver implements DatabaseDriver {
       [this.databaseName],
     );
 
+    // Key columns only, in key order. A functional index part has no column name and can't be written as columns,
+    // so the whole index is left out; a column prefix (`SUB_PART`) is kept as the plain column.
+    const [indexRows] = await this.pool.query<IndexRow[]>(
+      `SELECT s.TABLE_NAME, s.INDEX_NAME, s.COLUMN_NAME, s.NON_UNIQUE
+       FROM information_schema.STATISTICS s
+       WHERE s.TABLE_SCHEMA = ? AND s.INDEX_NAME <> 'PRIMARY'
+         AND NOT EXISTS (
+           SELECT 1 FROM information_schema.STATISTICS f
+           WHERE f.TABLE_SCHEMA = s.TABLE_SCHEMA AND f.TABLE_NAME = s.TABLE_NAME AND f.INDEX_NAME = s.INDEX_NAME
+             AND f.COLUMN_NAME IS NULL)
+       ORDER BY s.TABLE_NAME, s.INDEX_NAME, s.SEQ_IN_INDEX`,
+      [this.databaseName],
+    );
+    const indexColumns = new Map<string, IndexRow[]>();
+    for (const row of indexRows) {
+      const key = `${row.TABLE_NAME}\u0000${row.INDEX_NAME}`;
+      if (!indexColumns.has(key)) indexColumns.set(key, []);
+      indexColumns.get(key)!.push(row);
+    }
+    // MySQL makes no difference between a UNIQUE constraint and a unique index. One on a single column that carries
+    // that column's name (what an inline `UNIQUE` creates) is the column's `unique`; any other is an index.
+    const uniqueSet = new Set<string>();
+    const indexesByTable = new Map<string, TableIndex[]>();
+    for (const rows of indexColumns.values()) {
+      const first = rows[0];
+      const unique = first.NON_UNIQUE === 0;
+      const suffix = first.INDEX_NAME.startsWith(first.COLUMN_NAME) ? first.INDEX_NAME.slice(first.COLUMN_NAME.length) : null;
+      if (unique && rows.length === 1 && suffix !== null && /^(_\d+)?$/.test(suffix)) {
+        uniqueSet.add(`${first.TABLE_NAME}.${first.COLUMN_NAME}`);
+        continue;
+      }
+      const list = indexesByTable.get(first.TABLE_NAME) ?? [];
+      list.push({
+        id: `${first.TABLE_NAME}.${first.INDEX_NAME}`,
+        name: first.INDEX_NAME,
+        fieldIds: rows.map((r) => `${r.TABLE_NAME}.${r.COLUMN_NAME}`),
+        ...(unique ? { unique: true } : {}),
+      });
+      indexesByTable.set(first.TABLE_NAME, list);
+    }
+
     const columnsByTable = new Map<string, ColumnRow[]>();
     for (const col of columnsRows) {
       if (!columnsByTable.has(col.TABLE_NAME)) columnsByTable.set(col.TABLE_NAME, []);
@@ -154,6 +202,7 @@ export class MysqlDriver implements DatabaseDriver {
         name: c.COLUMN_NAME,
         type: c.COLUMN_TYPE || c.DATA_TYPE,
         pk: c.COLUMN_KEY === "PRI",
+        ...(uniqueSet.has(`${t.TABLE_NAME}.${c.COLUMN_NAME}`) ? { unique: true } : {}),
         notNull: c.IS_NULLABLE === "NO",
         default: c.COLUMN_DEFAULT !== null ? String(c.COLUMN_DEFAULT) : undefined,
       }));
@@ -162,7 +211,7 @@ export class MysqlDriver implements DatabaseDriver {
         id: t.TABLE_NAME,
         name: t.TABLE_NAME,
         fields,
-        indexes: [] as TableIndex[],
+        indexes: indexesByTable.get(t.TABLE_NAME) ?? [],
         position: { x: (idx % 6) * 320, y: Math.floor(idx / 6) * 400 },
         detailLevel: "standard" as const,
       };
