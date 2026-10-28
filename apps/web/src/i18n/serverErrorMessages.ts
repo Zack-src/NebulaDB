@@ -56,6 +56,8 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   SNAPSHOT_NOT_FOUND: "errors.snapshotNotFound",
   EMAIL_ALREADY_EXISTS: "errors.emailAlreadyExists",
   INVITATION_ALREADY_USED: "errors.invitationAlreadyUsed",
+  SETUP_ALREADY_DONE: "errors.setupAlreadyDone",
+  SETUP_TOKEN_INVALID: "errors.setupTokenInvalid",
   PROJECT_LIMIT_REACHED: "errors.projectLimitReached",
   ACCOUNT_LOCKED: "errors.accountLocked",
   CONNECTION_RATE_LIMITED: "errors.connectionRateLimited",
