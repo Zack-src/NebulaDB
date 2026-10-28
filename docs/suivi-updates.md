@@ -104,7 +104,7 @@ Agents : Opus pour ce qui touche la sûreté des déploiements, Sonnet pour le r
 - [ ] K3. Écran de comparaison d'environnements (le serveur existe, l'écran a été retiré) (Sonnet)
 - [ ] K4. Réglage léger de la surveillance par projet (routes serveur existantes, sans écran) (Sonnet)
 - [ ] K5. Visite guidée, modèles de projet et projet d'exemple au premier démarrage (Sonnet)
-- [ ] K6. CI : tests navigateur, couverture, scan Docker, Dependabot (Sonnet)
+- [x] K6. CI : tests navigateur, couverture, scan Docker, Dependabot — presque tout existait déjà ; ajout d'un test des modules natifs de l'image Docker, `170ca55` (workflows jamais lancés sur GitHub ; épinglage par SHA, seuil de couverture, push GHCR et job MSSQL bloquant restent à faire)
 - [ ] K7. Rétention des journaux : registre, réglages, onglet admin, traçage des purges (Opus pour le registre, Sonnet pour l'écran)
 
 Bloqué sur une décision de Zack : licence du dépôt (LICENSE, SECURITY.md, CONTRIBUTING.md) ; IA optionnelle.
