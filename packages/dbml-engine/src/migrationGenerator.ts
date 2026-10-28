@@ -2,6 +2,7 @@ import type { Field, MigrationResolutionMap, Project, Ref, RefAction, Table } fr
 import { chosenRenames, renameColumnStatement } from "./renameDetection.js";
 import { translateType } from "@nebuladb/shared";
 import { isCurrentTimeExpression } from "./migrationDiff.js";
+import { assertSafeSqlFragment } from "./sqlFragments.js";
 import type { MigrationDiff, MigrationFieldChange, MigrationTableChange } from "./migrationDiff.js";
 
 export type MigrationDialect = "postgres" | "mysql" | "sqlite" | "mssql" | "oracle" | "bigquery";
@@ -23,10 +24,11 @@ export function effectiveType(
   resolutions: MigrationResolutionMap = {},
 ): string {
   const resKey = `column:${tableName.toLowerCase()}.${field.name.toLowerCase()}`;
-  if (resolutions[resKey]?.strategy === "KEEP_AS_WRITTEN") return field.type || "text";
+  const safe = (type: string) => assertSafeSqlFragment(type, dialect, `the type of ${tableName}.${field.name}`);
+  if (resolutions[resKey]?.strategy === "KEEP_AS_WRITTEN") return safe(field.type || "text");
   // `decimal(18.6)` is a typo for `decimal(18,6)` that no engine accepts — repair it rather than emit invalid SQL.
   const type = (field.type || "text").replace(/\((\d+)\.(\d+)\)/, "($1,$2)");
-  return translateType(type, dialect).type;
+  return safe(translateType(type, dialect).type);
 }
 
 /**
@@ -144,8 +146,10 @@ function isSqlExpression(val: string): boolean {
   );
 }
 
-function quoteSqlString(value: string): string {
-  return `'${value.replace(/'/g, "''")}'`;
+/** MySQL and BigQuery read `\'` as an escaped quote: a backslash in the text has to be doubled or it can close the literal. */
+function quoteSqlString(value: string, dialect: MigrationDialect): string {
+  const text = dialect === "mysql" || dialect === "bigquery" ? value.replace(/\\/g, "\\\\") : value;
+  return `'${text.replace(/'/g, "''")}'`;
 }
 
 /**
@@ -155,19 +159,25 @@ function quoteSqlString(value: string): string {
  * (older data, values typed in the field editor), `legacyGuess` decides, as
  * before. `null` when there is no default.
  */
-export function sqlDefaultLiteral(field: Field, legacyGuess: (trimmed: string) => string): string | null {
+export function sqlDefaultLiteral(
+  field: Field,
+  legacyGuess: (trimmed: string) => string,
+  dialect: MigrationDialect,
+): string | null {
   if (field.default === undefined || field.default === "") return null;
   const d = field.default.trim();
+  // Whatever is emitted as typed is one expression, not a statement of its own.
+  const safe = (literal: string) => assertSafeSqlFragment(literal, dialect, `the default of ${field.name}`);
   switch (field.defaultKind) {
     case "expression":
     case "number":
-      return d;
+      return safe(d);
     case "boolean":
-      return d.toLowerCase() === "null" ? "NULL" : d.toUpperCase();
+      return safe(d.toLowerCase() === "null" ? "NULL" : d.toUpperCase());
     case "string":
-      return quoteSqlString(field.default);
+      return quoteSqlString(field.default, dialect);
     default:
-      return legacyGuess(d);
+      return safe(legacyGuess(d));
   }
 }
 
@@ -239,7 +249,7 @@ export function coerceBigQueryDefault(literal: string, type: string): string {
   const bare = literal.trim();
   const quoted = /^'((?:[^']|'')*)'$/s.exec(bare);
   if (BQ_STRING_TYPES.has(base)) {
-    return PLAIN_NUMBER.test(bare) || /^(true|false)$/i.test(bare) ? quoteSqlString(bare) : literal;
+    return PLAIN_NUMBER.test(bare) || /^(true|false)$/i.test(bare) ? quoteSqlString(bare, "bigquery") : literal;
   }
   if (quoted && BQ_NUMBER_TYPES.has(base) && PLAIN_NUMBER.test(quoted[1]!)) return quoted[1]!;
   if (quoted && base === "BOOL" && /^(true|false)$/i.test(quoted[1]!)) return quoted[1]!.toUpperCase();
@@ -271,15 +281,15 @@ export function formatColumnDef(
   typeOverride?: string,
   options: { identity?: boolean } = {},
 ): string {
-  const type = typeOverride ?? (field.type || "text");
+  const type = assertSafeSqlFragment(typeOverride ?? (field.type || "text"), dialect, `the type of ${field.name}`);
   const defaultOf = (legacyGuess: (trimmed: string) => string) => {
-    const literal = sqlDefaultLiteral(field, legacyGuess);
+    const literal = sqlDefaultLiteral(field, legacyGuess, dialect);
     return literal === null ? null : translateDefaultExpression(literal, dialect, type);
   };
   if (dialect === "bigquery") {
     // GoogleSQL: the type, the default, then NOT NULL. Keys are table constraints (never enforced) and UNIQUE does not exist.
     const parts = [q(field.name, dialect), type];
-    const literal = defaultOf((d) => (isSqlExpression(d) ? d : quoteSqlString(d)));
+    const literal = defaultOf((d) => (isSqlExpression(d) ? d : quoteSqlString(d, dialect)));
     if (literal !== null) parts.push(`DEFAULT ${coerceBigQueryDefault(literal, type)}`);
     if (field.notNull || field.pk) parts.push("NOT NULL");
     return parts.join(" ");
@@ -292,7 +302,7 @@ export function formatColumnDef(
   if (field.notNull && !field.pk) parts.push("NOT NULL");
   if (field.unique && !field.pk) parts.push("UNIQUE");
   // An identity column takes its value from the engine: a default on top is refused.
-  const literal = identity ? null : defaultOf((d) => (isSqlExpression(d) ? d : quoteSqlString(d)));
+  const literal = identity ? null : defaultOf((d) => (isSqlExpression(d) ? d : quoteSqlString(d, dialect)));
   if (literal !== null) parts.push(`DEFAULT ${literal}`);
   if (identity && dialect === "mysql") parts.push(identity);
   return parts.join(" ");
@@ -360,9 +370,9 @@ export function generateDropTable(tableName: string, dialect: MigrationDialect):
 type Resolution = MigrationResolutionMap[string] | undefined;
 
 /** Literal for a DEFAULT clause in an ALTER statement: quoted unless it already looks like a literal/expression. */
-function alterDefaultLiteral(raw: string): string {
+function alterDefaultLiteral(raw: string, dialect: MigrationDialect): string {
   const d = raw.trim();
-  return d.startsWith("'") || d.startsWith("(") || !Number.isNaN(Number(d)) ? d : `'${d.replace(/'/g, "''")}'`;
+  return d.startsWith("'") || d.startsWith("(") || !Number.isNaN(Number(d)) ? d : quoteSqlString(d, dialect);
 }
 
 function dropColumnStatements(table: string, col: string, dialect: MigrationDialect, resolution: Resolution): string[] {
@@ -479,7 +489,7 @@ function defaultChangeStatement(
 ): string | undefined {
   const t = q(table, dialect);
   const c = q(col, dialect);
-  const written = sqlDefaultLiteral(after, alterDefaultLiteral);
+  const written = sqlDefaultLiteral(after, (d) => alterDefaultLiteral(d, dialect), dialect);
   const literal = written === null ? null : translateDefaultExpression(written, dialect, after.type || "text");
   if (dialect === "postgres" || dialect === "bigquery") {
     return literal !== null
@@ -602,6 +612,12 @@ export function generateMigrationSql(
   // 2. Added Tables
   for (const table of diff.tables.filter((t) => t.status === "added" && t.after)) {
     statements.push(generateCreateTable(table.after!, dialect, resolutions));
+    // The table's own indexes come with it (a primary key is already in the `CREATE TABLE`; BigQuery has no secondary index).
+    for (const idx of dialect === "bigquery" ? [] : table.addedIndexes.filter((i) => !i.pk)) {
+      const colNames = idx.fieldIds.map((id) => table.after!.fields.find((f) => f.id === id)?.name ?? id);
+      const idxName = idx.name || defaultIndexName(table.name, colNames);
+      statements.push(generateCreateIndex(table.name, colNames, idxName, dialect, { unique: idx.unique }));
+    }
   }
 
   // 3. Modified Tables (Columns & Indexes)

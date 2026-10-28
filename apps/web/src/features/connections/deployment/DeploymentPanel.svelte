@@ -302,9 +302,15 @@
   const blockingRisks = $derived(risks.filter((risk) => risk.severity !== "info" && strategyOf(risk) === "CANCEL"));
   const losesData = $derived(risks.some((risk) => DATA_LOSS_STRATEGIES.has(strategyOf(risk))));
   // The SQL that will run, with the answers given so far — not the plan's first draft.
-  const sqlPreview = $derived(
-    plan ? generateMigrationSql(plan.diff, plan.engine as MigrationDialect, resolutions) : "-- No SQL generated",
-  );
+  const sqlPreview = $derived.by(() => {
+    if (!plan) return "-- No SQL generated";
+    try {
+      return generateMigrationSql(plan.diff, plan.engine as MigrationDialect, resolutions);
+    } catch (err) {
+      // A type, default or name that cannot be written safely into SQL: say which, rather than break the panel.
+      return `-- ${err instanceof Error ? err.message.replace(/\s+/g, " ") : "the SQL could not be generated"}`;
+    }
+  });
   const stepTabs = $derived.by(() => {
     const items: TabItem<DeploymentStep>[] = [
       { id: "diff", label: t("deployment.stepDiffShort"), badge: diff ? diff.tables.length : undefined },

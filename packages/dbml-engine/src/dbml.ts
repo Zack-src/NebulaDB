@@ -10,6 +10,7 @@ import {
   type Table,
 } from "@nebuladb/shared";
 import { projectToDbml, refSignature } from "./serialize.js";
+import { assertSafeForSqlExport } from "./sqlFragments.js";
 
 export type SqlDialect = "postgres" | "mysql" | "mssql";
 
@@ -318,9 +319,34 @@ export function previewExportTypeTranslations(project: Project, dialect: SqlDial
   return changes;
 }
 
+/**
+ * What the exporter below writes between quotes, it writes as it finds it: a string default's `'` is not
+ * doubled, and on MySQL a `\` before the closing quote swallows it (notes get their `'` doubled, not that).
+ * Done here, once, for the text that ends up inside a literal.
+ */
+function withLiteralEscapes(project: Project, dialect: SqlDialect): Project {
+  const backslash = (text: string) => (dialect === "mysql" ? text.replace(/\\/g, "\\\\") : text);
+  const note = (text: string | undefined) => (text === undefined ? text : backslash(text));
+  return {
+    ...project,
+    tables: project.tables.map((t) => ({
+      ...t,
+      note: note(t.note),
+      fields: t.fields.map((f) => ({
+        ...f,
+        note: note(f.note),
+        default:
+          f.default !== undefined && f.defaultKind === "string" ? backslash(f.default).replace(/'/g, "''") : f.default,
+      })),
+    })),
+  };
+}
+
 /** Convert internal `Project` directly to SQL DDL for a dialect, via DBML as the intermediate representation. */
 export function projectToSql(project: Project, dialect: SqlDialect): string {
-  const dbml = projectToDbml(withoutRedundantUnique(withNativeTypes(project, dialect)));
+  // The exporter below writes what it is given as it is given; what cannot be written safely is refused here.
+  assertSafeForSqlExport(project, dialect);
+  const dbml = projectToDbml(withLiteralEscapes(withoutRedundantUnique(withNativeTypes(project, dialect)), dialect));
   const database = parseDbml(dbml);
   return toSql(database, dialect);
 }

@@ -370,11 +370,16 @@ export function translateType(raw: string, targetEngine: DatabaseEngine): TypeTr
     }
   }
 
-  if (family.nativeOn[targetEngine]?.includes(parsed.name)) {
+  // `STRING(255)` carries a length, so it is a sized string: on the other engines it becomes `varchar(255)`, not the
+  // unbounded text type (SQL Server cannot put a `UNIQUE` or an index on `nvarchar(max)`).
+  const sized = family === FAMILIES.text && parsed.args.length > 0 && targetEngine !== "bigquery";
+  const target = sized ? FAMILIES.varchar! : family;
+
+  if (target.nativeOn[targetEngine]?.includes(parsed.name)) {
     return { original, type: original, changed: false };
   }
 
-  return { original, type: family.render[targetEngine](parsed.args), changed: true };
+  return { original, type: target.render[targetEngine](parsed.args), changed: true };
 }
 
 export const SUPPORTED_ENGINES: DatabaseEngine[] = ["postgres", "mysql", "sqlite", "mssql", "oracle", "bigquery"];

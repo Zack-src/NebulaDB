@@ -512,6 +512,11 @@ export function registerErrorHandler(app: FastifyInstance): void {
     if (err instanceof ApiError) {
       return reply.code(err.status).send(err.toPayload());
     }
+    // A schema holding a type, default or name that cannot be written safely into SQL (`@nebuladb/dbml-engine`):
+    // the schema's author can fix it, and the message names what to fix.
+    if (err.name === "UnsafeSqlFragmentError") {
+      return reply.code(400).send({ error: err.message, code: "SQL_FRAGMENT_UNSAFE" });
+    }
     // PostgreSQL refusing a value (a NUL character in text, a number out of range, a malformed UUID…) is the
     // client's input, not a server fault: SQLSTATE class 22. The database's own message stays out of the response.
     if (typeof err.code === "string" && /^22[0-9A-Z]{3}$/.test(err.code)) {

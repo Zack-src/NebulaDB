@@ -188,8 +188,10 @@ function invertFieldChange(
     }
 
     if (fieldChange.defaultChanged && dialect === "postgres") {
-      const defVal = sqlDefaultLiteral(before, (d) =>
-        d.startsWith("'") || d.startsWith("(") || !Number.isNaN(Number(d)) ? d : `'${d.replace(/'/g, "''")}'`,
+      const defVal = sqlDefaultLiteral(
+        before,
+        (d) => (d.startsWith("'") || d.startsWith("(") || !Number.isNaN(Number(d)) ? d : `'${d.replace(/'/g, "''")}'`),
+        dialect,
       );
       if (defVal !== null) {
         stmts.push(`ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} SET DEFAULT ${defVal};`);
