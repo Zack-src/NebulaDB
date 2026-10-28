@@ -514,19 +514,17 @@ API have since shipped.
       product, including against the announced hosted offer. Switching to AGPL touches two files
       while there are no outside contributors; much heavier afterwards. Tied to "Is there a hosted
       product?" in the open decisions.
-- [x] **First-run onboarding** — done 2026-10-04. A five-step guided tour of the editor
-      (`features/onboarding/EditorTour.svelte`): the diagram, the DBML panel, the canvas toolbar,
-      the shortcuts (`Ctrl+F`, `Ctrl+D`, copy / paste, undo, delete) and the workspace tabs — each
-      step outlines what it talks about. Shown the first time a browser opens a project,
-      replayable from the ⓘ button of the project header; Escape or "Passer" ends it.
-      **Decisions taken:** _no scrim_ — the editor stays usable around the card, a tour that
-      blocks the screen gets skipped; _once per browser_ (`localStorage`), not per account —
-      there is no synced-preferences store yet (Phase 38 idea 40); _targets found by selector_,
-      so a closed panel leaves the card standing alone rather than breaking the step. The perf
-      harness mounts the editor without it (`guided`), and the e2e helper `login` marks it seen.
-      **Verified:** `e2e/onboarding.e2e.ts`. **Not done:** nothing on the project list or the
-      admin console; no step about plugins beyond the toolbar's mention; no tour of the
-      Déploiements tab for administrators.
+- [x] **First-run onboarding** — the first version (done 2026-10-04: editor tour, four project templates) was
+      removed with the workspace redesign (`a1d0b78`), and this entry stayed ticked. Rebuilt 2026-10-28 on the
+      current workspace: a tour of the tabs (Schema, Deployments, History, Dictionary, Problems), the SQL
+      console (`Ctrl+J`) and the palette (`Ctrl+K`), shown once per browser on the first project opened
+      (`localStorage`, there is no server-side preference store) and replayable from the ⓘ button of the project
+      header (`features/onboarding/`); four starter templates (documented example, blog, e-commerce, multi-tenant
+      SaaS: `features/projects/templates/`, validated by a unit test) from the project list, applied through the
+      ordinary DBML import; a first-project prompt on an empty list and a guide on an empty canvas (create a table,
+      import, template). **Verified:** `e2e/onboarding.e2e.ts`, `e2e/project-templates.e2e.ts`. **Not done:** a
+      getting-started checklist on the project list (the prompt covers it), "create from a database" on an
+      existing empty project, the `/setup` wizard for the instance.
 - [ ] **Written decisions** (cost one sentence if assumed): mobile / tablet (Phase 22), and
       the language policy (fr + en, see open decisions).
 - [ ] **Out of V1, stated plainly rather than implied:** passkeys (TOTP 2FA and OpenID Connect SSO are
