@@ -21,6 +21,7 @@ import { closeParsePool } from "./modules/projects/parsePool.js";
 import { purgeOldAuditEntries } from "./shared/audit.js";
 import { purgeOldQueryStats } from "./modules/dbAdmin/queryStats.js";
 import { recordError, tallyErrorForMetrics } from "./shared/errorLog.js";
+import { allEffectiveRetentions } from "./modules/retention/settings.js";
 
 const app = await buildApp();
 
@@ -38,9 +39,10 @@ const sweepSessions = async () => {
     // Same schedule again: the audit trail is the one table with no natural
     // ceiling, so its retention has to be enforced somewhere rather than left
     // as a sentence in a policy document.
-    const audits = await purgeOldAuditEntries(config.auditRetentionDays);
-    if (audits > 0)
-      app.log.info(`purged ${audits} audit entry(ies) past the ${config.auditRetentionDays}-day retention`);
+    const retention = await allEffectiveRetentions();
+    const auditDays = retention.get("audit_log")!.value;
+    const audits = await purgeOldAuditEntries(auditDays);
+    if (audits > 0) app.log.info(`purged ${audits} audit entry(ies) past the ${auditDays}-day retention`);
     // MFA challenges are already short-lived (5 minutes) and `getMfaChallenge`
     // refuses an expired one on its own, but an abandoned login (password
     // step completed, second factor never entered) otherwise leaves a dead
@@ -49,9 +51,9 @@ const sweepSessions = async () => {
     if (challenges > 0) app.log.info(`purged ${challenges} expired MFA challenge(s)`);
     const resetTokens = await purgeExpiredResetTokens();
     if (resetTokens > 0) app.log.info(`purged ${resetTokens} expired/used password reset token(s)`);
-    const queryStats = await purgeOldQueryStats(config.queryStatsRetentionDays);
+    const queryStats = await purgeOldQueryStats(retention.get("query_stats")!.value);
     if (queryStats > 0) app.log.info(`purged ${queryStats} SQL console statistic row(s)`);
-    const activity = await purgeOldActivity(config.dbActivityRetentionDays);
+    const activity = await purgeOldActivity(retention.get("db_activity")!.value);
     if (activity > 0) app.log.info(`purged ${activity} database-side activity row(s)`);
     const deliveries = await purgeOldDeliveries();
     if (deliveries > 0) app.log.info(`purged ${deliveries} webhook delivery log row(s) older than 30 days`);
