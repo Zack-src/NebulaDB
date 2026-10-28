@@ -13,6 +13,7 @@
     LayersIcon,
     LinkIcon,
     SearchIcon,
+    TrashIcon,
     UserIcon,
     UsersIcon,
   } from "@/components/icons/Icons";
@@ -21,6 +22,7 @@
   import EnvironmentsTab from "@/features/admin/environments/EnvironmentsTab.svelte";
   import ErrorsTab from "@/features/admin/logs/ErrorsTab.svelte";
   import LintPresetsTab from "@/features/admin/lint/LintPresetsTab.svelte";
+  import RetentionTab from "@/features/admin/retention/RetentionTab.svelte";
   import ShareLinksTab from "@/features/admin/shareLinks/ShareLinksTab.svelte";
   import TeamsTab from "@/features/admin/teams/TeamsTab.svelte";
   import SsoTab from "@/features/admin/sso/SsoTab.svelte";
@@ -56,13 +58,14 @@
     shareLinks: LinkIcon,
     audit: ClockIcon,
     errors: AlertTriangleIcon,
+    retention: TrashIcon,
   } as const;
   const groups = [
     { label: "shell.people", keys: ["users", "teams", "sso"] },
     { label: "shell.bases", keys: ["connections", "environments"] },
     { label: "shell.quality", keys: ["lint"] },
     { label: "admin.group.sharing", keys: ["shareLinks"] },
-    { label: "shell.logs", keys: ["audit", "errors"] },
+    { label: "shell.logs", keys: ["audit", "errors", "retention"] },
   ] as const;
 </script>
 
@@ -104,6 +107,7 @@
         {#if section === "users"}<UsersTab />{/if}
         {#if section === "audit"}<ActivityTab />{/if}
         {#if section === "errors"}<ErrorsTab />{/if}
+        {#if section === "retention"}<RetentionTab />{/if}
         {#if section === "connections"}<ConnectionsTab {initialConnectionId} />{/if}
         {#if section === "environments"}<EnvironmentsTab />{/if}
         {#if section === "lint"}<LintPresetsTab />{/if}

@@ -31,6 +31,7 @@ test("an instance administrator also gets every admin console tab", () => {
     "admin:teams",
     "admin:audit",
     "admin:errors",
+    "admin:retention",
     "admin:connections",
     "admin:environments",
     "admin:lint",

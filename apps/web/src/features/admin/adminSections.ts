@@ -6,6 +6,7 @@ export const ADMIN_SECTIONS = [
   { key: "teams", labelKey: "admin.section.teams" },
   { key: "audit", labelKey: "admin.section.activity" },
   { key: "errors", labelKey: "admin.section.errors" },
+  { key: "retention", labelKey: "admin.section.retention" },
   { key: "connections", labelKey: "admin.section.connections" },
   { key: "environments", labelKey: "admin.section.environments" },
   { key: "lint", labelKey: "admin.section.lint" },
