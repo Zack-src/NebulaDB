@@ -291,31 +291,67 @@ export class MssqlDriver implements DatabaseDriver {
   }
 
   /**
-   * Statement-by-statement like `MysqlDriver` (SQL Server DDL is transactional
-   * so a wrapping transaction would work here, but per-statement execution
-   * keeps `executedStatements` exact on partial failure the same way).
+   * Statement by statement, each its own batch (a `CREATE VIEW` or a
+   * `CREATE TRIGGER` has to be the first of its batch), all inside one real
+   * transaction opened by the driver: the script's own `BEGIN TRANSACTION` /
+   * `COMMIT` are left out, since sent as separate batches they would neither
+   * hold the statements together nor roll anything back — a failure used to
+   * leave the tables created before it in place. DDL is transactional in SQL
+   * Server, so a failure now undoes the whole script and `executedStatements`
+   * is 0, as on PostgreSQL. What SQL Server refuses inside a transaction (see
+   * `mssqlMigrationSteps`) runs on its own between two transactions; only what
+   * came after it is undone then. The error still names the statement by its
+   * position in the script ("statement N of M failed").
    */
   async executeMigration(sql_: string): Promise<MigrationExecutionResult> {
     const pool = await this.ready;
-    const statements = sql_
-      .split(";")
-      .map((s) => s.trim())
-      .filter((s) => s.length > 0 && s.toUpperCase() !== "BEGIN TRANSACTION" && s.toUpperCase() !== "COMMIT");
+    const steps = mssqlMigrationSteps(sql_);
 
-    let executed = 0;
-    for (const statement of statements) {
-      try {
-        await pool.request().query(statement);
-        executed++;
-      } catch (err) {
-        return {
-          success: false,
-          executedStatements: executed,
-          error: `statement ${executed + 1} of ${statements.length} failed: ${err instanceof Error ? err.message : String(err)}`,
-        };
+    let committed = 0;
+    let pending = 0;
+    let transaction: sql.Transaction | null = null;
+    /** Position of the statement running, or `null` while committing. */
+    let running: number | null = null;
+    const commit = async () => {
+      if (!transaction) return;
+      running = null;
+      await transaction.commit();
+      transaction = null;
+      committed += pending;
+      pending = 0;
+    };
+    try {
+      for (const [index, step] of steps.entries()) {
+        if (step.outsideTransaction) {
+          await commit();
+          running = index;
+          await pool.request().query(step.statement);
+          committed++;
+          continue;
+        }
+        if (!transaction) {
+          transaction = new sql.Transaction(pool);
+          await transaction.begin();
+        }
+        running = index;
+        await new sql.Request(transaction).query(step.statement);
+        pending++;
       }
+      await commit();
+      return { success: true, executedStatements: committed };
+    } catch (err) {
+      // Already gone when SQL Server aborted it on its own: nothing more to undo.
+      if (transaction) await (transaction as sql.Transaction).rollback().catch(() => {});
+      const message = err instanceof Error ? err.message : String(err);
+      return {
+        success: false,
+        executedStatements: committed,
+        error:
+          running === null
+            ? `the transaction could not be committed: ${message}`
+            : `statement ${running + 1} of ${steps.length} failed: ${message}`,
+      };
     }
-    return { success: true, executedStatements: executed };
   }
 
   /**
@@ -418,4 +454,33 @@ async function insertChunks(
     await request.query(head + values + tail);
   }
   return rows.length;
+}
+
+/** What SQL Server refuses to run inside a user transaction. */
+const OUTSIDE_TRANSACTION =
+  /^(?:(?:CREATE|ALTER|DROP)\s+(?:DATABASE|FULLTEXT\s+(?:INDEX|CATALOG))|BACKUP|RESTORE|RECONFIGURE)\b/i;
+
+/** A statement without the comment lines in front of it (the warnings a rollback script starts with). */
+function withoutLeadingComments(statement: string): string {
+  return statement.replace(/^(?:\s*--[^\n]*(?:\n|$))+/, "").trim();
+}
+
+/**
+ * The statements of a migration script as `executeMigration` runs them: split
+ * on `;`, without the script's own `BEGIN TRANSACTION` / `COMMIT` (the driver
+ * opens a real transaction instead) or what is only comments, each marked when
+ * it has to run outside a transaction (`CREATE DATABASE`, a full-text index…).
+ */
+export function mssqlMigrationSteps(sql_: string): { statement: string; outsideTransaction: boolean }[] {
+  return sql_
+    .split(";")
+    .map((statement) => statement.trim())
+    .filter((statement) => {
+      const bare = withoutLeadingComments(statement);
+      return bare.length > 0 && !/^(BEGIN(\s+TRAN(SACTION)?)?|COMMIT(\s+TRAN(SACTION)?)?)$/i.test(bare);
+    })
+    .map((statement) => ({
+      statement,
+      outsideTransaction: OUTSIDE_TRANSACTION.test(withoutLeadingComments(statement)),
+    }));
 }
