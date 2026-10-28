@@ -145,6 +145,10 @@ jobs:
           tags: nebuladb:ci
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      # The production dependencies are installed with --ignore-scripts, so
+      # check the native addons really load in the final image.
+      - name: Smoke test native modules
+        run: docker run --rm nebuladb:ci node -e "require('sharp'); require('better-sqlite3')"
       - name: Trivy scan
         uses: aquasecurity/trivy-action@0.28.0
         with:
