@@ -111,45 +111,18 @@ function readBackupKeep(): number {
 }
 
 /**
- * How long audit entries are kept. An audit trail with no retention grows
- * forever, which is both an operational problem and a hard one to defend under
- * GDPR — "we keep a record of who did what, indefinitely, because nobody chose
- * a number" is not a retention policy. A year covers the incident-response and
- * compliance cases the log exists for; `0` disables the purge for operators
- * whose own rules require keeping everything.
+ * A journal's retention set by an environment variable, or `null` when the
+ * variable is unset. These variables predate the admin setting
+ * (`modules/retention/`): an administrator's choice overrides them, and they
+ * override the journal's default. `0` keeps everything. Checked at boot so a
+ * typo fails loudly rather than silently keeping the default.
  */
-function readAuditRetentionDays(): number {
-  const raw = readEnv("NEBULADB_AUDIT_RETENTION_DAYS");
-  if (raw === undefined || raw.trim() === "") return 365;
+function readRetentionEnv(name: string): number | null {
+  const raw = readEnv(name);
+  if (raw === undefined || raw.trim() === "") return null;
   const days = Number(raw);
   if (!Number.isInteger(days) || days < 0 || days > 3650) {
-    fail(`NEBULADB_AUDIT_RETENTION_DAYS must be an integer between 0 and 3650 (got ${JSON.stringify(raw)})`);
-  }
-  return days;
-}
-
-/**
- * How many days of per-statement figures (the "Requêtes" view of a
- * connection's journal) are kept. Short by default: they are a working aid,
- * not a record — the audit log is the record. `0` keeps them all.
- */
-function readQueryStatsRetentionDays(): number {
-  const raw = readEnv("NEBULADB_QUERY_STATS_RETENTION_DAYS");
-  if (raw === undefined || raw.trim() === "") return 30;
-  const days = Number(raw);
-  if (!Number.isInteger(days) || days < 0 || days > 3650) {
-    fail(`NEBULADB_QUERY_STATS_RETENTION_DAYS must be an integer between 0 and 3650 (got ${JSON.stringify(raw)})`);
-  }
-  return days;
-}
-
-/** How many days of database-side session figures are kept; `0` keeps them all. */
-function readDbActivityRetentionDays(): number {
-  const raw = readEnv("NEBULADB_DB_ACTIVITY_RETENTION_DAYS");
-  if (raw === undefined || raw.trim() === "") return 14;
-  const days = Number(raw);
-  if (!Number.isInteger(days) || days < 0 || days > 3650) {
-    fail(`NEBULADB_DB_ACTIVITY_RETENTION_DAYS must be an integer between 0 and 3650 (got ${JSON.stringify(raw)})`);
+    fail(`${name} must be an integer between 0 and 3650 (got ${JSON.stringify(raw)})`);
   }
   return days;
 }
@@ -409,12 +382,12 @@ export const config = {
   databaseBackupDir: readEnv("NEBULADB_DATABASE_BACKUP_DIR")?.trim() || path.join("data", "database-backups"),
   databaseBackupMaxBytes: readDatabaseBackupMaxBytes(),
   databaseBackupRetentionDays: readDatabaseBackupRetentionDays(),
-  /** 0 keeps audit entries indefinitely. */
-  auditRetentionDays: readAuditRetentionDays(),
-  /** 0 keeps the SQL console's per-statement figures indefinitely. */
-  queryStatsRetentionDays: readQueryStatsRetentionDays(),
-  /** 0 keeps the database-side session figures indefinitely. */
-  dbActivityRetentionDays: readDbActivityRetentionDays(),
+  /** Journal retentions set by environment, keyed by the retention registry's key; `null`: unset. */
+  retentionEnv: {
+    audit_log: readRetentionEnv("NEBULADB_AUDIT_RETENTION_DAYS"),
+    query_stats: readRetentionEnv("NEBULADB_QUERY_STATS_RETENTION_DAYS"),
+    db_activity: readRetentionEnv("NEBULADB_DB_ACTIVITY_RETENTION_DAYS"),
+  } as Readonly<Record<string, number | null>>,
   publicUrl,
   /**
    * When set, a SQLite connection may only open a file inside this directory.
