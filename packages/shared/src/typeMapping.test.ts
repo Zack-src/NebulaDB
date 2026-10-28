@@ -153,6 +153,13 @@ test("translateType: a type BigQuery writes its own way goes back to the other e
   assert.equal(translateType("string", "mssql").type, "nvarchar(max)");
 });
 
+test("translateType: a sized BigQuery STRING keeps its length elsewhere", () => {
+  assert.equal(translateType("STRING(255)", "mssql").type, "varchar(255)");
+  assert.equal(translateType("STRING(64)", "mysql").type, "varchar(64)");
+  assert.equal(translateType("STRING(20)", "oracle").type, "varchar2(20)");
+  assert.equal(translateType("STRING(255)", "bigquery").changed, false);
+});
+
 test("neutralType: the same column on two engines is the same type", () => {
   assert.equal(neutralType("varchar(255)"), neutralType("STRING(255)"));
   assert.equal(neutralType("varchar(max)"), neutralType("STRING"));

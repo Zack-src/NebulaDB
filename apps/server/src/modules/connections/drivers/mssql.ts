@@ -22,6 +22,13 @@ interface ColumnRow {
   COLUMN_DEFAULT: string | null;
 }
 
+interface IndexRow {
+  TABLE_NAME: string;
+  INDEX_NAME: string;
+  COLUMN_NAME: string;
+  IS_UNIQUE: boolean;
+}
+
 interface ForeignKeyRow {
   CONSTRAINT_NAME: string;
   TABLE_NAME: string;
@@ -133,6 +140,41 @@ export class MssqlDriver implements DatabaseDriver {
        JOIN sys.columns cr ON cr.object_id = fkc.referenced_object_id AND cr.column_id = fkc.referenced_column_id`,
     );
 
+    // The indexes created on their own: a primary key and a UNIQUE constraint are already read as the column's `pk` / `unique`.
+    const indexRes = await pool.request().query<IndexRow>(
+      `SELECT t.name AS TABLE_NAME, i.name AS INDEX_NAME, c.name AS COLUMN_NAME, i.is_unique AS IS_UNIQUE
+       FROM sys.indexes i
+       JOIN sys.tables t ON t.object_id = i.object_id
+       JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id AND ic.is_included_column = 0
+       JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+       WHERE i.type > 0 AND i.is_primary_key = 0 AND i.is_unique_constraint = 0 AND i.is_hypothetical = 0
+       ORDER BY t.name, i.name, ic.key_ordinal`,
+    );
+    // A UNIQUE constraint on one column is that column's `unique` (the generator writes it inline).
+    const uniqueRes = await pool.request().query<{ TABLE_NAME: string; COLUMN_NAME: string }>(
+      `SELECT t.name AS TABLE_NAME, MIN(c.name) AS COLUMN_NAME
+       FROM sys.indexes i
+       JOIN sys.tables t ON t.object_id = i.object_id
+       JOIN sys.index_columns ic ON ic.object_id = i.object_id AND ic.index_id = i.index_id AND ic.is_included_column = 0
+       JOIN sys.columns c ON c.object_id = ic.object_id AND c.column_id = ic.column_id
+       WHERE i.is_unique_constraint = 1
+       GROUP BY t.name, i.index_id HAVING COUNT(*) = 1`,
+    );
+    const uniqueSet = new Set(uniqueRes.recordset.map((r) => `${r.TABLE_NAME}.${r.COLUMN_NAME}`));
+    const indexesByTable = new Map<string, Map<string, TableIndex>>();
+    for (const row of indexRes.recordset) {
+      const byName = indexesByTable.get(row.TABLE_NAME) ?? new Map<string, TableIndex>();
+      const index = byName.get(row.INDEX_NAME) ?? {
+        id: `${row.TABLE_NAME}.${row.INDEX_NAME}`,
+        name: row.INDEX_NAME,
+        fieldIds: [],
+        ...(row.IS_UNIQUE ? { unique: true } : {}),
+      };
+      index.fieldIds.push(`${row.TABLE_NAME}.${row.COLUMN_NAME}`);
+      byName.set(row.INDEX_NAME, index);
+      indexesByTable.set(row.TABLE_NAME, byName);
+    }
+
     const columnsByTable = new Map<string, ColumnRow[]>();
     for (const col of columnsRes.recordset) {
       if (!columnsByTable.has(col.TABLE_NAME)) columnsByTable.set(col.TABLE_NAME, []);
@@ -146,6 +188,7 @@ export class MssqlDriver implements DatabaseDriver {
         name: c.COLUMN_NAME,
         type: c.DATA_TYPE,
         pk: pkSet.has(`${t.TABLE_NAME}.${c.COLUMN_NAME}`),
+        ...(uniqueSet.has(`${t.TABLE_NAME}.${c.COLUMN_NAME}`) ? { unique: true } : {}),
         notNull: c.IS_NULLABLE === "NO",
         default: c.COLUMN_DEFAULT !== null ? String(c.COLUMN_DEFAULT) : undefined,
       }));
@@ -154,7 +197,7 @@ export class MssqlDriver implements DatabaseDriver {
         id: t.TABLE_NAME,
         name: t.TABLE_NAME,
         fields,
-        indexes: [] as TableIndex[],
+        indexes: [...(indexesByTable.get(t.TABLE_NAME)?.values() ?? [])],
         position: { x: (idx % 6) * 320, y: Math.floor(idx / 6) * 400 },
         detailLevel: "standard" as const,
       };

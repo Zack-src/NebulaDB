@@ -58,6 +58,10 @@ export function typesMatch(a: string, b: string): boolean {
   const paramsA = /\(([^)]*)\)/.exec(normA)?.[1]?.replace(/\s+/g, "");
   const paramsB = /\(([^)]*)\)/.exec(normB)?.[1]?.replace(/\s+/g, "");
   if (paramsA !== undefined && paramsB !== undefined && paramsA !== paramsB) return false;
+  // The same type with the size on one side only (`char` read back, `char(64)` written) is one type.
+  if ((paramsA === undefined) !== (paramsB === undefined) && normA.replace(/\s*\(.*$/, "") === normB.replace(/\s*\(.*$/, "")) {
+    return true;
+  }
 
   // Dialect type aliases
   const aliases: Record<string, string[]> = {
@@ -101,12 +105,24 @@ export function isCurrentTimeExpression(text: string): boolean {
   );
 }
 
+/** Does the first `(` of `text` close on its last character — `(0)` yes, `(a) + (b)` no. */
+function wrapsWholeText(text: string): boolean {
+  let depth = 0;
+  for (let i = 0; i < text.length; i++) {
+    if (text[i] === "(") depth++;
+    else if (text[i] === ")" && --depth === 0 && i < text.length - 1) return false;
+  }
+  return depth === 0;
+}
+
 function normalizeDefault(d: string | undefined): string {
   if (!d) return "";
   let val = d.trim();
   // Strip quotes or casts like 'val'::text or ("val")
   if (val.startsWith("'") && val.endsWith("'")) val = val.slice(1, -1);
-  if (val.startsWith("(") && val.endsWith(")")) val = val.slice(1, -1);
+  // SQL Server reads a default back inside its own parentheses, one pair per level: `((0))`, `('x')`.
+  while (val.startsWith("(") && val.endsWith(")") && wrapsWholeText(val)) val = val.slice(1, -1).trim();
+  if (val.startsWith("'") && val.endsWith("'")) val = val.slice(1, -1);
   if (isCurrentTimeExpression(val)) return "now";
   return val.toLowerCase();
 }
@@ -127,7 +143,8 @@ function defaultsMatch(a: string | undefined, b: string | undefined): boolean {
  */
 function withImplicitPkFlags(table: Table): Field[] {
   const pkIds = new Set(table.indexes.filter((i) => i.pk).flatMap((i) => i.fieldIds));
-  return table.fields.map((f) => (pkIds.has(f.id) || f.pk ? { ...f, pk: true, notNull: true } : f));
+  // A key is unique by itself: `unique` next to `pk` is the same fact written twice, and a database reports only the key.
+  return table.fields.map((f) => (pkIds.has(f.id) || f.pk ? { ...f, pk: true, notNull: true, unique: false } : f));
 }
 
 function diffFieldsByName(beforeTable: Table, afterTable: Table): MigrationFieldChange[] {
