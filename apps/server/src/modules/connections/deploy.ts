@@ -15,6 +15,7 @@ import {
   planCleanDeployment,
   type MigrationDiff,
 } from "@nebuladb/dbml-engine";
+import { db } from "../../infrastructure/db.js";
 import { ApiError } from "../../shared/errors.js";
 import { quoteIdentifier } from "../../shared/sqlQuoting.js";
 import { getRoom } from "../../realtime/roomRegistry.js";
@@ -54,6 +55,26 @@ async function isProductionStage(conn: { environmentId?: string | null }): Promi
 /** A stage whose protection is `review`: a deployment to it carries an approved review request, or does not run. */
 export async function stageAsksForReview(conn: { environmentId?: string | null }): Promise<boolean> {
   return Boolean(conn.environmentId && (await getEnvironment(conn.environmentId))?.protection === "review");
+}
+
+/** The space of the per-connection deployment locks — any constant, as long as every NebulaDB process takes the same. */
+export const DEPLOYMENT_LOCK_SPACE = 7_265_002;
+
+/**
+ * Runs `work` holding the connection's deployment lock: one deployment or
+ * rollback at a time per database, across projects (a connection can be
+ * attached to several) and processes. A second one does not wait —
+ * `DEPLOYMENT_IN_PROGRESS` at once — since what it planned is about to stop
+ * being true. Let go however `work` ends.
+ */
+export async function withDeploymentLock<T>(conn: { id: string; name: string }, work: () => Promise<T>): Promise<T> {
+  const release = await db.tryAdvisoryLock(DEPLOYMENT_LOCK_SPACE, conn.id);
+  if (!release) throw new ApiError("DEPLOYMENT_IN_PROGRESS", { details: { connection: conn.name } });
+  try {
+    return await work();
+  } finally {
+    await release();
+  }
 }
 
 /**
@@ -403,6 +424,31 @@ export interface DeployToConnectionResult {
   backupId: string | null;
 }
 
+export interface DeployOptions {
+  /** The connection's name, retyped — required when it is on the production stage. */
+  confirmName?: string;
+  /** Why the plan's risks are accepted — kept with the deployment. */
+  riskNote?: string;
+  /** Leave the tables' seeds out of this deployment. */
+  skipSeeds?: boolean;
+  /**
+   * Back the database up before changing it. Left unset, that is done on
+   * the production stage and nowhere else; `false` is the explicit way to
+   * deploy to production without one.
+   */
+  backupBefore?: boolean;
+  /** Deploy although an earlier stage is not level — the caller has checked who asks and why. */
+  skipStageOrder?: boolean;
+  /**
+   * The approved review request this deployment carries out — the caller has
+   * checked that it is approved, by whom and until when. Required on a stage
+   * whose protection is `review`; the plan must still be the one it froze.
+   */
+  review?: ReviewedPlan;
+  /** Start over: drop the tables and write the schema again (see `CleanOptions`). Never on production. */
+  clean?: CleanOptions;
+}
+
 /**
  * The full apply-a-deployment pipeline — introspect the live target,
  * diff it against the project's current canvas, generate forward and
@@ -418,35 +464,26 @@ export async function deployToConnection(
   connId: string,
   resolutions: MigrationResolutionMap,
   executedByEmail: string,
-  options: {
-    /** The connection's name, retyped — required when it is on the production stage. */
-    confirmName?: string;
-    /** Why the plan's risks are accepted — kept with the deployment. */
-    riskNote?: string;
-    /** Leave the tables' seeds out of this deployment. */
-    skipSeeds?: boolean;
-    /**
-     * Back the database up before changing it. Left unset, that is done on
-     * the production stage and nowhere else; `false` is the explicit way to
-     * deploy to production without one.
-     */
-    backupBefore?: boolean;
-    /** Deploy although an earlier stage is not level — the caller has checked who asks and why. */
-    skipStageOrder?: boolean;
-    /**
-     * The approved review request this deployment carries out — the caller has
-     * checked that it is approved, by whom and until when. Required on a stage
-     * whose protection is `review`; the plan must still be the one it froze.
-     */
-    review?: ReviewedPlan;
-    /** Start over: drop the tables and write the schema again (see `CleanOptions`). Never on production. */
-    clean?: CleanOptions;
-  } = {},
+  options: DeployOptions = {},
 ): Promise<DeployToConnectionResult> {
-  const { confirmName } = options;
   const conn = await getProjectConnection(projectId, connId);
   if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
   if (conn.readOnly) throw new ApiError("CONNECTION_READ_ONLY");
+  return withDeploymentLock(conn, () =>
+    runDeployment(projectId, projectName, conn, resolutions, executedByEmail, options),
+  );
+}
+
+/** `deployToConnection` once the connection's deployment lock is held. */
+async function runDeployment(
+  projectId: string,
+  projectName: string,
+  conn: DatabaseConnectionConfig,
+  resolutions: MigrationResolutionMap,
+  executedByEmail: string,
+  options: DeployOptions,
+): Promise<DeployToConnectionResult> {
+  const { confirmName } = options;
   // Here rather than in a route: the editor, the deployments tab and the
   // public API all end up in this function, and none of them gets around it.
   if ((await stageAsksForReview(conn)) && !options.review) {
@@ -596,38 +633,43 @@ export async function rollbackConnectionDeployment(
   if (conn.readOnly) throw new ApiError("CONNECTION_READ_ONLY");
   await assertProductionConfirmed(conn, confirmName);
 
-  const driver = await createDatabaseDriver(conn);
-  try {
-    const result = await driver.executeMigration(entry.rollbackSql);
+  const { rollbackSql } = entry;
+  return withDeploymentLock(conn, async () => {
+    // Asked again under the lock: the same rollback may have ended between the first look and now.
+    if ((await getDeploymentHistoryEntry(historyId))?.rolledBack) throw new ApiError("ROLLBACK_ALREADY_ATTEMPTED");
+    const driver = await createDatabaseDriver(conn);
+    try {
+      const result = await driver.executeMigration(rollbackSql);
 
-    await recordDeployment({
-      projectId,
-      connectionId: conn.id,
-      connectionName: conn.name,
-      environment: conn.environment ?? null,
-      engine: conn.engine,
-      sql: entry.rollbackSql,
-      rollbackSql: null, // rolling back a rollback isn't offered
-      rollbackOf: entry.id,
-      success: result.success,
-      executedStatements: result.executedStatements,
-      totalStatements: countStatements(entry.rollbackSql),
-      error: result.error,
-      executedByEmail,
-    });
-    await notifyDeployment(projectId, conn, "rollback", result, executedByEmail);
-
-    if (!result.success) {
-      throw new ApiError("ROLLBACK_FAILED", {
-        message: `rollback failed: ${result.error}`,
-        details: { error: result.error, executedStatements: result.executedStatements },
+      await recordDeployment({
+        projectId,
+        connectionId: conn.id,
+        connectionName: conn.name,
+        environment: conn.environment ?? null,
+        engine: conn.engine,
+        sql: rollbackSql,
+        rollbackSql: null, // rolling back a rollback isn't offered
+        rollbackOf: entry.id,
+        success: result.success,
+        executedStatements: result.executedStatements,
+        totalStatements: countStatements(rollbackSql),
+        error: result.error,
+        executedByEmail,
       });
+      await notifyDeployment(projectId, conn, "rollback", result, executedByEmail);
+
+      if (!result.success) {
+        throw new ApiError("ROLLBACK_FAILED", {
+          message: `rollback failed: ${result.error}`,
+          details: { error: result.error, executedStatements: result.executedStatements },
+        });
+      }
+
+      await rememberDeployedState(driver, projectId, conn.id, "rollback");
+
+      return { success: true, executedStatements: result.executedStatements };
+    } finally {
+      await driver.close().catch(() => {});
     }
-
-    await rememberDeployedState(driver, projectId, conn.id, "rollback");
-
-    return { success: true, executedStatements: result.executedStatements };
-  } finally {
-    await driver.close().catch(() => {});
-  }
+  });
 }

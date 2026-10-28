@@ -318,6 +318,11 @@ export const ERROR_CATALOG = {
       "this stage asks for a review — request one for this deployment, and deploy the request once another person " +
       "has approved it",
   },
+  DEPLOYMENT_IN_PROGRESS: {
+    status: 409,
+    message:
+      "a deployment or a rollback is already running on this database — wait for it to end, then look at the plan again",
+  },
   CLEAN_DEPLOYMENT_NOT_ALLOWED: {
     status: 409,
     message:

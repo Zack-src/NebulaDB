@@ -1994,6 +1994,7 @@
   "environments.variablesHint": "Values of the schema's variables on this stage. An empty value is allowed; a variable that is not in the table is not defined.",
   "errors.pipelineStageSkipped": "This stage takes a schema only once the stage before it is level: deploy there first.",
   "errors.deploymentReviewRequired": "This stage asks for a review: request one for this deployment, then deploy the request once another person has approved it.",
+  "errors.deploymentInProgress": "A deployment or a rollback is already running on this database: wait for it to end, then look at the plan again.",
   "errors.cleanDeploymentNotAllowed": "A clean deployment is not offered on the production stage, nor on a stage that asks for a review.",
   "errors.cleanDeploymentConfirmationRequired": "A clean deployment drops all the data: retype the connection's name to confirm it.",
   "errors.deploymentReviewNotRequired": "This connection is not on a stage that asks for a review: deploy directly.",
