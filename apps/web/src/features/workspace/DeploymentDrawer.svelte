@@ -15,6 +15,8 @@
     reviewsKey,
     schemaHash,
     canDeploy,
+    canManage,
+    tableNames,
     canSkipStage,
     onDeployTo,
     onOpenConnectionsAdmin,
@@ -33,6 +35,9 @@
     reviewsKey: number;
     schemaHash?: string;
     canDeploy: boolean;
+    /** Project administrators: the watch's settings. */
+    canManage: boolean;
+    tableNames: string[];
     canSkipStage: boolean;
     onDeployTo: (connectionId: string) => void;
     onOpenConnectionsAdmin?: () => void;
@@ -73,6 +78,8 @@
       {schemaHash}
       {onDeployTo}
       {canDeploy}
+      {canManage}
+      {tableNames}
       {canSkipStage}
       {onOpenConnectionsAdmin}
       {onDeployed}

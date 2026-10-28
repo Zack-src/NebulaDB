@@ -7,6 +7,7 @@
   import { useTranslation } from "@/i18n/i18n.svelte";
   import CompareEnvironmentsCard from "./CompareEnvironmentsCard.svelte";
   import DeploymentReviewsCard from "./DeploymentReviewsCard.svelte";
+  import MonitoringCard from "./MonitoringCard.svelte";
   import PipelineCard from "./PipelineCard.svelte";
 
   /** Deployment planning, application, pipeline and comparison of databases for the project. */
@@ -18,6 +19,8 @@
     schemaHash,
     onDeployTo = () => {},
     canDeploy,
+    canManage = false,
+    tableNames = [],
     canSkipStage = false,
     onOpenConnectionsAdmin,
     onDeployed = () => {},
@@ -41,6 +44,10 @@
     onDeployTo?: (connectionId: string) => void;
     /** The project's `deploy` level or above: without it the plan can be read, not applied. */
     canDeploy: boolean;
+    /** The project's administrators: the watch's settings are theirs, so the card is shown to them only. */
+    canManage?: boolean;
+    /** The tables of the schema as it is now: offered when choosing which to ignore in the watch. */
+    tableNames?: string[];
     canSkipStage?: boolean;
     /** Takes an instance administrator to Admin → Connections to attach a database. */
     onOpenConnectionsAdmin?: () => void;
@@ -105,6 +112,10 @@
         {onDeployed}
       />
       <PipelineCard {projectId} {refreshKey} {schemaHash} {canDeploy} {onDeployTo} />
+      <!-- The watch covers all the project's databases, not only the current one. -->
+      {#if canManage}
+        <MonitoringCard {projectId} canCheck={canDeploy} instanceAdmin={canSkipStage} {tableNames} />
+      {/if}
       <!-- The server opens both databases only for those who may deploy. -->
       {#if canDeploy && connections.length > 1}
         <CompareEnvironmentsCard {projectId} {connections} currentId={connection.id} {onShowInGraph} />
