@@ -12,6 +12,7 @@ import type { WebSocket } from "ws";
 import { config } from "./config.js";
 import { db } from "./infrastructure/db.js";
 import { registerApiKeyRoutes } from "./modules/apiKeys/routes.js";
+import { registerRetentionRoutes } from "./modules/retention/routes.js";
 import { resolveApiKey } from "./modules/apiKeys/auth.js";
 import { registerAuditRoutes } from "./modules/audit/routes.js";
 import { registerAuthRoutes } from "./modules/auth/routes.js";
@@ -333,6 +334,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   registerDbAccessRoutes(app);
   registerAuditRoutes(app);
   registerErrorRoutes(app);
+  registerRetentionRoutes(app);
   registerApiKeyRoutes(app);
   registerPublicApiRoutes(app);
 
