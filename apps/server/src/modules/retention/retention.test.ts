@@ -16,6 +16,8 @@ process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_QUERY_STATS_RETENTION_DAYS = "45";
 
 const { db } = await import("../../infrastructure/db.js");
+const { buildApp } = await import("../../app.js");
+const { hashPassword } = await import("../auth/password.js");
 const { purgeJournal, purgeJournalNow, previewPurge, runRetention, withJournalLock } = await import("./purge.js");
 const { RETENTION_POLICIES, findRetentionPolicy, retentionValueProblem } = await import("./registry.js");
 const { changeRetention, effectiveRetention, setRetention, readPurgeStates } = await import("./settings.js");
@@ -289,4 +291,136 @@ test("audit trail: a change, a manual purge, and one summary per scheduled pass 
   // A manual purge while the journal is being purged is refused.
   assert.equal(await withJournalLock("error_log", () => purgeJournalNow(errors, actor)), null);
   await changeRetention(errors, null, actor);
+});
+
+const HOST = "localhost:3001";
+type App = Awaited<ReturnType<typeof buildApp>>;
+
+async function login(app: App, isAdmin: 0 | 1): Promise<{ id: string; cookie: string }> {
+  const id = randomUUID();
+  const email = `${id}@example.com`;
+  const password = "correct horse battery staple";
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin) VALUES (?, ?, ?, ?)")
+    .run(id, email, await hashPassword(password), isAdmin);
+  const res = await app.inject({
+    method: "POST",
+    url: "/api/auth/login",
+    headers: { host: HOST, origin: `http://${HOST}` },
+    payload: { email, password },
+  });
+  return { id, cookie: `nebuladb_sid=${res.cookies.find((c) => c.name === "nebuladb_sid")!.value}` };
+}
+
+test("admin API: list, preview, set with bounds and confirmation, purge with confirmation; admins in a browser only", async () => {
+  const app = await buildApp();
+  try {
+    const admin = await login(app, 1);
+    const member = await login(app, 0);
+    const call = (
+      who: { cookie: string } | { bearer: string },
+      method: "GET" | "PUT" | "POST",
+      url: string,
+      payload?: object,
+    ) =>
+      app.inject({
+        method,
+        url,
+        headers: {
+          host: HOST,
+          origin: `http://${HOST}`,
+          ...("cookie" in who ? { cookie: who.cookie } : { authorization: `Bearer ${who.bearer}` }),
+        },
+        ...(payload ? { payload } : {}),
+      });
+
+    const listed = await call(admin, "GET", "/api/admin/retention");
+    assert.equal(listed.statusCode, 200, listed.body);
+    const journals = listed.json().journals as { key: string; [k: string]: unknown }[];
+    assert.deepEqual(
+      journals.map((j) => j.key),
+      RETENTION_POLICIES.map((p) => p.key),
+    );
+    const audit = journals.find((j) => j.key === "audit_log")!;
+    assert.equal(audit.value, 365);
+    assert.equal(audit.source, "default");
+    assert.equal(audit.envVar, "NEBULADB_AUDIT_RETENTION_DAYS");
+    assert.equal(audit.confirmBelow, 90);
+    assert.equal(typeof audit.rows, "number");
+    assert.equal(typeof audit.bytes, "number");
+    assert.match(String(audit.oldest), /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+    assert.equal(journals.find((j) => j.key === "query_stats")!.source, "env");
+    assert.equal(journals.find((j) => j.key === "webhook_deliveries")!.unit, "days");
+    assert.equal(journals.find((j) => j.key === "notifications")!.unit, "rows");
+
+    // Setting: bounds, forever only where allowed, a confirmation below the audit floor.
+    assert.equal((await call(admin, "PUT", "/api/admin/retention/nope", { value: 10 })).statusCode, 404);
+    const tooLow = await call(admin, "PUT", "/api/admin/retention/audit_log", { value: 3 });
+    assert.equal(tooLow.statusCode, 400);
+    assert.equal(tooLow.json().code, "RETENTION_VALUE_INVALID");
+    assert.equal(
+      (await call(admin, "PUT", "/api/admin/retention/error_log", { value: 0 })).json().code,
+      "RETENTION_VALUE_INVALID",
+    );
+    assert.equal((await call(admin, "PUT", "/api/admin/retention/audit_log", { value: "30" })).statusCode, 400);
+    const unconfirmed = await call(admin, "PUT", "/api/admin/retention/audit_log", { value: 30 });
+    assert.equal(unconfirmed.json().code, "RETENTION_CONFIRM_REQUIRED");
+    const set = await call(admin, "PUT", "/api/admin/retention/audit_log", { value: 30, confirm: true });
+    assert.equal(set.statusCode, 200, set.body);
+    const journal = set.json().journal;
+    assert.deepEqual([journal.value, journal.source, journal.updatedBy.id], [30, "db", admin.id]);
+    assert.equal((await call(admin, "PUT", "/api/admin/retention/audit_log", { value: 0 })).json().journal.value, 0);
+
+    // Purge now: preview, then a confirmation naming the journal.
+    await setRetention(policy("audit_log"), 30, admin.id);
+    await db
+      .prepare("INSERT INTO audit_log (id, action, created_at) VALUES (?, 'project.create', utc_now('-60 days'))")
+      .run(randomUUID());
+    const preview = await call(admin, "GET", "/api/admin/retention/audit_log/preview");
+    assert.equal(preview.statusCode, 200);
+    assert.ok(preview.json().rows >= 1);
+    for (const body of [undefined, { confirm: "error_log" }]) {
+      const refused = await call(admin, "POST", "/api/admin/retention/audit_log/purge", body);
+      assert.equal(refused.json().code, "RETENTION_CONFIRM_REQUIRED");
+    }
+    const purged = await call(admin, "POST", "/api/admin/retention/audit_log/purge", { confirm: "audit_log" });
+    assert.equal(purged.statusCode, 200, purged.body);
+    assert.equal(purged.json().deleted, preview.json().rows);
+    assert.equal(purged.json().value, 30);
+    const after = (await call(admin, "GET", "/api/admin/retention"))
+      .json()
+      .journals.find((j: { key: string }) => j.key === "audit_log");
+    assert.equal(after.lastPurge.trigger, "manual");
+    assert.equal(after.lastPurge.deleted, purged.json().deleted);
+    await setRetention(policy("audit_log"), null, admin.id);
+
+    // Not for a member, nor for anyone signed out.
+    for (const [method, url, body] of [
+      ["GET", "/api/admin/retention", undefined],
+      ["GET", "/api/admin/retention/audit_log/preview", undefined],
+      ["PUT", "/api/admin/retention/audit_log", { value: 400 }],
+      ["POST", "/api/admin/retention/audit_log/purge", { confirm: "audit_log" }],
+    ] as const) {
+      assert.equal((await call(member, method, url, body)).statusCode, 403, `${method} ${url}`);
+      assert.equal((await call({ cookie: "" }, method, url, body)).statusCode, 401, `${method} ${url}`);
+    }
+
+    // Nor through an API key, even an administrator's that works on the public API.
+    const key = await call(admin, "POST", "/api/keys", {
+      name: "ops",
+      scopes: ["projects:read", "projects:write", "connections:manage", "teams:manage"],
+    });
+    assert.equal(key.statusCode, 201, key.body);
+    const bearer = key.json().plaintextKey as string;
+    assert.equal((await call({ bearer }, "GET", "/api/v1/projects")).statusCode, 200);
+    assert.equal((await call({ bearer }, "GET", "/api/admin/retention")).statusCode, 401);
+    assert.equal((await call({ bearer }, "PUT", "/api/admin/retention/audit_log", { value: 400 })).statusCode, 401);
+    assert.equal(
+      (await call({ bearer }, "POST", "/api/admin/retention/audit_log/purge", { confirm: "audit_log" })).statusCode,
+      401,
+    );
+    assert.equal((await effectiveRetention(policy("audit_log"))).source, "default", "nothing changed through the key");
+  } finally {
+    await app.close();
+  }
 });

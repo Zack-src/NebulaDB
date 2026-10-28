@@ -36,6 +36,11 @@ export const ERROR_CATALOG = {
   USER_ID_INVALID: { status: 400, message: "a valid userId is required" },
   DISABLED_MUST_BE_BOOLEAN: { status: 400, message: "disabled must be a boolean" },
   LIMIT_MUST_BE_NUMBER: { status: 400, message: "limit must be a number" },
+  RETENTION_VALUE_INVALID: { status: 400, message: "this retention is outside what the journal accepts" },
+  RETENTION_CONFIRM_REQUIRED: {
+    status: 400,
+    message: "confirm this: a short audit retention, or a purge (send the journal's key as confirm)",
+  },
   TRANSFER_TARGET_INVALID: { status: 400, message: "transferProjectsTo must be another existing user" },
   CANNOT_DELETE_SELF: { status: 400, message: "you cannot delete your own account" },
   CANNOT_DISABLE_SELF: { status: 400, message: "you cannot disable your own account" },
@@ -274,6 +279,7 @@ export const ERROR_CATALOG = {
   ENVIRONMENT_NOT_FOUND: { status: 404, message: "no such environment stage" },
   BACKUP_NOT_FOUND: { status: 404, message: "no such backup" },
   SEED_NOT_FOUND: { status: 404, message: "this table has no seed" },
+  RETENTION_JOURNAL_NOT_FOUND: { status: 404, message: "no such journal in the retention policy" },
   DATABASE_TABLE_NOT_FOUND: {
     status: 404,
     message: "the database has no table of that name — deploy the schema first",
@@ -293,6 +299,7 @@ export const ERROR_CATALOG = {
   },
   WEBHOOK_LIMIT_REACHED: { status: 409, message: "a project can have at most 10 webhooks" },
   SHARE_LINK_LIMIT_REACHED: { status: 409, message: "a project can have at most 50 active share links" },
+  RETENTION_PURGE_RUNNING: { status: 409, message: "this journal is being purged already — try again shortly" },
 
   // --- 429 ---
   ACCOUNT_LOCKED: { status: 429, message: "too many failed attempts — this account is temporarily locked" },
