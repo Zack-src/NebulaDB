@@ -143,6 +143,10 @@ export const ERROR_CATALOG = {
     message: "only an open finding that is not acknowledged yet can be acknowledged",
   },
   STAGE_SKIP_REASON_REQUIRED: { status: 400, message: "skipping a stage needs a reason (skipReason)" },
+  ROLLBACK_REVIEW_REASON_REQUIRED: {
+    status: 400,
+    message: "a rollback run without the stage's review needs a reason (reason)",
+  },
   SUBSCRIPTION_INVALID: {
     status: 400,
     message: "events must be a list among deployment, lock, seed, drift; emailDrift, if given, a boolean (needs drift)",
@@ -322,6 +326,16 @@ export const ERROR_CATALOG = {
     status: 409,
     message:
       "a deployment or a rollback is already running on this database — wait for it to end, then look at the plan again",
+  },
+  ROLLBACK_REVIEW_REQUIRED: {
+    status: 409,
+    message:
+      "this stage asks for a review, which a rollback does not go through — a project administrator can run it " +
+      "anyway, with a reason (skipReview, reason)",
+  },
+  ROLLBACK_NOT_LATEST: {
+    status: 409,
+    message: "a later deployment of this database has not been rolled back — roll that one back first",
   },
   CLEAN_DEPLOYMENT_NOT_ALLOWED: {
     status: 409,

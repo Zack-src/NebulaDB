@@ -94,7 +94,7 @@ async function assertProductionConfirmed(
     });
   }
 }
-import { getDeploymentHistoryEntry, recordDeployment } from "./deploymentHistory.js";
+import { getDeploymentHistoryEntry, hasLaterDeployment, recordDeployment } from "./deploymentHistory.js";
 import { schemaForConnection } from "../environments/variables.js";
 import { assertStageOrder, schemaHashOf } from "../pipeline/pipeline.js";
 import { assertLintAllowsDeployment } from "../lint/check.js";
@@ -605,6 +605,20 @@ async function runDeployment(
 export interface RollbackConnectionResult {
   success: boolean;
   executedStatements: number;
+  /** The backup of the database taken just before, when there was one. */
+  backupId: string | null;
+}
+
+export interface RollbackOptions {
+  /** As for `deployToConnection`. */
+  confirmName?: string;
+  /** As for `deployToConnection`: left unset, a backup is taken on the production stage and nowhere else. */
+  backupBefore?: boolean;
+  /**
+   * Why this rollback runs without the review its stage asks for — the caller
+   * has checked that a project administrator asks. Kept with the rollback.
+   */
+  reviewSkipReason?: string;
 }
 
 /**
@@ -612,14 +626,23 @@ export interface RollbackConnectionResult {
  * past deployment was applied — factored out of the session-authed
  * `history/:historyId/rollback` route the same way `deployToConnection` was,
  * so the `/api/v1` rollback trigger runs the identical pipeline.
+ *
+ * A rollback writes to the database like a deployment, and holds to the same
+ * rules where they mean something for it: the lock, the production
+ * confirmation, the backup before (production, or when asked), and the
+ * review of the stage — which a rollback does not go through, so on such a
+ * stage it is for a project administrator with a reason. The lint and the
+ * stage order are not asked: they judge the project's current schema, and a
+ * rollback runs the SQL kept with the deployment, not that schema. Only the
+ * latest change of the database is undone: the inverse SQL was written for
+ * the database as that deployment left it.
  */
 export async function rollbackConnectionDeployment(
   projectId: string,
   connId: string,
   historyId: string,
   executedByEmail: string,
-  /** As for `deployToConnection`. */
-  confirmName?: string,
+  options: RollbackOptions = {},
 ): Promise<RollbackConnectionResult> {
   const entry = await getDeploymentHistoryEntry(historyId);
   if (!entry || entry.connectionId !== connId || entry.projectId !== projectId) {
@@ -631,12 +654,28 @@ export async function rollbackConnectionDeployment(
   const conn = await getProjectConnection(projectId, connId);
   if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
   if (conn.readOnly) throw new ApiError("CONNECTION_READ_ONLY");
-  await assertProductionConfirmed(conn, confirmName);
+  if ((await stageAsksForReview(conn)) && !options.reviewSkipReason) {
+    throw new ApiError("ROLLBACK_REVIEW_REQUIRED", {
+      details: { connection: conn.name, environment: conn.environment ?? null },
+    });
+  }
+  await assertProductionConfirmed(conn, options.confirmName);
 
   const { rollbackSql } = entry;
   return withDeploymentLock(conn, async () => {
-    // Asked again under the lock: the same rollback may have ended between the first look and now.
+    // Asked under the lock: the same rollback, or a later deployment, may have ended between the first look and now.
     if ((await getDeploymentHistoryEntry(historyId))?.rolledBack) throw new ApiError("ROLLBACK_ALREADY_ATTEMPTED");
+    if (await hasLaterDeployment(historyId)) throw new ApiError("ROLLBACK_NOT_LATEST");
+
+    const backup =
+      (options.backupBefore ?? (await isProductionStage(conn)))
+        ? await backupOrRefuse({
+            connection: conn,
+            trigger: "pre-deployment",
+            note: `before a rollback by ${executedByEmail}`,
+          })
+        : null;
+
     const driver = await createDatabaseDriver(conn);
     try {
       const result = await driver.executeMigration(rollbackSql);
@@ -655,6 +694,10 @@ export async function rollbackConnectionDeployment(
         totalStatements: countStatements(rollbackSql),
         error: result.error,
         executedByEmail,
+        riskNote: options.reviewSkipReason
+          ? `review skipped — ${options.reviewSkipReason}`.slice(0, RISK_NOTE_MAX)
+          : null,
+        backupId: backup?.id ?? null,
       });
       await notifyDeployment(projectId, conn, "rollback", result, executedByEmail);
 
@@ -667,7 +710,7 @@ export async function rollbackConnectionDeployment(
 
       await rememberDeployedState(driver, projectId, conn.id, "rollback");
 
-      return { success: true, executedStatements: result.executedStatements };
+      return { success: true, executedStatements: result.executedStatements, backupId: backup?.id ?? null };
     } finally {
       await driver.close().catch(() => {});
     }

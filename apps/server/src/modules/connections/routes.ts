@@ -1,4 +1,4 @@
-import { stageSkipFor } from "../pipeline/routes.js";
+import { rollbackReviewSkipFor, stageSkipFor } from "../pipeline/routes.js";
 import type { FastifyInstance } from "fastify";
 import { readProjectFromDoc, type DatabaseConnectionConfig, type MigrationResolutionMap } from "@nebuladb/shared";
 import { diffTargetAgainstLive, generateMigrationSql } from "@nebuladb/dbml-engine";
@@ -399,8 +399,19 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
     const { id, connId, historyId } = req.params as { id: string; connId: string; historyId: string };
     const { user } = await requireProjectAccess(req, id, "deploy");
 
-    const { confirmName } = (req.body ?? {}) as { confirmName?: string };
-    const result = await rollbackConnectionDeployment(id, connId, historyId, user.email, confirmName);
+    const body = (req.body ?? {}) as {
+      confirmName?: string;
+      backupBefore?: boolean;
+      /** Run it on a stage that asks for a review, without one: for a project administrator, with a reason. */
+      skipReview?: boolean;
+      reason?: string;
+    };
+    const reviewSkipReason = await rollbackReviewSkipFor(req, id, connId, body);
+    const result = await rollbackConnectionDeployment(id, connId, historyId, user.email, {
+      confirmName: body.confirmName,
+      backupBefore: typeof body.backupBefore === "boolean" ? body.backupBefore : undefined,
+      reviewSkipReason,
+    });
 
     await auditUser(user, "connection.rollback", { type: "project", id }, `${connId}: rolled back ${historyId}`, req, {
       connectionId: connId,

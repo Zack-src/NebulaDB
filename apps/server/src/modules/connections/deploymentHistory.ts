@@ -188,6 +188,26 @@ export async function getDeploymentHistoryEntry(id: string): Promise<DeploymentH
   return rowToEntry(row, Boolean(alreadyRolledBack));
 }
 
+/**
+ * Whether the same project changed the same database after this entry, by a
+ * deployment that ran something and has not been rolled back since. The
+ * inverse SQL of the entry was written for the database as it left it: run on
+ * top of a later change, it undoes what it did not do, or fails midway.
+ */
+export async function hasLaterDeployment(id: string): Promise<boolean> {
+  const later = await db
+    .prepare(
+      `SELECT 1 FROM deployment_history later
+         JOIN deployment_history entry ON entry.id = ?
+        WHERE later.project_id = entry.project_id AND later.connection_id = entry.connection_id
+          AND later.seq > entry.seq AND later.rollback_of IS NULL AND later.executed_statements > 0
+          AND NOT EXISTS (SELECT 1 FROM deployment_history r WHERE r.rollback_of = later.id AND r.success = 1)
+        LIMIT 1`,
+    )
+    .get(id);
+  return Boolean(later);
+}
+
 /** A history row as the migration export reads it: who ran it by name, and the schema it deployed. */
 export interface DeploymentExportRow extends DeploymentHistoryEntry {
   executedByName: string | null;

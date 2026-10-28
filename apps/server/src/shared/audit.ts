@@ -112,6 +112,7 @@ export const AUDIT_ACTIONS = [
   "lint.preset.default",
   "lint.preset.apply",
   "connection.deploy.stage_skipped",
+  "connection.rollback.review_skipped",
   "connection.review.request",
   "connection.review.approve",
   "connection.review.reject",

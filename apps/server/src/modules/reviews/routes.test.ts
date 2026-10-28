@@ -335,14 +335,11 @@ test("review: a deployment to a review stage is requested, approved by another p
       ],
     );
 
-    // A rollback is not a deployment of a schema: it undoes a recorded one, without a review.
-    const rollback = await call(
-      app,
-      deployer.cookie,
-      "POST",
-      `${base}/connections/${staging}/history/${history[0].id}/rollback`,
-      {},
-    );
+    // A rollback does not go through the review: on this stage it is a project administrator's, with a reason.
+    const rollbackUrl = `${base}/connections/${staging}/history/${history[0].id}/rollback`;
+    const refused = await call(app, deployer.cookie, "POST", rollbackUrl, {});
+    assert.equal(refused.json().code, "ROLLBACK_REVIEW_REQUIRED");
+    const rollback = await call(app, owner.cookie, "POST", rollbackUrl, { skipReview: true, reason: "undo it" });
     assert.equal(rollback.statusCode, 200, rollback.body);
   } finally {
     await closeAllRooms();
@@ -625,6 +622,81 @@ test("/api/v1 review: keys act as their owners — request, approve and deploy, 
       (await withKey(deployerKey, "POST", `${v1}/reviews/${last.id}/reject`, {})).json().review.status,
       "rejected",
     );
+  } finally {
+    await closeAllRooms();
+    await app.close();
+  }
+});
+
+interface HistoryEntry {
+  id: string;
+  rollbackOf: string | null;
+  riskNote?: string;
+  backupId?: string;
+}
+
+test("rollback: on a review stage it is for a project administrator with a reason, kept in the history", async () => {
+  const app = await buildApp();
+  try {
+    const t = await setup(app);
+    const { owner, deployer, base, dev, staging } = t;
+    assert.equal((await t.deployDirectly(owner, dev)).statusCode, 200);
+    // Deployed while the stage was free, then protected: what is left to undo is a rollback.
+    await t.protect("Staging", "free");
+    assert.equal((await t.deployDirectly(owner, staging)).statusCode, 200);
+    await t.protect("Staging", "review");
+    const history = async () =>
+      (await call(app, owner.cookie, "GET", `${base}/connections/${staging}/history`)).json().history as HistoryEntry[];
+    const [deployed] = await history();
+    const rollback = (who: Person, payload: Record<string, unknown> = {}) =>
+      call(app, who.cookie, "POST", `${base}/connections/${staging}/history/${deployed.id}/rollback`, payload);
+
+    const plain = await rollback(deployer);
+    assert.equal(plain.statusCode, 409, plain.body);
+    assert.equal(plain.json().code, "ROLLBACK_REVIEW_REQUIRED");
+    const byDeployer = await rollback(deployer, { skipReview: true, reason: "the release broke checkout" });
+    assert.equal(byDeployer.statusCode, 403, byDeployer.body);
+    const noReason = await rollback(owner, { skipReview: true, reason: "  " });
+    assert.equal(noReason.json().code, "ROLLBACK_REVIEW_REASON_REQUIRED");
+
+    const done = await rollback(owner, { skipReview: true, reason: "the release broke checkout" });
+    assert.equal(done.statusCode, 200, done.body);
+    const rolledBack = (await history()).find((entry) => entry.rollbackOf === deployed.id);
+    assert.equal(rolledBack?.riskNote, "review skipped — the release broke checkout");
+  } finally {
+    await closeAllRooms();
+    await app.close();
+  }
+});
+
+test("rollback: only the latest change of a database is undone, with a backup first when asked", async () => {
+  const app = await buildApp();
+  try {
+    const t = await setup(app);
+    const { owner, base, dev } = t;
+    assert.equal((await t.deployDirectly(owner, dev)).statusCode, 200);
+    await t.importSchema(SCHEMA_2);
+    assert.equal((await t.deployDirectly(owner, dev)).statusCode, 200);
+    const history = async () =>
+      (await call(app, owner.cookie, "GET", `${base}/connections/${dev}/history`)).json().history as HistoryEntry[];
+    const [second, first] = await history();
+    const rollback = (entry: HistoryEntry, payload: Record<string, unknown> = {}) =>
+      call(app, owner.cookie, "POST", `${base}/connections/${dev}/history/${entry.id}/rollback`, payload);
+
+    const tooEarly = await rollback(first);
+    assert.equal(tooEarly.statusCode, 409, tooEarly.body);
+    assert.equal(tooEarly.json().code, "ROLLBACK_NOT_LATEST");
+
+    const latest = await rollback(second, { backupBefore: true });
+    assert.equal(latest.statusCode, 200, latest.body);
+    const backupId = latest.json().backupId as string | null;
+    assert.ok(backupId, "a backup was taken before the rollback");
+    assert.equal((await history()).find((entry) => entry.rollbackOf === second.id)?.backupId, backupId);
+
+    // The later one undone, the earlier one is the latest change again.
+    const earlier = await rollback(first);
+    assert.equal(earlier.statusCode, 200, earlier.body);
+    assert.equal(earlier.json().backupId, null, "no backup off the production stage unless asked");
   } finally {
     await closeAllRooms();
     await app.close();

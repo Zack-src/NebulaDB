@@ -2,7 +2,7 @@ import { readProjectFromDoc } from "@nebuladb/shared";
 import { getRoom } from "../../realtime/roomRegistry.js";
 import { compareConnections } from "../connections/compare.js";
 import { projectPipeline, schemaHashOf } from "../pipeline/pipeline.js";
-import { stageSkipFor } from "../pipeline/routes.js";
+import { rollbackReviewSkipFor, stageSkipFor } from "../pipeline/routes.js";
 import type { FastifyInstance } from "fastify";
 import type { DatabaseConnectionConfig, MigrationResolutionMap } from "@nebuladb/shared";
 import { requireScope } from "../apiKeys/auth.js";
@@ -235,8 +235,18 @@ export function registerPublicConnectionRoutes(app: FastifyInstance): void {
     const { user } = await requireProjectAccess(req, id, "deploy");
     requireScope(req, "deployments:trigger", id);
 
-    const { confirmName } = (req.body ?? {}) as { confirmName?: string };
-    const result = await rollbackConnectionDeployment(id, connId, historyId, user.email, confirmName);
+    const body = (req.body ?? {}) as {
+      confirmName?: string;
+      backupBefore?: boolean;
+      skipReview?: boolean;
+      reason?: string;
+    };
+    const reviewSkipReason = await rollbackReviewSkipFor(req, id, connId, body);
+    const result = await rollbackConnectionDeployment(id, connId, historyId, user.email, {
+      confirmName: body.confirmName,
+      backupBefore: typeof body.backupBefore === "boolean" ? body.backupBefore : undefined,
+      reviewSkipReason,
+    });
 
     await auditUser(
       user,
