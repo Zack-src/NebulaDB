@@ -25,6 +25,13 @@ interface ColumnRow {
   column_default: string | null;
 }
 
+interface IndexRow {
+  table_name: string;
+  index_name: string;
+  column_name: string;
+  is_unique: boolean;
+}
+
 /** Shared with the admin driver (`admin/postgres.ts`) so both connect to the same pinned address the same way. */
 export function postgresPoolConfig(config: DriverConnectionConfig, database?: string): pg.PoolConfig {
   const ssl = driverTlsOptions(config);
@@ -120,6 +127,51 @@ export class PostgresDriver implements DatabaseDriver {
           AND tc.table_schema NOT IN ('pg_catalog', 'information_schema');
       `);
 
+      // 5. Fetch the indexes created on their own: a primary key and a single-column UNIQUE constraint are already read
+      // as the column's `pk` / `unique`. An expression or partial index can't be written as columns, so it is left out.
+      const indexRes = await client.query<IndexRow>(`
+        SELECT t.relname AS table_name, i.relname AS index_name, a.attname AS column_name, ix.indisunique AS is_unique
+        FROM pg_index ix
+        JOIN pg_class t ON t.oid = ix.indrelid
+        JOIN pg_class i ON i.oid = ix.indexrelid
+        JOIN pg_namespace n ON n.oid = t.relnamespace
+        CROSS JOIN LATERAL unnest(ix.indkey::int2[]) WITH ORDINALITY AS k(attnum, ord)
+        JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = k.attnum
+        WHERE n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+          AND t.relkind IN ('r', 'p')
+          AND NOT ix.indisprimary
+          AND ix.indexprs IS NULL AND ix.indpred IS NULL
+          AND k.ord <= ix.indnkeyatts
+          AND NOT (ix.indnkeyatts = 1 AND EXISTS (
+            SELECT 1 FROM pg_constraint c WHERE c.conindid = ix.indexrelid AND c.contype = 'u'))
+        ORDER BY t.relname, i.relname, k.ord;
+      `);
+      const indexesByTable = new Map<string, Map<string, TableIndex>>();
+      for (const row of indexRes.rows) {
+        const byName = indexesByTable.get(row.table_name) ?? new Map<string, TableIndex>();
+        const index = byName.get(row.index_name) ?? {
+          id: `${row.table_name}.${row.index_name}`,
+          name: row.index_name,
+          fieldIds: [],
+          ...(row.is_unique ? { unique: true } : {}),
+        };
+        index.fieldIds.push(`${row.table_name}.${row.column_name}`);
+        byName.set(row.index_name, index);
+        indexesByTable.set(row.table_name, byName);
+      }
+
+      // 6. A UNIQUE constraint on one column is that column's `unique` (the generator writes it inline).
+      const uniqueRes = await client.query(`
+        SELECT t.relname AS table_name, a.attname AS column_name
+        FROM pg_constraint c
+        JOIN pg_class t ON t.oid = c.conrelid
+        JOIN pg_namespace n ON n.oid = t.relnamespace
+        JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = c.conkey[1]
+        WHERE c.contype = 'u' AND array_length(c.conkey, 1) = 1
+          AND n.nspname NOT IN ('pg_catalog', 'information_schema');
+      `);
+      const uniqueSet = new Set(uniqueRes.rows.map((r) => `${r.table_name}.${r.column_name}`));
+
       // Build tables & fields
       const columnsByTable = new Map<string, ColumnRow[]>();
       for (const col of columnsRes.rows) {
@@ -137,6 +189,7 @@ export class PostgresDriver implements DatabaseDriver {
             name: c.column_name,
             type,
             pk: isPk,
+            ...(uniqueSet.has(`${t.table_name}.${c.column_name}`) ? { unique: true } : {}),
             notNull: c.is_nullable === "NO",
             default: c.column_default ? String(c.column_default) : undefined,
           };
@@ -147,7 +200,7 @@ export class PostgresDriver implements DatabaseDriver {
           name: t.table_name,
           schemaName: t.table_schema !== "public" ? t.table_schema : undefined,
           fields,
-          indexes: [] as TableIndex[],
+          indexes: [...(indexesByTable.get(t.table_name)?.values() ?? [])],
           position: { x: (idx % 6) * 320, y: Math.floor(idx / 6) * 400 },
           detailLevel: "standard" as const,
         };
