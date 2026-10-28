@@ -7,6 +7,7 @@
     CopyIcon,
     DatabaseIcon,
     FolderIcon,
+    LayersIcon,
     PencilIcon,
     PlusIcon,
     TrashIcon,
@@ -34,6 +35,9 @@
   import DeleteProjectModal from "@/features/projects/components/DeleteProjectModal.svelte";
   import EmptyTrashModal from "@/features/projects/components/EmptyTrashModal.svelte";
   import NewProjectFromDatabaseModal from "@/features/projects/NewProjectFromDatabaseModal.svelte";
+  import TemplatePickerModal from "@/features/projects/templates/TemplatePickerModal.svelte";
+  import { projectTemplateSource, type ProjectTemplateId } from "@/features/projects/templates/projectTemplates";
+  import { importSource } from "@/services/projectsApi";
   import ShareLinksModal from "@/features/projects/components/ShareLinksModal.svelte";
   import WebhooksModal from "@/features/projects/components/WebhooksModal.svelte";
   import GlobalSearchResults from "@/features/projects/components/GlobalSearchResults.svelte";
@@ -104,6 +108,8 @@ import { useTranslation } from "@/i18n/i18n.svelte";
   let createError = $state<string | null>(null);
   let creating = $state(false);
   let newFromDatabaseOpen = $state(false);
+  let templatePickerOpen = $state(false);
+  let templateError = $state<string | null>(null);
 
   function commitRename() {
     nameDraft.commit();
@@ -206,6 +212,7 @@ import { useTranslation } from "@/i18n/i18n.svelte";
     openMenu(event, t("projects.menu.list"), [
       { label: t("folders.new"), icon: FolderIcon, onSelect: () => newFolderIn(currentFolderId) },
       { label: t("projects.newProject"), icon: PlusIcon, onSelect: () => void handleCreate() },
+      { label: t("projects.fromTemplate"), icon: LayersIcon, onSelect: openTemplatePicker },
     ]);
 
   function onProjectMenu(event: MouseEvent, project: ProjectSummary) {
@@ -318,6 +325,42 @@ import { useTranslation } from "@/i18n/i18n.svelte";
     }
     renamingId = result.id;
   }
+
+  function openTemplatePicker() {
+    templateError = null;
+    templatePickerOpen = true;
+  }
+
+  /** Same instant-create-then-rename flow, named after the template and seeded through the ordinary import. */
+  async function handleCreateFromTemplate(template: ProjectTemplateId) {
+    if (creating) return;
+    templateError = null;
+    creating = true;
+    const result = await onCreateProject(t(`projects.templates.${template}.name`));
+    if ("error" in result) {
+      creating = false;
+      templateError = result.error;
+      return;
+    }
+    try {
+      await importSource(result.id, projectTemplateSource(template));
+    } catch {
+      toast.warning(t("projects.templates.failed"));
+    }
+    creating = false;
+    templatePickerOpen = false;
+    if (section !== "active") section = "active";
+    if (currentFolderId) {
+      await moveProjectToFolder(result.id, currentFolderId).catch(() => toast.warning(t("projects.moveToFolderFailed")));
+    }
+    onProjectsChanged?.();
+    renamingId = result.id;
+  }
+
+  /** The very first visit: no project, no folder, nothing searched. */
+  const firstRun = $derived(
+    section === "active" && !normalisedQuery && projects.length === 0 && folders.length === 0 && !currentFolderId,
+  );
 </script>
 
 <div class="flex h-full min-h-0">
@@ -338,6 +381,15 @@ import { useTranslation } from "@/i18n/i18n.svelte";
           <Button variant="primary" onclick={handleCreate} disabled={creating} class="shrink-0 gap-2 text-label">
             <Icon icon={PlusIcon} size={14} />
             {creating ? t("projects.creating") : t("projects.newProject")}
+          </Button>
+          <Button
+            onclick={openTemplatePicker}
+            class="shrink-0 gap-2 text-label"
+            aria-label={t("projects.fromTemplate")}
+            data-tooltip={t("projects.fromTemplate")}
+            data-tooltip-pos="bottom"
+          >
+            <Icon icon={LayersIcon} size={14} />
           </Button>
           <Button
             onclick={() => (newFromDatabaseOpen = true)}
@@ -395,7 +447,28 @@ import { useTranslation } from "@/i18n/i18n.svelte";
              projects is a wrong statement rather than a slow one. -->
         <SkeletonCardGrid count={4} />
       {:else if visibleProjects.length === 0}
-        {#if !(browsingFolders && (currentFolderId || subfolders.length > 0))}
+        {#if firstRun}
+          <div class="flex flex-col items-center gap-4 rounded-md border border-dashed border-border px-4 py-10 text-center" data-testid="first-project">
+            <div>
+              <h2 class="m-0 text-heading font-semibold text-text">{t("projects.firstProject.title")}</h2>
+              <p class="m-0 mt-1 max-w-xl text-body text-text-muted">{t("projects.firstProject.body")}</p>
+            </div>
+            <div class="flex flex-wrap justify-center gap-2">
+              <Button variant="primary" onclick={handleCreate} disabled={creating} class="gap-2 text-label">
+                <Icon icon={PlusIcon} size={14} />
+                {t("projects.newProject")}
+              </Button>
+              <Button onclick={openTemplatePicker} disabled={creating} class="gap-2 text-label">
+                <Icon icon={LayersIcon} size={14} />
+                {t("projects.fromTemplate")}
+              </Button>
+              <Button onclick={() => (newFromDatabaseOpen = true)} class="gap-2 text-label">
+                <Icon icon={DatabaseIcon} size={14} />
+                {t("projects.newFromDatabase")}
+              </Button>
+            </div>
+          </div>
+        {:else if !(browsingFolders && (currentFolderId || subfolders.length > 0))}
           <EmptyState>{normalisedQuery ? t("projects.noSearchMatch") : t(currentSection.emptyKey)}</EmptyState>
         {:else if currentFolderId}
           <EmptyState>{t("folders.empty")}</EmptyState>
@@ -472,6 +545,14 @@ import { useTranslation } from "@/i18n/i18n.svelte";
         newFromDatabaseOpen = false;
         onProjectCreatedFromDatabase(result);
       }}
+    />
+  {/if}
+  {#if templatePickerOpen}
+    <TemplatePickerModal
+      busy={creating}
+      error={templateError}
+      onPick={(id) => void handleCreateFromTemplate(id)}
+      onClose={() => (templatePickerOpen = false)}
     />
   {/if}
   {#if webhooksTarget}

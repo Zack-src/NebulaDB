@@ -2498,5 +2498,19 @@
   "errors.validationFailed": "Some fields are missing or invalid: {{fields}}.",
   "connections.addressMode": "Server address",
   "connections.addressHost": "Host and port",
-  "connections.addressUri": "Connection URI"
+  "connections.addressUri": "Connection URI",
+  "projects.fromTemplate": "From a template",
+  "projects.templates.title": "Start from a template",
+  "projects.templates.hint": "A starter schema, already related and laid out on the canvas. Everything stays editable afterwards.",
+  "projects.templates.failed": "The project was created but the template could not be loaded into it.",
+  "projects.templates.example.name": "Example project",
+  "projects.templates.example.description": "A small documented bookshop: notes on tables and columns, to try every tab of the workspace.",
+  "projects.templates.blog.name": "Blog",
+  "projects.templates.blog.description": "Users, posts, comments and tags: the classic many-to-many.",
+  "projects.templates.ecommerce.name": "E-commerce",
+  "projects.templates.ecommerce.description": "Customers, addresses, a nested catalogue, orders and order lines.",
+  "projects.templates.saas.name": "Multi-tenant SaaS",
+  "projects.templates.saas.description": "Organizations, members and roles, subscription, invoices and an audit log.",
+  "projects.firstProject.title": "Create your first project",
+  "projects.firstProject.body": "A project holds one database schema: draw it, version it, deploy it. Start from nothing, from a ready-made schema, or from a database you already have."
 }
