@@ -47,6 +47,7 @@ export const AUDIT_ACTIONS = [
   "invitation.create",
   "invitation.revoke",
   "invitation.accept",
+  "setup.completed",
   "auth.login.locked",
   "auth.login.mfa_locked",
   "auth.sso.login",
@@ -182,7 +183,10 @@ const CATEGORY_RULES: [RegExp, ActivityCategory][] = [
   ],
   [/^(dbadmin\.(query|rows)|dbaccess\.(query|rows)|savedquery\.|seed\.|backup\.|project\.export)/, "data"],
   [/^(auth\.|dbadmin\.session|dbconn\.(test|open)$|user\.sessions|user\.totp)/, "sessions"],
-  [/^(user\.|invitation\.|team\.|dbuser\.|dbconn\.credentials\.|dbaccess\.|project\.team\.|apikey\.)/, "accounts"],
+  [
+    /^(user\.|invitation\.|setup\.|team\.|dbuser\.|dbconn\.credentials\.|dbaccess\.|project\.team\.|apikey\.)/,
+    "accounts",
+  ],
   [/^(project|folder|share)\./, "projects"],
 ];
 

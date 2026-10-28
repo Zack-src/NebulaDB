@@ -399,4 +399,10 @@ export const config = {
   sqliteAllowedDir: readEnv("NEBULADB_SQLITE_DIR")?.trim() || null,
   /** `null` means email is off — see `readSmtp`. */
   smtp: readSmtp(publicUrl),
+  /**
+   * NEBULADB_SETUP_TOKEN: when set, the browser setup of a fresh instance (`POST /api/setup`, which creates the
+   * first administrator while there is no account at all) must carry it. Unset, whoever reaches a fresh instance
+   * first can claim it — see the README. `null` when unset.
+   */
+  setupToken: readEnv("NEBULADB_SETUP_TOKEN")?.trim() || null,
 } as const;

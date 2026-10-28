@@ -230,6 +230,7 @@ export const ERROR_CATALOG = {
   MFA_CHALLENGE_INVALID: { status: 401, message: "this login challenge has expired — sign in again" },
 
   // --- 403 ---
+  SETUP_TOKEN_INVALID: { status: 403, message: "the setup token is missing or incorrect" },
   ADMIN_REQUIRED: { status: 403, message: "administrator access required" },
   DEPLOYMENT_REVIEW_SELF_DECISION: {
     status: 403,
@@ -286,6 +287,7 @@ export const ERROR_CATALOG = {
   },
 
   // --- 409 ---
+  SETUP_ALREADY_DONE: { status: 409, message: "this instance is already set up: sign in instead" },
   EMAIL_ALREADY_EXISTS: { status: 409, message: "a user with this email already exists" },
   INVITATION_ALREADY_USED: { status: 409, message: "this invitation has already been used" },
   PROJECT_LIMIT_REACHED: { status: 409, message: "you have reached the maximum number of projects" },
