@@ -95,6 +95,20 @@ choix du client et ne revient pas au prochain envoi.
       glisser-déposer d'un projet dans un dossier ou dans le fil d'Ariane
 - [x] J5. Tests navigateur, documentation, vérification complète
 
+## K. Lot 9 — suite de la todo (demandé le 2026-10-28, par ordre d'importance)
+
+Agents : Opus pour ce qui touche la sûreté des déploiements, Sonnet pour le reste. Un commit par changement.
+
+- [ ] K1. Déploiements : verrou par connexion, rollback soumis à la revue / au lint / à la sauvegarde, SQL Server dans une transaction (Opus)
+- [ ] K2. Lire les index existants de la base (PostgreSQL, MySQL, SQLite, Oracle) pour que la comparaison ne les redemande pas (Sonnet)
+- [ ] K3. Écran de comparaison d'environnements (le serveur existe, l'écran a été retiré) (Sonnet)
+- [ ] K4. Réglage léger de la surveillance par projet (routes serveur existantes, sans écran) (Sonnet)
+- [ ] K5. Visite guidée, modèles de projet et projet d'exemple au premier démarrage (Sonnet)
+- [ ] K6. CI : tests navigateur, couverture, scan Docker, Dependabot (Sonnet)
+- [ ] K7. Rétention des journaux : registre, réglages, onglet admin, traçage des purges (Opus pour le registre, Sonnet pour l'écran)
+
+Bloqué sur une décision de Zack : licence du dépôt (LICENSE, SECURITY.md, CONTRIBUTING.md) ; IA optionnelle.
+
 ## En attente d'une décision de Zack
 
 - IA optionnelle (quel service, quelles données peuvent sortir de l'instance)
