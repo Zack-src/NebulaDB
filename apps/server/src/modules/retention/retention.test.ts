@@ -16,9 +16,22 @@ process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_QUERY_STATS_RETENTION_DAYS = "45";
 
 const { db } = await import("../../infrastructure/db.js");
-const { purgeJournal, previewPurge, runRetention, withJournalLock } = await import("./purge.js");
+const { purgeJournal, purgeJournalNow, previewPurge, runRetention, withJournalLock } = await import("./purge.js");
 const { RETENTION_POLICIES, findRetentionPolicy, retentionValueProblem } = await import("./registry.js");
-const { effectiveRetention, setRetention, readPurgeStates } = await import("./settings.js");
+const { changeRetention, effectiveRetention, setRetention, readPurgeStates } = await import("./settings.js");
+
+interface AuditRow {
+  actor_id: string | null;
+  action: string;
+  target_id: string;
+  detail: string;
+}
+const auditEntries = async (action: string, targetId: string) =>
+  (await db
+    .prepare(
+      "SELECT actor_id, action, target_id, detail FROM audit_log WHERE action = ? AND target_type = 'retention' AND target_id = ? ORDER BY seq",
+    )
+    .all(action, targetId)) as AuditRow[];
 
 const policy = (key: string) => findRetentionPolicy(key)!;
 const count = async (sql: string, ...params: unknown[]) =>
@@ -234,4 +247,46 @@ test("a journal being purged is skipped by the scheduled pass", async () => {
     results.find((r) => r.key === "error_log"),
     undefined,
   );
+});
+
+test("audit trail: a change, a manual purge, and one summary per scheduled pass that removed something", async () => {
+  const actor = { id: await makeUser(), email: "admin@example.com" };
+  const errors = policy("error_log");
+
+  await changeRetention(errors, 100, actor);
+  const [changed] = await auditEntries("retention.changed", "error_log");
+  assert.equal(changed.actor_id, actor.id);
+  assert.equal(changed.detail, "error_log: 2000 rows (default) -> 100 rows (db)");
+
+  for (let i = 0; i < 130; i++) {
+    await db.prepare("INSERT INTO error_log (id, source, message) VALUES (?, 'server', 'x')").run(randomUUID());
+  }
+  const manual = await purgeJournalNow(errors, actor, undefined, { pauseMs: 0 });
+  assert.ok(manual);
+  assert.equal(manual.value, 100);
+  assert.ok(manual.deleted >= 30);
+  const [purged] = await auditEntries("retention.purged", "error_log");
+  assert.equal(purged.actor_id, actor.id);
+  assert.equal(purged.detail, `manual: error_log: ${manual.deleted} row(s) past the latest 100`);
+  assert.equal((await readPurgeStates()).get("error_log")!.trigger, "manual");
+
+  // Nothing to remove: no summary entry.
+  await runRetention({ pauseMs: 0 });
+  const summariesBefore = (await auditEntries("retention.purged", "scheduled")).length;
+  await runRetention({ pauseMs: 0 });
+  const afterIdle = (await auditEntries("retention.purged", "scheduled")).length;
+  assert.equal(afterIdle, summariesBefore, "an idle pass writes nothing");
+  await db
+    .prepare("INSERT INTO audit_log (id, action, created_at) VALUES (?, 'project.create', utc_now('-500 days'))")
+    .run(randomUUID());
+  await runRetention({ pauseMs: 0 });
+  const summaries = await auditEntries("retention.purged", "scheduled");
+  assert.equal(summaries.length, afterIdle + 1);
+  const last = summaries.at(-1)!;
+  assert.equal(last.actor_id, null);
+  assert.match(last.detail, /^scheduled: audit_log: 1 row\(s\) before \d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/);
+
+  // A manual purge while the journal is being purged is refused.
+  assert.equal(await withJournalLock("error_log", () => purgeJournalNow(errors, actor)), null);
+  await changeRetention(errors, null, actor);
 });

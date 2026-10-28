@@ -1,11 +1,13 @@
+import type { FastifyRequest } from "fastify";
 import { db } from "../../infrastructure/db.js";
+import { audit } from "../../shared/audit.js";
 import {
   RETENTION_POLICIES,
   type RetentionDateFormat,
   type RetentionPolicy,
   type RetentionTarget,
 } from "./registry.js";
-import { allEffectiveRetentions, writePurgeState } from "./settings.js";
+import { allEffectiveRetentions, effectiveRetention, writePurgeState } from "./settings.js";
 
 /**
  * The purge itself: each journal in batches, so a large backlog never holds a
@@ -175,20 +177,34 @@ export async function withJournalLock<T>(key: string, work: () => Promise<T>): P
   }
 }
 
+/** One journal's purge in an audit entry's words: how many rows, before which date or past which count. */
+function describePurge(policy: RetentionPolicy, value: number, result: PurgeResult): string {
+  const rule =
+    result.cutoff !== null
+      ? `before ${result.cutoff}`
+      : policy.unit === "rows"
+        ? `past the latest ${value}`
+        : "orphans";
+  return `${policy.key}: ${result.deleted} row(s) ${rule}`;
+}
+
 /**
  * The scheduled pass: every journal at its effective retention. One journal
  * failing does not stop the others. Returns what each journal did (journals
- * skipped because a manual purge held them are left out).
+ * skipped because a manual purge held them are left out). When anything went,
+ * one `retention.purged` audit entry sums the pass up.
  */
 export async function runRetention(options: PurgeOptions = {}): Promise<PurgeResult[]> {
   const retentions = await allEffectiveRetentions();
   const results: PurgeResult[] = [];
+  const summary: string[] = [];
   for (const policy of RETENTION_POLICIES) {
     const value = retentions.get(policy.key)!.value;
     try {
       const result = await withJournalLock(policy.key, () => purgeJournal(policy, value, options));
       if (!result) continue;
       results.push(result);
+      if (result.deleted > 0) summary.push(describePurge(policy, value, result));
       await writePurgeState(policy.key, {
         at: nowUtc(),
         deleted: result.deleted,
@@ -199,5 +215,39 @@ export async function runRetention(options: PurgeOptions = {}): Promise<PurgeRes
       console.error(`[retention] purge of ${policy.key} failed:`, err);
     }
   }
+  if (summary.length > 0) {
+    await audit(
+      { id: null, email: null },
+      "retention.purged",
+      { type: "retention", id: "scheduled" },
+      `scheduled: ${summary.join("; ")}`,
+    );
+  }
   return results;
+}
+
+/**
+ * A purge an administrator asked for: the journal at its effective retention,
+ * now, recorded in the audit log and as the journal's last purge. `null` when
+ * the journal is being purged already.
+ */
+export async function purgeJournalNow(
+  policy: RetentionPolicy,
+  actor: { id: string; email: string },
+  req?: FastifyRequest,
+  options: PurgeOptions = {},
+): Promise<(PurgeResult & { value: number; at: string }) | null> {
+  const { value } = await effectiveRetention(policy);
+  const result = await withJournalLock(policy.key, () => purgeJournal(policy, value, options));
+  if (!result) return null;
+  const at = nowUtc();
+  await writePurgeState(policy.key, { at, deleted: result.deleted, cutoff: result.cutoff, trigger: "manual" });
+  await audit(
+    actor,
+    "retention.purged",
+    { type: "retention", id: policy.key },
+    `manual: ${describePurge(policy, value, result)}`,
+    req,
+  );
+  return { ...result, value, at };
 }
