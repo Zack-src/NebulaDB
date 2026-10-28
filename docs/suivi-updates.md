@@ -102,7 +102,7 @@ Agents : Opus pour ce qui touche la sûreté des déploiements, Sonnet pour le r
 - [x] K1. Déploiements : verrou par connexion, rollback soumis à la revue / au lint / à la sauvegarde, SQL Server dans une transaction — `bafa096`, `e77d665`, `71137e1`
 - [x] K2. Lire les index existants de la base (PostgreSQL, MySQL, SQLite, Oracle) pour que la comparaison ne les redemande pas — `31c48df`, `be0c265`, `1c201e3`, `9299835` (Oracle sans test)
 - [x] K3. Écran de comparaison d'environnements, carte du panneau de déploiement — `b6b4281`, `755f141`, `2aef021` (visible à partir de 2 connexions ; pas de SQL de migration, l'API n'en renvoie pas ; jamais essayé sur deux bases réelles)
-- [ ] K4. Réglage léger de la surveillance par projet (routes serveur existantes, sans écran) (Sonnet)
+- [x] K4. Carte « Surveillance » du panneau de déploiement (activer, intervalle, tables ignorées, vérifier maintenant) — `fd66019`, `b3d6cf5`, `dbd6e09` (réservée aux administrateurs du projet ; sourdine, comptes et liste des constats non repris)
 - [ ] K5. Visite guidée, modèles de projet et projet d'exemple au premier démarrage (Sonnet)
 - [x] K6. CI : tests navigateur, couverture, scan Docker, Dependabot — presque tout existait déjà ; ajout d'un test des modules natifs de l'image Docker, `170ca55` (workflows jamais lancés sur GitHub ; épinglage par SHA, seuil de couverture, push GHCR et job MSSQL bloquant restent à faire)
 - [ ] K7. Rétention des journaux : registre, réglages, onglet admin, traçage des purges (Opus pour le registre, Sonnet pour l'écran)
