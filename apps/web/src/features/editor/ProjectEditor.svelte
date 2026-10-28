@@ -839,6 +839,8 @@ import { DeploymentDrawerState } from "@/features/workspace/drawerState.svelte";
             {schemaHash}
             onDeployTo={(id) => (databases.connectionId = id)}
             {canDeploy}
+            canManage={isProjectAdmin}
+            tableNames={liveProject?.tables.map((table) => table.name) ?? []}
             canSkipStage={props.session.isAdmin}
             onOpenConnectionsAdmin={props.onOpenConnectionsAdmin}
             onDeployed={() => (deploymentsSeen += 1)}
