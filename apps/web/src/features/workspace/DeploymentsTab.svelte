@@ -5,10 +5,11 @@
   import EmptyState from "@/components/ui/EmptyState.svelte";
   import DeploymentPanel from "@/features/connections/deployment/DeploymentPanel.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
+  import CompareEnvironmentsCard from "./CompareEnvironmentsCard.svelte";
   import DeploymentReviewsCard from "./DeploymentReviewsCard.svelte";
   import PipelineCard from "./PipelineCard.svelte";
 
-  /** Deployment planning, application and pipeline for the project. */
+  /** Deployment planning, application, pipeline and comparison of databases for the project. */
   let {
     projectId,
     connection,
@@ -30,7 +31,7 @@
     projectId: string;
     /** The workspace's current connection; `null` when the project has none. */
     connection: DatabaseConnectionSummary | null;
-    /** Every database of the project. */
+    /** Every database of the project — two or more can be compared with each other. */
     connections?: DatabaseConnectionSummary[];
     /** Changes when a deployment completes: what the pipeline shows may be stale. */
     refreshKey?: number;
@@ -104,6 +105,10 @@
         {onDeployed}
       />
       <PipelineCard {projectId} {refreshKey} {schemaHash} {canDeploy} {onDeployTo} />
+      <!-- The server opens both databases only for those who may deploy. -->
+      {#if canDeploy && connections.length > 1}
+        <CompareEnvironmentsCard {projectId} {connections} currentId={connection.id} {onShowInGraph} />
+      {/if}
     </div>
   {/if}
 </div>
