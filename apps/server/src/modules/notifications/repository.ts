@@ -13,8 +13,6 @@ import { notifyProjectUsers } from "../../realtime/roomRegistry.js";
 import { ApiError } from "../../shared/errors.js";
 import { getEffectivePermission, permissionAtLeast, type PermissionLevel } from "../../shared/permissions.js";
 
-/** Kept per account; older ones go as new ones arrive. A notification is a pointer to what happened, not the record of it. */
-const KEPT_PER_USER = 200;
 const LISTED = 50;
 
 /** What a user follows on a project; `null` when they do not follow it. */
@@ -152,14 +150,9 @@ export async function notifyFollowers(
     const insert = db.prepare(
       "INSERT INTO notifications (id, user_id, project_id, event, params_json) VALUES (?, ?, ?, ?, ?)",
     );
-    const trim = db.prepare(
-      `DELETE FROM notifications WHERE user_id = ? AND id NOT IN
-         (SELECT id FROM notifications WHERE user_id = ? ORDER BY seq DESC LIMIT ${KEPT_PER_USER})`,
-    );
     const told = new Set<string>();
     for (const follower of await eligibleFollowers(projectId, event, options)) {
       await insert.run(crypto.randomUUID(), follower.user_id, projectId, event, JSON.stringify(params));
-      await trim.run(follower.user_id, follower.user_id);
       told.add(follower.user_id);
     }
     // Those who have the project open learn it now rather than at their bell's
@@ -190,15 +183,10 @@ export async function notifyDirectly(
     const insert = db.prepare(
       "INSERT INTO notifications (id, user_id, project_id, event, params_json) VALUES (?, ?, ?, ?, ?)",
     );
-    const trim = db.prepare(
-      `DELETE FROM notifications WHERE user_id = ? AND id NOT IN
-         (SELECT id FROM notifications WHERE user_id = ? ORDER BY seq DESC LIMIT ${KEPT_PER_USER})`,
-    );
     const told = new Set<string>();
     for (const userId of new Set(userIds)) {
       if (!(await exists.get(userId)) || !(await getEffectivePermission(userId, projectId))) continue;
       await insert.run(crypto.randomUUID(), userId, projectId, event, JSON.stringify(params));
-      await trim.run(userId, userId);
       told.add(userId);
     }
     notifyProjectUsers(projectId, told, { type: "notification" });

@@ -207,7 +207,12 @@ export const RETENTION_POLICIES: readonly RetentionPolicy[] = [
     max: 3650,
     allowForever: true,
     targets: [
-      { table: "drift_events", dateColumn: "detected_at", dateFormat: "timestamp", purgeableWhere: "t.status <> 'open'" },
+      {
+        table: "drift_events",
+        dateColumn: "detected_at",
+        dateFormat: "timestamp",
+        purgeableWhere: "t.status <> 'open'",
+      },
     ],
   },
   {

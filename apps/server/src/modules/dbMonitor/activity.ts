@@ -262,18 +262,3 @@ export async function runDueActivitySamples(): Promise<void> {
   }
 }
 
-/** Drops the days past the retention and what belongs to deleted connections. `0` keeps everything. */
-export async function purgeOldActivity(retentionDays: number): Promise<number> {
-  let removed = (
-    await db.prepare("DELETE FROM db_activity WHERE connection_id NOT IN (SELECT id FROM db_connections)").run()
-  ).changes;
-  await db.prepare("DELETE FROM db_activity_watch WHERE connection_id NOT IN (SELECT id FROM db_connections)").run();
-  await db.prepare("DELETE FROM db_counter_samples WHERE connection_id NOT IN (SELECT id FROM db_connections)").run();
-  await db.prepare("DELETE FROM db_health_samples WHERE connection_id NOT IN (SELECT id FROM db_connections)").run();
-  if (retentionDays > 0) {
-    removed += (await db.prepare("DELETE FROM db_activity WHERE day < utc_today(?)").run(`-${retentionDays} days`))
-      .changes;
-    await db.prepare("DELETE FROM db_counter_samples WHERE taken_at < utc_now(?)").run(`-${retentionDays} days`);
-  }
-  return removed;
-}

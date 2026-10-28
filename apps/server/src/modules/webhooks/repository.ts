@@ -243,9 +243,3 @@ export async function disableWebhook(webhookId: string, reason: string): Promise
   await db.prepare("UPDATE project_webhooks SET enabled = 0, disabled_reason = ? WHERE id = ?").run(reason, webhookId);
 }
 
-/** Deliveries are a log, not an archive — kept for 30 days. */
-export async function purgeOldDeliveries(retentionDays = 30): Promise<number> {
-  const cutoff = new Date(Date.now() - retentionDays * 24 * 60 * 60 * 1000).toISOString();
-  return (await db.prepare("DELETE FROM webhook_deliveries WHERE status != 'pending' AND created_at < ?").run(cutoff))
-    .changes;
-}

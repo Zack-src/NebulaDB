@@ -5,8 +5,6 @@ import { notifyProjectUsers } from "../../realtime/roomRegistry.js";
 import { ApiError } from "../../shared/errors.js";
 import { getEffectivePermission } from "../../shared/permissions.js";
 
-/** Same bound as the rest of the inbox (see `repository.ts`): older ones go as new ones arrive. */
-const KEPT_PER_USER = 200;
 const MENTIONABLE_LISTED = 8;
 const MAX_NAME = 120;
 const MAX_THREAD_AUTHORS = 50;
@@ -111,15 +109,10 @@ export async function notifyCommentAddressees(
     const insert = db.prepare(
       "INSERT INTO notifications (id, user_id, project_id, event, params_json) VALUES (?, ?, ?, ?, ?)",
     );
-    const trim = db.prepare(
-      `DELETE FROM notifications WHERE user_id = ? AND id NOT IN
-         (SELECT id FROM notifications WHERE user_id = ? ORDER BY seq DESC LIMIT ${KEPT_PER_USER})`,
-    );
     const told = new Set<string>();
     for (const [userId, event] of recipients) {
       if (!(await exists.get(userId)) || !(await getEffectivePermission(userId, projectId))) continue;
       await insert.run(crypto.randomUUID(), userId, projectId, event, params);
-      await trim.run(userId, userId);
       told.add(userId);
     }
     // Those with the project open learn it now; no one else in the room learns who was addressed.

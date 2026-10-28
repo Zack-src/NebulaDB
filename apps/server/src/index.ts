@@ -9,19 +9,16 @@ import { purgeExpiredResetTokens } from "./modules/auth/passwordReset.js";
 import { startWebhookWorker } from "./modules/webhooks/dispatcher.js";
 import { startConnectionHealthChecks } from "./modules/dbAdmin/health.js";
 import { runDueMonitoring } from "./modules/monitoring/monitor.js";
-import { purgeOldActivity, runDueActivitySamples } from "./modules/dbMonitor/activity.js";
+import { runDueActivitySamples } from "./modules/dbMonitor/activity.js";
+import { runRetention } from "./modules/retention/purge.js";
 import { failInterruptedBackups, purgeExpiredBackups } from "./modules/backups/repository.js";
 import { runDueBackupSchedules } from "./modules/backups/schedule.js";
 import { scheduleJob, stopAllJobs } from "./infrastructure/scheduler.js";
-import { purgeOldDeliveries } from "./modules/webhooks/repository.js";
 import { purgeExpiredSessions } from "./modules/auth/session.js";
 import { purgeExpiredMfaChallenges } from "./modules/auth/totpRepository.js";
 import { closeAllRooms, flushAllRooms } from "./realtime/roomRegistry.js";
 import { closeParsePool } from "./modules/projects/parsePool.js";
-import { purgeOldAuditEntries } from "./shared/audit.js";
-import { purgeOldQueryStats } from "./modules/dbAdmin/queryStats.js";
 import { recordError, tallyErrorForMetrics } from "./shared/errorLog.js";
-import { allEffectiveRetentions } from "./modules/retention/settings.js";
 
 const app = await buildApp();
 
@@ -36,13 +33,6 @@ const sweepSessions = async () => {
     // are no longer locked and haven't failed in a day carry no information.
     const attempts = await purgeStaleAttempts();
     if (attempts > 0) app.log.info(`purged ${attempts} stale login attempt row(s)`);
-    // Same schedule again: the audit trail is the one table with no natural
-    // ceiling, so its retention has to be enforced somewhere rather than left
-    // as a sentence in a policy document.
-    const retention = await allEffectiveRetentions();
-    const auditDays = retention.get("audit_log")!.value;
-    const audits = await purgeOldAuditEntries(auditDays);
-    if (audits > 0) app.log.info(`purged ${audits} audit entry(ies) past the ${auditDays}-day retention`);
     // MFA challenges are already short-lived (5 minutes) and `getMfaChallenge`
     // refuses an expired one on its own, but an abandoned login (password
     // step completed, second factor never entered) otherwise leaves a dead
@@ -51,12 +41,6 @@ const sweepSessions = async () => {
     if (challenges > 0) app.log.info(`purged ${challenges} expired MFA challenge(s)`);
     const resetTokens = await purgeExpiredResetTokens();
     if (resetTokens > 0) app.log.info(`purged ${resetTokens} expired/used password reset token(s)`);
-    const queryStats = await purgeOldQueryStats(retention.get("query_stats")!.value);
-    if (queryStats > 0) app.log.info(`purged ${queryStats} SQL console statistic row(s)`);
-    const activity = await purgeOldActivity(retention.get("db_activity")!.value);
-    if (activity > 0) app.log.info(`purged ${activity} database-side activity row(s)`);
-    const deliveries = await purgeOldDeliveries();
-    if (deliveries > 0) app.log.info(`purged ${deliveries} webhook delivery log row(s) older than 30 days`);
   } catch (err) {
     app.log.error({ err }, "session sweep failed");
   }
@@ -73,6 +57,13 @@ startConnectionHealthChecks(config.connectionHealthIntervalMinutes);
 scheduleJob("drift-monitor", 60_000, runDueMonitoring);
 // Database-side sessions of the connections an administrator asked to sample.
 scheduleJob("db-activity-samples", 60_000, runDueActivitySamples);
+// Every journal (audit, errors, webhook deliveries, health samples…) down to its retention
+// (`modules/retention/`). Hourly and in batches; not at boot, so a restart loop never purges.
+scheduleJob("log-retention", 60 * 60 * 1000, async () => {
+  const results = await runRetention();
+  for (const { key, deleted } of results)
+    if (deleted > 0) app.log.info(`retention: purged ${deleted} row(s) of ${key}`);
+});
 // Backups of connected databases: whatever a restart cut short is marked failed, and what is past its retention goes.
 const interrupted = await failInterruptedBackups();
 if (interrupted > 0) app.log.warn(`${interrupted} database backup(s) were interrupted by the restart`);

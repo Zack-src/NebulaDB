@@ -14,7 +14,10 @@ process.env.NEBULADB_LOG_LEVEL = "silent";
 const { buildApp } = await import("../../app.js");
 const { db } = await import("../../infrastructure/db.js");
 const { hashPassword } = await import("../auth/password.js");
-const { purgeOldQueryStats } = await import("./queryStats.js");
+const { purgeJournal } = await import("../retention/purge.js");
+const { findRetentionPolicy } = await import("../retention/registry.js");
+const purgeOldQueryStats = async (days: number) =>
+  (await purgeJournal(findRetentionPolicy("query_stats")!, days)).deleted;
 const { normalizeSql } = await import("./sqlShape.js");
 
 test("normalizeSql: every literal becomes ?, names and parameters stay", () => {
