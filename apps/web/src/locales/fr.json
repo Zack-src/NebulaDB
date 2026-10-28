@@ -2532,5 +2532,9 @@
   "tour.sql.title": "Console SQL",
   "tour.sql.body": "Exécutez des requêtes sur la base du projet depuis un volet à côté du diagramme. Ouvrez-le ou fermez-le avec {{shortcut}}.",
   "tour.palette.title": "Palette globale",
-  "tour.palette.body": "Allez à une page, une table ou une connexion depuis n'importe où avec {{shortcut}}. Cette visite se rejoue depuis le bouton d'aide en haut à droite."
+  "tour.palette.body": "Allez à une page, une table ou une connexion depuis n'importe où avec {{shortcut}}. Cette visite se rejoue depuis le bouton d'aide en haut à droite.",
+  "editor.empty.title": "Ce schéma est vide",
+  "editor.empty.body": "Ajoutez votre première table, importez un fichier DBML ou SQL existant, ou partez d'un schéma prêt à l'emploi. Vous pouvez aussi saisir du DBML dans le panneau de gauche.",
+  "editor.empty.addTable": "Créer une table",
+  "editor.empty.import": "Importer du DBML ou du SQL"
 }
