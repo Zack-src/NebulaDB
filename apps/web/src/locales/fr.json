@@ -2498,5 +2498,19 @@
   "errors.validationFailed": "Certains champs sont manquants ou invalides : {{fields}}.",
   "connections.addressMode": "Adresse du serveur",
   "connections.addressHost": "Hôte et port",
-  "connections.addressUri": "URI de connexion"
+  "connections.addressUri": "URI de connexion",
+  "projects.fromTemplate": "Depuis un modèle",
+  "projects.templates.title": "Partir d'un modèle",
+  "projects.templates.hint": "Un schéma de départ, déjà relié et disposé sur le canevas. Tout reste modifiable ensuite.",
+  "projects.templates.failed": "Le projet a été créé mais le modèle n'a pas pu y être chargé.",
+  "projects.templates.example.name": "Projet d'exemple",
+  "projects.templates.example.description": "Une petite librairie documentée : des notes sur les tables et les colonnes, pour essayer chaque onglet de l'espace de travail.",
+  "projects.templates.blog.name": "Blog",
+  "projects.templates.blog.description": "Utilisateurs, articles, commentaires et étiquettes : le classique plusieurs-à-plusieurs.",
+  "projects.templates.ecommerce.name": "E-commerce",
+  "projects.templates.ecommerce.description": "Clients, adresses, un catalogue hiérarchisé, commandes et lignes de commande.",
+  "projects.templates.saas.name": "SaaS multi-locataire",
+  "projects.templates.saas.description": "Organisations, membres et rôles, abonnement, factures et journal d'audit.",
+  "projects.firstProject.title": "Créez votre premier projet",
+  "projects.firstProject.body": "Un projet contient le schéma d'une base : dessinez-le, versionnez-le, déployez-le. Partez de zéro, d'un schéma prêt à l'emploi ou d'une base existante."
 }
