@@ -3,13 +3,15 @@
   import type { DatabaseEngine, DeploymentHistoryEntry } from "@nebuladb/shared";
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";
+  import Checkbox from "@/components/ui/Checkbox.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { AlertTriangleIcon } from "@/components/icons/Icons";
-  import { TEXTAREA_CODE_CLASS } from "@/components/ui/inputStyles";
+  import { INPUT_CLASS, TEXTAREA_CODE_CLASS } from "@/components/ui/inputStyles";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
+  import { ApiError } from "@/services/ApiError";
   import { rollbackDeployment } from "@/services/connectionsApi";
 
   let {
@@ -35,9 +37,25 @@
 
   const { t } = useTranslation();
   let typed = $state("");
-  const confirmed = $derived(!production || typed.trim() === connectionName.trim());
+  let backupChoice = $state<boolean | null>(null);
+  const backupBefore = $derived(backupChoice ?? production);
+  // Set once the server says the stage asks for a review: a project administrator may then go on, with a reason.
+  let reviewSkipAsked = $state(false);
+  let reviewSkipReason = $state("");
+  const confirmed = $derived(
+    (!production || typed.trim() === connectionName.trim()) && (!reviewSkipAsked || reviewSkipReason.trim() !== ""),
+  );
   const rollback = useAsyncAction(async () => {
-    await rollbackDeployment(projectId, connId, entry.id, production ? typed : undefined);
+    try {
+      await rollbackDeployment(projectId, connId, entry.id, {
+        confirmName: production ? typed : undefined,
+        backupBefore,
+        skipReviewReason: reviewSkipAsked ? reviewSkipReason.trim() : undefined,
+      });
+    } catch (err) {
+      if (err instanceof ApiError && err.code === "ROLLBACK_REVIEW_REQUIRED") reviewSkipAsked = true;
+      throw err;
+    }
     onRolledBack();
   });
 </script>
@@ -59,6 +77,26 @@
       <label class="block text-xs text-text">
         <span class="mb-1 block font-semibold text-danger">{t("environments.typeToConfirm", { name: connectionName })}</span>
         <Input bind:value={typed} autocomplete="off" aria-label={t("environments.typeToConfirmLabel")} />
+      </label>
+    {/if}
+
+    <Checkbox
+      checked={backupBefore}
+      onChange={(checked) => (backupChoice = checked)}
+      hint={t("deployment.rollbackBackupBeforeHint")}
+    >
+      <span class="text-xs">{t("deployment.rollbackBackupBefore")}</span>
+    </Checkbox>
+
+    {#if reviewSkipAsked}
+      <label class="block text-xs text-text">
+        <span class="mb-1 block font-semibold">{t("deployment.rollbackSkipReviewLabel")}</span>
+        <textarea
+          class={`${INPUT_CLASS} h-14 w-full`}
+          bind:value={reviewSkipReason}
+          maxlength={300}
+          placeholder={t("deployment.rollbackSkipReviewPlaceholder")}
+        ></textarea>
       </label>
     {/if}
 

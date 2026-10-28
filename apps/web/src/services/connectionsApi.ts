@@ -67,6 +67,8 @@ export interface ApplyDeploymentResponse {
 export interface RollbackResponse {
   success: boolean;
   executedStatements: number;
+  /** The backup taken just before, when there was one. */
+  backupId: string | null;
 }
 
 export interface CreateProjectFromDatabaseResponse {
@@ -289,12 +291,23 @@ export async function rollbackDeployment(
   projectId: string,
   connId: string,
   historyId: string,
-  /** As for `applyDeployment`. */
-  confirmName?: string,
+  options: {
+    /** As for `applyDeployment`. */
+    confirmName?: string;
+    /** Back the database up first; left out, the server does so on the production stage only. */
+    backupBefore?: boolean;
+    /** On a stage that asks for a review, which a rollback does not go through: a project administrator's reason. */
+    skipReviewReason?: string;
+  } = {},
 ): Promise<RollbackResponse> {
+  const { confirmName, backupBefore, skipReviewReason } = options;
   return request<RollbackResponse>(`/api/projects/${projectId}/connections/${connId}/history/${historyId}/rollback`, {
     method: "POST",
-    body: confirmName === undefined ? {} : { confirmName },
+    body: {
+      ...(confirmName === undefined ? {} : { confirmName }),
+      ...(backupBefore === undefined ? {} : { backupBefore }),
+      ...(skipReviewReason === undefined ? {} : { skipReview: true, reason: skipReviewReason }),
+    },
   });
 }
 

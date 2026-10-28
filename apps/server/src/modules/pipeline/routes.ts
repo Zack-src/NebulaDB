@@ -3,7 +3,7 @@ import { readProjectFromDoc } from "@nebuladb/shared";
 import { getRoom } from "../../realtime/roomRegistry.js";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
-import { requireAdmin, requireProjectAccess } from "../../shared/guards.js";
+import { requireAdmin, requireProjectAccess, requireProjectAdmin } from "../../shared/guards.js";
 import { projectPipeline, schemaHashOf } from "./pipeline.js";
 import { parseParams, idParams } from "../../shared/validate.js";
 
@@ -28,6 +28,29 @@ export async function stageSkipFor(
     connectionId,
   });
   return true;
+}
+
+/**
+ * The reason a rollback may run on a stage that asks for a review, or `undefined`
+ * when none was asked for. A rollback does not go through the review flow (it
+ * undoes a deployment already recorded, often in a hurry): on such a stage it is
+ * for a project administrator, who gives a reason, written to the audit log
+ * before anything runs.
+ */
+export async function rollbackReviewSkipFor(
+  req: FastifyRequest,
+  projectId: string,
+  connectionId: string,
+  body: { skipReview?: unknown; reason?: unknown },
+): Promise<string | undefined> {
+  if (body.skipReview !== true) return undefined;
+  const { user } = await requireProjectAdmin(req, projectId);
+  const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, REASON_MAX) : "";
+  if (!reason) throw new ApiError("ROLLBACK_REVIEW_REASON_REQUIRED");
+  await auditUser(user, "connection.rollback.review_skipped", { type: "project", id: projectId }, reason, req, {
+    connectionId,
+  });
+  return reason;
 }
 
 /**
