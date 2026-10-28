@@ -67,7 +67,7 @@ Environment variables, or the root `.env` (see [`.env.example`](.env.example); a
 | `NEBULADB_DATABASE_BACKUP_DIR`                                               | `./data/database-backups`         | Backups of connected databases.                                                                                                                                                         |
 | `NEBULADB_DATABASE_BACKUP_MAX_MB`                                            | `512`                             | Max data read by one backup.                                                                                                                                                            |
 | `NEBULADB_DATABASE_BACKUP_RETENTION_DAYS`                                    | `30`                              | Days kept; `0` = forever.                                                                                                                                                               |
-| `NEBULADB_AUDIT_RETENTION_DAYS`                                              | `365`                             | Audit log retention; `0` = forever.                                                                                                                                                     |
+| `NEBULADB_AUDIT_RETENTION_DAYS`                                              | `365`                             | Audit log retention; `0` = forever. An admin setting overrides it (see Logs and retention).                                                                                             |
 | `NEBULADB_QUERY_STATS_RETENTION_DAYS`                                        | `30`                              | SQL console statistics retention.                                                                                                                                                       |
 | `NEBULADB_DB_ACTIVITY_RETENTION_DAYS`                                        | `14`                              | Database activity history retention.                                                                                                                                                    |
 | `NEBULADB_SEED_DIR`                                                          | `./data/seeds`                    | Where initial data too big for the database is kept (one CSV per table).                                                                                                                |
@@ -147,25 +147,42 @@ contain accounts, teams, connections, revision history, seeds or the audit log. 
 PostgreSQL dump (`pg_dump`) or an `export-instance` archive, plus `NEBULADB_SECRET` plus the `nebuladb-data` volume: see the runbook in
 [docs/backup-restore.md](docs/backup-restore.md) (commands, restore drill, verification).
 
-**Logs and retention.** What NebulaDB keeps, and for how long. Purges run at boot and then hourly.
+**Logs and retention.** What NebulaDB keeps, and for how long. Every journal is declared once in
+`apps/server/src/modules/retention/registry.ts` and purged by one hourly job (not at boot), in batches of 5,000
+rows. An instance administrator changes a journal's retention in the admin console; that setting wins over the
+journal's environment variable, which wins over the default. Each change and each purge that removed rows is
+written to the audit log (`retention.changed`, `retention.purged`).
 
-| Log (table)                                     | Kept                                    | Setting                                   |
-| ----------------------------------------------- | --------------------------------------- | ----------------------------------------- |
-| Audit (`audit_log`)                             | 365 days                                | `NEBULADB_AUDIT_RETENTION_DAYS`           |
-| SQL console statistics (`query_stats`)          | 30 days                                 | `NEBULADB_QUERY_STATS_RETENTION_DAYS`     |
-| Database activity (`db_activity`)               | 14 days                                 | `NEBULADB_DB_ACTIVITY_RETENTION_DAYS`     |
-| Backups of connected databases (`backups`)      | 30 days, pinned ones kept               | `NEBULADB_DATABASE_BACKUP_RETENTION_DAYS` |
-| Project backups (`npm run backup`, scheduled)   | the last 7                              | `NEBULADB_BACKUP_KEEP`                    |
-| Webhook deliveries (`webhook_deliveries`)       | 30 days                                 | fixed                                     |
-| Server errors (`error_log`)                     | the last 2,000                          | fixed                                     |
-| Connection health samples (`db_health_samples`) | 7 days                                  | fixed                                     |
-| SQL console history (`admin_query_history`)     | the last 200 entries                    | fixed                                     |
-| Notifications (`notifications`)                 | the last 200 per user                   | fixed                                     |
-| Drift events (`drift_events`)                   | never purged (removed with the project) | none                                      |
-| Deployment history (`deployment_history`)       | never purged (removed with the project) | none                                      |
-| Application logs (pino, stdout)                 | not stored by NebulaDB                  | see below                                 |
+| Journal (`key`, table)                                  | Default                               | Admin can set             | Environment fallback                      |
+| ------------------------------------------------------- | ------------------------------------- | ------------------------- | ----------------------------------------- |
+| Audit (`audit_log`)                                     | 365 days                              | 7–3650 days, or forever ¹ | `NEBULADB_AUDIT_RETENTION_DAYS`           |
+| Server and client errors (`error_log`)                  | the last 2,000                        | 100–100,000 rows          | —                                         |
+| Webhook deliveries (`webhook_deliveries`) ²             | 30 days                               | 1–3650 days, or forever   | —                                         |
+| Connection health samples (`db_health_samples`)         | 7 days                                | 1–365 days                | —                                         |
+| SQL console statistics (`query_stats`)                  | 30 days                               | 1–3650 days, or forever   | `NEBULADB_QUERY_STATS_RETENTION_DAYS`     |
+| Database activity (`db_activity`, `db_counter_samples`) | 14 days                               | 1–3650 days, or forever   | `NEBULADB_DB_ACTIVITY_RETENTION_DAYS`     |
+| SQL console history (`admin_query_history`)             | the last 200 per admin and connection | 10–5,000 rows             | —                                         |
+| Notifications (`notifications`)                         | the last 200 per user                 | 10–5,000 rows             | —                                         |
+| Drift events (`drift_events`) ³                         | forever                               | 7–3650 days, or forever   | —                                         |
+| Deployment history (`deployment_history`) ⁴             | forever                               | 30–3650 days, or forever  | —                                         |
+| Backups of connected databases (`backups`)              | 30 days, pinned ones kept             | per backup schedule       | `NEBULADB_DATABASE_BACKUP_RETENTION_DAYS` |
+| Project backups (`npm run backup`, scheduled)           | the last 7                            | —                         | `NEBULADB_BACKUP_KEEP`                    |
+| Application logs (pino, stdout)                         | not stored by NebulaDB                | —                         | see below                                 |
 
-`0` means keep everything where a setting accepts it.
+`0` in an environment variable, or "forever" in the console, keeps everything. Whatever the retention, rows left
+by a deleted connection are removed. ¹ Below 90 days the console asks for a confirmation. ² Deliveries still
+waiting for a retry are never purged. ³ Open findings are never purged. ⁴ The last 20 deployments per project and
+database, and any deployment a rollback refers to, are always kept. Sessions, MFA challenges, password reset tokens
+and login attempt counters are not journals: they expire on their own rule.
+
+The admin API behind the console (instance administrators, browser session only; API keys are refused):
+
+| Method | Path                                | Body                                           | Returns                                                                                                                                                                                                                                                                                                                                                    |
+| ------ | ----------------------------------- | ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `GET`  | `/api/admin/retention`              | —                                              | `{ journals }`: per journal `key`, `label`, `description`, `unit` (`days`/`rows`), `value` (`0` = forever), `source` (`db`/`env`/`default`), `defaultValue`, `envVar`, `envValue`, `min`, `max`, `allowForever`, `confirmBelow`, `updatedBy`, `updatedAt`, `tables`, `rows`, `bytes`, `oldest`, `lastPurge` (`{ at, deleted, cutoff, trigger }` or `null`) |
+| `GET`  | `/api/admin/retention/:key/preview` | —                                              | `{ key, unit, value, cutoff, rows }`: what a purge now would delete                                                                                                                                                                                                                                                                                        |
+| `PUT`  | `/api/admin/retention/:key`         | `{ value: number \| null, confirm?: boolean }` | `{ journal }`. `null` removes the setting (back to the environment or the default); `confirm: true` is needed below `confirmBelow`                                                                                                                                                                                                                         |
+| `POST` | `/api/admin/retention/:key/purge`   | `{ confirm: "<key>" }`                         | `{ key, unit, value, deleted, cutoff, batches, at }`; `409 RETENTION_PURGE_RUNNING` while the journal is being purged                                                                                                                                                                                                                                      |
 
 **Log rotation.** The application logs are JSON on stdout and NebulaDB does not rotate them: the host does. In Docker, `docker-compose.yml` caps them with the `json-file` driver (`max-size: "10m"`, `max-file: "5"`); on another setup use `docker logs --log-opt max-size=…` when you `docker run`, journald (`SystemMaxUse=`, `journalctl --vacuum-time=30d`) or your process manager's own rotation.
 
