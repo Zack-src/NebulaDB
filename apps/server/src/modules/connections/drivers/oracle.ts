@@ -21,6 +21,13 @@ interface ColumnRow {
   DATA_DEFAULT: string | null;
 }
 
+interface IndexRow {
+  TABLE_NAME: string;
+  INDEX_NAME: string;
+  COLUMN_NAME: string;
+  UNIQUENESS: string;
+}
+
 interface ForeignKeyRow {
   CONSTRAINT_NAME: string;
   TABLE_NAME: string;
@@ -128,6 +135,49 @@ export class OracleDriver implements DatabaseDriver {
          WHERE c.constraint_type = 'R'`,
       );
 
+      // The indexes created on their own: those behind a constraint (primary key, UNIQUE) are skipped, a UNIQUE one on a
+      // single column being read as the column's `unique`. A function-based index has a hidden column (`COLUMN_NAME`
+      // is a `SYS_NC...` name, with an expression in USER_IND_EXPRESSIONS): the whole index is left out.
+      const indexRes = await conn.execute<IndexRow>(
+        `SELECT i.table_name AS "TABLE_NAME", i.index_name AS "INDEX_NAME", ic.column_name AS "COLUMN_NAME",
+                i.uniqueness AS "UNIQUENESS"
+         FROM user_indexes i
+         JOIN user_ind_columns ic ON ic.index_name = i.index_name AND ic.table_name = i.table_name
+         WHERE i.index_type IN ('NORMAL', 'NORMAL/REV')
+           AND i.table_name IN (SELECT table_name FROM user_tables)
+           AND NOT EXISTS (SELECT 1 FROM user_constraints c
+                           WHERE c.index_name = i.index_name AND c.constraint_type IN ('P', 'U'))
+           AND NOT EXISTS (SELECT 1 FROM user_ind_expressions e
+                           WHERE e.index_name = i.index_name AND e.table_name = i.table_name)
+         ORDER BY i.table_name, i.index_name, ic.column_position`,
+      );
+      const uniqueRes = await conn.execute<{ TABLE_NAME: string; COLUMN_NAME: string }>(
+        `SELECT cols.table_name AS "TABLE_NAME", MIN(cols.column_name) AS "COLUMN_NAME"
+         FROM user_constraints cons
+         JOIN user_cons_columns cols ON cons.constraint_name = cols.constraint_name
+         WHERE cons.constraint_type = 'U'
+         GROUP BY cols.table_name, cons.constraint_name
+         HAVING COUNT(*) = 1`,
+      );
+      const uniqueSet = new Set(
+        ((uniqueRes.rows ?? []) as unknown as { TABLE_NAME: string; COLUMN_NAME: string }[]).map(
+          (r) => `${r.TABLE_NAME}.${r.COLUMN_NAME}`,
+        ),
+      );
+      const indexesByTable = new Map<string, Map<string, TableIndex>>();
+      for (const row of (indexRes.rows ?? []) as unknown as IndexRow[]) {
+        const byName = indexesByTable.get(row.TABLE_NAME) ?? new Map<string, TableIndex>();
+        const index = byName.get(row.INDEX_NAME) ?? {
+          id: `${row.TABLE_NAME}.${row.INDEX_NAME}`,
+          name: row.INDEX_NAME,
+          fieldIds: [],
+          ...(row.UNIQUENESS === "UNIQUE" ? { unique: true } : {}),
+        };
+        index.fieldIds.push(`${row.TABLE_NAME}.${row.COLUMN_NAME}`);
+        byName.set(row.INDEX_NAME, index);
+        indexesByTable.set(row.TABLE_NAME, byName);
+      }
+
       const columnsByTable = new Map<string, ColumnRow[]>();
       for (const col of (columnsRes.rows ?? []) as unknown as ColumnRow[]) {
         if (!columnsByTable.has(col.TABLE_NAME)) columnsByTable.set(col.TABLE_NAME, []);
@@ -141,6 +191,7 @@ export class OracleDriver implements DatabaseDriver {
           name: c.COLUMN_NAME,
           type: c.DATA_TYPE,
           pk: pkSet.has(`${t.TABLE_NAME}.${c.COLUMN_NAME}`),
+          ...(uniqueSet.has(`${t.TABLE_NAME}.${c.COLUMN_NAME}`) ? { unique: true } : {}),
           notNull: c.NULLABLE === "N",
           default: c.DATA_DEFAULT !== null && c.DATA_DEFAULT !== undefined ? String(c.DATA_DEFAULT).trim() : undefined,
         }));
@@ -149,7 +200,7 @@ export class OracleDriver implements DatabaseDriver {
           id: t.TABLE_NAME,
           name: t.TABLE_NAME,
           fields,
-          indexes: [] as TableIndex[],
+          indexes: [...(indexesByTable.get(t.TABLE_NAME)?.values() ?? [])],
           position: { x: (idx % 6) * 320, y: Math.floor(idx / 6) * 400 },
           detailLevel: "standard" as const,
         };
