@@ -121,6 +121,8 @@ export function sendSql(reply: FastifyReply, project: Project, dialect: SqlDiale
   try {
     return reply.type("text/plain").send(projectToSql(project, dialect));
   } catch (err) {
+    // Left as it is: the error handler answers it with the fragment to fix (`SQL_FRAGMENT_UNSAFE`).
+    if ((err as Error).name === "UnsafeSqlFragmentError") throw err;
     throw new ApiError("EXPORT_FAILED", { message: `export failed: ${(err as Error).message}` });
   }
 }
