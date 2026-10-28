@@ -99,8 +99,8 @@ choix du client et ne revient pas au prochain envoi.
 
 Agents : Opus pour ce qui touche la sûreté des déploiements, Sonnet pour le reste. Un commit par changement.
 
-- [ ] K1. Déploiements : verrou par connexion, rollback soumis à la revue / au lint / à la sauvegarde, SQL Server dans une transaction (Opus)
-- [ ] K2. Lire les index existants de la base (PostgreSQL, MySQL, SQLite, Oracle) pour que la comparaison ne les redemande pas (Sonnet)
+- [~] K1. Déploiements : verrou par connexion, rollback soumis à la revue / au lint / à la sauvegarde, SQL Server dans une transaction (Opus)
+- [x] K2. Lire les index existants de la base (PostgreSQL, MySQL, SQLite, Oracle) pour que la comparaison ne les redemande pas — `31c48df`, `be0c265`, `1c201e3`, `9299835` (Oracle sans test)
 - [ ] K3. Écran de comparaison d'environnements (le serveur existe, l'écran a été retiré) (Sonnet)
 - [ ] K4. Réglage léger de la surveillance par projet (routes serveur existantes, sans écran) (Sonnet)
 - [ ] K5. Visite guidée, modèles de projet et projet d'exemple au premier démarrage (Sonnet)
