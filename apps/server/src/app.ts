@@ -30,6 +30,7 @@ import { registerDbAccessRoutes } from "./modules/dbAccess/routes.js";
 import { registerEnvironmentRoutes } from "./modules/environments/routes.js";
 import { registerErrorRoutes } from "./modules/errors/routes.js";
 import { registerInvitationRoutes } from "./modules/invitations/routes.js";
+import { registerSetupRoutes } from "./modules/setup/routes.js";
 import { registerProjectRoutes } from "./modules/projects/index.js";
 import { getProjectRow } from "./modules/projects/repository.js";
 import { registerPublicApiRoutes } from "./modules/publicApi/index.js";
@@ -308,6 +309,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   registerPasswordResetRoutes(app);
   registerOidcRoutes(app);
   registerInvitationRoutes(app);
+  registerSetupRoutes(app);
   registerUserRoutes(app);
   registerTeamRoutes(app);
   registerProjectRoutes(app);

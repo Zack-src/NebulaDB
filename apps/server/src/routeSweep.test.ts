@@ -77,6 +77,8 @@ const PUBLIC = [
   /^\/api\/auth\/login\/totp$/,
   /^\/api\/share\//,
   /^\/api\/invitations\/[^/]+(\/accept)?$/,
+  // First-run setup: refuses everything once one account exists (covered in `modules/setup/`).
+  /^\/api\/setup(\/status)?$/,
   /^\/api\/v1\/openapi\.json$/,
   /^\/(invite|reset-password|project|share|ws)\b/,
   /^\/api\/auth\/logout$/,

@@ -22,6 +22,16 @@ import { recordError, tallyErrorForMetrics } from "./shared/errorLog.js";
 
 const app = await buildApp();
 
+// A fresh instance can be claimed from the browser (`modules/setup/`): say so where the operator looks.
+if (!(await db.prepare("SELECT 1 FROM users LIMIT 1").get())) {
+  app.log.warn(
+    config.setupToken
+      ? "no account yet: open the web UI to create the first administrator (the setup token NEBULADB_SETUP_TOKEN is required)"
+      : "no account yet: open the web UI to create the first administrator — anyone who reaches this instance first can; " +
+          "set NEBULADB_SETUP_TOKEN or run `npm run bootstrap-admin` to prevent that",
+  );
+}
+
 // Expired rows were never removed, so `sessions` grew forever. Sweep at boot
 // and hourly; `unref` so this timer alone can't hold the process open.
 const SESSION_SWEEP_MS = 60 * 60 * 1000;
