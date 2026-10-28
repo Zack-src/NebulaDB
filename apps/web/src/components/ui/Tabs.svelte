@@ -72,6 +72,7 @@
       <button
         type="button"
         role="tab"
+        data-tab-id={tab.id}
         id={idPrefix ? tabDomId(idPrefix, tab.id) : undefined}
         aria-controls={idPrefix ? panelDomId(idPrefix, tab.id) : undefined}
         aria-selected={active}
@@ -106,6 +107,7 @@
       <button
         type="button"
         role="tab"
+        data-tab-id={tab.id}
         id={idPrefix ? tabDomId(idPrefix, tab.id) : undefined}
         aria-controls={idPrefix ? panelDomId(idPrefix, tab.id) : undefined}
         aria-selected={active}
@@ -132,6 +134,7 @@
       <button
         type="button"
         role="tab"
+        data-tab-id={tab.id}
         id={idPrefix ? tabDomId(idPrefix, tab.id) : undefined}
         aria-controls={idPrefix ? panelDomId(idPrefix, tab.id) : undefined}
         aria-selected={active}

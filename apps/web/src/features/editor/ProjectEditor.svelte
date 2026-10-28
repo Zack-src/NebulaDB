@@ -60,6 +60,8 @@ import { DeploymentDrawerState } from "@/features/workspace/drawerState.svelte";
   import {
     loadHighlightLinks,
     loadShowValidationIssues,
+    loadWorkspaceTourSeen,
+    saveWorkspaceTourSeen,
     saveHighlightLinks,
     saveShowValidationIssues,
   } from "@/utils/preferences";
@@ -85,6 +87,8 @@ import { DeploymentDrawerState } from "@/features/workspace/drawerState.svelte";
   import McdCanvas from "@/features/editor/mcd/McdCanvas.svelte";
   import type { EditorViewMode } from "@/features/editor/mcd/ViewModeToggle.svelte";
   import DbmlPanel from "@/features/editor/dbml/DbmlPanel.svelte";
+  import WorkspaceTour from "@/features/onboarding/WorkspaceTour.svelte";
+  import { tourStepsFor } from "@/features/onboarding/tourSteps";
   import SettingsModal from "@/features/settings/SettingsModal.svelte";
 
   let props: {
@@ -385,6 +389,23 @@ import { DeploymentDrawerState } from "@/features/workspace/drawerState.svelte";
     };
   });
 
+  // The guided tour: offered once per browser, on the first project opened, then from the help button. The perf
+  // harness mounts the editor with no router (`onTabChange` absent) and is never interrupted by it.
+  let tourOpen = $state(false);
+  const tourSteps = $derived(
+    tourStepsFor({
+      tabs: workspaceTabs.map((item) => item.id),
+      deployments: deployments.usable,
+      sql: canUseSql,
+    }),
+  );
+  $effect(() => {
+    if (!canvasReady || !liveProject || !props.onTabChange || loadWorkspaceTourSeen()) return;
+    // Marked as seen when it starts, not when it ends: a reload halfway must not bring it back.
+    saveWorkspaceTourSeen();
+    tourOpen = true;
+  });
+
   let focusRequest = $state.raw<{ tableName: string; fieldName?: string } | null>(untrack(() => props.initialFocus) ?? null);
   provideWorkspace({
     openInSchema: (projectId, tableName, fieldName) => {
@@ -608,6 +629,7 @@ import { DeploymentDrawerState } from "@/features/workspace/drawerState.svelte";
     onShowImport={() => (showImport = true)}
     onShowExport={() => (showExport = true)}
     onOpenSettings={props.onOpenSettings ?? (() => (showSettings = true))}
+    onStartTour={() => (tourOpen = true)}
     follow={props.onOpenProject
       ? { projectId: project.id, onOpenProject: props.onOpenProject }
       : undefined}
@@ -880,6 +902,12 @@ import { DeploymentDrawerState } from "@/features/workspace/drawerState.svelte";
       focusRequest = { tableName };
     }}
   />
+  {#if tourOpen}
+    <WorkspaceTour
+      steps={tourSteps}
+      onClose={() => (tourOpen = false)}
+    />
+  {/if}
   <!-- Diagnostics overlay for editor stutter/freezes — hidden until Ctrl+Shift+P, see PerfHud. -->
   {#await import("@/components/dev/PerfHud.svelte") then { default: PerfHud }}
     <PerfHud />
