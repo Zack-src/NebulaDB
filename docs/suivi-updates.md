@@ -106,7 +106,7 @@ Agents : Opus pour ce qui touche la sûreté des déploiements, Sonnet pour le r
 - [x] K5. Visite guidée rejouable, modèles de projet, projet d'exemple, état vide du canevas — `117fc4c`, `8a35cc1`, `d5992c0`, `3eaf682`, `23e9cf2` (liste de démarrage non faite ; l'assistant `/setup` reste à faire : le premier admin se crée par `npm run bootstrap-admin`)
 - [x] K6. CI : tests navigateur, couverture, scan Docker, Dependabot — presque tout existait déjà ; ajout d'un test des modules natifs de l'image Docker, `170ca55` (workflows jamais lancés sur GitHub ; épinglage par SHA, seuil de couverture, push GHCR et job MSSQL bloquant restent à faire)
 - [x] K7. Rétention des journaux : registre, réglages, purge par lots, traçage, API admin (`9238379`, `cf03ed6`, `ff6b8e2`, `fecd08b`, `ed2be45`, `46f2c50`) et onglet « Rétention » de la console admin (`7686023`, `0b74fbe`, `d2348fa`) ; export avant suppression et purges ciblées restent à faire
-- [ ] K8. Assistant de premier démarrage `/setup` (création du premier administrateur sans ligne de commande) (Opus)
+- [x] K8. Assistant de premier démarrage (premier administrateur créé depuis le navigateur, jeton optionnel `NEBULADB_SETUP_TOKEN`) — `8eb71b4`, `c863bb6`, `66a0fbb`, `da426a8` (jeton à usage multiple et non généré ; l'état d'une instance non réclamée est public ; les autres tests navigateur n'ont pas été relancés après le changement du harnais)
 
 Bloqué sur une décision de Zack : licence du dépôt (LICENSE, SECURITY.md, CONTRIBUTING.md) ; IA optionnelle.
 
