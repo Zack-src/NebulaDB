@@ -77,6 +77,7 @@ import { DeploymentDrawerState } from "@/features/workspace/drawerState.svelte";
   import OpeningProgress from "@/features/editor/OpeningProgress.svelte";
   import { useFlashMessage } from "@/hooks/flashMessage.svelte";
   import { useCanvasCommandRunner } from "@/features/editor/hooks/canvasCommandRunner.svelte";
+  import EmptyCanvasGuide from "@/features/editor/EmptyCanvasGuide.svelte";
   import ProjectToolbar from "@/features/editor/ProjectToolbar.svelte";
   import EditorDialogs from "@/features/editor/EditorDialogs.svelte";
   import ProjectTabPanels from "@/features/editor/ProjectTabPanels.svelte";
@@ -735,6 +736,9 @@ import { DeploymentDrawerState } from "@/features/workspace/drawerState.svelte";
       >
         <Icon icon={ChevronRightIcon} size={15} />
       </button>
+    {/if}
+    {#if canWrite && viewMode === "mld" && liveProject && liveProject.tables.length === 0 && !history.preview}
+      <EmptyCanvasGuide projectId={project.id} onAddTable={() => mutations.addTable()} onImport={() => (showImport = true)} />
     {/if}
     <OpeningProgress working={detail.active && !detail.settled} progress={detail.progress} />
     {#if canvasReady}

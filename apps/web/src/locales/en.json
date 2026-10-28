@@ -2532,5 +2532,9 @@
   "tour.sql.title": "SQL console",
   "tour.sql.body": "Run queries on the project's database from a drawer beside the diagram. Open or close it with {{shortcut}}.",
   "tour.palette.title": "Global palette",
-  "tour.palette.body": "Jump to a page, a table or a connection from anywhere with {{shortcut}}. This tour can be replayed from the help button at the top right."
+  "tour.palette.body": "Jump to a page, a table or a connection from anywhere with {{shortcut}}. This tour can be replayed from the help button at the top right.",
+  "editor.empty.title": "This schema is empty",
+  "editor.empty.body": "Add your first table, import a DBML or SQL file you already have, or start from a ready-made schema. You can also type DBML in the panel on the left.",
+  "editor.empty.addTable": "Create a table",
+  "editor.empty.import": "Import DBML or SQL"
 }
