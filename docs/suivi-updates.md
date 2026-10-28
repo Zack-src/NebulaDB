@@ -105,7 +105,7 @@ Agents : Opus pour ce qui touche la sûreté des déploiements, Sonnet pour le r
 - [x] K4. Carte « Surveillance » du panneau de déploiement (activer, intervalle, tables ignorées, vérifier maintenant) — `fd66019`, `b3d6cf5`, `dbd6e09` (réservée aux administrateurs du projet ; sourdine, comptes et liste des constats non repris)
 - [ ] K5. Visite guidée, modèles de projet et projet d'exemple au premier démarrage (Sonnet)
 - [x] K6. CI : tests navigateur, couverture, scan Docker, Dependabot — presque tout existait déjà ; ajout d'un test des modules natifs de l'image Docker, `170ca55` (workflows jamais lancés sur GitHub ; épinglage par SHA, seuil de couverture, push GHCR et job MSSQL bloquant restent à faire)
-- [ ] K7. Rétention des journaux : registre, réglages, onglet admin, traçage des purges (Opus pour le registre, Sonnet pour l'écran)
+- [~] K7. Rétention des journaux : registre, réglages, purge par lots, traçage et API admin faits (`9238379`, `cf03ed6`, `ff6b8e2`, `fecd08b`, `ed2be45`, `46f2c50`) ; reste l'onglet « Rétention » de la console admin (Sonnet), l'export avant suppression et les purges ciblées
 
 Bloqué sur une décision de Zack : licence du dépôt (LICENSE, SECURITY.md, CONTRIBUTING.md) ; IA optionnelle.
 
