@@ -12,6 +12,7 @@ import * as backupsApi from "./backupsApi";
 import * as shareApi from "./shareLinksApi";
 import * as dbAdminApi from "./dbAdminApi";
 import * as journalApi from "./connectionJournalApi";
+import * as retentionApi from "./retentionApi";
 
 let mock: ReturnType<typeof mockFetch>;
 const setup = (...replies: Parameters<typeof mockFetch>) => {
@@ -21,7 +22,10 @@ const setup = (...replies: Parameters<typeof mockFetch>) => {
 };
 afterEach(() => mock?.restore());
 
-const ok = (body: unknown = {}) => () => jsonResponse(body);
+const ok =
+  (body: unknown = {}) =>
+  () =>
+    jsonResponse(body);
 
 describe("authApi", () => {
   test("login posts the credentials as JSON", async () => {
@@ -107,7 +111,10 @@ describe("projectsApi", () => {
     await projectsApi.createProject("Shop");
     assert.deepEqual([mock.last().init.method, mock.last().json], ["POST", { name: "Shop" }]);
     await projectsApi.renameProject("p1", "Shop 2");
-    assert.deepEqual([mock.last().url, mock.last().init.method, mock.last().json], ["/api/projects/p1", "PATCH", { name: "Shop 2" }]);
+    assert.deepEqual(
+      [mock.last().url, mock.last().init.method, mock.last().json],
+      ["/api/projects/p1", "PATCH", { name: "Shop 2" }],
+    );
     await projectsApi.setProjectStatus("p1", "archived");
     assert.deepEqual(mock.last().json, { status: "archived" });
     await projectsApi.deleteProjectForever("p1");
@@ -117,7 +124,10 @@ describe("projectsApi", () => {
   test("team and member grants are PUT with the permission, revoked with DELETE", async () => {
     setup(ok());
     await projectsApi.grantProjectTeam("p1", "t1", "edit");
-    assert.deepEqual([mock.last().url, mock.last().init.method, mock.last().json], ["/api/projects/p1/teams/t1", "PUT", { permission: "edit" }]);
+    assert.deepEqual(
+      [mock.last().url, mock.last().init.method, mock.last().json],
+      ["/api/projects/p1/teams/t1", "PUT", { permission: "edit" }],
+    );
     await projectsApi.revokeProjectTeam("p1", "t1");
     assert.equal(mock.last().init.method, "DELETE");
     await projectsApi.grantProjectMember("p1", "u1", "view");
@@ -290,7 +300,9 @@ describe("seedsApi", () => {
     test("PUTs the raw file with CSV type and encoded options, reports progress, resolves", async () => {
       install();
       const progress: [number, number][] = [];
-      const promise = seedsApi.uploadSeedFile("p1", "t 1", file, { delimiter: ";" } as never, (s, t) => progress.push([s, t]));
+      const promise = seedsApi.uploadSeedFile("p1", "t 1", file, { delimiter: ";" } as never, (s, t) =>
+        progress.push([s, t]),
+      );
       const xhr = FakeXhr.last;
       assert.equal(xhr.method, "PUT");
       assert.equal(xhr.url, "/api/projects/p1/seeds/t%201/file");
@@ -355,7 +367,10 @@ describe("lintApi", () => {
   test("choosing a preset or the default sends presetId, null included", async () => {
     setup(ok({}));
     await lintApi.chooseLintPreset("p1", "pr1");
-    assert.deepEqual([mock.last().url, mock.last().init.method, mock.last().json], ["/api/projects/p1/lint", "PUT", { presetId: "pr1" }]);
+    assert.deepEqual(
+      [mock.last().url, mock.last().init.method, mock.last().json],
+      ["/api/projects/p1/lint", "PUT", { presetId: "pr1" }],
+    );
     await lintApi.chooseLintPreset("p1", null);
     assert.deepEqual(mock.last().json, { presetId: null });
   });
@@ -387,7 +402,10 @@ describe("backupsApi", () => {
   test("pin, cancel, delete and restore", async () => {
     setup(ok({ result: { restored: 3 } }));
     await backupsApi.setBackupPinned("b1", true);
-    assert.deepEqual([mock.last().url, mock.last().init.method, mock.last().json], ["/api/admin/backups/b1", "PATCH", { pinned: true }]);
+    assert.deepEqual(
+      [mock.last().url, mock.last().init.method, mock.last().json],
+      ["/api/admin/backups/b1", "PATCH", { pinned: true }],
+    );
     await backupsApi.cancelBackup("b1");
     assert.equal(mock.last().url, "/api/admin/backups/b1/cancel");
     await backupsApi.deleteBackup("b1");
@@ -454,7 +472,13 @@ describe("dbAdminApi and connectionJournalApi", () => {
     await dbAdminApi.fetchEditableRows("c1", { database: "d", schema: "s", table: "t" } as never, 100, 200);
     const url = new URL(mock.last().url, "http://x");
     assert.equal(url.pathname, "/api/connections/c1/editable-rows");
-    assert.deepEqual(Object.fromEntries(url.searchParams), { database: "d", schema: "s", table: "t", limit: "100", offset: "200" });
+    assert.deepEqual(Object.fromEntries(url.searchParams), {
+      database: "d",
+      schema: "s",
+      table: "t",
+      limit: "100",
+      offset: "200",
+    });
   });
 
   test("applyRowEdits only confirms the write when executing", async () => {
@@ -496,5 +520,48 @@ describe("dbAdminApi and connectionJournalApi", () => {
     assert.equal(mock.last().url, "/api/admin/connections/c1/activity?days=1&outside=1");
     await journalApi.fetchDbActivity("c1", { days: 1, outside: false });
     assert.equal(mock.last().url, "/api/admin/connections/c1/activity?days=1");
+  });
+});
+
+describe("retentionApi", () => {
+  test("fetchRetention unwraps the journals", async () => {
+    setup(ok({ journals: [{ key: "audit_log" }] }));
+    const journals = await retentionApi.fetchRetention();
+    assert.equal(mock.last().url, "/api/admin/retention");
+    assert.equal(journals[0].key, "audit_log");
+  });
+
+  test("the preview is a GET on the journal's key", async () => {
+    setup(ok({ key: "audit_log", rows: 12 }));
+    await retentionApi.fetchRetentionPreview("audit_log");
+    assert.equal(mock.last().url, "/api/admin/retention/audit_log/preview");
+    assert.equal(mock.last().init.method, "GET");
+  });
+
+  test("setRetention puts the value, with confirm only when given, and null resets", async () => {
+    setup(ok({ journal: { key: "audit_log", value: 30 } }), ok({ journal: { key: "audit_log" } }));
+    const journal = await retentionApi.setRetention("audit_log", 30, true);
+    assert.equal(journal.value, 30);
+    assert.equal(mock.last().init.method, "PUT");
+    assert.deepEqual(mock.last().json, { value: 30, confirm: true });
+    await retentionApi.setRetention("audit_log", null);
+    assert.deepEqual(mock.last().json, { value: null });
+  });
+
+  test("purgeRetention sends the key back as confirmation", async () => {
+    setup(ok({ key: "audit_log", deleted: 3 }));
+    const result = await retentionApi.purgeRetention("audit_log");
+    assert.equal(mock.last().url, "/api/admin/retention/audit_log/purge");
+    assert.equal(mock.last().init.method, "POST");
+    assert.deepEqual(mock.last().json, { confirm: "audit_log" });
+    assert.equal(result.deleted, 3);
+  });
+
+  test("a missing confirmation surfaces the server code", async () => {
+    setup(() => jsonResponse({ error: "confirm", code: "RETENTION_CONFIRM_REQUIRED" }, 400));
+    await assert.rejects(
+      retentionApi.setRetention("audit_log", 30),
+      (e: unknown) => e instanceof ApiError && e.code === "RETENTION_CONFIRM_REQUIRED",
+    );
   });
 });
