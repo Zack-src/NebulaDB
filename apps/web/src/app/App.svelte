@@ -13,6 +13,9 @@
   import Login from "@/features/auth/Login.svelte";
   import SettingsPage from "@/features/settings/SettingsPage.svelte";
   import AcceptInvite from "@/features/auth/AcceptInvite.svelte";
+  import FirstRunSetup from "@/features/auth/FirstRunSetup.svelte";
+  import { signedOutScreen } from "@/features/auth/setupForm";
+  import { fetchSetupStatus, type SetupStatus } from "@/services/setupApi";
   import ResetPassword from "@/features/auth/ResetPassword.svelte";
   import AdminConsole from "@/features/admin/AdminConsole.svelte";
   import { APP_SHELL } from "@/components/ui/layout";
@@ -43,6 +46,25 @@
   let resetEmail = $state<string | null>(null);
 
   const session = $derived(auth.session);
+
+  // Signed out: is this a fresh instance with no account yet? Asked once, the first time the app is signed out;
+  // the setup screen then stands in for the login form. A failed request means the login form, never the setup.
+  let setupStatus = $state<SetupStatus | null | "loading">("loading");
+  let setupAsked = false;
+  $effect(() => {
+    if (session !== null || setupAsked) return;
+    setupAsked = true;
+    fetchSetupStatus()
+      .then((status) => (setupStatus = status))
+      .catch(() => (setupStatus = null));
+  });
+  // `/setup` is not a page of its own: once set up, an old link to it lands on the login form at `/`.
+  $effect(() => {
+    if (location.pathname !== "/setup") return;
+    const signedIn = session !== null && session !== "loading";
+    if (signedIn || (setupStatus !== "loading" && signedOutScreen(setupStatus) !== "setup"))
+      history.replaceState(null, "", "/");
+  });
 
   $effect(() => {
     if (!session || session === "loading") return;
@@ -112,8 +134,18 @@
       }}
     />
   </div>
-{:else if session === "loading"}
+{:else if session === "loading" || (!session && setupStatus === "loading")}
   <div class={APP_SHELL}></div>
+{:else if !session && setupStatus !== "loading" && signedOutScreen(setupStatus) === "setup"}
+  <FirstRunSetup
+    tokenRequired={setupStatus?.tokenRequired ?? false}
+    onDone={(next) => {
+      setupStatus = { needsSetup: false, tokenRequired: false };
+      window.history.replaceState(null, "", "/");
+      auth.setSession(next);
+      viewMode = "app";
+    }}
+  />
 {:else if !session}
   <Login
     initialEmail={resetEmail ?? welcomeEmail ?? undefined}
