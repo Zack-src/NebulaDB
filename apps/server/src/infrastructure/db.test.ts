@@ -161,3 +161,28 @@ test("isUniqueViolation tells a duplicate from any other failure, and one index 
   assert.ok(!isUniqueViolation(new Error("nothing to do with the database")));
   await db.exec("DELETE FROM scratch");
 });
+
+test("an advisory lock is taken once, refused without waiting while held, and taken again once let go", async () => {
+  const first = await db.tryAdvisoryLock(1, "conn-a");
+  assert.ok(first, "the lock was free");
+  assert.equal(await db.tryAdvisoryLock(1, "conn-a"), null, "held: refused at once");
+  const other = await db.tryAdvisoryLock(1, "conn-b");
+  assert.ok(other, "another key is another lock");
+  const otherSpace = await db.tryAdvisoryLock(2, "conn-a");
+  assert.ok(otherSpace, "the same key in another space is another lock");
+  await first();
+  await first(); // letting go twice does nothing more
+  const again = await db.tryAdvisoryLock(1, "conn-a");
+  assert.ok(again, "free again once let go");
+  await Promise.all([again(), other(), otherSpace()]);
+});
+
+test("what is written while a lock is held is committed as usual, not held in a transaction", async () => {
+  const release = await db.tryAdvisoryLock(1, "conn-c");
+  assert.ok(release);
+  await db.prepare("INSERT INTO scratch (id) VALUES ('locked')").run();
+  const seen = await db.transaction(() => db.prepare("SELECT id FROM scratch WHERE id = 'locked'").get());
+  assert.deepEqual(seen, { id: "locked" });
+  await release();
+  await db.exec("DELETE FROM scratch");
+});

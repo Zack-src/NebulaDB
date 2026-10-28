@@ -1994,6 +1994,7 @@
   "environments.variablesHint": "Valeurs des variables du schéma pour cette étape. Une valeur vide est permise ; une variable absente du tableau n'est pas définie.",
   "errors.pipelineStageSkipped": "Cette étape ne reçoit un schéma qu'une fois l'étape précédente à niveau : déployez-y d'abord.",
   "errors.deploymentReviewRequired": "Cette étape demande une revue : demandez-la pour ce déploiement, puis déployez la demande une fois approuvée par une autre personne.",
+  "errors.deploymentInProgress": "Un déploiement ou un retour arrière est déjà en cours sur cette base : attendez qu'il se termine, puis regardez le plan à nouveau.",
   "errors.cleanDeploymentNotAllowed": "Le déploiement propre n'est pas proposé sur l'étape de production, ni sur une étape qui demande une revue.",
   "errors.cleanDeploymentConfirmationRequired": "Un déploiement propre supprime toutes les données : retapez le nom de la connexion pour le confirmer.",
   "errors.deploymentReviewNotRequired": "Cette connexion n'est pas sur une étape qui demande une revue : déployez directement.",

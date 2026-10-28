@@ -198,12 +198,50 @@ export function isUniqueViolation(err: unknown, constraint?: string): boolean {
   return error?.code === "23505" && (constraint === undefined || error.constraint === constraint);
 }
 
+/**
+ * Takes the advisory lock (`space`, `key`) without waiting, for as long as the
+ * caller needs it — every NebulaDB process sees it. Returns how to let it go,
+ * or `null` when someone holds it already. The lock lives on a connection
+ * kept out of the pool until it is let go, outside any transaction: what the
+ * caller writes meanwhile is committed as usual. If that connection dies, the
+ * server drops the lock with it.
+ */
+async function tryAdvisoryLock(space: number, key: string): Promise<(() => Promise<void>) | null> {
+  const client = await pool.connect();
+  let taken = false;
+  try {
+    // Two integers (a space and the key's hash): never the same lock as a one-number one (`MIGRATION_LOCK`).
+    const row = (await client.query("SELECT pg_try_advisory_lock($1::int, hashtext($2)) AS taken", [space, key]))
+      .rows[0] as { taken: boolean };
+    taken = row.taken;
+  } catch (err) {
+    client.release(err instanceof Error ? err : undefined);
+    throw err;
+  }
+  if (!taken) {
+    client.release();
+    return null;
+  }
+  let released = false;
+  return async () => {
+    if (released) return;
+    released = true;
+    try {
+      await client.query("SELECT pg_advisory_unlock($1::int, hashtext($2))", [space, key]);
+      client.release();
+    } catch (err) {
+      // Destroyed rather than reused: closing the session is what lets the lock go.
+      client.release(err instanceof Error ? err : true);
+    }
+  };
+}
+
 /** Ends every connection. The last thing a process does with the database. */
 async function close(): Promise<void> {
   await pool.end();
 }
 
-export const db = { prepare, exec, transaction, close };
+export const db = { prepare, exec, transaction, tryAdvisoryLock, close };
 
 export type Database = typeof db;
 
