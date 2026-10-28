@@ -3,7 +3,10 @@ import type { DbAdminQueryHistoryEntry } from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { recordQueryStat } from "./queryStats.js";
 
-/** Per admin and per connection. A recall aid, not a record: the audit log is the accountable trail. */
+/**
+ * The most listed at once. A recall aid, not a record: the audit log is the accountable trail. How many
+ * are kept per admin and per connection is the `admin_query_history` retention (`modules/retention/`).
+ */
 const MAX_ENTRIES = 200;
 const MAX_SQL_LENGTH = 20_000;
 
@@ -53,14 +56,6 @@ export async function recordQuery(input: QueryHistoryInput): Promise<void> {
         input.durationMs,
         input.error?.slice(0, 1000) ?? null,
       );
-    await db
-      .prepare(
-        `DELETE FROM admin_query_history
-        WHERE connection_id = ? AND user_id = ? AND id NOT IN (
-          SELECT id FROM admin_query_history WHERE connection_id = ? AND user_id = ?
-           ORDER BY created_at DESC, seq DESC LIMIT ?)`,
-      )
-      .run(input.connectionId, input.userId, input.connectionId, input.userId, MAX_ENTRIES);
   } catch (err) {
     // Losing a history row must never fail the query it describes.
     console.error("[dbAdmin] failed to record query history:", err);

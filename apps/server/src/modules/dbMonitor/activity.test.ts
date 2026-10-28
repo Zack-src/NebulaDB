@@ -14,7 +14,11 @@ const { db } = await import("../../infrastructure/db.js");
 const { hashPassword } = await import("../auth/password.js");
 const { closeAllRooms } = await import("../../realtime/roomRegistry.js");
 const { resetConnectionBudgets } = await import("../connections/connectionBudget.js");
-const { activityReader, purgeOldActivity, runDueActivitySamples } = await import("./activity.js");
+const { activityReader, runDueActivitySamples } = await import("./activity.js");
+const { purgeJournal } = await import("../retention/purge.js");
+const { findRetentionPolicy } = await import("../retention/registry.js");
+const purgeOldActivity = async (days: number) =>
+  (await purgeJournal(findRetentionPolicy("db_activity")!, days)).deleted;
 
 type App = Awaited<ReturnType<typeof buildApp>>;
 

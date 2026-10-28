@@ -281,21 +281,6 @@ export async function auditUser(
   await audit({ id: user?.id ?? null, email: user?.email ?? null }, action, target, detail, req, context);
 }
 
-/**
- * Deletes entries older than `retentionDays`. `0` keeps everything — an
- * operator whose own rules require an indefinite trail should not have one
- * silently trimmed under them.
- *
- * Uses the database's own clock for the cutoff rather than a JS timestamp:
- * `created_at` is written by `utc_now()` (`YYYY-MM-DD HH:MM:SS`), which
- * does not sort correctly against a `toISOString()` value on the same date.
- */
-export async function purgeOldAuditEntries(retentionDays: number): Promise<number> {
-  if (retentionDays <= 0) return 0;
-  return (await db.prepare(`DELETE FROM audit_log WHERE created_at < utc_now(?)`).run(`-${retentionDays} days`))
-    .changes;
-}
-
 export interface AuditQuery {
   limit?: number;
   before?: string;

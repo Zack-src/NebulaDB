@@ -8,7 +8,12 @@ await useTestDatabase("audit");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 
 const { db } = await import("../infrastructure/db.js");
-const { audit, auditUser, listAuditLog, purgeOldAuditEntries } = await import("./audit.js");
+const { audit, auditUser, listAuditLog } = await import("./audit.js");
+const { purgeJournal } = await import("../modules/retention/purge.js");
+const { findRetentionPolicy } = await import("../modules/retention/registry.js");
+
+const purgeOldAuditEntries = async (days: number) =>
+  (await purgeJournal(findRetentionPolicy("audit_log")!, days)).deleted;
 
 const fakeRequest = (ip: string) => ({ ip }) as FastifyRequest;
 
@@ -95,7 +100,7 @@ test("the limit is clamped to a sane range", async () => {
   assert.ok((await listAuditLog({ limit: 100_000 })).length <= 500);
 });
 
-test("purgeOldAuditEntries deletes past the retention window and keeps the rest", async () => {
+test("the audit_log retention deletes past the retention window and keeps the rest", async () => {
   const target = randomUUID();
   await auditUser({ id: "u", email: "u@example.com" }, "project.delete", { type: "project", id: target }, "old");
   await auditUser({ id: "u", email: "u@example.com" }, "project.delete", { type: "project", id: target }, "recent");

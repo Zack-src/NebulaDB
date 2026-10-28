@@ -4,7 +4,7 @@ import { db } from "../infrastructure/db.js";
 /**
  * Unexpected errors in one place: server unhandled throws and 500s, plus client render crashes
  * reported by `ErrorBoundary`. A debugging aid, not a compliance trail like `audit.ts`: capped
- * by row count rather than dated retention.
+ * by row count rather than dated retention (`error_log` in `modules/retention/`).
  */
 
 export type ErrorSource = "server" | "client";
@@ -31,8 +31,6 @@ interface ErrorLogRow {
   user_email: string | null;
 }
 
-/** Row cap, trimmed on every write — see the module comment for why this is count-based, not date-based. */
-const MAX_ROWS = 2000;
 /** A stack trace can run to hundreds of lines for a deeply nested call; cap so one error can't dominate the table's storage. */
 const MAX_STACK_LENGTH = 8000;
 const MAX_MESSAGE_LENGTH = 2000;
@@ -67,13 +65,6 @@ export async function recordError(
         options.user?.id ?? null,
         options.user?.email ?? null,
       );
-    // Cheap with the `created_at` index and a rare write path (real errors,
-    // not every request) — no reason to defer this to a scheduled sweep.
-    await db
-      .prepare(
-        `DELETE FROM error_log WHERE id NOT IN (SELECT id FROM error_log ORDER BY created_at DESC, seq DESC LIMIT ?)`,
-      )
-      .run(MAX_ROWS);
   } catch (err) {
     console.error("[errorLog] failed to record error:", err);
   }

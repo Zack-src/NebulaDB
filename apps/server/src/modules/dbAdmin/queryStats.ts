@@ -7,7 +7,7 @@ import { normalizeSql } from "./sqlShape.js";
  * How often each statement shape runs through the SQL console on a connection, and how long
  * it takes as Nebula measures it (connection opening included): not the server's own statistics.
  *
- * Kept per UTC day (`NEBULADB_QUERY_STATS_RETENTION_DAYS`), with every literal replaced by `?`.
+ * Kept per UTC day (the `query_stats` retention, `modules/retention/`), with every literal replaced by `?`.
  */
 
 const QUERY_STATS_MAX = 200;
@@ -123,14 +123,3 @@ export async function listQueryStats(
   }));
 }
 
-/** Drops the days past the retention, and what is left of deleted connections. `0` keeps everything. */
-export async function purgeOldQueryStats(retentionDays: number): Promise<number> {
-  let removed = (
-    await db.prepare("DELETE FROM query_stats WHERE connection_id NOT IN (SELECT id FROM db_connections)").run()
-  ).changes;
-  if (retentionDays > 0) {
-    removed += (await db.prepare("DELETE FROM query_stats WHERE day < utc_today(?)").run(`-${retentionDays} days`))
-      .changes;
-  }
-  return removed;
-}

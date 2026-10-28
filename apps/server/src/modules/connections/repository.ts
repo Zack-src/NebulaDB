@@ -769,11 +769,10 @@ export async function recordConnectionHealth(id: string, result: HealthResult): 
       result.ok ? null : (result.error ?? "unreachable").slice(0, 500),
       id,
     );
-  // A short series for the "Santé" tab; a week is kept.
+  // A short series for the "Santé" tab; how long it is kept is the `db_health_samples` retention.
   await db
     .prepare("INSERT INTO db_health_samples (connection_id, ok, latency_ms) VALUES (?, ?, ?)")
     .run(id, result.ok ? 1 : 0, Math.round(result.latencyMs));
-  await db.prepare("DELETE FROM db_health_samples WHERE connection_id = ? AND at < utc_now('-7 days')").run(id);
 }
 
 export async function connectionOwner(id: string): Promise<string | null> {
