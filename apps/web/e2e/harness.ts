@@ -134,8 +134,10 @@ export async function codeEditorText(content: Locator): Promise<string> {
   return (await content.locator(".cm-line").allInnerTexts()).join("\n");
 }
 
-/** Logs the seeded admin in and waits for the dashboard to be interactive. */
+/** Logs the seeded admin in and waits for the dashboard to be interactive. The tour is marked as seen. */
 export async function login(page: Page, baseUrl: string): Promise<void> {
+  // The workspace tour is for a first visit; every other test starts as someone who has seen it.
+  await page.addInitScript(() => localStorage.setItem("nebuladb.tour.workspace.seen", "true"));
   await page.goto(baseUrl);
   await page.getByLabel("Adresse e-mail").fill(ADMIN_EMAIL);
   await page.getByLabel("Mot de passe").fill(ADMIN_PASSWORD);

@@ -26,6 +26,7 @@
   import {
     ChevronLeftIcon,
     DownloadIcon,
+    InfoIcon,
     RedoIcon,
     SettingsIcon,
     UndoIcon,
@@ -42,6 +43,8 @@
     onShowImport: () => void;
     onShowExport: () => void;
     onOpenSettings?: () => void;
+    /** Replays the guided tour of the workspace. */
+    onStartTour?: () => void;
     /** Present in the real app: the project to follow, and where a notification about another one leads. */
     follow?: { projectId: string; onOpenProject: (projectId: string) => void };
     localUser: string;
@@ -127,6 +130,19 @@
     <PresenceList localName={props.localUser} remote={props.remoteAwareness} />
 
     <PaletteButton />
+    {#if props.onStartTour}
+      <Button
+        variant="ghost"
+        size="icon-sm"
+        onclick={props.onStartTour}
+        data-tooltip={t("tour.replay")}
+        data-tooltip-pos="bottom"
+        aria-label={t("tour.replay")}
+        data-testid="replay-tour"
+      >
+        <Icon icon={InfoIcon} size={15} />
+      </Button>
+    {/if}
     {#if props.follow}
       <FollowMenu projectId={props.follow.projectId} />
       <NotificationBell onOpenProject={props.follow.onOpenProject} />

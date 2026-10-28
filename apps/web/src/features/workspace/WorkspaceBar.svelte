@@ -88,6 +88,7 @@
           variant="ghost"
           active={deploymentsOpen}
           onclick={onToggleDeployments}
+          data-tour="deployments"
           data-tooltip={t("workspace.deployments.toggle")}
           data-tooltip-pos="bottom"
         >
@@ -101,6 +102,7 @@
           variant="ghost"
           active={sqlOpen}
           onclick={onToggleSql}
+          data-tour="sql"
           data-tooltip={`${t("workspace.sql.toggle")} (${SQL_SHORTCUT})`}
           data-tooltip-pos="bottom"
         >

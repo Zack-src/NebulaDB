@@ -17,6 +17,7 @@ const KEY = {
   dbmlPanelWidth: "nebuladb.dbmlPanelWidth",
   gridStyle: "nebuladb.gridStyle",
   snapToGrid: "nebuladb.snapToGrid",
+  workspaceTourSeen: "nebuladb.tour.workspace.seen",
 } as const;
 
 /** The three backgrounds Svelte Flow can draw. */
@@ -119,6 +120,16 @@ export function saveShowValidationIssues(visible: boolean): void {
 }
 
 /** `null` means "never chosen" — the provider then follows the browser's own preference. */
+// The guided tour of the workspace: shown once per browser. There is no per-account preference store on the
+// server, so, like the other personal display preferences, the flag lives in this browser.
+export function loadWorkspaceTourSeen(): boolean {
+  return readBoolean(KEY.workspaceTourSeen, false);
+}
+
+export function saveWorkspaceTourSeen(): void {
+  writeBoolean(KEY.workspaceTourSeen, true);
+}
+
 export function loadLocale(): Locale | null {
   const stored = readString(KEY.locale);
   return isSupportedLocale(stored) ? stored : null;
