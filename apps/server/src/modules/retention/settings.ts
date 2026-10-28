@@ -1,5 +1,7 @@
+import type { FastifyRequest } from "fastify";
 import { config } from "../../config.js";
 import { db } from "../../infrastructure/db.js";
+import { audit } from "../../shared/audit.js";
 import { RETENTION_POLICIES, retentionValueProblem, type RetentionPolicy } from "./registry.js";
 
 /**
@@ -88,6 +90,30 @@ export async function setRetention(
       .run(settingKey(policy.key), JSON.stringify({ value }), userId);
   }
   return { before, after: await effectiveRetention(policy) };
+}
+
+const describe = (policy: RetentionPolicy, retention: EffectiveRetention) =>
+  `${retention.value === 0 ? "forever" : `${retention.value} ${policy.unit}`} (${retention.source})`;
+
+/**
+ * `setRetention`, recorded in the audit log (`retention.changed`) with the
+ * value before and after and where each came from.
+ */
+export async function changeRetention(
+  policy: RetentionPolicy,
+  value: number | null,
+  actor: { id: string; email: string },
+  req?: FastifyRequest,
+): Promise<EffectiveRetention> {
+  const { before, after } = await setRetention(policy, value, actor.id);
+  await audit(
+    actor,
+    "retention.changed",
+    { type: "retention", id: policy.key },
+    `${policy.key}: ${describe(policy, before)} -> ${describe(policy, after)}`,
+    req,
+  );
+  return after;
 }
 
 /** What the last purge of a journal did, scheduled or asked for. */

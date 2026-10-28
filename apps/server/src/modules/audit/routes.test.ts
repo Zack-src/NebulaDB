@@ -71,7 +71,7 @@ test("every audited action has a category on purpose", () => {
   assert.equal(activityCategory("lint.preset.create"), "configuration");
   assert.ok(
     (byCategory.get("configuration") ?? []).every((a) =>
-      /^(connection|dbconn|environment|webhook|instance|lint)\./.test(a),
+      /^(connection|dbconn|environment|webhook|instance|lint|retention)\./.test(a),
     ),
     [...(byCategory.get("configuration") ?? [])].join(", "),
   );

@@ -148,6 +148,8 @@ export const AUDIT_ACTIONS = [
   "share.create",
   "share.revoke",
   "share.reveal",
+  "retention.changed",
+  "retention.purged",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
