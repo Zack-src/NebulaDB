@@ -165,6 +165,8 @@ export async function startE2eEnvironment(
   port: number,
   /** Extra server env on top of the defaults — e.g. SMTP settings for the email flows. */
   extraEnv: NodeJS.ProcessEnv = {},
+  /** `seedAdmin: false` starts with no account at all, as a fresh install does (the first-run setup). */
+  options: { seedAdmin?: boolean } = {},
 ): Promise<E2eEnvironment> {
   const baseUrl = `http://127.0.0.1:${port}`;
   const dataDir = mkdtempSync(join(tmpdir(), "nebuladb-e2e-"));
@@ -198,7 +200,8 @@ export async function startE2eEnvironment(
   };
 
   try {
-    await runNodeScript("apps/server/dist/bootstrap-admin.js", [ADMIN_EMAIL, ADMIN_PASSWORD], env);
+    if (options.seedAdmin !== false)
+      await runNodeScript("apps/server/dist/bootstrap-admin.js", [ADMIN_EMAIL, ADMIN_PASSWORD], env);
 
     server = spawn(process.execPath, [join(REPO_ROOT, "apps/server/dist/index.js")], { env, cwd: REPO_ROOT });
     let serverOutput = "";
