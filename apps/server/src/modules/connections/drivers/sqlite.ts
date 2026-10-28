@@ -91,11 +91,39 @@ export class SqliteDriver implements DatabaseDriver {
         pk: number;
       }[];
 
+      // The indexes created on their own ('c'): a primary key ('pk') and a UNIQUE constraint ('u') are already read as
+      // the column's `pk` / `unique`. An expression index has no column name and a partial one has a `WHERE`: neither
+      // can be written as columns, so they are left out.
+      const indexList = this.db.prepare(`PRAGMA index_list(${q(tableName, "sqlite")})`).all() as {
+        name: string;
+        unique: number;
+        origin: string;
+        partial: number;
+      }[];
+      const indexes: TableIndex[] = [];
+      const uniqueColumns = new Set<string>();
+      for (const idx of indexList) {
+        const cols = this.db.prepare(`PRAGMA index_info(${q(idx.name, "sqlite")})`).all() as {
+          seqno: number;
+          name: string | null;
+        }[];
+        cols.sort((a, b) => a.seqno - b.seqno);
+        if (idx.origin === "u" && cols.length === 1 && cols[0].name) uniqueColumns.add(cols[0].name);
+        if (idx.origin !== "c" || idx.partial || cols.some((c) => c.name === null)) continue;
+        indexes.push({
+          id: `${tableName}.${idx.name}`,
+          name: idx.name,
+          fieldIds: cols.map((c) => `${tableName}.${c.name}`),
+          ...(idx.unique ? { unique: true } : {}),
+        });
+      }
+
       const fields = colInfo.map((c) => ({
         id: `${tableName}.${c.name}`,
         name: c.name,
         type: c.type || "text",
         pk: c.pk > 0,
+        ...(uniqueColumns.has(c.name) ? { unique: true } : {}),
         notNull: c.notnull === 1,
         default: c.dflt_value !== null ? String(c.dflt_value) : undefined,
       }));
@@ -128,7 +156,7 @@ export class SqliteDriver implements DatabaseDriver {
         id: tableName,
         name: tableName,
         fields,
-        indexes: [] as TableIndex[],
+        indexes,
         position: { x: (idx % 6) * 320, y: Math.floor(idx / 6) * 400 },
         detailLevel: "standard" as const,
       });
