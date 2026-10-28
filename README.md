@@ -11,9 +11,10 @@ cp .env.example .env      # one file: set NEBULADB_POSTGRES_PASSWORD and NEBULAD
 npm install
 npm run db:up             # PostgreSQL in Docker, localhost:5433 (NEBULADB_POSTGRES_PORT)
 npm run build
-npm run bootstrap-admin -- you@example.com 'a-strong-password'   # first admin, once
 npm run dev               # server :3001 (PORT) + web http://localhost:5173 (NEBULADB_WEB_PORT)
 ```
+
+Then open the app: on a fresh instance it asks for the first administrator (see [First administrator](#first-administrator)).
 
 **One `.env`.** Only the two values above are needed; everything reads this file (`npm run dev`, `npm start`, the server scripts, `npm run db:up`, `docker compose`). The server derives its database URL from `NEBULADB_POSTGRES_PASSWORD` and `NEBULADB_POSTGRES_PORT`; the web dev proxy follows `PORT`. Change a port in `.env` and everything follows. The password is fixed when the database volume is first created: change it later in the database too (`ALTER USER nebuladb PASSWORD '…'`).
 
@@ -34,9 +35,17 @@ Docker, app included (its own PostgreSQL; data in the `nebuladb-postgres` and `n
 docker compose up --build
 ```
 
-First admin in Docker (the image has no dev tools, so use the compiled script):
+### First administrator
+
+**From the browser.** While the instance has no account at all, the web app shows a setup screen instead of the login form: email, display name, password. It creates the first administrator, signs them in, and closes for good (`POST /api/setup` answers `409 SETUP_ALREADY_DONE` once any account exists).
+
+**Risk: whoever reaches a fresh instance first can claim it.** If it is reachable by anyone else before you set it up, set `NEBULADB_SETUP_TOKEN` (`openssl rand -hex 32`): the setup screen then asks for it, and a request without the right token is refused. The server logs a warning at boot while there is no account. Without a token, the screen says so.
+
+**From the command line** (headless installs, scripts, or to skip the browser setup entirely):
 
 ```bash
+npm run bootstrap-admin -- you@example.com 'a-strong-password'
+# in Docker (the image has no dev tools, so use the compiled script):
 docker compose exec nebuladb node apps/server/dist/bootstrap-admin.js you@example.com 'a-strong-password'
 ```
 
@@ -53,6 +62,7 @@ Environment variables, or the root `.env` (see [`.env.example`](.env.example); a
 | `NEBULADB_DATABASE_POOL_SIZE`                                                | `10`                              | Most connections the server opens to it.                                                                                                                                                |
 | `NEBULADB_SECRET`                                                            | —                                 | Encrypts stored database credentials and 2FA secrets. Required before using either. `openssl rand -hex 32`.                                                                             |
 | `NEBULADB_SECRET_PREVIOUS`                                                   | —                                 | Old secret, only while rotating (`npm run rotate-secret`).                                                                                                                              |
+| `NEBULADB_SETUP_TOKEN`                                                       | —                                 | Required by the browser setup of a fresh instance (first administrator). Unset: anyone who reaches it first can set it up.                                                              |
 | `NEBULADB_COOKIE_SECURE`                                                     | `false`                           | Set `true` behind TLS.                                                                                                                                                                  |
 | `NEBULADB_ALLOWED_ORIGINS`                                                   | —                                 | Extra allowed origins (API writes, WebSocket), comma-separated.                                                                                                                         |
 | `NEBULADB_TRUST_PROXY`                                                       | `false`                           | Behind a reverse proxy: `1` (hops), or its IPs/CIDRs. Client IP then comes from `X-Forwarded-For`.                                                                                      |
