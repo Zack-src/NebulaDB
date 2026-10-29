@@ -890,3 +890,20 @@ Table user {
   assert.equal(again.tables[0].indexes.length, 3);
   assert.equal(projectToDbml(again), dbml, "stable on a second round");
 });
+
+test("mergeProjectIntoExisting keeps a column's id when it is renamed in the text", () => {
+  const existing = toProject(parseDbml("Table scenario {\n  id int [pk]\n  name varchar(50)\n  label varchar(50)\n}"), "Test");
+  const nameId = existing.tables[0].fields.find((f) => f.name === "name")!.id;
+  const labelId = existing.tables[0].fields.find((f) => f.name === "label")!.id;
+
+  const renamed = toProject(parseDbml("Table scenario {\n  id int [pk]\n  title varchar(50)\n  label varchar(50)\n}"), "Test");
+  const merged = mergeProjectIntoExisting(existing, renamed);
+  const fields = merged.tables[0].fields;
+  assert.equal(fields.find((f) => f.name === "title")!.id, nameId, "the renamed column keeps its id");
+  assert.equal(fields.find((f) => f.name === "label")!.id, labelId);
+
+  // A column replaced by one of another type is a new column, not a rename.
+  const retyped = toProject(parseDbml("Table scenario {\n  id int [pk]\n  title int\n  label varchar(50)\n}"), "Test");
+  const mergedRetyped = mergeProjectIntoExisting(existing, retyped);
+  assert.notEqual(mergedRetyped.tables[0].fields.find((f) => f.name === "title")!.id, nameId);
+});
