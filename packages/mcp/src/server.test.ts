@@ -86,7 +86,10 @@ async function connect(overrides: Partial<Config> = {}) {
 }
 
 async function call(client: Client, name: string, args: Record<string, unknown> = {}) {
-  const result = (await client.callTool({ name, arguments: args })) as { content: { text: string }[]; isError?: boolean };
+  const result = (await client.callTool({ name, arguments: args })) as {
+    content: { text: string }[];
+    isError?: boolean;
+  };
   return { text: result.content[0].text, isError: result.isError === true };
 }
 
@@ -94,10 +97,15 @@ describe("tools", () => {
   it("lists exactly the read-only tools", async () => {
     const client = await connect();
     const { tools } = await client.listTools();
-    assert.deepEqual(
-      tools.map((t) => t.name).sort(),
-      ["diff_schema", "get_revisions", "get_schema", "get_table", "lint_schema", "list_projects", "search"],
-    );
+    assert.deepEqual(tools.map((t) => t.name).sort(), [
+      "diff_schema",
+      "get_revisions",
+      "get_schema",
+      "get_table",
+      "lint_schema",
+      "list_projects",
+      "search",
+    ]);
     assert.ok(tools.every((t) => t.annotations?.readOnlyHint === true));
   });
 
@@ -119,7 +127,10 @@ describe("tools", () => {
     assert.equal(r.isError, false);
     const info = JSON.parse(r.text);
     assert.equal(info.name, "posts");
-    assert.deepEqual(info.columns.map((c: { name: string }) => c.name), ["id", "user_id", "title"]);
+    assert.deepEqual(
+      info.columns.map((c: { name: string }) => c.name),
+      ["id", "user_id", "title"],
+    );
     assert.deepEqual(info.indexes[0].columns, ["user_id", "title"]);
     assert.match(info.refs[0], /posts\.user_id > users\.id/);
   });
@@ -149,7 +160,10 @@ describe("tools", () => {
 
   it("diff_schema compares locally without calling the server", async () => {
     const before = seen.length;
-    const after = DBML.replace("title varchar", "title text\n  slug varchar").replace("Table users {", "Table users {\n  age int");
+    const after = DBML.replace("title varchar", "title text\n  slug varchar").replace(
+      "Table users {",
+      "Table users {\n  age int",
+    );
     const r = await call(await connect(), "diff_schema", { before: DBML, after });
     assert.match(r.text, /~ table posts/);
     assert.match(r.text, /\+ slug varchar/);
@@ -228,12 +242,21 @@ describe("config", () => {
 
   it("refuses a clear-text key over the network unless opted in", () => {
     const env = { NEBULADB_URL: "http://nebula.example.com", NEBULADB_API_KEY: KEY };
-    assert.throws(() => resolveConfig(env), (e: Error) => e instanceof ConfigError && !e.message.includes(KEY));
+    assert.throws(
+      () => resolveConfig(env),
+      (e: Error) => e instanceof ConfigError && !e.message.includes(KEY),
+    );
     assert.equal(resolveConfig({ ...env, NEBULADB_INSECURE: "1" }).baseUrl, "http://nebula.example.com");
-    assert.equal(resolveConfig({ NEBULADB_URL: "http://localhost:3000/", NEBULADB_API_KEY: KEY }).baseUrl, "http://localhost:3000");
+    assert.equal(
+      resolveConfig({ NEBULADB_URL: "http://localhost:3000/", NEBULADB_API_KEY: KEY }).baseUrl,
+      "http://localhost:3000",
+    );
   });
 
   it("validates numeric limits", () => {
-    assert.throws(() => resolveConfig({ NEBULADB_URL: "https://x.io", NEBULADB_API_KEY: KEY, NEBULADB_MCP_TIMEOUT_MS: "abc" }), ConfigError);
+    assert.throws(
+      () => resolveConfig({ NEBULADB_URL: "https://x.io", NEBULADB_API_KEY: KEY, NEBULADB_MCP_TIMEOUT_MS: "abc" }),
+      ConfigError,
+    );
   });
 });

@@ -14,7 +14,7 @@ export function quoteDouble(ident: string): string {
   return `"${ident.replace(/"/g, '""')}"`;
 }
 
-/** `` `name` `` — MySQL, BigQuery. */
+/** `` `name` `` — MySQL, BigQuery, ClickHouse. */
 export function quoteBacktick(ident: string): string {
   return `\`${ident.replace(/`/g, "``")}\``;
 }
@@ -26,7 +26,7 @@ export function quoteBracket(ident: string): string {
 
 /** The quoting an engine id (as stored on a connection) uses; same rules as `q()` of dbml-engine. */
 export function quotingStyleFor(engine: string): QuotingStyle {
-  if (engine === "mysql" || engine === "bigquery") return "backtick";
+  if (engine === "mysql" || engine === "bigquery" || engine === "clickhouse") return "backtick";
   if (engine === "mssql") return "bracket";
   return "double";
 }

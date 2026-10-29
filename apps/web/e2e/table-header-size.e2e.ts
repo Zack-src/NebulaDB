@@ -14,12 +14,18 @@ test("table header: same size at rest and on hover", { timeout: 90_000 }, async 
     await login(page, env.baseUrl);
     const projectId = await page.evaluate(async () => {
       const json = { "content-type": "application/json" };
-      const created = await fetch("/api/projects", { method: "POST", headers: json, body: JSON.stringify({ name: "Boutique" }) });
+      const created = await fetch("/api/projects", {
+        method: "POST",
+        headers: json,
+        body: JSON.stringify({ name: "Boutique" }),
+      });
       const { id } = (await created.json()) as { id: string };
       await fetch(`/api/projects/${id}/import`, {
         method: "POST",
         headers: json,
-        body: JSON.stringify({ source: "Table customer_order_items_archive {\n  id int [pk]\n}\nTable other {\n  id int [pk]\n}\n" }),
+        body: JSON.stringify({
+          source: "Table customer_order_items_archive {\n  id int [pk]\n}\nTable other {\n  id int [pk]\n}\n",
+        }),
       });
       return id;
     });
@@ -33,7 +39,10 @@ test("table header: same size at rest and on hover", { timeout: 90_000 }, async 
     const hovered = await table.boundingBox();
     assert.ok(rest && hovered);
     assert.ok(Math.abs(rest.width - hovered.width) < 1.5, `width ${rest.width} at rest, ${hovered.width} on hover`);
-    assert.ok(Math.abs(rest.height - hovered.height) < 1.5, `height ${rest.height} at rest, ${hovered.height} on hover`);
+    assert.ok(
+      Math.abs(rest.height - hovered.height) < 1.5,
+      `height ${rest.height} at rest, ${hovered.height} on hover`,
+    );
   } finally {
     await env.teardown();
   }

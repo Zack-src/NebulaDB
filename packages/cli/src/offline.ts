@@ -94,7 +94,12 @@ const quoted = (name: string) => `(?:"${escapeRegex(name)}"|\`${escapeRegex(name
  * findings name entities, not positions, so this reads the text for the declaration: good enough
  * to jump to, and `undefined` rather than a wrong guess when the declaration cannot be found.
  */
-export function locate(source: string, schemaName: string | undefined, tableName: string, fieldName?: string): Position | undefined {
+export function locate(
+  source: string,
+  schemaName: string | undefined,
+  tableName: string,
+  fieldName?: string,
+): Position | undefined {
   const lines = source.split(/\r?\n/);
   const schemaPart = schemaName ? `${quoted(schemaName)}\\s*\\.\\s*` : "(?:[^\\s.{]+\\s*\\.\\s*)?";
   const header = new RegExp(`^(\\s*)Table\\s+${schemaPart}${quoted(tableName)}(?=[\\s{]|$)`, "i");
@@ -133,7 +138,12 @@ interface LocatedFinding {
 
 type LintFormat = "text" | "json" | "markdown";
 
-function lintText(file: string, findings: LocatedFinding[], summary: { error: number; warning: number; info: number }, failOn: string) {
+function lintText(
+  file: string,
+  findings: LocatedFinding[],
+  summary: { error: number; warning: number; info: number },
+  failOn: string,
+) {
   const lines = findings.map((f) => {
     const at = f.line !== undefined ? `${file}:${f.line}:${f.column ?? 1}` : file;
     const where = f.fieldName ? `${f.tableName}.${f.fieldName}` : f.tableName;
@@ -148,7 +158,12 @@ function lintText(file: string, findings: LocatedFinding[], summary: { error: nu
 
 const cell = (text: string) => text.replace(/\|/g, "\\|").replace(/\r?\n/g, " ");
 
-function lintMarkdown(file: string, findings: LocatedFinding[], summary: { error: number; warning: number; info: number }, failed: boolean) {
+function lintMarkdown(
+  file: string,
+  findings: LocatedFinding[],
+  summary: { error: number; warning: number; info: number },
+  failed: boolean,
+) {
   const lines = [
     `### NebulaDB lint: ${failed ? "failed" : "passed"}`,
     "",
@@ -166,7 +181,9 @@ function lintMarkdown(file: string, findings: LocatedFinding[], summary: { error
 }
 
 export async function lintFile({ positionals: [file], values }: OfflineContext): Promise<OfflineOutcome> {
-  const format = (values.json === true ? "json" : typeof values.format === "string" ? values.format : "text") as LintFormat;
+  const format = (
+    values.json === true ? "json" : typeof values.format === "string" ? values.format : "text"
+  ) as LintFormat;
   const failOn = values["fail-on"] === "warning" ? "warning" : "error";
   const { project, source } = await loadProject(file);
   const engine = await import("@nebuladb/dbml-engine");
@@ -174,7 +191,12 @@ export async function lintFile({ positionals: [file], values }: OfflineContext):
   const tableName = new Map(project.tables.map((table) => [table.id, table.name]));
   const raw = engine.lintProject(project);
   const findings: LocatedFinding[] = raw.map((finding) => {
-    const position = locate(source, tableSchema.get(finding.tableId), tableName.get(finding.tableId) ?? finding.tableName, finding.fieldName);
+    const position = locate(
+      source,
+      tableSchema.get(finding.tableId),
+      tableName.get(finding.tableId) ?? finding.tableName,
+      finding.fieldName,
+    );
     return {
       ruleId: finding.ruleId,
       severity: finding.severity,
@@ -196,10 +218,24 @@ export async function lintFile({ positionals: [file], values }: OfflineContext):
   return { failed, data, text };
 }
 
-type FieldLike = { name: string; type: string; pk?: boolean; unique?: boolean; notNull?: boolean; increment?: boolean; default?: string; note?: string };
+type FieldLike = {
+  name: string;
+  type: string;
+  pk?: boolean;
+  unique?: boolean;
+  notNull?: boolean;
+  increment?: boolean;
+  default?: string;
+  note?: string;
+};
 
 function describeField(field: FieldLike): string {
-  const flags = [field.pk && "pk", field.unique && "unique", field.notNull && "not null", field.increment && "increment"].filter(Boolean);
+  const flags = [
+    field.pk && "pk",
+    field.unique && "unique",
+    field.notNull && "not null",
+    field.increment && "increment",
+  ].filter(Boolean);
   return `${field.type}${flags.length > 0 ? ` [${flags.join(", ")}]` : ""}${field.default !== undefined ? ` default ${field.default}` : ""}`;
 }
 
@@ -207,7 +243,8 @@ function fieldChangeLines(diff: import("@nebuladb/dbml-engine").FieldDiff): stri
   if (diff.status === "added" && diff.after) return `${diff.name}: ${describeField(diff.after)}`;
   if (diff.status === "removed" && diff.before) return `${diff.name}: ${describeField(diff.before)}`;
   if (diff.before && diff.after) {
-    const rename = diff.before.name !== diff.after.name ? `${diff.before.name} -> ${diff.after.name}: ` : `${diff.name}: `;
+    const rename =
+      diff.before.name !== diff.after.name ? `${diff.before.name} -> ${diff.after.name}: ` : `${diff.name}: `;
     return `${rename}${describeField(diff.before)} -> ${describeField(diff.after)}`;
   }
   return diff.name;
@@ -238,7 +275,9 @@ function diffLines(diff: import("@nebuladb/dbml-engine").ProjectDiff, markdown: 
 }
 
 export async function diffFiles({ positionals: [oldFile, newFile], values }: OfflineContext): Promise<OfflineOutcome> {
-  const format = (values.json === true ? "json" : typeof values.format === "string" ? values.format : "text") as DiffFormat;
+  const format = (
+    values.json === true ? "json" : typeof values.format === "string" ? values.format : "text"
+  ) as DiffFormat;
   const engine = await import("@nebuladb/dbml-engine");
   const before = (await loadProject(oldFile)).project;
   const after = (await loadProject(newFile)).project;
@@ -264,7 +303,14 @@ export async function diffFiles({ positionals: [oldFile, newFile], values }: Off
       ...(changes === 0 ? [] : ["", ...diffLines(diff, true)]),
     ].join("\n");
   } else {
-    text = changes === 0 ? "No schema change." : [...diffLines(diff, false), "", `${counts.tables} table(s), ${counts.fields} field change(s), ${counts.refs} ref(s) changed`].join("\n");
+    text =
+      changes === 0
+        ? "No schema change."
+        : [
+            ...diffLines(diff, false),
+            "",
+            `${counts.tables} table(s), ${counts.fields} field change(s), ${counts.refs} ref(s) changed`,
+          ].join("\n");
   }
   return { failed, data, text };
 }

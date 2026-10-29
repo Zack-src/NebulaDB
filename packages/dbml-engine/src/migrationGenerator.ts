@@ -3,9 +3,18 @@ import { chosenRenames, renameColumnStatement } from "./renameDetection.js";
 import { translateType } from "@nebuladb/shared";
 import { isCurrentTimeExpression } from "./migrationDiff.js";
 import { assertSafeSqlFragment } from "./sqlFragments.js";
+import { generateMongoMigration, mongoCreateCollection } from "./mongoMigration.js";
+import { q, type MigrationDialect } from "./dialect.js";
 import type { MigrationDiff, MigrationFieldChange, MigrationTableChange } from "./migrationDiff.js";
 
-export type MigrationDialect = "postgres" | "mysql" | "sqlite" | "mssql" | "oracle" | "bigquery";
+export type { MigrationDialect };
+
+/**
+ * The SQL dialects that have no foreign key enforced, no unique constraint and no secondary index of the usual kind:
+ * BigQuery and ClickHouse declare at most a key. (MongoDB keeps its own indexes, see `mongoMigration.ts`; Redis holds
+ * no table at all.)
+ */
+const FLAT_SQL_DIALECTS: ReadonlySet<MigrationDialect> = new Set(["bigquery", "clickhouse"]);
 
 /**
  * The type actually emitted into SQL for `field` on `dialect`: the engine-
@@ -39,10 +48,15 @@ export function effectiveType(
  * still to do in every plan.
  */
 export function schemaForDialect(project: Project, dialect: MigrationDialect): Project {
-  if (dialect !== "bigquery") return project;
+  // Redis keeps keys, not tables: nothing of the schema is deployed to it, nor expected back from it.
+  if (dialect === "redis") return { ...project, tables: [], refs: [] };
+  // MongoDB has no foreign key; its collections keep the unique and secondary indexes the schema declares.
+  if (dialect === "mongodb") return { ...project, refs: [] };
+  if (!FLAT_SQL_DIALECTS.has(dialect)) return project;
   return {
     ...project,
-    refs: project.refs.filter((ref) => ref.from.tableId !== ref.to.tableId),
+    // ClickHouse has no foreign key at all.
+    refs: dialect === "clickhouse" ? [] : project.refs.filter((ref) => ref.from.tableId !== ref.to.tableId),
     tables: project.tables.map((table) => ({
       ...table,
       fields: table.fields.map((field) => (field.unique ? { ...field, unique: false } : field)),
@@ -52,11 +66,7 @@ export function schemaForDialect(project: Project, dialect: MigrationDialect): P
   };
 }
 
-export function q(ident: string, dialect: MigrationDialect): string {
-  if (dialect === "mysql" || dialect === "bigquery") return `\`${ident.replace(/`/g, "``")}\``;
-  if (dialect === "mssql") return `[${ident.replace(/]/g, "]]")}]`;
-  return `"${ident.replace(/"/g, '""')}"`;
-}
+export { q };
 
 /**
  * Deterministic, dependency-free string hash (FNV-1a) — this file is bundled
@@ -114,7 +124,7 @@ const ORACLE_ON_DELETE: Partial<Record<RefAction, string>> = {
 export function refActionClause(ref: Ref | undefined, dialect: MigrationDialect): string {
   if (!ref) return "";
   // A BigQuery foreign key is a declaration the engine never enforces: there is nothing for it to do on delete or update.
-  if (dialect === "bigquery") return "";
+  if (FLAT_SQL_DIALECTS.has(dialect) || dialect === "mongodb" || dialect === "redis") return "";
 
   if (dialect === "oracle") {
     const action = ref.onDelete && ORACLE_ON_DELETE[ref.onDelete];
@@ -148,7 +158,8 @@ function isSqlExpression(val: string): boolean {
 
 /** MySQL and BigQuery read `\'` as an escaped quote: a backslash in the text has to be doubled or it can close the literal. */
 function quoteSqlString(value: string, dialect: MigrationDialect): string {
-  const text = dialect === "mysql" || dialect === "bigquery" ? value.replace(/\\/g, "\\\\") : value;
+  const text =
+    dialect === "mysql" || dialect === "bigquery" || dialect === "clickhouse" ? value.replace(/\\/g, "\\\\") : value;
   return `'${text.replace(/'/g, "''")}'`;
 }
 
@@ -189,6 +200,9 @@ const NOW_NATIVE: Record<MigrationDialect, string[]> = {
   mssql: ["getdate()", "sysdatetime()", "current_timestamp"],
   oracle: ["current_timestamp", "localtimestamp", "sysdate", "systimestamp"],
   bigquery: [],
+  clickhouse: ["now()", "current_timestamp"],
+  mongodb: [],
+  redis: [],
 };
 
 /**
@@ -256,6 +270,11 @@ export function coerceBigQueryDefault(literal: string, type: string): string {
   return literal;
 }
 
+/** A ClickHouse column cannot hold NULL unless its type says so (`Nullable(String)`); a column of the key never does. */
+export function clickhouseColumnType(type: string, field: Pick<Field, "notNull" | "pk">): string {
+  return field.notNull || field.pk ? type : `Nullable(${type})`;
+}
+
 /**
  * What makes the database number an `increment` column itself — the clauses
  * the SQL export (`projectToSql`) writes, so a deployed table and an exported
@@ -294,6 +313,13 @@ export function formatColumnDef(
     if (field.notNull || field.pk) parts.push("NOT NULL");
     return parts.join(" ");
   }
+  if (dialect === "clickhouse") {
+    // No identity column, no UNIQUE, no inline key: the key is the table's ORDER BY (see `generateCreateTable`).
+    const parts = [q(field.name, dialect), clickhouseColumnType(type, field)];
+    const literal = defaultOf((d) => (isSqlExpression(d) ? d : quoteSqlString(d, dialect)));
+    if (literal !== null) parts.push(`DEFAULT ${literal}`);
+    return parts.join(" ");
+  }
   const identity = options.identity && field.increment ? IDENTITY_CLAUSE[dialect] : undefined;
   const parts = [q(field.name, dialect), type];
   // MySQL wants AUTO_INCREMENT after the key it rests on; the others take their clause right after the type.
@@ -313,13 +339,18 @@ export function generateCreateTable(
   dialect: MigrationDialect,
   resolutions: MigrationResolutionMap = {},
 ): string {
-  const colDefs = table.fields.map(
-    (f) => `  ${formatColumnDef(f, dialect, effectiveType(f, dialect, table.name, resolutions), { identity: true })}`,
-  );
-
+  if (dialect === "mongodb") return mongoCreateCollection(table);
+  if (dialect === "redis") return `-- Redis stores keys, not tables: ${table.name} is not created`;
   // Composite PK
   const pkIndex = table.indexes.find((i) => i.pk && i.fieldIds.length > 1);
-  if (pkIndex) {
+  // The columns of a composite key are not flagged one by one, yet none of them may be NULL: ClickHouse refuses a
+  // nullable column in its sorting key.
+  const inKey = (f: Field) => dialect === "clickhouse" && Boolean(pkIndex?.fieldIds.includes(f.id));
+  const colDefs = table.fields.map((f) => {
+    const column = inKey(f) ? { ...f, notNull: true } : f;
+    return `  ${formatColumnDef(column, dialect, effectiveType(f, dialect, table.name, resolutions), { identity: true })}`;
+  });
+  if (pkIndex && dialect !== "clickhouse") {
     const pkCols = pkIndex.fieldIds
       .map((id) => table.fields.find((f) => f.id === id)?.name ?? id)
       .map((n) => q(n, dialect))
@@ -329,6 +360,15 @@ export function generateCreateTable(
     // Elsewhere the key sits on its column; BigQuery only knows it as a constraint of the table, kept for the optimizer and never checked.
     const pkCols = table.fields.filter((f) => f.pk).map((f) => q(f.name, dialect));
     if (pkCols.length > 0) colDefs.push(`  PRIMARY KEY (${pkCols.join(", ")}) NOT ENFORCED`);
+  }
+
+  if (dialect === "clickhouse") {
+    // Every ClickHouse table needs an engine: MergeTree sorts its rows by the key, or by nothing when there is none.
+    const keyColumns = pkIndex
+      ? pkIndex.fieldIds.map((id) => table.fields.find((f) => f.id === id)?.name ?? id)
+      : table.fields.filter((f) => f.pk).map((f) => f.name);
+    const order = keyColumns.length > 0 ? `(${keyColumns.map((n) => q(n, dialect)).join(", ")})` : "tuple()";
+    return `CREATE TABLE ${q(table.name, dialect)} (\n${colDefs.join(",\n")}\n)\nENGINE = MergeTree\nORDER BY ${order};`;
   }
 
   return `CREATE TABLE ${q(table.name, dialect)} (\n${colDefs.join(",\n")}\n);`;
@@ -351,8 +391,8 @@ export function generateCreateIndex(
   options: { unique?: boolean; schema?: string | null } = {},
 ): string {
   const table = options.schema ? `${q(options.schema, dialect)}.${q(tableName, dialect)}` : q(tableName, dialect);
-  if (dialect === "bigquery") {
-    return `-- BigQuery has no secondary indexes: ${q(name, dialect)} on ${table} is not created`;
+  if (FLAT_SQL_DIALECTS.has(dialect)) {
+    return `-- ${dialect === "bigquery" ? "BigQuery" : "ClickHouse"} has no secondary indexes: ${q(name, dialect)} on ${table} is not created`;
   }
   const unique = options.unique ? "UNIQUE " : "";
   const cols = columns.map((column) => q(column, dialect)).join(", ");
@@ -362,6 +402,8 @@ export function generateCreateIndex(
 }
 
 export function generateDropTable(tableName: string, dialect: MigrationDialect): string {
+  if (dialect === "mongodb") return JSON.stringify({ drop: tableName });
+  if (dialect === "redis") return `-- Redis stores keys, not tables: ${tableName} is not dropped`;
   if (dialect === "postgres") return `DROP TABLE IF EXISTS ${q(tableName, dialect)} CASCADE;`;
   if (dialect === "oracle") return `DROP TABLE ${q(tableName, dialect)} CASCADE CONSTRAINTS;`;
   return `DROP TABLE IF EXISTS ${q(tableName, dialect)};`;
@@ -411,6 +453,19 @@ function addColumnStatements(
 function dataFixStatements(table: string, col: string, dialect: MigrationDialect, resolution: Resolution): string[] {
   const t = q(table, dialect);
   const c = q(col, dialect);
+  if (dialect === "clickhouse") {
+    // ClickHouse changes rows with mutations, which are ALTERs.
+    if (resolution?.strategy === "CLEAR_COLUMN_DATA") return [`ALTER TABLE ${t} UPDATE ${c} = NULL WHERE 1;`];
+    if (resolution?.strategy === "BACKFILL_DEFAULT" && resolution.value) {
+      const val =
+        resolution.value.startsWith("'") || !Number.isNaN(Number(resolution.value))
+          ? resolution.value
+          : quoteSqlString(resolution.value, dialect);
+      return [`ALTER TABLE ${t} UPDATE ${c} = ${val} WHERE ${c} IS NULL;`];
+    }
+    if (resolution?.strategy === "DELETE_OFFENDING_ROWS") return [`ALTER TABLE ${t} DELETE WHERE ${c} IS NULL;`];
+    return [];
+  }
   if (resolution?.strategy === "CLEAR_COLUMN_DATA") {
     return [`UPDATE ${t} SET ${c} = NULL;`];
   }
@@ -448,6 +503,8 @@ function typeChangeStatement(
     case "bigquery":
       // Only widening changes are accepted (INT64 to NUMERIC, a longer STRING…); BigQuery refuses the others itself.
       return `ALTER TABLE ${t} ALTER COLUMN ${c} SET DATA TYPE ${targetType};`;
+    case "clickhouse":
+      return `ALTER TABLE ${t} MODIFY COLUMN ${c} ${clickhouseColumnType(targetType, after)};`;
     default:
       return `-- SQLite type altered for ${t}.${c} -> ${targetType}`;
   }
@@ -478,6 +535,9 @@ function nullabilityChangeStatement(
       ? `-- BigQuery cannot make an existing column NOT NULL: ${t}.${c} stays nullable`
       : `ALTER TABLE ${t} ALTER COLUMN ${c} DROP NOT NULL;`;
   }
+  // Nullability is part of a ClickHouse column's type: the whole type is stated again.
+  if (dialect === "clickhouse")
+    return `ALTER TABLE ${t} MODIFY COLUMN ${c} ${clickhouseColumnType(targetType, after)};`;
   return undefined;
 }
 
@@ -498,6 +558,11 @@ function defaultChangeStatement(
   }
   if (dialect === "oracle" && literal !== null) {
     return `ALTER TABLE ${t} MODIFY (${c} DEFAULT ${literal});`;
+  }
+  if (dialect === "clickhouse") {
+    return literal !== null
+      ? `ALTER TABLE ${t} MODIFY COLUMN ${c} DEFAULT ${literal};`
+      : `ALTER TABLE ${t} MODIFY COLUMN ${c} REMOVE DEFAULT;`;
   }
   return undefined;
 }
@@ -553,11 +618,23 @@ function generateFieldAlterations(
 /** `ALTER TABLE … DROP CONSTRAINT` for a foreign key the schema no longer declares; `null` where the engine has no such statement (SQLite). */
 export function dropForeignKeyStatement(ref: MigrationDiff["refs"][number], dialect: MigrationDialect): string | null {
   const fkName = ref.name || fkFallbackName(ref.fromTable, ref.fromField, ref.toTable);
+  if (dialect === "clickhouse" || dialect === "mongodb" || dialect === "redis") return null;
   if (dialect === "postgres" || dialect === "mssql" || dialect === "bigquery") {
     return `ALTER TABLE ${q(ref.fromTable, dialect)} DROP CONSTRAINT IF EXISTS ${q(fkName, dialect)};`;
   }
   if (dialect === "mysql") return `ALTER TABLE ${q(ref.fromTable, dialect)} DROP FOREIGN KEY ${q(fkName, dialect)};`;
   if (dialect === "oracle") return `ALTER TABLE ${q(ref.fromTable, dialect)} DROP CONSTRAINT ${q(fkName, dialect)};`;
+  return null;
+}
+
+/** The migration of an engine that is not SQL — MongoDB gets one JSON command per line, Redis has nothing to deploy — or `null`. */
+function nonSqlMigration(
+  diff: MigrationDiff,
+  dialect: MigrationDialect,
+  resolutions: MigrationResolutionMap,
+): string | null {
+  if (dialect === "mongodb") return generateMongoMigration(diff, resolutions);
+  if (dialect === "redis") return `-- Redis stores keys, not tables: there is nothing to deploy\n`;
   return null;
 }
 
@@ -577,6 +654,8 @@ export function generateMigrationSql(
   if (!diff.hasChanges) {
     return `-- No schema differences detected\n`;
   }
+  const notSql = nonSqlMigration(diff, dialect, resolutions);
+  if (notSql !== null) return notSql;
 
   const statements: string[] = [];
 
@@ -613,7 +692,7 @@ export function generateMigrationSql(
   for (const table of diff.tables.filter((t) => t.status === "added" && t.after)) {
     statements.push(generateCreateTable(table.after!, dialect, resolutions));
     // The table's own indexes come with it (a primary key is already in the `CREATE TABLE`; BigQuery has no secondary index).
-    for (const idx of dialect === "bigquery" ? [] : table.addedIndexes.filter((i) => !i.pk)) {
+    for (const idx of FLAT_SQL_DIALECTS.has(dialect) ? [] : table.addedIndexes.filter((i) => !i.pk)) {
       const colNames = idx.fieldIds.map((id) => table.after!.fields.find((f) => f.id === id)?.name ?? id);
       const idxName = idx.name || defaultIndexName(table.name, colNames);
       statements.push(generateCreateIndex(table.name, colNames, idxName, dialect, { unique: idx.unique }));
@@ -626,7 +705,9 @@ export function generateMigrationSql(
     // A column the answers rename is renamed, not dropped and added again: its data goes with it.
     const renamed = renames.get(table.name.toLowerCase()) ?? [];
     for (const { from, to } of renamed) statements.push(renameColumnStatement(table.name, from, to, dialect));
-    const skip = new Set(renamed.flatMap(({ from, to }) => [`dropped:${from.toLowerCase()}`, `added:${to.toLowerCase()}`]));
+    const skip = new Set(
+      renamed.flatMap(({ from, to }) => [`dropped:${from.toLowerCase()}`, `added:${to.toLowerCase()}`]),
+    );
     for (const field of table.fields) {
       if (skip.has(`${field.status}:${field.name.toLowerCase()}`)) continue;
       const fieldStmts = generateFieldAlterations(table, field, dialect, resolutions);
@@ -636,8 +717,8 @@ export function generateMigrationSql(
     // Dropped Indexes
     for (const idx of table.droppedIndexes) {
       const idxName = idx.name || `idx_${table.name}_${idx.fieldIds.join("_")}`;
-      // BigQuery has no secondary index to drop or create.
-      if (dialect === "bigquery") continue;
+      // BigQuery and ClickHouse have no secondary index to drop or create.
+      if (FLAT_SQL_DIALECTS.has(dialect)) continue;
       if (dialect === "mysql" || dialect === "mssql") {
         statements.push(`DROP INDEX ${q(idxName, dialect)} ON ${q(table.name, dialect)};`);
       } else if (dialect === "oracle") {
@@ -670,7 +751,7 @@ export function generateMigrationSql(
       statements.push(
         `-- BigQuery refuses a foreign key from a table to itself: ${q(ref.fromTable, dialect)}.${q(ref.fromField, dialect)} is not declared`,
       );
-    } else if (dialect !== "sqlite") {
+    } else if (dialect !== "sqlite" && dialect !== "clickhouse") {
       statements.push(
         `ALTER TABLE ${q(ref.fromTable, dialect)} ADD CONSTRAINT ${q(fkName, dialect)} FOREIGN KEY (${q(ref.fromField, dialect)}) REFERENCES ${q(ref.toTable, dialect)} (${q(ref.toField, dialect)})${refActionClause(ref.after, dialect)}${dialect === "bigquery" ? " NOT ENFORCED" : ""};`,
       );
@@ -678,7 +759,7 @@ export function generateMigrationSql(
   }
 
   // Transaction commit
-  if (dialect !== "bigquery") statements.push("COMMIT;");
+  if (!FLAT_SQL_DIALECTS.has(dialect)) statements.push("COMMIT;");
 
   return statements.join("\n\n");
 }

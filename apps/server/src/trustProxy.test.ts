@@ -22,7 +22,12 @@ test("parseTrustProxy: off by default, booleans, hop counts and address lists", 
   assert.equal(parseTrustProxy("true"), true);
   assert.equal(parseTrustProxy("1"), 1);
   assert.equal(parseTrustProxy(" 2 "), 2);
-  assert.deepEqual(parseTrustProxy("127.0.0.1, 10.0.0.0/8,::1,fd00::/8"), ["127.0.0.1", "10.0.0.0/8", "::1", "fd00::/8"]);
+  assert.deepEqual(parseTrustProxy("127.0.0.1, 10.0.0.0/8,::1,fd00::/8"), [
+    "127.0.0.1",
+    "10.0.0.0/8",
+    "::1",
+    "fd00::/8",
+  ]);
 });
 
 test("parseTrustProxy: rejects anything else", () => {

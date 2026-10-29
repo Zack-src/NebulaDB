@@ -6,6 +6,9 @@ import type { DriverConnectionConfig } from "../../connections/drivers/interface
 import { reachTarget, withTunnel } from "../../connections/sshTunnel.js";
 import type { DatabaseAdminDriver } from "./interface.js";
 import { BigQueryAdminDriver } from "./bigquery.js";
+import { ClickHouseAdminDriver } from "./clickhouse.js";
+import { MongoAdminDriver } from "./mongodb.js";
+import { RedisAdminDriver } from "./redis.js";
 import { MssqlAdminDriver } from "./mssql.js";
 import { MysqlAdminDriver } from "./mysql.js";
 import { OracleAdminDriver } from "./oracle.js";
@@ -30,7 +33,10 @@ export async function createAdminDriver(
     case "postgres":
     case "mysql":
     case "mssql":
-    case "oracle": {
+    case "oracle":
+    case "clickhouse":
+    case "mongodb":
+    case "redis": {
       const { config: target, tunnel } = await reachTarget(config);
       try {
         return withTunnel(openNetworkAdminDriver(target), tunnel);
@@ -56,6 +62,12 @@ function openNetworkAdminDriver(config: DriverConnectionConfig): DatabaseAdminDr
       return new MysqlAdminDriver(config);
     case "mssql":
       return new MssqlAdminDriver(config);
+    case "clickhouse":
+      return new ClickHouseAdminDriver(config);
+    case "mongodb":
+      return new MongoAdminDriver(config);
+    case "redis":
+      return new RedisAdminDriver(config);
     default:
       return new OracleAdminDriver(config);
   }

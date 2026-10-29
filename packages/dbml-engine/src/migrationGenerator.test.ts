@@ -342,7 +342,11 @@ test("BigQuery defaults take the type of their column: a number on a text column
     formatColumnDef({ ...column("BOOL", "true"), defaultKind: "string" } as Field, "bigquery"),
     "`c` BOOL DEFAULT TRUE",
   );
-  assert.equal(formatColumnDef(column("int", "0"), "postgres"), "\"c\" int DEFAULT 0", "other engines convert by themselves");
+  assert.equal(
+    formatColumnDef(column("int", "0"), "postgres"),
+    '"c" int DEFAULT 0',
+    "other engines convert by themselves",
+  );
 });
 
 test("a foreign key is dropped before the column it rests on, and before a table it points at", () => {
@@ -360,7 +364,13 @@ test("a foreign key is dropped before the column it rests on, and before a table
   const live = withRef(
     makeSimpleProject([
       { name: "users", fields: [{ name: "id", type: "int", pk: true }] },
-      { name: "orders", fields: [{ name: "id", type: "int", pk: true }, { name: "user_id", type: "int" }] },
+      {
+        name: "orders",
+        fields: [
+          { name: "id", type: "int", pk: true },
+          { name: "user_id", type: "int" },
+        ],
+      },
     ]),
     "orders",
     "users",
@@ -381,8 +391,17 @@ test("a foreign key is dropped before the column it rests on, and before a table
 
   // A table the schema dropped whose relation went with it: still no statement left on a table that is gone.
   const withoutUsers = makeSimpleProject([
-    { name: "orders", fields: [{ name: "id", type: "int", pk: true }, { name: "user_id", type: "int" }] },
+    {
+      name: "orders",
+      fields: [
+        { name: "id", type: "int", pk: true },
+        { name: "user_id", type: "int" },
+      ],
+    },
   ]);
   const dropsTarget = generateMigrationSql(diffTargetAgainstLive(live, withoutUsers), "mysql");
-  assert.ok(dropsTarget.search(/DROP FOREIGN KEY/) < dropsTarget.search(/DROP TABLE/), "the key goes before the table it points at");
+  assert.ok(
+    dropsTarget.search(/DROP FOREIGN KEY/) < dropsTarget.search(/DROP TABLE/),
+    "the key goes before the table it points at",
+  );
 });

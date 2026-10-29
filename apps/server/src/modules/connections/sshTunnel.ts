@@ -128,7 +128,9 @@ export async function reachTarget(
   // First connection of a saved connection: remember the key, so a changed one is refused from now on.
   if (config.id && !config.sshTunnel.hostKeyFingerprint && tunnel.hostKeyFingerprint) {
     const { pinSshHostKey } = await import("./repository.js");
-    await pinSshHostKey(config.id, tunnel.hostKeyFingerprint).catch(reportBackground("ssh tunnel: pinning the host key"));
+    await pinSshHostKey(config.id, tunnel.hostKeyFingerprint).catch(
+      reportBackground("ssh tunnel: pinning the host key"),
+    );
   }
   return {
     config: {

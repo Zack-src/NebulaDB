@@ -69,11 +69,11 @@ nebuladb diff old.dbml new.dbml --format markdown --exit-code
 `--fail-on error|warning` works as for a project. `diff` matches tables and fields by name (a renamed table or
 field shows as removed and added) and takes `--format text|json|markdown`.
 
-| Exit | Meaning                                                                                                   |
-| ---- | --------------------------------------------------------------------------------------------------------- |
-| 0    | Done: `lint` found nothing at or above `--fail-on`; `diff` always, unless `--exit-code` and files differ  |
+| Exit | Meaning                                                                                                                    |
+| ---- | -------------------------------------------------------------------------------------------------------------------------- |
+| 0    | Done: `lint` found nothing at or above `--fail-on`; `diff` always, unless `--exit-code` and files differ                   |
 | 1    | Findings at or above `--fail-on`, `diff --exit-code` found a difference, or a DBML syntax error (`file:line:col: message`) |
-| 2    | Usage error, including a file that cannot be read                                                         |
+| 2    | Usage error, including a file that cannot be read                                                                          |
 
 The line and column of a finding are those of the table or field declaration in the file. The DBML engine is
 loaded on demand, so the other commands start as fast as before.

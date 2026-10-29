@@ -13,6 +13,8 @@
  * person (`DeploymentReview`). The stronger confirmation and the backup of the
  * production stage are a separate flag (`production`, see `EnvironmentStage`).
  */
+import type { DatabaseEngine } from "./engine.js";
+
 export type EnvironmentProtection = "free" | "review" | "protected";
 
 export const ENVIRONMENT_PROTECTIONS: readonly EnvironmentProtection[] = ["free", "review", "protected"];
@@ -60,7 +62,7 @@ export interface EnvironmentStageInput {
 export interface PipelineConnection {
   id: string;
   name: string;
-  engine: "postgres" | "mysql" | "sqlite" | "mssql" | "oracle" | "bigquery";
+  engine: DatabaseEngine;
   /** The last deployment or rollback this project ran against it; `null`: never. */
   lastDeployment: { at: string; by: string | null; success: boolean; rollback: boolean } | null;
   /** The last thing done here was a successful deployment of the schema as it is now. */

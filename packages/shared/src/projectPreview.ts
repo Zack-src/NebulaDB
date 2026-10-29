@@ -56,9 +56,15 @@ export interface TableBox {
 }
 
 /** `rows`: the columns the table shows at its detail level (none when compact). */
-export function estimateTableBox(table: Pick<Table, "name" | "detailLevel">, rows: readonly { name: string; type: string }[]): TableBox {
+export function estimateTableBox(
+  table: Pick<Table, "name" | "detailLevel">,
+  rows: readonly { name: string; type: string }[],
+): TableBox {
   if (table.detailLevel === "compact") return { width: MIN_WIDTH, height: HEADER };
-  const longest = rows.reduce((max, field) => Math.max(max, field.name.length + 1 + field.type.length), table.name.length);
+  const longest = rows.reduce(
+    (max, field) => Math.max(max, field.name.length + 1 + field.type.length),
+    table.name.length,
+  );
   return {
     width: Math.min(MAX_WIDTH, Math.max(MIN_WIDTH, Math.round(WIDTH_BASE + WIDTH_PER_CHAR * longest))),
     height: HEADER + ROW * rows.length + FOOTER,
@@ -89,7 +95,14 @@ export function buildProjectPreview(project: Project, dbml: string): ProjectPrev
     const box = table.size
       ? { width: table.size.width, height: table.size.height }
       : estimateTableBox(table, visibleColumns(table, refFieldIds.get(table.id) ?? new Set()));
-    return { x: table.position.x, y: table.position.y, w: box.width, h: box.height, name: table.name, ...(table.style?.color !== undefined && { color: table.style.color }) };
+    return {
+      x: table.position.x,
+      y: table.position.y,
+      w: box.width,
+      h: box.height,
+      name: table.name,
+      ...(table.style?.color !== undefined && { color: table.style.color }),
+    };
   });
   const edges: [number, number][] = [];
   for (const ref of project.refs) {

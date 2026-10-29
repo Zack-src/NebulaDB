@@ -39,7 +39,10 @@ function noteOf(options: { riskNote?: string; clean?: CleanOptions }): string | 
 }
 
 /** A clean deployment is for a database whose data may go: not production, not a stage that asks for a review, and only on a retyped name. */
-async function assertCleanAllowed(conn: { name: string; environmentId?: string | null }, confirmName: string | undefined) {
+async function assertCleanAllowed(
+  conn: { name: string; environmentId?: string | null },
+  confirmName: string | undefined,
+) {
   if ((await isProductionStage(conn)) || (await stageAsksForReview(conn))) {
     throw new ApiError("CLEAN_DEPLOYMENT_NOT_ALLOWED", { details: { connection: conn.name } });
   }
@@ -178,7 +181,9 @@ export function describeFailedStatement(
   const statements = sql
     .split(";")
     .map((statement) => statement.trim())
-    .filter((statement) => statement.length > 0 && !/^(BEGIN( TRANSACTION)?|START TRANSACTION|COMMIT)$/i.test(statement));
+    .filter(
+      (statement) => statement.length > 0 && !/^(BEGIN( TRANSACTION)?|START TRANSACTION|COMMIT)$/i.test(statement),
+    );
   const statement = statements[index - 1];
   if (statement === undefined) return {};
   return {
@@ -192,7 +197,8 @@ export function describeFailedStatement(
 function seedsHashOf(seeds: PreparedSeeds | null): string | null {
   if (!seeds || seeds.seeds.length === 0) return null;
   const hash = crypto.createHash("sha256");
-  for (const { seed, table } of seeds.seeds) hash.update(
+  for (const { seed, table } of seeds.seeds)
+    hash.update(
       JSON.stringify([
         table.name,
         seed.options,
@@ -207,14 +213,19 @@ function seedsHashOf(seeds: PreparedSeeds | null): string | null {
 const riskIdentity = (risk: AcceptedRisk) =>
   [risk.type, risk.tableName, risk.columnName ?? "", risk.detail ?? "", risk.strategy].join("\u0000");
 
-/** A deployment that drops the database's tables and writes the schema again: see `planCleanDeployment`. */
+/** A wipe: drops the database's tables with their columns and data, and writes nothing back: see `planCleanDeployment`. */
 export interface CleanOptions {
   /** Also drop the tables the database holds that Nebula never deployed and the schema does not have. */
   includeUnmanaged: boolean;
 }
 
 /** The live tables a clean deployment drops: those of the schema and those Nebula deployed, or every one. */
-function cleanScope(live: Project, canvas: Project, deployed: Set<string> | null, includeUnmanaged: boolean): Set<string> {
+function cleanScope(
+  live: Project,
+  canvas: Project,
+  deployed: Set<string> | null,
+  includeUnmanaged: boolean,
+): Set<string> {
   const names = new Set(live.tables.map((table) => table.name.toLowerCase()));
   if (includeUnmanaged) return names;
   const mine = new Set([...canvas.tables.map((table) => table.name.toLowerCase()), ...(deployed ?? [])]);
@@ -248,19 +259,14 @@ async function planDeployment(
   const liveProject = await driver.introspectSchema();
   const diff = diffTargetAgainstLive(liveProject, canvasProject);
   if (clean) {
-    // Nothing to settle: no diff of columns, no conflicts. The seeds still go in after the tables.
-    const scope = cleanScope(liveProject, canvasProject, await deployedTablesOf(projectId, conn.id), clean.includeUnmanaged);
-    // Starting over must not be blocked by data that cannot go in: the schema is rebuilt and the seeds left out
-    // (they stay in the project, to fix and deploy later) rather than asking to correct anything before a wipe.
-    let seeds = skipSeeds ? null : await prepareSeeds(projectId, canvasProject);
-    if (seeds) {
-      try {
-        assertSeedsDeployable(seeds);
-      } catch {
-        seeds = null;
-      }
-    }
-    return { diff, acceptedRisks: [], seeds, sql: planCleanDeployment(liveProject, canvasProject, conn.engine, scope).sql };
+    // A wipe: nothing to settle, nothing written back. No seeds either: the tables it drops are not recreated.
+    const scope = cleanScope(
+      liveProject,
+      canvasProject,
+      await deployedTablesOf(projectId, conn.id),
+      clean.includeUnmanaged,
+    );
+    return { diff, acceptedRisks: [], seeds: null, sql: planCleanDeployment(liveProject, conn.engine, scope).sql };
   }
   // Measured again here, whatever the plan said: the data may have moved
   // since, and an API caller may never have looked at a plan at all.
@@ -270,7 +276,12 @@ async function planDeployment(
   // not leave the database half-deployed.
   const seeds = skipSeeds ? null : await prepareSeeds(projectId, canvasProject);
   if (seeds) assertSeedsDeployable(seeds);
-  return { diff, acceptedRisks, seeds, sql: generateMigrationSql(diff, conn.engine, withKeepDefaults(risks, resolutions)) };
+  return {
+    diff,
+    acceptedRisks,
+    seeds,
+    sql: generateMigrationSql(diff, conn.engine, withKeepDefaults(risks, resolutions)),
+  };
 }
 
 /** What a review request froze, as far as a deployment has to match it. */
@@ -362,7 +373,6 @@ export interface CleanDeploymentPreview {
   sql: string;
   /** The tables the script drops, with the rows they hold when that could be counted quickly. */
   dropTables: { name: string; rows: number | null }[];
-  createTables: string[];
 }
 
 /** Longest a row count may take, and how many are asked for at once. */
@@ -391,7 +401,7 @@ export async function previewCleanDeployment(
   try {
     const live = await driver.introspectSchema();
     const scope = cleanScope(live, canvasProject, await deployedTablesOf(projectId, conn.id), options.includeUnmanaged);
-    const plan = planCleanDeployment(live, canvasProject, conn.engine, scope);
+    const plan = planCleanDeployment(live, conn.engine, scope);
     const rows = new Map<string, number | null>();
     const queue = [...plan.dropTables];
     const worker = async () => {
@@ -413,7 +423,6 @@ export async function previewCleanDeployment(
       engine: conn.engine,
       sql: plan.sql,
       dropTables: plan.dropTables.map((name) => ({ name, rows: rows.get(name) ?? null })),
-      createTables: plan.createTables,
     };
   } finally {
     await driver.close().catch(() => {});
@@ -453,7 +462,7 @@ export interface DeployOptions {
    * whose protection is `review`; the plan must still be the one it froze.
    */
   review?: ReviewedPlan;
-  /** Start over: drop the tables and write the schema again (see `CleanOptions`). Never on production. */
+  /** Wipe: drop the tables with their data, write nothing back (see `CleanOptions`). Never on production. */
   clean?: CleanOptions;
 }
 
@@ -526,7 +535,12 @@ async function runDeployment(
     if (options.review) assertStillAsReviewed(options.review, schemaHash, plan);
     const { diff, acceptedRisks, seeds, sql } = plan;
     const { sql: rollbackSqlRaw, irreversible } = options.clean
-      ? { sql: "", irreversible: ["A clean deployment dropped every table with its data: only the backup taken before it restores them."] }
+      ? {
+          sql: "",
+          irreversible: [
+            "A clean deployment dropped every table with its data: only the backup taken before it restores them.",
+          ],
+        }
       : generateRollbackSql(diff, conn.engine, resolutions);
     // The warnings are prepended as SQL comments rather than kept in a
     // separate column: whoever reads `rollbackSql` later (the history list,
@@ -536,10 +550,10 @@ async function runDeployment(
     const rollbackSql = options.clean
       ? null
       : diff.hasChanges
-      ? irreversible.length > 0
-        ? `${irreversible.map((w) => `-- WARNING: ${w}`).join("\n")}\n\n${rollbackSqlRaw}`
-        : rollbackSqlRaw
-      : null;
+        ? irreversible.length > 0
+          ? `${irreversible.map((w) => `-- WARNING: ${w}`).join("\n")}\n\n${rollbackSqlRaw}`
+          : rollbackSqlRaw
+        : null;
 
     // Last thing before the database changes, once everything that could
     // refuse the deployment has had its say. A backup that does not complete

@@ -174,7 +174,9 @@ export class MysqlDriver implements DatabaseDriver {
     for (const rows of indexColumns.values()) {
       const first = rows[0];
       const unique = first.NON_UNIQUE === 0;
-      const suffix = first.INDEX_NAME.startsWith(first.COLUMN_NAME) ? first.INDEX_NAME.slice(first.COLUMN_NAME.length) : null;
+      const suffix = first.INDEX_NAME.startsWith(first.COLUMN_NAME)
+        ? first.INDEX_NAME.slice(first.COLUMN_NAME.length)
+        : null;
       if (unique && rows.length === 1 && suffix !== null && /^(_\d+)?$/.test(suffix)) {
         uniqueSet.add(`${first.TABLE_NAME}.${first.COLUMN_NAME}`);
         continue;
@@ -378,9 +380,7 @@ export class MysqlDriver implements DatabaseDriver {
             generated: columns
               .filter((row) => /\b(VIRTUAL|STORED|PERSISTENT)\b/i.test(extra(row)))
               .map((row) => String(row.COLUMN_NAME)),
-            identity: columns
-              .filter((row) => /auto_increment/i.test(extra(row)))
-              .map((row) => String(row.COLUMN_NAME)),
+            identity: columns.filter((row) => /auto_increment/i.test(extra(row))).map((row) => String(row.COLUMN_NAME)),
           };
         },
         async emptyTable(table) {

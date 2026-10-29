@@ -173,7 +173,13 @@ async function discoverTables(client: Q): Promise<{ tables: ArchiveTable[]; sche
           ORDER BY a.attnum`,
         [quote(name)],
       )
-    ).map((c) => ({ name: c.name, type: c.type, bytea: String(c.bytea) === "t", identityAlways: c.identity === "a", identity: c.identity !== "" }));
+    ).map((c) => ({
+      name: c.name,
+      type: c.type,
+      bytea: String(c.bytea) === "t",
+      identityAlways: c.identity === "a",
+      identity: c.identity !== "",
+    }));
     let primaryKey = (
       await rows<{ name: string }>(
         client,
@@ -190,7 +196,9 @@ async function discoverTables(client: Q): Promise<{ tables: ArchiveTable[]; sche
       // Log-like tables (health samples…) have no key but an identity `seq`, unique by construction.
       const seq = columns.find((c) => c.name === "seq" && c.identity);
       if (!seq || selfRefs.length > 0) {
-        throw new InstanceArchiveError(`${name} has no primary key nor identity seq: the export cannot page through it`);
+        throw new InstanceArchiveError(
+          `${name} has no primary key nor identity seq: the export cannot page through it`,
+        );
       }
       primaryKey = ["seq"];
     }
@@ -262,7 +270,8 @@ export async function exportInstance(
             })
           ).rows as (string | null)[][];
           for (const row of page) {
-            const line = JSON.stringify({ t: table.name, v: row.map((v, i) => encodeValue(table.columns[i], v)) }) + "\n";
+            const line =
+              JSON.stringify({ t: table.name, v: row.map((v, i) => encodeValue(table.columns[i], v)) }) + "\n";
             hash.update(line);
             count++;
             yield line;
@@ -401,7 +410,9 @@ async function checkTarget(client: Q, header: ArchiveHeader): Promise<void> {
     if (!target) throw new InstanceImportRefused(`the database has no table ${table.name}`);
     const missing = table.columns.filter((c) => !target.columns.some((t) => t.name === c.name));
     if (missing.length > 0) {
-      throw new InstanceImportRefused(`${table.name}: no column ${missing.map((c) => c.name).join(", ")} in the database`);
+      throw new InstanceImportRefused(
+        `${table.name}: no column ${missing.map((c) => c.name).join(", ")} in the database`,
+      );
     }
   }
   await assertTargetEmpty(client, schemaTables);
@@ -504,16 +515,27 @@ async function loadRows(client: Q, reader: ArchiveReader, header: ArchiveHeader)
 async function resetSequences(client: Q, table: ArchiveTable): Promise<void> {
   for (const column of table.columns) {
     const seq = (
-      await rows<{ s: string | null }>(client, "SELECT pg_get_serial_sequence($1, $2) AS s", [quote(table.name), column.name])
+      await rows<{ s: string | null }>(client, "SELECT pg_get_serial_sequence($1, $2) AS s", [
+        quote(table.name),
+        column.name,
+      ])
     )[0].s;
     if (!seq) continue;
     const col = quote(column.name);
-    await client.query(`SELECT setval($1, COALESCE(MAX(${col}), 1), MAX(${col}) IS NOT NULL) FROM ${quote(table.name)}`, [seq]);
+    await client.query(
+      `SELECT setval($1, COALESCE(MAX(${col}), 1), MAX(${col}) IS NOT NULL) FROM ${quote(table.name)}`,
+      [seq],
+    );
   }
 }
 
 /** The archive matches its manifest, and every row landed. Resets the counters on the way. */
-async function verifyRestore(client: Q, header: ArchiveHeader, loaded: LoadedRows, log: (line: string) => void): Promise<ImportResult> {
+async function verifyRestore(
+  client: Q,
+  header: ArchiveHeader,
+  loaded: LoadedRows,
+  log: (line: string) => void,
+): Promise<ImportResult> {
   const { manifest } = loaded;
   if (!manifest) throw new InstanceImportRefused("the archive is truncated (no manifest)");
   const result: ImportResult = { schemaVersion: header.schemaVersion, tables: [] };

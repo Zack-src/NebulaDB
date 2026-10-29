@@ -164,7 +164,11 @@ export class MysqlAdminDriver implements DatabaseAdminDriver {
 
   constructor(config: DriverConnectionConfig) {
     this.defaultDatabase = config.database || undefined;
-    this.pool = mysql.createPool({ ...mysqlPoolConfig(config), connectionLimit: 2, connectTimeout: CONNECT_TIMEOUT_MS });
+    this.pool = mysql.createPool({
+      ...mysqlPoolConfig(config),
+      connectionLimit: 2,
+      connectTimeout: CONNECT_TIMEOUT_MS,
+    });
   }
 
   private async rows<T>(sql: string, params: unknown[] = []): Promise<T[]> {

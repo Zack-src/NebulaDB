@@ -234,7 +234,14 @@ test("MysqlDriver restore session: atomic on InnoDB only, a 0 id kept, generated
 
     session = await driver.openRestoreSession(["nebuladb_restore_items"]);
     await session.emptyTable("nebuladb_restore_items");
-    await session.insertRows("nebuladb_restore_items", ["id", "name"], [["0", "zero"], ["40", "x"]]);
+    await session.insertRows(
+      "nebuladb_restore_items",
+      ["id", "name"],
+      [
+        ["0", "zero"],
+        ["40", "x"],
+      ],
+    );
     await session.commit();
     await session.release();
     await driver.executeMigration("INSERT INTO nebuladb_restore_items (name) VALUES ('next')");
@@ -283,7 +290,9 @@ test("MysqlDriver introspects the indexes made on their own, not the keys", asyn
     const table = schema.tables.find((tbl) => tbl.name === "idx_accounts");
     assert.ok(table);
     assert.deepEqual(
-      table.indexes.map((i) => ({ fieldIds: i.fieldIds, unique: !!i.unique })).sort((a, b) => a.fieldIds.join().localeCompare(b.fieldIds.join())),
+      table.indexes
+        .map((i) => ({ fieldIds: i.fieldIds, unique: !!i.unique }))
+        .sort((a, b) => a.fieldIds.join().localeCompare(b.fieldIds.join())),
       [
         { fieldIds: ["idx_accounts.org_id", "idx_accounts.created_at"], unique: false },
         { fieldIds: ["idx_accounts.org_id", "idx_accounts.slug"], unique: true },

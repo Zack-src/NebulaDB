@@ -62,6 +62,13 @@ export async function prepareSeeds(projectId: string, project: Project): Promise
   const byTable = new Map(seeds.map((seed) => [seed.tableId, seed]));
   const parentValues = new Map<string, Set<string>>();
   const incompleteParents = new Set<string>();
+  // A parent table without a seed gives no values: each of its children's references is reported (a warning, the
+  // parent's rows may already be in the database).
+  for (const ref of project.refs) {
+    if (ref.from.tableId === ref.to.tableId || !seededIds.has(ref.from.tableId) || seededIds.has(ref.to.tableId))
+      continue;
+    parentValues.set(`${ref.to.tableId}.${ref.to.fieldId}`, new Set());
+  }
   const prepared: PreparedSeed[] = [];
   for (const tableId of order) {
     const seed = byTable.get(tableId)!;
@@ -133,7 +140,12 @@ export function assertSeedsDeployable(prepared: PreparedSeeds): void {
 
 async function existingRows(driver: DatabaseDriver, table: string, engine: DatabaseEngine): Promise<number | null> {
   try {
-    return (await driver.queryScalar(`SELECT COUNT(*) FROM ${q(table, engine as MigrationDialect)}`)) ?? 0;
+    // MongoDB and Redis take a command, not SQL: the same probe the migration planner writes for them.
+    const probe =
+      engine === "mongodb" || engine === "redis"
+        ? JSON.stringify({ count: table })
+        : `SELECT COUNT(*) FROM ${q(table, engine as MigrationDialect)}`;
+    return (await driver.queryScalar(probe)) ?? 0;
   } catch {
     return null;
   }

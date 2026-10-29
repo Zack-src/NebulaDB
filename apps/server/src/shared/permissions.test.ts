@@ -9,8 +9,14 @@ import { useTestDatabase } from "../infrastructure/testDatabase.js";
 await useTestDatabase("test");
 
 const { db } = await import("../infrastructure/db.js");
-const { getEffectivePermission, getEffectivePermissions, hasPermission, canManageProject, canDeployProject, isPermissionLevel } =
-  await import("./permissions.js");
+const {
+  getEffectivePermission,
+  getEffectivePermissions,
+  hasPermission,
+  canManageProject,
+  canDeployProject,
+  isPermissionLevel,
+} = await import("./permissions.js");
 
 async function makeUser(isAdmin: 0 | 1 = 0): Promise<string> {
   const id = randomUUID();

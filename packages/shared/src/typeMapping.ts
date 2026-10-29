@@ -7,7 +7,13 @@ import type { DatabaseEngine } from "./schema.js";
  * Conservative: a type is translated only when unusable on `targetEngine`, never to force a
  * preferred spelling (`varchar(255)` on SQL Server is left alone). Same-engine round trips stay
  * byte-stable, and unrecognized types pass through untouched (`changed: false`).
+ *
+ * MongoDB is translated to BSON type names; Redis has no column types at all, so every family
+ * becomes `string` (lossy, by design). `TypeTarget` adds DuckDB, an engine types are converted for
+ * but that NebulaDB does not connect to.
  */
+
+export type TypeTarget = DatabaseEngine | "duckdb";
 
 /** `"varchar(255)"` -> `{name:"varchar", args:["255"]}`; `"int"` -> `{name:"int", args:[]}`. */
 export function normalizeTypeString(raw: string): { name: string; args: string[] } | null {
@@ -24,9 +30,9 @@ interface FamilyDef {
   /** Every spelling recognized as this family, across any engine — used to identify the family regardless of which engine's vocabulary a type was written in. */
   recognizedAs: string[];
   /** Spellings already valid/native on a given engine — present here means `translateType` leaves it untouched for that engine. Engines omitted (or whose list a spelling isn't in) always get translated. */
-  nativeOn: Partial<Record<DatabaseEngine, string[]>>;
+  nativeOn: Partial<Record<TypeTarget, string[]>>;
   /** Renders the family's canonical spelling for one engine, given the parsed args — used only when translation is actually needed. */
-  render: Record<DatabaseEngine, (args: string[]) => string>;
+  render: Record<TypeTarget, (args: string[]) => string>;
 }
 
 function argsSuffix(args: string[], fallback?: string): string {
@@ -44,6 +50,8 @@ const FAMILIES: Record<string, FamilyDef> = {
       sqlite: ["int", "integer"],
       // BigQuery reads INT / INTEGER / BIGINT / SMALLINT as aliases of INT64.
       bigquery: ["int", "integer"],
+      duckdb: ["int", "integer", "int4"],
+      mongodb: ["int"],
     },
     render: {
       postgres: () => "integer",
@@ -52,6 +60,10 @@ const FAMILIES: Record<string, FamilyDef> = {
       sqlite: () => "integer",
       oracle: () => "number(10)",
       bigquery: () => "INT64",
+      clickhouse: () => "Int32",
+      duckdb: () => "INTEGER",
+      mongodb: () => "int",
+      redis: () => "string",
     },
   },
   bigint: {
@@ -62,6 +74,7 @@ const FAMILIES: Record<string, FamilyDef> = {
       mssql: ["bigint"],
       sqlite: ["bigint"],
       bigquery: ["bigint", "int64"],
+      duckdb: ["bigint", "int8"],
     },
     render: {
       postgres: () => "bigint",
@@ -70,6 +83,10 @@ const FAMILIES: Record<string, FamilyDef> = {
       sqlite: () => "integer",
       oracle: () => "number(19)",
       bigquery: () => "INT64",
+      clickhouse: () => "Int64",
+      duckdb: () => "BIGINT",
+      mongodb: () => "long",
+      redis: () => "string",
     },
   },
   smallint: {
@@ -80,6 +97,7 @@ const FAMILIES: Record<string, FamilyDef> = {
       mssql: ["smallint"],
       sqlite: ["smallint"],
       bigquery: ["smallint"],
+      duckdb: ["smallint", "int2"],
     },
     render: {
       postgres: () => "smallint",
@@ -88,6 +106,10 @@ const FAMILIES: Record<string, FamilyDef> = {
       sqlite: () => "integer",
       oracle: () => "number(5)",
       bigquery: () => "INT64",
+      clickhouse: () => "Int16",
+      duckdb: () => "SMALLINT",
+      mongodb: () => "int",
+      redis: () => "string",
     },
   },
   boolean: {
@@ -99,6 +121,8 @@ const FAMILIES: Record<string, FamilyDef> = {
       mssql: ["bit"],
       sqlite: ["boolean", "bool", "bit"],
       bigquery: ["boolean", "bool"],
+      duckdb: ["boolean", "bool"],
+      mongodb: ["bool"],
     },
     render: {
       postgres: () => "boolean",
@@ -107,6 +131,10 @@ const FAMILIES: Record<string, FamilyDef> = {
       sqlite: () => "boolean",
       oracle: () => "number(1)",
       bigquery: () => "BOOL",
+      clickhouse: () => "Bool",
+      duckdb: () => "BOOLEAN",
+      mongodb: () => "bool",
+      redis: () => "string",
     },
   },
   float: {
@@ -116,6 +144,7 @@ const FAMILIES: Record<string, FamilyDef> = {
       mysql: ["float"],
       mssql: ["float", "real"],
       sqlite: ["float", "real"],
+      duckdb: ["real", "float4"],
     },
     render: {
       postgres: () => "real",
@@ -124,6 +153,10 @@ const FAMILIES: Record<string, FamilyDef> = {
       sqlite: () => "real",
       oracle: () => "binary_float",
       bigquery: () => "FLOAT64",
+      clickhouse: () => "Float32",
+      duckdb: () => "REAL",
+      mongodb: () => "double",
+      redis: () => "string",
     },
   },
   double: {
@@ -133,6 +166,8 @@ const FAMILIES: Record<string, FamilyDef> = {
       mysql: ["double"],
       sqlite: ["double"],
       bigquery: ["float64"],
+      duckdb: ["double", "double precision", "float8"],
+      mongodb: ["double"],
     },
     render: {
       postgres: () => "double precision",
@@ -141,6 +176,10 @@ const FAMILIES: Record<string, FamilyDef> = {
       sqlite: () => "real",
       oracle: () => "binary_double",
       bigquery: () => "FLOAT64",
+      clickhouse: () => "Float64",
+      duckdb: () => "DOUBLE",
+      mongodb: () => "double",
+      redis: () => "string",
     },
   },
   decimal: {
@@ -151,6 +190,8 @@ const FAMILIES: Record<string, FamilyDef> = {
       mssql: ["decimal", "numeric"],
       sqlite: ["decimal", "numeric"],
       bigquery: ["decimal", "numeric", "bignumeric", "bigdecimal"],
+      duckdb: ["decimal", "numeric"],
+      mongodb: ["decimal"],
     },
     render: {
       postgres: (a) => `numeric${argsSuffix(a)}`,
@@ -159,6 +200,11 @@ const FAMILIES: Record<string, FamilyDef> = {
       sqlite: () => "numeric",
       oracle: (a) => `number${argsSuffix(a)}`,
       bigquery: (a) => `NUMERIC${argsSuffix(a)}`,
+      // ClickHouse's Decimal needs a precision and a scale; without them the widest default is used.
+      clickhouse: (a) => `Decimal(${a.length > 0 ? a.join(",") : "38,9"})`,
+      duckdb: (a) => `DECIMAL${argsSuffix(a)}`,
+      mongodb: () => "decimal",
+      redis: () => "string",
     },
   },
   varchar: {
@@ -168,6 +214,7 @@ const FAMILIES: Record<string, FamilyDef> = {
       mysql: ["varchar"],
       mssql: ["varchar", "nvarchar"],
       sqlite: ["varchar", "text"],
+      duckdb: ["varchar", "character varying", "text"],
     },
     render: {
       postgres: (a) => `varchar${argsSuffix(a)}`,
@@ -176,6 +223,10 @@ const FAMILIES: Record<string, FamilyDef> = {
       sqlite: () => "text",
       oracle: (a) => `varchar2${argsSuffix(a, "255")}`,
       bigquery: (a) => `STRING${argsSuffix(a)}`,
+      clickhouse: () => "String",
+      duckdb: () => "VARCHAR",
+      mongodb: () => "string",
+      redis: () => "string",
     },
   },
   char: {
@@ -185,6 +236,7 @@ const FAMILIES: Record<string, FamilyDef> = {
       mysql: ["char"],
       mssql: ["char", "nchar"],
       sqlite: ["char", "text"],
+      duckdb: ["char", "character"],
     },
     render: {
       postgres: (a) => `char${argsSuffix(a)}`,
@@ -193,6 +245,10 @@ const FAMILIES: Record<string, FamilyDef> = {
       sqlite: () => "text",
       oracle: (a) => `char${argsSuffix(a)}`,
       bigquery: (a) => `STRING${argsSuffix(a)}`,
+      clickhouse: (a) => (a.length > 0 ? `FixedString(${a[0]})` : "String"),
+      duckdb: () => "VARCHAR",
+      mongodb: () => "string",
+      redis: () => "string",
     },
   },
   text: {
@@ -202,6 +258,10 @@ const FAMILIES: Record<string, FamilyDef> = {
       mysql: ["text", "string"],
       sqlite: ["text", "string"],
       bigquery: ["string"],
+      clickhouse: ["string"],
+      duckdb: ["text", "string"],
+      mongodb: ["string"],
+      redis: ["string"],
     },
     render: {
       postgres: () => "text",
@@ -210,11 +270,20 @@ const FAMILIES: Record<string, FamilyDef> = {
       sqlite: () => "text",
       oracle: () => "clob",
       bigquery: () => "STRING",
+      clickhouse: () => "String",
+      duckdb: () => "VARCHAR",
+      mongodb: () => "string",
+      redis: () => "string",
     },
   },
   uuid: {
     recognizedAs: ["uuid", "guid", "uniqueidentifier"],
-    nativeOn: { postgres: ["uuid"], mssql: ["uniqueidentifier", "guid"] },
+    nativeOn: {
+      postgres: ["uuid"],
+      mssql: ["uniqueidentifier", "guid"],
+      clickhouse: ["uuid"],
+      duckdb: ["uuid"],
+    },
     render: {
       postgres: () => "uuid",
       mysql: () => "char(36)",
@@ -222,11 +291,21 @@ const FAMILIES: Record<string, FamilyDef> = {
       sqlite: () => "text",
       oracle: () => "raw(16)",
       bigquery: () => "STRING",
+      clickhouse: () => "UUID",
+      duckdb: () => "UUID",
+      // BSON has no UUID type: the standard UUID encoding is a binary value (subtype 4).
+      mongodb: () => "binData",
+      redis: () => "string",
     },
   },
   json: {
     recognizedAs: ["json", "jsonb"],
-    nativeOn: { postgres: ["json", "jsonb"], mysql: ["json"], bigquery: ["json"] },
+    nativeOn: {
+      postgres: ["json", "jsonb"],
+      mysql: ["json"],
+      bigquery: ["json"],
+      duckdb: ["json"],
+    },
     render: {
       postgres: () => "jsonb",
       mysql: () => "json",
@@ -234,6 +313,10 @@ const FAMILIES: Record<string, FamilyDef> = {
       sqlite: () => "text",
       oracle: () => "clob",
       bigquery: () => "JSON",
+      clickhouse: () => "JSON",
+      duckdb: () => "JSON",
+      mongodb: () => "object",
+      redis: () => "string",
     },
   },
   timestamp: {
@@ -254,6 +337,7 @@ const FAMILIES: Record<string, FamilyDef> = {
       mssql: ["datetime", "datetime2"],
       // TIMESTAMP is a point in time, DATETIME a date and a time without a zone: both exist, neither is forced.
       bigquery: ["timestamp", "datetime"],
+      duckdb: ["timestamp", "timestamptz", "timestamp with time zone", "timestamp without time zone"],
     },
     render: {
       postgres: () => "timestamp",
@@ -262,6 +346,11 @@ const FAMILIES: Record<string, FamilyDef> = {
       sqlite: () => "datetime",
       oracle: () => "timestamp",
       bigquery: () => "DATETIME",
+      // Millisecond precision: the closest ClickHouse equivalent of a SQL timestamp.
+      clickhouse: () => "DateTime64(3)",
+      duckdb: () => "TIMESTAMP",
+      mongodb: () => "date",
+      redis: () => "string",
     },
   },
   date: {
@@ -273,6 +362,9 @@ const FAMILIES: Record<string, FamilyDef> = {
       sqlite: ["date"],
       oracle: ["date"],
       bigquery: ["date"],
+      clickhouse: ["date"],
+      duckdb: ["date"],
+      mongodb: ["date"],
     },
     render: {
       postgres: () => "date",
@@ -281,11 +373,21 @@ const FAMILIES: Record<string, FamilyDef> = {
       sqlite: () => "date",
       oracle: () => "date",
       bigquery: () => "DATE",
+      clickhouse: () => "Date",
+      duckdb: () => "DATE",
+      mongodb: () => "date",
+      redis: () => "string",
     },
   },
   time: {
     recognizedAs: ["time"],
-    nativeOn: { postgres: ["time"], mysql: ["time"], mssql: ["time"], bigquery: ["time"] },
+    nativeOn: {
+      postgres: ["time"],
+      mysql: ["time"],
+      mssql: ["time"],
+      bigquery: ["time"],
+      duckdb: ["time"],
+    },
     render: {
       postgres: () => "time",
       mysql: () => "time",
@@ -293,6 +395,11 @@ const FAMILIES: Record<string, FamilyDef> = {
       sqlite: () => "text",
       oracle: () => "date",
       bigquery: () => "TIME",
+      // ClickHouse has no time-of-day type: the value is kept as text.
+      clickhouse: () => "String",
+      duckdb: () => "TIME",
+      mongodb: () => "string",
+      redis: () => "string",
     },
   },
   binary: {
@@ -303,6 +410,8 @@ const FAMILIES: Record<string, FamilyDef> = {
       mssql: ["binary", "varbinary", "image"],
       sqlite: ["blob"],
       bigquery: ["bytes"],
+      duckdb: ["blob", "bytea"],
+      mongodb: ["bindata"],
     },
     render: {
       postgres: () => "bytea",
@@ -311,6 +420,10 @@ const FAMILIES: Record<string, FamilyDef> = {
       sqlite: () => "blob",
       oracle: () => "blob",
       bigquery: () => "BYTES",
+      clickhouse: () => "String",
+      duckdb: () => "BLOB",
+      mongodb: () => "binData",
+      redis: () => "string",
     },
   },
 };
@@ -339,7 +452,7 @@ export interface TypeTranslation {
  * types already native to `targetEngine`, are returned byte-for-byte
  * unchanged.
  */
-export function translateType(raw: string, targetEngine: DatabaseEngine): TypeTranslation {
+export function translateType(raw: string, targetEngine: TypeTarget): TypeTranslation {
   const original = raw ?? "";
   const parsed = normalizeTypeString(original);
   if (!parsed) return { original, type: original, changed: false };
@@ -382,7 +495,20 @@ export function translateType(raw: string, targetEngine: DatabaseEngine): TypeTr
   return { original, type: target.render[targetEngine](parsed.args), changed: true };
 }
 
-export const SUPPORTED_ENGINES: DatabaseEngine[] = ["postgres", "mysql", "sqlite", "mssql", "oracle", "bigquery"];
+export const SUPPORTED_ENGINES: DatabaseEngine[] = [
+  "postgres",
+  "mysql",
+  "sqlite",
+  "mssql",
+  "oracle",
+  "bigquery",
+  "clickhouse",
+  "mongodb",
+  "redis",
+];
+
+/** Every engine a column type can be converted to: the supported databases, then the others NebulaDB converts types for. */
+export const CONVERT_TARGETS: TypeTarget[] = [...SUPPORTED_ENGINES, "duckdb"];
 
 /** The families that are one thing once the engine is taken out of the picture: BigQuery has a single integer, a single float, a single text. */
 const NEUTRAL_FAMILY: Record<string, string> = {

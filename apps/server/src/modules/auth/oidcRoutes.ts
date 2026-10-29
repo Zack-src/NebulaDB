@@ -33,7 +33,7 @@ const ssoSettingsBody = z.object({
     .transform((v) => v ?? undefined),
 });
 
-const PENDING_COOKIE ="nebuladb_sso";
+const PENDING_COOKIE = "nebuladb_sso";
 const CALLBACK_PATH = "/api/auth/sso/callback";
 const SSO_RATE_LIMIT = { config: { rateLimit: { max: 20, timeWindow: "1 minute" } } };
 const ADMIN_LIMIT = { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } };
