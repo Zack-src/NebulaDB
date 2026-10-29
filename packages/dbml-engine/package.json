@@ -15,7 +15,7 @@
   },
   "dependencies": {
     "@nebuladb/shared": "*",
-    "@dbml/core": "^10.1.0"
+    "@dbml/core": "^11.0.0"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
