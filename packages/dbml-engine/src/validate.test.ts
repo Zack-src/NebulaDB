@@ -151,6 +151,34 @@ test("ref whose two sides have different base column types is flagged as a warni
   assert.match(issues[0].message, /type mismatch/i);
 });
 
+test("a unique varchar(max) column is flagged as a warning (SQL Server refuses it)", () => {
+  const t = table("t1", "users", ["id", "bio"]);
+  t.fields[1].type = "varchar(max)";
+  t.fields[1].unique = true;
+  const issues = validateProject(project([t]));
+  assert.equal(issues.length, 1);
+  assert.equal(issues[0].severity, "warning");
+  assert.equal(issues[0].tableId, "t1");
+  assert.match(issues[0].message, /users\.bio.*UNIQUE/);
+});
+
+test("a varchar(max) column covered by a unique index is flagged; a non-unique one is not", () => {
+  const t = table("t1", "users", ["id", "bio", "notes"]);
+  t.fields[1].type = "NVARCHAR(MAX)";
+  t.fields[2].type = "varchar(max)";
+  t.indexes = [{ id: "idx1", fieldIds: ["t1-f1"], unique: true }];
+  const issues = validateProject(project([t]));
+  assert.equal(issues.length, 1);
+  assert.match(issues[0].message, /users\.bio/);
+});
+
+test("a unique varchar(255) column is not flagged", () => {
+  const t = table("t1", "users", ["id", "email"]);
+  t.fields[1].type = "varchar(255)";
+  t.fields[1].unique = true;
+  assert.deepEqual(validateProject(project([t])), []);
+});
+
 test("ref sides differing only in precision/args (decimal(10,2) vs decimal) are not flagged", () => {
   const a = table("t1", "a", ["id", "amount"]);
   a.fields[1].type = "decimal(10,2)";
