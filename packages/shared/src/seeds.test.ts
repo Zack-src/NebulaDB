@@ -8,6 +8,8 @@ import {
   seedColumnValues,
   seedInsertOrder,
   seedOverflows,
+  serializeCsv,
+  withCurrentHeaderNames,
   suggestMapping,
 } from "./seeds.js";
 import { CsvStreamParser, SeedValidator, validateSeed } from "./seedStream.js";
@@ -214,4 +216,32 @@ test("SeedValidator drops a check it has no room for, and says so", () => {
   const partial = tight.finish();
   assert.ok(partial.unchecked.length > 0, "a set was dropped");
   assert.ok(partial.issues.length < full.issues.length + 1);
+});
+
+test("serializeCsv is the inverse of parseCsv, NULL and empty string included", () => {
+  const rows = [
+    ["id", "label", "note"],
+    ["1", 'say "hi", now', null],
+    ["2", "", "two\nlines"],
+  ];
+  for (const separator of [",", ";", "\t", "|"] as const) {
+    assert.deepEqual(parseCsv(serializeCsv(rows, separator), separator), rows);
+  }
+});
+
+test("withCurrentHeaderNames renames the header of the mapped columns only", () => {
+  const t = table("t", [
+    { id: "a", name: "title" },
+    { id: "b", name: "code" },
+  ]);
+  const out = withCurrentHeaderNames(
+    [
+      ["name", "code_old", "extra"],
+      ["x", "y", "z"],
+    ],
+    { header: true, mapping: ["a", "b", null] },
+    t,
+  );
+  assert.deepEqual(out[0], ["title", "code", "extra"]);
+  assert.deepEqual(out[1], ["x", "y", "z"]);
 });
