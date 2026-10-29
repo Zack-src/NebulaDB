@@ -19,7 +19,11 @@ test("DBML editor: the selection shows on the cursor's line", { timeout: 90_000 
     await login(page, env.baseUrl);
     const projectId = await page.evaluate(async () => {
       const json = { "content-type": "application/json" };
-      const created = await fetch("/api/projects", { method: "POST", headers: json, body: JSON.stringify({ name: "Boutique" }) });
+      const created = await fetch("/api/projects", {
+        method: "POST",
+        headers: json,
+        body: JSON.stringify({ name: "Boutique" }),
+      });
       const { id } = (await created.json()) as { id: string };
       await fetch(`/api/projects/${id}/import`, {
         method: "POST",

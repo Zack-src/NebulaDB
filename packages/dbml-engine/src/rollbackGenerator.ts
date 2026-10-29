@@ -43,9 +43,14 @@ export function generateRollbackSql(
   const statements: string[] = [];
   const irreversible: string[] = [];
 
+  // Not SQL: only whole collections are put back; what a change did inside one is not undone.
+  if (dialect === "mongodb" || dialect === "redis") return nonSqlRollback(diff, dialect, resolutions);
+
+  // No transaction around DDL in BigQuery or ClickHouse.
+  const transactional = dialect !== "bigquery" && dialect !== "clickhouse";
   if (dialect === "postgres") statements.push("BEGIN;");
   else if (dialect === "mysql") statements.push("START TRANSACTION;");
-  else if (dialect !== "bigquery") statements.push("BEGIN TRANSACTION;");
+  else if (transactional) statements.push("BEGIN TRANSACTION;");
 
   // 1. Tables that were added by the forward migration -> drop them back out.
   for (const table of diff.tables.filter((t) => t.status === "added" && t.after)) {
@@ -69,7 +74,9 @@ export function generateRollbackSql(
     // A rename is undone by renaming back; the column kept its data, so nothing is flagged as lost.
     const renamed = renames.get(table.name.toLowerCase()) ?? [];
     for (const { from, to } of renamed) statements.push(renameColumnStatement(table.name, to, from, dialect));
-    const skip = new Set(renamed.flatMap(({ from, to }) => [`dropped:${from.toLowerCase()}`, `added:${to.toLowerCase()}`]));
+    const skip = new Set(
+      renamed.flatMap(({ from, to }) => [`dropped:${from.toLowerCase()}`, `added:${to.toLowerCase()}`]),
+    );
     for (const field of table.fields) {
       if (skip.has(`${field.status}:${field.name.toLowerCase()}`)) continue;
       statements.push(...invertFieldChange(table, field, dialect, resolutions, irreversible));
@@ -119,8 +126,36 @@ export function generateRollbackSql(
     if (dialect === "postgres" || dialect === "mysql" || dialect === "bigquery") statements.push(stmt);
   }
 
-  if (dialect !== "bigquery") statements.push("COMMIT;");
+  if (transactional) statements.push("COMMIT;");
   return { sql: statements.join("\n\n"), irreversible };
+}
+
+/** The rollback of a MongoDB or Redis deployment: collections added are dropped, collections dropped come back empty. */
+function nonSqlRollback(
+  diff: MigrationDiff,
+  dialect: MigrationDialect,
+  resolutions: MigrationResolutionMap,
+): RollbackResult {
+  if (dialect === "redis")
+    return { sql: `-- Redis stores keys, not tables: there is nothing to roll back\n`, irreversible: [] };
+  const statements: string[] = [];
+  const irreversible: string[] = [];
+  for (const table of diff.tables.filter((t) => t.status === "added" && t.after)) {
+    statements.push(generateDropTable(table.name, dialect));
+  }
+  for (const table of diff.tables.filter((t) => t.status === "dropped" && t.before)) {
+    if (resolutions[`table:${table.name.toLowerCase()}`]?.strategy === "KEEP_IN_DB") continue;
+    statements.push(generateCreateTable(table.before!, dialect));
+    irreversible.push(
+      `Collection "${table.name}" is recreated empty — its documents were dropped and cannot be restored.`,
+    );
+  }
+  for (const table of diff.tables.filter((t) => t.status === "modified")) {
+    irreversible.push(
+      `Collection "${table.name}" keeps the changes made to its fields and indexes: they are not undone.`,
+    );
+  }
+  return { sql: statements.join("\n"), irreversible };
 }
 
 function invertFieldChange(

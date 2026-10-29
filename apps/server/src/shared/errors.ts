@@ -55,7 +55,7 @@ export const ERROR_CATALOG = {
   MIGRATION_FORMAT_INVALID: { status: 400, message: "format must be one of sql, flyway, liquibase" },
   CONNECTION_ENGINE_INVALID: {
     status: 400,
-    message: "engine must be one of postgres, mysql, mssql, oracle, sqlite, bigquery",
+    message: "engine must be one of postgres, mysql, mssql, oracle, sqlite, bigquery, clickhouse, mongodb, redis",
   },
   CONNECTION_AUTH_MODE_INVALID: {
     status: 400,

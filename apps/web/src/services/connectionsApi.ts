@@ -185,7 +185,7 @@ export async function applyDeployment(
     /** Deploy although the stage before is not level — instance administrators, with `skipReason`. */
     skipStageOrder?: boolean;
     skipReason?: string;
-    /** Start over: drop the tables and write the schema again (project administrators; never on production). */
+    /** Wipe: drop the tables with their columns and data, write nothing back (project administrators; never on production). */
     clean?: { includeUnmanaged: boolean };
   } = {},
 ): Promise<ApplyDeploymentResponse> {
@@ -195,12 +195,11 @@ export async function applyDeployment(
   });
 }
 
-/** What a clean deployment would drop and write, counted but not run. */
+/** What a wipe would drop, counted but not run. */
 export interface CleanDeploymentPreview {
   engine: string;
   sql: string;
   dropTables: { name: string; rows: number | null }[];
-  createTables: string[];
 }
 
 export async function previewCleanDeployment(

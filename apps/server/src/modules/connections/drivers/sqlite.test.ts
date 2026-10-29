@@ -100,7 +100,10 @@ test("SqliteDriver introspects a table whose name contains a double quote", asyn
   const project = await driver.introspectSchema();
   const table = project.tables.find((t) => t.name === 'we"ird');
   assert.ok(table, "the table is found under its real name");
-  assert.deepEqual(table.fields.map((f) => f.name), ["id", "label"]);
+  assert.deepEqual(
+    table.fields.map((f) => f.name),
+    ["id", "label"],
+  );
   await driver.close();
 });
 
@@ -129,7 +132,9 @@ test("SqliteDriver introspects the indexes made on their own, not the keys", asy
     const table = schema.tables.find((tbl) => tbl.name === "idx_accounts");
     assert.ok(table);
     assert.deepEqual(
-      table.indexes.map((i) => ({ fieldIds: i.fieldIds, unique: !!i.unique })).sort((a, b) => a.fieldIds.join().localeCompare(b.fieldIds.join())),
+      table.indexes
+        .map((i) => ({ fieldIds: i.fieldIds, unique: !!i.unique }))
+        .sort((a, b) => a.fieldIds.join().localeCompare(b.fieldIds.join())),
       [
         { fieldIds: ["idx_accounts.org_id", "idx_accounts.created_at"], unique: false },
         { fieldIds: ["idx_accounts.org_id", "idx_accounts.slug"], unique: true },
@@ -150,7 +155,6 @@ test("SqliteDriver introspects the indexes made on their own, not the keys", asy
     };
     assert.equal(diffTargetAgainstLive(schema, target).hasChanges, false);
   } finally {
-
     await driver.close();
   }
 });

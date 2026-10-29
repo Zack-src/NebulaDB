@@ -436,7 +436,10 @@ test("changing the password is limited like the login, per account", async () =>
       });
       statuses.push(res.statusCode);
     }
-    assert.ok(statuses.slice(0, 10).every((s) => s !== 429), `limited too early: ${statuses.join(",")}`);
+    assert.ok(
+      statuses.slice(0, 10).every((s) => s !== 429),
+      `limited too early: ${statuses.join(",")}`,
+    );
     assert.equal(statuses[10], 429);
   } finally {
     await app.close();
@@ -459,7 +462,11 @@ test("CSRF hook: Origin: null is refused with the session cookie, allowed withou
     assert.equal(withCookie.statusCode, 403);
     assert.equal(withCookie.json().code, "ORIGIN_MISMATCH");
 
-    const withoutCookie = await app.inject({ method: "POST", url: "/api/auth/logout", headers: { host: HOST, origin: "null" } });
+    const withoutCookie = await app.inject({
+      method: "POST",
+      url: "/api/auth/logout",
+      headers: { host: HOST, origin: "null" },
+    });
     assert.equal(withoutCookie.statusCode, 200);
 
     // The cookie still works from the app's own origin.

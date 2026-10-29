@@ -24,6 +24,14 @@ const ALWAYS_FORBIDDEN = ["INTO"];
 const MYSQL_FORBIDDEN = ["OUTFILE", "DUMPFILE"];
 
 /**
+ * ClickHouse table functions that read a file of the server, reach another host or run a program: a `SELECT` is
+ * enough to use them, so the whitelist of statements does not stop them. (The server's own `readonly` setting is
+ * the other half of the protection.) Only a call counts: a column called `url` is a column.
+ */
+const CLICKHOUSE_OUTSIDE_FUNCTION =
+  /\b(file|fileCluster|url|urlCluster|remote|remoteSecure|cluster|clusterAllReplicas|s3|s3Cluster|gcs|hdfs|hdfsCluster|executable|input|mysql|postgresql|mongodb|redis|jdbc|odbc|sqlite|azureBlobStorage|azureBlobStorageCluster|deltaLake|iceberg|hudi)\s*\(/i;
+
+/**
  * T-SQL's reserved keywords. A batch needs no `;` between statements, and
  * every statement but a procedure call (first in the batch only) starts with
  * a keyword, almost always a reserved one — which, as an identifier, has to be
@@ -58,7 +66,16 @@ const MSSQL_READ_ALLOWED = new Set(
 );
 
 /** …and a member's data write: the read words, plus what an `INSERT`, `UPDATE`, `DELETE` or `MERGE` takes. */
-const MSSQL_WRITE_ALLOWED = new Set([...MSSQL_READ_ALLOWED, "INSERT", "UPDATE", "DELETE", "MERGE", "INTO", "SET", "DEFAULT"]);
+const MSSQL_WRITE_ALLOWED = new Set([
+  ...MSSQL_READ_ALLOWED,
+  "INSERT",
+  "UPDATE",
+  "DELETE",
+  "MERGE",
+  "INTO",
+  "SET",
+  "DEFAULT",
+]);
 
 /** T-SQL statements that start with a word that is *not* reserved (Service Broker, trigger switches). */
 const MSSQL_UNRESERVED_STATEMENTS = ["RECEIVE", "SEND", "CONVERSATION", "ENABLE", "DISABLE"];
@@ -245,6 +262,14 @@ function literalEnd(sql: string, i: number, engine: DatabaseEngine, mode: LexMod
       }
       if (ch === "`") return quotedEnd(sql, i + 1, "`", true, false);
       return -1;
+    case "clickhouse":
+      // A quote is closed by a doubled one or escaped with `\`, in strings and in quoted identifiers alike.
+      if (ch === "'" || ch === '"' || ch === "`") return quotedEnd(sql, i + 1, ch, true);
+      return -1;
+    case "mongodb":
+    case "redis":
+      // Not SQL: their consoles do not go through this guard.
+      return -1;
   }
 }
 
@@ -263,7 +288,7 @@ function stripWith(sql: string, engine: DatabaseEngine, mode: LexMode): string {
     if (ch === "-" && next === "-") {
       // MySQL only takes `--` for a comment when a blank follows: `1 --1` is `1 - -1`.
       if (engine !== "mysql" || i + 2 >= n || sql.charCodeAt(i + 2) <= 0x20) end = lineCommentEnd(sql, i);
-    } else if (ch === "#" && (engine === "mysql" || engine === "bigquery")) {
+    } else if (ch === "#" && (engine === "mysql" || engine === "bigquery" || engine === "clickhouse")) {
       end = lineCommentEnd(sql, i);
     } else if (ch === "/" && next === "*") {
       end = blockCommentEnd(sql, i + 2, engine === "postgres" || engine === "mssql");
@@ -342,7 +367,7 @@ function checkReadOnly(stripped: string, engine: DatabaseEngine): void {
   if (body.includes(";")) throw writeNotAllowed("only one statement at a time");
 
   const keyword = firstKeyword(body);
-  const strict = engine === "mssql" || engine === "bigquery";
+  const strict = engine === "mssql" || engine === "bigquery" || engine === "clickhouse";
   const allowed = strict
     ? STRICT_READ_KEYWORDS.has(keyword)
     : READ_KEYWORDS.has(keyword) || (engine === "sqlite" && keyword === "PRAGMA");
@@ -357,6 +382,7 @@ function checkReadOnly(stripped: string, engine: DatabaseEngine): void {
   if (!hit && engine === "bigquery") {
     hit = outsideWhitelist(words, BIGQUERY_RESERVED, BIGQUERY_READ_ALLOWED, BIGQUERY_UNRESERVED_STATEMENTS);
   }
+  if (!hit && engine === "clickhouse") hit = CLICKHOUSE_OUTSIDE_FUNCTION.exec(body)?.[1]?.toUpperCase();
   if (hit) throw writeNotAllowed(`${hit} is not allowed`);
 }
 

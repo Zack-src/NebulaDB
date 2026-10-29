@@ -99,7 +99,10 @@ export function restoreRevision(projectId: string, revisionId: string, tableIds?
 
 /** Starts a new project of the caller's from the schema as it stood at a revision; the original is left as it is. */
 export function forkRevision(projectId: string, revisionId: string, name: string): Promise<ProjectSummary> {
-  return request<ProjectSummary>(`${projectPath(projectId)}/revisions/${revisionId}/fork`, { method: "POST", body: { name } });
+  return request<ProjectSummary>(`${projectPath(projectId)}/revisions/${revisionId}/fork`, {
+    method: "POST",
+    body: { name },
+  });
 }
 
 /** Locks, restores and (for those who may deploy) deployments, oldest first. */

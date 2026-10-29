@@ -19,7 +19,11 @@ test("seeds: a CSV over 2 MB is sent as a file, kept on the server and shown aga
     await login(page, env.baseUrl);
     const projectId = await page.evaluate(async () => {
       const json = { "content-type": "application/json" };
-      const created = await fetch("/api/projects", { method: "POST", headers: json, body: JSON.stringify({ name: "Boutique" }) });
+      const created = await fetch("/api/projects", {
+        method: "POST",
+        headers: json,
+        body: JSON.stringify({ name: "Boutique" }),
+      });
       const { id } = (await created.json()) as { id: string };
       await fetch(`/api/projects/${id}/import`, {
         method: "POST",
@@ -52,7 +56,11 @@ test("seeds: a CSV over 2 MB is sent as a file, kept on the server and shown aga
 
     await dialog.getByRole("button", { name: "Enregistrer" }).click();
     await dialog.waitFor({ state: "detached" });
-    await page.getByText(`${ROWS.toLocaleString("fr-FR")} lignes`, { exact: false }).first().waitFor().catch(() => {});
+    await page
+      .getByText(`${ROWS.toLocaleString("fr-FR")} lignes`, { exact: false })
+      .first()
+      .waitFor()
+      .catch(() => {});
 
     // The server holds it as a file, with every row counted.
     const seed = await page.evaluate(async (id) => {

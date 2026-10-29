@@ -208,7 +208,7 @@ export function isUniqueViolation(err: unknown, constraint?: string): boolean {
  */
 async function tryAdvisoryLock(space: number, key: string): Promise<(() => Promise<void>) | null> {
   const client = await pool.connect();
-  let taken = false;
+  let taken: boolean;
   try {
     // Two integers (a space and the key's hash): never the same lock as a one-number one (`MIGRATION_LOCK`).
     const row = (await client.query("SELECT pg_try_advisory_lock($1::int, hashtext($2)) AS taken", [space, key]))

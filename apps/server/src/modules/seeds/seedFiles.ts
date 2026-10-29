@@ -132,7 +132,12 @@ export async function ingestSeedStream(input: IngestInput): Promise<IngestResult
     for (const cells of rows) {
       if (!validator) {
         if (!options) {
-          options = { separator: separator!, header: true, mapping: suggestMapping(cells, table.fields), mode: "if-empty" };
+          options = {
+            separator: separator!,
+            header: true,
+            mapping: suggestMapping(cells, table.fields),
+            mode: "if-empty",
+          };
         } else if (options.mapping.length !== cells.length) {
           throw new ApiError("SEED_INVALID", { message: "the mapping needs one entry per CSV column" });
         }

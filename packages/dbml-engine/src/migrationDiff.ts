@@ -59,7 +59,10 @@ export function typesMatch(a: string, b: string): boolean {
   const paramsB = /\(([^)]*)\)/.exec(normB)?.[1]?.replace(/\s+/g, "");
   if (paramsA !== undefined && paramsB !== undefined && paramsA !== paramsB) return false;
   // The same type with the size on one side only (`char` read back, `char(64)` written) is one type.
-  if ((paramsA === undefined) !== (paramsB === undefined) && normA.replace(/\s*\(.*$/, "") === normB.replace(/\s*\(.*$/, "")) {
+  if (
+    (paramsA === undefined) !== (paramsB === undefined) &&
+    normA.replace(/\s*\(.*$/, "") === normB.replace(/\s*\(.*$/, "")
+  ) {
     return true;
   }
 
@@ -67,7 +70,7 @@ export function typesMatch(a: string, b: string): boolean {
   const aliases: Record<string, string[]> = {
     int: ["integer", "int4", "int"],
     // BigQuery has one integer type: every integer column reads back as `int64`.
-    bigint: ["int8", "bigint", "int64"],
+    bigint: ["int8", "bigint", "int64", "long"],
     smallint: ["int2", "smallint", "int64"],
     bool: ["boolean", "bool", "tinyint(1)", "bit"],
     text: ["varchar", "character varying", "text", "string", "nvarchar"],

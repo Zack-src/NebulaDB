@@ -73,7 +73,7 @@ Ref: users.id - users.id
 `;
 
 test("dbdiagram export parses and survives a project round trip", () => {
-  const source = EXPORT.replace('Ref: users.id - users.id\n', "");
+  const source = EXPORT.replace("Ref: users.id - users.id\n", "");
   const db = parseDbml(source);
   const project = toProject(db, "dbdiagram", source);
   assert.equal(project.tables.length, 4);
@@ -95,7 +95,7 @@ test("dbdiagram export parses and survives a project round trip", () => {
 });
 
 test("dbdiagram: ref cardinality, direction, actions and names", () => {
-  const source = EXPORT.replace('Ref: users.id - users.id\n', "");
+  const source = EXPORT.replace("Ref: users.id - users.id\n", "");
   const project = toProject(parseDbml(source), "d", source);
   const name = (id: string) => project.tables.find((t) => t.id === id)!.name;
   const fk = project.refs.find((r) => r.name === "fk_orders_user")!;
@@ -108,7 +108,7 @@ test("dbdiagram: ref cardinality, direction, actions and names", () => {
 });
 
 test("dbdiagram: table alias is resolved in refs", () => {
-  const source = EXPORT.replace('Ref: users.id - users.id\n', "");
+  const source = EXPORT.replace("Ref: users.id - users.id\n", "");
   const project = toProject(parseDbml(source), "d", source);
   const items = project.tables.find((t) => t.name === "order_items")!;
   const owned = project.refs.filter((r) => r.from.tableId === items.id);
@@ -116,7 +116,7 @@ test("dbdiagram: table alias is resolved in refs", () => {
 });
 
 test("dbdiagram: capitalised Indexes block, composite pk and expression index", () => {
-  const source = EXPORT.replace('Ref: users.id - users.id\n', "");
+  const source = EXPORT.replace("Ref: users.id - users.id\n", "");
   const project = toProject(parseDbml(source), "d", source);
   const orders = project.tables.find((t) => t.name === "orders")!;
   assert.equal(orders.indexes.length, 3);
@@ -126,7 +126,7 @@ test("dbdiagram: capitalised Indexes block, composite pk and expression index", 
 });
 
 test("dbdiagram: schema-qualified table and array / sized types", () => {
-  const source = EXPORT.replace('Ref: users.id - users.id\n', "");
+  const source = EXPORT.replace("Ref: users.id - users.id\n", "");
   const project = toProject(parseDbml(source), "d", source);
   assert.equal(project.tables.find((t) => t.name === "products")!.schemaName, "catalog");
   const orders = project.tables.find((t) => t.name === "orders")!;

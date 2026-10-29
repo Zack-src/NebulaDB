@@ -242,4 +242,3 @@ export async function recordWebhookOutcome(webhookId: string, succeeded: boolean
 export async function disableWebhook(webhookId: string, reason: string): Promise<void> {
   await db.prepare("UPDATE project_webhooks SET enabled = 0, disabled_reason = ? WHERE id = ?").run(reason, webhookId);
 }
-

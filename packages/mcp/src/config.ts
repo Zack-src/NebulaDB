@@ -56,6 +56,10 @@ export function resolveConfig(env: Record<string, string | undefined>): Config {
     baseUrl: `${url.origin}${url.pathname.replace(/\/+$/, "")}`,
     apiKey,
     timeoutMs: positiveInt(env.NEBULADB_MCP_TIMEOUT_MS, DEFAULT_TIMEOUT_MS, "NEBULADB_MCP_TIMEOUT_MS"),
-    maxOutputChars: positiveInt(env.NEBULADB_MCP_MAX_OUTPUT_CHARS, DEFAULT_MAX_OUTPUT_CHARS, "NEBULADB_MCP_MAX_OUTPUT_CHARS"),
+    maxOutputChars: positiveInt(
+      env.NEBULADB_MCP_MAX_OUTPUT_CHARS,
+      DEFAULT_MAX_OUTPUT_CHARS,
+      "NEBULADB_MCP_MAX_OUTPUT_CHARS",
+    ),
   };
 }

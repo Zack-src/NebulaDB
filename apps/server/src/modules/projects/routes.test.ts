@@ -294,7 +294,8 @@ Table orders {
     const forkUrl = `/api/projects/${project.id}/revisions/${firstRevisionId}/fork`;
     assert.equal((await send(forkUrl, "", { name: "Nope" })).statusCode, 401);
     assert.equal(
-      (await send(`/api/projects/${project.id}/revisions/${randomUUID()}/fork`, ownerCookie, { name: "Nope" })).statusCode,
+      (await send(`/api/projects/${project.id}/revisions/${randomUUID()}/fork`, ownerCookie, { name: "Nope" }))
+        .statusCode,
       404,
     );
     assert.equal((await send(forkUrl, ownerCookie, { name: "  " })).statusCode, 400);
@@ -309,7 +310,11 @@ Table orders {
     const tablesOf = async (id: string) =>
       (
         (
-          await app.inject({ method: "GET", url: `/api/projects/${id}/snapshot`, headers: headers({ cookie: ownerCookie }) })
+          await app.inject({
+            method: "GET",
+            url: `/api/projects/${id}/snapshot`,
+            headers: headers({ cookie: ownerCookie }),
+          })
         ).json() as { tables: { name: string }[] }
       ).tables
         .map((table) => table.name)

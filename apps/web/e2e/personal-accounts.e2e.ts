@@ -49,7 +49,7 @@ test(
       await page.getByRole("button", { name: "Admin", exact: true }).click();
       await page.getByRole("button", { name: "Connexions base de données" }).click();
       await page.getByRole("button", { name: "Nouvelle connexion" }).click();
-      const form = page.getByRole("dialog");
+      const form = page.getByRole("region", { name: "Nouvelle connexion" });
       await form.getByPlaceholder("ex: Production DB").fill("Boutique live");
       const mode = form.getByRole("radiogroup", { name: "Compte de connexion à la base" });
       // Each person's own account is the default for a network engine; the other choice is one click away.
@@ -88,8 +88,15 @@ test(
       await page.getByRole("button", { name: "Admin", exact: true }).click();
       await page.getByRole("button", { name: "Connexions base de données" }).click();
       await page.getByRole("button", { name: "Modifier" }).first().click();
-      await page.getByRole("dialog").getByTestId("credential-holders").getByText("Personne n'a encore donné").waitFor();
-      await page.keyboard.press("Escape");
+      await page
+        .getByRole("region", { name: "Modifier la connexion" })
+        .getByTestId("credential-holders")
+        .getByText("Personne n'a encore donné")
+        .waitFor();
+      await page
+        .getByRole("region", { name: "Modifier la connexion" })
+        .getByRole("button", { name: "Annuler" })
+        .click();
 
       // --- In the project: the account is missing, and the database says so when used ---
       await page.goto(`${env.baseUrl}/project/${projectId}/deployments`);

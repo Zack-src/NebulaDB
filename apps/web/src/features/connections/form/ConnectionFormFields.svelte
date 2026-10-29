@@ -8,9 +8,22 @@
     mssql: 1433,
     oracle: 1521,
     bigquery: 0,
+    clickhouse: 8123,
+    mongodb: 27017,
+    redis: 6379,
   };
 
-  const ENGINES: DatabaseEngine[] = ["postgres", "mysql", "mssql", "oracle", "sqlite", "bigquery"];
+  const ENGINES: DatabaseEngine[] = [
+    "postgres",
+    "mysql",
+    "mssql",
+    "oracle",
+    "sqlite",
+    "bigquery",
+    "clickhouse",
+    "mongodb",
+    "redis",
+  ];
 </script>
 
 <script lang="ts">
@@ -28,7 +41,7 @@
 
   /**
    * The connection-config form fields, shared by the admin console's
-   * `ConnectionEditModal` and `NewProjectFromDatabaseModal`
+   * `ConnectionEditor` and `NewProjectFromDatabaseModal`
    * (entering one before a project even exists) — extracted so the two don't
    * drift out of sync on engine support, field layout, or validation as either
    * one changes.

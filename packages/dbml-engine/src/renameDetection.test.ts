@@ -60,11 +60,24 @@ test("a column that vanishes while a near-identical one appears is a rename sugg
 });
 
 test("a different type or nullability is not a rename", () => {
-  const live = project([table("t", [{ name: "id", pk: true }, { name: "id_analyse", type: "int" }])]);
-  const retyped = project([table("t", [{ name: "id", pk: true }, { name: "id_analyze", type: "text" }])]);
+  const live = project([
+    table("t", [
+      { name: "id", pk: true },
+      { name: "id_analyse", type: "int" },
+    ]),
+  ]);
+  const retyped = project([
+    table("t", [
+      { name: "id", pk: true },
+      { name: "id_analyze", type: "text" },
+    ]),
+  ]);
   assert.equal(detectRenameCandidates(diffTargetAgainstLive(live, retyped)).length, 0);
   const nullable = project([
-    table("t", [{ name: "id", pk: true }, { name: "id_analyse", notNull: true }]),
+    table("t", [
+      { name: "id", pk: true },
+      { name: "id_analyse", notNull: true },
+    ]),
   ]);
   const loosened = project([table("t", [{ name: "id", pk: true }, { name: "id_analyze" }])]);
   assert.equal(detectRenameCandidates(diffTargetAgainstLive(nullable, loosened)).length, 0);
@@ -79,7 +92,11 @@ test("a rename becomes ALTER … RENAME COLUMN, with no drop and no add, and is 
   const renamed = generateMigrationSql(diff, "bigquery", { [key]: { strategy: "RENAME_COLUMN" } });
   assert.match(renamed, /ALTER TABLE `t` RENAME COLUMN `id_analyse` TO `id_analyze`;/);
   assert.doesNotMatch(renamed, /DROP COLUMN|ADD COLUMN/);
-  assert.match(generateMigrationSql(diff, "mssql"), /EXEC sp_rename 't.id_analyse', 'id_analyze', 'COLUMN';/, "unanswered = rename");
+  assert.match(
+    generateMigrationSql(diff, "mssql"),
+    /EXEC sp_rename 't.id_analyse', 'id_analyze', 'COLUMN';/,
+    "unanswered = rename",
+  );
   assert.match(generateMigrationSql(diff, "postgres"), /RENAME COLUMN "id_analyse" TO "id_analyze"/);
 
   const separate = generateMigrationSql(diff, "bigquery", { [key]: { strategy: "KEEP_SEPARATE" } });
@@ -97,7 +114,10 @@ test("the drop a rename makes moot is not asked about", () => {
   const target = project([table("t", [{ name: "id", pk: true }, { name: "id_analyze" }])]);
   const diff = diffTargetAgainstLive(live, target);
   const probes = planRiskProbes(diff, "postgres");
-  const drop = riskFromProbe(probes.find((probe) => probe.type === "DROP_COLUMN_WITH_DATA")!, 12)!;
+  const drop = riskFromProbe(
+    probes.find((probe) => probe.type === "DROP_COLUMN_WITH_DATA")!,
+    12,
+  )!;
   const rename = detectRenameCandidates(diff)[0]!;
   assert.deepEqual([...supersededByRename([drop, rename], {})], [drop.id]);
   assert.equal(

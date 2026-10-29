@@ -150,7 +150,7 @@ jobs:
       - name: Smoke test native modules
         run: docker run --rm nebuladb:ci node -e "require('sharp'); require('better-sqlite3')"
       - name: Trivy scan
-        uses: aquasecurity/trivy-action@0.28.0
+        uses: aquasecurity/trivy-action@v0.28.0
         with:
           image-ref: nebuladb:ci
           severity: HIGH,CRITICAL
@@ -232,11 +232,26 @@ jobs:
       - run: npm run test -w apps/server
 
   # Second supported Node major (README: Node 22-25; the build job covers
-  # .nvmrc's 22). Only the suites that need no database, so Postgres is not
-  # started a second time. The server is left out on purpose.
+  # .nvmrc's 22). Only the packages and the web app, the server's own suite being
+  # left out on purpose. The CLI's integration test starts a real server, which
+  # needs the throwaway Postgres (the one every server test file uses).
   node-compat:
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    services:
+      nebuladb-test-postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nebuladb_test
+          POSTGRES_PASSWORD: nebuladb_test
+          POSTGRES_DB: nebuladb_test
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U nebuladb_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
     strategy:
       fail-fast: false
       matrix:
@@ -249,7 +264,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Unit tests without a database (node ${{ matrix.node-version }})
+      - name: Unit tests (node ${{ matrix.node-version }})
         run: npm test -w packages/shared -w packages/dbml-engine -w packages/cli -w packages/mcp -w apps/web
 
   # Oracle driver tests (skip themselves locally when nothing listens). Nightly

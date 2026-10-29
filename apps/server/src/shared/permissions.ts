@@ -115,8 +115,9 @@ export async function getEffectivePermissions(
   userId: string,
   isAdmin?: boolean,
 ): Promise<Map<string, PermissionLevel | null>> {
-  const projects = (await db.prepare("SELECT id, owner_id FROM projects").all()) as
-    (ProjectOwnerRow & { id: string })[];
+  const projects = (await db.prepare("SELECT id, owner_id FROM projects").all()) as (ProjectOwnerRow & {
+    id: string;
+  })[];
   const result = new Map<string, PermissionLevel | null>();
   if (isAdmin ?? (await isGlobalAdmin(userId))) {
     for (const p of projects) result.set(p.id, "administrator");
@@ -141,9 +142,9 @@ export async function getEffectivePermissions(
 
   const restricted = new Set(
     (
-      (await db
-        .prepare("SELECT project_id FROM project_teams UNION SELECT project_id FROM project_members")
-        .all()) as { project_id: string }[]
+      (await db.prepare("SELECT project_id FROM project_teams UNION SELECT project_id FROM project_members").all()) as {
+        project_id: string;
+      }[]
     ).map((r) => r.project_id),
   );
 

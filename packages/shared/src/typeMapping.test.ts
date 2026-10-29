@@ -79,7 +79,17 @@ test("translateType: int is a valid spelling on every engine but Oracle", () => 
 });
 
 test("SUPPORTED_ENGINES lists every engine", () => {
-  assert.deepEqual([...SUPPORTED_ENGINES].sort(), ["bigquery", "mssql", "mysql", "oracle", "postgres", "sqlite"]);
+  assert.deepEqual([...SUPPORTED_ENGINES].sort(), [
+    "bigquery",
+    "clickhouse",
+    "mongodb",
+    "mssql",
+    "mysql",
+    "oracle",
+    "postgres",
+    "redis",
+    "sqlite",
+  ]);
 });
 
 test("translateType: BigQuery has its own names for text, booleans, floats, dates and bytes", () => {
