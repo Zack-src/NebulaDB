@@ -6,12 +6,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import * as Y from "yjs";
 import type { Project } from "@nebuladb/shared";
+import { useTestDatabase } from "./testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-backup-test-${randomUUID()}.sqlite`);
+await useTestDatabase("backup");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 
 const { db } = await import("./db.js");
-const { runBackup, pruneOldBackups, backupTimestamp, sanitizeFilename } = await import("./backupRunner.js");
+const { runBackup, pruneOldBackups, backupTimestamp, sanitizeFilename, BACKUP_SCOPE_FILENAME } =
+  await import("./backupRunner.js");
 const { appendRevision } = await import("../realtime/persistence.js");
 const { writeProjectToDoc, readProjectFromDoc } = await import("@nebuladb/shared");
 const { parseDbml, toProject, applyVisualMetadata } = await import("@nebuladb/dbml-engine");
@@ -21,9 +23,9 @@ function scratch(): string {
 }
 
 /** Creates a project whose revision log contains one table, the way a real edit would. */
-function seedProject(name: string, tableName: string): string {
+async function seedProject(name: string, tableName: string): Promise<string> {
   const id = randomUUID();
-  db.prepare("INSERT INTO projects (id, name) VALUES (?, ?)").run(id, name);
+  await db.prepare("INSERT INTO projects (id, name) VALUES (?, ?)").run(id, name);
 
   const doc = new Y.Doc();
   const project: Project = {
@@ -51,26 +53,26 @@ function seedProject(name: string, tableName: string): string {
   doc.transact(() => writeProjectToDoc(doc, project));
   // The backup replays the revision log, not the snapshot — so the test has to
   // produce a revision, exactly as a live edit does.
-  appendRevision(id, "tester", Y.encodeStateAsUpdate(doc));
+  await appendRevision(id, "tester", Y.encodeStateAsUpdate(doc));
   doc.destroy();
   return id;
 }
 
-test("a backup writes one .dbml per project, named after it", () => {
+test("a backup writes one .dbml per project, named after it", async () => {
   const dir = scratch();
-  seedProject("Ventes Europe", "customers");
-  const result = runBackup(dir);
+  await seedProject("Ventes Europe", "customers");
+  const result = await runBackup(dir);
 
   assert.equal(result.backedUp, 1);
-  const files = readdirSync(dir);
+  const files = readdirSync(dir).filter((f) => f.endsWith(".dbml"));
   assert.deepEqual(files, ["Ventes_Europe.dbml"]);
   assert.match(readFileSync(join(dir, files[0]), "utf-8"), /Table customers/);
 });
 
-test("a project with no revisions is skipped, not written empty", () => {
+test("a project with no revisions is skipped, not written empty", async () => {
   const dir = scratch();
-  db.prepare("INSERT INTO projects (id, name) VALUES (?, ?)").run(randomUUID(), "Never edited");
-  const result = runBackup(dir);
+  await db.prepare("INSERT INTO projects (id, name) VALUES (?, ?)").run(randomUUID(), "Never edited");
+  const result = await runBackup(dir);
   assert.ok(result.skipped >= 1);
   assert.equal(
     readdirSync(dir).includes("Never_edited.dbml"),
@@ -79,24 +81,24 @@ test("a project with no revisions is skipped, not written empty", () => {
   );
 });
 
-test("two projects with the same name don't overwrite each other", () => {
+test("two projects with the same name don't overwrite each other", async () => {
   const dir = scratch();
-  seedProject("Duplicate", "alpha");
-  seedProject("Duplicate", "beta");
-  runBackup(dir);
+  await seedProject("Duplicate", "alpha");
+  await seedProject("Duplicate", "beta");
+  await runBackup(dir);
   const files = readdirSync(dir)
     .filter((f) => f.startsWith("Duplicate"))
     .sort();
   assert.deepEqual(files, ["Duplicate-1.dbml", "Duplicate.dbml"]);
 });
 
-test("backup → restore round-trips the schema", () => {
+test("backup → restore round-trips the schema", async () => {
   // The point of the whole feature: a backup nobody has ever restored is not a
   // backup. This runs the real backup writer, then the same parse/convert path
   // `restore.ts` uses, and compares the result to what went in.
   const dir = scratch();
-  const projectId = seedProject("Round Trip", "orders");
-  runBackup(dir);
+  const projectId = await seedProject("Round Trip", "orders");
+  await runBackup(dir);
 
   const source = readFileSync(join(dir, "Round_Trip.dbml"), "utf-8");
   const restored = applyVisualMetadata(toProject(parseDbml(source), "Round Trip", source), source);
@@ -153,4 +155,12 @@ test("sanitizeFilename never produces an empty or path-escaping name", () => {
   assert.equal(sanitizeFilename("../../etc/passwd"), "etc_passwd");
   assert.equal(sanitizeFilename("///"), "untitled");
   assert.equal(sanitizeFilename("Café Ventes"), "Caf_Ventes");
+});
+
+test("runBackup writes a scope notice saying the export is DBML-only", async () => {
+  const dir = scratch();
+  await runBackup(dir);
+  const notice = readFileSync(join(dir, BACKUP_SCOPE_FILENAME), "utf-8");
+  assert.match(notice, /DBML export of the project schemas only/);
+  assert.match(notice, /pg_dump/);
 });

@@ -2,6 +2,8 @@ node_modules/
 dist/
 build/
 .env
+.env.*
+!.env.example
 *.log
 .DS_Store
 *.sqlite
@@ -15,3 +17,7 @@ backups/
 !apps/*/src/**/backups/
 .claude/worktrees/
 
+
+# Seed files kept on the server (NEBULADB_SEED_DIR)
+/data/
+graphify-out/

@@ -13,7 +13,9 @@
     "dev": "concurrently -n server,web -c blue,green \"npm run dev:server\" \"npm run dev:web\"",
     "dev:web": "npm run dev -w apps/web",
     "dev:server": "npm run dev -w apps/server",
-    "build": "npm run build -w packages/shared && npm run build -w packages/dbml-engine && npm run build -w apps/server && npm run build -w apps/web",
+    "db:up": "docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --wait postgres",
+    "db:down": "docker compose -f docker-compose.yml -f docker-compose.dev.yml stop postgres",
+    "build": "npm run build -w packages/shared && npm run build -w packages/dbml-engine && npm run build -w apps/server && npm run build -w packages/cli && npm run build -w packages/mcp && npm run build -w apps/web",
     "start": "node apps/server/dist/index.js",
     "bench:web": "node scripts/bench-web.mjs",
     "bench:server": "npm run bench -w apps/server --",
@@ -21,6 +23,9 @@
     "restore": "npm run restore -w apps/server --",
     "bootstrap-admin": "npm run bootstrap-admin -w apps/server --",
     "rotate-secret": "npm run rotate-secret -w apps/server --",
+    "migrate-from-sqlite": "npm run migrate-from-sqlite -w apps/server --",
+    "export-instance": "npm run export-instance -w apps/server --",
+    "import-instance": "npm run import-instance -w apps/server --",
     "test": "npm run test --workspaces --if-present",
     "test:e2e": "npm run test:e2e -w apps/web",
     "check:circular": "npm run check:circular --workspaces --if-present",
@@ -46,6 +51,12 @@
   "allowScripts": {
     "better-sqlite3@13.0.3": true,
     "core-js@3.50.0": true,
-    "esbuild@0.28.2": true
+    "esbuild@0.28.2": true,
+    "ssh2@1.17.0": true,
+    "cpu-features": false,
+    "oracledb": false
+  },
+  "overrides": {
+    "@azure/msal-node": "^7.1.1"
   }
 }

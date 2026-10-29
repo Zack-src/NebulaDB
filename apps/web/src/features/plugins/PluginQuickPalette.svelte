@@ -100,7 +100,7 @@
 
         <div class="flex items-center gap-1.5 shrink-0 ml-2">
           {#if command.contribution.shortcut}
-            <span class="rounded bg-surface-raised px-1 py-0.5 text-[9.5px] font-mono text-text-muted">
+            <span class="rounded bg-surface-raised px-1 py-0.5 text-micro font-mono text-text-muted">
               {command.contribution.shortcut}
             </span>
           {/if}
@@ -127,7 +127,7 @@
         <Icon icon={SettingsIcon} size={13} />
         <span>{t("plugins.managePlugins")}</span>
       </div>
-      <span class="text-[10px] text-text-muted">{t("plugins.exploreAndCreate")}</span>
+      <span class="text-micro text-text-muted">{t("plugins.exploreAndCreate")}</span>
     </button>
   </div>
 </div>

@@ -1,7 +1,7 @@
 import { PanOnScrollMode, type OnMoveEnd, type Viewport } from "@xyflow/svelte";
 import { DEFAULT_TABLE_HEIGHT, DEFAULT_TABLE_WIDTH } from "@/features/editor/edges/refGeometry";
 import { loadShowMinimap, loadViewport, saveShowMinimap, saveViewport } from "@/utils/preferences";
-import type { CanvasNode } from "@/types";
+import type { CanvasNode } from "@/features/editor/nodes/nodeTypes";
 
 /** Shared by every "jump to a table" gesture — canvas search (Ctrl+F) and the DBML editor's double-click-to-canvas navigation. */
 const JUMP_ZOOM = 1;

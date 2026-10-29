@@ -1,5 +1,16 @@
-import type { MentionableUser, CommentNoticeBody } from "@/features/editor/comments/commentNotice";
 import { request } from "./httpClient";
+
+export interface MentionableUser {
+  id: string;
+  name: string;
+}
+
+export interface CommentNoticeBody {
+  text: string;
+  tableName: string;
+  columnName: string | null;
+  threadUserIds: string[];
+}
 
 /** Who `@` may offer on this project: accounts that can see it, filtered by what was typed. */
 export async function fetchMentionable(

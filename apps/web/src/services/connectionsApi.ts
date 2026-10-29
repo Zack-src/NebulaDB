@@ -3,6 +3,7 @@ import type {
   DatabaseConnectionSummary,
   DatabaseEngine,
   DeploymentHistoryEntry,
+  DeploymentReview,
   DriftCheckResult,
   MigrationResolutionMap,
   ProjectDriftEntry,
@@ -14,13 +15,15 @@ import type {
   PersonalCredentialStatus,
 } from "@nebuladb/shared";
 import type { LintRuleKey, MigrationDiff, SchemaComparisonEntry } from "@nebuladb/dbml-engine";
-import { request } from "./httpClient";
+import { request, requestBlob } from "./httpClient";
 
 export interface TestConnectionResponse {
   ok: boolean;
   version?: string;
   database?: string;
   error?: string;
+  /** Through an SSH tunnel: the SSH server's host key, to pin it. */
+  sshHostKeyFingerprint?: string;
 }
 
 export interface PlanDeploymentResponse {
@@ -64,6 +67,8 @@ export interface ApplyDeploymentResponse {
 export interface RollbackResponse {
   success: boolean;
   executedStatements: number;
+  /** The backup taken just before, when there was one. */
+  backupId: string | null;
 }
 
 export interface CreateProjectFromDatabaseResponse {
@@ -125,7 +130,7 @@ export interface EnvironmentComparison {
   tables: SchemaComparisonEntry[];
 }
 
-/** Project administrators only: it opens both databases. */
+/** For those who may deploy on the project: it opens both databases. */
 export function compareProjectConnections(
   projectId: string,
   sourceId: string,
@@ -137,7 +142,7 @@ export function compareProjectConnections(
   });
 }
 
-/** The project's databases along the chain of stages, and how far the current schema has got. Project administrators. */
+/** The project's databases along the chain of stages, and how far the current schema has got. For those who may deploy. */
 export async function fetchProjectPipeline(projectId: string): Promise<ProjectPipeline> {
   return (await request<{ pipeline: ProjectPipeline }>(`/api/projects/${projectId}/pipeline`)).pipeline;
 }
@@ -180,11 +185,91 @@ export async function applyDeployment(
     /** Deploy although the stage before is not level — instance administrators, with `skipReason`. */
     skipStageOrder?: boolean;
     skipReason?: string;
+    /** Start over: drop the tables and write the schema again (project administrators; never on production). */
+    clean?: { includeUnmanaged: boolean };
   } = {},
 ): Promise<ApplyDeploymentResponse> {
   return request<ApplyDeploymentResponse>(`/api/projects/${projectId}/connections/${connId}/apply-deployment`, {
     method: "POST",
     body: { resolutions, ...options },
+  });
+}
+
+/** What a clean deployment would drop and write, counted but not run. */
+export interface CleanDeploymentPreview {
+  engine: string;
+  sql: string;
+  dropTables: { name: string; rows: number | null }[];
+  createTables: string[];
+}
+
+export async function previewCleanDeployment(
+  projectId: string,
+  connId: string,
+  includeUnmanaged: boolean,
+): Promise<CleanDeploymentPreview> {
+  return request<CleanDeploymentPreview>(`/api/projects/${projectId}/connections/${connId}/plan-clean-deployment`, {
+    method: "POST",
+    body: { includeUnmanaged },
+  });
+}
+
+// ---- Review before a stage whose protection is "Revue" ----------------------
+
+/** The project's review requests, newest first, open and closed — for those who may deploy. */
+export async function listDeploymentReviews(projectId: string): Promise<DeploymentReview[]> {
+  return (await request<{ reviews: DeploymentReview[] }>(`/api/projects/${projectId}/reviews`)).reviews;
+}
+
+/** Asks for a review instead of deploying: the server prepares the deployment, runs nothing and freezes it. */
+export async function requestDeploymentReview(
+  projectId: string,
+  connId: string,
+  resolutions: MigrationResolutionMap,
+  options: { riskNote?: string; skipSeeds?: boolean; message?: string } = {},
+): Promise<DeploymentReview> {
+  const res = await request<{ review: DeploymentReview }>(`/api/projects/${projectId}/connections/${connId}/reviews`, {
+    method: "POST",
+    body: { resolutions, ...options },
+  });
+  return res.review;
+}
+
+/** Approves or rejects a pending request — someone other than its author. */
+export async function decideDeploymentReview(
+  projectId: string,
+  reviewId: string,
+  decision: "approve" | "reject",
+  comment?: string,
+): Promise<DeploymentReview> {
+  const res = await request<{ review: DeploymentReview }>(
+    `/api/projects/${projectId}/reviews/${reviewId}/${decision}`,
+    {
+      method: "POST",
+      body: comment ? { comment } : {},
+    },
+  );
+  return res.review;
+}
+
+/** The author takes their request back. */
+export async function withdrawDeploymentReview(projectId: string, reviewId: string): Promise<DeploymentReview> {
+  const res = await request<{ review: DeploymentReview }>(`/api/projects/${projectId}/reviews/${reviewId}/withdraw`, {
+    method: "POST",
+    body: {},
+  });
+  return res.review;
+}
+
+/** Deploys an approved request as it was read — its author or its approver. Options as for `applyDeployment`. */
+export function deployDeploymentReview(
+  projectId: string,
+  reviewId: string,
+  options: { confirmName?: string; skipStageOrder?: boolean; skipReason?: string } = {},
+): Promise<ApplyDeploymentResponse> {
+  return request<ApplyDeploymentResponse>(`/api/projects/${projectId}/reviews/${reviewId}/deploy`, {
+    method: "POST",
+    body: options,
   });
 }
 
@@ -195,16 +280,34 @@ export async function listDeploymentHistory(projectId: string, connId: string): 
   return res.history;
 }
 
+export type MigrationExportFormat = "sql" | "flyway" | "liquibase";
+
+/** The history as migration files in one zip — see the server's `migrationExport.ts`. */
+export function exportMigrations(projectId: string, connId: string, format: MigrationExportFormat): Promise<Blob> {
+  return requestBlob(`/api/projects/${projectId}/connections/${connId}/history/export`, { query: { format } });
+}
+
 export async function rollbackDeployment(
   projectId: string,
   connId: string,
   historyId: string,
-  /** As for `applyDeployment`. */
-  confirmName?: string,
+  options: {
+    /** As for `applyDeployment`. */
+    confirmName?: string;
+    /** Back the database up first; left out, the server does so on the production stage only. */
+    backupBefore?: boolean;
+    /** On a stage that asks for a review, which a rollback does not go through: a project administrator's reason. */
+    skipReviewReason?: string;
+  } = {},
 ): Promise<RollbackResponse> {
+  const { confirmName, backupBefore, skipReviewReason } = options;
   return request<RollbackResponse>(`/api/projects/${projectId}/connections/${connId}/history/${historyId}/rollback`, {
     method: "POST",
-    body: confirmName === undefined ? {} : { confirmName },
+    body: {
+      ...(confirmName === undefined ? {} : { confirmName }),
+      ...(backupBefore === undefined ? {} : { backupBefore }),
+      ...(skipReviewReason === undefined ? {} : { skipReview: true, reason: skipReviewReason }),
+    },
   });
 }
 
@@ -215,7 +318,7 @@ export async function fetchProjectDrift(projectId: string): Promise<ProjectDrift
   return (await request<{ connections: ProjectDriftEntry[] }>(`/api/projects/${projectId}/drift`)).connections;
 }
 
-/** Reads the database now. Project administrators only. */
+/** Reads the database now. For those who may deploy on the project. */
 export function checkProjectDrift(projectId: string, connId: string): Promise<DriftCheckResult> {
   return request<DriftCheckResult>(`/api/projects/${projectId}/connections/${connId}/drift-check`, { method: "POST" });
 }

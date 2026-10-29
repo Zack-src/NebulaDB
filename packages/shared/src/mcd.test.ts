@@ -42,7 +42,7 @@ test("plain table with no refs becomes an entity with all its fields as attribut
   assert.equal(model.associations.length, 0);
   assert.equal(model.warnings.length, 0);
   assert.deepEqual(
-    model.entities[0].attributes.map((a) => a.name),
+    model.entities[0]!.attributes.map((a) => a.name),
     ["id", "name"],
   );
 });
@@ -78,7 +78,7 @@ test("a plain one-to-many ref becomes a binary association, FK column dropped fr
   );
 
   assert.equal(model.associations.length, 1);
-  const assoc = model.associations[0];
+  const assoc = model.associations[0]!;
   assert.equal(assoc.sourceId, "r1");
   const usersMember = assoc.members.find((m) => m.entityId === "users")!;
   const postsMember = assoc.members.find((m) => m.entityId === "posts")!;
@@ -103,7 +103,7 @@ test("a nullable FK yields 0,1 on the child side instead of 1,1", () => {
     cardinality: "one-to-many",
   });
   const model = deriveMCD(project({ tables: [a, b], refs: [r] }));
-  const bMember = model.associations[0].members.find((m) => m.entityId === "b")!;
+  const bMember = model.associations[0]!.members.find((m) => m.entityId === "b")!;
   assert.equal(bMember.cardinality, "0,1");
 });
 
@@ -148,7 +148,7 @@ test("a junction table (composite PK of exactly 2 FKs) collapses into an n,n ass
 
   // ...and becomes a single n,n association carrying its leftover column as an attribute.
   assert.equal(model.associations.length, 1);
-  const assoc = model.associations[0];
+  const assoc = model.associations[0]!;
   assert.equal(assoc.name, "post_tags");
   assert.deepEqual(assoc.members.map((m) => m.cardinality).sort(), ["0,n", "0,n"]);
   assert.deepEqual(
@@ -197,7 +197,7 @@ test("a table with 3 FKs entirely composing its PK is flagged as a possible tern
   // Left as a plain entity rather than guessed at.
   assert.ok(model.entities.some((e) => e.id === "j"));
   assert.equal(model.warnings.length, 1);
-  assert.equal(model.warnings[0].reason, "possible-ternary-association");
+  assert.equal(model.warnings[0]!.reason, "possible-ternary-association");
 });
 
 test("a self-referencing FK produces a reflexive association with both members on the same entity", () => {
@@ -218,7 +218,7 @@ test("a self-referencing FK produces a reflexive association with both members o
   const model = deriveMCD(project({ tables: [employees], refs: [r] }));
 
   assert.equal(model.associations.length, 1);
-  assert.ok(model.associations[0].members.every((m) => m.entityId === "employees"));
+  assert.ok(model.associations[0]!.members.every((m) => m.entityId === "employees"));
 });
 
 test("many-to-many ref without a physical junction table becomes a direct n,n association", () => {
@@ -243,7 +243,7 @@ test("many-to-many ref without a physical junction table becomes a direct n,n as
   assert.equal(model.entities.length, 2);
   assert.equal(model.associations.length, 1);
   assert.deepEqual(
-    model.associations[0].members.map((m) => m.cardinality),
+    model.associations[0]!.members.map((m) => m.cardinality),
     ["0,n", "0,n"],
   );
 });

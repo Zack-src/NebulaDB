@@ -1,11 +1,9 @@
 import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
-import { join } from "node:path";
-import { tmpdir } from "node:os";
-import { randomUUID } from "node:crypto";
 import type { DatabaseConnectionConfig, DbUserAction } from "@nebuladb/shared";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH ??= join(tmpdir(), `nebuladb-test-accountlive-${randomUUID()}.sqlite`);
+await useTestDatabase("accountlive");
 
 const { createAdminDriver } = await import("../dbAdmin/drivers/index.js");
 const { resetConnectionBudgets } = await import("../connections/connectionBudget.js");

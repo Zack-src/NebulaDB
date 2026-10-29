@@ -76,3 +76,12 @@ test("viewBox bounding box grows to fit tables placed far from the origin", () =
   assert.ok(Number(width) > 2000, "width should extend past the farthest table's x position");
   assert.ok(Number(height) > 1500, "height should extend past the farthest table's y position");
 });
+
+test("a hand-written position or size cannot inject markup into the SVG", () => {
+  const evil = table("users", [field("id")]);
+  (evil.position as { x: unknown }).x = '0"/><script>alert(1)</script><rect x="';
+  evil.size = { width: "1\" onload=\"x" as unknown as number, height: Number.NaN };
+  const svg = projectToSvg(project([evil]));
+
+  assert.doesNotMatch(svg, /<script|onload/);
+});

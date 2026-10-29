@@ -8,6 +8,7 @@
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { compareProjectConnections, type EnvironmentComparison } from "@/services/connectionsApi";
+  import { canCompare, comparisonPair, countByStatus, detailRows } from "./compareEnvironments";
 
   /**
    * "Comparer deux environnements": two of the project's databases read now
@@ -18,13 +19,14 @@
     projectId,
     connections,
     currentId,
-    onOpenTable,
+    onShowInGraph,
   }: {
     projectId: string;
     connections: DatabaseConnectionSummary[];
     /** The workspace's current connection: the comparison's target by default. */
     currentId: string | null;
-    onOpenTable: (tableName: string) => void;
+    /** Centres the diagram on a table the schema has. */
+    onShowInGraph?: (tableName: string) => void;
   } = $props();
 
   const { t } = useTranslation();
@@ -37,8 +39,15 @@
   );
   let targetChoice = $state<string | null>(null);
   let sourceChoice = $state<string | null>(null);
-  const targetId = $derived(targetChoice ?? currentId ?? connections[0]?.id ?? "");
-  const sourceId = $derived(sourceChoice ?? connections.find((connection) => connection.id !== targetId)?.id ?? "");
+  const pair = $derived(
+    comparisonPair(
+      connections.map((connection) => connection.id),
+      currentId,
+      { source: sourceChoice, target: targetChoice },
+    ),
+  );
+  const sourceId = $derived(pair.sourceId);
+  const targetId = $derived(pair.targetId);
 
   let comparison = $state.raw<EnvironmentComparison | null>(null);
   const compare = useAsyncAction(async () => {
@@ -85,7 +94,7 @@
     <Button
       size="sm"
       variant="outline"
-      disabled={compare.pending || !sourceId || !targetId || sourceId === targetId}
+      disabled={compare.pending || !canCompare(sourceId, targetId)}
       onclick={() => void compare.run()}
     >
       {compare.pending ? t("common.loading") : t("compareEnv.run")}
@@ -100,7 +109,17 @@
         {t("compareEnv.identical", { source: result.source.name, target: result.target.name })}
       </p>
     {:else}
-      <ul class="m-0 mt-3 list-none p-0" aria-label={t("compareEnv.differences")}>
+      {@const counts = countByStatus(result.tables)}
+      <p class="m-0 mt-3 text-text-secondary" role="status">
+        {t("compareEnv.summary", {
+          onlySource: counts["only-source"],
+          source: result.source.name,
+          onlyTarget: counts["only-target"],
+          target: result.target.name,
+          different: counts.different,
+        })}
+      </p>
+      <ul class="m-0 mt-2 list-none p-0" aria-label={t("compareEnv.differences")}>
         {#each result.tables as entry (entry.name)}
           <li class="border-b border-border py-1.5 last:border-b-0" data-table={entry.name} data-status={entry.status}>
             <div class="flex flex-wrap items-center gap-2">
@@ -108,28 +127,28 @@
               <Badge tone={STATUS_TONE[entry.status]}>{statusLabel(entry, result)}</Badge>
               {#if !entry.inSchema}
                 <Badge tone="danger">{t("compareEnv.outOfSchema")}</Badge>
-              {:else}
-                <Button size="xs" variant="ghost" class="ml-auto" onclick={() => onOpenTable(entry.name)}>
+              {:else if onShowInGraph}
+                <Button size="xs" variant="ghost" class="ml-auto" onclick={() => onShowInGraph(entry.name)}>
                   {t("compareEnv.openInSchema")}
                 </Button>
               {/if}
             </div>
-            {#if entry.detail}
-              {@const detail = entry.detail}
+            {#if detailRows(entry)}
+              {@const detail = detailRows(entry)!}
               <ul class="m-0 mt-1 list-none space-y-0.5 p-0 pl-3 text-text-secondary">
-                {#if detail.columnsRemoved.length > 0}
+                {#if detail.onlyInSource.length > 0}
                   <li>
                     {t("compareEnv.columnsOnlyIn", { name: result.source.name })}
-                    <span class="font-mono">{detail.columnsRemoved.join(", ")}</span>
+                    <span class="font-mono">{detail.onlyInSource.join(", ")}</span>
                   </li>
                 {/if}
-                {#if detail.columnsAdded.length > 0}
+                {#if detail.onlyInTarget.length > 0}
                   <li>
                     {t("compareEnv.columnsOnlyIn", { name: result.target.name })}
-                    <span class="font-mono">{detail.columnsAdded.join(", ")}</span>
+                    <span class="font-mono">{detail.onlyInTarget.join(", ")}</span>
                   </li>
                 {/if}
-                {#each detail.columnsChanged as column (column.name)}
+                {#each detail.changed as column (column.name)}
                   <li>
                     <span class="font-mono font-semibold">{column.name}</span>
                     <span class="font-mono">{column.before}</span>
@@ -137,9 +156,7 @@
                     <span class="font-mono">{column.after}</span>
                   </li>
                 {/each}
-                {#if detail.primaryKeyChanged}<li>{t("compareEnv.primaryKey")}</li>{/if}
-                {#if detail.indexesChanged}<li>{t("compareEnv.indexes")}</li>{/if}
-                {#if detail.foreignKeysChanged}<li>{t("compareEnv.foreignKeys")}</li>{/if}
+                {#each detail.flags as flag (flag)}<li>{t(`compareEnv.${flag}`)}</li>{/each}
               </ul>
             {/if}
           </li>

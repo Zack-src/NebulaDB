@@ -53,7 +53,7 @@
 >
   <Icon icon={CommentIcon} size={12} />
   {#if comments.length > 0}
-    <span class="text-[10px] font-bold leading-none">{comments.length}</span>
+    <span class="text-micro font-bold leading-none">{comments.length}</span>
   {/if}
 </button>
 {#if open && triggerRect}

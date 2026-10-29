@@ -4,8 +4,9 @@ import { randomUUID } from "node:crypto";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-accountwatch-${randomUUID()}.sqlite`);
+await useTestDatabase("accountwatch");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -24,13 +25,9 @@ type App = Awaited<ReturnType<typeof buildApp>>;
 async function login(app: App, admin: boolean) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, ?)").run(
-    randomUUID(),
-    email,
-    await hashPassword(password),
-    admin ? 1 : 0,
-    admin ? "Ada Admin" : "Bob",
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, ?)")
+    .run(randomUUID(), email, await hashPassword(password), admin ? 1 : 0, admin ? "Ada Admin" : "Bob");
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -233,7 +230,7 @@ test("accounts watch: an outside change is an alert, a change through Nebula is 
     assert.equal(view.accounts?.connections[0].differs, false);
 
     // The passwords typed in the console never reach the stored state.
-    const stored = JSON.stringify(db.prepare("SELECT * FROM account_baselines").all());
+    const stored = JSON.stringify(await db.prepare("SELECT * FROM account_baselines").all());
     assert.ok(!stored.includes("s3cret"));
 
     // Unlinking the database drops its reference; deleting the project drops the rest.
@@ -247,12 +244,16 @@ test("accounts watch: an outside change is an alert, a change through Nebula is 
     );
     assert.equal((await call(app, admin, "DELETE", `/api/admin/connections/${conn}`)).statusCode, 200);
     assert.equal(
-      (db.prepare("SELECT COUNT(*) AS n FROM account_baselines WHERE connection_id = ?").get(conn) as { n: number }).n,
+      (
+        (await db.prepare("SELECT COUNT(*) AS n FROM account_baselines WHERE connection_id = ?").get(conn)) as {
+          n: number;
+        }
+      ).n,
       0,
     );
   } finally {
     setAccountReaderForTests(null);
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

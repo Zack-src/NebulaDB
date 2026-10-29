@@ -27,16 +27,17 @@ function toLock(row: TableLockRow): TableLock {
   };
 }
 
-export function listTableLocks(projectId: string): TableLock[] {
-  const rows = db
-    .prepare("SELECT * FROM table_locks WHERE project_id = ? ORDER BY table_name COLLATE NOCASE")
-    .all(projectId) as TableLockRow[];
+export async function listTableLocks(projectId: string): Promise<TableLock[]> {
+  const rows = (await db
+    .prepare("SELECT * FROM table_locks WHERE project_id = ? ORDER BY LOWER(table_name)")
+    .all(projectId)) as TableLockRow[];
   return rows.map(toLock);
 }
 
-export function getTableLock(projectId: string, tableId: string): TableLock | null {
-  const row = db.prepare("SELECT * FROM table_locks WHERE project_id = ? AND table_id = ?").get(projectId, tableId) as
-    TableLockRow | undefined;
+export async function getTableLock(projectId: string, tableId: string): Promise<TableLock | null> {
+  const row = (await db
+    .prepare("SELECT * FROM table_locks WHERE project_id = ? AND table_id = ?")
+    .get(projectId, tableId)) as TableLockRow | undefined;
   return row ? toLock(row) : null;
 }
 
@@ -52,10 +53,11 @@ export interface TableLockInput {
 }
 
 /** Places a lock, or replaces the one already on this table — who locked it and when then describe the latest change. */
-export function upsertTableLock(input: TableLockInput): TableLock {
-  db.prepare(
-    `INSERT INTO table_locks (project_id, table_id, table_name, level, authority, reason, locked_by, locked_by_name)
-     VALUES (@projectId, @tableId, @tableName, @level, @authority, @reason, @lockedBy, @lockedByName)
+export async function upsertTableLock(input: TableLockInput): Promise<TableLock> {
+  await db
+    .prepare(
+      `INSERT INTO table_locks (project_id, table_id, table_name, level, authority, reason, locked_by, locked_by_name)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)
      ON CONFLICT (project_id, table_id) DO UPDATE SET
        table_name = excluded.table_name,
        level = excluded.level,
@@ -63,18 +65,29 @@ export function upsertTableLock(input: TableLockInput): TableLock {
        reason = excluded.reason,
        locked_by = excluded.locked_by,
        locked_by_name = excluded.locked_by_name,
-       locked_at = datetime('now')`,
-  ).run(input);
-  return getTableLock(input.projectId, input.tableId)!;
+       locked_at = utc_now()`,
+    )
+    .run(
+      input.projectId,
+      input.tableId,
+      input.tableName,
+      input.level,
+      input.authority,
+      input.reason,
+      input.lockedBy,
+      input.lockedByName,
+    );
+  return (await getTableLock(input.projectId, input.tableId))!;
 }
 
-export function deleteTableLock(projectId: string, tableId: string): boolean {
+export async function deleteTableLock(projectId: string, tableId: string): Promise<boolean> {
   return (
-    db.prepare("DELETE FROM table_locks WHERE project_id = ? AND table_id = ?").run(projectId, tableId).changes > 0
+    (await db.prepare("DELETE FROM table_locks WHERE project_id = ? AND table_id = ?").run(projectId, tableId))
+      .changes > 0
   );
 }
 
 /** Cheap existence test for the realtime path: most projects have no lock at all. */
-export function projectHasTableLocks(projectId: string): boolean {
-  return db.prepare("SELECT 1 FROM table_locks WHERE project_id = ? LIMIT 1").get(projectId) !== undefined;
+export async function projectHasTableLocks(projectId: string): Promise<boolean> {
+  return (await db.prepare("SELECT 1 FROM table_locks WHERE project_id = ? LIMIT 1").get(projectId)) !== undefined;
 }

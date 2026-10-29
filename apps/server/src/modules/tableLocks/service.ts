@@ -29,28 +29,34 @@ interface Caller {
 }
 
 /** The project's locks under the names the tables have now, and what the caller may do about them. */
-export function listLocksFor(userId: string, projectId: string, projectName: string): TableLocksResponse {
+export async function listLocksFor(
+  userId: string,
+  projectId: string,
+  projectName: string,
+): Promise<TableLocksResponse> {
   // Live names: a table renamed by an administrator since it was locked
   // should be listed under the name it has now.
-  const names = new Map(readProjectReadOnly(projectId, projectName).tables.map((table) => [table.id, table.name]));
+  const names = new Map(
+    (await readProjectReadOnly(projectId, projectName)).tables.map((table) => [table.id, table.name]),
+  );
   return {
-    locks: listTableLocks(projectId).map((lock) => ({
+    locks: (await listTableLocks(projectId)).map((lock) => ({
       ...lock,
       tableName: names.get(lock.tableId) ?? lock.tableName,
     })),
-    canManage: lockAuthorityOf(userId, projectId),
+    canManage: await lockAuthorityOf(userId, projectId),
   };
 }
 
 /** Places a lock, or changes the one there. `body` is what the client sent, unchecked. */
-export function placeLock(
+export async function placeLock(
   user: Caller,
   projectId: string,
   tableId: string,
   body: unknown,
   req: FastifyRequest,
-): TableLock {
-  const held = lockAuthorityOf(user.id, projectId);
+): Promise<TableLock> {
+  const held = await lockAuthorityOf(user.id, projectId);
   if (!held) throw new ApiError("FORBIDDEN");
 
   const input = (body ?? {}) as { level?: unknown; authority?: unknown; reason?: unknown };
@@ -64,14 +70,14 @@ export function placeLock(
 
   // A project administrator can neither place a lock only the instance can
   // lift, nor rewrite one — that would be a way to downgrade it.
-  const existing = getTableLock(projectId, tableId);
+  const existing = await getTableLock(projectId, tableId);
   if (authority === "instance" && held !== "instance") throw new ApiError("TABLE_LOCK_FORBIDDEN");
   if (existing && !canOverrideLock(held, existing)) throw new ApiError("TABLE_LOCK_FORBIDDEN");
 
-  const table = getTablesMap(getRoom(projectId).doc).get(tableId);
+  const table = getTablesMap((await getRoom(projectId)).doc).get(tableId);
   if (!table) throw new ApiError("TABLE_NOT_FOUND");
 
-  const lock = upsertTableLock({
+  const lock = await upsertTableLock({
     projectId,
     tableId,
     tableName: table.name,
@@ -81,15 +87,15 @@ export function placeLock(
     lockedBy: user.id,
     lockedByName: user.displayName,
   });
-  auditUser(
+  await auditUser(
     user,
     "table.lock",
     { type: "project", id: projectId },
     `${table.name} (${lock.level}, ${lock.authority})`,
     req,
   );
-  notifyLocksChanged(projectId);
-  notifyFollowers(
+  await notifyLocksChanged(projectId);
+  await notifyFollowers(
     projectId,
     "lock",
     { locked: true, table: table.name, level: lock.level, by: user.displayName },
@@ -98,17 +104,17 @@ export function placeLock(
   return lock;
 }
 
-export function liftLock(user: Caller, projectId: string, tableId: string, req: FastifyRequest): void {
-  const held = lockAuthorityOf(user.id, projectId);
+export async function liftLock(user: Caller, projectId: string, tableId: string, req: FastifyRequest): Promise<void> {
+  const held = await lockAuthorityOf(user.id, projectId);
   if (!held) throw new ApiError("FORBIDDEN");
-  const existing = getTableLock(projectId, tableId);
+  const existing = await getTableLock(projectId, tableId);
   if (!existing) throw new ApiError("NOT_FOUND");
   if (!canOverrideLock(held, existing)) throw new ApiError("TABLE_LOCK_FORBIDDEN");
 
-  deleteTableLock(projectId, tableId);
-  auditUser(user, "table.unlock", { type: "project", id: projectId }, existing.tableName, req);
-  notifyLocksChanged(projectId);
-  notifyFollowers(
+  await deleteTableLock(projectId, tableId);
+  await auditUser(user, "table.unlock", { type: "project", id: projectId }, existing.tableName, req);
+  await notifyLocksChanged(projectId);
+  await notifyFollowers(
     projectId,
     "lock",
     { locked: false, table: existing.tableName, by: user.displayName },

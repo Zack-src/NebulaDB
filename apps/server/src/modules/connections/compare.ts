@@ -17,6 +17,7 @@ import { ApiError } from "../../shared/errors.js";
 import { stageVariables } from "../environments/variables.js";
 import { createDatabaseDriver } from "./drivers/index.js";
 import { getProjectConnection } from "./repository.js";
+import { mapAsync } from "../../shared/async.js";
 
 interface ComparedSide {
   id: string;
@@ -110,18 +111,21 @@ export async function compareConnections(
   if (typeof sourceId !== "string" || typeof targetId !== "string" || sourceId === targetId) {
     throw new ApiError("COMPARISON_INVALID");
   }
-  const source = getProjectConnection(projectId, sourceId);
-  const target = getProjectConnection(projectId, targetId);
+  const source = await getProjectConnection(projectId, sourceId);
+  const target = await getProjectConnection(projectId, targetId);
   if (!source || !target) throw new ApiError("CONNECTION_NOT_FOUND");
 
   let sourceStructure = await readStructure(source);
   let targetStructure = await readStructure(target);
   // "In the schema" under either stage's names: the two sides may spell `{{variables}}` differently.
-  const written = readProjectFromDoc(getRoom(projectId).doc, projectId, projectName);
+  const written = readProjectFromDoc((await getRoom(projectId)).doc, projectId, projectName);
   const schema = {
-    tables: [source, target].flatMap(
-      (connection) => resolveVariables(written, stageVariables(connection.environmentId)).project.tables,
-    ),
+    tables: (
+      await mapAsync(
+        [source, target],
+        async (connection) => resolveVariables(written, await stageVariables(connection.environmentId)).project.tables,
+      )
+    ).flat(),
     refs: [],
   };
   let model: Pick<Project, "tables" | "refs"> = schema;

@@ -29,7 +29,7 @@
     <a
       href={MY_DATA_EXPORT_URL}
       download
-      class="inline-flex items-center gap-1.5 rounded-lg border border-border-strong/90 bg-surface-raised/50 px-3.5 py-1.5 text-[13px] font-semibold text-text transition-colors hover:border-primary/80 hover:bg-surface-hover"
+      class="inline-flex items-center gap-1.5 rounded-lg border border-border-strong/90 bg-surface-raised/50 px-3.5 py-1.5 text-body font-semibold text-text transition-colors hover:border-primary/80 hover:bg-surface-hover"
     >
       <Icon icon={DownloadIcon} size={14} />
       {t("settings.personalData.export")}

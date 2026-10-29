@@ -9,7 +9,7 @@
   let { wrap, onToggleWrap }: { wrap: boolean; onToggleWrap: () => void } = $props();
 </script>
 
-<div class="flex w-[330px] flex-col gap-2 text-[11.5px] text-text">
+<div class="flex w-[330px] flex-col gap-2 text-label text-text">
   <div class="font-semibold">{t("dbml.settings.title")}</div>
   <p class="text-text-muted">{t("dbml.settings.intro")}</p>
   <label class="flex items-center justify-between gap-3">

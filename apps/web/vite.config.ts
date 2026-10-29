@@ -1,5 +1,5 @@
 import { fileURLToPath } from "node:url";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import type { Socket } from "node:net";
 
@@ -24,11 +24,17 @@ const isAbortedError = (err: unknown) => {
   );
 };
 
-// Overridable so more than one checkout (e.g. a second git worktree) can run
-// the dev stack side by side without both binding the same ports. Defaults
-// match the values every existing setup already expects.
-const WEB_PORT = Number(process.env.VITE_WEB_PORT) || 5173;
-const API_PORT = Number(process.env.VITE_API_PORT) || 3001;
+// Ports come from the same files the server reads (apps/server/.env, then the
+// root .env, the real environment winning), so changing `PORT` there moves the
+// proxy target with the server. VITE_WEB_PORT / VITE_API_PORT still override,
+// e.g. to run a second git worktree's dev stack side by side.
+const fileEnv = {
+  ...loadEnv("", fileURLToPath(new URL("../..", import.meta.url)), ""),
+  ...loadEnv("", fileURLToPath(new URL("../server", import.meta.url)), ""),
+};
+const env = { ...fileEnv, ...process.env };
+const WEB_PORT = Number(env.VITE_WEB_PORT || env.NEBULADB_WEB_PORT) || 5173;
+const API_PORT = Number(env.VITE_API_PORT || env.PORT) || 3001;
 
 export default defineConfig({
   plugins: [svelte()],

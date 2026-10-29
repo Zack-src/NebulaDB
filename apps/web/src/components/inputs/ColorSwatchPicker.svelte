@@ -1,9 +1,9 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import { anchoredPlacement, provisionalPopoverStyle } from "@/actions/placement";
   import { portal } from "@/actions/portal";
   import Icon from "@/components/icons/Icon.svelte";
   import { PlusIcon } from "@/components/icons/Icons";
-  import { INPUT_XS_CLASS } from "@/components/ui/inputStyles";
   import { useDismissablePopover } from "@/hooks/dismissablePopover.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { HEX_RE, SWATCH_CELL_ACTIVE_CLASS, SWATCH_CELL_CLASS, SWATCH_GRID_CLASS } from "./colorSwatches";
@@ -112,8 +112,8 @@
         <Icon icon={PlusIcon} size={11} />
       </button>
     </div>
-    <input
-      class={`${INPUT_XS_CLASS} w-full font-mono`}
+    <Input inputSize="xs"
+      class="w-full font-mono"
       bind:value={hexDraft}
       onblur={commitHex}
       onkeydown={(event) => {

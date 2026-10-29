@@ -51,7 +51,10 @@ test(
       await page.getByRole("button", { name: "Nouvelle connexion" }).click();
       const form = page.getByRole("dialog");
       await form.getByPlaceholder("ex: Production DB").fill("Boutique live");
-      const mode = form.getByRole("radiogroup", { name: "Compte utilisé pour se connecter" });
+      const mode = form.getByRole("radiogroup", { name: "Compte de connexion à la base" });
+      // Each person's own account is the default for a network engine; the other choice is one click away.
+      assert.equal(await mode.getByRole("radio", { name: /Le compte de chacun/ }).isChecked(), true);
+      await mode.getByText("Un compte partagé", { exact: true }).click();
       assert.equal(await mode.getByRole("radio", { name: /Un compte partagé/ }).isChecked(), true);
       await mode.getByText("Le compte de chacun", { exact: true }).click();
       assert.equal(await mode.getByRole("radio", { name: /Le compte de chacun/ }).isChecked(), true);
@@ -93,14 +96,12 @@ test(
       const account = page.getByTestId("personal-account");
       await account.getByText("Mon compte SQL").waitFor();
       assert.equal(await account.getAttribute("data-account"), "");
-      await page.getByRole("button", { name: "Vérifier les différences" }).click();
+      // The deployment panel plans against the database at once: refused without an account.
       await page
-        .getByRole("dialog")
+        .getByTestId("deployment-panel")
         .getByText(/La base « Boutique live » se connecte avec le compte de chacun/)
         .waitFor();
       await snap("refused");
-      await page.keyboard.press("Escape");
-      await page.getByRole("dialog").waitFor({ state: "detached" });
 
       // --- An account the database does not accept is not kept ---
       await account.click();
@@ -122,7 +123,8 @@ test(
 
       // --- Settings → Mes comptes SQL: the same connection, with the account still missing ---
       await page.goto(env.baseUrl);
-      await page.locator('[data-tooltip="Paramètres du compte"]').click();
+      await page.getByRole("button", { name: "Paramètres du compte", exact: true }).click();
+      await page.getByRole("button", { name: "Bases de données", exact: true }).click();
       const row = page.getByTestId("sql-account-row");
       await row.getByText("Boutique live").waitFor();
       assert.equal(await row.getAttribute("data-account"), "");
@@ -142,7 +144,7 @@ test(
         });
       }, connectionId);
       await page.reload();
-      await page.getByRole("button", { name: "Vérifier les différences" }).waitFor();
+      await page.getByTestId("deployment-panel").waitFor();
       assert.equal(await account.count(), 0);
 
       assert.deepEqual(errors, []);

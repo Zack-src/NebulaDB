@@ -3,7 +3,10 @@ import type { DbAdminQueryHistoryEntry } from "@nebuladb/shared";
 import { db } from "../../infrastructure/db.js";
 import { recordQueryStat } from "./queryStats.js";
 
-/** Per admin and per connection. A recall aid, not a record: the audit log is the accountable trail. */
+/**
+ * The most listed at once. A recall aid, not a record: the audit log is the accountable trail. How many
+ * are kept per admin and per connection is the `admin_query_history` retention (`modules/retention/`).
+ */
 const MAX_ENTRIES = 200;
 const MAX_SQL_LENGTH = 20_000;
 
@@ -31,45 +34,45 @@ export interface QueryHistoryInput {
   error: string | null;
 }
 
-export function recordQuery(input: QueryHistoryInput): void {
+export async function recordQuery(input: QueryHistoryInput): Promise<void> {
   // The per-statement figures of the connection's journal ("Requêtes"), literals masked.
-  recordQueryStat(input);
+  await recordQueryStat(input);
   try {
-    db.prepare(
-      `INSERT INTO admin_query_history
+    await db
+      .prepare(
+        `INSERT INTO admin_query_history
          (id, connection_id, user_id, database_name, sql, read_only, success, row_count, duration_ms, error)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      crypto.randomUUID(),
-      input.connectionId,
-      input.userId,
-      input.database,
-      input.sql.slice(0, MAX_SQL_LENGTH),
-      input.readOnly ? 1 : 0,
-      input.success ? 1 : 0,
-      input.rowCount,
-      input.durationMs,
-      input.error?.slice(0, 1000) ?? null,
-    );
-    db.prepare(
-      `DELETE FROM admin_query_history
-        WHERE connection_id = ? AND user_id = ? AND id NOT IN (
-          SELECT id FROM admin_query_history WHERE connection_id = ? AND user_id = ?
-           ORDER BY created_at DESC, rowid DESC LIMIT ?)`,
-    ).run(input.connectionId, input.userId, input.connectionId, input.userId, MAX_ENTRIES);
+      )
+      .run(
+        crypto.randomUUID(),
+        input.connectionId,
+        input.userId,
+        input.database,
+        input.sql.slice(0, MAX_SQL_LENGTH),
+        input.readOnly ? 1 : 0,
+        input.success ? 1 : 0,
+        input.rowCount,
+        input.durationMs,
+        input.error?.slice(0, 1000) ?? null,
+      );
   } catch (err) {
     // Losing a history row must never fail the query it describes.
     console.error("[dbAdmin] failed to record query history:", err);
   }
 }
 
-export function listQueryHistory(connectionId: string, userId: string, limit = 50): DbAdminQueryHistoryEntry[] {
-  const rows = db
+export async function listQueryHistory(
+  connectionId: string,
+  userId: string,
+  limit = 50,
+): Promise<DbAdminQueryHistoryEntry[]> {
+  const rows = (await db
     .prepare(
       `SELECT * FROM admin_query_history WHERE connection_id = ? AND user_id = ?
-        ORDER BY created_at DESC, rowid DESC LIMIT ?`,
+        ORDER BY created_at DESC, seq DESC LIMIT ?`,
     )
-    .all(connectionId, userId, Math.min(Math.max(limit, 1), MAX_ENTRIES)) as Row[];
+    .all(connectionId, userId, Math.min(Math.max(limit, 1), MAX_ENTRIES))) as Row[];
   return rows.map((r) => ({
     id: r.id,
     database: r.database_name,
@@ -84,7 +87,10 @@ export function listQueryHistory(connectionId: string, userId: string, limit = 5
 }
 
 /** Clear only the caller’s recall history; query statistics and audit records remain. */
-export function clearQueryHistory(connectionId: string, userId: string): number {
-  return db.prepare("DELETE FROM admin_query_history WHERE connection_id = ? AND user_id = ?").run(connectionId, userId)
-    .changes;
+export async function clearQueryHistory(connectionId: string, userId: string): Promise<number> {
+  return (
+    await db
+      .prepare("DELETE FROM admin_query_history WHERE connection_id = ? AND user_id = ?")
+      .run(connectionId, userId)
+  ).changes;
 }

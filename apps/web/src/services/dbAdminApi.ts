@@ -12,10 +12,14 @@ import type {
   DbAdminTable,
   DbAdminTableDescription,
   DbConsoleAccess,
+  DbEditableRows,
   DbGrant,
+  DbSavedQuery,
   DbPrincipal,
   DbPrincipalRef,
   DbPrivilegeCatalog,
+  DbRowEditResult,
+  DbRowOperation,
   DbUserAction,
   EffectiveStructurePolicy,
   StructurePolicySetting,
@@ -145,15 +149,31 @@ export async function fetchTableDescription(id: string, ref: DbAdminObjectRef): 
     .description;
 }
 
-export async function fetchTableRows(
+/** A page of a table for the explorer's grid, with what the caller may edit of it. */
+export function fetchEditableRows(
   id: string,
   ref: DbAdminObjectRef,
   limit: number,
   offset: number,
-): Promise<DbAdminQueryResult> {
-  return (
-    await request<{ result: DbAdminQueryResult }>(`${consoleBase(id)}/rows`, { query: { ...ref, limit, offset } })
-  ).result;
+): Promise<DbEditableRows> {
+  return request<DbEditableRows>(`${consoleBase(id)}/editable-rows`, { query: { ...ref, limit, offset } });
+}
+
+/**
+ * Row changes to one table. `execute: false` returns the statements the server
+ * would run (the preview); `true` runs them, all or nothing — and says the user
+ * confirmed, as the server asks of a member with `write` access.
+ */
+export function applyRowEdits(
+  id: string,
+  ref: DbAdminObjectRef,
+  operations: DbRowOperation[],
+  execute: boolean,
+): Promise<DbRowEditResult> {
+  return request<DbRowEditResult>(`${consoleBase(id)}/row-edits`, {
+    method: "POST",
+    body: { ...ref, operations, execute, confirmWrite: execute || undefined },
+  });
 }
 
 // ---- SQL console -----------------------------------------------------------
@@ -186,6 +206,38 @@ export async function fetchQueryHistory(id: string): Promise<DbAdminQueryHistory
 
 export function clearQueryHistory(id: string): Promise<{ cleared: number }> {
   return request(`${consoleBase(id)}/query-history`, { method: "DELETE" });
+}
+
+// ---- Saved queries -----------------------------------------------------------
+
+export async function fetchSavedQueries(id: string): Promise<DbSavedQuery[]> {
+  return (await request<{ queries: DbSavedQuery[] }>(`${consoleBase(id)}/saved-queries`)).queries;
+}
+
+/** `overwrite`: replace the caller's own query of that name instead of being refused. */
+export async function saveQuery(
+  id: string,
+  input: { name: string; sql: string; description?: string | null; overwrite?: boolean },
+): Promise<DbSavedQuery> {
+  return (await request<{ query: DbSavedQuery }>(`${consoleBase(id)}/saved-queries`, { method: "POST", body: input }))
+    .query;
+}
+
+export async function updateSavedQuery(
+  id: string,
+  queryId: string,
+  changes: { name?: string; sql?: string; description?: string | null; shared?: boolean },
+): Promise<DbSavedQuery> {
+  return (
+    await request<{ query: DbSavedQuery }>(`${consoleBase(id)}/saved-queries/${queryId}`, {
+      method: "PATCH",
+      body: changes,
+    })
+  ).query;
+}
+
+export function deleteSavedQuery(id: string, queryId: string): Promise<{ deleted: boolean }> {
+  return request(`${consoleBase(id)}/saved-queries/${queryId}`, { method: "DELETE" });
 }
 
 // ---- Mutations: every one previews (`execute: false`) before it runs --------

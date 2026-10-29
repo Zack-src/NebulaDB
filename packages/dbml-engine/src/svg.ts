@@ -30,13 +30,32 @@ const COLORS = {
   refLabel: "#64748b",
 } as const;
 
-function escapeXml(value: string): string {
-  return value
+/** Anything a hand-written document puts where text belongs (a number, an object, nothing) is text before it is escaped. */
+function escapeXml(value: unknown): string {
+  return (typeof value === "string" ? value : value == null || typeof value === "object" ? "" : String(value))
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
+}
+
+/**
+ * Position and size come from the stored document, which an editor can write by hand: anything but a
+ * finite number would otherwise be interpolated unescaped into an attribute (`x="${x}"`).
+ */
+function finite(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function sanitizeTable(table: Table): Table {
+  return {
+    ...table,
+    position: { x: finite(table.position?.x, 0), y: finite(table.position?.y, 0) },
+    size: table.size
+      ? { width: finite(table.size.width, DEFAULT_WIDTH), height: finite(table.size.height, HEADER_HEIGHT) }
+      : table.size,
+  };
 }
 
 function tableHeight(table: Table): number {
@@ -51,7 +70,10 @@ function fieldLabel(field: Field): string {
   const flags = [field.pk ? "pk" : null, field.unique ? "unique" : null, field.notNull ? "not null" : null].filter(
     Boolean,
   );
-  return flags.length > 0 ? `${field.name} : ${field.type} [${flags.join(", ")}]` : `${field.name} : ${field.type}`;
+  const text = (value: unknown) =>
+    typeof value === "string" ? value : value == null || typeof value === "object" ? "" : String(value);
+  const label = `${text(field.name)} : ${text(field.type)}`;
+  return flags.length > 0 ? `${label} [${flags.join(", ")}]` : label;
 }
 
 function renderTable(table: Table): string {
@@ -97,7 +119,8 @@ function renderRef(ref: Ref, tablesById: Map<string, Table>): string | null {
 
   const from = tableCenter(fromTable);
   const to = tableCenter(toTable);
-  const [fromLabel, toLabel] = CARDINALITY_LABEL[ref.cardinality];
+  // A cardinality the document made up is drawn without labels rather than failing the whole export.
+  const [fromLabel, toLabel] = CARDINALITY_LABEL[ref.cardinality] ?? ["", ""];
   const midX = (from.x + to.x) / 2;
   const midY = (from.y + to.y) / 2;
 
@@ -116,7 +139,8 @@ function renderRef(ref: Ref, tablesById: Map<string, Table>): string | null {
  * not schema structure). Empty project renders a fixed-size empty canvas
  * rather than throwing.
  */
-export function projectToSvg(project: Project): string {
+export function projectToSvg(source: Project): string {
+  const project = { ...source, tables: source.tables.map(sanitizeTable) };
   const tablesById = new Map(project.tables.map((t) => [t.id, t]));
 
   if (project.tables.length === 0) {

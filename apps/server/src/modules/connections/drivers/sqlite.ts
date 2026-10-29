@@ -5,7 +5,14 @@ import Database from "better-sqlite3";
 import type { DatabaseConnectionConfig, Project, Ref, Table, TableIndex } from "@nebuladb/shared";
 import { config as appConfig } from "../../../config.js";
 import { ApiError } from "../../../shared/errors.js";
-import type { DatabaseDriver, MigrationExecutionResult, RowValue, TestConnectionResult } from "./interface.js";
+import {
+  oneBatch,
+  DatabaseDriver,
+  MigrationExecutionResult,
+  RestoreSession,
+  RowValue,
+  TestConnectionResult,
+} from "./interface.js";
 
 /** Follows symlinks as far as the path exists, so a link inside the allowed directory can't point back out of it. */
 function realPath(target: string): string {
@@ -22,26 +29,17 @@ function realPath(target: string): string {
 }
 
 /**
- * Refuses to open NebulaDB's own database file as a "live" SQLite target: a project
- * administrator could otherwise read and write the table holding every password hash,
- * session token and audit entry. Narrow on its own; `NEBULADB_SQLITE_DIR` turns it into a
- * real path allowlist.
+ * Restricts where a "live" SQLite target may be. NebulaDB's own data used to be a SQLite file
+ * too, and opening that one was refused outright; it now lives in PostgreSQL, behind credentials
+ * of its own, so what is left is the path allowlist `NEBULADB_SQLITE_DIR` turns on.
  */
 export function assertSqlitePathAllowed(requestedPath: string): void {
   if (requestedPath === ":memory:") return;
-  const resolvedRequested = realPath(requestedPath);
-  const resolvedApp = realPath(appConfig.dbPath);
-  if (resolvedRequested === resolvedApp) {
-    throw new ApiError("CONNECTION_TARGET_FORBIDDEN", {
-      message: "refusing to open NebulaDB's own database file as a live connection target",
-    });
-  }
-  // The full allowlist the narrow check above never was: opt-in through
-  // `NEBULADB_SQLITE_DIR`, because an existing install's connections may
-  // legitimately point anywhere on disk and must keep working after an upgrade.
+  // Opt-in, because an existing install's connections may legitimately point
+  // anywhere on disk and must keep working after an upgrade.
   if (appConfig.sqliteAllowedDir) {
     const allowed = realPath(appConfig.sqliteAllowedDir);
-    const relative = path.relative(allowed, resolvedRequested);
+    const relative = path.relative(allowed, realPath(requestedPath));
     if (relative === "" || relative.startsWith("..") || path.isAbsolute(relative)) {
       throw new ApiError("CONNECTION_TARGET_FORBIDDEN", {
         message: "SQLite connections are restricted to the directory configured in NEBULADB_SQLITE_DIR",
@@ -84,7 +82,7 @@ export class SqliteDriver implements DatabaseDriver {
 
     for (let idx = 0; idx < tablesRows.length; idx++) {
       const tableName = tablesRows[idx].name;
-      const colInfo = this.db.prepare(`PRAGMA table_info("${tableName}")`).all() as {
+      const colInfo = this.db.prepare(`PRAGMA table_info(${q(tableName, "sqlite")})`).all() as {
         cid: number;
         name: string;
         type: string;
@@ -93,17 +91,45 @@ export class SqliteDriver implements DatabaseDriver {
         pk: number;
       }[];
 
+      // The indexes created on their own ('c'): a primary key ('pk') and a UNIQUE constraint ('u') are already read as
+      // the column's `pk` / `unique`. An expression index has no column name and a partial one has a `WHERE`: neither
+      // can be written as columns, so they are left out.
+      const indexList = this.db.prepare(`PRAGMA index_list(${q(tableName, "sqlite")})`).all() as {
+        name: string;
+        unique: number;
+        origin: string;
+        partial: number;
+      }[];
+      const indexes: TableIndex[] = [];
+      const uniqueColumns = new Set<string>();
+      for (const idx of indexList) {
+        const cols = this.db.prepare(`PRAGMA index_info(${q(idx.name, "sqlite")})`).all() as {
+          seqno: number;
+          name: string | null;
+        }[];
+        cols.sort((a, b) => a.seqno - b.seqno);
+        if (idx.origin === "u" && cols.length === 1 && cols[0].name) uniqueColumns.add(cols[0].name);
+        if (idx.origin !== "c" || idx.partial || cols.some((c) => c.name === null)) continue;
+        indexes.push({
+          id: `${tableName}.${idx.name}`,
+          name: idx.name,
+          fieldIds: cols.map((c) => `${tableName}.${c.name}`),
+          ...(idx.unique ? { unique: true } : {}),
+        });
+      }
+
       const fields = colInfo.map((c) => ({
         id: `${tableName}.${c.name}`,
         name: c.name,
         type: c.type || "text",
         pk: c.pk > 0,
+        ...(uniqueColumns.has(c.name) ? { unique: true } : {}),
         notNull: c.notnull === 1,
         default: c.dflt_value !== null ? String(c.dflt_value) : undefined,
       }));
 
       // Foreign keys
-      const fkInfo = this.db.prepare(`PRAGMA foreign_key_list("${tableName}")`).all() as {
+      const fkInfo = this.db.prepare(`PRAGMA foreign_key_list(${q(tableName, "sqlite")})`).all() as {
         id: number;
         seq: number;
         table: string;
@@ -130,7 +156,7 @@ export class SqliteDriver implements DatabaseDriver {
         id: tableName,
         name: tableName,
         fields,
-        indexes: [] as TableIndex[],
+        indexes,
         position: { x: (idx % 6) * 320, y: Math.floor(idx / 6) * 400 },
         detailLevel: "standard" as const,
       });
@@ -164,14 +190,31 @@ export class SqliteDriver implements DatabaseDriver {
    * whole table back. Returns the number of rows inserted.
    */
   async insertRows(table: string, columns: string[], rows: RowValue[][]): Promise<number> {
-    if (rows.length === 0) return 0;
+    return this.insertRowBatches(table, columns, oneBatch(rows));
+  }
+
+  /**
+   * `insertRows` for a seed too big to hold: the batches arrive one after the other (read from a file) and
+   * all go in the same transaction.
+   */
+  async insertRowBatches(table: string, columns: string[], batches: AsyncIterable<RowValue[][]>): Promise<number> {
     const statement = this.db.prepare(
       `INSERT INTO ${q(table, "sqlite")} (${columns.map((c) => q(c, "sqlite")).join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`,
     );
-    this.db.transaction((all: RowValue[][]) => {
-      for (const row of all) statement.run(...row);
-    })(rows);
-    return rows.length;
+    // better-sqlite3 transactions are synchronous: begin and commit by hand around the awaited batches.
+    let total = 0;
+    this.db.exec("BEGIN");
+    try {
+      for await (const rows of batches) {
+        for (const row of rows) statement.run(...row);
+        total += rows.length;
+      }
+      this.db.exec("COMMIT");
+    } catch (err) {
+      this.db.exec("ROLLBACK");
+      throw err;
+    }
+    return total;
   }
 
   /**
@@ -207,6 +250,53 @@ export class SqliteDriver implements DatabaseDriver {
         error: err instanceof Error ? err.message : String(err),
       };
     }
+  }
+
+  /**
+   * A restore in one transaction (`BEGIN IMMEDIATE`: the write lock is taken
+   * up front rather than on the first `DELETE`). Identity needs no help: an
+   * `INTEGER PRIMARY KEY` takes the explicit value as its rowid, and
+   * `AUTOINCREMENT` raises `sqlite_sequence` past it on its own.
+   */
+  async openRestoreSession(): Promise<RestoreSession> {
+    const db = this.db;
+    db.exec("BEGIN IMMEDIATE");
+    return {
+      atomic: true,
+      identities: "automatic",
+      async describeTable(table) {
+        const columns = db.prepare(`PRAGMA table_xinfo(${q(table, "sqlite")})`).all() as {
+          name: string;
+          type: string;
+          pk: number;
+          hidden: number;
+        }[];
+        const pk = columns.filter((column) => column.pk > 0);
+        return {
+          // 2: virtual generated column, 3: stored one.
+          generated: columns.filter((column) => column.hidden === 2 || column.hidden === 3).map((c) => c.name),
+          identity: pk.length === 1 && pk[0].type.toUpperCase() === "INTEGER" ? [pk[0].name] : [],
+        };
+      },
+      async emptyTable(table) {
+        return db.prepare(`DELETE FROM ${q(table, "sqlite")}`).run().changes;
+      },
+      async insertRows(table, columns, rows) {
+        const statement = db.prepare(
+          `INSERT INTO ${q(table, "sqlite")} (${columns.map((c) => q(c, "sqlite")).join(", ")}) VALUES (${columns.map(() => "?").join(", ")})`,
+        );
+        for (const row of rows) statement.run(...row);
+        return rows.length;
+      },
+      async resyncIdentity() {},
+      async commit() {
+        db.exec("COMMIT");
+      },
+      async rollback() {
+        if (db.inTransaction) db.exec("ROLLBACK");
+      },
+      async release() {},
+    };
   }
 
   async close(): Promise<void> {

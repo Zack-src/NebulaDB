@@ -1,0 +1,34 @@
+{
+  "name": "@nebuladb/cli",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Command-line client for a NebulaDB instance's public API: lint, drift check, deploy and export from scripts and CI.",
+  "bin": {
+    "nebuladb": "./dist/bin.js"
+  },
+  "main": "./dist/cli.js",
+  "types": "./dist/cli.d.ts",
+  "files": [
+    "dist",
+    "!dist/**/*.test.*",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "test": "node --test \"dist/**/*.test.js\"",
+    "test:coverage": "node -e \"require('fs').mkdirSync('coverage',{recursive:true})\" && node --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info \"dist/**/*.test.js\"",
+    "check:circular": "madge --circular --extensions ts src/bin.ts"
+  },
+  "engines": {
+    "node": ">=22 <26"
+  },
+  "dependencies": {
+    "@nebuladb/dbml-engine": "*",
+    "@nebuladb/shared": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "typescript": "^7.0.2"
+  }
+}

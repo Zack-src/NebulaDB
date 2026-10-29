@@ -9,19 +9,17 @@
   import { untrack } from "svelte";
   import { Handle, Position, type NodeProps } from "@xyflow/svelte";
   import { readableNote } from "@nebuladb/dbml-engine";
-  import { MAX_NAME_LENGTH, type Field } from "@nebuladb/shared";
-  import { autofocus } from "@/actions/autofocus";
+  import { estimateTableBox, MAX_NAME_LENGTH, type Field } from "@nebuladb/shared";
+  import InlineNameInput from "@/features/editor/nodes/table/InlineNameInput.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import {
     AlertTriangleIcon,
     CodeIcon,
     DatabaseIcon,
     LockIcon,
-    LockOpenIcon,
     FileSpreadsheetIcon,
     PlusIcon,
   } from "@/components/icons/Icons";
-  import CommentThread from "@/features/editor/comments/CommentThread.svelte";
   import TableSettingsPopover from "@/features/editor/nodes/table/TableSettingsPopover.svelte";
   import TableNodeRow from "@/features/editor/nodes/table/TableNodeRow.svelte";
   import { getCanvasContext } from "@/features/editor/canvas/canvasContext";
@@ -39,7 +37,6 @@
     TABLE_FOOTER_CLASS,
     TABLE_HEADER_CLASS,
     TABLE_NAME_CLASS,
-    TABLE_NAME_INPUT_CLASS,
     TABLE_NODE_CLASS,
     TABLE_NODE_SELECTED_CLASS,
   } from "@/features/editor/nodes/table/tableStyles";
@@ -67,6 +64,12 @@
   );
 
   let isTableHovered = $state(false);
+  /**
+   * The header buttons only show on hover or selection (CSS `invisible` otherwise), so they are not mounted
+   * until then: six icons a table, 800 of them on a 130-table schema, for nothing at rest. Once shown they
+   * stay, so a popover opened from one is not torn down when the pointer moves onto it.
+   */
+  let actionsShown = $state(false);
   // Nothing should keep this table "hovered" after it disappears mid-hover (a
   // delete, a view switch).
   $effect(() => () => {
@@ -112,6 +115,19 @@
   const tableComments = $derived(table.comments?.filter((c) => !c.fieldId) ?? []);
   const headerColor = $derived(table.style?.color ?? DEFAULT_HEADER_COLOR);
   const issues = $derived(data.issues ?? []);
+  /**
+   * What the header actions will take once mounted (see `actionsShown`): 24px per button, 13px for the
+   * validation icon, 3px between. Reserved until then, so the table is its final width from the first paint.
+   */
+  const reservedActionsWidth = $derived.by(() => {
+    const widths = [
+      ...(issues.length > 0 ? [13] : []),
+      ...(data.onGoToDbml ? [24] : []),
+      ...(data.onViewData ? [24] : []),
+      ...(data.readOnly ? [] : [24]),
+    ];
+    return widths.length === 0 ? 0 : widths.reduce((sum, w) => sum + w, 0) + (widths.length - 1) * 3;
+  });
   const hasErrorIssue = $derived(issues.some((issue) => issue.severity === "error"));
 
   /**
@@ -135,13 +151,28 @@
   });
   const isPkField = (field: Field) => field.pk || pkIndexFieldIds.has(field.id);
 
-  const rows = $derived(
+  /** Mounted without its columns while a big schema opens — see `progressiveDetail`. */
+  const lite = $derived(canvas.lite.has(id));
+  /** The columns this table shows at its detail level, whether or not they are drawn yet. */
+  const allRows = $derived(
     table.detailLevel === "compact"
       ? []
       : table.detailLevel === "full"
         ? table.fields
         : table.fields.filter((f) => isPkField(f) || data.refFieldIds.has(f.id)),
   );
+  const rows = $derived(lite ? [] : allRows);
+  /** What a lite table reserves, so the fitted view is close to the final one. */
+  const liteSize = $derived(lite ? estimateTableBox(table, allRows) : null);
+
+  // The columns came back: the flow has to look at this node's handles again.
+  let wasLite = untrack(() => lite);
+  $effect(() => {
+    const now = lite;
+    if (now === wasLite) return;
+    wasLite = now;
+    scheduleNodeInternalsUpdate(id);
+  });
 
   // Each column row carries its own left/right handles, keyed by field id, so
   // reordering columns moves a handle's on-screen position without changing
@@ -171,7 +202,7 @@
   <!-- A sibling of the table box, not a child of it: the box has
        `overflow-hidden` for its rows, which would clip a label above it. -->
   <div
-    class="pointer-events-none absolute -top-[19px] left-0 z-10 whitespace-nowrap rounded-full px-[7px] py-0.5 text-[10.5px] font-semibold text-white shadow-sm"
+    class="pointer-events-none absolute -top-[19px] left-0 z-10 whitespace-nowrap rounded-full px-[7px] py-0.5 text-micro font-semibold text-white shadow-sm"
     style:background={primaryRemoteSelector.color}
   >
     {primaryRemoteSelector.name}{remoteSelectedBy && remoteSelectedBy.length > 1
@@ -184,16 +215,29 @@
   bind:this={root}
   class={`group table-node ${TABLE_NODE_CLASS} ${selected ? `is-selected ${TABLE_NODE_SELECTED_CLASS}` : ""} ${lock ? "is-locked border-dashed" : ""}`}
   onmouseenter={() => {
+    if (lite) canvas.upgradeLite(id);
     isTableHovered = true;
+    actionsShown = true;
     data.onTableHoverChange?.(table.id);
   }}
   onmouseleave={() => {
     isTableHovered = false;
     data.onTableHoverChange?.(null);
   }}
+  onfocusin={() => {
+    // Keyboard focus inside the table reveals (mounts) the row actions like hovering does.
+    if (lite) canvas.upgradeLite(id);
+    isTableHovered = true;
+    actionsShown = true;
+  }}
+  onfocusout={(event) => {
+    if (!(event.relatedTarget instanceof Node && root?.contains(event.relatedTarget))) isTableHovered = false;
+  }}
   style:border-color={selected ? "var(--color-primary)" : table.style?.borderColor}
   style:outline={primaryRemoteSelector ? `2px solid ${primaryRemoteSelector.color}` : undefined}
   style:outline-offset={primaryRemoteSelector ? "2px" : undefined}
+  style:min-width={liteSize ? `calc(${liteSize.width}px * var(--canvas-font-scale))` : undefined}
+  style:min-height={liteSize ? `calc(${liteSize.height}px * var(--canvas-font-scale))` : undefined}
 >
   <!-- svelte-ignore a11y_no_static_element_interactions -->
   <div
@@ -209,9 +253,9 @@
     <Handle type="target" position={Position.Right} id="header-right-target" />
     <Handle type="source" position={Position.Right} id="header-right-source" />
     {#if renaming}
-      <input
-        use:autofocus
-        class={`nodrag ${TABLE_NAME_INPUT_CLASS}`}
+      <InlineNameInput
+        reserve={table.name}
+        class={`nodrag ${TABLE_NAME_CLASS}`}
         bind:value={nameDraft.value}
         onblur={() => {
           nameDraft.commit();
@@ -239,6 +283,7 @@
       </span>
     {/if}
 
+    {#if !lite}
     {#if lock}
       <!-- Outside the hover-only actions: a lock has to be visible at rest. -->
       {#if data.onManageLock}
@@ -286,6 +331,10 @@
       </button>
     {/if}
 
+    {#if !(actionsShown || selected || tableComments.length > 0)}
+      <div class="ml-auto shrink-0" style:width="{reservedActionsWidth}px" aria-hidden="true"></div>
+    {/if}
+    {#if actionsShown || selected || tableComments.length > 0}
     <div class={HEADER_ACTIONS_CLASS}>
       {#if issues.length > 0}
         <span
@@ -325,45 +374,7 @@
           <Icon icon={DatabaseIcon} size={13} />
         </button>
       {/if}
-      {#if !data.seed && data.onManageSeed}
-        <button
-          type="button"
-          class={`${HEADER_BTN_CLASS} nodrag`}
-          onclick={(event) => {
-            event.stopPropagation();
-            data.onManageSeed?.();
-          }}
-          ondblclick={(event) => event.stopPropagation()}
-          data-tooltip={t("seeds.addTooltip")}
-          aria-label={t("seeds.addTooltip")}
-        >
-          <Icon icon={FileSpreadsheetIcon} size={13} />
-        </button>
-      {/if}
-      {#if !lock && data.onManageLock}
-        <button
-          type="button"
-          class={`${HEADER_BTN_CLASS} nodrag`}
-          onclick={(event) => {
-            event.stopPropagation();
-            data.onManageLock?.();
-          }}
-          ondblclick={(event) => event.stopPropagation()}
-          data-tooltip={t("locks.lockTooltip")}
-          aria-label={t("locks.lockTooltip")}
-        >
-          <Icon icon={LockOpenIcon} size={13} />
-        </button>
-      {/if}
-      {#if !data.readOnly}
-        <CommentThread
-          comments={tableComments}
-          currentUser={data.currentUser}
-          onAdd={(text) => data.onAddComment(text)}
-          onDelete={data.onDeleteComment}
-          triggerClassName={HEADER_BTN_CLASS}
-          tooltip={t("table.comments")}
-        />
+            {#if !data.readOnly}
         <TableSettingsPopover
           {table}
           palette={data.palette}
@@ -374,10 +385,20 @@
           onDeleteIndex={data.onDeleteIndex}
           onDuplicate={data.onDuplicate}
           nameLocked={data.structureLocked}
+          comments={tableComments}
+          currentUser={data.currentUser}
+          onAddComment={(text) => data.onAddComment(text)}
+          onDeleteComment={data.onDeleteComment}
+          onManageLock={data.onManageLock}
+          locked={Boolean(lock)}
+          onManageSeed={data.seed ? undefined : data.onManageSeed}
+          onDelete={data.structureLocked ? undefined : () => canvas.deleteTable(id)}
           triggerClassName={HEADER_BTN_CLASS}
         />
       {/if}
     </div>
+    {/if}
+    {/if}
   </div>
   {#each rows as field (field.id)}
     <TableNodeRow
@@ -403,7 +424,7 @@
       onReorderField={data.onReorderField}
     />
   {/each}
-  {#if data.onAddField && table.detailLevel !== "compact"}
+  {#if data.onAddField && table.detailLevel !== "compact" && !lite}
     <div class={TABLE_FOOTER_CLASS}>
       <button
         type="button"

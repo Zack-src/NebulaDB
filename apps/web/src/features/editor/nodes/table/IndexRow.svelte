@@ -25,7 +25,7 @@
 </script>
 
 <div class="flex items-center gap-1.5 rounded-md border border-border/70 bg-surface px-2 py-1.5">
-  <span class="min-w-0 flex-1 truncate font-mono text-[11.5px] text-text" data-tooltip={columnNames}>
+  <span class="min-w-0 flex-1 truncate font-mono text-label text-text" data-tooltip={columnNames}>
     {columnNames}
   </span>
   {#if index.pk}
@@ -35,7 +35,7 @@
   {/if}
   <button
     type="button"
-    class={`shrink-0 rounded px-1 py-0.5 text-[10px] font-bold uppercase ${
+    class={`shrink-0 rounded px-1 py-0.5 text-micro font-bold uppercase ${
       index.unique ? "bg-primary-light text-primary" : "text-text-muted hover:text-text"
     }`}
     onclick={() => onUpdate?.(index.id, { unique: !index.unique })}

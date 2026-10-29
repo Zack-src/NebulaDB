@@ -1,6 +1,6 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import Button from "@/components/ui/Button.svelte";
-  import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
   import { useTranslation } from "@/i18n/i18n.svelte";
 
   /**
@@ -22,8 +22,8 @@
 </script>
 
 <div class="mt-2 flex flex-wrap items-center gap-2 text-xs" data-testid="stage-skip">
-  <input
-    class={`${INPUT_SM_CLASS} min-w-[220px] flex-1`}
+  <Input inputSize="sm"
+    class="min-w-[220px] flex-1"
     placeholder={t("pipeline.skipReasonPlaceholder")}
     aria-label={t("pipeline.skipReason")}
     maxlength={300}

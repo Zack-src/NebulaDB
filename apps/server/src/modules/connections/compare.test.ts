@@ -5,8 +5,9 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-compare-${randomUUID()}.sqlite`);
+await useTestDatabase("compare");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -24,11 +25,9 @@ async function login(app: App) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, NULL)").run(
-    id,
-    email,
-    await hashPassword(password),
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, NULL)")
+    .run(id, email, await hashPassword(password));
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -57,12 +56,11 @@ test("compare: two of a project's databases, table by table, with what the schem
       source: "Table customers {\n  id integer [pk]\n  email varchar(320)\n}\n\nTable orders {\n  id integer [pk]\n}\n",
     });
     const teamId = randomUUID();
-    db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(teamId, `team-${teamId}`);
-    db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, editor.id);
-    db.prepare("INSERT INTO project_teams (project_id, team_id, permission) VALUES (?, ?, 'edit')").run(
-      project.id,
-      teamId,
-    );
+    await db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(teamId, `team-${teamId}`);
+    await db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, editor.id);
+    await db
+      .prepare("INSERT INTO project_teams (project_id, team_id, permission) VALUES (?, ?, 'edit')")
+      .run(project.id, teamId);
 
     const dir = mkdtempSync(join(tmpdir(), "nebuladb-compare-"));
     const database = (name: string, ddl: string) => {
@@ -121,7 +119,7 @@ test("compare: two of a project's databases, table by table, with what the schem
     handle.close();
     assert.deepEqual((await compare(owner.cookie, { sourceId, targetId })).json().tables, []);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

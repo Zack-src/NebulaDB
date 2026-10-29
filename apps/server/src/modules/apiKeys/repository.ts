@@ -74,21 +74,23 @@ export interface CreatedApiKey {
   plaintextKey: string;
 }
 
-export function createApiKey(
+export async function createApiKey(
   userId: string,
   name: string,
   scopes: ApiKeyScope[],
   projectId: string | null,
-): CreatedApiKey {
+): Promise<CreatedApiKey> {
   const id = crypto.randomUUID();
   const secret = crypto.randomBytes(32).toString("base64url");
   const plaintextKey = `${KEY_PREFIX}_${secret}`;
   const keyPrefix = plaintextKey.slice(0, DISPLAY_PREFIX_LENGTH);
 
-  db.prepare(
-    `INSERT INTO api_keys (id, user_id, name, key_hash, key_prefix, scopes, project_id)
+  await db
+    .prepare(
+      `INSERT INTO api_keys (id, user_id, name, key_hash, key_prefix, scopes, project_id)
      VALUES (?, ?, ?, ?, ?, ?, ?)`,
-  ).run(id, userId, name, hashKey(plaintextKey), keyPrefix, JSON.stringify(scopes), projectId);
+    )
+    .run(id, userId, name, hashKey(plaintextKey), keyPrefix, JSON.stringify(scopes), projectId);
 
   return {
     plaintextKey,
@@ -106,13 +108,13 @@ export function createApiKey(
 }
 
 /** The caller's own keys, redacted (never the hash) — newest first. */
-export function listApiKeysByUser(userId: string): ApiKeySummary[] {
-  const rows = db
+export async function listApiKeysByUser(userId: string): Promise<ApiKeySummary[]> {
+  const rows = (await db
     .prepare(
       `SELECT id, user_id, name, key_hash, key_prefix, scopes, project_id, last_used_at, revoked_at, created_at
        FROM api_keys WHERE user_id = ? ORDER BY created_at DESC`,
     )
-    .all(userId) as ApiKeyRow[];
+    .all(userId)) as ApiKeyRow[];
   return rows.map(toSummary);
 }
 
@@ -129,14 +131,14 @@ export interface ResolvedApiKey {
  * `last_used_at` on every successful resolution, same spirit as a session's
  * rolling expiry, so a listing can show which keys are actually in use.
  */
-export function resolveApiKeyByPlaintext(plaintextKey: string): ResolvedApiKey | null {
-  const row = db
+export async function resolveApiKeyByPlaintext(plaintextKey: string): Promise<ResolvedApiKey | null> {
+  const row = (await db
     .prepare(`SELECT id, user_id, scopes, project_id FROM api_keys WHERE key_hash = ? AND revoked_at IS NULL`)
-    .get(hashKey(plaintextKey)) as
+    .get(hashKey(plaintextKey))) as
     { id: string; user_id: string; scopes: string; project_id: string | null } | undefined;
   if (!row) return null;
 
-  db.prepare("UPDATE api_keys SET last_used_at = datetime('now') WHERE id = ?").run(row.id);
+  await db.prepare("UPDATE api_keys SET last_used_at = utc_now() WHERE id = ?").run(row.id);
 
   return {
     id: row.id,
@@ -147,10 +149,12 @@ export function resolveApiKeyByPlaintext(plaintextKey: string): ResolvedApiKey |
 }
 
 /** Revokes one of the caller's own keys. Scoped by `user_id` so an id guessed/enumerated from elsewhere is useless. */
-export function revokeApiKey(userId: string, keyId: string): boolean {
+export async function revokeApiKey(userId: string, keyId: string): Promise<boolean> {
   return (
-    db
-      .prepare("UPDATE api_keys SET revoked_at = datetime('now') WHERE id = ? AND user_id = ? AND revoked_at IS NULL")
-      .run(keyId, userId).changes > 0
+    (
+      await db
+        .prepare("UPDATE api_keys SET revoked_at = utc_now() WHERE id = ? AND user_id = ? AND revoked_at IS NULL")
+        .run(keyId, userId)
+    ).changes > 0
   );
 }

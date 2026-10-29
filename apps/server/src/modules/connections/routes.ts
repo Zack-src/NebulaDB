@@ -1,4 +1,4 @@
-import { stageSkipFor } from "../pipeline/routes.js";
+import { rollbackReviewSkipFor, stageSkipFor } from "../pipeline/routes.js";
 import type { FastifyInstance } from "fastify";
 import { readProjectFromDoc, type DatabaseConnectionConfig, type MigrationResolutionMap } from "@nebuladb/shared";
 import { diffTargetAgainstLive, generateMigrationSql } from "@nebuladb/dbml-engine";
@@ -6,8 +6,8 @@ import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireProjectAccess, requireProjectAdmin, requireUser } from "../../shared/guards.js";
 import { getRoom } from "../../realtime/roomRegistry.js";
-import { createDatabaseDriver } from "./drivers/index.js";
-import { deployToConnection, rollbackConnectionDeployment } from "./deploy.js";
+import { createDatabaseDriver, testConnectionConfig } from "./drivers/index.js";
+import { deployToConnection, previewCleanDeployment, rollbackConnectionDeployment } from "./deploy.js";
 import { compareConnections } from "./compare.js";
 import { blockingLintFindings } from "../lint/check.js";
 import { getLintSettings } from "../lint/repository.js";
@@ -15,10 +15,13 @@ import { projectPipeline, schemaHashOf } from "../pipeline/pipeline.js";
 import { schemaForConnection } from "../environments/variables.js";
 import { checkDrift, dismissOutOfSchema, listProjectDrift } from "./drift.js";
 import { pullConnectionSchema } from "./pull.js";
-import { analyzeDeploymentRisks } from "./riskAnalysis.js";
+import { deployedTablesOf } from "./drift.js";
+import { analyzeDeploymentRisks, withKeepDefaults } from "./riskAnalysis.js";
 import { planSeeds, prepareSeeds } from "../seeds/deploySeeds.js";
 import { createProjectFromDatabase } from "./createFromDatabase.js";
 import { listDeploymentHistory } from "./deploymentHistory.js";
+import { reconcileReviews } from "../reviews/service.js";
+import { exportMigrations, isMigrationFormat } from "./migrationExport.js";
 import {
   getConnectionOrigin,
   getProjectConnection,
@@ -39,11 +42,11 @@ import type { SessionUser } from "../auth/session.js";
  * server through a connection of their own, around the administrator's choice
  * of who may.
  */
-export function assertTargetNotManaged(
+export async function assertTargetNotManaged(
   user: SessionUser,
   config: Pick<DatabaseConnectionConfig, "engine" | "host" | "port" | "connectionString">,
-): void {
-  if (!user.isAdmin && isAdminManagedTarget(config)) throw new ApiError("CONNECTION_TARGET_MANAGED");
+): Promise<void> {
+  if (!user.isAdmin && (await isAdminManagedTarget(config))) throw new ApiError("CONNECTION_TARGET_MANAGED");
 }
 
 /**
@@ -59,15 +62,74 @@ const CONNECTION_RATE_LIMIT = { config: { rateLimit: { max: 60, timeWindow: "1 m
  * instance admin created can only be *used* from a project, not edited:
  * its credentials may serve several projects.
  */
-export function assertProjectMayEditConnection(user: SessionUser, projectId: string, connId: string): void {
-  if (!isConnectionLinked(projectId, connId)) throw new ApiError("CONNECTION_NOT_FOUND");
-  if (getConnectionOrigin(connId) === "admin" && !user.isAdmin) throw new ApiError("CONNECTION_MANAGED_BY_ADMIN");
+export async function assertProjectMayEditConnection(
+  user: SessionUser,
+  projectId: string,
+  connId: string,
+): Promise<void> {
+  if (!(await isConnectionLinked(projectId, connId))) throw new ApiError("CONNECTION_NOT_FOUND");
+  if ((await getConnectionOrigin(connId)) === "admin" && !user.isAdmin)
+    throw new ApiError("CONNECTION_MANAGED_BY_ADMIN");
 }
 
 /**
- * Everything but the list route requires project `administrator`, not `edit`: these routes
- * make the *server* open connections to a caller-supplied host/file or execute generated SQL.
- * `hostGuard.ts` and the SQLite own-database guard narrow *where*; this narrows *who*.
+ * What deploying the project's current schema to a connection would do, without doing it: the diff
+ * against the live database, its risks, the seeds, the SQL, and what would refuse the deployment
+ * whatever the plan says. Shared by the app's route and `/api/v1`'s.
+ */
+export async function planDeployment(id: string, project: { id: string; name: string }, connId: string) {
+  const conn = await getProjectConnection(id, connId);
+  if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
+
+  const room = await getRoom(id);
+  const writtenProject = readProjectFromDoc(room.doc, project.id, project.name);
+  const canvasProject = await schemaForConnection(writtenProject, conn);
+  // What would refuse the deployment whatever the plan says — told with the
+  // plan, not after "Apply". The deployment checks both again itself.
+  const lintSettings = await getLintSettings(id);
+  const stage = conn.environmentId
+    ? (await projectPipeline(id, schemaHashOf(writtenProject))).stages.find((entry) => entry.id === conn.environmentId)
+    : undefined;
+  const blockingLint = blockingLintFindings(writtenProject, lintSettings);
+  const blockers = {
+    lintErrors: blockingLint.count,
+    lintFindings: blockingLint.findings,
+    waitsForStage: stage && !stage.ready ? stage.requires : null,
+  };
+
+  const driver = await createDatabaseDriver(conn);
+  try {
+    const liveProject = await driver.introspectSchema();
+    const diff = diffTargetAgainstLive(liveProject, canvasProject);
+    const risks = await analyzeDeploymentRisks(driver, diff, conn.engine, await deployedTablesOf(id, connId));
+    const preparedSeeds = await prepareSeeds(id, canvasProject);
+    const created = new Set(diff.tables.filter((t) => t.status === "added").map((t) => t.name.toLowerCase()));
+    const seeds = await planSeeds(driver, preparedSeeds, conn.engine, created);
+    const initialSql = generateMigrationSql(diff, conn.engine, withKeepDefaults(risks, {}));
+
+    return {
+      diff,
+      risks,
+      seeds,
+      seedCycles: preparedSeeds.cycles,
+      sqlPreview: initialSql,
+      engine: conn.engine,
+      blockers,
+    };
+  } finally {
+    await driver.close().catch(() => {});
+  }
+}
+
+/**
+ * Nothing here but the list route is open to `edit`: these routes make the *server* open
+ * connections to a caller-supplied host/file or execute generated SQL. `hostGuard.ts` and
+ * `NEBULADB_SQLITE_DIR` narrow *where*; this narrows *who*.
+ *
+ * Two levels share them. `deploy` uses the databases the project already has — plan, deploy,
+ * rollback, their history, compare, "check now". `administrator` decides which databases those
+ * are (create, edit, detach, test a config), replaces the schema with a database's (pull) and
+ * accepts a change made outside the schema (dismiss the drift mark).
  *
  * `from-database` only requires an authenticated user, like `POST /api/projects`: the caller
  * becomes the new project's administrator.
@@ -86,7 +148,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
     // falls back.
     connectionConfig.name =
       connectionConfig.name?.trim() || projectName?.trim() || connectionConfig.database || "Database";
-    assertTargetNotManaged(user, connectionConfig);
+    await assertTargetNotManaged(user, connectionConfig);
 
     const result = await createProjectFromDatabase(
       user.id,
@@ -94,7 +156,7 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
       projectName || connectionConfig.name,
       connectionConfig,
     );
-    auditUser(
+    await auditUser(
       user,
       "project.create",
       { type: "project", id: result.id },
@@ -108,22 +170,22 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
   // 1. List connections for a project
   app.get("/api/projects/:id/connections", async (req) => {
     const { id } = req.params as { id: string };
-    requireProjectAccess(req, id, "view");
-    return { connections: listConnectionsByProject(id) };
+    await requireProjectAccess(req, id, "view");
+    return { connections: await listConnectionsByProject(id) };
   });
 
   // 2. Create connection
   app.post("/api/projects/:id/connections", CONNECTION_RATE_LIMIT, async (req) => {
     const { id } = req.params as { id: string };
-    const { user } = requireProjectAdmin(req, id);
+    const { user } = await requireProjectAdmin(req, id);
     const body = (req.body ?? {}) as Omit<DatabaseConnectionConfig, "id">;
 
     if (!body.name?.trim()) throw new ApiError("NAME_REQUIRED");
     if (!VALID_ENGINES.has(body.engine)) throw new ApiError("CONNECTION_ENGINE_INVALID");
-    assertTargetNotManaged(user, body);
+    await assertTargetNotManaged(user, body);
 
-    const saved = saveConnection(id, body);
-    auditUser(user, "connection.create", { type: "project", id }, `${body.engine}: ${body.name}`, req, {
+    const saved = await saveConnection(id, body);
+    await auditUser(user, "connection.create", { type: "project", id }, `${body.engine}: ${body.name}`, req, {
       connectionId: saved.id,
     });
     return { connection: saved };
@@ -132,60 +194,68 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
   // 3. Update connection
   app.put("/api/projects/:id/connections/:connId", CONNECTION_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
-    const { user } = requireProjectAdmin(req, id);
+    const { user } = await requireProjectAdmin(req, id);
     const body = (req.body ?? {}) as Partial<DatabaseConnectionConfig>;
     if (body.engine !== undefined && !VALID_ENGINES.has(body.engine)) throw new ApiError("CONNECTION_ENGINE_INVALID");
 
-    assertProjectMayEditConnection(user, id, connId);
-    assertTargetNotManaged(user, { ...getProjectConnection(id, connId)!, ...body });
-    const updated = updateConnection(connId, body, id);
+    await assertProjectMayEditConnection(user, id, connId);
+    await assertTargetNotManaged(user, { ...(await getProjectConnection(id, connId))!, ...body });
+    const updated = await updateConnection(connId, body, id);
     if (!updated) throw new ApiError("CONNECTION_NOT_FOUND");
 
-    auditUser(user, "connection.update", { type: "project", id }, `${updated.engine}: ${updated.name}`, req, {
+    await auditUser(user, "connection.update", { type: "project", id }, `${updated.engine}: ${updated.name}`, req, {
       connectionId: connId,
     });
+    // Moved to another stage: a review asked for the old one no longer stands.
+    await reconcileReviews(id, { user, req });
     return { connection: updated };
   });
 
   // 4. Delete connection
   app.delete("/api/projects/:id/connections/:connId", CONNECTION_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
-    const { user } = requireProjectAdmin(req, id);
+    const { user } = await requireProjectAdmin(req, id);
 
     // Detaches; the connection itself only goes if this project created it
     // and nothing else uses it (see `unlinkProjectConnection`).
-    const ok = unlinkProjectConnection(id, connId);
+    const ok = await unlinkProjectConnection(id, connId);
     if (!ok) throw new ApiError("CONNECTION_NOT_FOUND");
 
-    auditUser(user, "connection.delete", { type: "project", id }, connId, req, { connectionId: connId });
+    await auditUser(user, "connection.delete", { type: "project", id }, connId, req, { connectionId: connId });
+    await reconcileReviews(id, { user, req });
     return { deleted: true };
   });
 
   // 5. Test connection config
   app.post("/api/projects/:id/connections/test", CONNECTION_RATE_LIMIT, async (req) => {
     const { id } = req.params as { id: string };
-    const { user } = requireProjectAdmin(req, id);
+    const { user } = await requireProjectAdmin(req, id);
     const body = (req.body ?? {}) as DatabaseConnectionConfig;
     if (!VALID_ENGINES.has(body.engine)) throw new ApiError("CONNECTION_ENGINE_INVALID");
-    assertTargetNotManaged(user, body);
+    await assertTargetNotManaged(user, body);
 
-    const driver = await createDatabaseDriver(body);
-    try {
-      return await driver.testConnection();
-    } finally {
-      await driver.close().catch(() => {});
-    }
+    return await testConnectionConfig(body);
   });
 
   // 6. Pull schema from live DB into canvas
+  // Not a deployment, though it reads the same database: it replaces the
+  // schema everyone works on and makes the database's state the reference
+  // drift is measured against. That stays with the project's administrators.
   app.post("/api/projects/:id/connections/:connId/pull", CONNECTION_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
-    const { user, project } = requireProjectAdmin(req, id);
+    const { user, project } = await requireProjectAdmin(req, id);
 
     const result = await pullConnectionSchema(id, project.name, connId, user.displayName, user.id);
-    auditUser(user, "connection.pull", { type: "project", id }, `${connId} -> ${result.tablesCount} tables`, req, {
-      connectionId: connId,
-    });
+    await auditUser(
+      user,
+      "connection.pull",
+      { type: "project", id },
+      `${connId} -> ${result.tablesCount} tables`,
+      req,
+      {
+        connectionId: connId,
+      },
+    );
 
     return result;
   });
@@ -193,35 +263,36 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
   // 6b. Drift: has a linked database left the schema?
   // Reading the marks contacts no database, so anyone who can open the project
   // may: the banner is information, and an editor about to change a table the
-  // database no longer matches should know. Looking at the database itself,
-  // and dismissing the mark, stay with the project's administrators.
+  // database no longer matches should know. Looking at the database itself
+  // is for those who may deploy to it; dismissing the mark stays with the
+  // project's administrators.
   app.get("/api/projects/:id/drift", async (req) => {
     const { id } = req.params as { id: string };
-    requireProjectAccess(req, id, "view");
-    return { connections: listProjectDrift(id) };
+    await requireProjectAccess(req, id, "view");
+    return { connections: await listProjectDrift(id) };
   });
 
   // Two of the project's databases against each other. It opens both, so it
-  // is for the project's administrators, like every route that reaches a database.
+  // is for those who may deploy, like every route that reaches a database.
   app.post("/api/projects/:id/connections/compare", CONNECTION_RATE_LIMIT, async (req) => {
     const { id } = req.params as { id: string };
-    const { project } = requireProjectAdmin(req, id);
+    const { project } = await requireProjectAccess(req, id, "deploy");
     const { sourceId, targetId } = (req.body ?? {}) as { sourceId?: unknown; targetId?: unknown };
     return compareConnections(id, project.name, sourceId, targetId);
   });
 
   app.post("/api/projects/:id/connections/:connId/drift-check", CONNECTION_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
-    const { project } = requireProjectAdmin(req, id);
+    const { project } = await requireProjectAccess(req, id, "deploy");
     return checkDrift(id, project.name, connId);
   });
 
   app.post("/api/projects/:id/connections/:connId/drift/dismiss", async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
-    const { user } = requireProjectAdmin(req, id);
-    if (!getProjectConnection(id, connId)) throw new ApiError("CONNECTION_NOT_FOUND");
-    if (dismissOutOfSchema(id, connId)) {
-      auditUser(user, "connection.drift.dismiss", { type: "project", id }, connId, req, { connectionId: connId });
+    const { user } = await requireProjectAdmin(req, id);
+    if (!(await getProjectConnection(id, connId))) throw new ApiError("CONNECTION_NOT_FOUND");
+    if (await dismissOutOfSchema(id, connId)) {
+      await auditUser(user, "connection.drift.dismiss", { type: "project", id }, connId, req, { connectionId: connId });
     }
     return { dismissed: true };
   });
@@ -229,56 +300,16 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
   // 7. Plan deployment: Diff canvas project vs live DB and inspect risks
   app.post("/api/projects/:id/connections/:connId/plan-deployment", CONNECTION_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
-    const { project } = requireProjectAdmin(req, id);
-
-    const conn = getProjectConnection(id, connId);
-    if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
-
-    const room = getRoom(id);
-    const writtenProject = readProjectFromDoc(room.doc, project.id, project.name);
-    const canvasProject = schemaForConnection(writtenProject, conn);
-    // What would refuse the deployment whatever the plan says — told with the
-    // plan, not after "Apply". The deployment checks both again itself.
-    const lintSettings = getLintSettings(id);
-    const stage = conn.environmentId
-      ? projectPipeline(id, schemaHashOf(writtenProject)).stages.find((entry) => entry.id === conn.environmentId)
-      : undefined;
-    const blockingLint = blockingLintFindings(writtenProject, lintSettings);
-    const blockers = {
-      lintErrors: blockingLint.count,
-      lintFindings: blockingLint.findings,
-      waitsForStage: stage && !stage.ready ? stage.requires : null,
-    };
-
-    const driver = await createDatabaseDriver(conn);
-    try {
-      const liveProject = await driver.introspectSchema();
-      const diff = diffTargetAgainstLive(liveProject, canvasProject);
-      const risks = await analyzeDeploymentRisks(driver, diff, conn.engine);
-      const preparedSeeds = prepareSeeds(id, canvasProject);
-      const created = new Set(diff.tables.filter((t) => t.status === "added").map((t) => t.name.toLowerCase()));
-      const seeds = await planSeeds(driver, preparedSeeds, conn.engine, created);
-      const initialSql = generateMigrationSql(diff, conn.engine, {});
-
-      return {
-        diff,
-        risks,
-        seeds,
-        seedCycles: preparedSeeds.cycles,
-        sqlPreview: initialSql,
-        engine: conn.engine,
-        blockers,
-      };
-    } finally {
-      await driver.close().catch(() => {});
-    }
+    const { project } = await requireProjectAccess(req, id, "deploy");
+    return await planDeployment(id, project, connId);
   });
 
   // 8. Apply deployment: Generate DDL with resolutions & execute transactionally
   app.post("/api/projects/:id/connections/:connId/apply-deployment", CONNECTION_RATE_LIMIT, async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
-    const { user, project } = requireProjectAdmin(req, id);
     const body = (req.body ?? {}) as {
+      /** Start over (drop every table, write the schema again): for a project administrator only. */
+      clean?: { includeUnmanaged?: boolean };
       resolutions?: MigrationResolutionMap;
       confirmName?: string;
       riskNote?: string;
@@ -287,8 +318,9 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
       skipStageOrder?: boolean;
       skipReason?: string;
     };
+    const { user, project } = await requireProjectAccess(req, id, body.clean ? "administrator" : "deploy");
 
-    const skipStageOrder = stageSkipFor(req, id, connId, body);
+    const skipStageOrder = await stageSkipFor(req, id, connId, body);
 
     const result = await deployToConnection(id, project.name, connId, body.resolutions || {}, user.email, {
       confirmName: body.confirmName,
@@ -296,13 +328,14 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
       skipSeeds: body.skipSeeds === true,
       backupBefore: typeof body.backupBefore === "boolean" ? body.backupBefore : undefined,
       skipStageOrder,
+      ...(body.clean ? { clean: { includeUnmanaged: body.clean.includeUnmanaged === true } } : {}),
     });
 
-    auditUser(
+    await auditUser(
       user,
       "connection.deploy",
       { type: "project", id },
-      `${connId}: executed ${result.executedStatements} statements`,
+      `${connId}: ${body.clean ? "clean deployment, " : ""}executed ${result.executedStatements} statements`,
       req,
       { connectionId: connId },
     );
@@ -310,11 +343,48 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
     return result;
   });
 
+  // 8 bis. What a clean deployment would drop and write — read-only, for the dialog that asks to confirm it.
+  app.post("/api/projects/:id/connections/:connId/plan-clean-deployment", CONNECTION_RATE_LIMIT, async (req) => {
+    const { id, connId } = req.params as { id: string; connId: string };
+    const { project } = await requireProjectAccess(req, id, "administrator");
+    const body = (req.body ?? {}) as { includeUnmanaged?: boolean };
+    return previewCleanDeployment(id, project.name, connId, { includeUnmanaged: body.includeUnmanaged === true });
+  });
+
   // 9. Deployment history for a connection — what actually ran, and when.
   app.get("/api/projects/:id/connections/:connId/history", async (req) => {
     const { id, connId } = req.params as { id: string; connId: string };
-    requireProjectAdmin(req, id);
-    return { history: listDeploymentHistory(id, connId) };
+    await requireProjectAccess(req, id, "deploy");
+    return { history: await listDeploymentHistory(id, connId) };
+  });
+
+  /**
+   * 9b. The history as versioned migration files (plain SQL, Flyway or
+   * Liquibase), in one zip — see `migrationExport.ts` for what goes in.
+   */
+  app.get("/api/projects/:id/connections/:connId/history/export", CONNECTION_RATE_LIMIT, async (req, reply) => {
+    const { id, connId } = req.params as { id: string; connId: string };
+    const { user, project } = await requireProjectAccess(req, id, "deploy");
+    const { format = "sql" } = req.query as { format?: string };
+    if (!isMigrationFormat(format)) throw new ApiError("MIGRATION_FORMAT_INVALID");
+    const conn = await getProjectConnection(id, connId);
+    if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
+
+    const { fileName, archive, files } = await exportMigrations(id, project.name, conn, format);
+    await auditUser(
+      user,
+      "connection.migrations_export",
+      { type: "project", id },
+      `${connId}: ${format}, ${files} files`,
+      req,
+      {
+        connectionId: connId,
+      },
+    );
+    return reply
+      .header("content-type", "application/zip")
+      .header("content-disposition", `attachment; filename="${fileName}"`)
+      .send(archive);
   });
 
   /**
@@ -327,12 +397,23 @@ export function registerConnectionRoutes(app: FastifyInstance): void {
    */
   app.post("/api/projects/:id/connections/:connId/history/:historyId/rollback", CONNECTION_RATE_LIMIT, async (req) => {
     const { id, connId, historyId } = req.params as { id: string; connId: string; historyId: string };
-    const { user } = requireProjectAdmin(req, id);
+    const { user } = await requireProjectAccess(req, id, "deploy");
 
-    const { confirmName } = (req.body ?? {}) as { confirmName?: string };
-    const result = await rollbackConnectionDeployment(id, connId, historyId, user.email, confirmName);
+    const body = (req.body ?? {}) as {
+      confirmName?: string;
+      backupBefore?: boolean;
+      /** Run it on a stage that asks for a review, without one: for a project administrator, with a reason. */
+      skipReview?: boolean;
+      reason?: string;
+    };
+    const reviewSkipReason = await rollbackReviewSkipFor(req, id, connId, body);
+    const result = await rollbackConnectionDeployment(id, connId, historyId, user.email, {
+      confirmName: body.confirmName,
+      backupBefore: typeof body.backupBefore === "boolean" ? body.backupBefore : undefined,
+      reviewSkipReason,
+    });
 
-    auditUser(user, "connection.rollback", { type: "project", id }, `${connId}: rolled back ${historyId}`, req, {
+    await auditUser(user, "connection.rollback", { type: "project", id }, `${connId}: rolled back ${historyId}`, req, {
       connectionId: connId,
     });
 

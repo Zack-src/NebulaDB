@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
-import { login, startE2eEnvironment } from "./harness.js";
+import { fillCodeEditor, login, startE2eEnvironment } from "./harness.js";
 
 /**
  * Database access for members: an instance administrator grants a member
@@ -91,10 +91,13 @@ test("admin grants a member read access; the member queries the database read-on
     await member.getByLabel("Mot de passe").fill(MEMBER_PASSWORD);
     await member.getByRole("button", { name: "Se connecter" }).click();
     await member.getByRole("button", { name: "Nouveau projet" }).first().waitFor({ timeout: 10_000 });
-    const tab = (name: string) => member.getByRole("tab", { name, exact: true });
+    const database = () => member.getByRole("button", { name: /Base boutique/ });
     await member.goto(`${env.baseUrl}/project/${projectId}`);
-    await tab("Historique").waitFor();
-    assert.equal(await tab("Données & SQL").count(), 0, "being in the project gives no access to its database");
+    await member.getByRole("tab", { name: "Historique", exact: true }).waitFor();
+    // The databases a person may open are listed in the "Bases" workspace.
+    await member.goto(`${env.baseUrl}/#bases`);
+    await member.getByRole("heading").first().waitFor();
+    assert.equal(await database().count(), 0, "being in the project gives no access to its database");
 
     // The administrator grants read access from Admin → Utilisateurs.
     await admin.getByRole("button", { name: "Admin", exact: true }).click();
@@ -110,7 +113,7 @@ test("admin grants a member read access; the member queries the database read-on
 
     // The member now has the tab, on read-only terms.
     await member.reload();
-    await tab("Données & SQL").click();
+    await database().first().click();
     await member.getByRole("button", { name: /customers/ }).click();
     await member.getByRole("gridcell", { name: "Linus" }).waitFor();
     // Reading only: no drop, and none of the administrator's sections.
@@ -126,10 +129,10 @@ test("admin grants a member read access; the member queries the database read-on
       "no write mode on read access",
     );
     const editor = member.getByRole("textbox", { name: "Console SQL" });
-    await editor.fill("SELECT name FROM customers ORDER BY id");
+    await fillCodeEditor(editor, "SELECT name FROM customers ORDER BY id");
     await member.getByRole("button", { name: "Exécuter", exact: true }).click();
     await member.getByRole("gridcell", { name: "Ada" }).waitFor();
-    await editor.fill("DELETE FROM customers");
+    await fillCodeEditor(editor, "DELETE FROM customers");
     await member.getByRole("button", { name: "Exécuter", exact: true }).click();
     // Said in terms of their access, not "switch to write mode": they have none.
     await member.getByText("Votre accès à cette base est en lecture seule.").waitFor();

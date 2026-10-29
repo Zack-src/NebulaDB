@@ -68,7 +68,8 @@ test(
 
       await page.getByRole("button", { name: "Admin", exact: true }).click();
       await page.getByRole("button", { name: "Connexions base de données" }).click();
-      await page.getByRole("button", { name: "Ouvrir" }).click();
+      // A database's journal is part of its monitoring, next to its health.
+      await page.getByRole("button", { name: "Monitoring" }).click();
       await page.getByRole("tab", { name: "Journal" }).click();
 
       const list = page.getByRole("list", { name: "Événements" });

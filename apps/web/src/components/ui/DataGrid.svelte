@@ -10,10 +10,19 @@
   const KEY_STEP_LARGE = 64;
   /** Used for the first paint, before the grid's own height has been measured. */
   const FALLBACK_VIEWPORT = 420;
+  /** The column of row buttons (`onRowOpen`). */
+  const ROW_BUTTON_WIDTH = 30;
+  const TONE_CLASS = {
+    added: "bg-success/10",
+    deleted: "bg-danger/10 line-through text-text-muted",
+    changed: "",
+  } as const;
 </script>
 
 <script lang="ts">
   import { untrack } from "svelte";
+  import Icon from "@/components/icons/Icon.svelte";
+  import { PencilIcon } from "@/components/icons/Icons";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import {
     MAX_COLUMN_WIDTH,
@@ -56,6 +65,11 @@
     maxHeight = 420,
     emptyLabel,
     nullLabel = "NULL",
+    rowTone,
+    cellChanged,
+    onRowOpen,
+    rowOpenLabel,
+    resultKey,
     class: className = "",
     "aria-label": ariaLabel,
     "aria-labelledby": ariaLabelledby,
@@ -76,6 +90,18 @@
     maxHeight?: number | null;
     /** Shown under the header when there are no rows. */
     emptyLabel?: string;
+    /** How a row is marked — by its index into `rows`, whatever the sort. */
+    rowTone?: (row: number) => "added" | "deleted" | "changed" | null;
+    /** A cell holding a value not saved yet is highlighted. */
+    cellChanged?: (row: number, column: number) => boolean;
+    /**
+     * Given, each row starts with a button that calls it (and a double-click on
+     * a cell does, with that cell's column); `rowOpenLabel` names the button.
+     */
+    onRowOpen?: (row: number, column: number | null) => void;
+    rowOpenLabel?: string;
+    /** Rows edited in place are the same result: the scroll position stays until this changes. */
+    resultKey?: unknown;
     /** How SQL NULL is written — the keyword, in every language. */
     nullLabel?: string;
     /** Layout only (height / flex). */
@@ -100,7 +126,9 @@
     columns.map((column, index) => autoColumnWidth(column, rows, index, { charWidth: CHAR_WIDTH, chrome: CELL_CHROME, nullLabel })),
   );
   const columnWidths = $derived(resolveWidths(automaticWidths, widths));
-  const totalWidth = $derived(columnWidths.reduce((sum, width) => sum + width, 0));
+  /** The leading column of row buttons, when rows can be opened. */
+  const leading = $derived(onRowOpen ? ROW_BUTTON_WIDTH : 0);
+  const totalWidth = $derived(columnWidths.reduce((sum, width) => sum + width, leading));
   // Widths reach the cells through custom properties on the grid: resizing a
   // column then changes one declaration instead of one inline style per cell.
   const widthVariables = $derived(columnWidths.map((width, index) => `--dg-col-${index}:${width}px`).join(";"));
@@ -117,9 +145,9 @@
     if (viewport) viewport.scrollTop = top;
   }
 
-  // New rows are a new result: it is read from the top.
+  // New rows are a new result: it is read from the top. With `resultKey`, only a new key is.
   $effect(() => {
-    void rows;
+    void (resultKey === undefined ? rows : resultKey);
     untrack(() => scrollTo(0));
   });
 
@@ -198,7 +226,7 @@
     aria-label={ariaLabel}
     aria-labelledby={ariaLabelledby}
     aria-rowcount={rows.length + 1}
-    aria-colcount={columns.length}
+    aria-colcount={columns.length + (onRowOpen ? 1 : 0)}
     class="relative min-h-0 flex-auto overflow-auto font-mono text-label text-text outline-hidden
       focus-visible:outline focus-visible:outline-2 focus-visible:-outline-offset-2 focus-visible:outline-primary"
     style={`${widthVariables};${maxHeight === null ? "" : `max-height:${maxHeight}px`}`}
@@ -211,12 +239,15 @@
       class="sticky top-0 z-[2] flex min-w-full border-b border-border bg-surface-raised"
       style={`width:${totalWidth}px;height:${HEADER_HEIGHT}px`}
     >
+      {#if onRowOpen}
+        <div role="columnheader" aria-colindex="1" aria-label={rowOpenLabel} class="shrink-0" style={`width:${leading}px`}></div>
+      {/if}
       {#each columns as column, c (c)}
         {@const sorted = ariaSort(activeSort, c)}
         <!-- Named explicitly: computed from its content, the name would end with the resize handle's label. -->
         <div
           role="columnheader"
-          aria-colindex={c + 1}
+          aria-colindex={c + 1 + (onRowOpen ? 1 : 0)}
           aria-sort={sorted}
           aria-label={column}
           class="relative shrink-0"
@@ -271,21 +302,42 @@
 
     <div role="rowgroup" class="relative min-w-full" style={`width:${totalWidth}px;height:${rows.length * rowHeight}px`}>
       {#each rendered as position (position)}
-        {@const row = rows[order[position]]}
+        {@const index = order[position]}
+        {@const row = rows[index]}
+        {@const tone = rowTone?.(index) ?? null}
         <div
           role="row"
           aria-rowindex={position + 2}
-          class={`absolute left-0 flex w-full hover:bg-surface-hover ${position === rows.length - 1 ? "" : "border-b border-border/60"}`}
+          data-row-tone={tone ?? undefined}
+          class={`absolute left-0 flex w-full hover:bg-surface-hover ${tone ? TONE_CLASS[tone] : ""} ${position === rows.length - 1 ? "" : "border-b border-border/60"}`}
           style={`top:${position * rowHeight}px;height:${rowHeight}px;line-height:${rowHeight - 1}px`}
         >
+          {#if onRowOpen}
+            <div role="gridcell" aria-colindex="1" class="flex shrink-0 items-center justify-center" style={`width:${leading}px`}>
+              <button
+                type="button"
+                class="flex h-5 w-5 cursor-pointer items-center justify-center rounded-sm border-0 bg-transparent text-text-muted
+                  hover:bg-surface-raised hover:text-text focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary"
+                aria-label={rowOpenLabel}
+                onclick={() => onRowOpen(index, null)}
+              >
+                <Icon icon={PencilIcon} size={11} />
+              </button>
+            </div>
+          {/if}
           {#each columns as _, c (c)}
             {@const text = formatCell(row?.[c])}
+            {@const changed = cellChanged?.(index, c) ?? false}
+            <!-- A shortcut for the pointer: the keyboard reaches the same editor through the row button. -->
+            <!-- svelte-ignore a11y_interactive_supports_focus -->
             <div
               role="gridcell"
-              aria-colindex={c + 1}
-              class="shrink-0 truncate px-2 whitespace-nowrap"
+              aria-colindex={c + 1 + (onRowOpen ? 1 : 0)}
+              data-changed={changed || undefined}
+              class={`shrink-0 truncate px-2 whitespace-nowrap ${changed ? "bg-warning/15 font-semibold" : ""}`}
               style={`width:var(--dg-col-${c})`}
               title={text ?? undefined}
+              ondblclick={onRowOpen ? () => onRowOpen(index, c) : undefined}
             >
               {#if text === null}<span class="text-text-muted italic">{nullLabel}</span>{:else}{text}{/if}
             </div>

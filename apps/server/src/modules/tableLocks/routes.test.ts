@@ -4,8 +4,9 @@ import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-tablelocks-${randomUUID()}.sqlite`);
+await useTestDatabase("tablelocks");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -24,12 +25,9 @@ async function makeUser(app: App, isAdmin: 0 | 1 = 0) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)").run(
-    id,
-    email,
-    await hashPassword(password),
-    isAdmin,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)")
+    .run(id, email, await hashPassword(password), isAdmin);
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -41,15 +39,13 @@ async function makeUser(app: App, isAdmin: 0 | 1 = 0) {
 }
 
 /** Grants `userId` a level on the project through a team — the only way a non-owner gets one. */
-function grant(projectId: string, userId: string, permission: "view" | "edit" | "administrator") {
+async function grant(projectId: string, userId: string, permission: "view" | "edit" | "administrator") {
   const teamId = randomUUID();
-  db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(teamId, `team-${teamId}`);
-  db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, userId);
-  db.prepare("INSERT INTO project_teams (project_id, team_id, permission) VALUES (?, ?, ?)").run(
-    projectId,
-    teamId,
-    permission,
-  );
+  await db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(teamId, `team-${teamId}`);
+  await db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, userId);
+  await db
+    .prepare("INSERT INTO project_teams (project_id, team_id, permission) VALUES (?, ?, ?)")
+    .run(projectId, teamId, permission);
 }
 
 const call = (app: App, cookie: string, method: "GET" | "PUT" | "DELETE" | "POST", url: string, payload?: object) =>
@@ -122,9 +118,9 @@ test("who may lock: administrators of the project, not editors or viewers; every
     const outsider = await makeUser(app);
     const teamAdmin = await makeUser(app);
     const project = await projectWithSchema(app, owner.cookie);
-    grant(project.id, editor.id, "edit");
-    grant(project.id, viewer.id, "view");
-    grant(project.id, teamAdmin.id, "administrator");
+    await grant(project.id, editor.id, "edit");
+    await grant(project.id, viewer.id, "view");
+    await grant(project.id, teamAdmin.id, "administrator");
     const url = `/api/projects/${project.id}/locks`;
     const usersUrl = `${url}/${project.tableId("users")}`;
 
@@ -155,16 +151,16 @@ test("who may lock: administrators of the project, not editors or viewers; every
     assert.equal((await call(app, owner.cookie, "DELETE", usersUrl)).statusCode, 404);
 
     const actions = (
-      db
+      (await db
         .prepare("SELECT action, detail FROM audit_log WHERE target_id = ? AND action LIKE 'table.%'")
-        .all(project.id) as {
+        .all(project.id)) as {
         action: string;
         detail: string;
       }[]
     ).map((row) => `${row.action}: ${row.detail}`);
     assert.deepEqual(actions, ["table.lock: users (structure, project)", "table.unlock: users"]);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -207,7 +203,7 @@ test("an instance-level lock is out of a project administrator's reach, includin
       "project",
     );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -218,7 +214,7 @@ test("import: an editor's change is refused whole when it touches a locked table
     const owner = await makeUser(app);
     const editor = await makeUser(app);
     const project = await projectWithSchema(app, owner.cookie);
-    grant(project.id, editor.id, "edit");
+    await grant(project.id, editor.id, "edit");
     const importUrl = `/api/projects/${project.id}/import`;
     for (const name of ["users", "orders"]) {
       const res = await call(app, owner.cookie, "PUT", `/api/projects/${project.id}/locks/${project.tableId(name)}`, {
@@ -269,7 +265,7 @@ test("import: an editor's change is refused whole when it touches a locked table
     // The project's administrator is not bound by a project-level lock.
     assert.equal((await call(app, owner.cookie, "POST", importUrl, { source: mixed })).statusCode, 200);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -280,7 +276,7 @@ test("history restore is refused when it would change a locked table; deleting t
     const owner = await makeUser(app);
     const editor = await makeUser(app);
     const project = await projectWithSchema(app, owner.cookie);
-    grant(project.id, editor.id, "edit");
+    await grant(project.id, editor.id, "edit");
     const base = `/api/projects/${project.id}`;
 
     const revisions = (await call(app, owner.cookie, "GET", `${base}/revisions`)).json() as { id: string }[];
@@ -300,12 +296,12 @@ test("history restore is refused when it would change a locked table; deleting t
     assert.equal((await call(app, owner.cookie, "POST", `${base}/revisions/${firstRevision}/restore`)).statusCode, 200);
 
     assert.equal((await call(app, owner.cookie, "DELETE", base)).statusCode, 200);
-    const left = db.prepare("SELECT COUNT(*) AS n FROM table_locks WHERE project_id = ?").get(project.id) as {
+    const left = (await db.prepare("SELECT COUNT(*) AS n FROM table_locks WHERE project_id = ?").get(project.id)) as {
       n: number;
     };
     assert.equal(left.n, 0);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -371,7 +367,7 @@ test("pull from a database: relations follow their tables, and a pull that alter
     assert.equal((await call(app, instanceAdmin.cookie, "POST", pullUrl)).statusCode, 200);
     assert.ok((await content()).tables.find((table) => table.name === "users")!.fields.some((f) => f.name === "phone"));
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -383,7 +379,7 @@ test("/api/v1 locks: listed, placed and lifted by table name with an API key, un
     const owner = await makeUser(app);
     const editor = await makeUser(app);
     const project = await projectWithSchema(app, owner.cookie);
-    grant(project.id, editor.id, "edit");
+    await grant(project.id, editor.id, "edit");
     const key = async (cookie: string, scopes: string[]) =>
       (await call(app, cookie, "POST", "/api/keys", { name: "locks", scopes })).json().plaintextKey as string;
     const withKey = (plaintext: string, method: "GET" | "PUT" | "DELETE", url: string, payload?: unknown) =>
@@ -439,7 +435,7 @@ test("/api/v1 locks: listed, placed and lifted by table name with an API key, un
     assert.equal((await withKey(writeKey, "DELETE", `${url}/users`)).statusCode, 404);
     assert.deepEqual((await withKey(readKey, "GET", url)).json().locks, []);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

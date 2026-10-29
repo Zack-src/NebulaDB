@@ -1,13 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
-import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { compileErrors, validate } from "@readme/openapi-parser";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-openapi-${randomUUID()}.sqlite`);
+await useTestDatabase("openapi");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_LOG_LEVEL = "silent";
 

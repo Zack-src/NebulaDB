@@ -66,9 +66,9 @@
               <div>
                 <div class="flex items-center gap-1.5">
                   <span class="text-xs font-bold text-text">{item.name}</span>
-                  <span class="text-[10px] text-text-muted">v{item.version}</span>
+                  <span class="text-micro text-text-muted">v{item.version}</span>
                 </div>
-                <span class="text-[10.5px] text-text-muted">par {item.author}</span>
+                <span class="text-micro text-text-muted">par {item.author}</span>
               </div>
             </div>
 
@@ -83,7 +83,7 @@
             </div>
           </div>
 
-          <p class="mt-2 text-[11.5px] leading-relaxed text-text-secondary">{item.description}</p>
+          <p class="mt-2 text-label leading-relaxed text-text-secondary">{item.description}</p>
 
           {#if record}<ContributionBadges contributions={record.contributions} />{/if}
         </div>
@@ -91,7 +91,7 @@
         <div class="mt-3.5 flex items-center justify-between border-t border-border/60 pt-2.5">
           {#if record}
             <div class="flex items-center gap-2">
-              <label class="flex cursor-pointer items-center gap-1.5 text-[11px] text-text-muted">
+              <label class="flex cursor-pointer items-center gap-1.5 text-caption text-text-muted">
                 <input
                   type="checkbox"
                   class="h-3.5 w-3.5 rounded accent-primary cursor-pointer"

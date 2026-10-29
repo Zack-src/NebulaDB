@@ -27,7 +27,7 @@ export function registerPublicBackupRoutes(app: FastifyInstance): void {
     requireAdmin(req);
     requireGlobalScope(req, "connections:manage");
     const { id } = req.params as { id: string };
-    return connectionBackups(id);
+    return await connectionBackups(id);
   });
 
   // Answers as soon as the backup has started; `GET /api/v1/backups/:id` says how far it is.
@@ -36,7 +36,7 @@ export function registerPublicBackupRoutes(app: FastifyInstance): void {
     const user = requireAdmin(req);
     requireGlobalScope(req, "connections:manage");
     const { id } = req.params as { id: string };
-    return reply.code(202).send({ backup: startManualBackup(user, id, req.body, req) });
+    return reply.code(202).send({ backup: await startManualBackup(user, id, req.body, req) });
   });
 
   // What a script polls until `status` is no longer `running`.
@@ -44,14 +44,14 @@ export function registerPublicBackupRoutes(app: FastifyInstance): void {
     requireAdmin(req);
     requireGlobalScope(req, "connections:manage");
     const { id } = req.params as { id: string };
-    return { backup: requireBackup(id) };
+    return { backup: await requireBackup(id) };
   });
 
   app.post("/api/v1/backups/:id/cancel", API_RATE_LIMIT, async (req) => {
     requireAdmin(req);
     requireGlobalScope(req, "connections:manage");
     const { id } = req.params as { id: string };
-    cancelRunningBackup(id);
+    await cancelRunningBackup(id);
     return { cancelling: true };
   });
 
@@ -59,7 +59,7 @@ export function registerPublicBackupRoutes(app: FastifyInstance): void {
     const user = requireAdmin(req);
     requireGlobalScope(req, "connections:manage");
     const { id } = req.params as { id: string };
-    removeBackup(user, id, req);
+    await removeBackup(user, id, req);
     return { deleted: true };
   });
 

@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { existsSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import Fastify, { type FastifyInstance } from "fastify";
+import Fastify, { type FastifyInstance, type FastifyRequest } from "fastify";
 import fastifyCookie from "@fastify/cookie";
 import fastifyRateLimit from "@fastify/rate-limit";
 import fastifyStatic from "@fastify/static";
@@ -12,11 +12,13 @@ import type { WebSocket } from "ws";
 import { config } from "./config.js";
 import { db } from "./infrastructure/db.js";
 import { registerApiKeyRoutes } from "./modules/apiKeys/routes.js";
+import { registerRetentionRoutes } from "./modules/retention/routes.js";
 import { resolveApiKey } from "./modules/apiKeys/auth.js";
 import { registerAuditRoutes } from "./modules/audit/routes.js";
 import { registerAuthRoutes } from "./modules/auth/routes.js";
 import { registerTotpRoutes } from "./modules/auth/totpRoutes.js";
 import { registerPasswordResetRoutes } from "./modules/auth/passwordResetRoutes.js";
+import { registerOidcRoutes } from "./modules/auth/oidcRoutes.js";
 import { resolveSession } from "./modules/auth/session.js";
 import { registerConvertRoutes } from "./modules/convert/routes.js";
 import { registerConnectionRoutes } from "./modules/connections/routes.js";
@@ -28,6 +30,7 @@ import { registerDbAccessRoutes } from "./modules/dbAccess/routes.js";
 import { registerEnvironmentRoutes } from "./modules/environments/routes.js";
 import { registerErrorRoutes } from "./modules/errors/routes.js";
 import { registerInvitationRoutes } from "./modules/invitations/routes.js";
+import { registerSetupRoutes } from "./modules/setup/routes.js";
 import { registerProjectRoutes } from "./modules/projects/index.js";
 import { getProjectRow } from "./modules/projects/repository.js";
 import { registerPublicApiRoutes } from "./modules/publicApi/index.js";
@@ -40,9 +43,11 @@ import { registerLintPresetRoutes } from "./modules/lint/presetRoutes.js";
 import { registerLintRoutes } from "./modules/lint/routes.js";
 import { registerNotificationRoutes } from "./modules/notifications/routes.js";
 import { registerPipelineRoutes } from "./modules/pipeline/routes.js";
+import { registerReviewRoutes } from "./modules/reviews/routes.js";
 import { registerBackupRoutes } from "./modules/backups/routes.js";
 import { lockedTableIdsFor } from "./modules/tableLocks/access.js";
 import { registerTableLockRoutes } from "./modules/tableLocks/routes.js";
+import { registerShareLinkRoutes } from "./modules/shareLinks/routes.js";
 import { registerWebhookRoutes } from "./modules/webhooks/routes.js";
 import { noteSchemaChange } from "./modules/webhooks/dispatcher.js";
 import { registerUserRoutes } from "./modules/users/index.js";
@@ -50,7 +55,8 @@ import { getRoom, liveRoomCount, setRoomLogger } from "./realtime/roomRegistry.j
 import { setRoomDocChangeListener } from "./realtime/room.js";
 import { renderPrometheusMetrics } from "./infrastructure/metrics.js";
 import { ApiError, registerErrorHandler } from "./shared/errors.js";
-import { getEffectivePermission } from "./shared/permissions.js";
+import { isSharePath, redactShareTokens } from "./shared/logRedaction.js";
+import { getEffectivePermission, permissionAtLeast } from "./shared/permissions.js";
 
 /**
  * Builds the Fastify instance with every plugin, hook and route registered —
@@ -62,7 +68,29 @@ import { getEffectivePermission } from "./shared/permissions.js";
  * timers left running past the test, no process-level handlers registered
  * twice if more than one test file imports it.
  */
-export async function buildApp(): Promise<FastifyInstance> {
+export interface BuildAppOptions {
+  /** Where the logger writes instead of stdout — a test reading what got logged. */
+  logStream?: { write(line: string): void };
+}
+
+/**
+ * Sent with the share page and every answer of its API (`modules/shareLinks`):
+ * never cached, never indexed, no `Referer` carrying the token anywhere, not
+ * framable, and nothing fetched from anywhere but this server.
+ */
+const SHARE_HEADERS: Record<string, string> = {
+  "Cache-Control": "no-store",
+  "Referrer-Policy": "no-referrer",
+  "X-Robots-Tag": "noindex, nofollow",
+  "X-Content-Type-Options": "nosniff",
+  "X-Frame-Options": "DENY",
+  "Content-Security-Policy":
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; " +
+    "img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; object-src 'none'; " +
+    "base-uri 'none'; form-action 'none'; frame-ancestors 'none'",
+};
+
+export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyInstance> {
   // `bodyLimit` bounds REST payloads (the DBML/SQL import route is the big one);
   // `maxPayload` bounds a single WebSocket frame, which was previously unbounded
   // — a client could send an arbitrarily large Yjs update and the server would
@@ -82,11 +110,34 @@ export async function buildApp(): Promise<FastifyInstance> {
       // where the cookie *is* the credential and a log line containing it is a
       // log line someone can log in with.
       redact: {
-        paths: ["req.headers.cookie", "req.headers.authorization", 'res.headers["set-cookie"]'],
+        paths: ["req.headers.cookie", "req.headers.authorization", "req.headers.referer", 'res.headers["set-cookie"]'],
         censor: "[redacted]",
       },
+      // Fastify's own request serializer, with the share-link token taken out
+      // of the URL: `/share/<token>` is a credential in the request line, and
+      // the "incoming request" line would otherwise write it to every log.
+      serializers: {
+        req: (req: FastifyRequest) => ({
+          method: req.method,
+          url: redactShareTokens(req.url),
+          host: req.host,
+          remoteAddress: req.ip,
+          remotePort: req.socket?.remotePort,
+        }),
+      },
+      ...(options.logStream ? { stream: options.logStream } : {}),
     },
     bodyLimit: config.bodyLimit,
+    // Behind a reverse proxy, `req.ip` (rate limits, audit log, session list)
+    // comes from `X-Forwarded-For` only for the proxies trusted here.
+    // A hop count is what Fastify does at runtime for a number, which its types don't accept.
+    trustProxy:
+      typeof config.trustProxy === "number"
+        ? (
+            (hops) => (_address: string, hop: number) =>
+              hop < hops
+          )(config.trustProxy)
+        : config.trustProxy,
   });
   registerErrorHandler(app);
   // Every `Room` logs through this from here on instead of bare `console` —
@@ -95,14 +146,38 @@ export async function buildApp(): Promise<FastifyInstance> {
   // of correlation.
   setRoomLogger(app.log);
   setRoomDocChangeListener(noteSchemaChange);
-  await app.register(websocket, { options: { maxPayload: config.wsMaxPayload } });
+  await app.register(websocket, {
+    options: {
+      maxPayload: config.wsMaxPayload,
+      // The document a client receives on connecting is the whole project (150 KB for a 130-table schema, ~30 KB
+      // compressed) and shares the link with the page's own scripts. Only messages over 1 KB are compressed
+      // (cursors and small edits are not), and no state is kept between messages so a connection costs little.
+      perMessageDeflate: {
+        threshold: 1024,
+        serverNoContextTakeover: true,
+        clientNoContextTakeover: true,
+        zlibDeflateOptions: { level: 6 },
+      },
+    },
+  });
   await app.register(fastifyCookie);
-  // Global ceiling, deliberately loose — the collaborative UI is chatty. The
-  // routes that actually need protecting set their own much tighter limits.
+  // Global ceiling on every API route, deliberately loose — the UI is chatty.
+  // The routes that actually need protecting set their own much tighter limits
+  // (`config.rateLimit`), which replace this one for them.
   await app.register(fastifyRateLimit, {
-    global: false,
+    global: true,
     max: 300,
     timeWindow: "1 minute",
+    // Only the API is counted: the WebSocket upgrade (`/ws/`, one per open
+    // project, and the edits go over the socket afterwards), the built web app
+    // and its client-side routes are left alone.
+    allowList: (req) => !req.url.startsWith("/api/"),
+    // A signed-in caller is counted per account — so a team behind one NAT
+    // doesn't share a single budget, and a stolen session guessing passwords
+    // gains nothing from more IPs — everyone else per IP. The session hook
+    // below has run by the time this does: app-wide `onRequest` hooks come
+    // before the per-route one the plugin adds.
+    keyGenerator: (req) => (req.user ? `user:${req.user.id}` : req.ip),
   });
 
   // Resolves the session cookie (or, without one, an `Authorization: Bearer` API key)
@@ -111,9 +186,22 @@ export async function buildApp(): Promise<FastifyInstance> {
   // database connection is opened as (`infrastructure/actor.ts`).
   app.addHook("onRequest", (_req, _reply, done) => runInActorScope(done));
   app.addHook("onRequest", async (req, reply) => {
-    req.user = resolveSession(req, reply);
-    if (!req.user) {
-      const resolved = resolveApiKey(req);
+    // A share link's page and API work without an account and must not touch
+    // the viewer's own one: no session read (or rolled forward, which would
+    // set a cookie), no API key. A signed-in viewer is just as anonymous there.
+    if (isSharePath(req.url)) {
+      req.user = null;
+      req.apiKey = null;
+      setActor(null);
+      reply.headers(SHARE_HEADERS);
+      return;
+    }
+    req.user = await resolveSession(req, reply);
+    // An API key is only good for the public API: the internal routes check
+    // neither its scopes nor its project restriction, so a key resolved there
+    // would be a full session.
+    if (!req.user && req.url.startsWith("/api/v1/")) {
+      const resolved = await resolveApiKey(req);
       req.user = resolved?.user ?? null;
       req.apiKey = resolved?.apiKey ?? null;
     }
@@ -123,14 +211,32 @@ export async function buildApp(): Promise<FastifyInstance> {
   const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
 
   /**
-   * CSRF defence on top of `SameSite=Lax`: a state-changing request carrying an `Origin`
-   * must match the request's host or be listed in NEBULADB_ALLOWED_ORIGINS. A missing
-   * `Origin` is allowed (curl, scripts, backup tooling).
+   * Throws unless the request's `Origin` is the request's own host or listed in
+   * NEBULADB_ALLOWED_ORIGINS. A missing `Origin` passes (curl, scripts, backup
+   * tooling — browsers always send one where it matters), unless the browser says the request
+   * is cross-site (`Sec-Fetch-Site`). `Origin: null` (a
+   * sandboxed iframe, a `data:` page, a redirect chain) passes only when the
+   * request doesn't ride on the session cookie: that is the one case a page
+   * elsewhere could use to act as the signed-in user.
    */
-  app.addHook("onRequest", async (req) => {
-    if (SAFE_METHODS.has(req.method)) return;
+  function assertOriginAllowed(req: FastifyRequest, what: string): void {
     const origin = req.headers.origin;
-    if (!origin || origin === "null") return;
+    const cookieAuthenticated = req.user != null && req.apiKey == null;
+    if (!origin) {
+      // A browser that names the request as coming from another site is not a script: refuse it
+      // whatever it left out. (`same-origin` and `none` — typing a URL — are the only others.)
+      const site = req.headers["sec-fetch-site"];
+      if (cookieAuthenticated && (site === "cross-site" || site === "same-site")) {
+        req.log.warn({ site }, `rejected ${what} with Sec-Fetch-Site: ${site} and no Origin`);
+        throw new ApiError("ORIGIN_MISMATCH");
+      }
+      return;
+    }
+    if (origin === "null") {
+      if (!cookieAuthenticated) return;
+      req.log.warn({ host: req.headers.host }, `rejected ${what} with Origin: null`);
+      throw new ApiError("ORIGIN_MISMATCH");
+    }
 
     let originHost: string;
     try {
@@ -141,8 +247,24 @@ export async function buildApp(): Promise<FastifyInstance> {
     if (originHost === req.headers.host) return;
     if (config.allowedOrigins.includes(origin.replace(/\/$/, ""))) return;
 
-    req.log.warn({ origin, host: req.headers.host }, "rejected cross-origin state-changing request");
+    req.log.warn({ origin, host: req.headers.host }, `rejected cross-origin ${what}`);
     throw new ApiError("ORIGIN_MISMATCH");
+  }
+
+  /**
+   * What the API answers is for the person who asked: an answer that names no `Cache-Control` is told
+   * not to be stored, so a shared cache between the browser and the server cannot keep one user's data
+   * for another. Routes that choose their own policy (downloads, the public share page) keep it.
+   */
+  app.addHook("onSend", async (req, reply, payload) => {
+    if (req.url.startsWith("/api/") && !reply.hasHeader("cache-control")) reply.header("Cache-Control", "no-store");
+    return payload;
+  });
+
+  /** CSRF defence on top of `SameSite=Lax`, for every state-changing request. */
+  app.addHook("onRequest", async (req) => {
+    if (SAFE_METHODS.has(req.method)) return;
+    assertOriginAllowed(req, "state-changing request");
   });
 
   /**
@@ -158,7 +280,7 @@ export async function buildApp(): Promise<FastifyInstance> {
    */
   app.get("/api/health", async (_req, reply) => {
     try {
-      const row = db.prepare("SELECT COUNT(*) AS n FROM projects").get() as { n: number };
+      const row = (await db.prepare("SELECT COUNT(*) AS n FROM projects").get()) as { n: number };
       return {
         status: "ok",
         projects: row.n,
@@ -179,13 +301,15 @@ export async function buildApp(): Promise<FastifyInstance> {
    */
   app.get("/api/metrics", async (_req, reply) => {
     reply.type("text/plain; version=0.0.4");
-    return renderPrometheusMetrics();
+    return await renderPrometheusMetrics();
   });
 
   registerAuthRoutes(app);
   registerTotpRoutes(app);
   registerPasswordResetRoutes(app);
+  registerOidcRoutes(app);
   registerInvitationRoutes(app);
+  registerSetupRoutes(app);
   registerUserRoutes(app);
   registerTeamRoutes(app);
   registerProjectRoutes(app);
@@ -198,8 +322,10 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerLintPresetRoutes(app);
   registerNotificationRoutes(app);
   registerPipelineRoutes(app);
+  registerReviewRoutes(app);
   registerBackupRoutes(app);
   registerWebhookRoutes(app);
+  registerShareLinkRoutes(app);
   registerConvertRoutes(app);
   registerEnvironmentRoutes(app);
   registerConnectionRoutes(app);
@@ -210,6 +336,7 @@ export async function buildApp(): Promise<FastifyInstance> {
   registerDbAccessRoutes(app);
   registerAuditRoutes(app);
   registerErrorRoutes(app);
+  registerRetentionRoutes(app);
   registerApiKeyRoutes(app);
   registerPublicApiRoutes(app);
 
@@ -219,7 +346,18 @@ export async function buildApp(): Promise<FastifyInstance> {
   const __dirname = path.dirname(fileURLToPath(import.meta.url));
   const webDist = path.resolve(__dirname, "../../web/dist");
   if (existsSync(webDist)) {
-    await app.register(fastifyStatic, { root: webDist });
+    await app.register(fastifyStatic, {
+      root: webDist,
+      // `npm run build -w apps/web` leaves a .br and a .gz beside each script and stylesheet: the browser gets the
+      // smaller one its Accept-Encoding allows, at no per-request cost.
+      preCompressed: true,
+      // Everything under /assets carries a content hash in its name, so a given URL never changes: cache it
+      // for good. index.html and the other files keep the default and are revalidated.
+      setHeaders(reply, filePath) {
+        if (filePath.split(path.sep).includes("assets"))
+          reply.header("Cache-Control", "public, max-age=31536000, immutable");
+      },
+    });
     // The SPA has client-side "routes" outside App.svelte's in-memory view-switching:
     // a freshly loaded (not client-navigated) `/invite/:token` or `/project/:id`
     // link, e.g. pasted into a browser or opened from a bookmark. @fastify/static
@@ -231,6 +369,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     app.get("/project/:id", (_req, reply) => reply.sendFile("index.html"));
     // `/project/:id/data`, `/deployments`, `/history` — the workspace tabs.
     app.get("/project/:id/:tab", (_req, reply) => reply.sendFile("index.html"));
+    // A share link's public page: the same bundle, which routes on the path
+    // before the app starts (`main.ts`); the headers come from the share hook above.
+    // `cacheControl: false`: the static plugin would overwrite the `no-store` set above.
+    app.get("/share/:token", (_req, reply) => reply.sendFile("index.html", { cacheControl: false }));
     app.log.info(`serving built web app from ${webDist}`);
   }
 
@@ -244,6 +386,11 @@ export async function buildApp(): Promise<FastifyInstance> {
         // stricter and simpler than closing the socket post-upgrade.
         preHandler: async (req) => {
           if (!req.user) throw new ApiError("AUTH_REQUIRED");
+          // The upgrade is a GET, so the CSRF hook skips it, and `SameSite=Lax`
+          // still sends the cookie from a same-site page (a sibling subdomain,
+          // another port): without this, such a page could open the socket as
+          // the victim, read the whole schema and write to it.
+          assertOriginAllowed(req, "WebSocket upgrade");
           const { projectId } = req.params as { projectId: string };
           // Every REST route checks the project exists before touching its room —
           // this was the one path that didn't. Skipping it let anyone crash the
@@ -251,46 +398,62 @@ export async function buildApp(): Promise<FastifyInstance> {
           // room got created regardless, and `Room.leave()`'s snapshot insert
           // against a nonexistent `project_id` throws a foreign-key error that
           // was never caught, taking the entire server down for every project.
-          if (!getProjectRow(projectId)) throw new ApiError("PROJECT_NOT_FOUND");
-          if (!getEffectivePermission(req.user.id, projectId)) throw new ApiError("FORBIDDEN");
+          if (!(await getProjectRow(projectId))) throw new ApiError("PROJECT_NOT_FOUND");
+          if (!(await getEffectivePermission(req.user.id, projectId))) throw new ApiError("FORBIDDEN");
         },
       },
       (socket: WebSocket, req) => {
         const { projectId } = req.params as { projectId: string };
         const author = req.user!.displayName;
         const userId = req.user!.id;
-        const room = getRoom(projectId);
 
-        // Resolved on every use rather than captured once — see `Room.join`.
-        // `null` (no permission at all) closes the socket instead of silently
-        // downgrading it to read-only, which is what a user removed from a
-        // project should experience.
-        room.join(
-          socket,
-          author,
-          () => {
-            const level = getEffectivePermission(userId, projectId);
-            if (!level) return null;
-            const canWrite = level !== "view";
-            // A view-only socket cannot write at all, so its lock set is never consulted.
-            return { canWrite, lockedTableIds: canWrite ? lockedTableIdsFor(userId, projectId) : undefined };
-          },
-          userId,
-        );
-        // `req.log` rather than `app.log`: this is the one point in a
-        // connection's life that maps to a single request (the WS upgrade),
-        // so it's the one place a `reqId` can actually correlate — unlike
-        // `Room`'s own logs, which span every connection over its lifetime
-        // (see `realtime/room/logger.ts`).
-        req.log.info({ room: projectId, author }, "joined project");
+        // Loading the room and resolving this user's access both wait on the
+        // database, but the socket is already open and its first frames may
+        // already be on their way: the listeners below are attached now, and
+        // hand everything to the room once it has let the connection in.
+        const joined = (async () => {
+          const room = await getRoom(projectId);
+          // Resolved on every use rather than captured once — see `Room.join`.
+          // `null` (no permission at all) closes the socket instead of silently
+          // downgrading it to read-only, which is what a user removed from a
+          // project should experience.
+          await room.join(
+            socket,
+            author,
+            async () => {
+              const level = await getEffectivePermission(userId, projectId);
+              if (!level) return null;
+              const canWrite = permissionAtLeast(level, "edit");
+              // A view-only socket cannot write at all, so its lock set is never consulted.
+              return { canWrite, lockedTableIds: canWrite ? await lockedTableIdsFor(userId, projectId) : undefined };
+            },
+            userId,
+          );
+          // `req.log` rather than `app.log`: this is the one point in a
+          // connection's life that maps to a single request (the WS upgrade),
+          // so it's the one place a `reqId` can actually correlate — unlike
+          // `Room`'s own logs, which span every connection over its lifetime
+          // (see `realtime/room/logger.ts`).
+          req.log.info({ room: projectId, author }, "joined project");
+          return room;
+        })().catch((err: unknown) => {
+          req.log.error({ err, room: projectId, author }, "failed to join project");
+          socket.close();
+          return null;
+        });
 
+        // Callbacks on one promise run in the order they were added, and the
+        // room handles frames in the order it is given them.
         socket.on("message", (data: Buffer) => {
-          room.receive(socket, new Uint8Array(data));
+          void joined.then((room) => room?.receive(socket, new Uint8Array(data)));
         });
 
         socket.on("close", () => {
-          room.leave(socket);
-          req.log.info({ room: projectId, author }, "left project");
+          void joined.then((room) => {
+            if (!room) return;
+            void room.leave(socket);
+            req.log.info({ room: projectId, author }, "left project");
+          });
         });
       },
     );

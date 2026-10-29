@@ -28,6 +28,9 @@ function findDuplicateNames<T>(items: T[], nameOf: (item: T) => string): string[
   return [...counts.entries()].filter(([, count]) => count > 1).map(([name]) => name);
 }
 
+/** `varchar(max)` / `nvarchar(max)`: SQL Server cannot put a `UNIQUE` (or any index) on it. */
+const UNBOUNDED_STRING = /^\s*n?varchar\s*\(\s*max\s*\)/i;
+
 /** Directed-graph cycle detection (DFS, white/gray/black) over ref.from -> ref.to, one cycle reported per distinct back-edge found. Self-loops (a table referencing itself, e.g. `employees.manager_id -> employees.id`) are excluded by the caller — they're a common, valid pattern, not a modeling mistake. */
 function findCycles(adjacency: Map<string, string[]>): string[][] {
   const UNVISITED = 0;
@@ -63,7 +66,7 @@ function findCycles(adjacency: Map<string, string[]>): string[][] {
 /**
  * Structural validation of a `Project`: duplicate table/field names, tables with no primary key,
  * ref endpoints that don't resolve ("missing FK target"), refs whose sides have different base
- * types, and circular ref chains among 2+ tables. Informational only: it never blocks import or
+ * types, unique `varchar(max)` / `nvarchar(max)` columns (SQL Server refuses them), and circular ref chains among 2+ tables. Informational only: it never blocks import or
  * editing, and a cycle doesn't break SQL export (FKs are emitted as separate `ALTER TABLE`s).
  */
 export function validateProject(project: Project): ValidationIssue[] {
@@ -93,6 +96,20 @@ export function validateProject(project: Project): ValidationIssue[] {
         code: "no-primary-key",
         tableId: table.id,
       });
+    }
+
+    const uniqueFieldIds = new Set([
+      ...table.fields.filter((f) => f.unique).map((f) => f.id),
+      ...table.indexes.filter((idx) => idx.unique).flatMap((idx) => idx.fieldIds),
+    ]);
+    for (const field of table.fields) {
+      if (UNBOUNDED_STRING.test(field.type) && uniqueFieldIds.has(field.id)) {
+        issues.push({
+          severity: "warning",
+          message: `Column "${table.name}.${field.name}" is ${field.type} and UNIQUE: SQL Server does not support a unique ${field.type.trim()}`,
+          tableId: table.id,
+        });
+      }
     }
   }
 

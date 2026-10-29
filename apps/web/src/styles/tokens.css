@@ -76,7 +76,8 @@
   --space-8: 32px;
 
   /* Type scale. The UI is dense, so the steps are small and the body size is
-     13px; `text-caption` … `text-heading` (tailwind.config.js) map onto these. */
+     13px; `text-micro` … `text-heading` (tailwind.config.js) map onto these. */
+  --text-micro: 10px;
   --text-caption: 11px;
   --text-label: 12px;
   --text-body-sm: 12.5px;

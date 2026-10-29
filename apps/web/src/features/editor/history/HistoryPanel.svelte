@@ -15,15 +15,15 @@
 </script>
 
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import { untrack } from "svelte";
   import type { Project } from "@nebuladb/shared";
-  import { diffProjects, type ProjectDiff } from "@nebuladb/dbml-engine";
+  import { diffProjects, projectToDbml, type ProjectDiff } from "@nebuladb/dbml-engine";
   import Icon from "@/components/icons/Icon.svelte";
-  import { ChevronRightIcon, EyeIcon } from "@/components/icons/Icons";
+  import { ChevronRightIcon, CopyIcon, EyeIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
-  import { INPUT_CLASS, TEXTAREA_CODE_CLASS } from "@/components/ui/inputStyles";
   import { toast } from "@/components/ui/toast.svelte";
   import { parseServerTime } from "@/features/sql/format";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
@@ -31,14 +31,15 @@
   import { describeApiError } from "@/i18n/serverErrorMessages";
   import { i18n, useTranslation } from "@/i18n/i18n.svelte";
   import {
-    exportRevisionDbml,
     fetchHistoryMarkers,
     fetchRevisionProject,
     fetchRevisions,
+    forkRevision,
     labelRevision,
     restoreRevision,
     type RevisionSummary,
   } from "@/services/projectsApi";
+  import DbmlDiffView from "./DbmlDiffView.svelte";
   import DiffSummary from "./DiffSummary.svelte";
   import { buildTimeline, type RevisionEntry } from "./timeline";
 
@@ -60,6 +61,7 @@
     initialRevisionId = null,
     onClose,
     onPreview,
+    onOpenProject,
     canRestore = true,
   }: {
     projectId: string;
@@ -72,6 +74,8 @@
     onClose: () => void;
     /** Shows the difference with this revision on the diagram (the workspace switches to the schema tab). */
     onPreview: (revision: RevisionSummary, project: Project) => void;
+    /** Opens the project a revision was turned into. */
+    onOpenProject?: (projectId: string) => void;
     /** False for a view-only grant: the timeline and previews stay, labelling and restoring go. */
     canRestore?: boolean;
   } = $props();
@@ -82,12 +86,16 @@
   let onlyMine = $state(false);
   let expanded = $state.raw<ReadonlySet<string>>(new Set());
   let selectedId = $state<string | null>(untrack(() => initialRevisionId));
-  let preview = $state("");
+  /** The DBML of the selected revision and of the schema as it was on screen when it was picked. */
+  let revisionDbml = $state("");
+  let currentDbml = $state("");
+  /** The revision the two texts above belong to: until it is the selected one, they are stale. */
+  let dbmlFor = $state<string | null>(null);
   let revisionProject = $state.raw<Project | null>(null);
   let diff = $state.raw<ProjectDiff | null>(null);
   let loadingPreview = $state(false);
   let error = $state<string | null>(null);
-  let labelInput: HTMLInputElement | undefined = $state();
+  let labelInput: HTMLInputElement | null = $state(null);
   /** Bumped to re-read the selected revision against the current schema after a partial restore. */
   let comparedAt = $state(0);
 
@@ -124,15 +132,19 @@
     void comparedAt;
     if (!id) return;
     loadingPreview = true;
-    Promise.all([exportRevisionDbml(pid, id), fetchRevisionProject(pid, id)])
-      .then(([dbml, loaded]) => {
-        preview = dbml;
+    fetchRevisionProject(pid, id)
+      .then((loaded) => {
         revisionProject = loaded;
         // `currentProject` deliberately untracked: it's a new object on every
         // doc change, and re-diffing on every remote edit while the panel is
         // open would be noisy — the comparison point is "this revision vs.
         // what was on screen when I picked it". The diagram preview is live.
-        diff = diffProjects(loaded, untrack(() => currentProject));
+        const now = untrack(() => currentProject);
+        diff = diffProjects(loaded, now);
+        // Both written by the same serializer, so a line differs only when the schema does.
+        revisionDbml = projectToDbml(loaded);
+        currentDbml = projectToDbml(now);
+        dbmlFor = id;
       })
       .catch((err: unknown) => (error = describeApiError(err, t)))
       .finally(() => (loadingPreview = false));
@@ -181,6 +193,18 @@
     onClose();
   });
 
+  // The revision as a project of its own: nothing here changes, the new project opens.
+  const fork = useAsyncAction(async () => {
+    if (!selectedId || !selected) return;
+    const created = await forkRevision(
+      projectId,
+      selectedId,
+      t("history.forkName", { project: currentProject.name, date: when(selected.createdAt) }),
+    );
+    toast.success(t("history.forked", { name: created.name }));
+    onOpenProject?.(created.id);
+  });
+
   // Stays on the page: one table back is a step, the user may want another.
   let restoringTableId = $state<string | null>(null);
   const restoreTable = useAsyncAction(async (tableId: string, tableName: string) => {
@@ -198,8 +222,8 @@
   });
 
   const loadingLabel = $derived(t("common.loading"));
-  const shownError = $derived(error ?? saveLabel.error ?? restore.error ?? restoreTable.error);
-  const busy = $derived(restore.pending || restoreTable.pending);
+  const shownError = $derived(error ?? saveLabel.error ?? restore.error ?? fork.error ?? restoreTable.error);
+  const busy = $derived(restore.pending || restoreTable.pending || fork.pending);
 </script>
 
 {#snippet tableSummary(entry: Pick<RevisionEntry, "tables" | "moreTables" | "refs">)}
@@ -259,7 +283,7 @@
                   aria-current={entry.id === selectedId ? "true" : undefined}
                   onclick={() => (selectedId = entry.id)}
                 >
-                  <div class="flex items-center gap-1 truncate text-[12.5px] font-semibold text-text">
+                  <div class="flex items-center gap-1 truncate text-body-sm font-semibold text-text">
                     {entry.label ? `🏷 ${entry.label}` : entry.author === currentUser ? t("history.you") : entry.author}
                   </div>
                   <div class="mt-px text-caption text-text-muted">
@@ -316,9 +340,9 @@
       <div class="mb-2.5 flex flex-wrap items-center justify-between gap-2">
         <div class="flex min-w-[220px] flex-1 gap-1.5">
           {#key selectedId}
-            <input
-              bind:this={labelInput}
-              class={`${INPUT_CLASS} flex-1`}
+            <Input
+              bind:ref={labelInput}
+              class="flex-1"
               value={untrack(() => revisions.find((revision) => revision.id === selectedId)?.label ?? "")}
               placeholder={t("history.labelPlaceholder")}
               disabled={!selectedId || !canRestore}
@@ -340,6 +364,16 @@
             <Icon icon={EyeIcon} size={13} />
             {t("history.previewOnDiagram")}
           </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            onclick={() => void fork.run()}
+            disabled={!selectedId || busy}
+            data-tooltip={t("history.restoreAsProjectHint")}
+          >
+            <Icon icon={CopyIcon} size={13} />
+            {fork.pending ? t("history.restoringAsProject") : t("history.restoreAsProject")}
+          </Button>
           {#if canRestore}
             <Button variant="primary" size="sm" onclick={() => void restore.run()} disabled={!selectedId || busy}>
               {restore.pending ? t("history.restoring") : t("history.restore")}
@@ -350,7 +384,7 @@
       <div
         class="mb-2.5 max-h-[160px] overflow-y-auto rounded-sm border border-border bg-[var(--color-bg-canvas)] px-2.5 py-2"
       >
-        <div class="mb-1 text-[11px] font-semibold uppercase tracking-[0.04em] text-text-muted">
+        <div class="mb-1 text-caption font-semibold uppercase tracking-[0.04em] text-text-muted">
           {t("history.changesSince")}
         </div>
         {#if loadingPreview}
@@ -367,7 +401,16 @@
           />
         {/if}
       </div>
-      <textarea readonly class={`${TEXTAREA_CODE_CLASS} flex-1`} value={loadingPreview ? loadingLabel : preview}></textarea>
+      {#if loadingPreview || (selected && dbmlFor !== selected.id)}
+        <div class="text-xs text-text-muted">{loadingLabel}</div>
+      {:else if selected}
+        <DbmlDiffView
+          before={revisionDbml}
+          after={currentDbml}
+          beforeLabel={t("history.dbmlDiff.before", { date: when(selected.createdAt) })}
+          afterLabel={t("history.dbmlDiff.after")}
+        />
+      {/if}
     </div>
   </div>
   {#if shownError}<div class="px-3.5 pb-3"><ErrorText>{shownError}</ErrorText></div>{/if}

@@ -1,16 +1,16 @@
-# Throwaway Postgres/MySQL instances for the connections/deployment driver
-# tests (apps/server/src/modules/connections/drivers/*.test.ts). Not part of
-# the app's own stack (see docker-compose.yml) and never referenced by it —
+# Throwaway Postgres/MySQL instances for the server tests. Not part of the
+# app's own stack (see docker-compose.yml) and never referenced by it —
 # separate ports, separate volumes, safe to run alongside a real deployment.
 #
 # Usage:
-#   docker compose -f docker-compose.test.yml up -d
+#   docker compose -f docker-compose.test.yml up -d nebuladb-test-postgres   # required
+#   docker compose -f docker-compose.test.yml up -d                          # + MySQL driver tests
 #   npm run build -w apps/server && npm run test -w apps/server
 #   docker compose -f docker-compose.test.yml down -v
 #
-# The postgres/mysql driver tests skip themselves with an explanatory message
-# if these aren't running — only the sqlite driver test (in-memory, no Docker
-# needed) always runs.
+# The Postgres one is required: each server test file creates (and drops) a
+# database of its own on it for NebulaDB's storage. The MySQL driver tests
+# skip themselves with an explanatory message if that one isn't running.
 services:
   nebuladb-test-postgres:
     image: postgres:16-alpine
@@ -42,3 +42,23 @@ services:
       interval: 2s
       timeout: 3s
       retries: 30
+
+  # Backup destinations (apps/server/src/modules/backups/stores/*.test.ts).
+  nebuladb-test-minio:
+    # Docker Hub no longer carries minio/minio; Chainguard publishes a maintained build.
+    image: cgr.dev/chainguard/minio:latest
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: nebuladb_test
+      MINIO_ROOT_PASSWORD: nebuladb_test_secret
+    ports:
+      - "59000:9000"
+    tmpfs:
+      - /data:mode=1777
+
+  nebuladb-test-sftp:
+    image: atmoz/sftp:alpine
+    # user:password:uid:gid:folder — the folder is the only writable one inside the user's chroot.
+    command: nebuladb_test:nebuladb_test_pw:::upload
+    ports:
+      - "52222:22"

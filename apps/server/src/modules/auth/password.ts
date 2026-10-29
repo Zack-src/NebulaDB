@@ -29,6 +29,15 @@ export const MIN_PASSWORD_LENGTH = 8;
  */
 export const MAX_PASSWORD_LENGTH = 128;
 
+/** The passwords every cracking list starts with (those long enough to pass the length rule), compared lower-cased. */
+const COMMON_PASSWORDS = new Set(
+  `12345678 123456789 1234567890 12345678910 11111111 00000000 87654321 password password1 password12 password123
+  passw0rd p@ssw0rd p@ssword qwertyui qwerty123 qwertyuiop 1q2w3e4r 1q2w3e4r5t 1qaz2wsx zaq12wsx abcd1234 abc12345
+  abcdefgh iloveyou letmein1 welcome1 welcome123 admin123 administrator changeme changeme123 trustno1 sunshine
+  princess football baseball monkey123 dragon123 superman master123 azertyui azerty123 motdepasse nebuladb
+  nebuladb1 nebuladb123 admin1234 test1234 testtest username 11223344 12341234 123123123 987654321`.split(/\s+/),
+);
+
 export type PasswordCheck = { ok: true; password: string } | { ok: false; error: string };
 
 /** Validates an untrusted password value, narrowing it to a `string` on success. */
@@ -39,6 +48,9 @@ export function checkPassword(password: unknown, label = "password"): PasswordCh
   }
   if (password.length > MAX_PASSWORD_LENGTH) {
     return { ok: false, error: `${label} must be at most ${MAX_PASSWORD_LENGTH} characters` };
+  }
+  if (COMMON_PASSWORDS.has(password.toLowerCase()) || /^(.)\1+$/.test(password)) {
+    return { ok: false, error: `${label} is too common — choose a longer, less guessable one` };
   }
   return { ok: true, password };
 }

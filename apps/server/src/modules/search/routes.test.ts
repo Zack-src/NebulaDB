@@ -1,10 +1,9 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-search-${randomUUID()}.sqlite`);
+await useTestDatabase("search");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -21,11 +20,9 @@ type App = Awaited<ReturnType<typeof buildApp>>;
 async function makeUserAndLogin(app: App) {
   const email = `${randomUUID()}@example.com`;
   const password = "correct horse battery staple";
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin) VALUES (?, ?, ?, 0)").run(
-    randomUUID(),
-    email,
-    await hashPassword(password),
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin) VALUES (?, ?, ?, 0)")
+    .run(randomUUID(), email, await hashPassword(password));
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -54,7 +51,7 @@ async function createFixture(app: App, cookie: string, name: string, fixture: st
     payload: { source },
   });
   assert.equal(imported.statusCode, 200);
-  getRoom(id).flush();
+  await (await getRoom(id)).flush();
   return id;
 }
 
@@ -97,16 +94,15 @@ test("cross-project search: finds tables/columns/enums in every visible project,
     // `permissions.ts`); assigning one — which `me` isn't in — is what makes
     // it private, so that's what the search must respect.
     const teamId = randomUUID();
-    db.prepare("INSERT INTO teams (id, name) VALUES (?, 'Strangers only')").run(teamId);
-    db.prepare("INSERT INTO project_teams (project_id, team_id, permission) VALUES (?, ?, 'edit')").run(
-      strangers,
-      teamId,
-    );
+    await db.prepare("INSERT INTO teams (id, name) VALUES (?, 'Strangers only')").run(teamId);
+    await db
+      .prepare("INSERT INTO project_teams (project_id, team_id, permission) VALUES (?, ?, 'edit')")
+      .run(strangers, teamId);
     // …and an open project of someone else's *is* visible, and so searchable.
     await createFixture(app, stranger, "Open to all", "blog");
 
     // Read from snapshots, not live rooms — the path every idle project takes.
-    closeAllRooms();
+    await closeAllRooms();
 
     const users = await search(app, me, "users");
     assert.deepEqual(
@@ -135,7 +131,7 @@ test("cross-project search: finds tables/columns/enums in every visible project,
     const anonymous = await app.inject({ method: "GET", url: "/api/search?q=users", headers: headers() });
     assert.equal(anonymous.statusCode, 401);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -156,7 +152,7 @@ test("cross-project search sees a live edit before it reaches the snapshot", asy
     assert.equal(hits.length, 1);
     assert.equal(hits[0].tableName, "invoices_live");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

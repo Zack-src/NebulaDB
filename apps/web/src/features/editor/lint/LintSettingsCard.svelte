@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import {
     LINT_LEVELS,
     LINT_PROFILES,
@@ -17,7 +18,6 @@
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
-  import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
   import SegmentedControl from "@/components/ui/SegmentedControl.svelte";
   import Select from "@/components/ui/Select.svelte";
   import Switch from "@/components/ui/Switch.svelte";
@@ -151,8 +151,8 @@
   <div class="mt-3 grid gap-2 sm:grid-cols-2">
     <label class="flex flex-col gap-1">
       <span class="text-text-secondary">{t("lint.settings.forbiddenTypes")}</span>
-      <input
-        class={INPUT_SM_CLASS}
+      <Input inputSize="sm"
+       
         placeholder="json, float"
         value={forbiddenDraft ?? settings.forbiddenTypes.join(", ")}
         disabled={locked}
@@ -165,8 +165,8 @@
     </label>
     <label class="flex flex-col gap-1">
       <span class="text-text-secondary">{t("lint.settings.requiredColumns")}</span>
-      <input
-        class={INPUT_SM_CLASS}
+      <Input inputSize="sm"
+       
         placeholder="tenant_id"
         value={requiredDraft ?? settings.requiredColumns.join(", ")}
         disabled={locked}

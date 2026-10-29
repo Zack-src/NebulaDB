@@ -1,0 +1,64 @@
+import type { FastifyInstance } from "fastify";
+import { requireScope } from "../apiKeys/auth.js";
+import { requireProjectAccess } from "../../shared/guards.js";
+import type { ReviewDeployBody, ReviewRequestBody } from "../reviews/routes.js";
+import { decideOnReview, deployReview, listReviews, requestReview, withdrawReview } from "../reviews/service.js";
+import { API_RATE_LIMIT, DEPLOY_RATE_LIMIT } from "./rateLimits.js";
+import { parseParams, idParams, paramsOf } from "../../shared/validate.js";
+
+const idConnIdParams = paramsOf("id", "connId");
+const idReviewIdParams = paramsOf("id", "reviewId");
+
+/**
+ * Review before a stage whose protection is `review`, under `/api/v1` — the
+ * app's own rules (`reviews/service.ts`): a key acts as its owner, so a key
+ * cannot approve what its owner requested, in the app or with another key.
+ * Reading takes `projects:read`; everything that moves a deployment forward
+ * or stops it takes `deployments:trigger`.
+ */
+export function registerPublicReviewRoutes(app: FastifyInstance): void {
+  app.get("/api/v1/projects/:id/reviews", API_RATE_LIMIT, async (req) => {
+    const { id } = parseParams(idParams, req);
+    const { user } = await requireProjectAccess(req, id, "deploy");
+    requireScope(req, "projects:read", id);
+    return { reviews: await listReviews(user, id) };
+  });
+
+  app.post("/api/v1/projects/:id/connections/:connId/reviews", DEPLOY_RATE_LIMIT, async (req) => {
+    const { id, connId } = parseParams(idConnIdParams, req);
+    const { user, project } = await requireProjectAccess(req, id, "deploy");
+    requireScope(req, "deployments:trigger", id);
+    const body = (req.body ?? {}) as ReviewRequestBody;
+    return { review: await requestReview({ user, req, v1: true }, project, connId, body) };
+  });
+
+  app.post("/api/v1/projects/:id/reviews/:reviewId/approve", API_RATE_LIMIT, async (req) => {
+    const { id, reviewId } = parseParams(idReviewIdParams, req);
+    const { user } = await requireProjectAccess(req, id, "deploy");
+    requireScope(req, "deployments:trigger", id);
+    const { comment } = (req.body ?? {}) as { comment?: string };
+    return { review: await decideOnReview({ user, req, v1: true }, id, reviewId, "approved", comment) };
+  });
+
+  app.post("/api/v1/projects/:id/reviews/:reviewId/reject", API_RATE_LIMIT, async (req) => {
+    const { id, reviewId } = parseParams(idReviewIdParams, req);
+    const { user } = await requireProjectAccess(req, id, "deploy");
+    requireScope(req, "deployments:trigger", id);
+    const { comment } = (req.body ?? {}) as { comment?: string };
+    return { review: await decideOnReview({ user, req, v1: true }, id, reviewId, "rejected", comment) };
+  });
+
+  app.post("/api/v1/projects/:id/reviews/:reviewId/withdraw", API_RATE_LIMIT, async (req) => {
+    const { id, reviewId } = parseParams(idReviewIdParams, req);
+    const { user } = await requireProjectAccess(req, id, "deploy");
+    requireScope(req, "deployments:trigger", id);
+    return { review: await withdrawReview({ user, req, v1: true }, id, reviewId) };
+  });
+
+  app.post("/api/v1/projects/:id/reviews/:reviewId/deploy", DEPLOY_RATE_LIMIT, async (req) => {
+    const { id, reviewId } = parseParams(idReviewIdParams, req);
+    const { user, project } = await requireProjectAccess(req, id, "deploy");
+    requireScope(req, "deployments:trigger", id);
+    return await deployReview({ user, req, v1: true }, project, reviewId, (req.body ?? {}) as ReviewDeployBody);
+  });
+}

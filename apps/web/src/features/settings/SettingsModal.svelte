@@ -1,4 +1,5 @@
 <script lang="ts">
+  import NavItem from "@/components/ui/NavItem.svelte";
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";
   import Icon from "@/components/icons/Icon.svelte";
@@ -35,17 +36,12 @@
     >
       <div class="space-y-1">
         {#each SETTINGS_SECTIONS as section (section.id)}
-          <button
+          <NavItem
+            label={t(section.labelKey)}
+            icon={section.icon}
+            active={state.activeTab === section.id}
             onclick={() => state.setActiveTab(section.id)}
-            class={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-xs font-semibold transition-all text-left ${
-              state.activeTab === section.id
-                ? "bg-primary text-white shadow-sm glow-indigo"
-                : "text-text-secondary hover:bg-surface-hover hover:text-text"
-            }`}
-          >
-            <Icon icon={section.icon} size={16} />
-            <span>{t(section.labelKey)}</span>
-          </button>
+          />
         {/each}
       </div>
 

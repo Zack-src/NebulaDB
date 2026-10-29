@@ -1,7 +1,7 @@
 import { DEFAULT_TABLE_HEIGHT, DEFAULT_TABLE_WIDTH } from "@/features/editor/edges/refGeometry";
 import { recordDuration } from "@/utils/perfMonitor";
 import { publishSelecting } from "./selectionDragState.svelte";
-import type { CanvasNode } from "@/types/index";
+import type { CanvasNode } from "@/features/editor/nodes/nodeTypes";
 
 /** Below this many screen pixels of movement, a pointerdown-then-up on the pane is a click, not a drag — matches the flow's own default click distance. */
 const DRAG_THRESHOLD_PX = 3;

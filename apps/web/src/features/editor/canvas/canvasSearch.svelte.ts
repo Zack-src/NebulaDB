@@ -1,4 +1,4 @@
-import type { CanvasNode } from "@/types";
+import type { CanvasNode } from "@/features/editor/nodes/nodeTypes";
 
 /** True when the keystroke landed in a text field — a global shortcut must not steal it. */
 function isTypingTarget(target: EventTarget | null): boolean {
@@ -56,7 +56,14 @@ export function useCanvasSearch(nodes: () => CanvasNode[], jumpToTable: (tableId
 
   $effect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f" && !isTypingTarget(event.target)) {
+      const isFind = (event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f";
+      // Already open: put the caret back in the box (even when it is the box that has focus), not in the browser's own search.
+      const box = open ? document.querySelector<HTMLInputElement>("[data-canvas-search-input]") : null;
+      if (isFind && box && (event.target === box || !isTypingTarget(event.target))) {
+        event.preventDefault();
+        box.focus();
+        box.select();
+      } else if (isFind && !isTypingTarget(event.target)) {
         event.preventDefault();
         open = true;
       } else if (event.key === "Escape" && open) {

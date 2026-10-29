@@ -12,7 +12,7 @@ import {
   type DetailLevel,
   type Project,
 } from "@nebuladb/shared";
-import type { CanvasNode } from "@/types/index";
+import type { CanvasNode } from "@/features/editor/nodes/nodeTypes";
 import { generateId } from "@/utils/id";
 import {
   clipboardSize,

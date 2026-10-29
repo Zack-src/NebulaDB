@@ -152,12 +152,13 @@ function findJunctionCandidates(
 
     const pkMatchesFkSet = pkIds.size === fkFieldIds.size && overlap.length === pkIds.size;
 
-    if (asChild.length === 2 && pkMatchesFkSet) {
+    const [first, second] = asChild;
+    if (first && second && asChild.length === 2 && pkMatchesFkSet) {
       candidates.push({
         table,
-        parents: [asChild[0].parent, asChild[1].parent],
+        parents: [first.parent, second.parent],
         childFieldIds: fkFieldIds,
-        refIds: [asChild[0].ref.id, asChild[1].ref.id],
+        refIds: [first.ref.id, second.ref.id],
       });
     } else if (asChild.length > 2 && pkMatchesFkSet) {
       warnings.push({ tableId: table.id, tableName: table.name, reason: "possible-ternary-association" });

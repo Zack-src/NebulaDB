@@ -1,12 +1,12 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import type { DatabaseEngine } from "@nebuladb/shared";
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
-  import { INPUT_CLASS } from "@/components/ui/inputStyles";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { describeApiError } from "@/i18n/serverErrorMessages";
-  import ConnectionFormFields from "@/features/connections/ConnectionFormFields.svelte";
+  import ConnectionFormFields from "@/features/connections/form/ConnectionFormFields.svelte";
   import { createProjectFromDatabase, type CreateProjectFromDatabaseResponse } from "@/services/connectionsApi";
 
   /**
@@ -79,9 +79,8 @@
     <p class="text-xs text-text-muted">{t("projects.newFromDatabaseDesc")}</p>
 
     <div>
-      <!-- svelte-ignore a11y_label_has_associated_control -->
-      <label class="mb-1 block text-xs font-medium text-text-muted">{t("projects.projectName")}</label>
-      <input class={INPUT_CLASS} bind:value={name} placeholder={t("projects.projectNamePlaceholder")} />
+      <label for="new-project-db-name" class="mb-1 block text-xs font-medium text-text-muted">{t("projects.projectName")}</label>
+      <Input id="new-project-db-name" bind:value={name} placeholder={t("projects.projectNamePlaceholder")} />
     </div>
 
     <ConnectionFormFields

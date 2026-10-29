@@ -52,7 +52,7 @@
   import SqlAccounts from "@/features/settings/SqlAccounts.svelte";
   import PersonalData from "@/features/settings/PersonalData.svelte";
   import TwoFactorAuth from "@/features/settings/TwoFactorAuth.svelte";
-  import SettingSwitch from "@/features/settings/SettingSwitch.svelte";
+  import SettingSwitch from "@/components/ui/SettingSwitch.svelte";
   import type { SettingsPanelState, SettingsTab } from "@/features/settings/settingsPanelState.svelte";
 
   /**
@@ -128,9 +128,9 @@
     </div>
 
     <div class="space-y-3">
-      <!-- svelte-ignore a11y_label_has_associated_control -->
-      <label class="text-xs font-semibold text-text">{t("language.label")}</label>
+      <span class="block text-xs font-semibold text-text">{t("language.label")}</span>
       <Tabs
+        aria-label={t("language.label")}
         variant="boxed"
         tabs={SUPPORTED_LOCALES.map((supported) => ({ id: supported, label: t(LOCALE_LABEL_KEY[supported]) }))}
         activeTab={i18n.locale}
@@ -139,8 +139,7 @@
     </div>
 
     <div class="space-y-3 pt-6 border-t border-border/60">
-      <!-- svelte-ignore a11y_label_has_associated_control -->
-      <label class="text-xs font-semibold text-text">{t("settings.appearance.colorPreset")}</label>
+      <span class="block text-xs font-semibold text-text">{t("settings.appearance.colorPreset")}</span>
       <div class="grid grid-cols-2 gap-3">
         {#each THEME_PRESETS as preset (preset.id)}
           <button
@@ -167,9 +166,9 @@
     </div>
 
     <div class="space-y-3 pt-6 border-t border-border/60">
-      <!-- svelte-ignore a11y_label_has_associated_control -->
-      <label class="text-xs font-semibold text-text">{t("settings.appearance.gridStyle")}</label>
+      <span class="block text-xs font-semibold text-text">{t("settings.appearance.gridStyle")}</span>
       <Tabs
+        aria-label={t("settings.appearance.gridStyle")}
         variant="boxed"
         tabs={[
           { id: "dots", label: t("settings.appearance.grid.dots") },
@@ -220,7 +219,7 @@
           </div>
           <div>
             <div class="font-bold text-xs text-text">{session.displayName}</div>
-            <div class="text-[11px] text-text-muted">{session.email}</div>
+            <div class="text-caption text-text-muted">{session.email}</div>
           </div>
         </div>
         <Badge tone={session.isAdmin ? "admin" : "success"}>

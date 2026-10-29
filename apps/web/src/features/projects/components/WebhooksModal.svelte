@@ -10,6 +10,7 @@
   const EVENTS: { id: WebhookEvent; labelKey: TranslationKeyOf }[] = [
     { id: "schema.changed", labelKey: "webhooks.event.schemaChanged" },
     { id: "deployment.completed", labelKey: "webhooks.event.deploymentCompleted" },
+    { id: "deployment.review", labelKey: "webhooks.event.deploymentReview" },
     { id: "drift.detected", labelKey: "webhooks.event.driftDetected" },
   ];
   const STATUS_TONE = { succeeded: "success", failed: "danger", pending: "warning" } as const;
@@ -31,6 +32,7 @@
 </script>
 
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { KeyIcon, PlusIcon, TrashIcon } from "@/components/icons/Icons";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
@@ -46,7 +48,6 @@
   import ListRow from "@/components/ui/ListRow.svelte";
   import Select from "@/components/ui/Select.svelte";
   import Switch from "@/components/ui/Switch.svelte";
-  import { INPUT_CLASS } from "@/components/ui/inputStyles";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { formatDateTime } from "@/i18n/formatters";
@@ -78,6 +79,7 @@
   let events = $state<Record<WebhookEvent, boolean>>({
     "schema.changed": true,
     "deployment.completed": true,
+    "deployment.review": true,
     "drift.detected": true,
   });
   let newSecret = $state<string | null>(null);
@@ -147,8 +149,8 @@
     }}
   >
     <div class="flex flex-wrap items-center gap-2">
-      <input
-        class={`${INPUT_CLASS} min-w-[240px] flex-1`}
+      <Input
+        class="min-w-[240px] flex-1"
         type="url"
         placeholder="https://hooks.slack.com/services/…"
         aria-label={t("webhooks.url")}
@@ -182,7 +184,7 @@
     <div class="mt-3 rounded-md border border-warning/40 bg-warning/10 p-3 text-xs" role="status">
       <p class="mb-2 font-semibold">{t("webhooks.secretOnce")}</p>
       <div class="flex items-center gap-2">
-        <code class="flex-1 overflow-x-auto rounded bg-surface px-2 py-1 font-mono text-[11px]" data-testid="webhook-secret"
+        <code class="flex-1 overflow-x-auto rounded bg-surface px-2 py-1 font-mono text-caption" data-testid="webhook-secret"
           >{newSecret}</code
         >
         <Button size="sm" onclick={copySecret}>{secretCopied ? t("common.copied") : t("common.copy")}</Button>
@@ -213,7 +215,7 @@
             <Button size="sm" onclick={() => void test.run(hook.id)} disabled={test.pending}>{t("webhooks.test")}</Button>
             <Button size="sm" variant="ghost" onclick={() => void showLog.run(hook.id)}>{t("webhooks.log")}</Button>
             <!-- A switch, not a checkbox: it takes effect at once. -->
-            <label class="flex cursor-pointer items-center gap-1.5 text-[11px] text-text-muted">
+            <label class="flex cursor-pointer items-center gap-1.5 text-caption text-text-muted">
               <Switch size="sm" checked={hook.enabled} onChange={(enabled) => void toggle.run(hook.id, enabled)} />
               {t("webhooks.enabled")}
             </label>
@@ -237,16 +239,16 @@
             </Button>
           </ListRow>
           {#if hook.disabledReason}
-            <p class="-mt-1 mb-2 px-3 text-[11px] text-danger">{hook.disabledReason}</p>
+            <p class="-mt-1 mb-2 px-3 text-caption text-danger">{hook.disabledReason}</p>
           {/if}
           {#if openLog === hook.id}
             <div class="mb-2 rounded-md border border-border px-3 py-2">
               {#if log.length === 0}
-                <p class="text-[11px] text-text-muted">{t("webhooks.logEmpty")}</p>
+                <p class="text-caption text-text-muted">{t("webhooks.logEmpty")}</p>
               {:else}
                 <ul class="list-none">
                   {#each log as delivery (delivery.id)}
-                    <li class="flex items-center gap-2 py-0.5 text-[11px]">
+                    <li class="flex items-center gap-2 py-0.5 text-caption">
                       <Badge tone={STATUS_TONE[delivery.status]}>{t(STATUS_KEY[delivery.status])}</Badge>
                       <span class="font-mono">{delivery.event}</span>
                       <span class="text-text-muted">{formatDateTime(delivery.createdAt, i18n.locale)}</span>

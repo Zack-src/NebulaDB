@@ -48,7 +48,7 @@
   {#each options as option, index (index)}
     {@const off = disabled || option.disabled}
     {@const on = option.value === value}
-    <label class={`group inline-flex items-start gap-2 text-body ${off ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
+    <label class={`group relative inline-flex items-start gap-2 text-body ${off ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}>
       <input
         type="radio"
         class="peer sr-only"

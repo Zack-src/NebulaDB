@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { MySqlAccount } from "@nebuladb/shared";
-  import PersonalAccountDialog from "@/features/connections/PersonalAccountDialog.svelte";
+  import PersonalAccountDialog from "@/features/connections/personal/PersonalAccountDialog.svelte";
   import Badge from "@/components/ui/Badge.svelte";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";

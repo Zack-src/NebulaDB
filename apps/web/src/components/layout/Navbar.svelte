@@ -81,7 +81,7 @@
         class="max-w-[220px] gap-2 pl-1.5"
       >
         <span
-          class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-light text-[10px] font-bold text-primary"
+          class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-light text-micro font-bold text-primary"
         >
           {session.displayName.charAt(0).toUpperCase()}
         </span>

@@ -114,7 +114,11 @@
   {#if result}
     <div class="flex flex-col gap-3 text-xs" data-testid="restore-result">
       <p class={`m-0 text-body font-semibold ${result.success ? "text-success" : "text-danger"}`}>
-        {result.success ? t("backups.restoreDialog.done") : t("backups.restoreDialog.failed")}
+        {result.success
+          ? t("backups.restoreDialog.done")
+          : result.rolledBack
+            ? t("backups.restoreDialog.rolledBack")
+            : t("backups.restoreDialog.failed")}
       </p>
       <ul class="m-0 list-none space-y-0.5 p-0 font-mono">
         {#each result.tables as table (table.name)}
@@ -124,9 +128,20 @@
               inserted: table.inserted,
             })}
             {#if table.error}— {table.error}{/if}
+            {#if table.skippedColumns?.length}
+              <span class="text-text-muted">
+                — {t("backups.restoreDialog.skippedColumns", { columns: table.skippedColumns.join(", ") })}
+              </span>
+            {/if}
+            {#if table.identity === "unchanged"}
+              <span class="text-warning">— {t("backups.restoreDialog.identityUnchanged")}</span>
+            {/if}
           </li>
         {/each}
       </ul>
+      {#if !result.atomic}
+        <p class="m-0 text-text-muted">{t("backups.restoreDialog.notAtomic")}</p>
+      {/if}
       <p class="m-0 text-text-muted">
         {result.safetyBackupId ? t("backups.restoreDialog.safetyKept") : t("backups.restoreDialog.safetySkipped")}
       </p>

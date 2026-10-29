@@ -1,7 +1,8 @@
 import { BigQuery, type Dataset, type TableMetadata } from "@google-cloud/bigquery";
 import { q } from "@nebuladb/dbml-engine";
 import type { Field, Project, Ref, Table, TableIndex } from "@nebuladb/shared";
-import type {
+import {
+  oneBatch,
   DatabaseDriver,
   DriverConnectionConfig,
   MigrationExecutionResult,
@@ -239,7 +240,14 @@ export class BigQueryDriver implements DatabaseDriver {
    * error on a later one leaves the earlier ones in.
    */
   async insertRows(table: string, columns: string[], rows: RowValue[][]): Promise<number> {
-    if (rows.length === 0) return 0;
+    return this.insertRowBatches(table, columns, oneBatch(rows));
+  }
+
+  /**
+   * `insertRows` for a seed too big to hold: batches are cut into statements as they arrive. BigQuery has no
+   * transaction here, so an error leaves the earlier statements in.
+   */
+  async insertRowBatches(table: string, columns: string[], batches: AsyncIterable<RowValue[][]>): Promise<number> {
     const [metadata] = await this.dataset.table(table).getMetadata();
     const typeOf = new Map(
       ((metadata as TableMetadata).schema?.fields ?? []).map((column) => [column.name?.toLowerCase(), column.type]),
@@ -255,16 +263,20 @@ export class BigQueryDriver implements DatabaseDriver {
       batch = [];
       bytes = 0;
     };
-    for (const row of rows) {
-      const text = JSON.stringify(
-        row.map((value) => (value instanceof Uint8Array ? Buffer.from(value).toString("base64") : value)),
-      );
-      if (bytes + text.length > INSERT_MAX_BYTES) await flush();
-      batch.push(text);
-      bytes += text.length;
+    let total = 0;
+    for await (const rows of batches) {
+      for (const row of rows) {
+        const text = JSON.stringify(
+          row.map((value) => (value instanceof Uint8Array ? Buffer.from(value).toString("base64") : value)),
+        );
+        if (bytes + text.length > INSERT_MAX_BYTES) await flush();
+        batch.push(text);
+        bytes += text.length;
+      }
+      total += rows.length;
     }
     await flush();
-    return rows.length;
+    return total;
   }
 
   /** One `SELECT`'s rows as arrays, in the order of the select list; dates, times and decimals as the text BigQuery sent. */

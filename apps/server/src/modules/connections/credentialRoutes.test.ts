@@ -4,8 +4,9 @@ import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { DatabaseConnectionConfig } from "@nebuladb/shared";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-credentials-${randomUUID()}.sqlite`);
+await useTestDatabase("credentials");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -29,12 +30,9 @@ async function makeUser(app: App, isAdmin: 0 | 1 = 0) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)").run(
-    id,
-    email,
-    await hashPassword(password),
-    isAdmin,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)")
+    .run(id, email, await hashPassword(password), isAdmin);
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
@@ -104,7 +102,7 @@ test("personal accounts: which connections may ask for them, and who decides", a
     });
     assert.equal(url.statusCode, 400);
     // Refused whole: no connection left behind as a shared one.
-    assert.equal((db.prepare("SELECT COUNT(*) AS n FROM db_connections").get() as { n: number }).n, 0);
+    assert.equal(((await db.prepare("SELECT COUNT(*) AS n FROM db_connections").get()) as { n: number }).n, 0);
     const odd = await call(app, admin.cookie, "POST", "/api/admin/connections", { ...UNREACHABLE, authMode: "each" });
     assert.equal(odd.json().code, "CONNECTION_AUTH_MODE_INVALID");
 
@@ -118,12 +116,12 @@ test("personal accounts: which connections may ask for them, and who decides", a
       authMode: "shared",
     });
     assert.equal(fromProject.statusCode, 200, fromProject.body);
-    assert.equal(getConnectionById(connectionId)!.authMode, "personal");
+    assert.equal((await getConnectionById(connectionId))!.authMode, "personal");
 
     // The administrator's change is its own line in the trail.
     const back = await call(app, admin.cookie, "PUT", `/api/admin/connections/${connectionId}`, { authMode: "shared" });
     assert.equal(back.json().connection.authMode, "shared");
-    const trail = db.prepare("SELECT detail FROM audit_log WHERE action = 'dbconn.auth_mode'").all() as {
+    const trail = (await db.prepare("SELECT detail FROM audit_log WHERE action = 'dbconn.auth_mode'").all()) as {
       detail: string;
     }[];
     assert.deepEqual(
@@ -131,7 +129,7 @@ test("personal accounts: which connections may ask for them, and who decides", a
       ["Shop: personal -> shared"],
     );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -171,7 +169,10 @@ test("personal accounts: given by those who use the connection, tried before bei
     const refused = await call(app, owner.cookie, "PUT", url, { username: "ada", password: "ada-password" });
     assert.equal(refused.statusCode, 400, refused.body);
     assert.equal(refused.json().code, "PERSONAL_CREDENTIALS_REJECTED");
-    assert.equal((db.prepare("SELECT COUNT(*) AS n FROM db_connection_credentials").get() as { n: number }).n, 0);
+    assert.equal(
+      ((await db.prepare("SELECT COUNT(*) AS n FROM db_connection_credentials").get()) as { n: number }).n,
+      0,
+    );
 
     // The database accepts it (the one step a test cannot do for real).
     let tried: DatabaseConnectionConfig | undefined;
@@ -188,13 +189,15 @@ test("personal accounts: given by those who use the connection, tried before bei
       ["127.0.0.1", 1, "shop", "ada", "ada-password", "shared"],
     );
 
-    const row = db.prepare("SELECT username, secret_encrypted FROM db_connection_credentials").get() as {
+    const row = (await db.prepare("SELECT username, secret_encrypted FROM db_connection_credentials").get()) as {
       username: string;
       secret_encrypted: string;
     };
     assert.equal(row.username, "ada");
     assert.equal(row.secret_encrypted.includes("ada-password"), false);
-    const audited = db.prepare("SELECT detail FROM audit_log WHERE action = 'dbconn.credentials.set'").all() as {
+    const audited = (await db
+      .prepare("SELECT detail FROM audit_log WHERE action = 'dbconn.credentials.set'")
+      .all()) as {
       detail: string;
     }[];
     assert.deepEqual(
@@ -233,7 +236,7 @@ test("personal accounts: given by those who use the connection, tried before bei
     assert.equal(unused.json().code, "PERSONAL_CREDENTIALS_NOT_USED");
   } finally {
     verify.mock.restore();
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -246,7 +249,7 @@ test("personal accounts: a person connects as themselves or not at all; unattend
     const admin = await makeUser(app, 1);
     const owner = await makeUser(app);
     const { projectId, connectionId } = await personalConnection(app, admin.cookie, owner.cookie);
-    const stored = getConnectionById(connectionId)!;
+    const stored = (await getConnectionById(connectionId))!;
 
     // No account: refused before anything is opened — console, deployment plan.
     const plan = `/api/projects/${projectId}/connections/${connectionId}/plan-deployment`;
@@ -281,48 +284,57 @@ test("personal accounts: a person connects as themselves or not at all; unattend
     );
 
     // What a driver is opened with, by who is asking.
-    const asOwner = runInActorScope(() => {
+    const asOwner = await runInActorScope(async () => {
       setActor(owner.id);
-      return configForActor(stored);
+      return await configForActor(stored);
     });
     assert.deepEqual([asOwner.user, asOwner.password], ["ada", "ada-password"]);
-    assert.throws(
-      () =>
-        runInActorScope(() => {
-          setActor(admin.id);
-          return configForActor(stored);
-        }),
+    await assert.rejects(
+      runInActorScope(async () => {
+        setActor(admin.id);
+        return await configForActor(stored);
+      }),
       /personal accounts/,
     );
     // Nobody behind it (a scheduled job, or this test's own body): the service account.
     assert.equal(currentActorId(), null, "a request's actor does not outlive the request");
     assert.deepEqual(
-      [configForActor(stored).user, configForActor(stored).password],
+      [(await configForActor(stored)).user, (await configForActor(stored)).password],
       ["nebula_service", "service-password"],
     );
     // A shared connection is everybody's, as before.
     const shared = { ...stored, authMode: "shared" as const };
     assert.equal(
-      runInActorScope(() => {
-        setActor(admin.id);
-        return configForActor(shared);
-      }).user,
+      (
+        await runInActorScope(async () => {
+          setActor(admin.id);
+          return await configForActor(shared);
+        })
+      ).user,
       "nebula_service",
     );
 
     // The accounts go with the user, and with the connection.
     const other = await makeUser(app);
-    db.prepare(
-      "INSERT INTO db_connection_credentials (id, connection_id, user_id, username, secret_encrypted) VALUES (?, ?, ?, 'x', 'y')",
-    ).run(randomUUID(), connectionId, other.id);
+    await db
+      .prepare(
+        "INSERT INTO db_connection_credentials (id, connection_id, user_id, username, secret_encrypted) VALUES (?, ?, ?, 'x', 'y')",
+      )
+      .run(randomUUID(), connectionId, other.id);
     assert.equal((await call(app, admin.cookie, "DELETE", `/api/users/${other.id}`)).statusCode, 200);
-    assert.equal((db.prepare("SELECT COUNT(*) AS n FROM db_connection_credentials").get() as { n: number }).n, 1);
+    assert.equal(
+      ((await db.prepare("SELECT COUNT(*) AS n FROM db_connection_credentials").get()) as { n: number }).n,
+      1,
+    );
     const removed = await call(app, admin.cookie, "DELETE", `/api/admin/connections/${connectionId}?force=true`);
     assert.equal(removed.statusCode, 200, removed.body);
-    assert.equal((db.prepare("SELECT COUNT(*) AS n FROM db_connection_credentials").get() as { n: number }).n, 0);
+    assert.equal(
+      ((await db.prepare("SELECT COUNT(*) AS n FROM db_connection_credentials").get()) as { n: number }).n,
+      0,
+    );
   } finally {
     verify.mock.restore();
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -361,7 +373,7 @@ test("personal accounts: one list of the caller's own, limited to the connection
     assert.equal((await call(app, admin.cookie, "GET", "/api/me/sql-accounts")).json().accounts[0].username, null);
   } finally {
     verify.mock.restore();
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -445,7 +457,7 @@ test("personal accounts: an account an administrator associated is found in one'
       { password: "chosen-by-the-member", currentPassword: "set-by-the-administrator" },
       { password: "second", currentPassword: "chosen-by-the-member" },
     ]);
-    const audited = db
+    const audited = await db
       .prepare("SELECT actor_id, detail FROM audit_log WHERE action = 'dbconn.credentials.password'")
       .all();
     assert.deepEqual(audited, [
@@ -467,7 +479,7 @@ test("personal accounts: an account an administrator associated is found in one'
     );
   } finally {
     mock.restoreAll();
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

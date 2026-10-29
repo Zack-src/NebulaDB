@@ -34,7 +34,7 @@ export function parseCommentText(text: string): CommentSegment[] {
   for (const match of text.matchAll(TOKEN)) {
     const at = match.index ?? 0;
     if (at > last) segments.push({ type: "text", text: text.slice(last, at) });
-    segments.push({ type: "mention", userId: match[2], name: match[1] });
+    segments.push({ type: "mention", userId: match[2] ?? "", name: match[1] ?? "" });
     last = at + match[0].length;
   }
   if (last < text.length) segments.push({ type: "text", text: text.slice(last) });

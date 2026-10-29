@@ -89,23 +89,25 @@ export function parseGeneratorConfig(body: unknown): TableGeneratorConfig {
   return { rows: raw.rows, seed: raw.seed, locale: raw.locale as GeneratorLocale, columns };
 }
 
-export function getGeneratorConfig(projectId: string, tableId: string): TableGeneratorConfig | null {
-  const row = db
+export async function getGeneratorConfig(projectId: string, tableId: string): Promise<TableGeneratorConfig | null> {
+  const row = (await db
     .prepare("SELECT config_json FROM generator_configs WHERE project_id = ? AND table_id = ?")
-    .get(projectId, tableId) as { config_json: string } | undefined;
+    .get(projectId, tableId)) as { config_json: string } | undefined;
   return row ? (JSON.parse(row.config_json) as TableGeneratorConfig) : null;
 }
 
-export function saveGeneratorConfig(
+export async function saveGeneratorConfig(
   projectId: string,
   tableId: string,
   config: TableGeneratorConfig,
   by: string,
-): void {
-  db.prepare(
-    `INSERT INTO generator_configs (project_id, table_id, config_json, updated_by_name, updated_at)
-     VALUES (?, ?, ?, ?, datetime('now'))
+): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO generator_configs (project_id, table_id, config_json, updated_by_name, updated_at)
+     VALUES (?, ?, ?, ?, utc_now())
      ON CONFLICT(project_id, table_id) DO UPDATE SET
        config_json = excluded.config_json, updated_by_name = excluded.updated_by_name, updated_at = excluded.updated_at`,
-  ).run(projectId, tableId, JSON.stringify(config), by);
+    )
+    .run(projectId, tableId, JSON.stringify(config), by);
 }

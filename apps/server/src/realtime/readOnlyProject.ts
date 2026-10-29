@@ -11,17 +11,17 @@ import { peekRoom } from "./roomRegistry.js";
  * Never `getRoom()`, which would start a room (timers, eviction bookkeeping)
  * just to read it once.
  */
-export function readProjectReadOnly(projectId: string, projectName: string): Project {
+export async function readProjectReadOnly(projectId: string, projectName: string): Promise<Project> {
   const live = peekRoom(projectId);
   if (live) return readProjectFromDoc(live.doc, projectId, projectName);
-  return readSnapshotProject(projectId, projectName);
+  return await readSnapshotProject(projectId, projectName);
 }
 
 /** The project as last snapshotted — even when a live room holds newer, not-yet-snapshotted edits. */
-export function readSnapshotProject(projectId: string, projectName: string): Project {
+export async function readSnapshotProject(projectId: string, projectName: string): Promise<Project> {
   const doc = new Y.Doc();
   try {
-    const state = loadSnapshot(projectId);
+    const state = await loadSnapshot(projectId);
     if (state) Y.applyUpdate(doc, state);
     return readProjectFromDoc(doc, projectId, projectName);
   } finally {
@@ -30,8 +30,8 @@ export function readSnapshotProject(projectId: string, projectName: string): Pro
 }
 
 /** When the stored snapshot last changed — a cheap cache key for anything derived from it. `null` if never saved. */
-export function snapshotVersion(projectId: string): string | null {
-  const row = db.prepare("SELECT updated_at FROM snapshots WHERE project_id = ?").get(projectId) as
+export async function snapshotVersion(projectId: string): Promise<string | null> {
+  const row = (await db.prepare("SELECT updated_at FROM snapshots WHERE project_id = ?").get(projectId)) as
     { updated_at: string } | undefined;
   return row?.updated_at ?? null;
 }

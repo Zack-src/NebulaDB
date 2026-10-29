@@ -72,7 +72,7 @@ test(
       await dialog.getByText("Déploiements", { exact: true }).click();
       await page.waitForFunction(() => {
         const boxes = [...document.querySelectorAll<HTMLInputElement>('[role="dialog"] input[type="checkbox"]')];
-        return boxes.length === 3 && boxes.filter((box) => box.checked).length === 2;
+        return boxes.length === 4 && boxes.filter((box) => box.checked).length === 3;
       });
       assert.equal(await deployments.isChecked(), false);
       assert.equal(await schemaChanges.isChecked(), true, "the neighbours are untouched");
@@ -88,7 +88,7 @@ test(
       const created = await savedWebhooks(page, projectId);
       assert.equal(created.length, 1);
       assert.equal(created[0].url, HOOK_URL);
-      assert.deepEqual([...created[0].events].sort(), ["drift.detected", "schema.changed"]);
+      assert.deepEqual([...created[0].events].sort(), ["deployment.review", "drift.detected", "schema.changed"]);
       assert.equal(created[0].enabled, true);
       // The form keeps the choice for the next webhook rather than silently ticking the box again.
       assert.equal(await deployments.isChecked(), false);
@@ -106,7 +106,11 @@ test(
       );
       const disabled = await savedWebhooks(page, projectId);
       assert.equal(disabled[0].enabled, false);
-      assert.deepEqual([...disabled[0].events].sort(), ["drift.detected", "schema.changed"], "its events are kept");
+      assert.deepEqual(
+        [...disabled[0].events].sort(),
+        ["deployment.review", "drift.detected", "schema.changed"],
+        "its events are kept",
+      );
 
       // Closed and reopened: the dialog shows what was saved, not what was clicked.
       await page.keyboard.press("Escape");

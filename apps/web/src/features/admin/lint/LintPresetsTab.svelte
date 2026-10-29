@@ -1,4 +1,6 @@
 <script lang="ts">
+  import PageToolbar from "@/components/layout/PageToolbar.svelte";
+  import PageIntro from "@/components/layout/PageIntro.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { PlusIcon, TrashIcon } from "@/components/icons/Icons";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
@@ -52,13 +54,13 @@
 </script>
 
 <div data-testid="lint-presets">
-  <div class="mb-3 flex items-start gap-3">
-    <p class="m-0 max-w-[640px] flex-1 text-xs text-text-muted">{t("lint.presets.hint")}</p>
-    <Button variant="primary" size="sm" onclick={() => (editing = null)}>
+  <PageIntro>{t("lint.presets.hint")}</PageIntro>
+  <PageToolbar>
+    <Button class="ml-auto" variant="primary" size="sm" onclick={() => (editing = null)}>
       <Icon icon={PlusIcon} size={13} />
       {t("lint.presets.new")}
     </Button>
-  </div>
+  </PageToolbar>
   {#if shownError}<ErrorText>{shownError}</ErrorText>{/if}
 
   {#if list.length === 0}

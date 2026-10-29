@@ -25,10 +25,6 @@ export function rowStateClass(isLinked: boolean, isForeignKey: boolean, isSelect
     .join(" ");
 }
 export const ROW_NAME_CLASS = "table-row-name overflow-hidden text-ellipsis font-medium text-text";
-/** Inline column rename — same glassy-fill idea as `TABLE_NAME_INPUT_CLASS`, just sized to sit inline in a row instead of the header. */
-export const ROW_NAME_INPUT_CLASS =
-  "min-w-0 flex-1 rounded-sm border border-primary-border bg-bg px-1 py-px font-medium text-text caret-text " +
-  "shadow-[inset_0_1px_2px_rgba(0,0,0,0.08)] focus:outline-hidden focus:ring-2 focus:ring-primary/30";
 
 export const ROW_TYPE_CLASS =
   "ml-1 shrink-0 whitespace-nowrap rounded-full border border-border bg-bg px-1.5 py-px font-mono " +
@@ -44,7 +40,7 @@ export const ROW_TYPE_CLASS =
  */
 export const ROW_DRAG_HANDLE_CLASS =
   "invisible flex h-5 w-3.5 shrink-0 cursor-grab items-center justify-center rounded-sm text-text-muted " +
-  "hover:text-text group-hover:visible active:cursor-grabbing";
+  "hover:text-text group-hover:visible focus-within:visible [@media(hover:none)]:visible active:cursor-grabbing";
 /** Drop-position indicator while another column is dragged over this row — an inset line so it doesn't shift row height/layout. */
 export function rowDropIndicatorClass(side: "before" | "after" | null): string {
   if (side === "before") return "shadow-[inset_0_2px_0_0_var(--color-primary)]";
@@ -66,7 +62,8 @@ export const KW_BADGE_COLOR: Record<"unique" | "notNull" | "increment" | "note",
 
 export const ROW_ACTIONS_CLASS =
   "invisible ml-auto flex items-center gap-[3px] " +
-  "group-hover:visible has-[.has-comments]:visible has-[.has-open-popover]:visible";
+  "group-hover:visible focus-within:visible [@media(hover:none)]:visible " +
+  "has-[.has-comments]:visible has-[.has-open-popover]:visible";
 export const ROW_ACTION_BTN_CLASS =
   "flex h-5 min-w-5 shrink-0 items-center justify-center rounded-sm px-1 text-text-muted transition-colors duration-100 " +
   "hover:bg-surface-hover hover:text-text [&.has-comments]:bg-surface-hover [&.has-comments]:text-text " +
@@ -99,15 +96,6 @@ export const TABLE_HEADER_CLASS =
   "relative flex h-[calc(34px_*_var(--canvas-font-scale))] items-center gap-1.5 px-2 pl-2.5 " +
   "text-[calc(13px_*_var(--canvas-font-scale))] font-semibold";
 export const TABLE_NAME_CLASS = "overflow-hidden text-ellipsis whitespace-nowrap tracking-[-0.01em]";
-/** Inline rename, sitting on the table's coloured header — glassy fill + white ring rather than a
- *  light box punched into the header, so it reads as the same surface being edited. */
-export const TABLE_NAME_INPUT_CLASS =
-  "w-full rounded-md border border-white/25 bg-black/25 px-2 py-[3px] " +
-  "text-[calc(13px_*_var(--canvas-font-scale))] font-semibold text-white caret-white " +
-  "shadow-[inset_0_1px_2px_rgba(0,0,0,0.25)] backdrop-blur-[2px] placeholder:text-white/50 " +
-  "transition-[border-color,box-shadow] duration-150 ease-out " +
-  "focus:border-white/70 focus:outline-hidden focus:ring-[3px] focus:ring-white/20";
-
 export const HEADER_ACTIONS_CLASS =
   "invisible ml-auto flex items-center gap-[3px] " +
   "group-hover:visible group-[.is-selected]:visible has-[.has-comments]:visible has-[.has-open-popover]:visible";
@@ -127,7 +115,7 @@ export const TABLE_ADD_BTN_CLASS =
 export const ROW_ACTION_PLACEHOLDER_CLASS = "h-5 w-5 shrink-0";
 
 export const POPOVER_HEADER_CLASS = "flex items-center justify-between border-b border-border pb-2";
-export const POPOVER_TITLE_CLASS = "text-[11px] font-bold uppercase tracking-[0.06em] text-text-secondary";
+export const POPOVER_TITLE_CLASS = "text-caption font-bold uppercase tracking-[0.06em] text-text-secondary";
 export const POPOVER_GROUP_CLASS = "flex flex-col gap-1.5";
 export const POPOVER_LABEL_CLASS = `${LABEL_XS_CLASS} uppercase tracking-[0.04em]`;
 /** Popover fields use the app-wide dense field style so the canvas matches the rest of the UI. */
@@ -136,7 +124,7 @@ export const POPOVER_INPUT_CLASS = `${INPUT_XS_CLASS} w-full`;
 export const POPOVER_INPUT_MONO_CLASS = `${INPUT_XS_CLASS} w-full font-mono`;
 
 export const FIELD_TYPE_CHIP_CLASS =
-  "cursor-pointer rounded-full border border-border bg-bg px-[7px] py-0.5 font-mono text-[10.5px] text-text-secondary " +
+  "cursor-pointer rounded-full border border-border bg-bg px-[7px] py-0.5 font-mono text-micro text-text-secondary " +
   "transition-all duration-100 hover:border-primary-border hover:text-text";
 export const FIELD_TYPE_CHIP_ACTIVE_CLASS = "border-primary-border bg-primary-light font-semibold text-primary-hover";
 
@@ -150,7 +138,7 @@ export const FIELD_TYPE_CHIP_ACTIVE_CLASS = "border-primary-border bg-primary-li
  * `<button>`s that had fallen out of that convention.
  */
 export const KW_TOGGLE_BASE_CLASS =
-  "flex select-none items-center justify-center gap-[5px] rounded-sm border border-border bg-bg px-2 py-[5px] text-[11px] " +
+  "flex select-none items-center justify-center gap-[5px] rounded-sm border border-border bg-bg px-2 py-[5px] text-caption " +
   "font-medium text-text-secondary transition-all duration-100 hover:bg-surface-hover hover:text-text";
 /**
  * All four attribute toggles share one visual pattern — `text-{c}-hover

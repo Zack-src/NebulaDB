@@ -1,10 +1,12 @@
 import oracledb from "oracledb";
 import { q } from "@nebuladb/dbml-engine";
 import type { Project, Ref, Table, TableIndex } from "@nebuladb/shared";
-import type {
+import {
+  oneBatch,
   DatabaseDriver,
   DriverConnectionConfig,
   MigrationExecutionResult,
+  RestoreSession,
   RowValue,
   TestConnectionResult,
 } from "./interface.js";
@@ -19,6 +21,13 @@ interface ColumnRow {
   DATA_DEFAULT: string | null;
 }
 
+interface IndexRow {
+  TABLE_NAME: string;
+  INDEX_NAME: string;
+  COLUMN_NAME: string;
+  UNIQUENESS: string;
+}
+
 interface ForeignKeyRow {
   CONSTRAINT_NAME: string;
   TABLE_NAME: string;
@@ -27,14 +36,26 @@ interface ForeignKeyRow {
   R_COLUMN_NAME: string;
 }
 
-/** Shared with the admin driver (`admin/oracle.ts`). */
+/**
+ * Shared with the admin driver (`admin/oracle.ts`). With TLS the connection
+ * goes over `tcps`, the authority handed over as the wallet's PEM content.
+ * Untested: there is no Oracle with TLS in the test setup.
+ */
 export function oraclePoolAttributes(config: DriverConnectionConfig): oracledb.PoolAttributes {
   const address = config.pinnedAddress || config.host || "localhost";
   const host = address.includes(":") ? `[${address}]` : address;
+  const tls = config.ssl
+    ? {
+        ...(config.sslCa?.trim() ? { walletContent: config.sslCa } : {}),
+        sslServerDNMatch: config.tlsVerify ?? config.sslVerify ?? true,
+      }
+    : {};
+  const target = `${config.ssl ? "tcps://" : ""}${host}:${config.port || 1521}/${config.database || "FREEPDB1"}`;
   return {
     user: config.user || "system",
     password: config.password,
-    connectString: config.connectionString || `${host}:${config.port || 1521}/${config.database || "FREEPDB1"}`,
+    ...tls,
+    connectString: config.connectionString || target,
     poolMin: 0,
     poolMax: 5,
   };
@@ -114,6 +135,49 @@ export class OracleDriver implements DatabaseDriver {
          WHERE c.constraint_type = 'R'`,
       );
 
+      // The indexes created on their own: those behind a constraint (primary key, UNIQUE) are skipped, a UNIQUE one on a
+      // single column being read as the column's `unique`. A function-based index has a hidden column (`COLUMN_NAME`
+      // is a `SYS_NC...` name, with an expression in USER_IND_EXPRESSIONS): the whole index is left out.
+      const indexRes = await conn.execute<IndexRow>(
+        `SELECT i.table_name AS "TABLE_NAME", i.index_name AS "INDEX_NAME", ic.column_name AS "COLUMN_NAME",
+                i.uniqueness AS "UNIQUENESS"
+         FROM user_indexes i
+         JOIN user_ind_columns ic ON ic.index_name = i.index_name AND ic.table_name = i.table_name
+         WHERE i.index_type IN ('NORMAL', 'NORMAL/REV')
+           AND i.table_name IN (SELECT table_name FROM user_tables)
+           AND NOT EXISTS (SELECT 1 FROM user_constraints c
+                           WHERE c.index_name = i.index_name AND c.constraint_type IN ('P', 'U'))
+           AND NOT EXISTS (SELECT 1 FROM user_ind_expressions e
+                           WHERE e.index_name = i.index_name AND e.table_name = i.table_name)
+         ORDER BY i.table_name, i.index_name, ic.column_position`,
+      );
+      const uniqueRes = await conn.execute<{ TABLE_NAME: string; COLUMN_NAME: string }>(
+        `SELECT cols.table_name AS "TABLE_NAME", MIN(cols.column_name) AS "COLUMN_NAME"
+         FROM user_constraints cons
+         JOIN user_cons_columns cols ON cons.constraint_name = cols.constraint_name
+         WHERE cons.constraint_type = 'U'
+         GROUP BY cols.table_name, cons.constraint_name
+         HAVING COUNT(*) = 1`,
+      );
+      const uniqueSet = new Set(
+        ((uniqueRes.rows ?? []) as unknown as { TABLE_NAME: string; COLUMN_NAME: string }[]).map(
+          (r) => `${r.TABLE_NAME}.${r.COLUMN_NAME}`,
+        ),
+      );
+      const indexesByTable = new Map<string, Map<string, TableIndex>>();
+      for (const row of (indexRes.rows ?? []) as unknown as IndexRow[]) {
+        const byName = indexesByTable.get(row.TABLE_NAME) ?? new Map<string, TableIndex>();
+        const index = byName.get(row.INDEX_NAME) ?? {
+          id: `${row.TABLE_NAME}.${row.INDEX_NAME}`,
+          name: row.INDEX_NAME,
+          fieldIds: [],
+          ...(row.UNIQUENESS === "UNIQUE" ? { unique: true } : {}),
+        };
+        index.fieldIds.push(`${row.TABLE_NAME}.${row.COLUMN_NAME}`);
+        byName.set(row.INDEX_NAME, index);
+        indexesByTable.set(row.TABLE_NAME, byName);
+      }
+
       const columnsByTable = new Map<string, ColumnRow[]>();
       for (const col of (columnsRes.rows ?? []) as unknown as ColumnRow[]) {
         if (!columnsByTable.has(col.TABLE_NAME)) columnsByTable.set(col.TABLE_NAME, []);
@@ -127,6 +191,7 @@ export class OracleDriver implements DatabaseDriver {
           name: c.COLUMN_NAME,
           type: c.DATA_TYPE,
           pk: pkSet.has(`${t.TABLE_NAME}.${c.COLUMN_NAME}`),
+          ...(uniqueSet.has(`${t.TABLE_NAME}.${c.COLUMN_NAME}`) ? { unique: true } : {}),
           notNull: c.NULLABLE === "N",
           default: c.DATA_DEFAULT !== null && c.DATA_DEFAULT !== undefined ? String(c.DATA_DEFAULT).trim() : undefined,
         }));
@@ -135,7 +200,7 @@ export class OracleDriver implements DatabaseDriver {
           id: t.TABLE_NAME,
           name: t.TABLE_NAME,
           fields,
-          indexes: [] as TableIndex[],
+          indexes: [...(indexesByTable.get(t.TABLE_NAME)?.values() ?? [])],
           position: { x: (idx % 6) * 320, y: Math.floor(idx / 6) * 400 },
           detailLevel: "standard" as const,
         };
@@ -186,13 +251,25 @@ export class OracleDriver implements DatabaseDriver {
    * whole table back. Returns the number of rows inserted.
    */
   async insertRows(table: string, columns: string[], rows: RowValue[][]): Promise<number> {
-    if (rows.length === 0) return 0;
+    return this.insertRowBatches(table, columns, oneBatch(rows));
+  }
+
+  /**
+   * `insertRows` for a seed too big to hold: the batches arrive one after the other (read from a file) and
+   * all go in the same transaction.
+   */
+  async insertRowBatches(table: string, columns: string[], batches: AsyncIterable<RowValue[][]>): Promise<number> {
     const conn = await this.getConnection();
     const statement = `INSERT INTO ${q(table, "oracle")} (${columns.map((c) => q(c, "oracle")).join(", ")}) VALUES (${columns.map((_, i) => `:${i + 1}`).join(", ")})`;
     try {
-      await conn.executeMany(statement, rows, { autoCommit: false });
+      let total = 0;
+      for await (const rows of batches) {
+        if (rows.length === 0) continue;
+        await conn.executeMany(statement, rows, { autoCommit: false });
+        total += rows.length;
+      }
       await conn.commit();
-      return rows.length;
+      return total;
     } catch (err) {
       await conn.rollback().catch(() => {});
       throw err;
@@ -256,6 +333,56 @@ export class OracleDriver implements DatabaseDriver {
     } finally {
       await conn.close().catch(() => {});
     }
+  }
+
+  /**
+   * A restore in one transaction: Oracle's `DELETE`s and inserts are DML,
+   * rolled back together. Identity counters are left as they are — moving
+   * one (`ALTER TABLE … MODIFY … START WITH LIMIT VALUE`) is DDL, which would
+   * commit the restore half-way — and a `GENERATED ALWAYS` identity refuses
+   * explicit ids outright (ORA-32795): such a restore fails and is rolled back.
+   */
+  async openRestoreSession(): Promise<RestoreSession> {
+    const conn = await this.getConnection();
+    let finished = false;
+    return {
+      atomic: true,
+      identities: "unchanged",
+      async describeTable(table) {
+        const res = await conn.execute<{ NAME: string; VIRTUAL: string; IDENTITY: string }>(
+          `SELECT column_name AS "NAME", virtual_column AS "VIRTUAL", identity_column AS "IDENTITY"
+           FROM user_tab_cols WHERE table_name = :1 AND hidden_column = 'NO'`,
+          [table],
+          { outFormat: oracledb.OUT_FORMAT_OBJECT },
+        );
+        const rows = res.rows ?? [];
+        return {
+          generated: rows.filter((row) => row.VIRTUAL === "YES").map((row) => row.NAME),
+          identity: rows.filter((row) => row.IDENTITY === "YES").map((row) => row.NAME),
+        };
+      },
+      async emptyTable(table) {
+        return (await conn.execute(`DELETE FROM ${q(table, "oracle")}`, [], { autoCommit: false })).rowsAffected ?? 0;
+      },
+      async insertRows(table, columns, rows) {
+        if (rows.length === 0) return 0;
+        const statement = `INSERT INTO ${q(table, "oracle")} (${columns.map((c) => q(c, "oracle")).join(", ")}) VALUES (${columns.map((_, i) => `:${i + 1}`).join(", ")})`;
+        await conn.executeMany(statement, rows, { autoCommit: false });
+        return rows.length;
+      },
+      async resyncIdentity() {},
+      async commit() {
+        await conn.commit();
+        finished = true;
+      },
+      async rollback() {
+        if (!finished) await conn.rollback().catch(() => {});
+        finished = true;
+      },
+      async release() {
+        await conn.close().catch(() => {});
+      },
+    };
   }
 
   async close(): Promise<void> {

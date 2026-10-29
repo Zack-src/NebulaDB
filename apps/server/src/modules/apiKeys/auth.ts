@@ -24,16 +24,16 @@ const BEARER_PREFIX = "Bearer ";
  * A disabled account is refused the same as a cookie session would be: the
  * key can't outlive the account it authenticates as.
  */
-export function resolveApiKey(req: FastifyRequest): { user: SessionUser; apiKey: ApiKeyContext } | null {
+export async function resolveApiKey(req: FastifyRequest): Promise<{ user: SessionUser; apiKey: ApiKeyContext } | null> {
   const header = req.headers.authorization;
   if (!header?.startsWith(BEARER_PREFIX)) return null;
   const plaintextKey = header.slice(BEARER_PREFIX.length).trim();
   if (!plaintextKey) return null;
 
-  const resolved = resolveApiKeyByPlaintext(plaintextKey);
+  const resolved = await resolveApiKeyByPlaintext(plaintextKey);
   if (!resolved) return null;
 
-  const account = getUserAccount(resolved.userId);
+  const account = await getUserAccount(resolved.userId);
   if (!account || account.disabled_at) return null;
 
   return {

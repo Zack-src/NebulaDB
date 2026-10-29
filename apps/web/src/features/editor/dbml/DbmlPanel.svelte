@@ -34,6 +34,7 @@
   import { ApiError } from "@/services/ApiError";
   import type { TranslationKeyOf } from "@/types";
   import { exportDbml, importSource } from "@/services/projectsApi";
+  import { KEEPALIVE_MAX_BYTES } from "@/services/httpClient";
   import { time } from "@/utils/perfMonitor";
   import { useFlashMessage } from "@/hooks/flashMessage.svelte";
   import {
@@ -218,7 +219,10 @@
   // reloading inside that window would otherwise drop the edit on the floor.
   // Flush whatever's still pending instead of discarding it.
   $effect(() => {
-    const flushPending = () => {
+    const flushPending = (event?: Event) => {
+      // A buffer too big for `keepalive` (see `KEEPALIVE_MAX_BYTES`) cannot outlive the page:
+      // let the browser ask before it is lost.
+      if (event && syncState === "pending" && new Blob([text]).size > KEEPALIVE_MAX_BYTES) event.preventDefault();
       if (debounce) clearTimeout(debounce);
       debounce = null;
       // `keepalive` lets this survive the tab actually closing/reloading
@@ -284,8 +288,8 @@
   ></div>
   <div class="flex shrink-0 items-center gap-2 border-b border-border px-3 py-2.5">
     <Icon icon={CodeIcon} size={14} class="text-text-muted" />
-    <span class="text-[13px] font-semibold text-text">{DBML_LABEL}</span>
-    {#if flashMessage.message}<span class="truncate text-[11.5px] text-text-muted">{flashMessage.message}</span>{/if}
+    <span class="text-body font-semibold text-text">{DBML_LABEL}</span>
+    {#if flashMessage.message}<span class="truncate text-label text-text-muted">{flashMessage.message}</span>{/if}
     <span class="ml-auto"></span>
     {#if props.onConvertTypes}
       <Button
@@ -342,7 +346,7 @@
       <button
         type="button"
         onclick={() => (errorHiddenFor = errorHidden ? null : problemIdentity)}
-        class="text-[11px] font-medium text-text-muted underline decoration-dotted hover:text-text"
+        class="text-caption font-medium text-text-muted underline decoration-dotted hover:text-text"
       >
         {t(errorHidden ? "dbml.showParseError" : "dbml.hideParseError")}
       </button>

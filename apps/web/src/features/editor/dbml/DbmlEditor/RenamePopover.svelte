@@ -25,7 +25,7 @@
 </script>
 
 <div class="absolute left-1/2 top-6 z-40 w-[86%] -translate-x-1/2 rounded-lg border border-border bg-surface p-2 shadow-2xl">
-  <div class="mb-1 px-1 text-[11px] text-text-muted">
+  <div class="mb-1 px-1 text-caption text-text-muted">
     {t("dbml.renameSummary", { kind: rename.kind, owner: rename.owner ?? "", count: rename.occurrences })}
   </div>
   <input
@@ -43,6 +43,6 @@
       }
     }}
     onblur={onDismiss}
-    class="w-full rounded border border-border bg-bg px-2 py-1 text-[13px] text-text outline-hidden focus:border-primary"
+    class="w-full rounded border border-border bg-bg px-2 py-1 text-body text-text outline-hidden focus:border-primary"
   />
 </div>

@@ -4,6 +4,14 @@ import { ApiError } from "../../shared/errors.js";
 import { requireProjectAccess } from "../../shared/guards.js";
 import { requireSessionUser } from "./auth.js";
 import { API_KEY_SCOPES, createApiKey, isApiKeyScope, listApiKeysByUser, revokeApiKey } from "./repository.js";
+import { idParams, parseBody, parseParams, z } from "../../shared/validate.js";
+
+/** `scopes` keeps its dedicated error code (API_KEY_SCOPES_INVALID), so it stays `unknown`. */
+const createKeyBody = z.object({
+  name: z.string().optional(),
+  scopes: z.unknown().optional(),
+  projectId: z.string().nullable().optional(),
+});
 
 const MAX_NAME_LENGTH = 100;
 
@@ -16,12 +24,12 @@ const MAX_NAME_LENGTH = 100;
 export function registerApiKeyRoutes(app: FastifyInstance): void {
   app.get("/api/keys", async (req) => {
     const user = requireSessionUser(req);
-    return { keys: listApiKeysByUser(user.id) };
+    return { keys: await listApiKeysByUser(user.id) };
   });
 
   app.post("/api/keys", async (req, reply) => {
     const user = requireSessionUser(req);
-    const body = (req.body ?? {}) as { name?: string; scopes?: unknown; projectId?: string | null };
+    const body = parseBody(createKeyBody, req);
 
     const name = body.name?.trim();
     if (!name) throw new ApiError("API_KEY_NAME_REQUIRED");
@@ -35,19 +43,19 @@ export function registerApiKeyRoutes(app: FastifyInstance): void {
     const projectId = body.projectId ?? null;
     // A project-restricted key still has to name a project the caller can
     // actually see — otherwise this would be a way to probe for project ids.
-    if (projectId) requireProjectAccess(req, projectId, "view");
+    if (projectId) await requireProjectAccess(req, projectId, "view");
 
-    const created = createApiKey(user.id, name, scopes, projectId);
-    auditUser(user, "apikey.create", { type: "user", id: user.id }, `${name} (${scopes.join(", ")})`, req);
+    const created = await createApiKey(user.id, name, scopes, projectId);
+    await auditUser(user, "apikey.create", { type: "user", id: user.id }, `${name} (${scopes.join(", ")})`, req);
     return reply.code(201).send(created);
   });
 
   app.delete("/api/keys/:id", async (req) => {
     const user = requireSessionUser(req);
-    const { id } = req.params as { id: string };
-    const ok = revokeApiKey(user.id, id);
+    const { id } = parseParams(idParams, req);
+    const ok = await revokeApiKey(user.id, id);
     if (!ok) throw new ApiError("API_KEY_NOT_FOUND");
-    auditUser(user, "apikey.revoke", { type: "user", id: user.id }, id, req);
+    await auditUser(user, "apikey.revoke", { type: "user", id: user.id }, id, req);
     return { revoked: true };
   });
 

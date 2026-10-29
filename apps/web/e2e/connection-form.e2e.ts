@@ -76,6 +76,10 @@ async function shows<T>(read: () => Promise<T>, expected: T, what: string): Prom
 }
 
 /** The text field under a label the form does not associate with it (`<label>` then `<input>`). */
+/** The form is three tabs: a field is only there to touch once its tab is open. */
+const openTab = (dialog: Locator, name: "Connexion" | "Sécurité" | "Règles" | "Projets") =>
+  dialog.getByRole("tab", { name }).click();
+
 const fieldUnder = (dialog: Locator, label: string) => dialog.locator(`label:text-is("${label}") + input`);
 
 /** A connection's row in the list: the innermost block holding both its name and its edit button. */
@@ -133,7 +137,7 @@ test(
       const portOf = (dialog: Locator) => dialog.getByRole("spinbutton", { name: "Port" });
       const readOnlyOf = (dialog: Locator) => dialog.getByRole("checkbox", { name: /^Lecture seule/ });
       const sslOf = (dialog: Locator) => dialog.getByRole("checkbox", { name: "Activer SSL / TLS" });
-      const uriOf = (dialog: Locator) => dialog.getByRole("checkbox", { name: "Utiliser une URI de connexion" });
+      const uriOf = (dialog: Locator) => dialog.getByRole("radio", { name: "URI de connexion" });
       const projectOf = (dialog: Locator, name: string) => dialog.getByRole("checkbox", { name, exact: true });
       const accountMode = (dialog: Locator) => dialog.getByRole("radio", { name: /^Le compte de chacun/ });
       const importButton = { name: "Importer le schéma de la base" };
@@ -156,10 +160,12 @@ test(
       await creating.getByPlaceholder("ex. client-a, europe (séparés par des virgules)").fill(" demo ,local,, ");
 
       // The inputs are visually hidden: the clicks go on the text, as a user's would.
+      await openTab(creating, "Règles");
       assert.equal(await readOnlyOf(creating).isChecked(), false);
       await creating.getByText("Lecture seule", { exact: true }).click();
       await shows(() => readOnlyOf(creating).isChecked(), true, "read-only is ticked");
 
+      await openTab(creating, "Projets");
       await projectOf(creating, "Archives").waitFor({ state: "attached" });
       assert.equal(await projectOf(creating, "Vitrine").isChecked(), false);
       await creating.getByText("Vitrine", { exact: true }).click();
@@ -205,13 +211,19 @@ test(
       await fieldUnder(creating, "Hôte").fill("db.internal");
       await portOf(creating).fill("6543");
       await fieldUnder(creating, "Base de données").fill("shop");
+      // A new connection asks everyone for their own account: the shared one is chosen to type its credentials.
+      await creating.getByText("Un compte partagé", { exact: true }).click();
       await fieldUnder(creating, "Utilisateur").fill("app");
       await fieldUnder(creating, "Mot de passe").fill("s3cret-pw");
+      // TLS is on the Sécurité tab, with the certificates.
+      await openTab(creating, "Sécurité");
       assert.equal(await sslOf(creating).isChecked(), false);
       await creating.getByText("Activer SSL / TLS", { exact: true }).click();
       await shows(() => sslOf(creating).isChecked(), true, "SSL is ticked");
+      await openTab(creating, "Connexion");
       // A network engine with a user and a password can ask everyone for their own account.
       assert.equal(await accountMode(creating).count(), 1);
+      await openTab(creating, "Règles");
       assert.equal(await readOnlyOf(creating).isChecked(), false, "a new form starts writable");
 
       await creating.getByRole("button", { name: "Enregistrer" }).click();
@@ -235,11 +247,13 @@ test(
       await rowOf(page, "Réseau PG").getByRole("button", { name: "Modifier" }).click();
       await portOf(editing).waitFor();
       assert.equal(await portOf(editing).inputValue(), "6543");
-      assert.equal(await sslOf(editing).isChecked(), true);
       assert.equal(await uriOf(editing).isChecked(), false);
       assert.equal(await fieldUnder(editing, "Hôte").inputValue(), "db.internal");
+      await openTab(editing, "Sécurité");
+      assert.equal(await sslOf(editing).isChecked(), true);
       await editing.getByText("Activer SSL / TLS", { exact: true }).click();
       await shows(() => sslOf(editing).isChecked(), false, "SSL is unticked");
+      await openTab(editing, "Connexion");
       await editing.getByRole("button", { name: "Augmenter" }).click();
       await shows(() => portOf(editing).inputValue(), "6544", "the stepper adds one");
       await editing.getByRole("button", { name: "Enregistrer" }).click();
@@ -257,7 +271,7 @@ test(
       await creating.getByPlaceholder("ex: Production DB").fill("Par URI");
       await portOf(creating).waitFor();
       assert.equal(await uriOf(creating).isChecked(), false);
-      await creating.getByText("Utiliser une URI de connexion", { exact: true }).click();
+      await uriOf(creating).click();
       await shows(() => uriOf(creating).isChecked(), true, "the URI toggle is ticked");
       const uri = fieldUnder(creating, "URI de connexion");
       await uri.waitFor();
@@ -286,7 +300,7 @@ test(
         await fieldUnder(editing, "URI de connexion").inputValue(),
         "postgres://app:***@db.internal:6543/shop",
       );
-      await editing.getByText("Utiliser une URI de connexion", { exact: true }).click();
+      await editing.getByRole("radio", { name: "Hôte et port" }).click();
       await shows(() => uriOf(editing).isChecked(), false, "the URI toggle is unticked");
       await portOf(editing).waitFor();
       assert.equal(await fieldUnder(editing, "URI de connexion").count(), 0);
@@ -306,11 +320,15 @@ test(
       // Importing the database's schema into the linked project.
       // ------------------------------------------------------------------
       await sqliteRow.getByRole("button", { name: "Modifier" }).click();
-      await projectOf(editing, "Archives").waitFor({ state: "attached" });
+      // The form opens on its first tab, and a tab switch keeps what is on the others.
+      assert.equal(await editing.getByRole("tab", { name: "Connexion" }).getAttribute("aria-selected"), "true");
+      assert.equal(await editing.getByPlaceholder("./data/app.sqlite").inputValue(), targetFile);
+      await openTab(editing, "Règles");
       assert.equal(await readOnlyOf(editing).isChecked(), true);
+      await openTab(editing, "Projets");
+      await projectOf(editing, "Archives").waitFor({ state: "attached" });
       assert.equal(await projectOf(editing, "Vitrine").isChecked(), true);
       assert.equal(await projectOf(editing, "Archives").isChecked(), false);
-      assert.equal(await editing.getByPlaceholder("./data/app.sqlite").inputValue(), targetFile);
       // Offered for the linked project only.
       assert.equal(await editing.getByRole("button", importButton).count(), 1);
 
@@ -345,8 +363,10 @@ test(
       await shows(() => projectOf(editing, "Vitrine").isChecked(), false, "the project is unticked");
       await editing.getByText("Archives", { exact: true }).click();
       await shows(() => projectOf(editing, "Archives").isChecked(), true, "the other project is ticked");
+      await openTab(editing, "Règles");
       await editing.getByText("Lecture seule", { exact: true }).click();
       await shows(() => readOnlyOf(editing).isChecked(), false, "read-only is unticked");
+      await openTab(editing, "Connexion");
       await editing.getByPlaceholder("ex. client-a, europe (séparés par des virgules)").fill("local");
       await editing.getByRole("button", { name: "Enregistrer" }).click();
       await editing.waitFor({ state: "detached" });

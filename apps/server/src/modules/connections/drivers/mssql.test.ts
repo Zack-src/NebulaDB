@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { MssqlDriver } from "./mssql.js";
+import { MssqlDriver, mssqlMigrationSteps } from "./mssql.js";
 
 // Matches docker-compose.mssql.yml's `nebuladb-test-mssql` service. The tables
 // live in `tempdb` so nothing is left in a real database.
@@ -101,6 +101,140 @@ test("MssqlDriver.insertRows keeps the ids a seed gives to identity columns", as
     assert.equal(await driver.queryScalar("SELECT MAX(id) FROM nebuladb_seed_parent"), 3499);
   } finally {
     await driver.executeMigration(DROP).catch(() => {});
+    await driver.close();
+  }
+});
+
+test("MssqlDriver restore session: one transaction, identity ids kept, computed columns reported", async (t) => {
+  const driver = new MssqlDriver(config);
+  const connTest = await driver.testConnection();
+  if (!connTest.ok) {
+    await driver.close().catch(() => {});
+    t.skip(`no SQL Server test container reachable at ${config.host}:${config.port}: ${connTest.error}`);
+    return;
+  }
+  const RESTORE_DROP = "DROP TABLE IF EXISTS nebuladb_restore_items;";
+  try {
+    await driver.executeMigration(RESTORE_DROP);
+    await driver.executeMigration(`
+      CREATE TABLE nebuladb_restore_items (
+        id INT IDENTITY(1,1) PRIMARY KEY, name NVARCHAR(50) NOT NULL, shout AS UPPER(name), version ROWVERSION
+      );
+      INSERT INTO nebuladb_restore_items (name) VALUES ('a'), ('b'), ('c');
+    `);
+    const rows = async () =>
+      (await driver.queryRows("SELECT id, name, shout FROM nebuladb_restore_items ORDER BY id")).map((row) =>
+        row.map(String),
+      );
+    const before = await rows();
+
+    // Rolled back: the delete and the insert both disappear.
+    let session = await driver.openRestoreSession();
+    assert.equal(session.atomic, true);
+    const columns = await session.describeTable("nebuladb_restore_items");
+    assert.deepEqual(columns.identity, ["id"]);
+    assert.deepEqual([...columns.generated].sort(), ["shout", "version"]);
+    assert.equal(await session.emptyTable("nebuladb_restore_items"), 3);
+    await session.insertRows("nebuladb_restore_items", ["id", "name"], [["40", "x"]]);
+    await session.rollback();
+    await session.release();
+    assert.deepEqual(await rows(), before);
+
+    // Committed: the explicit ids stay, and the identity carries on after them.
+    session = await driver.openRestoreSession();
+    await session.describeTable("nebuladb_restore_items");
+    await session.emptyTable("nebuladb_restore_items");
+    await session.insertRows(
+      "nebuladb_restore_items",
+      ["id", "name"],
+      [
+        ["40", "x"],
+        ["41", "y"],
+      ],
+    );
+    await session.commit();
+    await session.release();
+    await driver.executeMigration("INSERT INTO nebuladb_restore_items (name) VALUES ('z')");
+    assert.deepEqual(await rows(), [
+      ["40", "x", "X"],
+      ["41", "y", "Y"],
+      ["42", "z", "Z"],
+    ]);
+  } finally {
+    await driver.executeMigration(RESTORE_DROP).catch(() => {});
+    await driver.close();
+  }
+});
+
+test("mssqlMigrationSteps leaves the script's own BEGIN TRANSACTION / COMMIT out, and marks what cannot run in a transaction", () => {
+  const script = [
+    "-- WARNING: the column's data cannot be restored",
+    "",
+    "BEGIN TRANSACTION;",
+    "CREATE TABLE [a] ([id] INT PRIMARY KEY);",
+    "-- only a comment;",
+    "CREATE FULLTEXT INDEX ON [a] ([name]) KEY INDEX [pk_a];",
+    "ALTER DATABASE CURRENT SET RECOVERY SIMPLE;",
+    "DROP TABLE [b];",
+    "COMMIT;",
+  ].join("\n");
+  assert.deepEqual(mssqlMigrationSteps(script), [
+    { statement: "CREATE TABLE [a] ([id] INT PRIMARY KEY)", outsideTransaction: false },
+    { statement: "CREATE FULLTEXT INDEX ON [a] ([name]) KEY INDEX [pk_a]", outsideTransaction: true },
+    { statement: "ALTER DATABASE CURRENT SET RECOVERY SIMPLE", outsideTransaction: true },
+    { statement: "DROP TABLE [b]", outsideTransaction: false },
+  ]);
+  // A table whose name starts like a keyword is not mistaken for one.
+  assert.equal(mssqlMigrationSteps("CREATE TABLE [database_users] (id INT)")[0].outsideTransaction, false);
+  assert.equal(mssqlMigrationSteps("BEGIN TRAN; COMMIT TRAN;").length, 0);
+});
+
+test("MssqlDriver.executeMigration undoes the whole script when a statement fails", async (t) => {
+  const driver = new MssqlDriver(config);
+  const connTest = await driver.testConnection();
+  if (!connTest.ok) {
+    await driver.close().catch(() => {});
+    t.skip(`no SQL Server test container reachable at ${config.host}:${config.port}: ${connTest.error}`);
+    return;
+  }
+  const MIGRATION_DROP =
+    "DROP TABLE IF EXISTS nebuladb_migration_b; DROP TABLE IF EXISTS nebuladb_migration_a; " +
+    "DROP TABLE IF EXISTS nebuladb_migration_kept;";
+  const exists = async (table: string) =>
+    (await driver.queryScalar(`SELECT COUNT(*) FROM sys.tables WHERE name = '${table}'`)) === 1;
+  try {
+    await driver.executeMigration(MIGRATION_DROP);
+    await driver.executeMigration("CREATE TABLE nebuladb_migration_kept (id INT PRIMARY KEY)");
+
+    // What the generator writes: its BEGIN TRANSACTION / COMMIT, one table, then one that fails.
+    const failed = await driver.executeMigration(
+      [
+        "BEGIN TRANSACTION;",
+        "CREATE TABLE nebuladb_migration_a (id INT PRIMARY KEY);",
+        "ALTER TABLE nebuladb_migration_kept ADD note NVARCHAR(50);",
+        "CREATE TABLE nebuladb_migration_b (id INT PRIMARY KEY, a_id INT REFERENCES nebuladb_migration_missing(id));",
+        "COMMIT;",
+      ].join("\n"),
+    );
+    assert.equal(failed.success, false);
+    assert.equal(failed.executedStatements, 0, "nothing of it stays");
+    assert.match(failed.error ?? "", /^statement 3 of 3 failed: /);
+    assert.equal(await exists("nebuladb_migration_a"), false, "the table created before the failure is gone");
+    assert.equal(
+      await driver.queryScalar(
+        "SELECT COUNT(*) FROM sys.columns WHERE name = 'note' AND object_id = OBJECT_ID('nebuladb_migration_kept')",
+      ),
+      0,
+      "the column added before the failure is gone",
+    );
+    // The pooled connection is left clean: the next script runs and commits.
+    const ok = await driver.executeMigration(
+      "BEGIN TRANSACTION; CREATE TABLE nebuladb_migration_a (id INT PRIMARY KEY); COMMIT;",
+    );
+    assert.deepEqual(ok, { success: true, executedStatements: 1 });
+    assert.equal(await exists("nebuladb_migration_a"), true);
+  } finally {
+    await driver.executeMigration(MIGRATION_DROP).catch(() => {});
     await driver.close();
   }
 });

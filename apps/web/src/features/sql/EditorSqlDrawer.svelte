@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { DatabaseConnectionSummary } from "@nebuladb/shared";
+  import type { DatabaseConnectionSummary, Table } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { CloseIcon, CodeIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
@@ -13,10 +13,13 @@
   /** Read-only SQL beside the diagram, scoped to its active database. */
   let {
     connection,
+    schemaTables,
     request,
     onClose,
   }: {
     connection: DatabaseConnectionSummary;
+    /** The tables of the schema beside it — see `SqlPanel`. */
+    schemaTables: readonly Table[];
     /** A statement to load and run — see `SqlPanel`. */
     request: { sql: string; token: number } | null;
     onClose: () => void;
@@ -60,7 +63,16 @@
     {:else if !overview.data}
       <p class="m-0 text-label text-text-muted">{t("dbadmin.connecting")}</p>
     {:else}
-      <SqlPanel connectionId={connection.id} overview={overview.data} bind:database {request} readOnly fixedDatabase />
+      <SqlPanel
+        connectionId={connection.id}
+        engine={connection.engine}
+        overview={overview.data}
+        bind:database
+        {schemaTables}
+        {request}
+        readOnly
+        fixedDatabase
+      />
     {/if}
   </div>
 </section>

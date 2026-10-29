@@ -1,10 +1,11 @@
 import type { DbAdminQueryResult, DbGrantScope, DbPrivilegeCatalog } from "@nebuladb/shared";
 import { ApiError } from "../../../shared/errors.js";
+import { quoteBacktick, quoteBracket, quoteDouble, sqlLiteral } from "../../../shared/sqlQuoting.js";
 import type { AdminStatement } from "./interface.js";
 
 const MAX_NAME_LENGTH = 128;
-const MAX_CELL_CHARS = 10_000;
-const MAX_BINARY_BYTES = 64;
+export const MAX_CELL_CHARS = 10_000;
+export const MAX_BINARY_BYTES = 64;
 
 /** A name that is about to be quoted into SQL: present, bounded, and free of the one character no quoting rule survives. */
 export function requireName(value: unknown, what: string): string {
@@ -18,22 +19,10 @@ export function optionalName(value: unknown, what: string): string | undefined {
   return value === undefined || value === null || value === "" ? undefined : requireName(value, what);
 }
 
-export function quoteDouble(ident: string): string {
-  return `"${ident.replace(/"/g, '""')}"`;
-}
-
-export function quoteBacktick(ident: string): string {
-  return `\`${ident.replace(/`/g, "``")}\``;
-}
-
-export function quoteBracket(ident: string): string {
-  return `[${ident.replace(/]/g, "]]")}]`;
-}
+export { quoteDouble, quoteBacktick, quoteBracket };
 
 /** Standard SQL string literal (PostgreSQL with `standard_conforming_strings`, SQL Server, Oracle, SQLite). */
-export function literal(value: string): string {
-  return `'${value.replace(/'/g, "''")}'`;
-}
+export const literal = sqlLiteral;
 
 export const MASK = "********";
 

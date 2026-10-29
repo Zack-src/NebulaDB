@@ -1,6 +1,8 @@
 import type { Field, MigrationResolutionMap, Project, Ref, RefAction, Table } from "@nebuladb/shared";
+import { chosenRenames, renameColumnStatement } from "./renameDetection.js";
 import { translateType } from "@nebuladb/shared";
 import { isCurrentTimeExpression } from "./migrationDiff.js";
+import { assertSafeSqlFragment } from "./sqlFragments.js";
 import type { MigrationDiff, MigrationFieldChange, MigrationTableChange } from "./migrationDiff.js";
 
 export type MigrationDialect = "postgres" | "mysql" | "sqlite" | "mssql" | "oracle" | "bigquery";
@@ -22,10 +24,11 @@ export function effectiveType(
   resolutions: MigrationResolutionMap = {},
 ): string {
   const resKey = `column:${tableName.toLowerCase()}.${field.name.toLowerCase()}`;
-  if (resolutions[resKey]?.strategy === "KEEP_AS_WRITTEN") return field.type || "text";
+  const safe = (type: string) => assertSafeSqlFragment(type, dialect, `the type of ${tableName}.${field.name}`);
+  if (resolutions[resKey]?.strategy === "KEEP_AS_WRITTEN") return safe(field.type || "text");
   // `decimal(18.6)` is a typo for `decimal(18,6)` that no engine accepts — repair it rather than emit invalid SQL.
   const type = (field.type || "text").replace(/\((\d+)\.(\d+)\)/, "($1,$2)");
-  return translateType(type, dialect).type;
+  return safe(translateType(type, dialect).type);
 }
 
 /**
@@ -143,8 +146,10 @@ function isSqlExpression(val: string): boolean {
   );
 }
 
-function quoteSqlString(value: string): string {
-  return `'${value.replace(/'/g, "''")}'`;
+/** MySQL and BigQuery read `\'` as an escaped quote: a backslash in the text has to be doubled or it can close the literal. */
+function quoteSqlString(value: string, dialect: MigrationDialect): string {
+  const text = dialect === "mysql" || dialect === "bigquery" ? value.replace(/\\/g, "\\\\") : value;
+  return `'${text.replace(/'/g, "''")}'`;
 }
 
 /**
@@ -154,19 +159,25 @@ function quoteSqlString(value: string): string {
  * (older data, values typed in the field editor), `legacyGuess` decides, as
  * before. `null` when there is no default.
  */
-export function sqlDefaultLiteral(field: Field, legacyGuess: (trimmed: string) => string): string | null {
+export function sqlDefaultLiteral(
+  field: Field,
+  legacyGuess: (trimmed: string) => string,
+  dialect: MigrationDialect,
+): string | null {
   if (field.default === undefined || field.default === "") return null;
   const d = field.default.trim();
+  // Whatever is emitted as typed is one expression, not a statement of its own.
+  const safe = (literal: string) => assertSafeSqlFragment(literal, dialect, `the default of ${field.name}`);
   switch (field.defaultKind) {
     case "expression":
     case "number":
-      return d;
+      return safe(d);
     case "boolean":
-      return d.toLowerCase() === "null" ? "NULL" : d.toUpperCase();
+      return safe(d.toLowerCase() === "null" ? "NULL" : d.toUpperCase());
     case "string":
-      return quoteSqlString(field.default);
+      return quoteSqlString(field.default, dialect);
     default:
-      return legacyGuess(d);
+      return safe(legacyGuess(d));
   }
 }
 
@@ -204,6 +215,47 @@ export function translateDefaultExpression(literal: string, dialect: MigrationDi
   return dialect === "mssql" ? "GETDATE()" : "CURRENT_TIMESTAMP";
 }
 
+const BQ_STRING_TYPES = new Set(["STRING", "VARCHAR", "TEXT", "CHAR", "CHARACTER", "NVARCHAR", "NCHAR"]);
+const BQ_NUMBER_TYPES = new Set([
+  "INT64",
+  "INT",
+  "INTEGER",
+  "BIGINT",
+  "SMALLINT",
+  "TINYINT",
+  "BYTEINT",
+  "FLOAT64",
+  "FLOAT",
+  "DOUBLE",
+  "NUMERIC",
+  "DECIMAL",
+  "BIGNUMERIC",
+  "BIGDECIMAL",
+]);
+const PLAIN_NUMBER = /^[+-]?\d+(\.\d+)?$/;
+
+/**
+ * A BigQuery `DEFAULT` must have exactly the type of its column: `STRING DEFAULT 0` is refused ("Column default
+ * expression has type INT64 which cannot be assigned to column type STRING"), where other engines convert. A
+ * number or a boolean written for a text column is therefore quoted, and a quoted number or boolean written for a
+ * numeric or boolean column is unquoted. Anything else (an expression, a real string) is left as it is.
+ */
+export function coerceBigQueryDefault(literal: string, type: string): string {
+  const base = type
+    .trim()
+    .toUpperCase()
+    .replace(/[(<].*$/s, "")
+    .trim();
+  const bare = literal.trim();
+  const quoted = /^'((?:[^']|'')*)'$/s.exec(bare);
+  if (BQ_STRING_TYPES.has(base)) {
+    return PLAIN_NUMBER.test(bare) || /^(true|false)$/i.test(bare) ? quoteSqlString(bare, "bigquery") : literal;
+  }
+  if (quoted && BQ_NUMBER_TYPES.has(base) && PLAIN_NUMBER.test(quoted[1]!)) return quoted[1]!;
+  if (quoted && base === "BOOL" && /^(true|false)$/i.test(quoted[1]!)) return quoted[1]!.toUpperCase();
+  return literal;
+}
+
 /**
  * What makes the database number an `increment` column itself — the clauses
  * the SQL export (`projectToSql`) writes, so a deployed table and an exported
@@ -229,16 +281,16 @@ export function formatColumnDef(
   typeOverride?: string,
   options: { identity?: boolean } = {},
 ): string {
-  const type = typeOverride ?? (field.type || "text");
+  const type = assertSafeSqlFragment(typeOverride ?? (field.type || "text"), dialect, `the type of ${field.name}`);
   const defaultOf = (legacyGuess: (trimmed: string) => string) => {
-    const literal = sqlDefaultLiteral(field, legacyGuess);
+    const literal = sqlDefaultLiteral(field, legacyGuess, dialect);
     return literal === null ? null : translateDefaultExpression(literal, dialect, type);
   };
   if (dialect === "bigquery") {
     // GoogleSQL: the type, the default, then NOT NULL. Keys are table constraints (never enforced) and UNIQUE does not exist.
     const parts = [q(field.name, dialect), type];
-    const literal = defaultOf((d) => (isSqlExpression(d) ? d : quoteSqlString(d)));
-    if (literal !== null) parts.push(`DEFAULT ${literal}`);
+    const literal = defaultOf((d) => (isSqlExpression(d) ? d : quoteSqlString(d, dialect)));
+    if (literal !== null) parts.push(`DEFAULT ${coerceBigQueryDefault(literal, type)}`);
     if (field.notNull || field.pk) parts.push("NOT NULL");
     return parts.join(" ");
   }
@@ -250,7 +302,7 @@ export function formatColumnDef(
   if (field.notNull && !field.pk) parts.push("NOT NULL");
   if (field.unique && !field.pk) parts.push("UNIQUE");
   // An identity column takes its value from the engine: a default on top is refused.
-  const literal = identity ? null : defaultOf((d) => (isSqlExpression(d) ? d : quoteSqlString(d)));
+  const literal = identity ? null : defaultOf((d) => (isSqlExpression(d) ? d : quoteSqlString(d, dialect)));
   if (literal !== null) parts.push(`DEFAULT ${literal}`);
   if (identity && dialect === "mysql") parts.push(identity);
   return parts.join(" ");
@@ -282,6 +334,33 @@ export function generateCreateTable(
   return `CREATE TABLE ${q(table.name, dialect)} (\n${colDefs.join(",\n")}\n);`;
 }
 
+/** The default name of an index on `columns`, as the migrations give it. */
+export function defaultIndexName(tableName: string, columns: string[]): string {
+  return `idx_${tableName}_${columns.join("_")}`;
+}
+
+/**
+ * One `CREATE INDEX`, in the dialect's syntax: the migration generator's own, also used to offer an
+ * index suggestion as text. BigQuery has no secondary index, so it gets a comment.
+ */
+export function generateCreateIndex(
+  tableName: string,
+  columns: string[],
+  name: string,
+  dialect: MigrationDialect,
+  options: { unique?: boolean; schema?: string | null } = {},
+): string {
+  const table = options.schema ? `${q(options.schema, dialect)}.${q(tableName, dialect)}` : q(tableName, dialect);
+  if (dialect === "bigquery") {
+    return `-- BigQuery has no secondary indexes: ${q(name, dialect)} on ${table} is not created`;
+  }
+  const unique = options.unique ? "UNIQUE " : "";
+  const cols = columns.map((column) => q(column, dialect)).join(", ");
+  // Neither SQL Server nor Oracle supports "IF NOT EXISTS" on CREATE INDEX.
+  const ifNotExists = dialect === "mssql" || dialect === "oracle" ? "" : "IF NOT EXISTS ";
+  return `CREATE ${unique}INDEX ${ifNotExists}${q(name, dialect)} ON ${table} (${cols});`;
+}
+
 export function generateDropTable(tableName: string, dialect: MigrationDialect): string {
   if (dialect === "postgres") return `DROP TABLE IF EXISTS ${q(tableName, dialect)} CASCADE;`;
   if (dialect === "oracle") return `DROP TABLE ${q(tableName, dialect)} CASCADE CONSTRAINTS;`;
@@ -291,9 +370,9 @@ export function generateDropTable(tableName: string, dialect: MigrationDialect):
 type Resolution = MigrationResolutionMap[string] | undefined;
 
 /** Literal for a DEFAULT clause in an ALTER statement: quoted unless it already looks like a literal/expression. */
-function alterDefaultLiteral(raw: string): string {
+function alterDefaultLiteral(raw: string, dialect: MigrationDialect): string {
   const d = raw.trim();
-  return d.startsWith("'") || d.startsWith("(") || !Number.isNaN(Number(d)) ? d : `'${d.replace(/'/g, "''")}'`;
+  return d.startsWith("'") || d.startsWith("(") || !Number.isNaN(Number(d)) ? d : quoteSqlString(d, dialect);
 }
 
 function dropColumnStatements(table: string, col: string, dialect: MigrationDialect, resolution: Resolution): string[] {
@@ -410,7 +489,7 @@ function defaultChangeStatement(
 ): string | undefined {
   const t = q(table, dialect);
   const c = q(col, dialect);
-  const written = sqlDefaultLiteral(after, alterDefaultLiteral);
+  const written = sqlDefaultLiteral(after, (d) => alterDefaultLiteral(d, dialect), dialect);
   const literal = written === null ? null : translateDefaultExpression(written, dialect, after.type || "text");
   if (dialect === "postgres" || dialect === "bigquery") {
     return literal !== null
@@ -471,6 +550,17 @@ function generateFieldAlterations(
   return [];
 }
 
+/** `ALTER TABLE … DROP CONSTRAINT` for a foreign key the schema no longer declares; `null` where the engine has no such statement (SQLite). */
+export function dropForeignKeyStatement(ref: MigrationDiff["refs"][number], dialect: MigrationDialect): string | null {
+  const fkName = ref.name || fkFallbackName(ref.fromTable, ref.fromField, ref.toTable);
+  if (dialect === "postgres" || dialect === "mssql" || dialect === "bigquery") {
+    return `ALTER TABLE ${q(ref.fromTable, dialect)} DROP CONSTRAINT IF EXISTS ${q(fkName, dialect)};`;
+  }
+  if (dialect === "mysql") return `ALTER TABLE ${q(ref.fromTable, dialect)} DROP FOREIGN KEY ${q(fkName, dialect)};`;
+  if (dialect === "oracle") return `ALTER TABLE ${q(ref.fromTable, dialect)} DROP CONSTRAINT ${q(fkName, dialect)};`;
+  return null;
+}
+
 /**
  * Generates an incremental SQL migration script from a MigrationDiff, applying the user's conflict
  * strategies and wrapping the statements in a transaction.
@@ -500,6 +590,15 @@ export function generateMigrationSql(
   }
   // Oracle DDL autocommits and has no explicit transaction-start statement. BigQuery runs no DDL inside a transaction.
 
+  // 0. Dropped Refs (Foreign Keys) of tables that stay, before anything they hold on to goes: a column that is
+  // part of a foreign key cannot be dropped first (BigQuery, MySQL, SQL Server refuse), nor a table it points at.
+  const droppedTables = new Set(diff.tables.filter((t) => t.status === "dropped").map((t) => t.name.toLowerCase()));
+  const droppedFirst = diff.refs.filter((r) => r.status === "dropped" && !droppedTables.has(r.fromTable.toLowerCase()));
+  for (const ref of droppedFirst) {
+    const statement = dropForeignKeyStatement(ref, dialect);
+    if (statement) statements.push(statement);
+  }
+
   // 1. Dropped Tables
   for (const table of diff.tables.filter((t) => t.status === "dropped")) {
     const resKey = `table:${table.name.toLowerCase()}`;
@@ -513,11 +612,23 @@ export function generateMigrationSql(
   // 2. Added Tables
   for (const table of diff.tables.filter((t) => t.status === "added" && t.after)) {
     statements.push(generateCreateTable(table.after!, dialect, resolutions));
+    // The table's own indexes come with it (a primary key is already in the `CREATE TABLE`; BigQuery has no secondary index).
+    for (const idx of dialect === "bigquery" ? [] : table.addedIndexes.filter((i) => !i.pk)) {
+      const colNames = idx.fieldIds.map((id) => table.after!.fields.find((f) => f.id === id)?.name ?? id);
+      const idxName = idx.name || defaultIndexName(table.name, colNames);
+      statements.push(generateCreateIndex(table.name, colNames, idxName, dialect, { unique: idx.unique }));
+    }
   }
 
   // 3. Modified Tables (Columns & Indexes)
+  const renames = chosenRenames(diff, resolutions);
   for (const table of diff.tables.filter((t) => t.status === "modified")) {
+    // A column the answers rename is renamed, not dropped and added again: its data goes with it.
+    const renamed = renames.get(table.name.toLowerCase()) ?? [];
+    for (const { from, to } of renamed) statements.push(renameColumnStatement(table.name, from, to, dialect));
+    const skip = new Set(renamed.flatMap(({ from, to }) => [`dropped:${from.toLowerCase()}`, `added:${to.toLowerCase()}`]));
     for (const field of table.fields) {
+      if (skip.has(`${field.status}:${field.name.toLowerCase()}`)) continue;
       const fieldStmts = generateFieldAlterations(table, field, dialect, resolutions);
       statements.push(...fieldStmts);
     }
@@ -539,39 +650,16 @@ export function generateMigrationSql(
     // Added Indexes
     for (const idx of table.addedIndexes) {
       const targetTable = table.after!;
-      const colNames = idx.fieldIds
-        .map((id) => targetTable.fields.find((f) => f.id === id)?.name ?? id)
-        .map((n) => q(n, dialect))
-        .join(", ");
-      const idxName =
-        idx.name ||
-        `idx_${table.name}_${idx.fieldIds.map((id) => targetTable.fields.find((f) => f.id === id)?.name ?? id).join("_")}`;
-      const unique = idx.unique ? "UNIQUE " : "";
-      if (dialect === "bigquery") {
-        statements.push(
-          `-- BigQuery has no secondary indexes: ${q(idxName, dialect)} on ${q(table.name, dialect)} is not created`,
-        );
-      } else if (dialect === "mssql" || dialect === "oracle") {
-        // Neither supports "IF NOT EXISTS" on CREATE INDEX.
-        statements.push(`CREATE ${unique}INDEX ${q(idxName, dialect)} ON ${q(table.name, dialect)} (${colNames});`);
-      } else {
-        statements.push(
-          `CREATE ${unique}INDEX IF NOT EXISTS ${q(idxName, dialect)} ON ${q(table.name, dialect)} (${colNames});`,
-        );
-      }
+      const colNames = idx.fieldIds.map((id) => targetTable.fields.find((f) => f.id === id)?.name ?? id);
+      const idxName = idx.name || defaultIndexName(table.name, colNames);
+      statements.push(generateCreateIndex(table.name, colNames, idxName, dialect, { unique: idx.unique }));
     }
   }
 
-  // 4. Dropped Refs (Foreign Keys) — see `fkFallbackName` for why the fallback isn't just `fk_<fromTable>_<fromField>`.
-  for (const ref of diff.refs.filter((r) => r.status === "dropped")) {
-    const fkName = ref.name || fkFallbackName(ref.fromTable, ref.fromField, ref.toTable);
-    if (dialect === "postgres" || dialect === "mssql" || dialect === "bigquery") {
-      statements.push(`ALTER TABLE ${q(ref.fromTable, dialect)} DROP CONSTRAINT IF EXISTS ${q(fkName, dialect)};`);
-    } else if (dialect === "mysql") {
-      statements.push(`ALTER TABLE ${q(ref.fromTable, dialect)} DROP FOREIGN KEY ${q(fkName, dialect)};`);
-    } else if (dialect === "oracle") {
-      statements.push(`ALTER TABLE ${q(ref.fromTable, dialect)} DROP CONSTRAINT ${q(fkName, dialect)};`);
-    }
+  // 4. Dropped Refs (Foreign Keys) of the tables dropped above — see `fkFallbackName` for why the fallback isn't just `fk_<fromTable>_<fromField>`.
+  for (const ref of diff.refs.filter((r) => r.status === "dropped" && droppedTables.has(r.fromTable.toLowerCase()))) {
+    const statement = dropForeignKeyStatement(ref, dialect);
+    if (statement) statements.push(statement);
   }
 
   // 5. Added Refs (Foreign Keys)

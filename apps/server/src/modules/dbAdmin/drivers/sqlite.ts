@@ -18,7 +18,14 @@ import type { DriverConnectionConfig } from "../../connections/drivers/interface
 import { assertSqlitePathAllowed } from "../../connections/drivers/sqlite.js";
 import { assertReadOnlyStatement } from "../sqlGuard.js";
 import { plain, quoteDouble as q, requireName, toResult, trimStatement, unsupported } from "./common.js";
-import type { AdminStatement, DatabaseAdminDriver, DropKind, RunQueryOptions } from "./interface.js";
+import type {
+  AdminStatement,
+  DatabaseAdminDriver,
+  DropKind,
+  RowSessionOptions,
+  RowStatementRunner,
+  RunQueryOptions,
+} from "./interface.js";
 
 /**
  * SQLite: one file, no accounts, no sessions. Read-only work goes through a
@@ -82,13 +89,19 @@ export class SqliteAdminDriver implements DatabaseAdminDriver {
   async describeTable(ref: DbAdminObjectRef): Promise<DbAdminTableDescription> {
     const db = this.handle(true);
     const table = q(requireName(ref.table, "table"));
-    const columns = db.prepare(`PRAGMA table_info(${table})`).all() as {
-      name: string;
-      type: string;
-      notnull: number;
-      dflt_value: string | null;
-      pk: number;
-    }[];
+    // `table_xinfo` rather than `table_info`: it also lists generated columns (`hidden` 2 or 3),
+    // which `SELECT *` returns. `hidden` 1 is a virtual table's hidden column, which it does not.
+    const columns = (
+      db.prepare(`PRAGMA table_xinfo(${table})`).all() as {
+        name: string;
+        type: string;
+        notnull: number;
+        dflt_value: string | null;
+        pk: number;
+        hidden: number;
+      }[]
+    ).filter((c) => c.hidden !== 1);
+    const keyColumns = columns.filter((c) => c.pk > 0).length;
     const indexList = db.prepare(`PRAGMA index_list(${table})`).all() as {
       name: string;
       unique: number;
@@ -107,6 +120,9 @@ export class SqliteAdminDriver implements DatabaseAdminDriver {
         nullable: c.notnull === 0,
         defaultValue: c.dflt_value,
         primaryKey: c.pk > 0,
+        generated: c.hidden > 1,
+        // An `INTEGER PRIMARY KEY` is the rowid: left out of an insert, it is numbered.
+        autoValue: c.pk > 0 && keyColumns === 1 && c.type.toUpperCase() === "INTEGER",
       })),
       indexes: indexList.map((i) => ({
         name: i.name,
@@ -198,6 +214,31 @@ export class SqliteAdminDriver implements DatabaseAdminDriver {
     db.transaction(() => {
       for (const statement of statements) db.exec(statement.sql);
     })();
+  }
+
+  async rowSession<T>(options: RowSessionOptions, fn: (run: RowStatementRunner) => Promise<T>): Promise<T> {
+    const db = this.handle(!options.write);
+    const run: RowStatementRunner = async (sql, params = []) => {
+      // Integers as BigInt: a 64-bit value must reach the grid with every digit.
+      const statement = db.prepare(sql).safeIntegers(true);
+      if (!statement.reader) return { columns: [], rows: [], affected: Number(statement.run(...params).changes) };
+      return {
+        columns: statement.columns().map((c) => c.name),
+        rows: statement.raw().all(...params) as unknown[][],
+        affected: 0,
+      };
+    };
+    if (!options.write) return fn(run);
+    // IMMEDIATE: the write lock is taken at once, so a row cannot change between its check and its update.
+    db.exec("BEGIN IMMEDIATE");
+    try {
+      const result = await fn(run);
+      db.exec("COMMIT");
+      return result;
+    } catch (err) {
+      if (db.inTransaction) db.exec("ROLLBACK");
+      throw err;
+    }
   }
 
   async close(): Promise<void> {

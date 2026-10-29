@@ -16,20 +16,26 @@
    * database carrying the mark, between the toolbar and the canvas.
    *
    * Everyone who can open the project sees it: someone about to edit a table
-   * should know the database no longer matches. What can be *done* about it —
-   * look at the differences, bring the schema to the database, wave it off —
-   * is for the project's administrators, like every other action that reaches
-   * a database. For them the strip also counts the differences, which means
-   * reading the database once; nobody else's visit opens a connection.
+   * should know the database no longer matches. Looking at the differences
+   * is for those who may deploy (`canInspect`), like every other action that
+   * reaches a database: for them the strip also counts the differences, which
+   * means reading the database once; nobody else's visit opens a connection.
+   * Bringing the schema to the database or waving the mark off is for the
+   * project's administrators (`canManage`).
+   *
+   * Once an administrator acknowledged the finding (and nothing changed since), the strip
+   * goes for everyone who cannot act on it; those who can keep it, with who took note of it.
    */
   let {
     projectId,
     entry,
+    canInspect,
     canManage,
     onShowDifferences,
   }: {
     projectId: string;
     entry: ProjectDriftEntry;
+    canInspect: boolean;
     canManage: boolean;
     onShowDifferences: (connectionId: string) => void;
   } = $props();
@@ -41,7 +47,7 @@
   // Once per mark: a new out-of-schema change is a new `outOfSchemaAt`.
   $effect(() => {
     void entry.outOfSchemaAt;
-    if (!canManage) return;
+    if (!canInspect) return;
     let active = true;
     check = null;
     checkProjectDrift(projectId, entry.connectionId)
@@ -72,30 +78,40 @@
   });
   const dismiss = useAsyncAction(() => dismissProjectDrift(projectId, entry.connectionId));
   const busy = $derived(pull.pending || dismiss.pending);
+  const acknowledged = $derived(entry.acknowledgement);
 </script>
 
-<div
-  role="status"
-  class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-warning-border bg-warning-light px-4 py-2 text-body-sm text-text"
->
-  <Icon icon={AlertTriangleIcon} size={15} class="shrink-0 text-warning" />
-  <span class="min-w-0 flex-1">
-    <span class="font-semibold">{t("drift.banner", { connection: entry.connectionName })}</span>
-    {#if detail}<span class="text-text-secondary">{detail}</span>{/if}
-  </span>
-  {#if canManage}
-    <Button size="xs" variant="outline" onclick={() => onShowDifferences(entry.connectionId)} disabled={busy}>
-      {t("drift.show")}
-    </Button>
-    <Button size="xs" variant="outline" onclick={() => (confirmingPull = true)} disabled={busy}>
-      {pull.pending ? t("common.loading") : t("drift.resync")}
-    </Button>
-    <Button size="xs" variant="ghost" onclick={() => void dismiss.run()} disabled={busy}>{t("drift.dismiss")}</Button>
-  {/if}
-  {#if pull.error ?? dismiss.error}
-    <span class="w-full text-danger">{pull.error ?? dismiss.error}</span>
-  {/if}
-</div>
+{#if !acknowledged || canInspect}
+  <div
+    role="status"
+    class="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-warning-border bg-warning-light px-4 py-2 text-body-sm text-text"
+  >
+    <Icon icon={AlertTriangleIcon} size={15} class="shrink-0 text-warning" />
+    <span class="min-w-0 flex-1">
+      <span class="font-semibold">{t("drift.banner", { connection: entry.connectionName })}</span>
+      {#if detail}<span class="text-text-secondary">{detail}</span>{/if}
+      {#if acknowledged}
+        <span class="text-text-secondary" data-testid="drift-acknowledged">
+          {t("drift.acknowledgedBy", { name: acknowledged.by })}
+        </span>
+      {/if}
+    </span>
+    {#if canInspect}
+      <Button size="xs" variant="outline" onclick={() => onShowDifferences(entry.connectionId)} disabled={busy}>
+        {t("drift.show")}
+      </Button>
+    {/if}
+    {#if canManage}
+      <Button size="xs" variant="outline" onclick={() => (confirmingPull = true)} disabled={busy}>
+        {pull.pending ? t("common.loading") : t("drift.resync")}
+      </Button>
+      <Button size="xs" variant="ghost" onclick={() => void dismiss.run()} disabled={busy}>{t("drift.dismiss")}</Button>
+    {/if}
+    {#if pull.error ?? dismiss.error}
+      <span class="w-full text-danger">{pull.error ?? dismiss.error}</span>
+    {/if}
+  </div>
+{/if}
 
 {#if confirmingPull}
   <ConfirmDialog

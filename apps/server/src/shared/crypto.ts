@@ -4,6 +4,7 @@ import { ApiError } from "./errors.js";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH = 12;
+const AUTH_TAG_LENGTH = 16;
 
 /**
  * At-rest encryption keyed by `NEBULADB_SECRET`, shared by everything stored encrypted
@@ -56,7 +57,7 @@ export function encryptPayload(data: unknown): string {
   const key = encryptionKey();
   const text = JSON.stringify(data);
   const iv = crypto.randomBytes(IV_LENGTH);
-  const cipher = crypto.createCipheriv(ALGORITHM, key, iv);
+  const cipher = crypto.createCipheriv(ALGORITHM, key, iv, { authTagLength: AUTH_TAG_LENGTH });
   let encrypted = cipher.update(text, "utf8", "hex");
   encrypted += cipher.final("hex");
   const authTag = cipher.getAuthTag();
@@ -65,8 +66,13 @@ export function encryptPayload(data: unknown): string {
 }
 
 function decryptWith(key: Buffer, ivHex: string, authTagHex: string, encryptedHex: string): string {
-  const decipher = crypto.createDecipheriv(ALGORITHM, key, Buffer.from(ivHex, "hex"));
-  decipher.setAuthTag(Buffer.from(authTagHex, "hex"));
+  const decipher = crypto.createDecipheriv(ALGORITHM, key, Buffer.from(ivHex, "hex"), {
+    authTagLength: AUTH_TAG_LENGTH,
+  });
+  // Node accepts a truncated tag unless told the length: 4 bytes would be a 32-bit forgery margin.
+  const authTag = Buffer.from(authTagHex, "hex");
+  if (authTag.length !== AUTH_TAG_LENGTH) throw new Error("Invalid encrypted payload format");
+  decipher.setAuthTag(authTag);
   let decrypted = decipher.update(encryptedHex, "hex", "utf8");
   decrypted += decipher.final("utf8");
   return decrypted;

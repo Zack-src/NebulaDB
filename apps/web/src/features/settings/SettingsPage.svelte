@@ -1,4 +1,5 @@
 <script lang="ts">
+  import NavItem from "@/components/ui/NavItem.svelte";
   import Button from "@/components/ui/Button.svelte";
   import BrandMark from "@/components/ui/BrandMark.svelte";
   import Icon from "@/components/icons/Icon.svelte";
@@ -61,22 +62,16 @@
 
   <div class="flex-1 flex flex-col md:flex-row max-w-6xl w-full mx-auto px-4 md:px-6 py-6 gap-6">
     <aside class="w-full md:w-48 shrink-0 space-y-1">
-      <div class="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-text-muted">
+      <div class="px-3 py-2 text-caption font-bold uppercase tracking-wider text-text-muted">
         {t("settings.navHeading")}
       </div>
       {#each SETTINGS_SECTIONS as section (section.id)}
-        <button
+        <NavItem
+          label={t(section.labelKey)}
+          icon={section.icon}
+          active={state.activeTab === section.id}
           onclick={() => state.setActiveTab(section.id)}
-          aria-current={state.activeTab === section.id ? "page" : undefined}
-          class={`w-full flex items-center gap-3 px-3 py-2 rounded-md text-xs font-medium transition-colors text-left ${
-            state.activeTab === section.id
-              ? "bg-primary-light text-primary"
-              : "text-text-secondary hover:bg-surface-hover hover:text-text"
-          }`}
-        >
-          <Icon icon={section.icon} size={16} />
-          <span>{t(section.labelKey)}</span>
-        </button>
+        />
       {/each}
     </aside>
 

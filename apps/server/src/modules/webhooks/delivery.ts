@@ -1,23 +1,28 @@
 import crypto from "node:crypto";
-import dns from "node:dns";
 import http from "node:http";
 import https from "node:https";
-import { isIP, type LookupFunction } from "node:net";
-import { isBlockedAddress } from "../connections/hostGuard.js";
+import { isIP } from "node:net";
 import type { WebhookEvent, WebhookFormat } from "./repository.js";
+import { isWebhookAddressRefused, isWebhookHostListed, webhookLookup } from "./targetPolicy.js";
 
 /**
  * One HTTP delivery of one webhook payload, via `node:http`/`https` rather than `fetch`:
  * - **No redirects**: a 3xx is a failed delivery.
- * - **The address is checked at connect time** (`lookup` hook, `isBlockedAddress`), so DNS
+ * - **The address is checked at connect time** (`lookup` hook, `targetPolicy.ts`), so DNS
  *   can't answer differently a second time.
+ * - **Errors are generic**: a refused connection, a timeout or a DNS failure all read
+ *   "delivery failed", so the test button and the log can't be used to scan ports. Only the
+ *   receiver's HTTP status is reported.
  *
- * Private/LAN targets stay allowed, as for database connections. Only project administrators
- * can register a webhook.
+ * Private/LAN targets are refused by default; an instance can allow them
+ * (`NEBULADB_WEBHOOK_BLOCK_PRIVATE=0`), list the hosts that may be targeted
+ * (`NEBULADB_WEBHOOK_ALLOWED_HOSTS`, which also exempts them from the private block).
  */
 
 const DELIVERY_TIMEOUT_MS = 10_000;
 const USER_AGENT = "NebulaDB-Webhooks/1";
+const TARGET_REFUSED = "delivery target not allowed";
+const DELIVERY_FAILED = "delivery failed";
 
 export interface WebhookEnvelope {
   id: string;
@@ -26,23 +31,6 @@ export interface WebhookEnvelope {
   project: { id: string; name: string; url: string | null };
   data: Record<string, unknown>;
 }
-
-const guardedLookup: LookupFunction = (hostname, options, callback) => {
-  dns.lookup(hostname, { ...options, all: true }, (err, addresses) => {
-    if (err) return callback(err, "", 4);
-    const list = addresses as dns.LookupAddress[];
-    const blocked = list.find((entry) => isBlockedAddress(entry.address));
-    if (blocked) {
-      return callback(
-        Object.assign(new Error(`refusing to deliver to ${blocked.address}`), { code: "EBLOCKED" }),
-        "",
-        4,
-      );
-    }
-    if (options.all) return callback(null, list as unknown as string, 4);
-    return callback(null, list[0].address, list[0].family);
-  });
-};
 
 /** `t=<unix seconds>,v1=<hex HMAC-SHA256 of "<t>.<body>">` — the timestamp is signed too, so a captured request can't be replayed later with a fresh one. */
 export function signBody(secret: string, body: string, timestamp: number): string {
@@ -70,6 +58,20 @@ function summarize(envelope: WebhookEnvelope): string {
       return data.success
         ? `🚀 « ${name} » déployé sur ${target} (${data.executedStatements} instruction(s))${link}`
         : `❌ Échec du déploiement de « ${name} » sur ${target} : ${data.error ?? "erreur inconnue"}${link}`;
+    }
+    case "deployment.review": {
+      const target = `${data.connectionName}${data.environment ? ` [${data.environment}]` : ""}`;
+      const by = (data.by as string | null) ?? "NebulaDB";
+      const said: Record<string, string> = {
+        requested: `👀 ${data.requestedBy} demande une revue avant de déployer « ${name} » sur ${target}`,
+        approved: `✅ ${by} a approuvé le déploiement de « ${name} » sur ${target} demandé par ${data.requestedBy}`,
+        rejected: `⛔ ${by} a rejeté le déploiement de « ${name} » sur ${target} demandé par ${data.requestedBy}`,
+        withdrawn: `↩️ ${data.requestedBy} a retiré sa demande de revue pour « ${name} » sur ${target}`,
+        expired: `⌛ L'approbation du déploiement de « ${name} » sur ${target} a expiré`,
+        stale: `♻️ La demande de revue pour « ${name} » sur ${target} n'est plus à jour : le schéma ou la base a changé`,
+        cancelled: `🚫 La demande de revue pour « ${name} » sur ${target} a été annulée`,
+      };
+      return `${said[String(data.action)] ?? said.cancelled}${link}`;
     }
     case "drift.detected": {
       const target = `${data.connectionName}${data.environment ? ` [${data.environment}]` : ""}`;
@@ -111,11 +113,11 @@ export function deliver(url: string, body: string, headers: Record<string, strin
       resolve({ ok: false, status: null, error: "invalid URL" });
       return;
     }
-    // Node skips `lookup` entirely for a literal IP, so the guard above never
-    // sees `http://169.254.169.254/` — check that case here.
-    const literalHost = target.hostname.replace(/^\[|\]$/g, "");
-    if (isIP(literalHost) && isBlockedAddress(literalHost)) {
-      resolve({ ok: false, status: null, error: `refusing to deliver to ${literalHost}` });
+    const host = target.hostname.replace(/^\[|\]$/g, "");
+    // Node skips `lookup` entirely for a literal IP, so the connect-time check
+    // never sees `http://169.254.169.254/` — check that case here.
+    if (!isWebhookHostListed(host) || (isIP(host) && isWebhookAddressRefused(host, host))) {
+      resolve({ ok: false, status: null, error: TARGET_REFUSED });
       return;
     }
     const client = target.protocol === "https:" ? https : http;
@@ -123,7 +125,7 @@ export function deliver(url: string, body: string, headers: Record<string, strin
       target,
       {
         method: "POST",
-        lookup: guardedLookup,
+        lookup: webhookLookup,
         timeout: DELIVERY_TIMEOUT_MS,
         headers: {
           "content-type": "application/json",
@@ -142,9 +144,11 @@ export function deliver(url: string, body: string, headers: Record<string, strin
         resolve({ ok, status, error: ok ? null : `HTTP ${status}` });
       },
     );
-    req.on("timeout", () => req.destroy(new Error(`timed out after ${DELIVERY_TIMEOUT_MS / 1000}s`)));
+    req.on("timeout", () => req.destroy(new Error("timed out")));
     req.on("error", (err: NodeJS.ErrnoException) => {
-      resolve({ ok: false, status: null, error: err.code === "EBLOCKED" ? err.message : err.message.slice(0, 200) });
+      // Never the system message (ECONNREFUSED, EHOSTUNREACH, timeout…): told apart, they
+      // map which internal hosts and ports answer.
+      resolve({ ok: false, status: null, error: err.code === "EBLOCKED" ? TARGET_REFUSED : DELIVERY_FAILED });
     });
     req.end(body);
   });

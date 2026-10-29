@@ -1,6 +1,6 @@
 import { request } from "./httpClient";
 
-export type WebhookEvent = "schema.changed" | "deployment.completed" | "drift.detected";
+export type WebhookEvent = "schema.changed" | "deployment.completed" | "deployment.review" | "drift.detected";
 export type WebhookFormat = "json" | "slack" | "discord";
 
 export interface Webhook {

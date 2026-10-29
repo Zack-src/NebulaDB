@@ -1,15 +1,13 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { useTestDatabase } from "./testDatabase.js";
 
 // restore.ts imports db.ts (for the ownership lookup / project insert), which
-// opens its sqlite file at import time — same reasoning as auth/session.test.ts
-// and permissions.test.ts: point it at a throwaway temp file before the
-// (dynamic) import touches it, so this suite never opens the real dev/prod
-// database just to test two pure string-parsing helpers.
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-${randomUUID()}.sqlite`);
+// connects at import time — same reasoning as auth/session.test.ts and
+// permissions.test.ts: give it a throwaway database before the (dynamic)
+// import touches it, so this suite never opens a real one just to test two
+// pure string-parsing helpers.
+await useTestDatabase("test");
 
 const { nameFromFilename, parseArgs } = await import("./restore.js");
 

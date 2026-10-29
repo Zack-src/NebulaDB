@@ -1,13 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
 // `routes/crud.ts` (create/rename/delete/list, permission gating) is covered
 // in `../../app.test.ts` already — this file is the remaining three:
 // `routes/importExport.ts`, `routes/revisions.ts`, `routes/teams.ts`.
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-projectroutes-${randomUUID()}.sqlite`);
+await useTestDatabase("projectroutes");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -39,12 +38,9 @@ async function makeUser(isAdmin: 0 | 1 = 0) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)").run(
-    id,
-    email,
-    await hashPassword(password),
-    isAdmin,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)")
+    .run(id, email, await hashPassword(password), isAdmin);
   return { id, email, password };
 }
 
@@ -119,7 +115,50 @@ test("import/export round-trip: DBML in, DBML/SQL out, a view grant can't import
     assert.equal(malformedImport.statusCode, 400);
     assert.equal(malformedImport.json().code, "DBML_PARSE_FAILED");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
+    await app.close();
+  }
+});
+
+test("import of a schema big enough to be parsed in a worker thread: same responses, baseline still protects concurrent additions", async () => {
+  const app = await buildApp();
+  try {
+    const owner = await makeUser();
+    const cookie = await loginAs(app, owner.email, owner.password);
+    const project = await makeProject(app, cookie);
+    const padding = "padding to cross the parse pool inline threshold ".repeat(3);
+    const table = (name: string) => `Table ${name} {\n  id int [pk]\n  label varchar [note: '${padding}']\n}`;
+    const names = Array.from({ length: 60 }, (_, i) => `t${i}`);
+    const big = names.map(table).join("\n");
+    assert.ok(big.length > 8_192, "large enough to go through a worker thread");
+    const importDbml = (payload: Record<string, string>) =>
+      app.inject({ method: "POST", url: `/api/projects/${project.id}/import`, headers: headers({ cookie }), payload });
+
+    const first = await importDbml({ source: big });
+    assert.equal(first.statusCode, 200);
+    assert.deepEqual(first.json(), { imported: true, tables: 60 });
+
+    // Someone else adds a table while this buffer, still derived from `big`, is open...
+    const other = await importDbml({ source: `${big}\n${table("added_elsewhere")}` });
+    assert.deepEqual(other.json(), { imported: true, tables: 61 });
+
+    // ...and the buffer then deletes t59: the deletion goes through, the other addition survives.
+    const synced = await importDbml({ source: names.slice(0, 59).map(table).join("\n"), baseline: big });
+    assert.deepEqual(synced.json(), { imported: true, tables: 60 });
+    const exported = await app.inject({
+      method: "GET",
+      url: `/api/projects/${project.id}/export/dbml`,
+      headers: headers({ cookie }),
+    });
+    assert.match(exported.body, /Table "?added_elsewhere"?/);
+    assert.doesNotMatch(exported.body, /Table "?t59"?/);
+
+    const malformed = await importDbml({ source: `${big}\nTable broken {\n  id int [pk\n}` });
+    assert.equal(malformed.statusCode, 400);
+    assert.equal(malformed.json().code, "DBML_PARSE_FAILED");
+    assert.equal(typeof malformed.json().line, "number");
+  } finally {
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -223,7 +262,62 @@ test("revisions: listed after an edit, labelable, restorable; a view grant can r
     });
     assert.deepEqual((snapshot.json() as { tables: { name: string }[] }).tables.map((t) => t.name).sort(), ["users"]);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
+    await app.close();
+  }
+});
+
+test("a revision can start a project of its own: that schema, the caller as administrator, the original untouched", async () => {
+  const app = await buildApp();
+  try {
+    const owner = await makeUser();
+    const ownerCookie = await loginAs(app, owner.email, owner.password);
+    const project = await makeProject(app, ownerCookie, "Source");
+    const send = (url: string, cookie: string, payload?: unknown) =>
+      app.inject({ method: "POST", url, headers: headers({ cookie }), payload: payload as object });
+
+    await send(`/api/projects/${project.id}/import`, ownerCookie, { source: SAMPLE_DBML });
+    const list = await app.inject({
+      method: "GET",
+      url: `/api/projects/${project.id}/revisions`,
+      headers: headers({ cookie: ownerCookie }),
+    });
+    const firstRevisionId = (list.json() as { id: string }[])[0].id;
+    await send(`/api/projects/${project.id}/import`, ownerCookie, {
+      source: `${SAMPLE_DBML}
+Table orders {
+  id int [pk]
+}
+`,
+    });
+
+    const forkUrl = `/api/projects/${project.id}/revisions/${firstRevisionId}/fork`;
+    assert.equal((await send(forkUrl, "", { name: "Nope" })).statusCode, 401);
+    assert.equal(
+      (await send(`/api/projects/${project.id}/revisions/${randomUUID()}/fork`, ownerCookie, { name: "Nope" })).statusCode,
+      404,
+    );
+    assert.equal((await send(forkUrl, ownerCookie, { name: "  " })).statusCode, 400);
+
+    const forked = await send(forkUrl, ownerCookie, { name: "Source v1" });
+    assert.equal(forked.statusCode, 201);
+    const created = forked.json() as { id: string; name: string; permission: string };
+    assert.equal(created.name, "Source v1");
+    assert.equal(created.permission, "administrator");
+    assert.notEqual(created.id, project.id);
+
+    const tablesOf = async (id: string) =>
+      (
+        (
+          await app.inject({ method: "GET", url: `/api/projects/${id}/snapshot`, headers: headers({ cookie: ownerCookie }) })
+        ).json() as { tables: { name: string }[] }
+      ).tables
+        .map((table) => table.name)
+        .sort();
+    assert.deepEqual(await tablesOf(created.id), ["users"]);
+    assert.deepEqual(await tablesOf(project.id), ["orders", "users"]);
+  } finally {
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -312,10 +406,12 @@ Table orders {
     );
 
     // A deployment row, as `recordDeployment` would leave it.
-    db.prepare(
-      `INSERT INTO deployment_history (id, project_id, connection_id, connection_name, environment, engine, sql, success, executed_by_email)
+    await db
+      .prepare(
+        `INSERT INTO deployment_history (id, project_id, connection_id, connection_name, environment, engine, sql, success, executed_by_email)
        VALUES (?, ?, NULL, 'Staging DB', 'staging', 'postgres', 'SELECT 1', 1, ?)`,
-    ).run(randomUUID(), project.id, owner.email);
+      )
+      .run(randomUUID(), project.id, owner.email);
 
     const ownerMarkers = (
       await app.inject({
@@ -350,7 +446,7 @@ Table orders {
     assert.ok(kinds.includes("restore"));
     assert.ok(!kinds.includes("deployment"), "deployment history is for project administrators");
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -432,7 +528,7 @@ test("project-team routes: granting/revoking is project-admin-only, and an edit 
     });
     assert.equal(revoked.statusCode, 200);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -455,8 +551,8 @@ test("GET /api/projects/:id/content returns the schema as JSON for a viewer, wit
       headers: headers({ cookie: ownerCookie }),
       payload: { source: "Table password_reset_tokens {\n id int [pk]\n}" },
     });
-    (await import("../../realtime/roomRegistry.js")).getRoom(id).flush();
-    closeAllRooms();
+    await (await (await import("../../realtime/roomRegistry.js")).getRoom(id)).flush();
+    await closeAllRooms();
 
     const { liveRoomCount } = await import("../../realtime/roomRegistry.js");
     const res = await app.inject({
@@ -473,7 +569,51 @@ test("GET /api/projects/:id/content returns the schema as JSON for a viewer, wit
     const anonymous = await app.inject({ method: "GET", url: `/api/projects/${id}/content`, headers: headers() });
     assert.equal(anonymous.statusCode, 401);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
+    await app.close();
+  }
+});
+
+test("GET /api/projects/:id/preview: the first lines of the DBML and a box per table, and nothing without a session", async () => {
+  const app = await buildApp();
+  try {
+    const owner = await makeUser();
+    const ownerCookie = await loginAs(app, owner.email, owner.password);
+    const { id } = await makeProject(app, ownerCookie, "Shop");
+    await app.inject({
+      method: "POST",
+      url: `/api/projects/${id}/import`,
+      headers: headers({ cookie: ownerCookie }),
+      payload: {
+        source:
+          "Table customers {\n id int [pk]\n}\nTable orders {\n id int [pk]\n customer_id int [ref: > customers.id]\n}",
+      },
+    });
+    await (await (await import("../../realtime/roomRegistry.js")).getRoom(id)).flush();
+    await closeAllRooms();
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/projects/${id}/preview`,
+      headers: headers({ cookie: ownerCookie }),
+    });
+    assert.equal(res.statusCode, 200);
+    const preview = res.json() as {
+      dbml: string;
+      nodes: { name: string; w: number; h: number }[];
+      edges: [number, number][];
+    };
+    assert.match(preview.dbml, /Table customers/);
+    assert.deepEqual(preview.nodes.map((node) => node.name).sort(), ["customers", "orders"]);
+    assert.ok(preview.nodes.every((node) => node.w >= 190 && node.h >= 34));
+    assert.equal(preview.edges.length, 1);
+
+    assert.equal(
+      (await app.inject({ method: "GET", url: `/api/projects/${id}/preview`, headers: headers() })).statusCode,
+      401,
+    );
+  } finally {
+    await closeAllRooms();
     await app.close();
   }
 });

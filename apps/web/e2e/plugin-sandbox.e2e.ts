@@ -60,8 +60,8 @@ test(
       const pluginCard = page
         .locator("div")
         .filter({ has: page.getByText("SQLite & Naming Toolkit", { exact: true }) })
-        .filter({ has: page.getByRole("button", { name: "Installer en 1-clic" }) });
-      await pluginCard.getByRole("button", { name: "Installer en 1-clic" }).first().click();
+        .filter({ has: page.getByRole("button", { name: "Installer", exact: true }) });
+      await pluginCard.getByRole("button", { name: "Installer", exact: true }).first().click();
 
       // `handleInstall` boots the plugin's Worker (`pluginRegistry.install`),
       // waits for its `ready` handshake, then auto-switches to "Mes Plugins"

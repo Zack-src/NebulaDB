@@ -84,6 +84,7 @@ export default {
         },
       },
       fontSize: {
+        micro: "var(--text-micro)",
         caption: "var(--text-caption)",
         label: "var(--text-label)",
         "body-sm": "var(--text-body-sm)",

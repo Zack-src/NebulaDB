@@ -7,7 +7,7 @@ import {
   type LintSettings,
   type ValidationIssue,
 } from "@nebuladb/dbml-engine";
-import { getTablesMap, type Project } from "@nebuladb/shared";
+import { getTablesMap, type Project, type TableSeedSummary } from "@nebuladb/shared";
 import { toast } from "@/components/ui/toast.svelte";
 import type { SchemaFinding } from "@/features/editor/dbml/lint";
 import { i18n } from "@/i18n/i18n.svelte";
@@ -26,6 +26,8 @@ interface SchemaQualityInput {
   settings: () => LintSettings;
   /** Ids of the tables a lock forbids this user to alter. */
   frozenTableIds: () => ReadonlySet<string>;
+  /** The project's seeds as the server last listed them, with the values that overflow their column. */
+  seeds?: () => ReadonlyMap<string, TableSeedSummary>;
 }
 
 function groupBy(issues: ValidationIssue[], key: "tableId" | "refId"): Map<string, ValidationIssue[]> {
@@ -83,13 +85,38 @@ export class SchemaQuality {
 
   /** The same findings — `info` included — underlined in the DBML buffer. */
   readonly dbmlFindings = $derived.by((): SchemaFinding[] =>
-    this.findings.map((finding) => ({
-      severity: finding.severity,
-      message: this.message(finding),
-      tableName: finding.tableName,
-      fieldName: finding.fieldName,
-    })),
+    [
+      ...this.findings.map((finding) => ({
+        severity: finding.severity,
+        message: this.message(finding),
+        tableName: finding.tableName,
+        fieldName: finding.fieldName,
+      })),
+      ...this.seedFindings,
+    ],
   );
+
+  /** A warning on each column whose initial data does not fit the length the column declares. */
+  private readonly seedFindings = $derived.by((): SchemaFinding[] => {
+    const seeds = this.input.seeds?.();
+    if (!seeds) return [];
+    return [...seeds.values()].flatMap((seed) =>
+      (seed.overflows ?? []).map(
+        (overflow): SchemaFinding => ({
+          severity: "warning",
+          message: i18n.t("seeds.overflowFinding", {
+            table: seed.tableName,
+            column: overflow.column,
+            limit: overflow.limit,
+            longest: overflow.longest,
+            count: overflow.count,
+          }),
+          tableName: seed.tableName,
+          fieldName: overflow.column,
+        }),
+      ),
+    );
+  });
 
   /** Lower-case names of the tables whose lock binds this user: their DBML blocks refuse edits. */
   readonly frozenTableNames = $derived.by((): ReadonlySet<string> => {

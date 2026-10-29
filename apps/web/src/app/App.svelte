@@ -1,21 +1,30 @@
 <script lang="ts">
+  import { DatabaseIcon } from "@/components/icons/Icons";
+  import PageHeader from "@/components/layout/PageHeader.svelte";
+  import PageContainer from "@/components/layout/PageContainer.svelte";
   import { useAuthSession } from "@/features/auth/authSession.svelte";
   import { useProjects } from "@/features/projects/projects.svelte";
   import { useProjectRouting } from "@/features/projects/projectRouting.svelte";
   import ErrorBoundary from "@/app/ErrorBoundary.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import ProjectEditor from "@/features/editor/ProjectEditor.svelte";
+  import ProjectOpeningSkeleton from "@/features/editor/ProjectOpeningSkeleton.svelte";
   import ProjectListScreen from "@/features/projects/ProjectListScreen.svelte";
   import Login from "@/features/auth/Login.svelte";
   import SettingsPage from "@/features/settings/SettingsPage.svelte";
   import AcceptInvite from "@/features/auth/AcceptInvite.svelte";
+  import FirstRunSetup from "@/features/auth/FirstRunSetup.svelte";
+  import { signedOutScreen } from "@/features/auth/setupForm";
+  import { fetchSetupStatus, type SetupStatus } from "@/services/setupApi";
   import ResetPassword from "@/features/auth/ResetPassword.svelte";
   import AdminConsole from "@/features/admin/AdminConsole.svelte";
   import { APP_SHELL } from "@/components/ui/layout";
   import type { CreateProjectFromDatabaseResponse } from "@/services/connectionsApi";
-  import WorkspaceShell from "@/components/layout/WorkspaceShell.svelte";
+  import WorkspaceShell from "@/app/WorkspaceShell.svelte";
   import { shellHash, shellViewFromHash, type ShellView } from "@/app/shellNavigation";
   import DatabaseWorkspace from "@/features/workspace/DatabaseWorkspace.svelte";
+  import GlobalPalette from "@/features/palette/GlobalPalette.svelte";
+  import type { AdminSection } from "@/features/admin/adminSections";
 
   const { t } = useTranslation();
   let viewMode = $state<ShellView>("app");
@@ -38,6 +47,25 @@
 
   const session = $derived(auth.session);
 
+  // Signed out: is this a fresh instance with no account yet? Asked once, the first time the app is signed out;
+  // the setup screen then stands in for the login form. A failed request means the login form, never the setup.
+  let setupStatus = $state<SetupStatus | null | "loading">("loading");
+  let setupAsked = false;
+  $effect(() => {
+    if (session !== null || setupAsked) return;
+    setupAsked = true;
+    fetchSetupStatus()
+      .then((status) => (setupStatus = status))
+      .catch(() => (setupStatus = null));
+  });
+  // `/setup` is not a page of its own: once set up, an old link to it lands on the login form at `/`.
+  $effect(() => {
+    if (location.pathname !== "/setup") return;
+    const signedIn = session !== null && session !== "loading";
+    if (signedIn || (setupStatus !== "loading" && signedOutScreen(setupStatus) !== "setup"))
+      history.replaceState(null, "", "/");
+  });
+
   $effect(() => {
     if (!session || session === "loading") return;
     viewMode = shellViewFromHash(location.hash, session.isAdmin);
@@ -52,6 +80,18 @@
     };
   });
 
+  // Which admin tab to show, and a connection whose console to open on it. The nonce
+  // remounts the console so a repeated jump to the same place still lands.
+  let adminTarget = $state<{ section: AdminSection; connectionId?: string; nonce: number }>({
+    section: "users",
+    nonce: 0,
+  });
+
+  function openAdmin(section: AdminSection, connectionId?: string) {
+    adminTarget = { section, connectionId, nonce: adminTarget.nonce + 1 };
+    navigate("admin");
+  }
+
   function navigate(view: ShellView) {
     if (session && session !== "loading" && !session.isAdmin && view === "admin") return;
     routing.closeProject();
@@ -59,9 +99,9 @@
     history.replaceState(null, "", `/${shellHash(view)}`);
   }
 
-  function openProjectById(id: string) {
+  function openProjectById(id: string, focus?: { tableName: string; fieldName?: string }) {
     viewMode = "app";
-    routing.openProjectById(id);
+    routing.openProjectById(id, focus);
   }
 
   // The new project already has its schema pulled in by the time this fires
@@ -94,8 +134,18 @@
       }}
     />
   </div>
-{:else if session === "loading"}
+{:else if session === "loading" || (!session && setupStatus === "loading")}
   <div class={APP_SHELL}></div>
+{:else if !session && setupStatus !== "loading" && signedOutScreen(setupStatus) === "setup"}
+  <FirstRunSetup
+    tokenRequired={setupStatus?.tokenRequired ?? false}
+    onDone={(next) => {
+      setupStatus = { needsSetup: false, tokenRequired: false };
+      window.history.replaceState(null, "", "/");
+      auth.setSession(next);
+      viewMode = "app";
+    }}
+  />
 {:else if !session}
   <Login
     initialEmail={resetEmail ?? welcomeEmail ?? undefined}
@@ -110,7 +160,7 @@
     {session}
     view={viewMode}
     projectName={viewMode === "app" ? routing.openProject?.name : undefined}
-    onNavigate={navigate}
+    onNavigate={(view) => (view === "admin" && viewMode !== "admin" ? openAdmin("users") : navigate(view))}
     onLogout={auth.logout}
     onOpenProject={openProjectById}
   >
@@ -140,10 +190,14 @@
               tab={routing.tab}
               onTabChange={routing.setTab}
               onOpenProject={openProjectById}
+              onOpenConnectionsAdmin={session.isAdmin ? () => openAdmin("connections") : undefined}
             />
           </ErrorBoundary>
         {/key}
       </div>
+    {:else if routing.opening && viewMode === "app"}
+      <!-- 2b. A deep link whose project is still being resolved: the editor's shape, not the project list. -->
+      <ProjectOpeningSkeleton />
     {:else if viewMode === "settings"}
       <!-- 3. Settings View -->
       <SettingsPage
@@ -155,13 +209,24 @@
       />
     {:else if viewMode === "admin" && session.isAdmin}
       <!-- 4. Admin Console View -->
-      <AdminConsole embedded initialSection="users" onClose={() => navigate("app")} />
+      {#key adminTarget.nonce}
+        <AdminConsole
+          embedded
+          initialSection={adminTarget.section}
+          initialConnectionId={adminTarget.connectionId}
+          onClose={() => navigate("app")}
+        />
+      {/key}
     {:else if viewMode === "bases"}
       <div class="min-h-0 flex-1 overflow-auto p-4 md:p-6">
-        <div class="mx-auto max-w-[1240px]">
-          <h1 class="mb-5 text-xl font-semibold tracking-tight">{t("shell.bases")}</h1>
-          <DatabaseWorkspace {session} />
-        </div>
+        <PageContainer>
+          <PageHeader title={t("shell.bases")} icon={DatabaseIcon} />
+          <DatabaseWorkspace
+            {session}
+            onOpenAdmin={() => openAdmin("connections")}
+            onOpenSettings={() => navigate("settings")}
+          />
+        </PageContainer>
       </div>
     {:else}
       <!-- 5. Default Workspace Dashboard View -->
@@ -170,6 +235,8 @@
         embedded
         projects={projectsHandle.projects}
         projectsLoaded={projectsHandle.loaded}
+        projectsLoadFailed={projectsHandle.loadFailed}
+        onRetryProjects={projectsHandle.refreshProjects}
         openLinkError={routing.openLinkError}
         onOpenProject={(project) => {
           viewMode = "app";
@@ -188,7 +255,16 @@
         onDeleteProjectForever={projectsHandle.deleteProjectForever}
         onEmptyTrash={projectsHandle.emptyTrash}
         onProjectCreatedFromDatabase={handleProjectCreatedFromDatabase}
+        onProjectsChanged={projectsHandle.refreshProjects}
       />
     {/if}
   </WorkspaceShell>
+  <GlobalPalette
+    {session}
+    project={viewMode === "app" ? routing.openProject : null}
+    onView={navigate}
+    onAdmin={openAdmin}
+    onProjectTab={routing.setTab}
+    onOpenProject={openProjectById}
+  />
 {/if}

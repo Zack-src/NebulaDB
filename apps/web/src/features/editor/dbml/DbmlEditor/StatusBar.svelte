@@ -50,7 +50,7 @@
 </script>
 
 <div
-  class="relative flex shrink-0 items-center gap-3 whitespace-nowrap border-t border-border bg-surface px-2.5 py-1 text-[11px] text-text-muted"
+  class="relative flex shrink-0 items-center gap-3 whitespace-nowrap border-t border-border bg-surface px-2.5 py-1 text-caption text-text-muted"
 >
   {#if syncIndicator}
     <span

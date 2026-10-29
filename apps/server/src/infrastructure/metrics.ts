@@ -16,13 +16,13 @@ function gauge(name: string, help: string, value: number): string {
   return `# HELP ${name} ${help}\n# TYPE ${name} gauge\n${name} ${value}\n`;
 }
 
-export function renderPrometheusMetrics(): string {
+export async function renderPrometheusMetrics(): Promise<string> {
   const lines: string[] = [];
 
   lines.push(gauge("nebuladb_uptime_seconds", "Process uptime in seconds.", Math.round(process.uptime())));
 
   try {
-    const row = db.prepare("SELECT COUNT(*) AS n FROM projects").get() as { n: number };
+    const row = (await db.prepare("SELECT COUNT(*) AS n FROM projects").get()) as { n: number };
     lines.push(gauge("nebuladb_projects_total", "Total projects in the database.", row.n));
   } catch {
     // Same failure this endpoint exists to surface — reported as an absent

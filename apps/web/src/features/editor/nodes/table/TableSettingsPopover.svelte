@@ -3,7 +3,7 @@
 </script>
 
 <script lang="ts">
-  import type { Table, TableIndex } from "@nebuladb/shared";
+  import type { Comment, Table, TableIndex } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { SettingsIcon } from "@/components/icons/Icons";
   import { useTranslation } from "@/i18n/i18n.svelte";
@@ -24,6 +24,14 @@
     onDeleteIndex,
     onDuplicate,
     nameLocked = false,
+    comments = [],
+    currentUser = "",
+    onAddComment,
+    onDeleteComment,
+    onManageLock,
+    locked = false,
+    onManageSeed,
+    onDelete,
     triggerClassName,
   }: {
     table: Table;
@@ -36,6 +44,14 @@
     onDuplicate?: () => void;
     /** The table is locked against this user: the name is shown, not editable. */
     nameLocked?: boolean;
+    comments?: Comment[];
+    currentUser?: string;
+    onAddComment?: (text: string) => void;
+    onDeleteComment?: (commentId: string) => void;
+    onManageLock?: () => void;
+    locked?: boolean;
+    onManageSeed?: () => void;
+    onDelete?: () => void;
     triggerClassName: string;
   } = $props();
 
@@ -60,7 +76,7 @@
 <button
   bind:this={trigger}
   type="button"
-  class={`nodrag ${triggerClassName}${open ? " has-open-popover" : ""}`}
+  class={`nodrag ${triggerClassName}${open ? " has-open-popover" : ""}${comments.length > 0 ? " has-comments" : ""}`}
   onclick={(event) => {
     event.stopPropagation();
     toggleOpen();
@@ -70,6 +86,9 @@
   aria-label={t("table.settingsTooltip")}
 >
   <Icon icon={SettingsIcon} size={13} />
+  {#if comments.length > 0}
+    <span class="text-micro font-bold leading-none">{comments.length}</span>
+  {/if}
 </button>
 {#if open && triggerRect}
   <TableSettingsPanel
@@ -82,6 +101,14 @@
     {onDeleteIndex}
     {onDuplicate}
     {nameLocked}
+    {comments}
+    {currentUser}
+    {onAddComment}
+    {onDeleteComment}
+    {onManageLock}
+    {locked}
+    {onManageSeed}
+    {onDelete}
     {triggerRect}
     {trigger}
     onClose={() => (open = false)}

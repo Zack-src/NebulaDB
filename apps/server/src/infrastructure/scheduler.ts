@@ -5,7 +5,8 @@
  * are `unref`ed). What the last run did is kept for whoever asks.
  *
  * Deliberately in-process and single-instance, like the rest of the server
- * (one SQLite file, one process): no queue, no lock table.
+ * (a project's live document is in one process's memory): no queue, no lock
+ * table. PostgreSQL would allow a second instance; the rooms do not.
  */
 
 interface JobStatus {

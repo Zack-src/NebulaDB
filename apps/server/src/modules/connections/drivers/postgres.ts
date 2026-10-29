@@ -1,13 +1,18 @@
 import pg from "pg";
 import { q } from "@nebuladb/dbml-engine";
 import type { Project, Ref, Table, TableIndex } from "@nebuladb/shared";
-import type {
+import {
+  oneBatch,
   DatabaseDriver,
   DriverConnectionConfig,
   MigrationExecutionResult,
+  RestoreSession,
+  RestoreTableColumns,
   RowValue,
   TestConnectionResult,
 } from "./interface.js";
+import { CONNECT_TIMEOUT_MS } from "../../../shared/sqlQuoting.js";
+import { driverTlsOptions } from "./tls.js";
 
 const { Pool } = pg;
 
@@ -20,16 +25,21 @@ interface ColumnRow {
   column_default: string | null;
 }
 
+interface IndexRow {
+  table_name: string;
+  index_name: string;
+  column_name: string;
+  is_unique: boolean;
+}
+
 /** Shared with the admin driver (`admin/postgres.ts`) so both connect to the same pinned address the same way. */
 export function postgresPoolConfig(config: DriverConnectionConfig, database?: string): pg.PoolConfig {
-  const ssl = config.ssl
-    ? { rejectUnauthorized: config.tlsVerify ?? false, servername: config.tlsServerName }
-    : undefined;
+  const ssl = driverTlsOptions(config);
   if (config.connectionString) {
     return {
       connectionString: config.connectionString,
       ssl,
-      connectionTimeoutMillis: 5000,
+      connectionTimeoutMillis: CONNECT_TIMEOUT_MS,
       ...(database ? { database } : {}),
     };
   }
@@ -40,7 +50,7 @@ export function postgresPoolConfig(config: DriverConnectionConfig, database?: st
     user: config.user || "postgres",
     password: config.password,
     ssl,
-    connectionTimeoutMillis: 5000,
+    connectionTimeoutMillis: CONNECT_TIMEOUT_MS,
   };
 }
 
@@ -117,6 +127,51 @@ export class PostgresDriver implements DatabaseDriver {
           AND tc.table_schema NOT IN ('pg_catalog', 'information_schema');
       `);
 
+      // 5. Fetch the indexes created on their own: a primary key and a single-column UNIQUE constraint are already read
+      // as the column's `pk` / `unique`. An expression or partial index can't be written as columns, so it is left out.
+      const indexRes = await client.query<IndexRow>(`
+        SELECT t.relname AS table_name, i.relname AS index_name, a.attname AS column_name, ix.indisunique AS is_unique
+        FROM pg_index ix
+        JOIN pg_class t ON t.oid = ix.indrelid
+        JOIN pg_class i ON i.oid = ix.indexrelid
+        JOIN pg_namespace n ON n.oid = t.relnamespace
+        CROSS JOIN LATERAL unnest(ix.indkey::int2[]) WITH ORDINALITY AS k(attnum, ord)
+        JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = k.attnum
+        WHERE n.nspname NOT IN ('pg_catalog', 'information_schema', 'pg_toast')
+          AND t.relkind IN ('r', 'p')
+          AND NOT ix.indisprimary
+          AND ix.indexprs IS NULL AND ix.indpred IS NULL
+          AND k.ord <= ix.indnkeyatts
+          AND NOT (ix.indnkeyatts = 1 AND EXISTS (
+            SELECT 1 FROM pg_constraint c WHERE c.conindid = ix.indexrelid AND c.contype = 'u'))
+        ORDER BY t.relname, i.relname, k.ord;
+      `);
+      const indexesByTable = new Map<string, Map<string, TableIndex>>();
+      for (const row of indexRes.rows) {
+        const byName = indexesByTable.get(row.table_name) ?? new Map<string, TableIndex>();
+        const index = byName.get(row.index_name) ?? {
+          id: `${row.table_name}.${row.index_name}`,
+          name: row.index_name,
+          fieldIds: [],
+          ...(row.is_unique ? { unique: true } : {}),
+        };
+        index.fieldIds.push(`${row.table_name}.${row.column_name}`);
+        byName.set(row.index_name, index);
+        indexesByTable.set(row.table_name, byName);
+      }
+
+      // 6. A UNIQUE constraint on one column is that column's `unique` (the generator writes it inline).
+      const uniqueRes = await client.query(`
+        SELECT t.relname AS table_name, a.attname AS column_name
+        FROM pg_constraint c
+        JOIN pg_class t ON t.oid = c.conrelid
+        JOIN pg_namespace n ON n.oid = t.relnamespace
+        JOIN pg_attribute a ON a.attrelid = t.oid AND a.attnum = c.conkey[1]
+        WHERE c.contype = 'u' AND array_length(c.conkey, 1) = 1
+          AND n.nspname NOT IN ('pg_catalog', 'information_schema');
+      `);
+      const uniqueSet = new Set(uniqueRes.rows.map((r) => `${r.table_name}.${r.column_name}`));
+
       // Build tables & fields
       const columnsByTable = new Map<string, ColumnRow[]>();
       for (const col of columnsRes.rows) {
@@ -134,6 +189,7 @@ export class PostgresDriver implements DatabaseDriver {
             name: c.column_name,
             type,
             pk: isPk,
+            ...(uniqueSet.has(`${t.table_name}.${c.column_name}`) ? { unique: true } : {}),
             notNull: c.is_nullable === "NO",
             default: c.column_default ? String(c.column_default) : undefined,
           };
@@ -144,7 +200,7 @@ export class PostgresDriver implements DatabaseDriver {
           name: t.table_name,
           schemaName: t.table_schema !== "public" ? t.table_schema : undefined,
           fields,
-          indexes: [] as TableIndex[],
+          indexes: [...(indexesByTable.get(t.table_name)?.values() ?? [])],
           position: { x: (idx % 6) * 320, y: Math.floor(idx / 6) * 400 },
           detailLevel: "standard" as const,
         };
@@ -196,20 +252,21 @@ export class PostgresDriver implements DatabaseDriver {
    * whole table back. Returns the number of rows inserted.
    */
   async insertRows(table: string, columns: string[], rows: RowValue[][]): Promise<number> {
-    if (rows.length === 0) return 0;
+    return this.insertRowBatches(table, columns, oneBatch(rows));
+  }
+
+  /**
+   * `insertRows` for a seed too big to hold: the batches arrive one after the other (read from a file) and
+   * all go in the same transaction.
+   */
+  async insertRowBatches(table: string, columns: string[], batches: AsyncIterable<RowValue[][]>): Promise<number> {
     const client = await this.pool.connect();
-    const head = `INSERT INTO ${q(table, "postgres")} (${columns.map((c) => q(c, "postgres")).join(", ")}) VALUES `;
-    const batch = Math.max(1, Math.min(500, Math.floor(30000 / columns.length)));
     try {
       await client.query("BEGIN");
-      for (let i = 0; i < rows.length; i += batch) {
-        const chunk = rows.slice(i, i + batch);
-        let n = 0;
-        const values = chunk.map((row) => `(${row.map(() => `$${++n}`).join(", ")})`).join(", ");
-        await client.query(head + values, chunk.flat());
-      }
+      let total = 0;
+      for await (const rows of batches) total += await insertChunks(client, table, columns, rows, false);
       await client.query("COMMIT");
-      return rows.length;
+      return total;
     } catch (err) {
       await client.query("ROLLBACK").catch(() => {});
       throw err;
@@ -261,7 +318,142 @@ export class PostgresDriver implements DatabaseDriver {
     }
   }
 
+  /** A restore in one transaction: PostgreSQL rolls back the `DELETE`s, the inserts and the `setval`s together. */
+  async openRestoreSession(): Promise<RestoreSession> {
+    const client = await this.pool.connect();
+    try {
+      await client.query("BEGIN");
+    } catch (err) {
+      client.release(true);
+      throw err;
+    }
+    return new PostgresRestoreSession(client);
+  }
+
   async close(): Promise<void> {
     await this.pool.end();
+  }
+}
+
+/**
+ * One table's rows as multi-row `INSERT`s with bound parameters, on a client
+ * already inside a transaction. `overriding` lets explicit values into
+ * `GENERATED ALWAYS` identity columns, which PostgreSQL otherwise refuses.
+ */
+async function insertChunks(
+  client: pg.PoolClient,
+  table: string,
+  columns: string[],
+  rows: RowValue[][],
+  overriding: boolean,
+): Promise<number> {
+  const head =
+    `INSERT INTO ${q(table, "postgres")} (${columns.map((c) => q(c, "postgres")).join(", ")}) ` +
+    `${overriding ? "OVERRIDING SYSTEM VALUE " : ""}VALUES `;
+  const batch = Math.max(1, Math.min(500, Math.floor(30000 / columns.length)));
+  for (let i = 0; i < rows.length; i += batch) {
+    const chunk = rows.slice(i, i + batch);
+    let n = 0;
+    const values = chunk.map((row) => `(${row.map(() => "$" + ++n).join(", ")})`).join(", ");
+    await client.query(head + values, chunk.flat());
+  }
+  return rows.length;
+}
+
+interface RestoreColumnRow {
+  name: string;
+  always: boolean;
+  generated: boolean;
+  sequence: string | null;
+}
+
+/**
+ * Names resolve like the rest of the driver: unqualified, through the search
+ * path. Serial and identity columns are both found by the sequence they own
+ * (`pg_get_serial_sequence`); a sequence only named in a `DEFAULT nextval(…)`
+ * is not owned by the column and is left alone.
+ */
+const RESTORE_COLUMNS_SQL = `
+  WITH t AS (
+    SELECT c.relname, n.nspname FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+    WHERE c.oid = $1::text::regclass
+  )
+  SELECT ic.column_name AS name,
+         (ic.is_identity = 'YES' AND ic.identity_generation = 'ALWAYS') AS always,
+         (ic.is_generated = 'ALWAYS') AS generated,
+         pg_get_serial_sequence($1::text, ic.column_name) AS sequence
+  FROM information_schema.columns ic JOIN t ON ic.table_schema = t.nspname AND ic.table_name = t.relname`;
+
+class PostgresRestoreSession implements RestoreSession {
+  readonly atomic = true;
+  readonly identities = "resynced" as const;
+  /** Per table, as `describeTable` found them: `GENERATED ALWAYS` identity columns, and each counter's sequence. */
+  private always = new Map<string, Set<string>>();
+  private sequences = new Map<string, Map<string, string>>();
+  private broken = false;
+  private released = false;
+
+  constructor(private client: pg.PoolClient) {}
+
+  async describeTable(table: string): Promise<RestoreTableColumns> {
+    const { rows } = await this.client.query<RestoreColumnRow>(RESTORE_COLUMNS_SQL, [q(table, "postgres")]);
+    this.always.set(table, new Set(rows.filter((row) => row.always).map((row) => row.name.toLowerCase())));
+    const sequences = new Map(
+      rows.filter((row) => row.sequence).map((row) => [row.name.toLowerCase(), row.sequence!] as const),
+    );
+    this.sequences.set(table, sequences);
+    return {
+      generated: rows.filter((row) => row.generated).map((row) => row.name),
+      identity: rows.filter((row) => row.sequence).map((row) => row.name),
+    };
+  }
+
+  async emptyTable(table: string): Promise<number> {
+    return (await this.client.query(`DELETE FROM ${q(table, "postgres")}`)).rowCount ?? 0;
+  }
+
+  async insertRows(table: string, columns: string[], rows: RowValue[][]): Promise<number> {
+    const always = this.always.get(table);
+    const overriding = columns.some((column) => always?.has(column.toLowerCase()));
+    return insertChunks(this.client, table, columns, rows, overriding);
+  }
+
+  /**
+   * `setval` to the highest value now in the column (the lowest for a
+   * descending sequence), kept within the sequence's bounds, so the next
+   * `nextval` comes after the restored rows. An empty table leaves its
+   * sequence where it was: nothing can collide with it.
+   */
+  async resyncIdentity(table: string, columns: string[]): Promise<void> {
+    for (const column of columns) {
+      const sequence = this.sequences.get(table)?.get(column.toLowerCase());
+      if (!sequence) continue;
+      const col = q(column, "postgres");
+      await this.client.query(
+        `SELECT setval(s.seqrelid, GREATEST(s.seqmin, LEAST(s.seqmax, CASE WHEN s.seqincrement > 0 THEN x.hi ELSE x.lo END)))
+         FROM pg_sequence s, (SELECT MAX(${col})::bigint AS hi, MIN(${col})::bigint AS lo FROM ${q(table, "postgres")}) x
+         WHERE s.seqrelid = $1::text::regclass AND x.hi IS NOT NULL`,
+        [sequence],
+      );
+    }
+  }
+
+  async commit(): Promise<void> {
+    await this.client.query("COMMIT");
+  }
+
+  async rollback(): Promise<void> {
+    try {
+      await this.client.query("ROLLBACK");
+    } catch {
+      // The connection is gone: so is the transaction. Not handed back to the pool.
+      this.broken = true;
+    }
+  }
+
+  async release(): Promise<void> {
+    if (this.released) return;
+    this.released = true;
+    this.client.release(this.broken);
   }
 }

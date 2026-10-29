@@ -1,4 +1,11 @@
-import type { BackupDestination, BackupList, BackupSchedule, BackupSummary, RestoreResult } from "@nebuladb/shared";
+import type {
+  BackupDestination,
+  BackupDestinationInput,
+  BackupList,
+  BackupSchedule,
+  BackupSummary,
+  RestoreResult,
+} from "@nebuladb/shared";
 import { request } from "./httpClient";
 
 /** Backups of a connected database — instance administrators only, like the console they sit in. */
@@ -38,15 +45,15 @@ export async function saveBackupSchedule(
   ).schedule;
 }
 
-/** `null`: back to the instance's own folder. The server tries the folder before keeping it. */
+/** A folder (`null`: the instance's own), an S3 bucket or an SFTP server. The server tries it before keeping it. */
 export async function saveBackupDestination(
   connectionId: string,
-  directory: string | null,
+  destination: BackupDestinationInput,
 ): Promise<BackupDestination> {
   return (
     await request<{ destination: BackupDestination }>(`/api/admin/connections/${connectionId}/backup-destination`, {
       method: "PUT",
-      body: { directory },
+      body: destination,
     })
   ).destination;
 }

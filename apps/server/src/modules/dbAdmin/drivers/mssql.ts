@@ -279,7 +279,8 @@ export class MssqlAdminDriver implements DatabaseAdminDriver {
         affected = (result?.rowsAffected ?? []).reduce((sum, n) => sum + n, 0);
         resolve();
       });
-      request.query(text);
+      // In streaming mode the outcome arrives through the events above.
+      void request.query(text);
     });
     return toResult(columns, rows, maxRows, startedAt, affected);
   }

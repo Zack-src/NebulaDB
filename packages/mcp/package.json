@@ -1,0 +1,36 @@
+{
+  "name": "@nebuladb/mcp",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Model Context Protocol server exposing a NebulaDB instance's schema (read-only) to code agents.",
+  "bin": {
+    "nebuladb-mcp": "./dist/bin.js"
+  },
+  "main": "./dist/server.js",
+  "types": "./dist/server.d.ts",
+  "files": [
+    "dist",
+    "!dist/**/*.test.*",
+    "README.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsc -p tsconfig.json --watch",
+    "test": "node --test \"dist/**/*.test.js\"",
+    "test:coverage": "node -e \"require('fs').mkdirSync('coverage',{recursive:true})\" && node --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info \"dist/**/*.test.js\"",
+    "check:circular": "madge --circular --extensions ts src/bin.ts"
+  },
+  "engines": {
+    "node": ">=22 <26"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "typescript": "^7.0.2"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.2",
+    "@nebuladb/dbml-engine": "*",
+    "@nebuladb/shared": "*",
+    "zod": "^4.6.7"
+  }
+}

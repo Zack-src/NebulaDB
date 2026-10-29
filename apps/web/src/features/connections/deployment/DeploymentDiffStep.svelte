@@ -7,6 +7,7 @@
   import { lintMessage } from "@/features/editor/lint/lintText";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import type { PlanDeploymentResponse } from "@/services/connectionsApi";
+  import AnalyzingNotice from "./AnalyzingNotice.svelte";
 
   /**
    * First step of the deployment dialog: what differs between the schema and
@@ -42,9 +43,7 @@
 <!-- Step 1: Schema Diff View -->
 <div class="space-y-3">
   {#if analyzing}
-    <div class="flex h-48 items-center justify-center text-xs text-text-muted">
-      {t("deployment.analyzingDiff")}
-    </div>
+    <AnalyzingNotice title={t("deployment.analyzing")} detail={t("deployment.analyzingDiff")} />
   {:else if !diff?.hasChanges && !seedsToInsert}
     <div class="rounded-sm border border-border bg-surface-raised p-6 text-center text-xs text-text-muted">
       <Icon icon={CheckCircleIcon} size={24} class="mx-auto mb-2 text-emerald-400" />
@@ -68,7 +67,7 @@
           </div>
 
           {#if table.fields.length > 0}
-            <div class="mt-1.5 space-y-1 border-t border-border/50 pl-2 pt-1 font-mono text-[11px]">
+            <div class="mt-1.5 space-y-1 border-t border-border/50 pl-2 pt-1 font-mono text-caption">
               {#each table.fields as f (f.name)}
                 <div class="flex items-center justify-between text-text-muted">
                   <div>
@@ -83,7 +82,7 @@
                       <span class="text-amber-400"> [{f.after?.notNull ? "NOT NULL" : "NULL"}]</span>
                     {/if}
                   </div>
-                  <span class="text-[10px] text-text-muted">{f.status}</span>
+                  <span class="text-micro text-text-muted">{f.status}</span>
                 </div>
               {/each}
             </div>
@@ -144,7 +143,7 @@
         <Checkbox bind:checked={skipSeeds}><span class="text-xs">{t("seeds.skip")}</span></Checkbox>
       {/if}
     </div>
-    <ul class={`space-y-0.5 font-mono text-[11px] ${skipSeeds ? "opacity-50" : ""}`}>
+    <ul class={`space-y-0.5 font-mono text-caption ${skipSeeds ? "opacity-50" : ""}`}>
       {#each seedPlan as entry (entry.tableId)}
         <li class={entry.errors > 0 ? "text-danger" : entry.action === "insert" ? "text-emerald-400" : "text-text-muted"}>
           {entry.tableName} :

@@ -67,9 +67,9 @@ test(
         { filePath: targetFile },
       );
 
-      await page.goto(`${env.baseUrl}/project/${projectId}`);
-      await page.getByRole("button", { name: "Déployer", exact: true }).first().click();
-      const modal = page.getByRole("dialog").first();
+      // The Déploiements tab holds the deployment of the project's database.
+      await page.goto(`${env.baseUrl}/project/${projectId}/deployments`);
+      const modal = page.getByTestId("deployment-panel");
       await modal.getByText("2 ligne(s) concernée(s)").waitFor();
       assert.equal(await modal.getByText("secret one").count(), 0, "no row data in the plan");
       await snap("plan");
@@ -95,7 +95,7 @@ test(
         .waitFor();
 
       // The history keeps the decision and its reason.
-      await modal.getByRole("button", { name: "Historique" }).click();
+      await modal.getByRole("tab", { name: "Historique" }).click();
       await modal.getByText("Risques de ce déploiement").waitFor();
       await modal.getByText("« notes moved to the CRM »").waitFor();
       await modal.getByText(/colonne supprimée/).waitFor();

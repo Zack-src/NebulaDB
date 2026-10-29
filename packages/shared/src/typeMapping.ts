@@ -15,7 +15,7 @@ export function normalizeTypeString(raw: string): { name: string; args: string[]
   if (!trimmed) return null;
   const match = trimmed.match(/^([a-z][a-z0-9_ ]*?)\s*(?:\(([^)]*)\))?$/);
   if (!match) return null;
-  const name = match[1].trim().replace(/\s+/g, " ");
+  const name = (match[1] ?? "").trim().replace(/\s+/g, " ");
   const args = match[2] ? match[2].split(",").map((a) => a.trim()) : [];
   return { name, args };
 }
@@ -250,6 +250,8 @@ const FAMILIES: Record<string, FamilyDef> = {
       mysql: ["timestamp", "datetime"],
       sqlite: ["timestamp", "datetime"],
       oracle: ["timestamp"],
+      // SQL Server's own `timestamp` is a row version, not a date: it stays translated.
+      mssql: ["datetime", "datetime2"],
       // TIMESTAMP is a point in time, DATETIME a date and a time without a zone: both exist, neither is forced.
       bigquery: ["timestamp", "datetime"],
     },
@@ -353,7 +355,7 @@ export function translateType(raw: string, targetEngine: DatabaseEngine): TypeTr
         ? unbounded === FAMILIES.binary
           ? "longblob"
           : "longtext"
-        : unbounded.render[targetEngine]([]);
+        : (unbounded?.render[targetEngine]([]) ?? "text");
     return { original, type, changed: true };
   }
 
@@ -368,11 +370,16 @@ export function translateType(raw: string, targetEngine: DatabaseEngine): TypeTr
     }
   }
 
-  if (family.nativeOn[targetEngine]?.includes(parsed.name)) {
+  // `STRING(255)` carries a length, so it is a sized string: on the other engines it becomes `varchar(255)`, not the
+  // unbounded text type (SQL Server cannot put a `UNIQUE` or an index on `nvarchar(max)`).
+  const sized = family === FAMILIES.text && parsed.args.length > 0 && targetEngine !== "bigquery";
+  const target = sized ? FAMILIES.varchar! : family;
+
+  if (target.nativeOn[targetEngine]?.includes(parsed.name)) {
     return { original, type: original, changed: false };
   }
 
-  return { original, type: family.render[targetEngine](parsed.args), changed: true };
+  return { original, type: target.render[targetEngine](parsed.args), changed: true };
 }
 
 export const SUPPORTED_ENGINES: DatabaseEngine[] = ["postgres", "mysql", "sqlite", "mssql", "oracle", "bigquery"];
@@ -401,7 +408,7 @@ const NEUTRAL_FAMILY: Record<string, string> = {
 export function neutralType(raw: string): string {
   const parsed = normalizeTypeString(raw ?? "");
   if (!parsed) return (raw ?? "").trim().toLowerCase();
-  const name = Object.keys(FAMILIES).find((key) => FAMILIES[key].recognizedAs.includes(parsed.name));
+  const name = Object.keys(FAMILIES).find((key) => FAMILIES[key]?.recognizedAs.includes(parsed.name));
   if (!name) return (raw ?? "").trim().toLowerCase().replace(/s+/g, "");
   const family = NEUTRAL_FAMILY[name] ?? name;
   const sized = (family === "text" || family === "decimal") && parsed.args.length > 0 && !parsed.args.includes("max");

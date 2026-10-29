@@ -27,7 +27,7 @@
     <button
       onclick={() => onSectionChange(entry.key)}
       aria-current={active ? "page" : undefined}
-      class={`flex shrink-0 items-center gap-2 rounded-md px-3 py-1.5 text-left text-[12px] font-medium transition-colors ${
+      class={`flex shrink-0 items-center gap-2 rounded-md px-3 py-1.5 text-left text-label font-medium transition-colors ${
         active ? "bg-primary-light text-primary" : "text-text-secondary hover:bg-surface-hover hover:text-text"
       }`}
     >
@@ -35,7 +35,7 @@
       <span class="flex-1">{t(entry.labelKey)}</span>
       {#if count > 0}
         <span
-          class={`rounded-full px-1.5 py-px text-[11px] font-semibold ${
+          class={`rounded-full px-1.5 py-px text-caption font-semibold ${
             active ? "bg-primary/20 text-primary" : "bg-surface-hover text-text-muted"
           }`}
         >

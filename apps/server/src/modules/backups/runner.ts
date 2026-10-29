@@ -18,6 +18,7 @@ import {
   recordProgress,
 } from "./repository.js";
 import { openBackupWriter, type BackupWriter } from "./storage.js";
+import { isUniqueViolation } from "../../infrastructure/db.js";
 
 /** Rows read per query: small enough to hold in memory whatever the table, large enough not to crawl. */
 const PAGE_ROWS = 2000;
@@ -55,9 +56,9 @@ async function run(id: string, request: BackupRequest, job: { cancelled: boolean
     const tables = tablesInBackupOrder(await driver.introspectSchema(), request.tables ?? null);
     const done: BackupTableInfo[] = [];
     let rows = 0;
-    recordProgress(id, tables.length, done, rows);
+    await recordProgress(id, tables.length, done, rows);
 
-    writer = openBackupWriter(id);
+    writer = await openBackupWriter(id);
     const header: BackupFileHeader = {
       format: "nebuladb-backup",
       version: 1,
@@ -92,14 +93,14 @@ async function run(id: string, request: BackupRequest, job: { cancelled: boolean
       await writer.write({ end: table.name, rows: count });
       rows += count;
       done.push({ name: table.name, columns, rows: count });
-      recordProgress(id, tables.length, done, rows);
+      await recordProgress(id, tables.length, done, rows);
       await breathe();
     }
-    markBackupDone(id, await writer.finish());
+    await markBackupDone(id, await writer.finish());
   } catch (err) {
     await writer?.abort();
-    if (err instanceof BackupCancelled) markBackupEnded(id, "cancelled", null);
-    else markBackupEnded(id, "failed", err instanceof Error ? err.message : String(err));
+    if (err instanceof BackupCancelled) await markBackupEnded(id, "cancelled", null);
+    else await markBackupEnded(id, "failed", err instanceof Error ? err.message : String(err));
   } finally {
     await driver.close().catch(() => {});
   }
@@ -111,28 +112,39 @@ async function run(id: string, request: BackupRequest, job: { cancelled: boolean
  * record's `status`. One backup per database at a time: two would read the
  * same tables twice over for no gain.
  */
-export function startBackup(request: BackupRequest): { backup: BackupSummary; done: Promise<BackupSummary> } {
+export async function startBackup(
+  request: BackupRequest,
+): Promise<{ backup: BackupSummary; done: Promise<BackupSummary> }> {
   const { connection } = request;
-  if (hasRunningBackup(connection.id)) throw new ApiError("BACKUP_ALREADY_RUNNING");
-  const id = insertBackup({
-    connectionId: connection.id,
-    connectionName: connection.name,
-    engine: connection.engine,
-    trigger: request.trigger,
-    scope: request.tables && request.tables.length > 0 ? request.tables : null,
-    note: request.note ?? null,
-    createdBy: request.createdBy ?? null,
-  });
+  if (await hasRunningBackup(connection.id)) throw new ApiError("BACKUP_ALREADY_RUNNING");
+  let id: string;
+  try {
+    id = await insertBackup({
+      connectionId: connection.id,
+      connectionName: connection.name,
+      engine: connection.engine,
+      trigger: request.trigger,
+      scope: request.tables && request.tables.length > 0 ? request.tables : null,
+      note: request.note ?? null,
+      createdBy: request.createdBy ?? null,
+    });
+  } catch (err) {
+    // Another request started one between the look above and this insert.
+    if (isUniqueViolation(err, "idx_backups_running")) throw new ApiError("BACKUP_ALREADY_RUNNING");
+    throw err;
+  }
   const job = { cancelled: false };
   running.set(id, job);
   const done = run(id, request, job)
     // Only what `run` could not handle itself: the driver failing to open.
-    .catch((err: unknown) => markBackupEnded(id, "failed", err instanceof Error ? err.message : String(err)))
-    .then(() => {
+    .catch(
+      async (err: unknown) => await markBackupEnded(id, "failed", err instanceof Error ? err.message : String(err)),
+    )
+    .then(async () => {
       running.delete(id);
-      return getBackup(id)!;
+      return (await getBackup(id))!;
     });
-  return { backup: getBackup(id)!, done };
+  return { backup: (await getBackup(id))!, done };
 }
 
 /**
@@ -141,7 +153,7 @@ export function startBackup(request: BackupRequest): { backup: BackupSummary; do
  * `BACKUP_FAILED` and the reason.
  */
 export async function backupOrRefuse(request: BackupRequest): Promise<BackupSummary> {
-  const backup = await startBackup(request).done;
+  const backup = await (await startBackup(request)).done;
   if (backup.status !== "done") {
     throw new ApiError("BACKUP_FAILED", {
       message: `the safety backup did not complete: ${backup.error ?? backup.status}`,

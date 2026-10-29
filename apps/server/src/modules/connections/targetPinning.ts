@@ -52,7 +52,12 @@ export async function pinConnectionTarget(config: DatabaseConnectionConfig): Pro
   if (!config.connectionString) {
     const pinned = await resolveAllowedHost(config.host);
     if (!pinned) return config;
-    return { ...config, pinnedAddress: pinned.address, tlsServerName: serverName(pinned.hostname) };
+    return {
+      ...config,
+      pinnedAddress: pinned.address,
+      tlsServerName: serverName(pinned.hostname),
+      tlsHost: pinned.hostname,
+    };
   }
 
   if (config.engine === "mssql") {
@@ -87,6 +92,7 @@ export async function pinConnectionTarget(config: DatabaseConnectionConfig): Pro
     connectionString: url.toString(),
     ssl: Boolean(config.ssl) || urlWantsTls,
     tlsServerName: serverName(pinned.hostname),
+    tlsHost: pinned.hostname,
     tlsVerify: urlWantsTls && sslmode !== "no-verify",
   };
 }

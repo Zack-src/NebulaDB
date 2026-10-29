@@ -3,6 +3,7 @@ import type { DatabaseEngine, EnvironmentStage, PipelineConnection, Project, Pro
 import { db } from "../../infrastructure/db.js";
 import { ApiError } from "../../shared/errors.js";
 import { listEnvironments } from "../environments/repository.js";
+import { mapAsync } from "../../shared/async.js";
 
 /**
  * The schema's identity for the pipeline: the structure as written in the
@@ -30,16 +31,16 @@ interface LastRow {
 }
 
 /** What last happened to a database from this project, and whether it left it at `schemaHash`. */
-function connectionState(projectId: string, link: LinkRow, schemaHash: string): PipelineConnection {
-  const last = db
+async function connectionState(projectId: string, link: LinkRow, schemaHash: string): Promise<PipelineConnection> {
+  const last = (await db
     .prepare(
       `SELECT h.created_at, h.executed_by_email, h.success, h.rollback_of, h.schema_hash,
               EXISTS (SELECT 1 FROM deployment_history r WHERE r.rollback_of = h.id AND r.success = 1) AS rolled_back
          FROM deployment_history h
         WHERE h.project_id = ? AND h.connection_id = ?
-        ORDER BY h.rowid DESC LIMIT 1`,
+        ORDER BY h.seq DESC LIMIT 1`,
     )
-    .get(projectId, link.id) as LastRow | undefined;
+    .get(projectId, link.id)) as LastRow | undefined;
   return {
     id: link.id,
     name: link.name,
@@ -70,18 +71,21 @@ const guarded = (stage: Pick<EnvironmentStage, "protection">) => stage.protectio
  * is level with it. A project with a single database, or none before the
  * guarded stage, has nothing to wait for.
  */
-export function projectPipeline(projectId: string, schemaHash: string): ProjectPipeline {
-  const links = db
+export async function projectPipeline(projectId: string, schemaHash: string): Promise<ProjectPipeline> {
+  const links = (await db
     .prepare(
       `SELECT c.id, c.name, c.engine, c.environment_id
          FROM db_connections c JOIN project_connection_links l ON l.connection_id = c.id
         WHERE l.project_id = ? ORDER BY c.name`,
     )
-    .all(projectId) as LinkRow[];
-  const states = links.map((link) => ({ link, state: connectionState(projectId, link, schemaHash) }));
+    .all(projectId)) as LinkRow[];
+  const states = await mapAsync(links, async (link) => ({
+    link,
+    state: await connectionState(projectId, link, schemaHash),
+  }));
 
   let previous: { name: string; level: boolean } | null = null;
-  const stages = listEnvironments().map((stage) => {
+  const stages = (await listEnvironments()).map((stage) => {
     const connections = states.filter(({ link }) => link.environment_id === stage.id).map(({ state }) => state);
     const requires = guarded(stage) && connections.length > 0 && previous ? previous.name : null;
     const entry = {
@@ -109,14 +113,16 @@ export function projectPipeline(projectId: string, schemaHash: string): ProjectP
  * past — the route only passes it for an instance administrator who gave a
  * reason, and audits it.
  */
-export function assertStageOrder(
+export async function assertStageOrder(
   projectId: string,
   connection: { id: string; environmentId?: string | null },
   schemaHash: string,
   skip: boolean,
-): void {
+): Promise<void> {
   if (skip || !connection.environmentId) return;
-  const stage = projectPipeline(projectId, schemaHash).stages.find((entry) => entry.id === connection.environmentId);
+  const stage = (await projectPipeline(projectId, schemaHash)).stages.find(
+    (entry) => entry.id === connection.environmentId,
+  );
   if (!stage || stage.ready) return;
   throw new ApiError("PIPELINE_STAGE_SKIPPED", { details: { stage: stage.name, requires: stage.requires } });
 }

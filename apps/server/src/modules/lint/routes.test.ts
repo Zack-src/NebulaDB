@@ -5,8 +5,9 @@ import { existsSync, mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-lint-${randomUUID()}.sqlite`);
+await useTestDatabase("lint");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -29,18 +30,19 @@ async function login(app: App) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, NULL)").run(
-    id,
-    email,
-    await hashPassword(password),
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 0, NULL)")
+    .run(id, email, await hashPassword(password));
   const res = await app.inject({
     method: "POST",
     url: "/api/auth/login",
     headers: headers(),
     payload: { email, password },
   });
-  return { id, cookie: `nebuladb_sid=${res.cookies.find((c) => c.name === "nebuladb_sid")!.value}` };
+  return {
+    id,
+    cookie: `nebuladb_sid=${res.cookies.find((c) => c.name === "nebuladb_sid")!.value}`,
+  };
 }
 
 function call(app: App, cookie: string, method: "GET" | "POST" | "PUT" | "DELETE", url: string, payload?: unknown) {
@@ -53,15 +55,13 @@ function call(app: App, cookie: string, method: "GET" | "POST" | "PUT" | "DELETE
 }
 
 /** Grants `userId` a level on the project through a team — the only way a non-owner gets one. */
-function grant(projectId: string, userId: string, permission: string) {
+async function grant(projectId: string, userId: string, permission: string) {
   const teamId = randomUUID();
-  db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(teamId, `team-${teamId}`);
-  db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, userId);
-  db.prepare("INSERT INTO project_teams (project_id, team_id, permission) VALUES (?, ?, ?)").run(
-    projectId,
-    teamId,
-    permission,
-  );
+  await db.prepare("INSERT INTO teams (id, name) VALUES (?, ?)").run(teamId, `team-${teamId}`);
+  await db.prepare("INSERT INTO team_members (team_id, user_id) VALUES (?, ?)").run(teamId, userId);
+  await db
+    .prepare("INSERT INTO project_teams (project_id, team_id, permission) VALUES (?, ?, ?)")
+    .run(projectId, teamId, permission);
 }
 
 /** A project whose only table has neither a key, a description nor timestamps. */
@@ -70,8 +70,8 @@ async function createProject(app: App, cookie: string) {
     id: string;
     name: string;
   };
-  const room = getRoom(project.id);
-  room.doc.transact(() => {
+  const room = await getRoom(project.id);
+  await room.write(() => {
     writeProjectToDoc(room.doc, {
       id: project.id,
       name: project.name,
@@ -91,7 +91,7 @@ async function createProject(app: App, cookie: string) {
       stickyNotes: [],
       tableGroups: [],
     });
-  });
+  }, "test-seed");
   return project;
 }
 
@@ -109,11 +109,13 @@ test("lint: defaults, who may change the rules, what is refused, and the public 
     const viewer = await login(app);
     const stranger = await login(app);
     const project = await createProject(app, owner.cookie);
-    grant(project.id, viewer.id, "edit");
+    await grant(project.id, viewer.id, "edit");
     const url = `/api/projects/${project.id}/lint`;
 
     // Nothing saved yet: the standard profile, nothing blocked.
-    const initial = (await call(app, owner.cookie, "GET", url)).json() as { settings: Record<string, unknown> };
+    const initial = (await call(app, owner.cookie, "GET", url)).json() as {
+      settings: Record<string, unknown>;
+    };
     assert.deepEqual(initial.settings, {
       profile: "standard",
       rules: {},
@@ -126,21 +128,31 @@ test("lint: defaults, who may change the rules, what is refused, and the public 
     assert.equal((await call(app, viewer.cookie, "GET", url)).statusCode, 200);
     assert.equal((await call(app, stranger.cookie, "GET", url)).statusCode, 403);
 
-    const strict = { profile: "strict", rules: { timestamps: "off" }, blockDeployment: true };
+    const strict = {
+      profile: "strict",
+      rules: { timestamps: "off" },
+      blockDeployment: true,
+    };
     // Editing the schema is not choosing its rules.
     assert.equal((await call(app, viewer.cookie, "PUT", url, strict)).statusCode, 403);
-    const bad = await call(app, owner.cookie, "PUT", url, { profile: "strict", rules: { timestamps: "fatal" } });
+    const bad = await call(app, owner.cookie, "PUT", url, {
+      profile: "strict",
+      rules: { timestamps: "fatal" },
+    });
     assert.equal(bad.statusCode, 400);
     assert.equal((bad.json() as { code: string }).code, "LINT_INVALID");
 
     const saved = await call(app, owner.cookie, "PUT", url, strict);
     assert.equal(saved.statusCode, 200);
-    const again = (await call(app, viewer.cookie, "GET", url)).json() as { settings: typeof strict };
+    const again = (await call(app, viewer.cookie, "GET", url)).json() as {
+      settings: typeof strict;
+    };
     assert.equal(again.settings.profile, "strict");
     assert.equal(again.settings.blockDeployment, true);
     assert.deepEqual(again.settings.rules, { timestamps: "off" });
     assert.equal(
-      (db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'project.lint'").get() as { n: number }).n,
+      ((await db.prepare("SELECT COUNT(*) AS n FROM audit_log WHERE action = 'project.lint'").get()) as { n: number })
+        .n,
       1,
     );
 
@@ -160,9 +172,16 @@ test("lint: defaults, who may change the rules, what is refused, and the public 
 
     // The settings go with the project.
     assert.equal((await call(app, owner.cookie, "DELETE", `/api/projects/${project.id}`)).statusCode, 200);
-    assert.equal((db.prepare("SELECT COUNT(*) AS n FROM lint_settings").get() as { n: number }).n, 0);
+    assert.equal(
+      (
+        (await db.prepare("SELECT COUNT(*) AS n FROM lint_settings").get()) as {
+          n: number;
+        }
+      ).n,
+      0,
+    );
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -197,8 +216,15 @@ test("lint: a deployment is refused on an error when the project asks for it, an
       (await call(app, owner.cookie, "POST", `${base}/connections/${connId}/plan-deployment`, {})).json().blockers;
     // Errors only count against a deployment when the project asked for that.
     await call(app, owner.cookie, "PUT", `${base}/lint`, { profile: "strict" });
-    assert.deepEqual(await blockers(), { lintErrors: 0, lintFindings: [], waitsForStage: null });
-    await call(app, owner.cookie, "PUT", `${base}/lint`, { profile: "strict", blockDeployment: true });
+    assert.deepEqual(await blockers(), {
+      lintErrors: 0,
+      lintFindings: [],
+      waitsForStage: null,
+    });
+    await call(app, owner.cookie, "PUT", `${base}/lint`, {
+      profile: "strict",
+      blockDeployment: true,
+    });
     // The plan names what blocks, so the dialog can say it before "Apply".
     const blocked = await blockers();
     assert.equal(blocked.lintErrors, 1);
@@ -209,7 +235,11 @@ test("lint: a deployment is refused on an error when the project asks for it, an
     assert.deepEqual(blocked.lintFindings[0].params, { table: "widgets" });
     const refused = await deploy();
     assert.equal(refused.statusCode, 409, refused.body);
-    const body = refused.json() as { code: string; count: number; findings: { ruleId: string }[] };
+    const body = refused.json() as {
+      code: string;
+      count: number;
+      findings: { ruleId: string }[];
+    };
     assert.equal(body.code, "LINT_BLOCKS_DEPLOYMENT");
     assert.equal(body.count, 1);
     assert.equal(body.findings[0].ruleId, "pk-required");
@@ -225,14 +255,14 @@ test("lint: a deployment is refused on an error when the project asks for it, an
     assert.equal(allowed.statusCode, 200, allowed.body);
     assert.deepEqual(tablesInTarget(), ["widgets"]);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
 
 async function loginAdmin(app: App) {
   const session = await login(app);
-  db.prepare("UPDATE users SET is_admin = 1 WHERE id = ?").run(session.id);
+  await db.prepare("UPDATE users SET is_admin = 1 WHERE id = ?").run(session.id);
   return session;
 }
 
@@ -253,7 +283,11 @@ const orderPreset = (extra: Record<string, unknown> = {}) => ({
 });
 
 interface LintState {
-  settings: { profile: string; customRules: { id: string }[]; blockDeployment: boolean };
+  settings: {
+    profile: string;
+    customRules: { id: string }[];
+    blockDeployment: boolean;
+  };
   source: { kind: string; presetId?: string; presetName?: string };
   presets: { id: string; name: string; isDefault: boolean }[];
 }
@@ -265,14 +299,17 @@ test("lint presets: the library is for instance administrators, one is the defau
     const owner = await login(app);
     const member = await login(app);
     const project = await createProject(app, owner.cookie);
-    grant(project.id, member.id, "edit");
+    await grant(project.id, member.id, "edit");
     const url = `/api/projects/${project.id}/lint`;
     const state = async (cookie = owner.cookie) => (await call(app, cookie, "GET", url)).json() as LintState;
     const presetsUrl = "/api/admin/lint-presets";
 
     // Not the project administrators', not members': only instance administrators.
     assert.equal((await call(app, owner.cookie, "GET", presetsUrl)).statusCode, 403);
-    const forbidden = await call(app, owner.cookie, "POST", presetsUrl, { name: "x", settings: orderPreset() });
+    const forbidden = await call(app, owner.cookie, "POST", presetsUrl, {
+      name: "x",
+      settings: orderPreset(),
+    });
     assert.equal(forbidden.statusCode, 403);
 
     // Without any preset: the built-in defaults.
@@ -295,7 +332,10 @@ test("lint presets: the library is for instance administrators, one is the defau
     assert.equal(created.statusCode, 201);
     const preset = (created.json() as { preset: { id: string; isDefault: boolean } }).preset;
     assert.equal(preset.isDefault, false);
-    const same = await call(app, admin.cookie, "POST", presetsUrl, { name: "company", settings: orderPreset() });
+    const same = await call(app, admin.cookie, "POST", presetsUrl, {
+      name: "company",
+      settings: orderPreset(),
+    });
     assert.equal((same.json() as { code: string }).code, "LINT_PRESET_NAME_TAKEN");
 
     // Not the default yet: the project keeps the built-in rules; only its administrators are offered the preset.
@@ -307,7 +347,9 @@ test("lint presets: the library is for instance administrators, one is the defau
     assert.deepEqual((await state(member.cookie)).presets, []);
 
     // The default applies to every project that chose nothing.
-    const made = await call(app, admin.cookie, "PUT", `${presetsUrl}/default`, { id: preset.id });
+    const made = await call(app, admin.cookie, "PUT", `${presetsUrl}/default`, {
+      id: preset.id,
+    });
     assert.equal(made.statusCode, 200);
     const viaDefault = await state();
     assert.equal(viaDefault.source.kind, "default");
@@ -323,17 +365,31 @@ test("lint presets: the library is for instance administrators, one is the defau
     );
 
     // A project's own version wins, and is the project's alone.
-    const own = await call(app, owner.cookie, "PUT", url, { settings: { profile: "relaxed", customRules: [] } });
+    const own = await call(app, owner.cookie, "PUT", url, {
+      settings: { profile: "relaxed", customRules: [] },
+    });
     assert.equal((own.json() as LintState).source.kind, "own");
     assert.equal((await state()).settings.customRules.length, 0);
-    assert.equal((await call(app, member.cookie, "PUT", url, { settings: { profile: "relaxed" } })).statusCode, 403);
+    assert.equal(
+      (
+        await call(app, member.cookie, "PUT", url, {
+          settings: { profile: "relaxed" },
+        })
+      ).statusCode,
+      403,
+    );
 
     // Back to the default, or to a chosen preset (which drops the own version).
-    const backToDefault = await call(app, owner.cookie, "PUT", url, { presetId: null });
+    const backToDefault = await call(app, owner.cookie, "PUT", url, {
+      presetId: null,
+    });
     assert.equal((backToDefault.json() as LintState).source.kind, "default");
     const second = (
       (
-        await call(app, admin.cookie, "POST", presetsUrl, { name: "Strict shop", settings: { profile: "strict" } })
+        await call(app, admin.cookie, "POST", presetsUrl, {
+          name: "Strict shop",
+          settings: { profile: "strict" },
+        })
       ).json() as {
         preset: { id: string };
       }
@@ -345,7 +401,9 @@ test("lint presets: the library is for instance administrators, one is the defau
     assert.equal((await call(app, owner.cookie, "PUT", url, { presetId: 3 })).statusCode, 400);
 
     // Editing a preset reaches the projects that follow it; the list counts them.
-    await call(app, admin.cookie, "PUT", `${presetsUrl}/${second.id}`, { settings: { profile: "relaxed" } });
+    await call(app, admin.cookie, "PUT", `${presetsUrl}/${second.id}`, {
+      settings: { profile: "relaxed" },
+    });
     assert.equal((await state()).settings.profile, "relaxed");
     const listed = (await call(app, admin.cookie, "GET", presetsUrl)).json() as {
       presets: { id: string; projectCount: number }[];
@@ -374,7 +432,7 @@ test("lint presets: the library is for instance administrators, one is the defau
     assert.equal((await state()).source.kind, "preset");
 
     const actions = (
-      db.prepare("SELECT action FROM audit_log WHERE action LIKE 'lint.preset.%'").all() as { action: string }[]
+      (await db.prepare("SELECT action FROM audit_log WHERE action LIKE 'lint.preset.%'").all()) as { action: string }[]
     ).map((row) => row.action);
     for (const action of ["create", "default", "update", "delete", "apply"]) {
       assert.ok(actions.includes(`lint.preset.${action}`), action);
@@ -383,7 +441,7 @@ test("lint presets: the library is for instance administrators, one is the defau
     // What the project followed goes with the project.
     assert.equal((await call(app, owner.cookie, "DELETE", `/api/projects/${project.id}`)).statusCode, 200);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -408,12 +466,17 @@ test("lint presets: a deployment is refused on the default preset's rules", asyn
     assert.equal((await blockers()).lintErrors, 0, "no preset: no refusal");
     const preset = (
       (
-        await call(app, admin.cookie, "POST", "/api/admin/lint-presets", { name: "Blocking", settings: orderPreset() })
+        await call(app, admin.cookie, "POST", "/api/admin/lint-presets", {
+          name: "Blocking",
+          settings: orderPreset(),
+        })
       ).json() as {
         preset: { id: string };
       }
     ).preset;
-    await call(app, admin.cookie, "PUT", "/api/admin/lint-presets/default", { id: preset.id });
+    await call(app, admin.cookie, "PUT", "/api/admin/lint-presets/default", {
+      id: preset.id,
+    });
     assert.equal((await blockers()).lintErrors, 1, "'widgets' lacks the app_ prefix: an error, and the default blocks");
     const refused = await call(app, owner.cookie, "POST", `${base}/connections/${connId}/apply-deployment`, {});
     assert.equal((refused.json() as { code: string }).code, "LINT_BLOCKS_DEPLOYMENT");
@@ -425,7 +488,7 @@ test("lint presets: a deployment is refused on the default preset's rules", asyn
       target.close();
     }
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });

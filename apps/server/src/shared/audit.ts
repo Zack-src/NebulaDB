@@ -7,8 +7,8 @@ import { db } from "../infrastructure/db.js";
  * changes, password resets, account removals. Deliberately narrow: the Yjs revision log already
  * records schema edits.
  *
- * No update or delete path in application code. Someone with filesystem access to the SQLite
- * file can still rewrite it: this is not tamper-evident logging.
+ * No update or delete path in application code. Someone with direct access to the database
+ * can still rewrite it: this is not tamper-evident logging.
  */
 export const AUDIT_ACTIONS = [
   "project.create",
@@ -29,17 +29,31 @@ export const AUDIT_ACTIONS = [
   "user.password.reset",
   "user.password.reset_request",
   "user.password.reset_self",
+  "user.password.change",
   "user.disable",
   "user.enable",
   "user.promote",
   "user.demote",
   "user.delete",
   "user.sessions.revoke",
+  "project.variant.create",
+  "project.variant.push",
+  "project.variant.detach",
+  "project.variant.reset",
+  "project.folder",
+  "folder.create",
+  "folder.update",
+  "folder.delete",
   "invitation.create",
   "invitation.revoke",
   "invitation.accept",
+  "setup.completed",
   "auth.login.locked",
   "auth.login.mfa_locked",
+  "auth.sso.login",
+  "auth.sso.refused",
+  "user.sso.create",
+  "user.sso.link",
   "user.totp.enable",
   "user.totp.disable",
   "user.totp.backup_codes_regenerate",
@@ -49,12 +63,14 @@ export const AUDIT_ACTIONS = [
   "connection.pull",
   "connection.deploy",
   "connection.rollback",
+  "connection.migrations_export",
   "connection.drift.dismiss",
   "dbconn.create",
   "dbconn.update",
   "dbconn.delete",
   "dbconn.link",
   "dbadmin.query",
+  "dbadmin.rows",
   "dbadmin.drop",
   "dbuser.create",
   "dbuser.create_failed",
@@ -77,6 +93,8 @@ export const AUDIT_ACTIONS = [
   "dbconn.credentials.remove",
   "dbconn.credentials.password",
   "instance.structure_policy",
+  "instance.sso",
+  "instance.share_links",
   "dbadmin.structure.out_of_schema",
   "table.lock",
   "table.unlock",
@@ -95,6 +113,12 @@ export const AUDIT_ACTIONS = [
   "lint.preset.default",
   "lint.preset.apply",
   "connection.deploy.stage_skipped",
+  "connection.rollback.review_skipped",
+  "connection.review.request",
+  "connection.review.approve",
+  "connection.review.reject",
+  "connection.review.withdraw",
+  "connection.review.cancel",
   "backup.create",
   "backup.delete",
   "backup.download",
@@ -102,6 +126,12 @@ export const AUDIT_ACTIONS = [
   "backup.schedule",
   "backup.destination",
   "dbaccess.query",
+  "dbaccess.rows",
+  "savedquery.create",
+  "savedquery.update",
+  "savedquery.share",
+  "savedquery.unshare",
+  "savedquery.delete",
   "dbaccess.user.set",
   "dbaccess.team.set",
   "dbconn.test",
@@ -109,10 +139,18 @@ export const AUDIT_ACTIONS = [
   "dbconn.activity.watch",
   "dbconn.open",
   "monitoring.drift",
+  "monitoring.acknowledge",
+  "monitoring.mute",
+  "monitoring.unmute",
   "monitoring.unreachable",
   "monitoring.accounts",
   "monitoring.accounts.watch",
   "monitoring.accounts.accept",
+  "share.create",
+  "share.revoke",
+  "share.reveal",
+  "retention.changed",
+  "retention.purged",
 ] as const;
 
 export type AuditAction = (typeof AUDIT_ACTIONS)[number];
@@ -138,15 +176,18 @@ export const ACTIVITY_CATEGORIES: readonly ActivityCategory[] = [
 /** First match wins. */
 const CATEGORY_RULES: [RegExp, ActivityCategory][] = [
   [/^monitoring\./, "monitoring"],
-  [/^connection\.(deploy|rollback|pull|drift\.)/, "deployments"],
+  [/^connection\.(deploy|rollback|pull|drift\.|review\.)/, "deployments"],
   [
     /^(table\.(lock|unlock)|dbadmin\.(drop|structure\.)|dbconn\.policy|instance\.structure_policy|project\.(import|revision\.restore))/,
     "structure",
   ],
-  [/^(dbadmin\.query|dbaccess\.query|seed\.|backup\.|project\.export)/, "data"],
+  [/^(dbadmin\.(query|rows)|dbaccess\.(query|rows)|savedquery\.|seed\.|backup\.|project\.export)/, "data"],
   [/^(auth\.|dbadmin\.session|dbconn\.(test|open)$|user\.sessions|user\.totp)/, "sessions"],
-  [/^(user\.|invitation\.|team\.|dbuser\.|dbconn\.credentials\.|dbaccess\.|project\.team\.|apikey\.)/, "accounts"],
-  [/^project\./, "projects"],
+  [
+    /^(user\.|invitation\.|setup\.|team\.|dbuser\.|dbconn\.credentials\.|dbaccess\.|project\.team\.|apikey\.)/,
+    "accounts",
+  ],
+  [/^(project|folder|share)\./, "projects"],
 ];
 
 export function activityCategory(action: string): ActivityCategory {
@@ -198,65 +239,52 @@ const MAX_DETAIL_LENGTH = 500;
  * failure is logged loudly instead — losing an audit row is bad, losing the
  * user's actual operation because of one is worse.
  */
-export function audit(
+export async function audit(
   actor: AuditActor,
   action: AuditAction,
   target: { type: string; id: string } | null,
   detail?: string,
   req?: FastifyRequest,
   context: AuditContext = {},
-): void {
+): Promise<void> {
   try {
     // The project and connection default to the target when it is one.
     const projectId = context.projectId ?? (target?.type === "project" ? target.id : null);
     const connectionId = context.connectionId ?? (target?.type === "connection" ? target.id : null);
-    db.prepare(
-      `INSERT INTO audit_log (id, actor_id, actor_email, action, target_type, target_id, detail, ip, project_id, connection_id, correlation_id)
+    await db
+      .prepare(
+        `INSERT INTO audit_log (id, actor_id, actor_email, action, target_type, target_id, detail, ip, project_id, connection_id, correlation_id)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      randomUUID(),
-      actor.id,
-      actor.email,
-      action,
-      target?.type ?? null,
-      target?.id ?? null,
-      detail?.slice(0, MAX_DETAIL_LENGTH) ?? null,
-      req?.ip ?? null,
-      projectId,
-      connectionId,
-      // Fastify's request id: every entry one request produced shares it.
-      req?.id ? String(req.id) : null,
-    );
+      )
+      .run(
+        randomUUID(),
+        actor.id,
+        actor.email,
+        action,
+        target?.type ?? null,
+        target?.id ?? null,
+        detail?.slice(0, MAX_DETAIL_LENGTH) ?? null,
+        req?.ip ?? null,
+        projectId,
+        connectionId,
+        // Fastify's request id: every entry one request produced shares it.
+        req?.id ? String(req.id) : null,
+      );
   } catch (err) {
     console.error(`[audit] failed to record ${action}:`, err);
   }
 }
 
 /** Convenience wrapper for the common case where the actor is the authenticated user. */
-export function auditUser(
+export async function auditUser(
   user: { id: string; email: string } | null,
   action: AuditAction,
   target: { type: string; id: string } | null,
   detail?: string,
   req?: FastifyRequest,
   context?: AuditContext,
-): void {
-  audit({ id: user?.id ?? null, email: user?.email ?? null }, action, target, detail, req, context);
-}
-
-/**
- * Deletes entries older than `retentionDays`. `0` keeps everything — an
- * operator whose own rules require an indefinite trail should not have one
- * silently trimmed under them.
- *
- * Uses SQLite's own clock for the cutoff rather than a JS timestamp:
- * `created_at` is written by `datetime('now')` (`YYYY-MM-DD HH:MM:SS`), which
- * does not sort correctly against a `toISOString()` value on the same date.
- */
-export function purgeOldAuditEntries(retentionDays: number): number {
-  if (retentionDays <= 0) return 0;
-  return db.prepare(`DELETE FROM audit_log WHERE created_at < datetime('now', ?)`).run(`-${retentionDays} days`)
-    .changes;
+): Promise<void> {
+  await audit({ id: user?.id ?? null, email: user?.email ?? null }, action, target, detail, req, context);
 }
 
 export interface AuditQuery {
@@ -267,7 +295,7 @@ export interface AuditQuery {
 }
 
 /** Newest first. Read-only, admin-only at the route layer. */
-export function listAuditLog(query: AuditQuery = {}): AuditEntry[] {
+export async function listAuditLog(query: AuditQuery = {}): Promise<AuditEntry[]> {
   const limit = Math.min(Math.max(query.limit ?? 100, 1), 500);
   const conditions: string[] = [];
   const params: unknown[] = [];
@@ -284,12 +312,12 @@ export function listAuditLog(query: AuditQuery = {}): AuditEntry[] {
     params.push(query.targetId);
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-  const rows = db
+  const rows = (await db
     .prepare(
       `SELECT id, created_at, actor_id, actor_email, action, target_type, target_id, detail, ip
-       FROM audit_log ${where} ORDER BY created_at DESC, rowid DESC LIMIT ?`,
+       FROM audit_log ${where} ORDER BY created_at DESC, seq DESC LIMIT ?`,
     )
-    .all(...params, limit) as AuditRow[];
+    .all(...params, limit)) as AuditRow[];
   return rows.map((row) => ({
     id: row.id,
     createdAt: row.created_at,
@@ -343,23 +371,23 @@ export const ACTIVITY_EXPORT_MAX = 10_000;
 
 /**
  * The activity view: the audit trail, newest first, filtered, a page at a
- * time. The cursor is the row's insertion order (`rowid`), so pages neither
+ * time. The cursor is the row's insertion order (`seq`), so pages neither
  * skip nor repeat entries written while someone is reading. Names of the
  * project, connection and actor are joined live — an entry about a deleted
  * project still shows, without a name.
  */
-export function listActivity(
+export async function listActivity(
   query: ActivityQuery = {},
   max = ACTIVITY_PAGE_MAX,
-): {
+): Promise<{
   entries: ActivityEntry[];
   nextCursor: number | null;
-} {
+}> {
   const limit = Math.min(Math.max(query.limit ?? 100, 1), max);
   const conditions: string[] = [];
   const params: unknown[] = [];
   if (query.cursor !== undefined) {
-    conditions.push("a.rowid < ?");
+    conditions.push("a.seq < ?");
     params.push(query.cursor);
   }
   if (query.from) {
@@ -389,13 +417,15 @@ export function listActivity(
   }
   if (query.search) {
     const like = `%${query.search.replace(/[\\%_]/g, (c) => `\\${c}`)}%`;
-    conditions.push("(a.action LIKE ? ESCAPE '\\' OR a.detail LIKE ? ESCAPE '\\' OR a.actor_email LIKE ? ESCAPE '\\')");
+    conditions.push(
+      "(a.action ILIKE ? ESCAPE '\\' OR a.detail ILIKE ? ESCAPE '\\' OR a.actor_email ILIKE ? ESCAPE '\\')",
+    );
     params.push(like, like, like);
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-  const rows = db
+  const rows = (await db
     .prepare(
-      `SELECT a.rowid AS seq, a.id, a.created_at, a.actor_id, a.actor_email, a.action, a.target_type, a.target_id,
+      `SELECT a.seq AS seq, a.id, a.created_at, a.actor_id, a.actor_email, a.action, a.target_type, a.target_id,
               a.detail, a.ip, a.project_id, a.connection_id, a.correlation_id,
               p.name AS project_name, c.name AS connection_name, u.display_name AS actor_name
          FROM audit_log a
@@ -403,9 +433,9 @@ export function listActivity(
          LEFT JOIN db_connections c ON c.id = a.connection_id
          LEFT JOIN users u ON u.id = a.actor_id
          ${where}
-        ORDER BY a.rowid DESC LIMIT ?`,
+        ORDER BY a.seq DESC LIMIT ?`,
     )
-    .all(...params, limit + 1) as ActivityRow[];
+    .all(...params, limit + 1)) as ActivityRow[];
   const page = rows.slice(0, limit);
   return {
     entries: page.map((row) => ({

@@ -3,9 +3,9 @@
 
   const KIND_LABELS: Record<ContributionKind, { label: string; color: string }> = {
     exporter: { label: "Export", color: "bg-accent-cyan/15 text-accent-cyan border-accent-cyan/30" },
-    importer: { label: "Import", color: "bg-accent-teal/15 text-accent-teal border-accent-teal/30" },
+    importer: { label: "Import", color: "bg-success/15 text-success border-success/30" },
     canvasCommand: { label: "Canvas", color: "bg-primary/15 text-primary border-primary/30" },
-    editorCommand: { label: "Éditeur", color: "bg-accent-orange/15 text-accent-orange border-accent-orange/30" },
+    editorCommand: { label: "Éditeur", color: "bg-warning/15 text-warning border-warning/30" },
   };
 </script>
 
@@ -24,10 +24,10 @@
 <div class="flex flex-wrap gap-1.5 mt-2">
   {#each Object.keys(counts) as ContributionKind[] as kind (kind)}
     <span
-      class={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-[10.5px] font-medium border ${KIND_LABELS[kind].color}`}
+      class={`inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-micro font-medium border ${KIND_LABELS[kind].color}`}
     >
       <span>{KIND_LABELS[kind].label}</span>
-      <span class="opacity-75 font-mono text-[9.5px]">({counts[kind] ?? 0})</span>
+      <span class="opacity-75 font-mono text-micro">({counts[kind] ?? 0})</span>
     </span>
   {/each}
 </div>

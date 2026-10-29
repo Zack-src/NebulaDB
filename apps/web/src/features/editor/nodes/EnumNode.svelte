@@ -3,12 +3,11 @@
 </script>
 
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import type { NodeProps } from "@xyflow/svelte";
   import { MAX_NAME_LENGTH } from "@nebuladb/shared";
-  import { autofocus } from "@/actions/autofocus";
   import Icon from "@/components/icons/Icon.svelte";
   import { PlusIcon, TagIcon } from "@/components/icons/Icons";
-  import { INPUT_XS_CLASS } from "@/components/ui/inputStyles";
   import type { EnumNodeType } from "@/features/editor/nodes/nodeTypes";
   import { useDraftValue } from "@/hooks/draftValue.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
@@ -41,9 +40,9 @@
   >
     <Icon icon={TagIcon} size={12} style="color: {ACCENT}" />
     {#if editingName}
-      <input
-        use:autofocus
-        class={`nodrag ${INPUT_XS_CLASS} flex-1 font-bold text-[calc(12px_*_var(--canvas-font-scale))]`}
+      <Input inputSize="xs"
+        autofocus
+        class="nodrag flex-1 font-bold text-[calc(12px_*_var(--canvas-font-scale))]"
         bind:value={nameDraft.value}
         maxlength={MAX_NAME_LENGTH}
         onblur={() => {

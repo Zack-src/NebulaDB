@@ -11,14 +11,14 @@ export const CONTEXT_MENU_CLASS =
   "rounded-md border border-border-strong bg-surface-raised p-1 shadow-lg";
 
 export const CONTEXT_MENU_ITEM_CLASS =
-  "flex w-full cursor-pointer items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-left text-[12.5px] font-medium " +
+  "flex w-full cursor-pointer items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-left text-body-sm font-medium " +
   "text-text-secondary transition-colors duration-100 [&>svg]:shrink-0 [&>svg]:text-text-muted " +
   "hover:bg-surface-hover hover:text-text hover:[&>svg]:text-text " +
   "focus-visible:bg-surface-hover focus-visible:text-text focus-visible:outline-hidden";
 
 /** Destructive entry — same geometry, danger colouring. */
 export const CONTEXT_MENU_DANGER_ITEM_CLASS =
-  "flex w-full cursor-pointer items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-left text-[12.5px] font-medium " +
+  "flex w-full cursor-pointer items-center gap-2.5 rounded-sm px-2.5 py-1.5 text-left text-body-sm font-medium " +
   "text-danger transition-colors duration-100 [&>svg]:shrink-0 " +
   "hover:bg-danger-light hover:text-danger-hover focus-visible:bg-danger-light focus-visible:outline-hidden";
 

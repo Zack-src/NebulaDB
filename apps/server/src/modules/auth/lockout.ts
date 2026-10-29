@@ -20,8 +20,8 @@ const LOCKOUT_MS = 15 * 60 * 1000;
 /**
  * Failure rows for accounts that are no longer locked and haven't failed
  * within this window are swept away — they carry no information at that point.
- * Expressed as a SQLite modifier rather than a JS timestamp on purpose:
- * `last_failure_at` is written by `datetime('now')` (`YYYY-MM-DD HH:MM:SS`),
+ * Expressed as an interval for the database rather than a JS timestamp on purpose:
+ * `last_failure_at` is written by `utc_now()` (`YYYY-MM-DD HH:MM:SS`),
  * which does not sort correctly against a JS `toISOString()` value for rows
  * landing on the same date.
  */
@@ -45,14 +45,14 @@ export interface LockState {
  * address is registered. Accepted for a self-hosted team tool, in exchange for telling a
  * legitimate user why they are locked out.
  */
-export function checkLock(email: string): LockState {
-  const row = db.prepare("SELECT failures, locked_until FROM login_attempts WHERE email = ?").get(email) as
+export async function checkLock(email: string): Promise<LockState> {
+  const row = (await db.prepare("SELECT failures, locked_until FROM login_attempts WHERE email = ?").get(email)) as
     AttemptRow | undefined;
   if (!row?.locked_until) return { locked: false };
   if (new Date(row.locked_until).getTime() > Date.now()) return { locked: true, until: row.locked_until };
   // Lock expired — reset rather than leaving the counter at the threshold,
   // which would otherwise re-lock the account on the very next typo.
-  db.prepare("UPDATE login_attempts SET failures = 0, locked_until = NULL WHERE email = ?").run(email);
+  await db.prepare("UPDATE login_attempts SET failures = 0, locked_until = NULL WHERE email = ?").run(email);
   return { locked: false };
 }
 
@@ -61,34 +61,39 @@ export function checkLock(email: string): LockState {
  * threshold is reached. Returns the resulting state so the caller can report
  * the lock on the attempt that trips it, rather than only on the next one.
  */
-export function recordFailure(email: string): LockState {
-  const row = db.prepare("SELECT failures, locked_until FROM login_attempts WHERE email = ?").get(email) as
-    AttemptRow | undefined;
-  const failures = (row?.failures ?? 0) + 1;
-  const lockedUntil = failures >= MAX_FAILED_ATTEMPTS ? new Date(Date.now() + LOCKOUT_MS).toISOString() : null;
-  db.prepare(
-    `INSERT INTO login_attempts (email, failures, locked_until, last_failure_at)
-     VALUES (?, ?, ?, datetime('now'))
+export async function recordFailure(email: string): Promise<LockState> {
+  // One statement, so the count is the database's: read first and written
+  // back, wrong passwords tried in parallel would each see the same count and
+  // the threshold would never be reached.
+  const lockAt = new Date(Date.now() + LOCKOUT_MS).toISOString();
+  const row = (await db
+    .prepare(
+      `INSERT INTO login_attempts (email, failures, locked_until, last_failure_at)
+     VALUES (?, 1, CASE WHEN 1 >= ? THEN ? END, utc_now())
      ON CONFLICT(email) DO UPDATE SET
-       failures = excluded.failures,
-       locked_until = excluded.locked_until,
-       last_failure_at = excluded.last_failure_at`,
-  ).run(email, failures, lockedUntil);
-  return lockedUntil ? { locked: true, until: lockedUntil } : { locked: false };
+       failures = login_attempts.failures + 1,
+       locked_until = CASE WHEN login_attempts.failures + 1 >= ? THEN ? END,
+       last_failure_at = excluded.last_failure_at
+     RETURNING locked_until`,
+    )
+    .get(email, MAX_FAILED_ATTEMPTS, lockAt, MAX_FAILED_ATTEMPTS, lockAt)) as { locked_until: string | null };
+  return row.locked_until ? { locked: true, until: row.locked_until } : { locked: false };
 }
 
 /** Clears the counter after a successful login. */
-export function clearFailures(email: string): void {
-  db.prepare("DELETE FROM login_attempts WHERE email = ?").run(email);
+export async function clearFailures(email: string): Promise<void> {
+  await db.prepare("DELETE FROM login_attempts WHERE email = ?").run(email);
 }
 
 /** Drops rows that are neither locked nor recently active. Called from the same periodic sweep as expired sessions. */
-export function purgeStaleAttempts(): number {
-  return db
-    .prepare(
-      `DELETE FROM login_attempts
+export async function purgeStaleAttempts(): Promise<number> {
+  return (
+    await db
+      .prepare(
+        `DELETE FROM login_attempts
        WHERE locked_until IS NULL
-         AND (last_failure_at IS NULL OR last_failure_at < datetime('now', ?))`,
-    )
-    .run(STALE_ATTEMPT_WINDOW).changes;
+         AND (last_failure_at IS NULL OR last_failure_at < utc_now(?))`,
+      )
+      .run(STALE_ATTEMPT_WINDOW)
+  ).changes;
 }

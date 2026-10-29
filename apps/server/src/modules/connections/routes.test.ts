@@ -3,10 +3,11 @@ import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
 // Same rationale as `app.test.ts`: env vars must land before anything
 // transitively imports `db.ts`/`shared/crypto.ts`.
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-connroutes-${randomUUID()}.sqlite`);
+await useTestDatabase("connroutes");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 process.env.NEBULADB_LOG_LEVEL = "silent";
@@ -39,19 +40,16 @@ async function makeUser(isAdmin: 0 | 1 = 0) {
   const password = "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)").run(
-    id,
-    email,
-    await hashPassword(password),
-    isAdmin,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, NULL)")
+    .run(id, email, await hashPassword(password), isAdmin);
   return { id, email, password };
 }
 
 /** Seeds the project's live canvas doc with a single table — bypasses the WebSocket entirely, using the same `writeProjectToDoc` the real sync path calls. */
-function seedCanvasTable(projectId: string, projectName: string) {
-  const room = getRoom(projectId);
-  room.doc.transact(() => {
+async function seedCanvasTable(projectId: string, projectName: string) {
+  const room = await getRoom(projectId);
+  await room.write(() => {
     writeProjectToDoc(room.doc, {
       id: projectId,
       name: projectName,
@@ -88,7 +86,7 @@ test("deployment history + rollback: full lifecycle against a real SQLite target
       payload: { name: "Deploy target project" },
     });
     const project = created.json();
-    seedCanvasTable(project.id, project.name);
+    await seedCanvasTable(project.id, project.name);
 
     const connRes = await app.inject({
       method: "POST",
@@ -198,7 +196,7 @@ test("deployment history + rollback: full lifecycle against a real SQLite target
     // module scope, outside the Fastify instance `app.close()` tears down —
     // without this, the timer keeps the process alive after the test run
     // finishes instead of exiting cleanly.
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -218,8 +216,8 @@ test("plan-deployment surfaces a type-translation risk for a column type the tar
     });
     const project = created.json();
 
-    const room = getRoom(project.id);
-    room.doc.transact(() => {
+    const room = await getRoom(project.id);
+    await room.write(() => {
       writeProjectToDoc(room.doc, {
         id: project.id,
         name: project.name,
@@ -275,7 +273,7 @@ test("plan-deployment surfaces a type-translation risk for a column type the tar
     assert.equal(apply.statusCode, 200);
     assert.match(apply.json().sql, /"id" text/);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -325,7 +323,7 @@ test("deployment history and rollback are admin-only, not just view", async () =
     // module scope, outside the Fastify instance `app.close()` tears down —
     // without this, the timer keeps the process alive after the test run
     // finishes instead of exiting cleanly.
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -392,7 +390,7 @@ test("rollback on an unknown history entry, or one with no rollback SQL, is refu
     // module scope, outside the Fastify instance `app.close()` tears down —
     // without this, the timer keeps the process alive after the test run
     // finishes instead of exiting cleanly.
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -488,7 +486,7 @@ test("from-database creates a project pre-populated with the live schema, no sep
     });
     assert.equal(connections.json().connections[0].id, body.connectionId);
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
     await app.close();
   }
 });
@@ -500,14 +498,14 @@ test("from-database rolls back the project (and its connection) if introspection
     const cookie = await loginAs(app, owner.email, owner.password);
     const projectName = `Should not survive ${randomUUID()}`;
 
-    // Pointing at NebulaDB's own database file trips `assertNotAppDatabase`
-    // in the SQLite driver's constructor — a deterministic, realistic
-    // introspection failure to verify the rollback against.
+    // The cloud metadata address is refused when the driver is opened (see
+    // `hostGuard.ts`) — a deterministic introspection failure, with nothing
+    // to reach, to verify the rollback against.
     const res = await app.inject({
       method: "POST",
       url: "/api/projects/from-database",
       headers: headers({ cookie }),
-      payload: { projectName, engine: "sqlite", filePath: process.env.NEBULADB_DB_PATH },
+      payload: { projectName, engine: "postgres", host: "169.254.169.254", database: "app", user: "app" },
     });
     assert.equal(res.statusCode, 400);
     assert.equal(res.json().code, "CONNECTION_TARGET_FORBIDDEN");
@@ -520,7 +518,196 @@ test("from-database rolls back the project (and its connection) if introspection
     const after = await app.inject({ method: "GET", url: "/api/projects", headers: headers({ cookie }) });
     assert.ok(!after.json().some((p: { name: string }) => p.name === projectName));
   } finally {
-    closeAllRooms();
+    await closeAllRooms();
+    await app.close();
+  }
+});
+
+test("a renamed column is offered as a rename, and deploying it keeps the data", async () => {
+  const app = await buildApp();
+  const targetFile = join(tmpdir(), `nebuladb-test-rename-${randomUUID()}.sqlite`);
+  try {
+    const { default: Database } = await import("better-sqlite3");
+    const target = new Database(targetFile);
+    target.exec(`CREATE TABLE items (id INTEGER PRIMARY KEY, id_analyse INTEGER);
+      INSERT INTO items (id, id_analyse) VALUES (1, 41), (2, 42);`);
+    target.close();
+
+    const owner = await makeUser();
+    const cookie = await loginAs(app, owner.email, owner.password);
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/projects",
+      headers: headers({ cookie }),
+      payload: { name: "Rename project" },
+    });
+    const project = created.json();
+    const room = await getRoom(project.id);
+    await room.write(() => {
+      writeProjectToDoc(room.doc, {
+        id: project.id,
+        name: project.name,
+        tables: [
+          {
+            id: "t-items",
+            name: "items",
+            fields: [
+              { id: "t-items.id", name: "id", type: "integer", pk: true },
+              { id: "t-items.id_analyze", name: "id_analyze", type: "integer" },
+            ],
+            indexes: [],
+            position: { x: 0, y: 0 },
+            detailLevel: "standard",
+          },
+        ],
+        refs: [],
+        enums: [],
+        zones: [],
+        stickyNotes: [],
+        tableGroups: [],
+      });
+    }, "test-seed");
+    const connRes = await app.inject({
+      method: "POST",
+      url: `/api/projects/${project.id}/connections`,
+      headers: headers({ cookie }),
+      payload: { name: "Local file", engine: "sqlite", filePath: targetFile },
+    });
+    const connId = connRes.json().connection.id;
+
+    const plan = await app.inject({
+      method: "POST",
+      url: `/api/projects/${project.id}/connections/${connId}/plan-deployment`,
+      headers: headers({ cookie }),
+      payload: {},
+    });
+    assert.equal(plan.statusCode, 200);
+    const rename = plan.json().risks.find((r: { type: string }) => r.type === "RENAME_COLUMN_SUGGESTED");
+    assert.ok(rename, "the dropped id_analyse and the new id_analyze are one column renamed");
+    assert.deepEqual([rename.tableName, rename.columnName, rename.detail], ["items", "id_analyse", "id_analyze"]);
+    assert.equal(rename.defaultStrategy, "RENAME_COLUMN");
+
+    const apply = await app.inject({
+      method: "POST",
+      url: `/api/projects/${project.id}/connections/${connId}/apply-deployment`,
+      headers: headers({ cookie }),
+      payload: { resolutions: {} },
+    });
+    assert.equal(apply.statusCode, 200, apply.body);
+    assert.match(apply.json().sql, /RENAME COLUMN "id_analyse" TO "id_analyze"/);
+    assert.doesNotMatch(apply.json().sql, /DROP COLUMN/);
+
+    const after = new Database(targetFile, { readonly: true });
+    assert.deepEqual(after.prepare("SELECT id, id_analyze FROM items ORDER BY id").all(), [
+      { id: 1, id_analyze: 41 },
+      { id: 2, id_analyze: 42 },
+    ]);
+    after.close();
+  } finally {
+    await closeAllRooms();
+    await app.close();
+  }
+});
+
+test("a clean deployment drops the tables and writes the schema again, only on a retyped name", async () => {
+  const app = await buildApp();
+  const targetFile = join(tmpdir(), `nebuladb-test-clean-${randomUUID()}.sqlite`);
+  try {
+    const { default: Database } = await import("better-sqlite3");
+    const target = new Database(targetFile);
+    // The database holds data, and a shape the schema no longer has: a diff would have to drop a key column.
+    target.exec(`CREATE TABLE items (id INTEGER PRIMARY KEY, old_name TEXT);
+      INSERT INTO items VALUES (1, 'a'), (2, 'b');
+      CREATE TABLE made_by_hand (id INTEGER PRIMARY KEY);`);
+    target.close();
+
+    const owner = await makeUser();
+    const cookie = await loginAs(app, owner.email, owner.password);
+    const created = await app.inject({
+      method: "POST",
+      url: "/api/projects",
+      headers: headers({ cookie }),
+      payload: { name: "Clean project" },
+    });
+    const project = created.json();
+    const room = await getRoom(project.id);
+    await room.write(() => {
+      writeProjectToDoc(room.doc, {
+        id: project.id,
+        name: project.name,
+        tables: [
+          {
+            id: "t-items",
+            name: "items",
+            fields: [
+              { id: "t-items.id", name: "id", type: "integer", pk: true },
+              { id: "t-items.new_name", name: "new_name", type: "text" },
+            ],
+            indexes: [],
+            position: { x: 0, y: 0 },
+            detailLevel: "standard",
+          },
+        ],
+        refs: [],
+        enums: [],
+        zones: [],
+        stickyNotes: [],
+        tableGroups: [],
+      });
+    }, "test-seed");
+    const connRes = await app.inject({
+      method: "POST",
+      url: `/api/projects/${project.id}/connections`,
+      headers: headers({ cookie }),
+      payload: { name: "Dev file", engine: "sqlite", filePath: targetFile },
+    });
+    const connId = connRes.json().connection.id;
+    const base = `/api/projects/${project.id}/connections/${connId}`;
+
+    // The preview counts what would go, and leaves the table nobody told Nebula about alone.
+    const preview = await app.inject({ method: "POST", url: `${base}/plan-clean-deployment`, headers: headers({ cookie }), payload: {} });
+    assert.equal(preview.statusCode, 200, preview.body);
+    assert.deepEqual(preview.json().dropTables, [{ name: "items", rows: 2 }]);
+    assert.deepEqual(preview.json().createTables, ["items"]);
+    const withAll = await app.inject({
+      method: "POST",
+      url: `${base}/plan-clean-deployment`,
+      headers: headers({ cookie }),
+      payload: { includeUnmanaged: true },
+    });
+    assert.deepEqual(withAll.json().dropTables.map((t: { name: string }) => t.name).sort(), ["items", "made_by_hand"]);
+
+    // Without the name retyped, nothing happens.
+    const refused = await app.inject({
+      method: "POST",
+      url: `${base}/apply-deployment`,
+      headers: headers({ cookie }),
+      payload: { clean: {}, backupBefore: false },
+    });
+    assert.equal(refused.statusCode, 400);
+    assert.equal(refused.json().code, "CLEAN_DEPLOYMENT_CONFIRMATION_REQUIRED");
+    const untouched = new Database(targetFile, { readonly: true });
+    assert.equal((untouched.prepare("SELECT COUNT(*) AS n FROM items").get() as { n: number }).n, 2);
+    untouched.close();
+
+    const applied = await app.inject({
+      method: "POST",
+      url: `${base}/apply-deployment`,
+      headers: headers({ cookie }),
+      payload: { clean: {}, confirmName: "Dev file", backupBefore: false },
+    });
+    assert.equal(applied.statusCode, 200, applied.body);
+    assert.match(applied.json().sql, /DROP TABLE IF EXISTS "items"/);
+    assert.equal(applied.json().rollbackAvailable, false);
+
+    const after = new Database(targetFile, { readonly: true });
+    const columns = (after.prepare("PRAGMA table_info(items)").all() as { name: string }[]).map((c) => c.name);
+    assert.deepEqual(columns, ["id", "new_name"]);
+    assert.equal((after.prepare("SELECT COUNT(*) AS n FROM items").get() as { n: number }).n, 0, "the data went with the tables");
+    assert.ok(after.prepare("SELECT 1 FROM sqlite_master WHERE name = 'made_by_hand'").get(), "a table out of scope stays");
+    after.close();
+  } finally {
+    await closeAllRooms();
     await app.close();
   }
 });

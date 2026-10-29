@@ -6,17 +6,16 @@
    * minimum.
    */
   const REORDER_BTN_CLASS =
-    "nodrag relative flex h-3 w-4 items-center justify-center text-[9px] leading-none text-text-muted " +
+    "nodrag relative flex h-3 w-4 items-center justify-center text-micro leading-none text-text-muted " +
     "transition-colors hover:text-text disabled:opacity-20 " +
     "before:absolute before:left-1/2 before:top-1/2 before:h-5 before:w-6 before:-translate-x-1/2 before:-translate-y-1/2 before:content-['']";
 </script>
 
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import { MAX_NAME_LENGTH, type EnumValue } from "@nebuladb/shared";
-  import { autofocus } from "@/actions/autofocus";
   import Icon from "@/components/icons/Icon.svelte";
   import { TrashIcon } from "@/components/icons/Icons";
-  import { INPUT_XS_CLASS } from "@/components/ui/inputStyles";
   import { useDraftValue } from "@/hooks/draftValue.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
 
@@ -69,9 +68,9 @@
   </div>
 
   {#if editing}
-    <input
-      use:autofocus
-      class={`nodrag ${INPUT_XS_CLASS} flex-1 font-mono text-[calc(11.5px_*_var(--canvas-font-scale))]`}
+    <Input inputSize="xs"
+      autofocus
+      class="nodrag flex-1 font-mono text-[calc(11.5px_*_var(--canvas-font-scale))]"
       bind:value={draft.value}
       maxlength={MAX_NAME_LENGTH}
       onblur={() => {

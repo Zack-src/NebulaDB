@@ -2,8 +2,10 @@ import type { FastifyInstance } from "fastify";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireUser } from "../../shared/guards.js";
+import { parseBody, z } from "../../shared/validate.js";
 import { getPasswordHash } from "../users/repository.js";
 import { verifyPassword } from "./password.js";
+import { CREDENTIAL_RATE_LIMIT } from "./rateLimits.js";
 import { base32Encode, generateBackupCodes, generateSecret, otpauthUrl, verifyTotp } from "./totp.js";
 import {
   confirmTotp,
@@ -16,8 +18,12 @@ import {
   startTotpSetup,
 } from "./totpRepository.js";
 
+const confirmBody = z.object({ code: z.string().optional() });
+const disableBody = z.object({ password: z.string().optional(), code: z.string().optional() });
+const passwordBody = z.object({ password: z.string().optional() });
+
 async function verifyOwnPassword(userId: string, password: string): Promise<void> {
-  const hash = getPasswordHash(userId);
+  const hash = await getPasswordHash(userId);
   if (!hash || !(await verifyPassword(password, hash))) throw new ApiError("PASSWORD_INCORRECT");
 }
 
@@ -25,8 +31,8 @@ async function verifyOwnPassword(userId: string, password: string): Promise<void
 export function registerTotpRoutes(app: FastifyInstance): void {
   app.get("/api/auth/totp/status", async (req) => {
     const user = requireUser(req);
-    const state = getTotpState(user.id);
-    return { enabled: state.enabled, backupCodesRemaining: state.enabled ? countUnusedBackupCodes(user.id) : 0 };
+    const state = await getTotpState(user.id);
+    return { enabled: state.enabled, backupCodesRemaining: state.enabled ? await countUnusedBackupCodes(user.id) : 0 };
   });
 
   /**
@@ -37,10 +43,10 @@ export function registerTotpRoutes(app: FastifyInstance): void {
    */
   app.post("/api/auth/totp/setup", async (req) => {
     const user = requireUser(req);
-    if (getTotpState(user.id).enabled) throw new ApiError("TOTP_ALREADY_ENABLED");
+    if ((await getTotpState(user.id)).enabled) throw new ApiError("TOTP_ALREADY_ENABLED");
 
     const secret = base32Encode(generateSecret());
-    startTotpSetup(user.id, secret);
+    await startTotpSetup(user.id, secret);
     return { secret, otpauthUrl: otpauthUrl(secret, user.email) };
   });
 
@@ -51,21 +57,21 @@ export function registerTotpRoutes(app: FastifyInstance): void {
    * scan. Issues backup codes in the same step, shown to the caller exactly
    * once: only their hash is kept from here on (`totpRepository.ts`).
    */
-  app.post("/api/auth/totp/confirm", async (req) => {
+  app.post("/api/auth/totp/confirm", CREDENTIAL_RATE_LIMIT, async (req) => {
     const user = requireUser(req);
-    const { code } = (req.body ?? {}) as { code?: string };
-    const state = getTotpState(user.id);
+    const { code } = parseBody(confirmBody, req);
+    const state = await getTotpState(user.id);
     if (state.enabled) throw new ApiError("TOTP_ALREADY_ENABLED");
     if (!state.hasSecret) throw new ApiError("TOTP_SETUP_NOT_STARTED");
     if (!code) throw new ApiError("TOTP_CODE_REQUIRED");
 
-    const secret = getDecryptedSecret(user.id);
+    const secret = await getDecryptedSecret(user.id);
     if (!secret || !verifyTotp(secret, code)) throw new ApiError("TOTP_CODE_INCORRECT");
 
-    confirmTotp(user.id);
+    await confirmTotp(user.id);
     const backupCodes = generateBackupCodes();
-    replaceBackupCodes(user.id, backupCodes);
-    auditUser(user, "user.totp.enable", { type: "user", id: user.id }, undefined, req);
+    await replaceBackupCodes(user.id, backupCodes);
+    await auditUser(user, "user.totp.enable", { type: "user", id: user.id }, undefined, req);
     return { enabled: true, backupCodes };
   });
 
@@ -76,35 +82,35 @@ export function registerTotpRoutes(app: FastifyInstance): void {
    * password still can't turn it off. A user who has genuinely lost their
    * device uses a backup code here instead of a TOTP code.
    */
-  app.post("/api/auth/totp/disable", async (req) => {
+  app.post("/api/auth/totp/disable", CREDENTIAL_RATE_LIMIT, async (req) => {
     const user = requireUser(req);
-    const { password, code } = (req.body ?? {}) as { password?: string; code?: string };
-    if (!getTotpState(user.id).enabled) throw new ApiError("TOTP_NOT_ENABLED");
+    const { password, code } = parseBody(disableBody, req);
+    if (!(await getTotpState(user.id)).enabled) throw new ApiError("TOTP_NOT_ENABLED");
     if (!password) throw new ApiError("PASSWORDS_REQUIRED");
     if (!code) throw new ApiError("TOTP_CODE_REQUIRED");
 
     await verifyOwnPassword(user.id, password);
-    const secret = getDecryptedSecret(user.id);
-    if (!secret || !(verifyTotp(secret, code) || consumeBackupCode(user.id, code))) {
+    const secret = await getDecryptedSecret(user.id);
+    if (!secret || !(verifyTotp(secret, code) || (await consumeBackupCode(user.id, code)))) {
       throw new ApiError("TOTP_CODE_INCORRECT");
     }
 
-    disableTotp(user.id);
-    auditUser(user, "user.totp.disable", { type: "user", id: user.id }, undefined, req);
+    await disableTotp(user.id);
+    await auditUser(user, "user.totp.disable", { type: "user", id: user.id }, undefined, req);
     return { enabled: false };
   });
 
   /** Invalidates every existing backup code and issues a fresh set — for "I used my last one" or "I think an old export leaked". */
-  app.post("/api/auth/totp/regenerate-backup-codes", async (req) => {
+  app.post("/api/auth/totp/regenerate-backup-codes", CREDENTIAL_RATE_LIMIT, async (req) => {
     const user = requireUser(req);
-    const { password } = (req.body ?? {}) as { password?: string };
-    if (!getTotpState(user.id).enabled) throw new ApiError("TOTP_NOT_ENABLED");
+    const { password } = parseBody(passwordBody, req);
+    if (!(await getTotpState(user.id)).enabled) throw new ApiError("TOTP_NOT_ENABLED");
     if (!password) throw new ApiError("PASSWORDS_REQUIRED");
     await verifyOwnPassword(user.id, password);
 
     const backupCodes = generateBackupCodes();
-    replaceBackupCodes(user.id, backupCodes);
-    auditUser(user, "user.totp.backup_codes_regenerate", { type: "user", id: user.id }, undefined, req);
+    await replaceBackupCodes(user.id, backupCodes);
+    await auditUser(user, "user.totp.backup_codes_regenerate", { type: "user", id: user.id }, undefined, req);
     return { backupCodes };
   });
 }

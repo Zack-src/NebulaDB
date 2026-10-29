@@ -27,6 +27,7 @@
 </script>
 
 <script lang="ts">
+  import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Button from "@/components/ui/Button.svelte";
   import Badge from "@/components/ui/Badge.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
@@ -54,6 +55,9 @@
     await revokeOtherSessions();
     sessions.reload();
   });
+
+  let sessionToRevoke = $state<{ id: string; current: boolean } | null>(null);
+  let confirmRevokeOthers = $state(false);
 
   const rows = $derived(sessions.data ?? []);
   const otherSessionCount = $derived(rows.filter((session) => !session.current).length);
@@ -88,7 +92,7 @@
           variant="danger-ghost"
           size="sm"
           disabled={pending}
-          onclick={() => void revokeOne.run(session.id, session.current)}
+          onclick={() => (sessionToRevoke = session)}
         >
           {session.current ? t("common.logout") : t("settings.sessions.revoke")}
         </Button>
@@ -97,8 +101,36 @@
   </ul>
 
   {#if otherSessionCount > 0}
-    <Button variant="outline" class="mt-3 text-xs" disabled={pending} onclick={() => void revokeAllOthers.run()}>
+    <Button variant="outline" class="mt-3 text-xs" disabled={pending} onclick={() => (confirmRevokeOthers = true)}>
       {t("settings.sessions.revokeOthers", { count: otherSessionCount })}
     </Button>
   {/if}
 </div>
+
+{#if sessionToRevoke}
+  {@const target = sessionToRevoke}
+  <ConfirmDialog
+    title={target.current ? t("settings.sessions.logoutTitle") : t("settings.sessions.revokeTitle")}
+    message={target.current ? t("settings.sessions.logoutMessage") : t("settings.sessions.revokeMessage")}
+    confirmLabel={target.current ? t("common.logout") : t("settings.sessions.revoke")}
+    danger="warning"
+    onConfirm={() => {
+      sessionToRevoke = null;
+      void revokeOne.run(target.id, target.current);
+    }}
+    onCancel={() => (sessionToRevoke = null)}
+  />
+{/if}
+{#if confirmRevokeOthers}
+  <ConfirmDialog
+    title={t("settings.sessions.revokeOthersTitle")}
+    message={t("settings.sessions.revokeOthersMessage", { count: otherSessionCount })}
+    confirmLabel={t("settings.sessions.revokeOthers", { count: otherSessionCount })}
+    danger="warning"
+    onConfirm={() => {
+      confirmRevokeOthers = false;
+      void revokeAllOthers.run();
+    }}
+    onCancel={() => (confirmRevokeOthers = false)}
+  />
+{/if}

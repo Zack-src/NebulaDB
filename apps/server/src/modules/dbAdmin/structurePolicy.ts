@@ -33,8 +33,8 @@ export function parseStructurePolicySetting(value: unknown): StructurePolicySett
   return { policy: raw.policy as StructurePolicy, applyToSql: raw.applyToSql !== false };
 }
 
-export function getInstanceStructurePolicy(): StructurePolicySetting {
-  const row = db.prepare("SELECT value FROM instance_settings WHERE key = ?").get(SETTING_KEY) as
+export async function getInstanceStructurePolicy(): Promise<StructurePolicySetting> {
+  const row = (await db.prepare("SELECT value FROM instance_settings WHERE key = ?").get(SETTING_KEY)) as
     { value: string } | undefined;
   if (!row) return DEFAULT_SETTING;
   try {
@@ -45,21 +45,24 @@ export function getInstanceStructurePolicy(): StructurePolicySetting {
   }
 }
 
-export function setInstanceStructurePolicy(setting: StructurePolicySetting, userId: string): void {
-  db.prepare(
-    `INSERT INTO instance_settings (key, value, updated_by) VALUES (?, ?, ?)
-     ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = datetime('now')`,
-  ).run(SETTING_KEY, JSON.stringify(setting), userId);
+export async function setInstanceStructurePolicy(setting: StructurePolicySetting, userId: string): Promise<void> {
+  await db
+    .prepare(
+      `INSERT INTO instance_settings (key, value, updated_by) VALUES (?, ?, ?)
+     ON CONFLICT (key) DO UPDATE SET value = excluded.value, updated_by = excluded.updated_by, updated_at = utc_now()`,
+    )
+    .run(SETTING_KEY, JSON.stringify(setting), userId);
 }
 
 /** The policy in force on a connection: its own when it has one, the instance's otherwise. */
-export function effectiveStructurePolicy(connectionId: string): EffectiveStructurePolicy {
-  if (connectionOwner(connectionId)) return { ...getInstanceStructurePolicy(), source: "instance", projects: [] };
-  const connection = getAdminConnection(connectionId);
+export async function effectiveStructurePolicy(connectionId: string): Promise<EffectiveStructurePolicy> {
+  if (await connectionOwner(connectionId))
+    return { ...(await getInstanceStructurePolicy()), source: "instance", projects: [] };
+  const connection = await getAdminConnection(connectionId);
   if (!connection) throw new ApiError("CONNECTION_NOT_FOUND");
   const own = connection.structurePolicy;
   return {
-    ...(own ?? getInstanceStructurePolicy()),
+    ...(own ?? (await getInstanceStructurePolicy())),
     source: own ? "connection" : "instance",
     projects: connection.projects,
   };
