@@ -141,6 +141,35 @@ export function parseCsv(text: string, separator: SeedSeparator): (string | null
   return rows;
 }
 
+/** The inverse of `parseCsv`: `null` is an empty unquoted cell, the empty string a quoted `""`. */
+export function serializeCsv(rows: readonly (readonly (string | null)[])[], separator: SeedSeparator): string {
+  const cell = (value: string | null) => {
+    if (value === null) return "";
+    if (value === "" || value.includes(separator) || /["\r\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
+    return value;
+  };
+  return rows.map((row) => row.map(cell).join(separator)).join("\n") + "\n";
+}
+
+/**
+ * The header line carrying the names the mapped columns have now: a column renamed in the schema is renamed in
+ * the file's header too, so the file and the table keep saying the same thing. Columns left out keep their header.
+ */
+export function withCurrentHeaderNames(
+  parsed: readonly (readonly (string | null)[])[],
+  options: Pick<SeedOptions, "header" | "mapping">,
+  table: Table,
+): (string | null)[][] {
+  const rows = parsed.map((row) => [...row]);
+  const head = rows[0];
+  if (!options.header || !head) return rows;
+  options.mapping.forEach((fieldId, index) => {
+    const field = fieldId ? table.fields.find((f) => f.id === fieldId) : undefined;
+    if (field && index < head.length) head[index] = field.name;
+  });
+  return rows;
+}
+
 /** The separator the first line uses most, `,` when it says nothing. */
 export function detectSeparator(text: string): SeedSeparator {
   const firstLine = text.split(/\r?\n/, 1)[0] ?? "";
