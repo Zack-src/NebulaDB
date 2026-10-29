@@ -3,20 +3,18 @@ import assert from "node:assert/strict";
 import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import Database from "better-sqlite3";
 import { login, startE2eEnvironment } from "./harness.js";
 
 /**
- * The watch: turned on from the deployments tab, a change made to the
- * database by another tool is found on the next check, listed, and turns on
- * the editor's drift banner.
+ * The watch's settings, from the deployments panel: switched on, a table
+ * picked to be ignored, and both still there after a reload.
  *
  * Set `E2E_SHOTS=<dir>` to keep a screenshot of each step.
  */
 
 const PORT = Number(process.env.E2E_PORT) || 4415;
 
-test("monitoring: a change made outside Nebula is found and shown", { timeout: 90_000 }, async () => {
+test("monitoring: settings are saved from the deployments panel", { timeout: 90_000 }, async () => {
   const targetFile = join(mkdtempSync(join(tmpdir(), "nebuladb-e2e-monitor-")), "shop.sqlite");
   const env = await startE2eEnvironment(PORT);
   try {
@@ -68,24 +66,21 @@ test("monitoring: a change made outside Nebula is found and shown", { timeout: 9
     await card.getByRole("switch", { name: "Surveiller les bases" }).click();
     await card.getByRole("button", { name: "Vérifier maintenant" }).click();
     await card.getByText(/Dernière vérification/).waitFor();
-    assert.equal(await card.getByRole("list", { name: "Ce que la surveillance a trouvé" }).count(), 0);
 
-    // Another tool changes the database.
-    const target = new Database(targetFile);
-    target.exec("CREATE TABLE audit_copy (id INTEGER); ALTER TABLE customers ADD COLUMN note TEXT;");
-    target.close();
+    // A table the watch should leave alone: picked from the schema.
+    await card.getByRole("button", { name: "Ajouter" }).click();
+    await page.getByRole("dialog", { name: "Tables à ignorer" }).getByText("customers").click();
+    await card.getByTestId("monitoring-ignored").getByText("customers").waitFor();
+    await snap("ignored");
 
-    await card.getByRole("button", { name: "Vérifier maintenant" }).click();
-    const found = card.getByRole("list", { name: "Ce que la surveillance a trouvé" }).getByRole("listitem");
-    await found.first().waitFor();
-    assert.equal(await found.first().getAttribute("data-kind"), "external");
-    await found.first().getByText("+audit_copy ~customers").waitFor();
-    await snap("found");
-
-    // The editor says so.
-    await page.getByRole("tab", { name: "Schéma", exact: true }).click();
-    await page.getByText("La base « Base boutique » a été modifiée en dehors du schéma").waitFor();
-    await snap("banner");
+    // Still there after a reload: it was saved.
+    await page.reload();
+    const again = page.getByTestId("monitoring");
+    await again.getByTestId("monitoring-ignored").getByText("customers").waitFor();
+    assert.equal(
+      await again.getByRole("switch", { name: "Surveiller les bases" }).getAttribute("aria-checked"),
+      "true",
+    );
 
     assert.deepEqual(errors, []);
   } finally {

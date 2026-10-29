@@ -1,5 +1,12 @@
 import type { AcceptedRisk, DatabaseEngine, MigrationResolutionMap, SchemaRisk } from "@nebuladb/shared";
-import { detectTypeTranslationRisks, planRiskProbes, riskFromProbe, type MigrationDiff } from "@nebuladb/dbml-engine";
+import {
+  detectRenameCandidates,
+  detectTypeTranslationRisks,
+  planRiskProbes,
+  riskFromProbe,
+  supersededByRename,
+  type MigrationDiff,
+} from "@nebuladb/dbml-engine";
 import { ApiError } from "../../shared/errors.js";
 import type { DatabaseDriver } from "./drivers/interface.js";
 
@@ -31,10 +38,12 @@ export async function analyzeDeploymentRisks(
   driver: DatabaseDriver,
   diff: MigrationDiff,
   engine: DatabaseEngine,
+  /** The tables Nebula deployed there (see `planRiskProbes`); left out when unknown. */
+  deployedTables?: ReadonlySet<string> | null,
 ): Promise<SchemaRisk[]> {
   const risks: SchemaRisk[] = [];
   const deadline = Date.now() + TOTAL_BUDGET_MS;
-  for (const probe of planRiskProbes(diff, engine)) {
+  for (const probe of planRiskProbes(diff, engine, deployedTables)) {
     let value: number | null;
     const remaining = deadline - Date.now();
     if (remaining <= 0) {
@@ -48,10 +57,25 @@ export async function analyzeDeploymentRisks(
         value = null;
       }
     }
-    const risk = riskFromProbe(probe, value);
+    const risk = riskFromProbe(probe, value, engine);
     if (risk) risks.push(risk);
   }
-  return [...risks, ...detectTypeTranslationRisks(diff, engine)];
+  return [...risks, ...detectRenameCandidates(diff), ...detectTypeTranslationRisks(diff, engine)];
+}
+
+/**
+ * The answers a deployment runs with: those sent, plus "keep it" for every risk left unanswered whose default is
+ * to keep. Without one the SQL generator drops the table or column, while the deployment record says it was kept.
+ */
+export function withKeepDefaults(risks: SchemaRisk[], resolutions: MigrationResolutionMap): MigrationResolutionMap {
+  const answers = { ...resolutions };
+  for (const risk of risks) {
+    const key = resolutionKeyOf(risk);
+    if (risk.severity !== "info" && risk.defaultStrategy === "KEEP_IN_DB" && !answers[key]) {
+      answers[key] = { strategy: "KEEP_IN_DB" };
+    }
+  }
+  return answers;
 }
 
 /** The key a risk's answer is filed under in a `MigrationResolutionMap`. */
@@ -81,7 +105,10 @@ export function settleRisks(
   const blocked: string[] = [];
   const unresolved: string[] = [];
   const settled: AcceptedRisk[] = [];
+  // The drop of a column the answers rename is no drop: nothing to answer, nothing that stops the deployment.
+  const superseded = supersededByRename(risks, resolutions);
   for (const risk of risks) {
+    if (superseded.has(risk.id)) continue;
     if (risk.severity === "info" || risk.type === "TYPE_TRANSLATION_SUGGESTED") continue;
     const label = risk.columnName ? `${risk.tableName}.${risk.columnName}` : risk.tableName;
     const chosen = resolutions[resolutionKeyOf(risk)]?.strategy;

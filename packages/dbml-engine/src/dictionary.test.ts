@@ -73,10 +73,10 @@ test("a note is read into its description and annotations, and written back", ()
   assert.equal(formatNote({ description: "  ", tags: [] }), undefined);
   // An unknown classification is dropped rather than kept as a wrong one; other brackets are text.
   assert.deepEqual(parseNote("See [RFC 12]. [class: secret]"), { description: "See [RFC 12].", tags: [] });
-  // What would break the one-line note, or close an annotation early, is flattened.
+  // What would close an annotation early is flattened.
   assert.equal(
-    formatNote({ description: "two\nlines", owner: "a]b", tags: ["x,y", ""] }),
-    "two lines [owner: a b] [tags: x,y]",
+    formatNote({ description: "one", owner: "a]b\nc", tags: ["x,y", ""] }),
+    "one [owner: a b c] [tags: x,y]",
   );
 });
 
@@ -203,4 +203,103 @@ test("a note is shown to a reader without the annotation syntax", () => {
   assert.equal(readableNote("[class: sensitive]"), "sensitive");
   assert.equal(readableNote(""), undefined);
   assert.equal(readableNote(undefined), undefined);
+});
+
+const MULTILINE =
+  "Customer accounts.\n\nUsed by:\n- billing\n  - invoices\n- support\nIt's a \\ test, 'quoted' and ''' too.";
+
+const withNotes = (tableNote: string, fieldNote: string): Project => ({
+  ...project,
+  tables: [
+    {
+      ...project.tables[1],
+      note: tableNote,
+      fields: [{ id: "c1", name: "id", type: "integer", pk: true, note: fieldNote }],
+    },
+  ],
+  refs: [],
+});
+
+test("a description may span several lines, and the annotations are found wherever they sit", () => {
+  const meta = parseNote(`${MULTILINE}\n[owner: crm-team] [tags: rgpd]`);
+  assert.equal(meta.description, MULTILINE);
+  assert.equal(meta.owner, "crm-team");
+  assert.deepEqual(meta.tags, ["rgpd"]);
+  // After the text, on a line of their own, between paragraphs, or inline: same entry.
+  const expected = parseNote("A\nB [owner: x]");
+  assert.deepEqual(parseNote("[owner: x]\nA\nB"), expected);
+  assert.deepEqual(parseNote("A\n[owner: x]\nB"), expected);
+  assert.deepEqual(parseNote("A [owner: x]\nB"), expected);
+  assert.equal(parseNote("A\nB\n[class: personal] [owner: x]").description, "A\nB");
+  assert.deepEqual(parseNote("A\n\n[tags: a,\n b]\n\nB"), { description: "A\n\nB", tags: ["a", "b"] });
+  // Text that merely looks like an annotation in the middle of a description is one: it leaves the text.
+  assert.deepEqual(parseNote("Set [owner: ops] by hand.\nSee [RFC 12]."), {
+    description: "Set by hand.\nSee [RFC 12].",
+    owner: "ops",
+    tags: [],
+  });
+  // The note is written with the annotations last, on their own line, and reads back the same.
+  const note = formatNote(meta)!;
+  assert.equal(note, `${MULTILINE}\n[owner: crm-team] [tags: rgpd]`);
+  assert.deepEqual(parseNote(note), meta);
+  // A single line is exactly what it was.
+  assert.equal(formatNote({ description: "One  line", owner: "a", tags: [] }), "One line [owner: a]");
+});
+
+test("Windows line endings are read as line breaks", () => {
+  const meta = parseNote("First.\r\nSecond.\r\n\r\n\r\nThird. [class: internal]\r\n");
+  assert.equal(meta.description, "First.\nSecond.\n\nThird.");
+  assert.equal(meta.classification, "internal");
+});
+
+test("a multi-line note goes through DBML text and back", () => {
+  const original = withNotes(formatNote({ description: MULTILINE, owner: "crm-team", tags: [] })!, MULTILINE);
+  const dbml = projectToDbml(original);
+  assert.ok(dbml.includes("Note: '''Customer accounts."), dbml);
+  assert.ok(dbml.includes("pk, note: '''Customer accounts."), dbml);
+  const back = toProject(parseDbml(dbml), "Shop");
+  assert.equal(back.tables[0].note, original.tables[0].note);
+  assert.equal(back.tables[0].fields[0].note, MULTILINE);
+  assert.deepEqual(parseNote(back.tables[0].note), parseNote(original.tables[0].note));
+  // And once more from the text we wrote.
+  assert.equal(projectToDbml(back), dbml);
+  // A one-line note is still single-quoted.
+  assert.ok(projectToDbml(project).includes("Note: 'People who bought | once."));
+});
+
+test("a multi-line note counts as a description for the linter", () => {
+  const described = withNotes("Accounts.\n\nSecond paragraph.", "");
+  assert.ok(!lintProject(described).some((finding) => finding.ruleId === "table-description"));
+  // The instruction to the linter ends with its line.
+  const ignored = withNotes("lint-ignore: timestamps\nAccounts.", "");
+  assert.equal(buildDictionary(ignored).tables[0].description, "Accounts.");
+});
+
+test("exports keep the line breaks of a description", () => {
+  const dictionary = buildDictionary({
+    ...withNotes("Accounts.\r\nSecond | line.\n\nThird <b>.", 'Who:\r\n- a\n- b "c", d\n=x'),
+    enums: [
+      {
+        id: "e1",
+        name: "status",
+        values: [{ id: "v1", name: "paid", note: "Settled.\nFinal." }],
+        position: { x: 0, y: 0 },
+      },
+    ],
+  });
+
+  const markdown = dictionaryToMarkdown(dictionary);
+  // Outside the table: a hard break and a blank line. Inside a cell: <br>, never a raw newline.
+  assert.ok(markdown.includes("Accounts.  \nSecond | line.\n\nThird <b>."), markdown);
+  assert.ok(markdown.includes('| `id` | integer | pk |  | Who:<br>- a<br>- b "c", d<br>=x |'), markdown);
+  assert.ok(markdown.includes("| `paid` | Settled.<br>Final. |"), markdown);
+
+  const csv = dictionaryToCsv(dictionary);
+  assert.ok(csv.includes('customers,,,,"Accounts.\nSecond | line.\n\nThird <b>.",'), csv);
+  assert.ok(csv.includes('customers,id,integer,pk,"Who:\n- a\n- b ""c"", d\n=x",'), csv);
+
+  const html = dictionaryToHtml(dictionary);
+  assert.ok(html.includes("<p>Accounts.<br>Second | line.<br><br>Third &lt;b&gt;.</p>"), html);
+  assert.ok(html.includes("<td>Who:<br>- a<br>- b &quot;c&quot;, d<br>=x</td>"), html);
+  assert.ok(html.includes("<td>Settled.<br>Final.</td>"), html);
 });

@@ -56,6 +56,8 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   SNAPSHOT_NOT_FOUND: "errors.snapshotNotFound",
   EMAIL_ALREADY_EXISTS: "errors.emailAlreadyExists",
   INVITATION_ALREADY_USED: "errors.invitationAlreadyUsed",
+  SETUP_ALREADY_DONE: "errors.setupAlreadyDone",
+  SETUP_TOKEN_INVALID: "errors.setupTokenInvalid",
   PROJECT_LIMIT_REACHED: "errors.projectLimitReached",
   ACCOUNT_LOCKED: "errors.accountLocked",
   CONNECTION_RATE_LIMITED: "errors.connectionRateLimited",
@@ -63,6 +65,13 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   WEBHOOK_EVENTS_INVALID: "errors.webhookEventsInvalid",
   WEBHOOK_LIMIT_REACHED: "errors.webhookLimitReached",
   WEBHOOK_NOT_FOUND: "errors.webhookNotFound",
+  SHARE_LINK_LABEL_REQUIRED: "errors.shareLinkLabelRequired",
+  SHARE_LINK_CONTENT_INVALID: "errors.shareLinkContentInvalid",
+  SHARE_LINK_EXPIRY_INVALID: "errors.shareLinkExpiryInvalid",
+  SHARE_LINK_SETTING_INVALID: "errors.shareLinkSettingInvalid",
+  SHARE_LINKS_DISABLED: "errors.shareLinksDisabled",
+  SHARE_LINK_NOT_FOUND: "errors.shareLinkNotFound",
+  SHARE_LINK_LIMIT_REACHED: "errors.shareLinkLimitReached",
   CONNECTION_TARGET_FORBIDDEN: "errors.connectionTargetForbidden",
   CONNECTION_READ_ONLY: "errors.connectionReadOnly",
   CONNECTION_MANAGED_BY_ADMIN: "errors.connectionManagedByAdmin",
@@ -86,6 +95,7 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   MFA_CHALLENGE_INVALID: "errors.mfaChallengeInvalid",
   DEPLOYMENT_HISTORY_NOT_FOUND: "errors.deploymentHistoryNotFound",
   ROLLBACK_NOT_AVAILABLE: "errors.rollbackNotAvailable",
+  MIGRATION_FORMAT_INVALID: "errors.migrationFormatInvalid",
   ROLLBACK_ALREADY_ATTEMPTED: "errors.rollbackAlreadyAttempted",
   STRUCTURE_VIA_SCHEMA: "errors.structureViaSchema",
   STRUCTURE_CONFIRMATION_REQUIRED: "errors.structureConfirmationRequired",
@@ -107,18 +117,53 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   DB_ACCESS_WRITE_FORBIDDEN: "errors.dbAccessWriteForbidden",
   DB_ACCESS_WRITE_CONFIRMATION_REQUIRED: "errors.dbAccessWriteConfirmationRequired",
   DB_ACCESS_STATEMENT_NOT_ALLOWED: "errors.dbAccessStatementNotAllowed",
+  ROW_EDIT_INVALID: "errors.rowEditInvalid",
+  ROW_EDIT_LIMIT: "errors.rowEditLimit",
+  ROW_EDIT_NOT_EDITABLE: "errors.rowEditNotEditable",
+  ROW_EDIT_STALE: "errors.rowEditStale",
+  ROW_EDIT_ROW_COUNT: "errors.rowEditRowCount",
+  ROW_EDIT_FAILED: "errors.rowEditFailed",
+  SAVED_QUERY_INVALID: "errors.savedQueryInvalid",
+  SAVED_QUERY_NOT_FOUND: "errors.savedQueryNotFound",
+  SAVED_QUERY_NOT_OWNER: "errors.savedQueryNotOwner",
+  SAVED_QUERY_NAME_TAKEN: "errors.savedQueryNameTaken",
+  SAVED_QUERY_LIMIT: "errors.savedQueryLimit",
   DB_ADMIN_CONNECTION_ACCOUNT_PROTECTED: "errors.dbAdminConnectionAccountProtected",
   CONNECTION_AUTH_MODE_INVALID: "errors.connectionAuthModeInvalid",
+  CONNECTION_TLS_INVALID: "errors.connectionTlsInvalid",
+  CONNECTION_SSH_INVALID: "errors.connectionSshInvalid",
+  CONNECTION_SSH_FAILED: "errors.connectionSshFailed",
+  SSO_SETTINGS_INVALID: "errors.ssoSettingsInvalid",
+  VARIANT_OF_VARIANT: "errors.variantOfVariant",
+  VARIANT_NOT_FOUND: "errors.variantNotFound",
+  VARIANT_TARGETS_INVALID: "errors.variantTargetsInvalid",
+  FOLDER_NOT_FOUND: "errors.folderNotFound",
+  FOLDER_TOO_DEEP: "errors.folderTooDeep",
+  FOLDER_MOVE_INVALID: "errors.folderMoveInvalid",
+  FOLDER_LIMIT_REACHED: "errors.folderLimitReached",
+  FOLDER_FORBIDDEN: "errors.folderForbidden",
+  SSO_DISCOVERY_FAILED: "errors.ssoDiscoveryFailed",
+  SSO_NOT_CONFIGURED: "errors.ssoNotConfigured",
   DEPLOYMENT_BLOCKED_BY_RISK: "errors.deploymentBlockedByRisk",
   SEED_INVALID: "errors.seedInvalid",
+  SEED_IMPORT_UNAVAILABLE: "errors.seedImportUnavailable",
   BUNDLE_INVALID: "errors.bundleInvalid",
   GENERATOR_INVALID: "errors.generatorInvalid",
   ACTIVITY_QUERY_INVALID: "errors.activityQueryInvalid",
+  RETENTION_VALUE_INVALID: "errors.retentionValueInvalid",
+  RETENTION_CONFIRM_REQUIRED: "errors.retentionConfirmRequired",
+  RETENTION_JOURNAL_NOT_FOUND: "errors.retentionJournalNotFound",
+  RETENTION_PURGE_RUNNING: "errors.retentionPurgeRunning",
   MONITORING_INVALID: "errors.monitoringInvalid",
   MONITORING_LOCKED: "errors.monitoringLocked",
+  MONITORING_MUTE_INVALID: "errors.monitoringMuteInvalid",
+  MONITORING_MUTE_LOCKED: "errors.monitoringMuteLocked",
+  MONITORING_EVENT_NOT_FOUND: "errors.monitoringEventNotFound",
+  MONITORING_EVENT_NOT_OPEN: "errors.monitoringEventNotOpen",
   DATABASE_TABLE_NOT_FOUND: "errors.databaseTableNotFound",
   COMPARISON_INVALID: "errors.comparisonInvalid",
   SUBSCRIPTION_INVALID: "errors.subscriptionInvalid",
+  EMAIL_ALERTS_UNAVAILABLE: "errors.emailAlertsUnavailable",
   COMMENT_NOTICE_INVALID: "errors.commentNoticeInvalid",
   LINT_INVALID: "errors.lintInvalid",
   LINT_BLOCKS_DEPLOYMENT: "errors.lintBlocksDeployment",
@@ -127,7 +172,24 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   LINT_PRESET_LIMIT: "errors.lintPresetLimit",
   VARIABLES_UNRESOLVED: "errors.variablesUnresolved",
   PIPELINE_STAGE_SKIPPED: "errors.pipelineStageSkipped",
+  DEPLOYMENT_REVIEW_REQUIRED: "errors.deploymentReviewRequired",
+  DEPLOYMENT_IN_PROGRESS: "errors.deploymentInProgress",
+  ROLLBACK_REVIEW_REQUIRED: "errors.rollbackReviewRequired",
+  ROLLBACK_NOT_LATEST: "errors.rollbackNotLatest",
+  CLEAN_DEPLOYMENT_NOT_ALLOWED: "errors.cleanDeploymentNotAllowed",
+  CLEAN_DEPLOYMENT_CONFIRMATION_REQUIRED: "errors.cleanDeploymentConfirmationRequired",
+  DEPLOYMENT_REVIEW_NOT_REQUIRED: "errors.deploymentReviewNotRequired",
+  DEPLOYMENT_REVIEW_NOTHING_TO_DEPLOY: "errors.deploymentReviewNothingToDeploy",
+  DEPLOYMENT_REVIEW_ALREADY_OPEN: "errors.deploymentReviewAlreadyOpen",
+  DEPLOYMENT_REVIEW_NOT_PENDING: "errors.deploymentReviewNotPending",
+  DEPLOYMENT_REVIEW_NOT_APPROVED: "errors.deploymentReviewNotApproved",
+  DEPLOYMENT_REVIEW_EXPIRED: "errors.deploymentReviewExpired",
+  DEPLOYMENT_REVIEW_STALE: "errors.deploymentReviewStale",
+  DEPLOYMENT_REVIEW_NOT_FOUND: "errors.deploymentReviewNotFound",
+  DEPLOYMENT_REVIEW_SELF_DECISION: "errors.deploymentReviewSelfDecision",
+  DEPLOYMENT_REVIEW_NOT_YOURS: "errors.deploymentReviewNotYours",
   STAGE_SKIP_REASON_REQUIRED: "errors.stageSkipReasonRequired",
+  ROLLBACK_REVIEW_REASON_REQUIRED: "errors.rollbackReviewReasonRequired",
   SEED_NOT_FOUND: "errors.seedNotFound",
   SEEDS_NOT_DEPLOYABLE: "errors.seedsNotDeployable",
   DESTRUCTIVE_CHANGE_UNRESOLVED: "errors.destructiveChangeUnresolved",
@@ -138,8 +200,10 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   BACKUP_ALREADY_RUNNING: "errors.backupAlreadyRunning",
   BACKUP_NOT_READY: "errors.backupNotReady",
   BACKUP_CORRUPTED: "errors.backupCorrupted",
+  BACKUP_STORAGE_UNREACHABLE: "errors.backupStorageUnreachable",
   RESTORE_CONFIRMATION_REQUIRED: "errors.restoreConfirmationRequired",
   RESTORE_TARGET_MISMATCH: "errors.restoreTargetMismatch",
+  VALIDATION_FAILED: "errors.validationFailed",
 };
 
 /**
@@ -174,9 +238,47 @@ export function describeApiError(error: unknown, t: Translator): string {
     if (
       error.code === "PERSONAL_CREDENTIALS_REJECTED" ||
       error.code === "PERSONAL_PASSWORD_REJECTED" ||
-      error.code === "BACKUP_DESTINATION_UNUSABLE"
+      error.code === "BACKUP_DESTINATION_UNUSABLE" ||
+      error.code === "BACKUP_STORAGE_UNREACHABLE"
     ) {
       return t(key, { reason: String(error.details.reason ?? "") });
+    }
+    // Row edits say which statement of the batch, and the database's own reason.
+    if (error.code?.startsWith("ROW_EDIT_")) {
+      const details = error.details;
+      if (error.code === "ROW_EDIT_STALE" && details.missing === true) {
+        return t("errors.rowEditGone", { position: String(details.position ?? "?") });
+      }
+      return t(key, {
+        position: String(details.position ?? "?"),
+        statement: String(details.statement ?? ""),
+        reason: String(error.code === "ROW_EDIT_INVALID" ? error.message : (details.reason ?? "")),
+        affected: String(details.affected ?? ""),
+        columns: Array.isArray(details.columns) ? details.columns.join(", ") : "",
+        maxOperations: String(details.maxOperations ?? ""),
+      });
+    }
+    // Lists the invalid fields by name (paths only; the server never echoes values).
+    if (error.code === "VALIDATION_FAILED") {
+      const fields = error.details.fields;
+      const names = Array.isArray(fields)
+        ? fields.map((f) => String((f as { path?: unknown }).path || "body")).join(", ")
+        : "";
+      return t(key, { fields: names });
+    }
+    // Says which seeds have errors and which tables form a cycle, so the user knows what to fix.
+    if (error.code === "SEEDS_NOT_DEPLOYABLE") {
+      const broken = Array.isArray(error.details.tables) ? error.details.tables.map(String) : [];
+      const cycles = Array.isArray(error.details.cycles)
+        ? error.details.cycles.map((cycle) => (Array.isArray(cycle) ? cycle.map(String).join(" → ") : String(cycle)))
+        : [];
+      return [
+        t(key),
+        broken.length > 0 ? t("errors.seedsBrokenTables", { tables: broken.join(", ") }) : "",
+        cycles.length > 0 ? t("errors.seedsCycles", { cycles: cycles.join(" ; ") }) : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
     }
     const tables = error.details.tables;
     return error.code === "TABLE_LOCKED" && Array.isArray(tables) ? t(key, { tables: tables.join(", ") }) : t(key);

@@ -19,6 +19,8 @@ import type {
 export interface RunQueryOptions {
   database?: string;
   readOnly: boolean;
+  /** A member's data write: the engine itself must refuse a second statement, whatever the text guard saw. */
+  singleStatement?: boolean;
   timeoutMs: number;
   maxRows: number;
 }
@@ -30,6 +32,23 @@ export interface AdminStatement {
 }
 
 export type DropKind = "database" | "table" | "view" | "column";
+
+/** What one statement of a row session gave: its rows as the engine's client hands them over, or how many it changed. */
+export interface RowStatementResult {
+  columns: string[];
+  rows: unknown[][];
+  affected: number;
+}
+
+/** Runs one statement with bound parameters — text or NULL, the server converts — on the session's connection. */
+export type RowStatementRunner = (sql: string, params?: (string | null)[]) => Promise<RowStatementResult>;
+
+export interface RowSessionOptions {
+  database?: string;
+  /** `false`: a reading session. `true`: one transaction, committed when `fn` returns, rolled back when it throws. */
+  write: boolean;
+  timeoutMs: number;
+}
 
 /**
  * The administration counterpart of `DatabaseDriver`. That one sees a target
@@ -72,5 +91,11 @@ export interface DatabaseAdminDriver {
   killSessionStatements(id: string): AdminStatement[];
 
   execute(statements: AdminStatement[], database?: string): Promise<void>;
+  /**
+   * One connection held for the explorer's row editing (`rowEdits.ts`): every
+   * statement of `fn` runs on it, with bound parameters. Absent on the engines
+   * whose rows the console does not edit.
+   */
+  rowSession?<T>(options: RowSessionOptions, fn: (run: RowStatementRunner) => Promise<T>): Promise<T>;
   close(): Promise<void>;
 }

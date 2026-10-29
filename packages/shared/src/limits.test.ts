@@ -70,12 +70,12 @@ test("clampTable truncates nested field, index, comment and note strings", () =>
   );
   assert.ok(clamped);
   assert.equal(clamped.note?.length, MAX_NOTE_LENGTH);
-  assert.equal(clamped.fields[0].name.length, MAX_NAME_LENGTH);
-  assert.equal(clamped.fields[0].type.length, MAX_NAME_LENGTH);
-  assert.equal(clamped.fields[0].default?.length, 500);
-  assert.equal(clamped.fields[0].note?.length, MAX_NOTE_LENGTH);
-  assert.equal(clamped.indexes[0].name?.length, MAX_NAME_LENGTH);
-  assert.equal(clamped.comments?.[0].text.length, MAX_TEXT_LENGTH);
+  assert.equal(clamped.fields[0]!.name.length, MAX_NAME_LENGTH);
+  assert.equal(clamped.fields[0]!.type.length, MAX_NAME_LENGTH);
+  assert.equal(clamped.fields[0]!.default?.length, 500);
+  assert.equal(clamped.fields[0]!.note?.length, MAX_NOTE_LENGTH);
+  assert.equal(clamped.indexes[0]!.name?.length, MAX_NAME_LENGTH);
+  assert.equal(clamped.comments?.[0]!.text.length, MAX_TEXT_LENGTH);
   assert.equal(clamped.comments?.[0].author.length, 100);
 });
 
@@ -179,7 +179,7 @@ test("clampMetaValue caps the project name and the palette", () => {
   const palette = Array.from({ length: MAX_PALETTE_COLORS + 10 }, () => "#000000");
   assert.equal((clampMetaValue("paletteColors", palette) as string[]).length, MAX_PALETTE_COLORS);
   assert.equal(clampMetaValue("paletteColors", ["#000000"]), null);
-  assert.equal((clampMetaValue("paletteColors", ["#".repeat(200)]) as string[])[0].length, 64);
+  assert.equal((clampMetaValue("paletteColors", ["#".repeat(200)]) as string[])[0]!.length, 64);
 
   assert.equal(clampMetaValue("id", "p1"), null);
 });

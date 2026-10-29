@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
-import { clickRevealedOnHover, login, startE2eEnvironment } from "./harness.js";
+import { clickRevealedOnHover, codeEditorText, login, startE2eEnvironment } from "./harness.js";
 
 /**
  * The project workspace: one bar of tabs over the schema editor, the database
@@ -86,16 +86,23 @@ test(
             headers: json,
             body: JSON.stringify({ projectIds: [id] }),
           });
+          // "Voir les données" is offered once Nebula has deployed the project to the database.
+          const dep = await fetch(`/api/projects/${id}/connections/${connectionId}/apply-deployment`, {
+            method: "POST",
+            headers: json,
+            body: JSON.stringify({ resolutions: {}, confirmName: "Base boutique" }),
+          });
+          if (!dep.ok) throw new Error(`deploy failed: ${dep.status} ${await dep.text()}`);
           return id;
         },
         { dbml: SCHEMA, filePath: targetFile },
       );
 
       await page.goto(`${env.baseUrl}/project/${projectId}`);
-      const tab = (name: string) => page.getByRole("tab", { name, exact: true });
+      const tab = (name: string) => page.getByRole("tab", { name, exact: true }).first();
       const canvasTable = (name: string) => page.locator(".svelte-flow__node").filter({ hasText: name });
       await canvasTable("invoices").waitFor();
-      for (const name of ["Schéma", "Déploiements", "Historique"]) await tab(name).waitFor();
+      for (const name of ["Schéma", "Historique"]) await tab(name).waitFor();
       assert.equal(await tab("Schéma").getAttribute("aria-selected"), "true");
       const avatars = page.locator(".account-avatar");
       assert.equal(await avatars.count(), 1);
@@ -134,7 +141,7 @@ test(
       );
       await drawer.getByRole("textbox", { name: "Console SQL" }).waitFor();
       assert.equal(
-        await drawer.getByRole("textbox", { name: "Console SQL" }).inputValue(),
+        await codeEditorText(drawer.getByRole("textbox", { name: "Console SQL" })),
         "SELECT * FROM customers LIMIT 100",
       );
       await drawer.getByRole("gridcell", { name: "Ada" }).waitFor();
@@ -172,26 +179,26 @@ test(
       // --- History: a page with its own address ---
       await tab("Historique").click();
       await page.waitForURL(`**/project/${projectId}/history`);
-      await page.getByRole("button", { name: "Restaurer" }).waitFor();
+      await page.getByRole("button", { name: "Restaurer cette version" }).waitFor();
       assert.equal(await page.locator(".svelte-flow__pane").count(), 0, "the canvas is not mounted behind another tab");
       await snap("history");
       // A reload lands on the same tab…
       await page.reload();
-      await page.getByRole("button", { name: "Restaurer" }).waitFor();
+      await page.getByRole("button", { name: "Restaurer cette version" }).waitFor();
       assert.equal(await tab("Historique").getAttribute("aria-selected"), "true");
 
-      // --- Deployments ---
-      await tab("Déploiements").click();
-      await page.waitForURL(`**/project/${projectId}/deployments`);
-      await page.getByRole("heading", { name: "Base boutique" }).waitFor();
+      // --- Deployments: a panel beside the schema, not a tab ---
+      await tab("Schéma").click();
+      await page.getByRole("button", { name: "Déploiement", exact: true }).click();
+      await page.getByText("Base boutique").first().waitFor();
       await page.getByTestId("deployment-panel").getByRole("button", { name: "Actualiser", exact: true }).waitFor();
       assert.equal(await page.getByRole("dialog").count(), 0);
       await snap("deployments");
-      // …and back / forward walk the tabs.
-      await page.goBack();
-      await page.getByRole("button", { name: "Restaurer" }).waitFor();
-      await page.goForward();
-      await page.getByRole("heading", { name: "Base boutique" }).waitFor();
+      // The panel keeps its place across a detour to another tab.
+      await tab("Historique").click();
+      await page.getByRole("button", { name: "Restaurer cette version" }).waitFor();
+      await tab("Schéma").click();
+      await page.getByTestId("deployment-panel").getByRole("button", { name: "Actualiser", exact: true }).waitFor();
 
       await tab("Schéma").click();
       // The editor is whole again: the DBML panel is back with the schema in it.

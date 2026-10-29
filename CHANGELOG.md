@@ -6,7 +6,7 @@ release changes the database, the configuration, or anything they have to do by
 hand.
 
 Database migrations run automatically at boot (`apps/server/src/infrastructure/migrations.ts`,
-tracked with `PRAGMA user_version`) and are one-way — take a backup before
+recorded in the `schema_migrations` table) and are one-way — take a backup before
 upgrading (`npm run backup -- <dir>`).
 
 The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
@@ -18,6 +18,179 @@ one version number. Releases are tagged (`vX.Y.Z`) on `main` at points this file
 has a dated entry for. Version 1.0.0 is the first release under the NebulaDB name.
 
 ## [Unreleased]
+
+### Changed — safer defaults for outbound connections (read before upgrading)
+
+- Webhooks to loopback, private and link-local addresses are **refused by default**. A receiver on your LAN
+  needs `NEBULADB_WEBHOOK_ALLOWED_HOSTS` (or `NEBULADB_WEBHOOK_BLOCK_PRIVATE=0` to go back to the old behaviour).
+- A connection that uses TLS now **verifies the server certificate** unless "verify" was explicitly unchecked.
+  A connection saved without that setting and pointing at a self-signed certificate needs its CA, or the box unchecked.
+- An SSH tunnel remembers the host key it first connected to and refuses a different one afterwards.
+- SQLite connections can only be created by administrators.
+
+### Added — initial data of any size
+
+- A table's initial data is no longer capped at 2 MB / 50 000 rows. Past 2 MB the CSV is sent as a raw
+  stream (progress shown), **kept as a file on the server** (`NEBULADB_SEED_DIR`, default `data/seeds`) and
+  read as a stream: checked as it arrives (types, lengths, NOT NULL, row width, primary key / UNIQUE,
+  foreign keys against the parent seed) and inserted in batches inside one transaction per table.
+  Up to `NEBULADB_SEED_FILE_MAX_GB` (default 20) per file; the checks that need to remember keys give up,
+  and say so, past `NEBULADB_SEED_MAX_KEYS` values (default 5 000 000).
+- Instance administrators can import a file, or a whole folder of `<table>.csv`, from the server's own disk
+  with the new `NEBULADB_SEED_IMPORT_DIR` (unset: off). Columns are matched to the table's by name.
+- **Database migration 12** adds `table_seeds.storage`, `file_name` and `check_json`. A project bundle does
+  not carry the seeds kept as files (they stay in `NEBULADB_SEED_DIR`: back that folder up with the database).
+
+### Changed — NebulaDB's own data moves to PostgreSQL (read before upgrading)
+
+- NebulaDB now stores its users, projects, revisions, connections and everything else in
+  **PostgreSQL**, and only there. `NEBULADB_DATABASE_URL` is required; `NEBULADB_DB_PATH` is no
+  longer read (the server stops at boot and says what to do). `NEBULADB_DATABASE_POOL_SIZE`
+  (default 10) sizes the connection pool. `docker-compose.yml` adds a `postgres` service and needs
+  `NEBULADB_POSTGRES_PASSWORD`.
+- **Moving an existing instance:** start the new version on an empty PostgreSQL database, then
+  `npm run migrate-from-sqlite -- <path-to-sqlite-file>`. It copies every table in one
+  transaction, refuses a target that already holds data and a file older than schema 45, and
+  checks the row counts. Keep the SQLite file as a backup. Tried on a copy of a real instance.
+- Schema changes are now recorded in `schema_migrations` (PostgreSQL migration 1 is the whole
+  former SQLite schema; 2–6 add saved queries, e-mail drift alerts, acknowledgements, mutes and
+  deployment reviews; 7 adds `user_identities` for single sign-on; 8 folders and client variants). Timestamps keep their `YYYY-MM-DD HH:MM:SS` UTC form in the API.
+- Concurrency that SQLite's synchronous access used to hide is now handled explicitly: login
+  lockout counting, single use of 2FA backup codes, the last administrator, one running backup per
+  database, the order of revisions in collaborative editing.
+- Tests (server, CLI, browser) run against a throwaway PostgreSQL:
+  `docker compose -f docker-compose.test.yml up -d nebuladb-test-postgres`.
+- SQLite remains a supported **target** engine for the databases a project deploys to.
+
+### Added — project folders and client variants
+
+- **Folders** in the project list: "Nouveau dossier", nested up to 5 levels, a path to go back up, rename and
+  delete (what a deleted folder held moves up one level; no project is deleted). A project moves into a folder
+  from its card (project administrators); a project created inside a folder lands there. One tree for the
+  instance: each person sees the folders leading to a project they can open, the ones they made, and an instance
+  administrator sees all. Only whoever made a folder, or an instance administrator, changes it.
+- **Client variants**: a project's new **Variantes** tab makes a full copy of it (schema, layout, locks, seeds,
+  generator settings) for one client, in the same folder. A variant has no variants of its own.
+- When the original changes, its Variantes tab shows how far behind each variant is (changes to receive,
+  conflicts, the client's own adaptations). **"Envoyer les changements"** to the chosen variants opens a preview
+  per variant: every change ticked to be sent, untick what should not go; a conflict (the client changed the
+  same thing) keeps the client's version unless "Prendre l'original" is chosen. What is not sent becomes the
+  variant's own and is not offered again. Only the structure travels (tables, columns, indexes, relations,
+  enums, table groups) — positions and layout never. A variant can also take its original's changes from its
+  own tab, and be detached to become an independent project.
+- A variant can be **reset** to its original (its structure becomes the original's again, its layout kept) or
+  **copied from another variant** of the same original; it can be renamed and put in the trash from the
+  original's Variantes tab ("Actions"). The previous version stays in the History tab. Audited as
+  `project.variant.reset`.
+- **Switching** between an original and its variants from the project header (the "Original" / "Variante" pill).
+- In the project list, a **right click** offers a new folder or project (empty area), the project's actions —
+  open, rename, move, new client variant, trash — and the folder's — open, new subfolder, rename, delete. A
+  project is **dragged** onto a folder, or onto a step of the folder path, to move it.
+- **Comparison** of any two versions (original and client, or two clients): tables only one side has, and the
+  columns that differ with each side's definition.
+- Audited as `folder.create|update|delete`, `project.folder`, `project.variant.create|push|detach`. Migration 8
+  (`project_folders`, `projects.folder_id`, `project_variants`). `GET /api/projects` and `/api/v1/projects` add
+  `folderId` and `variantOf`.
+
+### Added — GitHub Action
+
+- `actions/nebuladb`: a composite GitHub Action running one `nebuladb` CLI command (`lint`, `drift-check`,
+  `deploy-plan`, `deploy`) from a workflow. The API key reaches the CLI through the environment only, the
+  CLI's exit code becomes the step's, and its output goes to the job summary. By default the action builds
+  the CLI from its own checkout, so it always matches the instance's version.
+
+### Added — backups to S3 and SFTP
+
+- A database's backups can go to an **S3-compatible bucket** (AWS S3, MinIO, Scaleway, OVH…) or an **SFTP
+  server** instead of a folder of the server: Admin → Connexions → Monitoring → Sauvegardes → Emplacement.
+  The destination is tried (a file written, read back, deleted) before it is kept. What reaches it is already
+  gzipped and encrypted with the backup's own key, so the remote never sees plain data.
+- The keys, password or private key are encrypted with the instance secret (`npm run rotate-secret`
+  re-encrypts them) and are never returned; leaving them empty keeps the saved ones, but only while the
+  bucket and endpoint, or the host, port and user, stay the same. An SFTP destination requires the server's
+  host key fingerprint and refuses any other key. S3 and SFTP hosts go through the same outbound check as
+  database connections (no cloud metadata addresses, checked again at connect time).
+- A backup remembers where it was written, so changing a connection's destination leaves the older backups
+  readable. A remote that cannot be reached answers `BACKUP_STORAGE_UNREACHABLE` with its own reason and
+  the backup record is kept. Deleting a connection removes its remote files in the background.
+- Migration 10 adds `backup_destinations`, `db_connections.backup_destination_id` and `backups.destination_id`.
+  `docker-compose.test.yml` gains MinIO and SFTP containers for the destination tests.
+
+### Added — read-only share links
+
+- A project administrator can create a **share link** (project card, eye icon) to the project's diagram, its
+  data dictionary or both, for people with no account. Off by default: an instance administrator turns
+  the feature on in Administration → Share links, where every link of the instance is listed and can be revoked.
+  A link lasts 1 to 365 days (30 by default), at most 50 live links per project.
+- Only the SHA-256 of the token is stored; the full address is shown once, at creation. The public page and its
+  API never read the viewer's session, send `no-store`, `no-referrer` and `noindex` headers, and keep the token
+  out of the logs. The dictionary shown leaves out the owner annotations. Revoked, expired, unknown links and a
+  trashed project all answer the same way.
+- Migration 9 adds the `share_links` table.
+
+### Added — single sign-on (OpenID Connect)
+
+- Admin → **Connexion unique (SSO)**: one OpenID Connect provider (Keycloak, Entra ID, Google
+  Workspace, Authentik, Okta…) — issuer URL, client id and secret (encrypted, never sent back),
+  button label, allowed e-mail domains, accounts created on first sign-in (never administrators).
+  "Tester le fournisseur" reads the discovery document. The page shows the redirect URI to register
+  at the provider: `NEBULADB_PUBLIC_URL` + `/api/auth/sso/callback` when set, otherwise the address
+  the console is reached by.
+- The login page offers "Se connecter avec …" next to the password. Authorization code flow with
+  PKCE, state and nonce; the ID token is checked (signature, issuer, audience, nonce).
+- A provider account is tied to a NebulaDB user by the provider's identifier (`sub`), never by
+  e-mail after the first sign-in. The first sign-in finds the user with the same address only when
+  the provider says it is verified, or when its domain is in the allowed list (for providers that do
+  not say, such as Entra ID). A refused sign-in comes back to the login page with the reason.
+  Two-factor codes are not asked after SSO: the provider's own MFA applies. Password sign-in stays.
+- Audited as `auth.sso.login`, `auth.sso.refused`, `user.sso.create`, `user.sso.link`,
+  `instance.sso`. Migration 7 (`user_identities`).
+
+### Added — TLS certificates and SSH tunnels for connections
+
+- A connection's **Sécurité** tab: check the server's certificate against the connection's own
+  authority (PEM) or the system ones, and send a client certificate and key when the server asks for
+  one — PostgreSQL, MySQL and SQL Server tried; Oracle goes over `tcps` with the authority as wallet
+  content, untested. The certificate is checked against the host name typed, even though the socket
+  goes to the pinned address. MySQL connections now honour "Activer SSL / TLS" (they ignored it).
+- **SSH tunnel**: the database is reached through an SSH server (password, or private key with its
+  passphrase); the host and port of the connection are then the ones the SSH server sees. The host
+  key fingerprint (`SHA256:…`) is filled in by the first test and enforced once saved. Only for
+  connections made of a host and a port, not a connection string.
+- The client key and the SSH secrets are encrypted with the rest of the connection and never sent
+  back; an empty field keeps the stored one. `/api/v1` connection routes and the OpenAPI document
+  carry the new fields (`sslVerify`, `sslCa`, `sslCert`, `sslKey`, `sshTunnel`).
+
+### Added — deployments
+
+- A **`deploy`** project level between `edit` and `administrator`: plan, deploy, roll back, read
+  the history, compare databases, check for drift — not manage connections, teams or settings.
+- **Review before a "Revue" stage**: the deployment is prepared and frozen, another person who may
+  deploy approves or rejects it (never its author), and the approved request is deployed only if
+  the plan is unchanged. Approvals expire after 7 days. Notifications, audit, webhook event
+  `deployment.review`, `/api/v1` routes.
+- **Export of the deployment history** as numbered SQL, Flyway or Liquibase files in a zip.
+
+### Added — SQL and data
+
+- The SQL console is a **CodeMirror editor** with the connection's dialect and completion of tables
+  and columns; **saved queries**, private or shared; **row editing** from the explorer (primary key
+  required, statements shown before they run, all or nothing); **index suggestions** from the
+  statements run, added through the project's schema.
+
+### Added — monitoring
+
+- **E-mail alerts** for drift (per account, when SMTP is configured), **acknowledging** an alert,
+  and **muting** a project's alerts for a while with a reason.
+
+### Added — interface and tools
+
+- A global **`Ctrl+K` palette**; the connection form in **tabs**; the server's databases offered when
+  choosing a project's database; stage variables as a **key/value table**; ignored tables picked
+  from the schema; a notice when a project leaves the trash detached from a connection; multi-line
+  dictionary descriptions and a **PDF export** of the dictionary.
+- **`nebuladb` command-line client** (`packages/cli`) over `/api/v1`, which now also exposes the
+  deployment plan and project bundles.
 
 ### Added — a watch imposed from the connection
 
@@ -32,7 +205,7 @@ has a dated entry for. Version 1.0.0 is the first release under the NebulaDB nam
 
 ### Added — a backup location per connection
 
-- Admin → Connexions → Ouvrir → Sauvegardes → **Emplacement des sauvegardes**: the folder of the
+- Admin → Connexions → Monitoring → Sauvegardes → **Emplacement des sauvegardes**: the folder of the
   server a database's backups are written to — a local folder or a network share mounted on the
   server (NFS, SMB; a `\\server\share` path on Windows). It is created and written to before it is
   kept (`BACKUP_DESTINATION_UNUSABLE` with the system's reason otherwise). Empty: the instance's

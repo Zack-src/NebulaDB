@@ -64,6 +64,11 @@ test("translateType: text has no native type on mssql/oracle", () => {
 test("translateType: timestamp has no native type on mssql", () => {
   assert.equal(translateType("timestamp", "mysql").changed, false); // mysql does have TIMESTAMP
   assert.equal(translateType("timestamp", "mssql").type, "datetime2");
+  // `datetime` and `datetime2` are SQL Server's own date-times: written as such, they are left alone.
+  assert.equal(translateType("datetime", "mssql").changed, false);
+  assert.equal(translateType("datetime2", "mssql").changed, false);
+  assert.equal(translateType("datetime2(3)", "mssql").changed, false);
+  assert.equal(translateType("datetime", "postgres").type, "timestamp");
 });
 
 test("translateType: int is a valid spelling on every engine but Oracle", () => {
@@ -146,6 +151,13 @@ test("translateType: a type BigQuery writes its own way goes back to the other e
   assert.equal(translateType("float64", "mssql").type, "float");
   assert.equal(translateType("bytes", "postgres").type, "bytea");
   assert.equal(translateType("string", "mssql").type, "nvarchar(max)");
+});
+
+test("translateType: a sized BigQuery STRING keeps its length elsewhere", () => {
+  assert.equal(translateType("STRING(255)", "mssql").type, "varchar(255)");
+  assert.equal(translateType("STRING(64)", "mysql").type, "varchar(64)");
+  assert.equal(translateType("STRING(20)", "oracle").type, "varchar2(20)");
+  assert.equal(translateType("STRING(255)", "bigquery").changed, false);
 });
 
 test("neutralType: the same column on two engines is the same type", () => {

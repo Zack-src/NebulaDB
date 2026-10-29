@@ -129,7 +129,6 @@ test("lint: findings are listed, fixed, excepted and ruled by the project's prof
       { id: projectId, filePath: file },
     );
     await page.goto(`${env.baseUrl}/project/${projectId}/deployments`);
-    await page.getByRole("button", { name: "Déployer" }).first().click();
     const blockers = page.getByTestId("lint-blockers");
     await blockers.getByText(/refuse de déployer/).waitFor();
     assert.equal(await blockers.getByRole("listitem").count(), 2);
@@ -141,7 +140,6 @@ test("lint: findings are listed, fixed, excepted and ruled by the project's prof
     await snap("blocked");
     await blockers.getByRole("button", { name: "Ouvrir l'onglet Problèmes" }).click();
     await page.waitForURL(`${env.baseUrl}/project/${projectId}/problems`);
-    await page.getByRole("dialog").waitFor({ state: "detached" });
 
     // A finding leads to its table on the canvas.
     await orderLines.getByRole("button", { name: "Ouvrir dans le schéma" }).click();

@@ -98,7 +98,7 @@ test(
       await page.goto(`${env.baseUrl}/project/${projectId}`);
       const node = page.locator(".svelte-flow__node").filter({ hasText: "customers" });
       await node.waitFor();
-      await clickRevealedOnHover(node, node.getByRole("button", { name: "Commentaires de la table" }));
+      await clickRevealedOnHover(node, node.getByRole("button", { name: "Paramètres de la table" }));
       const box = page.getByPlaceholder("Ajouter un commentaire");
       await box.click();
       await box.pressSequentially("Peux-tu relire ça @e2e-");
@@ -139,7 +139,7 @@ test(
       await colleaguePage
         .locator(".svelte-flow__node")
         .filter({ hasText: "customers" })
-        .getByRole("button", { name: "Commentaires de la table" })
+        .getByRole("button", { name: "Paramètres de la table" })
         .click();
       await colleaguePage.locator("[data-mention]").waitFor();
       await colleaguePage.getByPlaceholder("Ajouter un commentaire").fill("Oui, je regarde.");

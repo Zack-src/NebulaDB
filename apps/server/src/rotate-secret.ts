@@ -1,3 +1,4 @@
+import "./loadEnv.js";
 import { readEnv } from "./shared/brandMigration.js";
 import { db } from "./infrastructure/db.js";
 import { reencryptPayload } from "./shared/crypto.js";
@@ -18,29 +19,33 @@ const TARGETS = [
   { table: "users", key: "id", column: "totp_secret_encrypted" },
   // Each backup file has its own key; this is that key, not the file.
   { table: "backups", key: "id", column: "key_encrypted" },
+  // Remote backup destinations (S3 keys, SFTP password or private key).
+  { table: "backup_destinations", key: "id", column: "secret_encrypted" },
+  // Share links whose token can be copied again from the admin console.
+  { table: "share_links", key: "id", column: "token_encrypted" },
 ];
 
-function main(): void {
+async function main(): Promise<void> {
   if (!readEnv("NEBULADB_SECRET")?.trim()) {
     console.error("NEBULADB_SECRET must be set to the new secret.");
     process.exit(1);
   }
   let total = 0;
   try {
-    db.transaction(() => {
+    await db.transaction(async () => {
       for (const { table, key, column } of TARGETS) {
-        const rows = db
+        const rows = (await db
           .prepare(`SELECT ${key} AS id, ${column} AS value FROM ${table} WHERE ${column} IS NOT NULL`)
-          .all() as {
+          .all()) as {
           id: string;
           value: string;
         }[];
         const update = db.prepare(`UPDATE ${table} SET ${column} = ? WHERE ${key} = ?`);
-        for (const row of rows) update.run(reencryptPayload(row.value), row.id);
+        for (const row of rows) await update.run(reencryptPayload(row.value), row.id);
         console.log(`${table}.${column}: ${rows.length} value(s) re-encrypted`);
         total += rows.length;
       }
-    })();
+    });
   } catch (err) {
     console.error(
       "Rotation aborted, nothing was changed. A stored value could not be decrypted with NEBULADB_SECRET or " +
@@ -52,4 +57,5 @@ function main(): void {
   console.log(`Done: ${total} value(s). NEBULADB_SECRET_PREVIOUS can now be removed.`);
 }
 
-main();
+await main();
+await db.close();

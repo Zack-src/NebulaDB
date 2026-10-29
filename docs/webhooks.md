@@ -10,7 +10,8 @@ project can have up to 10.
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `schema.changed`       | The schema changed, once the project has seen **30 seconds without an edit**. A burst of edits becomes one notification listing every author. Moving tables or changing colours doesn't count.                                                         |
 | `deployment.completed` | A deployment or a rollback to a connected database finished — successfully or not.                                                                                                                                                                     |
-| `drift.detected`       | The project's watch (Déploiements → Surveillance) found a database changed outside Nebula since the last deployment or pull — or, with the accounts watch on, its accounts or privileges changed (`kind: "accounts"`). Once per state of the database. |
+| `deployment.review`    | A review request for a deployment to a stage whose protection is "Revue" was made, approved, rejected, withdrawn, or closed (expired, out of date, cancelled). The deployment of an approved request is a `deployment.completed`.                      |
+| `drift.detected`       | The project's watch (switched on through the API, or imposed by an instance administrator on the connection; the project card has no screen for it) found a database changed outside Nebula since the last deployment or pull — or, with the accounts watch on, its accounts or privileges changed (`kind: "accounts"`). Once per state of the database. |
 | `ping`                 | Only when someone clicks **Tester** — never subscribed to.                                                                                                                                                                                             |
 
 ## Formats
@@ -44,12 +45,22 @@ For `deployment.completed`, `data` is `{ kind: "deploy" | "rollback",
 connectionName, environment, engine, success, executedStatements, error,
 executedBy }` — `executedBy` is the email of the person who ran it.
 
+For `deployment.review`, `data` is `{ action: "requested" | "approved" |
+"rejected" | "withdrawn" | "expired" | "stale" | "cancelled", reviewId,
+connectionName, environment, engine, requestedBy, by, reason }` — `requestedBy`
+and `by` are emails (`by` is whoever did it, `null` when nobody did: an
+approval that ran out); `reason` says why a request was closed as `stale`
+(`schema`, `database`, `risks`, `seeds`) or `cancelled` (`protection`,
+`connection`), and is `null` otherwise. The SQL under review is not sent. A
+webhook created before this event existed is not subscribed to it: tick it in
+the webhook's events.
+
 For `drift.detected`, `data` is `{ kind: "external" | "partial-deployment",
 connectionName, environment, added, removed, changed }` — the last three are
 table names. `partial-deployment` means a deployment failed half-way since the
 reference and explains the change.
 
-When an instance administrator turned on the project's **accounts watch**,
+When the project's **accounts watch** was turned on (instance administrators only, `PUT /api/projects/:id/monitoring/accounts`; no screen for it),
 `drift.detected` is also sent with `kind: "accounts"`: the database's accounts,
 roles or privileges changed and no action in Nebula's console explains it.
 `data` is then `{ kind: "accounts", connectionName, environment, added: [],
@@ -115,8 +126,13 @@ put the new one in the receiving service straight away.
   explicit error until they are recreated.
 - URLs must be `http(s)` and can't carry credentials. The cloud metadata
   endpoint is refused — checked against the address actually connected to,
-  so a hostname that changes its DNS answer can't get around it. Like database
-  connections, private and LAN addresses are allowed on purpose (an internal
-  chat or CI server is the normal case for a self-hosted instance).
-- Payloads carry the project name, change counts and, for deployments, the
-  deployer's email. Nothing of the schema itself is sent.
+  so a hostname that changes its DNS answer can't get around it. Loopback,
+  private (RFC 1918, ULA), CGNAT, link-local, multicast and reserved addresses
+  are **refused by default**, because any account can register a webhook. For a
+  receiver on your LAN (an internal chat or CI server), an instance administrator
+  lists it in `NEBULADB_WEBHOOK_ALLOWED_HOSTS` (host names, `*.example.com`,
+  IPs or CIDR ranges; when set, webhooks may only target listed hosts), or sets
+  `NEBULADB_WEBHOOK_BLOCK_PRIVATE=0` to allow private addresses again.
+- Payloads carry the project name, change counts and, for deployments and
+  their reviews, the emails of those involved. Nothing of the schema itself
+  is sent.

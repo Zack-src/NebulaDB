@@ -173,7 +173,7 @@ export interface Project {
 }
 
 import type { StructurePolicySetting } from "./dbAdmin.js";
-import type { EnvironmentColor } from "./environments.js";
+import type { EnvironmentColor, EnvironmentProtection } from "./environments.js";
 
 export type DatabaseEngine = "postgres" | "mysql" | "sqlite" | "mssql" | "oracle" | "bigquery";
 
@@ -236,6 +236,15 @@ export interface DatabaseConnectionConfig {
   user?: string;
   password?: string;
   ssl?: boolean;
+  /** With `ssl`: the server's certificate must be signed by a trusted authority and name the host. Off by default. */
+  sslVerify?: boolean;
+  /** PEM: the authority the server's certificate is checked against instead of the system ones. */
+  sslCa?: string;
+  /** PEM: a client certificate and its private key, for a server that asks for one. */
+  sslCert?: string;
+  sslKey?: string;
+  /** Reach the database through this SSH server; needs a host and a port, not a connection string. */
+  sshTunnel?: SshTunnelConfig | null;
   connectionString?: string;
   filePath?: string;
   /** Free-text labels an admin filters the global connection list by. */
@@ -259,6 +268,36 @@ export interface DatabaseConnectionConfig {
   updatedAt?: string;
 }
 
+/**
+ * An SSH server the database is reached through: the connection opens a
+ * tunnel from it to the database's host and port. `password` and `privateKey`
+ * never leave the server; on update, an empty or missing one keeps the stored one.
+ */
+export interface SshTunnelConfig {
+  host: string;
+  port?: number;
+  user: string;
+  password?: string;
+  /** PEM / OpenSSH private key, with its `passphrase` when it is encrypted. */
+  privateKey?: string;
+  passphrase?: string;
+  /**
+   * `SHA256:…` fingerprint of the server's host key, as `ssh-keygen -lf` prints it. When set, a
+   * server answering with another key is refused; when not, any key is accepted.
+   */
+  hostKeyFingerprint?: string;
+}
+
+/** The tunnel as a summary shows it: everything but the secrets. */
+export interface SshTunnelSummary {
+  host: string;
+  port: number;
+  user: string;
+  hasPassword: boolean;
+  hasPrivateKey: boolean;
+  hostKeyFingerprint?: string;
+}
+
 /** A watch an instance administrator imposes from a connection: on, at least this often, and not the project's to change. */
 export interface ForcedMonitoring {
   intervalMinutes: number;
@@ -274,16 +313,26 @@ export interface DatabaseConnectionSummary {
   environmentId?: string;
   environmentColor?: EnvironmentColor;
   production?: boolean;
+  /** The stage's protection; `review`: a deployment there is requested, approved by another person, then deployed. */
+  protection?: EnvironmentProtection;
   host?: string;
   port?: number;
   database?: string;
   user?: string;
   hasPassword?: boolean;
   ssl?: boolean;
+  sslVerify?: boolean;
+  /** Certificates are not secret and are shown; the client key never is. */
+  sslCa?: string;
+  sslCert?: string;
+  hasSslKey?: boolean;
+  sshTunnel?: SshTunnelSummary;
   connectionString?: string;
   filePath?: string;
   /** `personal`: every user connects with their own account — see `ConnectionAuthMode`. */
   authMode: ConnectionAuthMode;
+  /** Set on a project's own list: Nebula has deployed the project to this connection at least once. */
+  deployed?: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -352,6 +401,78 @@ export interface DeploymentHistoryEntry {
   seedReport?: SeedResult[];
   /** The backup of the database taken just before this deployment (instance administrators can restore it). */
   backupId?: string;
+  /** The review this deployment went through, on a stage that asks for one: who asked, who approved. */
+  review?: {
+    id: string;
+    requestedByEmail: string;
+    requestedAt: string;
+    approvedByEmail: string | null;
+    approvedAt: string | null;
+    /** What the requester wrote with the request. */
+    message?: string;
+    /** What the approver wrote with the approval. */
+    comment?: string;
+  };
+}
+
+/**
+ * Where a review request stands. `pending` and `approved` are open — one open
+ * request per project and connection; the others are final. `expired`: approved
+ * but not deployed in time. `stale`: the schema or the database moved so that
+ * what would run is no longer what was approved. `cancelled`: the stage stopped
+ * asking for a review, or the connection left the project or the stage.
+ */
+export type DeploymentReviewStatus =
+  "pending" | "approved" | "rejected" | "withdrawn" | "deployed" | "expired" | "stale" | "cancelled";
+
+/** How long an approval is good for. After that the request is `expired` and a new one is asked. */
+export const REVIEW_APPROVAL_TTL_DAYS = 7;
+
+/** Why a request was closed without anyone deciding so (`stale`, `cancelled`). */
+export type DeploymentReviewCloseReason = "schema" | "database" | "risks" | "seeds" | "protection" | "connection";
+
+/**
+ * A deployment to a stage whose protection is `review`, as its author prepared
+ * it and as another person approves or rejects it: what is frozen here is what
+ * was read, and the only thing an approval lets run.
+ */
+export interface DeploymentReview {
+  id: string;
+  projectId: string;
+  /** `null` once the connection is gone. */
+  connectionId: string | null;
+  connectionName: string;
+  environment: string | null;
+  engine: DatabaseEngine;
+  status: DeploymentReviewStatus;
+  /** The schema the request was made for (`ProjectPipeline.schemaHash`). */
+  schemaHash: string;
+  /** The SQL shown to the reviewer — a deployment of this request runs exactly this, or nothing. */
+  sql: string;
+  /** The plan's risks with the answer given to each. */
+  risks: AcceptedRisk[];
+  /** The tables' seeds are left out of this deployment. */
+  skipSeeds: boolean;
+  /** Why the risks are accepted. */
+  riskNote?: string;
+  /** What the requester wrote for the reviewer. */
+  message?: string;
+  requestedByEmail: string;
+  requestedAt: string;
+  /** Who approved or rejected, when, and what they wrote. */
+  decidedByEmail?: string;
+  decidedAt?: string;
+  comment?: string;
+  /** An approval is good until then. */
+  expiresAt?: string;
+  closedAt?: string;
+  closeReason?: DeploymentReviewCloseReason;
+  /** The deployment history entry, once deployed. */
+  deploymentId?: string;
+  /** Still open, but the project's schema is no longer the one this request froze. */
+  schemaChanged: boolean;
+  /** What the caller may do with it now. */
+  viewer: { canDecide: boolean; canDeploy: boolean; canWithdraw: boolean };
 }
 
 /** What one table's seed did during a deployment — kept in the deployment's history. Lives here, not in `seeds.ts`, which imports this file. */
@@ -377,6 +498,8 @@ export interface AcceptedRisk {
 
 export type SchemaDiffRiskType =
   | "DROP_TABLE_WITH_DATA"
+  /** A table the database holds that the schema does not have and Nebula never deployed: made by hand, empty or not. */
+  | "UNMANAGED_TABLE"
   | "DROP_COLUMN_WITH_DATA"
   | "ALTER_COLUMN_TYPE"
   | "NULL_TO_NOT_NULL"
@@ -386,7 +509,9 @@ export type SchemaDiffRiskType =
   /** A text column gets a shorter limit than it had (or a limit where it had none). */
   | "LENGTH_REDUCTION"
   /** A column's DBML type isn't the target engine's native spelling — see `translateType` in `typeMapping.ts`. */
-  | "TYPE_TRANSLATION_SUGGESTED";
+  | "TYPE_TRANSLATION_SUGGESTED"
+  /** A column dropped and a column of the same type added in the same table: probably one column renamed. */
+  | "RENAME_COLUMN_SUGGESTED";
 
 export type ConflictResolutionStrategy =
   | "DROP_DATA_CONFIRMED"
@@ -401,7 +526,11 @@ export type ConflictResolutionStrategy =
   /** Apply the engine-native type suggested for a `TYPE_TRANSLATION_SUGGESTED` risk. */
   | "USE_TRANSLATED_TYPE"
   /** Deploy/export the column type exactly as written in the canvas, skipping the suggested translation. */
-  | "KEEP_AS_WRITTEN";
+  | "KEEP_AS_WRITTEN"
+  /** `RENAME_COLUMN_SUGGESTED`: rename the column, its data goes with it. */
+  | "RENAME_COLUMN"
+  /** `RENAME_COLUMN_SUGGESTED`: they are two columns — drop the old one and add the new one, as the diff says. */
+  | "KEEP_SEPARATE";
 
 export interface StrategyOption {
   key: ConflictResolutionStrategy;
@@ -425,6 +554,8 @@ export interface SchemaRisk {
   resolutionKey?: string;
   /** The target could not be measured (timeout, error): the risk is a possibility, not a finding. */
   unmeasured?: boolean;
+  /** The aggregate query that produced `affectedRowCount`, to run again by hand against the database. */
+  measuredBy?: string;
   /** `LENGTH_REDUCTION`: the longest value today, and the new limit. */
   measuredMax?: number;
   limit?: number;
@@ -437,3 +568,33 @@ export interface SchemaRisk {
 }
 
 export type MigrationResolutionMap = Record<string, { strategy: ConflictResolutionStrategy; value?: string }>;
+
+/** Single sign-on through one OpenID Connect provider, as the admin console shows it. */
+export interface SsoSettings {
+  enabled: boolean;
+  /** The provider's issuer URL; `/.well-known/openid-configuration` is read under it. */
+  issuer: string;
+  clientId: string;
+  /** The secret is never sent back. */
+  hasClientSecret: boolean;
+  /** The login button's words; empty: "Se connecter avec le SSO". */
+  buttonLabel: string;
+  /** Someone the provider knows but NebulaDB does not gets an account (no administrator rights) on first sign-in. */
+  autoCreate: boolean;
+  /** When set, only these e-mail domains may sign in for the first time. Also what is trusted when the provider does not say an address is verified. */
+  allowedDomains: string[];
+}
+
+/** What the console sends: `clientSecret` empty or missing keeps the stored one, `null` removes it. */
+export interface SsoSettingsInput extends Partial<Omit<SsoSettings, "hasClientSecret">> {
+  clientSecret?: string | null;
+}
+
+/** A folder of the project list. Folders nest through `parentId`; `null` is the top. */
+export interface ProjectFolder {
+  id: string;
+  name: string;
+  parentId: string | null;
+  createdBy: string | null;
+  createdAt: string;
+}

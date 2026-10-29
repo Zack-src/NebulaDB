@@ -1,16 +1,8 @@
 import { extractMentionedUserIds, type Comment, type Table } from "@nebuladb/shared";
 
-export interface MentionableUser {
-  id: string;
-  name: string;
-}
+import type { CommentNoticeBody, MentionableUser } from "@/services/commentsApi";
 
-export interface CommentNoticeBody {
-  text: string;
-  tableName: string;
-  columnName: string | null;
-  threadUserIds: string[];
-}
+export type { CommentNoticeBody, MentionableUser };
 
 /**
  * What the server needs to tell a comment's addressees: the text (it reads the

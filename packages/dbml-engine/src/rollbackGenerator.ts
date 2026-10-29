@@ -1,4 +1,5 @@
 import type { MigrationResolutionMap } from "@nebuladb/shared";
+import { chosenRenames, renameColumnStatement } from "./renameDetection.js";
 import type { MigrationDiff, MigrationFieldChange, MigrationTableChange } from "./migrationDiff.js";
 import {
   fkFallbackName,
@@ -63,8 +64,14 @@ export function generateRollbackSql(
   }
 
   // 3. Modified tables: fields and indexes, each inverted individually.
+  const renames = chosenRenames(diff, resolutions);
   for (const table of diff.tables.filter((t) => t.status === "modified")) {
+    // A rename is undone by renaming back; the column kept its data, so nothing is flagged as lost.
+    const renamed = renames.get(table.name.toLowerCase()) ?? [];
+    for (const { from, to } of renamed) statements.push(renameColumnStatement(table.name, to, from, dialect));
+    const skip = new Set(renamed.flatMap(({ from, to }) => [`dropped:${from.toLowerCase()}`, `added:${to.toLowerCase()}`]));
     for (const field of table.fields) {
+      if (skip.has(`${field.status}:${field.name.toLowerCase()}`)) continue;
       statements.push(...invertFieldChange(table, field, dialect, resolutions, irreversible));
     }
 
@@ -181,8 +188,10 @@ function invertFieldChange(
     }
 
     if (fieldChange.defaultChanged && dialect === "postgres") {
-      const defVal = sqlDefaultLiteral(before, (d) =>
-        d.startsWith("'") || d.startsWith("(") || !Number.isNaN(Number(d)) ? d : `'${d.replace(/'/g, "''")}'`,
+      const defVal = sqlDefaultLiteral(
+        before,
+        (d) => (d.startsWith("'") || d.startsWith("(") || !Number.isNaN(Number(d)) ? d : `'${d.replace(/'/g, "''")}'`),
+        dialect,
       );
       if (defVal !== null) {
         stmts.push(`ALTER TABLE ${q(tableName, dialect)} ALTER COLUMN ${q(colName, dialect)} SET DEFAULT ${defVal};`);

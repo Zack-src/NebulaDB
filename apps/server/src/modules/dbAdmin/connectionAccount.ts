@@ -9,13 +9,13 @@ import { personalCredentialStatus } from "../connections/personalCredentials.js"
  * Doing any of those from here would lock Nebula (or this person) out of
  * the database, with no way back from the console.
  */
-function protectedAccountNames(connection: DatabaseConnectionConfig, actorId: string | null): string[] {
+async function protectedAccountNames(connection: DatabaseConnectionConfig, actorId: string | null): Promise<string[]> {
   const names = new Set<string>();
   if (connection.user) names.add(connection.user);
   const fromString = accountInConnectionString(connection.connectionString);
   if (fromString) names.add(fromString);
   if (connection.authMode === "personal" && actorId) {
-    const own = personalCredentialStatus(connection, actorId).username;
+    const own = (await personalCredentialStatus(connection, actorId)).username;
     if (own) names.add(own);
   }
   return [...names];
@@ -26,13 +26,13 @@ function protectedAccountNames(connection: DatabaseConnectionConfig, actorId: st
  * case-sensitive, and refusing one action too many is the safe side here.
  * A MySQL account is compared by name whatever its host.
  */
-export function isConnectionAccount(
+export async function isConnectionAccount(
   connection: DatabaseConnectionConfig,
   principalName: string,
   actorId: string | null,
-): boolean {
+): Promise<boolean> {
   const wanted = principalName.trim().toLowerCase();
-  return protectedAccountNames(connection, actorId).some((name) => name.trim().toLowerCase() === wanted);
+  return (await protectedAccountNames(connection, actorId)).some((name) => name.trim().toLowerCase() === wanted);
 }
 
 /** `postgres://user:…@host/db`, `mysql://…`, or an ADO-style `User Id=…;` string. */

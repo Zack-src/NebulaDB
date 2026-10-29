@@ -2,6 +2,13 @@ import type { FastifyInstance } from "fastify";
 import { listErrorLog, recordError, tallyErrorForMetrics } from "../../shared/errorLog.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireAdmin, requireUser } from "../../shared/guards.js";
+import { parseQuery, z } from "../../shared/validate.js";
+
+const errorLogQuery = z.object({
+  limit: z.string().optional(),
+  before: z.string().optional(),
+  source: z.string().optional(),
+});
 
 /** A caught client render exception is a small, fixed shape — never trust it beyond that. */
 const MAX_REPORTED_MESSAGE = 2000;
@@ -19,13 +26,13 @@ export function registerErrorRoutes(app: FastifyInstance): void {
    */
   app.get("/api/errors", async (req) => {
     requireAdmin(req);
-    const { limit, before, source } = req.query as { limit?: string; before?: string; source?: string };
+    const { limit, before, source } = parseQuery(errorLogQuery, req);
     const parsedLimit = limit ? Number(limit) : undefined;
     if (parsedLimit !== undefined && !Number.isFinite(parsedLimit)) throw new ApiError("LIMIT_MUST_BE_NUMBER");
     if (source !== undefined && source !== "server" && source !== "client") {
       throw new ApiError("ERROR_LOG_SOURCE_INVALID");
     }
-    return listErrorLog({ limit: parsedLimit, before, source: source as "server" | "client" | undefined });
+    return await listErrorLog({ limit: parsedLimit, before, source: source as "server" | "client" | undefined });
   });
 
   /**
@@ -38,11 +45,11 @@ export function registerErrorRoutes(app: FastifyInstance): void {
    */
   app.post("/api/errors/client", CLIENT_ERROR_RATE_LIMIT, async (req, reply) => {
     const user = requireUser(req);
-    const body = req.body as { message?: string; stack?: string; context?: string };
+    const body = (req.body ?? {}) as { message?: string; stack?: string; context?: string };
     if (!body.message || typeof body.message !== "string") throw new ApiError("CLIENT_ERROR_MESSAGE_REQUIRED");
 
     tallyErrorForMetrics("client");
-    recordError("client", body.message.slice(0, MAX_REPORTED_MESSAGE), {
+    await recordError("client", body.message.slice(0, MAX_REPORTED_MESSAGE), {
       stack: typeof body.stack === "string" ? body.stack.slice(0, MAX_REPORTED_STACK) : null,
       context: typeof body.context === "string" ? body.context.slice(0, MAX_REPORTED_CONTEXT) : null,
       user: { id: user.id, email: user.email },

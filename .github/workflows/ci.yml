@@ -4,6 +4,12 @@ on:
   push:
     branches: [main]
   pull_request:
+  schedule:
+    - cron: "0 4 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 # A new push to the same branch makes the previous run pointless.
 concurrency:
@@ -13,11 +19,11 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    # Throwaway Postgres/MySQL for the connections/deployment driver tests
-    # (apps/server/src/modules/connections/drivers/{postgres,mysql}.test.ts).
-    # Same ports/credentials as docker-compose.test.yml, which contributors
-    # use to run the same tests locally — see that file for details. Without
-    # these, those two test files skip themselves rather than fail.
+    timeout-minutes: 30
+    # Throwaway Postgres/MySQL, same ports/credentials as docker-compose.test.yml.
+    # The Postgres one is required: every server test file creates a database
+    # of its own on it for NebulaDB's storage (and the Postgres driver tests
+    # deploy to it). Without MySQL, its driver tests skip themselves.
     services:
       nebuladb-test-postgres:
         image: postgres:16-alpine
@@ -73,16 +79,235 @@ jobs:
       - name: Build
         run: npm run build
 
-      - name: Test
-        run: npm test
+      - name: GitHub Action script
+        run: bash actions/nebuladb/run.test.sh
 
-      # Catches a newly-published advisory in a dependency before it is found
-      # by hand months later. `--audit-level=high` deliberately: the repo
-      # currently carries one known moderate finding (esbuild's dev server,
-      # reachable only when running `npm run dev`, fixable only by a Vite major
-      # — tracked in docs/todo.md), and a gate that is red on day one gets
-      # ignored. `continue-on-error` keeps a fresh advisory from blocking an
-      # unrelated PR while still flagging it in the run summary.
-      - name: Audit dependencies
-        run: npm audit --audit-level=high
-        continue-on-error: true
+      # Same tests as `npm test` (apps/server, apps/web and every package,
+      # packages/mcp included), run with Node's built-in coverage. Reporting
+      # only: there is no threshold yet, and no external service.
+      - name: Test (with coverage)
+        run: npm run test:coverage --workspaces --if-present
+
+      - name: Coverage summary
+        if: always()
+        shell: bash
+        run: |
+          node --input-type=module - <<'EOF'
+          import fs from "node:fs";
+          import path from "node:path";
+          const out = ["## Test coverage (line coverage per workspace)", "", "| Workspace | Lines hit | Lines found | Coverage |", "| --- | ---: | ---: | ---: |"];
+          for (const root of ["apps", "packages"]) {
+            for (const ws of fs.existsSync(root) ? fs.readdirSync(root) : []) {
+              const f = path.join(root, ws, "coverage", "lcov.info");
+              if (!fs.existsSync(f)) continue;
+              let found = 0, hit = 0;
+              for (const l of fs.readFileSync(f, "utf8").split("\n")) {
+                if (l.startsWith("LF:")) found += Number(l.slice(3));
+                else if (l.startsWith("LH:")) hit += Number(l.slice(3));
+              }
+              const pct = found ? ((hit / found) * 100).toFixed(1) + "%" : "n/a";
+              out.push(`| ${root}/${ws} | ${hit} | ${found} | ${pct} |`);
+            }
+          }
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, out.join("\n") + "\n");
+          EOF
+
+      - name: Upload coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-lcov
+          path: |
+            apps/*/coverage/lcov.info
+            packages/*/coverage/lcov.info
+          if-no-files-found: warn
+          retention-days: 14
+
+      # Blocking: a high or critical advisory in a production dependency fails
+      # the run. Dev-only dependencies are left out (`--omit=dev`): the known
+      # moderate esbuild dev-server finding is reachable only through
+      # `npm run dev` and is tracked in docs/todo.md.
+      - name: Audit production dependencies
+        run: npm audit --omit=dev --audit-level=high
+
+  # Image must build and have no fixable HIGH/CRITICAL CVE. Nothing is pushed.
+  docker:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          load: true
+          tags: nebuladb:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      # The production dependencies are installed with --ignore-scripts, so
+      # check the native addons really load in the final image.
+      - name: Smoke test native modules
+        run: docker run --rm nebuladb:ci node -e "require('sharp'); require('better-sqlite3')"
+      - name: Trivy scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: nebuladb:ci
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+  # Playwright suites (apps/web/e2e) drive the system Chrome that ubuntu-latest
+  # ships. Run on main, nightly and on demand rather than every PR (slow).
+  e2e:
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      nebuladb-test-postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nebuladb_test
+          POSTGRES_PASSWORD: nebuladb_test
+          POSTGRES_DB: nebuladb_test
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U nebuladb_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:e2e
+
+  # SQL Server driver tests (skip themselves locally when nothing listens).
+  # Same image/credentials as docker-compose.mssql.yml. Non-blocking until the
+  # tests' expected env/ports are confirmed on a real runner.
+  mssql:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    services:
+      nebuladb-test-postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nebuladb_test
+          POSTGRES_PASSWORD: nebuladb_test
+          POSTGRES_DB: nebuladb_test
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U nebuladb_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+      nebuladb-test-mssql:
+        image: mcr.microsoft.com/mssql/server:2022-latest
+        env:
+          ACCEPT_EULA: "Y"
+          MSSQL_SA_PASSWORD: "Nebula_Test123!"
+          MSSQL_PID: Developer
+        ports:
+          - 1433:1433
+        options: >-
+          --health-cmd "/opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P $MSSQL_SA_PASSWORD -Q 'SELECT 1'"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build -w apps/server
+      - run: npm run test -w apps/server
+
+  # Second supported Node major (README: Node 22-25; the build job covers
+  # .nvmrc's 22). Only the suites that need no database, so Postgres is not
+  # started a second time. The server is left out on purpose.
+  node-compat:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        node-version: [24]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Unit tests without a database (node ${{ matrix.node-version }})
+        run: npm test -w packages/shared -w packages/dbml-engine -w packages/cli -w packages/mcp -w apps/web
+
+  # Oracle driver tests (skip themselves locally when nothing listens). Nightly
+  # and on demand only: the image is large. Same image/credentials/port as
+  # docker-compose.oracle.yml; the test defaults (localhost:51521, FREEPDB1,
+  # system / nebuladb_test) match. Non-blocking.
+  oracle:
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    continue-on-error: true
+    services:
+      nebuladb-test-postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nebuladb_test
+          POSTGRES_PASSWORD: nebuladb_test
+          POSTGRES_DB: nebuladb_test
+        ports:
+          - 55432:5432
+        options: >-
+          --health-cmd "pg_isready -U nebuladb_test"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 15
+      nebuladb-test-oracle:
+        image: gvenzl/oracle-free:23-slim-faststart
+        env:
+          ORACLE_PASSWORD: nebuladb_test
+        ports:
+          - 51521:1521
+        options: >-
+          --health-cmd healthcheck.sh
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build -w apps/server
+      - name: Oracle driver tests
+        run: node --test dist/modules/dbAdmin/drivers/live.test.js
+        working-directory: apps/server
+
+  # Flags newly added dependencies with known high/critical advisories or a
+  # disallowed licence. Needs the repository's dependency graph enabled.
+  dependency-review:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/dependency-review-action@v4
+        with:
+          fail-on-severity: high

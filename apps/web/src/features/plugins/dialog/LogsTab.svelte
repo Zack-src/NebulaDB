@@ -14,7 +14,7 @@
 
   {#if logs.length > 0}
     <div
-      class="max-h-80 overflow-auto rounded-xl border border-border bg-bg p-3 font-mono text-[11px] leading-relaxed text-text-secondary"
+      class="max-h-80 overflow-auto rounded-xl border border-border bg-bg p-3 font-mono text-caption leading-relaxed text-text-secondary"
     >
       {#each logs as log, idx (idx)}
         <div class="flex items-start gap-2 py-0.5 border-b border-border/30 last:border-0">

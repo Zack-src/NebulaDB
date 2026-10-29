@@ -26,7 +26,7 @@
       <span class="whitespace-nowrap text-xs text-text-muted">{t("canvas.selection.tablesSelected", { count })}</span>
       <button
         type="button"
-        class="flex items-center gap-1 whitespace-nowrap rounded-md border border-border-strong/80 px-1.5 py-0.5 text-[11px] font-semibold text-text-secondary hover:border-primary/60 hover:text-text"
+        class="flex items-center gap-1 whitespace-nowrap rounded-md border border-border-strong/80 px-1.5 py-0.5 text-caption font-semibold text-text-secondary hover:border-primary/60 hover:text-text"
         onclick={onGroup}
         data-tooltip={t("canvas.selection.groupTooltip")}
       >

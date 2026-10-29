@@ -5,6 +5,6 @@
   let { children }: { children: Snippet } = $props();
 </script>
 
-<div class="rounded-md border border-dashed border-border px-4 py-8 text-center text-[13px] text-text-muted">
+<div class="rounded-md border border-dashed border-border px-4 py-8 text-center text-body text-text-muted">
   {@render children()}
 </div>

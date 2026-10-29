@@ -47,6 +47,15 @@ test("matchShortcut finds the item whose shortcut matches the event, and only th
   assert.equal(matchShortcut(items, fakeEvent({ ctrlKey: true, key: "x" })), undefined);
 });
 
+test("matchShortcut never matches Ctrl/Cmd+K — the global palette owns it", () => {
+  const items = [
+    { id: "mine", shortcut: "ctrl+k" },
+    { id: "mac", shortcut: "cmd+k" },
+  ];
+  assert.equal(matchShortcut(items, fakeEvent({ ctrlKey: true, key: "k" })), undefined);
+  assert.equal(matchShortcut(items, fakeEvent({ metaKey: true, key: "k" })), undefined);
+});
+
 test("matchShortcut returns the first match when two items claim the same combination", () => {
   const items = [
     { id: "first", shortcut: "ctrl+s" },

@@ -36,14 +36,14 @@ function extract(project: Project): ProjectNameIndex {
   };
 }
 
-function getProjectNameIndex(projectId: string): ProjectNameIndex {
-  if (peekRoom(projectId)) return extract(readProjectReadOnly(projectId, ""));
+async function getProjectNameIndex(projectId: string): Promise<ProjectNameIndex> {
+  if (peekRoom(projectId)) return extract(await readProjectReadOnly(projectId, ""));
 
-  const version = snapshotVersion(projectId);
+  const version = await snapshotVersion(projectId);
   if (!version) return { tables: [], enums: [] };
   const cached = cache.get(projectId);
   if (cached && cached.version === version) return cached.index;
-  const index = extract(readProjectReadOnly(projectId, ""));
+  const index = extract(await readProjectReadOnly(projectId, ""));
   cache.set(projectId, { version, index });
   return index;
 }
@@ -80,17 +80,17 @@ function rankOf(name: string, needle: string): number | null {
 export const MIN_QUERY_LENGTH = 2;
 const MAX_HITS = 100;
 
-export function searchProjects(
+export async function searchProjects(
   projects: { id: string; name: string }[],
   query: string,
-): {
+): Promise<{
   hits: SearchHit[];
   truncated: boolean;
-} {
+}> {
   const needle = query.trim().toLowerCase();
   const hits: SearchHit[] = [];
   for (const project of projects) {
-    const index = getProjectNameIndex(project.id);
+    const index = await getProjectNameIndex(project.id);
     const base = { projectId: project.id, projectName: project.name };
     for (const table of index.tables) {
       const tableRank = rankOf(table.name, needle);

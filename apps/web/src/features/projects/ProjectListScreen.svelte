@@ -1,5 +1,6 @@
 <script lang="ts">
   import NotificationBell from "@/features/notifications/NotificationBell.svelte";
+  import PaletteButton from "@/features/palette/PaletteButton.svelte";
   import ProjectList from "@/features/projects/ProjectList.svelte";
   import Navbar from "@/components/layout/Navbar.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
@@ -15,6 +16,9 @@
     projects: ProjectSummary[];
     /** False until the first project fetch settles — the list shows placeholders rather than an empty state. */
     projectsLoaded: boolean;
+    /** The last project fetch failed: the list shows an error with a retry, not "no projects". */
+    projectsLoadFailed?: boolean;
+    onRetryProjects?: () => void;
     openLinkError: string | null;
     onOpenProject: (p: ProjectSummary) => void;
     onOpenAdmin: () => void;
@@ -29,6 +33,8 @@
     onDeleteProjectForever: (p: ProjectSummary) => Promise<string | null>;
     onEmptyTrash: (items: ProjectSummary[]) => Promise<string | null>;
     onProjectCreatedFromDatabase: (result: CreateProjectFromDatabaseResponse) => void;
+    /** A project was moved to a folder, or a variant made: the list is fetched again. */
+    onProjectsChanged?: () => void;
   } = $props();
 </script>
 
@@ -41,6 +47,7 @@
       onLogout={props.onLogout}
     >
       {#snippet actions()}
+        <PaletteButton />
         <NotificationBell onOpenProject={props.onOpenProjectById} />
       {/snippet}
     </Navbar>
@@ -56,6 +63,8 @@
     <ProjectList
       projects={props.projects}
       loaded={props.projectsLoaded}
+      loadFailed={props.projectsLoadFailed}
+      onRetry={props.onRetryProjects}
       onCreateProject={props.onCreateProject}
       onOpen={props.onOpenProject}
       onOpenSearchHit={props.onOpenSearchHit}
@@ -64,6 +73,7 @@
       onDeleteForever={props.onDeleteProjectForever}
       onEmptyTrash={props.onEmptyTrash}
       onProjectCreatedFromDatabase={props.onProjectCreatedFromDatabase}
+      onProjectsChanged={props.onProjectsChanged}
     />
   </div>
 </div>

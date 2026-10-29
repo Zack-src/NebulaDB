@@ -1,18 +1,21 @@
 import type { DbAdminObjectRef, StructuralAction } from "@nebuladb/shared";
-import type { FastifyInstance, FastifyRequest } from "fastify";
+import type { FastifyInstance } from "fastify";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireAdmin } from "../../shared/guards.js";
 import { markOutOfSchema } from "../connections/drift.js";
-import { requireDbConsoleUser, type DbConsoleUser } from "../dbAccess/service.js";
 import { optionalName, requireName } from "./drivers/common.js";
 import { type DatabaseAdminDriver, type DropKind } from "./drivers/index.js";
 import { clearQueryHistory, listQueryHistory, recordQuery } from "./queryHistory.js";
 import {
+  CONSOLE_ROUTES,
+  MAX_SQL_LENGTH,
   READ_LIMIT,
   WRITE_LIMIT,
   assertWritable,
+  clamp,
   loadConnection,
+  pageFromQuery,
   previewOrExecute,
   refFromQuery,
   withDriver,
@@ -28,19 +31,7 @@ const DEFAULT_TIMEOUT_MS = 30_000;
 
 const MAX_TIMEOUT_MS = 120_000;
 
-const DEFAULT_PAGE = 100;
-
-const MAX_PAGE = 500;
-
-const MAX_SQL_LENGTH = 200_000;
-
 const DROP_KINDS: readonly DropKind[] = ["database", "table", "view", "column"];
-
-function clamp(value: unknown, fallback: number, max: number): number {
-  const n = Number(value);
-  if (value === undefined || value === null || value === "" || !Number.isFinite(n)) return fallback;
-  return Math.min(Math.max(Math.trunc(n), 1), max);
-}
 
 function describeRef(ref: DbAdminObjectRef): string {
   return [ref.database, ref.schema, ref.table, ref.column].filter(Boolean).join(".");
@@ -85,21 +76,13 @@ export function registerExplorerRoutes(app: FastifyInstance): void {
   // confirmed. Never structure, and nothing else of the console (drops,
   // accounts, sessions, backups stay on the admin-only routes).
 
-  const consoleRoutes: [string, (req: FastifyRequest, id: string) => DbConsoleUser][] = [
-    [
-      "/api/admin/connections",
-      (req, id) => ({ user: requireAdmin(req), connection: loadConnection(id), access: "admin" }),
-    ],
-    ["/api/connections", requireDbConsoleUser],
-  ];
-
-  for (const [prefix, guard] of consoleRoutes) {
+  for (const [prefix, guard] of CONSOLE_ROUTES) {
     app.get(`${prefix}/:id/overview`, READ_LIMIT, async (req) => {
       const { id } = req.params as { id: string };
-      const { connection, access } = guard(req, id);
+      const { connection, access } = await guard(req, id);
       const member = access !== "admin";
       return withDriver(connection, "admin", async (driver) => {
-        const policy = effectiveStructurePolicy(id);
+        const policy = await effectiveStructurePolicy(id);
         return {
           access,
           // What a member is never offered, so the console does not show it.
@@ -118,7 +101,7 @@ export function registerExplorerRoutes(app: FastifyInstance): void {
 
     app.get(`${prefix}/:id/schemas`, READ_LIMIT, async (req) => {
       const { id } = req.params as { id: string };
-      const { connection } = guard(req, id);
+      const { connection } = await guard(req, id);
       const ref = refFromQuery(req);
       return withDriver(connection, "admin", async (driver) => ({
         schemas: await driver.listSchemas(ref.database),
@@ -127,7 +110,7 @@ export function registerExplorerRoutes(app: FastifyInstance): void {
 
     app.get(`${prefix}/:id/tables`, READ_LIMIT, async (req) => {
       const { id } = req.params as { id: string };
-      const { connection } = guard(req, id);
+      const { connection } = await guard(req, id);
       const ref = refFromQuery(req);
       return withDriver(connection, "admin", async (driver) => ({
         tables: await driver.listTables(ref.database, ref.schema),
@@ -136,7 +119,7 @@ export function registerExplorerRoutes(app: FastifyInstance): void {
 
     app.get(`${prefix}/:id/table`, READ_LIMIT, async (req) => {
       const { id } = req.params as { id: string };
-      const { connection } = guard(req, id);
+      const { connection } = await guard(req, id);
       const ref = refFromQuery(req);
       requireName(ref.table, "table");
       return withDriver(connection, "admin", async (driver) => ({
@@ -146,14 +129,10 @@ export function registerExplorerRoutes(app: FastifyInstance): void {
 
     app.get(`${prefix}/:id/rows`, READ_LIMIT, async (req) => {
       const { id } = req.params as { id: string };
-      const { connection } = guard(req, id);
+      const { connection } = await guard(req, id);
       const ref = refFromQuery(req);
       requireName(ref.table, "table");
-      const { limit, offset } = req.query as { limit?: string; offset?: string };
-      const page = {
-        limit: clamp(limit, DEFAULT_PAGE, MAX_PAGE),
-        offset: Math.max(0, Math.trunc(Number(offset) || 0)),
-      };
+      const page = pageFromQuery(req);
       return withDriver(connection, "admin", async (driver) => ({
         result: await driver.browseRows(ref, page),
         ...page,
@@ -162,7 +141,7 @@ export function registerExplorerRoutes(app: FastifyInstance): void {
 
     app.post(`${prefix}/:id/query`, READ_LIMIT, async (req) => {
       const { id } = req.params as { id: string };
-      const { user, connection, access } = guard(req, id);
+      const { user, connection, access } = await guard(req, id);
       const member = access !== "admin";
       const body = (req.body ?? {}) as {
         sql?: unknown;
@@ -198,7 +177,7 @@ export function registerExplorerRoutes(app: FastifyInstance): void {
       let outOfSchema = false;
       let leavesSchemaBehind = false;
       if (!readOnly && !member) {
-        const policy = effectiveStructurePolicy(id);
+        const policy = await effectiveStructurePolicy(id);
         structural = findStructuralStatements(sql, connection.engine);
         outOfSchema =
           judgeStructuralActions(policy, policy.applyToSql ? structural : [], body.confirmStructural === true) ===
@@ -207,9 +186,9 @@ export function registerExplorerRoutes(app: FastifyInstance): void {
       }
 
       const startedAt = Date.now();
-      const record = (success: boolean, rowCount: number | null, error: string | null) => {
+      const record = async (success: boolean, rowCount: number | null, error: string | null) => {
         const durationMs = Date.now() - startedAt;
-        recordQuery({
+        await recordQuery({
           connectionId: id,
           userId: user.id,
           database: database ?? null,
@@ -221,7 +200,7 @@ export function registerExplorerRoutes(app: FastifyInstance): void {
           error,
         });
         // The statement text, never its result: rows can hold anything.
-        auditUser(
+        await auditUser(
           user,
           member ? "dbaccess.query" : "dbadmin.query",
           { type: "connection", id },
@@ -241,15 +220,16 @@ export function registerExplorerRoutes(app: FastifyInstance): void {
           driver.runQuery(sql, {
             database,
             readOnly,
+            singleStatement: member && !readOnly,
             // Members get the default ceilings, which are also their maximum.
             maxRows: clamp(body.maxRows, DEFAULT_MAX_ROWS, member ? DEFAULT_MAX_ROWS : MAX_MAX_ROWS),
             timeoutMs: clamp(body.timeoutMs, DEFAULT_TIMEOUT_MS, member ? DEFAULT_TIMEOUT_MS : MAX_TIMEOUT_MS),
           }),
         );
-        record(true, result.rowCount, null);
-        if (leavesSchemaBehind) markOutOfSchema(id, `sql: ${describeStructuralActions(structural)}`);
+        await record(true, result.rowCount, null);
+        if (leavesSchemaBehind) await markOutOfSchema(id, `sql: ${describeStructuralActions(structural)}`);
         if (outOfSchema) {
-          auditUser(
+          await auditUser(
             user,
             "dbadmin.structure.out_of_schema",
             { type: "connection", id },
@@ -259,21 +239,21 @@ export function registerExplorerRoutes(app: FastifyInstance): void {
         }
         return { result };
       } catch (err) {
-        record(false, null, err instanceof Error ? err.message : String(err));
+        await record(false, null, err instanceof Error ? err.message : String(err));
         throw err;
       }
     });
 
     app.get(`${prefix}/:id/query-history`, READ_LIMIT, async (req) => {
       const { id } = req.params as { id: string };
-      const { user } = guard(req, id);
-      return { history: listQueryHistory(id, user.id) };
+      const { user } = await guard(req, id);
+      return { history: await listQueryHistory(id, user.id) };
     });
 
     app.delete(`${prefix}/:id/query-history`, WRITE_LIMIT, async (req) => {
       const { id } = req.params as { id: string };
-      const { user } = guard(req, id);
-      return { cleared: clearQueryHistory(id, user.id) };
+      const { user } = await guard(req, id);
+      return { cleared: await clearQueryHistory(id, user.id) };
     });
   }
 
@@ -293,7 +273,7 @@ export function registerExplorerRoutes(app: FastifyInstance): void {
       column: optionalName(body.ref?.column, "column"),
     };
     const execute = body.execute === true;
-    const connection = loadConnection(id);
+    const connection = await loadConnection(id);
     if (execute) assertWritable(connection);
 
     // Tables and columns are what a project models; a view or a whole database
@@ -307,7 +287,7 @@ export function registerExplorerRoutes(app: FastifyInstance): void {
         : kind === "column"
           ? [{ verb: "alter", kind: "table", object: ref.table ?? null, column: ref.column }]
           : [];
-    const dropPolicy = effectiveStructurePolicy(id);
+    const dropPolicy = await effectiveStructurePolicy(id);
     const outOfSchema = judgeStructuralActions(dropPolicy, structural, true) === "out-of-schema" && execute;
 
     const result = await withDriver(connection, execute ? "adminWrite" : "admin", async (driver) => {
@@ -317,12 +297,12 @@ export function registerExplorerRoutes(app: FastifyInstance): void {
       if (execute && body.confirm !== targetName) throw new ApiError("DB_ADMIN_CONFIRMATION_MISMATCH");
       return previewOrExecute(driver, statements, execute, ref.database);
     });
-    if (execute) auditUser(user, "dbadmin.drop", { type: "connection", id }, `${kind} ${describeRef(ref)}`, req);
+    if (execute) await auditUser(user, "dbadmin.drop", { type: "connection", id }, `${kind} ${describeRef(ref)}`, req);
     if (execute && structural.length > 0 && dropPolicy.projects.length > 0) {
-      markOutOfSchema(id, `explorer: ${describeStructuralActions(structural)}`);
+      await markOutOfSchema(id, `explorer: ${describeStructuralActions(structural)}`);
     }
     if (outOfSchema) {
-      auditUser(
+      await auditUser(
         user,
         "dbadmin.structure.out_of_schema",
         { type: "connection", id },

@@ -3,8 +3,9 @@ import { readProjectFromDoc } from "@nebuladb/shared";
 import { getRoom } from "../../realtime/roomRegistry.js";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
-import { requireAdmin, requireProjectAdmin } from "../../shared/guards.js";
+import { requireAdmin, requireProjectAccess, requireProjectAdmin } from "../../shared/guards.js";
 import { projectPipeline, schemaHashOf } from "./pipeline.js";
+import { parseParams, idParams } from "../../shared/validate.js";
 
 const REASON_MAX = 300;
 
@@ -13,32 +14,55 @@ const REASON_MAX = 300;
  * anything else runs: skipping is for instance administrators, needs a reason,
  * and is written to the audit log whatever the deployment then does.
  */
-export function stageSkipFor(
+export async function stageSkipFor(
   req: FastifyRequest,
   projectId: string,
   connectionId: string,
   body: { skipStageOrder?: unknown; skipReason?: unknown },
-): boolean {
+): Promise<boolean> {
   if (body.skipStageOrder !== true) return false;
   const user = requireAdmin(req);
   const reason = typeof body.skipReason === "string" ? body.skipReason.trim().slice(0, REASON_MAX) : "";
   if (!reason) throw new ApiError("STAGE_SKIP_REASON_REQUIRED");
-  auditUser(user, "connection.deploy.stage_skipped", { type: "project", id: projectId }, reason, req, {
+  await auditUser(user, "connection.deploy.stage_skipped", { type: "project", id: projectId }, reason, req, {
     connectionId,
   });
   return true;
 }
 
 /**
+ * The reason a rollback may run on a stage that asks for a review, or `undefined`
+ * when none was asked for. A rollback does not go through the review flow (it
+ * undoes a deployment already recorded, often in a hurry): on such a stage it is
+ * for a project administrator, who gives a reason, written to the audit log
+ * before anything runs.
+ */
+export async function rollbackReviewSkipFor(
+  req: FastifyRequest,
+  projectId: string,
+  connectionId: string,
+  body: { skipReview?: unknown; reason?: unknown },
+): Promise<string | undefined> {
+  if (body.skipReview !== true) return undefined;
+  const { user } = await requireProjectAdmin(req, projectId);
+  const reason = typeof body.reason === "string" ? body.reason.trim().slice(0, REASON_MAX) : "";
+  if (!reason) throw new ApiError("ROLLBACK_REVIEW_REASON_REQUIRED");
+  await auditUser(user, "connection.rollback.review_skipped", { type: "project", id: projectId }, reason, req, {
+    connectionId,
+  });
+  return reason;
+}
+
+/**
  * The pipeline: the project's databases along the chain of stages, and how
- * far the current schema has got. For the project's administrators, like the
+ * far the current schema has got. For those who may deploy, like the
  * deployment history it is read from.
  */
 export function registerPipelineRoutes(app: FastifyInstance): void {
   app.get("/api/projects/:id/pipeline", async (req) => {
-    const { id } = req.params as { id: string };
-    const { project } = requireProjectAdmin(req, id);
-    const schema = readProjectFromDoc(getRoom(id).doc, id, project.name);
-    return { pipeline: projectPipeline(id, schemaHashOf(schema)) };
+    const { id } = parseParams(idParams, req);
+    const { project } = await requireProjectAccess(req, id, "deploy");
+    const schema = readProjectFromDoc((await getRoom(id)).doc, id, project.name);
+    return { pipeline: await projectPipeline(id, schemaHashOf(schema)) };
   });
 }

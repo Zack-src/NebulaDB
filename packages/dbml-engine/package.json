@@ -10,6 +10,7 @@
     "build": "tsc -p tsconfig.json",
     "dev": "tsc -p tsconfig.json --watch",
     "test": "node --test dist/**/*.test.js",
+    "test:coverage": "node -e \"require('fs').mkdirSync('coverage',{recursive:true})\" && node --test --experimental-test-coverage --test-reporter=spec --test-reporter-destination=stdout --test-reporter=lcov --test-reporter-destination=coverage/lcov.info \"dist/**/*.test.js\"",
     "check:circular": "madge --circular --extensions ts src/index.ts"
   },
   "dependencies": {

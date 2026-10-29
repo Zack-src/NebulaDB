@@ -1,18 +1,11 @@
 import type { DbAccessGrant } from "@nebuladb/shared";
-import type {
-  EnumNodeType,
-  StickyNoteNodeType,
-  TableGroupNodeType,
-  TableNodeType,
-  ZoneNodeType,
-} from "@/features/editor/nodes/nodeTypes";
 
 /** Re-exported so components can type a lookup table of dictionary keys without reaching into i18n internals. */
 export type { TranslationKey as TranslationKeyOf } from "@/i18n/translate";
 
-export type CanvasNode = TableNodeType | ZoneNodeType | StickyNoteNodeType | EnumNodeType | TableGroupNodeType;
 export type ProjectStatus = "active" | "archived" | "trashed";
-export type PermissionLevel = "view" | "edit" | "administrator";
+/** Each level includes the ones before it; `deploy` adds the deployment operations to `edit`. */
+export type PermissionLevel = "view" | "edit" | "deploy" | "administrator";
 
 export interface ProjectSummary {
   id: string;
@@ -20,6 +13,15 @@ export interface ProjectSummary {
   status: ProjectStatus;
   created_at: string;
   permission: PermissionLevel;
+  /** The folder of the project list it is in; `null` (or absent, from an older server) at the top. */
+  folderId?: string | null;
+  /** For a client variant: the project it was copied from. */
+  variantOf?: string | null;
+}
+
+/** What `PATCH /api/projects/:id` answers: the summary, plus the connections a restore detached (only when there were any). */
+export interface UpdatedProject extends ProjectSummary {
+  detachedConnections?: string[];
 }
 
 export interface Session {

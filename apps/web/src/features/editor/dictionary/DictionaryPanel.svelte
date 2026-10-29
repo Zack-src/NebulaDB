@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import {
     DATA_CLASSIFICATIONS,
     buildDictionary,
@@ -19,11 +20,12 @@
   import Button from "@/components/ui/Button.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
   import Hint from "@/components/ui/Hint.svelte";
-  import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
   import SegmentedControl from "@/components/ui/SegmentedControl.svelte";
   import Select from "@/components/ui/Select.svelte";
+  import TextArea from "@/components/ui/TextArea.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
   import { triggerDownload } from "@/utils/download";
+  import { dictionaryPdfLabels } from "./dictionaryPdfLabels";
 
   /**
    * "Dictionnaire": what each table and column means — description, owner,
@@ -45,9 +47,10 @@
     onSaveFieldNote: (tableId: string, fieldId: string, note: string | undefined) => void;
   } = $props();
 
-  const { t } = useTranslation();
+  const i18n = useTranslation();
+  const { t } = i18n;
   /** File formats' own names, not prose — never translated. */
-  const FORMAT_NAME = { md: "Markdown", csv: "CSV", html: "HTML" } as const;
+  const FORMAT_NAME = { md: "Markdown", csv: "CSV", html: "HTML", pdf: "PDF" } as const;
   /** So a spreadsheet reads the CSV as UTF-8. */
   const BOM = String.fromCharCode(0xfeff);
   type Filter = "all" | "todo" | "personal";
@@ -124,6 +127,17 @@
     const url = URL.createObjectURL(new Blob([content], { type: `${type};charset=utf-8` }));
     triggerDownload(url, `${fileBase}.${extension}`, true);
   }
+  let makingPdf = $state(false);
+  async function downloadPdf() {
+    makingPdf = true;
+    try {
+      const { dictionaryToPdf } = await import("./dictionaryPdf");
+      const blob = await dictionaryToPdf(dictionary, dictionaryPdfLabels(dictionary, t, i18n.locale));
+      triggerDownload(URL.createObjectURL(blob), `${fileBase}.pdf`, true);
+    } finally {
+      makingPdf = false;
+    }
+  }
 </script>
 
 <div class="min-h-0 flex-1 overflow-y-auto bg-bg" data-testid="dictionary">
@@ -141,6 +155,10 @@
       <Button size="sm" variant="outline" onclick={() => download(dictionaryToHtml(dictionary), "html", "text/html")}>
         <Icon icon={DownloadIcon} size={12} />
         {FORMAT_NAME.html}
+      </Button>
+      <Button size="sm" variant="outline" disabled={makingPdf} onclick={downloadPdf}>
+        <Icon icon={DownloadIcon} size={12} />
+        {FORMAT_NAME.pdf}
       </Button>
     </div>
     <Hint>{t("dictionary.hint")}</Hint>
@@ -165,8 +183,8 @@
           })}
         </span>
       </div>
-      <input
-        class={`${INPUT_SM_CLASS} w-52`}
+      <Input inputSize="sm"
+        class="w-52"
         type="search"
         placeholder={t("dictionary.search")}
         aria-label={t("dictionary.search")}
@@ -195,8 +213,8 @@
             <Badge tone={TONE[table.classification]}>{t(`dictionary.class.${table.classification}`)}</Badge>
           {/if}
           <span class="flex-1"></span>
-          <input
-            class={`${INPUT_SM_CLASS} w-40`}
+          <Input inputSize="sm"
+            class="w-40"
             placeholder={t("dictionary.owner")}
             aria-label={t("dictionary.ownerOf", { name: table.name })}
             value={table.owner ?? ""}
@@ -214,16 +232,21 @@
           />
         </div>
         <div class="flex flex-wrap gap-2 border-b border-border px-3 py-2">
-          <input
-            class={`${INPUT_SM_CLASS} min-w-[240px] flex-[3]`}
+          <TextArea
+            variant="sm"
+            autoGrow
+            maxRows={8}
+            rows={1}
+            class="min-w-[240px] flex-[3]"
+            style="min-height: 30px"
             placeholder={t("dictionary.tableDescription")}
             aria-label={t("dictionary.descriptionOf", { name: table.name })}
             value={table.description}
             disabled={!editable}
             onchange={(event) => patchTable(table, { description: event.currentTarget.value })}
           />
-          <input
-            class={`${INPUT_SM_CLASS} min-w-[140px] flex-1`}
+          <Input inputSize="sm"
+            class="min-w-[140px] flex-1"
             placeholder={t("dictionary.tags")}
             aria-label={t("dictionary.tagsOf", { name: table.name })}
             value={table.tags.join(", ")}
@@ -242,8 +265,13 @@
                   </span>
                 </td>
                 <td class="px-1 py-1">
-                  <input
-                    class={`${INPUT_SM_CLASS} w-full`}
+                  <TextArea
+                    variant="sm"
+                    autoGrow
+                    maxRows={8}
+                    rows={1}
+                    class="w-full"
+                    style="min-height: 30px"
                     placeholder={t("dictionary.columnDescription")}
                     aria-label={t("dictionary.descriptionOf", { name: `${table.name}.${column.name}` })}
                     value={column.description}
@@ -263,8 +291,8 @@
                   />
                 </td>
                 <td class="w-40 py-1 pl-1 pr-3">
-                  <input
-                    class={`${INPUT_SM_CLASS} w-full`}
+                  <Input inputSize="sm"
+                    class="w-full"
                     placeholder={t("dictionary.tags")}
                     aria-label={t("dictionary.tagsOf", { name: `${table.name}.${column.name}` })}
                     value={column.tags.join(", ")}

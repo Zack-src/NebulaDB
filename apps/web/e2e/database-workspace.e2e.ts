@@ -4,7 +4,7 @@ import { mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
-import { login, startE2eEnvironment } from "./harness.js";
+import { fillCodeEditor, login, startE2eEnvironment } from "./harness.js";
 
 test(
   "private database settings, global data workspace, monitoring and teams at invitation",
@@ -86,7 +86,7 @@ test(
           throw new Error(`overview ${response.status()}: ${await response.text()}`, { cause: error });
         });
       await page.getByRole("tab", { name: "Console SQL", exact: true }).click();
-      await page.getByRole("textbox", { name: "Console SQL", exact: true }).fill("SELECT * FROM examples");
+      await fillCodeEditor(page.getByRole("textbox", { name: "Console SQL", exact: true }), "SELECT * FROM examples");
       await page.getByRole("button", { name: "Exécuter", exact: true }).click();
       await page.getByRole("gridcell", { name: "Private data works", exact: true }).waitFor();
       assert.equal(await page.getByRole("tab", { name: "Santé", exact: true }).count(), 0);

@@ -4,7 +4,7 @@ import { db } from "../infrastructure/db.js";
 /**
  * Unexpected errors in one place: server unhandled throws and 500s, plus client render crashes
  * reported by `ErrorBoundary`. A debugging aid, not a compliance trail like `audit.ts`: capped
- * by row count rather than dated retention.
+ * by row count rather than dated retention (`error_log` in `modules/retention/`).
  */
 
 export type ErrorSource = "server" | "client";
@@ -31,8 +31,6 @@ interface ErrorLogRow {
   user_email: string | null;
 }
 
-/** Row cap, trimmed on every write — see the module comment for why this is count-based, not date-based. */
-const MAX_ROWS = 2000;
 /** A stack trace can run to hundreds of lines for a deeply nested call; cap so one error can't dominate the table's storage. */
 const MAX_STACK_LENGTH = 8000;
 const MAX_MESSAGE_LENGTH = 2000;
@@ -43,7 +41,7 @@ const MAX_CONTEXT_LENGTH = 500;
  * here must not turn a successful (or already-failing) request into a worse
  * one, and must never mask the original error from its own caller/logger.
  */
-export function recordError(
+export async function recordError(
   source: ErrorSource,
   message: string,
   options: {
@@ -51,25 +49,22 @@ export function recordError(
     context?: string | null;
     user?: { id: string; email: string } | null;
   } = {},
-): void {
+): Promise<void> {
   try {
-    db.prepare(
-      `INSERT INTO error_log (id, source, message, stack, context, user_id, user_email)
+    await db
+      .prepare(
+        `INSERT INTO error_log (id, source, message, stack, context, user_id, user_email)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-    ).run(
-      randomUUID(),
-      source,
-      message.slice(0, MAX_MESSAGE_LENGTH),
-      options.stack ? options.stack.slice(0, MAX_STACK_LENGTH) : null,
-      options.context ? options.context.slice(0, MAX_CONTEXT_LENGTH) : null,
-      options.user?.id ?? null,
-      options.user?.email ?? null,
-    );
-    // Cheap with the `created_at` index and a rare write path (real errors,
-    // not every request) — no reason to defer this to a scheduled sweep.
-    db.prepare(
-      `DELETE FROM error_log WHERE id NOT IN (SELECT id FROM error_log ORDER BY created_at DESC, rowid DESC LIMIT ?)`,
-    ).run(MAX_ROWS);
+      )
+      .run(
+        randomUUID(),
+        source,
+        message.slice(0, MAX_MESSAGE_LENGTH),
+        options.stack ? options.stack.slice(0, MAX_STACK_LENGTH) : null,
+        options.context ? options.context.slice(0, MAX_CONTEXT_LENGTH) : null,
+        options.user?.id ?? null,
+        options.user?.email ?? null,
+      );
   } catch (err) {
     console.error("[errorLog] failed to record error:", err);
   }
@@ -82,7 +77,7 @@ export interface ErrorLogQuery {
 }
 
 /** Newest first. Read-only, admin-only at the route layer — see `modules/errors/routes.ts`. */
-export function listErrorLog(query: ErrorLogQuery = {}): ErrorLogEntry[] {
+export async function listErrorLog(query: ErrorLogQuery = {}): Promise<ErrorLogEntry[]> {
   const limit = Math.min(Math.max(query.limit ?? 100, 1), 500);
   const conditions: string[] = [];
   const params: unknown[] = [];
@@ -95,12 +90,12 @@ export function listErrorLog(query: ErrorLogQuery = {}): ErrorLogEntry[] {
     params.push(query.source);
   }
   const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : "";
-  const rows = db
+  const rows = (await db
     .prepare(
       `SELECT id, created_at, source, message, stack, context, user_id, user_email
-       FROM error_log ${where} ORDER BY created_at DESC, rowid DESC LIMIT ?`,
+       FROM error_log ${where} ORDER BY created_at DESC, seq DESC LIMIT ?`,
     )
-    .all(...params, limit) as ErrorLogRow[];
+    .all(...params, limit)) as ErrorLogRow[];
   return rows.map((row) => ({
     id: row.id,
     createdAt: row.created_at,
@@ -120,4 +115,14 @@ export function tallyErrorForMetrics(source: ErrorSource): void {
 }
 export function getErrorCountsSinceBoot(): Record<ErrorSource, number> {
   return { ...sessionCounts };
+}
+
+/** For a background `.catch`: the failure lands in the error log (never throws) instead of vanishing. */
+export function reportBackground(context: string): (err: unknown) => void {
+  return (err) => {
+    void recordError("server", err instanceof Error ? err.message : String(err), {
+      stack: err instanceof Error ? err.stack : null,
+      context,
+    });
+  };
 }

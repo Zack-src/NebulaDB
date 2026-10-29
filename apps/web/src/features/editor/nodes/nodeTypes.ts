@@ -129,3 +129,6 @@ interface TableGroupNodeData {
 }
 
 export type TableGroupNodeType = Node<TableGroupNodeData, "tablegroup">;
+
+/** Every kind of node the schema canvas draws. */
+export type CanvasNode = TableNodeType | ZoneNodeType | StickyNoteNodeType | EnumNodeType | TableGroupNodeType;

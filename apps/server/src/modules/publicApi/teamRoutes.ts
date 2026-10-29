@@ -17,6 +17,12 @@ import {
   type TeamMemberRow,
 } from "../teams/repository.js";
 import { API_RATE_LIMIT } from "./rateLimits.js";
+import { idParams, paramsOf, parseBody, parseParams, z } from "../../shared/validate.js";
+
+/** `name` stays `unknown`: a missing or non-string name is `NAME_REQUIRED`, decided by `parseTeamName`. */
+const nameBody = z.object({ name: z.unknown().optional() });
+
+const idUserIdParams = paramsOf("id", "userId");
 
 const MAX_TEAM_NAME_LENGTH = 200;
 
@@ -36,8 +42,8 @@ function parseTeamName(name: unknown): string {
   return trimmed;
 }
 
-function requireTeam(id: string) {
-  const team = getTeam(id);
+async function requireTeam(id: string) {
+  const team = await getTeam(id);
   if (!team) throw new ApiError("NOT_FOUND");
   return team;
 }
@@ -53,7 +59,7 @@ export function registerPublicTeamRoutes(app: FastifyInstance): void {
     requireUser(req);
     requireGlobalScope(req, "teams:manage");
     return {
-      teams: listTeamsWithMemberCount().map((row) => ({
+      teams: (await listTeamsWithMemberCount()).map((row) => ({
         id: row.id,
         name: row.name,
         createdAt: row.created_at,
@@ -65,74 +71,74 @@ export function registerPublicTeamRoutes(app: FastifyInstance): void {
   app.get("/api/v1/teams/:id", API_RATE_LIMIT, async (req) => {
     requireAdmin(req);
     requireGlobalScope(req, "teams:manage");
-    const { id } = req.params as { id: string };
-    const team = requireTeam(id);
+    const { id } = parseParams(idParams, req);
+    const team = await requireTeam(id);
     return {
       id: team.id,
       name: team.name,
       createdAt: team.created_at,
-      members: listTeamMembers(id).map(toMemberSummary),
+      members: (await listTeamMembers(id)).map(toMemberSummary),
     };
   });
 
   app.post("/api/v1/teams", API_RATE_LIMIT, async (req, reply) => {
     const admin = requireAdmin(req);
     requireGlobalScope(req, "teams:manage");
-    const name = parseTeamName((req.body as { name?: unknown } | undefined)?.name);
+    const name = parseTeamName(parseBody(nameBody, req).name);
     const id = crypto.randomUUID();
-    insertTeam(id, name);
-    auditUser(admin, "team.create", { type: "team", id }, `${name} (v1)`, req);
+    await insertTeam(id, name);
+    await auditUser(admin, "team.create", { type: "team", id }, `${name} (v1)`, req);
     return reply.code(201).send({ id, name, memberCount: 0 });
   });
 
   app.patch("/api/v1/teams/:id", API_RATE_LIMIT, async (req) => {
     requireAdmin(req);
     requireGlobalScope(req, "teams:manage");
-    const { id } = req.params as { id: string };
-    requireTeam(id);
-    const name = parseTeamName((req.body as { name?: unknown } | undefined)?.name);
-    updateTeamName(id, name);
+    const { id } = parseParams(idParams, req);
+    await requireTeam(id);
+    const name = parseTeamName(parseBody(nameBody, req).name);
+    await updateTeamName(id, name);
     return { id, name };
   });
 
   app.delete("/api/v1/teams/:id", API_RATE_LIMIT, async (req) => {
     const admin = requireAdmin(req);
     requireGlobalScope(req, "teams:manage");
-    const { id } = req.params as { id: string };
-    requireTeam(id);
-    deleteTeamCascade(id);
-    auditUser(admin, "team.delete", { type: "team", id }, "v1", req);
+    const { id } = parseParams(idParams, req);
+    await requireTeam(id);
+    await deleteTeamCascade(id);
+    await auditUser(admin, "team.delete", { type: "team", id }, "v1", req);
     // Every project this team granted access to just lost that grant, and a
     // project whose *only* team was this one flips back from restricted to
     // open — both change what open sockets may do, on projects that aren't
     // cheap to enumerate from here.
-    revalidateAllRooms();
+    await revalidateAllRooms();
     return { deleted: true };
   });
 
   app.post("/api/v1/teams/:id/members", API_RATE_LIMIT, async (req) => {
     const admin = requireAdmin(req);
     requireGlobalScope(req, "teams:manage");
-    const { id } = req.params as { id: string };
-    requireTeam(id);
+    const { id } = parseParams(idParams, req);
+    await requireTeam(id);
     const { userId } = (req.body ?? {}) as { userId?: string };
-    if (!userId || !userExists(userId)) throw new ApiError("USER_ID_INVALID");
-    addTeamMember(id, userId);
-    revalidateAllRooms();
-    auditUser(admin, "team.member.add", { type: "team", id }, `user ${userId} (v1)`, req);
+    if (!userId || !(await userExists(userId))) throw new ApiError("USER_ID_INVALID");
+    await addTeamMember(id, userId);
+    await revalidateAllRooms();
+    await auditUser(admin, "team.member.add", { type: "team", id }, `user ${userId} (v1)`, req);
     return { added: true };
   });
 
   app.delete("/api/v1/teams/:id/members/:userId", API_RATE_LIMIT, async (req) => {
     const admin = requireAdmin(req);
     requireGlobalScope(req, "teams:manage");
-    const { id, userId } = req.params as { id: string; userId: string };
-    removeTeamMember(id, userId);
-    auditUser(admin, "team.member.remove", { type: "team", id }, `user ${userId} (v1)`, req);
+    const { id, userId } = parseParams(idUserIdParams, req);
+    await removeTeamMember(id, userId);
+    await auditUser(admin, "team.member.remove", { type: "team", id }, `user ${userId} (v1)`, req);
     // The removed member may be connected right now to any project this team
     // granted — those sockets get closed by the re-check rather than keeping
     // the access they joined with.
-    revalidateAllRooms();
+    await revalidateAllRooms();
     return { removed: true };
   });
 }

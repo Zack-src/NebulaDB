@@ -7,9 +7,11 @@
  */
 
 /**
- * How guarded a stage is. Only `production` (a flag, see `EnvironmentStage`)
- * is enforced today; `protection` is recorded for the per-stage guards of the
- * pipeline (review, deployment windows — Phase 32) and shown next to the stage.
+ * How guarded a stage is. `free`: deployed to at will. `protected`: takes a
+ * schema only once the stage before it has it (the pipeline's order).
+ * `review`: the same order, and a deployment needs the approval of another
+ * person (`DeploymentReview`). The stronger confirmation and the backup of the
+ * production stage are a separate flag (`production`, see `EnvironmentStage`).
  */
 export type EnvironmentProtection = "free" | "review" | "protected";
 

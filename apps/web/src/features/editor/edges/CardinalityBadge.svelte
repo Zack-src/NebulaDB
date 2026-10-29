@@ -60,7 +60,7 @@
   <button
     type="button"
     onclick={togglePopover}
-    class="flex cursor-pointer items-center gap-1 rounded-sm px-1 py-0.5 text-[11px] font-bold leading-none tracking-[0.02em] hover:bg-surface-hover"
+    class="flex cursor-pointer items-center gap-1 rounded-sm px-1 py-0.5 text-caption font-bold leading-none tracking-[0.02em] hover:bg-surface-hover"
     style:color={props.color}
     data-tooltip={t("edge.settings")}
   >

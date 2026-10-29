@@ -3,10 +3,9 @@
 </script>
 
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import type { NodeProps } from "@xyflow/svelte";
   import { MAX_NAME_LENGTH } from "@nebuladb/shared";
-  import { autofocus } from "@/actions/autofocus";
-  import { INPUT_XS_CLASS } from "@/components/ui/inputStyles";
   import type { TableGroupNodeType } from "@/features/editor/nodes/nodeTypes";
   import { useDraftValue } from "@/hooks/draftValue.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
@@ -39,9 +38,9 @@
     style:border-color="{ACCENT}80"
   >
     {#if editing}
-      <input
-        use:autofocus
-        class={`nodrag ${INPUT_XS_CLASS} h-[20px] text-[11px] font-bold`}
+      <Input inputSize="xs"
+        autofocus
+        class="nodrag h-[20px] text-caption font-bold"
         bind:value={draft.value}
         maxlength={MAX_NAME_LENGTH}
         onblur={() => {
@@ -60,7 +59,7 @@
     {:else}
       <!-- svelte-ignore a11y_no_static_element_interactions -->
       <span
-        class="text-[11px] font-bold"
+        class="text-caption font-bold"
         style:color={ACCENT}
         ondblclick={() => {
           if (!readOnly) editing = true;
@@ -73,7 +72,7 @@
     {#if !readOnly}
       <button
         type="button"
-        class="nodrag flex h-4 w-4 items-center justify-center rounded-full text-[13px] leading-none text-text-muted transition-colors hover:bg-danger-light hover:text-danger"
+        class="nodrag flex h-4 w-4 items-center justify-center rounded-full text-body leading-none text-text-muted transition-colors hover:bg-danger-light hover:text-danger"
         onclick={data.onUngroup}
         data-tooltip={t("tableGroup.ungroup")}
         aria-label={t("tableGroup.ungroup")}

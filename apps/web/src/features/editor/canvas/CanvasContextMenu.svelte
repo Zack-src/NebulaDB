@@ -84,12 +84,12 @@
     >
       <Icon icon={CopyIcon} size={14} />
       {t("canvas.copyElements", { count: copyCount })}
-      <span class="ml-auto text-[11px] text-text-muted">{COPY_SHORTCUT}</span>
+      <span class="ml-auto text-caption text-text-muted">{COPY_SHORTCUT}</span>
     </button>
   {/if}
   <button class={CONTEXT_MENU_ITEM_CLASS} onclick={() => addAtCursor(onPaste)}>
     <Icon icon={ClipboardPasteIcon} size={14} />
     {t("canvas.pasteTables")}
-    <span class="ml-auto text-[11px] text-text-muted">{PASTE_SHORTCUT}</span>
+    <span class="ml-auto text-caption text-text-muted">{PASTE_SHORTCUT}</span>
   </button>
 </div>

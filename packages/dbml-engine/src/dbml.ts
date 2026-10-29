@@ -10,6 +10,7 @@ import {
   type Table,
 } from "@nebuladb/shared";
 import { projectToDbml, refSignature } from "./serialize.js";
+import { assertSafeForSqlExport } from "./sqlFragments.js";
 
 export type SqlDialect = "postgres" | "mysql" | "mssql";
 
@@ -318,9 +319,34 @@ export function previewExportTypeTranslations(project: Project, dialect: SqlDial
   return changes;
 }
 
+/**
+ * What the exporter below writes between quotes, it writes as it finds it: a string default's `'` is not
+ * doubled, and on MySQL a `\` before the closing quote swallows it (notes get their `'` doubled, not that).
+ * Done here, once, for the text that ends up inside a literal.
+ */
+function withLiteralEscapes(project: Project, dialect: SqlDialect): Project {
+  const backslash = (text: string) => (dialect === "mysql" ? text.replace(/\\/g, "\\\\") : text);
+  const note = (text: string | undefined) => (text === undefined ? text : backslash(text));
+  return {
+    ...project,
+    tables: project.tables.map((t) => ({
+      ...t,
+      note: note(t.note),
+      fields: t.fields.map((f) => ({
+        ...f,
+        note: note(f.note),
+        default:
+          f.default !== undefined && f.defaultKind === "string" ? backslash(f.default).replace(/'/g, "''") : f.default,
+      })),
+    })),
+  };
+}
+
 /** Convert internal `Project` directly to SQL DDL for a dialect, via DBML as the intermediate representation. */
 export function projectToSql(project: Project, dialect: SqlDialect): string {
-  const dbml = projectToDbml(withoutRedundantUnique(withNativeTypes(project, dialect)));
+  // The exporter below writes what it is given as it is given; what cannot be written safely is refused here.
+  assertSafeForSqlExport(project, dialect);
+  const dbml = projectToDbml(withLiteralEscapes(withoutRedundantUnique(withNativeTypes(project, dialect)), dialect));
   const database = parseDbml(dbml);
   return toSql(database, dialect);
 }
@@ -336,6 +362,36 @@ export function projectToSql(project: Project, dialect: SqlDialect): string {
 const GRID_COL_WIDTH = 320;
 const GRID_ROW_HEIGHT = 400;
 const positionKey = (p: Position) => `${Math.round(p.x)},${Math.round(p.y)}`;
+
+/**
+ * A column renamed in the text has no name to match its old self by, which would give it a fresh id and drop what
+ * hangs off the old one (a seed's column mapping, say). Pairs each such column with the old one that sat at the
+ * same position with the same type, or, when a single column on each side is left, with that one.
+ * Returns the old field by the incoming field's id.
+ */
+function pairRenamedFields(previous: readonly Field[], incoming: readonly Field[]): Map<string, Field> {
+  const incomingNames = new Set(incoming.map((f) => f.name.toLowerCase()));
+  const previousNames = new Set(previous.map((f) => f.name.toLowerCase()));
+  const lostOld = previous.filter((f) => !incomingNames.has(f.name.toLowerCase()));
+  const newNew = incoming.filter((f) => !previousNames.has(f.name.toLowerCase()));
+  const paired = new Map<string, Field>();
+  if (lostOld.length === 0 || newNew.length === 0) return paired;
+  const sameType = (a: Field, b: Field) => a.type.trim().toLowerCase() === b.type.trim().toLowerCase();
+  const claimed = new Set<string>();
+  for (const field of newNew) {
+    const old = previous[incoming.indexOf(field)];
+    if (old && lostOld.includes(old) && !claimed.has(old.id) && sameType(old, field)) {
+      claimed.add(old.id);
+      paired.set(field.id, old);
+    }
+  }
+  const leftOld = lostOld.filter((f) => !claimed.has(f.id));
+  const leftNew = newNew.filter((f) => !paired.has(f.id));
+  if (leftOld.length === 1 && leftNew.length === 1 && sameType(leftOld[0], leftNew[0])) {
+    paired.set(leftNew[0].id, leftOld[0]);
+  }
+  return paired;
+}
 
 export function mergeProjectIntoExisting(existing: Project, incoming: Project): Project {
   // Case-insensitive: a plain-casing edit (Ctrl+K+U/L uppercasing/lowercasing
@@ -427,12 +483,14 @@ export function mergeProjectIntoExisting(existing: Project, incoming: Project): 
     tableIdRemap.set(table.id, finalId);
 
     const prevFieldsByName = new Map((prev?.fields ?? []).map((f) => [f.name.toLowerCase(), f]));
+    const renamedFields = prev ? pairRenamedFields(prev.fields, table.fields) : new Map<string, Field>();
     const fields = table.fields.map((field) => {
       // Same reasoning as `finalId` above, one level down: @dbml/core's
       // `field.id` is also just a positional counter, not a stable identity.
       // Matched case-insensitively too, so uppercasing/lowercasing selected
       // DBML text keeps each field's id (and anything keyed off it).
-      const finalFieldId = prevFieldsByName.get(field.name.toLowerCase())?.id ?? crypto.randomUUID();
+      const finalFieldId =
+        (prevFieldsByName.get(field.name.toLowerCase()) ?? renamedFields.get(field.id))?.id ?? crypto.randomUUID();
       fieldIdRemap.set(field.id, finalFieldId);
       return { ...field, id: finalFieldId };
     });

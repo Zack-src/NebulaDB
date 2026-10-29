@@ -1,4 +1,5 @@
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import {
     COLUMN_GENERATORS,
     GENERATOR_LOCALES,
@@ -17,7 +18,6 @@
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
-  import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
   import NumberInput from "@/components/ui/NumberInput.svelte";
   import Select from "@/components/ui/Select.svelte";
   import { useAsyncAction } from "@/hooks/asyncAction.svelte";
@@ -167,8 +167,8 @@
         />
         <span class="flex min-w-0 gap-1">
           {#if column.kind === "oneOf"}
-            <input
-              class={`${INPUT_SM_CLASS} w-full`}
+            <Input inputSize="sm"
+              class="w-full"
               aria-label={t("generator.valuesFor", { column: field.name })}
               placeholder={t("generator.valuesPlaceholder")}
               value={(column.values ?? []).join(", ")}
@@ -182,22 +182,22 @@
                 })}
             />
           {:else if column.kind === "fixed"}
-            <input
-              class={`${INPUT_SM_CLASS} w-full`}
+            <Input inputSize="sm"
+              class="w-full"
               aria-label={t("generator.valueFor", { column: field.name })}
               value={column.value ?? ""}
               onchange={(event) => setColumn(field.id, { value: event.currentTarget.value })}
             />
           {:else if needsRange(column.kind)}
-            <input
-              class={`${INPUT_SM_CLASS} w-1/2`}
+            <Input inputSize="sm"
+              class="w-1/2"
               aria-label={t("generator.minFor", { column: field.name })}
               placeholder={t("generator.min")}
               value={column.min ?? ""}
               onchange={(event) => setColumn(field.id, { min: event.currentTarget.value })}
             />
-            <input
-              class={`${INPUT_SM_CLASS} w-1/2`}
+            <Input inputSize="sm"
+              class="w-1/2"
               aria-label={t("generator.maxFor", { column: field.name })}
               placeholder={t("generator.max")}
               value={column.max ?? ""}

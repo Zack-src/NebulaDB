@@ -51,10 +51,10 @@ test("looks are not structure: moving, recolouring and commenting a locked table
 test("rename, column change, added column, index, note and deletion are all violations", () => {
   const cases: [string, LockableSchema][] = [
     ["rename", withTable(base, { ...users, name: "customers" })],
-    ["type", withTable(base, { ...users, fields: [users.fields[0], { ...users.fields[1], type: "text" }] })],
-    ["constraint", withTable(base, { ...users, fields: [users.fields[0], { ...users.fields[1], notNull: true }] })],
+    ["type", withTable(base, { ...users, fields: [users.fields[0]!, { ...users.fields[1]!, type: "text" }] })],
+    ["constraint", withTable(base, { ...users, fields: [users.fields[0]!, { ...users.fields[1]!, notNull: true }] })],
     ["added column", withTable(base, { ...users, fields: [...users.fields, field("u3", "name")] })],
-    ["column order", withTable(base, { ...users, fields: [users.fields[1], users.fields[0]] })],
+    ["column order", withTable(base, { ...users, fields: [users.fields[1]!, users.fields[0]!] })],
     ["index", withTable(base, { ...users, indexes: [{ id: "i1", fieldIds: ["u2"], unique: true }] })],
     ["note", withTable(base, { ...users, note: "customers of the shop" })],
   ];
@@ -88,7 +88,7 @@ test("a foreign key belongs to the table that carries the column, not to the one
   assert.deepEqual(findLockViolations(base, withoutRef, ["orders"]), [
     { tableId: "orders", tableName: "orders", kind: "changed" },
   ]);
-  const cascade = { ...base, refs: [{ ...base.refs[0], onDelete: "cascade" as const }] };
+  const cascade = { ...base, refs: [{ ...base.refs[0]!, onDelete: "cascade" as const }] };
   assert.equal(findLockViolations(base, cascade, ["orders"]).length, 1);
   // A reference to a locked table from a new, unlocked one is fine.
   const audit = table("audit", [field("a1", "user_id")]);
@@ -103,7 +103,7 @@ test("revert puts the structure back, keeps the looks and everything unrelated",
   const products = table("products", [field("p1", "id")]);
   const after: LockableSchema = {
     tables: [
-      { ...users, name: "customers", position: { x: 500, y: 500 }, fields: [users.fields[0]] },
+      { ...users, name: "customers", position: { x: 500, y: 500 }, fields: [users.fields[0]!] },
       { ...orders, fields: [...orders.fields, field("o3", "total")] },
       products,
     ],
@@ -112,7 +112,7 @@ test("revert puts the structure back, keeps the looks and everything unrelated",
   const violations = findLockViolations(base, after, ["users", "orders"]);
   assert.equal(violations.length, 2);
   // Only `users` is reverted here, as if `orders` were not locked for this user.
-  const reverted = revertLockViolations(base, after, [violations[0]]);
+  const reverted = revertLockViolations(base, after, [violations[0]!]);
   const revertedUsers = reverted.tables.find((t) => t.id === "users")!;
   assert.equal(revertedUsers.name, "users");
   assert.equal(revertedUsers.fields.length, 2);

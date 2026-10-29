@@ -47,6 +47,7 @@
       message: err.message || String(err),
       stack: err.stack,
       context: `${window.location.pathname}${window.location.hash} :: ${err.stack?.split("\n")[1]?.trim() ?? ""}`,
+    // Reporting a crash must never raise a second one.
     }).catch(() => {});
   }
 
@@ -64,7 +65,7 @@
         <h1 class="text-lg font-bold mb-2">{title ?? t("errorBoundary.title")}</h1>
         <p class="text-xs text-text-secondary leading-relaxed mb-4">{t("errorBoundary.body")}</p>
         <pre
-          class="text-[11px] font-mono bg-bg border border-border rounded-lg p-3 mb-5 overflow-x-auto whitespace-pre-wrap break-words text-danger">{messageOf(
+          class="text-caption font-mono bg-bg border border-border rounded-lg p-3 mb-5 overflow-x-auto whitespace-pre-wrap break-words text-danger">{messageOf(
             error,
           )}</pre>
         <div class="flex flex-wrap gap-2">

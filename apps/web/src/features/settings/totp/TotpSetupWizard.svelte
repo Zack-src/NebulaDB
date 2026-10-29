@@ -70,7 +70,7 @@
     {#if setup}
       <div>
         <span class="mb-1 block text-xs font-medium text-text-muted">{t("totp.secretLabel")}</span>
-        <code class="block break-all rounded-md border border-border bg-surface-raised px-2.5 py-2 text-[11px] text-text">
+        <code class="block break-all rounded-md border border-border bg-surface-raised px-2.5 py-2 text-caption text-text">
           {setup.secret}
         </code>
       </div>

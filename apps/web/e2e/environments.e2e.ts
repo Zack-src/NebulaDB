@@ -39,9 +39,11 @@ test(
       await page.getByRole("button", { name: "Environnements" }).click();
       const chain = page.getByLabel("Chaîne de déploiement");
       const chainNames = async () =>
-        (await chain.locator("[data-production], span.rounded-full").allInnerTexts())
-          .map((s) => s.trim())
-          .filter(Boolean);
+        (
+          await chain
+            .locator("li[data-stage]")
+            .evaluateAll((items) => items.map((item) => item.getAttribute("data-stage") ?? ""))
+        ).map((name) => name.toUpperCase());
       await chain.getByText("Prod", { exact: true }).waitFor();
       assert.deepEqual(await chainNames(), ["DEV", "STAGING", "PROD"]);
 
@@ -101,8 +103,8 @@ test(
       // --- The workspace shows the stage in red; deploying asks for the name ---
       await page.goto(`${env.baseUrl}/project/${projectId}`);
       await page.locator('[data-production="true"]').filter({ hasText: "Prod" }).first().waitFor();
-      await page.getByRole("button", { name: "Déployer", exact: true }).first().click();
-      const modal = page.getByRole("dialog").first();
+      await page.goto(`${env.baseUrl}/project/${projectId}/deployments`);
+      const modal = page.getByTestId("deployment-panel");
       await modal.getByRole("button", { name: "Prévisualiser le SQL" }).click();
       await modal.getByRole("button", { name: "Appliquer les modifications en base" }).click();
 

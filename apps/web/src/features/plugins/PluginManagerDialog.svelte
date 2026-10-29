@@ -228,10 +228,10 @@ nebula.on("canvasCommand:my-action", (project) => {
             <Icon icon={tab.icon} size={13} />
             <span>{t(tab.labelKey)}</span>
             {#if tab.id === "installed"}
-              <span class="rounded-full bg-surface px-1.5 py-0.2 text-[10px] text-text">{records.length}</span>
+              <span class="rounded-full bg-surface px-1.5 py-0.2 text-micro text-text">{records.length}</span>
             {/if}
             {#if tab.id === "logs" && allLogs.length > 0}
-              <span class="rounded-full bg-primary-light px-1.5 py-0.2 text-[10px] font-bold text-primary">
+              <span class="rounded-full bg-primary-light px-1.5 py-0.2 text-micro font-bold text-primary">
                 {allLogs.length}
               </span>
             {/if}
@@ -261,12 +261,12 @@ nebula.on("canvasCommand:my-action", (project) => {
     <!-- Category Filters (on marketplace & installed tabs) -->
     {#if activeTab === "marketplace" || activeTab === "installed"}
       <div class="flex flex-wrap items-center gap-1.5">
-        <span class="mr-1 text-[11px] font-medium text-text-muted">{t("plugins.filters")}</span>
+        <span class="mr-1 text-caption font-medium text-text-muted">{t("plugins.filters")}</span>
         {#each CATEGORIES as cat (cat.id)}
           <button
             type="button"
             onclick={() => (selectedCategory = cat.id)}
-            class={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+            class={`rounded-full px-2.5 py-1 text-caption font-medium transition-colors ${
               selectedCategory === cat.id
                 ? "bg-primary-light text-primary border border-primary/40 font-semibold"
                 : "bg-surface-raised text-text-secondary border border-border hover:bg-surface-hover hover:text-text"

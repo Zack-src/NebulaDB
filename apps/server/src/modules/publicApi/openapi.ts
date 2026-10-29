@@ -1,3 +1,4 @@
+import { REVIEW_APPROVAL_TTL_DAYS } from "@nebuladb/shared";
 import { ERROR_CATALOG } from "../../shared/errors.js";
 import type { ApiKeyScope } from "../apiKeys/repository.js";
 
@@ -23,9 +24,10 @@ interface Operation {
   scope: ApiKeyScope;
   /**
    * Also needs project `administrator` (or global admin for teams) — a scope alone isn't enough.
+   * `"deploy"`: project `deploy` is enough — the routes that use the project's databases.
    * `"instance"`: a global administrator, on a route outside the Teams tag.
    */
-  admin?: boolean | "instance";
+  admin?: boolean | "deploy" | "instance";
   summary: string;
   description?: string;
   query?: { name: string; schema: Schema; description?: string; required?: boolean }[];
@@ -44,12 +46,15 @@ const str: Schema = { type: "string" };
 const int: Schema = { type: "integer" };
 const bool: Schema = { type: "boolean" };
 const flag = (name: string): Schema => obj({ [name]: { type: "boolean", const: true } });
-const PERMISSION: Schema = { type: "string", enum: ["view", "edit", "administrator"] };
+const PERMISSION: Schema = { type: "string", enum: ["view", "edit", "deploy", "administrator"] };
 const DIALECT: Schema = { type: "string", enum: ["postgres", "mysql", "mssql"] };
 
 /** Who reaches a connection's personal-account routes — neither of the two notes `admin` writes. */
 const CREDENTIAL_ACCESS =
-  "Open to instance administrators and to the administrators of a project the connection is attached to; anyone else gets 404 CONNECTION_NOT_FOUND. A key restricted to one project works only on a connection attached to that project (403 API_KEY_PROJECT_RESTRICTED otherwise).";
+  "Open to instance administrators and to those who may deploy (`deploy` or `administrator`) on a project the connection is attached to; anyone else gets 404 CONNECTION_NOT_FOUND. A key restricted to one project works only on a connection attached to that project (403 API_KEY_PROJECT_RESTRICTED otherwise).";
+
+/** The rule every review route rests on, said once. */
+const REVIEW_RULES = `Someone who may deploy requests the review; another person who may deploy on the project (an instance administrator counts) approves or rejects; the author or the approver then deploys the approved request. An approval is good for ${REVIEW_APPROVAL_TTL_DAYS} days.`;
 
 export const OPERATIONS: Operation[] = [
   // --- projects ---
@@ -86,7 +91,12 @@ export const OPERATIONS: Operation[] = [
     admin: true,
     summary: "Rename and/or archive, trash or restore",
     body: obj({ name: str, status: { type: "string", enum: ["active", "archived", "trashed"] } }, []),
-    ok: { status: 200, schema: ref("ProjectSummary") },
+    ok: {
+      status: 200,
+      schema: {
+        allOf: [ref("ProjectSummary"), obj({ detachedConnections: { type: "array", items: str } }, [])],
+      },
+    },
   },
   {
     method: "delete",
@@ -362,6 +372,37 @@ export const OPERATIONS: Operation[] = [
     ok: { status: 200, mediaType: "image/png" },
   },
   {
+    method: "get",
+    path: "/api/v1/projects/:id/export/bundle",
+    tag: "Projects",
+    scope: "projects:read",
+    summary: "Export everything about the project as one JSON file",
+    description:
+      "Schema and layout, plus the table locks, seeds and generator settings that DBML cannot carry. Import it back with `POST …/import/bundle`.",
+    ok: { status: 200, mediaType: "application/json" },
+  },
+  {
+    method: "post",
+    path: "/api/v1/projects/:id/import/bundle",
+    tag: "Projects",
+    scope: "projects:write",
+    summary: "Import a project bundle",
+    description:
+      "Merged like a DBML import. Locks and seeds the caller's authority does not reach are left alone and listed in `skipped`. 400 BUNDLE_INVALID when the file is not a bundle.",
+    body: obj({ source: { type: "string", description: "The bundle file's content" } }),
+    ok: {
+      status: 200,
+      schema: obj({
+        imported: { type: "boolean", const: true },
+        tables: int,
+        locks: int,
+        seeds: int,
+        generators: int,
+        skipped: { type: "array", items: str },
+      }),
+    },
+  },
+  {
     method: "post",
     path: "/api/v1/projects/:id/import",
     tag: "Projects",
@@ -422,7 +463,16 @@ export const OPERATIONS: Operation[] = [
     body: ref("ConnectionInput"),
     ok: {
       status: 200,
-      schema: obj({ ok: bool, version: str, database: str, error: str }, ["ok"]),
+      schema: obj(
+        {
+          ok: bool,
+          version: str,
+          database: str,
+          error: str,
+          sshHostKeyFingerprint: { type: "string", description: "Through an SSH tunnel: the host key that answered" },
+        },
+        ["ok"],
+      ),
     },
   },
   {
@@ -439,10 +489,10 @@ export const OPERATIONS: Operation[] = [
     path: "/api/v1/projects/:id/connections/:connId/deploy",
     tag: "Connections",
     scope: "deployments:trigger",
-    admin: true,
+    admin: "deploy",
     summary: "Deploy the canvas schema to the live database",
     description:
-      "Introspect → diff → generate SQL → execute → record, the same pipeline as the web app's deploy button. `resolutions` answers the risks a plan reported (e.g. a default value for a new NOT NULL column).",
+      "Introspect → diff → generate SQL → execute → record, the same pipeline as the web app's deploy button. `resolutions` answers the risks a plan reported (e.g. a default value for a new NOT NULL column). Refused with 409 DEPLOYMENT_REVIEW_REQUIRED on a stage whose protection is `review`: request a review (`POST …/connections/{connId}/reviews`) and deploy the approved request instead.",
     body: obj(
       {
         resolutions: { type: "object", additionalProperties: true },
@@ -478,11 +528,37 @@ export const OPERATIONS: Operation[] = [
     },
   },
   {
+    method: "post",
+    path: "/api/v1/projects/:id/connections/:connId/plan",
+    tag: "Connections",
+    scope: "projects:read",
+    admin: "deploy",
+    summary: "Plan a deployment without running it",
+    description:
+      "Reads the live database and answers what `deploy` would do: the diff, the risks to answer with `resolutions`, the seeds, the SQL, and in `blockers` what would refuse the deployment whatever the plan says (lint errors, a stage that must be level first). Changes nothing.",
+    ok: {
+      status: 200,
+      schema: obj({
+        diff: { type: "object", additionalProperties: true },
+        risks: { type: "array", items: { type: "object", additionalProperties: true } },
+        seeds: { type: "array", items: { type: "object", additionalProperties: true } },
+        seedCycles: { type: "array", items: { type: "array", items: str } },
+        sqlPreview: str,
+        engine: str,
+        blockers: obj({
+          lintErrors: int,
+          lintFindings: { type: "array", items: { type: "object", additionalProperties: true } },
+          waitsForStage: { type: ["string", "null"] },
+        }),
+      }),
+    },
+  },
+  {
     method: "get",
     path: "/api/v1/projects/:id/pipeline",
     tag: "Connections",
     scope: "projects:read",
-    admin: true,
+    admin: "deploy",
     summary: "The project's databases along the stages, and which have the current schema",
     ok: {
       status: 200,
@@ -542,7 +618,7 @@ export const OPERATIONS: Operation[] = [
     path: "/api/v1/projects/:id/monitoring/check",
     tag: "Connections",
     scope: "projects:read",
-    admin: true,
+    admin: "deploy",
     summary: "Read the project's databases now and report what changed outside the schema",
     description:
       "Compares each database with the reference recorded at its last deployment or pull. Reads only; a database that cannot be read counts as `unreachable`, never as a change.",
@@ -556,11 +632,47 @@ export const OPERATIONS: Operation[] = [
     },
   },
   {
+    method: "put",
+    path: "/api/v1/projects/:id/monitoring/mute",
+    tag: "Connections",
+    scope: "projects:write",
+    admin: true,
+    summary: "Mute the watch's alerts for a while",
+    description:
+      "No notification, e-mail or webhook is sent until `settings.mute.until`; checks go on and findings are still recorded and listed. When a connection imposes the watch (`settings.forced`), only an instance administrator may mute (403 `MONITORING_MUTE_LOCKED`).",
+    body: obj({
+      minutes: { type: "integer", enum: [60, 480, 1440, 10080] },
+      reason: { type: "string", maxLength: 200 },
+    }),
+    ok: { status: 200, schema: obj({ settings: ref("MonitorSettings") }) },
+  },
+  {
+    method: "delete",
+    path: "/api/v1/projects/:id/monitoring/mute",
+    tag: "Connections",
+    scope: "projects:write",
+    admin: true,
+    summary: "Lift the mute: alerts are sent again",
+    ok: { status: 200, schema: obj({ settings: ref("MonitorSettings") }) },
+  },
+  {
+    method: "post",
+    path: "/api/v1/projects/:id/monitoring/events/:eventId/acknowledge",
+    tag: "Connections",
+    scope: "projects:write",
+    admin: true,
+    summary: "Acknowledge an open finding of the watch",
+    description:
+      "Records who took note of it and when, with an optional note. The finding stays `open` (it is neither `resolved` nor `ignored`) and shows `acknowledgement`; the editor's banner then stays for administrators only. A later, different change on the same database is a new finding, not acknowledged. 409 when the finding is not open or already acknowledged.",
+    body: obj({ note: { type: ["string", "null"], maxLength: 500 } }),
+    ok: { status: 200, schema: obj({ event: ref("DriftEvent") }) },
+  },
+  {
     method: "post",
     path: "/api/v1/projects/:id/connections/compare",
     tag: "Connections",
     scope: "projects:read",
-    admin: true,
+    admin: "deploy",
     summary: "Compare the structure of two of the project's databases",
     body: obj({ sourceId: str, targetId: str }),
     ok: {
@@ -589,16 +701,28 @@ export const OPERATIONS: Operation[] = [
     path: "/api/v1/projects/:id/connections/:connId/history",
     tag: "Connections",
     scope: "projects:read",
-    admin: true,
+    admin: "deploy",
     summary: "Deployment history of a connection",
     ok: { status: 200, schema: obj({ history: { type: "array", items: ref("DeploymentHistoryEntry") } }) },
+  },
+  {
+    method: "get",
+    path: "/api/v1/projects/:id/connections/:connId/history/export",
+    tag: "Connections",
+    scope: "projects:read",
+    admin: "deploy",
+    summary: "Deployment history as migration files (zip)",
+    description:
+      "Successful deployments, oldest first, as numbered SQL, Flyway or Liquibase files, plus a README listing what was left out. 400 MIGRATION_FORMAT_INVALID for another format.",
+    query: [{ name: "format", schema: { type: "string", enum: ["sql", "flyway", "liquibase"], default: "sql" } }],
+    ok: { status: 200, mediaType: "application/zip" },
   },
   {
     method: "post",
     path: "/api/v1/projects/:id/connections/:connId/history/:historyId/rollback",
     tag: "Connections",
     scope: "deployments:trigger",
-    admin: true,
+    admin: "deploy",
     summary: "Roll back a past deployment",
     body: obj(
       {
@@ -611,6 +735,103 @@ export const OPERATIONS: Operation[] = [
       [],
     ),
     ok: { status: 200, schema: obj({ success: bool, executedStatements: int }) },
+  },
+
+  // --- review before a stage whose protection is `review` ---
+  {
+    method: "get",
+    path: "/api/v1/projects/:id/reviews",
+    tag: "Connections",
+    scope: "projects:read",
+    admin: "deploy",
+    summary: "The project's review requests, newest first — open and closed",
+    description: `A deployment to a stage whose protection is \`review\` needs the approval of another person. ${REVIEW_RULES}`,
+    ok: { status: 200, schema: obj({ reviews: { type: "array", items: ref("DeploymentReview") } }) },
+  },
+  {
+    method: "post",
+    path: "/api/v1/projects/:id/connections/:connId/reviews",
+    tag: "Connections",
+    scope: "deployments:trigger",
+    admin: "deploy",
+    summary: "Request a review for a deployment to a review stage",
+    description:
+      "Prepares the deployment as `deploy` would and stops before anything runs: the schema hash, the SQL, the answers to the risks and the seeds option are frozen in the request. Refused like a deployment would be (403 CONNECTION_READ_ONLY, 409 LINT_BLOCKS_DEPLOYMENT, DEPLOYMENT_BLOCKED_BY_RISK, SEEDS_NOT_DEPLOYABLE), and with 409 DEPLOYMENT_REVIEW_NOT_REQUIRED on a stage that asks for none, DEPLOYMENT_REVIEW_NOTHING_TO_DEPLOY, or DEPLOYMENT_REVIEW_ALREADY_OPEN — one open request per project and connection.",
+    body: obj(
+      {
+        resolutions: { type: "object", additionalProperties: true },
+        skipSeeds: { type: "boolean", description: "Leave the tables' seeds out of this deployment" },
+        riskNote: { type: "string", maxLength: 1000, description: "Why the risks are accepted" },
+        message: { type: "string", maxLength: 1000, description: "For the reviewer" },
+      },
+      [],
+    ),
+    ok: { status: 200, schema: obj({ review: ref("DeploymentReview") }) },
+  },
+  {
+    method: "post",
+    path: "/api/v1/projects/:id/reviews/:reviewId/approve",
+    tag: "Connections",
+    scope: "deployments:trigger",
+    admin: "deploy",
+    summary: "Approve a pending review request",
+    description: `Never by the request's author (403 DEPLOYMENT_REVIEW_SELF_DECISION) — a key is its owner. 409 DEPLOYMENT_REVIEW_STALE, and the request is closed, if the project's schema is no longer the one the request froze. ${REVIEW_RULES}`,
+    body: obj({ comment: { type: "string", maxLength: 1000 } }, []),
+    ok: { status: 200, schema: obj({ review: ref("DeploymentReview") }) },
+  },
+  {
+    method: "post",
+    path: "/api/v1/projects/:id/reviews/:reviewId/reject",
+    tag: "Connections",
+    scope: "deployments:trigger",
+    admin: "deploy",
+    summary: "Reject a pending review request",
+    description: "Never by the request's author (403 DEPLOYMENT_REVIEW_SELF_DECISION): they withdraw it instead.",
+    body: obj({ comment: { type: "string", maxLength: 1000 } }, []),
+    ok: { status: 200, schema: obj({ review: ref("DeploymentReview") }) },
+  },
+  {
+    method: "post",
+    path: "/api/v1/projects/:id/reviews/:reviewId/withdraw",
+    tag: "Connections",
+    scope: "deployments:trigger",
+    admin: "deploy",
+    summary: "Withdraw one's own review request, pending or approved",
+    description: "The author's alone (403 DEPLOYMENT_REVIEW_NOT_YOURS).",
+    ok: { status: 200, schema: obj({ review: ref("DeploymentReview") }) },
+  },
+  {
+    method: "post",
+    path: "/api/v1/projects/:id/reviews/:reviewId/deploy",
+    tag: "Connections",
+    scope: "deployments:trigger",
+    admin: "deploy",
+    summary: "Deploy an approved review request",
+    description:
+      "By the request's author or its approver (403 DEPLOYMENT_REVIEW_NOT_YOURS). Runs the deployment with the answers the request froze, and only if the plan made now is still the approved one — same SQL, same risks and answers, same seeds: otherwise 409 DEPLOYMENT_REVIEW_STALE (`reason`: `schema`, `database`, `risks` or `seeds`), the request is closed and nothing runs. 409 DEPLOYMENT_REVIEW_NOT_APPROVED before the approval, DEPLOYMENT_REVIEW_EXPIRED after its date. Everything `deploy` checks is checked: `confirmName` and the backup on the production stage, lint, the stage order.",
+    body: obj(
+      {
+        confirmName: { type: "string", description: "The connection's name — required on the production stage" },
+        backupBefore: { type: "boolean", description: "As for `deploy`" },
+        skipStageOrder: {
+          type: "boolean",
+          description: "As for `deploy`: instance administrators only, with skipReason",
+        },
+        skipReason: { type: "string", maxLength: 300 },
+      },
+      [],
+    ),
+    ok: {
+      status: 200,
+      schema: obj({
+        success: bool,
+        executedStatements: int,
+        sql: str,
+        rollbackAvailable: bool,
+        irreversibleWarnings: { type: "array", items: str },
+        backupId: { type: ["string", "null"] },
+      }),
+    },
   },
 
   // --- personal database accounts (instance-level: a connection's id, no project) ---
@@ -816,6 +1037,8 @@ const COMPONENTS: Record<string, Schema> = {
     status: { type: "string", enum: ["active", "archived", "trashed"] },
     created_at: str,
     permission: PERMISSION,
+    folderId: { type: ["string", "null"], description: "The folder of the project list it is sorted into" },
+    variantOf: { type: ["string", "null"], description: "For a client variant: the project it was copied from" },
   }),
   Revision: obj({ id: str, author: str, label: { type: ["string", "null"] }, createdAt: str }),
   PipelineConnection: obj({
@@ -831,7 +1054,10 @@ const COMPONENTS: Record<string, Schema> = {
       description: "The last thing done here is a successful deployment of the current schema",
     },
   }),
-  WebhookEvent: { type: "string", enum: ["schema.changed", "deployment.completed", "drift.detected"] },
+  WebhookEvent: {
+    type: "string",
+    enum: ["schema.changed", "deployment.completed", "deployment.review", "drift.detected"],
+  },
   Webhook: obj({
     id: str,
     projectId: str,
@@ -845,7 +1071,10 @@ const COMPONENTS: Record<string, Schema> = {
   }),
   WebhookDelivery: obj({
     id: str,
-    event: { type: "string", enum: ["schema.changed", "deployment.completed", "drift.detected", "ping"] },
+    event: {
+      type: "string",
+      enum: ["schema.changed", "deployment.completed", "deployment.review", "drift.detected", "ping"],
+    },
     status: { type: "string", enum: ["pending", "succeeded", "failed"] },
     attempts: int,
     responseStatus: { type: ["integer", "null"] },
@@ -865,6 +1094,12 @@ const COMPONENTS: Record<string, Schema> = {
         "Set when an instance administrator imposes the watch from a connection of the project: it is on, at least this often, and `PUT` is refused (`MONITORING_LOCKED`) to anyone else.",
       properties: { intervalMinutes: int, connections: { type: "array", items: str } },
     },
+    mute: {
+      type: ["object", "null"],
+      description:
+        "Set while the alerts (notifications, e-mail, webhooks) are muted: until when (`until`, server time), since when, by whom and why. Findings are still recorded and listed.",
+      properties: { until: str, at: str, by: str, reason: str },
+    },
   }),
   DriftEvent: obj({
     id: str,
@@ -878,6 +1113,10 @@ const COMPONENTS: Record<string, Schema> = {
     error: { type: ["string", "null"] },
     status: { type: "string", enum: ["open", "resolved", "ignored"] },
     resolvedAt: { type: ["string", "null"] },
+    acknowledgement: {
+      description: "Set once a project administrator acknowledged this open finding",
+      oneOf: [obj({ by: str, at: str, note: { type: ["string", "null"] } }), { type: "null" }],
+    },
   }),
   TableLock: obj({
     projectId: str,
@@ -934,6 +1173,14 @@ const COMPONENTS: Record<string, Schema> = {
       user: str,
       hasPassword: bool,
       ssl: bool,
+      sslVerify: bool,
+      sslCa: { type: "string", description: "PEM authority the server's certificate is checked against" },
+      sslCert: { type: "string", description: "PEM client certificate" },
+      hasSslKey: bool,
+      sshTunnel: obj(
+        { host: str, port: int, user: str, hasPassword: bool, hasPrivateKey: bool, hostKeyFingerprint: str },
+        ["host", "port", "user", "hasPassword", "hasPrivateKey"],
+      ),
       connectionString: { type: "string", description: "Password masked as `***`" },
       filePath: str,
       createdAt: str,
@@ -956,6 +1203,29 @@ const COMPONENTS: Record<string, Schema> = {
       user: str,
       password: { type: "string", writeOnly: true },
       ssl: bool,
+      sslVerify: { type: "boolean", description: "Check the server's certificate (authority and host name)" },
+      sslCa: { type: "string", description: "PEM authority, instead of the system ones" },
+      sslCert: { type: "string", description: "PEM client certificate, with sslKey" },
+      sslKey: {
+        type: ["string", "null"],
+        writeOnly: true,
+        description: "PEM client key; empty keeps the stored one, null removes it",
+      },
+      sshTunnel: {
+        type: ["object", "null"],
+        description:
+          "Reach the database through this SSH server (host and port connections only); null removes it. On update, an empty password or key keeps the stored one while host and user stay the same.",
+        properties: {
+          host: str,
+          port: { type: "integer", default: 22 },
+          user: str,
+          password: { type: "string", writeOnly: true },
+          privateKey: { type: "string", writeOnly: true, description: "PEM / OpenSSH private key" },
+          passphrase: { type: "string", writeOnly: true },
+          hostKeyFingerprint: { type: "string", description: "SHA256:… — when set, another host key is refused" },
+        },
+        required: ["host", "user"],
+      },
       connectionString: str,
       filePath: str,
     },
@@ -980,8 +1250,73 @@ const COMPONENTS: Record<string, Schema> = {
       executedByEmail: { type: ["string", "null"] },
       createdAt: str,
       rolledBack: bool,
+      review: {
+        ...obj(
+          {
+            id: str,
+            requestedByEmail: str,
+            requestedAt: str,
+            approvedByEmail: { type: ["string", "null"] },
+            approvedAt: { type: ["string", "null"] },
+            message: str,
+            comment: str,
+          },
+          ["id", "requestedByEmail", "requestedAt", "approvedByEmail", "approvedAt"],
+        ),
+        description: "The review this deployment went through, on a stage that asks for one",
+      },
     },
     ["id", "projectId", "connectionName", "engine", "sql", "success", "createdAt", "rolledBack"],
+  ),
+  DeploymentReview: obj(
+    {
+      id: str,
+      projectId: str,
+      connectionId: { type: ["string", "null"] },
+      connectionName: str,
+      environment: { type: ["string", "null"] },
+      engine: ref("Engine"),
+      status: {
+        type: "string",
+        enum: ["pending", "approved", "rejected", "withdrawn", "deployed", "expired", "stale", "cancelled"],
+        description:
+          "`pending` and `approved` are open. `expired`: approved but not deployed in time. `stale`: the schema or the database moved. `cancelled`: the stage stopped asking for a review, or the connection left the project or the stage",
+      },
+      schemaHash: str,
+      sql: { type: "string", description: "What was shown to the reviewer, and the only thing an approval lets run" },
+      risks: { type: "array", items: { type: "object", additionalProperties: true } },
+      skipSeeds: bool,
+      riskNote: str,
+      message: str,
+      requestedByEmail: str,
+      requestedAt: str,
+      decidedByEmail: str,
+      decidedAt: str,
+      comment: str,
+      expiresAt: { type: "string", description: "An approval is good until then" },
+      closedAt: str,
+      closeReason: { type: "string", enum: ["schema", "database", "risks", "seeds", "protection", "connection"] },
+      deploymentId: str,
+      schemaChanged: { type: "boolean", description: "Open, but the project's schema is no longer the one frozen" },
+      viewer: obj({ canDecide: bool, canDeploy: bool, canWithdraw: bool }),
+    },
+    [
+      "id",
+      "projectId",
+      "connectionId",
+      "connectionName",
+      "environment",
+      "engine",
+      "status",
+      "schemaHash",
+      "sql",
+      "risks",
+      "skipSeeds",
+      "requestedByEmail",
+      "requestedAt",
+      "schemaChanged",
+      "viewer",
+    ],
   ),
   TeamMember: obj({ id: str, email: str, isAdmin: bool, displayName: str }),
   PersonalCredentialStatus: obj({
@@ -1004,7 +1339,7 @@ const ERROR_RESPONSES = {
 };
 
 /** Answers that are bytes, not text. */
-const BINARY_MEDIA_TYPES = new Set(["image/png", "application/gzip"]);
+const BINARY_MEDIA_TYPES = new Set(["image/png", "application/gzip", "application/zip"]);
 
 function toOpenApiPath(path: string): string {
   return path.replace(/:([A-Za-z]+)/g, "{$1}");
@@ -1036,7 +1371,9 @@ export function buildOpenApiSpec(serverUrl: string | null): Record<string, unkno
     const permissionNote = op.admin
       ? op.tag === "Teams" || op.admin === "instance"
         ? "Requires a global administrator."
-        : "Requires project `administrator`, not just the scope."
+        : op.admin === "deploy"
+          ? "Requires project `deploy` (or `administrator`), not just the scope."
+          : "Requires project `administrator`, not just the scope."
       : undefined;
     paths[toOpenApiPath(op.path)] ??= {};
     paths[toOpenApiPath(op.path)][op.method] = {

@@ -44,6 +44,17 @@ export interface BackupSummary {
   pinned: boolean;
   /** When the retention sweep will remove it; `null` when it never will (pinned, or retention off). */
   expiresAt: string | null;
+  /** Where the file was written, as it was then — whatever the connection's destination is now. */
+  storage: BackupStorageLocation;
+}
+
+/** Which kind of place a backup file is kept in. */
+export type BackupDestinationKind = "local" | "s3" | "sftp";
+
+/** Where one backup is stored, for display: never a credential. `location`: a folder, `s3://bucket/prefix`, `sftp://user@host:port/folder`. */
+export interface BackupStorageLocation {
+  kind: BackupDestinationKind;
+  location: string;
 }
 
 export interface BackupLimits {
@@ -62,15 +73,54 @@ export interface BackupList {
   destination: BackupDestination;
 }
 
+/** An S3-compatible bucket (AWS S3, MinIO, Scaleway, OVH…). The keys are credentials, kept apart. */
+export interface S3DestinationSettings {
+  /** Base URL of the service; empty for AWS S3 itself. */
+  endpoint: string;
+  region: string;
+  bucket: string;
+  /** Folder-like key prefix inside the bucket; may be empty. */
+  prefix: string;
+  /** `endpoint/bucket/key` instead of `bucket.endpoint/key`: what MinIO and most self-hosted stores want. */
+  pathStyle: boolean;
+}
+
+/** An SFTP server. The password or private key is a credential, kept apart. */
+export interface SftpDestinationSettings {
+  host: string;
+  port: number;
+  username: string;
+  remoteDir: string;
+  /** The server's host key as `ssh-keygen -lf` prints it (`SHA256:…`): required, and checked on every connection. */
+  hostKeyFingerprint: string;
+}
+
 /**
- * Where a connection's backups are written. `directory`: a folder of the
- * server chosen for this connection — local or a mounted network share —
- * `null` for the instance's own, which `defaultDirectory` names.
+ * Where a connection's backups are written: a folder of the server — local or
+ * a mounted network share (`directory`, `null` for the instance's own, which
+ * `defaultDirectory` names) — or a remote store. Credentials are never part of
+ * it: `hasCredentials` says they are saved.
  */
 export interface BackupDestination {
+  kind: BackupDestinationKind;
   directory: string | null;
   defaultDirectory: string;
+  s3: S3DestinationSettings | null;
+  sftp: (SftpDestinationSettings & { authMethod: "password" | "privateKey" }) | null;
+  hasCredentials: boolean;
 }
+
+/**
+ * `PUT /api/admin/connections/:id/backup-destination`. A credential left out
+ * (or empty) keeps the one already saved for this connection's remote.
+ */
+export type BackupDestinationInput =
+  | { kind: "local"; directory: string | null }
+  | { kind: "s3"; s3: S3DestinationSettings & { accessKeyId?: string; secretAccessKey?: string } }
+  | {
+      kind: "sftp";
+      sftp: SftpDestinationSettings & { password?: string; privateKey?: string; passphrase?: string };
+    };
 
 /** What a restore did to one table. */
 export interface RestoreTableResult {
@@ -79,6 +129,16 @@ export interface RestoreTableResult {
   deleted: number | null;
   inserted: number;
   error?: string;
+  /** Columns the database computes itself (generated, computed, row version): the backup's values for them were left out. */
+  skippedColumns?: string[];
+  /**
+   * For a table with an identity / auto-increment column, whether its counter
+   * now follows the restored rows: moved by the restore (`resynced`), moved by
+   * the engine itself as rows with explicit ids went in (`automatic`), or left
+   * as it was (`unchanged` — new rows may collide with restored ids until it
+   * is moved by hand).
+   */
+  identity?: "resynced" | "automatic" | "unchanged";
 }
 
 export interface RestoreResult {
@@ -86,6 +146,14 @@ export interface RestoreResult {
   tables: RestoreTableResult[];
   /** The copy of the target's current rows taken just before; `null` when it was explicitly skipped. */
   safetyBackupId: Id | null;
+  /**
+   * The restore ran as one transaction on the target: a failure undoes all
+   * of it (`rolledBack`). `false` where the engine — or one of the tables —
+   * cannot: a failure then leaves the tables as `tables` reports them.
+   */
+  atomic: boolean;
+  /** A failed atomic restore was undone: the target is as it was before, and the counts in `tables` are zero. */
+  rolledBack: boolean;
 }
 
 /**

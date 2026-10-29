@@ -1,0 +1,184 @@
+<script lang="ts">
+  import type { DatabaseEngine, DeploymentHistoryEntry } from "@nebuladb/shared";
+  import Button from "@/components/ui/Button.svelte";
+  import Badge from "@/components/ui/Badge.svelte";
+  import ErrorText from "@/components/ui/ErrorText.svelte";
+  import Icon from "@/components/icons/Icon.svelte";
+  import { CheckCircleIcon, ClockIcon, CloseIcon, DownloadIcon } from "@/components/icons/Icons";
+  import Select from "@/components/ui/Select.svelte";
+  import { useAsyncAction } from "@/hooks/asyncAction.svelte";
+  import { useAsyncResource } from "@/hooks/asyncResource.svelte";
+  import { formatRelativeTime } from "@/i18n/formatters";
+  import { i18n, useTranslation } from "@/i18n/i18n.svelte";
+  import { exportMigrations, listDeploymentHistory, type MigrationExportFormat } from "@/services/connectionsApi";
+  import { triggerDownload } from "@/utils/download";
+  import RollbackConfirmModal from "./RollbackConfirmModal.svelte";
+  import { STRATEGY_LABEL } from "./deploymentModel";
+  import type { TranslationKeyOf } from "@/types";
+
+  /**
+   * Past deployments (and rollbacks of them) for one connection, with a rollback
+   * action on any entry that still has one available. Split out of
+   * `DeploymentPanel.svelte` rather than added inline — that file is already a
+   * four-step wizard; this is a fifth, self-contained step with its own
+   * fetch/confirm/execute state, not more branches threaded through the
+   * existing ones.
+   */
+  let {
+    projectId,
+    connId,
+    engine,
+    production = false,
+    connectionName = "",
+  }: {
+    projectId: string;
+    connId: string;
+    engine?: DatabaseEngine;
+    /** On the production stage, a rollback asks for the connection's name. */
+    production?: boolean;
+    connectionName?: string;
+  } = $props();
+
+  const { t } = useTranslation();
+  const history = useAsyncResource(() => listDeploymentHistory(projectId, connId));
+  let confirmEntry = $state.raw<DeploymentHistoryEntry | null>(null);
+
+  const entries = $derived(history.data ?? []);
+
+  const EXPORT_FORMATS: { value: MigrationExportFormat; label: TranslationKeyOf }[] = [
+    { value: "sql", label: "deployment.exportFormatSql" },
+    { value: "flyway", label: "deployment.exportFormatFlyway" },
+    { value: "liquibase", label: "deployment.exportFormatLiquibase" },
+  ];
+  let exportFormat = $state<MigrationExportFormat>("sql");
+  const migrationExport = useAsyncAction(async () => {
+    const blob = await exportMigrations(projectId, connId, exportFormat);
+    triggerDownload(URL.createObjectURL(blob), `migrations-${exportFormat}.zip`, true);
+  });
+</script>
+
+<div class="space-y-3">
+  {#if history.loading}
+    <div class="flex h-48 items-center justify-center text-xs text-text-muted">{t("common.loading")}</div>
+  {:else if history.error}
+    <ErrorText>{history.error}</ErrorText>
+  {:else if entries.length === 0}
+    <div class="rounded-sm border border-border bg-surface-raised p-6 text-center text-xs text-text-muted">
+      <Icon icon={ClockIcon} size={24} class="mx-auto mb-2 text-text-muted" />
+      {t("deployment.historyEmpty")}
+    </div>
+  {:else}
+    <div class="space-y-1.5">
+      <div class="flex flex-wrap items-center justify-end gap-2">
+        <Select
+          size="sm"
+          class="w-36"
+          aria-label={t("deployment.exportFormat")}
+          bind:value={exportFormat}
+          options={EXPORT_FORMATS.map(({ value, label }) => ({ value, label: t(label) }))}
+        />
+        <Button size="sm" variant="outline" disabled={migrationExport.pending} onclick={() => migrationExport.run()}>
+          <Icon icon={DownloadIcon} size={14} />
+          {migrationExport.pending ? t("deployment.exporting") : t("deployment.exportMigrations")}
+        </Button>
+      </div>
+      <p class="m-0 text-right text-caption text-text-muted">{t("deployment.exportHint")}</p>
+      {#if migrationExport.error}<ErrorText>{migrationExport.error}</ErrorText>{/if}
+    </div>
+    <ul class="m-0 max-h-96 list-none space-y-2 overflow-y-auto p-0 pr-1">
+      {#each entries as entry (entry.id)}
+        <li class="rounded-sm border border-border bg-surface p-3 text-xs">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <div class="flex items-center gap-2">
+              {#if entry.success}
+                <Icon icon={CheckCircleIcon} size={14} class="text-emerald-400" />
+              {:else}
+                <Icon icon={CloseIcon} size={14} class="text-rose-400" />
+              {/if}
+              <span class="font-semibold text-text">
+                {entry.rollbackOf ? t("deployment.historyRollbackOfBadge") : t("deployment.historyDeployed")}
+              </span>
+              {#if entry.environment}<Badge tone="muted">{entry.environment}</Badge>{/if}
+              {#if entry.rolledBack}<Badge tone="warning">{t("deployment.rolledBackBadge")}</Badge>{/if}
+            </div>
+            <span class="text-caption text-text-muted">{formatRelativeTime(entry.createdAt, i18n.locale)}</span>
+          </div>
+
+          <div class="mt-1.5 flex flex-wrap items-center justify-between gap-2 text-caption text-text-muted">
+            <span>
+              {t("deployment.historyStatements", { executed: entry.executedStatements, total: entry.totalStatements })}
+              {entry.executedByEmail ? ` · ${t("deployment.historyBy", { email: entry.executedByEmail })}` : ""}
+            </span>
+            {#if entry.success && entry.rollbackSql && !entry.rolledBack}
+              <Button size="xs" variant="outline" onclick={() => (confirmEntry = entry)}>
+                {t("deployment.rollbackButton")}
+              </Button>
+            {/if}
+          </div>
+
+          {#if entry.seedReport && entry.seedReport.length > 0}
+            <p class="mt-1.5 font-mono text-caption text-text-muted">
+              {t("seeds.historyLine", {
+                tables: entry.seedReport
+                  .map((result) =>
+                    result.error ? `${result.tableName} ✕` : result.skipped ? `${result.tableName} =` : `${result.tableName} +${result.inserted}`,
+                  )
+                  .join(", "),
+              })}
+            </p>
+          {/if}
+          {#if entry.backupId}
+            <p class="mt-1.5 text-caption text-text-muted">{t("deployment.historyBackup")}</p>
+          {/if}
+          {#if entry.review}
+            <p class="mt-1.5 text-caption text-text-muted" data-testid="history-review">
+              {entry.review.approvedByEmail
+                ? t("review.historyLine", {
+                    requester: entry.review.requestedByEmail,
+                    approver: entry.review.approvedByEmail,
+                  })
+                : t("review.historyRequested", { requester: entry.review.requestedByEmail })}
+              {#if entry.review.comment}<span class="italic text-text"> « {entry.review.comment} »</span>{/if}
+            </p>
+          {/if}
+          {#if entry.acceptedRisks && entry.acceptedRisks.length > 0}
+            <div class="mt-2 rounded-sm border border-border bg-surface-raised p-2 text-caption">
+              <span class="mb-1 block font-semibold text-text">{t("deployment.historyAcceptedRisks")}</span>
+              <ul class="m-0 list-none space-y-0.5 p-0">
+                {#each entry.acceptedRisks as risk, index (index)}
+                  <li class="text-text-muted">
+                    <span class="font-mono text-text">
+                      {risk.columnName ? `${risk.tableName}.${risk.columnName}` : (risk.detail ?? risk.tableName)}
+                    </span>
+                    · {t(`deployment.riskType.${risk.type}`)}
+                    {#if !risk.unmeasured && risk.affectedRowCount > 0}({risk.affectedRowCount} {t("deployment.rowsAffected")}){/if}
+                    → {t(STRATEGY_LABEL[risk.strategy])}
+                  </li>
+                {/each}
+              </ul>
+              {#if entry.riskNote}<p class="mt-1 italic text-text">« {entry.riskNote} »</p>{/if}
+            </div>
+          {/if}
+
+          {#if entry.error}<ErrorText>{entry.error}</ErrorText>{/if}
+        </li>
+      {/each}
+    </ul>
+  {/if}
+
+  {#if confirmEntry}
+    <RollbackConfirmModal
+      {projectId}
+      {connId}
+      entry={confirmEntry}
+      {engine}
+      {production}
+      {connectionName}
+      onClose={() => (confirmEntry = null)}
+      onRolledBack={() => {
+        confirmEntry = null;
+        history.reload();
+      }}
+    />
+  {/if}
+</div>

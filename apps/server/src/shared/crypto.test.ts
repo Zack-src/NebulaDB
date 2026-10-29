@@ -1,12 +1,10 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { useTestDatabase } from "../infrastructure/testDatabase.js";
 
-// The module under test reaches `infrastructure/db.ts` through `shared/errors.ts`. Without
-// this, importing it would open — and migrate — the developer's real `./data` database.
-process.env.NEBULADB_DB_PATH ??= join(tmpdir(), `nebuladb-test-crypto-${randomUUID()}.sqlite`);
+// The module under test reaches `infrastructure/db.ts` through `shared/errors.ts`, and
+// importing that connects: it needs a database to connect to, even with nothing to store.
+await useTestDatabase("crypto");
 
 const { decryptPayload, encryptPayload, reencryptPayload } = await import("./crypto.js");
 
@@ -121,5 +119,17 @@ test("rotation: the previous secret keeps old payloads readable, and reencryptPa
     process.env.NEBULADB_SECRET = prevSecret;
     if (prevPrevious === undefined) delete process.env.NEBULADB_SECRET_PREVIOUS;
     else process.env.NEBULADB_SECRET_PREVIOUS = prevPrevious;
+  }
+});
+
+test("a payload whose auth tag was truncated is refused", () => {
+  const prevSecret = process.env.NEBULADB_SECRET;
+  process.env.NEBULADB_SECRET = "truncated-tag-test-secret";
+  try {
+    const [version, iv, tag, data] = encryptPayload({ password: "x" }).split(":");
+    assert.throws(() => decryptPayload([version, iv, tag.slice(0, 8), data].join(":")));
+  } finally {
+    if (prevSecret === undefined) delete process.env.NEBULADB_SECRET;
+    else process.env.NEBULADB_SECRET = prevSecret;
   }
 });

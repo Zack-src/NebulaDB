@@ -233,6 +233,7 @@ export function buildTableNodes(
           // Comments live in the document, which the server does not read for them: say who it is addressed to.
           const session = commentsSession.get();
           const notice = buildCommentNotice(current, comment, session?.userId);
+          // The comment is already saved in the document: a notice that did not go out must not undo it.
           if (session && notice) void postCommentNotice(session.projectId, notice).catch(() => {});
         },
         onDeleteComment: (commentId: string) => {

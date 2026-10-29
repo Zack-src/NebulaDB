@@ -40,8 +40,16 @@ export function isMailEnabled(): boolean {
   return config.smtp !== null;
 }
 
+let sink: ((mail: OutgoingMail) => void | Promise<void>) | null = null;
+
+/** Tests only: hands every message to `receive` instead of an SMTP server; `null` restores the transport. */
+export function setMailSinkForTests(receive: ((mail: OutgoingMail) => void | Promise<void>) | null): void {
+  sink = receive;
+}
+
 /** Rejects if the SMTP server refuses the message — callers decide whether that's worth surfacing. */
 export async function sendMail(mail: OutgoingMail): Promise<void> {
+  if (sink) return void (await sink(mail));
   await getTransport().sendMail({ from: config.smtp!.from, ...mail });
 }
 

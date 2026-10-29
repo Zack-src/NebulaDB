@@ -4,9 +4,9 @@ import { db } from "../../infrastructure/db.js";
 import { ApiError } from "../../shared/errors.js";
 
 /** The values a stage gives the schema's `{{variables}}`; none for a connection without a stage. */
-export function stageVariables(environmentId: string | null | undefined): VariableValues {
+export async function stageVariables(environmentId: string | null | undefined): Promise<VariableValues> {
   if (!environmentId) return {};
-  const row = db.prepare("SELECT variables_json FROM environments WHERE id = ?").get(environmentId) as
+  const row = (await db.prepare("SELECT variables_json FROM environments WHERE id = ?").get(environmentId)) as
     { variables_json: string } | undefined;
   return row ? (JSON.parse(row.variables_json) as VariableValues) : {};
 }
@@ -19,11 +19,11 @@ export function stageVariables(environmentId: string | null | undefined): Variab
  * the same one: deploying a half-resolved name would create `{{prefix}}orders`.
  * What the connection's engine cannot hold at all is left out (`schemaForDialect`).
  */
-export function schemaForConnection(
+export async function schemaForConnection(
   project: Project,
   connection: { environmentId?: string | null; engine?: DatabaseEngine },
-): Project {
-  const resolved = resolveVariables(project, stageVariables(connection.environmentId));
+): Promise<Project> {
+  const resolved = resolveVariables(project, await stageVariables(connection.environmentId));
   if (resolved.missing.length + resolved.unnamed.length + resolved.collisions.length > 0) {
     throw new ApiError("VARIABLES_UNRESOLVED", {
       details: { missing: resolved.missing, unnamed: resolved.unnamed, collisions: resolved.collisions },

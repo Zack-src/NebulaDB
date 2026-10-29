@@ -4,7 +4,7 @@ import { readProjectFromDoc, writeProjectToDoc } from "@nebuladb/shared";
 import { ApiError } from "../../shared/errors.js";
 import { getRoom } from "../../realtime/roomRegistry.js";
 import { createDatabaseDriver } from "./drivers/index.js";
-import { assertLocksAllow } from "../tableLocks/access.js";
+import { lockGuardFor } from "../tableLocks/access.js";
 import { saveReferenceFingerprint } from "./drift.js";
 import { getProjectConnection } from "./repository.js";
 
@@ -29,19 +29,22 @@ export async function pullConnectionSchema(
   authorDisplayName: string,
   actingUserId?: string,
 ): Promise<PullSchemaResult> {
-  const conn = getProjectConnection(projectId, connId);
+  const conn = await getProjectConnection(projectId, connId);
   if (!conn) throw new ApiError("CONNECTION_NOT_FOUND");
 
   const driver = await createDatabaseDriver(conn);
   try {
     const liveProject = await driver.introspectSchema();
-    const room = getRoom(projectId);
+    const variables = await stageVariables(conn.environmentId);
+    const assertLocksAllow = actingUserId ? await lockGuardFor(actingUserId, projectId) : null;
+    // From here to `room.write`, nothing waits: see `Room.write`.
+    const room = await getRoom(projectId);
     const current = readProjectFromDoc(room.doc, projectId, projectName);
 
     // A table whose name holds `{{variables}}` is found under the name this
     // stage gives it — and keeps its placeholders, or one pull from one stage
     // would turn the shared schema into that stage's.
-    const named = resolveVariables(current, stageVariables(conn.environmentId)).project.tables;
+    const named = resolveVariables(current, variables).project.tables;
     const existingTablesByName = new Map(current.tables.map((t, i) => [named[i].name.toLowerCase(), t]));
     const templated = (t: { name: string; schemaName?: string }) =>
       hasVariables(t.name) || hasVariables(t.schemaName ?? "");
@@ -71,10 +74,10 @@ export async function pullConnectionSchema(
     }));
 
     const updatedProject = { ...current, tables, refs };
-    if (actingUserId) assertLocksAllow(actingUserId, projectId, current, updatedProject);
-    room.doc.transact(() => writeProjectToDoc(room.doc, updatedProject), authorDisplayName);
+    assertLocksAllow?.(current, updatedProject);
+    await room.write(() => writeProjectToDoc(room.doc, updatedProject), authorDisplayName);
     // The schema was just made to match the database: that is the new reference.
-    saveReferenceFingerprint(projectId, connId, liveProject, "pull");
+    await saveReferenceFingerprint(projectId, connId, liveProject, "pull");
 
     return { pulled: true, tablesCount: tables.length };
   } finally {

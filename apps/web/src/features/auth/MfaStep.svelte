@@ -55,7 +55,7 @@
 
   {#if verify.error}<ErrorText>{verify.error}</ErrorText>{/if}
 
-  <div class="flex items-center justify-between text-[11px]">
+  <div class="flex items-center justify-between text-caption">
     <button type="button" class="text-text-muted hover:text-text underline-offset-2 hover:underline" onclick={onBack}>
       {t("login.mfa.back")}
     </button>

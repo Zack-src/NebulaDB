@@ -4,6 +4,7 @@ import {
   type CompletionResult,
   snippetCompletion,
 } from "@codemirror/autocomplete";
+import type { Text } from "@codemirror/state";
 import { DBML_TYPES } from "@/features/editor/dbml/language";
 import { getSymbols, tableAt, type DbmlSymbols } from "@/features/editor/dbml/symbols";
 
@@ -30,6 +31,12 @@ const COLUMN_SETTINGS: Completion[] = [
   }),
   snippetCompletion("note: '${text}'", { label: "note", type: "property", detail: "Column note" }),
   snippetCompletion("ref: > ${Table}.${column}", { label: "ref", type: "property", detail: "Inline relationship" }),
+];
+
+const INDEX_SETTINGS: Completion[] = [
+  { label: "unique", type: "keyword", detail: "Unique index", boost: 80 },
+  { label: "pk", type: "keyword", detail: "Composite primary key" },
+  snippetCompletion("name: '${index_name}'", { label: "name", type: "property", detail: "Index name" }),
 ];
 
 const TABLE_SETTINGS: Completion[] = [
@@ -115,6 +122,17 @@ function typeCompletions(symbols: DbmlSymbols): Completion[] {
   ];
 }
 
+/** Whether line `lineNumber` of the table starting at `tableLine` sits inside its `indexes { }` block. */
+function inIndexesBlock(doc: Text, tableLine: number, lineNumber: number): boolean {
+  let open = false;
+  for (let n = tableLine + 1; n <= lineNumber; n++) {
+    const text = doc.line(n).text;
+    if (/^\s*indexes\s*\{/i.test(text)) open = !/\}\s*$/.test(text);
+    else if (open && n < lineNumber && /^\s*\}\s*$/.test(text)) open = false;
+  }
+  return open;
+}
+
 /** Context-aware DBML completion: knows the tables, fields, enums and blocks of the current document. */
 export function dbmlCompletion(context: CompletionContext): CompletionResult | null {
   const word = context.matchBefore(/[\w."`]+/);
@@ -140,6 +158,23 @@ export function dbmlCompletion(context: CompletionContext): CompletionResult | n
           type: f.pk ? "constant" : "property",
           detail: f.type + (f.pk ? " · pk" : ""),
           info: f.note,
+        })),
+        validFor: /^\w*$/,
+      };
+    }
+  }
+
+  // Inside `indexes { }`: the table's own columns, then the index's settings
+  if (currentTable && line.number > currentTable.line && inIndexesBlock(state.doc, currentTable.line, line.number)) {
+    if (inSettings) return { from, options: INDEX_SETTINGS, validFor: /^[\w ]*$/ };
+    if (!/^\s*indexes\b/i.test(line.text)) {
+      return {
+        from,
+        options: currentTable.fields.map((field) => ({
+          label: field.name,
+          type: field.pk ? "constant" : "property",
+          detail: field.type + (field.pk ? " · pk" : ""),
+          info: field.note,
         })),
         validFor: /^\w*$/,
       };

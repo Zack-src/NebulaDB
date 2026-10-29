@@ -43,13 +43,13 @@
    * `sm` buttons and `sm` fields drift 6px apart.
    */
   const SIZE: Record<ButtonSize, string> = {
-    lg: "h-10 px-4 text-[13.5px]",
-    md: "h-8 px-3 text-[13px]",
-    sm: "h-7 px-2.5 text-[12.5px]",
-    xs: "h-6 px-2 text-[11.5px]",
-    icon: "h-8 w-8 text-[13px]",
-    "icon-sm": "h-7 w-7 text-[12.5px]",
-    "icon-xs": "h-6 w-6 text-[11.5px]",
+    lg: "h-10 px-4 text-body",
+    md: "h-8 px-3 text-body",
+    sm: "h-7 px-2.5 text-body-sm",
+    xs: "h-6 px-2 text-label",
+    icon: "h-8 w-8 text-body",
+    "icon-sm": "h-7 w-7 text-body-sm",
+    "icon-xs": "h-6 w-6 text-label",
   };
 </script>
 

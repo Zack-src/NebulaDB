@@ -33,7 +33,7 @@
 {#if data?.cardinality}
   <div
     use:portal={"edge-labels"}
-    class="absolute rounded-full border border-primary-border bg-surface px-1.5 py-px font-mono text-[10.5px] font-semibold text-primary-hover"
+    class="absolute rounded-full border border-primary-border bg-surface px-1.5 py-px font-mono text-micro font-semibold text-primary-hover"
     style:left="0"
     style:top="0"
     style:transform="translate(-50%, -50%) translate({step.labelX}px, {step.labelY}px)"

@@ -1,5 +1,6 @@
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
 import { recordError, tallyErrorForMetrics } from "./errorLog.js";
+import { redactShareTokens } from "./logRedaction.js";
 
 /**
  * Every error the API can return, in one place.
@@ -12,10 +13,11 @@ import { recordError, tallyErrorForMetrics } from "./errorLog.js";
 export const ERROR_CATALOG = {
   // --- 400 ---
   NAME_REQUIRED: { status: 400, message: "name is required" },
+  VALIDATION_FAILED: { status: 400, message: "the request has missing or invalid fields" },
   NAME_TOO_LONG: { status: 400, message: "name must be 200 characters or fewer" },
   NAME_OR_STATUS_REQUIRED: { status: 400, message: "name or status is required" },
   PROJECT_STATUS_INVALID: { status: 400, message: "status must be one of active, archived, trashed" },
-  PERMISSION_INVALID: { status: 400, message: "permission must be one of view, edit, administrator" },
+  PERMISSION_INVALID: { status: 400, message: "permission must be one of view, edit, deploy, administrator" },
   SOURCE_REQUIRED: { status: 400, message: "source is required" },
   SQL_DIALECT_INVALID: { status: 400, message: "dialect must be one of postgres, mysql, mssql" },
   DBML_PARSE_FAILED: { status: 400, message: "the DBML source could not be parsed" },
@@ -34,6 +36,11 @@ export const ERROR_CATALOG = {
   USER_ID_INVALID: { status: 400, message: "a valid userId is required" },
   DISABLED_MUST_BE_BOOLEAN: { status: 400, message: "disabled must be a boolean" },
   LIMIT_MUST_BE_NUMBER: { status: 400, message: "limit must be a number" },
+  RETENTION_VALUE_INVALID: { status: 400, message: "this retention is outside what the journal accepts" },
+  RETENTION_CONFIRM_REQUIRED: {
+    status: 400,
+    message: "confirm this: a short audit retention, or a purge (send the journal's key as confirm)",
+  },
   TRANSFER_TARGET_INVALID: { status: 400, message: "transferProjectsTo must be another existing user" },
   CANNOT_DELETE_SELF: { status: 400, message: "you cannot delete your own account" },
   CANNOT_DISABLE_SELF: { status: 400, message: "you cannot disable your own account" },
@@ -45,6 +52,7 @@ export const ERROR_CATALOG = {
     message: "you are the last active administrator — grant admin to someone else first",
   },
   INVITATION_INVALID: { status: 400, message: "this invitation is no longer valid" },
+  MIGRATION_FORMAT_INVALID: { status: 400, message: "format must be one of sql, flyway, liquibase" },
   CONNECTION_ENGINE_INVALID: {
     status: 400,
     message: "engine must be one of postgres, mysql, mssql, oracle, sqlite, bigquery",
@@ -53,6 +61,15 @@ export const ERROR_CATALOG = {
     status: 400,
     message:
       "authMode must be shared or personal — and personal needs a host, user and password: not a SQLite file, not a connection string",
+  },
+  CONNECTION_TLS_INVALID: {
+    status: 400,
+    message: "certificates and keys are PEM text (-----BEGIN …), and TLS settings need TLS to be on",
+  },
+  CONNECTION_SSH_INVALID: {
+    status: 400,
+    message:
+      "an SSH tunnel needs a host, a user and a password or a readable private key, and a connection made of a host and a port",
   },
   PERSONAL_CREDENTIALS_INVALID: { status: 400, message: "username and password are required" },
   PERSONAL_CREDENTIALS_REJECTED: { status: 400, message: "the database refused this account" },
@@ -104,6 +121,11 @@ export const ERROR_CATALOG = {
     status: 400,
     message: "a seed needs CSV content (at most 2 MB, 50 000 rows) and valid options: separator, header, mapping, mode",
   },
+  SEED_IMPORT_UNAVAILABLE: {
+    status: 400,
+    message:
+      "importing a seed file by path needs the server setting NEBULADB_SEED_IMPORT_DIR, and the file must be inside that folder",
+  },
   MONITORING_INVALID: {
     status: 400,
     message: "monitoring: enabled (boolean), intervalMinutes (5, 15, 60, 360 or 1440), ignoreTables (names)",
@@ -112,8 +134,32 @@ export const ERROR_CATALOG = {
     status: 403,
     message: "the watch is imposed by a connection of this project: only an instance administrator changes it",
   },
+  MONITORING_MUTE_INVALID: {
+    status: 400,
+    message: "mute: minutes (60, 480, 1440 or 10080) and a reason (at most 200 characters) are required",
+  },
+  MONITORING_MUTE_LOCKED: {
+    status: 403,
+    message: "the watch is imposed by a connection of this project: only an instance administrator may mute its alerts",
+  },
+  MONITORING_EVENT_NOT_FOUND: { status: 404, message: "no such finding of the watch in this project" },
+  MONITORING_EVENT_NOT_OPEN: {
+    status: 409,
+    message: "only an open finding that is not acknowledged yet can be acknowledged",
+  },
   STAGE_SKIP_REASON_REQUIRED: { status: 400, message: "skipping a stage needs a reason (skipReason)" },
-  SUBSCRIPTION_INVALID: { status: 400, message: "events must be a list among deployment, lock, seed, drift" },
+  ROLLBACK_REVIEW_REASON_REQUIRED: {
+    status: 400,
+    message: "a rollback run without the stage's review needs a reason (reason)",
+  },
+  SUBSCRIPTION_INVALID: {
+    status: 400,
+    message: "events must be a list among deployment, lock, seed, drift; emailDrift, if given, a boolean (needs drift)",
+  },
+  EMAIL_ALERTS_UNAVAILABLE: {
+    status: 503,
+    message: "alerts by email are not available: this instance has no email configured",
+  },
   COMMENT_NOTICE_INVALID: {
     status: 400,
     message: "text, tableName (and optionally columnName, threadUserIds) are required",
@@ -133,9 +179,12 @@ export const ERROR_CATALOG = {
   LINT_PRESET_LIMIT: { status: 409, message: "the library holds 100 lint presets at most" },
   BACKUP_DESTINATION_INVALID: {
     status: 400,
-    message: "directory must be an absolute path of the server (1024 characters at most), or null for the default",
+    message:
+      "destination: a directory (absolute path of the server, 1024 characters at most, or null for the default), or " +
+      "an s3 (endpoint, region, bucket, prefix, pathStyle, accessKeyId, secretAccessKey) or sftp (host, port, " +
+      "username, remoteDir, hostKeyFingerprint as SHA256:…, password or privateKey) object",
   },
-  BACKUP_DESTINATION_UNUSABLE: { status: 400, message: "backups cannot be written to this directory" },
+  BACKUP_DESTINATION_UNUSABLE: { status: 400, message: "backups cannot be written to this destination" },
   BACKUP_INVALID: {
     status: 400,
     message:
@@ -159,8 +208,13 @@ export const ERROR_CATALOG = {
   WEBHOOK_FORMAT_INVALID: { status: 400, message: "format must be one of json, slack, discord" },
   WEBHOOK_EVENTS_INVALID: {
     status: 400,
-    message: "events must be a non-empty array of schema.changed, deployment.completed, drift.detected",
+    message:
+      "events must be a non-empty array of schema.changed, deployment.completed, deployment.review, drift.detected",
   },
+  SHARE_LINK_LABEL_REQUIRED: { status: 400, message: "label is required" },
+  SHARE_LINK_CONTENT_INVALID: { status: 400, message: "shows must be one of diagram, dictionary, both" },
+  SHARE_LINK_EXPIRY_INVALID: { status: 400, message: "expiresInDays must be a whole number of days from 1 to 365" },
+  SHARE_LINK_SETTING_INVALID: { status: 400, message: "enabled must be a boolean" },
   API_KEY_SCOPES_INVALID: {
     status: 400,
     message: "scopes must be a non-empty array of projects:read, projects:write, deployments:trigger",
@@ -176,7 +230,20 @@ export const ERROR_CATALOG = {
   MFA_CHALLENGE_INVALID: { status: 401, message: "this login challenge has expired — sign in again" },
 
   // --- 403 ---
+  SETUP_TOKEN_INVALID: { status: 403, message: "the setup token is missing or incorrect" },
   ADMIN_REQUIRED: { status: 403, message: "administrator access required" },
+  DEPLOYMENT_REVIEW_SELF_DECISION: {
+    status: 403,
+    message:
+      "a review request is approved or rejected by someone other than its author: another person who may deploy " +
+      "on this project (level deploy or administrator), or an instance administrator",
+  },
+  DEPLOYMENT_REVIEW_NOT_YOURS: {
+    status: 403,
+    message:
+      "a review request is withdrawn by its author only, and deployed once approved by its author or by the " +
+      "person who approved it",
+  },
   FORBIDDEN: { status: 403, message: "forbidden" },
   API_SCOPE_INSUFFICIENT: { status: 403, message: "this API key does not have the required scope" },
   API_KEY_PROJECT_RESTRICTED: { status: 403, message: "this API key is restricted to a different project" },
@@ -195,6 +262,7 @@ export const ERROR_CATALOG = {
   ACCOUNT_DISABLED: { status: 403, message: "this account has been disabled" },
   ORIGIN_INVALID: { status: 403, message: "invalid origin" },
   ORIGIN_MISMATCH: { status: 403, message: "cross-origin request refused" },
+  SHARE_LINKS_DISABLED: { status: 403, message: "share links are turned off on this instance" },
 
   // --- 404 ---
   NOT_FOUND: { status: 404, message: "not found" },
@@ -205,16 +273,21 @@ export const ERROR_CATALOG = {
   CONNECTION_NOT_FOUND: { status: 404, message: "connection not found" },
   API_KEY_NOT_FOUND: { status: 404, message: "no such API key" },
   WEBHOOK_NOT_FOUND: { status: 404, message: "no such webhook on this project" },
+  /** One answer for an unknown, revoked or expired token, or links turned off: the viewer learns nothing more. */
+  SHARE_LINK_NOT_FOUND: { status: 404, message: "this link does not exist or no longer works" },
+  DEPLOYMENT_REVIEW_NOT_FOUND: { status: 404, message: "no such review request on this project" },
   TABLE_NOT_FOUND: { status: 404, message: "no such table in this project" },
   ENVIRONMENT_NOT_FOUND: { status: 404, message: "no such environment stage" },
   BACKUP_NOT_FOUND: { status: 404, message: "no such backup" },
   SEED_NOT_FOUND: { status: 404, message: "this table has no seed" },
+  RETENTION_JOURNAL_NOT_FOUND: { status: 404, message: "no such journal in the retention policy" },
   DATABASE_TABLE_NOT_FOUND: {
     status: 404,
     message: "the database has no table of that name — deploy the schema first",
   },
 
   // --- 409 ---
+  SETUP_ALREADY_DONE: { status: 409, message: "this instance is already set up: sign in instead" },
   EMAIL_ALREADY_EXISTS: { status: 409, message: "a user with this email already exists" },
   INVITATION_ALREADY_USED: { status: 409, message: "this invitation has already been used" },
   PROJECT_LIMIT_REACHED: { status: 409, message: "you have reached the maximum number of projects" },
@@ -227,6 +300,8 @@ export const ERROR_CATALOG = {
     message: "this connection is still attached to one or more projects — confirm to delete it anyway",
   },
   WEBHOOK_LIMIT_REACHED: { status: 409, message: "a project can have at most 10 webhooks" },
+  SHARE_LINK_LIMIT_REACHED: { status: 409, message: "a project can have at most 50 active share links" },
+  RETENTION_PURGE_RUNNING: { status: 409, message: "this journal is being purged already — try again shortly" },
 
   // --- 429 ---
   ACCOUNT_LOCKED: { status: 429, message: "too many failed attempts — this account is temporarily locked" },
@@ -249,6 +324,64 @@ export const ERROR_CATALOG = {
     message:
       "this stage takes a schema only once the stage before it has it — deploy there first (an instance " +
       "administrator may skip the stage, with a reason)",
+  },
+  DEPLOYMENT_REVIEW_REQUIRED: {
+    status: 409,
+    message:
+      "this stage asks for a review — request one for this deployment, and deploy the request once another person " +
+      "has approved it",
+  },
+  DEPLOYMENT_IN_PROGRESS: {
+    status: 409,
+    message:
+      "a deployment or a rollback is already running on this database — wait for it to end, then look at the plan again",
+  },
+  ROLLBACK_REVIEW_REQUIRED: {
+    status: 409,
+    message:
+      "this stage asks for a review, which a rollback does not go through — a project administrator can run it " +
+      "anyway, with a reason (skipReview, reason)",
+  },
+  ROLLBACK_NOT_LATEST: {
+    status: 409,
+    message: "a later deployment of this database has not been rolled back — roll that one back first",
+  },
+  CLEAN_DEPLOYMENT_NOT_ALLOWED: {
+    status: 409,
+    message:
+      "a clean deployment drops every table of the database and is not offered on the production stage, nor on a " +
+      "stage that asks for a review",
+  },
+  CLEAN_DEPLOYMENT_CONFIRMATION_REQUIRED: {
+    status: 400,
+    message: "a clean deployment drops all the data: retype the connection's name to confirm it",
+  },
+  DEPLOYMENT_REVIEW_NOT_REQUIRED: {
+    status: 409,
+    message: "this connection is not on a stage that asks for a review — deploy to it directly",
+  },
+  DEPLOYMENT_REVIEW_NOTHING_TO_DEPLOY: {
+    status: 409,
+    message: "there is nothing to deploy to this database — nothing to review",
+  },
+  DEPLOYMENT_REVIEW_ALREADY_OPEN: {
+    status: 409,
+    message: "a review request is already open for this connection — deploy it, or have it withdrawn or rejected first",
+  },
+  DEPLOYMENT_REVIEW_NOT_PENDING: { status: 409, message: "this review request is no longer waiting for a decision" },
+  DEPLOYMENT_REVIEW_NOT_APPROVED: {
+    status: 409,
+    message: "this review request has not been approved, or is closed — only an approved request is deployed",
+  },
+  DEPLOYMENT_REVIEW_EXPIRED: {
+    status: 409,
+    message: "this approval has expired — request a new review",
+  },
+  DEPLOYMENT_REVIEW_STALE: {
+    status: 409,
+    message:
+      "the schema or the database changed since this request was made: what would run is no longer what was " +
+      "reviewed — request a new review",
   },
   VARIABLES_UNRESOLVED: {
     status: 409,
@@ -284,10 +417,26 @@ export const ERROR_CATALOG = {
     status: 400,
     message: "only data statements (INSERT, UPDATE, DELETE, MERGE) can be run with your access — never structure",
   },
+  SAVED_QUERY_INVALID: { status: 400, message: "a saved query needs a name (120 characters at most) and a statement" },
+  SAVED_QUERY_NOT_FOUND: { status: 404, message: "saved query not found" },
+  SAVED_QUERY_NOT_OWNER: { status: 403, message: "only the author of a saved query can change it" },
+  SAVED_QUERY_NAME_TAKEN: { status: 409, message: "you already have a saved query with this name on this connection" },
+  SAVED_QUERY_LIMIT: { status: 409, message: "too many saved queries on this connection — delete some first" },
   DB_ADMIN_CONNECTION_ACCOUNT_PROTECTED: {
     status: 409,
     message:
       "this is the account the connection itself signs in with — dropping, locking it or changing its password would lock Nebula out of this database",
+  },
+  ROW_EDIT_INVALID: { status: 400, message: "the row changes are malformed or do not fit the table" },
+  ROW_EDIT_LIMIT: { status: 400, message: "too many row changes, or too much data, for one apply" },
+  ROW_EDIT_NOT_EDITABLE: { status: 409, message: "the rows of this table cannot be edited from here" },
+  ROW_EDIT_STALE: {
+    status: 409,
+    message: "a row has changed or is gone since it was read — nothing was applied",
+  },
+  ROW_EDIT_ROW_COUNT: {
+    status: 409,
+    message: "a statement did not change exactly one row — nothing was applied",
   },
   PRODUCTION_CONFIRMATION_REQUIRED: {
     status: 409,
@@ -299,6 +448,7 @@ export const ERROR_CATALOG = {
     status: 409,
     message: "the stored backup file is missing or no longer matches its checksum",
   },
+  BACKUP_STORAGE_UNREACHABLE: { status: 502, message: "the storage holding this backup cannot be reached" },
   RESTORE_CONFIRMATION_REQUIRED: {
     status: 409,
     message: "a restore replaces data — send the target connection's name as confirmName",
@@ -323,6 +473,29 @@ export const ERROR_CATALOG = {
     message: "password reset by email is not available: this instance has no email configured",
   },
   DB_ADMIN_QUERY_FAILED: { status: 502, message: "the target database rejected the statement" },
+  ROW_EDIT_FAILED: { status: 502, message: "the database refused a row change — nothing was applied" },
+  VARIANT_OF_VARIANT: {
+    status: 400,
+    message: "a client variant cannot have variants of its own: copy its original instead",
+  },
+  VARIANT_NOT_FOUND: { status: 404, message: "this project is not a variant of that one" },
+  VARIANT_TARGETS_INVALID: { status: 400, message: "variants must be a list of variant ids (and decisions)" },
+  FOLDER_NOT_FOUND: { status: 404, message: "folder not found" },
+  FOLDER_TOO_DEEP: { status: 400, message: "folders nest at most 5 levels deep" },
+  FOLDER_MOVE_INVALID: { status: 400, message: "a folder cannot go into itself or one of its subfolders" },
+  FOLDER_LIMIT_REACHED: { status: 400, message: "this instance has reached its number of folders" },
+  FOLDER_FORBIDDEN: {
+    status: 403,
+    message: "only whoever made the folder, or an instance administrator, can change it",
+  },
+  SSO_SETTINGS_INVALID: {
+    status: 400,
+    message:
+      "single sign-on needs an https issuer URL (http only on localhost), a client id, and allowed domains as plain names",
+  },
+  SSO_DISCOVERY_FAILED: { status: 502, message: "the identity provider's discovery document could not be read" },
+  SSO_NOT_CONFIGURED: { status: 404, message: "single sign-on is not set up on this instance" },
+  CONNECTION_SSH_FAILED: { status: 502, message: "the SSH tunnel to the database could not be opened" },
   MIGRATION_FAILED: { status: 502, message: "the migration could not be applied to the target database" },
   ROLLBACK_FAILED: { status: 502, message: "the rollback could not be applied to the target database" },
   BACKUP_FAILED: { status: 502, message: "the safety backup did not complete, so nothing was changed" },
@@ -363,9 +536,19 @@ export class ApiError extends Error {
  * path) must never reach the client.
  */
 export function registerErrorHandler(app: FastifyInstance): void {
-  app.setErrorHandler((err: FastifyError, req: FastifyRequest, reply: FastifyReply) => {
+  app.setErrorHandler(async (err: FastifyError, req: FastifyRequest, reply: FastifyReply) => {
     if (err instanceof ApiError) {
       return reply.code(err.status).send(err.toPayload());
+    }
+    // A schema holding a type, default or name that cannot be written safely into SQL (`@nebuladb/dbml-engine`):
+    // the schema's author can fix it, and the message names what to fix.
+    if (err.name === "UnsafeSqlFragmentError") {
+      return reply.code(400).send({ error: err.message, code: "SQL_FRAGMENT_UNSAFE" });
+    }
+    // PostgreSQL refusing a value (a NUL character in text, a number out of range, a malformed UUID…) is the
+    // client's input, not a server fault: SQLSTATE class 22. The database's own message stays out of the response.
+    if (typeof err.code === "string" && /^22[0-9A-Z]{3}$/.test(err.code)) {
+      return reply.code(400).send({ error: "a submitted value is not valid", code: "VALUE_INVALID" });
     }
     // Fastify's own errors (body too large, malformed JSON, rate limit) already
     // carry a sensible status; keep it and pass their message through.
@@ -375,9 +558,9 @@ export function registerErrorHandler(app: FastifyInstance): void {
     }
     req.log.error({ err }, "unhandled error");
     tallyErrorForMetrics("server");
-    recordError("server", err.message, {
+    await recordError("server", err.message, {
       stack: err.stack,
-      context: `${req.method} ${req.url}`,
+      context: `${req.method} ${redactShareTokens(req.url)}`,
       user: req.user ? { id: req.user.id, email: req.user.email } : null,
     });
     return reply.code(500).send(new ApiError("INTERNAL_ERROR").toPayload());

@@ -8,7 +8,7 @@ import { checkConnectionHealth } from "../dbAdmin/health.js";
 /** What reads the server; an object so a test can replace the one step that needs a live server. */
 export const healthReader = {
   async read(connectionId: string): Promise<Pick<DbHealthBoard, "databases" | "sessions" | "blocking">> {
-    const connection = getConnectionById(connectionId);
+    const connection = await getConnectionById(connectionId);
     const empty = { databases: null, sessions: null, blocking: null };
     if (!connection) return empty;
     return asUnattended(async () => {
@@ -60,11 +60,11 @@ export async function buildHealthBoard(connectionId: string): Promise<DbHealthBo
   const summary = await checkConnectionHealth(connectionId);
   if (!summary) return null;
   const history = (
-    db
+    (await db
       .prepare(
-        "SELECT at, ok, latency_ms FROM db_health_samples WHERE connection_id = ? ORDER BY at DESC, rowid DESC LIMIT 200",
+        "SELECT at, ok, latency_ms FROM db_health_samples WHERE connection_id = ? ORDER BY at DESC, seq DESC LIMIT 200",
       )
-      .all(connectionId) as { at: string; ok: number; latency_ms: number }[]
+      .all(connectionId)) as { at: string; ok: number; latency_ms: number }[]
   )
     .reverse()
     .map((row) => ({ at: row.at, ok: row.ok === 1, latencyMs: row.latency_ms }));

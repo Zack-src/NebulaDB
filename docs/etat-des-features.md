@@ -1,8 +1,10 @@
 # NebulaDB — état des fonctionnalités
 
-État au **2026-10-05**, sur le commit `60b490c` (`main`) **plus les modifications de la session du
-jour, non commitées** (accès aux bases, surveillance des comptes, journal par base, mentions,
-corrections moteur, correctif CI).
+État au **2026-10-23**, sur la branche `updates` (tag `v1.0.0` posé ; la colonne « état » des lignes
+non listées dans la mise à jour du 2026-10-23 date du 2026-10-05 et n'a pas été revérifiée).
+Mise à jour du 2026-10-23 : lignes corrigées après relecture du code (CLI, action GitHub, complétion SQL,
+requêtes enregistrées, édition de lignes, suggestions d'index, Prisma / JSON Schema, version taguée),
+et écrans retirés signalés.
 
 Ce document liste tout ce que l'outil doit permettre, fonctionnalité par fonctionnalité, avec
 son état. Il réunit le besoin exprimé par le propriétaire du produit, ce que le code fait déjà
@@ -49,75 +51,79 @@ utilisé ».
 | Conversion de types entre moteurs                                                                  |  🧪  | Écran jamais cliqué par un test                                                              |
 | Linter de schéma (profils, corrections, blocage de déploiement)                                    |  ✅  | Le motif de nommage se règle en règle personnalisée                                          |
 | Lint : bibliothèque de modèles, modèle par défaut, version propre au projet, règles personnalisées |  🧪  | Testé côté serveur et en navigateur ; jamais utilisé à la main                               |
-| Dictionnaire de données                                                                            |  🟡  | Pas d'export PDF ; description sur une seule ligne                                           |
+| Dictionnaire de données                                                                            |  🟡  | Export Markdown, CSV, HTML et PDF ; description sur une seule ligne                          |
 | Verrous de table                                                                                   |  🟡  | Un plugin annonce « fait » alors que le verrou a refusé                                      |
 | Historique, aperçu sur le graphe, restauration d'une seule table                                   |  🟡  | Rétention et compaction des révisions non décidées                                           |
 | Comparaison de deux projets, avec SQL de migration                                                 |  ✅  | Le diff contre une base réelle ne signale plus `decimal` ni les clés primaires à tort        |
 | Collaboration temps réel, présence, commentaires                                                   |  ✅  |                                                                                              |
 | Mentions `@` dans les commentaires                                                                 |  ✅  | Ancien commentaire sans identifiant d'auteur ; nom d'une mention non mis à jour au renommage |
 | Fusion par champ (deux personnes sur la même table)                                                |  ❌  |                                                                                              |
-| Points de passage des relations, détection d'une relation inversée                                 |  ❌  | Attend une décision du propriétaire                                                          |
-| Export Prisma / TypeORM / GraphQL / JSON Schema                                                    |  ❌  | Prévu sous forme de plugins                                                                  |
+| Points de passage des relations, détection d'une relation inversée                                 |  ✅  | Points de passage déplaçables et routage réglable                                            |
+| Export Prisma / TypeORM / GraphQL / JSON Schema                                                    |  🟡  | Prisma, JSON Schema, TypeScript et Mermaid livrés ; TypeORM et GraphQL non faits             |
 
 ## 2. Projet racine et déclinaisons ★
 
-| Fonctionnalité                                                          | État | Reste / remarque                                      |
-| ----------------------------------------------------------------------- | :--: | ----------------------------------------------------- |
-| ★ Projet racine et variantes par client (La Poste, L'Oréal…)            |  ❌  | Aucun code (Phase 35) ; décisions préalables requises |
-| Publication de versions de la base, suivi ou épinglage par variante     |  ❌  |                                                       |
-| Fusion à trois voies quand la base évolue                               |  ❌  |                                                       |
-| Vue en arbre, vues « résolu / surcouche / base », matrice des variantes |  ❌  |                                                       |
-| Moteur, droits, connexions et déploiements propres à chaque variante    |  ❌  |                                                       |
+| Fonctionnalité                                                                                    | État | Reste / remarque                                                                                                        |
+| ------------------------------------------------------------------------------------------------- | :--: | ----------------------------------------------------------------------------------------------------------------------- |
+| ★ Projet original et variantes par client                                                         |  🧪  | Copie complète, onglet « Variantes » ; testé côté serveur et en navigateur, jamais essayé sur un vrai projet client     |
+| Envoi des changements de l'original, au choix des variantes et des changements                    |  🧪  | Fusion à trois sources par identifiant ; conflit quand le client a modifié la même chose (sa version gardée par défaut) |
+| Comparaison original / client et client / client                                                  |  🧪  | Tables et colonnes ; les relations sont seulement comptées                                                              |
+| Réinitialiser une variante, copier une autre variante, passer de l'une à l'autre depuis l'en-tête |  🧪  | Testé en navigateur                                                                                                     |
+| Dossiers de projets imbriqués dans la liste                                                       |  🧪  | Partagés par l'instance, visibles s'ils mènent à un projet accessible ; clic droit et glisser-déposer                   |
+| Publication de versions de l'original, épinglage par variante                                     |  ❌  | L'envoi se fait à la demande, pas par version publiée                                                                   |
+| Variantes de variantes (base → secteur → client)                                                  |  ❌  | Un seul niveau, choix fait le 2026-10-16                                                                                |
+| Export DBML « surcouche » d'une variante                                                          |  ❌  | Une variante s'exporte comme n'importe quel projet                                                                      |
 
-À décider avant tout code : format de l'export DBML d'une variante, profondeur de la
-hiérarchie (base → secteur → client), et si les variantes couvrent aussi les « branches de
-schéma ».
+Choix faits : un seul niveau de variantes ; seule la structure est envoyée (tables, colonnes, index, relations,
+enums, groupes), jamais la mise en page ; un changement non envoyé devient propre au client et n'est plus proposé.
 
 ## 3. Connexions aux bases ★
 
-| Fonctionnalité                                                       | État | Reste / remarque                                   |
-| -------------------------------------------------------------------- | :--: | -------------------------------------------------- |
-| Connexions au niveau de l'instance, rattachées aux projets           |  ✅  |                                                    |
-| PostgreSQL, MySQL/MariaDB, SQL Server                                |  ✅  | Vérifié sur de vraies bases                        |
-| Oracle                                                               |  🧪  | Jamais testé sur une vraie base                    |
-| SQLite                                                               |  ✅  |                                                    |
-| Chiffrement des identifiants, rotation de la clé, anti DNS-rebinding |  ✅  |                                                    |
-| Santé, tags, lecture seule par connexion                             |  ✅  |                                                    |
-| Environnements configurables (DEV › Staging › Prod)                  |  🟡  | Le niveau « revue » est appliqué comme « protégé » |
-| Variables par environnement dans les noms de tables et de schémas    |  🧪  | `{{schema}}` jamais essayé sur un moteur à schémas |
-| Tunnel SSH, autorité de certification TLS personnalisée              |  ❌  |                                                    |
+| Fonctionnalité                                                       | État | Reste / remarque                                                                                             |
+| -------------------------------------------------------------------- | :--: | ------------------------------------------------------------------------------------------------------------ |
+| Connexions au niveau de l'instance, rattachées aux projets           |  ✅  |                                                                                                              |
+| PostgreSQL, MySQL/MariaDB, SQL Server                                |  ✅  | Vérifié sur de vraies bases                                                                                  |
+| Oracle                                                               |  🧪  | Jamais testé sur une vraie base                                                                              |
+| SQLite                                                               |  ✅  |                                                                                                              |
+| Chiffrement des identifiants, rotation de la clé, anti DNS-rebinding |  ✅  |                                                                                                              |
+| Santé, tags, lecture seule par connexion                             |  ✅  |                                                                                                              |
+| Environnements configurables (DEV › Staging › Prod)                  |  ✅  | « Revue » demande l'approbation d'une autre personne (section 4)                                             |
+| Variables par environnement dans les noms de tables et de schémas    |  🧪  | `{{schema}}` jamais essayé sur un moteur à schémas                                                           |
+| Tunnel SSH, autorité de certification TLS personnalisée              |  🧪  | PostgreSQL et MySQL testés (TLS), tunnel testé avec un serveur SSH simulé ; SQL Server et Oracle non essayés |
 
 ## 4. Déploiement ★
 
-| Fonctionnalité                                               | État | Reste / remarque                                               |
-| ------------------------------------------------------------ | :--: | -------------------------------------------------------------- |
-| Assistant : différences → risques → SQL → résultat           |  🧪  | Fenêtre découpée en étapes, jamais regardée à la main          |
-| ★ Comparatif montré avant le déploiement                     |  ✅  |                                                                |
-| Mesure des risques sur les données existantes                |  ✅  | Vérifié sur PostgreSQL et MySQL ; très grosses tables à tester |
-| Confirmation et sauvegarde automatique en production         |  ✅  |                                                                |
-| Pipeline sans saut d'étape                                   |  ✅  |                                                                |
-| Comparaison de deux environnements                           |  🧪  | Faux « différent » attendus entre deux moteurs différents      |
-| Historique des déploiements, retour arrière « au mieux »     |  🟡  | MySQL : pas de retour à travers un échec en cours de lot       |
-| Données initiales CSV, reprise des lignes depuis la base     |  🧪  | Reprise jamais essayée ailleurs que sur SQLite                 |
-| Générateur de données de test                                |  🟡  | Générateurs « regex » et « copie d'une colonne » absents       |
-| Sauvegardes logiques, planification, restauration            |  🧪  | Jamais essayées sur les moteurs serveur ni sur plusieurs jours |
-| Revue avant production, fenêtres de déploiement, gel         |  ❌  |                                                                |
-| Bouton « revenir avant ce déploiement », sauvegardes natives |  ❌  |                                                                |
-| Action GitHub / CLI                                          |  ❌  | Un exemple CI est écrit, jamais lancé                          |
+| Fonctionnalité                                                                                                     | État | Reste / remarque                                                                                                                        |
+| ------------------------------------------------------------------------------------------------------------------ | :--: | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Assistant : différences → risques → SQL → résultat                                                                 |  🧪  | Fenêtre découpée en étapes, jamais regardée à la main                                                                                   |
+| ★ Comparatif montré avant le déploiement                                                                           |  ✅  |                                                                                                                                         |
+| Mesure des risques sur les données existantes                                                                      |  ✅  | Vérifié sur PostgreSQL et MySQL ; très grosses tables à tester                                                                          |
+| Confirmation et sauvegarde automatique en production                                                               |  ✅  |                                                                                                                                         |
+| Pipeline sans saut d'étape                                                                                         |  ✅  |                                                                                                                                         |
+| Comparaison de deux environnements                                                                                 |  🧪  | Serveur seulement : l'écran a été retiré ; faux « différent » attendus entre deux moteurs différents                                    |
+| Historique des déploiements, retour arrière « au mieux »                                                           |  🟡  | MySQL : pas de retour à travers un échec en cours de lot                                                                                |
+| Données initiales CSV, reprise des lignes depuis la base                                                           |  🧪  | Reprise jamais essayée ailleurs que sur SQLite                                                                                          |
+| Générateur de données de test                                                                                      |  🟡  | Générateurs « regex » et « copie d'une colonne » absents                                                                                |
+| Sauvegardes logiques, planification, restauration                                                                  |  🧪  | Jamais essayées sur les moteurs serveur ni sur plusieurs jours                                                                          |
+| Sauvegardes vers un bucket S3 ou un serveur SFTP (en plus du dossier ou partage monté)                             |  🧪  | Essayées contre MinIO et un serveur SFTP de test, jamais contre AWS S3 ni un vrai serveur ; pas de rétention propre au stockage distant |
+| Revue avant une étape « Revue » (demande, approbation par une autre personne, déploiement de la demande approuvée) |  🧪  | Testée côté serveur et par `/api/v1` ; écrans jamais cliqués ; approbation valable 7 jours                                              |
+| Fenêtres de déploiement, gel                                                                                       |  ❌  |                                                                                                                                         |
+| Bouton « revenir avant ce déploiement », sauvegardes natives                                                       |  ❌  |                                                                                                                                         |
+| Action GitHub / CLI                                                                                                |  🧪  | CLI `packages/cli` et action `actions/nebuladb` livrées (lint, dérive, déploiement) ; jamais lancées en CI réelle                       |
 
 ## 5. Comptes Nebula et groupes ★
 
-| Fonctionnalité                                                     | État | Reste / remarque                                                             |
-| ------------------------------------------------------------------ | :--: | ---------------------------------------------------------------------------- |
-| Invitation, mot de passe oublié, 2FA, sessions, verrouillage       |  ✅  |                                                                              |
-| E-mails (invitation, réinitialisation)                             |  🧪  | Jamais envoyés par un vrai relais SMTP                                       |
-| Administration : désactiver, supprimer, réinitialiser un compte    |  ✅  |                                                                              |
-| ★ Groupes (« équipes ») : un utilisateur dans 0 à n groupes        |  ✅  |                                                                              |
-| ★ Projet associé à des groupes, avec un niveau par groupe          |  ✅  | Un projet sans groupe est lisible par tous                                   |
-| ★ Invitation avec groupes, accès aux bases et compte SQL attribués |  🧪  | Appliqué à l'acceptation, testé côté serveur ; l'écran n'a jamais été cliqué |
-| Rôle intermédiaire (« peut déployer », « peut lancer du SQL »)     |  ❌  | Le SQL est couvert par le droit d'accès à une base (section 6)               |
-| Restriction de lecture par table ou par colonne                    |  ❌  |                                                                              |
-| SSO, passkeys                                                      |  ❌  |                                                                              |
+| Fonctionnalité                                                     | État | Reste / remarque                                                                                                                                                   |
+| ------------------------------------------------------------------ | :--: | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Invitation, mot de passe oublié, 2FA, sessions, verrouillage       |  ✅  |                                                                                                                                                                    |
+| E-mails (invitation, réinitialisation)                             |  🧪  | Jamais envoyés par un vrai relais SMTP                                                                                                                             |
+| Administration : désactiver, supprimer, réinitialiser un compte    |  ✅  |                                                                                                                                                                    |
+| ★ Groupes (« équipes ») : un utilisateur dans 0 à n groupes        |  ✅  |                                                                                                                                                                    |
+| ★ Projet associé à des groupes, avec un niveau par groupe          |  ✅  | Un projet sans groupe est lisible par tous                                                                                                                         |
+| ★ Invitation avec groupes, accès aux bases et compte SQL attribués |  🧪  | Appliqué à l'acceptation, testé côté serveur ; l'écran n'a jamais été cliqué                                                                                       |
+| Rôle intermédiaire (« peut déployer », « peut lancer du SQL »)     |  🧪  | Niveau « Déploiement » entre Édition et Administrateur, testé côté serveur, écrans jamais cliqués ; le SQL est couvert par le droit d'accès à une base (section 6) |
+| Restriction de lecture par table ou par colonne                    |  ❌  |                                                                                                                                                                    |
+| SSO (OpenID Connect) ; passkeys non faites                         |  🧪  | Testé côté serveur et en navigateur avec un fournisseur simulé ; jamais essayé avec un vrai Keycloak / Entra ID                                                    |
 
 ## 6. Utilisateurs et permissions des bases connectées ★
 
@@ -145,8 +151,8 @@ schéma ».
 | Grille de résultats                                                |  🧪  | Jamais utilisée sur un vrai gros résultat                                                                |
 | Historique de ses requêtes, journalisation de chaque requête       |  ✅  |                                                                                                          |
 | Changement de structure renvoyé vers le schéma                     |  ✅  | Contournable par une procédure ou un bloc `DO` (admin d'instance)                                        |
-| Éditeur SQL avec complétion depuis le schéma                       |  ❌  | Simple zone de texte aujourd'hui                                                                         |
-| Requêtes enregistrées, EXPLAIN visuel, édition de lignes           |  ❌  |                                                                                                          |
+| Éditeur SQL avec complétion depuis le schéma                       |  ✅  | Complétion depuis le schéma                                                                              |
+| Requêtes enregistrées, EXPLAIN visuel, édition de lignes           |  🟡  | Requêtes enregistrées et édition de lignes livrées ; EXPLAIN visuel non fait                             |
 
 ## 8. Journaux ★
 
@@ -169,7 +175,7 @@ antérieur, maintenant bien visible dans l'onglet Journal).
 | ★ Temps et fréquence d'utilisation par requête        |  🟡  | Requêtes lancées depuis Nebula seulement, regroupées par forme ; rien côté serveur de base                                                                                 |
 | Tableau de santé (onglet « Santé »)                   |  🟡  | Sonde, latence, tailles, sessions, verrous bloquants ; vérifié sur PostgreSQL (blocage compris), pas de croissance par table ni de carte sur la liste des connexions       |
 | Trafic par connexion (compteurs du serveur)           |  🟡  | Requêtes, octets, lignes selon le moteur (PostgreSQL : transactions, pas d'octets) ; vérifié sur PostgreSQL, MySQL, SQL Server ; pas de ventilation par compte ni d'alerte |
-| Suggestions d'index                                   |  ❌  |                                                                                                                                                                            |
+| Suggestions d'index                                   |  ✅  | Proposées dans le journal, ajout à l'index du projet                                                                                                                       |
 | ★ Conseiller de requêtes et de schéma, IA optionnelle |  ❌  | Dépend de la collecte côté serveur de base                                                                                                                                 |
 
 ## 10. Modifications faites hors Nebula ★
@@ -180,22 +186,23 @@ antérieur, maintenant bien visible dans l'onglet Journal).
 | Bandeau, différences, resynchroniser, ignorer      |  🟡  | Pas de traitement ligne par ligne                                                                             |
 | Webhook et notification dans l'application         |  ✅  |                                                                                                               |
 | ★ Surveillance des utilisateurs et des permissions |  🧪  | Lecture vérifiée sur PostgreSQL, MySQL, SQL Server ; Oracle lu dans le code seulement ; option jamais cliquée |
-| Alerte par e-mail, acquittement, mise en sourdine  |  ❌  |                                                                                                               |
+| Alerte par e-mail, acquittement, mise en sourdine  |  🟡  | Serveur complet (alertes, acquittement, sourdine) ; l'écran de réglage a été retiré                           |
 
 ## 11. Autour
 
-| Fonctionnalité                                           | État | Reste / remarque                                                                                          |
-| -------------------------------------------------------- | :--: | --------------------------------------------------------------------------------------------------------- |
-| API publique, clés à portées, OpenAPI                    |  🟡  | Pas de quotas par clé ni de clé multi-projets ; rien de nouveau n'y est exposé (accès aux bases, comptes) |
-| Webhooks                                                 |  ✅  | Rotation de secret sans période de grâce                                                                  |
-| Notifications sur les projets suivis, mentions, réponses |  🟡  | Pas d'e-mail, pas de résumé quotidien                                                                     |
-| Plugins                                                  |  🟡  | Pas de partage en équipe                                                                                  |
-| Visite guidée, thèmes, français + anglais                |  ✅  |                                                                                                           |
-| Composants de formulaire maison                          |  🧪  | Une dizaine d'écrans migrés jamais cliqués                                                                |
-| Refonte visuelle, accessibilité, mobile                  |  ❌  |                                                                                                           |
-| Revue de sécurité indépendante, relecture juridique      |  ❌  | Dues avant tout usage réel                                                                                |
-| Première version taguée                                  |  ❌  | Tous les paquets sont encore en `0.0.1`                                                                   |
-| CI GitHub                                                |  🟡  | Corrigée en local (formatage) ; aucun run tant que ce n'est pas poussé                                    |
+| Fonctionnalité                                              | État | Reste / remarque                                                                                                                        |
+| ----------------------------------------------------------- | :--: | --------------------------------------------------------------------------------------------------------------------------------------- |
+| API publique, clés à portées, OpenAPI                       |  🟡  | Pas de quotas par clé ni de clé multi-projets ; rien de nouveau n'y est exposé (accès aux bases, comptes)                               |
+| Webhooks                                                    |  ✅  | Rotation de secret sans période de grâce                                                                                                |
+| Liens de partage en lecture seule (diagramme, dictionnaire) |  🧪  | Désactivés par défaut, activés par un administrateur ; jeton haché, durée de 1 à 365 jours, révocation ; testé serveur et en navigateur |
+| Notifications sur les projets suivis, mentions, réponses    |  🟡  | Pas d'e-mail, pas de résumé quotidien                                                                                                   |
+| Plugins                                                     |  🟡  | Pas de partage en équipe                                                                                                                |
+| Visite guidée, thèmes, français + anglais                   |  🟡  | Thèmes et français + anglais livrés ; la visite guidée a été retirée                                                                    |
+| Composants de formulaire maison                             |  🧪  | Une dizaine d'écrans migrés jamais cliqués                                                                                              |
+| Refonte visuelle, accessibilité, mobile                     |  ❌  |                                                                                                                                         |
+| Revue de sécurité indépendante, relecture juridique         |  ❌  | Dues avant tout usage réel                                                                                                              |
+| Première version taguée                                     |  ✅  | `v1.0.0` ; tous les paquets sont en `1.0.0`                                                                                             |
+| CI GitHub                                                   |  🟡  | Workflow `.github/workflows/ci.yml` en place ; audit des dépendances et Dependabot suivis dans `docs/scan-ameliorations-2026-10-23.md`  |
 
 ## Lecture d'ensemble
 

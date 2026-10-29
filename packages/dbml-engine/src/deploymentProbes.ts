@@ -155,13 +155,23 @@ function probesForModifiedTable(table: MigrationTableChange, dialect: MigrationD
  * that already exist on the target are probed — a table the plan creates is
  * empty, so nothing on it can lose data or collide.
  */
-export function planRiskProbes(diff: MigrationDiff, dialect: MigrationDialect): RiskProbe[] {
+export function planRiskProbes(
+  diff: MigrationDiff,
+  dialect: MigrationDialect,
+  /**
+   * The tables (lower-case names) Nebula put on this target, as of the last deployment. A table the schema lacks
+   * that is not among them was made by hand: a conflict whatever it holds. `null`: nothing was ever deployed
+   * there, so every such table is. Left out: origin unknown, only data counts.
+   */
+  deployedTables?: ReadonlySet<string> | null,
+): RiskProbe[] {
   const probes: RiskProbe[] = [];
   const created = new Set(diff.tables.filter((t) => t.status === "added").map((t) => t.name.toLowerCase()));
   for (const table of diff.tables) {
     if (table.status === "dropped") {
+      const unmanaged = deployedTables !== undefined && !deployedTables?.has(table.name.toLowerCase());
       probes.push({
-        type: "DROP_TABLE_WITH_DATA",
+        type: unmanaged ? "UNMANAGED_TABLE" : "DROP_TABLE_WITH_DATA",
         tableName: table.name,
         resolutionKey: `table:${table.name.toLowerCase()}`,
         sql: `SELECT COUNT(*) FROM ${q(table.name, dialect)}`,
@@ -213,6 +223,8 @@ const STRATEGY: Record<ConflictResolutionStrategy, Omit<StrategyOption, "key"> |
   PROCEED: { labelKey: "connections.strategy.proceed", descriptionKey: "connections.strategy.proceedDesc" },
   USE_TRANSLATED_TYPE: undefined,
   KEEP_AS_WRITTEN: undefined,
+  RENAME_COLUMN: undefined,
+  KEEP_SEPARATE: undefined,
 };
 
 function options(
@@ -231,7 +243,12 @@ function options(
  * `value === null`: the measurement could not be taken (timeout, missing
  * column) — reported as a warning rather than silently passed.
  */
-export function riskFromProbe(probe: RiskProbe, value: number | null): SchemaRisk | null {
+export function riskFromProbe(
+  probe: RiskProbe,
+  value: number | null,
+  /** The target's engine, for the few answers that depend on it (BigQuery does not enforce a foreign key). */
+  dialect?: MigrationDialect,
+): SchemaRisk | null {
   const base = {
     id: `risk-${probe.resolutionKey}-${probe.type}`,
     type: probe.type,
@@ -239,6 +256,7 @@ export function riskFromProbe(probe: RiskProbe, value: number | null): SchemaRis
     columnName: probe.columnName,
     detail: probe.detail,
     resolutionKey: probe.resolutionKey,
+    measuredBy: probe.sql,
   };
   const make = (
     severity: SchemaRisk["severity"],
@@ -246,13 +264,19 @@ export function riskFromProbe(probe: RiskProbe, value: number | null): SchemaRis
     keys: ConflictResolutionStrategy[],
     fallback: ConflictResolutionStrategy,
     extra: Partial<SchemaRisk> = {},
+    /** Label and description keys that replace the stock ones of "deploy anyway". */
+    proceedKey?: string,
   ): SchemaRisk => ({
     ...base,
     severity,
     affectedRowCount,
     availableStrategies: options(
       keys,
-      probe.type === "DROP_COLUMN_WITH_DATA" ? { KEEP_IN_DB: "connections.strategy.keepColumn" } : {},
+      probe.type === "DROP_COLUMN_WITH_DATA"
+        ? { KEEP_IN_DB: "connections.strategy.keepColumn" }
+        : proceedKey
+          ? { PROCEED: proceedKey }
+          : {},
     ),
     defaultStrategy: fallback,
     selectedStrategy: fallback,
@@ -260,11 +284,12 @@ export function riskFromProbe(probe: RiskProbe, value: number | null): SchemaRis
     ...extra,
   });
   const n = value ?? 0;
-  if (value !== null && n <= 0 && probe.type !== "LENGTH_REDUCTION") return null;
+  if (value !== null && n <= 0 && probe.type !== "LENGTH_REDUCTION" && probe.type !== "UNMANAGED_TABLE") return null;
 
   switch (probe.type) {
     case "DROP_TABLE_WITH_DATA":
     case "DROP_COLUMN_WITH_DATA":
+    case "UNMANAGED_TABLE":
       return make(
         value === null ? "warning" : "critical",
         n,
@@ -293,6 +318,11 @@ export function riskFromProbe(probe: RiskProbe, value: number | null): SchemaRis
     }
     case "UNIQUE_VIOLATION":
     case "FK_VIOLATION":
+      // BigQuery declares a foreign key `NOT ENFORCED`: orphan rows never make it refuse the constraint, so
+      // they are reported, and the person may declare the key anyway instead of being stuck with "cancel".
+      if (dialect === "bigquery" && probe.type === "FK_VIOLATION") {
+        return make("warning", n, ["PROCEED", "CANCEL"], "PROCEED", {}, "connections.strategy.declareKey");
+      }
       // The database would refuse the constraint: the data has to be fixed first.
       if (value === null) return make("warning", 0, ["PROCEED", "CANCEL"], "PROCEED");
       return make("critical", n, ["CANCEL"], "CANCEL");

@@ -16,6 +16,10 @@
   import { i18n, useTranslation } from "@/i18n/i18n.svelte";
   import { fetchInbox, markNotificationsRead, type Inbox } from "@/services/notificationsApi";
 
+  /** What a `review` notification says happened to a request (`params.action`). */
+  type DeploymentReviewAction =
+    "requested" | "approved" | "rejected" | "withdrawn" | "deployed" | "expired" | "stale" | "cancelled";
+
   /**
    * The notification centre: what happened on the projects this account
    * follows, newest first, with the count of what it has not read yet.
@@ -73,6 +77,8 @@
         return t(params.locked ? "notifications.lock.placed" : "notifications.lock.lifted", values);
       case "seed":
         return t(params.removed ? "notifications.seed.removed" : "notifications.seed.set", values);
+      case "review":
+        return t(`notifications.review.${params.action as DeploymentReviewAction}`, values);
       case "mention":
       case "reply":
         return t(`notifications.${event}.${params.column ? "column" : "table"}`, values);
@@ -110,7 +116,7 @@
   </Button>
   {#if inbox.unread > 0}
     <span
-      class="pointer-events-none absolute -right-0.5 -top-0.5 min-w-[15px] rounded-full bg-danger px-1 text-center text-[9px] font-bold leading-[15px] text-white"
+      class="pointer-events-none absolute -right-0.5 -top-0.5 min-w-[15px] rounded-full bg-danger px-1 text-center text-micro font-bold leading-[15px] text-white"
       data-testid="notification-count"
     >
       {inbox.unread > 99 ? "99+" : inbox.unread}

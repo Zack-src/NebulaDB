@@ -5,9 +5,21 @@
   import { fetchMyConnections } from "@/services/personalConnectionsApi";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
-  import PersonalAccountButton from "@/features/connections/PersonalAccountButton.svelte";
-  import DbConsole from "@/features/admin/connections/DbConsole.svelte";
-  let { session }: { session: Session } = $props();
+  import NavLinkButton from "@/components/ui/NavLinkButton.svelte";
+  import { DatabaseIcon, SettingsIcon } from "@/components/icons/Icons";
+  import PersonalAccountButton from "@/features/connections/personal/PersonalAccountButton.svelte";
+  import DbConsole from "@/features/connections/console/DbConsole.svelte";
+  let {
+    session,
+    onOpenAdmin,
+    onOpenSettings,
+  }: {
+    session: Session;
+    /** Takes an instance administrator to Admin → Connections. */
+    onOpenAdmin?: () => void;
+    /** Takes the person to their own database access in Settings. */
+    onOpenSettings?: () => void;
+  } = $props();
   const { t } = useTranslation();
   const connections = useAsyncResource(fetchMyConnections);
   let credentialRevision = $state(0);
@@ -39,8 +51,25 @@
     {#if selected}
       {#key `${selected.id}:${credentialRevision}`}<DbConsole connection={selected} mode="data" />{/key}
     {:else}<EmptyState>{t("databaseWorkspace.select")}</EmptyState>{/if}
-    <p class="mt-4 text-xs text-text-muted">
-      {t(session.isAdmin ? "databaseWorkspace.adminHint" : "databaseWorkspace.memberHint")}
-    </p>
+    <div class="mt-4 flex flex-wrap items-center gap-2 text-xs text-text-muted">
+      <span>{t(session.isAdmin ? "databaseWorkspace.adminHint" : "databaseWorkspace.memberHint")}</span>
+      {#if session.isAdmin}
+        <NavLinkButton
+          label={t("databaseWorkspace.openAdmin")}
+          icon={DatabaseIcon}
+          onNavigate={onOpenAdmin}
+          variant="ghost"
+          size="xs"
+        />
+      {:else}
+        <NavLinkButton
+          label={t("databaseWorkspace.openSettings")}
+          icon={SettingsIcon}
+          onNavigate={onOpenSettings}
+          variant="ghost"
+          size="xs"
+        />
+      {/if}
+    </div>
   </section>
 </div>

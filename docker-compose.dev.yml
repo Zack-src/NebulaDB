@@ -1,0 +1,12 @@
+# Local development: runs only the PostgreSQL of docker-compose.yml and
+# publishes it on the host so `npm run dev` can reach it. Bound to 127.0.0.1,
+# on NEBULADB_POSTGRES_PORT (default 5433, so it doesn't collide with a
+# natively installed PostgreSQL on 5432). The server derives its database URL
+# from the same root .env values, nothing else to set.
+#
+#   npm run db:up      # then: npm run dev
+#   npm run db:down
+services:
+  postgres:
+    ports:
+      - "127.0.0.1:${NEBULADB_POSTGRES_PORT:-5433}:5432"

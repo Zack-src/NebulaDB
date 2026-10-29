@@ -50,7 +50,7 @@
             />
           </svg>
           <span
-            class="absolute left-[15px] top-[15px] whitespace-nowrap rounded-full px-[7px] py-0.5 text-[10.5px] font-semibold text-white shadow-sm"
+            class="absolute left-[15px] top-[15px] whitespace-nowrap rounded-full px-[7px] py-0.5 text-micro font-semibold text-white shadow-sm"
             style:background={state.user.color}
           >
             {state.user.name}

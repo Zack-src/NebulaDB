@@ -143,3 +143,48 @@ test("declaredLength reads the usual spellings", () => {
   assert.equal(declaredLength("text"), null);
   assert.equal(declaredLength("int"), null);
 });
+
+test("a table the schema lacks is a conflict even when empty, unless Nebula deployed it", () => {
+  const diff = diffTargetAgainstLive(
+    project([table("a", "kept", [{ name: "id" }]), table("b", "removed", [{ name: "id" }])]),
+    project([]),
+  );
+  const risks = (deployed?: ReadonlySet<string> | null) =>
+    planRiskProbes(diff, "postgres", deployed).map((probe) => {
+      const risk = riskFromProbe(probe, 0);
+      return `${probe.type} ${probe.tableName} -> ${risk ? `${risk.severity}/${risk.defaultStrategy}` : "safe"}`;
+    });
+
+  // Origin unknown: only data counts, as it always did.
+  assert.deepEqual(risks(), ["DROP_TABLE_WITH_DATA kept -> safe", "DROP_TABLE_WITH_DATA removed -> safe"]);
+  // `removed` was deployed (the developer took it out of the schema), `kept` was made by hand.
+  assert.deepEqual(risks(new Set(["removed"])), [
+    "UNMANAGED_TABLE kept -> critical/KEEP_IN_DB",
+    "DROP_TABLE_WITH_DATA removed -> safe",
+  ]);
+  // Nothing was ever deployed there: every table the schema lacks was made by hand.
+  assert.deepEqual(risks(null), [
+    "UNMANAGED_TABLE kept -> critical/KEEP_IN_DB",
+    "UNMANAGED_TABLE removed -> critical/KEEP_IN_DB",
+  ]);
+});
+
+test("BigQuery does not enforce a foreign key: orphan rows are reported, and the key can be declared anyway", () => {
+  const probe = planRiskProbes(diffTargetAgainstLive(live, target), "bigquery").find((p) => p.type === "FK_VIOLATION")!;
+  const stock = riskFromProbe(probe, 9, "postgres")!;
+  assert.deepEqual(
+    stock.availableStrategies.map((s) => s.key),
+    ["CANCEL"],
+    "elsewhere the database refuses the key, so only fixing the data helps",
+  );
+  const risk = riskFromProbe(probe, 9, "bigquery")!;
+  assert.equal(risk.severity, "warning");
+  assert.equal(risk.affectedRowCount, 9);
+  assert.equal(risk.defaultStrategy, "PROCEED");
+  assert.deepEqual(
+    risk.availableStrategies.map((s) => s.key),
+    ["PROCEED", "CANCEL"],
+  );
+  assert.equal(risk.availableStrategies[0]!.labelKey, "connections.strategy.declareKey");
+  assert.equal(risk.availableStrategies[0]!.descriptionKey, "connections.strategy.declareKeyDesc");
+});

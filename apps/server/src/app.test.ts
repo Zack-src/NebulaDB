@@ -1,18 +1,17 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { useTestDatabase } from "./infrastructure/testDatabase.js";
 
-// `db.ts` opens its sqlite file at import time (see its module-level `new
-// Database(DB_PATH)`), so the env var has to be set before anything that
-// transitively imports it — a static `import` at the top of this file would
-// already have run by then. A fresh temp path per test run also means this
-// suite never touches the real dev/prod database, and `NEBULADB_SECRET` is
-// set once here so any test that happens to exercise the connections module
-// doesn't have to know that's a prerequisite. See `session.test.ts` for the
-// same pattern.
-process.env.NEBULADB_DB_PATH = join(tmpdir(), `nebuladb-test-app-${randomUUID()}.sqlite`);
+// `db.ts` connects and migrates at import time, so the database it is to use
+// has to exist — and `NEBULADB_DATABASE_URL` point at it — before anything
+// that transitively imports it: a static `import` at the top of this file
+// would already have run by then. A database of its own per test file also
+// means this suite never touches a real one, and `NEBULADB_SECRET` is set once
+// here so any test that happens to exercise the connections module doesn't
+// have to know that's a prerequisite. See `session.test.ts` for the same
+// pattern.
+await useTestDatabase("app");
 process.env.NEBULADB_COOKIE_SECURE = "false";
 process.env.NEBULADB_SECRET = "test-secret-do-not-use-in-production";
 // Otherwise every request this suite makes (dozens, across 8 tests) logs a
@@ -38,22 +37,24 @@ function headers(extra: Record<string, string> = {}) {
   return { host: HOST, origin: ORIGIN, ...extra };
 }
 
-function insertUser(overrides: { email?: string; isAdmin?: 0 | 1; passwordHash: string; displayName?: string }) {
+async function insertUser(overrides: { email?: string; isAdmin?: 0 | 1; passwordHash: string; displayName?: string }) {
   const id = randomUUID();
-  db.prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, ?)").run(
-    id,
-    overrides.email ?? `${id}@example.com`,
-    overrides.passwordHash,
-    overrides.isAdmin ?? 0,
-    overrides.displayName ?? null,
-  );
+  await db
+    .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, ?, ?)")
+    .run(
+      id,
+      overrides.email ?? `${id}@example.com`,
+      overrides.passwordHash,
+      overrides.isAdmin ?? 0,
+      overrides.displayName ?? null,
+    );
   return id;
 }
 
 async function makeUser(opts: { isAdmin?: 0 | 1; password?: string } = {}) {
   const password = opts.password ?? "correct horse battery staple";
   const email = `${randomUUID()}@example.com`;
-  const id = insertUser({ email, isAdmin: opts.isAdmin, passwordHash: await hashPassword(password) });
+  const id = await insertUser({ email, isAdmin: opts.isAdmin, passwordHash: await hashPassword(password) });
   return { id, email, password };
 }
 
@@ -132,7 +133,7 @@ test("login: wrong password, disabled account, and a successful login round-trip
     assert.equal(me.json().id, id);
 
     // Disabled after the fact — login must refuse even the right password.
-    db.prepare("UPDATE users SET disabled_at = datetime('now') WHERE id = ?").run(id);
+    await db.prepare("UPDATE users SET disabled_at = utc_now() WHERE id = ?").run(id);
     const disabled = await login(app, email, password);
     assert.equal(disabled.res.statusCode, 403);
     assert.equal(disabled.body.code, "ACCOUNT_DISABLED");
@@ -384,6 +385,121 @@ test("POST /api/errors/client records a client-reported error, then GET /api/err
     });
     assert.equal(invalidSource.statusCode, 400);
     assert.equal(invalidSource.json().code, "ERROR_LOG_SOURCE_INVALID");
+  } finally {
+    await app.close();
+  }
+});
+
+test("global rate limit: 300/min per IP on the API, per account once signed in; /ws/ is not counted", async () => {
+  const app = await buildApp();
+  try {
+    const { email, password } = await makeUser();
+    const { cookie } = await login(app, email, password);
+    assert.ok(cookie);
+
+    // Anonymous calls from one IP share one budget (the login above used the
+    // login route's own limit, not this one).
+    let anonymousLimited = 0;
+    for (let i = 0; i < 300 && !anonymousLimited; i++) {
+      const res = await app.inject({ method: "GET", url: "/api/auth/me", headers: headers() });
+      if (res.statusCode === 429) anonymousLimited = i + 1;
+    }
+    assert.equal(anonymousLimited, 0, "300 calls should fit in the budget");
+    const over = await app.inject({ method: "GET", url: "/api/auth/me", headers: headers() });
+    assert.equal(over.statusCode, 429);
+
+    // Same IP, signed in: counted against the account, not the exhausted IP.
+    const signedIn = await app.inject({ method: "GET", url: "/api/auth/me", headers: headers({ cookie: cookie! }) });
+    assert.equal(signedIn.statusCode, 200);
+
+    // The WebSocket upgrade isn't API traffic: refused for want of a session, not throttled.
+    const ws = await app.inject({ method: "GET", url: `/ws/${randomUUID()}`, headers: headers() });
+    assert.notEqual(ws.statusCode, 429);
+  } finally {
+    await app.close();
+  }
+});
+
+test("changing the password is limited like the login, per account", async () => {
+  const app = await buildApp();
+  try {
+    const { email, password } = await makeUser();
+    const { cookie } = await login(app, email, password);
+    assert.ok(cookie);
+    const statuses: number[] = [];
+    for (let i = 0; i < 11; i++) {
+      const res = await app.inject({
+        method: "PATCH",
+        url: "/api/users/me/password",
+        headers: headers({ cookie: cookie! }),
+        payload: { currentPassword: "not the current one", newPassword: "another long enough passphrase" },
+      });
+      statuses.push(res.statusCode);
+    }
+    assert.ok(statuses.slice(0, 10).every((s) => s !== 429), `limited too early: ${statuses.join(",")}`);
+    assert.equal(statuses[10], 429);
+  } finally {
+    await app.close();
+  }
+});
+
+test("CSRF hook: Origin: null is refused with the session cookie, allowed without one", async () => {
+  const app = await buildApp();
+  try {
+    const { email, password } = await makeUser();
+    const { cookie } = await login(app, email, password);
+    assert.ok(cookie);
+
+    const withCookie = await app.inject({
+      method: "PATCH",
+      url: "/api/users/me",
+      headers: { host: HOST, origin: "null", cookie: cookie! },
+      payload: { displayName: "From a sandboxed iframe" },
+    });
+    assert.equal(withCookie.statusCode, 403);
+    assert.equal(withCookie.json().code, "ORIGIN_MISMATCH");
+
+    const withoutCookie = await app.inject({ method: "POST", url: "/api/auth/logout", headers: { host: HOST, origin: "null" } });
+    assert.equal(withoutCookie.statusCode, 200);
+
+    // The cookie still works from the app's own origin.
+    const sameOrigin = await app.inject({
+      method: "PATCH",
+      url: "/api/users/me",
+      headers: headers({ cookie: cookie! }),
+      payload: { displayName: "From the app" },
+    });
+    assert.equal(sameOrigin.statusCode, 200);
+  } finally {
+    await app.close();
+  }
+});
+
+test("WebSocket upgrade: a foreign or null Origin is refused; the app's own or none gets through", async () => {
+  const app = await buildApp();
+  try {
+    const { email, password } = await makeUser();
+    const { cookie } = await login(app, email, password);
+    assert.ok(cookie);
+    // An unknown project: an upgrade that passes the origin check stops at the
+    // project lookup instead, which tells the two apart.
+    const upgrade = (origin?: string) =>
+      app.inject({
+        method: "GET",
+        url: `/ws/${randomUUID()}`,
+        headers: { host: HOST, cookie: cookie!, ...(origin === undefined ? {} : { origin }) },
+      });
+
+    for (const origin of ["http://evil.example.com", "http://sibling.localhost:3001", "null"]) {
+      const res = await upgrade(origin);
+      assert.equal(res.statusCode, 403, origin);
+      assert.equal(res.json().code, "ORIGIN_MISMATCH", origin);
+    }
+    for (const origin of [ORIGIN, undefined]) {
+      const res = await upgrade(origin);
+      assert.equal(res.statusCode, 404, String(origin));
+      assert.equal(res.json().code, "PROJECT_NOT_FOUND", String(origin));
+    }
   } finally {
     await app.close();
   }

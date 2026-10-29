@@ -3,6 +3,8 @@
 </script>
 
 <script lang="ts">
+  const uid = $props.id();
+  import Input from "@/components/ui/Input.svelte";
   import {
     MAX_DEFAULT_LENGTH,
     MAX_NAME_LENGTH,
@@ -14,7 +16,6 @@
     type Field,
     type RefAction,
   } from "@nebuladb/shared";
-  import { autofocus } from "@/actions/autofocus";
   import { anchoredPlacement, provisionalPopoverStyle } from "@/actions/placement";
   import { portal } from "@/actions/portal";
   import type { FieldRefInfo } from "@/features/editor/nodes/table/fieldRefInfo";
@@ -47,8 +48,6 @@
     KW_TOGGLE_BASE_CLASS,
     POPOVER_GROUP_CLASS,
     POPOVER_HEADER_CLASS,
-    POPOVER_INPUT_CLASS,
-    POPOVER_INPUT_MONO_CLASS,
     POPOVER_LABEL_CLASS,
     POPOVER_TITLE_CLASS,
   } from "@/features/editor/nodes/table/tableStyles";
@@ -216,11 +215,11 @@
   </div>
 
   <div class={POPOVER_GROUP_CLASS}>
-    <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label class={POPOVER_LABEL_CLASS}>{t("field.nameLabel")}</label>
-    <input
-      use:autofocus
-      class={POPOVER_INPUT_CLASS}
+    <label for={`${uid}-f1`} class={POPOVER_LABEL_CLASS}>{t("field.nameLabel")}</label>
+    <Input id={`${uid}-f1`}
+      autofocus
+      inputSize="xs"
+      class="w-full"
       bind:value={name.value}
       maxlength={MAX_NAME_LENGTH}
       onblur={() => name.commit()}
@@ -230,10 +229,9 @@
   </div>
 
   <div class={POPOVER_GROUP_CLASS}>
-    <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label class={POPOVER_LABEL_CLASS}>{t("field.typeLabel")}</label>
-    <input
-      class={POPOVER_INPUT_MONO_CLASS}
+    <label for={`${uid}-f2`} class={POPOVER_LABEL_CLASS}>{t("field.typeLabel")}</label>
+    <Input id={`${uid}-f2`}
+      inputSize="xs" class="w-full font-mono"
       bind:value={type.value}
       maxlength={MAX_TYPE_LENGTH}
       onblur={() => type.commit()}
@@ -257,8 +255,7 @@
   </div>
 
   <div class={POPOVER_GROUP_CLASS}>
-    <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label class={POPOVER_LABEL_CLASS}>{t("field.attributesLabel")}</label>
+    <span class={POPOVER_LABEL_CLASS}>{t("field.attributesLabel")}</span>
     <div class="grid grid-cols-2 gap-[5px]">
       {#each attributeToggles as toggle (toggle.labelKey)}
         <button
@@ -280,18 +277,17 @@
        selects, labeled by what it points at. -->
   {#if fieldRefs && fieldRefs.length > 0}
     <div class={`${POPOVER_GROUP_CLASS} border-t border-border pt-3`}>
-      <!-- svelte-ignore a11y_label_has_associated_control -->
-      <label class={POPOVER_LABEL_CLASS}>{t("field.referentialActionsLabel")}</label>
+      <span class={POPOVER_LABEL_CLASS}>{t("field.referentialActionsLabel")}</span>
       {#each fieldRefs as fr (fr.refId)}
         <div class="flex flex-col gap-2">
           {#if fieldRefs.length > 1}
-            <span class="font-mono text-[10.5px] text-text-muted">→ {fr.toLabel}</span>
+            <span class="font-mono text-micro text-text-muted">→ {fr.toLabel}</span>
           {/if}
           <div class="grid grid-cols-2 gap-2">
             <div class="flex flex-col gap-1">
-              <!-- svelte-ignore a11y_label_has_associated_control -->
-              <label class="text-[10.5px] text-text-muted">{t("edge.onDelete")}</label>
+              <label for={`${uid}-del-${fr.refId}`} class="text-micro text-text-muted">{t("edge.onDelete")}</label>
               <select
+                id={`${uid}-del-${fr.refId}`}
                 class={ACTION_SELECT_CLASS}
                 value={fr.onDelete ?? ""}
                 disabled={!onUpdateRefAction}
@@ -307,9 +303,9 @@
               </select>
             </div>
             <div class="flex flex-col gap-1">
-              <!-- svelte-ignore a11y_label_has_associated_control -->
-              <label class="text-[10.5px] text-text-muted">{t("edge.onUpdate")}</label>
+              <label for={`${uid}-upd-${fr.refId}`} class="text-micro text-text-muted">{t("edge.onUpdate")}</label>
               <select
+                id={`${uid}-upd-${fr.refId}`}
                 class={ACTION_SELECT_CLASS}
                 value={fr.onUpdate ?? ""}
                 disabled={!onUpdateRefAction}
@@ -331,10 +327,9 @@
   {/if}
 
   <div class={POPOVER_GROUP_CLASS}>
-    <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label class={POPOVER_LABEL_CLASS}>{t("field.defaultLabel")}</label>
-    <input
-      class={POPOVER_INPUT_MONO_CLASS}
+    <label for={`${uid}-f6`} class={POPOVER_LABEL_CLASS}>{t("field.defaultLabel")}</label>
+    <Input id={`${uid}-f6`}
+      inputSize="xs" class="w-full font-mono"
       bind:value={defaultValue.value}
       maxlength={MAX_DEFAULT_LENGTH}
       onblur={() => defaultValue.commit()}
@@ -344,10 +339,9 @@
   </div>
 
   <div class={POPOVER_GROUP_CLASS}>
-    <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label class={POPOVER_LABEL_CLASS}>{t("field.noteLabel")}</label>
-    <input
-      class={POPOVER_INPUT_CLASS}
+    <label for={`${uid}-f7`} class={POPOVER_LABEL_CLASS}>{t("field.noteLabel")}</label>
+    <Input id={`${uid}-f7`}
+      inputSize="xs" class="w-full"
       bind:value={note.value}
       maxlength={MAX_NOTE_LENGTH}
       onblur={() => note.commit()}
@@ -357,15 +351,14 @@
   </div>
 
   <div class={`${POPOVER_GROUP_CLASS} border-t border-border pt-3`}>
-    <!-- svelte-ignore a11y_label_has_associated_control -->
-    <label class={POPOVER_LABEL_CLASS}>{t("comments.title")}</label>
+    <span class={POPOVER_LABEL_CLASS}>{t("comments.title")}</span>
     {#if comments.length > 0}
       <div class="flex max-h-[160px] flex-col gap-1.5 overflow-y-auto">
         {#each comments as comment (comment.id)}
           <div class="rounded-sm bg-surface p-1.5">
             <div class="mb-0.5 flex items-baseline gap-1.5">
-              <span class="text-[11.5px] font-bold text-text">{comment.author}</span>
-              <span class="flex-1 text-[10.5px] text-text-muted">{formatTimestamp(comment.createdAt)}</span>
+              <span class="text-label font-bold text-text">{comment.author}</span>
+              <span class="flex-1 text-micro text-text-muted">{formatTimestamp(comment.createdAt)}</span>
               {#if comment.author === currentUser}
                 <button
                   type="button"
@@ -378,7 +371,7 @@
                 </button>
               {/if}
             </div>
-            <div class="whitespace-pre-wrap break-words text-[12.5px] leading-[1.4] text-text-secondary"><CommentText text={comment.text} /></div>
+            <div class="whitespace-pre-wrap break-words text-body-sm leading-[1.4] text-text-secondary"><CommentText text={comment.text} /></div>
           </div>
         {/each}
       </div>

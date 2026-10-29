@@ -23,8 +23,8 @@ export interface RevisionChanges {
 /**
  * Something that happened to a project outside its revisions, shown on the
  * history timeline — `GET /api/projects/:id/history/markers`. Deployments and
- * their rollbacks are only listed for project administrators, who are the
- * only ones who can read the deployment history.
+ * their rollbacks are only listed for those who may deploy on the project
+ * (`deploy` or `administrator`), the ones who can read the deployment history.
  */
 export interface HistoryMarker {
   kind: "lock" | "unlock" | "restore" | "deployment" | "rollback";
@@ -66,7 +66,9 @@ export type ServerNotice =
    * `GET /api/notifications`. Sent to that account's connections only, never
    * to the room: who follows what is nobody else's business.
    */
-  | { type: "notification" };
+  | { type: "notification" }
+  /** A review request was made, decided or closed — refetch `GET /api/projects/:id/reviews` (those who may deploy). */
+  | { type: "reviews-changed" };
 
 /** One database linked to a project, and whether it is known to have left the schema. `GET /api/projects/:id/drift`. */
 export interface ProjectDriftEntry {
@@ -78,6 +80,20 @@ export interface ProjectDriftEntry {
   outOfSchemaDetail: string | null;
   /** When schema and database were last known to agree — the last deployment or pull. `null`: never. */
   referenceTakenAt: string | null;
+  /**
+   * Set when a project administrator acknowledged what the watch found and nothing has changed
+   * since: the banner then stays for administrators only (a note says who acknowledged), and
+   * goes for everyone else. A later change clears it.
+   */
+  acknowledgement: DriftAcknowledgement | null;
+}
+
+/** A project administrator took note of an open finding of the watch: it stays open, but someone is on it. */
+export interface DriftAcknowledgement {
+  /** Display name of the administrator. */
+  by: string;
+  at: string;
+  note: string | null;
 }
 
 /** `POST /api/projects/:id/connections/:connId/drift-check` — the database, read now. */
@@ -107,7 +123,20 @@ export interface MonitorSettings {
    * administrators change the rest. `connections`: the names of those connections.
    */
   forced?: { intervalMinutes: number; connections: string[] } | null;
+  /** Alerts (notifications, e-mail, webhooks) are held back until `until`; checks go on and events are still recorded. `null`: not muted. */
+  mute?: MonitorMute | null;
 }
+
+/** Who silenced the watch's alerts, why, and until when (server time, like every date here). */
+export interface MonitorMute {
+  until: string;
+  at: string;
+  by: string;
+  reason: string;
+}
+
+/** What an alert mute can last, in minutes: 1 hour, 8 hours, 1 day, 1 week. */
+export const MONITOR_MUTE_MINUTES: readonly number[] = [60, 480, 1440, 10080];
 
 export const MONITOR_INTERVALS: readonly number[] = [5, 15, 60, 360, 1440];
 
@@ -132,6 +161,8 @@ export interface DriftEvent {
   error: string | null;
   status: "open" | "resolved" | "ignored";
   resolvedAt: string | null;
+  /** Set once an administrator acknowledged this (open) event; a different later change is a new event, not acknowledged. */
+  acknowledgement: DriftAcknowledgement | null;
   /** Set on an `accounts` event. */
   accountChanges?: AccountChange[];
 }
@@ -198,9 +229,10 @@ export type NotificationEvent = (typeof NOTIFICATION_EVENTS)[number];
  * Notifications addressed to one person rather than to a project's followers:
  * they arrive whether or not the project is followed, since someone chose to
  * write to that person — a comment that mentions them, a reply in a thread
- * they wrote in.
+ * they wrote in — or waits for them: a deployment to review, and what became
+ * of the review one asked for.
  */
-export const DIRECT_NOTIFICATION_EVENTS = ["mention", "reply"] as const;
+export const DIRECT_NOTIFICATION_EVENTS = ["mention", "reply", "review"] as const;
 export type DirectNotificationEvent = (typeof DIRECT_NOTIFICATION_EVENTS)[number];
 
 /** Short facts the client words in the reader's language: names, never free text from a database. */
@@ -209,6 +241,8 @@ export type NotificationParams = Record<string, string | number | boolean | null
 /** `GET/PUT /api/projects/:id/subscription` — the events the signed-in user follows on the project. */
 export interface ProjectSubscription {
   events: NotificationEvent[];
+  /** Also e-mail the `drift` alerts (only when the instance sends e-mail); always false unless `drift` is followed. */
+  emailDrift: boolean;
 }
 
 /** One entry of `GET /api/notifications`. */

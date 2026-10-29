@@ -1,4 +1,4 @@
-import { readEnv, defaultDbPath } from "./shared/brandMigration.js";
+import { readEnv } from "./shared/brandMigration.js";
 /**
  * Single place where environment configuration is read, validated and
  * documented. Everything else imports `config` rather than touching
@@ -6,6 +6,7 @@ import { readEnv, defaultDbPath } from "./shared/brandMigration.js";
  * falling back to a default halfway through a request.
  */
 
+import { isIP } from "node:net";
 import path from "node:path";
 
 const isProduction = process.env.NODE_ENV === "production";
@@ -43,6 +44,16 @@ function readCookieSecure(): boolean {
     fail(`NEBULADB_COOKIE_SECURE must be "true" or "false" (got ${JSON.stringify(raw)})`);
   }
   return raw === "true";
+}
+
+/** A positive whole number from the environment, or the fallback. */
+function readCount(name: string, fallback: number, max: number): number {
+  const raw = readEnv(name);
+  if (raw === undefined || raw.trim() === "") return fallback;
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n < 1 || n > max)
+    fail(`${name} must be a whole number between 1 and ${max} (got ${JSON.stringify(raw)})`);
+  return n;
 }
 
 function readSizeMb(name: string, fallbackMb: number): number {
@@ -100,45 +111,18 @@ function readBackupKeep(): number {
 }
 
 /**
- * How long audit entries are kept. An audit trail with no retention grows
- * forever, which is both an operational problem and a hard one to defend under
- * GDPR — "we keep a record of who did what, indefinitely, because nobody chose
- * a number" is not a retention policy. A year covers the incident-response and
- * compliance cases the log exists for; `0` disables the purge for operators
- * whose own rules require keeping everything.
+ * A journal's retention set by an environment variable, or `null` when the
+ * variable is unset. These variables predate the admin setting
+ * (`modules/retention/`): an administrator's choice overrides them, and they
+ * override the journal's default. `0` keeps everything. Checked at boot so a
+ * typo fails loudly rather than silently keeping the default.
  */
-function readAuditRetentionDays(): number {
-  const raw = readEnv("NEBULADB_AUDIT_RETENTION_DAYS");
-  if (raw === undefined || raw.trim() === "") return 365;
+function readRetentionEnv(name: string): number | null {
+  const raw = readEnv(name);
+  if (raw === undefined || raw.trim() === "") return null;
   const days = Number(raw);
   if (!Number.isInteger(days) || days < 0 || days > 3650) {
-    fail(`NEBULADB_AUDIT_RETENTION_DAYS must be an integer between 0 and 3650 (got ${JSON.stringify(raw)})`);
-  }
-  return days;
-}
-
-/**
- * How many days of per-statement figures (the "Requêtes" view of a
- * connection's journal) are kept. Short by default: they are a working aid,
- * not a record — the audit log is the record. `0` keeps them all.
- */
-function readQueryStatsRetentionDays(): number {
-  const raw = readEnv("NEBULADB_QUERY_STATS_RETENTION_DAYS");
-  if (raw === undefined || raw.trim() === "") return 30;
-  const days = Number(raw);
-  if (!Number.isInteger(days) || days < 0 || days > 3650) {
-    fail(`NEBULADB_QUERY_STATS_RETENTION_DAYS must be an integer between 0 and 3650 (got ${JSON.stringify(raw)})`);
-  }
-  return days;
-}
-
-/** How many days of database-side session figures are kept; `0` keeps them all. */
-function readDbActivityRetentionDays(): number {
-  const raw = readEnv("NEBULADB_DB_ACTIVITY_RETENTION_DAYS");
-  if (raw === undefined || raw.trim() === "") return 14;
-  const days = Number(raw);
-  if (!Number.isInteger(days) || days < 0 || days > 3650) {
-    fail(`NEBULADB_DB_ACTIVITY_RETENTION_DAYS must be an integer between 0 and 3650 (got ${JSON.stringify(raw)})`);
+    fail(`${name} must be an integer between 0 and 3650 (got ${JSON.stringify(raw)})`);
   }
   return days;
 }
@@ -151,6 +135,56 @@ function readAllowedOrigins(): string[] {
     .split(",")
     .map((o) => o.trim().replace(/\/$/, ""))
     .filter(Boolean);
+}
+
+export type TrustProxy = boolean | number | string[];
+
+/**
+ * Which reverse proxies the server believes about the client address
+ * (`X-Forwarded-For`, `-Proto`, `-Host`), handed to Fastify's `trustProxy`.
+ * Without it, behind nginx every request comes from 127.0.0.1: the per-IP rate
+ * limits become one limit for the whole instance, and the IPs in the audit log
+ * and the session list are all the proxy's.
+ *
+ * - unset, `""` or `false`: trust no proxy (direct exposure).
+ * - `true`: trust every hop — only when nothing but the proxy can reach the server.
+ * - a whole number `n`: trust the last `n` hops (`1` for a single nginx).
+ * - a comma-separated list of IPs/CIDRs: trust only proxies at those addresses.
+ *
+ * Throws on anything else; `readTrustProxy` turns that into a boot failure.
+ */
+export function parseTrustProxy(raw: string | undefined): TrustProxy {
+  const value = raw?.trim() ?? "";
+  if (value === "" || value === "false") return false;
+  if (value === "true") return true;
+  if (/^\d+$/.test(value)) {
+    const hops = Number(value);
+    if (hops < 1 || hops > 100) throw new Error(`a hop count must be between 1 and 100 (got ${JSON.stringify(raw)})`);
+    return hops;
+  }
+  const entries = value
+    .split(",")
+    .map((e) => e.trim())
+    .filter(Boolean);
+  for (const entry of entries) {
+    const [address, prefix, extra] = entry.split("/");
+    const family = isIP(address ?? "");
+    const prefixOk = prefix === undefined || (/^\d+$/.test(prefix) && Number(prefix) <= (family === 6 ? 128 : 32));
+    if (!family || !prefixOk || extra !== undefined) {
+      throw new Error(
+        `must be "true", "false", a hop count, or a comma-separated list of IP addresses/CIDRs (got ${JSON.stringify(entry)})`,
+      );
+    }
+  }
+  return entries;
+}
+
+function readTrustProxy(): TrustProxy {
+  try {
+    return parseTrustProxy(readEnv("NEBULADB_TRUST_PROXY"));
+  } catch (err) {
+    fail(`NEBULADB_TRUST_PROXY ${(err as Error).message}`);
+  }
 }
 
 /**
@@ -270,19 +304,61 @@ function readDatabaseBackupRetentionDays(): number {
   return days;
 }
 
-const dbPath = readEnv("NEBULADB_DB_PATH") ?? defaultDbPath();
+/**
+ * Where NebulaDB keeps its own data: a PostgreSQL database, and nothing else.
+ * Required — there is no sensible default for a host and a password, and a
+ * guessed one would only move the failure from boot to the first query.
+ */
+function readDatabaseUrl(): string {
+  const raw = readEnv("NEBULADB_DATABASE_URL")?.trim();
+  if (!raw) {
+    fail(
+      "NEBULADB_DATABASE_URL is required, e.g. postgres://nebuladb:password@localhost:5432/nebuladb" +
+        " (locally: set NEBULADB_POSTGRES_PASSWORD in the root .env and run `npm run db:up`)" +
+        (readEnv("NEBULADB_DB_PATH")
+          ? " — NEBULADB_DB_PATH is no longer read: NebulaDB stores its data in PostgreSQL. " +
+            "Move an existing instance with `npm run migrate-from-sqlite -- <path-to-sqlite-file>`."
+          : ""),
+    );
+  }
+  let url: URL;
+  try {
+    url = new URL(raw);
+  } catch {
+    // The value holds a password: say what is wrong without echoing it.
+    fail("NEBULADB_DATABASE_URL must be a PostgreSQL connection URL (postgres://user:password@host:5432/database)");
+  }
+  if (url.protocol !== "postgres:" && url.protocol !== "postgresql:") {
+    fail(`NEBULADB_DATABASE_URL must use the postgres:// scheme (got ${JSON.stringify(url.protocol)})`);
+  }
+  return raw;
+}
+
+/** Most connections the server keeps open to its own database at once. */
+function readDatabasePoolSize(): number {
+  const raw = readEnv("NEBULADB_DATABASE_POOL_SIZE");
+  if (raw === undefined || raw.trim() === "") return 10;
+  const size = Number(raw);
+  if (!Number.isInteger(size) || size < 1 || size > 200) {
+    fail(`NEBULADB_DATABASE_POOL_SIZE must be an integer between 1 and 200 (got ${JSON.stringify(raw)})`);
+  }
+  return size;
+}
+
 const publicUrl = readPublicUrl();
 
 export const config = {
   isProduction,
   port: readPort(),
-  dbPath,
+  databaseUrl: readDatabaseUrl(),
+  databasePoolSize: readDatabasePoolSize(),
   cookieSecure: readCookieSecure(),
   /** Max REST body — DBML/SQL imports are the big ones. */
   bodyLimit: readSizeMb("NEBULADB_MAX_BODY_MB", 4),
   /** Max single WebSocket frame — a Yjs sync/update for a large schema. */
   wsMaxPayload: readSizeMb("NEBULADB_MAX_WS_FRAME_MB", 8),
   allowedOrigins: readAllowedOrigins(),
+  trustProxy: readTrustProxy(),
   logLevel: readLogLevel(),
   /** 0 disables scheduled backups entirely. */
   backupIntervalHours: readBackupIntervalHours(),
@@ -290,28 +366,43 @@ export const config = {
   backupKeep: readBackupKeep(),
   /**
    * Backups of the *connected* databases (the "Sauvegardes" tab), not of
-   * NebulaDB's own data above. Next to the app database by default, so the
-   * volume that persists one persists the other.
+   * NebulaDB's own data above. `./data` is where they have always been by
+   * default — it used to be "next to the SQLite file".
    */
-  databaseBackupDir:
-    readEnv("NEBULADB_DATABASE_BACKUP_DIR")?.trim() || path.join(path.dirname(dbPath), "database-backups"),
+  /**
+   * Initial data too big for the database: one CSV file per table, kept here (`seeds/<project>/<table>.csv`).
+   * `seedFileMaxBytes` caps one file (in GB: NEBULADB_SEED_FILE_MAX_GB), `seedMaxKeys` how many key values the
+   * checks of a big seed may hold in memory (NEBULADB_SEED_MAX_KEYS), `seedImportDir` the only folder an
+   * administrator may import a seed file from by path (NEBULADB_SEED_IMPORT_DIR; unset: the feature is off).
+   */
+  seedDir: readEnv("NEBULADB_SEED_DIR")?.trim() || path.join("data", "seeds"),
+  seedFileMaxBytes: readCount("NEBULADB_SEED_FILE_MAX_GB", 20, 1024) * 1024 ** 3,
+  seedMaxKeys: readCount("NEBULADB_SEED_MAX_KEYS", 5_000_000, 500_000_000),
+  seedImportDir: readEnv("NEBULADB_SEED_IMPORT_DIR")?.trim() || null,
+  databaseBackupDir: readEnv("NEBULADB_DATABASE_BACKUP_DIR")?.trim() || path.join("data", "database-backups"),
   databaseBackupMaxBytes: readDatabaseBackupMaxBytes(),
   databaseBackupRetentionDays: readDatabaseBackupRetentionDays(),
-  /** 0 keeps audit entries indefinitely. */
-  auditRetentionDays: readAuditRetentionDays(),
-  /** 0 keeps the SQL console's per-statement figures indefinitely. */
-  queryStatsRetentionDays: readQueryStatsRetentionDays(),
-  /** 0 keeps the database-side session figures indefinitely. */
-  dbActivityRetentionDays: readDbActivityRetentionDays(),
+  /** Journal retentions set by environment, keyed by the retention registry's key; `null`: unset. */
+  retentionEnv: {
+    audit_log: readRetentionEnv("NEBULADB_AUDIT_RETENTION_DAYS"),
+    query_stats: readRetentionEnv("NEBULADB_QUERY_STATS_RETENTION_DAYS"),
+    db_activity: readRetentionEnv("NEBULADB_DB_ACTIVITY_RETENTION_DAYS"),
+  } as Readonly<Record<string, number | null>>,
   publicUrl,
   /**
    * When set, a SQLite connection may only open a file inside this directory.
-   * Unset keeps the historical behaviour (any path the process can read,
-   * except the app's own database) — see `drivers/sqlite.ts`.
+   * Unset keeps the historical behaviour (any path the process can read) —
+   * see `drivers/sqlite.ts`.
    */
   /** 0 disables the background checks. */
   connectionHealthIntervalMinutes: readConnectionHealthIntervalMinutes(),
   sqliteAllowedDir: readEnv("NEBULADB_SQLITE_DIR")?.trim() || null,
   /** `null` means email is off — see `readSmtp`. */
   smtp: readSmtp(publicUrl),
+  /**
+   * NEBULADB_SETUP_TOKEN: when set, the browser setup of a fresh instance (`POST /api/setup`, which creates the
+   * first administrator while there is no account at all) must carry it. Unset, whoever reaches a fresh instance
+   * first can claim it — see the README. `null` when unset.
+   */
+  setupToken: readEnv("NEBULADB_SETUP_TOKEN")?.trim() || null,
 } as const;

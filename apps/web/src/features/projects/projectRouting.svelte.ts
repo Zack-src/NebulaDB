@@ -9,9 +9,9 @@ import type { ProjectSummary, Session } from "@/types";
  * has no URL segment; the others are `/project/:id/<tab>`, so a tab can be
  * linked to, reloaded and reached with back / forward.
  */
-export type WorkspaceTab = "schema" | "deployments" | "history" | "problems" | "dictionary";
+export type WorkspaceTab = "schema" | "deployments" | "history" | "problems" | "dictionary" | "variants";
 
-const TAB_SEGMENTS: readonly WorkspaceTab[] = ["deployments", "history", "problems", "dictionary"];
+const TAB_SEGMENTS: readonly WorkspaceTab[] = ["deployments", "history", "problems", "dictionary", "variants"];
 
 /** Where to centre the canvas once a project opens — set by a cross-project search hit. */
 interface CanvasFocusTarget {
@@ -26,6 +26,8 @@ export interface ProjectRoutingHandle {
   readonly initialProjectId: string | null;
   readonly openProject: ProjectSummary | null;
   readonly openLinkError: string | null;
+  /** A deep-linked project is still being resolved: the editor is on its way, not the list of projects. */
+  readonly opening: boolean;
   /** Consumed by the editor on mount; cleared on the next plain open so it never re-applies to another project. */
   readonly focusTarget: CanvasFocusTarget | null;
   /** The workspace tab the URL names; the editor falls back to `schema` when the user may not see it. */
@@ -75,6 +77,7 @@ export function useProjectRouting(
   const initialProjectId = projectIdFromLocation();
   let openProjectState = $state.raw<ProjectSummary | null>(null);
   let openLinkError = $state<string | null>(null);
+  let resolvingLink = $state(initialProjectId !== null);
   let focusTarget = $state.raw<CanvasFocusTarget | null>(initialProjectId ? focusFromLocation() : null);
   let tab = $state<WorkspaceTab>(tabFromLocation());
 
@@ -129,8 +132,10 @@ export function useProjectRouting(
     fetchProject(initialProjectId)
       .then((project) => {
         openProjectState = project;
+        resolvingLink = false;
       })
       .catch((err: unknown) => {
+        resolvingLink = false;
         history.replaceState(null, "", "/");
         const missing = err instanceof ApiError && err.status === 404;
         openLinkError = t(missing ? "projects.linkGone" : "projects.linkForbidden");
@@ -178,6 +183,10 @@ export function useProjectRouting(
     },
     get openLinkError() {
       return openLinkError;
+    },
+    get opening() {
+      const current = session();
+      return resolvingLink && openProjectState === null && current !== null;
     },
     get focusTarget() {
       return focusTarget;

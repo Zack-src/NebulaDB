@@ -8,9 +8,9 @@ import { resolveProjectLint } from "./repository.js";
 const MAX_REPORTED = 20;
 
 /** What the linter says about a project as it is stored now. */
-export function lintReport(projectId: string, projectName: string) {
-  const { settings, source } = resolveProjectLint(projectId);
-  const findings = lintProject(readProjectReadOnly(projectId, projectName), settings);
+export async function lintReport(projectId: string, projectName: string) {
+  const { settings, source } = await resolveProjectLint(projectId);
+  const findings = lintProject(await readProjectReadOnly(projectId, projectName), settings);
   return {
     profile: settings.profile,
     source,

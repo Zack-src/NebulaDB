@@ -53,7 +53,7 @@
       <Icon icon={LogoMarkIcon} size={16} style="color: white" />
     </span>
     <h1 class="mb-1 text-center text-lg font-bold">{t("resetPassword.title")}</h1>
-    <p class="mb-5 text-center text-[13px] text-text-muted">{t("resetPassword.subtitle")}</p>
+    <p class="mb-5 text-center text-body text-text-muted">{t("resetPassword.subtitle")}</p>
     <Field
       label={t("resetPassword.newPassword")}
       type="password"

@@ -14,9 +14,10 @@ export interface TotpState {
   enabled: boolean;
 }
 
-export function getTotpState(userId: string): TotpState {
-  const row = db.prepare("SELECT totp_secret_encrypted, totp_enabled_at FROM users WHERE id = ?").get(userId) as
-    UserTotpRow | undefined;
+export async function getTotpState(userId: string): Promise<TotpState> {
+  const row = (await db
+    .prepare("SELECT totp_secret_encrypted, totp_enabled_at FROM users WHERE id = ?")
+    .get(userId)) as UserTotpRow | undefined;
   return {
     hasSecret: Boolean(row?.totp_secret_encrypted),
     enabled: Boolean(row?.totp_enabled_at),
@@ -24,55 +25,55 @@ export function getTotpState(userId: string): TotpState {
 }
 
 /** The decrypted secret for a code check — used by both login verification and the setup-confirmation step. */
-export function getDecryptedSecret(userId: string): string | null {
-  const row = db.prepare("SELECT totp_secret_encrypted FROM users WHERE id = ?").get(userId) as UserTotpRow | undefined;
+export async function getDecryptedSecret(userId: string): Promise<string | null> {
+  const row = (await db.prepare("SELECT totp_secret_encrypted FROM users WHERE id = ?").get(userId)) as
+    UserTotpRow | undefined;
   if (!row?.totp_secret_encrypted) return null;
   return decryptPayload<string>(row.totp_secret_encrypted);
 }
 
-export function isTotpEnabled(userId: string): boolean {
-  const row = db.prepare("SELECT totp_enabled_at FROM users WHERE id = ?").get(userId) as
+export async function isTotpEnabled(userId: string): Promise<boolean> {
+  const row = (await db.prepare("SELECT totp_enabled_at FROM users WHERE id = ?").get(userId)) as
     { totp_enabled_at: string | null } | undefined;
   return Boolean(row?.totp_enabled_at);
 }
 
 /** Starts (or restarts) enrollment — stores a fresh secret as pending. Not enabled until `confirmTotp` verifies a real code against it. */
-export function startTotpSetup(userId: string, secretBase32: string): void {
-  db.prepare("UPDATE users SET totp_secret_encrypted = ?, totp_enabled_at = NULL WHERE id = ?").run(
-    encryptPayload(secretBase32),
-    userId,
-  );
+export async function startTotpSetup(userId: string, secretBase32: string): Promise<void> {
+  await db
+    .prepare("UPDATE users SET totp_secret_encrypted = ?, totp_enabled_at = NULL WHERE id = ?")
+    .run(encryptPayload(secretBase32), userId);
 }
 
-export function confirmTotp(userId: string): void {
-  db.prepare("UPDATE users SET totp_enabled_at = datetime('now') WHERE id = ?").run(userId);
+export async function confirmTotp(userId: string): Promise<void> {
+  await db.prepare("UPDATE users SET totp_enabled_at = utc_now() WHERE id = ?").run(userId);
 }
 
 /** Disables 2FA entirely and discards every backup code — the reverse of enrollment, not a pause. */
-export function disableTotp(userId: string): void {
-  db.transaction(() => {
-    db.prepare("UPDATE users SET totp_secret_encrypted = NULL, totp_enabled_at = NULL WHERE id = ?").run(userId);
-    db.prepare("DELETE FROM totp_backup_codes WHERE user_id = ?").run(userId);
-  })();
+export async function disableTotp(userId: string): Promise<void> {
+  await db.transaction(async () => {
+    await db.prepare("UPDATE users SET totp_secret_encrypted = NULL, totp_enabled_at = NULL WHERE id = ?").run(userId);
+    await db.prepare("DELETE FROM totp_backup_codes WHERE user_id = ?").run(userId);
+  });
 }
 
 /** Replaces every backup code (initial issue and explicit regeneration both go through this — there is no "add more" path). */
-export function replaceBackupCodes(userId: string, plainCodes: string[]): void {
-  db.transaction(() => {
-    db.prepare("DELETE FROM totp_backup_codes WHERE user_id = ?").run(userId);
+export async function replaceBackupCodes(userId: string, plainCodes: string[]): Promise<void> {
+  await db.transaction(async () => {
+    await db.prepare("DELETE FROM totp_backup_codes WHERE user_id = ?").run(userId);
     const insert = db.prepare(
-      "INSERT INTO totp_backup_codes (id, user_id, code_hash, created_at) VALUES (?, ?, ?, datetime('now'))",
+      "INSERT INTO totp_backup_codes (id, user_id, code_hash, created_at) VALUES (?, ?, ?, utc_now())",
     );
     for (const code of plainCodes) {
-      insert.run(crypto.randomUUID(), userId, hashBackupCode(code));
+      await insert.run(crypto.randomUUID(), userId, hashBackupCode(code));
     }
-  })();
+  });
 }
 
-export function countUnusedBackupCodes(userId: string): number {
-  const row = db
+export async function countUnusedBackupCodes(userId: string): Promise<number> {
+  const row = (await db
     .prepare("SELECT COUNT(*) AS n FROM totp_backup_codes WHERE user_id = ? AND used_at IS NULL")
-    .get(userId) as { n: number };
+    .get(userId)) as { n: number };
   return row.n;
 }
 
@@ -83,14 +84,18 @@ export function countUnusedBackupCodes(userId: string): number {
  * design: unlike a TOTP code (which naturally rotates every 30s), a backup
  * code that could be replayed would just be a second permanent password.
  */
-export function consumeBackupCode(userId: string, candidate: string): boolean {
-  const rows = db
+export async function consumeBackupCode(userId: string, candidate: string): Promise<boolean> {
+  const rows = (await db
     .prepare("SELECT id, code_hash FROM totp_backup_codes WHERE user_id = ? AND used_at IS NULL")
-    .all(userId) as { id: string; code_hash: string }[];
+    .all(userId)) as { id: string; code_hash: string }[];
   for (const row of rows) {
     if (verifyBackupCode(candidate, row.code_hash)) {
-      db.prepare("UPDATE totp_backup_codes SET used_at = datetime('now') WHERE id = ?").run(row.id);
-      return true;
+      // Claimed, not just marked: of two logins presenting the same code at
+      // once, only the one whose update finds it still unused gets in.
+      const claimed = await db
+        .prepare("UPDATE totp_backup_codes SET used_at = utc_now() WHERE id = ? AND used_at IS NULL")
+        .run(row.id);
+      return claimed.changes > 0;
     }
   }
   return false;
@@ -116,45 +121,42 @@ export interface MfaChallenge {
 }
 
 /** Issued after a correct password when the account has 2FA enabled — a placeholder for "who", not a session. */
-export function createMfaChallenge(userId: string, remember: boolean): string {
+export async function createMfaChallenge(userId: string, remember: boolean): Promise<string> {
   const id = crypto.randomUUID();
   const expiresAt = new Date(Date.now() + MFA_CHALLENGE_TTL_MS).toISOString();
-  db.prepare("INSERT INTO mfa_challenges (id, user_id, remember, attempts, expires_at) VALUES (?, ?, ?, 0, ?)").run(
-    id,
-    userId,
-    remember ? 1 : 0,
-    expiresAt,
-  );
+  await db
+    .prepare("INSERT INTO mfa_challenges (id, user_id, remember, attempts, expires_at) VALUES (?, ?, ?, 0, ?)")
+    .run(id, userId, remember ? 1 : 0, expiresAt);
   return id;
 }
 
 /** Live (unexpired) challenge, or null. Does not consume it — call `deleteMfaChallenge` once the code checks out. */
-export function getMfaChallenge(id: string): MfaChallenge | null {
-  const row = db
+export async function getMfaChallenge(id: string): Promise<MfaChallenge | null> {
+  const row = (await db
     .prepare("SELECT id, user_id, remember, attempts, expires_at FROM mfa_challenges WHERE id = ?")
-    .get(id) as ChallengeRow | undefined;
+    .get(id)) as ChallengeRow | undefined;
   if (!row) return null;
   if (new Date(row.expires_at).getTime() < Date.now()) {
-    db.prepare("DELETE FROM mfa_challenges WHERE id = ?").run(id);
+    await db.prepare("DELETE FROM mfa_challenges WHERE id = ?").run(id);
     return null;
   }
   return { id: row.id, userId: row.user_id, remember: row.remember === 1, attempts: row.attempts };
 }
 
 /** Records a wrong code. Past `MAX_MFA_ATTEMPTS` the challenge is deleted outright rather than left to expire on its own. */
-export function recordMfaFailure(id: string): number {
-  const row = db
+export async function recordMfaFailure(id: string): Promise<number> {
+  const row = (await db
     .prepare("UPDATE mfa_challenges SET attempts = attempts + 1 WHERE id = ? RETURNING attempts")
-    .get(id) as { attempts: number } | undefined;
+    .get(id)) as { attempts: number } | undefined;
   const attempts = row?.attempts ?? MAX_MFA_ATTEMPTS;
-  if (attempts >= MAX_MFA_ATTEMPTS) db.prepare("DELETE FROM mfa_challenges WHERE id = ?").run(id);
+  if (attempts >= MAX_MFA_ATTEMPTS) await db.prepare("DELETE FROM mfa_challenges WHERE id = ?").run(id);
   return attempts;
 }
 
-export function deleteMfaChallenge(id: string): void {
-  db.prepare("DELETE FROM mfa_challenges WHERE id = ?").run(id);
+export async function deleteMfaChallenge(id: string): Promise<void> {
+  await db.prepare("DELETE FROM mfa_challenges WHERE id = ?").run(id);
 }
 
-export function purgeExpiredMfaChallenges(): number {
-  return db.prepare("DELETE FROM mfa_challenges WHERE expires_at < ?").run(new Date().toISOString()).changes;
+export async function purgeExpiredMfaChallenges(): Promise<number> {
+  return (await db.prepare("DELETE FROM mfa_challenges WHERE expires_at < ?").run(new Date().toISOString())).changes;
 }

@@ -192,7 +192,7 @@ const dbmlLanguage = StreamLanguage.define<{ inCommentBlock: boolean; inNoteBloc
  * (deepened, not inverted — several of these read fine on near-black but fail
  * contrast on white at the same lightness).
  */
-const dbmlHighlightStyle = HighlightStyle.define([
+export const dbmlHighlightStyle = HighlightStyle.define([
   { tag: t.comment, color: "var(--color-syntax-comment)", fontStyle: "italic" },
   { tag: t.keyword, color: "var(--color-syntax-keyword)", fontWeight: "600" },
   { tag: t.modifier, color: "var(--color-syntax-modifier)" },
@@ -290,6 +290,8 @@ export const nebulaEditorTheme = EditorView.theme(
     },
     ".cm-foldGutter span": { color: "var(--color-editor-muted)", cursor: "pointer" },
     ".cm-activeLine": { backgroundColor: "var(--color-editor-active-line)" },
+    // The selection is drawn behind the lines: an opaque active line would hide it on the line holding the cursor.
+    "&:has(.cm-selectionBackground) .cm-activeLine": { backgroundColor: "transparent" },
     ".cm-activeLineGutter": {
       backgroundColor: "var(--color-editor-active-line)",
       color: "var(--color-editor-active-gutter-text)",

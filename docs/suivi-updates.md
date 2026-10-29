@@ -1,0 +1,155 @@
+# Suivi des updates
+
+Lot lancé le 2026-10-09 sur la branche `updates` (partie de `main` au commit `de5c5f6`).
+Un commit par changement. Cocher une ligne quand son commit est sur `updates`, avec son hash.
+
+État : `[ ]` à faire · `[~]` en cours · `[x]` fait · `[!]` bloqué (raison à côté).
+
+## A. Base de données de Nebula : SQLite → PostgreSQL
+
+Branche à part `feat/postgres-storage`, fusionnée dans `updates` quand le serveur démarre et que
+les tests passent. PostgreSQL seul (SQLite n'est plus un stockage possible pour Nebula ; il reste
+un moteur cible pour les projets).
+
+- [x] A1. Couche d'accès asynchrone (`pg`, pool, transactions) à la place de `better-sqlite3` — `bf1e9de` (branche `feat/postgres-storage`)
+- [x] A2. Schéma PostgreSQL de départ (équivalent des migrations 1 à 45) et migrations suivantes — `bf1e9de` (branche `feat/postgres-storage`)
+- [x] A3. Conversion des modules serveur (requêtes et appelants en `async`) — `bf1e9de`, `b31cc17`, `94ec99d` (branche `feat/postgres-storage`)
+- [x] A4. Tests serveur sur PostgreSQL (une base isolée par fichier de test) — `bf1e9de` (branche `feat/postgres-storage`)
+- [x] A5. Outil de bascule d'une instance SQLite existante vers PostgreSQL — `b7c8638` (branche `feat/postgres-storage`)
+- [x] A6. Configuration, Docker Compose, README, sauvegarde/restauration en ligne de commande — `7a9877c` (branche `feat/postgres-storage`)
+- [x] A7. Fusion dans `updates` et conversion des requêtes ajoutées entre-temps par les lots B à F — `81a9e94`
+
+## B. Lot 1 — petits conforts
+
+- [x] B1. Message à la restauration d'un projet qui revient détaché d'une connexion — `9f04aee`
+- [x] B2. Tables ignorées par la surveillance : sélecteur au lieu du champ texte — `2e7aeaf`
+- [x] B3. Variables d'environnement : tableau clé/valeur, variables manquantes signalées — `7e8882c`
+- [x] B4. Base d'un projet sur une connexion : liste des bases du serveur + « créer » — `72b58bc`
+
+## C. Lot 2 — SQL
+
+- [x] C1. Éditeur SQL (coloration, complétion des tables et colonnes du schéma) — `5932a4c`, `478534c`
+- [x] C2. Requêtes enregistrées — `3b11f8f`
+- [x] C3. Édition de lignes dans la grille de résultats — `51d09c7`, `b80129e`
+
+## D. Lot 3 — navigation
+
+- [x] D1. Formulaire de connexion en onglets (Connexion / Règles / Projets) — `3b5bef6`
+- [x] D2. Palette `Ctrl+K` globale (projets, tables, onglets, connexions) — `b7dd320`, `f10d6b9`
+
+## E. Lot 4 — déploiement et droits
+
+- [x] E1. Revue avant production (demande, approbation par une autre personne, déploiement) — `2fc92e9`
+- [x] E2. Rôle « peut déployer » sans être administrateur du projet — `efca567`
+
+## F. Lot 5 — le reste
+
+- [x] F1. Alertes de surveillance : e-mail, acquittement, mise en sourdine — `a9c6b69`, `0c8bc97`, `8f6a98e`
+- [x] F2. Dictionnaire : description multi-ligne, export PDF — `7c33923`, `692f305`
+- [x] F3. Export des migrations en fichiers versionnés (Flyway / Liquibase) — `4b743d1`
+- [x] F4. CLI / action GitHub — CLI (`4ca2137`, `85ea884`), action dans `actions/nebuladb`
+- [x] F5. Suggestions d'index à partir des statistiques de requêtes — `a5c7745`
+- [x] F6. Lien de partage en lecture seule (diagramme, dictionnaire) — repris de `agent/share-links`, passé sur PostgreSQL
+- [x] F7. Sauvegardes vers S3 / SFTP (en plus du dossier ou partage monté) — repris de `agent/backup-remote`, passé sur PostgreSQL
+
+## G. Dette repérée en route
+
+- [x] G1. Remettre à niveau les 11 tests navigateur (e2e) qui échouent déjà sur `de5c5f6` : ils — `0ec4721` à `9988177`
+      attendent des éléments retirés par la refonte (« Ouvrir », onglet « Données & SQL », « Déployer »)
+- [x] G3. Test serveur instable sous charge : « /api/v1 backups: a running backup is cancelled with a key » — `bb090e9`
+- [x] G2. Formater `bundle.ts` et `bundle.test.ts` (avertissement Prettier antérieur à ce lot) — `c2e7b46`
+
+## H. Lot 6 — connexion sécurisée (décidé le 2026-10-16 : SSO en OIDC, tunnel SSH, TLS personnalisé)
+
+- [x] H1. TLS personnalisé par connexion : certificat d'autorité, certificat et clé client, vérification du certificat
+      (PostgreSQL, MySQL, SQL Server ; Oracle en `tcps` sans test possible)
+- [x] H2. Tunnel SSH par connexion : bastion, mot de passe ou clé privée, empreinte de la clé d'hôte
+- [x] H3. Formulaire de connexion : onglet « Sécurité » pour TLS et SSH, empreinte remplie au test
+- [x] H4. SSO OIDC côté serveur : découverte, PKCE, compte lié par l'identifiant du fournisseur, création à la volée optionnelle
+- [x] H5. SSO OIDC côté interface : bouton sur l'écran de connexion, réglages dans l'administration
+- [x] H6. Documentation, CHANGELOG, vérification complète
+
+## I. Lot 7 — dossiers et variantes de projet par client (demandé le 2026-10-16)
+
+- [x] I1. Moteur : plan et application d'un envoi de l'original vers une variante (fusion à trois sources par identifiant :
+      tables, champs, index, relations, enums, groupes ; conflits quand le client a modifié la même chose)
+- [x] I2. Serveur : dossiers de projets (imbriqués, partagés), déplacement d'un projet, suppression qui remonte le contenu
+- [x] I3. Serveur : variantes (création par copie complète, état « en retard sur l'original », aperçu, envoi vers les
+      variantes choisies avec décision par changement, détachement), comparaison entre deux versions
+- [x] I4. Interface : dossiers dans la liste des projets (fil d'Ariane, création, renommage, déplacement, suppression)
+- [x] I5. Interface : onglet « Variantes » (liste et état, envoi avec choix des variantes et des changements, conflits),
+      comparaison original / client
+- [x] I6. Tests navigateur, documentation, CHANGELOG, vérification complète
+
+Choix faits : une variante ne peut pas avoir elle-même de variantes (un seul niveau) ; la mise en page (positions,
+zones, notes) reste propre à chaque projet et n'est jamais envoyée ; un changement non envoyé est considéré comme un
+choix du client et ne revient pas au prochain envoi.
+
+## J. Lot 8 — confort des variantes et des dossiers (demandé le 2026-10-16)
+
+- [x] J1. Moteur et serveur : réinitialiser une variante sur l'original, ou la remplacer par une autre variante
+      (structure remplacée, mise en page gardée pour les tables communes)
+- [x] J2. Interface : renommer, supprimer, réinitialiser, copier depuis une autre variante (onglet Variantes)
+- [x] J3. Interface : passer d'une variante à l'autre depuis l'en-tête du projet
+- [x] J4. Interface : clic droit dans la liste des projets (nouveau dossier, actions d'un projet ou d'un dossier),
+      glisser-déposer d'un projet dans un dossier ou dans le fil d'Ariane
+- [x] J5. Tests navigateur, documentation, vérification complète
+
+## K. Lot 9 — suite de la todo (demandé le 2026-10-28, par ordre d'importance)
+
+Agents : Opus pour ce qui touche la sûreté des déploiements, Sonnet pour le reste. Un commit par changement.
+
+- [x] K1. Déploiements : verrou par connexion, rollback soumis à la revue / au lint / à la sauvegarde, SQL Server dans une transaction — `bafa096`, `e77d665`, `71137e1`
+- [x] K2. Lire les index existants de la base (PostgreSQL, MySQL, SQLite, Oracle) pour que la comparaison ne les redemande pas — `31c48df`, `be0c265`, `1c201e3`, `9299835` (Oracle sans test)
+- [x] K3. Écran de comparaison d'environnements, carte du panneau de déploiement — `b6b4281`, `755f141`, `2aef021` (visible à partir de 2 connexions ; pas de SQL de migration, l'API n'en renvoie pas ; jamais essayé sur deux bases réelles)
+- [x] K4. Carte « Surveillance » du panneau de déploiement (activer, intervalle, tables ignorées, vérifier maintenant) — `fd66019`, `b3d6cf5`, `dbd6e09` (réservée aux administrateurs du projet ; sourdine, comptes et liste des constats non repris)
+- [x] K5. Visite guidée rejouable, modèles de projet, projet d'exemple, état vide du canevas — `117fc4c`, `8a35cc1`, `d5992c0`, `3eaf682`, `23e9cf2` (liste de démarrage non faite ; l'assistant `/setup` reste à faire : le premier admin se crée par `npm run bootstrap-admin`)
+- [x] K6. CI : tests navigateur, couverture, scan Docker, Dependabot — presque tout existait déjà ; ajout d'un test des modules natifs de l'image Docker, `170ca55` (workflows jamais lancés sur GitHub ; épinglage par SHA, seuil de couverture, push GHCR et job MSSQL bloquant restent à faire)
+- [x] K7. Rétention des journaux : registre, réglages, purge par lots, traçage, API admin (`9238379`, `cf03ed6`, `ff6b8e2`, `fecd08b`, `ed2be45`, `46f2c50`) et onglet « Rétention » de la console admin (`7686023`, `0b74fbe`, `d2348fa`) ; export avant suppression et purges ciblées restent à faire
+- [x] K8. Assistant de premier démarrage (premier administrateur créé depuis le navigateur, jeton optionnel `NEBULADB_SETUP_TOKEN`) — `8eb71b4`, `c863bb6`, `66a0fbb`, `da426a8` (jeton à usage multiple et non généré ; l'état d'une instance non réclamée est public ; les autres tests navigateur n'ont pas été relancés après le changement du harnais)
+
+Bloqué sur une décision de Zack : licence du dépôt (LICENSE, SECURITY.md, CONTRIBUTING.md) ; IA optionnelle.
+
+## En attente d'une décision de Zack
+
+- IA optionnelle (quel service, quelles données peuvent sortir de l'instance)
+
+## Journal
+
+| Date       | Ligne | Commit    | Note                                                                                                                                                                                                                                                                                                                                       |
+| ---------- | ----- | --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| 2026-10-09 | B3    | `7e8882c` | Table clé/valeur + variables manquantes ; e2e réécrit, non lancé                                                                                                                                                                                                                                                                           |
+| 2026-10-09 | B1    | `9f04aee` | Avertissement (toast) + champ `detachedConnections` dans la réponse, API v1 comprise                                                                                                                                                                                                                                                       |
+| 2026-10-09 | B2    | `2e7aeaf` | Pastilles + liste à cocher avec recherche ; nom hors schéma accepté                                                                                                                                                                                                                                                                        |
+| 2026-10-09 | B4    | `72b58bc` | Liste des bases du serveur (datalist), état « existe / sera créée », doublons signalés                                                                                                                                                                                                                                                     |
+| 2026-10-09 | C1    | `478534c` | Éditeur CodeMirror : dialecte par moteur, complétion tables/colonnes ; essayé en navigateur sur SQLite seulement                                                                                                                                                                                                                           |
+| 2026-10-09 | D2    | `b7dd320` | Palette globale ; ne s'ouvre pas depuis l'éditeur DBML (Ctrl+K y est un préfixe de raccourcis) ; e2e dédié passé chez l'agent                                                                                                                                                                                                              |
+| 2026-10-09 | D1    | `3b5bef6` | Onglets Connexion / Règles / Projets, un seul Enregistrer, repère « ! » sur l'onglet fautif ; refait par-dessus la liste des bases                                                                                                                                                                                                         |
+| 2026-10-09 | F2    | `692f305` | Descriptions multi-lignes (notes DBML en triple quote) et export PDF côté navigateur ; pas de `format=pdf` dans l'API                                                                                                                                                                                                                      |
+| 2026-10-09 | C2    | `3b11f8f` | Requêtes enregistrées, privées ou partagées ; migration 46 ; 344 tests serveur passent après intégration                                                                                                                                                                                                                                   |
+| 2026-10-09 | F1    | `8f6a98e` | E-mail sur abonnement (option par compte), acquittement, sourdine avec durée ; migrations 47 à 49 ; relais SMTP réel non essayé                                                                                                                                                                                                            |
+| 2026-10-14 | E2    | `efca567` | Niveau `deploy` entre édition et administrateur ; l'import depuis une base reste administrateur                                                                                                                                                                                                                                            |
+| 2026-10-14 | E1    | `2fc92e9` | Revue sur étape « Revue » : jamais par l'auteur, approbation valable 7 jours, plan refait au déploiement ; migration 50                                                                                                                                                                                                                    |
+| 2026-10-14 | F3    | `4b743d1` | Export SQL / Flyway / Liquibase en zip, niveau `deploy` ; formats vérifiés sur documentation seulement                                                                                                                                                                                                                                     |
+| 2026-10-14 | A1–A6 | `7a9877c` | Branche PostgreSQL complète sur sa base : 364 tests serveur sur PostgreSQL, bascule depuis SQLite essayée sur une vraie instance ; image Docker non construite ; pas encore fusionnée                                                                                                                                                      |
+| 2026-10-15 | C3    | `b80129e` | Édition de lignes depuis l'explorateur (clé primaire requise, SQL montré avant, tout ou rien)                                                                                                                                                                                                                                              |
+| 2026-10-15 | F5    | `a5c7745` | Suggestions d'index depuis les statistiques, ajout via le schéma du projet                                                                                                                                                                                                                                                                 |
+| 2026-10-15 | F4    | `85ea884` | CLI `nebuladb` (+ plan et bundle exposés en `/api/v1`) ; action GitHub non faite                                                                                                                                                                                                                                                           |
+| 2026-10-16 | A7    | `81a9e94` | PostgreSQL fusionné : migrations 46–50 devenues 2–6, code ajouté depuis converti ; 415 tests serveur sur PostgreSQL, 35 CLI                                                                                                                                                                                                                |
+| 2026-10-16 | A6    | `1468cb8` | Image Docker construite, pile `docker compose` démarrée (migrations, admin, projet, import, web OK) ; copie de l'instance locale (schéma 50) basculée vers PostgreSQL : 210 lignes, le serveur redémarre dessus                                                                                                                            |
+| 2026-10-16 | G1    | `9988177` | Harnais sur PostgreSQL, 12 tests remis à l'interface actuelle ; `npm run test:e2e` : 45/45, aucun bug applicatif trouvé                                                                                                                                                                                                                    |
+| 2026-10-16 | —     | `a4b3e2b` | Nettoyage complet (copies et branches d'agents, conteneurs de test, anciennes bases SQLite) ; installation neuve sur PostgreSQL ; les commandes en ligne lisent `.env` ; tout repassé : 415 serveur, 154 web, 158 moteur, 78 shared, 35 CLI, 45 navigateur                                                                                 |
+| 2026-10-16 | H1–H3 | `ff111f4` | TLS (autorité, certificat client, vérification) et tunnel SSH par connexion, onglet Sécurité ; PostgreSQL et MySQL essayés, tunnel essayé avec un serveur SSH simulé ; SQL Server / Oracle non essayés                                                                                                                                     |
+| 2026-10-16 | H4–H5 | `cb1d2c4` | SSO OpenID Connect (PKCE, compte lié par `sub`, création optionnelle, domaines) ; essayé avec un fournisseur simulé, jamais avec un vrai Keycloak / Entra ID                                                                                                                                                                               |
+| 2026-10-16 | H6    | `c6b9c29` | CHANGELOG et docs ; 433 serveur, 154 web, 158 moteur, 78 shared, 35 CLI, 47/47 navigateur ; un `await` manquant corrigé dans un test d'export                                                                                                                                                                                              |
+| 2026-10-16 | I1    | `3948707` | Moteur de synchronisation original → variante (fusion à trois sources par identifiant, conflits, décisions) ; 6 tests                                                                                                                                                                                                                      |
+| 2026-10-16 | I2–I3 | `47f8fcf` | Dossiers (imbriqués, partagés, suppression qui remonte le contenu) et variantes (copie, état, aperçu, envoi, détachement, comparaison) ; migration 8                                                                                                                                                                                       |
+| 2026-10-16 | I4–I5 | `82fb0f9` | Dossiers dans la liste des projets, onglet « Variantes », envoi avec choix des variantes et des changements, comparaison                                                                                                                                                                                                                   |
+| 2026-10-16 | I6    | —         | Docs et CHANGELOG ; 436 serveur, 157 web, 164 moteur, 78 shared, 35 CLI, 48/48 navigateur ; jamais essayé sur un vrai projet client                                                                                                                                                                                                        |
+| 2026-10-16 | J1    | `82cf204` | Réinitialiser une variante sur l'original ou la remplacer par une autre (mise en page gardée), famille d'un projet                                                                                                                                                                                                                         |
+| 2026-10-16 | J2–J4 | `1cc39ab` | Clic droit et glisser-déposer dans la liste, sélecteur Original / Variante dans l'en-tête, renommer / corbeille / réinitialiser / copier                                                                                                                                                                                                   |
+| 2026-10-16 | J5    | —         | Docs et CHANGELOG ; 437 serveur, 157 web, 165 moteur, 78 shared, 35 CLI ; nouveau test navigateur du parcours                                                                                                                                                                                                                              |
+| 2026-10-28 | K1    | `71137e1` | Verrou advisory par connexion (`409 DEPLOYMENT_IN_PROGRESS`) ; rollback : revue contournable par un admin du projet avec motif, sauvegarde en production ou sur demande, dernier changement seulement, lint non appliqué (il juge le schéma actuel) ; SQL Server en une transaction, échec reproduit puis corrigé sur `nebula_deploy_test` |
+
+Dernière vérification complète (2026-10-15, version stable) : build complet, 391 tests serveur, 154 tests web, 158 tests du moteur DBML, 35 tests CLI, typecheck, lint, Prettier et imports circulaires propres.
+Non vérifié : tests navigateur (e2e) et essai à la main des écrans.

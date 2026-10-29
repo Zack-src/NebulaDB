@@ -57,7 +57,7 @@
 
   <button
     type="button"
-    class="text-[11px] text-text-muted hover:text-text underline-offset-2 hover:underline"
+    class="text-caption text-text-muted hover:text-text underline-offset-2 hover:underline"
     onclick={onBack}
   >
     {t("login.mfa.back")}

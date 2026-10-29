@@ -17,6 +17,6 @@
   let { tone, children, class: className = "" }: { tone: BadgeTone; children: Snippet; class?: string } = $props();
 </script>
 
-<span class={`rounded-full px-1.5 py-px text-[10px] font-bold uppercase ${TONE[tone]} ${className}`.trim()}>
+<span class={`rounded-full px-1.5 py-px text-micro font-bold uppercase ${TONE[tone]} ${className}`.trim()}>
   {@render children()}
 </span>

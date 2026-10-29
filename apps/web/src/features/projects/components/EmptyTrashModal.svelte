@@ -1,10 +1,9 @@
 <script lang="ts">
-  import { autofocus } from "@/actions/autofocus";
+  import Input from "@/components/ui/Input.svelte";
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
-  import { INPUT_CLASS } from "@/components/ui/inputStyles";
   import { useTranslation } from "@/i18n/i18n.svelte";
 
   /**
@@ -36,9 +35,9 @@
 <Modal title={t("projects.emptyTrash.title")} onClose={() => !busy && onClose()}>
   <Hint>{t("projects.emptyTrash.consequences", { count })}</Hint>
   <Hint>{t("projects.emptyTrash.typeToConfirm", { word: confirmWord })}</Hint>
-  <input
-    use:autofocus
-    class={`${INPUT_CLASS} w-full`}
+  <Input
+    autofocus
+    class="w-full"
     bind:value={typedWord}
     placeholder={confirmWord}
     disabled={busy}

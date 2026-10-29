@@ -11,10 +11,20 @@ test("checkPassword rejects missing, too-short and too-long values", () => {
 });
 
 test("checkPassword accepts anything in [MIN, MAX] and narrows the type", () => {
-  const result = checkPassword("a".repeat(MIN_PASSWORD_LENGTH));
+  const shortest = "ab".repeat(MIN_PASSWORD_LENGTH / 2);
+  const result = checkPassword(shortest);
   assert.equal(result.ok, true);
   if (result.ok) assert.equal(result.password.length, MIN_PASSWORD_LENGTH);
-  assert.equal(checkPassword("a".repeat(MAX_PASSWORD_LENGTH)).ok, true);
+  assert.equal(checkPassword("ab".repeat(MAX_PASSWORD_LENGTH / 2)).ok, true);
+});
+
+test("checkPassword refuses the passwords everyone tries, and one repeated character", () => {
+  for (const common of ["12345678", "password", "Password123", "QWERTYUIOP", "aaaaaaaaaaaa", "00000000"]) {
+    const result = checkPassword(common);
+    assert.equal(result.ok, false, common);
+    if (!result.ok) assert.match(result.error, /too common/);
+  }
+  assert.equal(checkPassword("correct horse battery staple").ok, true);
 });
 
 test("checkPassword's error message includes the caller-supplied label", () => {

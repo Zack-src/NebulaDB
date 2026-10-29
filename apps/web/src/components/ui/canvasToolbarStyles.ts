@@ -38,7 +38,7 @@ const TOOLBAR_BTN_BASE =
 export const CANVAS_TOOLBAR_ICON_BTN_CLASS = `${TOOLBAR_BTN_BASE} w-9 p-0`;
 
 /** Text/label control — detail level, zoom percentage, font-size steppers. */
-export const CANVAS_TOOLBAR_SEGMENT_CLASS = `${TOOLBAR_BTN_BASE} gap-1.5 px-2.5 text-[12.5px] font-medium`;
+export const CANVAS_TOOLBAR_SEGMENT_CLASS = `${TOOLBAR_BTN_BASE} gap-1.5 px-2.5 text-body-sm font-medium`;
 
 /**
  * A trigger whose popover is currently open. Deliberately *not* the same as the

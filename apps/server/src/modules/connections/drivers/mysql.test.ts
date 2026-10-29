@@ -1,10 +1,16 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { MysqlDriver } from "./mysql.js";
-import { analyzeDeploymentRisks, resolutionKeyOf } from "../riskAnalysis.js";
 import { TEST_DB_HINT } from "./testDbAvailability.js";
+import { useTestDatabase } from "../../../infrastructure/testDatabase.js";
 import { diffTargetAgainstLive, generateMigrationSql, generateRollbackSql } from "@nebuladb/dbml-engine";
 import type { Project } from "@nebuladb/shared";
+
+// `riskAnalysis.ts` reaches `infrastructure/db.ts`, and importing that connects: it needs
+// NebulaDB's own database — not to be confused with the target this file deploys to.
+await useTestDatabase("mysqldriver");
+
+const { MysqlDriver } = await import("./mysql.js");
+const { analyzeDeploymentRisks, resolutionKeyOf } = await import("../riskAnalysis.js");
 
 // Matches docker-compose.test.yml's `nebuladb-test-mysql` service.
 const config = {
@@ -154,6 +160,151 @@ test("MysqlDriver connects, introspects, measures risks, deploys migrations", as
     );
   } finally {
     await driver.executeMigration(`DROP TABLE IF EXISTS users;`).catch(() => {});
+    await driver.close();
+  }
+});
+
+test("MysqlDriver over TLS: encrypted when asked, the pinned address used, the certificate checked when asked", async (t) => {
+  const { readFileSync } = await import("node:fs");
+  const { fileURLToPath } = await import("node:url");
+  const plain = new MysqlDriver(config);
+  const up = (await plain.testConnection()).ok;
+  await plain.close().catch(() => {});
+  if (!up) return t.skip(`no MySQL test container (${TEST_DB_HINT})`);
+
+  // As `pinConnectionTarget` leaves it: the socket to the address, `host` kept for the certificate.
+  const pinned = { ...config, host: "localhost", pinnedAddress: "127.0.0.1", tlsHost: "localhost", ssl: true };
+  const encrypted = new MysqlDriver(pinned);
+  try {
+    assert.ok(
+      (await encrypted.queryScalar(
+        "SELECT COUNT(*) FROM performance_schema.session_status WHERE VARIABLE_NAME = 'Ssl_cipher' AND VARIABLE_VALUE <> ''",
+      )) === 1,
+    );
+  } finally {
+    await encrypted.close();
+  }
+
+  // MySQL's own self-signed certificate is not signed by the test authority.
+  const ca = readFileSync(fileURLToPath(new URL("../../../../test-fixtures/tls/ca.crt", import.meta.url)), "utf8");
+  const checked = new MysqlDriver({ ...pinned, sslVerify: true, sslCa: ca });
+  try {
+    const result = await checked.testConnection();
+    assert.equal(result.ok, false);
+  } finally {
+    await checked.close().catch(() => {});
+  }
+});
+
+test("MysqlDriver restore session: atomic on InnoDB only, a 0 id kept, generated columns reported", async (t) => {
+  const driver = new MysqlDriver(config);
+  const connTest = await driver.testConnection();
+  if (!connTest.ok) {
+    await driver.close().catch(() => {});
+    t.skip(`no MySQL test container reachable at ${config.host}:${config.port} (${TEST_DB_HINT}): ${connTest.error}`);
+    return;
+  }
+  const DROP = "DROP TABLE IF EXISTS nebuladb_restore_items; DROP TABLE IF EXISTS nebuladb_restore_flat;";
+  try {
+    await driver.executeMigration(DROP);
+    await driver.executeMigration(`
+      CREATE TABLE nebuladb_restore_items (
+        id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(50) NOT NULL,
+        shout VARCHAR(50) AS (UPPER(name)) STORED, made TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      ) ENGINE=InnoDB;
+      CREATE TABLE nebuladb_restore_flat (id INT PRIMARY KEY) ENGINE=MyISAM;
+      INSERT INTO nebuladb_restore_items (name) VALUES ('a'), ('b');
+    `);
+    const rows = async () =>
+      (await driver.queryRows("SELECT id, name, shout FROM nebuladb_restore_items ORDER BY id")).map((row) =>
+        row.map(String),
+      );
+    const before = await rows();
+
+    let session = await driver.openRestoreSession(["nebuladb_restore_items"]);
+    assert.equal(session.atomic, true);
+    const columns = await session.describeTable("nebuladb_restore_items");
+    // `made` has a default, not a generation expression: it is written like any column.
+    assert.deepEqual(columns, { generated: ["shout"], identity: ["id"] });
+    assert.equal(await session.emptyTable("nebuladb_restore_items"), 2);
+    await session.insertRows("nebuladb_restore_items", ["id", "name"], [["40", "x"]]);
+    await session.rollback();
+    await session.release();
+    assert.deepEqual(await rows(), before);
+
+    session = await driver.openRestoreSession(["nebuladb_restore_items"]);
+    await session.emptyTable("nebuladb_restore_items");
+    await session.insertRows("nebuladb_restore_items", ["id", "name"], [["0", "zero"], ["40", "x"]]);
+    await session.commit();
+    await session.release();
+    await driver.executeMigration("INSERT INTO nebuladb_restore_items (name) VALUES ('next')");
+    assert.deepEqual(await rows(), [
+      ["0", "zero", "ZERO"],
+      ["40", "x", "X"],
+      ["41", "next", "NEXT"],
+    ]);
+
+    // A MyISAM table cannot be rolled back: the session says so instead of pretending.
+    session = await driver.openRestoreSession(["nebuladb_restore_items", "nebuladb_restore_flat"]);
+    assert.equal(session.atomic, false);
+    await session.rollback();
+    await session.release();
+  } finally {
+    await driver.executeMigration(DROP).catch(() => {});
+    await driver.close();
+  }
+});
+
+test("MysqlDriver introspects the indexes made on their own, not the keys", async (t) => {
+  const driver = new MysqlDriver(config);
+  const connTest = await driver.testConnection();
+  if (!connTest.ok) {
+    await driver.close().catch(() => {});
+    t.skip(`no MySQL test container reachable at ${config.host}:${config.port} (${TEST_DB_HINT}): ${connTest.error}`);
+    return;
+  }
+  try {
+    await driver.executeMigration(`DROP TABLE IF EXISTS idx_accounts`);
+    const created = await driver.executeMigration(`
+      CREATE TABLE idx_accounts (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        email VARCHAR(100) UNIQUE,
+        org_id INT,
+        slug VARCHAR(100),
+        created_at DATETIME,
+        INDEX idx_accounts_org_created (org_id, created_at),
+        UNIQUE INDEX idx_accounts_org_slug (org_id, slug),
+        INDEX idx_accounts_lower_slug ((lower(slug)))
+      )
+    `);
+    assert.equal(created.success, true, created.error ?? "");
+
+    const schema = await driver.introspectSchema();
+    const table = schema.tables.find((tbl) => tbl.name === "idx_accounts");
+    assert.ok(table);
+    assert.deepEqual(
+      table.indexes.map((i) => ({ fieldIds: i.fieldIds, unique: !!i.unique })).sort((a, b) => a.fieldIds.join().localeCompare(b.fieldIds.join())),
+      [
+        { fieldIds: ["idx_accounts.org_id", "idx_accounts.created_at"], unique: false },
+        { fieldIds: ["idx_accounts.org_id", "idx_accounts.slug"], unique: true },
+      ].sort((a, b) => a.fieldIds.join().localeCompare(b.fieldIds.join())),
+      "the primary key and the UNIQUE column are not indexes",
+    );
+    assert.equal(table.fields.find((f) => f.name === "id")?.pk, true);
+    assert.equal(table.fields.find((f) => f.name === "email")?.unique, true);
+    assert.equal(table.fields.find((f) => f.name === "slug")?.unique, undefined);
+
+    // The project names its indexes its own way: only columns and uniqueness are compared, so nothing is left to deploy.
+    const target: Project = {
+      ...schema,
+      tables: schema.tables.map((tbl) => ({
+        ...tbl,
+        indexes: tbl.indexes.map((i, n) => ({ ...i, id: `p${n}`, name: `idx_${tbl.name}_${n}` })),
+      })),
+    };
+    assert.equal(diffTargetAgainstLive(schema, target).hasChanges, false);
+  } finally {
+    await driver.executeMigration(`DROP TABLE IF EXISTS idx_accounts`).catch(() => {});
     await driver.close();
   }
 });

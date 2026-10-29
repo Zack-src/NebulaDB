@@ -24,7 +24,7 @@ export function registerAccountRoutes(app: FastifyInstance): void {
     requireAdmin(req);
     const { id } = req.params as { id: string };
     const { database } = refFromQuery(req);
-    return withDriver(loadConnection(id), "admin", async (driver) => ({
+    return withDriver(await loadConnection(id), "admin", async (driver) => ({
       principals: await driver.listPrincipals(database),
     }));
   });
@@ -39,7 +39,9 @@ export function registerAccountRoutes(app: FastifyInstance): void {
       kind: query.kind === "role" ? ("role" as const) : ("user" as const),
       database: optionalName(query.database, "database"),
     };
-    return withDriver(loadConnection(id), "admin", async (driver) => ({ grants: await driver.listGrants(principal) }));
+    return withDriver(await loadConnection(id), "admin", async (driver) => ({
+      grants: await driver.listGrants(principal),
+    }));
   });
 
   app.post("/api/admin/connections/:id/users", WRITE_LIMIT, async (req) => {
@@ -58,13 +60,13 @@ export function registerAccountRoutes(app: FastifyInstance): void {
     requireName(action.principal.name, "principal");
     const database = optionalName(action.principal.database, "database");
     const execute = body.execute === true;
-    const connection = loadConnection(id);
+    const connection = await loadConnection(id);
     // Refused on the preview already, before anything connects: the account
     // Nebula itself signs in with cannot be dropped, locked or given a new
     // password from here — that would lock the console out of the database.
     const locksOut =
       action.type === "drop" || action.type === "password" || (action.type === "lock" && action.locked !== false);
-    if (locksOut && isConnectionAccount(connection, action.principal.name, user.id)) {
+    if (locksOut && (await isConnectionAccount(connection, action.principal.name, user.id))) {
       throw new ApiError("DB_ADMIN_CONNECTION_ACCOUNT_PROTECTED", {
         details: { principal: action.principal.name },
       });
@@ -102,7 +104,7 @@ export function registerAccountRoutes(app: FastifyInstance): void {
                   ? "dbuser.grant"
                   : "dbuser.revoke";
       // `result.sql` is the masked text — a password never reaches the audit log.
-      auditUser(user, auditAction, { type: "connection", id }, result.sql.join("; "), req);
+      await auditUser(user, auditAction, { type: "connection", id }, result.sql.join("; "), req);
     }
     return result;
   });
@@ -112,7 +114,7 @@ export function registerAccountRoutes(app: FastifyInstance): void {
   app.get("/api/admin/connections/:id/sessions", READ_LIMIT, async (req) => {
     requireAdmin(req);
     const { id } = req.params as { id: string };
-    return withDriver(loadConnection(id), "admin", async (driver) => ({ sessions: await driver.listSessions() }));
+    return withDriver(await loadConnection(id), "admin", async (driver) => ({ sessions: await driver.listSessions() }));
   });
 
   app.post("/api/admin/connections/:id/sessions/kill", WRITE_LIMIT, async (req) => {
@@ -124,12 +126,12 @@ export function registerAccountRoutes(app: FastifyInstance): void {
     }
     const sessionId = body.sessionId;
     const execute = body.execute === true;
-    const connection = loadConnection(id);
+    const connection = await loadConnection(id);
     if (execute) assertWritable(connection);
     const result = await withDriver(connection, execute ? "adminWrite" : "admin", (driver) =>
       previewOrExecute(driver, driver.killSessionStatements(sessionId), execute, undefined),
     );
-    if (execute) auditUser(user, "dbadmin.session.kill", { type: "connection", id }, sessionId, req);
+    if (execute) await auditUser(user, "dbadmin.session.kill", { type: "connection", id }, sessionId, req);
     return result;
   });
 }

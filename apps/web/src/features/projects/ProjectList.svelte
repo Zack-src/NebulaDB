@@ -1,6 +1,32 @@
 <script lang="ts">
+  import PageContainer from "@/components/layout/PageContainer.svelte";
+  import PageHeader from "@/components/layout/PageHeader.svelte";
+  import FolderNavigator from "@/features/projects/components/FolderNavigator.svelte";
   import Icon from "@/components/icons/Icon.svelte";
-  import { DatabaseIcon, FolderIcon, PlusIcon, TrashIcon } from "@/components/icons/Icons";
+  import {
+    CopyIcon,
+    DatabaseIcon,
+    FolderIcon,
+    LayersIcon,
+    PencilIcon,
+    PlusIcon,
+    TrashIcon,
+  } from "@/components/icons/Icons";
+  import ContextMenu, { type ContextMenuEntry } from "@/components/overlays/ContextMenu.svelte";
+  import type { ProjectFolder } from "@nebuladb/shared";
+  import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
+  import FolderNameModal from "@/features/projects/components/FolderNameModal.svelte";
+  import MoveProjectModal from "@/features/projects/components/MoveProjectModal.svelte";
+  import { folderPath, shownFolderOf } from "@/features/projects/components/folderTree";
+  import {
+    createFolder,
+    createVariant,
+    deleteFolder,
+    fetchFolders,
+    moveProjectToFolder,
+    updateFolder,
+  } from "@/services/variantsApi";
+  import { describeApiError } from "@/i18n/serverErrorMessages";
   import { useDraftValue } from "@/hooks/draftValue.svelte";
   import ProjectTeamsModal from "@/features/teams/ProjectTeamsModal.svelte";
   import ProjectTabs from "@/features/projects/components/ProjectTabs.svelte";
@@ -9,6 +35,10 @@
   import DeleteProjectModal from "@/features/projects/components/DeleteProjectModal.svelte";
   import EmptyTrashModal from "@/features/projects/components/EmptyTrashModal.svelte";
   import NewProjectFromDatabaseModal from "@/features/projects/NewProjectFromDatabaseModal.svelte";
+  import TemplatePickerModal from "@/features/projects/templates/TemplatePickerModal.svelte";
+  import { projectTemplateSource, type ProjectTemplateId } from "@/features/projects/templates/projectTemplates";
+  import { importSource } from "@/services/projectsApi";
+  import ShareLinksModal from "@/features/projects/components/ShareLinksModal.svelte";
   import WebhooksModal from "@/features/projects/components/WebhooksModal.svelte";
   import GlobalSearchResults from "@/features/projects/components/GlobalSearchResults.svelte";
   import type { SearchHit } from "@/services/searchApi";
@@ -18,13 +48,16 @@
   import EmptyState from "@/components/ui/EmptyState.svelte";
   import SkeletonCardGrid from "@/components/ui/SkeletonCardGrid.svelte";
   import Input from "@/components/ui/Input.svelte";
-  import { useTranslation } from "@/i18n/i18n.svelte";
+  import { toast } from "@/components/ui/toast.svelte";
+import { useTranslation } from "@/i18n/i18n.svelte";
   import type { CreateProjectResult } from "@/features/projects/projects.svelte";
   import type { ProjectStatus, ProjectSummary } from "@/types";
 
   let {
     projects,
     loaded,
+    loadFailed = false,
+    onRetry,
     onCreateProject,
     onOpen,
     onOpenSearchHit,
@@ -33,9 +66,12 @@
     onDeleteForever,
     onEmptyTrash,
     onProjectCreatedFromDatabase,
+    onProjectsChanged,
   }: {
     projects: ProjectSummary[];
     loaded: boolean;
+    loadFailed?: boolean;
+    onRetry?: () => void;
     onCreateProject: (name: string) => Promise<CreateProjectResult>;
     onOpen: (project: ProjectSummary) => void;
     onOpenSearchHit: (hit: SearchHit) => void;
@@ -45,6 +81,8 @@
     onEmptyTrash: (projects: ProjectSummary[]) => Promise<string | null>;
     /** Fired once the modal's `createProjectFromDatabase` call succeeds — the caller refreshes the list and navigates in. */
     onProjectCreatedFromDatabase: (result: CreateProjectFromDatabaseResponse) => void;
+    /** A project moved to a folder: the list is fetched again. */
+    onProjectsChanged?: () => void;
   } = $props();
 
   const { t } = useTranslation();
@@ -63,12 +101,15 @@
   let deletePending = $state(false);
   let teamsTarget = $state.raw<ProjectSummary | null>(null);
   let webhooksTarget = $state.raw<ProjectSummary | null>(null);
+  let shareLinksTarget = $state.raw<ProjectSummary | null>(null);
   let emptyTrashOpen = $state(false);
   let emptyTrashError = $state<string | null>(null);
   let emptyTrashPending = $state(false);
   let createError = $state<string | null>(null);
   let creating = $state(false);
   let newFromDatabaseOpen = $state(false);
+  let templatePickerOpen = $state(false);
+  let templateError = $state<string | null>(null);
 
   function commitRename() {
     nameDraft.commit();
@@ -91,10 +132,158 @@
 
   const currentSection = $derived(PROJECT_SECTIONS.find((entry) => entry.key === section)!);
   const normalisedQuery = $derived(searchQuery.trim().toLowerCase());
+
+  // ---- folders: only in the active list and outside a search, which looks everywhere ----
+  let folders = $state.raw<ProjectFolder[]>([]);
+  let folderError = $state<string | null>(null);
+  let currentFolderId = $state<string | null>(null);
+  const loadFolders = () =>
+    fetchFolders()
+      .then((loaded) => {
+        folders = loaded;
+        // The folder being shown was deleted (here or elsewhere): back to the top.
+        if (currentFolderId && !loaded.some((folder) => folder.id === currentFolderId)) currentFolderId = null;
+      })
+      .catch((err: unknown) => (folderError = describeApiError(err, t)));
+  $effect(() => {
+    void loadFolders();
+  });
+  const browsingFolders = $derived(section === "active" && !normalisedQuery);
+  const breadcrumb = $derived(folderPath(folders, currentFolderId));
+  const subfolders = $derived(
+    browsingFolders ? folders.filter((folder) => folder.parentId === currentFolderId) : [],
+  );
+  const activeProjects = $derived(projects.filter((project) => project.status === "active"));
+  let folderDialog = $state<{ mode: "create" } | { mode: "rename"; folder: ProjectFolder } | null>(null);
+  let folderToDelete = $state.raw<ProjectFolder | null>(null);
+  let moveTarget = $state.raw<ProjectSummary | null>(null);
+  const variantCounts = $derived(
+    projects.reduce((counts, project) => {
+      if (project.variantOf) counts.set(project.variantOf, (counts.get(project.variantOf) ?? 0) + 1);
+      return counts;
+    }, new Map<string, number>()),
+  );
+  const projectNames = $derived(new Map(projects.map((project) => [project.id, project.name])));
+
+  async function saveFolder(name: string) {
+    if (folderDialog?.mode === "rename") await updateFolder(folderDialog.folder.id, { name });
+    else await createFolder(name, newFolderParent);
+    await loadFolders();
+  }
+
+  async function removeFolder() {
+    const folder = folderToDelete;
+    folderToDelete = null;
+    if (!folder) return;
+    try {
+      await deleteFolder(folder.id);
+      folderError = null;
+    } catch (err) {
+      folderError = describeApiError(err, t);
+    }
+    await loadFolders();
+    onProjectsChanged?.();
+  }
+
+  async function moveProject(folderId: string | null) {
+    if (!moveTarget) return;
+    await moveProjectToFolder(moveTarget.id, folderId);
+    onProjectsChanged?.();
+  }
+
+  // ---- right click: what can be done here, on a project, on a folder ----
+  let contextMenu = $state<{ x: number; y: number; label: string; entries: ContextMenuEntry[] } | null>(null);
+  let variantSource = $state.raw<ProjectSummary | null>(null);
+  let newFolderParent = $state<string | null>(null);
+
+  function openMenu(event: MouseEvent, label: string, entries: ContextMenuEntry[]) {
+    event.preventDefault();
+    event.stopPropagation();
+    contextMenu = { x: event.clientX, y: event.clientY, label, entries };
+  }
+
+  function newFolderIn(parentId: string | null) {
+    newFolderParent = parentId;
+    folderDialog = { mode: "create" };
+  }
+
+  const onEmptyArea = (event: MouseEvent) =>
+    section === "active" &&
+    openMenu(event, t("projects.menu.list"), [
+      { label: t("folders.new"), icon: FolderIcon, onSelect: () => newFolderIn(currentFolderId) },
+      { label: t("projects.newProject"), icon: PlusIcon, onSelect: () => void handleCreate() },
+      { label: t("projects.fromTemplate"), icon: LayersIcon, onSelect: openTemplatePicker },
+    ]);
+
+  function onProjectMenu(event: MouseEvent, project: ProjectSummary) {
+    const admin = project.permission === "administrator";
+    const entries: ContextMenuEntry[] = [{ label: t("projects.menu.open"), onSelect: () => onOpen(project) }];
+    if (section === "active") {
+      if (admin) {
+        entries.push({ label: t("common.rename"), icon: PencilIcon, onSelect: () => (renamingId = project.id) });
+        entries.push({ label: t("folders.move"), icon: FolderIcon, onSelect: () => (moveTarget = project) });
+      }
+      if (!project.variantOf)
+        entries.push({ label: t("variants.create"), icon: CopyIcon, onSelect: () => (variantSource = project) });
+      if (admin)
+        entries.push("separator", {
+          label: t("projects.card.moveToTrash"),
+          icon: TrashIcon,
+          danger: true,
+          onSelect: () => onSetStatus(project, "trashed"),
+        });
+    }
+    openMenu(event, project.name, entries);
+  }
+
+  function onFolderMenu(event: MouseEvent, folder: ProjectFolder) {
+    openMenu(event, folder.name, [
+      { label: t("projects.menu.open"), onSelect: () => (currentFolderId = folder.id) },
+      { label: t("folders.newInside"), icon: FolderIcon, onSelect: () => newFolderIn(folder.id) },
+      { label: t("common.rename"), icon: PencilIcon, onSelect: () => (folderDialog = { mode: "rename", folder }) },
+      "separator",
+      { label: t("common.delete"), icon: TrashIcon, danger: true, onSelect: () => (folderToDelete = folder) },
+    ]);
+  }
+
+  // ---- drag and drop: a project onto a folder tile or a step of the path ----
+  const DRAG_TYPE = "application/x-nebuladb-project";
+  let dragging = $state<string | null>(null);
+  let dropTarget = $state<string | null>(null);
+  const TOP = "__top__";
+
+  function dropProps(folderId: string | null) {
+    const key = folderId ?? TOP;
+    return {
+      ondragover: (event: DragEvent) => {
+        if (!dragging) return;
+        event.preventDefault();
+        if (event.dataTransfer) event.dataTransfer.dropEffect = "move";
+        dropTarget = key;
+      },
+      ondragleave: () => {
+        if (dropTarget === key) dropTarget = null;
+      },
+      ondrop: (event: DragEvent) => {
+        event.preventDefault();
+        const projectId = event.dataTransfer?.getData(DRAG_TYPE) || dragging;
+        dropTarget = null;
+        dragging = null;
+        if (!projectId) return;
+        moveProjectToFolder(projectId, folderId)
+          .then(() => onProjectsChanged?.())
+          .catch((err: unknown) => (folderError = describeApiError(err, t)));
+      },
+    };
+  }
+  const dropClass = (folderId: string | null) =>
+    dragging && dropTarget === (folderId ?? TOP) ? "ring-2 ring-primary ring-offset-1 ring-offset-bg" : "";
+
   const visibleProjects = $derived(
     projects
       .filter((project) => project.status === section)
-      .filter((project) => (normalisedQuery ? project.name.toLowerCase().includes(normalisedQuery) : true)),
+      .filter((project) => (normalisedQuery ? project.name.toLowerCase().includes(normalisedQuery) : true))
+      .filter((project) => !browsingFolders || shownFolderOf(folders, project.folderId) === currentFolderId),
   );
   const openable = $derived(section !== "trashed");
   const deletableTrash = $derived(
@@ -129,49 +318,109 @@
       return;
     }
     if (section !== "active") section = "active";
+    // Made inside the folder being shown.
+    if (currentFolderId) {
+      await moveProjectToFolder(result.id, currentFolderId).catch(() => toast.warning(t("projects.moveToFolderFailed")));
+      onProjectsChanged?.();
+    }
     renamingId = result.id;
   }
+
+  function openTemplatePicker() {
+    templateError = null;
+    templatePickerOpen = true;
+  }
+
+  /** Same instant-create-then-rename flow, named after the template and seeded through the ordinary import. */
+  async function handleCreateFromTemplate(template: ProjectTemplateId) {
+    if (creating) return;
+    templateError = null;
+    creating = true;
+    const result = await onCreateProject(t(`projects.templates.${template}.name`));
+    if ("error" in result) {
+      creating = false;
+      templateError = result.error;
+      return;
+    }
+    try {
+      await importSource(result.id, projectTemplateSource(template));
+    } catch {
+      toast.warning(t("projects.templates.failed"));
+    }
+    creating = false;
+    templatePickerOpen = false;
+    if (section !== "active") section = "active";
+    if (currentFolderId) {
+      await moveProjectToFolder(result.id, currentFolderId).catch(() => toast.warning(t("projects.moveToFolderFailed")));
+    }
+    onProjectsChanged?.();
+    renamingId = result.id;
+  }
+
+  /** The very first visit: no project, no folder, nothing searched. */
+  const firstRun = $derived(
+    section === "active" && !normalisedQuery && projects.length === 0 && folders.length === 0 && !currentFolderId,
+  );
 </script>
 
 <div class="flex h-full min-h-0">
-  <div class="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-6 md:px-6">
-    <div class="mx-auto max-w-[1040px]">
-      <div class="mb-6 flex flex-col justify-between gap-4 md:flex-row md:items-center">
-        <div class="flex items-center gap-2.5">
-          <span class="flex h-9 w-9 items-center justify-center rounded-lg bg-primary-light text-primary">
-            <Icon icon={FolderIcon} size={18} />
-          </span>
-          <div>
-            <h1 class="text-xl font-semibold tracking-tight">{t("projects.title")}</h1>
-            <p class="text-xs text-text-muted">{t("projects.subtitle")}</p>
-          </div>
-        </div>
-
-        <div class="flex flex-wrap items-center gap-2">
+  <!-- svelte-ignore a11y_no_static_element_interactions -->
+  <div class="min-h-0 min-w-0 flex-1 overflow-y-auto px-4 py-6 md:px-6" oncontextmenu={onEmptyArea} data-testid="project-list">
+    <PageContainer>
+      <PageHeader title={t("projects.title")} icon={FolderIcon} description={t("projects.subtitle")}>
+        {#snippet actions()}
           <Input
             wrapperClassName="w-full sm:w-56"
             placeholder={t("projects.searchPlaceholder")}
             bind:value={searchQuery}
           />
-          <Button variant="primary" onclick={handleCreate} disabled={creating} class="shrink-0 gap-2 text-xs">
+          <Button onclick={() => newFolderIn(currentFolderId)} class="shrink-0 gap-2 text-label">
+            <Icon icon={FolderIcon} size={14} />
+            {t("folders.new")}
+          </Button>
+          <Button variant="primary" onclick={handleCreate} disabled={creating} class="shrink-0 gap-2 text-label">
             <Icon icon={PlusIcon} size={14} />
             {creating ? t("projects.creating") : t("projects.newProject")}
           </Button>
           <Button
+            onclick={openTemplatePicker}
+            class="shrink-0 gap-2 text-label"
+            aria-label={t("projects.fromTemplate")}
+            data-tooltip={t("projects.fromTemplate")}
+            data-tooltip-pos="bottom"
+          >
+            <Icon icon={LayersIcon} size={14} />
+          </Button>
+          <Button
             onclick={() => (newFromDatabaseOpen = true)}
-            class="shrink-0 gap-2 text-xs"
+            class="shrink-0 gap-2 text-label"
             aria-label={t("projects.newFromDatabase")}
           >
             <Icon icon={DatabaseIcon} size={14} />
           </Button>
-        </div>
-      </div>
+        {/snippet}
+      </PageHeader>
 
       <div class="mb-4">
         <ProjectTabs {projects} {section} onSectionChange={(next) => (section = next)} />
       </div>
 
       {#if createError}<ErrorText>{createError}</ErrorText>{/if}
+      {#if folderError}<ErrorText>{folderError}</ErrorText>{/if}
+      <FolderNavigator
+        {folders}
+        {activeProjects}
+        {breadcrumb}
+        {subfolders}
+        {currentFolderId}
+        showBreadcrumb={browsingFolders && (breadcrumb.length > 0 || subfolders.length > 0)}
+        onOpenFolder={(id) => (currentFolderId = id)}
+        onRenameFolder={(folder) => (folderDialog = { mode: "rename", folder })}
+        onDeleteFolder={(folder) => (folderToDelete = folder)}
+        onFolderMenu={onFolderMenu}
+        {dropProps}
+        {dropClass}
+      />
       {#if section === "trashed" && deletableTrash.length > 0}
         <div class="mb-3 flex justify-end">
           <Button
@@ -187,16 +436,62 @@
           </Button>
         </div>
       {/if}
-      {#if !loaded}
+      {#if loadFailed && projects.length === 0}
+        <div class="flex flex-col items-center gap-3 py-10">
+          <ErrorText>{t("projects.loadFailed")}</ErrorText>
+          {#if onRetry}<Button size="sm" variant="outline" onclick={onRetry}>{t("common.retry")}</Button>{/if}
+        </div>
+      {:else if !loaded}
         <!-- Placeholders, not the empty state: before the fetch settles an
              empty array means "unknown", and claiming the user has no
              projects is a wrong statement rather than a slow one. -->
         <SkeletonCardGrid count={4} />
       {:else if visibleProjects.length === 0}
-        <EmptyState>{normalisedQuery ? t("projects.noSearchMatch") : t(currentSection.emptyKey)}</EmptyState>
+        {#if firstRun}
+          <div class="flex flex-col items-center gap-4 rounded-md border border-dashed border-border px-4 py-10 text-center" data-testid="first-project">
+            <div>
+              <h2 class="m-0 text-heading font-semibold text-text">{t("projects.firstProject.title")}</h2>
+              <p class="m-0 mt-1 max-w-xl text-body text-text-muted">{t("projects.firstProject.body")}</p>
+            </div>
+            <div class="flex flex-wrap justify-center gap-2">
+              <Button variant="primary" onclick={handleCreate} disabled={creating} class="gap-2 text-label">
+                <Icon icon={PlusIcon} size={14} />
+                {t("projects.newProject")}
+              </Button>
+              <Button onclick={openTemplatePicker} disabled={creating} class="gap-2 text-label">
+                <Icon icon={LayersIcon} size={14} />
+                {t("projects.fromTemplate")}
+              </Button>
+              <Button onclick={() => (newFromDatabaseOpen = true)} class="gap-2 text-label">
+                <Icon icon={DatabaseIcon} size={14} />
+                {t("projects.newFromDatabase")}
+              </Button>
+            </div>
+          </div>
+        {:else if !(browsingFolders && (currentFolderId || subfolders.length > 0))}
+          <EmptyState>{normalisedQuery ? t("projects.noSearchMatch") : t(currentSection.emptyKey)}</EmptyState>
+        {:else if currentFolderId}
+          <EmptyState>{t("folders.empty")}</EmptyState>
+        {/if}
       {:else}
         <div class="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-4">
           {#each visibleProjects as project (project.id)}
+            <!-- svelte-ignore a11y_no_static_element_interactions -->
+            <div
+              class={dragging === project.id ? "opacity-50" : ""}
+              draggable={browsingFolders && project.permission === "administrator" && renamingId !== project.id}
+              ondragstart={(event) => {
+                dragging = project.id;
+                event.dataTransfer?.setData(DRAG_TYPE, project.id);
+                if (event.dataTransfer) event.dataTransfer.effectAllowed = "move";
+              }}
+              ondragend={() => {
+                dragging = null;
+                dropTarget = null;
+              }}
+              oncontextmenu={(event) => onProjectMenu(event, project)}
+              data-testid="project-tile"
+            >
             <ProjectCard
               {project}
               {section}
@@ -212,12 +507,17 @@
               onDeleteForever={() => openDeleteConfirmation(project)}
               onManageTeams={() => (teamsTarget = project)}
               onManageWebhooks={() => (webhooksTarget = project)}
+              onMove={() => (moveTarget = project)}
+              variantOfName={project.variantOf ? (projectNames.get(project.variantOf) ?? null) : null}
+              variantCount={variantCounts.get(project.id) ?? 0}
+              onManageShareLinks={() => (shareLinksTarget = project)}
             />
+            </div>
           {/each}
         </div>
       {/if}
       <GlobalSearchResults query={searchQuery} onOpenHit={onOpenSearchHit} />
-    </div>
+    </PageContainer>
   </div>
 
   {#if deleteTarget}
@@ -247,8 +547,68 @@
       }}
     />
   {/if}
+  {#if templatePickerOpen}
+    <TemplatePickerModal
+      busy={creating}
+      error={templateError}
+      onPick={(id) => void handleCreateFromTemplate(id)}
+      onClose={() => (templatePickerOpen = false)}
+    />
+  {/if}
   {#if webhooksTarget}
     <WebhooksModal project={webhooksTarget} onClose={() => (webhooksTarget = null)} />
+  {/if}
+  {#if contextMenu}
+    <ContextMenu
+      x={contextMenu.x}
+      y={contextMenu.y}
+      label={contextMenu.label}
+      entries={contextMenu.entries}
+      onClose={() => (contextMenu = null)}
+    />
+  {/if}
+  {#if variantSource}
+    <FolderNameModal
+      title={t("variants.createOf", { name: variantSource.name })}
+      label={t("variants.createName")}
+      placeholder={t("variants.createPlaceholder", { name: variantSource.name })}
+      onSave={async (name) => {
+        if (!variantSource) return;
+        await createVariant(variantSource.id, name);
+        onProjectsChanged?.();
+      }}
+      onClose={() => (variantSource = null)}
+    />
+  {/if}
+  {#if folderDialog}
+    <FolderNameModal
+      title={folderDialog.mode === "rename" ? t("folders.renameTitle") : t("folders.new")}
+      initialName={folderDialog.mode === "rename" ? folderDialog.folder.name : ""}
+      onSave={saveFolder}
+      onClose={() => (folderDialog = null)}
+    />
+  {/if}
+  {#if folderToDelete}
+    <ConfirmDialog
+      title={t("folders.deleteTitle", { name: folderToDelete.name })}
+      message={t("folders.deleteMessage")}
+      danger="warning"
+      confirmLabel={t("common.delete")}
+      onCancel={() => (folderToDelete = null)}
+      onConfirm={() => void removeFolder()}
+    />
+  {/if}
+  {#if moveTarget}
+    <MoveProjectModal
+      projectName={moveTarget.name}
+      currentFolderId={shownFolderOf(folders, moveTarget.folderId)}
+      {folders}
+      onMove={moveProject}
+      onClose={() => (moveTarget = null)}
+    />
+  {/if}
+  {#if shareLinksTarget}
+    <ShareLinksModal project={shareLinksTarget} onClose={() => (shareLinksTarget = null)} />
   {/if}
   {#if teamsTarget}
     <ProjectTeamsModal project={teamsTarget} onClose={() => (teamsTarget = null)} />

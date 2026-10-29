@@ -76,8 +76,8 @@ test(
       // The project follows it: the source says so and the custom rule runs.
       await page.goto(`${env.baseUrl}/project/${projectId}/problems`);
       const source = page.getByTestId("lint-source");
-      await source.waitFor();
-      assert.equal(await source.getAttribute("data-source"), "default");
+      // Waited for, not read at once: the attribute starts as "builtin" until the settings arrive.
+      await page.locator('[data-testid="lint-source"][data-source="default"]').waitFor();
       assert.match((await page.getByTestId("lint-source-text").textContent()) ?? "", /Entreprise/);
       const panel = page.getByTestId("problems");
       const custom = panel.locator('[data-table="orders"] [data-rule^="custom:"]');

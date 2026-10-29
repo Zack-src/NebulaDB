@@ -5,6 +5,13 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { chromium, type Browser, type Locator, type Page } from "playwright-core";
 
+// The server's own helper, from its build like the server itself (`npm run build` comes first).
+const { createThrowawayDatabase } = (await import(
+  new URL("../../server/dist/infrastructure/testDatabase.js", import.meta.url).href
+)) as {
+  createThrowawayDatabase(label: string): Promise<{ url: string; drop(): Promise<void> }>;
+};
+
 /**
  * Shared boot/teardown for every `*.e2e.ts` file — spawn a real server
  * (built `apps/server/dist`) against a throwaway SQLite file, launch a real
@@ -84,7 +91,7 @@ async function launchBrowser(): Promise<Browser> {
  */
 export async function clickRevealedOnHover(table: Locator, control: Locator): Promise<void> {
   let last = "";
-  let stableSince = 0;
+  let stableSince = Date.now();
   for (let attempt = 0; attempt < 200 && Date.now() - stableSince < 1200; attempt++) {
     const now = JSON.stringify(await table.boundingBox());
     if (now !== last) {
@@ -106,8 +113,31 @@ export async function clickRevealedOnHover(table: Locator, control: Locator): Pr
   await table.page().mouse.click(box.x + box.width / 2, box.y + box.height / 2);
 }
 
-/** Logs the seeded admin in and waits for the dashboard to be interactive. */
+/**
+ * Replaces what a CodeMirror editor holds. `content` is its `.cm-content` —
+ * the element with the `textbox` role, so `getByRole("textbox", { name })`
+ * finds the SQL console's by its label.
+ *
+ * Inserted in one go (a paste): typed key by key, bracket-closing and
+ * completion would rewrite the text. The completion list is closed by leaving
+ * the field, never with Escape, which a dialog around it would take for itself.
+ */
+export async function fillCodeEditor(content: Locator, text: string): Promise<void> {
+  const page = content.page();
+  await content.click();
+  await page.keyboard.press("ControlOrMeta+a");
+  await page.keyboard.insertText(text);
+}
+
+/** The text a CodeMirror editor holds, line breaks included. */
+export async function codeEditorText(content: Locator): Promise<string> {
+  return (await content.locator(".cm-line").allInnerTexts()).join("\n");
+}
+
+/** Logs the seeded admin in and waits for the dashboard to be interactive. The tour is marked as seen. */
 export async function login(page: Page, baseUrl: string): Promise<void> {
+  // The workspace tour is for a first visit; every other test starts as someone who has seen it.
+  await page.addInitScript(() => localStorage.setItem("nebuladb.tour.workspace.seen", "true"));
   await page.goto(baseUrl);
   await page.getByLabel("Adresse e-mail").fill(ADMIN_EMAIL);
   await page.getByLabel("Mot de passe").fill(ADMIN_PASSWORD);
@@ -135,12 +165,17 @@ export async function startE2eEnvironment(
   port: number,
   /** Extra server env on top of the defaults — e.g. SMTP settings for the email flows. */
   extraEnv: NodeJS.ProcessEnv = {},
+  /** `seedAdmin: false` starts with no account at all, as a fresh install does (the first-run setup). */
+  options: { seedAdmin?: boolean } = {},
 ): Promise<E2eEnvironment> {
   const baseUrl = `http://127.0.0.1:${port}`;
   const dataDir = mkdtempSync(join(tmpdir(), "nebuladb-e2e-"));
+  // A throwaway database on the test PostgreSQL, as the server's own tests use (`NEBULADB_TEST_PG_*`).
+  const database = await createThrowawayDatabase(`e2e_${port}`);
   const env: NodeJS.ProcessEnv = {
     ...process.env,
-    NEBULADB_DB_PATH: join(dataDir, "nebuladb.sqlite"),
+    NEBULADB_DATABASE_URL: database.url,
+    NEBULADB_DATABASE_BACKUP_DIR: join(dataDir, "database-backups"),
     NEBULADB_COOKIE_SECURE: "false",
     NEBULADB_SECRET: "e2e-test-secret-do-not-use-in-production",
     NEBULADB_LOG_LEVEL: "silent",
@@ -161,10 +196,12 @@ export async function startE2eEnvironment(
       await new Promise((resolve) => server!.once("exit", resolve)).catch(() => {});
     }
     rmSync(dataDir, { recursive: true, force: true });
+    await database.drop().catch(() => {});
   };
 
   try {
-    await runNodeScript("apps/server/dist/bootstrap-admin.js", [ADMIN_EMAIL, ADMIN_PASSWORD], env);
+    if (options.seedAdmin !== false)
+      await runNodeScript("apps/server/dist/bootstrap-admin.js", [ADMIN_EMAIL, ADMIN_PASSWORD], env);
 
     server = spawn(process.execPath, [join(REPO_ROOT, "apps/server/dist/index.js")], { env, cwd: REPO_ROOT });
     let serverOutput = "";

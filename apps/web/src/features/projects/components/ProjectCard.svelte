@@ -3,13 +3,22 @@
 </script>
 
 <script lang="ts">
+  import Input from "@/components/ui/Input.svelte";
   import { MAX_NAME_LENGTH } from "@nebuladb/shared";
-  import { autofocus } from "@/actions/autofocus";
   import Icon from "@/components/icons/Icon.svelte";
-  import { ArchiveIcon, LinkIcon, PencilIcon, RestoreIcon, TrashIcon, UsersIcon } from "@/components/icons/Icons";
+  import {
+    ArchiveIcon,
+    EyeIcon,
+    FolderIcon,
+    LayersIcon,
+    LinkIcon,
+    PencilIcon,
+    RestoreIcon,
+    TrashIcon,
+    UsersIcon,
+  } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
   import Badge from "@/components/ui/Badge.svelte";
-  import { INPUT_SM_CLASS } from "@/components/ui/inputStyles";
   import { formatDate } from "@/i18n/formatters";
   import { i18n, useTranslation } from "@/i18n/i18n.svelte";
   import type { ProjectStatus, ProjectSummary } from "@/types";
@@ -31,6 +40,10 @@
     onDeleteForever,
     onManageTeams,
     onManageWebhooks,
+    onMove,
+    variantOfName = null,
+    variantCount = 0,
+    onManageShareLinks,
   }: {
     project: ProjectSummary;
     section: ProjectStatus;
@@ -46,6 +59,13 @@
     onDeleteForever: () => void;
     onManageTeams: () => void;
     onManageWebhooks: () => void;
+    /** Puts the project in another folder. */
+    onMove?: () => void;
+    /** For a client variant: its original's name (`null` when hidden from the reader). */
+    variantOfName?: string | null;
+    /** For an original: how many client variants it has. */
+    variantCount?: number;
+    onManageShareLinks: () => void;
   } = $props();
 
   const { t } = useTranslation();
@@ -88,9 +108,9 @@
   <div class="p-3">
     <div class="flex flex-wrap items-start gap-2">
       {#if isRenaming}
-        <input
-          use:autofocus
-          class={`${INPUT_SM_CLASS} mb-0.5 w-full font-semibold`}
+        <Input inputSize="sm"
+          autofocus
+          class="mb-0.5 w-full font-semibold"
           value={nameDraft}
           maxlength={MAX_NAME_LENGTH}
           onclick={(event) => event.stopPropagation()}
@@ -151,6 +171,17 @@
             >
               <Icon icon={UsersIcon} size={13} />
             </Button>
+            {#if onMove && section === "active"}
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                data-tooltip={t("folders.move")}
+                aria-label={t("folders.move")}
+                onclick={action(onMove)}
+              >
+                <Icon icon={FolderIcon} size={13} />
+              </Button>
+            {/if}
             <Button
               variant="ghost"
               size="icon-sm"
@@ -159,6 +190,15 @@
               onclick={action(onManageWebhooks)}
             >
               <Icon icon={LinkIcon} size={13} />
+            </Button>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              data-tooltip={t("projects.card.shareLinks")}
+              aria-label={t("projects.card.shareLinks")}
+              onclick={action(onManageShareLinks)}
+            >
+              <Icon icon={EyeIcon} size={13} />
             </Button>
             {#if section === "archived"}
               <Button
@@ -192,12 +232,23 @@
       {/if}
     </div>
 
-    <div class="flex items-center gap-1.5 text-[11px] text-text-muted">
+    <div class="flex items-center gap-1.5 text-caption text-text-muted">
       <span class="h-1.5 w-1.5 shrink-0 rounded-full" style:background={accent}></span>
       {t("projects.card.createdOn", { date: formatDate(project.created_at, i18n.locale) })}
       {#if project.permission === "view"}
         <Badge tone="muted" class="ml-1">{t("projects.card.readOnly")}</Badge>
       {/if}
     </div>
+
+    {#if project.variantOf || variantCount > 0}
+      <div class="mt-1 flex items-center gap-1 text-caption text-text-muted" data-testid="variant-badge">
+        <Icon icon={LayersIcon} size={11} class="text-primary" />
+        {project.variantOf
+          ? variantOfName
+            ? t("projects.card.variantOf", { name: variantOfName })
+            : t("projects.card.variant")
+          : t("projects.card.variants", { count: variantCount })}
+      </div>
+    {/if}
   </div>
 </div>
