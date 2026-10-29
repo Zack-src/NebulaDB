@@ -39,6 +39,7 @@
     <Icon icon={SearchIcon} size={13} class="shrink-0 text-text-muted" />
     <input
       use:autofocus
+      data-canvas-search-input
       value={query}
       oninput={(event) => onQueryChange(event.currentTarget.value)}
       onkeydown={(event) => {
