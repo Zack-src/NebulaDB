@@ -250,8 +250,16 @@ async function planDeployment(
   if (clean) {
     // Nothing to settle: no diff of columns, no conflicts. The seeds still go in after the tables.
     const scope = cleanScope(liveProject, canvasProject, await deployedTablesOf(projectId, conn.id), clean.includeUnmanaged);
-    const seeds = skipSeeds ? null : await prepareSeeds(projectId, canvasProject);
-    if (seeds) assertSeedsDeployable(seeds);
+    // Starting over must not be blocked by data that cannot go in: the schema is rebuilt and the seeds left out
+    // (they stay in the project, to fix and deploy later) rather than asking to correct anything before a wipe.
+    let seeds = skipSeeds ? null : await prepareSeeds(projectId, canvasProject);
+    if (seeds) {
+      try {
+        assertSeedsDeployable(seeds);
+      } catch {
+        seeds = null;
+      }
+    }
     return { diff, acceptedRisks: [], seeds, sql: planCleanDeployment(liveProject, canvasProject, conn.engine, scope).sql };
   }
   // Measured again here, whatever the plan said: the data may have moved

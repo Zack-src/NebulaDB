@@ -50,7 +50,9 @@
   let failure = $state.raw<DeploymentFailure | null>(null);
 
   const preview = useAsyncResource(() => previewCleanDeployment(projectId, connId, includeUnmanaged));
-  const confirmed = $derived(typed.trim() === connectionName.trim());
+  // A fixed word, not the connection's name: the name may differ in case or spacing from one machine to the next.
+  const confirmWord = $derived(t("deployment.clean.confirmWord"));
+  const confirmed = $derived(typed.trim().toUpperCase() === confirmWord.toUpperCase());
   const ready = $derived(preview.data !== null && !preview.loading && !preview.error);
 
   async function run() {
@@ -58,7 +60,7 @@
     error = null;
     failure = null;
     try {
-      await applyDeployment(projectId, connId, {}, { clean: { includeUnmanaged }, confirmName: typed, backupBefore });
+      await applyDeployment(projectId, connId, {}, { clean: { includeUnmanaged }, confirmName: connectionName, backupBefore });
       onDone();
       onClose();
     } catch (err) {
@@ -128,8 +130,8 @@
     </Checkbox>
 
     <label class="block text-xs text-text">
-      <span class="mb-1 block font-semibold text-danger">{t("deployment.clean.confirm", { name: connectionName })}</span>
-      <Input bind:value={typed} autocomplete="off" aria-label={t("environments.typeToConfirmLabel")} />
+      <span class="mb-1 block font-semibold text-danger">{t("deployment.clean.confirm", { word: confirmWord })}</span>
+      <Input bind:value={typed} autocomplete="off" placeholder={confirmWord} aria-label={t("deployment.clean.confirmWord")} />
     </label>
 
     {#if failure}
