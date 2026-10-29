@@ -26,8 +26,10 @@
     detectSeparator,
     parseCsv,
     seedRows,
+    serializeCsv,
     suggestMapping,
     validateSeed,
+    withCurrentHeaderNames,
     type SeedIssue,
     type SeedMode,
     type SeedOptions,
@@ -37,8 +39,9 @@
   } from "@nebuladb/shared";
   import Tabs from "@/components/ui/Tabs.svelte";
   import GeneratePanel from "./GeneratePanel.svelte";
+  import SeedEditor from "./SeedEditor.svelte";
   import Icon from "@/components/icons/Icon.svelte";
-  import { DatabaseIcon, FileSpreadsheetIcon, UploadIcon } from "@/components/icons/Icons";
+  import { DatabaseIcon, DownloadIcon, FileSpreadsheetIcon, UploadIcon } from "@/components/icons/Icons";
   import ConfirmDialog from "@/components/overlays/ConfirmDialog.svelte";
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";
@@ -54,6 +57,7 @@
   import { useTranslation } from "@/i18n/i18n.svelte";
   import type { TranslationKeyOf } from "@/types";
   import { formatBytes } from "@/features/sql/format";
+  import { triggerDownload } from "@/utils/download";
   import {
     deleteSeed,
     fetchSeed,
@@ -111,7 +115,7 @@
   let loadError = $state<string | null>(null);
   let confirmingRemove = $state(false);
   let fileInput: HTMLInputElement | undefined = $state();
-  let tab = $state<"file" | "generate">("file");
+  let tab = $state<"file" | "edit" | "generate">("file");
 
   /**
    * A CSV past what the database holds (SEED_MAX_BYTES) is not read here: only its first lines are (a sample,
@@ -169,10 +173,14 @@
   });
 
   const parsed = $derived(content === null ? largeSample : parseCsv(content, separator));
-  const headers = $derived(
-    (parsed[0] ?? []).map((cell, i) => (header ? cell || t("seeds.column", { n: i + 1 }) : t("seeds.column", { n: i + 1 }))),
-  );
   const options = $derived<SeedOptions>({ separator, header, mapping, mode });
+  /** The first line, under the names the mapped columns have now: a column renamed in the schema is renamed here too. */
+  const headRow = $derived(
+    header && parsed[0] ? (withCurrentHeaderNames([parsed[0]], options, table)[0] ?? parsed[0]) : (parsed[0] ?? []),
+  );
+  const headers = $derived(
+    headRow.map((cell, i) => (header ? cell || t("seeds.column", { n: i + 1 }) : t("seeds.column", { n: i + 1 }))),
+  );
   const hasFile = $derived(content !== null || isLarge);
   /** For a big file: its first rows only — the whole file is checked on the server. */
   const validation = $derived(!hasFile ? null : validateSeed(table, parsed, options));
@@ -280,6 +288,25 @@
     mapping = next;
   }
 
+  /** The file's text with its header line brought up to date; untouched when the names already agree. */
+  function currentContent(): string | null {
+    if (content === null || !header || !parsed[0]) return content;
+    const head = parsed[0];
+    if (headRow.every((cell, i) => cell === head[i])) return content;
+    return serializeCsv([headRow, ...parsed.slice(1)], separator);
+  }
+
+  function editRows(rows: (string | null)[][]) {
+    content = serializeCsv(header ? [headRow, ...rows] : rows, separator);
+  }
+
+  function downloadCsv() {
+    const text = currentContent();
+    if (text === null) return;
+    const url = URL.createObjectURL(new Blob([text], { type: "text/csv;charset=utf-8" }));
+    triggerDownload(url, `${table.name}.csv`, true);
+  }
+
   const save = useAsyncAction(async () => {
     if (largeFile !== null || (isLarge && content === null)) {
       progress = null;
@@ -294,8 +321,9 @@
       }
       return;
     }
-    if (content === null) return;
-    await saveSeed(projectId, table.id, { content, options });
+    const text = currentContent();
+    if (text === null) return;
+    await saveSeed(projectId, table.id, { content: text, options });
     toast.success(t("seeds.saved", { table: table.name, count: rowCount ?? 0 }));
     onClose();
   });
@@ -345,6 +373,7 @@
       variant="line"
       tabs={[
         { id: "file", label: t("seeds.tabFile") },
+        ...(content !== null ? [{ id: "edit" as const, label: t("seeds.tabEdit") }] : []),
         { id: "generate", label: t("seeds.tabGenerate") },
       ]}
       activeTab={tab}
@@ -352,6 +381,8 @@
     />
     {#if tab === "generate"}
       <GeneratePanel {projectId} {table} {refs} {canEdit} onUse={useGenerated} />
+    {:else if tab === "edit" && content !== null}
+      <SeedEditor {headers} rows={parsed.slice(header ? 1 : 0)} readOnly={!canEdit} onChange={editRows} />
     {:else}
 
     <div class="flex flex-wrap items-center gap-2">
@@ -372,6 +403,12 @@
           <span class="text-text-muted">{t("seeds.empty")}</span>
         {/if}
       </span>
+      {#if content !== null}
+        <Button size="sm" variant="outline" onclick={downloadCsv} disabled={busy}>
+          <Icon icon={DownloadIcon} size={13} />
+          {t("seeds.download")}
+        </Button>
+      {/if}
       {#if canEdit}
         <input
           bind:this={fileInput}
