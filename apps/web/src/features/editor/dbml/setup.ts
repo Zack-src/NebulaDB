@@ -57,6 +57,7 @@ import {
 import { lintGutter, lintKeymap, nextDiagnostic, openLintPanel } from "@codemirror/lint";
 import { nebulaEditorTheme, dbmlLanguageSupport } from "@/features/editor/dbml/language";
 import { createSearchPanel, openReplacePanel, searchPanelTheme } from "@/features/editor/dbml/searchPanel";
+import { searchScrollMarkersExtension } from "@/features/editor/dbml/searchScrollMarkers";
 import { dbmlCompletion } from "@/features/editor/dbml/completion";
 import { dbmlSymbolsField } from "@/features/editor/dbml/symbols";
 import { dbmlNavigation, goToDefinition, navigateBack, navigateForward } from "@/features/editor/dbml/navigation";
@@ -210,6 +211,7 @@ export function createDbmlExtensions(options: DbmlEditorOptions): Extension[] {
     highlightSelectionMatches({ minSelectionLength: 2 }),
     search({ top: true, createPanel: createSearchPanel }),
     searchPanelTheme,
+    searchScrollMarkersExtension,
     dbmlSymbolsField,
     dbmlLanguageSupport,
     dbmlNavigation,
