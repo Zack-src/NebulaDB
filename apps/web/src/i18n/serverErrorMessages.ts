@@ -266,6 +266,20 @@ export function describeApiError(error: unknown, t: Translator): string {
         : "";
       return t(key, { fields: names });
     }
+    // Says which seeds have errors and which tables form a cycle, so the user knows what to fix.
+    if (error.code === "SEEDS_NOT_DEPLOYABLE") {
+      const broken = Array.isArray(error.details.tables) ? error.details.tables.map(String) : [];
+      const cycles = Array.isArray(error.details.cycles)
+        ? error.details.cycles.map((cycle) => (Array.isArray(cycle) ? cycle.map(String).join(" → ") : String(cycle)))
+        : [];
+      return [
+        t(key),
+        broken.length > 0 ? t("errors.seedsBrokenTables", { tables: broken.join(", ") }) : "",
+        cycles.length > 0 ? t("errors.seedsCycles", { cycles: cycles.join(" ; ") }) : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
+    }
     const tables = error.details.tables;
     return error.code === "TABLE_LOCKED" && Array.isArray(tables) ? t(key, { tables: tables.join(", ") }) : t(key);
   }
