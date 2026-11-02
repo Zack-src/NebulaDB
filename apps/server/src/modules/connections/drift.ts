@@ -193,7 +193,7 @@ export async function checkDrift(
       readProjectFromDoc((await getRoom(projectId)).doc, projectId, projectName),
       conn,
     );
-    const diff = diffTargetAgainstLive(live, canvas);
+    const diff = diffTargetAgainstLive(live, canvas, conn.engine);
     const reference = await loadReference(projectId, connectionId);
     const since = reference ? diffFingerprints(reference, fingerprintSchema(live)) : null;
     return {

@@ -233,7 +233,7 @@ test("suggestions are measured, merged, ordered by time and capped; the CREATE I
   );
   assert.equal(
     suggestIndexes([a], [{ ...orders(), schema: null }], "mysql")[0].createStatement,
-    "CREATE INDEX IF NOT EXISTS `idx_orders_customer_id` ON `orders` (`customer_id`);",
+    "CREATE INDEX `idx_orders_customer_id` ON `orders` (`customer_id`);",
   );
 
   const many = Array.from({ length: 15 }, (_, i) => stat(`SELECT * FROM orders WHERE col${i} = ?`, 1, 100 + i));

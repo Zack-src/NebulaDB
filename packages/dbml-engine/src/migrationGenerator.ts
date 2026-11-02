@@ -324,12 +324,19 @@ export function formatColumnDef(
   const parts = [q(field.name, dialect), type];
   // MySQL wants AUTO_INCREMENT after the key it rests on; the others take their clause right after the type.
   if (identity && dialect !== "mysql") parts.push(identity);
+  // An identity column takes its value from the engine: a default on top is refused.
+  const literal = identity ? null : defaultOf((d) => (isSqlExpression(d) ? d : quoteSqlString(d, dialect)));
+  // Oracle's grammar puts DEFAULT before any column constraint (`NUMBER DEFAULT 0 NOT NULL`): after, ORA-03076.
+  if (dialect === "oracle" && literal !== null) parts.push(`DEFAULT ${literal}`);
   if (field.pk) parts.push("PRIMARY KEY");
   if (field.notNull && !field.pk) parts.push("NOT NULL");
   if (field.unique && !field.pk) parts.push("UNIQUE");
-  // An identity column takes its value from the engine: a default on top is refused.
-  const literal = identity ? null : defaultOf((d) => (isSqlExpression(d) ? d : quoteSqlString(d, dialect)));
-  if (literal !== null) parts.push(`DEFAULT ${literal}`);
+  if (dialect !== "oracle" && literal !== null) {
+    // MySQL 8 refuses a plain default on a TEXT/BLOB column ("can't have a default value"); in parentheses it is an
+    // expression default, which it takes.
+    const lob = dialect === "mysql" && /^(tiny|medium|long)?(text|blob)\b/i.test(type.trim());
+    parts.push(`DEFAULT ${lob && !literal.startsWith("(") ? `(${literal})` : literal}`);
+  }
   if (identity && dialect === "mysql") parts.push(identity);
   return parts.join(" ");
 }
@@ -375,9 +382,20 @@ export function generateCreateTable(
 }
 
 /** The default name of an index on `columns`, as the migrations give it. */
-export function defaultIndexName(tableName: string, columns: string[]): string {
-  return `idx_${tableName}_${columns.join("_")}`;
+export function defaultIndexName(tableName: string, columns: string[], dialect?: MigrationDialect): string {
+  const name = `idx_${tableName}_${columns.join("_")}`;
+  const max = dialect ? MAX_IDENTIFIER_LENGTH[dialect] : undefined;
+  if (!max || name.length <= max) return name;
+  // Too long for the engine (MySQL: "Identifier name is too long"): cut it, and end with a hash of the whole name so
+  // two long names that share their beginning stay distinct.
+  let hash = 2166136261;
+  for (let i = 0; i < name.length; i++) hash = Math.imul(hash ^ name.charCodeAt(i), 16777619) >>> 0;
+  const suffix = `_${hash.toString(16).padStart(8, "0")}`;
+  return name.slice(0, max - suffix.length) + suffix;
 }
+
+/** The longest identifier an engine takes, where it is shorter than what a generated name can reach. */
+const MAX_IDENTIFIER_LENGTH: Partial<Record<MigrationDialect, number>> = { mysql: 64, postgres: 63 };
 
 /**
  * One `CREATE INDEX`, in the dialect's syntax: the migration generator's own, also used to offer an
@@ -396,8 +414,8 @@ export function generateCreateIndex(
   }
   const unique = options.unique ? "UNIQUE " : "";
   const cols = columns.map((column) => q(column, dialect)).join(", ");
-  // Neither SQL Server nor Oracle supports "IF NOT EXISTS" on CREATE INDEX.
-  const ifNotExists = dialect === "mssql" || dialect === "oracle" ? "" : "IF NOT EXISTS ";
+  // Neither SQL Server, Oracle nor MySQL supports "IF NOT EXISTS" on CREATE INDEX (MariaDB does, MySQL does not).
+  const ifNotExists = dialect === "mssql" || dialect === "oracle" || dialect === "mysql" ? "" : "IF NOT EXISTS ";
   return `CREATE ${unique}INDEX ${ifNotExists}${q(name, dialect)} ON ${table} (${cols});`;
 }
 
@@ -694,7 +712,7 @@ export function generateMigrationSql(
     // The table's own indexes come with it (a primary key is already in the `CREATE TABLE`; BigQuery has no secondary index).
     for (const idx of FLAT_SQL_DIALECTS.has(dialect) ? [] : table.addedIndexes.filter((i) => !i.pk)) {
       const colNames = idx.fieldIds.map((id) => table.after!.fields.find((f) => f.id === id)?.name ?? id);
-      const idxName = idx.name || defaultIndexName(table.name, colNames);
+      const idxName = idx.name || defaultIndexName(table.name, colNames, dialect);
       statements.push(generateCreateIndex(table.name, colNames, idxName, dialect, { unique: idx.unique }));
     }
   }
@@ -732,13 +750,23 @@ export function generateMigrationSql(
     for (const idx of table.addedIndexes) {
       const targetTable = table.after!;
       const colNames = idx.fieldIds.map((id) => targetTable.fields.find((f) => f.id === id)?.name ?? id);
-      const idxName = idx.name || defaultIndexName(table.name, colNames);
+      const idxName = idx.name || defaultIndexName(table.name, colNames, dialect);
       statements.push(generateCreateIndex(table.name, colNames, idxName, dialect, { unique: idx.unique }));
     }
   }
 
   // 4. Dropped Refs (Foreign Keys) of the tables dropped above — see `fkFallbackName` for why the fallback isn't just `fk_<fromTable>_<fromField>`.
-  for (const ref of diff.refs.filter((r) => r.status === "dropped" && droppedTables.has(r.fromTable.toLowerCase()))) {
+  // A table the answers keep in the database stays as it is, its foreign keys too (Oracle refuses to touch its own
+  // internal tables' constraints: ORA-65040).
+  const keptTables = new Set(
+    [...droppedTables].filter((name) => resolutions[`table:${name}`]?.strategy === "KEEP_IN_DB"),
+  );
+  for (const ref of diff.refs.filter(
+    (r) =>
+      r.status === "dropped" &&
+      droppedTables.has(r.fromTable.toLowerCase()) &&
+      !keptTables.has(r.fromTable.toLowerCase()),
+  )) {
     const statement = dropForeignKeyStatement(ref, dialect);
     if (statement) statements.push(statement);
   }

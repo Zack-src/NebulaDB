@@ -113,11 +113,12 @@ const FAMILIES: Record<string, FamilyDef> = {
     },
   },
   boolean: {
-    // `bit` is how SQL Server spells a boolean; PostgreSQL, MySQL and SQLite accept the word too.
+    // `bit` is how SQL Server spells a boolean. PostgreSQL and MySQL have a `bit` too, but it is a bit string
+    // (`'t'`/`true` is "not a valid binary digit" there), so on those it becomes a real boolean.
     recognizedAs: ["boolean", "bool", "bit"],
     nativeOn: {
-      postgres: ["boolean", "bool", "bit"],
-      mysql: ["bit"],
+      postgres: ["boolean", "bool"],
+      mysql: ["tinyint(1)"],
       mssql: ["bit"],
       sqlite: ["boolean", "bool", "bit"],
       bigquery: ["boolean", "bool"],

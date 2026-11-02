@@ -17,7 +17,7 @@ import type { EnumDef, Field, Project, Ref, Table, TableGroup, TableIndex } from
  * notes and comments are each project's own layout and are never sent.
  */
 
-export type VariantChangeKind = "table" | "field" | "index" | "ref" | "enum" | "group";
+export type VariantChangeKind = "table" | "field" | "index" | "ref" | "enum" | "group" | "seed";
 export type VariantChangeAction = "add" | "update" | "remove";
 /** `variant-changed`: the client changed it too since the last sending. `variant-removed`: the client deleted it (or the table holding it). */
 export type VariantConflict = "variant-changed" | "variant-removed";
@@ -32,6 +32,13 @@ export interface VariantChange {
   /** The table this belongs to, for grouping; absent for enums and groups. */
   tableName?: string;
   conflict?: VariantConflict;
+  /** For a column that is updated: which of its properties differ (`type`, `notNull`, `default`…), so a person can see — and filter on — what moves. */
+  props?: string[];
+}
+
+/** What a sending leaves out whatever the original says: a column property kept as the variant has it (`type` for a variant on another engine). */
+export interface VariantSyncOptions {
+  ignoreFieldProps?: readonly string[];
 }
 
 export interface VariantSyncPlan {
@@ -56,7 +63,23 @@ function canonical(value: unknown): string {
 }
 
 const tableCore = (t: Table) => canonical({ name: t.name, schemaName: t.schemaName, note: t.note });
-const fieldCore = (f: Field) => canonical(f);
+const fieldCore = (f: Field, ignore: readonly string[] = []) => {
+  if (ignore.length === 0) return canonical(f);
+  const rest: Record<string, unknown> = { ...f };
+  for (const prop of ignore) delete rest[prop];
+  return canonical(rest);
+};
+
+/** The properties of a column (other than its id) that are not the same in `a` and `b`. */
+function differingProps(a: Field, b: Field): string[] {
+  const keys = new Set([...Object.keys(a), ...Object.keys(b)]);
+  keys.delete("id");
+  return [...keys].filter(
+    (key) =>
+      canonical((a as unknown as Record<string, unknown>)[key]) !==
+      canonical((b as unknown as Record<string, unknown>)[key]),
+  );
+}
 const indexCore = (i: TableIndex) => canonical(i);
 const refCore = (r: Ref) =>
   canonical({
@@ -72,7 +95,7 @@ const groupCore = (g: TableGroup) => canonical({ name: g.name, tableIds: g.table
 
 /** A table's whole schema, layout left out: what "the client did not touch this table" compares. */
 const tableSchema = (t: Table) =>
-  canonical({ core: tableCore(t), fields: t.fields.map(fieldCore), indexes: t.indexes.map(indexCore) });
+  canonical({ core: tableCore(t), fields: t.fields.map((f) => fieldCore(f)), indexes: t.indexes.map(indexCore) });
 
 function byId<T extends { id: string }>(items: readonly T[]): Map<string, T> {
   return new Map(items.map((item) => [item.id, item]));
@@ -82,6 +105,15 @@ function byId<T extends { id: string }>(items: readonly T[]): Map<string, T> {
  * The three-way rule for one item: what the original did since the last
  * sending, and whether the client is in the way. `null`: nothing to send.
  */
+export function classifyChange<T>(
+  synced: T | undefined,
+  base: T | undefined,
+  variant: T | undefined,
+  core: (item: T) => string,
+): { action: VariantChangeAction; conflict?: VariantConflict } | null {
+  return classify(synced, base, variant, core);
+}
+
 function classify<T>(
   synced: T | undefined,
   base: T | undefined,
@@ -112,7 +144,14 @@ function refLabel(ref: Ref, project: Project): string {
 }
 
 /** What sending the original's changes to this variant would do — nothing is changed. */
-export function planVariantSync(synced: Project, base: Project, variant: Project): VariantSyncPlan {
+export function planVariantSync(
+  synced: Project,
+  base: Project,
+  variant: Project,
+  options: VariantSyncOptions = {},
+): VariantSyncPlan {
+  const ignore = options.ignoreFieldProps ?? [];
+  const fieldKey = (f: Field) => fieldCore(f, ignore);
   const changes: VariantChange[] = [];
   const S = byId(synced.tables);
   const B = byId(base.tables);
@@ -149,8 +188,10 @@ export function planVariantSync(synced: Project, base: Project, variant: Project
     const bf = byId(b.fields);
     const vf = byId(v.fields);
     for (const fieldId of new Set([...sf.keys(), ...bf.keys()])) {
-      const verdict = classify(sf.get(fieldId), bf.get(fieldId), vf.get(fieldId), fieldCore);
+      const verdict = classify(sf.get(fieldId), bf.get(fieldId), vf.get(fieldId), fieldKey);
       const field = (bf.get(fieldId) ?? sf.get(fieldId))!;
+      const sField = sf.get(fieldId);
+      const bField = bf.get(fieldId);
       if (verdict)
         changes.push({
           key: `field:${id}:${fieldId}`,
@@ -158,6 +199,9 @@ export function planVariantSync(synced: Project, base: Project, variant: Project
           label: `${name}.${field.name}`,
           tableName: name,
           ...verdict,
+          ...(sField && bField
+            ? { props: differingProps(sField, bField).filter((prop) => !ignore.includes(prop)) }
+            : {}),
         });
     }
     const si = byId(s.indexes);
@@ -212,6 +256,20 @@ export function planVariantSync(synced: Project, base: Project, variant: Project
 
 // ---- applying it ------------------------------------------------------------
 
+/** `from`, except that each of `props` is the variant's (present or absent). */
+function mergeKeepingProps(
+  from: Record<string, unknown>,
+  own: Record<string, unknown>,
+  props: readonly string[],
+): Record<string, unknown> {
+  const merged = { ...from };
+  for (const prop of props) {
+    if (prop in own) merged[prop] = own[prop];
+    else delete merged[prop];
+  }
+  return merged;
+}
+
 /** Puts `item` where it stands in `order` (the original's), after the nearest earlier neighbour the list already has. */
 function insertInOrder<T extends { id: string }>(list: T[], item: T, order: readonly { id: string }[]): T[] {
   const without = list.filter((x) => x.id !== item.id);
@@ -240,8 +298,10 @@ export function applyVariantSync(
   base: Project,
   variant: Project,
   decisions: VariantDecisions = {},
+  options: VariantSyncOptions = {},
 ): Project {
-  const plan = planVariantSync(synced, base, variant);
+  const ignore = options.ignoreFieldProps ?? [];
+  const plan = planVariantSync(synced, base, variant, options);
   const takes = (change: VariantChange) => (decisions[change.key] ?? (change.conflict ? "variant" : "base")) === "base";
   const B = byId(base.tables);
   const S = byId(synced.tables);
@@ -276,8 +336,14 @@ export function applyVariantSync(
         const key = change.kind === "field" ? "fields" : "indexes";
         const fromBase = (b?.[key] as { id: string }[] | undefined)?.find((x) => x.id === second);
         const list = v[key] as { id: string }[];
-        const next = fromBase
-          ? upsert(list, structuredClone(fromBase), (b?.[key] ?? []) as { id: string }[])
+        // A column that exists on both sides keeps, of the original's, all but the properties left out (`type`…).
+        const own = (list as { id: string }[]).find((x) => x.id === second) as Record<string, unknown> | undefined;
+        const merged =
+          fromBase && own && change.kind === "field" && ignore.length > 0
+            ? mergeKeepingProps(structuredClone(fromBase) as unknown as Record<string, unknown>, own, ignore)
+            : fromBase && structuredClone(fromBase);
+        const next = merged
+          ? upsert(list, merged as { id: string }, (b?.[key] ?? []) as { id: string }[])
           : list.filter((x) => x.id !== second);
         replaceTable({ ...v, [key]: next } as Table);
         break;

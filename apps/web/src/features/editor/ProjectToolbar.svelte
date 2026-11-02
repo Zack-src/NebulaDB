@@ -46,7 +46,12 @@
     /** Replays the guided tour of the workspace. */
     onStartTour?: () => void;
     /** Present in the real app: the project to follow, and where a notification about another one leads. */
-    follow?: { projectId: string; onOpenProject: (projectId: string) => void };
+    follow?: {
+      projectId: string;
+      onOpenProject: (projectId: string) => void;
+      /** From the variant switcher: opens the variant and keeps the view (canvas, code, tab). */
+      onSwitchVariant?: (projectId: string) => void;
+    };
     localUser: string;
     remoteAwareness: Map<number, AwarenessState>;
   } = $props();
@@ -88,7 +93,10 @@
       <BrandMark size={24} iconSize={13} />
       <span class="truncate text-sm font-bold tracking-tight text-text">{props.projectName}</span>
       {#if props.follow}
-        <VariantSwitcher projectId={props.follow.projectId} onOpenProject={props.follow.onOpenProject} />
+        <VariantSwitcher
+          projectId={props.follow.projectId}
+          onOpenProject={props.follow.onSwitchVariant ?? props.follow.onOpenProject}
+        />
       {/if}
       {#if props.viewOnly}
         <span class="shrink-0" data-tooltip={t("editor.viewOnlyHint")} data-tooltip-pos="bottom">

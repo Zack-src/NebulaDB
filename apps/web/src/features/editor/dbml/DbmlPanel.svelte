@@ -336,6 +336,7 @@
       onLockedEdit={props.onLockedEdit}
       syncIndicator={readOnly ? undefined : syncIndicator}
       scrollToTable={props.scrollToTable}
+      projectId={props.projectId}
       onNavigateToCanvas={props.onNavigateToCanvas}
       {pluginCommands}
       onPluginMessage={handlePluginMessage}

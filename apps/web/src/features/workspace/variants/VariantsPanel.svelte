@@ -58,7 +58,7 @@
   const isAdmin = $derived(project.permission === "administrator");
 
   let selected = $state<string[]>([]);
-  let syncFor = $state<{ originalId: string; variantIds: string[] } | null>(null);
+  let syncFor = $state<{ originalId: string; variantIds: string[]; direction?: "push" | "pull" } | null>(null);
   let compare = $state<{ left: string; right: string } | null>(null);
   let creating = $state(false);
   let newName = $state("");
@@ -192,6 +192,15 @@
                 {t("variants.takeChanges", { count: original.status?.pending ?? 0 })}
               </Button>
             {/if}
+            {#if project.permission !== "view"}
+              <Button
+                size="sm"
+                variant="outline"
+                onclick={() => (syncFor = { originalId: original.id, variantIds: [project.id], direction: "pull" })}
+              >
+                {t("variants.pullToOriginal")}
+              </Button>
+            {/if}
           {/if}
           {#if project.permission !== "view"}
             {#if original.canView}
@@ -245,6 +254,14 @@
             onclick={() => (syncFor = { originalId: project.id, variantIds: [...selected] })}
           >
             {t("variants.send", { count: selected.length })}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            disabled={selected.length === 0}
+            onclick={() => (syncFor = { originalId: project.id, variantIds: [...selected], direction: "pull" })}
+          >
+            {t("variants.pull", { count: selected.length })}
           </Button>
         </div>
         <ul class="m-0 list-none space-y-2 p-0">
@@ -344,6 +361,7 @@
   <VariantSyncModal
     originalId={syncFor.originalId}
     variantIds={syncFor.variantIds}
+    direction={syncFor.direction ?? "push"}
     onClose={() => (syncFor = null)}
     onDone={() => {
       selected = [];

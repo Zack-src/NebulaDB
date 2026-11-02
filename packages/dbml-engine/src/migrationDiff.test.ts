@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import type { Project, Ref } from "@nebuladb/shared";
+import type { Project, Ref, Table } from "@nebuladb/shared";
 import { diffTargetAgainstLive } from "./migrationDiff.js";
 
 interface ShorthandField {
@@ -196,4 +196,38 @@ test("a schema deployed on BigQuery reads back as itself: its type names and its
   // A real difference is still one.
   live.tables[0].fields[1].type = "STRING(100)";
   assert.equal(diffTargetAgainstLive(live, target).hasChanges, true);
+});
+
+test("read-back noise is no change: timestamp spellings, DEFAULT NULL, an Oracle identity's sequence, MongoDB defaults", () => {
+  const table = (fields: Table["fields"]): Table => ({
+    id: "t",
+    name: "t",
+    fields,
+    indexes: [],
+    position: { x: 0, y: 0 },
+    detailLevel: "standard",
+  });
+  const project = (t: Table): Project =>
+    ({ id: "p", name: "p", tables: [t], refs: [], notes: [] }) as unknown as Project;
+  const live = project(
+    table([
+      { id: "a", name: "a", type: "timestamp without time zone" },
+      { id: "b", name: "b", type: "datetime" },
+      { id: "id", name: "id", type: "NUMBER", pk: true, notNull: true, default: '"SYSTEM"."ISEQ$$_1".nextval' },
+      { id: "m", name: "m", type: "int" },
+    ]),
+  );
+  const target = project(
+    table([
+      { id: "a", name: "a", type: "timestamp" },
+      { id: "b", name: "b", type: "datetime", default: "null" },
+      { id: "id", name: "id", type: "number(10)", pk: true, notNull: true, increment: true },
+      { id: "m", name: "m", type: "int", default: "0" },
+    ]),
+  );
+  assert.deepEqual(
+    diffTargetAgainstLive(live, target, "oracle").tables.flatMap((t) => t.fields.map((f) => f.name)),
+    ["m"], // the only real change
+  );
+  assert.equal(diffTargetAgainstLive(live, target, "mongodb").hasChanges, false);
 });
