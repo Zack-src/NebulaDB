@@ -70,6 +70,46 @@ export function oraclePoolAttributes(config: DriverConnectionConfig): oracledb.P
  * views, scoped to whatever schema the connecting user owns, mirroring how
  * the Postgres/MySQL drivers scope to one schema/database.
  */
+/**
+ * The `INSERT` of a seed and what to do to each row before binding it. A date arrives as text (`2026-06-24 16:09:42.576`),
+ * which Oracle reads with the session's NLS format — `ORA-01843` on any other: DATE and TIMESTAMP columns are bound
+ * through `TO_TIMESTAMP` with a fixed format instead, the text first brought to that shape.
+ */
+async function seedInsert(
+  conn: oracledb.Connection,
+  table: string,
+  columns: string[],
+): Promise<{ statement: string; prepare: (row: RowValue[]) => RowValue[] }> {
+  const res = await conn.execute<[string, string]>(
+    "SELECT column_name, data_type FROM user_tab_columns WHERE table_name = :1",
+    [table],
+    { outFormat: oracledb.OUT_FORMAT_ARRAY },
+  );
+  const types = new Map((res.rows ?? []).map(([name, type]) => [name, type]));
+  const temporal = columns.map((column) => /^(DATE|TIMESTAMP)/i.test(types.get(column) ?? ""));
+  const placeholders = columns.map((_, i) =>
+    temporal[i] ? `TO_TIMESTAMP(:${i + 1}, 'YYYY-MM-DD HH24:MI:SS.FF')` : `:${i + 1}`,
+  );
+  const statement = `INSERT INTO ${q(table, "oracle")} (${columns.map((c) => q(c, "oracle")).join(", ")}) VALUES (${placeholders.join(", ")})`;
+  return {
+    statement,
+    prepare: (row) => row.map((value, i) => (temporal[i] && typeof value === "string" ? timestampText(value) : value)),
+  };
+}
+
+/** `2026-06-24`, `2026-06-24T16:09:42Z`, `2026-06-24 16:09:42.5` → `2026-06-24 16:09:42.5`-shaped, always with seconds and a fraction. */
+function timestampText(value: string): string {
+  let text = value
+    .trim()
+    .replace("T", " ")
+    .replace(/(Z|[+-]\d{2}:?\d{2})$/i, "")
+    .trim();
+  if (/^\d{4}-\d{2}-\d{2}$/.test(text)) text += " 00:00:00";
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/.test(text)) text += ":00";
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(text)) text += ".0";
+  return text;
+}
+
 export class OracleDriver implements DatabaseDriver {
   private pool: Promise<oracledb.Pool>;
 
@@ -260,12 +300,12 @@ export class OracleDriver implements DatabaseDriver {
    */
   async insertRowBatches(table: string, columns: string[], batches: AsyncIterable<RowValue[][]>): Promise<number> {
     const conn = await this.getConnection();
-    const statement = `INSERT INTO ${q(table, "oracle")} (${columns.map((c) => q(c, "oracle")).join(", ")}) VALUES (${columns.map((_, i) => `:${i + 1}`).join(", ")})`;
     try {
+      const { statement, prepare } = await seedInsert(conn, table, columns);
       let total = 0;
       for await (const rows of batches) {
         if (rows.length === 0) continue;
-        await conn.executeMany(statement, rows, { autoCommit: false });
+        await conn.executeMany(statement, rows.map(prepare), { autoCommit: false });
         total += rows.length;
       }
       await conn.commit();

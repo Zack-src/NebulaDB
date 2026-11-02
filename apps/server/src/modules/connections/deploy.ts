@@ -257,7 +257,7 @@ async function planDeployment(
   clean: CleanOptions | null = null,
 ): Promise<DeploymentPlan> {
   const liveProject = await driver.introspectSchema();
-  const diff = diffTargetAgainstLive(liveProject, canvasProject);
+  const diff = diffTargetAgainstLive(liveProject, canvasProject, conn.engine);
   if (clean) {
     // A wipe: nothing to settle, nothing written back. No seeds either: the tables it drops are not recreated.
     const scope = cleanScope(

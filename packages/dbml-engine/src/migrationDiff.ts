@@ -79,7 +79,7 @@ export function typesMatch(a: string, b: string): boolean {
     float: ["real", "float4", "float"],
     double: ["double precision", "float8", "double", "float64"],
     binary: ["bytea", "blob", "binary", "varbinary", "bytes"],
-    timestamp: ["timestamptz", "timestamp with time zone", "timestamp without time zone", "datetime"],
+    timestamp: ["timestamp", "timestamptz", "timestamp with time zone", "timestamp without time zone", "datetime"],
   };
 
   for (const group of Object.values(aliases)) {
@@ -127,12 +127,12 @@ function normalizeDefault(d: string | undefined): string {
   while (val.startsWith("(") && val.endsWith(")") && wrapsWholeText(val)) val = val.slice(1, -1).trim();
   if (val.startsWith("'") && val.endsWith("'")) val = val.slice(1, -1);
   if (isCurrentTimeExpression(val)) return "now";
+  // An explicit `DEFAULT NULL` is no default: a database reads such a column back without one.
+  if (val.toLowerCase() === "null") return "";
   return val.toLowerCase();
 }
 
 function defaultsMatch(a: string | undefined, b: string | undefined): boolean {
-  if (!a && !b) return true;
-  if (!a || !b) return false;
   return normalizeDefault(a) === normalizeDefault(b);
 }
 
@@ -150,7 +150,7 @@ function withImplicitPkFlags(table: Table): Field[] {
   return table.fields.map((f) => (pkIds.has(f.id) || f.pk ? { ...f, pk: true, notNull: true, unique: false } : f));
 }
 
-function diffFieldsByName(beforeTable: Table, afterTable: Table): MigrationFieldChange[] {
+function diffFieldsByName(beforeTable: Table, afterTable: Table, engine?: string): MigrationFieldChange[] {
   const beforeFields = withImplicitPkFlags(beforeTable);
   const afterFields = withImplicitPkFlags(afterTable);
   const beforeByName = new Map(beforeFields.map((f) => [f.name.toLowerCase(), f]));
@@ -182,7 +182,11 @@ function diffFieldsByName(beforeTable: Table, afterTable: Table): MigrationField
       // only knowable when both sides say which they are (a live database's
       // introspected defaults, and older data, carry no kind).
       const kindChanged = b.defaultKind !== undefined && a.defaultKind !== undefined && b.defaultKind !== a.defaultKind;
-      const defaultChanged = !defaultsMatch(b.default, a.default) || kindChanged;
+      // MongoDB keeps no default at all, so there is none to read back; an identity column reads back with the
+      // sequence behind it (Oracle: `"SCHEMA"."ISEQ$$_123".nextval`) where the schema only says `increment`.
+      const identityDefault = Boolean(a.increment) && /\.nextval$|^nextval\(/i.test(b.default ?? "");
+      const defaultChanged =
+        engine !== "mongodb" && !identityDefault && (!defaultsMatch(b.default, a.default) || kindChanged);
       const pkChanged = !!b.pk !== !!a.pk;
       const uniqueChanged = !!b.unique !== !!a.unique;
 
@@ -260,7 +264,7 @@ function getRefSignature(
  * Computes a name-matched schema difference between a live database Project (`liveDbProject`)
  * and the desired target state in the editor (`targetProject`).
  */
-export function diffTargetAgainstLive(liveDbProject: Project, targetProject: Project): MigrationDiff {
+export function diffTargetAgainstLive(liveDbProject: Project, targetProject: Project, engine?: string): MigrationDiff {
   const liveTablesByName = new Map(liveDbProject.tables.map((t) => [t.name.toLowerCase(), t]));
   const targetTablesByName = new Map(targetProject.tables.map((t) => [t.name.toLowerCase(), t]));
   const allTableNames = new Set([...liveTablesByName.keys(), ...targetTablesByName.keys()]);
@@ -290,7 +294,7 @@ export function diffTargetAgainstLive(liveDbProject: Project, targetProject: Pro
         droppedIndexes: [],
       });
     } else if (live && target) {
-      const fieldChanges = diffFieldsByName(live, target);
+      const fieldChanges = diffFieldsByName(live, target, engine);
       const indexChanges = diffIndexes(live, target);
 
       if (fieldChanges.length > 0 || indexChanges.added.length > 0 || indexChanges.dropped.length > 0) {

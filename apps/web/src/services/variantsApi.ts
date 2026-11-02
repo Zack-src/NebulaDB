@@ -70,14 +70,24 @@ export function createVariant(projectId: string, name: string): Promise<ProjectS
   return request(`/api/projects/${projectId}/variants`, { method: "POST", body: { name } });
 }
 
+/** `push`: the original's changes go to the variants. `pull`: the variants' go to the original. */
+export type VariantSyncDirection = "push" | "pull";
+
+export interface VariantSyncOptions {
+  direction?: VariantSyncDirection;
+  /** Column properties left as the receiving side has them (`type` for a variant on another engine). */
+  ignoreFieldProps?: string[];
+}
+
 export async function previewVariantSync(
   originalId: string,
   variantIds: string[],
+  options: VariantSyncOptions = {},
 ): Promise<{ id: string; name: string; plan: VariantSyncPlan }[]> {
   return (
     await request<{ variants: { id: string; name: string; plan: VariantSyncPlan }[] }>(
       `/api/projects/${originalId}/variants/preview`,
-      { method: "POST", body: { variants: variantIds } },
+      { method: "POST", body: { variants: variantIds, ...options } },
     )
   ).variants;
 }
@@ -93,11 +103,12 @@ export interface VariantSyncResult {
 export async function pushToVariants(
   originalId: string,
   targets: { id: string; decisions: VariantDecisions }[],
+  options: VariantSyncOptions = {},
 ): Promise<VariantSyncResult[]> {
   return (
     await request<{ results: VariantSyncResult[] }>(`/api/projects/${originalId}/variants/push`, {
       method: "POST",
-      body: { variants: targets },
+      body: { variants: targets, ...options },
     })
   ).results;
 }

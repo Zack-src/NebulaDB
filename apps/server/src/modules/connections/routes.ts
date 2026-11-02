@@ -100,7 +100,7 @@ export async function planDeployment(id: string, project: { id: string; name: st
   const driver = await createDatabaseDriver(conn);
   try {
     const liveProject = await driver.introspectSchema();
-    const diff = diffTargetAgainstLive(liveProject, canvasProject);
+    const diff = diffTargetAgainstLive(liveProject, canvasProject, conn.engine);
     const risks = await analyzeDeploymentRisks(driver, diff, conn.engine, await deployedTablesOf(id, connId));
     const preparedSeeds = await prepareSeeds(id, canvasProject);
     const created = new Set(diff.tables.filter((t) => t.status === "added").map((t) => t.name.toLowerCase()));
