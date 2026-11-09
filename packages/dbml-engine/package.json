@@ -15,10 +15,10 @@
   },
   "dependencies": {
     "@nebuladb/shared": "*",
-    "@dbml/core": "^11.0.0"
+    "@dbml/core": "^11.1.0"
   },
   "devDependencies": {
-    "@types/node": "^26.2.0",
+    "@types/node": "^26.6.6",
     "typescript": "^7.0.2"
   }
 }
