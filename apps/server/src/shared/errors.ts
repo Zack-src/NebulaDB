@@ -259,6 +259,7 @@ export const ERROR_CATALOG = {
     message:
       "this database server is managed by an instance administrator: ask them to attach it to the project instead",
   },
+  MFA_SETUP_REQUIRED: { status: 403, message: "two-factor authentication must be set up before continuing" },
   ACCOUNT_DISABLED: { status: 403, message: "this account has been disabled" },
   ORIGIN_INVALID: { status: 403, message: "invalid origin" },
   ORIGIN_MISMATCH: { status: 403, message: "cross-origin request refused" },

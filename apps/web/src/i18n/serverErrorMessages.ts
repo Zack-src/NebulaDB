@@ -46,6 +46,7 @@ const CODE_TO_KEY: Record<string, TranslationKey> = {
   ADMIN_REQUIRED: "errors.adminRequired",
   FORBIDDEN: "errors.forbidden",
   ACCOUNT_DISABLED: "errors.accountDisabled",
+  MFA_SETUP_REQUIRED: "errors.mfaSetupRequired",
   ORIGIN_INVALID: "errors.originInvalid",
   ORIGIN_MISMATCH: "errors.originMismatch",
   NOT_FOUND: "errors.notFound",

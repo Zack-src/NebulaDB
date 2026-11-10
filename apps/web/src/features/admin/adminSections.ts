@@ -11,6 +11,7 @@ export const ADMIN_SECTIONS = [
   { key: "environments", labelKey: "admin.section.environments" },
   { key: "lint", labelKey: "admin.section.lint" },
   { key: "sso", labelKey: "admin.section.sso" },
+  { key: "security", labelKey: "admin.section.security" },
   { key: "shareLinks", labelKey: "admin.section.shareLinks" },
 ] as const satisfies readonly { key: string; labelKey: TranslationKeyOf }[];
 

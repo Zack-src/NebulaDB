@@ -16,6 +16,7 @@ import { registerRetentionRoutes } from "./modules/retention/routes.js";
 import { resolveApiKey } from "./modules/apiKeys/auth.js";
 import { registerAuditRoutes } from "./modules/audit/routes.js";
 import { registerAuthRoutes } from "./modules/auth/routes.js";
+import { mustSetUpTwoFactor, registerSecurityPolicyRoutes } from "./modules/auth/securityPolicy.js";
 import { registerTotpRoutes } from "./modules/auth/totpRoutes.js";
 import { registerPasswordResetRoutes } from "./modules/auth/passwordResetRoutes.js";
 import { registerOidcRoutes } from "./modules/auth/oidcRoutes.js";
@@ -206,6 +207,12 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       req.apiKey = resolved?.apiKey ?? null;
     }
     setActor(req.user?.id ?? null);
+    // Instance policy "2FA required": an account without it may only reach the
+    // auth routes (to enrol, read itself, log out) until it has set it up.
+    // API keys are not affected: they are not a login.
+    if (req.user && !req.apiKey && req.url.startsWith("/api/") && !req.url.startsWith("/api/auth/")) {
+      if (await mustSetUpTwoFactor(req.user.id)) throw new ApiError("MFA_SETUP_REQUIRED");
+    }
   });
 
   const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"]);
@@ -306,6 +313,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
 
   registerAuthRoutes(app);
   registerTotpRoutes(app);
+  registerSecurityPolicyRoutes(app);
   registerPasswordResetRoutes(app);
   registerOidcRoutes(app);
   registerInvitationRoutes(app);

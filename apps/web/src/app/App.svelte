@@ -23,6 +23,7 @@
   import WorkspaceShell from "@/app/WorkspaceShell.svelte";
   import { shellHash, shellViewFromHash, type ShellView } from "@/app/shellNavigation";
   import DatabaseWorkspace from "@/features/workspace/DatabaseWorkspace.svelte";
+  import MfaSetupRequired from "@/features/auth/MfaSetupRequired.svelte";
   import GlobalPalette from "@/features/palette/GlobalPalette.svelte";
   import type { AdminSection } from "@/features/admin/adminSections";
 
@@ -155,6 +156,8 @@
       viewMode = "app";
     }}
   />
+{:else if session.mfaSetupRequired}
+  <MfaSetupRequired onDone={() => void auth.refreshSession()} onLogout={auth.logout} />
 {:else}
   <WorkspaceShell
     {session}

@@ -95,6 +95,7 @@ export const AUDIT_ACTIONS = [
   "dbconn.credentials.password",
   "instance.structure_policy",
   "instance.sso",
+  "instance.security",
   "instance.share_links",
   "dbadmin.structure.out_of_schema",
   "table.lock",

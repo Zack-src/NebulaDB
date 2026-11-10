@@ -13,6 +13,7 @@ import {
   revokeAllSessions,
   revokeSession,
 } from "./session.js";
+import { mustSetUpTwoFactor } from "./securityPolicy.js";
 import { verifyTotp } from "./totp.js";
 import {
   consumeBackupCode,
@@ -52,8 +53,9 @@ interface UserRow {
  */
 const LOGIN_RATE_LIMIT = { config: { rateLimit: { max: 10, timeWindow: "1 minute" } } };
 
-function toSessionResponse(row: UserRow) {
+async function toSessionResponse(row: UserRow) {
   return {
+    mfaSetupRequired: await mustSetUpTwoFactor(row.id),
     id: row.id,
     email: row.email,
     isAdmin: row.is_admin === 1,
@@ -111,7 +113,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     // Absent means "yes" — the historical 30-day behaviour, so an older client
     // (or a script) that doesn't send the field is unaffected.
     await createSession(row.id, reply, req, { remember: remember !== false });
-    return toSessionResponse(row);
+    return await toSessionResponse(row);
   });
 
   /**
@@ -154,7 +156,7 @@ export function registerAuthRoutes(app: FastifyInstance): void {
 
     await deleteMfaChallenge(challenge.id);
     await createSession(row.id, reply, req, { remember: challenge.remember });
-    return toSessionResponse(row);
+    return await toSessionResponse(row);
   });
 
   app.post("/api/auth/logout", async (req, reply) => {
@@ -162,7 +164,10 @@ export function registerAuthRoutes(app: FastifyInstance): void {
     return { loggedOut: true };
   });
 
-  app.get("/api/auth/me", async (req) => requireUser(req));
+  app.get("/api/auth/me", async (req) => {
+    const user = requireUser(req);
+    return { ...user, mfaSetupRequired: await mustSetUpTwoFactor(user.id) };
+  });
 
   /**
    * A user's own active sessions. Before this there was no way to see where an
