@@ -1347,6 +1347,7 @@
   "dbadmin.users.roles": "Rôles",
   "dbadmin.users.noRoles": "Membre d'aucun rôle.",
   "dbadmin.users.addRole": "Ajouter à un rôle…",
+  "dbadmin.users.createRoles": "Membre des rôles",
   "dbadmin.users.addRoleTitle": "Ajouter {{name}} au rôle {{role}}",
   "dbadmin.users.removeRole": "Retirer du rôle {{role}}",
   "dbadmin.users.privileges": "Privilèges",
