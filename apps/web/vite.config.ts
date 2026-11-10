@@ -99,6 +99,11 @@ export default defineConfig({
     port: WEB_PORT,
     // Bind all interfaces so other machines on LAN reach dev server, not just localhost.
     host: true,
+    // Vite rejects any Host header that isn't localhost or an IP (DNS-rebinding
+    // guard), so the machine's network alias (e.g. parwks022.aldecis.local) got
+    // "Blocked request". Accept whatever name the machine is reached by, so it
+    // works with any alias/hostname automatically, no per-name list to maintain.
+    allowedHosts: true,
     proxy: {
       "/api": {
         target: `http://localhost:${API_PORT}`,
