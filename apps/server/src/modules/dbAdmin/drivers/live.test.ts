@@ -1,6 +1,6 @@
 import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
-import type { DatabaseConnectionConfig, DbUserAction } from "@nebuladb/shared";
+import type { DatabaseConnectionConfig, DbSingleUserAction } from "@nebuladb/shared";
 import { useTestDatabase } from "../../../infrastructure/testDatabase.js";
 
 // `drivers/sqlite.ts` (pulled in by the factory) reads the app config.
@@ -88,7 +88,7 @@ for (const engine of ["postgres", "mysql", "mssql"] as const) {
     const user = { name: "nebula_admin_live_user", host: engine === "mysql" ? "%" : undefined };
     // SQL Server keeps a server login and a per-database user; elsewhere they are one and the same.
     const dbUser = engine === "mssql" ? { ...user, database } : user;
-    const apply = async (action: DbUserAction, runIn?: string) => {
+    const apply = async (action: DbSingleUserAction, runIn?: string) => {
       const statements = driver.userStatements(action);
       await driver.execute(statements, runIn);
       return statements.map((s) => s.display);
@@ -262,7 +262,7 @@ test("oracle admin driver: explore, query with the read-only guard, manage a use
   // The objects live in a schema of their own: the connecting account's (SYSTEM) is Oracle-maintained, and off limits.
   const owner = "NEBULA_LIVE_OWNER";
   const table = { schema: owner, table: "ITEMS" };
-  const apply = async (action: DbUserAction) => {
+  const apply = async (action: DbSingleUserAction) => {
     const statements = driver.userStatements(action);
     await driver.execute(statements);
     return statements.map((s) => s.display);

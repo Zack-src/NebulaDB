@@ -14,7 +14,7 @@ import type {
   DbPrincipal,
   DbPrincipalRef,
   DbPrivilegeCatalog,
-  DbUserAction,
+  DbSingleUserAction,
 } from "@nebuladb/shared";
 import { ApiError } from "../../../shared/errors.js";
 import type { DriverConnectionConfig } from "../../connections/drivers/interface.js";
@@ -355,7 +355,7 @@ export class PostgresAdminDriver implements DatabaseAdminDriver {
     return grants;
   }
 
-  userStatements(action: DbUserAction): AdminStatement[] {
+  userStatements(action: DbSingleUserAction): AdminStatement[] {
     const name = requireName(action.principal.name, "principal");
     if (isSystemRole(name)) throw systemObject(`role ${name}`);
     const role = q(name);

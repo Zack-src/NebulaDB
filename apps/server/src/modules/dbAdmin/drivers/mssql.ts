@@ -14,7 +14,7 @@ import type {
   DbPrincipal,
   DbPrincipalRef,
   DbPrivilegeCatalog,
-  DbUserAction,
+  DbSingleUserAction,
 } from "@nebuladb/shared";
 import type { DriverConnectionConfig } from "../../connections/drivers/interface.js";
 import { mssqlPoolConfig } from "../../connections/drivers/mssql.js";
@@ -429,7 +429,7 @@ export class MssqlAdminDriver implements DatabaseAdminDriver {
     return grants;
   }
 
-  userStatements(action: DbUserAction): AdminStatement[] {
+  userStatements(action: DbSingleUserAction): AdminStatement[] {
     const name = requireName(action.principal.name, "principal");
     if (isSystemPrincipal(name)) throw systemObject(`principal ${name}`);
     const who = q(name);

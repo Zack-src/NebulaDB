@@ -15,3 +15,4 @@ export * from "./backups.js";
 export * from "./commentMentions.js";
 export * from "./projectBundle.js";
 export * from "./projectPreview.js";
+export * from "./dbRoles.js";

@@ -13,7 +13,7 @@ import type {
   DbPrincipal,
   DbPrincipalRef,
   DbPrivilegeCatalog,
-  DbUserAction,
+  DbSingleUserAction,
 } from "@nebuladb/shared";
 
 export interface RunQueryOptions {
@@ -75,7 +75,7 @@ export interface DatabaseAdminDriver {
   privilegeCatalog(): DbPrivilegeCatalog;
   listPrincipals(database?: string): Promise<DbPrincipal[]>;
   listGrants(principal: DbPrincipalRef): Promise<DbGrant[]>;
-  userStatements(action: DbUserAction): AdminStatement[];
+  userStatements(action: DbSingleUserAction): AdminStatement[];
   /**
    * The statements by which the account this driver is signed in with gives itself a new
    * password — written so they can only ever reach that account, and so an account with no

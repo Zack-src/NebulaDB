@@ -308,7 +308,9 @@ export type DbUserAction =
       target?: DbAdminObjectRef;
       withGrantOption?: boolean;
     }
-  | { type: "grantRole" | "revokeRole"; principal: DbPrincipalRef; role: string };
+  | { type: "grantRole" | "revokeRole"; principal: DbPrincipalRef; role: string }
+  /** Several role changes as one reviewable batch (an access-level shortcut). */
+  | { type: "setRoles"; principal: DbPrincipalRef; add: string[]; remove: string[] };
 
 export interface DbAdminSession {
   id: string;
@@ -522,3 +524,6 @@ export interface InvitationGrants {
   teamIds: string[];
   databases: DbAccessGrantInput[];
 }
+
+/** An action a driver turns into statements itself: everything but the `setRoles` batch, which the route expands into role grants and revokes. */
+export type DbSingleUserAction = Exclude<DbUserAction, { type: "setRoles" }>;
