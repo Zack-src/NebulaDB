@@ -6,6 +6,7 @@ export interface AuthSessionHandle {
   readonly session: Session | null | "loading";
   setSession: (session: Session | null) => void;
   logout: () => Promise<void>;
+  refreshSession: () => Promise<void>;
   updateDisplayName: (name: string) => Promise<void>;
 }
 
@@ -53,6 +54,10 @@ export function useAuthSession(onLogout: () => void): AuthSessionHandle {
     session = await updateMyDisplayName(name);
   };
 
+  const refreshSession = async () => {
+    session = await authApi.fetchCurrentSession();
+  };
+
   return {
     get session() {
       return session;
@@ -61,6 +66,7 @@ export function useAuthSession(onLogout: () => void): AuthSessionHandle {
       session = next;
     },
     logout,
+    refreshSession,
     updateDisplayName,
   };
 }

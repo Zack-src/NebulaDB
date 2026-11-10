@@ -29,6 +29,8 @@ export interface Session {
   email: string;
   isAdmin: boolean;
   displayName: string;
+  /** The instance requires two-factor authentication and this account has not set it up yet. */
+  mfaSetupRequired?: boolean;
 }
 
 export interface UserSummary {

@@ -12,6 +12,7 @@
     KeyIcon,
     LayersIcon,
     LinkIcon,
+    LockIcon,
     SearchIcon,
     TrashIcon,
     UserIcon,
@@ -26,6 +27,7 @@
   import ShareLinksTab from "@/features/admin/shareLinks/ShareLinksTab.svelte";
   import TeamsTab from "@/features/admin/teams/TeamsTab.svelte";
   import SsoTab from "@/features/admin/sso/SsoTab.svelte";
+  import SecurityTab from "@/features/admin/security/SecurityTab.svelte";
   import UsersTab from "@/features/admin/users/UsersTab.svelte";
   import Button from "@/components/ui/Button.svelte";
   import BrandMark from "@/components/ui/BrandMark.svelte";
@@ -52,6 +54,7 @@
     users: UserIcon,
     teams: UsersIcon,
     sso: KeyIcon,
+    security: LockIcon,
     connections: DatabaseIcon,
     environments: LayersIcon,
     lint: SearchIcon,
@@ -61,7 +64,7 @@
     retention: TrashIcon,
   } as const;
   const groups = [
-    { label: "shell.people", keys: ["users", "teams", "sso"] },
+    { label: "shell.people", keys: ["users", "teams", "sso", "security"] },
     { label: "shell.bases", keys: ["connections", "environments"] },
     { label: "shell.quality", keys: ["lint"] },
     { label: "admin.group.sharing", keys: ["shareLinks"] },
@@ -112,6 +115,7 @@
         {#if section === "environments"}<EnvironmentsTab />{/if}
         {#if section === "lint"}<LintPresetsTab />{/if}
         {#if section === "sso"}<SsoTab />{/if}
+    {#if section === "security"}<SecurityTab />{/if}
         {#if section === "shareLinks"}<ShareLinksTab />{/if}
       </PageContainer>
     </div>
