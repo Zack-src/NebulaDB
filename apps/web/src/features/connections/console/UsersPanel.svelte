@@ -81,7 +81,7 @@
   const keyOf = (p: { name: string; host?: string }) => `${p.name}@${p.host ?? ""}`;
   const visible = $derived((principals.data ?? []).filter((p) => p.name.toLowerCase().includes(filter.trim().toLowerCase())));
   const selected = $derived((principals.data ?? []).find((p) => keyOf(p) === selectedKey) ?? null);
-  const roles = $derived((principals.data ?? []).filter((p) => p.kind === "role" && !p.system).map((p) => p.name));
+  const roles = $derived((principals.data ?? []).filter((p) => p.kind === "role" && p.name.toLowerCase() !== "public").map((p) => p.name));
 
   function refOf(p: DbPrincipal): DbPrincipalRef {
     return { name: p.name, host: p.host, kind: p.kind, database: principalDatabase };
@@ -99,6 +99,8 @@
   let newHost = $state("%");
   let newKind = $state<"user" | "role">("user");
   let newPassword = $state("");
+  /** Roles the new account joins as it is created. */
+  let newRoles = $state<string[]>([]);
   /** SQL Server database users are mapped to an existing login and carry no password of their own. */
   const createNeedsPassword = $derived(newKind === "user" && !principalDatabase);
 
@@ -144,6 +146,7 @@
         type: "create",
         principal: { name: newName.trim(), host: capabilities.principalHost && newKind === "user" ? newHost.trim() || "%" : undefined, kind: newKind, database: principalDatabase },
         password: createNeedsPassword ? newPassword : undefined,
+        roles: newRoles.length > 0 ? newRoles : undefined,
       },
     };
   }
@@ -221,6 +224,7 @@
     passwordValue = "";
     newName = "";
     newPassword = "";
+    newRoles = [];
     principals.reload();
     grants.reload();
   }
@@ -303,6 +307,21 @@
           {/if}
         {:else if newKind === "user"}
           <Hint>{t("dbadmin.users.mappedToLogin")}</Hint>
+        {/if}
+        {#if roles.length > 0}
+          <div class="space-y-1">
+            <div class="text-xs font-semibold text-text-secondary">{t("dbadmin.users.createRoles")}</div>
+            <div class="flex max-h-32 flex-col gap-1 overflow-y-auto">
+              {#each roles as role (role)}
+                <Checkbox
+                  checked={newRoles.includes(role)}
+                  onChange={(checked) => (newRoles = checked ? [...newRoles, role] : newRoles.filter((held) => held !== role))}
+                >
+                  <span class="text-xs">{role}</span>
+                </Checkbox>
+              {/each}
+            </div>
+          </div>
         {/if}
         <Button size="sm" variant="primary" disabled={!newName.trim() || (createNeedsPassword && !newPassword)} onclick={submitCreate}>
           {t("dbadmin.users.previewCreate")}
