@@ -9,6 +9,10 @@
     DbPrincipalRef,
     DbUserAction,
   } from "@nebuladb/shared";
+  import { dbAccessPresets, dbRoleInfo, type DbRoleLevel } from "@nebuladb/shared";
+  import SegmentedControl from "@/components/ui/SegmentedControl.svelte";
+  import RoleDescription from "./RoleDescription.svelte";
+  import RolePicker from "./RolePicker.svelte";
   import Icon from "@/components/icons/Icon.svelte";
   import { CloseIcon, KeyIcon, PlusIcon, TrashIcon, UserIcon, UsersIcon } from "@/components/icons/Icons";
   import Badge from "@/components/ui/Badge.svelte";
@@ -66,7 +70,7 @@
   );
   let filter = $state("");
   let selectedKey = $state<string | null>(null);
-  let pending = $state.raw<{ title: string; action: DbUserAction; danger?: boolean; confirmName?: string } | null>(null);
+  let pending = $state.raw<{ title: string; action: DbUserAction; danger?: boolean; warning?: string; confirmName?: string } | null>(null);
 
   /** The database a principal lives in — only SQL Server has principals below server level. */
   const principalDatabase = $derived(capabilities.principalLevels && context !== SERVER_LEVEL ? context : undefined);
@@ -79,9 +83,89 @@
   );
   const principals = useAsyncResource(() => fetchPrincipals(connectionId, principalDatabase));
   const keyOf = (p: { name: string; host?: string }) => `${p.name}@${p.host ?? ""}`;
-  const visible = $derived((principals.data ?? []).filter((p) => p.name.toLowerCase().includes(filter.trim().toLowerCase())));
   const selected = $derived((principals.data ?? []).find((p) => keyOf(p) === selectedKey) ?? null);
-  const roles = $derived((principals.data ?? []).filter((p) => p.kind === "role" && p.name.toLowerCase() !== "public").map((p) => p.name));
+
+  // ---- What the list shows ----
+  // Accounts and roles are two lists: the server mixes them with its own
+  // built-ins, which an administrator rarely wants to read through.
+  let view = $state<"accounts" | "roles">("accounts");
+  let showSystem = $state(false);
+  const isPublic = (name: string) => name.toLowerCase() === "public";
+  /** A built-in role is worth listing when it is one we can explain; the rest hide with the system. */
+  const documentedRole = (p: DbPrincipal) => !p.system || Boolean(dbRoleInfo(engine, p.name));
+  const shownInList = (p: DbPrincipal) => {
+    if (showSystem) return true;
+    if (p.kind === "role") return !isPublic(p.name) && documentedRole(p);
+    return !p.system;
+  };
+  const groups = $derived.by(() => {
+    const needle = filter.trim().toLowerCase();
+    const kind = view === "accounts" ? "user" : "role";
+    const items = (principals.data ?? []).filter((p) => p.kind === kind && shownInList(p) && p.name.toLowerCase().includes(needle));
+    if (view === "accounts") return [{ label: "", items }];
+    return [
+      { label: t("dbadmin.users.customRoles"), items: items.filter((p) => !p.system) },
+      { label: t("dbadmin.users.builtinRoles"), items: items.filter((p) => p.system) },
+    ].filter((group) => group.items.length > 0);
+  });
+  const listEmpty = $derived(groups.every((group) => group.items.length === 0));
+
+  // Roles an account can be put in: any role but the implicit `public`, built-ins only where explained.
+  const roles = $derived(
+    (principals.data ?? []).filter((p) => p.kind === "role" && !isPublic(p.name) && documentedRole(p)).map((p) => p.name),
+  );
+  const systemRoleNames = $derived(new Set((principals.data ?? []).filter((p) => p.kind === "role" && p.system).map((p) => p.name)));
+
+  // ---- Access-level shortcut ----
+  // Offered where the engine ships roles that mean "read" / "write" / "admin" and this server has them all.
+  const presets = $derived.by(() => {
+    const found = dbAccessPresets(engine, Boolean(principalDatabase));
+    if (!found) return null;
+    const have = new Map((principals.data ?? []).filter((p) => p.kind === "role").map((p) => [p.name.toLowerCase(), p.name]));
+    const resolved: Partial<Record<Exclude<DbRoleLevel, "none">, string[]>> = {};
+    for (const [level, names] of Object.entries(found) as [Exclude<DbRoleLevel, "none">, string[]][]) {
+      const actual = names.map((name) => have.get(name.toLowerCase()));
+      if (actual.every((name): name is string => Boolean(name))) resolved[level] = actual;
+    }
+    return Object.keys(resolved).length > 0 ? resolved : null;
+  });
+  const presetRoles = $derived(new Set(Object.values(presets ?? {}).flat()));
+  function levelOf(p: DbPrincipal): DbRoleLevel | "custom" {
+    const held = p.memberOf.filter((role) => presetRoles.has(role));
+    if (held.length === 0) return "none";
+    const same = (names: string[]) => names.length === held.length && names.every((name) => held.includes(name));
+    for (const [level, names] of Object.entries(presets ?? {}) as [Exclude<DbRoleLevel, "none">, string[]][]) {
+      if (same(names)) return level;
+    }
+    return "custom";
+  }
+  function applyLevel(p: DbPrincipal, level: DbRoleLevel) {
+    const target = level === "none" ? [] : (presets?.[level] ?? []);
+    const held = p.memberOf.filter((role) => presetRoles.has(role));
+    const add = target.filter((role) => !held.includes(role));
+    const remove = held.filter((role) => !target.includes(role));
+    if (add.length === 0 && remove.length === 0) return;
+    pending = {
+      title: t("dbadmin.users.level.title", { name: p.name, level: t(`dbadmin.users.level.${level}`) }),
+      danger: level === "admin",
+      action: { type: "setRoles", principal: refOf(p), add, remove },
+    };
+  }
+
+  // ---- Roles of the selected account / members of the selected role ----
+  let pickingRole = $state(false);
+  let memberToAdd = $state("");
+  const highRiskRoles = (names: string[]) => names.filter((name) => dbRoleInfo(engine, name)?.risk === "high");
+  function addRoleTo(p: DbPrincipal, role: string) {
+    const risky = highRiskRoles([role]).length > 0;
+    pending = {
+      title: t("dbadmin.users.addRoleTitle", { role, name: p.name }),
+      danger: risky,
+      warning: risky ? t("dbadmin.users.highRiskWarning") : undefined,
+      action: { type: "grantRole", principal: refOf(p), role },
+    };
+    pickingRole = false;
+  }
 
   function refOf(p: DbPrincipal): DbPrincipalRef {
     return { name: p.name, host: p.host, kind: p.kind, database: principalDatabase };
@@ -204,8 +288,6 @@
     };
   }
 
-  let roleToAdd = $state("");
-
   function describeGrant(grant: DbGrant): string {
     if (grant.scope === "server") return t("dbadmin.users.scope.server");
     return [grant.database, grant.schema, grant.table ?? (grant.scope === "table" ? "*" : undefined)].filter(Boolean).join(".");
@@ -236,6 +318,20 @@
 
 <div class="grid grid-cols-1 gap-4 md:grid-cols-12">
   <div class="space-y-2 md:col-span-4">
+    <SegmentedControl
+      size="sm"
+      class="w-full"
+      bind:value={view}
+      onChange={() => {
+        selectedKey = null;
+        pickingRole = false;
+      }}
+      options={[
+        { value: "accounts", label: t("dbadmin.users.view.accounts"), icon: UserIcon },
+        { value: "roles", label: t("dbadmin.users.view.roles"), icon: UsersIcon },
+      ]}
+      aria-label={t("dbadmin.users.kindLabel")}
+    />
     {#if hasDatabaseContext}
       <Select
         size="sm"
@@ -250,7 +346,10 @@
     {/if}
     <div class="flex items-center gap-1">
       <Input inputSize="sm" class="min-w-0 flex-1" bind:value={filter} placeholder={t("dbadmin.users.filter")} />
-      <Button size="sm" variant="primary" disabled={overview.readOnly} data-tooltip={readOnlyTip} onclick={() => (creating = !creating)}>
+      <Button size="sm" variant="primary" disabled={overview.readOnly} data-tooltip={readOnlyTip} onclick={() => {
+        creating = !creating;
+        newKind = view === "roles" ? "role" : "user";
+      }}>
         <Icon icon={PlusIcon} size={12} />
         {t("common.add")}
       </Button>
@@ -334,12 +433,23 @@
       <ErrorText>{t("dbadmin.users.associateFailed", { reason: associate.error })}</ErrorText>
     {/if}
     {#if principals.error}<ErrorText>{principals.error}</ErrorText>{/if}
+    <Checkbox bind:checked={showSystem}>
+      <span class="text-xs text-text-secondary">{t("dbadmin.users.showSystem")}</span>
+    </Checkbox>
     <div class="max-h-[460px] space-y-0.5 overflow-y-auto">
-      {#each visible as p (keyOf(p))}
+      {#each groups as group (group.label)}
+      {#if group.label}
+        <div class="px-2 pt-2 pb-0.5 text-micro font-bold tracking-wider text-text-muted uppercase">{group.label}</div>
+      {/if}
+      {#each group.items as p (keyOf(p))}
         {@const active = keyOf(p) === selectedKey}
         <button
           type="button"
-          onclick={() => (selectedKey = keyOf(p))}
+          onclick={() => {
+            selectedKey = keyOf(p);
+            pickingRole = false;
+            changingPassword = false;
+          }}
           class={`flex w-full items-center gap-2 rounded-sm px-2 py-1.5 text-left text-xs transition-colors ${
             active ? "bg-primary/15 font-semibold text-primary" : "text-text hover:bg-surface-hover"
           }`}
@@ -352,7 +462,8 @@
           {#if p.system}<Badge tone="muted">{t("dbadmin.users.system")}</Badge>{/if}
         </button>
       {/each}
-      {#if visible.length === 0}
+      {/each}
+      {#if listEmpty}
         <p class="py-4 text-center text-xs text-text-muted">{principals.loading ? t("common.loading") : t("dbadmin.users.empty")}</p>
       {/if}
     </div>
@@ -428,54 +539,157 @@
         </div>
       {/if}
 
-      <section>
-        <div class="mb-1 text-xs font-semibold uppercase tracking-wider text-text-muted">{t("dbadmin.users.roles")}</div>
-        <div class="flex flex-wrap items-center gap-1.5">
-          {#each p.memberOf as role (role)}
-            <span class="inline-flex items-center gap-1 rounded-full bg-surface-hover px-2 py-0.5 text-xs">
-              {role}
-              <button
-                type="button"
-                class="text-text-muted hover:text-danger disabled:opacity-40"
-                disabled={locked}
-                aria-label={t("dbadmin.users.removeRole", { role })}
-                onclick={() =>
-                  (pending = {
-                    title: t("dbadmin.users.removeRole", { role }),
-                    danger: true,
-                    action: { type: "revokeRole", principal: refOf(p), role },
-                  })}
-              >
-                <Icon icon={CloseIcon} size={10} />
-              </button>
-            </span>
-          {/each}
-          {#if p.memberOf.length === 0}<span class="text-xs text-text-muted">{t("dbadmin.users.noRoles")}</span>{/if}
-          {#if roles.filter((r) => r !== p.name && !p.memberOf.includes(r)).length > 0}
-            <Select
-              size="sm"
-              class="min-w-40"
-              bind:value={roleToAdd}
-              options={roles.filter((r) => r !== p.name && !p.memberOf.includes(r)).map((role) => ({ value: role, label: role }))}
-              placeholder={t("dbadmin.users.addRole")}
-              disabled={locked}
-              aria-label={t("dbadmin.users.addRole")}
-            />
-            {#if roleToAdd}
-              <Button
-                size="xs"
-                variant="primary"
-                onclick={() => {
-                  pending = { title: t("dbadmin.users.addRoleTitle", { role: roleToAdd, name: p.name }), action: { type: "grantRole", principal: refOf(p), role: roleToAdd } };
-                  roleToAdd = "";
-                }}
-              >
-                {t("common.add")}
-              </Button>
-            {/if}
+      {#if p.kind === "role"}
+        <div class="rounded-md border border-border bg-surface-raised p-2.5">
+          <div class="mb-1 text-xs font-semibold uppercase tracking-wider text-text-muted">{t("dbadmin.users.roleGives")}</div>
+          <RoleDescription {engine} role={p.name} system={p.system} />
+        </div>
+      {:else}
+        {@const held = p.memberOf.filter((role) => !isPublic(role))}
+        {@const risky = highRiskRoles(held)}
+        <div class="space-y-1 rounded-md border border-border bg-surface-raised p-2.5 text-xs">
+          <p class="text-text-secondary">
+            {held.length === 0
+              ? t("dbadmin.users.summary.none", { name: p.name })
+              : t("dbadmin.users.summary.roles", { name: p.name, roles: held.join(", ") })}
+          </p>
+          {#if risky.length > 0}
+            <p class="font-semibold text-danger">{t("dbadmin.users.summary.highRisk", { roles: risky.join(", ") })}</p>
           {/if}
         </div>
-      </section>
+
+        {#if presets}
+          {@const level = levelOf(p)}
+          <section class="space-y-1">
+            <div class="text-xs font-semibold uppercase tracking-wider text-text-muted">{t("dbadmin.users.level.label")}</div>
+            <SegmentedControl
+              size="sm"
+              value={level as string}
+              onChange={(next) => applyLevel(p, next as DbRoleLevel)}
+              options={[
+                { value: "none", label: t("dbadmin.users.level.none"), disabled: locked },
+                ...(presets.read ? [{ value: "read", label: t("dbadmin.users.level.read"), disabled: locked }] : []),
+                ...(presets.write ? [{ value: "write", label: t("dbadmin.users.level.write"), disabled: locked }] : []),
+                ...(presets.admin ? [{ value: "admin", label: t("dbadmin.users.level.admin"), disabled: locked }] : []),
+                ...(level === "custom" ? [{ value: "custom", label: t("dbadmin.users.level.custom"), disabled: true }] : []),
+              ]}
+              aria-label={t("dbadmin.users.level.label")}
+            />
+            <Hint>{t("dbadmin.users.level.hint", { roles: [...presetRoles].join(", ") })}</Hint>
+          </section>
+        {/if}
+
+        <section>
+          <div class="mb-1 text-xs font-semibold uppercase tracking-wider text-text-muted">{t("dbadmin.users.roles")}</div>
+          <div class="space-y-1">
+            {#each held as role (role)}
+              <div class="flex items-start gap-2 rounded-md border border-border px-2 py-1.5">
+                <div class="min-w-0 flex-1">
+                  <div class="font-mono text-xs font-semibold">{role}</div>
+                  <RoleDescription {engine} {role} system={systemRoleNames.has(role)} />
+                </div>
+                <Button
+                  variant="danger-ghost"
+                  size="icon-xs"
+                  disabled={locked}
+                  data-tooltip={lockedTip ?? t("dbadmin.users.removeRole", { role })}
+                  aria-label={t("dbadmin.users.removeRole", { role })}
+                  onclick={() =>
+                    (pending = {
+                      title: t("dbadmin.users.removeRole", { role }),
+                      danger: true,
+                      action: { type: "revokeRole", principal: refOf(p), role },
+                    })}
+                >
+                  <Icon icon={CloseIcon} size={11} />
+                </Button>
+              </div>
+            {/each}
+            {#if held.length === 0}<span class="text-xs text-text-muted">{t("dbadmin.users.noRoles")}</span>{/if}
+          </div>
+          {#if !locked && roles.some((r) => r !== p.name && !p.memberOf.includes(r))}
+            <Button size="xs" variant="ghost" class="mt-1.5" onclick={() => (pickingRole = !pickingRole)}>
+              <Icon icon={PlusIcon} size={12} />
+              {t("dbadmin.users.addRole")}
+            </Button>
+            {#if pickingRole}
+              <div class="mt-1.5">
+                <RolePicker
+                  {engine}
+                  roles={roles.filter((r) => r !== p.name && !p.memberOf.includes(r))}
+                  systemRoles={systemRoleNames}
+                  onPick={(role) => addRoleTo(p, role)}
+                />
+              </div>
+            {/if}
+          {/if}
+        </section>
+      {/if}
+
+      {#if p.kind === "role"}
+        {@const members = (principals.data ?? []).filter((m) => m.memberOf.includes(p.name))}
+        {@const candidates = (principals.data ?? []).filter((m) => m.kind === "user" && !m.system && !m.memberOf.includes(p.name))}
+        <section>
+          <div class="mb-1 text-xs font-semibold uppercase tracking-wider text-text-muted">
+            {t("dbadmin.users.members")} ({members.length})
+          </div>
+          <div class="space-y-1">
+            {#each members as m (keyOf(m))}
+              <div class="flex items-center gap-2 rounded-md border border-border px-2 py-1 text-xs">
+                <Icon icon={m.kind === "role" ? UsersIcon : UserIcon} size={12} class="shrink-0 text-text-muted" />
+                <span class="min-w-0 flex-1 truncate font-mono">{m.name}{m.host ? `@${m.host}` : ""}</span>
+                {#if m.system}<Badge tone="muted">{t("dbadmin.users.system")}</Badge>{/if}
+                <Button
+                  variant="danger-ghost"
+                  size="icon-xs"
+                  disabled={overview.readOnly || m.system}
+                  data-tooltip={readOnlyTip ?? (m.system ? t("dbadmin.systemObject") : t("dbadmin.users.removeRole", { role: p.name }))}
+                  aria-label={t("dbadmin.users.removeRole", { role: p.name })}
+                  onclick={() =>
+                    (pending = {
+                      title: t("dbadmin.users.removeRole", { role: p.name }),
+                      danger: true,
+                      action: { type: "revokeRole", principal: refOf(m), role: p.name },
+                    })}
+                >
+                  <Icon icon={CloseIcon} size={11} />
+                </Button>
+              </div>
+            {/each}
+            {#if members.length === 0}<span class="text-xs text-text-muted">{t("dbadmin.users.noMembers")}</span>{/if}
+          </div>
+          {#if !overview.readOnly && candidates.length > 0}
+            <div class="mt-1.5 flex items-center gap-1.5">
+              <Select
+                size="sm"
+                class="min-w-48"
+                bind:value={memberToAdd}
+                options={candidates.map((m) => ({ value: keyOf(m), label: m.host ? `${m.name}@${m.host}` : m.name }))}
+                placeholder={t("dbadmin.users.addMember")}
+                aria-label={t("dbadmin.users.addMember")}
+              />
+              {#if memberToAdd}
+                <Button
+                  size="xs"
+                  variant="primary"
+                  onclick={() => {
+                    const target = candidates.find((m) => keyOf(m) === memberToAdd);
+                    memberToAdd = "";
+                    if (target) addRoleTo(target, p.name);
+                  }}
+                >
+                  {t("common.add")}
+                </Button>
+              {/if}
+            </div>
+          {/if}
+        </section>
+      {/if}
+
+      {#key keyOf(p)}
+      <details class="rounded-md border border-border p-2.5" open={p.kind === "role" || !presets}>
+        <summary class="cursor-pointer text-xs font-semibold text-text-secondary">{t("dbadmin.users.advanced")}</summary>
+        <div class="mt-2 space-y-4">
 
       <section>
         <div class="mb-1 text-xs font-semibold uppercase tracking-wider text-text-muted">{t("dbadmin.users.privileges")}</div>
@@ -559,6 +773,9 @@
           </div>
         </section>
       {/if}
+        </div>
+      </details>
+      {/key}
     {/if}
   </div>
 </div>
@@ -567,7 +784,7 @@
   {@const current = pending}
   <StatementModal
     title={current.title}
-    hint={t("dbadmin.users.statementHint")}
+    hint={current.warning ? `${current.warning} ${t("dbadmin.users.statementHint")}` : t("dbadmin.users.statementHint")}
     danger={current.danger}
     confirmName={current.confirmName}
     run={(execute) => applyUserAction(connectionId, current.action, execute)}

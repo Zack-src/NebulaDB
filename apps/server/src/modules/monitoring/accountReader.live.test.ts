@@ -1,6 +1,6 @@
 import { test, type TestContext } from "node:test";
 import assert from "node:assert/strict";
-import type { DatabaseConnectionConfig, DbUserAction } from "@nebuladb/shared";
+import type { DatabaseConnectionConfig, DbSingleUserAction } from "@nebuladb/shared";
 import { useTestDatabase } from "../../infrastructure/testDatabase.js";
 
 await useTestDatabase("accountlive");
@@ -79,7 +79,7 @@ for (const engine of ["postgres", "mysql", "mssql"] as const) {
     const grantKey = engine === "mssql" ? `${database}/${user.name}` : key;
     // PostgreSQL reads a table grant in the database it is in; SQL Server reads that database's users.
     const read = () => readAccountLines(driver, engine === "mysql" ? undefined : database);
-    const apply = (action: DbUserAction, runIn?: string) => driver.execute(driver.userStatements(action), runIn);
+    const apply = (action: DbSingleUserAction, runIn?: string) => driver.execute(driver.userStatements(action), runIn);
     const cleanup = async () => {
       if (engine === "mssql") await apply({ type: "drop", principal: dbUser }, database).catch(() => {});
       if (engine === "postgres") {

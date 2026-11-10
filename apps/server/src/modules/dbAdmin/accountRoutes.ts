@@ -15,7 +15,13 @@ import {
   withDriver,
 } from "./routeKit.js";
 
-const USER_ACTIONS = ["create", "drop", "password", "lock", "grant", "revoke", "grantRole", "revokeRole"];
+const USER_ACTIONS = ["create", "drop", "password", "lock", "grant", "revoke", "grantRole", "revokeRole", "setRoles"];
+
+/** A request list of role names, each one checked as a name. */
+function asNames(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((role) => requireName(role, "role"));
+}
 
 export function registerAccountRoutes(app: FastifyInstance): void {
   // ---- Users & permissions -------------------------------------------------
@@ -88,7 +94,19 @@ export function registerAccountRoutes(app: FastifyInstance): void {
       // Where it runs matters: a SQL Server database user lives in its database, and a
       // PostgreSQL schema or table grant only means something inside the database it names.
       const runIn = database ?? ("target" in action ? optionalName(action.target?.database, "database") : undefined);
-      return previewOrExecute(driver, driver.userStatements(action), execute, runIn);
+      // A batch of role changes is expanded into the engine's own grant/revoke statements.
+      const statements =
+        action.type === "setRoles"
+          ? [
+              ...asNames(action.remove).map((role) =>
+                driver.userStatements({ type: "revokeRole", principal: action.principal, role }),
+              ),
+              ...asNames(action.add).map((role) =>
+                driver.userStatements({ type: "grantRole", principal: action.principal, role }),
+              ),
+            ].flat()
+          : driver.userStatements(action);
+      return previewOrExecute(driver, statements, execute, runIn);
     });
     if (execute) {
       const auditAction =
@@ -100,7 +118,7 @@ export function registerAccountRoutes(app: FastifyInstance): void {
               ? "dbuser.password"
               : action.type === "lock"
                 ? "dbuser.alter"
-                : action.type === "grant" || action.type === "grantRole"
+                : action.type === "grant" || action.type === "grantRole" || action.type === "setRoles"
                   ? "dbuser.grant"
                   : "dbuser.revoke";
       // `result.sql` is the masked text — a password never reaches the audit log.

@@ -14,7 +14,7 @@ import type {
   DbPrincipal,
   DbPrincipalRef,
   DbPrivilegeCatalog,
-  DbUserAction,
+  DbSingleUserAction,
 } from "@nebuladb/shared";
 import { ApiError } from "../../../shared/errors.js";
 import type { DriverConnectionConfig } from "../../connections/drivers/interface.js";
@@ -427,7 +427,7 @@ export class MysqlAdminDriver implements DatabaseAdminDriver {
     return grants;
   }
 
-  userStatements(action: DbUserAction): AdminStatement[] {
+  userStatements(action: DbSingleUserAction): AdminStatement[] {
     const isRole = action.principal.kind === "role";
     const who =
       isRole && !action.principal.host

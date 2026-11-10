@@ -14,7 +14,7 @@ import type {
   DbPrincipal,
   DbPrincipalRef,
   DbPrivilegeCatalog,
-  DbUserAction,
+  DbSingleUserAction,
 } from "@nebuladb/shared";
 import { ApiError } from "../../../shared/errors.js";
 import type { DriverConnectionConfig } from "../../connections/drivers/interface.js";
@@ -354,7 +354,7 @@ export class OracleAdminDriver implements DatabaseAdminDriver {
     return grants;
   }
 
-  userStatements(action: DbUserAction): AdminStatement[] {
+  userStatements(action: DbSingleUserAction): AdminStatement[] {
     // Unquoted Oracle names fold to upper case; a new account is created that
     // way too, so it can be used later without quoting it everywhere.
     const name = requireName(
