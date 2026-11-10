@@ -347,3 +347,142 @@ test("variants: reset on the original, copied from a sibling, the family listed,
     ["Socle", "B — Lyon"],
   );
 });
+
+async function tableIds(cookie: string, projectId: string): Promise<Record<string, string>> {
+  const bundle = (await call(cookie, "GET", `/api/projects/${projectId}/export/bundle`)).json();
+  return Object.fromEntries((bundle.project.tables as { id: string; name: string }[]).map((t) => [t.name, t.id]));
+}
+
+const seedBody = (rows: string[]) => ({
+  content: ["id,name", ...rows].join("\n"),
+  options: { separator: ",", header: true, mode: "if-empty", mapping: [null, null] },
+});
+
+async function setSeed(cookie: string, projectId: string, tableId: string, rows: string[], fields: string[]) {
+  const body = seedBody(rows);
+  body.options.mapping = fields as unknown as null[];
+  const res = await call(cookie, "PUT", `/api/projects/${projectId}/seeds/${tableId}`, body);
+  assert.equal(res.statusCode, 200, res.body);
+}
+
+test("variants: the initial data travels with the schema, in both directions, per table", async () => {
+  const owner = await makeUser();
+  const base = (await call(owner.cookie, "POST", "/api/projects", { name: "Seeds" })).json() as { id: string };
+  await importDbml(owner.cookie, base.id, ORIGINAL);
+  const ids = await tableIds(owner.cookie, base.id);
+  const customersFields = (await call(owner.cookie, "GET", `/api/projects/${base.id}/export/bundle`))
+    .json()
+    .project.tables.find((t: { name: string }) => t.name === "customers").fields as { id: string }[];
+  const mapping = customersFields.map((f) => f.id);
+
+  await setSeed(owner.cookie, base.id, ids.customers, ["1,Ada"], mapping);
+  const v = (await call(owner.cookie, "POST", `/api/projects/${base.id}/variants`, { name: "V" })).json() as {
+    id: string;
+  };
+
+  // A variant starts with the original's data (a copy), nothing pending.
+  const copied = (await call(owner.cookie, "GET", `/api/projects/${v.id}/seeds`)).json().seeds as {
+    tableName: string;
+  }[];
+  assert.deepEqual(
+    copied.map((s) => s.tableName),
+    ["customers"],
+  );
+  const listed = () =>
+    call(owner.cookie, "GET", `/api/projects/${base.id}/variants`).then((r) => r.json().variants[0].status);
+  assert.equal((await listed()).pending, 0);
+
+  // The original changes the data: offered, no conflict, sent.
+  await setSeed(owner.cookie, base.id, ids.customers, ["1,Ada", "2,Grace"], mapping);
+  const preview = (
+    await call(owner.cookie, "POST", `/api/projects/${base.id}/variants/preview`, { variants: [v.id] })
+  ).json().variants[0].plan.changes as { key: string; kind: string; conflict?: string }[];
+  assert.deepEqual(
+    preview.map((c) => [c.kind, c.conflict ?? null]),
+    [["seed", null]],
+  );
+  const sent = await call(owner.cookie, "POST", `/api/projects/${base.id}/variants/push`, { variants: [{ id: v.id }] });
+  assert.equal(sent.json().results[0].applied, 1);
+  const seed = (await call(owner.cookie, "GET", `/api/projects/${v.id}/seeds/${ids.customers}`)).json().seed;
+  assert.match(seed.content, /2,Grace/);
+
+  // The variant changes its data too, then the original does: a conflict, the variant's kept by default.
+  await setSeed(owner.cookie, v.id, ids.customers, ["1,Ada", "2,Grace", "3,Own"], mapping);
+  await setSeed(owner.cookie, base.id, ids.customers, ["1,Ada", "9,Linus"], mapping);
+  const conflict = (
+    await call(owner.cookie, "POST", `/api/projects/${base.id}/variants/preview`, { variants: [v.id] })
+  ).json().variants[0].plan.changes as { conflict?: string }[];
+  assert.equal(conflict[0].conflict, "variant-changed");
+  await call(owner.cookie, "POST", `/api/projects/${base.id}/variants/push`, { variants: [{ id: v.id }] });
+  assert.match(
+    (await call(owner.cookie, "GET", `/api/projects/${v.id}/seeds/${ids.customers}`)).json().seed.content,
+    /3,Own/,
+  );
+
+  // Pull: the variant's data goes into the original, only because it was chosen.
+  const pull = (
+    await call(owner.cookie, "POST", `/api/projects/${base.id}/variants/preview`, {
+      variants: [v.id],
+      direction: "pull",
+    })
+  ).json().variants[0].plan.changes as { key: string; kind: string; conflict?: string }[];
+  assert.equal(pull[0].kind, "seed");
+  // The last sending took the original as it is, and it has not moved since: the variant's data is plainly offered.
+  assert.equal(pull[0].conflict, undefined);
+  const pulled = await call(owner.cookie, "POST", `/api/projects/${base.id}/variants/push`, {
+    variants: [{ id: v.id, decisions: { [pull[0].key]: "base" } }],
+    direction: "pull",
+  });
+  assert.equal(pulled.json().results[0].applied, 1);
+  assert.match(
+    (await call(owner.cookie, "GET", `/api/projects/${base.id}/seeds/${ids.customers}`)).json().seed.content,
+    /3,Own/,
+  );
+});
+
+test("variants: a sending can leave column types alone, and a new column is pulled into the original", async () => {
+  const owner = await makeUser();
+  const base = (await call(owner.cookie, "POST", "/api/projects", { name: "Types" })).json() as { id: string };
+  await importDbml(owner.cookie, base.id, ORIGINAL);
+  const v = (await call(owner.cookie, "POST", `/api/projects/${base.id}/variants`, { name: "PG" })).json() as {
+    id: string;
+  };
+  // The variant is on another engine: `total` is a money there.
+  await importDbml(owner.cookie, v.id, ORIGINAL.replace("total numeric", "total money"));
+  // The original makes `total` not null (and keeps numeric), and widens `name`.
+  await importDbml(
+    owner.cookie,
+    base.id,
+    ORIGINAL.replace("total numeric", "total numeric [not null]").replace("name varchar", "name varchar(80)"),
+  );
+
+  const ignore = { ignoreFieldProps: ["type"] };
+  const plan = (
+    await call(owner.cookie, "POST", `/api/projects/${base.id}/variants/preview`, { variants: [v.id], ...ignore })
+  ).json().variants[0].plan.changes as { label: string; conflict?: string; props?: string[] }[];
+  assert.deepEqual(
+    plan.map((c) => [c.label, c.conflict ?? null, c.props]),
+    [["orders.total", null, ["notNull"]]],
+  );
+  await call(owner.cookie, "POST", `/api/projects/${base.id}/variants/push`, { variants: [{ id: v.id }], ...ignore });
+  const after = await dbml(owner.cookie, v.id);
+  assert.match(after, /total\s+money\s+\[not null\]/);
+  assert.match(after, /name\s+varchar\b(?!\(80\))/);
+
+  const bad = await call(owner.cookie, "POST", `/api/projects/${base.id}/variants/preview`, {
+    variants: [v.id],
+    ignoreFieldProps: ["nope"],
+  });
+  assert.equal(bad.json().code, "VARIANT_TARGETS_INVALID");
+
+  // A column added in the variant goes up to the original on a pull.
+  await importDbml(owner.cookie, v.id, ORIGINAL.replace("total numeric", "total money [not null]\n  note text"));
+  const pull = (
+    await call(owner.cookie, "POST", `/api/projects/${base.id}/variants/preview`, {
+      variants: [v.id],
+      direction: "pull",
+      ...ignore,
+    })
+  ).json().variants[0].plan.changes as { label: string }[];
+  assert.ok(pull.some((c) => c.label === "orders.note"));
+});

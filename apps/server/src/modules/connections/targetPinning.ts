@@ -1,5 +1,6 @@
 import net from "node:net";
 import type { DatabaseConnectionConfig } from "@nebuladb/shared";
+import { ApiError } from "../../shared/errors.js";
 import type { DriverConnectionConfig } from "./drivers/interface.js";
 import { resolveAllowedHost } from "./hostGuard.js";
 
@@ -41,6 +42,25 @@ function oracleStringHost(connectString: string): string | undefined {
 }
 
 /**
+ * The hosts of a MongoDB URI (`mongodb://[user:password@]host1[:port1],host2[:port2]/…`). An `mongodb+srv` URI is
+ * refused: the hosts it names are looked up when the client connects, after the guard has looked at the URI.
+ */
+function mongoStringHosts(connectionString: string): string[] {
+  const match = /^(mongodb(?:\+srv)?):\/\/([^/?#]*)/i.exec(connectionString.trim());
+  if (!match) return [];
+  if (match[1]?.toLowerCase() === "mongodb+srv") {
+    throw new ApiError("CONNECTION_TARGET_FORBIDDEN", {
+      message: "mongodb+srv URIs are not supported: list the hosts in a mongodb:// URI instead",
+    });
+  }
+  const authority = (match[2] ?? "").slice((match[2] ?? "").lastIndexOf("@") + 1);
+  return authority
+    .split(",")
+    .map((entry) => entry.replace(/:\d+$/, "").replace(/^\[|\]$/g, ""))
+    .filter(Boolean);
+}
+
+/**
  * Turns a stored config into the one a driver connects with: each network target is resolved
  * and checked once (`resolveAllowedHost`) and the driver gets that address. Where the target
  * sits inside an opaque connection string, the host is checked but not pinned.
@@ -66,6 +86,16 @@ export async function pinConnectionTarget(config: DatabaseConnectionConfig): Pro
   }
   if (config.engine === "oracle") {
     await resolveAllowedHost(oracleStringHost(config.connectionString));
+    return config;
+  }
+  // Each host in the URI is checked; none is pinned, the client library resolves them itself.
+  if (config.engine === "mongodb") {
+    for (const host of mongoStringHosts(config.connectionString)) await resolveAllowedHost(host);
+    return config;
+  }
+  if (config.engine === "redis" || config.engine === "clickhouse") {
+    const target = parseUrl(config.connectionString);
+    await resolveAllowedHost(target ? decodeURIComponent(target.hostname) : undefined);
     return config;
   }
 

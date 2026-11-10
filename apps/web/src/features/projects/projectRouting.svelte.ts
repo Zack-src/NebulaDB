@@ -1,3 +1,4 @@
+import { takeKeepTab } from "@/utils/viewCarry";
 import { untrack } from "svelte";
 import { useTranslation } from "@/i18n/i18n.svelte";
 import { ApiError } from "@/services/ApiError";
@@ -93,9 +94,10 @@ export function useProjectRouting(
   const openProjectAndNavigate = (project: ProjectSummary, focus?: CanvasFocusTarget) => {
     openLinkError = null;
     focusTarget = focus ?? null;
-    tab = "schema";
+    // Going from one variant to another keeps the tab one was on (see `viewCarry`).
+    if (!takeKeepTab(project.id)) tab = "schema";
     openProjectState = project;
-    history.pushState(null, "", `/project/${project.id}`);
+    history.pushState(null, "", tab === "schema" ? `/project/${project.id}` : `/project/${project.id}/${tab}`);
   };
 
   const setTab = (next: WorkspaceTab) => {

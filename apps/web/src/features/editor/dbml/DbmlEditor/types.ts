@@ -51,6 +51,8 @@ export interface DbmlEditorProps {
   /** The schema linter's findings, underlined on the table or column they are about. */
   findings?: readonly import("@/features/editor/dbml/lint").SchemaFinding[];
   scrollToTable?: { tableName: string; requestId: number } | null;
+  /** The project shown: a view carried over from another variant of it is put back in this one. */
+  projectId?: string;
   /** Double-click on a table/column in the buffer -> jump to it on the canvas. */
   onNavigateToCanvas?: (target: import("@/features/editor/dbml/canvasLink").CanvasNavigateTarget) => void;
   pluginCommands?: PluginEditorCommand[];

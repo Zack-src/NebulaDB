@@ -8,7 +8,10 @@ export function parseSchema(source: string, name = "schema"): Project {
     return toProject(parseDbml(source), name, source);
   } catch (err) {
     const info = describeDbmlParseError(err);
-    const where = info.line !== undefined ? ` (line ${info.line}${info.column !== undefined ? `, column ${info.column}` : ""})` : "";
+    const where =
+      info.line !== undefined
+        ? ` (line ${info.line}${info.column !== undefined ? `, column ${info.column}` : ""})`
+        : "";
     throw new ToolError(`invalid DBML${where}: ${info.message.slice(0, 500)}`);
   }
 }
@@ -46,7 +49,9 @@ function refLabel(project: Project, ref: Ref): string {
     return table ? `${qualifiedName(table)}.${field?.name ?? "?"}` : "?";
   };
   const arrow = ref.cardinality === "one-to-one" ? "-" : ref.cardinality === "many-to-many" ? "<>" : ">";
-  const actions = [ref.onDelete && `on delete ${ref.onDelete}`, ref.onUpdate && `on update ${ref.onUpdate}`].filter(Boolean);
+  const actions = [ref.onDelete && `on delete ${ref.onDelete}`, ref.onUpdate && `on update ${ref.onUpdate}`].filter(
+    Boolean,
+  );
   return `${endpoint(ref.from)} ${arrow} ${endpoint(ref.to)}${actions.length ? ` [${actions.join(", ")}]` : ""}`;
 }
 
@@ -62,7 +67,9 @@ export function describeTable(project: Project, name: string): TableInfo {
   const table = findTable(project, name);
   if (!table) {
     const known = project.tables.slice(0, 20).map(qualifiedName).join(", ");
-    throw new ToolError(`no table named "${name}" in this project${known ? ` (known: ${known}${project.tables.length > 20 ? ", ..." : ""})` : ""}`);
+    throw new ToolError(
+      `no table named "${name}" in this project${known ? ` (known: ${known}${project.tables.length > 20 ? ", ..." : ""})` : ""}`,
+    );
   }
   const fieldName = (id: string) => table.fields.find((f) => f.id === id)?.name ?? id;
   return {
@@ -80,7 +87,9 @@ export function describeTable(project: Project, name: string): TableInfo {
       unique: !!i.unique,
       pk: !!i.pk,
     })),
-    refs: project.refs.filter((r) => r.from.tableId === table.id || r.to.tableId === table.id).map((r) => refLabel(project, r)),
+    refs: project.refs
+      .filter((r) => r.from.tableId === table.id || r.to.tableId === table.id)
+      .map((r) => refLabel(project, r)),
   };
 }
 
@@ -99,7 +108,8 @@ export function searchSchema(project: Project, query: string, limit = 50): { hit
     const tableName = qualifiedName(table);
     if (tableName.toLowerCase().includes(q)) hits.push({ kind: "table", table: tableName });
     for (const field of table.fields) {
-      if (field.name.toLowerCase().includes(q)) hits.push({ kind: "column", table: tableName, column: field.name, type: field.type });
+      if (field.name.toLowerCase().includes(q))
+        hits.push({ kind: "column", table: tableName, column: field.name, type: field.type });
     }
   }
   return { hits: hits.slice(0, limit), truncated: hits.length > limit };

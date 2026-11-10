@@ -30,6 +30,7 @@
   import { SqlDrawerState } from "@/features/sql/sqlDrawer.svelte";
 import { fingerprintSchema } from "@nebuladb/dbml-engine";
 import { DeploymentDrawerState } from "@/features/workspace/drawerState.svelte";
+  import { carryViewToProject } from "@/utils/viewCarry";
   import { LintState } from "@/features/editor/lint/lint.svelte";
   import { ProjectConnectionsState } from "@/features/editor/projectConnections.svelte";
   import { HistoryPreviewState } from "@/features/editor/history/historyPreview.svelte";
@@ -632,7 +633,14 @@ import { DeploymentDrawerState } from "@/features/workspace/drawerState.svelte";
     onOpenSettings={props.onOpenSettings ?? (() => (showSettings = true))}
     onStartTour={() => (tourOpen = true)}
     follow={props.onOpenProject
-      ? { projectId: project.id, onOpenProject: props.onOpenProject }
+      ? {
+          projectId: project.id,
+          onOpenProject: props.onOpenProject,
+          onSwitchVariant: (targetId: string) => {
+            carryViewToProject(project.id, targetId, props.session.id);
+            props.onOpenProject?.(targetId);
+          },
+        }
       : undefined}
     localUser={user}
     remoteAwareness={remoteAwareness.states}

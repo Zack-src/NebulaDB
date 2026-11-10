@@ -63,6 +63,36 @@ export const DBML_TYPES = [
   "geometry",
   "geography",
   "array",
+  // BigQuery (GoogleSQL) types
+  "string",
+  "int64",
+  "float64",
+  "bignumeric",
+  "bytes",
+  "struct",
+  // Oracle types
+  "number",
+  "varchar2",
+  "nvarchar2",
+  "clob",
+  "nclob",
+  "raw",
+  "long",
+  "binary_float",
+  "binary_double",
+  "rowid",
+  // ClickHouse types
+  "int16",
+  "int32",
+  "float32",
+  "fixedstring",
+  "datetime64",
+  // MongoDB (BSON) types
+  "bindata",
+  "object",
+  // SQL Server and MySQL types produced by the conversion
+  "uniqueidentifier",
+  "longblob",
 ];
 
 const DBML_KEYWORDS = ["Table", "Ref", "Enum", "Note", "Project", "TableGroup", "indexes", "as"];

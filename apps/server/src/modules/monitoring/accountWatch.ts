@@ -31,8 +31,9 @@ const READ_TIMEOUT_MS = 60_000;
 const SYSTEM = { id: null, email: null };
 
 function engineHasAccounts(engine: string): boolean {
-  // SQLite has no accounts; who may read a BigQuery dataset is Google Cloud IAM's to say, not the dataset's.
-  return engine !== "sqlite" && engine !== "bigquery";
+  // SQLite has no accounts; who may read a BigQuery dataset is Google Cloud IAM's to say, not the dataset's. The accounts
+  // of ClickHouse, MongoDB and Redis are not read from here.
+  return !["sqlite", "bigquery", "clickhouse", "mongodb", "redis"].includes(engine);
 }
 
 type AccountReader = (connection: DatabaseConnectionConfig) => Promise<string[]>;

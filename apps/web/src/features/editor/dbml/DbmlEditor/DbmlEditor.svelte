@@ -36,6 +36,12 @@
   import { EMPTY_CURSOR, readCursorInfo } from "./cursorInfo";
   import { readStoredFontSize, readStoredWrap, writeStoredFontSize, writeStoredWrap } from "./prefs";
   import { behaviourPrefs } from "./behaviourPrefs.svelte";
+  import {
+    registerDbmlView,
+    restoreDbmlView,
+    takeDbmlView,
+    type DbmlViewSnapshot,
+  } from "@/utils/viewCarry";
   import { buildPaletteItems } from "./paletteItems";
   import { runPluginEditorCommand } from "./pluginCommands";
   import RenamePopover from "./RenamePopover.svelte";
@@ -164,12 +170,24 @@
     });
     const view = new EditorView({ state, parent: container });
     viewRef.current = view;
+    registerDbmlView(view);
     cursor = readCursorInfo(view);
+    // Coming from another variant of the same project: the same place in the code. Put back as soon as there is text
+    // to put it in (the document can arrive just after the editor does).
+    const projectId = untrack(() => props.projectId);
+    carried = projectId ? takeDbmlView(projectId) : null;
+    if (carried && view.state.doc.length > 0) {
+      restoreDbmlView(view, carried);
+      carried = null;
+    }
     return () => {
+      registerDbmlView(null);
       view.destroy();
       viewRef.current = null;
     };
   });
+
+  let carried: DbmlViewSnapshot | null = null;
 
   // External document updates (project -> DBML sync).
   $effect(() => {
@@ -192,6 +210,10 @@
       // a collaborator did on the canvas.
       annotations: [documentSync.of(true), Transaction.addToHistory.of(false)],
     });
+    if (carried && view.state.doc.length > 0) {
+      restoreDbmlView(view, carried);
+      carried = null;
+    }
   });
 
   $effect(() => {

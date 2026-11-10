@@ -46,7 +46,7 @@ test("admin: add a connection, explore it, query it and drop a table", { timeout
 
     // Create.
     await page.getByRole("button", { name: "Nouvelle connexion" }).click();
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("region", { name: "Nouvelle connexion" });
     await dialog.getByPlaceholder("ex: Production DB").fill("Boutique");
     await dialog.getByRole("combobox", { name: "Moteur de base de données" }).click();
     await page.getByRole("option", { name: "SQLite" }).click();

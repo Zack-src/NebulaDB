@@ -559,20 +559,26 @@ test("PostgreSQL: a restore keeps identity ids, skips generated columns, moves s
     assert.equal(result.success, true, JSON.stringify(result));
     assert.equal(result.atomic, true);
     assert.equal(result.rolledBack, false);
-    assert.deepEqual(result.tables.find((t) => t.name === "authors"), {
-      name: "authors",
-      deleted: 4,
-      inserted: 2,
-      // Computed again by PostgreSQL from `name`, never written.
-      skippedColumns: ["shout"],
-      identity: "resynced",
-    });
-    assert.deepEqual(result.tables.find((t) => t.name === "books"), {
-      name: "books",
-      deleted: 4,
-      inserted: 3,
-      identity: "resynced",
-    });
+    assert.deepEqual(
+      result.tables.find((t) => t.name === "authors"),
+      {
+        name: "authors",
+        deleted: 4,
+        inserted: 2,
+        // Computed again by PostgreSQL from `name`, never written.
+        skippedColumns: ["shout"],
+        identity: "resynced",
+      },
+    );
+    assert.deepEqual(
+      result.tables.find((t) => t.name === "books"),
+      {
+        name: "books",
+        deleted: 4,
+        inserted: 3,
+        identity: "resynced",
+      },
+    );
     assert.deepEqual(await snapshot(), original);
     // The next ids follow the restored rows, not the ones the sequences had reached before.
     assert.equal((await client.query("INSERT INTO authors (name) VALUES ('new') RETURNING id")).rows[0].id, 3);

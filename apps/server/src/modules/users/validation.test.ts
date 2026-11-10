@@ -23,11 +23,21 @@ test("malformed input is a 400 VALIDATION_FAILED on users, API keys and audit", 
     await db
       .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 1, NULL)")
       .run(randomUUID(), email, await hashPassword(password));
-    const login = await app.inject({ method: "POST", url: "/api/auth/login", headers: headers(), payload: { email, password } });
+    const login = await app.inject({
+      method: "POST",
+      url: "/api/auth/login",
+      headers: headers(),
+      payload: { email, password },
+    });
     const cookie = `nebuladb_sid=${login.cookies.find((c) => c.name === "nebuladb_sid")!.value}`;
 
     const send = (method: "POST" | "PATCH" | "GET", url: string, payload?: unknown) =>
-      app.inject({ method, url, headers: headers({ cookie }), ...(payload === undefined ? {} : { payload: payload as object }) });
+      app.inject({
+        method,
+        url,
+        headers: headers({ cookie }),
+        ...(payload === undefined ? {} : { payload: payload as object }),
+      });
 
     const name = await send("PATCH", "/api/users/me", { displayName: 42 });
     assert.equal(name.statusCode, 400);

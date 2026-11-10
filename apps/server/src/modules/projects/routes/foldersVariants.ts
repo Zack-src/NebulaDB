@@ -26,18 +26,34 @@ import {
   familyOf,
   resetVariant,
   statusOf,
+  type SyncOptions,
 } from "../variants.js";
 import { idParams, paramsOf, parseBody, parseParams, z } from "../../../shared/validate.js";
 
 // These fields keep dedicated error codes (VARIANT_TARGETS_INVALID, ...), so they stay `unknown` here.
 const folderBody = z.object({ folderId: z.unknown().optional() });
 const variantNameBody = z.object({ name: z.unknown().optional() });
-const variantsBody = z.object({ variants: z.unknown().optional() });
+const variantsBody = z.object({
+  variants: z.unknown().optional(),
+  direction: z.unknown().optional(),
+  ignoreFieldProps: z.unknown().optional(),
+});
 const resetBody = z.object({ from: z.unknown().optional() });
 
 const idOtherIdParams = paramsOf("id", "otherId");
 
 const MAX_TARGETS = 100;
+/** The column properties a sending can leave as the receiving side has them. */
+const SYNC_FIELD_PROPS = ["type", "notNull", "default", "defaultKind", "unique", "pk", "increment", "note", "name"];
+
+function parseSyncOptions(body: { direction?: unknown; ignoreFieldProps?: unknown }): SyncOptions {
+  if (body.direction !== undefined && body.direction !== "push" && body.direction !== "pull")
+    throw new ApiError("VARIANT_TARGETS_INVALID");
+  const props = body.ignoreFieldProps;
+  if (props !== undefined && (!Array.isArray(props) || props.some((p) => !SYNC_FIELD_PROPS.includes(p as string))))
+    throw new ApiError("VARIANT_TARGETS_INVALID");
+  return { direction: body.direction ?? "push", ignoreFieldProps: (props as string[] | undefined) ?? [] };
+}
 
 function parseTargets(raw: unknown): { id: string; decisions?: VariantDecisions }[] {
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > MAX_TARGETS)
@@ -151,12 +167,14 @@ export function registerFolderAndVariantRoutes(app: FastifyInstance): void {
   app.post("/api/projects/:id/variants/preview", async (req) => {
     const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAccess(req, id, "view");
-    const targets = parseTargets(parseBody(variantsBody, req).variants);
+    const body = parseBody(variantsBody, req);
+    const targets = parseTargets(body.variants);
     return {
       variants: await previewSync(
         user.id,
         id,
         targets.map((t) => t.id),
+        parseSyncOptions(body),
       ),
     };
   });
@@ -164,14 +182,16 @@ export function registerFolderAndVariantRoutes(app: FastifyInstance): void {
   app.post("/api/projects/:id/variants/push", async (req) => {
     const { id } = parseParams(idParams, req);
     const { user, project } = await requireProjectAccess(req, id, "view");
-    const targets = parseTargets(parseBody(variantsBody, req).variants);
-    const results = await pushToVariants(user, id, targets);
+    const body = parseBody(variantsBody, req);
+    const targets = parseTargets(body.variants);
+    const options = parseSyncOptions(body);
+    const results = await pushToVariants(user, id, targets, options);
     for (const result of results.filter((r) => !r.error)) {
       await auditUser(
         user,
-        "project.variant.push",
+        options.direction === "pull" ? "project.variant.pull" : "project.variant.push",
         { type: "project", id: result.id },
-        `from ${project.name}: ${result.applied} change(s) taken, ${result.kept} kept`,
+        `${options.direction === "pull" ? "into" : "from"} ${project.name}: ${result.applied} change(s) taken, ${result.kept} kept`,
         req,
       );
     }

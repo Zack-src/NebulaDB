@@ -38,6 +38,7 @@ export const AUDIT_ACTIONS = [
   "user.sessions.revoke",
   "project.variant.create",
   "project.variant.push",
+  "project.variant.pull",
   "project.variant.detach",
   "project.variant.reset",
   "project.folder",

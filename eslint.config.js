@@ -14,7 +14,8 @@ const HARD_CODED_TEXT = {
  * Font sizes come from the type scale (`text-micro` … `text-heading`, tokens.css), never from an
  * arbitrary `text-[13px]`: one scale is what keeps the screens the same size as each other.
  */
-const FONT_SIZE_MESSAGE = "Arbitrary font size. Use the type scale: text-micro, text-caption, text-label, text-body-sm, text-body, text-title or text-heading.";
+const FONT_SIZE_MESSAGE =
+  "Arbitrary font size. Use the type scale: text-micro, text-caption, text-label, text-body-sm, text-body, text-title or text-heading.";
 const ARBITRARY_FONT_SIZE = [
   { selector: "SvelteLiteral[value=/text-\\[[0-9.]+px\\]/]", message: FONT_SIZE_MESSAGE },
   { selector: "Literal[value=/text-\\[[0-9.]+px\\]/]", message: FONT_SIZE_MESSAGE },
@@ -102,7 +103,15 @@ export default tseslint.config(
     // rather than standalone application modules.
     // `.claude/` holds agent worktrees (whole copies of the repo): linting them is what ran the
     // root `eslint .` out of memory.
-    ignores: ["**/dist/**", "**/node_modules/**", "**/data/**", ".claude/**", "**/coverage/**", "**/test-results/**", "**/playwright-report/**"],
+    ignores: [
+      "**/dist/**",
+      "**/node_modules/**",
+      "**/data/**",
+      ".claude/**",
+      "**/coverage/**",
+      "**/test-results/**",
+      "**/playwright-report/**",
+    ],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,
@@ -258,7 +267,8 @@ export default tseslint.config(
           patterns: [
             {
               group: ["@/features/*", "@/app/*"],
-              message: "Shared code does not import from a feature or the app shell: move the shared part down to components/, services/ or hooks/.",
+              message:
+                "Shared code does not import from a feature or the app shell: move the shared part down to components/, services/ or hooks/.",
             },
           ],
         },

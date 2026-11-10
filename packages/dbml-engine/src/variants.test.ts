@@ -208,3 +208,31 @@ test("a variant reset on its original, or copied from another variant, takes its
   assert.deepEqual(planVariantSync(other, other, copied).changes, []);
   assert.equal(variantStatus(other, other, copied).customizations, 0);
 });
+
+test("ignoring a column property keeps the variant's, and a change that only touches it is not offered", () => {
+  // The variant is on another engine: `total` is `numeric` in the original, `money` in the variant.
+  const variant = clone(synced);
+  variant.tables[1].fields[2].type = "money";
+  // The original makes `total` not null and `name` a varchar.
+  const base = clone(synced);
+  base.tables[1].fields[2].notNull = true;
+  base.tables[0].fields[1].type = "varchar(50)";
+
+  const all = planVariantSync(synced, base, variant);
+  const total = all.changes.find((c) => c.key === "field:orders:orders.total")!;
+  assert.equal(total.conflict, "variant-changed"); // not offered as plain: the variant retyped it
+  assert.deepEqual(total.props, ["notNull"]);
+
+  const options = { ignoreFieldProps: ["type"] };
+  const plan = planVariantSync(synced, base, variant, options);
+  // `total`: only notNull moves, the type is out of the comparison, so no conflict; `name`: only a type change, dropped.
+  assert.deepEqual(
+    plan.changes.map((c) => [c.key, c.conflict]),
+    [["field:orders:orders.total", undefined]],
+  );
+  const next = applyVariantSync(synced, base, variant, {}, options);
+  const merged = next.tables[1].fields[2];
+  assert.equal(merged.notNull, true);
+  assert.equal(merged.type, "money");
+  assert.equal(next.tables[0].fields[1].type, "text");
+});

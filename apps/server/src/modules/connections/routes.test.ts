@@ -665,17 +665,27 @@ test("a clean deployment drops the tables and writes the schema again, only on a
     const base = `/api/projects/${project.id}/connections/${connId}`;
 
     // The preview counts what would go, and leaves the table nobody told Nebula about alone.
-    const preview = await app.inject({ method: "POST", url: `${base}/plan-clean-deployment`, headers: headers({ cookie }), payload: {} });
+    const preview = await app.inject({
+      method: "POST",
+      url: `${base}/plan-clean-deployment`,
+      headers: headers({ cookie }),
+      payload: {},
+    });
     assert.equal(preview.statusCode, 200, preview.body);
     assert.deepEqual(preview.json().dropTables, [{ name: "items", rows: 2 }]);
-    assert.deepEqual(preview.json().createTables, ["items"]);
     const withAll = await app.inject({
       method: "POST",
       url: `${base}/plan-clean-deployment`,
       headers: headers({ cookie }),
       payload: { includeUnmanaged: true },
     });
-    assert.deepEqual(withAll.json().dropTables.map((t: { name: string }) => t.name).sort(), ["items", "made_by_hand"]);
+    assert.deepEqual(
+      withAll
+        .json()
+        .dropTables.map((t: { name: string }) => t.name)
+        .sort(),
+      ["items", "made_by_hand"],
+    );
 
     // Without the name retyped, nothing happens.
     const refused = await app.inject({
@@ -698,13 +708,19 @@ test("a clean deployment drops the tables and writes the schema again, only on a
     });
     assert.equal(applied.statusCode, 200, applied.body);
     assert.match(applied.json().sql, /DROP TABLE IF EXISTS "items"/);
+    assert.doesNotMatch(applied.json().sql, /CREATE TABLE/, "a wipe creates nothing again");
     assert.equal(applied.json().rollbackAvailable, false);
 
     const after = new Database(targetFile, { readonly: true });
-    const columns = (after.prepare("PRAGMA table_info(items)").all() as { name: string }[]).map((c) => c.name);
-    assert.deepEqual(columns, ["id", "new_name"]);
-    assert.equal((after.prepare("SELECT COUNT(*) AS n FROM items").get() as { n: number }).n, 0, "the data went with the tables");
-    assert.ok(after.prepare("SELECT 1 FROM sqlite_master WHERE name = 'made_by_hand'").get(), "a table out of scope stays");
+    assert.equal(
+      after.prepare("SELECT 1 FROM sqlite_master WHERE name = 'items'").get(),
+      undefined,
+      "the table went with its columns and data",
+    );
+    assert.ok(
+      after.prepare("SELECT 1 FROM sqlite_master WHERE name = 'made_by_hand'").get(),
+      "a table out of scope stays",
+    );
     after.close();
   } finally {
     await closeAllRooms();

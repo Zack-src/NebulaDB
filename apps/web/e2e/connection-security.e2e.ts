@@ -98,7 +98,7 @@ test(
       await page.getByRole("button", { name: "Admin", exact: true }).click();
       await page.getByRole("button", { name: "Connexions base de données" }).click();
       await page.getByRole("button", { name: "Nouvelle connexion" }).click();
-      const dialog = page.getByRole("dialog", { name: "Nouvelle connexion" });
+      const dialog = page.getByRole("region", { name: "Nouvelle connexion" });
       await dialog.getByPlaceholder("ex: Production DB").fill("Derrière le bastion");
       // As the SSH server sees the database.
       await fieldUnder(dialog, "Hôte").fill(pg.host);
@@ -156,7 +156,7 @@ test(
 
       // Reopened: the password is not shown back, and a test without TLS still uses the stored one.
       await page.getByRole("button", { name: "Modifier" }).first().click();
-      const editing = page.getByRole("dialog", { name: "Modifier la connexion" });
+      const editing = page.getByRole("region", { name: "Modifier la connexion" });
       await editing.getByRole("tab", { name: "Sécurité" }).click();
       const editSecurity = editing.getByRole("tabpanel", { name: "Sécurité" });
       const sshPassword = editSecurity.getByLabel("Mot de passe", { exact: true });

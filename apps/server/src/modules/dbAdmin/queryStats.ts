@@ -122,4 +122,3 @@ export async function listQueryStats(
     lastUserName: row.last_user_name,
   }));
 }
-

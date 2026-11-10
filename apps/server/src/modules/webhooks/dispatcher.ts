@@ -187,7 +187,10 @@ let workerTimer: NodeJS.Timeout | null = null;
 /** Picks up retries whose time has come. Started from `index.ts`, not `buildApp`, so tests drive it explicitly. */
 export function startWebhookWorker(intervalMs = 15_000): void {
   if (workerTimer) return;
-  workerTimer = setInterval(() => void processDueDeliveries().catch(reportBackground("webhooks: retry worker")), intervalMs);
+  workerTimer = setInterval(
+    () => void processDueDeliveries().catch(reportBackground("webhooks: retry worker")),
+    intervalMs,
+  );
   workerTimer.unref();
 }
 

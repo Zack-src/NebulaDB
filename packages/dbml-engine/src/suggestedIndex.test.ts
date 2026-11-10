@@ -58,10 +58,8 @@ test("generateCreateIndex: each dialect's quoting and IF NOT EXISTS, schema-qual
     sql("postgres", { schema: "shop", unique: true }),
     'CREATE UNIQUE INDEX IF NOT EXISTS "idx_orders_customer_id_status" ON "shop"."orders" ("customer_id", "status");',
   );
-  assert.equal(
-    sql("mysql"),
-    "CREATE INDEX IF NOT EXISTS `idx_orders_customer_id_status` ON `orders` (`customer_id`, `status`);",
-  );
+  // MySQL (unlike MariaDB) refuses IF NOT EXISTS on CREATE INDEX.
+  assert.equal(sql("mysql"), "CREATE INDEX `idx_orders_customer_id_status` ON `orders` (`customer_id`, `status`);");
   assert.equal(sql("mssql"), "CREATE INDEX [idx_orders_customer_id_status] ON [orders] ([customer_id], [status]);");
   assert.equal(sql("oracle"), 'CREATE INDEX "idx_orders_customer_id_status" ON "orders" ("customer_id", "status");');
   assert.match(sql("bigquery"), /^-- BigQuery has no secondary indexes/);

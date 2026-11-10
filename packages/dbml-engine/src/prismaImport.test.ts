@@ -96,7 +96,10 @@ test("prisma e-commerce: tables, @@map, @map and relation fields", () => {
   const r = importPrisma(ECOMMERCE);
   assert.deepEqual(r.project.tables.map((t) => t.name).sort(), ["Order", "OrderItem", "Product", "Profile", "users"]);
   // Virtual relation fields are not columns.
-  assert.deepEqual(table(r, "users").fields.map((f) => f.name), ["id", "email", "name", "role", "created_at"]);
+  assert.deepEqual(
+    table(r, "users").fields.map((f) => f.name),
+    ["id", "email", "name", "role", "created_at"],
+  );
   assert.equal(table(r, "users").note, "A registered customer");
   assert.deepEqual(r.warnings, []);
 });
@@ -128,8 +131,14 @@ test("prisma e-commerce: types, nullability, defaults", () => {
 
 test("prisma e-commerce: enums with @map values", () => {
   const r = importPrisma(ECOMMERCE);
-  assert.deepEqual(r.project.enums.map((e) => e.name), ["Role", "OrderStatus"]);
-  assert.deepEqual(r.project.enums[0].values.map((v) => v.name), ["USER", "admin"]);
+  assert.deepEqual(
+    r.project.enums.map((e) => e.name),
+    ["Role", "OrderStatus"],
+  );
+  assert.deepEqual(
+    r.project.enums[0].values.map((v) => v.name),
+    ["USER", "admin"],
+  );
 });
 
 test("prisma e-commerce: refs, actions and cardinality", () => {
@@ -230,7 +239,10 @@ test("prisma blog: implicit many-to-many creates join tables", () => {
   assert.ok(names.includes("_CategoryToPost"));
   assert.ok(names.includes("_PostTags"));
   const j = table(r, "_CategoryToPost");
-  assert.deepEqual(j.fields.map((f) => f.name), ["A", "B"]);
+  assert.deepEqual(
+    j.fields.map((f) => f.name),
+    ["A", "B"],
+  );
   assert.equal(j.fields[0].type, "int");
   assert.ok(j.indexes.some((i) => i.unique && i.fieldIds.length === 2));
   const joinRefs = r.project.refs.filter((x) => x.from.tableId === j.id);
@@ -332,7 +344,14 @@ model Hidden { id Int @id\n @@ignore }
 });
 
 test("prisma: garbage and partial input never throw", () => {
-  for (const src of ["", "   ", "model {", "model A {\n id Int @id", "@@@@ nonsense }}}", "model A { id Int @relation( }"]) {
+  for (const src of [
+    "",
+    "   ",
+    "model {",
+    "model A {\n id Int @id",
+    "@@@@ nonsense }}}",
+    "model A { id Int @relation( }",
+  ]) {
     const r = importPrisma(src);
     assert.ok(Array.isArray(r.project.tables));
     assert.ok(Array.isArray(r.warnings));

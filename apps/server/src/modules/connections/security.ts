@@ -3,7 +3,7 @@ import type { DatabaseConnectionConfig, SshTunnelConfig, SshTunnelSummary } from
 import { ApiError } from "../../shared/errors.js";
 
 /** Engines reached over the network, the only ones TLS or a tunnel mean anything for. */
-const NETWORK_ENGINES = new Set(["postgres", "mysql", "mssql", "oracle"]);
+const NETWORK_ENGINES = new Set(["postgres", "mysql", "mssql", "oracle", "clickhouse", "mongodb", "redis"]);
 const MAX_PEM = 64 * 1024;
 const FINGERPRINT = /^SHA256:[A-Za-z0-9+/]{43}=?$/;
 

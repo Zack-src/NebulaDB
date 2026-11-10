@@ -1231,7 +1231,10 @@ const COMPONENTS: Record<string, Schema> = {
     },
     ["engine"],
   ),
-  Engine: { type: "string", enum: ["postgres", "mysql", "sqlite", "mssql", "oracle", "bigquery"] },
+  Engine: {
+    type: "string",
+    enum: ["postgres", "mysql", "sqlite", "mssql", "oracle", "bigquery", "clickhouse", "mongodb", "redis"],
+  },
   DeploymentHistoryEntry: obj(
     {
       id: str,

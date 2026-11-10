@@ -131,8 +131,8 @@ test(
       await page.getByRole("button", { name: "Connexions base de données" }).click();
       await page.getByText("Aucune connexion pour le moment.").waitFor();
 
-      const creating = page.getByRole("dialog", { name: "Nouvelle connexion" });
-      const editing = page.getByRole("dialog", { name: "Modifier la connexion" });
+      const creating = page.getByRole("region", { name: "Nouvelle connexion" });
+      const editing = page.getByRole("region", { name: "Modifier la connexion" });
       const engineOf = (dialog: Locator) => dialog.getByRole("combobox", { name: "Moteur de base de données" });
       const portOf = (dialog: Locator) => dialog.getByRole("spinbutton", { name: "Port" });
       const readOnlyOf = (dialog: Locator) => dialog.getByRole("checkbox", { name: /^Lecture seule/ });

@@ -119,7 +119,10 @@ test("diff of identical files reports no change and exits 0 even with --exit-cod
 });
 
 test("diff matches tables by name, so a table added at the top does not make the rest look changed", async () => {
-  const added = file("added.dbml", "Table first {\n  id int [pk]\n}\nTable users {\n  id int [pk]\n  email varchar\n}\n");
+  const added = file(
+    "added.dbml",
+    "Table first {\n  id int [pk]\n}\nTable users {\n  id int [pk]\n  email varchar\n}\n",
+  );
   const h = harness();
   await run(["diff", OLD, added, "--format", "json"], h.io);
   const data = JSON.parse(h.out());
@@ -146,10 +149,16 @@ test("locate: finds a table, a quoted table in a schema, and a field inside its 
 
 test("the built binary runs offline with an empty environment", () => {
   const bin = fileURLToPath(new URL("./bin.js", import.meta.url));
-  const lint = spawnSync(process.execPath, [bin, "lint", OLD, "--fail-on", "warning"], { env: { PATH: process.env.PATH }, encoding: "utf8" });
+  const lint = spawnSync(process.execPath, [bin, "lint", OLD, "--fail-on", "warning"], {
+    env: { PATH: process.env.PATH },
+    encoding: "utf8",
+  });
   assert.equal(lint.status, 1);
   assert.match(lint.stdout, /old\.dbml:5:1/);
-  const diff = spawnSync(process.execPath, [bin, "diff", OLD, NEW, "--format", "markdown"], { env: { PATH: process.env.PATH }, encoding: "utf8" });
+  const diff = spawnSync(process.execPath, [bin, "diff", OLD, NEW, "--format", "markdown"], {
+    env: { PATH: process.env.PATH },
+    encoding: "utf8",
+  });
   assert.equal(diff.status, 0);
   assert.match(diff.stdout, /### NebulaDB schema diff/);
 });

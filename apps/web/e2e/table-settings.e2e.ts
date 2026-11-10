@@ -35,7 +35,10 @@ test("table settings: buttons side by side, delete at the top right", { timeout:
     await page.goto(`${env.baseUrl}/project/${projectId}`);
     const table = (name: string) => page.locator(".svelte-flow__node").filter({ hasText: name });
     await table("customers").waitFor();
-    await clickRevealedOnHover(table("customers"), table("customers").getByRole("button", { name: "Paramètres de la table" }));
+    await clickRevealedOnHover(
+      table("customers"),
+      table("customers").getByRole("button", { name: "Paramètres de la table" }),
+    );
 
     const duplicate = page.getByRole("button", { name: "Dupliquer" });
     const lock = page.getByRole("button", { name: "Verrouiller la table" });
@@ -50,7 +53,10 @@ test("table settings: buttons side by side, delete at the top right", { timeout:
     assert.ok(d && l && r && title);
     assert.ok(Math.abs(d.y - l.y) < 2, "duplicate and lock share a row");
     assert.ok(d.height >= 36 && l.height >= 36, "tall enough to click comfortably");
-    assert.ok(r.x > title.x && Math.abs(r.y + r.height / 2 - (title.y + title.height / 2)) < 12, "delete is in the header, to the right");
+    assert.ok(
+      r.x > title.x && Math.abs(r.y + r.height / 2 - (title.y + title.height / 2)) < 12,
+      "delete is in the header, to the right",
+    );
     if (process.env.E2E_SHOTS) await page.screenshot({ path: join(process.env.E2E_SHOTS, "table-settings.png") });
 
     await remove.click();

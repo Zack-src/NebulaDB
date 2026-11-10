@@ -54,19 +54,32 @@ export function createServer(config: Config, fetchImpl?: FetchLike): McpServer {
 
   server.registerTool(
     "list_projects",
-    { description: "List the NebulaDB projects the API key can see (id, name, status, permission).", annotations: readOnly },
+    {
+      description: "List the NebulaDB projects the API key can see (id, name, status, permission).",
+      annotations: readOnly,
+    },
     () =>
       run(async () => {
         const answer = await client.json<{ projects?: ProjectRow[] } | ProjectRow[]>("/projects");
         const rows = Array.isArray(answer) ? answer : (answer.projects ?? []);
         if (rows.length === 0) return "No project visible to this API key.";
-        return rows.map((p) => `${p.id}\t${p.name}${p.status && p.status !== "active" ? ` [${p.status}]` : ""}${p.permission ? ` (${p.permission})` : ""}`).join("\n");
+        return rows
+          .map(
+            (p) =>
+              `${p.id}\t${p.name}${p.status && p.status !== "active" ? ` [${p.status}]` : ""}${p.permission ? ` (${p.permission})` : ""}`,
+          )
+          .join("\n");
       }),
   );
 
   server.registerTool(
     "get_schema",
-    { description: "The whole schema of a project as DBML text. Large schemas are truncated: prefer get_table or search.", inputSchema: { project_id: projectId }, annotations: readOnly },
+    {
+      description:
+        "The whole schema of a project as DBML text. Large schemas are truncated: prefer get_table or search.",
+      inputSchema: { project_id: projectId },
+      annotations: readOnly,
+    },
     ({ project_id }) => run(() => dbml(project_id)),
   );
 
@@ -74,24 +87,34 @@ export function createServer(config: Config, fetchImpl?: FetchLike): McpServer {
     "get_table",
     {
       description: "One table of a project: columns (type, flags), indexes and references, as JSON.",
-      inputSchema: { project_id: projectId, table: z.string().trim().min(1).max(200).describe("Table name, optionally schema-qualified") },
+      inputSchema: {
+        project_id: projectId,
+        table: z.string().trim().min(1).max(200).describe("Table name, optionally schema-qualified"),
+      },
       annotations: readOnly,
     },
-    ({ project_id, table }) => run(async () => JSON.stringify(describeTable(parseSchema(await dbml(project_id)), table), null, 2)),
+    ({ project_id, table }) =>
+      run(async () => JSON.stringify(describeTable(parseSchema(await dbml(project_id)), table), null, 2)),
   );
 
   server.registerTool(
     "search",
     {
       description: "Find tables and columns whose name contains the query (case-insensitive).",
-      inputSchema: { project_id: projectId, query: z.string().trim().min(1).max(200), limit: z.number().int().min(1).max(200).optional() },
+      inputSchema: {
+        project_id: projectId,
+        query: z.string().trim().min(1).max(200),
+        limit: z.number().int().min(1).max(200).optional(),
+      },
       annotations: readOnly,
     },
     ({ project_id, query, limit }) =>
       run(async () => {
         const { hits, truncated } = searchSchema(parseSchema(await dbml(project_id)), query, limit ?? 50);
         if (hits.length === 0) return `No table or column matches "${query}".`;
-        const lines = hits.map((h) => (h.kind === "table" ? `table  ${h.table}` : `column ${h.table}.${h.column} ${h.type ?? ""}`.trimEnd()));
+        const lines = hits.map((h) =>
+          h.kind === "table" ? `table  ${h.table}` : `column ${h.table}.${h.column} ${h.type ?? ""}`.trimEnd(),
+        );
         return lines.join("\n") + (truncated ? "\n[more results: narrow the query or raise limit]" : "");
       }),
   );
@@ -105,7 +128,9 @@ export function createServer(config: Config, fetchImpl?: FetchLike): McpServer {
     },
     ({ project_id, limit }) =>
       run(async () => {
-        const { revisions = [] } = await client.json<{ revisions?: Revision[] }>(`/projects/${enc(project_id)}/history`);
+        const { revisions = [] } = await client.json<{ revisions?: Revision[] }>(
+          `/projects/${enc(project_id)}/history`,
+        );
         if (revisions.length === 0) return "No revision recorded.";
         // The server lists oldest first.
         return revisions
@@ -118,15 +143,22 @@ export function createServer(config: Config, fetchImpl?: FetchLike): McpServer {
 
   server.registerTool(
     "lint_schema",
-    { description: "Findings of the server-side schema linter for a project, with the project's own rules.", inputSchema: { project_id: projectId }, annotations: readOnly },
+    {
+      description: "Findings of the server-side schema linter for a project, with the project's own rules.",
+      inputSchema: { project_id: projectId },
+      annotations: readOnly,
+    },
     ({ project_id }) =>
       run(async () => {
         const report = await client.json<LintReport>(`/projects/${enc(project_id)}/lint`);
         const s = report.summary ?? { error: 0, warning: 0, info: 0 };
         const lines = (report.findings ?? []).map(
-          (f) => `${f.severity.padEnd(7)} ${f.fieldName ? `${f.tableName}.${f.fieldName}` : f.tableName}: ${f.message} [${f.ruleId}]`,
+          (f) =>
+            `${f.severity.padEnd(7)} ${f.fieldName ? `${f.tableName}.${f.fieldName}` : f.tableName}: ${f.message} [${f.ruleId}]`,
         );
-        lines.push(`${lines.length ? "\n" : ""}${s.error} error(s), ${s.warning} warning(s), ${s.info} info${report.profile ? ` (profile ${report.profile})` : ""}`);
+        lines.push(
+          `${lines.length ? "\n" : ""}${s.error} error(s), ${s.warning} warning(s), ${s.info} info${report.profile ? ` (profile ${report.profile})` : ""}`,
+        );
         return lines.join("\n");
       }),
   );
@@ -134,8 +166,12 @@ export function createServer(config: Config, fetchImpl?: FetchLike): McpServer {
   server.registerTool(
     "diff_schema",
     {
-      description: "Compare two DBML texts locally (no server call): tables, columns and references added, removed or changed.",
-      inputSchema: { before: z.string().max(2_000_000).describe("DBML source before"), after: z.string().max(2_000_000).describe("DBML source after") },
+      description:
+        "Compare two DBML texts locally (no server call): tables, columns and references added, removed or changed.",
+      inputSchema: {
+        before: z.string().max(2_000_000).describe("DBML source before"),
+        after: z.string().max(2_000_000).describe("DBML source after"),
+      },
       annotations: { ...readOnly },
     },
     ({ before, after }) => run(async () => diffSchemas(before, after)),
@@ -148,7 +184,13 @@ export function createServer(config: Config, fetchImpl?: FetchLike): McpServer {
         try {
           const answer = await client.json<{ projects?: ProjectRow[] } | ProjectRow[]>("/projects");
           const rows = Array.isArray(answer) ? answer : (answer.projects ?? []);
-          return { resources: rows.map((p) => ({ uri: `nebuladb://projects/${enc(p.id)}/schema`, name: `${p.name} (schema)`, mimeType: "text/plain" })) };
+          return {
+            resources: rows.map((p) => ({
+              uri: `nebuladb://projects/${enc(p.id)}/schema`,
+              name: `${p.name} (schema)`,
+              mimeType: "text/plain",
+            })),
+          };
         } catch {
           return { resources: [] };
         }

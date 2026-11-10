@@ -1,8 +1,4 @@
 <script lang="ts" module>
-  import type { DatabaseEngine } from "@nebuladb/shared";
-
-  const ENGINES: DatabaseEngine[] = ["postgres", "mysql", "mssql", "sqlite", "oracle", "bigquery"];
-
   interface TypeChange {
     key: string;
     tableId: string;
@@ -16,7 +12,7 @@
 
 <script lang="ts">
   import { SvelteSet } from "svelte/reactivity";
-  import { translateType, type Project } from "@nebuladb/shared";
+  import { CONVERT_TARGETS, translateType, type DatabaseEngine, type Project, type TypeTarget } from "@nebuladb/shared";
   import Modal from "@/components/overlays/Modal.svelte";
   import Button from "@/components/ui/Button.svelte";
   import Hint from "@/components/ui/Hint.svelte";
@@ -41,8 +37,15 @@
   } = $props();
 
   const { t } = useTranslation();
-  let targetEngine = $state<DatabaseEngine>("postgres");
+  let targetEngine = $state<TypeTarget>("postgres");
   const excluded = new SvelteSet<string>();
+
+  /** Database engines are named by the app's own translations; the other targets are product names, not translated. */
+  const BRAND_LABELS: Partial<Record<TypeTarget, string>> = { duckdb: "DuckDB" };
+
+  function targetLabel(target: TypeTarget): string {
+    return BRAND_LABELS[target] ?? t(`connections.engine.${target as DatabaseEngine}` as const);
+  }
 
   const changes = $derived.by(() => {
     const result: TypeChange[] = [];
@@ -91,7 +94,7 @@
         class="w-full"
         aria-labelledby="convert-types-engine"
         value={targetEngine}
-        options={ENGINES.map((engine) => ({ value: engine, label: t(`connections.engine.${engine}` as const) }))}
+        options={CONVERT_TARGETS.map((target) => ({ value: target, label: targetLabel(target) }))}
         onChange={(engine) => {
           targetEngine = engine;
           excluded.clear();

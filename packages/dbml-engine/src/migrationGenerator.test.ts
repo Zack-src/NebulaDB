@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { diffTargetAgainstLive } from "./migrationDiff.js";
 import {
+  defaultIndexName,
   formatColumnDef,
   generateCreateTable,
   generateMigrationSql,
@@ -208,6 +209,12 @@ test("generateMigrationSql repairs a decimal written with a dot between precisio
   }
 });
 
+test("Oracle writes DEFAULT before NOT NULL (the reverse order is ORA-03076); the other engines keep it after", () => {
+  const field: Field = { id: "t.n", name: "n", type: "int", notNull: true, default: "0" };
+  assert.equal(formatColumnDef(field, "oracle"), `"n" int DEFAULT 0 NOT NULL`);
+  assert.equal(formatColumnDef(field, "postgres"), `"n" int NOT NULL DEFAULT 0`);
+});
+
 test("generateCreateTable makes an increment column an identity, as the SQL export does", () => {
   const table: Table = {
     id: "t",
@@ -342,7 +349,11 @@ test("BigQuery defaults take the type of their column: a number on a text column
     formatColumnDef({ ...column("BOOL", "true"), defaultKind: "string" } as Field, "bigquery"),
     "`c` BOOL DEFAULT TRUE",
   );
-  assert.equal(formatColumnDef(column("int", "0"), "postgres"), "\"c\" int DEFAULT 0", "other engines convert by themselves");
+  assert.equal(
+    formatColumnDef(column("int", "0"), "postgres"),
+    '"c" int DEFAULT 0',
+    "other engines convert by themselves",
+  );
 });
 
 test("a foreign key is dropped before the column it rests on, and before a table it points at", () => {
@@ -360,7 +371,13 @@ test("a foreign key is dropped before the column it rests on, and before a table
   const live = withRef(
     makeSimpleProject([
       { name: "users", fields: [{ name: "id", type: "int", pk: true }] },
-      { name: "orders", fields: [{ name: "id", type: "int", pk: true }, { name: "user_id", type: "int" }] },
+      {
+        name: "orders",
+        fields: [
+          { name: "id", type: "int", pk: true },
+          { name: "user_id", type: "int" },
+        ],
+      },
     ]),
     "orders",
     "users",
@@ -381,8 +398,58 @@ test("a foreign key is dropped before the column it rests on, and before a table
 
   // A table the schema dropped whose relation went with it: still no statement left on a table that is gone.
   const withoutUsers = makeSimpleProject([
-    { name: "orders", fields: [{ name: "id", type: "int", pk: true }, { name: "user_id", type: "int" }] },
+    {
+      name: "orders",
+      fields: [
+        { name: "id", type: "int", pk: true },
+        { name: "user_id", type: "int" },
+      ],
+    },
   ]);
   const dropsTarget = generateMigrationSql(diffTargetAgainstLive(live, withoutUsers), "mysql");
-  assert.ok(dropsTarget.search(/DROP FOREIGN KEY/) < dropsTarget.search(/DROP TABLE/), "the key goes before the table it points at");
+  assert.ok(
+    dropsTarget.search(/DROP FOREIGN KEY/) < dropsTarget.search(/DROP TABLE/),
+    "the key goes before the table it points at",
+  );
+});
+
+test("an index name longer than MySQL's 64 characters is cut and stays distinct", () => {
+  const long = (end: string) =>
+    defaultIndexName("prioritization_parameters_function", ["id_prioritization_criteria", end], "mysql");
+  const a = long("a");
+  const b = long("b");
+  assert.ok(a.length <= 64 && b.length <= 64);
+  assert.notEqual(a, b);
+  assert.equal(defaultIndexName("t", ["c"], "mysql"), "idx_t_c");
+  // An engine with a longer limit keeps the whole name.
+  assert.equal(
+    defaultIndexName("prioritization_parameters_function", ["id_prioritization_criteria", "a"], "mssql"),
+    "idx_prioritization_parameters_function_id_prioritization_criteria_a",
+  );
+});
+
+test("the foreign keys of a table the answers keep in the database are not dropped", () => {
+  const diff = {
+    hasChanges: true,
+    tables: [{ name: "MVIEW$_X", status: "dropped", fields: [], addedIndexes: [], droppedIndexes: [] }],
+    refs: [
+      {
+        name: "MVIEW$_X_FK",
+        fromTable: "MVIEW$_X",
+        fromField: "a",
+        toTable: "MVIEW$_Y",
+        toField: "b",
+        status: "dropped",
+      },
+    ],
+  } as unknown as Parameters<typeof generateMigrationSql>[0];
+  const kept = generateMigrationSql(diff, "oracle", { "table:mview$_x": { strategy: "KEEP_IN_DB" } });
+  assert.ok(!kept.includes("DROP CONSTRAINT"));
+  assert.ok(generateMigrationSql(diff, "oracle").includes("DROP CONSTRAINT"));
+});
+
+test("MySQL writes the default of a TEXT column as an expression, which it accepts", () => {
+  const field: Field = { id: "t.c", name: "c", type: "longtext", notNull: true, default: "0" };
+  assert.equal(formatColumnDef(field, "mysql"), "`c` longtext NOT NULL DEFAULT (0)");
+  assert.equal(formatColumnDef({ ...field, type: "varchar(10)" }, "mysql"), "`c` varchar(10) NOT NULL DEFAULT 0");
 });
