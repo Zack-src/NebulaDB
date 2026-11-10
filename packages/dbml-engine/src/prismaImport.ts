@@ -477,8 +477,7 @@ function importPrismaUnsafe(
   const models = blocks.filter((b) => b.kind === "model");
   for (const b of blocks) {
     if (b.kind === "view") warnings.push({ message: `View "${b.name}" is not imported.`, line: b.line });
-    else if (b.kind === "type")
-      warnings.push({ message: `Composite type "${b.name}" is not imported.`, line: b.line });
+    else if (b.kind === "type") warnings.push({ message: `Composite type "${b.name}" is not imported.`, line: b.line });
   }
 
   const enumDefs = blocks.filter((b) => b.kind === "enum");
@@ -593,7 +592,8 @@ function importPrismaUnsafe(
         // `@unique(map: "x")` / `@unique(sort: Desc)` are all single-column uniques.
         c.unique = true;
       } else if (a.name === "default") applyDefault(a, f, c);
-      else if (a.name === "updatedAt") c.note = [c.note, "@updatedAt (maintained by Prisma Client)"].filter(Boolean).join(" ");
+      else if (a.name === "updatedAt")
+        c.note = [c.note, "@updatedAt (maintained by Prisma Client)"].filter(Boolean).join(" ");
     }
     return c;
   }
@@ -721,7 +721,10 @@ function importPrismaUnsafe(
       const target = modelByName.get(f.typeName)!;
       const tt = irByModel.get(target.name);
       if (!tt) {
-        warnings.push({ message: `Relation "${m.name}.${f.name}" targets ignored model "${target.name}".`, line: f.line });
+        warnings.push({
+          message: `Relation "${m.name}.${f.name}" targets ignored model "${target.name}".`,
+          line: f.line,
+        });
         continue;
       }
       const fkCols = parseList(fieldsArg).map((n) => col(m.name, n));
@@ -764,11 +767,7 @@ function importPrismaUnsafe(
       if (rel && namedArg(rel, "fields") !== undefined) continue;
       const b = modelByName.get(f.typeName)!;
       const opposite = b.fields.find(
-        (g) =>
-          g !== f &&
-          g.typeName === a.name &&
-          relName(g) === relName(f) &&
-          (a !== b || !done.has(g)),
+        (g) => g !== f && g.typeName === a.name && relName(g) === relName(f) && (a !== b || !done.has(g)),
       );
       if (!opposite) {
         warnings.push({ message: `Relation field "${a.name}.${f.name}" has no opposite side; ignored.`, line: f.line });
@@ -810,8 +809,22 @@ function importPrismaUnsafe(
           { columns: ["B"], name: `${joinName}_B_index` },
         ],
         foreignKeys: [
-          { columns: ["A"], refTable: ta.name, refSchema: ta.schema, refColumns: [pa.name], onDelete: "cascade", onUpdate: "cascade" },
-          { columns: ["B"], refTable: tb.name, refSchema: tb.schema, refColumns: [pb.name], onDelete: "cascade", onUpdate: "cascade" },
+          {
+            columns: ["A"],
+            refTable: ta.name,
+            refSchema: ta.schema,
+            refColumns: [pa.name],
+            onDelete: "cascade",
+            onUpdate: "cascade",
+          },
+          {
+            columns: ["B"],
+            refTable: tb.name,
+            refSchema: tb.schema,
+            refColumns: [pb.name],
+            onDelete: "cascade",
+            onUpdate: "cascade",
+          },
         ],
       });
     }

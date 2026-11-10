@@ -1,8 +1,8 @@
 import type { MigrationResolutionMap, SchemaRisk } from "@nebuladb/shared";
 import type { MigrationDiff, MigrationFieldChange, MigrationTableChange } from "./migrationDiff.js";
 import { typesMatch } from "./migrationDiff.js";
-import type { MigrationDialect } from "./migrationGenerator.js";
-import { q } from "./migrationGenerator.js";
+import type { MigrationDialect } from "./dialect.js";
+import { q } from "./dialect.js";
 
 /**
  * A column that disappears while a column of the same type appears in the same table is, more often than not,
@@ -65,7 +65,9 @@ function sameColumn(from: MigrationFieldChange, to: MigrationFieldChange): boole
   const after = to.after;
   if (!before || !after) return false;
   return (
-    typesMatch(before.type, after.type) && Boolean(before.notNull) === Boolean(after.notNull) && Boolean(before.pk) === Boolean(after.pk)
+    typesMatch(before.type, after.type) &&
+    Boolean(before.notNull) === Boolean(after.notNull) &&
+    Boolean(before.pk) === Boolean(after.pk)
   );
 }
 

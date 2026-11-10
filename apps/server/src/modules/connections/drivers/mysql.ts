@@ -174,7 +174,9 @@ export class MysqlDriver implements DatabaseDriver {
     for (const rows of indexColumns.values()) {
       const first = rows[0];
       const unique = first.NON_UNIQUE === 0;
-      const suffix = first.INDEX_NAME.startsWith(first.COLUMN_NAME) ? first.INDEX_NAME.slice(first.COLUMN_NAME.length) : null;
+      const suffix = first.INDEX_NAME.startsWith(first.COLUMN_NAME)
+        ? first.INDEX_NAME.slice(first.COLUMN_NAME.length)
+        : null;
       if (unique && rows.length === 1 && suffix !== null && /^(_\d+)?$/.test(suffix)) {
         uniqueSet.add(`${first.TABLE_NAME}.${first.COLUMN_NAME}`);
         continue;
@@ -270,7 +272,17 @@ export class MysqlDriver implements DatabaseDriver {
   async insertRowBatches(table: string, columns: string[], batches: AsyncIterable<RowValue[][]>): Promise<number> {
     const conn = await this.pool.getConnection();
     const head = `INSERT INTO ${q(table, "mysql")} (${columns.map((c) => q(c, "mysql")).join(", ")}) VALUES ?`;
+    let sqlMode: string | null = null;
+    let restored = true;
     try {
+      // An explicit `0` in an AUTO_INCREMENT column is "draw the next value" unless this is on: a seed row with id 0
+      // would take 1 and the row after it, id 1, would be a duplicate. The previous mode is put back below.
+      const [[mode]] = await conn.query<RowDataPacket[]>("SELECT @@SESSION.sql_mode AS mode");
+      sqlMode = String(mode?.mode ?? "");
+      restored = false;
+      await conn.query("SET SESSION sql_mode = ?", [
+        [sqlMode, "NO_AUTO_VALUE_ON_ZERO"].filter((part) => part.length > 0).join(","),
+      ]);
       await conn.beginTransaction();
       let total = 0;
       for await (const rows of batches) {
@@ -283,7 +295,13 @@ export class MysqlDriver implements DatabaseDriver {
       await conn.rollback().catch(() => {});
       throw err;
     } finally {
-      conn.release();
+      if (!restored)
+        restored = await conn.query("SET SESSION sql_mode = ?", [sqlMode]).then(
+          () => true,
+          () => false,
+        );
+      if (restored) conn.release();
+      else conn.destroy();
     }
   }
 
@@ -378,9 +396,7 @@ export class MysqlDriver implements DatabaseDriver {
             generated: columns
               .filter((row) => /\b(VIRTUAL|STORED|PERSISTENT)\b/i.test(extra(row)))
               .map((row) => String(row.COLUMN_NAME)),
-            identity: columns
-              .filter((row) => /auto_increment/i.test(extra(row)))
-              .map((row) => String(row.COLUMN_NAME)),
+            identity: columns.filter((row) => /auto_increment/i.test(extra(row))).map((row) => String(row.COLUMN_NAME)),
           };
         },
         async emptyTable(table) {

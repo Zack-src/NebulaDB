@@ -3,7 +3,15 @@ import fsp from "node:fs/promises";
 import path from "node:path";
 import { notifyFollowers } from "../notifications/repository.js";
 import type { FastifyInstance, FastifyRequest } from "fastify";
-import { parseCsv, SeedValidator, seedOverflows, type SeedOptions, type Table } from "@nebuladb/shared";
+import {
+  parseCsv,
+  SeedValidator,
+  seedColumnValues,
+  seedOverflows,
+  seedReferences,
+  type SeedOptions,
+  type Table,
+} from "@nebuladb/shared";
 import { config } from "../../config.js";
 import { readProjectReadOnly } from "../../realtime/readOnlyProject.js";
 import { notifyProject } from "../../realtime/roomRegistry.js";
@@ -136,18 +144,44 @@ export function registerSeedRoutes(app: FastifyInstance): void {
     const { id } = req.params as { id: string };
     const { project } = await requireProjectAccess(req, id, "view");
     // Listed under the names the tables have now.
-    const tables = new Map((await readProjectReadOnly(id, project.name)).tables.map((table) => [table.id, table]));
+    const schema = await readProjectReadOnly(id, project.name);
+    const tables = new Map(schema.tables.map((table) => [table.id, table]));
+    const stored = (await listSeedsWithContent(id)).filter((seed) => tables.has(seed.tableId));
+    // The values each inline seed gives its columns, and the parent columns of the references the schema has.
+    const seededIds = new Set(stored.map((seed) => seed.tableId));
+    const parsed = new Map<string, (string | null)[][]>();
+    const valueSets = new Map<string, Set<string>>();
+    for (const seed of stored) {
+      if (seed.storage === "file") continue;
+      const table = tables.get(seed.tableId)!;
+      const cells = parseCsv(seed.content, seed.options.separator);
+      parsed.set(seed.tableId, cells);
+      for (const [key, values] of seedColumnValues(table, cells, seed.options)) valueSets.set(key, values);
+    }
+    const parents = new Map<string, { table: string; values?: ReadonlySet<string> }>();
+    for (const ref of schema.refs) {
+      const key = `${ref.to.tableId}.${ref.to.fieldId}`;
+      const parent = tables.get(ref.to.tableId);
+      if (!parent || ref.from.tableId === ref.to.tableId) continue;
+      if (!seededIds.has(ref.to.tableId)) parents.set(key, { table: parent.name });
+      else if (valueSets.has(key)) parents.set(key, { table: parent.name, values: valueSets.get(key) });
+    }
     return {
-      seeds: (await listSeedsWithContent(id))
-        .filter((seed) => tables.has(seed.tableId))
-        .map(({ content, fileName: _fileName, ...seed }) => {
-          const table = tables.get(seed.tableId)!;
-          // A file is not read again for a list: what its upload found is what the summary carries.
-          if (seed.storage === "file") return { ...seed, tableName: table.name };
-          // What the schema now allows against what the file holds: shrinking a varchar flags the seed here.
-          const overflows = seedOverflows(table, parseCsv(content, seed.options.separator), seed.options);
-          return { ...seed, tableName: table.name, ...(overflows.length > 0 ? { overflows } : {}) };
-        }),
+      seeds: stored.map(({ content: _content, fileName: _fileName, ...seed }) => {
+        const table = tables.get(seed.tableId)!;
+        // A file is not read again for a list: what its upload found is what the summary carries.
+        if (seed.storage === "file") return { ...seed, tableName: table.name };
+        const cells = parsed.get(seed.tableId)!;
+        // What the schema now allows against what the file holds: shrinking a varchar flags the seed here.
+        const overflows = seedOverflows(table, cells, seed.options);
+        const references = seedReferences(table, cells, seed.options, schema.refs, parents);
+        return {
+          ...seed,
+          tableName: table.name,
+          ...(overflows.length > 0 ? { overflows } : {}),
+          ...(references.length > 0 ? { references } : {}),
+        };
+      }),
     };
   });
 

@@ -38,11 +38,18 @@ export async function startThrottleProxy({ targetHost = "127.0.0.1", targetPort,
         lastRelease = Math.max(lastRelease, at);
         setTimeout(() => !to.destroyed && to.write(chunk), Math.max(0, at - performance.now()));
       });
-      from.on("end", () => setTimeout(() => !to.destroyed && to.end(), Math.max(0, lastRelease - performance.now()) + 1));
+      from.on("end", () =>
+        setTimeout(() => !to.destroyed && to.end(), Math.max(0, lastRelease - performance.now()) + 1),
+      );
     };
     pump(client, upstream, links.up);
     pump(upstream, client, links.down);
-    const drop = () => { client.destroy(); upstream.destroy(); sockets.delete(client); sockets.delete(upstream); };
+    const drop = () => {
+      client.destroy();
+      upstream.destroy();
+      sockets.delete(client);
+      sockets.delete(upstream);
+    };
     client.on("error", drop);
     upstream.on("error", drop);
     client.on("close", drop);

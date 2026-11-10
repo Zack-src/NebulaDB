@@ -132,7 +132,9 @@ test("PostgresDriver introspects the indexes made on their own, not the keys", a
   const connTest = await driver.testConnection();
   if (!connTest.ok) {
     await driver.close().catch(() => {});
-    t.skip(`no Postgres test container reachable at ${config.host}:${config.port} (${TEST_DB_HINT}): ${connTest.error}`);
+    t.skip(
+      `no Postgres test container reachable at ${config.host}:${config.port} (${TEST_DB_HINT}): ${connTest.error}`,
+    );
     return;
   }
   try {
@@ -158,7 +160,9 @@ test("PostgresDriver introspects the indexes made on their own, not the keys", a
     const table = schema.tables.find((tbl) => tbl.name === "idx_accounts");
     assert.ok(table);
     assert.deepEqual(
-      table.indexes.map((i) => ({ fieldIds: i.fieldIds, unique: !!i.unique })).sort((a, b) => a.fieldIds.join().localeCompare(b.fieldIds.join())),
+      table.indexes
+        .map((i) => ({ fieldIds: i.fieldIds, unique: !!i.unique }))
+        .sort((a, b) => a.fieldIds.join().localeCompare(b.fieldIds.join())),
       [
         { fieldIds: ["idx_accounts.org_id", "idx_accounts.created_at"], unique: false },
         { fieldIds: ["idx_accounts.org_id", "idx_accounts.slug"], unique: true },

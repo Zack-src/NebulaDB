@@ -11,6 +11,9 @@ import { SqliteDriver } from "./sqlite.js";
 import { MssqlDriver } from "./mssql.js";
 import { OracleDriver } from "./oracle.js";
 import { BigQueryDriver } from "./bigquery.js";
+import { ClickHouseDriver } from "./clickhouse.js";
+import { MongoDriver } from "./mongodb.js";
+import { RedisDriver } from "./redis.js";
 
 export * from "./interface.js";
 export * from "./postgres.js";
@@ -19,6 +22,9 @@ export * from "./sqlite.js";
 export * from "./mssql.js";
 export * from "./oracle.js";
 export * from "./bigquery.js";
+export * from "./clickhouse.js";
+export * from "./mongodb.js";
+export * from "./redis.js";
 
 /**
  * The single place every route creates a driver from — `pinConnectionTarget`
@@ -59,7 +65,10 @@ async function openDriver(config: DatabaseConnectionConfig): Promise<DatabaseDri
     case "postgres":
     case "mysql":
     case "mssql":
-    case "oracle": {
+    case "oracle":
+    case "clickhouse":
+    case "mongodb":
+    case "redis": {
       const { config: target, tunnel } = await reachTarget(config);
       try {
         return withTunnel(openNetworkDriver(target), tunnel);
@@ -86,6 +95,12 @@ function openNetworkDriver(config: DriverConnectionConfig): DatabaseDriver {
       return new MysqlDriver(config);
     case "mssql":
       return new MssqlDriver(config);
+    case "clickhouse":
+      return new ClickHouseDriver(config);
+    case "mongodb":
+      return new MongoDriver(config);
+    case "redis":
+      return new RedisDriver(config);
     default:
       return new OracleDriver(config);
   }

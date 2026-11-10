@@ -14,13 +14,18 @@ test("DBML editor: columns are completed inside indexes", { timeout: 90_000 }, a
     await login(page, env.baseUrl);
     const projectId = await page.evaluate(async () => {
       const json = { "content-type": "application/json" };
-      const created = await fetch("/api/projects", { method: "POST", headers: json, body: JSON.stringify({ name: "Boutique" }) });
+      const created = await fetch("/api/projects", {
+        method: "POST",
+        headers: json,
+        body: JSON.stringify({ name: "Boutique" }),
+      });
       const { id } = (await created.json()) as { id: string };
       await fetch(`/api/projects/${id}/import`, {
         method: "POST",
         headers: json,
         body: JSON.stringify({
-          source: "Table orders {\n  id int [pk]\n  customer_ref int\n  status varchar\n}\nTable other {\n  zzz_col int\n}\n",
+          source:
+            "Table orders {\n  id int [pk]\n  customer_ref int\n  status varchar\n}\nTable other {\n  zzz_col int\n}\n",
         }),
       });
       return id;
@@ -38,7 +43,10 @@ test("DBML editor: columns are completed inside indexes", { timeout: 90_000 }, a
     const tooltip = page.locator(".cm-tooltip-autocomplete");
     await tooltip.waitFor();
     const options = await tooltip.locator("li").allInnerTexts();
-    assert.ok(options.some((o) => o.includes("customer_ref")), `offered: ${options.join(" | ")}`);
+    assert.ok(
+      options.some((o) => o.includes("customer_ref")),
+      `offered: ${options.join(" | ")}`,
+    );
     assert.ok(!options.some((o) => o.includes("zzz_col")), "only this table's columns");
     await page.keyboard.press("Enter");
     const text = await page.locator(".cm-content").innerText();

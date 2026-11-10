@@ -88,10 +88,7 @@ describe("adding elements", () => {
     assert.deepEqual(all[5].position, { x: 5 * 260, y: 0 });
     assert.deepEqual(all[6].position, { x: 0, y: 200 });
     assert.equal(all[0].fields.length, 1);
-    assert.deepEqual(
-      [all[0].fields[0].name, all[0].fields[0].pk, all[0].fields[0].increment],
-      ["id", true, true],
-    );
+    assert.deepEqual([all[0].fields[0].name, all[0].fields[0].pk, all[0].fields[0].increment], ["id", true, true]);
     assert.equal(new Set(all.map((t) => t.id)).size, 8);
   });
 
@@ -162,8 +159,16 @@ describe("bulk changes", () => {
       { tableId: "ghost", fieldId: "x", newType: "text" },
     ]);
     const a = tables().find((t) => t.id === "a")!;
-    assert.deepEqual(a.fields.map((f) => f.type), ["bigint", "integer"]);
-    assert.deepEqual(tables().find((t) => t.id === "b")!.fields.map((f) => f.type), ["integer", "integer"]);
+    assert.deepEqual(
+      a.fields.map((f) => f.type),
+      ["bigint", "integer"],
+    );
+    assert.deepEqual(
+      tables()
+        .find((t) => t.id === "b")!
+        .fields.map((f) => f.type),
+      ["integer", "integer"],
+    );
   });
 
   test("convertFieldTypes with no changes opens no transaction", () => {
@@ -221,7 +226,10 @@ describe("duplicateSelected", () => {
     assert.equal(copy.name, "a_copy");
     assert.deepEqual(copy.position, { x: 34, y: 44 });
     assert.equal(copy.detailLevel, "full");
-    assert.ok(copy.fields.every((f) => !a.fields.some((o) => o.id === f.id)), "field ids are fresh");
+    assert.ok(
+      copy.fields.every((f) => !a.fields.some((o) => o.id === f.id)),
+      "field ids are fresh",
+    );
     assert.equal(copy.indexes[0].id !== "i1", true);
     assert.equal(copy.indexes[0].fieldIds[0], copy.fields[1].id, "index follows the copied field");
     assert.equal(copy.indexes[0].fieldIds[1], "foreign", "an id not in the table is left alone");
@@ -241,8 +249,20 @@ describe("duplicateSelected", () => {
   });
 
   test("zones, notes and enums are copied with the offset; enums get _copy and fresh value ids", () => {
-    const zone = { id: "z", label: "Z", position: { x: 0, y: 0 }, size: { width: 1, height: 1 }, style: { color: "#fff" } };
-    const note = { id: "n", text: "hi", position: { x: 5, y: 5 }, size: { width: 1, height: 1 }, style: { color: "#fff" } };
+    const zone = {
+      id: "z",
+      label: "Z",
+      position: { x: 0, y: 0 },
+      size: { width: 1, height: 1 },
+      style: { color: "#fff" },
+    };
+    const note = {
+      id: "n",
+      text: "hi",
+      position: { x: 5, y: 5 },
+      size: { width: 1, height: 1 },
+      style: { color: "#fff" },
+    };
     const enumDef = { id: "e", name: "status", values: [{ id: "v1", name: "on" }], position: { x: 1, y: 1 } };
     const { doc, mutations } = setup(emptyProject(), []);
     getZonesMap(doc).set("z", zone as never);
@@ -276,11 +296,17 @@ describe("duplicateSelected", () => {
 
 describe("onConnect", () => {
   const two = () => setup(emptyProject([table("a"), table("b")]));
-  const handle = (field: string, side: "source" | "target") => `${field}-${side === "source" ? "right" : "left"}-${side}`;
+  const handle = (field: string, side: "source" | "target") =>
+    `${field}-${side === "source" ? "right" : "left"}-${side}`;
 
   test("ignores a connection with a missing end or handle", () => {
     const { doc, mutations } = two();
-    mutations.onConnect({ source: "a", target: "", sourceHandle: "a.ref-right-source", targetHandle: "b.id-left-target" });
+    mutations.onConnect({
+      source: "a",
+      target: "",
+      sourceHandle: "a.ref-right-source",
+      targetHandle: "b.id-left-target",
+    });
     mutations.onConnect({ source: "a", target: "b", sourceHandle: null, targetHandle: "b.id-left-target" });
     mutations.onConnect({ source: "a", target: "b", sourceHandle: "a.ref-right-source", targetHandle: null });
     assert.equal(getRefsMap(doc).size, 0);
@@ -288,22 +314,47 @@ describe("onConnect", () => {
 
   test("a field cannot reference itself, but another field of the same table can", () => {
     const { doc, mutations } = two();
-    mutations.onConnect({ source: "a", target: "a", sourceHandle: handle("a.ref", "source"), targetHandle: handle("a.ref", "target") });
+    mutations.onConnect({
+      source: "a",
+      target: "a",
+      sourceHandle: handle("a.ref", "source"),
+      targetHandle: handle("a.ref", "target"),
+    });
     assert.equal(getRefsMap(doc).size, 0);
-    mutations.onConnect({ source: "a", target: "a", sourceHandle: handle("a.ref", "source"), targetHandle: handle("a.id", "target") });
+    mutations.onConnect({
+      source: "a",
+      target: "a",
+      sourceHandle: handle("a.ref", "source"),
+      targetHandle: handle("a.id", "target"),
+    });
     assert.equal(getRefsMap(doc).size, 1);
   });
 
   test("an unknown table or field handle draws nothing", () => {
     const { doc, mutations } = two();
-    mutations.onConnect({ source: "ghost", target: "b", sourceHandle: handle("x", "source"), targetHandle: handle("b.id", "target") });
+    mutations.onConnect({
+      source: "ghost",
+      target: "b",
+      sourceHandle: handle("x", "source"),
+      targetHandle: handle("b.id", "target"),
+    });
     assert.equal(getRefsMap(doc).size, 0);
   });
 
   test("the header handle resolves to the primary key, else the first field", () => {
-    const noPk = table("n", { fields: [{ id: "n.first", name: "first", type: "text" }, { id: "n.second", name: "second", type: "text" }] });
+    const noPk = table("n", {
+      fields: [
+        { id: "n.first", name: "first", type: "text" },
+        { id: "n.second", name: "second", type: "text" },
+      ],
+    });
     const { doc, mutations } = setup(emptyProject([table("a"), noPk]));
-    mutations.onConnect({ source: "a", target: "n", sourceHandle: "header-right-source", targetHandle: "header-left-target" });
+    mutations.onConnect({
+      source: "a",
+      target: "n",
+      sourceHandle: "header-right-source",
+      targetHandle: "header-left-target",
+    });
     const ref = [...getRefsMap(doc).values()][0];
     // a's header is its pk (a.id), n's is its first field; key -> plain is stored reversed.
     assert.equal(ref.from.fieldId, "n.first");
@@ -314,14 +365,24 @@ describe("onConnect", () => {
   test("dragging from a key to a plain column stores the foreign key on the plain side", () => {
     const { doc, mutations } = two();
     // b.id (pk) -> a.ref (plain): the ref belongs to a.
-    mutations.onConnect({ source: "b", target: "a", sourceHandle: handle("b.id", "source"), targetHandle: handle("a.ref", "target") });
+    mutations.onConnect({
+      source: "b",
+      target: "a",
+      sourceHandle: handle("b.id", "source"),
+      targetHandle: handle("a.ref", "target"),
+    });
     const ref = [...getRefsMap(doc).values()][0];
     assert.deepEqual([ref.from.tableId, ref.from.fieldId, ref.to.tableId], ["a", "a.ref", "b"]);
   });
 
   test("dragging from the plain column to the key keeps the direction", () => {
     const { doc, mutations } = two();
-    mutations.onConnect({ source: "a", target: "b", sourceHandle: handle("a.ref", "source"), targetHandle: handle("b.id", "target") });
+    mutations.onConnect({
+      source: "a",
+      target: "b",
+      sourceHandle: handle("a.ref", "source"),
+      targetHandle: handle("b.id", "target"),
+    });
     const ref = [...getRefsMap(doc).values()][0];
     assert.deepEqual([ref.from.tableId, ref.to.tableId], ["a", "b"]);
   });
@@ -347,7 +408,12 @@ describe("deleteEdges", () => {
   test("reports a locked table by its id when the project has no such name", () => {
     const project = emptyProject([table("a"), table("b")]);
     project.refs = [
-      { id: "r1", from: { tableId: "a", fieldId: "a.ref" }, to: { tableId: "b", fieldId: "b.id" }, cardinality: "one-to-many" },
+      {
+        id: "r1",
+        from: { tableId: "a", fieldId: "a.ref" },
+        to: { tableId: "b", fieldId: "b.id" },
+        cardinality: "one-to-many",
+      },
     ];
     const doc = new Y.Doc();
     writeProjectToDoc(doc, project);
@@ -368,12 +434,11 @@ describe("pasteElements", () => {
   test("adds copies next to the originals and returns how many landed", () => {
     const a = table("a", { name: "users" });
     const { mutations, tables } = setup(emptyProject([a]));
-    const landed = mutations.pasteElements(
-      { tables: [a], refs: [], enums: [], zones: [], stickyNotes: [] },
-      {},
-    );
+    const landed = mutations.pasteElements({ tables: [a], refs: [], enums: [], zones: [], stickyNotes: [] }, {});
     assert.equal(landed, 1);
-    const names = tables().map((t) => t.name).sort();
+    const names = tables()
+      .map((t) => t.name)
+      .sort();
     assert.equal(names.length, 2);
     assert.equal(names[1], "users_copy");
   });

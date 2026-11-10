@@ -85,7 +85,7 @@ test(
         return plan.risks.map((risk) => `${risk.type} ${risk.tableName}`).sort();
       };
 
-    // 1. Never deployed: `a_test` was made by hand, and being empty does not make it harmless.
+      // 1. Never deployed: `a_test` was made by hand, and being empty does not make it harmless.
       assert.deepEqual(await conflicts(), ["UNMANAGED_TABLE a_test"]);
       const [risk] = (await api("plan-deployment", {})).risks!;
       assert.deepEqual([risk.affectedRowCount, risk.severity, risk.defaultStrategy], [0, "critical", "KEEP_IN_DB"]);

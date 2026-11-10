@@ -47,11 +47,14 @@ async function readStructure(connection: DatabaseConnectionConfig): Promise<Proj
 /**
  * A structure as two different engines can both hold it: types without their
  * engine's spelling, "now" for whatever each calls the current time, and —
- * when one side is BigQuery — none of what BigQuery has no notion of. Without
+ * when one side is BigQuery or ClickHouse — none of what they have no notion of. Without
  * it, SQL Server against BigQuery is 100 % "different": `int` is not `INT64`.
  */
-function acrossEngines<T extends Pick<Project, "tables" | "refs">>(structure: T, withBigQuery: boolean): T {
-  const held = withBigQuery ? schemaForDialect(structure as unknown as Project, "bigquery") : structure;
+function acrossEngines<T extends Pick<Project, "tables" | "refs">>(
+  structure: T,
+  flat: "bigquery" | "clickhouse" | null,
+): T {
+  const held = flat ? schemaForDialect(structure as unknown as Project, flat) : structure;
   return {
     ...structure,
     refs: held.refs,
@@ -130,10 +133,12 @@ export async function compareConnections(
   };
   let model: Pick<Project, "tables" | "refs"> = schema;
   if (source.engine !== target.engine) {
-    const withBigQuery = source.engine === "bigquery" || target.engine === "bigquery";
-    sourceStructure = acrossEngines(sourceStructure, withBigQuery);
-    targetStructure = acrossEngines(targetStructure, withBigQuery);
-    model = acrossEngines(schema, withBigQuery);
+    // The engine that holds the least decides what is compared: ClickHouse has no key but its own, BigQuery no unique.
+    const engines = [source.engine, target.engine];
+    const flat = engines.includes("clickhouse") ? "clickhouse" : engines.includes("bigquery") ? "bigquery" : null;
+    sourceStructure = acrossEngines(sourceStructure, flat);
+    targetStructure = acrossEngines(targetStructure, flat);
+    model = acrossEngines(schema, flat);
     withoutOneSidedSizes(sourceStructure, targetStructure);
   }
   return {

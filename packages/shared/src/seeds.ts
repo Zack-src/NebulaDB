@@ -29,6 +29,15 @@ export interface SeedOptions {
   mode: SeedMode;
 }
 
+/** A foreign key of a seed whose values have no row in the parent table: `missing` rows, of which the parent's seed has none (or every one, when the parent has no seed at all). */
+export interface SeedReference {
+  column: string;
+  parent: string;
+  missing: number;
+  /** False when the parent table has no seed: its rows must already be in the database, nothing here says they are. */
+  parentSeeded: boolean;
+}
+
 /** A table's seed as listed — everything but the file itself. */
 export interface TableSeedSummary {
   tableId: string;
@@ -46,6 +55,8 @@ export interface TableSeedSummary {
   updatedByName: string | null;
   /** Set by the list: the columns whose values are longer than the schema now allows. Absent when all fit. For a file, as of its upload. */
   overflows?: SeedOverflow[];
+  /** Set by the list: the foreign keys whose values the parent table does not hold. Absent when all are found. Never for a file. */
+  references?: SeedReference[];
   /** A file seed: checks that were given up on for lack of room (`unique: code`), so the file is only partly checked. */
   unchecked?: string[];
 }
@@ -329,6 +340,42 @@ export function seedColumnValues(
 }
 
 /**
+ * The foreign keys of `table`'s seed whose values have no row in the parent. `parents` is keyed `tableId.fieldId` of
+ * the parent column: its table's name, and the values its seed gives (`undefined` when the parent has no seed). A
+ * parent column missing from `parents` is not checked. A self-reference is not checked: its values are its own.
+ */
+export function seedReferences(
+  table: Table,
+  parsed: (string | null)[][],
+  options: Pick<SeedOptions, "header" | "mapping">,
+  refs: readonly Ref[],
+  parents: ReadonlyMap<string, { table: string; values?: ReadonlySet<string> }>,
+): SeedReference[] {
+  const { columns, rows } = seedRows(parsed, options, table);
+  const found: SeedReference[] = [];
+  for (const ref of refs) {
+    if (ref.from.tableId !== table.id || ref.to.tableId === table.id) continue;
+    const parent = parents.get(`${ref.to.tableId}.${ref.to.fieldId}`);
+    const position = columns.findIndex((field) => field.id === ref.from.fieldId);
+    if (!parent || position < 0) continue;
+    let missing = 0;
+    for (const row of rows) {
+      const value = row[position];
+      if (value !== null && value !== undefined && !parent.values?.has(value)) missing++;
+    }
+    if (missing > 0) {
+      found.push({
+        column: columns[position]!.name,
+        parent: parent.table,
+        missing,
+        parentSeeded: parent.values !== undefined,
+      });
+    }
+  }
+  return found;
+}
+
+/**
  * The order to insert seeded tables in: a table after the tables its foreign
  * keys point at. A cycle among seeded tables has no such order — it is
  * returned (table ids) for the caller to refuse. A table pointing at itself
@@ -371,7 +418,13 @@ export function seedInsertOrder(
 export function normalizeSeedValue(value: string | null, field: Field, engine: DatabaseEngine): string | null {
   if (value === null || typeFamily(field.type) !== "boolean") return value;
   const truthy = BOOLEAN_TRUE.has(value.trim().toLowerCase());
-  return engine === "postgres" || engine === "bigquery" ? (truthy ? "true" : "false") : truthy ? "1" : "0";
+  return engine === "postgres" || engine === "bigquery" || engine === "mongodb"
+    ? truthy
+      ? "true"
+      : "false"
+    : truthy
+      ? "1"
+      : "0";
 }
 
 /** What a deployment plan would do with one table's seed. */

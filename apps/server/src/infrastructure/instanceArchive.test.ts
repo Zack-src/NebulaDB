@@ -73,7 +73,7 @@ const BULK = 2300;
 
 await db
   .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 1, ?)")
-  .run(userId, "ada@example.com", "hash-ada", "Ada \"quoted\" \\ é 日本");
+  .run(userId, "ada@example.com", "hash-ada", 'Ada "quoted" \\ é 日本');
 await db.prepare("INSERT INTO projects (id, name, owner_id) VALUES (?, ?, ?)").run(projectId, "Shop", userId);
 for (const update of updates) {
   await db
@@ -82,7 +82,9 @@ for (const update of updates) {
 }
 await db.prepare("INSERT INTO snapshots (project_id, yjs_state) VALUES (?, ?)").run(projectId, updates[1]);
 await db
-  .prepare("INSERT INTO db_connections (id, name, engine, config_encrypted, created_by) VALUES (?, ?, 'postgres', ?, ?)")
+  .prepare(
+    "INSERT INTO db_connections (id, name, engine, config_encrypted, created_by) VALUES (?, ?, 'postgres', ?, ?)",
+  )
   .run(connectionId, "Warehouse", encrypted, userId);
 await db.prepare("INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)").run("sess-1", userId, "2999-01-01");
 await db.exec(
@@ -126,7 +128,9 @@ test("round trip into a fresh database restores rows, bytes, secrets and counter
     const tables = exported.tables.map((t) => t.name);
     assert.deepEqual(await tableCounts(target.url, tables), await tableCounts(sourceUrl, tables));
 
-    const user = (await query<{ email: string; display_name: string; is_admin: number }>(target.url, "SELECT * FROM users"))[0];
+    const user = (
+      await query<{ email: string; display_name: string; is_admin: number }>(target.url, "SELECT * FROM users")
+    )[0];
     assert.equal(user.email, "ada@example.com");
     assert.equal(user.display_name, 'Ada "quoted" \\ é 日本');
 
@@ -140,7 +144,9 @@ test("round trip into a fresh database restores rows, bytes, secrets and counter
     );
     assert.equal(revs[0].label, "line1\nline2");
 
-    const conn = (await query<{ config_encrypted: string }>(target.url, "SELECT config_encrypted FROM db_connections"))[0];
+    const conn = (
+      await query<{ config_encrypted: string }>(target.url, "SELECT config_encrypted FROM db_connections")
+    )[0];
     assert.equal(conn.config_encrypted, encrypted);
     assert.deepEqual(decryptPayload(conn.config_encrypted), connectionConfig);
 
@@ -152,7 +158,9 @@ test("round trip into a fresh database restores rows, bytes, secrets and counter
       "INSERT INTO revisions (id, project_id, author, yjs_update) VALUES ('after', $1, 'x', '\\x00')",
       [projectId],
     );
-    const after = Number((await query<{ s: string }>(target.url, "SELECT seq AS s FROM revisions WHERE id = 'after'"))[0].s);
+    const after = Number(
+      (await query<{ s: string }>(target.url, "SELECT seq AS s FROM revisions WHERE id = 'after'"))[0].s,
+    );
     assert.ok(after > maxSeq);
 
     // A second import into the same, now occupied database is refused and changes nothing.
@@ -207,7 +215,11 @@ test("a tampered, truncated or foreign archive is refused and leaves the databas
       assert.notEqual(result.code, 0, file);
       assert.match(result.out, pattern, file);
       assert.equal(Number((await query<{ n: string }>(target.url, "SELECT COUNT(*) AS n FROM users"))[0].n), 0, file);
-      assert.equal(Number((await query<{ n: string }>(target.url, "SELECT COUNT(*) AS n FROM revisions"))[0].n), 0, file);
+      assert.equal(
+        Number((await query<{ n: string }>(target.url, "SELECT COUNT(*) AS n FROM revisions"))[0].n),
+        0,
+        file,
+      );
     }
   } finally {
     await target.drop();

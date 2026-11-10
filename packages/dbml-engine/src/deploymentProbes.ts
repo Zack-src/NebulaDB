@@ -166,6 +166,8 @@ export function planRiskProbes(
   deployedTables?: ReadonlySet<string> | null,
 ): RiskProbe[] {
   const probes: RiskProbe[] = [];
+  // Redis holds no table to probe.
+  if (dialect === "redis") return probes;
   const created = new Set(diff.tables.filter((t) => t.status === "added").map((t) => t.name.toLowerCase()));
   for (const table of diff.tables) {
     if (table.status === "dropped") {
@@ -174,17 +176,21 @@ export function planRiskProbes(
         type: unmanaged ? "UNMANAGED_TABLE" : "DROP_TABLE_WITH_DATA",
         tableName: table.name,
         resolutionKey: `table:${table.name.toLowerCase()}`,
-        sql: `SELECT COUNT(*) FROM ${q(table.name, dialect)}`,
+        // MongoDB takes a command, not SQL: its driver reads this line as one and answers with the count.
+        sql:
+          dialect === "mongodb"
+            ? JSON.stringify({ count: table.name })
+            : `SELECT COUNT(*) FROM ${q(table.name, dialect)}`,
       });
-    } else if (table.status === "modified") {
+    } else if (table.status === "modified" && dialect !== "mongodb") {
       probes.push(...probesForModifiedTable(table, dialect));
     }
   }
   for (const ref of diff.refs) {
     if (ref.status !== "added") continue;
     if (created.has(ref.fromTable.toLowerCase()) || created.has(ref.toTable.toLowerCase())) continue;
-    // SQLite cannot add a foreign key to an existing table; the generator leaves it out.
-    if (dialect === "sqlite") continue;
+    // SQLite cannot add a foreign key to an existing table; the generator leaves it out. ClickHouse and MongoDB have none.
+    if (dialect === "sqlite" || dialect === "clickhouse" || dialect === "mongodb") continue;
     const F = q(ref.fromTable, dialect);
     const FC = q(ref.fromField, dialect);
     probes.push({

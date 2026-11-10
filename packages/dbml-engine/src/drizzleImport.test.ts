@@ -93,9 +93,15 @@ function field(r: ReturnType<typeof importDrizzle>, t: string, f: string) {
 test("drizzle pg: tables and columns, spread of shared timestamps", () => {
   const r = importDrizzle(PG_SCHEMA);
   assert.deepEqual(r.warnings, []);
-  assert.deepEqual(r.project.tables.map((t) => t.name), ["users", "categories", "products", "orders", "order_items"]);
+  assert.deepEqual(
+    r.project.tables.map((t) => t.name),
+    ["users", "categories", "products", "orders", "order_items"],
+  );
   const users = r.project.tables[0];
-  assert.deepEqual(users.fields.map((f) => f.name), ["id", "email", "name", "role", "settings", "created_at", "updated_at"]);
+  assert.deepEqual(
+    users.fields.map((f) => f.name),
+    ["id", "email", "name", "role", "settings", "created_at", "updated_at"],
+  );
   assert.equal(field(r, "users", "id").pk, true);
   assert.equal(field(r, "users", "id").increment, true);
   assert.equal(field(r, "users", "id").type, "integer");
@@ -110,7 +116,10 @@ test("drizzle pg: tables and columns, spread of shared timestamps", () => {
 
 test("drizzle pg: enums, defaults of every kind", () => {
   const r = importDrizzle(PG_SCHEMA);
-  assert.deepEqual(r.project.enums.map((e) => [e.name, e.values.map((v) => v.name)]), [["role", ["user", "admin", "guest"]]]);
+  assert.deepEqual(
+    r.project.enums.map((e) => [e.name, e.values.map((v) => v.name)]),
+    [["role", ["user", "admin", "guest"]]],
+  );
   assert.equal(field(r, "users", "role").type, "role");
   assert.equal(field(r, "users", "role").default, "user");
   assert.equal(field(r, "users", "role").defaultKind, "string");
@@ -149,7 +158,10 @@ test("drizzle pg: indexes, composite primary key", () => {
   assert.equal(plain.fieldIds.length, 2);
   const oi = r.project.tables.find((t) => t.name === "order_items")!;
   const pk = oi.indexes.find((i) => i.pk)!;
-  assert.deepEqual(pk.fieldIds.map((id) => oi.fields.find((f) => f.id === id)!.name), ["order_id", "product_id"]);
+  assert.deepEqual(
+    pk.fieldIds.map((id) => oi.fields.find((f) => f.id === id)!.name),
+    ["order_id", "product_id"],
+  );
 });
 
 test("drizzle pg: output is valid DBML", () => {
@@ -216,7 +228,10 @@ export const sessions = auth.table("sessions", {
   accountId: integer("account_id").references(() => accounts.id),
 });
 `);
-  assert.deepEqual(r.project.tables.map((t) => t.schemaName), ["auth", "auth"]);
+  assert.deepEqual(
+    r.project.tables.map((t) => t.schemaName),
+    ["auth", "auth"],
+  );
   assert.equal(r.project.refs.length, 1);
   assert.doesNotThrow(() => parseDbml(r.dbml));
 });
@@ -246,14 +261,24 @@ export const dyn = pgTable(name, { id: serial("id") });
 export const ok = pgTable("ok", { id: serial("id").primaryKey(), x: weirdType("x"), ...unknownSpread });
 `);
   assert.equal((globalThis as Record<string, unknown>).__pwned, undefined);
-  assert.deepEqual(r.project.tables.map((t) => t.name), ["ok"]);
+  assert.deepEqual(
+    r.project.tables.map((t) => t.name),
+    ["ok"],
+  );
   assert.ok(r.warnings.some((w) => /non-literal name/.test(w.message)));
   assert.ok(r.warnings.some((w) => /weirdType/.test(w.message)));
   assert.ok(r.warnings.some((w) => /Spread/.test(w.message)));
 });
 
 test("drizzle: garbage and partial input never throw", () => {
-  for (const src of ["", "pgTable(", "export const a = pgTable('a', {", "}}}} ))) ((", "const x = `unterminated", "export const a = pgTable('a', { id: serial('id').primaryKey(), "]) {
+  for (const src of [
+    "",
+    "pgTable(",
+    "export const a = pgTable('a', {",
+    "}}}} ))) ((",
+    "const x = `unterminated",
+    "export const a = pgTable('a', { id: serial('id').primaryKey(), ",
+  ]) {
     const r = importDrizzle(src);
     assert.ok(Array.isArray(r.project.tables));
   }
@@ -273,5 +298,8 @@ export const authors = pgTable("authors", { id: serial("id").primaryKey() });
 export const kind = pgEnum("kind", ["a", "b"] as const);
 `);
   assert.equal(r.project.refs.length, 1);
-  assert.deepEqual(r.project.enums[0].values.map((v) => v.name), ["a", "b"]);
+  assert.deepEqual(
+    r.project.enums[0].values.map((v) => v.name),
+    ["a", "b"],
+  );
 });

@@ -56,7 +56,8 @@ async function describeHttpFailure(response: Response): Promise<ToolError> {
   const status = response.status;
   let hint: string;
   if (status === 401) hint = "the API key is missing, wrong or revoked";
-  else if (status === 403 && code.startsWith("API_")) hint = "the API key lacks the scope or is restricted to another project";
+  else if (status === 403 && code.startsWith("API_"))
+    hint = "the API key lacks the scope or is restricted to another project";
   else if (status === 403) hint = "the key's owner may not do that on this project";
   else if (status === 404) hint = "not found (check the project id)";
   else if (status === 429) hint = "rate limited: retry later";

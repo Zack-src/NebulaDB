@@ -84,38 +84,45 @@ export class SchemaQuality {
   readonly issuesByRef = $derived(groupBy(this.issues, "refId"));
 
   /** The same findings — `info` included — underlined in the DBML buffer. */
-  readonly dbmlFindings = $derived.by((): SchemaFinding[] =>
-    [
-      ...this.findings.map((finding) => ({
-        severity: finding.severity,
-        message: this.message(finding),
-        tableName: finding.tableName,
-        fieldName: finding.fieldName,
-      })),
-      ...this.seedFindings,
-    ],
-  );
+  readonly dbmlFindings = $derived.by((): SchemaFinding[] => [
+    ...this.findings.map((finding) => ({
+      severity: finding.severity,
+      message: this.message(finding),
+      tableName: finding.tableName,
+      fieldName: finding.fieldName,
+    })),
+    ...this.seedFindings,
+  ]);
 
   /** A warning on each column whose initial data does not fit the length the column declares. */
   private readonly seedFindings = $derived.by((): SchemaFinding[] => {
     const seeds = this.input.seeds?.();
     if (!seeds) return [];
-    return [...seeds.values()].flatMap((seed) =>
-      (seed.overflows ?? []).map(
-        (overflow): SchemaFinding => ({
-          severity: "warning",
-          message: i18n.t("seeds.overflowFinding", {
-            table: seed.tableName,
-            column: overflow.column,
-            limit: overflow.limit,
-            longest: overflow.longest,
-            count: overflow.count,
-          }),
-          tableName: seed.tableName,
-          fieldName: overflow.column,
+    return [...seeds.values()].flatMap((seed) => [
+      ...(seed.overflows ?? []).map((overflow): SchemaFinding => ({
+        severity: "warning",
+        message: i18n.t("seeds.overflowFinding", {
+          table: seed.tableName,
+          column: overflow.column,
+          limit: overflow.limit,
+          longest: overflow.longest,
+          count: overflow.count,
         }),
-      ),
-    );
+        tableName: seed.tableName,
+        fieldName: overflow.column,
+      })),
+      ...(seed.references ?? []).map((reference): SchemaFinding => ({
+        severity: "warning",
+        message: i18n.t(reference.parentSeeded ? "seeds.referenceFinding" : "seeds.referenceUnseededFinding", {
+          table: seed.tableName,
+          column: reference.column,
+          parent: reference.parent,
+          count: reference.missing,
+        }),
+        tableName: seed.tableName,
+        fieldName: reference.column,
+      })),
+    ]);
   });
 
   /** Lower-case names of the tables whose lock binds this user: their DBML blocks refuse edits. */

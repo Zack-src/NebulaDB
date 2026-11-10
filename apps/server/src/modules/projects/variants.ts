@@ -6,7 +6,9 @@ import {
   replaceVariantSchema,
   variantStatus,
   type ProjectDiff,
+  type VariantChange,
   type VariantDecisions,
+  type VariantSyncOptions,
   type VariantSyncPlan,
 } from "@nebuladb/dbml-engine";
 import { db } from "../../infrastructure/db.js";
@@ -18,6 +20,7 @@ import { lockGuardFor } from "../tableLocks/access.js";
 import { applyBundle, buildBundle } from "./bundle.js";
 import { createProjectForUser } from "./projectCrud.js";
 import { getProjectRow } from "./repository.js";
+import { applySeedSync, planSeedSync, seedHashesOf, type SeedHashes } from "./variantSeeds.js";
 
 /**
  * Client variants: a project copied from another one (its original), kept up
@@ -70,7 +73,36 @@ async function readProject(projectId: string): Promise<Project> {
   return await readProjectReadOnly(projectId, row.name);
 }
 
-const parseSynced = (row: VariantRow): Project => JSON.parse(row.synced_json) as Project;
+/** The original as last sent: its schema, and a hash per seed (absent on a variant made before seeds were tracked). */
+type Snapshot = Project & { seedHashes?: SeedHashes };
+
+const parseSynced = (row: VariantRow): Snapshot => JSON.parse(row.synced_json) as Snapshot;
+
+const snapshotOf = async (project: Project): Promise<Snapshot> => ({
+  ...project,
+  seedHashes: await seedHashesOf(project.id),
+});
+
+/** `push`: the original's changes go to the variant. `pull`: the variant's go to the original. */
+export type SyncDirection = "push" | "pull";
+
+export interface SyncOptions extends VariantSyncOptions {
+  direction?: SyncDirection;
+}
+
+/** The schema and seed changes there are from `source` to `target`, in the order a person reads them. */
+async function planBetween(
+  synced: Snapshot,
+  source: Project,
+  target: Project,
+  options: SyncOptions,
+): Promise<VariantSyncPlan> {
+  const schema = planVariantSync(synced, source, target, options);
+  // The tables the target will have once the schema is applied: a seed needs its table.
+  const tables = applyVariantSync(synced, source, target, {}, options).tables;
+  const seeds = await planSeedSync(source.id, target.id, synced.seedHashes, tables);
+  return { changes: [...schema.changes, ...seeds] };
+}
 
 /**
  * A full copy of `baseId` — schema and layout, locks, seeds, generator
@@ -87,6 +119,7 @@ export async function createVariant(
   const created = await createProjectForUser(user.id, name);
   const bundle = await buildBundle(base);
   await applyBundle(user, created, bundle);
+  const snapshot = await snapshotOf(base);
   await db
     .prepare("UPDATE projects SET folder_id = (SELECT folder_id FROM projects WHERE id = ?) WHERE id = ?")
     .run(baseId, created.id);
@@ -94,14 +127,25 @@ export async function createVariant(
     .prepare(
       "INSERT INTO project_variants (project_id, base_project_id, synced_json, synced_by_name) VALUES (?, ?, ?, ?)",
     )
-    .run(created.id, baseId, JSON.stringify(base), user.displayName);
+    .run(created.id, baseId, JSON.stringify(snapshot), user.displayName);
   return created;
+}
+
+/** `variantStatus` for the schema, plus the seeds the original has not sent yet. */
+async function statusBetween(synced: Snapshot, base: Project, variant: Project): Promise<VariantStatus> {
+  const status = variantStatus(synced, base, variant);
+  const seeds = await planSeedSync(base.id, variant.id, synced.seedHashes, variant.tables);
+  return {
+    pending: status.pending + seeds.length,
+    conflicts: status.conflicts + seeds.filter((c) => c.conflict).length,
+    customizations: status.customizations,
+  };
 }
 
 export async function statusOf(variantId: string): Promise<VariantStatus | null> {
   const row = await variantRow(variantId);
   if (!row) return null;
-  return variantStatus(parseSynced(row), await readProject(row.base_project_id), await readProject(variantId));
+  return await statusBetween(parseSynced(row), await readProject(row.base_project_id), await readProject(variantId));
 }
 
 /** The variants of `baseId` the caller can open, with how far each is from the original. */
@@ -137,7 +181,7 @@ export async function listVariants(
       syncedByName: row.synced_by_name,
       canEdit: await hasPermission(userId, row.project_id, "edit"),
       canManage: await hasPermission(userId, row.project_id, "administrator"),
-      status: variantStatus(parseSynced(row), base, await readProject(row.project_id)),
+      status: await statusBetween(parseSynced(row), base, await readProject(row.project_id)),
     });
   }
   return result;
@@ -149,19 +193,24 @@ async function requireVariantOf(baseId: string, variantId: string): Promise<Vari
   return row;
 }
 
-/** What sending would do to each chosen variant — nothing is changed. */
+/** What sending (or pulling) would do for each chosen variant — nothing is changed. */
 export async function previewSync(
   userId: string,
   baseId: string,
   variantIds: readonly string[],
+  options: SyncOptions = {},
 ): Promise<{ id: string; name: string; plan: VariantSyncPlan }[]> {
   const base = await readProject(baseId);
+  const pull = options.direction === "pull";
   const result = [];
   for (const id of variantIds) {
     const row = await requireVariantOf(baseId, id);
     if (!(await hasPermission(userId, id, "view"))) throw new ApiError("FORBIDDEN");
     const variant = await readProject(id);
-    result.push({ id, name: variant.name, plan: planVariantSync(parseSynced(row), base, variant) });
+    const plan = pull
+      ? await planBetween(parseSynced(row), variant, base, options)
+      : await planBetween(parseSynced(row), base, variant, options);
+    result.push({ id, name: variant.name, plan });
   }
   return result;
 }
@@ -174,46 +223,74 @@ export interface SyncResult {
   error?: string;
 }
 
+const takenBy = (decisions: VariantDecisions, change: VariantChange) =>
+  (decisions[change.key] ?? (change.conflict ? "variant" : "base")) === "base";
+
 /**
- * Sends the original's changes to each chosen variant, as each one's
- * decisions say. Every variant is its own write: one refused (no right to
- * edit it, a locked table) does not stop the others. Afterwards the variant
- * counts as up to date with the original — what was not taken stays the
- * client's own and does not come back next time.
+ * Sends the original's changes to each chosen variant — or, with
+ * `direction: "pull"`, brings the variant's changes into the original — as
+ * each one's decisions say. Schema and initial data (seeds) go together, each
+ * change on its own; `ignoreFieldProps` leaves the named column properties
+ * (a variant on another engine keeps its `type`) as the receiving side has
+ * them. Every variant is its own write: one refused (no right to edit it, a
+ * locked table) does not stop the others. Afterwards the variant counts as up
+ * to date — what was not taken stays the receiving side's own and does not
+ * come back next time.
  */
 export async function pushToVariants(
   user: Caller,
   baseId: string,
   targets: readonly { id: string; decisions?: VariantDecisions }[],
+  options: SyncOptions = {},
 ): Promise<SyncResult[]> {
-  const base = await readProject(baseId);
+  const pull = options.direction === "pull";
   const results: SyncResult[] = [];
   for (const target of targets) {
     const row = await requireVariantOf(baseId, target.id);
     const name = (await getProjectRow(target.id))?.name ?? target.id;
-    if (!(await hasPermission(user.id, target.id, "edit"))) {
+    // The side that receives must be one the caller may edit.
+    const receiverId = pull ? baseId : target.id;
+    if (!(await hasPermission(user.id, receiverId, "edit"))) {
       results.push({ id: target.id, name, applied: 0, kept: 0, error: "FORBIDDEN" });
       continue;
     }
     const synced = parseSynced(row);
     try {
-      const assertLocksAllow = await lockGuardFor(user.id, target.id);
+      const sourceId = pull ? target.id : baseId;
+      const source = await readProject(sourceId);
+      const receiverName = (await getProjectRow(receiverId))?.name ?? receiverId;
+      const assertLocksAllow = await lockGuardFor(user.id, receiverId);
       // From here to `room.write`, nothing waits: see `Room.write`.
-      const room = await getRoom(target.id);
-      const current = readProjectFromDoc(room.doc, target.id, name);
+      const room = await getRoom(receiverId);
+      const current = readProjectFromDoc(room.doc, receiverId, receiverName);
       const decisions = target.decisions ?? {};
-      const plan = planVariantSync(synced, base, current);
-      const next = applyVariantSync(synced, base, current, decisions);
+      const plan = await planBetween(synced, source, current, options);
+      const next = applyVariantSync(synced, source, current, decisions, options);
       assertLocksAllow(current, next);
-      const applied = plan.changes.filter(
-        (c) => (decisions[c.key] ?? (c.conflict ? "variant" : "base")) === "base",
-      ).length;
-      if (applied > 0) await room.write(() => writeProjectToDoc(room.doc, next), user.displayName);
+      const schemaChanges = plan.changes.filter((c) => c.kind !== "seed");
+      const seedChanges = plan.changes.filter((c) => c.kind === "seed");
+      const appliedSchema = schemaChanges.filter((c) => takenBy(decisions, c)).length;
+      if (appliedSchema > 0) await room.write(() => writeProjectToDoc(room.doc, next), user.displayName);
+      const seeds = await applySeedSync(user, sourceId, receiverId, seedChanges, decisions, next.tables);
+      const applied = appliedSchema + seeds.applied;
+
+      let nextSynced: Snapshot;
+      if (pull) {
+        // Only what was taken is now shared: the original's own unsent changes are still to be sent.
+        const hashes: SeedHashes = { ...(synced.seedHashes ?? (await seedHashesOf(baseId))) };
+        for (const [tableId, hash] of seeds.taken) {
+          if (hash === null) delete hashes[tableId];
+          else hashes[tableId] = hash;
+        }
+        nextSynced = { ...applyVariantSync(synced, source, synced, decisions, options), seedHashes: hashes };
+      } else {
+        nextSynced = await snapshotOf(source);
+      }
       await db
         .prepare(
           "UPDATE project_variants SET synced_json = ?, synced_at = utc_now(), synced_by_name = ? WHERE project_id = ?",
         )
-        .run(JSON.stringify(base), user.displayName, target.id);
+        .run(JSON.stringify(nextSynced), user.displayName, target.id);
       results.push({ id: target.id, name, applied, kept: plan.changes.length - applied });
     } catch (err) {
       results.push({
@@ -274,7 +351,12 @@ export async function resetVariant(user: Caller, variantId: string, from: string
     .prepare(
       "UPDATE project_variants SET synced_json = ?, synced_at = utc_now(), synced_by_name = ? WHERE project_id = ?",
     )
-    .run(JSON.stringify(synced), user.displayName, variantId);
+    // Seeds are not part of a reset: what was last sent of them stays what it was.
+    .run(
+      JSON.stringify({ ...synced, seedHashes: row ? parseSynced(row).seedHashes : undefined }),
+      user.displayName,
+      variantId,
+    );
   return { from };
 }
 

@@ -8,7 +8,7 @@
  * break, quotes and parentheses that close. That covers everything a type or a default legitimately is.
  */
 import type { Project } from "@nebuladb/shared";
-import type { MigrationDialect } from "./migrationGenerator.js";
+import type { MigrationDialect } from "./dialect.js";
 
 export class UnsafeSqlFragmentError extends Error {
   readonly code = "SQL_FRAGMENT_UNSAFE";
@@ -23,6 +23,7 @@ export class UnsafeSqlFragmentError extends Error {
 }
 
 /** Anything that ends a line or is invisible control text; a tab is the one that is fine. */
+// eslint-disable-next-line no-control-regex -- matching control characters is the point
 const CONTROL = /[\u0000-\u0008\u000a-\u001f\u007f-\u009f\u2028\u2029]/;
 
 /** Index just past the quote closing the literal opened at `from`, or -1 when it never closes. */
@@ -44,7 +45,7 @@ export function assertSafeSqlFragment(text: string, dialect: MigrationDialect, w
   };
   if (CONTROL.test(text)) refuse("it contains a line break or a control character");
 
-  const backslashDialect = dialect === "mysql" || dialect === "bigquery";
+  const backslashDialect = dialect === "mysql" || dialect === "bigquery" || dialect === "clickhouse";
   let depth = 0;
   let i = 0;
   while (i < text.length) {
@@ -75,7 +76,8 @@ export function assertSafeSqlFragment(text: string, dialect: MigrationDialect, w
 }
 
 /** Characters an identifier cannot carry into a generated script: every dialect's quote, an escape, a line break. */
-const UNSAFE_NAME = /["'`\[\]\\\u0000-\u001f\u007f-\u009f\u2028\u2029]/;
+// eslint-disable-next-line no-control-regex -- matching control characters is the point
+const UNSAFE_NAME = /["'`[\]\\\u0000-\u001f\u007f-\u009f\u2028\u2029]/;
 
 /**
  * A name (table, column, schema, index, relation, enum) that goes into a script. Most exporters wrap a name in the

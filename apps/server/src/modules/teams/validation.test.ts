@@ -23,7 +23,12 @@ async function adminCookie(app: Awaited<ReturnType<typeof buildApp>>) {
   await db
     .prepare("INSERT INTO users (id, email, password_hash, is_admin, display_name) VALUES (?, ?, ?, 1, NULL)")
     .run(randomUUID(), email, await hashPassword(password));
-  const res = await app.inject({ method: "POST", url: "/api/auth/login", headers: headers(), payload: { email, password } });
+  const res = await app.inject({
+    method: "POST",
+    url: "/api/auth/login",
+    headers: headers(),
+    payload: { email, password },
+  });
   return `nebuladb_sid=${res.cookies.find((c) => c.name === "nebuladb_sid")!.value}`;
 }
 
@@ -57,7 +62,13 @@ test("malformed input is a 400 VALIDATION_FAILED on login, teams and projects", 
     });
     assert.equal(login.statusCode, 400);
     assert.equal(login.json().code, "VALIDATION_FAILED");
-    assert.deepEqual(login.json().fields.map((f: { path: string }) => f.path).sort(), ["password", "remember"]);
+    assert.deepEqual(
+      login
+        .json()
+        .fields.map((f: { path: string }) => f.path)
+        .sort(),
+      ["password", "remember"],
+    );
 
     const member = await app.inject({
       method: "POST",
@@ -68,7 +79,12 @@ test("malformed input is a 400 VALIDATION_FAILED on login, teams and projects", 
     // The team is looked up first, so an unknown team stays a 404 — validation never masks it.
     assert.equal(member.statusCode, 404);
 
-    const team = await app.inject({ method: "POST", url: "/api/teams", headers: headers({ cookie }), payload: { name: "Ops" } });
+    const team = await app.inject({
+      method: "POST",
+      url: "/api/teams",
+      headers: headers({ cookie }),
+      payload: { name: "Ops" },
+    });
     assert.equal(team.statusCode, 201);
     const badMember = await app.inject({
       method: "POST",
@@ -81,14 +97,28 @@ test("malformed input is a 400 VALIDATION_FAILED on login, teams and projects", 
     assert.equal(badMember.json().fields[0].path, "userId");
 
     // Value rules keep their dedicated codes: a non-string name is still NAME_REQUIRED.
-    const badName = await app.inject({ method: "POST", url: "/api/teams", headers: headers({ cookie }), payload: { name: 7 } });
+    const badName = await app.inject({
+      method: "POST",
+      url: "/api/teams",
+      headers: headers({ cookie }),
+      payload: { name: 7 },
+    });
     assert.equal(badName.json().code, "NAME_REQUIRED");
 
-    const badPaging = await app.inject({ method: "GET", url: "/api/projects?limit=1&limit=2", headers: headers({ cookie }) });
+    const badPaging = await app.inject({
+      method: "GET",
+      url: "/api/projects?limit=1&limit=2",
+      headers: headers({ cookie }),
+    });
     assert.equal(badPaging.statusCode, 400);
     assert.equal(badPaging.json().code, "VALIDATION_FAILED");
 
-    const project = await app.inject({ method: "POST", url: "/api/projects", headers: headers({ cookie }), payload: { name: "P" } });
+    const project = await app.inject({
+      method: "POST",
+      url: "/api/projects",
+      headers: headers({ cookie }),
+      payload: { name: "P" },
+    });
     const badLabel = await app.inject({
       method: "PATCH",
       url: `/api/projects/${project.json().id}/revisions/whatever`,

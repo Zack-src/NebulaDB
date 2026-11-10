@@ -43,44 +43,34 @@ const live = project(
   ],
   [ref("results", "analyse", "fk_results_analyse")],
 );
-const target = project(
-  [
-    table("analyse", [{ name: "id", pk: true }]),
-    table("results", [{ name: "id_analyze", pk: true }, { name: "analyse_id" }]),
-  ],
-  [ref("results", "analyse")],
-);
 
-test("a clean deployment drops the keys, then the tables, then writes the schema back", () => {
+test("a wipe drops the keys, then the tables, and creates nothing", () => {
   for (const dialect of ["bigquery", "postgres", "mysql", "mssql"] as const) {
-    const plan = planCleanDeployment(live, target, dialect, new Set(["analyse", "results"]));
+    const plan = planCleanDeployment(live, dialect, new Set(["analyse", "results"]));
     const sql = plan.sql;
     const dropKey = sql.search(/DROP (CONSTRAINT|FOREIGN KEY)/);
     const dropTable = sql.search(/DROP TABLE/);
-    const create = sql.search(/CREATE TABLE/);
     assert.ok(dropKey >= 0 && dropKey < dropTable, `${dialect}: the foreign key goes before the tables`);
-    assert.ok(dropTable < create, `${dialect}: the tables go before the schema comes back`);
+    assert.doesNotMatch(sql, /CREATE/, `${dialect}: nothing is created again`);
     assert.doesNotMatch(sql, /made_by_hand/, `${dialect}: a table out of scope is left alone`);
     assert.doesNotMatch(sql, /DROP COLUMN|RENAME/, `${dialect}: no column-level step to get stuck on`);
     assert.deepEqual(plan.dropTables, ["analyse", "results"]);
-    assert.deepEqual(plan.createTables, ["analyse", "results"]);
-    assert.equal((sql.match(/CREATE TABLE/g) ?? []).length, 2);
-    assert.match(sql, /`?"?id_analyze/, "the schema's own column names come back");
+    assert.equal((sql.match(/DROP TABLE/g) ?? []).length, 2);
   }
 });
 
 test("the transaction wrapper appears once, and not for BigQuery", () => {
   const scope = new Set(["analyse", "results"]);
-  const pg = planCleanDeployment(live, target, "postgres", scope).sql;
+  const pg = planCleanDeployment(live, "postgres", scope).sql;
   assert.equal((pg.match(/^BEGIN;$/gm) ?? []).length, 1);
   assert.equal((pg.match(/^COMMIT;$/gm) ?? []).length, 1);
-  const bq = planCleanDeployment(live, target, "bigquery", scope).sql;
+  const bq = planCleanDeployment(live, "bigquery", scope).sql;
   assert.doesNotMatch(bq, /BEGIN|COMMIT/);
 });
 
 test("with every table in scope, the table nobody told Nebula about goes too", () => {
   const scope = new Set(live.tables.map((t) => t.name.toLowerCase()));
-  const plan = planCleanDeployment(live, target, "postgres", scope);
+  const plan = planCleanDeployment(live, "postgres", scope);
   assert.deepEqual(plan.dropTables, ["analyse", "results", "made_by_hand"]);
   assert.match(plan.sql, /DROP TABLE IF EXISTS "made_by_hand"/);
 });
@@ -90,7 +80,7 @@ test("a foreign key from a table that stays to one that goes is dropped first", 
     [table("analyse", [{ name: "id", pk: true }]), table("keeps", [{ name: "id", pk: true }, { name: "analyse_id" }])],
     [ref("keeps", "analyse", "fk_keeps_analyse")],
   );
-  const plan = planCleanDeployment(outside, project([table("analyse", [{ name: "id", pk: true }])]), "mysql", new Set(["analyse"]));
+  const plan = planCleanDeployment(outside, "mysql", new Set(["analyse"]));
   assert.match(plan.sql, /ALTER TABLE `keeps` DROP FOREIGN KEY `fk_keeps_analyse`/);
   assert.ok(plan.sql.search(/DROP FOREIGN KEY/) < plan.sql.search(/DROP TABLE/));
 });

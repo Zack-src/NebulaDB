@@ -77,7 +77,8 @@ async function createMissingDatabases(connectionId: string, names: string[]): Pr
   const connection = await loadConnection(connectionId);
   assertWritable(connection);
   const engine = connection.engine;
-  if (engine !== "postgres" && engine !== "mysql" && engine !== "mssql") throw new ApiError("DB_ADMIN_UNSUPPORTED", { message: "creating a database is not supported here" });
+  if (engine !== "postgres" && engine !== "mysql" && engine !== "mssql")
+    throw new ApiError("DB_ADMIN_UNSUPPORTED", { message: "creating a database is not supported here" });
   return withDriver(connection, "adminWrite", async (driver) => {
     const existing = new Set((await driver.listDatabases()).map((d) => d.name.toLowerCase()));
     const missing = names.filter((name) => !existing.has(name.toLowerCase()));

@@ -395,7 +395,7 @@ class Parser {
         }
         break;
       }
-      if (this.isP("!") ) {
+      if (this.isP("!")) {
         this.pos++;
         continue;
       }
@@ -597,7 +597,12 @@ function importDrizzleUnsafe(
       parser.pos++;
       continue;
     }
-    if (depth === 0 && t.t === "id" && (t.v === "const" || t.v === "let" || t.v === "var") && parser.peek(1)?.t === "id") {
+    if (
+      depth === 0 &&
+      t.t === "id" &&
+      (t.v === "const" || t.v === "let" || t.v === "var") &&
+      parser.peek(1)?.t === "id"
+    ) {
       const name = (parser.peek(1) as Tok).v;
       parser.pos += 2;
       // skip a type annotation up to `=`
@@ -676,7 +681,9 @@ function importDrizzleUnsafe(
   }
 
   // Pass 2: tables.
-  const resolveTableCall = (n: Node): { call: Extract<Node, { k: "call" }>; schema?: string; dialect: DrizzleDialect } | undefined => {
+  const resolveTableCall = (
+    n: Node,
+  ): { call: Extract<Node, { k: "call" }>; schema?: string; dialect: DrizzleDialect } | undefined => {
     if (n.k !== "call") return undefined;
     const c = n.callee;
     if (c.k === "id") {
@@ -684,8 +691,13 @@ function importDrizzleUnsafe(
       if (d && c.name.endsWith("Table")) return { call: n, dialect: d };
     }
     if (c.k === "member" && c.prop === "table") {
-      if (c.obj.k === "id" && schemaVars.has(c.obj.name)) return { call: n, schema: schemaVars.get(c.obj.name), dialect: dialect! };
-      if (c.obj.k === "call" && c.obj.callee.k === "id" && (c.obj.callee.name === "pgSchema" || c.obj.callee.name === "mysqlSchema")) {
+      if (c.obj.k === "id" && schemaVars.has(c.obj.name))
+        return { call: n, schema: schemaVars.get(c.obj.name), dialect: dialect! };
+      if (
+        c.obj.k === "call" &&
+        c.obj.callee.k === "id" &&
+        (c.obj.callee.name === "pgSchema" || c.obj.callee.name === "mysqlSchema")
+      ) {
         return { call: n, schema: strOf(c.obj.args[0]), dialect: dialect! };
       }
     }
@@ -727,7 +739,8 @@ function importDrizzleUnsafe(
         const sp = p.spread;
         const target = sp.k === "id" ? objectConsts.get(sp.name) : undefined;
         if (target?.k === "obj" && level < 5) addColumns(info, target, level + 1);
-        else warn(`Spread in "${info.ir.name}" columns is not statically analyzable; its columns are skipped.`, obj.line);
+        else
+          warn(`Spread in "${info.ir.name}" columns is not statically analyzable; its columns are skipped.`, obj.line);
         continue;
       }
       if (!p.key || !p.value) continue;
@@ -777,7 +790,11 @@ function importDrizzleUnsafe(
           break;
         case "primaryKey":
           col.pk = true;
-          if (d === "sqlite" && objProp(arg, "autoIncrement")?.k === "id" && (objProp(arg, "autoIncrement") as { name: string }).name === "true") {
+          if (
+            d === "sqlite" &&
+            objProp(arg, "autoIncrement")?.k === "id" &&
+            (objProp(arg, "autoIncrement") as { name: string }).name === "true"
+          ) {
             col.increment = true;
           }
           break;
@@ -808,7 +825,9 @@ function importDrizzleUnsafe(
           col.increment = true;
           break;
         case "generatedAlwaysAs":
-          col.note = [col.note, `generated always as ${arg?.k === "tpl" ? arg.v : "(expression)"}`].filter(Boolean).join("; ");
+          col.note = [col.note, `generated always as ${arg?.k === "tpl" ? arg.v : "(expression)"}`]
+            .filter(Boolean)
+            .join("; ");
           break;
         case "references": {
           const refFn = arg;
@@ -857,7 +876,8 @@ function importDrizzleUnsafe(
       col.default = arg.v.trim();
       col.defaultKind = "expression";
     } else if (arg.k === "arr" || arg.k === "obj") {
-      col.default = arg.k === "arr" && arg.items.length === 0 ? "{}" : arg.k === "obj" && arg.props.length === 0 ? "{}" : "";
+      col.default =
+        arg.k === "arr" && arg.items.length === 0 ? "{}" : arg.k === "obj" && arg.props.length === 0 ? "{}" : "";
       if (col.default) col.defaultKind = "string";
       else col.default = undefined;
     }
@@ -965,7 +985,10 @@ function importDrizzleUnsafe(
   }
 
   // Resolve a `table.col` reference node to (TableInfo, ColInfo).
-  const resolveColRef = (n: Node, own?: { name: string; info: TableInfo }): { info: TableInfo; col: ColInfo } | undefined => {
+  const resolveColRef = (
+    n: Node,
+    own?: { name: string; info: TableInfo },
+  ): { info: TableInfo; col: ColInfo } | undefined => {
     if (n.k !== "member" || n.obj.k !== "id") return undefined;
     const info = own && n.obj.name === own.name ? own.info : tableVars.get(n.obj.name);
     const col = info?.cols.get(n.prop);
@@ -997,7 +1020,12 @@ function importDrizzleUnsafe(
   for (const { info, extras } of pendingExtras) {
     let body: Node | undefined = extras;
     if (extras.k === "arrow") body = extras.body;
-    const items: Node[] = body?.k === "arr" ? body.items : body?.k === "obj" ? body.props.map((p) => p.value).filter((v): v is Node => !!v) : [];
+    const items: Node[] =
+      body?.k === "arr"
+        ? body.items
+        : body?.k === "obj"
+          ? body.props.map((p) => p.value).filter((v): v is Node => !!v)
+          : [];
     if (!body || (body.k !== "arr" && body.k !== "obj")) {
       warn(`Constraints of "${info.ir.name}" are not statically analyzable.`);
       continue;
@@ -1038,7 +1066,12 @@ function importDrizzleUnsafe(
           const on = mods.find((m) => m.name === "on");
           const onCols = on ? on.args.map(colName).filter((x): x is string => x !== undefined) : [];
           const using = mods.find((m) => m.name === "using");
-          const usingCols = using ? using.args.slice(1).map(colName).filter((x): x is string => x !== undefined) : [];
+          const usingCols = using
+            ? using.args
+                .slice(1)
+                .map(colName)
+                .filter((x): x is string => x !== undefined)
+            : [];
           const cols = onCols.length ? onCols : usingCols;
           if (!cols.length) {
             warn(`${fnName}() on "${info.ir.name}" has no resolvable columns (expression index?); skipped.`);

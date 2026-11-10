@@ -3,6 +3,8 @@
   import { ChevronLeftIcon, PlusIcon, TrashIcon } from "@/components/icons/Icons";
   import Button from "@/components/ui/Button.svelte";
   import Hint from "@/components/ui/Hint.svelte";
+  import Input from "@/components/ui/Input.svelte";
+  import Table, { TABLE_CELL, TABLE_ROW, type TableColumn } from "@/components/ui/Table.svelte";
   import { useTranslation } from "@/i18n/i18n.svelte";
 
   const PAGE_SIZE = 100;
@@ -30,6 +32,7 @@
   const current = $derived(Math.min(page, pageCount - 1));
   const first = $derived(current * PAGE_SIZE);
   const visible = $derived(rows.slice(first, first + PAGE_SIZE));
+  const columns = $derived<TableColumn[]>([{ label: "#" }, ...headers.map((name) => ({ label: name })), { label: "" }]);
 
   function setCell(row: number, column: number, value: string) {
     const next = rows.map((cells) => [...cells]);
@@ -55,51 +58,39 @@
   {#if rows.length === 0}
     <p class="m-0 text-xs text-text-muted">{t("seeds.edit.noRows")}</p>
   {:else}
-    <div class="max-h-[360px] overflow-auto rounded-sm border border-border">
-      <table class="w-full border-collapse font-mono text-xs">
-        <thead class="sticky top-0 z-10 bg-surface-raised">
-          <tr>
-            <th class="border-b border-border px-2 py-1 text-left text-text-muted">#</th>
-            {#each headers as name, c (c)}
-              <th class="border-b border-border px-2 py-1 text-left">{name}</th>
-            {/each}
-            <th class="border-b border-border"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each visible as cells, offset (first + offset)}
-            {@const row = first + offset}
-            <tr>
-              <td class="px-2 py-0.5 text-text-muted">{row + 1}</td>
-              {#each headers as name, c (c)}
-                <td class="p-0">
-                  <input
-                    class="h-6 w-full min-w-[80px] border-0 bg-transparent px-2 text-text placeholder:text-text-muted focus:bg-surface-raised focus:outline focus:outline-1 focus:outline-primary"
-                    value={cells[c] ?? ""}
-                    placeholder="NULL"
-                    readonly={readOnly}
-                    aria-label={t("seeds.edit.cell", { row: row + 1, column: name })}
-                    onchange={(event) => setCell(row, c, event.currentTarget.value)}
-                  />
-                </td>
-              {/each}
-              <td class="px-1">
-                {#if !readOnly}
-                  <button
-                    type="button"
-                    class="flex h-5 w-5 cursor-pointer items-center justify-center rounded-sm text-text-muted hover:bg-surface-hover hover:text-danger"
-                    aria-label={t("seeds.edit.deleteRow", { row: row + 1 })}
-                    onclick={() => deleteRow(row)}
-                  >
-                    <Icon icon={TrashIcon} size={12} />
-                  </button>
-                {/if}
-              </td>
-            </tr>
+    <Table {columns} label={t("seeds.edit.grid")} density="compact" class="max-h-[360px] overflow-y-auto font-mono">
+      {#each visible as cells, offset (first + offset)}
+        {@const row = first + offset}
+        <tr class={TABLE_ROW}>
+          <td class={`${TABLE_CELL.compact} text-text-muted`}>{row + 1}</td>
+          {#each headers as name, c (c)}
+            <td class="p-0">
+              <Input
+                inputSize="xs"
+                class="min-w-[80px] rounded-none border-0 bg-transparent"
+                value={cells[c] ?? ""}
+                placeholder="NULL"
+                readonly={readOnly}
+                aria-label={t("seeds.edit.cell", { row: row + 1, column: name })}
+                onchange={(event) => setCell(row, c, event.currentTarget.value)}
+              />
+            </td>
           {/each}
-        </tbody>
-      </table>
-    </div>
+          <td class="px-1">
+            {#if !readOnly}
+              <button
+                type="button"
+                class="flex h-5 w-5 cursor-pointer items-center justify-center rounded-sm text-text-muted hover:bg-surface-hover hover:text-danger"
+                aria-label={t("seeds.edit.deleteRow", { row: row + 1 })}
+                onclick={() => deleteRow(row)}
+              >
+                <Icon icon={TrashIcon} size={12} />
+              </button>
+            {/if}
+          </td>
+        </tr>
+      {/each}
+    </Table>
   {/if}
   <div class="flex items-center gap-2">
     {#if !readOnly}

@@ -126,11 +126,20 @@ export function registerProjectRevisionRoutes(app: FastifyInstance): void {
     const revision = readProjectFromDoc(await loadRevisionDoc(id, revisionId), project.id, project.name);
     const created = await createProjectForUser(user.id, requested ?? `${project.name} (copy)`);
     const room = await getRoom(created.id);
-    await room.write(() => writeProjectToDoc(room.doc, { ...revision, id: created.id, name: created.name }), user.displayName);
+    await room.write(
+      () => writeProjectToDoc(room.doc, { ...revision, id: created.id, name: created.name }),
+      user.displayName,
+    );
     await db
       .prepare("UPDATE projects SET folder_id = (SELECT folder_id FROM projects WHERE id = ?) WHERE id = ?")
       .run(id, created.id);
-    await auditUser(user, "project.create", { type: "project", id: created.id }, `${created.name} (revision of ${project.name})`, req);
+    await auditUser(
+      user,
+      "project.create",
+      { type: "project", id: created.id },
+      `${created.name} (revision of ${project.name})`,
+      req,
+    );
     return reply.code(201).send({ ...created, permission: "administrator" });
   });
 

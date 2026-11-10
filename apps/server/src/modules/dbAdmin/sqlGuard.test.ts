@@ -306,7 +306,10 @@ test("SQL Server: a member's write is held to a whitelist too", () => {
 });
 
 test("PostgreSQL: E'' strings and dollar quotes glued to an identifier cannot hide a second statement", () => {
-  rejectsData("UPDATE t SET a = E'\\'' ; DROP TABLE users; GRANT ALL ON ALL TABLES IN SCHEMA public TO public; --'", "postgres");
+  rejectsData(
+    "UPDATE t SET a = E'\\'' ; DROP TABLE users; GRANT ALL ON ALL TABLES IN SCHEMA public TO public; --'",
+    "postgres",
+  );
   rejectsData("UPDATE t SET a = e'\\'' ; DROP TABLE users; --'", "postgres");
   rejectsData("UPDATE t SET a = (SELECT 1 AS q$z$) ; DROP TABLE users; -- $z$", "postgres");
   rejects("SELECT E'\\'' ; DELETE FROM t; --'", "postgres");
@@ -361,12 +364,12 @@ test("Oracle: alternative quoting q'[…]'", () => {
 test("SQLite: brackets and backticks quote identifiers", () => {
   rejects("SELECT [a'] ; DELETE FROM t; --'", "sqlite");
   rejects("SELECT `a'` ; DELETE FROM t; --'", "sqlite");
-  accepts("SELECT [a;b], `c;d`, \"e;f\" FROM t", "sqlite");
+  accepts('SELECT [a;b], `c;d`, "e;f" FROM t', "sqlite");
 });
 
 test("every engine: a write hidden behind each kind of noise is still seen", () => {
   const engines = ["postgres", "mysql", "mssql", "oracle", "sqlite", "bigquery"] as const;
-  const hiders = ["-- x\n", "/* x */", "'a'", '"a"', "/**/", "-- '\n", "/* ' */", "-- \"\n"];
+  const hiders = ["-- x\n", "/* x */", "'a'", '"a"', "/**/", "-- '\n", "/* ' */", '-- "\n'];
   for (const engine of engines) {
     for (const hider of hiders) {
       rejects(`SELECT 1 ${hider} ; DELETE FROM t`, engine);

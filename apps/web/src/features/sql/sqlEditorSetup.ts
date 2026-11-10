@@ -57,6 +57,10 @@ const DIALECTS: Record<DatabaseEngine, SQLDialect> = {
   oracle: PLSQL,
   sqlite: SQLite,
   bigquery: BigQuerySQL,
+  // Names are backticked in ClickHouse too. MongoDB and Redis take commands, not SQL: the editor only highlights them.
+  clickhouse: BigQuerySQL,
+  mongodb: StandardSQL,
+  redis: StandardSQL,
 };
 
 export const sqlLanguageCompartment = new Compartment();

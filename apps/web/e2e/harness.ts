@@ -67,12 +67,24 @@ async function waitForHealth(baseUrl: string): Promise<void> {
   throw new Error(`server never became healthy at ${baseUrl}: ${lastErr}`);
 }
 
+/**
+ * The app picks its language from the browser's, and the tests read the French one ("Adresse e-mail", "Se
+ * connecter"): a runner's Chrome speaks English. Every page and context opens in French unless the test says otherwise.
+ */
+function inFrench(browser: Browser): Browser {
+  const newContext = browser.newContext.bind(browser);
+  const newPage = browser.newPage.bind(browser);
+  browser.newContext = (options = {}) => newContext({ locale: "fr-FR", ...options });
+  browser.newPage = (options = {}) => newPage({ locale: "fr-FR", ...options });
+  return browser;
+}
+
 async function launchBrowser(): Promise<Browser> {
   const candidates = [{ channel: "chrome" }, { channel: "msedge" }];
   let lastError: unknown;
   for (const candidate of candidates) {
     try {
-      return await chromium.launch({ headless: process.env.E2E_HEADED !== "1", ...candidate });
+      return inFrench(await chromium.launch({ headless: process.env.E2E_HEADED !== "1", ...candidate }));
     } catch (err) {
       lastError = err;
     }

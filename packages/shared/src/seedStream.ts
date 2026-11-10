@@ -142,10 +142,10 @@ interface UniqueSet {
 
 /**
  * What would make the insert fail or surprise, row by row: a NULL in a NOT NULL column, a value that is not of
- * the column's type or longer than its limit, a duplicate under a primary key or UNIQUE, a foreign key with no
- * parent among the parent table's own seed, a required column the CSV does not fill, a row of the wrong width.
- * Formula-looking text (`=`, `+`, `-`, `@` first) is a warning: stored as text, but run by a spreadsheet that
- * opens an export. So is a CSV column mapped to a table column that no longer exists.
+ * the column's type or longer than its limit, a duplicate under a primary key or UNIQUE, a required column the CSV
+ * does not fill, a row of the wrong width. Formula-looking text (`=`, `+`, `-`, `@` first) is a warning: stored as
+ * text, but run by a spreadsheet that opens an export. So is a CSV column mapped to a table column that no longer
+ * exists, and a foreign key with no parent among the parent table's seed: the parent may already hold that row.
  *
  * Feed it every row of the file, header included, then `finish()`.
  */
@@ -189,7 +189,8 @@ export class SeedValidator {
     this.overflowAt = picked.map(() => ({ longest: 0, count: 0 }));
 
     const pk = picked.map((field, i) => (field.pk ? i : -1)).filter((i) => i >= 0);
-    if (pk.length > 0) this.uniqueSets.push({ label: pk.map((i) => picked[i]?.name).join(", "), indexes: pk, seen: new Set() });
+    if (pk.length > 0)
+      this.uniqueSets.push({ label: pk.map((i) => picked[i]?.name).join(", "), indexes: pk, seen: new Set() });
     picked.forEach((field, i) => {
       if (field.unique && !field.pk) this.uniqueSets.push({ label: field.name, indexes: [i], seen: new Set() });
     });
@@ -197,7 +198,11 @@ export class SeedValidator {
       if (!index.unique && !index.pk) continue;
       const positions = index.fieldIds.map((id) => picked.findIndex((field) => field.id === id));
       if (positions.some((p) => p < 0)) continue;
-      this.uniqueSets.push({ label: positions.map((p) => picked[p]?.name).join(", "), indexes: positions, seen: new Set() });
+      this.uniqueSets.push({
+        label: positions.map((p) => picked[p]?.name).join(", "),
+        indexes: positions,
+        seen: new Set(),
+      });
     }
 
     this.foreignKeys = (context.refs ?? [])
@@ -209,7 +214,9 @@ export class SeedValidator {
           parent: context.incompleteParents?.has(key) ? undefined : context.parentValues?.get(key),
         };
       })
-      .filter((fk): fk is { position: number; parent: ReadonlySet<string> } => fk.position >= 0 && fk.parent !== undefined);
+      .filter(
+        (fk): fk is { position: number; parent: ReadonlySet<string> } => fk.position >= 0 && fk.parent !== undefined,
+      );
 
     picked.forEach((field, position) => {
       if (limits.collect?.has(field.id)) this.gather.push({ key: `${table.id}.${field.id}`, position, set: new Set() });
@@ -259,7 +266,8 @@ export class SeedValidator {
     }
     if (!this.started) this.start(null);
     const rowNumber = ++this.rowCount;
-    if (cells.length !== this.width) this.report({ kind: "width", row: rowNumber, value: String(cells.length), severity: "error" });
+    if (cells.length !== this.width)
+      this.report({ kind: "width", row: rowNumber, value: String(cells.length), severity: "error" });
 
     const row = this.picked.map((index) => cells[index] ?? null);
     row.forEach((value, c) => {
@@ -267,7 +275,8 @@ export class SeedValidator {
       const family = this.families[c];
       if (!field || !family) return;
       if (value === null) {
-        if (field.notNull || field.pk) this.report({ kind: "not-null", row: rowNumber, column: field.name, severity: "error" });
+        if (field.notNull || field.pk)
+          this.report({ kind: "not-null", row: rowNumber, column: field.name, severity: "error" });
         return;
       }
       if (!fitsType(value, family)) {
@@ -302,7 +311,13 @@ export class SeedValidator {
     for (const fk of this.foreignKeys) {
       const value = row[fk.position] ?? null;
       if (value !== null && !fk.parent.has(value)) {
-        this.report({ kind: "foreign-key", row: rowNumber, column: this.columns[fk.position]?.name ?? "", value, severity: "error" });
+        this.report({
+          kind: "foreign-key",
+          row: rowNumber,
+          column: this.columns[fk.position]?.name ?? "",
+          value,
+          severity: "warning",
+        });
       }
     }
     for (const gathered of this.gather) {
@@ -331,7 +346,15 @@ export class SeedValidator {
     });
     const values = new Map<string, Set<string>>();
     for (const gathered of this.gather) if (gathered.set) values.set(gathered.key, gathered.set);
-    return { issues: this.issues, total: this.total, warnings: this.warningCount, rows: this.rowCount, overflows, unchecked: this.unchecked, values };
+    return {
+      issues: this.issues,
+      total: this.total,
+      warnings: this.warningCount,
+      rows: this.rowCount,
+      overflows,
+      unchecked: this.unchecked,
+      values,
+    };
   }
 }
 

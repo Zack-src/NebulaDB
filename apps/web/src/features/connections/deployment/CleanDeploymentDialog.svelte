@@ -6,6 +6,7 @@
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Input from "@/components/ui/Input.svelte";
+  import ProgressBar from "@/components/ui/ProgressBar.svelte";
   import { TEXTAREA_CODE_CLASS } from "@/components/ui/inputStyles";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { describeApiError } from "@/i18n/serverErrorMessages";
@@ -16,8 +17,8 @@
   import { parseDeploymentFailure, type DeploymentFailure } from "./deploymentFailure";
 
   /**
-   * "Start over": drop the database's tables and write the schema again. Shows what would go and what would come
-   * back, asks for the connection's name, and runs the deployment with the `clean` option. The server decides who
+   * "Start over": wipe the database's tables, with their columns and data, and write nothing back. Shows what would
+   * go, asks for the connection's name, and runs the deployment with the `clean` option. The server decides who
    * may (project administrators) and where (not production, not a stage that asks for a review).
    */
   let {
@@ -55,6 +56,19 @@
   const confirmed = $derived(typed.trim().toUpperCase() === confirmWord.toUpperCase());
   const ready = $derived(preview.data !== null && !preview.loading && !preview.error);
 
+  // The server answers once, at the end: no real percentage exists, so the bar sweeps and the elapsed time proves
+  // the work is alive.
+  let elapsed = $state(0);
+  $effect(() => {
+    if (!running) return;
+    elapsed = 0;
+    const startedAt = Date.now();
+    const timer = setInterval(() => (elapsed = Math.floor((Date.now() - startedAt) / 1000)), 500);
+    return () => clearInterval(timer);
+  });
+  const elapsedLabel = $derived(`${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")}`);
+  const dropCount = $derived(preview.data?.dropTables.length ?? 0);
+
   async function run() {
     running = true;
     error = null;
@@ -72,7 +86,27 @@
   }
 </script>
 
-<Modal title={t("deployment.clean.title")} {onClose}>
+<Modal title={t("deployment.clean.title")} onClose={() => !running && onClose()}>
+  {#if running}
+    <div
+      role="status"
+      aria-live="polite"
+      class="flex flex-col items-center justify-center gap-3 rounded-sm border border-danger/30 bg-danger-light p-8 text-center"
+      data-testid="clean-running"
+    >
+      <span
+        class="size-10 animate-spin rounded-full border-4 border-danger/20 border-t-danger motion-reduce:animate-none"
+        aria-hidden="true"
+      ></span>
+      <p class="m-0 text-body font-semibold text-text">{t("deployment.clean.running")}</p>
+      <p class="m-0 text-xs text-text-muted">
+        {backupBefore ? t("deployment.clean.runningBackup") : t("deployment.clean.runningDrop", { count: dropCount })}
+      </p>
+      <ProgressBar class="h-2 max-w-xs rounded-full" label={t("deployment.clean.running")} />
+      <p class="m-0 font-mono text-caption text-text-muted">{t("deployment.clean.elapsed", { time: elapsedLabel })}</p>
+      <p class="m-0 text-caption text-text-muted">{t("deployment.clean.runningHint")}</p>
+    </div>
+  {:else}
   <div class="space-y-3">
     <div class="flex items-start gap-2 rounded-sm border border-danger bg-danger-light p-2.5 text-xs text-danger">
       <Icon icon={AlertTriangleIcon} size={14} class="mt-px shrink-0" />
@@ -89,36 +123,25 @@
       <p class="m-0 text-xs text-text-muted">{t("common.loading")}</p>
     {:else if preview.data}
       {@const data = preview.data}
-      <div class="grid gap-3 sm:grid-cols-2">
-        <div class="min-w-0 space-y-1">
-          <span class="block text-xs font-semibold text-text">
-            {t("deployment.clean.dropTitle", { count: data.dropTables.length })}
-          </span>
-          {#if data.dropTables.length === 0}
-            <p class="m-0 text-caption text-text-muted">{t("deployment.clean.nothing")}</p>
-          {:else}
-            <ul class="m-0 max-h-40 list-none space-y-0.5 overflow-y-auto p-0 font-mono text-caption" data-testid="clean-drop">
-              {#each data.dropTables as table (table.name)}
-                <li class="flex justify-between gap-2 text-text">
-                  <span class="truncate">{table.name}</span>
-                  <span class="shrink-0 text-text-muted">
-                    {table.rows === null ? t("deployment.clean.rowsUnknown") : t("deployment.clean.rows", { count: table.rows })}
-                  </span>
-                </li>
-              {/each}
-            </ul>
-          {/if}
-        </div>
-        <div class="min-w-0 space-y-1">
-          <span class="block text-xs font-semibold text-text">
-            {t("deployment.clean.createTitle", { count: data.createTables.length })}
-          </span>
-          <ul class="m-0 max-h-40 list-none space-y-0.5 overflow-y-auto p-0 font-mono text-caption text-text-muted">
-            {#each data.createTables as name (name)}<li class="truncate">{name}</li>{/each}
+      <div class="space-y-1">
+        <span class="block text-xs font-semibold text-text">
+          {t("deployment.clean.dropTitle", { count: data.dropTables.length })}
+        </span>
+        {#if data.dropTables.length === 0}
+          <p class="m-0 text-caption text-text-muted">{t("deployment.clean.nothing")}</p>
+        {:else}
+          <ul class="m-0 max-h-40 list-none space-y-0.5 overflow-y-auto p-0 font-mono text-caption" data-testid="clean-drop">
+            {#each data.dropTables as table (table.name)}
+              <li class="flex justify-between gap-2 text-text">
+                <span class="truncate">{table.name}</span>
+                <span class="shrink-0 text-text-muted">
+                  {table.rows === null ? t("deployment.clean.rowsUnknown") : t("deployment.clean.rows", { count: table.rows })}
+                </span>
+              </li>
+            {/each}
           </ul>
-        </div>
+        {/if}
       </div>
-      <p class="m-0 text-caption text-text-muted">{t("deployment.clean.seeds")}</p>
       <details class="text-caption text-text-muted">
         <summary class="cursor-pointer select-none">{t("deployment.clean.showSql")}</summary>
         <textarea readonly class={`${TEXTAREA_CODE_CLASS} mt-1 h-40 w-full`} value={data.sql}></textarea>
@@ -143,8 +166,9 @@
     <div class="flex items-center justify-end gap-2 border-t border-border pt-3">
       <Button size="sm" variant="ghost" onclick={onClose} disabled={running}>{t("common.cancel")}</Button>
       <Button size="sm" variant="danger" onclick={() => void run()} disabled={running || !confirmed || !ready}>
-        {running ? t("deployment.clean.running") : t("deployment.clean.action")}
+        {t("deployment.clean.action")}
       </Button>
     </div>
   </div>
+  {/if}
 </Modal>

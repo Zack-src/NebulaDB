@@ -8,6 +8,7 @@ import {
   seedColumnValues,
   seedInsertOrder,
   seedOverflows,
+  seedReferences,
   serializeCsv,
   withCurrentHeaderNames,
   suggestMapping,
@@ -131,6 +132,43 @@ test("validateSeed: a foreign key is checked against the parent table's own seed
   );
 });
 
+test("seedReferences: a foreign key missing from the parent's seed, or towards a parent with no seed, is reported", () => {
+  const roles = table("roles", [{ name: "id", type: "int", pk: true }]);
+  const users = table("users", [
+    { name: "id", type: "int", pk: true },
+    { name: "role_id", type: "int" },
+    { name: "manager_id", type: "int" },
+    { name: "team_id", type: "int" },
+  ]);
+  const ref = (column: string, to: string): Ref => ({
+    id: column,
+    from: { tableId: "users", fieldId: `users.${column}` },
+    to: { tableId: to, fieldId: `${to}.id` },
+    cardinality: "one-to-many",
+  });
+  const refs: Ref[] = [
+    ref("role_id", "roles"),
+    ref("team_id", "teams"),
+    {
+      id: "self",
+      from: { tableId: "users", fieldId: "users.manager_id" },
+      to: { tableId: "users", fieldId: "users.id" },
+      cardinality: "one-to-many",
+    },
+  ];
+  const parentValues = seedColumnValues(roles, parseCsv("id\n1", ","), { header: true, mapping: ["roles.id"] });
+  const parents = new Map<string, { table: string; values?: ReadonlySet<string> }>([
+    ["roles.roles.id", { table: "roles", values: parentValues.get("roles.roles.id")! }],
+    ["teams.teams.id", { table: "teams" }],
+  ]);
+  const csv = parseCsv("id,role_id,manager_id,team_id\n10,1,99,5\n11,2,,5\n12,,,", ",");
+  const mapping = ["users.id", "users.role_id", "users.manager_id", "users.team_id"];
+  assert.deepEqual(seedReferences(users, csv, { header: true, mapping }, refs, parents), [
+    { column: "role_id", parent: "roles", missing: 1, parentSeeded: true },
+    { column: "team_id", parent: "teams", missing: 2, parentSeeded: false },
+  ]);
+});
+
 test("seedInsertOrder: parents first, self-references ignored, cycles reported", () => {
   const ref = (from: string, to: string): Ref => ({
     id: `${from}-${to}`,
@@ -178,10 +216,7 @@ test("seedOverflows names the columns whose values are longer than the declared 
   ]);
   // The same file fits once the column is long enough.
   const widened = table("users", [{ name: "code", type: "varchar(10)" }]);
-  assert.deepEqual(
-    seedOverflows(widened, [["code"], ["abcdefgh"]], { header: true, mapping: ["users.code"] }),
-    [],
-  );
+  assert.deepEqual(seedOverflows(widened, [["code"], ["abcdefgh"]], { header: true, mapping: ["users.code"] }), []);
 });
 
 test("CsvStreamParser gives the rows parseCsv gives, whatever the pieces it is fed in", () => {
@@ -199,14 +234,30 @@ test("CsvStreamParser gives the rows parseCsv gives, whatever the pieces it is f
 });
 
 test("SeedValidator drops a check it has no room for, and says so", () => {
-  const users = table("users", [{ name: "id", type: "int", pk: true }, { name: "code", type: "varchar(3)", unique: true }]);
+  const users = table("users", [
+    { name: "id", type: "int", pk: true },
+    { name: "code", type: "varchar(3)", unique: true },
+  ]);
   const options = { header: true, mapping: ["users.id", "users.code"] };
-  const rows: (string | null)[][] = [["id", "code"], ["1", "aaa"], ["2", "bbb"], ["3", "ccc"], ["3", "ddd"], ["4", "aaa"]];
+  const rows: (string | null)[][] = [
+    ["id", "code"],
+    ["1", "aaa"],
+    ["2", "bbb"],
+    ["3", "ccc"],
+    ["3", "ddd"],
+    ["4", "aaa"],
+  ];
 
   const roomy = new SeedValidator(users, options, {}, { collect: new Set(["users.id"]) });
   rows.forEach((row) => roomy.add(row));
   const full = roomy.finish();
-  assert.deepEqual(full.issues.map((i) => [i.kind, i.row]), [["unique", 4], ["unique", 5]]);
+  assert.deepEqual(
+    full.issues.map((i) => [i.kind, i.row]),
+    [
+      ["unique", 4],
+      ["unique", 5],
+    ],
+  );
   assert.equal(full.rows, 5);
   assert.deepEqual([...(full.values.get("users.users.id") ?? [])], ["1", "2", "3", "4"]);
   assert.deepEqual(full.unchecked, []);

@@ -4,11 +4,11 @@ Ce document décrit ce que NebulaDB sauvegarde réellement, et comment sauvegard
 
 ## 1. Ce que couvre chaque mécanisme
 
-| Mécanisme                                                     | Contenu                                                                            | Ne contient pas                                                                                         |
-| ------------------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| `npm run backup` et `NEBULADB_BACKUP_INTERVAL_HOURS` (planifié) | Un fichier `.dbml` par projet (tables, relations, notes, positions, zones)        | Comptes, équipes, droits, sessions, clés d'API, connexions, historique des révisions, seeds, webhooks, audit |
-| Onglet « Sauvegardes » (bases connectées)                     | Dumps des bases **clientes** connectées, dans `NEBULADB_DATABASE_BACKUP_DIR`       | Les données propres de NebulaDB                                                                         |
-| `pg_dump` de la base `nebuladb` (ce document)                 | Toutes les données de NebulaDB : comptes, projets, révisions, connexions chiffrées, audit | Le contenu du volume `nebuladb-data` (voir plus bas) et la clé `NEBULADB_SECRET`                          |
+| Mécanisme                                                       | Contenu                                                                                   | Ne contient pas                                                                                              |
+| --------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
+| `npm run backup` et `NEBULADB_BACKUP_INTERVAL_HOURS` (planifié) | Un fichier `.dbml` par projet (tables, relations, notes, positions, zones)                | Comptes, équipes, droits, sessions, clés d'API, connexions, historique des révisions, seeds, webhooks, audit |
+| Onglet « Sauvegardes » (bases connectées)                       | Dumps des bases **clientes** connectées, dans `NEBULADB_DATABASE_BACKUP_DIR`              | Les données propres de NebulaDB                                                                              |
+| `pg_dump` de la base `nebuladb` (ce document)                   | Toutes les données de NebulaDB : comptes, projets, révisions, connexions chiffrées, audit | Le contenu du volume `nebuladb-data` (voir plus bas) et la clé `NEBULADB_SECRET`                             |
 
 | `npm run export-instance` / `import-instance` (archive JSONL, sans `pg_dump`) | Toutes les tables applicatives : comptes, projets, révisions, connexions (chiffrées), audit | Sessions et tables éphémères (`sessions`, `mfa_challenges`, `login_attempts`, `password_reset_tokens`), volume `nebuladb-data`, clé `NEBULADB_SECRET` |
 

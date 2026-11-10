@@ -24,6 +24,9 @@ const LIQUIBASE_DBMS: Record<DatabaseEngine, string> = {
   oracle: "oracle",
   sqlite: "sqlite",
   bigquery: "bigquery",
+  clickhouse: "clickhouse",
+  mongodb: "mongodb",
+  redis: "redis",
 };
 
 /**

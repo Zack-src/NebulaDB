@@ -165,7 +165,10 @@ async function reviewsList({ client, positionals: [id] }: Context): Promise<Outc
   return { failed: false, data: answer, text: formatReviews(answer.reviews) };
 }
 
-export const HANDLERS: Record<Exclude<CommandId, "lint.file" | "diff.files">, (context: Context) => Promise<Outcome>> = {
+export const HANDLERS: Record<
+  Exclude<CommandId, "lint.file" | "diff.files">,
+  (context: Context) => Promise<Outcome>
+> = {
   "projects.list": projectsList,
   "project.export": projectExport,
   "project.import": projectImport,

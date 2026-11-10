@@ -122,8 +122,8 @@ export function suggestIndexes(
   catalog: CatalogTable[],
   engine: MigrationDialect,
 ): DbIndexSuggestion[] {
-  // BigQuery has no secondary index to suggest.
-  if (engine === "bigquery") return [];
+  // BigQuery and ClickHouse have no secondary index to suggest; MongoDB and Redis are not SQL.
+  if (engine === "bigquery" || engine === "clickhouse" || engine === "mongodb" || engine === "redis") return [];
   const candidates = new Map<string, Candidate>();
   for (const stat of stats) {
     if (stat.executions <= stat.failures) continue;

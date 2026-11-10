@@ -123,7 +123,13 @@ export function registerShareLinkRoutes(app: FastifyInstance): void {
     const { linkId } = parseParams(linkIdParams, req);
     const revealed = await revealShareToken(linkId);
     if (!revealed) throw new ApiError("SHARE_LINK_NOT_FOUND");
-    await auditUser(user, "share.reveal", { type: "project", id: revealed.link.projectId }, describe(revealed.link), req);
+    await auditUser(
+      user,
+      "share.reveal",
+      { type: "project", id: revealed.link.projectId },
+      describe(revealed.link),
+      req,
+    );
     return { token: revealed.token };
   });
 

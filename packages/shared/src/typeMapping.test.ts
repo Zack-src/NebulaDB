@@ -79,7 +79,17 @@ test("translateType: int is a valid spelling on every engine but Oracle", () => 
 });
 
 test("SUPPORTED_ENGINES lists every engine", () => {
-  assert.deepEqual([...SUPPORTED_ENGINES].sort(), ["bigquery", "mssql", "mysql", "oracle", "postgres", "sqlite"]);
+  assert.deepEqual([...SUPPORTED_ENGINES].sort(), [
+    "bigquery",
+    "clickhouse",
+    "mongodb",
+    "mssql",
+    "mysql",
+    "oracle",
+    "postgres",
+    "redis",
+    "sqlite",
+  ]);
 });
 
 test("translateType: BigQuery has its own names for text, booleans, floats, dates and bytes", () => {
@@ -139,10 +149,13 @@ test("translateType: SQL Server's (max) is the long text or binary type everywhe
   assert.equal(translateType("varbinary(max)", "bigquery").type, "BYTES");
 });
 
-test("translateType: bit is a boolean — kept where the word exists, translated where it does not", () => {
-  for (const engine of ["mssql", "mysql", "postgres", "sqlite"] as const) {
+test("translateType: bit is a boolean — kept on SQL Server and SQLite, a real boolean where `bit` is a bit string", () => {
+  for (const engine of ["mssql", "sqlite"] as const) {
     assert.equal(translateType("bit", engine).changed, false, engine);
   }
+  // PostgreSQL / MySQL `bit` refuse `true`/`t` ("not a valid binary digit"): a seed or an insert of a boolean fails.
+  assert.equal(translateType("bit", "postgres").type, "boolean");
+  assert.equal(translateType("bit", "mysql").type, "tinyint(1)");
   assert.equal(translateType("bit", "oracle").type, "number(1)");
 });
 

@@ -25,19 +25,30 @@ const root = path.resolve(process.argv[2] ?? "dist");
 const files = [];
 for await (const file of walk(root)) if (COMPRESSIBLE.test(file)) files.push(file);
 
-let before = 0, afterBr = 0, afterGz = 0, count = 0;
+let before = 0,
+  afterBr = 0,
+  afterGz = 0,
+  count = 0;
 await Promise.all(
   files.map(async (file) => {
     const data = await fs.readFile(file);
     if (data.length < MIN_BYTES) return;
     const [br, gz] = await Promise.all([
-      brotli(data, { params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: data.length } }),
+      brotli(data, {
+        params: { [zlib.constants.BROTLI_PARAM_QUALITY]: 11, [zlib.constants.BROTLI_PARAM_SIZE_HINT]: data.length },
+      }),
       gzip(data, { level: 9 }),
     ]);
     before += data.length;
     count++;
-    if (br.length < data.length) { await fs.writeFile(`${file}.br`, br); afterBr += br.length; } else afterBr += data.length;
-    if (gz.length < data.length) { await fs.writeFile(`${file}.gz`, gz); afterGz += gz.length; } else afterGz += data.length;
+    if (br.length < data.length) {
+      await fs.writeFile(`${file}.br`, br);
+      afterBr += br.length;
+    } else afterBr += data.length;
+    if (gz.length < data.length) {
+      await fs.writeFile(`${file}.gz`, gz);
+      afterGz += gz.length;
+    } else afterGz += data.length;
   }),
 );
 const kb = (n) => `${Math.round(n / 1024)} KB`;

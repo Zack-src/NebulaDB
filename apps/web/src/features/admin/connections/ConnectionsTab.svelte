@@ -6,16 +6,14 @@
   import type { AdminConnectionSummary } from "@nebuladb/shared";
   import Icon from "@/components/icons/Icon.svelte";
   import { CodeIcon, PencilIcon, PlusIcon, RestoreIcon, TrashIcon } from "@/components/icons/Icons";
-  import Modal from "@/components/overlays/Modal.svelte";
   import Badge from "@/components/ui/Badge.svelte";
   import Button from "@/components/ui/Button.svelte";
   import EmptyState from "@/components/ui/EmptyState.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Hint from "@/components/ui/Hint.svelte";
   import List from "@/components/ui/List.svelte";
-  import ListMain from "@/components/ui/ListMain.svelte";
   import ListRow from "@/components/ui/ListRow.svelte";
-  import ConnectionEditModal from "@/features/connections/form/ConnectionEditModal.svelte";
+  import ConnectionEditor from "@/features/connections/form/ConnectionEditor.svelte";
   import PersonalAccountButton from "@/features/connections/personal/PersonalAccountButton.svelte";
   import DbConsole from "@/features/connections/console/DbConsole.svelte";
   import EnvironmentBadge from "@/features/environments/EnvironmentBadge.svelte";
@@ -41,6 +39,10 @@
    * by an administrator, then attached to the projects that may deploy to
    * them. Opening one leads to the console — browse, query, manage accounts —
    * which works on the server itself and needs no project at all.
+   *
+   * Creating and editing take over the page (`ConnectionEditor`) rather than
+   * opening a dialog, and a deletion is confirmed in the row it concerns: the
+   * list is never covered by a backdrop.
    */
   let { initialConnectionId }: { initialConnectionId?: string } = $props();
 
@@ -86,11 +88,17 @@
     })),
   );
 
-  const check = useAsyncAction(async (id: string) => {
-    checkingId = id;
+  // A check says what it found twice: in the row (status, latency, version) and in a toast, so the click is never silent.
+  const check = useAsyncAction(async (connection: AdminConnectionSummary) => {
+    checkingId = connection.id;
     try {
-      await checkAdminConnectionHealth(id);
+      const { health } = await checkAdminConnectionHealth(connection.id);
       connections.reload();
+      if (health.status === "online") {
+        toast.success(t("admin.connections.checkedOnline", { name: connection.name, latency: health.latencyMs ?? 0 }));
+      } else {
+        toast.error(t("admin.connections.checkedOffline", { name: connection.name, error: health.error ?? "" }));
+      }
     } finally {
       checkingId = null;
     }
@@ -120,10 +128,31 @@
         })
       : t("admin.connections.health.offline", { when, error: c.health.error ?? "" });
   }
+
+  /** What follows the status word: latency and version when it answered, the error when it did not, then how long ago. */
+  function healthDetail(c: AdminConnectionSummary): string {
+    if (!c.health.status || !c.health.checkedAt) return "";
+    const when = formatRelativeTime(parseServerTime(c.health.checkedAt), i18n.locale);
+    const facts =
+      c.health.status === "online"
+        ? [c.health.latencyMs != null ? `${c.health.latencyMs} ms` : "", c.health.version ?? ""]
+        : [c.health.error ?? ""];
+    return [...facts, t("admin.connections.status.checked", { when })].filter(Boolean).join(" · ");
+  }
 </script>
 
 {#if consoleFor}
   <DbConsole mode="monitoring" connection={consoleFor} onClose={() => (consoleFor = null)} />
+{:else if editing}
+  <ConnectionEditor
+    connection={editing === "new" ? null : editing}
+    onClose={() => (editing = null)}
+    onSaved={() => {
+      editing = null;
+      connections.reload();
+    }}
+    onCheckDifferences={(projectId, connectionId) => (diff = { projectId, connectionId })}
+  />
 {:else}
   <div>
     <PageIntro>{t("admin.connections.hint")}</PageIntro>
@@ -171,31 +200,63 @@
     {:else}
       <List>
         {#each rows as c (c.id)}
+          {@const checking = checkingId === c.id}
           <ListRow>
-            <span
-              class={`h-2 w-2 shrink-0 rounded-full ${
-                c.health.status === "online"
-                  ? "bg-success"
-                  : c.health.status === "offline"
-                    ? "bg-danger"
-                    : "bg-border-strong"
-              }`}
-              data-tooltip={healthLabel(c)}
-              role="img"
-              aria-label={healthLabel(c)}
-            ></span>
-            <ListMain>
-              <span class="font-semibold">{c.name}</span>
-              <Badge tone="admin">{t(`connections.engine.${c.engine}`)}</Badge>
-              {#if c.environment}<EnvironmentBadge
-                  name={c.environment}
-                  color={c.environmentColor}
-                  production={c.production}
-                />{/if}
-              {#if c.readOnly}<Badge tone="warning">{t("dbadmin.readOnly")}</Badge>{/if}
-              {#each c.tags as tag (tag)}<Badge tone="muted">{tag}</Badge>{/each}
+            <div class="flex min-w-0 flex-1 flex-col gap-1">
+              <div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1 text-body">
+                <span class="font-semibold">{c.name}</span>
+                <Badge tone="admin">{t(`connections.engine.${c.engine}`)}</Badge>
+                {#if c.environment}<EnvironmentBadge
+                    name={c.environment}
+                    color={c.environmentColor}
+                    production={c.production}
+                  />{/if}
+                {#if c.readOnly}<Badge tone="warning">{t("dbadmin.readOnly")}</Badge>{/if}
+                {#each c.tags as tag (tag)}<Badge tone="muted">{tag}</Badge>{/each}
+              </div>
               <span class="block truncate font-mono text-caption text-text-muted">{target(c)}</span>
-            </ListMain>
+              <div class="flex min-w-0 items-center gap-2 text-caption" aria-live="polite">
+                {#if checking}
+                  <span
+                    class="size-2.5 shrink-0 animate-spin rounded-full border-2 border-primary border-t-transparent motion-reduce:animate-none"
+                    aria-hidden="true"
+                  ></span>
+                  <span class="font-medium text-text-secondary">{t("admin.connections.checking")}</span>
+                {:else}
+                  <span
+                    class={`h-2 w-2 shrink-0 rounded-full ${
+                      c.health.status === "online"
+                        ? "bg-success"
+                        : c.health.status === "offline"
+                          ? "bg-danger"
+                          : "bg-border-strong"
+                    }`}
+                    role="img"
+                    aria-label={healthLabel(c)}
+                  ></span>
+                  <span
+                    class={`font-semibold ${
+                      c.health.status === "online"
+                        ? "text-success"
+                        : c.health.status === "offline"
+                          ? "text-danger"
+                          : "text-text-muted"
+                    }`}
+                  >
+                    {c.health.status === "online"
+                      ? t("admin.connections.status.online")
+                      : c.health.status === "offline"
+                        ? t("admin.connections.status.offline")
+                        : t("admin.connections.status.unknown")}
+                  </span>
+                  {#if healthDetail(c)}
+                    <span class="min-w-0 truncate text-text-muted" data-tooltip={healthDetail(c)}>
+                      {healthDetail(c)}
+                    </span>
+                  {/if}
+                {/if}
+              </div>
+            </div>
             <span
               class="shrink-0 text-xs text-text-muted"
               data-tooltip={c.projects.map((p) => p.name).join(", ") || undefined}
@@ -208,13 +269,21 @@
               {t("admin.connections.open")}
             </Button>
             <Button
-              variant="ghost"
-              size="icon"
-              disabled={checkingId === c.id}
-              data-tooltip={t("admin.connections.checkHealth")}
-              onclick={() => void check.run(c.id)}
+              variant="outline"
+              size="sm"
+              disabled={checking}
+              aria-label={t("admin.connections.checkHealth")}
+              onclick={() => void check.run(c)}
             >
-              <Icon icon={RestoreIcon} size={13} />
+              {#if checking}
+                <span
+                  class="size-3 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent motion-reduce:animate-none"
+                  aria-hidden="true"
+                ></span>
+              {:else}
+                <Icon icon={RestoreIcon} size={13} />
+              {/if}
+              {checking ? t("admin.connections.checking") : t("admin.connections.check")}
             </Button>
             <Button variant="ghost" size="icon" data-tooltip={t("common.edit")} onclick={() => (editing = c)}>
               <Icon icon={PencilIcon} size={13} />
@@ -223,25 +292,34 @@
               <Icon icon={TrashIcon} size={13} />
             </Button>
           </ListRow>
+          {#if deleting?.id === c.id}
+            <div
+              role="group"
+              aria-label={t("admin.connections.deleteTitle", { name: c.name })}
+              class="rounded-sm border border-danger/40 bg-danger-light px-3 py-2.5"
+            >
+              <p class="m-0 text-body font-semibold text-danger">{t("admin.connections.deleteTitle", { name: c.name })}</p>
+              <Hint>{t("admin.connections.deleteHint")}</Hint>
+              {#if c.projects.length > 0}
+                <p class="mb-3 mt-0 text-body-sm text-warning">
+                  {t("admin.connections.deleteInUse", { projects: c.projects.map((p) => p.name).join(", ") })}
+                </p>
+              {/if}
+              <div class="flex items-center justify-end gap-2">
+                <Button variant="ghost" size="sm" onclick={() => (deleting = null)} disabled={remove.pending}
+                  >{t("common.cancel")}</Button
+                >
+                <Button variant="danger" size="sm" onclick={() => void remove.run(c)} disabled={remove.pending}>
+                  {remove.pending ? t("common.deleting") : t("common.delete")}
+                </Button>
+              </div>
+              {#if remove.error}<ErrorText>{remove.error}</ErrorText>{/if}
+            </div>
+          {/if}
         {/each}
       </List>
     {/if}
   </div>
-{/if}
-
-{#if editing}
-  <ConnectionEditModal
-    connection={editing === "new" ? null : editing}
-    onClose={() => (editing = null)}
-    onSaved={() => {
-      editing = null;
-      connections.reload();
-    }}
-    onCheckDifferences={(projectId, connectionId) => {
-      editing = null;
-      diff = { projectId, connectionId };
-    }}
-  />
 {/if}
 
 {#if diff}
@@ -252,29 +330,4 @@
       onClose={() => (diff = null)}
     />
   {/await}
-{/if}
-
-{#if deleting}
-  {@const connection = deleting}
-  <Modal
-    title={t("admin.connections.deleteTitle", { name: connection.name })}
-    onClose={() => (deleting = null)}
-    dismissable={!remove.pending}
-  >
-    <Hint>{t("admin.connections.deleteHint")}</Hint>
-    {#if connection.projects.length > 0}
-      <p class="mb-3 text-body-sm text-warning">
-        {t("admin.connections.deleteInUse", { projects: connection.projects.map((p) => p.name).join(", ") })}
-      </p>
-    {/if}
-    <div class="flex items-center justify-end gap-2">
-      <Button variant="ghost" size="sm" onclick={() => (deleting = null)} disabled={remove.pending}
-        >{t("common.cancel")}</Button
-      >
-      <Button variant="danger" size="sm" onclick={() => void remove.run(connection)} disabled={remove.pending}>
-        {remove.pending ? t("common.deleting") : t("common.delete")}
-      </Button>
-    </div>
-    {#if remove.error}<ErrorText>{remove.error}</ErrorText>{/if}
-  </Modal>
 {/if}
