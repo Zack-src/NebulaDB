@@ -6,6 +6,7 @@
   import Checkbox from "@/components/ui/Checkbox.svelte";
   import ErrorText from "@/components/ui/ErrorText.svelte";
   import Input from "@/components/ui/Input.svelte";
+  import ProgressBar from "@/components/ui/ProgressBar.svelte";
   import { TEXTAREA_CODE_CLASS } from "@/components/ui/inputStyles";
   import { useAsyncResource } from "@/hooks/asyncResource.svelte";
   import { describeApiError } from "@/i18n/serverErrorMessages";
@@ -55,6 +56,19 @@
   const confirmed = $derived(typed.trim().toUpperCase() === confirmWord.toUpperCase());
   const ready = $derived(preview.data !== null && !preview.loading && !preview.error);
 
+  // The server answers once, at the end: no real percentage exists, so the bar sweeps and the elapsed time proves
+  // the work is alive.
+  let elapsed = $state(0);
+  $effect(() => {
+    if (!running) return;
+    elapsed = 0;
+    const startedAt = Date.now();
+    const timer = setInterval(() => (elapsed = Math.floor((Date.now() - startedAt) / 1000)), 500);
+    return () => clearInterval(timer);
+  });
+  const elapsedLabel = $derived(`${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")}`);
+  const dropCount = $derived(preview.data?.dropTables.length ?? 0);
+
   async function run() {
     running = true;
     error = null;
@@ -72,7 +86,27 @@
   }
 </script>
 
-<Modal title={t("deployment.clean.title")} {onClose}>
+<Modal title={t("deployment.clean.title")} onClose={() => !running && onClose()}>
+  {#if running}
+    <div
+      role="status"
+      aria-live="polite"
+      class="flex flex-col items-center justify-center gap-3 rounded-sm border border-danger/30 bg-danger-light p-8 text-center"
+      data-testid="clean-running"
+    >
+      <span
+        class="size-10 animate-spin rounded-full border-4 border-danger/20 border-t-danger motion-reduce:animate-none"
+        aria-hidden="true"
+      ></span>
+      <p class="m-0 text-body font-semibold text-text">{t("deployment.clean.running")}</p>
+      <p class="m-0 text-xs text-text-muted">
+        {backupBefore ? t("deployment.clean.runningBackup") : t("deployment.clean.runningDrop", { count: dropCount })}
+      </p>
+      <ProgressBar class="h-2 max-w-xs rounded-full" label={t("deployment.clean.running")} />
+      <p class="m-0 font-mono text-caption text-text-muted">{t("deployment.clean.elapsed", { time: elapsedLabel })}</p>
+      <p class="m-0 text-caption text-text-muted">{t("deployment.clean.runningHint")}</p>
+    </div>
+  {:else}
   <div class="space-y-3">
     <div class="flex items-start gap-2 rounded-sm border border-danger bg-danger-light p-2.5 text-xs text-danger">
       <Icon icon={AlertTriangleIcon} size={14} class="mt-px shrink-0" />
@@ -132,8 +166,9 @@
     <div class="flex items-center justify-end gap-2 border-t border-border pt-3">
       <Button size="sm" variant="ghost" onclick={onClose} disabled={running}>{t("common.cancel")}</Button>
       <Button size="sm" variant="danger" onclick={() => void run()} disabled={running || !confirmed || !ready}>
-        {running ? t("deployment.clean.running") : t("deployment.clean.action")}
+        {t("deployment.clean.action")}
       </Button>
     </div>
   </div>
+  {/if}
 </Modal>
