@@ -28,7 +28,7 @@
     "@xyflow/svelte": "^1.7.1",
     "html-to-image": "^1.11.13",
     "jspdf": "^4.2.1",
-    "lib0": "^0.2.119",
+    "lib0": "^0.2.120",
     "qrcode": "^1.5.4",
     "svelte": "^5.57.3",
     "y-protocols": "^1.0.7",
@@ -36,16 +36,16 @@
   },
   "devDependencies": {
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
-    "@tailwindcss/postcss": "^4.3.4",
+    "@tailwindcss/postcss": "^4.3.5",
     "@types/qrcode": "^1.5.6",
     "@types/smtp-server": "^3.5.13",
     "postcss": "^8.5.32",
     "postcss-import": "^17.0.1",
-    "smtp-server": "^3.21.3",
+    "smtp-server": "^3.21.4",
     "svelte-check": "^4.7.8",
     "tailwindcss": "^4.3.3",
     "tsx": "^4.23.15",
     "typescript": "^7.0.2",
-    "vite": "^8.2.1"
+    "vite": "^8.3.7"
   }
 }
