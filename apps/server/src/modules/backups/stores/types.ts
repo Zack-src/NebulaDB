@@ -1,5 +1,5 @@
 import type { Readable } from "node:stream";
-import type { BackupDestinationKind, S3DestinationSettings, SftpDestinationSettings } from "@nebuladb/shared";
+import type { BackupStorageKind, S3DestinationSettings, SftpDestinationSettings } from "@nebuladb/shared";
 
 /**
  * Where a backup's bytes go. What reaches a store is already gzipped and
@@ -8,7 +8,7 @@ import type { BackupDestinationKind, S3DestinationSettings, SftpDestinationSetti
  * server.
  */
 export interface BackupStore {
-  readonly kind: BackupDestinationKind;
+  readonly kind: BackupStorageKind;
   /**
    * Streams `source` to the object `name`. Resolves once it is stored whole;
    * if `source` errors or is destroyed, or the transfer fails, nothing is left
