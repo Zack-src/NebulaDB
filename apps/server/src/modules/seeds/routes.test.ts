@@ -121,9 +121,9 @@ test("seeds: set and listed, validated before the deployment, inserted parents f
     });
     assert.equal(invalid.json().code, "SEED_INVALID");
 
-    // orders first: a child seed referring to a customer that does not exist (yet).
+    // orders first: a child seed with a duplicate key, and one referring to a customer that does not exist (yet).
     const orders = await call(app, owner, "PUT", `${base}/seeds/t-orders`, {
-      content: "id,customer_id\n10,1\n11,2\n12,3",
+      content: "id,customer_id\n10,1\n11,2\n11,3",
       options: csvOptions(["o-id", "o-customer"]),
     });
     assert.equal(orders.statusCode, 200, orders.body);
@@ -143,15 +143,16 @@ test("seeds: set and listed, validated before the deployment, inserted parents f
       ],
     );
 
-    // Order 12 points at customer 3, which no seed provides: the plan says so, the deployment refuses.
+    // Order 11 appears twice (an error) and points at customer 3, which no seed provides (only a warning: the
+    // parent may already be in the database): the plan says so, the deployment refuses for the error.
     const plan = (await call(app, owner, "POST", `${base}/connections/${connId}/plan-deployment`, {})).json() as {
-      seeds: { tableName: string; rows: number; action: string; errors: number }[];
+      seeds: { tableName: string; rows: number; action: string; errors: number; warnings: number }[];
     };
     assert.deepEqual(
-      plan.seeds.map((s) => [s.tableName, s.rows, s.action, s.errors]),
+      plan.seeds.map((s) => [s.tableName, s.rows, s.action, s.errors, s.warnings]),
       [
-        ["customers", 2, "insert", 0],
-        ["orders", 3, "insert", 1],
+        ["customers", 2, "insert", 0, 0],
+        ["orders", 3, "insert", 1, 1],
       ],
       "parents first",
     );

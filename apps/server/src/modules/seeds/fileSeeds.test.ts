@@ -173,7 +173,7 @@ test("seeds: a CSV past 2 MB is kept as a file, checked as it arrives, and deplo
       ["3", "Customer 3"],
     ]);
 
-    // A child seed, small, pointing into the big one: its foreign keys are checked against the streamed keys.
+    // A child seed, small, pointing into the big one: its foreign keys are checked against the streamed keys (an orphan is a warning: the parent may already be in the database).
     await call(app, owner, "PUT", `${base}/seeds/t-orders`, {
       content: `id,customer_id\n1,1\n2,${ROWS}\n3,${ROWS + 1}`,
       options: csvOptions(["o-id", "o-customer"]),
@@ -183,13 +183,13 @@ test("seeds: a CSV past 2 MB is kept as a file, checked as it arrives, and deplo
       await call(app, owner, "POST", `${base}/connections`, { name: "Shop db", engine: "sqlite", filePath: targetFile })
     ).json().connection.id as string;
     const plan = (await call(app, owner, "POST", `${base}/connections/${connId}/plan-deployment`, {})).json() as {
-      seeds: { tableName: string; rows: number; errors: number }[];
+      seeds: { tableName: string; rows: number; errors: number; warnings: number }[];
     };
     assert.deepEqual(
-      plan.seeds.map((s) => [s.tableName, s.rows, s.errors]),
+      plan.seeds.map((s) => [s.tableName, s.rows, s.errors, s.warnings]),
       [
-        ["customers", ROWS, 0],
-        ["orders", 3, 1],
+        ["customers", ROWS, 0, 0],
+        ["orders", 3, 0, 1],
       ],
     );
 
