@@ -11,7 +11,10 @@ test("every catalogued role has its explanation in both languages", () => {
     for (const role of dbRoleNames(engine)) {
       const key = dbRoleInfo(engine, role)?.descriptionKey ?? "";
       assert.ok(key, `${engine}/${role}: no catalogue entry`);
-      for (const [name, dictionary] of [["fr", fr], ["en", en]] as const) {
+      for (const [name, dictionary] of [
+        ["fr", fr],
+        ["en", en],
+      ] as const) {
         assert.ok((dictionary as Record<string, string>)[key], `${name}: missing ${key}`);
       }
     }

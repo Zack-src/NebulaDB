@@ -26,8 +26,7 @@ let cached: { value: SecurityPolicy; at: number } | null = null;
 export async function getSecurityPolicy(): Promise<SecurityPolicy> {
   if (cached && Date.now() - cached.at < CACHE_TTL_MS) return cached.value;
   const row = (await db.prepare("SELECT value FROM instance_settings WHERE key = ?").get(SETTING_KEY)) as
-    | { value: string }
-    | undefined;
+    { value: string } | undefined;
   let value: SecurityPolicy = { require2fa: false };
   if (row) {
     try {

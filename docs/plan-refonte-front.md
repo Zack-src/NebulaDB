@@ -5,14 +5,14 @@ du propriétaire (à livrer en v1) de ce qui est bloqué.
 
 ## Étape 1 — Features à ajouter avec impact front (v1)
 
-| Lot | Contenu                                                                                                               | Section | Modèle |
-| --- | --------------------------------------------------------------------------------------------------------------------- | ------- | ------ |
-| A   | Comptes SQL gérés depuis les Paramètres de l'utilisateur ; création du compte de base dans le geste d'invitation       | 5, 6    | opus   |
-| B   | SQL : requêtes enregistrées, éditeur avec complétion depuis le schéma, EXPLAIN visuel, édition de lignes              | 7       | opus   |
-| C   | Déploiement : revue avant prod, fenêtres de déploiement, gel ; bouton « revenir avant ce déploiement » ; niveau revue | 3, 4    | opus   |
-| D   | Alertes de dérive : acquittement, mise en sourdine, e-mail ; préférences de notification (e-mail, résumé)             | 10, 11  | sonnet |
+| Lot | Contenu                                                                                                                                                                                                                                                    | Section       | Modèle |
+| --- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------ |
+| A   | Comptes SQL gérés depuis les Paramètres de l'utilisateur ; création du compte de base dans le geste d'invitation                                                                                                                                           | 5, 6          | opus   |
+| B   | SQL : requêtes enregistrées, éditeur avec complétion depuis le schéma, EXPLAIN visuel, édition de lignes                                                                                                                                                   | 7             | opus   |
+| C   | Déploiement : revue avant prod, fenêtres de déploiement, gel ; bouton « revenir avant ce déploiement » ; niveau revue                                                                                                                                      | 3, 4          | opus   |
+| D   | Alertes de dérive : acquittement, mise en sourdine, e-mail ; préférences de notification (e-mail, résumé)                                                                                                                                                  | 10, 11        | sonnet |
 | E   | Petits manques : dictionnaire (export PDF, description multiligne), journal de modélisation dans Activité, privilèges colonne attribuables, générateurs de données « regex » / « copie de colonne », champs tunnel SSH / CA TLS du formulaire de connexion | 1, 3, 4, 6, 8 | sonnet |
-| F   | Performance : tableau de santé / trafic par connexion, suggestions d'index                                            | 9       | opus   |
+| F   | Performance : tableau de santé / trafic par connexion, suggestions d'index                                                                                                                                                                                 | 9             | opus   |
 
 ## Hors périmètre (bloqué par une décision ou trop vaste)
 
