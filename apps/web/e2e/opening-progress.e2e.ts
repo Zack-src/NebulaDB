@@ -65,7 +65,22 @@ test(
         }).observe(document, { childList: true, subtree: true });
       });
       await page.goto(`${env.baseUrl}/project/${projectId}`);
-      await page.locator(".svelte-flow__node").first().waitFor();
+      await page
+        .locator(".svelte-flow__node")
+        .first()
+        .waitFor()
+        .catch(async (cause) => {
+          const body = (
+            await page
+              .locator("body")
+              .innerText()
+              .catch(() => "")
+          ).slice(0, 600);
+          throw new Error(
+            `no table on the canvas — page: ${page.url()} — text: ${body} — errors: ${errors.join(" | ")}`,
+            { cause },
+          );
+        });
       // The tables are on the canvas before they have their columns.
       const rowsWhenFirstTableShows = await page.locator(".table-node-row").count();
       assert.ok(rowsWhenFirstTableShows < TABLES, "tables are mounted lite first");
