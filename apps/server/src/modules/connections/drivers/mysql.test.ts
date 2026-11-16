@@ -174,7 +174,8 @@ test("MysqlDriver over TLS: encrypted when asked, the pinned address used, the c
 
   // As `pinConnectionTarget` leaves it: the socket to the address, `host` kept for the certificate.
   const pinned = { ...config, host: "localhost", pinnedAddress: "127.0.0.1", tlsHost: "localhost", ssl: true };
-  const encrypted = new MysqlDriver(pinned);
+  // Encrypted, not checked: MySQL’s own certificate is self-signed, and a connection verifies the server by default.
+  const encrypted = new MysqlDriver({ ...pinned, sslVerify: false });
   try {
     assert.ok(
       (await encrypted.queryScalar(
