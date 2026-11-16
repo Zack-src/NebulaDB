@@ -64,7 +64,12 @@ test(
           w.__openingBar.bars = Math.max(w.__openingBar.bars, bar.querySelectorAll("[role=progressbar]").length);
         }).observe(document, { childList: true, subtree: true });
       });
-      await page.goto(`${env.baseUrl}/project/${projectId}`);
+      // Right after the import the server may be busy enough to shed load (503): ask again until it answers.
+      for (let attempt = 0; attempt < 30; attempt++) {
+        const response = await page.goto(`${env.baseUrl}/project/${projectId}`);
+        if (response?.status() !== 503) break;
+        await page.waitForTimeout(1_000);
+      }
       await page
         .locator(".svelte-flow__node")
         .first()
