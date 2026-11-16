@@ -64,28 +64,28 @@ test(
           w.__openingBar.bars = Math.max(w.__openingBar.bars, bar.querySelectorAll("[role=progressbar]").length);
         }).observe(document, { childList: true, subtree: true });
       });
-      // Right after the import the server may be busy enough to shed load (503): ask again until it answers.
-      for (let attempt = 0; attempt < 30; attempt++) {
-        const response = await page.goto(`${env.baseUrl}/project/${projectId}`);
-        if (response?.status() !== 503) break;
-        await page.waitForTimeout(1_000);
+      // Right after the import the server can be busy enough to shed load: the project's own request, or the session
+      // check that precedes it, is answered 503 and the app falls back to its login screen. Open it again until a
+      // table shows.
+      const firstNode = page.locator(".svelte-flow__node").first();
+      let shown = false;
+      for (let attempt = 0; attempt < 8 && !shown; attempt++) {
+        await page.goto(`${env.baseUrl}/project/${projectId}`);
+        shown = await firstNode.waitFor({ timeout: 30_000 }).then(
+          () => true,
+          () => false,
+        );
+        if (!shown) await page.waitForTimeout(2_000);
       }
-      await page
-        .locator(".svelte-flow__node")
-        .first()
-        .waitFor()
-        .catch(async (cause) => {
-          const body = (
-            await page
-              .locator("body")
-              .innerText()
-              .catch(() => "")
-          ).slice(0, 600);
-          throw new Error(
-            `no table on the canvas — page: ${page.url()} — text: ${body} — errors: ${errors.join(" | ")}`,
-            { cause },
-          );
-        });
+      if (!shown) {
+        const body = (
+          await page
+            .locator("body")
+            .innerText()
+            .catch(() => "")
+        ).slice(0, 600);
+        throw new Error(`no table on the canvas — page: ${page.url()} — text: ${body} — errors: ${errors.join(" | ")}`);
+      }
       // The tables are on the canvas before they have their columns.
       const rowsWhenFirstTableShows = await page.locator(".table-node-row").count();
       assert.ok(rowsWhenFirstTableShows < TABLES, "tables are mounted lite first");
