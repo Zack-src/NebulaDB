@@ -262,7 +262,11 @@ test(
       const stepped = await savedConnection(page, "Réseau PG");
       assert.equal(stepped.port, 6544);
       assert.equal(stepped.ssl, false);
-      assert.equal(stepped.hasPassword, true, "a password left blank is kept");
+      assert.equal(
+        stepped.hasPassword,
+        false,
+        "the stored password is dropped when the port changes and none is typed: it never goes to another server",
+      );
 
       // ------------------------------------------------------------------
       // A PostgreSQL connection by URI: the toggle swaps the fields.
