@@ -146,6 +146,28 @@ export async function codeEditorText(content: Locator): Promise<string> {
   return (await content.locator(".cm-line").allInnerTexts()).join("\n");
 }
 
+const TOUR_SEEN_SCRIPT = () => localStorage.setItem("nebuladb.tour.workspace.seen", "true");
+
+/**
+ * The workspace tour sits over the editor on a first visit and swallows clicks. Tests that open a second
+ * account (a fresh context) or a public page never go through `login`, so every context the browser makes
+ * — `newContext` or `newPage` — starts as someone who has already seen it.
+ */
+function markTourSeenInEveryContext(browser: Browser): void {
+  const newContext = browser.newContext.bind(browser);
+  browser.newContext = async (...args) => {
+    const context = await newContext(...args);
+    await context.addInitScript(TOUR_SEEN_SCRIPT);
+    return context;
+  };
+  const newPage = browser.newPage.bind(browser);
+  browser.newPage = async (...args) => {
+    const page = await newPage(...args);
+    await page.context().addInitScript(TOUR_SEEN_SCRIPT);
+    return page;
+  };
+}
+
 /** Logs the seeded admin in and waits for the dashboard to be interactive. The tour is marked as seen. */
 export async function login(page: Page, baseUrl: string): Promise<void> {
   // The workspace tour is for a first visit; every other test starts as someone who has seen it.
@@ -191,6 +213,8 @@ export async function startE2eEnvironment(
     NEBULADB_COOKIE_SECURE: "false",
     NEBULADB_SECRET: "e2e-test-secret-do-not-use-in-production",
     NEBULADB_LOG_LEVEL: "silent",
+    // The webhook tests deliver to a receiver on 127.0.0.1, which an instance refuses by default.
+    NEBULADB_WEBHOOK_BLOCK_PRIVATE: "0",
     PORT: String(port),
     NODE_ENV: "production",
     ...extraEnv,
@@ -237,6 +261,7 @@ export async function startE2eEnvironment(
     }
 
     browser = await launchBrowser();
+    markTourSeenInEveryContext(browser);
     return { baseUrl, browser, teardown };
   } catch (err) {
     await teardown();

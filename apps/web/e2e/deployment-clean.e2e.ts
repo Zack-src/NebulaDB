@@ -7,9 +7,8 @@ import Database from "better-sqlite3";
 import { login, startE2eEnvironment } from "./harness.js";
 
 /**
- * Starting over: the panel's "Repartir de zéro…" drops the database's tables and writes the schema again.
- * The dialog counts what goes, asks for the connection's name, and the database ends up shaped as the schema
- * says, empty — whatever a diff would have had to settle.
+ * Starting over: the panel's "Repartir de zéro…" drops every table of the database. The
+ * dialog counts what goes and asks for the word SUPPRIMER; nothing is recreated.
  *
  * Set `E2E_SHOTS=<dir>` to keep a screenshot of each step.
  */
@@ -17,7 +16,7 @@ import { login, startE2eEnvironment } from "./harness.js";
 const PORT = Number(process.env.E2E_PORT) || 4415;
 
 test(
-  "clean deployment: counted, confirmed by name, the database is rebuilt from the schema",
+  "clean deployment: counted, confirmed by typing the word, every table is dropped",
   { timeout: 90_000 },
   async () => {
     const targetFile = join(mkdtempSync(join(tmpdir(), "nebuladb-e2e-clean-")), "shop.sqlite");
@@ -76,21 +75,18 @@ test(
       await snap("dialog");
 
       // The action waits for the name.
-      const action = dialog.getByRole("button", { name: "Supprimer et recréer" });
+      const action = dialog.getByRole("button", { name: "Tout supprimer" });
       assert.equal(await action.isDisabled(), true);
-      await dialog.getByLabel(/nom de la connexion|Confirmer|confirm/i).fill("Base boutique");
+      await dialog.getByLabel("SUPPRIMER", { exact: true }).fill("SUPPRIMER");
       assert.equal(await action.isDisabled(), false);
       await action.click();
       await dialog.waitFor({ state: "detached" });
 
       const after = new Database(targetFile, { readonly: true });
-      const columns = (after.prepare("PRAGMA table_info(customers)").all() as { name: string }[]).map((c) => c.name);
-      assert.deepEqual(columns, ["id", "full_name"], "the table has the schema's columns");
-      assert.equal(
-        (after.prepare("SELECT COUNT(*) AS n FROM customers").get() as { n: number }).n,
-        0,
-        "the data is gone",
-      );
+      const tables = after
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%'")
+        .all();
+      assert.deepEqual(tables, [], "every table is dropped, with its data, and nothing is recreated");
       after.close();
       await snap("done");
 

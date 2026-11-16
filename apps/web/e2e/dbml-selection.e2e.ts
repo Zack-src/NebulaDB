@@ -49,6 +49,7 @@ test("DBML editor: the selection shows on the cursor's line", { timeout: 90_000 
 
     // Without a selection the active line is highlighted again.
     await page.keyboard.press("ArrowRight");
+    await page.locator(".cm-selectionBackground").first().waitFor({ state: "detached" });
     const restored = await page.locator(".cm-activeLine").evaluate((el) => getComputedStyle(el).backgroundColor);
     assert.doesNotMatch(restored, /rgba\(0, 0, 0, 0\)|transparent/);
   } finally {

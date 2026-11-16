@@ -40,17 +40,32 @@ test(
         return id;
       }, SCHEMA);
 
-      // A slow machine: six times less CPU.
+      // A slow machine: sixteen times less CPU (the batches got quick enough that six times no longer outlasts the bar's 1.5 s delay).
       const cdp = await context.newCDPSession(page);
-      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 6 });
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 16 });
+      // The bar stays up a few hundred milliseconds only, and a throttled page answers the test slowly: a
+      // watcher in the page records that it showed, and what it said, instead of the test polling for it.
+      await page.addInitScript(() => {
+        const w = window as unknown as { __openingBar?: { seen: boolean; bars: number } };
+        w.__openingBar = { seen: false, bars: 0 };
+        new MutationObserver(() => {
+          const bar = document.querySelector("[data-testid=opening-progress]");
+          if (!bar || !w.__openingBar) return;
+          w.__openingBar.seen = true;
+          w.__openingBar.bars = Math.max(w.__openingBar.bars, bar.querySelectorAll("[role=progressbar]").length);
+        }).observe(document, { childList: true, subtree: true });
+      });
       await page.goto(`${env.baseUrl}/project/${projectId}`);
       await page.locator(".svelte-flow__node").first().waitFor();
       // The tables are on the canvas before they have their columns.
       const rowsWhenFirstTableShows = await page.locator(".table-node-row").count();
       assert.ok(rowsWhenFirstTableShows < TABLES, "tables are mounted lite first");
 
-      await page.getByTestId("opening-progress").waitFor();
-      assert.equal(await page.getByRole("progressbar").count(), 1);
+      await page.waitForFunction(() => (window as unknown as { __openingBar?: { seen: boolean } }).__openingBar?.seen);
+      assert.equal(
+        await page.evaluate(() => (window as unknown as { __openingBar: { bars: number } }).__openingBar.bars),
+        1,
+      );
 
       // ...and the columns arrive, after which the bar is gone.
       await page.waitForFunction((n) => document.getElementsByClassName("table-node-row").length >= n, TABLES);

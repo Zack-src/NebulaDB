@@ -200,8 +200,8 @@
     confirmLabel={t("settings.billing.apiKeys.revoke")}
     danger="danger"
     onConfirm={() => {
-      keyToRevoke = null;
       void revoke.run(target.id);
+      keyToRevoke = null;
     }}
     onCancel={() => (keyToRevoke = null)}
   />

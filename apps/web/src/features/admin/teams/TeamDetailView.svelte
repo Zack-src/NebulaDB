@@ -247,8 +247,8 @@
     confirmLabel={t("admin.teams.removeMember")}
     danger="warning"
     onConfirm={() => {
-      memberToRemove = null;
       void removeMember.run(target.id);
+      memberToRemove = null;
     }}
     onCancel={() => (memberToRemove = null)}
   />
@@ -261,8 +261,8 @@
     confirmLabel={t("admin.teams.removeProject")}
     danger="warning"
     onConfirm={() => {
-      projectToRemove = null;
       void revokeProject.run(target.projectId);
+      projectToRemove = null;
     }}
     onCancel={() => (projectToRemove = null)}
   />

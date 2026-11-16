@@ -174,8 +174,8 @@
     confirmLabel={t("shareLinks.revoke")}
     danger="danger"
     onConfirm={() => {
-      linkToRevoke = null;
       void revoke.run(target.id);
+      linkToRevoke = null;
     }}
     onCancel={() => (linkToRevoke = null)}
   />

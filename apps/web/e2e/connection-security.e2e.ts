@@ -24,7 +24,11 @@ const pg = {
   user: process.env.NEBULADB_TEST_PG_USER || "nebuladb_test",
   password: process.env.NEBULADB_TEST_PG_PASSWORD || "nebuladb_test",
 };
-const CA = readFileSync(new URL("../../server/test-fixtures/tls/ca.crt", import.meta.url), "utf8");
+// Line feeds only, as the server stores a PEM: a Windows checkout may hold the fixture with CRLF.
+const CA = readFileSync(new URL("../../server/test-fixtures/tls/ca.crt", import.meta.url), "utf8").replace(
+  /\r\n/g,
+  "\n",
+);
 
 async function sshServer() {
   const hostKey = ssh2.utils.generateKeyPairSync("ed25519");

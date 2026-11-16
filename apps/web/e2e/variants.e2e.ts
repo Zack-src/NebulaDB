@@ -132,6 +132,10 @@ test(
       const sync = page.getByTestId("variant-sync");
       const changes = sync.getByTestId("variant-change");
       await changes.first().waitFor();
+      // A column's type is kept as the client has it by default: only the new column is on offer until it is unticked.
+      assert.equal(await changes.count(), 1);
+      await sync.getByTestId("variant-sync-keep").getByText("type", { exact: true }).click();
+      await changes.nth(1).waitFor();
       assert.equal(await changes.count(), 2);
       await sync.getByText("Le client l'a aussi modifié.").waitFor();
       await sync.getByText("1 changement sera appliqué").waitFor();

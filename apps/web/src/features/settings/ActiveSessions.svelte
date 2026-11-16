@@ -115,8 +115,8 @@
     confirmLabel={target.current ? t("common.logout") : t("settings.sessions.revoke")}
     danger="warning"
     onConfirm={() => {
-      sessionToRevoke = null;
       void revokeOne.run(target.id, target.current);
+      sessionToRevoke = null;
     }}
     onCancel={() => (sessionToRevoke = null)}
   />

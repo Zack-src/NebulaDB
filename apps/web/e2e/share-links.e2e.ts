@@ -133,6 +133,11 @@ test(
       await page.goto(env.baseUrl);
       await page.getByRole("button", { name: "Liens de partage", exact: true }).click();
       await page.getByRole("button", { name: "Révoquer le lien « Pour les auditeurs »" }).click();
+      // Revoking asks first: everyone using the link loses access at once.
+      await page
+        .getByRole("dialog", { name: "Révoquer le lien « Pour les auditeurs » ?" })
+        .getByRole("button", { name: "Révoquer le lien", exact: true })
+        .click();
       await page.getByText("Révoqué", { exact: true }).waitFor();
       await viewer.reload();
       await viewer.getByText("Ce lien n'existe pas ou ne fonctionne plus.").waitFor();
