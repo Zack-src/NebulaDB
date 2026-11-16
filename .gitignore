@@ -22,3 +22,8 @@ backups/
 /data/
 graphify-out/
 .vitest
+
+# Runtime data of a server started from a workspace: database backups, seed files. Never versioned.
+apps/*/data/
+**/database-backups/
+*.bak
