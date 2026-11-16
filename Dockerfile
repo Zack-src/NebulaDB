@@ -79,6 +79,16 @@ COPY --chown=node:node --from=build /app/apps/web/dist ./apps/web/dist
 # `/data` is created and chowned here (only it) so the named volume mounted
 # over it inherits this ownership when Docker first populates it.
 RUN mkdir -p /data && chown node:node /data
+
+# Two clean-ups of what the base image ships, both flagged by the Trivy scan in CI:
+# - the package manager `apt` is brought to the latest security release of the distribution;
+# - npm and corepack are package managers the running app never calls (it starts with `node`), and their
+#   bundled dependencies carry their own findings: they go, along with the shell shortcuts to them.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends --only-upgrade apt libapt-pkg6.0 \
+  && rm -rf /var/lib/apt/lists/* \
+  && rm -rf /usr/local/lib/node_modules/npm /usr/local/lib/node_modules/corepack \
+    /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack
 USER node
 
 VOLUME ["/data"]
