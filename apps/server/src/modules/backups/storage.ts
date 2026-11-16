@@ -8,7 +8,14 @@ import { config } from "../../config.js";
 import { decryptPayload, encryptPayload } from "../../shared/crypto.js";
 import { ApiError } from "../../shared/errors.js";
 import { backupPlacement, loadRemoteDestination } from "./destinations.js";
-import { LocalStore, ObjectMissingError, openRemoteStore, storeReason, type BackupStore } from "./stores/index.js";
+import {
+  DatabaseStore,
+  LocalStore,
+  ObjectMissingError,
+  openRemoteStore,
+  storeReason,
+  type BackupStore,
+} from "./stores/index.js";
 import { reportBackground } from "../../shared/errorLog.js";
 
 const ALGORITHM = "aes-256-gcm";
@@ -30,7 +37,8 @@ export async function backupFilePath(id: string): Promise<string> {
  * the connection's current destination, which may have changed since.
  */
 export async function backupStore(id: string): Promise<BackupStore> {
-  const { dir, destinationId } = await backupPlacement(id);
+  const { dir, destinationId, inDatabase } = await backupPlacement(id);
+  if (inDatabase) return new DatabaseStore();
   if (destinationId === null) return new LocalStore(dir ?? config.databaseBackupDir);
   try {
     const remote = await loadRemoteDestination(destinationId);

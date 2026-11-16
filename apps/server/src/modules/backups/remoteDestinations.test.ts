@@ -248,7 +248,7 @@ test("a backup whose remote cannot be reached fails clearly, and is not forgotte
     const connId = await connect(app, admin, "Shop", shopFile());
     const backup = await backUp(app, admin, connId);
     assert.equal(backup.status, "done", backup.error ?? "");
-    // Written to a folder, then pointed at a remote nothing answers on, as if the server had gone away.
+    // Written to the database, then pointed at a remote nothing answers on, as if the server had gone away.
     const dest = await insertRemoteDestination({
       kind: "s3",
       settings: {
@@ -260,7 +260,9 @@ test("a backup whose remote cannot be reached fails clearly, and is not forgotte
       },
       secret: { accessKeyId: "AKIAEXAMPLE", secretAccessKey: SECRET_KEY },
     });
-    await db.prepare("UPDATE backups SET dir = NULL, destination_id = ? WHERE id = ?").run(dest, backup.id);
+    await db
+      .prepare("UPDATE backups SET dir = NULL, in_database = FALSE, destination_id = ? WHERE id = ?")
+      .run(dest, backup.id);
 
     const listed = (await call(app, admin, "GET", `/api/admin/connections/${connId}/backups`)).json();
     assert.equal(listed.backups[0].storage.kind, "s3");

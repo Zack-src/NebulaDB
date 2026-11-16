@@ -2,6 +2,7 @@ import type { BackupStore, RemoteDestination } from "./types.js";
 import { S3Store, normalizePrefix, s3Reason } from "./s3.js";
 import { SftpStore, sftpReason } from "./sftp.js";
 
+export { DatabaseStore } from "./database.js";
 export { LocalStore } from "./local.js";
 export { ObjectMissingError } from "./types.js";
 export type { BackupStore, RemoteDestination, S3Secret, SftpSecret } from "./types.js";

@@ -49,7 +49,8 @@ export interface BackupSummary {
 }
 
 /** Which kind of place a backup file is kept in. */
-export type BackupDestinationKind = "local" | "s3" | "sftp";
+/** `database`: the instance's own PostgreSQL, where backups go unless a folder or a remote is chosen. */
+export type BackupDestinationKind = "local" | "database" | "s3" | "sftp";
 
 /** Where one backup is stored, for display: never a credential. `location`: a folder, `s3://bucket/prefix`, `sftp://user@host:port/folder`. */
 export interface BackupStorageLocation {

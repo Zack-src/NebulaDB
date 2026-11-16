@@ -1,7 +1,8 @@
+import { Readable } from "node:stream";
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gunzipSync } from "node:zlib";
@@ -21,10 +22,36 @@ const { db } = await import("../../infrastructure/db.js");
 const { hashPassword } = await import("../auth/password.js");
 const { closeAllRooms, getRoom } = await import("../../realtime/roomRegistry.js");
 const { writeProjectToDoc } = await import("@nebuladb/shared");
-const { backupFilePath, openBackupWriter } = await import("./storage.js");
+const { backupFilePath, backupStore, openBackupWriter } = await import("./storage.js");
+const { ObjectMissingError } = await import("./stores/index.js");
 const { failInterruptedBackups, insertBackup, purgeExpiredBackups } = await import("./repository.js");
 const { backupPageSql, fromBackupCell, tablesInBackupOrder, toBackupCell } = await import("./format.js");
 const { runDueBackupSchedules } = await import("./schedule.js");
+
+/** The bytes of a backup as they are stored, wherever that is (the database, a folder). */
+async function storedBytes(id: string): Promise<Buffer> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of await (await backupStore(id)).read(`${id}.bak`)) chunks.push(chunk as Buffer);
+  return Buffer.concat(chunks);
+}
+
+/** Whether a backup's bytes are still there. */
+async function isStored(id: string): Promise<boolean> {
+  try {
+    (await (await backupStore(id)).read(`${id}.bak`)).destroy();
+    return true;
+  } catch (err) {
+    if (err instanceof ObjectMissingError) return false;
+    throw err;
+  }
+}
+
+/** Puts other bytes in place of a backup's own: what altering a stored file comes to. */
+async function overwriteStored(id: string, bytes: Buffer): Promise<void> {
+  const store = await backupStore(id);
+  await store.delete(`${id}.bak`);
+  await store.write(`${id}.bak`, Readable.from([bytes]));
+}
 
 type App = Awaited<ReturnType<typeof buildApp>>;
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
@@ -239,8 +266,12 @@ test("a backup is taken, stored encrypted, downloaded, and restored over changed
     assert.match(backup.checksum!, /^[0-9a-f]{64}$/);
     assert.ok(backup.expiresAt, "kept for the default retention");
 
-    // On disk: neither readable nor a plain gzip.
-    const stored = readFileSync(await backupFilePath(backup.id));
+    // As stored (in the database): neither readable nor a plain gzip.
+    assert.equal(
+      (await call(app, admin, "GET", `/api/admin/connections/${connId}/backups`)).json().backups[0].storage.kind,
+      "database",
+    );
+    const stored = await storedBytes(backup.id);
     assert.equal(stored.includes("Ada Lovelace"), false);
     assert.throws(() => gunzipSync(stored));
 
@@ -339,7 +370,7 @@ test("a connection's backups go to the folder chosen for it; the earlier ones st
     const connId = await connect(app, admin, "Elsewhere", targetFile(SHOP));
     const url = `/api/admin/connections/${connId}/backup-destination`;
     const first = await backUp(app, admin, connId);
-    const defaultPath = await backupFilePath(first.id);
+    assert.equal((await backupStore(first.id)).kind, "database", "no folder chosen yet: in the database");
 
     assert.equal((await call(app, member, "PUT", url, { directory: "/tmp" })).statusCode, 403);
     assert.equal(
@@ -347,7 +378,9 @@ test("a connection's backups go to the folder chosen for it; the earlier ones st
       "BACKUP_DESTINATION_INVALID",
     );
     // A file where a folder is wanted: nothing can be written under it.
-    const unusable = await call(app, admin, "PUT", url, { directory: join(defaultPath, "sub") });
+    const aFile = join(mkdtempSync(join(tmpdir(), "nebuladb-afile-")), "a-file");
+    writeFileSync(aFile, "");
+    const unusable = await call(app, admin, "PUT", url, { directory: join(aFile, "sub") });
     assert.equal(unusable.json().code, "BACKUP_DESTINATION_UNUSABLE");
     assert.ok(unusable.json().reason);
 
@@ -363,9 +396,9 @@ test("a connection's backups go to the folder chosen for it; the earlier ones st
     const second = await backUp(app, admin, connId);
     assert.equal(second.status, "done", second.error ?? "");
     assert.equal(await backupFilePath(second.id), join(share, `${second.id}.bak`));
-    assert.equal(existsSync(await backupFilePath(second.id)), true);
+    assert.equal(await isStored(second.id), true);
     // The one taken before has not moved, and still downloads.
-    assert.equal(await backupFilePath(first.id), defaultPath);
+    assert.equal((await backupStore(first.id)).kind, "database");
     assert.equal((await call(app, admin, "GET", `/api/admin/backups/${first.id}/download`)).statusCode, 200);
     assert.equal((await call(app, admin, "GET", `/api/admin/backups/${second.id}/download`)).statusCode, 200);
 
@@ -421,10 +454,9 @@ test("a restore refuses a read-only target, a target missing a column, and a fil
       rolledBack: false,
     });
 
-    const path = await backupFilePath(backup.id);
-    const bytes = readFileSync(path);
+    const bytes = await storedBytes(backup.id);
     bytes[bytes.length - 1] ^= 0xff;
-    writeFileSync(path, bytes);
+    await overwriteStored(backup.id, bytes);
     assert.equal((await restore({ confirmName: "Source" })).json().code, "BACKUP_CORRUPTED");
     assert.equal(
       (await call(app, admin, "GET", `/api/admin/backups/${backup.id}/download`)).json().code,
@@ -617,7 +649,7 @@ test("a backup over the size ceiling fails and leaves no file; pin, retention, d
     const tooLarge = await backUp(app, admin, bigId);
     assert.equal(tooLarge.status, "failed");
     assert.match(tooLarge.error!, /NEBULADB_DATABASE_BACKUP_MAX_MB/);
-    assert.equal(existsSync(await backupFilePath(tooLarge.id)), false);
+    assert.equal(await isStored(tooLarge.id), false);
     assert.equal(
       (await call(app, admin, "GET", `/api/admin/backups/${tooLarge.id}/download`)).json().code,
       "BACKUP_NOT_READY",
@@ -638,8 +670,8 @@ test("a backup over the size ceiling fails and leaves no file; pin, retention, d
     // Both are made a year old: the pinned one stays, the other goes with its file.
     await db.prepare("UPDATE backups SET started_at = utc_now('-365 days') WHERE id IN (?, ?)").run(kept.id, old.id);
     assert.equal(await purgeExpiredBackups(), 1);
-    assert.equal(existsSync(await backupFilePath(old.id)), false);
-    assert.equal(existsSync(await backupFilePath(kept.id)), true);
+    assert.equal(await isStored(old.id), false);
+    assert.equal(await isStored(kept.id), true);
 
     // A backup still "running" at boot was cut short by the restart.
     const ghost = await insertBackup({
@@ -661,7 +693,7 @@ test("a backup over the size ceiling fails and leaves no file; pin, retention, d
 
     // Deleting the connection takes its backups, files included.
     assert.equal((await call(app, admin, "DELETE", `/api/admin/connections/${connId}`)).statusCode, 200);
-    assert.equal(existsSync(await backupFilePath(kept.id)), false);
+    assert.equal(await isStored(kept.id), false);
     assert.equal(
       ((await db.prepare("SELECT COUNT(*) AS n FROM backups WHERE connection_id = ?").get(connId)) as { n: number }).n,
       0,
@@ -778,7 +810,7 @@ test("a running backup can be cancelled, and leaves no file", async () => {
       await new Promise((resolve) => setTimeout(resolve, 5));
     }
     assert.equal(backup?.status, "cancelled");
-    assert.equal(existsSync(await backupFilePath(id)), false);
+    assert.equal(await isStored(id), false);
   } finally {
     await closeAllRooms();
     await app.close();
@@ -885,7 +917,7 @@ test("/api/v1 backups: taken, polled, listed, downloaded and deleted with an adm
     assert.equal((await withKey(manageKey, "POST", `/api/v1/backups/${id}/cancel`)).json().code, "BACKUP_NOT_READY");
     const deleted = await withKey(manageKey, "DELETE", `/api/v1/backups/${id}`);
     assert.deepEqual([deleted.statusCode, deleted.json()], [200, { deleted: true }]);
-    assert.equal(existsSync(await backupFilePath(id)), false);
+    assert.equal(await isStored(id), false);
     assert.equal((await withKey(manageKey, "GET", `/api/v1/backups/${id}`)).statusCode, 404);
     assert.deepEqual((await withKey(manageKey, "GET", list)).json().backups, []);
 
@@ -941,7 +973,7 @@ test("/api/v1 backups: a running backup is cancelled with a key", async () => {
       status = ((await withKey("GET", `/api/v1/backups/${id}`)).json().backup as Backup).status;
     }
     assert.equal(status, "cancelled");
-    assert.equal(existsSync(await backupFilePath(id)), false);
+    assert.equal(await isStored(id), false);
   } finally {
     await closeAllRooms();
     await app.close();

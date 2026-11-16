@@ -13,6 +13,8 @@ import { runDueActivitySamples } from "./modules/dbMonitor/activity.js";
 import { runRetention } from "./modules/retention/purge.js";
 import { failInterruptedBackups, purgeExpiredBackups } from "./modules/backups/repository.js";
 import { runDueBackupSchedules } from "./modules/backups/schedule.js";
+import { reportBackground } from "./shared/errorLog.js";
+import { moveBackupFilesToDatabase } from "./modules/backups/legacyFiles.js";
 import { scheduleJob, stopAllJobs } from "./infrastructure/scheduler.js";
 import { purgeExpiredSessions } from "./modules/auth/session.js";
 import { purgeExpiredMfaChallenges } from "./modules/auth/totpRepository.js";
@@ -77,6 +79,12 @@ scheduleJob("log-retention", 60 * 60 * 1000, async () => {
 // Backups of connected databases: whatever a restart cut short is marked failed, and what is past its retention goes.
 const interrupted = await failInterruptedBackups();
 if (interrupted > 0) app.log.warn(`${interrupted} database backup(s) were interrupted by the restart`);
+// Backups written before they were kept in the database are files: move them in, in the background.
+void moveBackupFilesToDatabase((line) => app.log.warn(line))
+  .then((moved) => {
+    if (moved > 0) app.log.info(`${moved} database backup(s) moved from files to the database`);
+  })
+  .catch(reportBackground("backups: moving backup files to the database"));
 // Each connection's schedule says when; this only looks for whose hour has come.
 scheduleJob("database-backup-schedules", 60_000, () => runDueBackupSchedules().then(() => {}));
 scheduleJob("database-backup-retention", 60 * 60 * 1000, async () => {

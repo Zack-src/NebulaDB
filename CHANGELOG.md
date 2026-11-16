@@ -19,6 +19,18 @@ has a dated entry for. Version 1.0.0 is the first release under the NebulaDB nam
 
 ## [Unreleased]
 
+### Changed — backups of connected databases are kept in PostgreSQL (read before upgrading)
+
+- A backup now goes **into NebulaDB's own database** (new table `backup_chunks`, migration 14) instead of a file
+  under `NEBULADB_DATABASE_BACKUP_DIR`: it follows `pg_dump`, replicas and the instance export, and there is no
+  folder to mount, copy or keep out of version control. The content is still gzipped and encrypted with its own key;
+  only the place changed. A folder chosen for a connection, and S3 / SFTP destinations, work as before.
+- Backups already written as files in the instance folder are **moved into the database at the next start**
+  (checked against their recorded checksum; one that does not match, or whose file is gone, is left alone).
+  Count on the database growing by the size of those backups; `NEBULADB_DATABASE_BACKUP_DIR` is only read for them.
+- `apps/server/data/` and `*.bak` are ignored by git. Earlier versions of the repository carried three backup files
+  by mistake; they were removed from its history.
+
 ### Changed — safer defaults for outbound connections (read before upgrading)
 
 - Webhooks to loopback, private and link-local addresses are **refused by default**. A receiver on your LAN

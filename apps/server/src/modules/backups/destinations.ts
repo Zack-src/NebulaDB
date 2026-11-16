@@ -71,11 +71,17 @@ export async function setConnectionDestinationId(connectionId: string, destinati
   await db.prepare("UPDATE db_connections SET backup_destination_id = ? WHERE id = ?").run(destinationId, connectionId);
 }
 
-/** Where an existing backup was written: a folder (`dir`, `null` for the instance's own) or a saved remote. */
-export async function backupPlacement(backupId: string): Promise<{ dir: string | null; destinationId: string | null }> {
-  const row = (await db.prepare("SELECT dir, destination_id FROM backups WHERE id = ?").get(backupId)) as
-    { dir: string | null; destination_id: string | null } | undefined;
-  return { dir: row?.dir ?? null, destinationId: row?.destination_id ?? null };
+/** Where an existing backup was written: the database, a folder (`dir`, `null` for the instance's own: older ones) or a saved remote. */
+export async function backupPlacement(
+  backupId: string,
+): Promise<{ dir: string | null; destinationId: string | null; inDatabase: boolean }> {
+  const row = (await db.prepare("SELECT dir, destination_id, in_database FROM backups WHERE id = ?").get(backupId)) as
+    { dir: string | null; destination_id: string | null; in_database: boolean } | undefined;
+  return {
+    dir: row?.dir ?? null,
+    destinationId: row?.destination_id ?? null,
+    inDatabase: row?.in_database ?? false,
+  };
 }
 
 /** Removes the destinations nothing refers to any more — their credentials go with them. */

@@ -7,7 +7,7 @@ Ce document décrit ce que NebulaDB sauvegarde réellement, et comment sauvegard
 | Mécanisme                                                       | Contenu                                                                                   | Ne contient pas                                                                                              |
 | --------------------------------------------------------------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ |
 | `npm run backup` et `NEBULADB_BACKUP_INTERVAL_HOURS` (planifié) | Un fichier `.dbml` par projet (tables, relations, notes, positions, zones)                | Comptes, équipes, droits, sessions, clés d'API, connexions, historique des révisions, seeds, webhooks, audit |
-| Onglet « Sauvegardes » (bases connectées)                       | Dumps des bases **clientes** connectées, dans `NEBULADB_DATABASE_BACKUP_DIR`              | Les données propres de NebulaDB                                                                              |
+| Onglet « Sauvegardes » (bases connectées)                       | Dumps des bases **clientes** connectées, dans la base de NebulaDB (table `backup_chunks`)   | Les données propres de NebulaDB                                                                              |
 | `pg_dump` de la base `nebuladb` (ce document)                   | Toutes les données de NebulaDB : comptes, projets, révisions, connexions chiffrées, audit | Le contenu du volume `nebuladb-data` (voir plus bas) et la clé `NEBULADB_SECRET`                             |
 
 | `npm run export-instance` / `import-instance` (archive JSONL, sans `pg_dump`) | Toutes les tables applicatives : comptes, projets, révisions, connexions (chiffrées), audit | Sessions et tables éphémères (`sessions`, `mfa_challenges`, `login_attempts`, `password_reset_tokens`), volume `nebuladb-data`, clé `NEBULADB_SECRET` |
@@ -18,7 +18,7 @@ Conclusion : l'export DBML planifié est utile (export lisible, versionnable, r�
 
 1. La base PostgreSQL `nebuladb` (`pg_dump`).
 2. La valeur de `NEBULADB_SECRET`. Les identifiants des connexions, les secrets 2FA et les secrets de webhooks sont chiffrés avec elle. Sans la même valeur, la base se restaure mais ces éléments sont illisibles : connexions à ressaisir, 2FA à réinitialiser, webhooks à régénérer. Conservez-la dans un gestionnaire de secrets, **pas** à côté du dump.
-3. Le volume `nebuladb-data` (monté sur `/data`) : sauvegardes de bases connectées (`database-backups`) et fichiers de seeds.
+3. Le volume `nebuladb-data` (monté sur `/data`) : fichiers de seeds, et d'éventuelles sauvegardes de bases connectées écrites avant leur passage en base (déplacées au démarrage). Les sauvegardes récentes sont dans la base PostgreSQL : le `pg_dump` les contient.
 4. Le fichier `.env` (ou la configuration équivalente).
 
 ## 3. Sauvegarde

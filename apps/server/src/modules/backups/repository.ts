@@ -29,6 +29,7 @@ interface BackupRow {
   pinned: number;
   expires_at: string | null;
   dir: string | null;
+  in_database: boolean;
   destination_kind: string | null;
   destination_label: string | null;
 }
@@ -70,7 +71,9 @@ function rowToSummary(row: BackupRow): BackupSummary {
     expiresAt: row.expires_at,
     storage: row.destination_kind
       ? { kind: row.destination_kind as "s3" | "sftp", location: row.destination_label ?? "" }
-      : { kind: "local", location: path.resolve(row.dir ?? config.databaseBackupDir) },
+      : row.in_database
+        ? { kind: "database", location: "PostgreSQL" }
+        : { kind: "local", location: path.resolve(row.dir ?? config.databaseBackupDir) },
   };
 }
 
@@ -88,10 +91,12 @@ export async function insertBackup(input: NewBackup): Promise<string> {
   const id = crypto.randomUUID();
   await db
     .prepare(
-      `INSERT INTO backups (id, connection_id, connection_name, engine, trigger, status, scope_json, note, created_by, created_by_name, dir, destination_id)
+      `INSERT INTO backups (id, connection_id, connection_name, engine, trigger, status, scope_json, note, created_by, created_by_name, dir, destination_id, in_database)
      VALUES (?, ?, ?, ?, ?, 'running', ?, ?, ?, ?,
        (SELECT CASE WHEN backup_destination_id IS NULL THEN backup_dir END FROM db_connections WHERE id = ?),
-       (SELECT backup_destination_id FROM db_connections WHERE id = ?))`,
+       (SELECT backup_destination_id FROM db_connections WHERE id = ?),
+       -- Neither a folder nor a remote chosen: the backup goes in the database.
+       (SELECT backup_destination_id IS NULL AND backup_dir IS NULL FROM db_connections WHERE id = ?))`,
     )
     .run(
       id,
@@ -103,6 +108,7 @@ export async function insertBackup(input: NewBackup): Promise<string> {
       input.note,
       input.createdBy?.id ?? null,
       input.createdBy?.displayName ?? null,
+      input.connectionId,
       input.connectionId,
       input.connectionId,
     );

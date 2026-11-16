@@ -972,6 +972,24 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 14,
+    name: "backup_chunks, backups.in_database: backups kept in the database instead of a folder",
+    up: async (db) => {
+      // The bytes of a backup (already gzipped and encrypted), in slices. They go with their backup row.
+      // `in_database` is false for a backup written before this: its file is still where it was, until the
+      // server has moved it (`moveBackupFilesToDatabase`).
+      await db.exec(`
+        CREATE TABLE backup_chunks (
+          backup_id ${T} NOT NULL REFERENCES backups(id) ON DELETE CASCADE,
+          seq INTEGER NOT NULL,
+          data BYTEA NOT NULL,
+          PRIMARY KEY (backup_id, seq)
+        );
+        ALTER TABLE backups ADD COLUMN in_database BOOLEAN NOT NULL DEFAULT FALSE;
+      `);
+    },
+  },
 ];
 
 // Any constant will do, as long as every NebulaDB process takes the same one.
