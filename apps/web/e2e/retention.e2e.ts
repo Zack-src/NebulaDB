@@ -13,7 +13,8 @@ import { login, startE2eEnvironment } from "./harness.js";
 const PORT = Number(process.env.E2E_PORT) || 4421;
 
 test("retention: edit with confirmation, reset, purge by typing the key", { timeout: 90_000 }, async () => {
-  const env = await startE2eEnvironment(PORT);
+  // The audit journal's duration comes from the environment here, whatever a developer's own .env says.
+  const env = await startE2eEnvironment(PORT, { NEBULADB_AUDIT_RETENTION_DAYS: "365" });
   try {
     const page = await env.browser.newPage({ viewport: { width: 1400, height: 900 } });
     page.setDefaultTimeout(15_000);

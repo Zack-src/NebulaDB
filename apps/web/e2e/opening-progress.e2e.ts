@@ -18,13 +18,13 @@ const SCHEMA = Array.from(
 
 test(
   "opening a big schema: tables come lite, the columns follow, a slow machine sees a progress bar",
-  { timeout: 120_000 },
+  { timeout: 240_000 },
   async () => {
     const env = await startE2eEnvironment(PORT);
     try {
       const context = await env.browser.newContext({ viewport: { width: 1400, height: 900 } });
       const page = await context.newPage();
-      page.setDefaultTimeout(60_000);
+      page.setDefaultTimeout(120_000);
       const errors: string[] = [];
       page.on("pageerror", (err) => errors.push(String(err)));
       await login(page, env.baseUrl);
@@ -40,9 +40,10 @@ test(
         return id;
       }, SCHEMA);
 
-      // A slow machine: sixteen times less CPU (the batches got quick enough that six times no longer outlasts the bar's 1.5 s delay).
+      // A slow machine: ten times less CPU (the batches got quick enough that six times no longer outlasts the bar's 1.5 s delay; much more
+      // and a CI runner takes minutes to draw the first table).
       const cdp = await context.newCDPSession(page);
-      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 16 });
+      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 10 });
       // The bar stays up a few hundred milliseconds only, and a throttled page answers the test slowly: a
       // watcher in the page records that it showed, and what it said, instead of the test polling for it.
       await page.addInitScript(() => {
