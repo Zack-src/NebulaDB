@@ -36,7 +36,12 @@ test(
           body: JSON.stringify({ name: "Grand" }),
         });
         const { id } = (await created.json()) as { id: string };
-        await fetch(`/api/projects/${id}/import`, { method: "POST", headers: json, body: JSON.stringify({ source }) });
+        const imported = await fetch(`/api/projects/${id}/import`, {
+          method: "POST",
+          headers: json,
+          body: JSON.stringify({ source }),
+        });
+        if (!imported.ok) throw new Error(`import refused: ${imported.status} ${await imported.text()}`);
         return id;
       }, SCHEMA);
 
