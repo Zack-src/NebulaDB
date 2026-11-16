@@ -40,10 +40,13 @@ test(
         return id;
       }, SCHEMA);
 
-      // A slow machine: ten times less CPU (the batches got quick enough that six times no longer outlasts the bar's 1.5 s delay; much more
-      // and a CI runner takes minutes to draw the first table).
-      const cdp = await context.newCDPSession(page);
-      await cdp.send("Emulation.setCPUThrottlingRate", { rate: 10 });
+      // A slow machine. A development machine is slowed ten times (the batches got quick enough that six times no
+      // longer outlasts the bar's 1.5 s delay); a CI runner already is slow (software rendering: ten times less
+      // CPU on top and its first table never shows within two minutes), so it is left as it is.
+      if (!process.env.CI) {
+        const cdp = await context.newCDPSession(page);
+        await cdp.send("Emulation.setCPUThrottlingRate", { rate: 10 });
+      }
       // The bar stays up a few hundred milliseconds only, and a throttled page answers the test slowly: a
       // watcher in the page records that it showed, and what it said, instead of the test polling for it.
       await page.addInitScript(() => {
