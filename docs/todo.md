@@ -1997,7 +1997,7 @@ PostgreSQL / MySQL / SQL Server / Oracle servers, `npm audit` (needs the owner's
       the engine allows it, otherwise document and test the failure path (what is left, how to
       resume).
 - [ ] **5. Backup-code regeneration bypasses TOTP — HIGH — S.** `POST
-      /api/auth/totp/regenerate-backup-codes` (`modules/auth/totpRoutes.ts` ~l.98) needs only the
+    /api/auth/totp/regenerate-backup-codes` (`modules/auth/totpRoutes.ts` ~l.98) needs only the
       session + password; a fresh backup code then disables 2FA. **How:** require a valid TOTP or
       backup code (same check as `/totp/disable`) in addition to the password; test with a stolen
       session + password.
