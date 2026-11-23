@@ -13,13 +13,13 @@ import {
 } from "@nebuladb/dbml-engine";
 import { lockGuardFor } from "../tableLocks/access.js";
 import { lintReport } from "../lint/check.js";
-import { requireScope } from "../apiKeys/auth.js";
+import { refuseAgentKey, requireScope } from "../apiKeys/auth.js";
 import { auditUser } from "../../shared/audit.js";
 import { ApiError } from "../../shared/errors.js";
 import { requireProjectAccess, requireProjectAdmin, requireUser } from "../../shared/guards.js";
 import { getRoom } from "../../realtime/roomRegistry.js";
 import { listRevisions } from "../../realtime/persistence.js";
-import { getEffectivePermission } from "../../shared/permissions.js";
+import { AGENT_PERMISSION_CEILING, getEffectivePermission } from "../../shared/permissions.js";
 import { svgToPng } from "../../shared/svgToPng.js";
 import { getProjectSummary, listProjectSummaries } from "../projects/repository.js";
 import { createProjectForUser, deleteProject, updateProject } from "../projects/projectCrud.js";
@@ -31,6 +31,9 @@ import { registerPublicIamRoutes } from "./iamRoutes.js";
 import { registerPublicLockRoutes } from "./lockRoutes.js";
 import { registerPublicMonitoringRoutes } from "./monitoringRoutes.js";
 import { registerPublicReviewRoutes } from "./reviewRoutes.js";
+import { registerPublicSqlRoutes } from "./sqlRoutes.js";
+import { registerPublicDesignRoutes } from "./designRoutes.js";
+import { registerPublicHistoryVariantSeedRoutes } from "./historyVariantSeedRoutes.js";
 import { registerPublicConnectionRoutes } from "./connectionRoutes.js";
 import { registerPublicTeamRoutes } from "./teamRoutes.js";
 import { registerPublicWebhookRoutes } from "./webhookRoutes.js";
@@ -70,6 +73,19 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
     buildOpenApiSpec(config.publicUrl ? `${config.publicUrl}` : null),
   );
 
+  // Who the key acts for and what it carries — what a tool (the MCP server) reads to know its limits.
+  app.get("/api/v1/me", API_RATE_LIMIT, async (req) => {
+    const user = requireUser(req);
+    requireScope(req, "projects:read");
+    const key = req.apiKey;
+    return {
+      user: { id: user.id, displayName: user.displayName },
+      key: key ? { kind: key.kind, scopes: key.scopes, projectId: key.projectId } : null,
+      // An AI agent's key never goes beyond this on a project, nor into any administration.
+      ceiling: key?.kind === "agent" ? AGENT_PERMISSION_CEILING : null,
+    };
+  });
+
   app.get("/api/v1/projects", API_RATE_LIMIT, async (req) => {
     const user = requireUser(req);
     requireScope(req, "projects:read");
@@ -91,6 +107,8 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
   app.post("/api/v1/projects", API_RATE_LIMIT, async (req, reply) => {
     const user = requireUser(req);
     requireScope(req, "projects:write");
+    // An AI agent works inside existing projects; it never makes one.
+    refuseAgentKey(req);
     const body = (req.body ?? {}) as { name?: unknown };
     const { id, name } = await createProjectForUser(user.id, body.name);
     await auditUser(user, "project.create", { type: "project", id }, `${name} (v1)`, req);
@@ -107,6 +125,7 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
   // Renaming and archive/trash/restore transitions, same as the internal `/api/projects/:id` route.
   app.patch("/api/v1/projects/:id", API_RATE_LIMIT, async (req) => {
     const { id } = parseParams(idParams, req);
+    refuseAgentKey(req);
     const { user } = await requireProjectAdmin(req, id);
     requireScope(req, "projects:write", id);
     const { name, status } = (req.body ?? {}) as { name?: string; status?: string };
@@ -128,6 +147,7 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
   // Permanent delete — irreversible. Moving to trash is the PATCH above (`status: "trashed"`), which can be restored.
   app.delete("/api/v1/projects/:id", API_RATE_LIMIT, async (req) => {
     const { id } = parseParams(idParams, req);
+    refuseAgentKey(req);
     const { user, project } = await requireProjectAdmin(req, id);
     requireScope(req, "projects:write", id);
     await deleteProject(id);
@@ -267,8 +287,11 @@ export function registerPublicApiRoutes(app: FastifyInstance): void {
 
   registerPublicIamRoutes(app);
   registerPublicLockRoutes(app);
+  registerPublicDesignRoutes(app);
+  registerPublicHistoryVariantSeedRoutes(app);
   registerPublicMonitoringRoutes(app);
   registerPublicConnectionRoutes(app);
+  registerPublicSqlRoutes(app);
   registerPublicReviewRoutes(app);
   registerPublicCredentialRoutes(app);
   registerPublicBackupRoutes(app);

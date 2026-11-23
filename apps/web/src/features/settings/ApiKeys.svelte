@@ -11,7 +11,7 @@
    * only ever stores its hash (`apiKeys/repository.ts`), so this component is
    * the only place in the app it's ever visible.
    */
-  const SCOPE_LABEL_KEY: Record<ApiKeyScope, TranslationKeyOf> = {
+  const SCOPE_LABEL_KEY: Record<Exclude<ApiKeyScope, "sql:execute">, TranslationKeyOf> = {
     "projects:read": "settings.billing.apiKeys.scope.read",
     "projects:write": "settings.billing.apiKeys.scope.write",
     "deployments:trigger": "settings.billing.apiKeys.scope.deploy",
@@ -94,7 +94,8 @@
     return `curl -H "Authorization: Bearer ${justCreated.plaintextKey}" ${location.origin}${path}`;
   });
 
-  const rows = $derived((keys.data ?? []).filter((k) => !k.revokedAt));
+  // An AI agent's keys have their own tab (`AiAgent.svelte`).
+  const rows = $derived((keys.data ?? []).filter((k) => !k.revokedAt && k.kind !== "agent"));
   const error = $derived(keys.error ?? projects.error ?? create.error ?? revoke.error);
 </script>
 
@@ -144,7 +145,7 @@
             <span class="font-semibold text-text truncate">{key.name}</span>
             <code class="text-caption text-text-muted">{key.keyPrefix}…</code>
             {#each key.scopes as scope (scope)}
-              <Badge tone="muted">{t(SCOPE_LABEL_KEY[scope])}</Badge>
+              {#if scope !== "sql:execute"}<Badge tone="muted">{t(SCOPE_LABEL_KEY[scope])}</Badge>{/if}
             {/each}
           </div>
           <div class="text-text-muted mt-0.5">
@@ -177,7 +178,7 @@
     <div class="flex flex-col gap-1.5 mb-4">
       {#each API_KEY_SCOPES as scope (scope)}
         <Checkbox checked={scopes.includes(scope)} onChange={() => toggleScope(scope)}>
-          <span class="text-xs text-text-secondary">{t(SCOPE_LABEL_KEY[scope])}</span>
+          <span class="text-xs text-text-secondary">{t(SCOPE_LABEL_KEY[scope as keyof typeof SCOPE_LABEL_KEY])}</span>
         </Checkbox>
       {/each}
     </div>

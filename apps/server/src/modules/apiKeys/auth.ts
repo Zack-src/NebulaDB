@@ -2,13 +2,17 @@ import type { FastifyRequest } from "fastify";
 import type { SessionUser } from "../auth/session.js";
 import { getUserAccount } from "../users/repository.js";
 import { ApiError } from "../../shared/errors.js";
-import { resolveApiKeyByPlaintext, type ApiKeyScope } from "./repository.js";
+import { resolveApiKeyByPlaintext, type ApiKeyKind, type ApiKeyScope } from "./repository.js";
 
 export interface ApiKeyContext {
   keyId: string;
   scopes: ApiKeyScope[];
   /** `null` — the key works against any project its owning user can access. Set — locked to exactly that one project. */
   projectId: string | null;
+  /** `agent`: an AI agent's key (MCP) — capped below its owner, see `ApiKeyKind`. */
+  kind: ApiKeyKind;
+  /** Whether the owner is an instance administrator. For an agent key `user.isAdmin` is always false. */
+  ownerIsAdmin: boolean;
 }
 
 const BEARER_PREFIX = "Bearer ";
@@ -36,14 +40,23 @@ export async function resolveApiKey(req: FastifyRequest): Promise<{ user: Sessio
   const account = await getUserAccount(resolved.userId);
   if (!account || account.disabled_at) return null;
 
+  const ownerIsAdmin = account.is_admin === 1;
   return {
     user: {
       id: account.id,
       email: account.email,
-      isAdmin: account.is_admin === 1,
+      // An AI agent never acts as an instance administrator, even for one: every `user.isAdmin`
+      // check then refuses it, and `shared/permissions.ts` caps what the account's grants give.
+      isAdmin: resolved.kind === "agent" ? false : ownerIsAdmin,
       displayName: account.display_name?.trim() || account.email.split("@")[0],
     },
-    apiKey: { keyId: resolved.id, scopes: resolved.scopes, projectId: resolved.projectId },
+    apiKey: {
+      keyId: resolved.id,
+      scopes: resolved.scopes,
+      projectId: resolved.projectId,
+      kind: resolved.kind,
+      ownerIsAdmin,
+    },
   };
 }
 
@@ -77,6 +90,14 @@ export function requireScope(req: FastifyRequest, scope: ApiKeyScope, projectId?
 }
 
 /**
+ * `requireScope` for a route that touches several projects at once (a variant pushed to others, a
+ * comparison): a key restricted to one project may touch that project and no other.
+ */
+export function requireScopeOn(req: FastifyRequest, scope: ApiKeyScope, projectIds: Iterable<string>): void {
+  for (const projectId of projectIds) requireScope(req, scope, projectId);
+}
+
+/**
  * Scope check for a route with no single project to restrict against —
  * team management and database backups, which are instance-wide, not
  * per-project. A
@@ -91,4 +112,18 @@ export function requireGlobalScope(req: FastifyRequest, scope: ApiKeyScope): voi
   if (!apiKey) return; // cookie session — no key, no scope restriction
   if (apiKey.projectId) throw new ApiError("API_KEY_PROJECT_RESTRICTED");
   if (!apiKey.scopes.includes(scope)) throw new ApiError("API_SCOPE_INSUFFICIENT");
+}
+
+/** Whether this request comes from an AI agent's key. */
+export function isAgentRequest(req: FastifyRequest): boolean {
+  return req.apiKey?.kind === "agent";
+}
+
+/**
+ * Refuses an AI agent's key on a route it must never reach whatever its owner may do — creating
+ * a project, for one. Most administration is refused already by the agent's permission ceiling;
+ * this is for what no project permission gates.
+ */
+export function refuseAgentKey(req: FastifyRequest): void {
+  if (isAgentRequest(req)) throw new ApiError("AGENT_KEY_FORBIDDEN");
 }

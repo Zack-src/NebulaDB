@@ -1,4 +1,5 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
+import type { SessionUser } from "../../auth/session.js";
 import type { VariantDecisions } from "@nebuladb/dbml-engine";
 import { auditUser } from "../../../shared/audit.js";
 import { ApiError } from "../../../shared/errors.js";
@@ -46,7 +47,7 @@ const MAX_TARGETS = 100;
 /** The column properties a sending can leave as the receiving side has them. */
 const SYNC_FIELD_PROPS = ["type", "notNull", "default", "defaultKind", "unique", "pk", "increment", "note", "name"];
 
-function parseSyncOptions(body: { direction?: unknown; ignoreFieldProps?: unknown }): SyncOptions {
+export function parseSyncOptions(body: { direction?: unknown; ignoreFieldProps?: unknown }): SyncOptions {
   if (body.direction !== undefined && body.direction !== "push" && body.direction !== "pull")
     throw new ApiError("VARIANT_TARGETS_INVALID");
   const props = body.ignoreFieldProps;
@@ -55,7 +56,7 @@ function parseSyncOptions(body: { direction?: unknown; ignoreFieldProps?: unknow
   return { direction: body.direction ?? "push", ignoreFieldProps: (props as string[] | undefined) ?? [] };
 }
 
-function parseTargets(raw: unknown): { id: string; decisions?: VariantDecisions }[] {
+export function parseTargets(raw: unknown): { id: string; decisions?: VariantDecisions }[] {
   if (!Array.isArray(raw) || raw.length === 0 || raw.length > MAX_TARGETS)
     throw new ApiError("VARIANT_TARGETS_INVALID");
   return raw.map((entry) => {
@@ -72,6 +73,71 @@ function parseTargets(raw: unknown): { id: string; decisions?: VariantDecisions 
     }
     return { id, decisions };
   });
+}
+
+/** For an original: its variants. For a variant: its original and how far behind it is. Shared with the public API. */
+export async function variantsOf(user: SessionUser, id: string) {
+  const link = await getVariantLink(id);
+  if (link) {
+    const canSeeBase = await getEffectivePermission(user.id, link.baseProjectId);
+    return {
+      variants: [],
+      original: {
+        id: link.baseProjectId,
+        name: canSeeBase ? ((await getProjectRow(link.baseProjectId))?.name ?? null) : null,
+        canView: Boolean(canSeeBase),
+        syncedAt: link.syncedAt,
+        syncedByName: link.syncedByName,
+        status: await statusOf(id),
+      },
+    };
+  }
+  return { variants: await listVariants(user.id, id), original: null };
+}
+
+/**
+ * Sends a project's changes to its variants (or, `direction: "pull"`, takes theirs), every written
+ * one audited. `pushToVariants` checks `edit` and the locks on each receiving side. Shared with the
+ * public API.
+ */
+export async function pushVariantsAndAudit(
+  req: FastifyRequest,
+  user: SessionUser,
+  project: { id: string; name: string },
+  body: { variants?: unknown; direction?: unknown; ignoreFieldProps?: unknown },
+) {
+  const targets = parseTargets(body.variants);
+  const options = parseSyncOptions(body);
+  const results = await pushToVariants(user, project.id, targets, options);
+  for (const result of results.filter((r) => !r.error)) {
+    await auditUser(
+      user,
+      options.direction === "pull" ? "project.variant.pull" : "project.variant.push",
+      { type: "project", id: result.id },
+      `${options.direction === "pull" ? "into" : "from"} ${project.name}: ${result.applied} change(s) taken, ${result.kept} kept`,
+      req,
+    );
+  }
+  return results;
+}
+
+/** Starts a variant again from its original, or from another variant of the same original. Audited. */
+export async function resetVariantAndAudit(
+  req: FastifyRequest,
+  user: SessionUser,
+  id: string,
+  from: unknown,
+): Promise<string> {
+  if (typeof from !== "string" || !from) throw new ApiError("VARIANT_TARGETS_INVALID");
+  await resetVariant(user, id, from);
+  await auditUser(
+    user,
+    "project.variant.reset",
+    { type: "project", id },
+    from === "original" ? "reset to the original" : `copied from ${(await getProjectRow(from))?.name ?? from}`,
+    req,
+  );
+  return from;
 }
 
 export function registerFolderAndVariantRoutes(app: FastifyInstance): void {
@@ -140,22 +206,7 @@ export function registerFolderAndVariantRoutes(app: FastifyInstance): void {
   app.get("/api/projects/:id/variants", async (req) => {
     const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAccess(req, id, "view");
-    const link = await getVariantLink(id);
-    if (link) {
-      const canSeeBase = await getEffectivePermission(user.id, link.baseProjectId);
-      return {
-        variants: [],
-        original: {
-          id: link.baseProjectId,
-          name: canSeeBase ? ((await getProjectRow(link.baseProjectId))?.name ?? null) : null,
-          canView: Boolean(canSeeBase),
-          syncedAt: link.syncedAt,
-          syncedByName: link.syncedByName,
-          status: await statusOf(id),
-        },
-      };
-    }
-    return { variants: await listVariants(user.id, id), original: null };
+    return await variantsOf(user, id);
   });
 
   app.get("/api/projects/:id/family", async (req) => {
@@ -182,36 +233,14 @@ export function registerFolderAndVariantRoutes(app: FastifyInstance): void {
   app.post("/api/projects/:id/variants/push", async (req) => {
     const { id } = parseParams(idParams, req);
     const { user, project } = await requireProjectAccess(req, id, "view");
-    const body = parseBody(variantsBody, req);
-    const targets = parseTargets(body.variants);
-    const options = parseSyncOptions(body);
-    const results = await pushToVariants(user, id, targets, options);
-    for (const result of results.filter((r) => !r.error)) {
-      await auditUser(
-        user,
-        options.direction === "pull" ? "project.variant.pull" : "project.variant.push",
-        { type: "project", id: result.id },
-        `${options.direction === "pull" ? "into" : "from"} ${project.name}: ${result.applied} change(s) taken, ${result.kept} kept`,
-        req,
-      );
-    }
-    return { results };
+    return { results: await pushVariantsAndAudit(req, user, project, parseBody(variantsBody, req)) };
   });
 
   /** `from`: `"original"` (start again from the original) or the id of another variant of the same original. */
   app.post("/api/projects/:id/variant/reset", async (req) => {
     const { id } = parseParams(idParams, req);
     const { user } = await requireProjectAccess(req, id, "edit");
-    const from = parseBody(resetBody, req).from;
-    if (typeof from !== "string" || !from) throw new ApiError("VARIANT_TARGETS_INVALID");
-    await resetVariant(user, id, from);
-    await auditUser(
-      user,
-      "project.variant.reset",
-      { type: "project", id },
-      from === "original" ? "reset to the original" : `copied from ${(await getProjectRow(from))?.name ?? from}`,
-      req,
-    );
+    const from = await resetVariantAndAudit(req, user, id, parseBody(resetBody, req).from);
     return { reset: true, from };
   });
 

@@ -24,7 +24,7 @@ import { resolveSession } from "./modules/auth/session.js";
 import { registerConvertRoutes } from "./modules/convert/routes.js";
 import { registerConnectionRoutes } from "./modules/connections/routes.js";
 import { registerCredentialRoutes } from "./modules/connections/credentialRoutes.js";
-import { runInActorScope, setActor } from "./infrastructure/actor.js";
+import { runInActorScope, setActor, setAgentActor } from "./infrastructure/actor.js";
 import { registerDbAdminRoutes } from "./modules/dbAdmin/routes.js";
 import { registerConnectionJournalRoutes } from "./modules/dbAdmin/journalRoutes.js";
 import { registerDbAccessRoutes } from "./modules/dbAccess/routes.js";
@@ -207,6 +207,10 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
       req.apiKey = resolved?.apiKey ?? null;
     }
     setActor(req.user?.id ?? null);
+    // An AI agent's key: its owner's permissions are capped for the rest of the request.
+    setAgentActor(
+      req.user && req.apiKey?.kind === "agent" ? { userId: req.user.id, isAdmin: req.apiKey.ownerIsAdmin } : null,
+    );
     // Instance policy "2FA required": an account without it may only reach the
     // auth routes (to enrol, read itself, log out) until it has set it up.
     // API keys are not affected: they are not a login.

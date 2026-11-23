@@ -249,6 +249,8 @@ export async function audit(
   req?: FastifyRequest,
   context: AuditContext = {},
 ): Promise<void> {
+  // What an AI agent did says so: the entry is its owner's, but nobody clicked.
+  if (req?.apiKey?.kind === "agent") detail = `[AI agent] ${detail ?? ""}`.trimEnd();
   try {
     // The project and connection default to the target when it is one.
     const projectId = context.projectId ?? (target?.type === "project" ? target.id : null);

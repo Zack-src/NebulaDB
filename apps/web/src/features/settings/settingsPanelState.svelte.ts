@@ -14,7 +14,8 @@ import { applyThemePreset, loadThemePreset, saveThemePreset, type ThemePreset } 
 /** How long the "Updated!" confirmation stays up. */
 const NAME_SAVED_FEEDBACK_MS = 3000;
 
-export type SettingsTab = "profile" | "databases" | "appearance" | "editor" | "team" | "apiKeys" | "billing" | "about";
+export type SettingsTab =
+  "profile" | "databases" | "appearance" | "editor" | "team" | "apiKeys" | "aiAgent" | "billing" | "about";
 export type { GridStyle, ThemePreset };
 
 /**

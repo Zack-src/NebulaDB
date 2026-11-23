@@ -5,6 +5,7 @@ import {
   KeyIcon,
   PaletteIcon,
   SlidersIcon,
+  SparklesIcon,
   UserIcon,
   UsersIcon,
 } from "@/components/icons/Icons";
@@ -31,6 +32,7 @@ export const SETTINGS_SECTIONS: SettingsSection[] = [
   { id: "editor", labelKey: "settings.section.editor", icon: SlidersIcon },
   { id: "team", labelKey: "settings.section.team", icon: UsersIcon },
   { id: "apiKeys", labelKey: "settings.section.apiKeys", icon: KeyIcon },
+  { id: "aiAgent", labelKey: "settings.section.aiAgent", icon: SparklesIcon },
   { id: "billing", labelKey: "settings.section.billing", icon: CreditCardIcon },
   { id: "about", labelKey: "settings.section.about", icon: InfoIcon },
 ];

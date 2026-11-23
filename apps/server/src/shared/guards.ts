@@ -20,6 +20,7 @@ export function requireUser(req: FastifyRequest): SessionUser {
 
 export function requireAdmin(req: FastifyRequest): SessionUser {
   const user = requireUser(req);
+  if (req.apiKey?.kind === "agent") throw new ApiError("AGENT_KEY_FORBIDDEN");
   if (!user.isAdmin) throw new ApiError("ADMIN_REQUIRED");
   return user;
 }
@@ -47,9 +48,14 @@ export async function requireProjectAccess(
   return { user, project };
 }
 
-/** `administrator` on the project specifically — renames, deletion, team grants. */
+/**
+ * `administrator` on the project specifically — renames, deletion, team grants. Never an AI
+ * agent's key, whatever its owner may do: the agent's ceiling is `deploy` (`shared/permissions.ts`),
+ * refused here by name so the agent is told why.
+ */
 export async function requireProjectAdmin(req: FastifyRequest, projectId: string): Promise<ProjectAccess> {
   const user = requireUser(req);
+  if (req.apiKey?.kind === "agent") throw new ApiError("AGENT_KEY_FORBIDDEN");
   const project = await getProjectRow(projectId);
   if (!project) throw new ApiError("NOT_FOUND");
   const known = { isAdmin: user.isAdmin, ownerId: project.owner_id };

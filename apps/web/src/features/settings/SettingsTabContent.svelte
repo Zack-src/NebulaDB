@@ -48,6 +48,7 @@
   import type { GridStyle } from "@/utils/preferences";
   import ActiveSessions from "@/features/settings/ActiveSessions.svelte";
   import ApiKeys from "@/features/settings/ApiKeys.svelte";
+  import AiAgent from "@/features/settings/AiAgent.svelte";
   import PersonalConnections from "@/features/settings/PersonalConnections.svelte";
   import SqlAccounts from "@/features/settings/SqlAccounts.svelte";
   import PersonalData from "@/features/settings/PersonalData.svelte";
@@ -249,6 +250,8 @@
   </div>
 {:else if tab === "apiKeys"}
   <ApiKeys {projectId} />
+{:else if tab === "aiAgent"}
+  <AiAgent {projectId} />
 {:else}
   <div class="space-y-6">
     <div>

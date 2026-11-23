@@ -1,10 +1,12 @@
-import type { FastifyInstance } from "fastify";
+import type { FastifyInstance, FastifyRequest } from "fastify";
 import * as Y from "yjs";
 import { readProjectFromDoc, writeProjectToDoc } from "@nebuladb/shared";
 import { restoreTables } from "@nebuladb/dbml-engine";
 import { auditUser } from "../../../shared/audit.js";
 import { ApiError } from "../../../shared/errors.js";
 import { requireProjectAccess } from "../../../shared/guards.js";
+import type { SessionUser } from "../../auth/session.js";
+import type { ProjectRow } from "../repository.js";
 import { canDeployProject } from "../../../shared/permissions.js";
 import {
   listMeaningfulRevisions,
@@ -51,6 +53,61 @@ async function loadRevisionDoc(projectId: string, revisionId: string): Promise<Y
   return doc;
 }
 
+/** Names a revision (`null` or blank clears the name). Shared with the public API. */
+export async function labelRevision(projectId: string, revisionId: string, label: unknown): Promise<void> {
+  const trimmed = typeof label === "string" ? label.trim() : "";
+  if (!(await setRevisionLabel(projectId, revisionId, trimmed || null))) throw new ApiError("REVISION_NOT_FOUND");
+}
+
+/** The project as it stood at a revision. */
+export async function projectAtRevision(project: Pick<ProjectRow, "id" | "name">, revisionId: string) {
+  return readProjectFromDoc(await loadRevisionDoc(project.id, revisionId), project.id, project.name);
+}
+
+/**
+ * Puts the project back as it stood at a revision — whole, or only `rawTableIds` — refused when
+ * it would change a table locked against the caller. Shared with the public API, so the agent's
+ * restore is exactly the history panel's. The caller has checked `edit`.
+ */
+export async function restoreRevision(
+  req: FastifyRequest,
+  user: SessionUser,
+  project: Pick<ProjectRow, "id" | "name">,
+  revisionId: string,
+  rawTableIds: unknown,
+): Promise<void> {
+  const id = project.id;
+  const tableIds = parseRestoreTableIds(rawTableIds);
+  const revision = await projectAtRevision(project, revisionId);
+  const assertLocksAllow = await lockGuardFor(user.id, id);
+  // From here to `room.write`, nothing waits: see `Room.write`.
+  const room = await getRoom(id);
+  const current = readProjectFromDoc(room.doc, project.id, project.name);
+  // `tableIds`: "restore only these tables" — the rest of the project stays as it is now.
+  const restored = tableIds ? restoreTables(current, revision, tableIds) : revision;
+  // History is not a way around a lock: a restore that would change a
+  // locked table is refused like any other write.
+  assertLocksAllow(current, restored);
+  const lastBefore = room.lastRevisionId;
+  const written = room.write(() => writeProjectToDoc(room.doc, restored), user.displayName);
+  // The revision the restore wrote (none when nothing differed) — lets the
+  // timeline put the restore exactly before the state it produced. Read
+  // before waiting, so it is this change's and not a later one's.
+  const produced = room.lastRevisionId;
+  await written;
+  const tableNames = tableIds?.map(
+    (tableId) =>
+      (revision.tables.find((t) => t.id === tableId) ?? current.tables.find((t) => t.id === tableId))?.name ?? tableId,
+  );
+  await auditUser(
+    user,
+    "project.revision.restore",
+    { type: "project", id },
+    restoreAuditDetail(revisionId, produced !== lastBefore ? produced : null, tableNames),
+    req,
+  );
+}
+
 export function registerProjectRevisionRoutes(app: FastifyInstance): void {
   app.get("/api/projects/:id/revisions", async (req) => {
     const { id } = parseParams(idParams, req);
@@ -68,51 +125,20 @@ export function registerProjectRevisionRoutes(app: FastifyInstance): void {
   app.patch("/api/projects/:id/revisions/:revisionId", async (req) => {
     const { id, revisionId } = parseParams(revisionParams, req);
     await requireProjectAccess(req, id, "edit");
-    const { label } = parseBody(labelBody, req);
-    const trimmed = typeof label === "string" ? label.trim() : "";
-    if (!(await setRevisionLabel(id, revisionId, trimmed || null))) throw new ApiError("REVISION_NOT_FOUND");
+    await labelRevision(id, revisionId, parseBody(labelBody, req).label);
     return { labeled: true };
   });
 
   app.get("/api/projects/:id/revisions/:revisionId", async (req) => {
     const { id, revisionId } = parseParams(revisionParams, req);
     const { project } = await requireProjectAccess(req, id, "view");
-    return readProjectFromDoc(await loadRevisionDoc(id, revisionId), project.id, project.name);
+    return await projectAtRevision(project, revisionId);
   });
 
   app.post("/api/projects/:id/revisions/:revisionId/restore", async (req) => {
     const { id, revisionId } = parseParams(revisionParams, req);
     const { user, project } = await requireProjectAccess(req, id, "edit");
-    const tableIds = parseRestoreTableIds(parseBody(restoreBody, req).tableIds);
-    const revision = readProjectFromDoc(await loadRevisionDoc(id, revisionId), project.id, project.name);
-    const assertLocksAllow = await lockGuardFor(user.id, id);
-    // From here to `room.write`, nothing waits: see `Room.write`.
-    const room = await getRoom(id);
-    const current = readProjectFromDoc(room.doc, project.id, project.name);
-    // `tableIds`: "restore only these tables" — the rest of the project stays as it is now.
-    const restored = tableIds ? restoreTables(current, revision, tableIds) : revision;
-    // History is not a way around a lock: a restore that would change a
-    // locked table is refused like any other write.
-    assertLocksAllow(current, restored);
-    const lastBefore = room.lastRevisionId;
-    const written = room.write(() => writeProjectToDoc(room.doc, restored), user.displayName);
-    // The revision the restore wrote (none when nothing differed) — lets the
-    // timeline put the restore exactly before the state it produced. Read
-    // before waiting, so it is this change's and not a later one's.
-    const produced = room.lastRevisionId;
-    await written;
-    const tableNames = tableIds?.map(
-      (tableId) =>
-        (revision.tables.find((t) => t.id === tableId) ?? current.tables.find((t) => t.id === tableId))?.name ??
-        tableId,
-    );
-    await auditUser(
-      user,
-      "project.revision.restore",
-      { type: "project", id },
-      restoreAuditDetail(revisionId, produced !== lastBefore ? produced : null, tableNames),
-      req,
-    );
+    await restoreRevision(req, user, project, revisionId, parseBody(restoreBody, req).tableIds);
     return { restored: true };
   });
 

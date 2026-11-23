@@ -32,8 +32,8 @@ export interface DbConsoleUser {
  *
  * Anyone else is told the connection does not exist — the same answer as for
  * a connection that does not. A member's grant works from a browser session
- * only: an API key is refused, since nothing under `/api/v1` offers SQL and a
- * leaked key should not turn into a database client.
+ * only: an API key is refused here. The one SQL under `/api/v1` is an AI agent's,
+ * on its project's databases only (`publicApi/sqlRoutes.ts`).
  */
 export async function requireDbConsoleUser(req: FastifyRequest, connectionId: string): Promise<DbConsoleUser> {
   const user = requireUser(req);

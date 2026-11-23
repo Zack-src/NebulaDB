@@ -57,6 +57,30 @@ const CREDENTIAL_ACCESS =
 const REVIEW_RULES = `Someone who may deploy requests the review; another person who may deploy on the project (an instance administrator counts) approves or rejects; the author or the approver then deploys the approved request. An approval is good for ${REVIEW_APPROVAL_TTL_DAYS} days.`;
 
 export const OPERATIONS: Operation[] = [
+  {
+    method: "get",
+    path: "/api/v1/me",
+    tag: "Projects",
+    scope: "projects:read",
+    summary: "Who the key acts for, and what it carries",
+    description:
+      "`key.kind` is `agent` for an AI agent's key (MCP): it never goes beyond `ceiling` on a project, never creates or deletes one, and reaches no administration, whatever its owner may do.",
+    ok: {
+      status: 200,
+      schema: obj({
+        user: obj({ id: str, displayName: str }),
+        key: {
+          type: ["object", "null"],
+          properties: {
+            kind: { type: "string", enum: ["standard", "agent"] },
+            scopes: { type: "array", items: str },
+            projectId: { type: ["string", "null"] },
+          },
+        },
+        ceiling: { type: ["string", "null"] },
+      }),
+    },
+  },
   // --- projects ---
   {
     method: "get",
@@ -550,6 +574,209 @@ export const OPERATIONS: Operation[] = [
           lintFindings: { type: "array", items: { type: "object", additionalProperties: true } },
           waitsForStage: { type: ["string", "null"] },
         }),
+      }),
+    },
+  },
+  // --- canvas, type conversion, lint rules ---
+  {
+    method: "patch",
+    path: "/api/v1/projects/:id/layout",
+    tag: "Projects",
+    scope: "projects:write",
+    summary: "Move and colour tables on the canvas",
+    description:
+      "`tables`: up to 500 changes `{ table, x?, y?, color? }` — `table` is an id or a name, `color` a hex colour or `null` to remove it. What dragging and the colour picker do; table locks freeze structure, not layout. Needs project `edit`.",
+    body: obj({
+      tables: {
+        type: "array",
+        items: obj({ table: str, x: { type: "number" }, y: { type: "number" }, color: { type: ["string", "null"] } }, [
+          "table",
+        ]),
+      },
+    }),
+    ok: { status: 200, schema: obj({ updated: int }) },
+  },
+  {
+    method: "post",
+    path: "/api/v1/projects/:id/convert-types",
+    tag: "Projects",
+    scope: "projects:read",
+    summary: "Convert column types for a database engine",
+    description:
+      'The editor\'s "Convert types", with the same type table: `{ target, fields?, apply? }`. Without `apply` it only answers the columns whose type is not valid on `target` and what they would become. With `apply: true` (scope `projects:write`, project `edit`) it rewrites them; a locked table refuses it. `fields`: `"table.column"` names to limit it to.',
+    body: obj({ target: str, fields: { type: "array", items: str }, apply: bool }, ["target"]),
+    ok: {
+      status: 200,
+      schema: obj({
+        target: str,
+        applied: bool,
+        changes: { type: "array", items: obj({ table: str, field: str, from: str, to: str }) },
+      }),
+    },
+  },
+  {
+    method: "get",
+    path: "/api/v1/projects/:id/lint/rules",
+    tag: "Projects",
+    scope: "projects:read",
+    summary: "The lint rules that apply to the project",
+    description: "`{ settings, source }` — reading only: choosing the rules is for project administrators, in the app.",
+    ok: { status: 200, schema: { type: "object", additionalProperties: true } },
+  },
+  // --- history ---
+  {
+    method: "get",
+    path: "/api/v1/projects/:id/revisions/:revisionId/export/dbml",
+    tag: "Projects",
+    scope: "projects:read",
+    summary: "The schema as it stood at a revision, as DBML",
+    ok: { status: 200, mediaType: "text/plain" },
+  },
+  {
+    method: "patch",
+    path: "/api/v1/projects/:id/revisions/:revisionId",
+    tag: "Projects",
+    scope: "projects:write",
+    summary: "Name a revision",
+    description: "`{ label }` — `null` or blank clears it. Needs project `edit`.",
+    body: obj({ label: { type: ["string", "null"] } }),
+    ok: { status: 200, schema: obj({ labeled: bool }) },
+  },
+  {
+    method: "post",
+    path: "/api/v1/projects/:id/revisions/:revisionId/restore",
+    tag: "Projects",
+    scope: "projects:write",
+    summary: "Put the project back as it stood at a revision",
+    description:
+      "Whole, or only `tables` (ids or names). Refused when it would change a table locked against the caller (`403 TABLE_LOCKED`). Needs project `edit`.",
+    body: obj({ tables: { type: "array", items: str } }, []),
+    ok: { status: 200, schema: obj({ restored: bool }) },
+  },
+  // --- variants ---
+  {
+    method: "get",
+    path: "/api/v1/projects/:id/variants",
+    tag: "Projects",
+    scope: "projects:read",
+    summary: "An original's variants, or a variant's original and how far behind it is",
+    ok: { status: 200, schema: { type: "object", additionalProperties: true } },
+  },
+  {
+    method: "get",
+    path: "/api/v1/projects/:id/family",
+    tag: "Projects",
+    scope: "projects:read",
+    summary: "The original and every variant of the project's family the caller can see",
+    ok: {
+      status: 200,
+      schema: obj({ family: { type: "array", items: { type: "object", additionalProperties: true } } }),
+    },
+  },
+  {
+    method: "get",
+    path: "/api/v1/projects/:id/compare/:otherId",
+    tag: "Projects",
+    scope: "projects:read",
+    summary: "What another project of the family has differently",
+    description: "A key restricted to one project cannot compare it with another.",
+    ok: { status: 200, schema: obj({ diff: { type: "object", additionalProperties: true } }) },
+  },
+  {
+    method: "post",
+    path: "/api/v1/projects/:id/variants/preview",
+    tag: "Projects",
+    scope: "projects:read",
+    summary: "What sending changes to variants would do, changing nothing",
+    description: "Same body as `variants/push`.",
+    body: obj(
+      { variants: { type: "array", items: {} }, direction: str, ignoreFieldProps: { type: "array", items: str } },
+      ["variants"],
+    ),
+    ok: {
+      status: 200,
+      schema: obj({ variants: { type: "array", items: { type: "object", additionalProperties: true } } }),
+    },
+  },
+  {
+    method: "post",
+    path: "/api/v1/projects/:id/variants/push",
+    tag: "Projects",
+    scope: "projects:write",
+    summary: "Send the project's changes to its variants, or take theirs",
+    description:
+      '`{ variants: [id | { id, decisions }], direction?: "push"|"pull", ignoreFieldProps? }`. The receiving side must be one the caller may `edit`, and its locks hold. A key restricted to one project cannot reach another.',
+    body: obj(
+      { variants: { type: "array", items: {} }, direction: str, ignoreFieldProps: { type: "array", items: str } },
+      ["variants"],
+    ),
+    ok: {
+      status: 200,
+      schema: obj({ results: { type: "array", items: { type: "object", additionalProperties: true } } }),
+    },
+  },
+  {
+    method: "post",
+    path: "/api/v1/projects/:id/variant/reset",
+    tag: "Projects",
+    scope: "projects:write",
+    summary: "Start a variant again from its original or from another variant",
+    description: '`{ from: "original" | variantId }`. Needs project `edit`; the variant\'s locks hold.',
+    body: obj({ from: str }),
+    ok: { status: 200, schema: obj({ reset: bool, from: str }) },
+  },
+  // --- seeds ---
+  {
+    method: "get",
+    path: "/api/v1/projects/:id/seeds/:table",
+    tag: "Projects",
+    scope: "projects:read",
+    summary: "A table's initial data (seed)",
+    description: "`:table` is an id or a name. An inline seed carries its CSV; a big seed kept as a file does not.",
+    ok: { status: 200, schema: obj({ seed: { type: "object", additionalProperties: true } }) },
+  },
+  {
+    method: "put",
+    path: "/api/v1/projects/:id/seeds/:table",
+    tag: "Projects",
+    scope: "projects:write",
+    summary: "Set a table's initial data (seed) from CSV",
+    description:
+      "`{ content, options? }` — up to 2 MB. Without `options.mapping` the first line names the columns, matched to the table's by name (`header` true, `separator` `,`, `mode` `if-empty` by default). Refused on a table under a `full` lock. Needs project `edit`.",
+    body: obj({ content: str, options: { type: "object", additionalProperties: true } }, ["content"]),
+    ok: { status: 200, schema: obj({ seed: { type: "object", additionalProperties: true } }) },
+  },
+  {
+    method: "delete",
+    path: "/api/v1/projects/:id/seeds/:table",
+    tag: "Projects",
+    scope: "projects:write",
+    summary: "Remove a table's initial data (seed)",
+    ok: { status: 200, schema: obj({ deleted: bool }) },
+  },
+  {
+    method: "post",
+    path: "/api/v1/projects/:id/connections/:connId/query",
+    tag: "Connections",
+    scope: "sql:execute",
+    summary: "Run one SQL statement on one of the project's databases",
+    description:
+      "For an AI agent's key carrying `sql:execute`. The caller's SQL access is a member's of the console, never an administrator's: their own private connection or an instance administrator gives `write`, otherwise the level an administrator granted them (`403 SQL_ACCESS_NOT_GRANTED` without one). Read-only unless `readOnly: false`; a write must carry `confirmWrite: true` (`409 DB_ACCESS_WRITE_CONFIRMATION_REQUIRED`), is one data statement (no structure: that goes through the schema and a deployment) and is refused on a read-only connection. Runs on the database the project is linked to. Kept in the query history and the audit trail.",
+    body: obj(
+      {
+        sql: { type: "string", maxLength: 200000 },
+        readOnly: bool,
+        confirmWrite: bool,
+        maxRows: { type: "integer", minimum: 1, maximum: 1000 },
+        timeoutMs: { type: "integer", minimum: 1, maximum: 30000 },
+      },
+      ["sql"],
+    ),
+    ok: {
+      status: 200,
+      schema: obj({
+        access: { type: "string", enum: ["read", "write"] },
+        result: { type: "object", additionalProperties: true },
       }),
     },
   },

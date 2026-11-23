@@ -990,6 +990,15 @@ export const MIGRATIONS: Migration[] = [
       `);
     },
   },
+  {
+    version: 15,
+    name: "api_keys.kind: keys made for an AI agent (MCP) next to ordinary ones",
+    up: async (db) => {
+      // `agent`: a key an AI agent connects with. It never reaches more than a project's `deploy`
+      // level nor any instance administration, whatever its owner may do (`infrastructure/actor.ts`).
+      await db.exec(`ALTER TABLE api_keys ADD COLUMN kind ${T} NOT NULL DEFAULT 'standard';`);
+    },
+  },
 ];
 
 // Any constant will do, as long as every NebulaDB process takes the same one.

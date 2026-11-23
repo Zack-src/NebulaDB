@@ -103,6 +103,72 @@ function optionsFromHeader(req: FastifyRequest): SeedOptions | null {
  * a big one is a file on the server, sent as a raw stream (or read from the
  * import folder by an administrator) and checked while it arrives.
  */
+/** A table's seed as a client may see it (an inline seed's CSV, never a file's name). Shared with the public API. */
+export async function readTableSeed(projectId: string, tableId: string) {
+  const seed = await getSeed(projectId, tableId);
+  if (!seed) throw new ApiError("SEED_NOT_FOUND");
+  return publicSeed(seed);
+}
+
+/** Sets a table's seed from inline CSV — refused under a `full` lock that binds the caller. Shared with the public API. */
+export async function setInlineSeed(
+  req: FastifyRequest,
+  user: SessionUser,
+  project: { id: string; name: string },
+  tableId: string,
+  body: unknown,
+) {
+  const id = project.id;
+  const table = (await readProjectReadOnly(id, project.name)).tables.find((t) => t.id === tableId);
+  if (!table) throw new ApiError("TABLE_NOT_FOUND");
+  await assertSeedEditable(user.id, id, tableId, table.name);
+  const input = parseSeedInput(body);
+  const previousFile = await seedFileNameOf(id, tableId);
+  const seed = await upsertSeed({
+    projectId: id,
+    tableId,
+    tableName: table.name,
+    ...input,
+    updatedBy: user.id,
+    updatedByName: user.displayName,
+  });
+  await removeSeedFile(previousFile);
+  await auditUser(user, "seed.set", { type: "project", id }, `${table.name}: ${input.rowCount} row(s)`, req);
+  await notifyFollowers(
+    id,
+    "seed",
+    { removed: false, table: table.name, rows: input.rowCount, by: user.displayName },
+    { actor: { id: user.id } },
+  );
+  notifyProject(id, { type: "seeds-changed" });
+  return publicSeed(seed);
+}
+
+/** Removes a table's seed — refused under a `full` lock that binds the caller. Shared with the public API. */
+export async function removeTableSeed(
+  req: FastifyRequest,
+  user: SessionUser,
+  project: { id: string; name: string },
+  tableId: string,
+): Promise<void> {
+  const id = project.id;
+  const existing = await getSeed(id, tableId);
+  if (!existing) throw new ApiError("SEED_NOT_FOUND");
+  const tableName =
+    (await readProjectReadOnly(id, project.name)).tables.find((t) => t.id === tableId)?.name ?? existing.tableName;
+  await assertSeedEditable(user.id, id, tableId, tableName);
+  await deleteSeed(id, tableId);
+  await removeSeedFile(existing.fileName);
+  await auditUser(user, "seed.remove", { type: "project", id }, tableName, req);
+  await notifyFollowers(
+    id,
+    "seed",
+    { removed: true, table: tableName, by: user.displayName },
+    { actor: { id: user.id } },
+  );
+  notifyProject(id, { type: "seeds-changed" });
+}
+
 export function registerSeedRoutes(app: FastifyInstance): void {
   /** Records a seed written by a stream, and tells whoever follows the project. */
   async function recordFileSeed(
@@ -188,9 +254,7 @@ export function registerSeedRoutes(app: FastifyInstance): void {
   app.get("/api/projects/:id/seeds/:tableId", async (req) => {
     const { id, tableId } = req.params as { id: string; tableId: string };
     await requireProjectAccess(req, id, "view");
-    const seed = await getSeed(id, tableId);
-    if (!seed) throw new ApiError("SEED_NOT_FOUND");
-    return { seed: publicSeed(seed) };
+    return { seed: await readTableSeed(id, tableId) };
   });
 
   // The first rows of a seed — the only look a file seed gives: its content is never sent whole.
@@ -207,29 +271,7 @@ export function registerSeedRoutes(app: FastifyInstance): void {
   app.put("/api/projects/:id/seeds/:tableId", { bodyLimit: 3 * 1024 * 1024 }, async (req) => {
     const { id, tableId } = req.params as { id: string; tableId: string };
     const { user, project } = await requireProjectAccess(req, id, "edit");
-    const table = (await readProjectReadOnly(id, project.name)).tables.find((t) => t.id === tableId);
-    if (!table) throw new ApiError("TABLE_NOT_FOUND");
-    await assertSeedEditable(user.id, id, tableId, table.name);
-    const input = parseSeedInput(req.body);
-    const previousFile = await seedFileNameOf(id, tableId);
-    const seed = await upsertSeed({
-      projectId: id,
-      tableId,
-      tableName: table.name,
-      ...input,
-      updatedBy: user.id,
-      updatedByName: user.displayName,
-    });
-    await removeSeedFile(previousFile);
-    await auditUser(user, "seed.set", { type: "project", id }, `${table.name}: ${input.rowCount} row(s)`, req);
-    await notifyFollowers(
-      id,
-      "seed",
-      { removed: false, table: table.name, rows: input.rowCount, by: user.displayName },
-      { actor: { id: user.id } },
-    );
-    notifyProject(id, { type: "seeds-changed" });
-    return { seed: publicSeed(seed) };
+    return { seed: await setInlineSeed(req, user, project, tableId, req.body) };
   });
 
   // A big seed, sent as the raw bytes of the CSV (`text/csv`), the options in the `x-seed-options` header
@@ -414,21 +456,7 @@ export function registerSeedRoutes(app: FastifyInstance): void {
   app.delete("/api/projects/:id/seeds/:tableId", async (req) => {
     const { id, tableId } = req.params as { id: string; tableId: string };
     const { user, project } = await requireProjectAccess(req, id, "edit");
-    const existing = await getSeed(id, tableId);
-    if (!existing) throw new ApiError("SEED_NOT_FOUND");
-    const tableName =
-      (await readProjectReadOnly(id, project.name)).tables.find((t) => t.id === tableId)?.name ?? existing.tableName;
-    await assertSeedEditable(user.id, id, tableId, tableName);
-    await deleteSeed(id, tableId);
-    await removeSeedFile(existing.fileName);
-    await auditUser(user, "seed.remove", { type: "project", id }, tableName, req);
-    await notifyFollowers(
-      id,
-      "seed",
-      { removed: true, table: tableName, by: user.displayName },
-      { actor: { id: user.id } },
-    );
-    notifyProject(id, { type: "seeds-changed" });
+    await removeTableSeed(req, user, project, tableId);
     return { deleted: true };
   });
 }

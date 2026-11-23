@@ -1,5 +1,5 @@
 import type { FastifyInstance } from "fastify";
-import { requireScope } from "../apiKeys/auth.js";
+import { refuseAgentKey, requireScope } from "../apiKeys/auth.js";
 import { requireProjectAccess } from "../../shared/guards.js";
 import type { ReviewDeployBody, ReviewRequestBody } from "../reviews/routes.js";
 import { decideOnReview, deployReview, listReviews, requestReview, withdrawReview } from "../reviews/service.js";
@@ -34,6 +34,8 @@ export function registerPublicReviewRoutes(app: FastifyInstance): void {
 
   app.post("/api/v1/projects/:id/reviews/:reviewId/approve", API_RATE_LIMIT, async (req) => {
     const { id, reviewId } = parseParams(idReviewIdParams, req);
+    // A review is a person's decision: an AI agent requests one, it never decides one.
+    refuseAgentKey(req);
     const { user } = await requireProjectAccess(req, id, "deploy");
     requireScope(req, "deployments:trigger", id);
     const { comment } = (req.body ?? {}) as { comment?: string };
@@ -42,6 +44,8 @@ export function registerPublicReviewRoutes(app: FastifyInstance): void {
 
   app.post("/api/v1/projects/:id/reviews/:reviewId/reject", API_RATE_LIMIT, async (req) => {
     const { id, reviewId } = parseParams(idReviewIdParams, req);
+    // A review is a person's decision: an AI agent requests one, it never decides one.
+    refuseAgentKey(req);
     const { user } = await requireProjectAccess(req, id, "deploy");
     requireScope(req, "deployments:trigger", id);
     const { comment } = (req.body ?? {}) as { comment?: string };

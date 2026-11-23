@@ -217,7 +217,9 @@ export const ERROR_CATALOG = {
   SHARE_LINK_SETTING_INVALID: { status: 400, message: "enabled must be a boolean" },
   API_KEY_SCOPES_INVALID: {
     status: 400,
-    message: "scopes must be a non-empty array of projects:read, projects:write, deployments:trigger",
+    message:
+      "scopes must be a non-empty array of projects:read, projects:write, deployments:trigger, connections:manage, " +
+      "teams:manage (an agent key: projects:read, projects:write, deployments:trigger, sql:execute)",
   },
 
   // --- 401 ---
@@ -247,6 +249,12 @@ export const ERROR_CATALOG = {
   FORBIDDEN: { status: 403, message: "forbidden" },
   API_SCOPE_INSUFFICIENT: { status: 403, message: "this API key does not have the required scope" },
   API_KEY_PROJECT_RESTRICTED: { status: 403, message: "this API key is restricted to a different project" },
+  AGENT_KEY_FORBIDDEN: {
+    status: 403,
+    message:
+      "an AI agent key works inside projects only: it cannot create or delete a project, nor reach a project's or " +
+      "the instance's administration, whatever its owner may do",
+  },
   CONNECTION_READ_ONLY: { status: 403, message: "this connection is marked read-only" },
   TABLE_LOCKED: { status: 403, message: "this change touches a locked table" },
   TABLE_LOCK_FORBIDDEN: { status: 403, message: "this lock can only be changed by an instance administrator" },
@@ -410,6 +418,10 @@ export const ERROR_CATALOG = {
   PERSONAL_CREDENTIALS_NOT_USED: { status: 409, message: "this connection uses one shared account" },
   DB_ACCESS_INVALID: { status: 400, message: "the database access list is invalid" },
   DB_ACCESS_WRITE_FORBIDDEN: { status: 403, message: "your access to this database is read-only" },
+  SQL_ACCESS_NOT_GRANTED: {
+    status: 403,
+    message: "you have no SQL access to this database: an instance administrator grants it (Administration → access)",
+  },
   DB_ACCESS_WRITE_CONFIRMATION_REQUIRED: {
     status: 409,
     message: "this statement writes data — confirm it (confirmWrite) to run it",

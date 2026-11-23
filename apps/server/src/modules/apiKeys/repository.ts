@@ -8,8 +8,9 @@ import { db } from "../../infrastructure/db.js";
  * already do, it can't grant more.
  */
 export type ApiKeyScope =
-  "projects:read" | "projects:write" | "deployments:trigger" | "connections:manage" | "teams:manage";
+  "projects:read" | "projects:write" | "deployments:trigger" | "connections:manage" | "teams:manage" | "sql:execute";
 
+/** What an ordinary key may carry. `sql:execute` is not among them: only an agent key runs SQL. */
 export const API_KEY_SCOPES: ApiKeyScope[] = [
   "projects:read",
   "projects:write",
@@ -18,8 +19,35 @@ export const API_KEY_SCOPES: ApiKeyScope[] = [
   "teams:manage",
 ];
 
-export function isApiKeyScope(value: unknown): value is ApiKeyScope {
-  return typeof value === "string" && (API_KEY_SCOPES as string[]).includes(value);
+/**
+ * `standard`: a script's or a CI job's key. `agent`: the key an AI agent connects with (the MCP
+ * server, `packages/mcp`). An agent key works on projects and nothing else: it never creates or
+ * deletes one, never reaches a project's administration nor the instance's, even when its owner
+ * could (`infrastructure/actor.ts`, `shared/permissions.ts`).
+ */
+export type ApiKeyKind = "standard" | "agent";
+
+export const API_KEY_KINDS: ApiKeyKind[] = ["standard", "agent"];
+
+/**
+ * What an agent key may carry: reading and editing a project's schema, deploying it, running SQL
+ * on its databases. Never `connections:manage` nor `teams:manage`, which are administration.
+ */
+export const AGENT_KEY_SCOPES: ApiKeyScope[] = [
+  "projects:read",
+  "projects:write",
+  "deployments:trigger",
+  "sql:execute",
+];
+
+export function isApiKeyKind(value: unknown): value is ApiKeyKind {
+  return typeof value === "string" && (API_KEY_KINDS as string[]).includes(value);
+}
+
+/** Whether `value` is a scope a key of this kind may carry. */
+export function isApiKeyScope(value: unknown, kind: ApiKeyKind = "standard"): value is ApiKeyScope {
+  const allowed = kind === "agent" ? AGENT_KEY_SCOPES : API_KEY_SCOPES;
+  return typeof value === "string" && (allowed as string[]).includes(value);
 }
 
 const KEY_PREFIX = "ndb";
@@ -34,6 +62,7 @@ interface ApiKeyRow {
   key_prefix: string;
   scopes: string;
   project_id: string | null;
+  kind: string | null;
   last_used_at: string | null;
   revoked_at: string | null;
   created_at: string;
@@ -42,6 +71,7 @@ interface ApiKeyRow {
 export interface ApiKeySummary {
   id: string;
   name: string;
+  kind: ApiKeyKind;
   keyPrefix: string;
   scopes: ApiKeyScope[];
   projectId: string | null;
@@ -54,6 +84,7 @@ function toSummary(row: ApiKeyRow): ApiKeySummary {
   return {
     id: row.id,
     name: row.name,
+    kind: row.kind === "agent" ? "agent" : "standard",
     keyPrefix: row.key_prefix,
     scopes: JSON.parse(row.scopes) as ApiKeyScope[],
     projectId: row.project_id,
@@ -79,6 +110,7 @@ export async function createApiKey(
   name: string,
   scopes: ApiKeyScope[],
   projectId: string | null,
+  kind: ApiKeyKind = "standard",
 ): Promise<CreatedApiKey> {
   const id = crypto.randomUUID();
   const secret = crypto.randomBytes(32).toString("base64url");
@@ -87,16 +119,17 @@ export async function createApiKey(
 
   await db
     .prepare(
-      `INSERT INTO api_keys (id, user_id, name, key_hash, key_prefix, scopes, project_id)
-     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO api_keys (id, user_id, name, key_hash, key_prefix, scopes, project_id, kind)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
     )
-    .run(id, userId, name, hashKey(plaintextKey), keyPrefix, JSON.stringify(scopes), projectId);
+    .run(id, userId, name, hashKey(plaintextKey), keyPrefix, JSON.stringify(scopes), projectId, kind);
 
   return {
     plaintextKey,
     summary: {
       id,
       name,
+      kind,
       keyPrefix,
       scopes,
       projectId,
@@ -111,7 +144,7 @@ export async function createApiKey(
 export async function listApiKeysByUser(userId: string): Promise<ApiKeySummary[]> {
   const rows = (await db
     .prepare(
-      `SELECT id, user_id, name, key_hash, key_prefix, scopes, project_id, last_used_at, revoked_at, created_at
+      `SELECT id, user_id, name, key_hash, key_prefix, scopes, project_id, kind, last_used_at, revoked_at, created_at
        FROM api_keys WHERE user_id = ? ORDER BY created_at DESC`,
     )
     .all(userId)) as ApiKeyRow[];
@@ -123,6 +156,7 @@ export interface ResolvedApiKey {
   userId: string;
   scopes: ApiKeyScope[];
   projectId: string | null;
+  kind: ApiKeyKind;
 }
 
 /**
@@ -133,9 +167,9 @@ export interface ResolvedApiKey {
  */
 export async function resolveApiKeyByPlaintext(plaintextKey: string): Promise<ResolvedApiKey | null> {
   const row = (await db
-    .prepare(`SELECT id, user_id, scopes, project_id FROM api_keys WHERE key_hash = ? AND revoked_at IS NULL`)
+    .prepare(`SELECT id, user_id, scopes, project_id, kind FROM api_keys WHERE key_hash = ? AND revoked_at IS NULL`)
     .get(hashKey(plaintextKey))) as
-    { id: string; user_id: string; scopes: string; project_id: string | null } | undefined;
+    { id: string; user_id: string; scopes: string; project_id: string | null; kind: string | null } | undefined;
   if (!row) return null;
 
   await db.prepare("UPDATE api_keys SET last_used_at = utc_now() WHERE id = ?").run(row.id);
@@ -145,6 +179,7 @@ export async function resolveApiKeyByPlaintext(plaintextKey: string): Promise<Re
     userId: row.user_id,
     scopes: JSON.parse(row.scopes) as ApiKeyScope[],
     projectId: row.project_id,
+    kind: row.kind === "agent" ? "agent" : "standard",
   };
 }
 

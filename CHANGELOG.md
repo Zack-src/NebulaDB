@@ -19,6 +19,33 @@ has a dated entry for. Version 1.0.0 is the first release under the NebulaDB nam
 
 ## [Unreleased]
 
+### Added — connect an AI agent (MCP)
+
+- **Settings → AI agent (MCP)**: create a key for an AI agent (Claude Code, Claude Desktop, Cursor…) and copy a
+  ready-to-paste setup for the MCP server `@nebuladb/mcp`. The agent reads schemas, edits a project's schema, plans
+  and deploys, and runs SQL — never beyond its owner's permissions.
+- An agent key (`api_keys.kind = 'agent'`, migration 15) is capped by the server whatever its owner may do: at most
+  `deploy` on a project, no project creation, rename, archive or deletion, no project administration (access,
+  connections, locks, webhooks, the watch's settings), no instance administration (teams, backups, stage skips) — an
+  administrator's agent still sees the projects, at `deploy`. It respects every table lock. What it does is in the
+  audit log under its owner, marked `[AI agent]`.
+- Public API: `GET /api/v1/me`; `POST /api/v1/projects/:id/connections/:connId/query` (scope `sql:execute`, agent keys
+  only) runs one statement on the project's database with the SQL console's member rules: read-only unless asked,
+  one confirmed data statement per write, no structure, within the SQL access its owner was granted.
+- Public API, for scripts and agents alike: `PATCH /layout` (move and colour tables), `GET|PUT|DELETE /seeds/:table`
+  (initial data, CSV columns matched by name), `POST /convert-types` (the editor's "Convert types"), `GET /lint/rules`,
+  revisions (`export/dbml`, label, restore), variants (list, family, compare, preview, push, reset). Same checks as in
+  the app: `edit` to write, table locks, `edit` on every variant receiving a push; a project-restricted key reaches no
+  other project of the family. An agent key never forks a revision, starts a variant, chooses lint rules, nor
+  approves or rejects a deployment review.
+- `@nebuladb/mcp` 1.1: `update_schema`, `import_sql`, `set_table_layout`, `set_seed` / `get_seed` / `delete_seed`,
+  `preview_type_conversion` / `convert_types`, `get_revision` / `label_revision` / `restore_revision`,
+  `list_variants`, `compare_projects`, `preview_variant_push`, `push_to_variants`, `reset_variant`, `export`,
+  `get_lint_rules`, `list_connections`, `get_pipeline`, `plan_deployment`, `deploy`, `request_deployment_review`,
+  `get_deployment_history`, `run_sql`, `export_sql`, `whoami`. `NEBULADB_MCP_READ_ONLY=1` keeps the reading tools only.
+- Fixed: `docs/public-api.md` said a DBML import with the `visual=1` sidecar moves and recolours tables; it only
+  places new ones (an existing table keeps its layout) — `PATCH /layout` is the way.
+
 ### Changed — backups of connected databases are kept in PostgreSQL (read before upgrading)
 
 - A backup now goes **into NebulaDB's own database** (new table `backup_chunks`, migration 14) instead of a file

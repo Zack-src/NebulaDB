@@ -1,4 +1,5 @@
 import { db } from "../infrastructure/db.js";
+import { currentAgent, type AgentActor } from "../infrastructure/actor.js";
 
 /**
  * What a grant gives on a project, each level including the ones before it:
@@ -33,7 +34,30 @@ interface GrantRow {
   permission: PermissionLevel;
 }
 
+/** The most an AI agent ever gets on a project: it edits and deploys, it never administers. */
+export const AGENT_PERMISSION_CEILING: PermissionLevel = "deploy";
+
+/** The AI agent behind the current request when it acts for `userId`; `null` otherwise (a person, or someone else). */
+function agentFor(userId: string): AgentActor | null {
+  const agent = currentAgent();
+  return agent && agent.userId === userId ? agent : null;
+}
+
+function capForAgent(level: PermissionLevel | null): PermissionLevel | null {
+  if (level === null) return null;
+  return RANK[level] > RANK[AGENT_PERMISSION_CEILING] ? AGENT_PERMISSION_CEILING : level;
+}
+
+/**
+ * Instance administrator. Never for an AI agent acting for one: the agent gets nothing of the
+ * instance's administration (`infrastructure/actor.ts`).
+ */
 export async function isGlobalAdmin(userId: string): Promise<boolean> {
+  if (agentFor(userId)) return false;
+  return await isGlobalAdminAccount(userId);
+}
+
+async function isGlobalAdminAccount(userId: string): Promise<boolean> {
   const row = (await db.prepare("SELECT is_admin FROM users WHERE id = ?").get(userId)) as UserAdminRow | undefined;
   return row?.is_admin === 1;
 }
@@ -69,7 +93,19 @@ export async function getEffectivePermission(
   projectId: string,
   known: KnownFacts = {},
 ): Promise<PermissionLevel | null> {
-  if (known.isAdmin ?? (await isGlobalAdmin(userId))) return "administrator";
+  // An AI agent sees the projects its owner sees, at most at `deploy` (see `AGENT_PERMISSION_CEILING`).
+  const agent = agentFor(userId);
+  if (agent) return capForAgent(await accountPermission(userId, projectId, { ...known, isAdmin: agent.isAdmin }));
+  return await accountPermission(userId, projectId, known);
+}
+
+/** `getEffectivePermission` for the account itself, with no agent ceiling. */
+async function accountPermission(
+  userId: string,
+  projectId: string,
+  known: KnownFacts,
+): Promise<PermissionLevel | null> {
+  if (known.isAdmin ?? (await isGlobalAdminAccount(userId))) return "administrator";
 
   let ownerId = known.ownerId;
   if (ownerId === undefined) {
@@ -115,11 +151,21 @@ export async function getEffectivePermissions(
   userId: string,
   isAdmin?: boolean,
 ): Promise<Map<string, PermissionLevel | null>> {
+  const agent = agentFor(userId);
+  if (agent) {
+    const levels = await accountPermissions(userId, agent.isAdmin);
+    for (const [id, level] of levels) levels.set(id, capForAgent(level));
+    return levels;
+  }
+  return await accountPermissions(userId, isAdmin);
+}
+
+async function accountPermissions(userId: string, isAdmin?: boolean): Promise<Map<string, PermissionLevel | null>> {
   const projects = (await db.prepare("SELECT id, owner_id FROM projects").all()) as (ProjectOwnerRow & {
     id: string;
   })[];
   const result = new Map<string, PermissionLevel | null>();
-  if (isAdmin ?? (await isGlobalAdmin(userId))) {
+  if (isAdmin ?? (await isGlobalAdminAccount(userId))) {
     for (const p of projects) result.set(p.id, "administrator");
     return result;
   }
