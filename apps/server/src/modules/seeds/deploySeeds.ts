@@ -14,7 +14,8 @@ import { config } from "../../config.js";
 import { ApiError } from "../../shared/errors.js";
 import type { DatabaseDriver, RowValue } from "../connections/drivers/interface.js";
 import { listSeedsWithContent, type StoredSeed } from "./repository.js";
-import { seedRowStream } from "./seedFiles.js";
+import { existsSync } from "node:fs";
+import { seedFilePath, seedRowStream } from "./seedFiles.js";
 
 /** Rows sent to the database in one go while a seed is read: small enough to stay cheap in memory, big enough to keep the round trips few. */
 const INSERT_BATCH_ROWS = 2000;
@@ -30,6 +31,8 @@ interface PreparedSeed {
   warnings: number;
   /** Checks given up on for lack of room: the seed is then only partly checked. */
   unchecked: string[];
+  /** A seed kept as a file whose file is gone from the server: nothing to insert, and an error. */
+  missingFile?: boolean;
   /** The rows to insert, in batches, as the target engine wants them — read from memory or from the file as they are asked for. */
   batches(engine: DatabaseEngine): AsyncGenerator<RowValue[][]>;
 }
@@ -73,6 +76,26 @@ export async function prepareSeeds(projectId: string, project: Project): Promise
   for (const tableId of order) {
     const seed = byTable.get(tableId)!;
     const table = tables.get(tableId)!;
+    // A big seed's file can be gone (a server folder cleaned, a move without `data/`): an error of this seed
+    // that the plan shows and that stops a deployment — never an unreadable file failing the whole plan.
+    if (seed.storage === "file" && !seedFileExists(seed.fileName)) {
+      for (const ref of project.refs) {
+        if (ref.to.tableId === tableId && ref.from.tableId !== tableId)
+          incompleteParents.add(`${tableId}.${ref.to.fieldId}`);
+      }
+      prepared.push({
+        seed,
+        table,
+        columns: [],
+        rowCount: 0,
+        errors: 1,
+        warnings: 0,
+        unchecked: [],
+        missingFile: true,
+        async *batches() {},
+      });
+      continue;
+    }
     // Only the columns another seeded table points at are worth keeping the values of.
     const wanted = new Set(
       project.refs
@@ -130,11 +153,27 @@ export async function prepareSeeds(projectId: string, project: Project): Promise
   };
 }
 
+/** Whether a seed file is where the server keeps it. A name the seed directory refuses is as good as gone. */
+function seedFileExists(fileName: string | null | undefined): boolean {
+  if (!fileName) return false;
+  try {
+    return existsSync(seedFilePath(fileName));
+  } catch {
+    return false;
+  }
+}
+
 /** Refuses a deployment whose seeds cannot all go in: a seed with errors, or tables that depend on each other in a cycle. */
 export function assertSeedsDeployable(prepared: PreparedSeeds): void {
   const broken = prepared.seeds.filter((seed) => seed.errors > 0).map((seed) => seed.table.name);
+  const missingFiles = prepared.seeds.filter((seed) => seed.missingFile).map((seed) => seed.table.name);
   if (broken.length > 0 || prepared.cycles.length > 0) {
-    throw new ApiError("SEEDS_NOT_DEPLOYABLE", { details: { tables: broken, cycles: prepared.cycles } });
+    throw new ApiError("SEEDS_NOT_DEPLOYABLE", {
+      ...(missingFiles.length > 0 && {
+        message: `the seed file of ${missingFiles.join(", ")} is missing on the server: set the seed again, or remove it`,
+      }),
+      details: { tables: broken, cycles: prepared.cycles, ...(missingFiles.length > 0 && { missingFiles }) },
+    });
   }
 }
 
@@ -163,7 +202,7 @@ export async function planSeeds(
   createdTables: ReadonlySet<string>,
 ): Promise<SeedPlanEntry[]> {
   const plan: SeedPlanEntry[] = [];
-  for (const { seed, table, rowCount, errors, warnings, unchecked } of prepared.seeds) {
+  for (const { seed, table, rowCount, errors, warnings, unchecked, missingFile } of prepared.seeds) {
     const existing = createdTables.has(table.name.toLowerCase()) ? 0 : await existingRows(driver, table.name, engine);
     const action: SeedPlanEntry["action"] =
       existing === null ? "unmeasured" : seed.options.mode === "if-empty" && existing > 0 ? "skip-not-empty" : "insert";
@@ -177,6 +216,7 @@ export async function planSeeds(
       errors,
       warnings,
       ...(unchecked.length > 0 ? { unchecked } : {}),
+      ...(missingFile ? { missingFile: true } : {}),
     });
   }
   return plan;

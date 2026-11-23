@@ -1628,6 +1628,7 @@
   "seeds.planWarnings_one": "{{count}} warning — see the table's initial data",
   "seeds.planWarnings_other": "{{count}} warnings — see the table's initial data",
   "seeds.planUnmeasured": "row count unknown — inserted only if empty",
+  "seeds.planMissingFile": "the seed file is missing on the server — set the seed again or remove it",
   "seeds.planCycle": "Tables depending on each other: {{tables}} — no order to insert them in",
   "seeds.reportInserted_one": "+{{count}} row",
   "seeds.reportInserted_other": "+{{count}} rows",

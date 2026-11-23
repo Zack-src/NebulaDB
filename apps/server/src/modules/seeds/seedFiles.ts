@@ -58,9 +58,12 @@ export async function* seedRowStream(
     return;
   }
   if (!seed.fileName) throw new ApiError("SEED_NOT_FOUND");
+  const filePath = seedFilePath(seed.fileName);
+  // Gone from the server (a folder cleaned, a move without `data/`): said as such, not a 500.
+  if (!fs.existsSync(filePath)) throw new ApiError("SEED_FILE_MISSING");
   const parser = new CsvStreamParser(seed.options.separator);
   const decoder = new StringDecoder("utf8");
-  for await (const chunk of fs.createReadStream(seedFilePath(seed.fileName), { highWaterMark: 1 << 20 })) {
+  for await (const chunk of fs.createReadStream(filePath, { highWaterMark: 1 << 20 })) {
     for (const row of parser.push(decoder.write(chunk as Buffer))) yield row;
   }
   for (const row of parser.push(decoder.end())) yield row;

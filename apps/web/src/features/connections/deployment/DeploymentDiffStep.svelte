@@ -147,7 +147,9 @@
       {#each seedPlan as entry (entry.tableId)}
         <li class={entry.errors > 0 ? "text-danger" : entry.action === "insert" ? "text-emerald-400" : "text-text-muted"}>
           {entry.tableName} :
-          {#if entry.errors > 0}
+          {#if entry.missingFile}
+            {t("seeds.planMissingFile")}
+          {:else if entry.errors > 0}
             {t("seeds.planErrors", { count: entry.errors })}
           {:else if entry.action === "insert"}
             {t("seeds.planInsert", { count: entry.rows })}

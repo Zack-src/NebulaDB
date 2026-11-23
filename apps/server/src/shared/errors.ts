@@ -288,6 +288,10 @@ export const ERROR_CATALOG = {
   TABLE_NOT_FOUND: { status: 404, message: "no such table in this project" },
   ENVIRONMENT_NOT_FOUND: { status: 404, message: "no such environment stage" },
   BACKUP_NOT_FOUND: { status: 404, message: "no such backup" },
+  SEED_FILE_MISSING: {
+    status: 409,
+    message: "this seed is kept as a file and the file is missing on the server: set the seed again, or remove it",
+  },
   SEED_NOT_FOUND: { status: 404, message: "this table has no seed" },
   RETENTION_JOURNAL_NOT_FOUND: { status: 404, message: "no such journal in the retention policy" },
   DATABASE_TABLE_NOT_FOUND: {

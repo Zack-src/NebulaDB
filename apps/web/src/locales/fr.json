@@ -1628,6 +1628,7 @@
   "seeds.planWarnings_one": "{{count}} avertissement — voir les données initiales de la table",
   "seeds.planWarnings_other": "{{count}} avertissements — voir les données initiales de la table",
   "seeds.planUnmeasured": "nombre de lignes inconnu — insérées seulement si vide",
+  "seeds.planMissingFile": "fichier des données initiales introuvable sur le serveur — redéfinissez-les ou retirez-les",
   "seeds.planCycle": "Tables qui dépendent l'une de l'autre : {{tables}} — aucun ordre d'insertion possible",
   "seeds.reportInserted_one": "+{{count}} ligne",
   "seeds.reportInserted_other": "+{{count}} lignes",

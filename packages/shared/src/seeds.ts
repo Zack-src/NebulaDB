@@ -440,4 +440,6 @@ export interface SeedPlanEntry {
   warnings: number;
   /** Checks given up on for lack of memory (a big seed): the seed is only partly checked. */
   unchecked?: string[];
+  /** The seed is kept as a file and the file is gone from the server: it counts as an error, nothing is inserted. */
+  missingFile?: boolean;
 }

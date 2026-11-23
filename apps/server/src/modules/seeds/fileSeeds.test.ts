@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { existsSync, mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import Database from "better-sqlite3";
@@ -309,6 +309,51 @@ test("seeds: an administrator imports files from the import folder, one by path 
       path: "run1/customers.csv",
     });
     assert.equal(notAdmin.statusCode, 403);
+  } finally {
+    await closeAllRooms();
+    await app.close();
+  }
+});
+
+test("seeds: a seed file gone from the server is an error of that seed, not a failed plan", async () => {
+  const app = await buildApp();
+  try {
+    const owner = await userCookie(app, 1);
+    const project = (await call(app, owner, "POST", "/api/projects", { name: "Shop" })).json() as { id: string };
+    await seedCanvas(project.id);
+    const base = `/api/projects/${project.id}`;
+    const stored = await putFile(app, owner, `${base}/seeds/t-customers/file`, "id,name\n1,Ada\n2,Linus");
+    assert.equal(stored.statusCode, 200, stored.body);
+    // The file disappears (a cleaned folder, a server moved without its `data/`).
+    rmSync(join(seedDir, project.id, "t-customers.csv"));
+
+    const targetFile = join(mkdtempSync(join(tmpdir(), "nebuladb-seed-missing-target-")), "shop.sqlite");
+    const connId = (
+      await call(app, owner, "POST", `${base}/connections`, { name: "Shop db", engine: "sqlite", filePath: targetFile })
+    ).json().connection.id as string;
+    const plan = await call(app, owner, "POST", `${base}/connections/${connId}/plan-deployment`, {});
+    assert.equal(plan.statusCode, 200, plan.body);
+    const seeds = plan.json().seeds as { tableName: string; errors: number; missingFile?: boolean }[];
+    assert.deepEqual(
+      seeds.map((s) => [s.tableName, s.errors, s.missingFile]),
+      [["customers", 1, true]],
+    );
+
+    const preview = await call(app, owner, "GET", `${base}/seeds/t-customers/preview`);
+    assert.equal(preview.json().code, "SEED_FILE_MISSING", preview.body);
+
+    const deployed = await call(app, owner, "POST", `${base}/connections/${connId}/apply-deployment`, {
+      resolutions: {},
+    });
+    assert.equal(deployed.json().code, "SEEDS_NOT_DEPLOYABLE", deployed.body);
+    assert.match(deployed.json().error, /seed file of customers is missing/);
+
+    // Deploying without the seeds still works.
+    const withoutSeeds = await call(app, owner, "POST", `${base}/connections/${connId}/apply-deployment`, {
+      resolutions: {},
+      skipSeeds: true,
+    });
+    assert.equal(withoutSeeds.statusCode, 200, withoutSeeds.body);
   } finally {
     await closeAllRooms();
     await app.close();
