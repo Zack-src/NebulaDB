@@ -1,9 +1,16 @@
 <script lang="ts" module>
-  /** JPEG has no alpha channel, so the background must be painted in explicitly before drawing the (possibly-transparent) source image on top. */
-  function pngDataUrlToJpeg(pngDataUrl: string, width: number, height: number): Promise<string> {
+  /**
+   * JPEG has no alpha channel, so the background must be painted in explicitly before drawing the
+   * (possibly-transparent) source image on top. Re-encoded at the image's own pixel size: the
+   * capture has more pixels than its CSS size (`exportPixelRatio`), and drawing it at the CSS size
+   * threw that resolution away — names were unreadable once the PDF was zoomed in.
+   */
+  function pngDataUrlToJpeg(pngDataUrl: string): Promise<string> {
     return new Promise((resolve, reject) => {
       const img = new Image();
       img.onload = () => {
+        const width = img.naturalWidth;
+        const height = img.naturalHeight;
         const canvas = document.createElement("canvas");
         canvas.width = width;
         canvas.height = height;
@@ -97,8 +104,12 @@
     let cancelled = false;
     busy = true;
     error = null;
-    target
-      .run(
+    // Run untracked: an image exporter captures the live canvas and reads the flow's nodes. Tracked,
+    // those reads made this effect depend on the canvas — when the capture also rewrote the nodes
+    // (it used to `fitView`), run → capture → nodes written → run again, until Svelte stopped it
+    // (`effect_update_depth_exceeded`). The export depends on the format and the project, nothing else.
+    const running = untrack(() =>
+      target.run(
         project ??
           ({
             id: projectId,
@@ -110,7 +121,9 @@
             stickyNotes: [],
             tableGroups: [],
           } as unknown as Project),
-      )
+      ),
+    );
+    running
       .then((value) => {
         if (!cancelled) result = value as ExportResult;
       })
@@ -153,7 +166,8 @@
         // diagram came out over 10MB. Re-encoding to JPEG first (this is a
         // decorative snapshot, not something needing lossless fidelity) brings
         // that down by roughly two orders of magnitude.
-        const jpeg = await pngDataUrlToJpeg(image.dataUrl, image.width, image.height);
+        // The page keeps the diagram's size; the embedded image keeps every captured pixel.
+        const jpeg = await pngDataUrlToJpeg(image.dataUrl);
         const orientation = image.width >= image.height ? "landscape" : "portrait";
         const pdf = new jsPDF({ orientation, unit: "px", format: [image.width, image.height] });
         pdf.addImage(jpeg, "JPEG", 0, 0, image.width, image.height);
