@@ -19,6 +19,19 @@ has a dated entry for. Version 1.0.0 is the first release under the NebulaDB nam
 
 ## [Unreleased]
 
+### Fixed — exports and the MCP setup
+
+- Canvas exports (PNG, SVG, PDF): the dialog no longer loops (`effect_update_depth_exceeded`); the diagram is
+  rendered at its own size, two pixels per canvas pixel, whatever the window or the zoom (names were unreadable on a
+  big schema), and the PDF keeps every captured pixel; the "+ Ajouter une colonne / une valeur" lines are left out.
+- `/api/v1` SVG and PNG exports draw the colours chosen on the canvas (table header and border, ref) and the zones.
+- A seed kept as a file whose file is gone from the server no longer fails the deployment plan with a 500: the
+  plan shows it as an error of that table ("seed file missing"), a deployment refuses it with the table named
+  (`SEEDS_NOT_DEPLOYABLE`), deploying without the seeds still works, and its preview answers `409 SEED_FILE_MISSING`.
+- The MCP server is served by the instance as one file (`GET /api/mcp/nebuladb-mcp.mjs`, linked from Settings → AI
+  agent) that Node 22+ runs with nothing installed: the setup no longer relies on `npx @nebuladb/mcp`, which is not
+  published.
+
 ### Added — connect an AI agent (MCP)
 
 - **Settings → AI agent (MCP)**: create a key for an AI agent (Claude Code, Claude Desktop, Cursor…) and copy a
