@@ -1,8 +1,8 @@
 {
   "name": "@nebuladb/mcp",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
-  "description": "Model Context Protocol server exposing a NebulaDB instance's schema (read-only) to code agents.",
+  "description": "Model Context Protocol server that lets an AI agent work on NebulaDB projects: read and edit schemas, deploy, run SQL — within its owner's permissions.",
   "bin": {
     "nebuladb-mcp": "./dist/bin.js"
   },

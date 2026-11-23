@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { createServer as createHttpServer, type IncomingMessage, type Server } from "node:http";
+import { createServer as createHttpServer, type IncomingMessage, type Server, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { after, before, describe, it } from "node:test";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
@@ -25,51 +25,98 @@ Table posts {
 Ref: posts.user_id > users.id [delete: cascade]
 `;
 
-const seen: { url: string; method: string; auth?: string }[] = [];
+const seen: { url: string; method: string; auth?: string; body?: unknown }[] = [];
 let http: Server;
 let baseUrl: string;
 
 before(async () => {
   http = createHttpServer((req: IncomingMessage, res) => {
-    seen.push({ url: req.url ?? "", method: req.method ?? "", auth: req.headers.authorization });
-    const json = (status: number, body: unknown) => {
-      res.writeHead(status, { "content-type": "application/json" });
-      res.end(JSON.stringify(body));
-    };
-    if (req.headers.authorization !== `Bearer ${KEY}`) return json(401, { error: "no", code: "UNAUTHORIZED" });
-    switch (req.url) {
-      case "/api/v1/projects":
-        return json(200, { projects: [{ id: "p1", name: "Shop", status: "active", permission: "edit" }] });
-      case "/api/v1/projects/p1/export/dbml":
-        res.writeHead(200, { "content-type": "text/plain" });
-        return void res.end(DBML);
-      case "/api/v1/projects/p1/history":
-        return json(200, {
-          revisions: [
-            { id: "r1", author: "ann", label: "first", createdAt: "2026-01-01" },
-            { id: "r2", author: "bob", label: null, createdAt: "2026-01-02" },
-          ],
-        });
-      case "/api/v1/projects/p1/lint":
-        return json(200, {
-          profile: "default",
-          summary: { error: 1, warning: 0, info: 0 },
-          findings: [{ ruleId: "no-pk", severity: "error", tableName: "logs", message: "no primary key" }],
-        });
-      case "/api/v1/projects/forbidden/export/dbml":
-        return json(403, { error: "stack at /srv/app.js:12", code: "API_SCOPE_INSUFFICIENT" });
-      case "/api/v1/projects/boom/export/dbml":
-        res.writeHead(500, { "content-type": "text/html" });
-        return void res.end("<html>Error at /srv/secret/path.js</html>");
-      case "/api/v1/projects/slow/export/dbml":
-        return; // never answers
-      default:
-        return json(404, { error: "not found", code: "PROJECT_NOT_FOUND" });
-    }
+    let raw = "";
+    req.on("data", (chunk: Buffer) => (raw += chunk.toString()));
+    req.on("end", () => answer(req, res, raw ? JSON.parse(raw) : undefined));
   });
   await new Promise<void>((resolve) => http.listen(0, "127.0.0.1", resolve));
   baseUrl = `http://127.0.0.1:${(http.address() as AddressInfo).port}`;
 });
+
+function answer(req: IncomingMessage, res: ServerResponse, body: unknown): void {
+  seen.push({ url: req.url ?? "", method: req.method ?? "", auth: req.headers.authorization, body });
+  const json = (status: number, body: unknown) => {
+    res.writeHead(status, { "content-type": "application/json" });
+    res.end(JSON.stringify(body));
+  };
+  if (req.headers.authorization !== `Bearer ${KEY}`) return json(401, { error: "no", code: "UNAUTHORIZED" });
+  switch (req.url) {
+    case "/api/v1/projects":
+      return json(200, { projects: [{ id: "p1", name: "Shop", status: "active", permission: "edit" }] });
+    case "/api/v1/projects/p1/export/dbml":
+      res.writeHead(200, { "content-type": "text/plain" });
+      return void res.end(DBML);
+    case "/api/v1/projects/p1/history":
+      return json(200, {
+        revisions: [
+          { id: "r1", author: "ann", label: "first", createdAt: "2026-01-01" },
+          { id: "r2", author: "bob", label: null, createdAt: "2026-01-02" },
+        ],
+      });
+    case "/api/v1/projects/p1/lint":
+      return json(200, {
+        profile: "default",
+        summary: { error: 1, warning: 0, info: 0 },
+        findings: [{ ruleId: "no-pk", severity: "error", tableName: "logs", message: "no primary key" }],
+      });
+    case "/api/v1/projects/forbidden/export/dbml":
+      return json(403, { error: "stack at /srv/app.js:12", code: "API_SCOPE_INSUFFICIENT" });
+    case "/api/v1/projects/boom/export/dbml":
+      res.writeHead(500, { "content-type": "text/html" });
+      return void res.end("<html>Error at /srv/secret/path.js</html>");
+    case "/api/v1/projects/slow/export/dbml":
+      return; // never answers
+    case "/api/v1/me":
+      return json(200, {
+        user: { id: "u1", displayName: "Ann" },
+        key: { kind: "agent", scopes: ["projects:read", "sql:execute"], projectId: null },
+        ceiling: "deploy",
+      });
+    case "/api/v1/projects/p1/import":
+      return json(200, { imported: true, tables: 2 });
+    case "/api/v1/projects/p1/connections":
+      return json(200, {
+        connections: [{ id: "c1", name: "prod-db", engine: "postgres", environment: "Prod", production: true }],
+      });
+    case "/api/v1/projects/p1/connections/c1/deploy":
+      return json(200, { executedStatements: 3 });
+    case "/api/v1/projects/p1/connections/c1/query":
+      return json(200, {
+        access: "write",
+        result: {
+          columns: ["id", "email"],
+          rows: [
+            [1, "a@x.io"],
+            [2, null],
+          ],
+          rowCount: 2,
+          truncated: false,
+        },
+      });
+    case "/api/v1/projects/p1/layout":
+      return json(200, { updated: 1 });
+    case "/api/v1/projects/p1/seeds/users":
+      return req.method === "DELETE" ? json(200, { deleted: true }) : json(200, { seed: { rowCount: 2 } });
+    case "/api/v1/projects/p1/revisions/r1/restore":
+      return json(200, { restored: true });
+    case "/api/v1/projects/p1/convert-types":
+      return json(200, {
+        target: "mysql",
+        applied: (body as { apply?: boolean } | undefined)?.apply === true,
+        changes: [{ table: "users", field: "email", from: "citext", to: "varchar(255)" }],
+      });
+    case "/api/v1/projects/admin/connections/c1/deploy":
+      return json(403, { error: "nope", code: "AGENT_KEY_FORBIDDEN" });
+    default:
+      return json(404, { error: "not found", code: "PROJECT_NOT_FOUND" });
+  }
+}
 
 after(() => {
   http.closeAllConnections();
@@ -77,7 +124,14 @@ after(() => {
 });
 
 async function connect(overrides: Partial<Config> = {}) {
-  const config: Config = { baseUrl, apiKey: KEY, timeoutMs: 5000, maxOutputChars: 100_000, ...overrides };
+  const config: Config = {
+    baseUrl,
+    apiKey: KEY,
+    timeoutMs: 5000,
+    maxOutputChars: 100_000,
+    readOnly: false,
+    ...overrides,
+  };
   const server = createServer(config);
   const client = new Client({ name: "test", version: "0" });
   const [a, b] = InMemoryTransport.createLinkedPair();
@@ -94,19 +148,155 @@ async function call(client: Client, name: string, args: Record<string, unknown> 
 }
 
 describe("tools", () => {
-  it("lists exactly the read-only tools", async () => {
-    const client = await connect();
+  const READ_TOOLS = [
+    "compare_projects",
+    "diff_schema",
+    "export",
+    "export_sql",
+    "get_lint_rules",
+    "get_revision",
+    "get_revisions",
+    "get_schema",
+    "get_seed",
+    "get_table",
+    "lint_schema",
+    "list_connections",
+    "list_projects",
+    "list_variants",
+    "preview_type_conversion",
+    "preview_variant_push",
+    "search",
+    "whoami",
+  ];
+
+  it("in read-only mode, lists exactly the reading tools", async () => {
+    const client = await connect({ readOnly: true });
     const { tools } = await client.listTools();
-    assert.deepEqual(tools.map((t) => t.name).sort(), [
-      "diff_schema",
-      "get_revisions",
-      "get_schema",
-      "get_table",
-      "lint_schema",
-      "list_projects",
-      "search",
-    ]);
+    assert.deepEqual(tools.map((t) => t.name).sort(), READ_TOOLS);
     assert.ok(tools.every((t) => t.annotations?.readOnlyHint === true));
+  });
+
+  it("otherwise adds the tools that edit, deploy and run SQL, marked as such", async () => {
+    const { tools } = await (await connect()).listTools();
+    const names = tools.map((t) => t.name);
+    for (const name of [
+      "update_schema",
+      "plan_deployment",
+      "deploy",
+      "request_deployment_review",
+      "run_sql",
+      "get_pipeline",
+      "get_deployment_history",
+      "import_sql",
+      "set_table_layout",
+      "convert_types",
+      "set_seed",
+      "delete_seed",
+      "label_revision",
+      "restore_revision",
+      "push_to_variants",
+      "reset_variant",
+    ]) {
+      assert.ok(names.includes(name), name);
+    }
+    // Nothing that creates or deletes a project, nor administers anything.
+    assert.ok(
+      !names.some((n) =>
+        /create_project|delete_project|fork|create_variant|detach|lint_rules_set|set_lint|approve|reject|grant|webhook|lock|team|connection_create/.test(
+          n,
+        ),
+      ),
+    );
+    const byName = new Map(tools.map((t) => [t.name, t]));
+    assert.equal(byName.get("deploy")?.annotations?.destructiveHint, true);
+    assert.equal(byName.get("run_sql")?.annotations?.destructiveHint, true);
+    assert.equal(byName.get("plan_deployment")?.annotations?.readOnlyHint, true);
+  });
+
+  it("whoami says what the key may do", async () => {
+    const r = await call(await connect(), "whoami");
+    assert.match(r.text, /key: agent/);
+    assert.match(r.text, /ceiling: deploy/);
+  });
+
+  it("update_schema posts the DBML with its baseline", async () => {
+    const r = await call(await connect(), "update_schema", { project_id: "p1", dbml: DBML, baseline: DBML });
+    assert.equal(r.isError, false);
+    assert.match(r.text, /2 table\(s\)/);
+    assert.equal(seen.at(-1)?.method, "POST");
+    assert.deepEqual(seen.at(-1)?.body, { source: DBML, baseline: DBML });
+  });
+
+  it("list_connections shows the stage", async () => {
+    const r = await call(await connect(), "list_connections", { project_id: "p1" });
+    assert.ok(r.text.includes("c1\tprod-db\tpostgres\tstage Prod (production)"), r.text);
+  });
+
+  it("deploy sends the confirmation and resolutions", async () => {
+    const r = await call(await connect(), "deploy", {
+      project_id: "p1",
+      connection_id: "c1",
+      confirm_name: "prod-db",
+      resolutions: { r1: { strategy: "KEEP_IN_DB" } },
+    });
+    assert.equal(r.isError, false);
+    assert.deepEqual(seen.at(-1)?.body, { resolutions: { r1: { strategy: "KEEP_IN_DB" } }, confirmName: "prod-db" });
+  });
+
+  it("run_sql reads by default and formats rows", async () => {
+    const r = await call(await connect(), "run_sql", { project_id: "p1", connection_id: "c1", sql: "select 1" });
+    assert.equal(r.isError, false);
+    assert.ok(r.text.startsWith("id\temail\n1\ta@x.io\n2\tNULL"), r.text);
+    assert.deepEqual(seen.at(-1)?.body, { sql: "select 1", readOnly: true });
+  });
+
+  it("run_sql with write confirms the write", async () => {
+    await call(await connect(), "run_sql", {
+      project_id: "p1",
+      connection_id: "c1",
+      sql: "delete from t",
+      write: true,
+    });
+    assert.deepEqual(seen.at(-1)?.body, { sql: "delete from t", readOnly: false, confirmWrite: true });
+  });
+
+  it("set_table_layout patches positions and colours", async () => {
+    const r = await call(await connect(), "set_table_layout", {
+      project_id: "p1",
+      tables: [{ table: "users", x: 100, y: 200, color: "#ff0000" }],
+    });
+    assert.equal(r.isError, false, r.text);
+    assert.equal(seen.at(-1)?.method, "PATCH");
+    assert.deepEqual(seen.at(-1)?.body, { tables: [{ table: "users", x: 100, y: 200, color: "#ff0000" }] });
+  });
+
+  it("set_seed puts the CSV, delete_seed removes it", async () => {
+    const csv = "id,email\n1,a@x.io";
+    const r = await call(await connect(), "set_seed", { project_id: "p1", table: "users", csv });
+    assert.equal(r.isError, false, r.text);
+    assert.equal(seen.at(-1)?.method, "PUT");
+    assert.deepEqual(seen.at(-1)?.body, { content: csv, options: {} });
+    await call(await connect(), "delete_seed", { project_id: "p1", table: "users" });
+    assert.equal(seen.at(-1)?.method, "DELETE");
+  });
+
+  it("restore_revision restores only the tables named", async () => {
+    await call(await connect(), "restore_revision", { project_id: "p1", revision_id: "r1", tables: ["users"] });
+    assert.deepEqual(seen.at(-1)?.body, { tables: ["users"] });
+  });
+
+  it("preview_type_conversion previews, convert_types applies", async () => {
+    const preview = await call(await connect(), "preview_type_conversion", { project_id: "p1", target: "mysql" });
+    assert.ok(preview.text.includes("users.email\tcitext -> varchar(255)"), preview.text);
+    assert.deepEqual(seen.at(-1)?.body, { target: "mysql" });
+    await call(await connect(), "convert_types", { project_id: "p1", target: "mysql" });
+    assert.deepEqual(seen.at(-1)?.body, { target: "mysql", apply: true });
+  });
+
+  it("explains a refusal of the agent key", async () => {
+    const r = await call(await connect(), "deploy", { project_id: "admin", connection_id: "c1" });
+    assert.equal(r.isError, true);
+    assert.match(r.text, /AGENT_KEY_FORBIDDEN: an AI agent's key works inside projects only/);
   });
 
   it("list_projects sends the key and formats rows", async () => {
@@ -251,6 +441,12 @@ describe("config", () => {
       resolveConfig({ NEBULADB_URL: "http://localhost:3000/", NEBULADB_API_KEY: KEY }).baseUrl,
       "http://localhost:3000",
     );
+  });
+
+  it("reads NEBULADB_MCP_READ_ONLY", () => {
+    const env = { NEBULADB_URL: "https://x.io", NEBULADB_API_KEY: KEY };
+    assert.equal(resolveConfig(env).readOnly, false);
+    assert.equal(resolveConfig({ ...env, NEBULADB_MCP_READ_ONLY: "1" }).readOnly, true);
   });
 
   it("validates numeric limits", () => {

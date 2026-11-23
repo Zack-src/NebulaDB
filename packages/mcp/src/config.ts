@@ -6,6 +6,8 @@ export interface Config {
   timeoutMs: number;
   /** Cap on the size of any text a tool or resource returns, in characters. */
   maxOutputChars: number;
+  /** Only the reading tools are offered: nothing that edits a schema, deploys or runs SQL. */
+  readOnly: boolean;
 }
 
 /** The configuration is wrong: the message says what to fix and never contains the key. */
@@ -61,5 +63,6 @@ export function resolveConfig(env: Record<string, string | undefined>): Config {
       DEFAULT_MAX_OUTPUT_CHARS,
       "NEBULADB_MCP_MAX_OUTPUT_CHARS",
     ),
+    readOnly: env.NEBULADB_MCP_READ_ONLY === "1",
   };
 }
