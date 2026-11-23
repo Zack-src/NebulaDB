@@ -1742,6 +1742,132 @@ of the discussion. Cut or promote into a phase above.
 
 ---
 
+## Phase 39 — Agent access, canvas follow-ups and the database analysis backlog (2026-11)
+
+Collected 2026-11-23 from this session's work and from the database analysis (45 findings, of
+which 34 point at Nebula; the rest concern the applications and the data themselves). Nothing
+here is started unless marked `[~]`.
+
+### A. Agent access (MCP) — what remains
+
+- [ ] **Publish `@nebuladb/mcp` on npm, or decide not to** — **S**. The Settings page offers the
+      single file served by the instance (`/api/mcp/nebuladb-mcp.mjs`); `npx @nebuladb/mcp` returns
+      404 until the package is published. **How:** `npm publish -w packages/mcp` once the owner agrees,
+      or keep the file as the only install path and remove the `npx` mention from
+      `packages/mcp/README.md`. **Blocked by:** owner decision on the npm name and scope.
+- [ ] **Owner decision: may an agent key roll a deployment back?** — **S**. Today it may (deploy
+      level, `POST …/history/:historyId/rollback`). Approving or rejecting another person's review is
+      already refused to agents. **How:** if not, add the rollback route to the agent refusals and to
+      `docs/public-api.md`.
+- [ ] **Reproduce the 500 on `plan-deployment` on «Main - DeepDetect» with a current build** — **S**.
+      The cause in the error log was seven seed files missing on disk; the plan now reports them
+      instead. **How:** once those seeds are re-imported or removed, run the plan again; if a 500
+      remains, read its `error_log` row.
+- [ ] **Re-import or remove the seven missing seed files of «Main - DeepDetect»** (owner action) —
+      **S**. `item_computed`, `item_comparability`, `item_prioritized_nba`, `item_tracker`,
+      `item_tracker_rule`, `nba_item`, `table_136`. Until then the deployment refuses, naming them.
+- [ ] **Seed folder defaults to a path relative to the working directory** — **S**. `config.seedDir`
+      defaults to `data/seeds`, resolved from wherever the server starts; two such folders exist in the
+      repository. **How:** resolve the default from the project root (or from the database's data
+      directory), and document `NEBULADB_SEED_DIR` in `.env.example`.
+- [ ] **Test the agent tools by hand against a live instance** — **M** (owner). Connect Claude Code
+      with a fresh key and run `set_table_layout`, `set_seed`, `convert_types` (apply),
+      `restore_revision`, `push_to_variants` (preview first), and `deploy` on a staging database. The
+      automated tests stub the HTTP side only.
+
+### B. Physical table options (analysis §4–§7)
+
+- [ ] **Compression per table, by engine** — **L**. SQL Server `DATA_COMPRESSION = ROW | PAGE` (the
+      four largest tables of the analysed database hold about 10.9 GB uncompressed; PAGE would halve or
+      quarter them), MySQL `ROW_FORMAT=COMPRESSED`, PostgreSQL column compression (`lz4`), ClickHouse
+      codecs. **How:** a `storage` block on `Table` in `packages/shared/src/schema.ts`, edited from
+      `TableSettingsPanel.svelte`; an option the engine does not support is hidden for that engine, not
+      silently dropped. **Blocked by:** nothing.
+- [ ] **Row or column storage** — **L**. Columnstore on SQL Server, `MergeTree`-family engines on
+      ClickHouse. **How:** an engine-specific field on `Table`, offered only where the engine has it.
+      **Blocked by:** the item above (same field and panel).
+- [ ] **Partitioning (range or key)** — **L**. For the largest tables. **How:** partition key and
+      scheme in the model; generation in `migrationGenerator.ts` per dialect. **Blocked by:** the
+      storage block.
+- [ ] **Carry the new options through generation, deployment, pull, compare and drift** — **M**.
+      Without it they show as drift at every sync. **Blocked by:** the three items above.
+
+### C. Indexes (analysis §3)
+
+- [ ] **Included columns (`INCLUDE`)** — **M**. For covering indexes on `item_computed_result` and
+      `item_tracker` (analysis BDD-06, BDD-07). **How:** an `include` list on `TableIndex`
+      (`packages/shared/src/schema.ts`), its DBML syntax in `dbml-engine`, and the dialects that support
+      it (SQL Server, PostgreSQL 11+; not MySQL).
+- [ ] **Filtered, clustered and typed indexes** — **M**. A `WHERE` predicate, a clustered flag, an
+      index type (btree, hash, gin, columnstore). **Blocked by:** the item above (same index structure).
+- [ ] **Index suggestions from the engine's own statistics** — **L**. Today suggestions come only
+      from statements run in Nebula's SQL console (`indexSuggestions.ts`). **How:** read SQL Server's
+      missing-index DMVs and PostgreSQL's `pg_stat_statements`, and present them with the same «add to
+      model» action. **Blocked by:** the INCLUDE item, for the covering suggestion.
+
+### D. Relations (analysis §4)
+
+- [ ] **Edit `ON DELETE` / `ON UPDATE` on several relations at once, and show it on the links** —
+      **M**. The model already has `onDelete` / `onUpdate` and the `fk-on-delete` rule. **How:**
+      multi-select in the relations list, and a small label on the edge.
+- [ ] **Find `id_*` columns with no foreign key and propose the relation** — **M**. Analysis MOD-02,
+      MOD-11. **How:** a suggestion pass in the lint (info level) that proposes a `Ref` to the table whose
+      name matches; accepting it goes through the normal ref creation path.
+
+### E. Lint rules (analysis §5)
+
+Each rule is independent, **S** or **M**, and set per profile like the existing ones.
+
+- [ ] **Unbounded text on a name, code, label or token column** — extends `varchar-length`
+      (`nvarchar(max)`, `text`). Analysis BDD-04, MOD-13.
+- [ ] **Mixed date and string types across the project** (`DATETIME` / `datetime` / `datetime2`,
+      `varchar` / `nvarchar`). Analysis MOD-14, MOD-18.
+- [ ] **Date stored as text, or text inside a primary key** — analysis BDD-14.
+- [ ] **Nullable foreign key** — warning, disableable. Analysis MOD-15 (218 nullable `id_*`).
+- [ ] **Auto-increment on a foreign-key column** — analysis MOD-17.
+- [ ] **Uniqueness pattern** — `*_translation` tables unique on (entity, language). Analysis MOD-12.
+      **How:** a configurable name pattern, off by default.
+- [ ] **Secret column in clear** (`password`, `token`, `api_key`), next to `personal-data-class`.
+      Analysis BDD-21, WEB-01.
+- [ ] **Key/value (EAV) table** — a table with a key column and a text value column. Analysis
+      BDD-08 to BDD-10. Info level.
+- [ ] **Reference table without a code or label column** — analysis MOD-16.
+- [ ] **Near-duplicate tables** (heuristic on column names) — analysis BDD-13. Info level.
+
+### F. Model ↔ database synchronisation (analysis §6)
+
+- [ ] **Show what differs, not only «not at the same level»** — **M**. Tables, columns, primary keys,
+      foreign keys and indexes listed when the pipeline reports `level: false` (analysis MOD-01, BDD-11,
+      BDD-12, BDD-15, BDD-16). **How:** extend the comparison in `connections/compare.ts` and the pipeline
+      panel. First check which constraints the comparison already covers.
+- [ ] **Take selected differences from the database into the model** — **L**. Without the full
+      `pull`, which only administrators may run; flag model columns absent from the database (analysis
+      MOD-02 to MOD-10). **Blocked by:** the item above.
+- [ ] **Mark a column «unmanaged» so a deployment never drops it** — **M**. **To verify first:**
+      dropping a column already needs confirmation; check whether that is enough before adding a flag
+      (analysis AIR-01).
+- [ ] **Ignore system tables by default in pull, compare and watch** — **S**. Analysis BDD-18
+      (`sysdiagrams`). **How:** a default exclusion list per engine, editable.
+
+### G. Data profiling in the console (analysis §7)
+
+- [ ] **Table profile** — **L**. Row count, size, share of nulls per column, real maximum length,
+      distinct values; concrete suggestions («`value_str`: 10 characters at most, `nvarchar(max)` →
+      `nvarchar(10)`»); points out empty tables, forgotten backup tables and tables missing from the model
+      (analysis BDD-02 to BDD-04, BDD-08, BDD-09, BDD-17, BDD-19, BDD-20). **How:** a read-only query set
+      per engine in the database console (`dbAdmin/`), sampled above a size limit.
+
+### H. Canvas follow-ups
+
+- [ ] **Export resolution choice** — **S**. The PNG is always two pixels per canvas pixel
+      (`exportPixelRatio` in `canvasImageExport.ts`); offer 1×, 2× and 4× in the export dialog, still
+      capped by the browser's canvas limits.
+- [ ] **Owner test by hand: zones and groups** — **S** (owner). Create a zone from the context menu,
+      put two tables in a group inside it, rename both, delete the group and press Ctrl+Z. The automated
+      test covers this; a check on a large schema covers the rest.
+
+---
+
 ## Existing open items from earlier phases
 
 ### Phase 6 — Multi-user editing
