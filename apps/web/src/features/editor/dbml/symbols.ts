@@ -487,8 +487,9 @@ export function findField(table: TableSymbol, name: string): FieldSymbol | undef
  * ordering. The panel compares the buffer against `projectToDbml` on every update; comparing
  * signatures instead of strings keeps the user's formatted text when the schema didn't change.
  *
- * Only what `projectToDbml` emits is compared (tables, columns, enums, relationships): aliases,
- * `headercolor`, `TableGroup` and `Project` blocks are dropped by the serializer.
+ * Only what `projectToDbml` emits is compared (tables, columns, enums, relationships, table groups):
+ * aliases, `headercolor` and `Project` blocks are dropped by the serializer. Groups count: renaming or
+ * removing one on the canvas left the buffer's old block in place, and the buffer, sent back, undid it.
  */
 export function dbmlSignature(source: string | Text): string {
   const doc = typeof source === "string" ? Text.of(source.split("\n")) : source;
@@ -564,7 +565,19 @@ export function dbmlSignature(source: string | Text): string {
     ),
   ].sort();
 
-  return JSON.stringify({ tables, enums, refs });
+  // The serializer writes a group with at least one member, as `TableGroup name { members }`.
+  const groups = symbols.groups
+    .filter((group) => group.members.length > 0)
+    .map(
+      (group) =>
+        `${unquoteIdent(group.name).toLowerCase()}|${group.members
+          .map((m) => unquoteIdent(m.name).toLowerCase())
+          .sort()
+          .join(",")}`,
+    )
+    .sort();
+
+  return JSON.stringify({ tables, enums, refs, groups });
 }
 
 /** The table whose block contains document offset `pos`, if any (used for the breadcrumb). */

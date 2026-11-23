@@ -215,3 +215,16 @@ Table orders {
   assert.notEqual(dbmlSignature(`${tables}Ref: orders.id > users.id\n`), canonical);
   assert.notEqual(dbmlSignature(`${tables}Ref: orders.user_id - users.id\n`), canonical);
 });
+
+test("dbmlSignature counts table groups — their name and members, not their layout", () => {
+  const tables = "Table users {\n  id int [pk]\n}\nTable orders {\n  id int [pk]\n}\n";
+  const billing = `${tables}TableGroup billing {\n  users\n  orders\n}\n`;
+  // Renamed or removed on the canvas: the document's DBML differs, so the buffer takes it.
+  assert.notEqual(dbmlSignature(billing), dbmlSignature(`${tables}TableGroup payments {\n  users\n  orders\n}\n`));
+  assert.notEqual(dbmlSignature(billing), dbmlSignature(tables));
+  assert.notEqual(dbmlSignature(billing), dbmlSignature(`${tables}TableGroup billing {\n  users\n}\n`));
+  // Member order and spacing are layout.
+  assert.equal(dbmlSignature(billing), dbmlSignature(`${tables}TableGroup   billing   {\n  orders\n\n  users\n}\n`));
+  // An empty group is not written by the serializer: it is no difference.
+  assert.equal(dbmlSignature(tables), dbmlSignature(`${tables}TableGroup empty {\n}\n`));
+});

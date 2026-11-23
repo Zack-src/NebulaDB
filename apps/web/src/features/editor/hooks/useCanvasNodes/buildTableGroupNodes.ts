@@ -38,6 +38,7 @@ export function buildTableGroupNodes(
       width: maxX - minX + GROUP_PADDING * 2,
       height: maxY - minY + GROUP_PADDING * 2 + GROUP_LABEL_MARGIN,
       draggable: false,
+      // Above the zones (`ZONE_Z_INDEX`), so its label can be clicked inside one; below the tables.
       zIndex: -1,
       data: {
         group,

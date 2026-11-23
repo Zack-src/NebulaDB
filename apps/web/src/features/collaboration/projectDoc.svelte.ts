@@ -7,6 +7,7 @@ import {
   getEnumsMap,
   getRefsMap,
   getStickyNotesMap,
+  getTableGroupsMap,
   getTablesMap,
   getZonesMap,
   readProjectFromDoc,
@@ -74,6 +75,8 @@ export function useProjectDoc(
       getEnumsMap(conn.doc),
       getZonesMap(conn.doc),
       getStickyNotesMap(conn.doc),
+      // Without it, removing a group (or renaming one) could not be undone.
+      getTableGroupsMap(conn.doc),
     ];
     conn.doc.on("update", refresh);
     refresh();

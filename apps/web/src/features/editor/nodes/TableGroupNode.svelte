@@ -3,7 +3,7 @@
 </script>
 
 <script lang="ts">
-  import Input from "@/components/ui/Input.svelte";
+  import InlineNameInput from "@/features/editor/nodes/table/InlineNameInput.svelte";
   import type { NodeProps } from "@xyflow/svelte";
   import { MAX_NAME_LENGTH } from "@nebuladb/shared";
   import type { TableGroupNodeType } from "@/features/editor/nodes/nodeTypes";
@@ -32,15 +32,19 @@
 
 <div class="pointer-events-none relative h-full w-full">
   <div class="absolute inset-0 rounded-xl" style:border="1.5px dashed {ACCENT}70" style:background="{ACCENT}0a"></div>
+  <!-- `nopan`: a group is not draggable, so the flow does not mark it as one — without it a double-click on
+       the label zooms the canvas (and stops there) instead of opening the rename. -->
   <div
-    class="pointer-events-auto absolute -top-3 left-3 flex items-center gap-1.5 rounded-full border px-2 py-0.5 shadow-sm"
+    class="nopan pointer-events-auto absolute -top-3 left-3 flex items-center gap-1.5 rounded-full border px-2 py-0.5 shadow-sm"
     style:background="var(--color-surface)"
     style:border-color="{ACCENT}80"
+    style:color={ACCENT}
   >
     {#if editing}
-      <Input inputSize="xs"
-        autofocus
-        class="nodrag h-[20px] text-caption font-bold"
+      <!-- Edited in place, like a table's name: same font, same spot, no box around it. -->
+      <InlineNameInput
+        reserve={group.name}
+        class="nodrag text-caption font-bold"
         bind:value={draft.value}
         maxlength={MAX_NAME_LENGTH}
         onblur={() => {

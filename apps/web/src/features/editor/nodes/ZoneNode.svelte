@@ -3,7 +3,7 @@
 </script>
 
 <script lang="ts">
-  import Input from "@/components/ui/Input.svelte";
+  import InlineNameInput from "@/features/editor/nodes/table/InlineNameInput.svelte";
   import { NodeResizer, type NodeProps } from "@xyflow/svelte";
   import { MAX_NAME_LENGTH } from "@nebuladb/shared";
   import ColorSwatchPicker from "@/components/inputs/ColorSwatchPicker.svelte";
@@ -38,11 +38,12 @@
     if (!data.readOnly) editing = true;
   }}
 >
-  <div class="absolute left-2.5 top-2 flex items-center gap-1.5">
+  <div class="absolute left-2.5 top-2 flex items-center gap-1.5" style:color>
     {#if editing}
-      <Input inputSize="xs"
-        autofocus
-        class="nodrag text-[calc(12.5px_*_var(--canvas-font-scale))] font-bold"
+      <!-- Edited in place, like a table's name: same font, same spot, no box around it. -->
+      <InlineNameInput
+        reserve={zone.label}
+        class="nodrag text-[calc(12.5px_*_var(--canvas-font-scale))] font-bold tracking-[-0.01em]"
         bind:value={draft.value}
         onblur={() => {
           draft.commit();
