@@ -1,4 +1,4 @@
-import type { Field, Project, Ref, Table } from "@nebuladb/shared";
+import type { Field, Project, Ref, Table, Zone } from "@nebuladb/shared";
 
 // Own module, same reasoning as serialize.ts: zero `@dbml/core` import, so
 // pulling in SVG export never drags the parser along for a caller (the
@@ -28,7 +28,35 @@ const COLORS = {
   pkText: "#b45309",
   refLine: "#94a3b8",
   refLabel: "#64748b",
+  /** The canvas's own default for a zone (`ZoneNode.svelte`). */
+  zone: "#f59e0b",
+  darkText: "#0f172a",
 } as const;
+
+/** `#rgb`, `#rgba`, `#rrggbb` or `#rrggbbaa` — anything else from a hand-written document is ignored, never interpolated. */
+const HEX_COLOR = /^#(?:[0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i;
+
+/** A colour from the document, if it is one the SVG can take as is. */
+function safeColor(value: unknown): string | null {
+  return typeof value === "string" && HEX_COLOR.test(value) ? value : null;
+}
+
+/** `#rrggbb` from any accepted hex form (alpha dropped): what a contrast check and a tint need. */
+function toRrggbb(color: string): string {
+  const hex = color.slice(1);
+  const full = hex.length <= 4 ? [...hex.slice(0, 3)].map((c) => c + c).join("") : hex.slice(0, 6);
+  return `#${full.toLowerCase()}`;
+}
+
+/** Dark text on a light background, as the canvas does (`prefersDarkText`, relative luminance > 0.42). */
+function prefersDarkText(background: string): boolean {
+  const hex = toRrggbb(background).slice(1);
+  const channel = (offset: number) => {
+    const c = parseInt(hex.slice(offset, offset + 2), 16) / 255;
+    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * channel(0) + 0.7152 * channel(2) + 0.0722 * channel(4) > 0.42;
+}
 
 /** Anything a hand-written document puts where text belongs (a number, an object, nothing) is text before it is escaped. */
 function escapeXml(value: unknown): string {
@@ -81,6 +109,10 @@ function renderTable(table: Table): string {
   const y = table.position.y;
   const width = tableWidth(table);
   const height = tableHeight(table);
+  // The header colour and the border chosen on the canvas.
+  const headerFill = safeColor(table.style?.color) ?? COLORS.headerFill;
+  const headerText = safeColor(table.style?.color) && prefersDarkText(headerFill) ? COLORS.darkText : COLORS.headerText;
+  const stroke = safeColor(table.style?.borderColor) ?? COLORS.tableStroke;
 
   const rows = table.fields
     .map((field, i) => {
@@ -92,10 +124,10 @@ function renderTable(table: Table): string {
 
   return `
   <g>
-    <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${COLORS.tableFill}" stroke="${COLORS.tableStroke}" stroke-width="1.5" rx="4" />
-    <rect x="${x}" y="${y}" width="${width}" height="${HEADER_HEIGHT}" fill="${COLORS.headerFill}" rx="4" />
-    <rect x="${x}" y="${y + HEADER_HEIGHT - 4}" width="${width}" height="4" fill="${COLORS.headerFill}" />
-    <text x="${x + 10}" y="${y + HEADER_HEIGHT / 2 + 4}" font-size="13" font-weight="bold" fill="${COLORS.headerText}">${escapeXml(table.name)}</text>
+    <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${COLORS.tableFill}" stroke="${stroke}" stroke-width="1.5" rx="4" />
+    <rect x="${x}" y="${y}" width="${width}" height="${HEADER_HEIGHT}" fill="${headerFill}" rx="4" />
+    <rect x="${x}" y="${y + HEADER_HEIGHT - 4}" width="${width}" height="4" fill="${headerFill}" />
+    <text x="${x + 10}" y="${y + HEADER_HEIGHT / 2 + 4}" font-size="13" font-weight="bold" fill="${headerText}">${escapeXml(table.name)}</text>
     ${rows}
   </g>`;
 }
@@ -124,33 +156,62 @@ function renderRef(ref: Ref, tablesById: Map<string, Table>): string | null {
   const midX = (from.x + to.x) / 2;
   const midY = (from.y + to.y) / 2;
 
+  const line = safeColor(ref.style?.color) ?? COLORS.refLine;
   return `
   <g>
-    <line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" stroke="${COLORS.refLine}" stroke-width="1.5" />
+    <line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" stroke="${line}" stroke-width="1.5" />
     <text x="${from.x + (midX - from.x) * 0.15}" y="${from.y + (midY - from.y) * 0.15 - 4}" font-size="10" fill="${COLORS.refLabel}">${fromLabel}</text>
     <text x="${to.x + (midX - to.x) * 0.15}" y="${to.y + (midY - to.y) * 0.15 - 4}" font-size="10" fill="${COLORS.refLabel}">${toLabel}</text>
   </g>`;
 }
 
+function sanitizeZone(zone: Zone): Zone {
+  return {
+    ...zone,
+    position: { x: finite(zone.position?.x, 0), y: finite(zone.position?.y, 0) },
+    size: { width: Math.max(finite(zone.size?.width, 0), 0), height: Math.max(finite(zone.size?.height, 0), 0) },
+  };
+}
+
+/** A zone as the canvas draws it: a tinted, dashed-bordered area with its label at the top left. */
+function renderZone(zone: Zone): string {
+  const { x, y } = zone.position;
+  const { width, height } = zone.size;
+  const color = toRrggbb(safeColor(zone.style?.color) ?? COLORS.zone);
+  const border = safeColor(zone.style?.borderColor) ?? color;
+  return `
+  <g>
+    <rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${color}" fill-opacity="0.12" stroke="${border}" stroke-width="1.5" stroke-dasharray="6 4" rx="8" />
+    <text x="${x + 12}" y="${y + 20}" font-size="13" font-weight="bold" fill="${color}">${escapeXml(zone.label)}</text>
+  </g>`;
+}
+
 /**
- * Renders a project's schema as a self-contained SVG document. Tables and
- * their columns, refs as lines with cardinality labels — zones, sticky
- * notes, and table groups aren't drawn (they're canvas organisation aids,
- * not schema structure). Empty project renders a fixed-size empty canvas
- * rather than throwing.
+ * Renders a project's schema as a self-contained SVG document: the zones (behind everything), the
+ * refs as lines with cardinality labels, the tables and their columns — with the colours chosen on
+ * the canvas (table header and border, ref, zone). Sticky notes and table groups aren't drawn.
+ * An empty project renders a fixed-size empty canvas rather than throwing.
  */
 export function projectToSvg(source: Project): string {
-  const project = { ...source, tables: source.tables.map(sanitizeTable) };
+  const project = {
+    ...source,
+    tables: source.tables.map(sanitizeTable),
+    zones: (Array.isArray(source.zones) ? source.zones : []).map(sanitizeZone),
+  };
   const tablesById = new Map(project.tables.map((t) => [t.id, t]));
 
-  if (project.tables.length === 0) {
+  if (project.tables.length === 0 && project.zones.length === 0) {
     return `<svg xmlns="http://www.w3.org/2000/svg" width="400" height="200" viewBox="0 0 400 200"><rect width="400" height="200" fill="${COLORS.background}" /></svg>`;
   }
 
-  const minX = Math.min(...project.tables.map((t) => t.position.x));
-  const minY = Math.min(...project.tables.map((t) => t.position.y));
-  const maxX = Math.max(...project.tables.map((t) => t.position.x + tableWidth(t)));
-  const maxY = Math.max(...project.tables.map((t) => t.position.y + tableHeight(t)));
+  const boxes = [
+    ...project.tables.map((t) => ({ ...t.position, width: tableWidth(t), height: tableHeight(t) })),
+    ...project.zones.map((z) => ({ ...z.position, ...z.size })),
+  ];
+  const minX = Math.min(...boxes.map((b) => b.x));
+  const minY = Math.min(...boxes.map((b) => b.y));
+  const maxX = Math.max(...boxes.map((b) => b.x + b.width));
+  const maxY = Math.max(...boxes.map((b) => b.y + b.height));
 
   const width = maxX - minX + PADDING * 2;
   const height = maxY - minY + PADDING * 2;
@@ -163,10 +224,12 @@ export function projectToSvg(source: Project): string {
     .filter(Boolean)
     .join("\n");
   const tablesSvg = project.tables.map((table) => renderTable(table)).join("\n");
+  const zonesSvg = project.zones.map((zone) => renderZone(zone)).join("\n");
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" font-family="ui-sans-serif, system-ui, sans-serif">
   <rect width="${width}" height="${height}" fill="${COLORS.background}" />
   <g transform="translate(${offsetX}, ${offsetY})">
+    ${zonesSvg}
     ${refsSvg}
     ${tablesSvg}
   </g>
