@@ -184,3 +184,18 @@
     0 0 0 3px var(--color-warning),
     0 0 0 8px var(--color-warning-light);
 }
+
+/* While the canvas is captured for an image or PDF export (`canvasImageExport.ts`), the editing
+   affordances ("+ Ajouter une colonne", "+ Ajouter une valeur") are not laid out, so the file
+   reads as a diagram and its tables are no taller than their columns. */
+.canvas-exporting [data-export-hidden] {
+  display: none !important;
+}
+/* `content-visibility: auto` (on the node and on the table inside it) lets an off-screen node keep
+   a remembered size: copied into the image, it came out at its size from before (an empty band
+   where the footer was). Laid out for real during the capture instead. */
+.canvas-exporting .svelte-flow__node,
+.canvas-exporting .svelte-flow__node * {
+  content-visibility: visible !important;
+  contain-intrinsic-size: none !important;
+}

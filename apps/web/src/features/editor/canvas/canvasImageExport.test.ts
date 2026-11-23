@@ -1,6 +1,17 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { exportFrame, exportPixelRatio } from "./canvasImageExport";
+import { boxAround, exportFrame, exportPixelRatio } from "./canvasImageExport";
+
+test("the bounds of a diagram are the box around every node, wherever they sit", () => {
+  assert.deepEqual(
+    boxAround([
+      { x: 100, y: 50, width: 200, height: 63 },
+      { x: -40, y: 400, width: 190, height: 120 },
+    ]),
+    { x: -40, y: 50, width: 340, height: 470 },
+  );
+  assert.equal(boxAround([]), null);
+});
 
 test("a diagram is exported at its own size plus a margin, wherever it sits on the canvas", () => {
   assert.deepEqual(exportFrame({ x: -120.4, y: 300.2, width: 1000.5, height: 500 }), {

@@ -89,8 +89,10 @@
   </div>
 
   {#if !readOnly}
+    <!-- An editing affordance: left out of image and PDF exports (`canvasImageExport.ts`). -->
     <button
       type="button"
+      data-export-hidden
       class="nodrag flex w-full items-center gap-1.5 border-t border-border/60 px-2.5 py-1.5 text-[calc(11px_*_var(--canvas-font-scale))] text-text-muted transition-colors hover:bg-surface-hover hover:text-text"
       onclick={data.onAddValue}
     >

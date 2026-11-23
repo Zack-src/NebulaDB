@@ -425,7 +425,8 @@
     />
   {/each}
   {#if data.onAddField && table.detailLevel !== "compact" && !lite}
-    <div class={TABLE_FOOTER_CLASS}>
+    <!-- An editing affordance: left out of image and PDF exports (`canvasImageExport.ts`). -->
+    <div class={TABLE_FOOTER_CLASS} data-export-hidden>
       <button
         type="button"
         class={`${TABLE_ADD_BTN_CLASS} nodrag`}
