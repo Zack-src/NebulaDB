@@ -85,6 +85,8 @@ const PUBLIC = [
   /^\/api\/metrics$/,
   // A static list of the scopes a key can have.
   /^\/api\/keys\/scopes$/,
+  // The open-source MCP client as one file (`modules/mcp/routes.ts`): code, not data.
+  /^\/api\/mcp\/nebuladb-mcp\.mjs$/,
   /^\/ws\//,
 ];
 const isPublic = (path: string) => PUBLIC.some((re) => re.test(path));

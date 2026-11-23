@@ -38,16 +38,21 @@ The key comes from the environment only, is never logged or echoed in an error, 
 than followed. Errors reach the agent as short MCP tool errors (status, stable code, hint) with no stack trace.
 Restrict the key to one project when the agent only needs one.
 
+## Getting the server
+
+Every instance serves it as **one file** that Node 22+ runs with nothing to install:
+`https://nebula.example.com/api/mcp/nebuladb-mcp.mjs` (the **Settings → AI agent (MCP)** page links it and
+writes the setup below with your instance and key). It is `dist/nebuladb-mcp.mjs`, built by `npm run build`
+(`scripts/bundle.mjs`). The package is not on npm yet: `npx @nebuladb/mcp` does not work until it is published.
+
 ## Claude Code
 
 ```bash
 claude mcp add nebuladb \
   --env NEBULADB_URL=https://nebula.example.com \
   --env NEBULADB_API_KEY=ndb_xxxxxxxx \
-  -- npx -y @nebuladb/mcp
+  -- node ~/nebuladb-mcp.mjs
 ```
-
-(From a checkout: `-- node /path/to/NebulaDB/packages/mcp/dist/bin.js` after `npm run build`.)
 
 ## Claude Desktop / Cursor
 
@@ -57,8 +62,8 @@ claude mcp add nebuladb \
 {
   "mcpServers": {
     "nebuladb": {
-      "command": "npx",
-      "args": ["-y", "@nebuladb/mcp"],
+      "command": "node",
+      "args": ["/absolute/path/to/nebuladb-mcp.mjs"],
       "env": {
         "NEBULADB_URL": "https://nebula.example.com",
         "NEBULADB_API_KEY": "ndb_xxxxxxxx"

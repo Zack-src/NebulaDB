@@ -46,7 +46,9 @@
   } from "@/services/apiKeysApi";
   import { fetchProjects } from "@/services/projectsApi";
   import { copyText } from "@/utils/clipboard";
-  import { buildMcpSetup, type McpClient } from "./mcpSetup";
+  import Icon from "@/components/icons/Icon.svelte";
+  import { DownloadIcon } from "@/components/icons/Icons";
+  import { buildMcpSetup, DEFAULT_SCRIPT_PATH, MCP_DOWNLOAD_PATH, type McpClient } from "./mcpSetup";
 
   const projectLabelId = $props.id();
 
@@ -61,6 +63,8 @@
   let projectId = $state<string | null>(untrack(() => currentProjectId ?? null));
   let justCreated = $state.raw<CreatedApiKey | null>(null);
   let client = $state<McpClient>("claudeCode");
+  /** Where the person saved the downloaded MCP server: the setup runs `node` on it. */
+  let scriptPath = $state(DEFAULT_SCRIPT_PATH);
   let copied = $state<string | null>(null);
   /** The key whose revocation waits for a second click, shown in its own row (no dialog). */
   let confirmingRevoke = $state<string | null>(null);
@@ -102,7 +106,9 @@
     { value: "cursor" as const, label: "Cursor" },
   ]);
 
-  const setup = $derived(justCreated ? buildMcpSetup(client, location.origin, justCreated.plaintextKey) : null);
+  const setup = $derived(
+    justCreated ? buildMcpSetup(client, location.origin, justCreated.plaintextKey, scriptPath) : null,
+  );
   const rows = $derived((keys.data ?? []).filter((k) => !k.revokedAt && k.kind === "agent"));
   const error = $derived(keys.error ?? projects.error ?? create.error ?? revoke.error);
 </script>
@@ -154,6 +160,24 @@
       </div>
 
       <div class="space-y-1.5">
+        <p class="text-xs font-semibold text-text">{t("settings.aiAgent.downloadTitle")}</p>
+        <p class="text-xs text-text-muted">{t("settings.aiAgent.downloadHint")}</p>
+        <a
+          href={MCP_DOWNLOAD_PATH}
+          download="nebuladb-mcp.mjs"
+          class="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1 text-xs font-semibold text-text hover:bg-surface-hover"
+        >
+          <Icon icon={DownloadIcon} size={12} />
+          {t("settings.aiAgent.download")}
+        </a>
+        <Field
+          label={t("settings.aiAgent.scriptPathLabel")}
+          bind:value={scriptPath}
+          placeholder={DEFAULT_SCRIPT_PATH}
+        />
+      </div>
+
+      <div class="space-y-1.5">
         <p class="text-xs font-semibold text-text">{t("settings.aiAgent.setupTitle")}</p>
         <SegmentedControl bind:value={client} options={clientOptions} size="sm" />
         <p class="text-xs text-text-muted">{t(setup.hintKey)}</p>
@@ -172,7 +196,7 @@
   {/if}
 
   {#if rows.length > 0}
-    <ul class="space-y-2 max-w-2xl">
+    <ul class="list-none space-y-2 max-w-2xl">
       {#each rows as key (key.id)}
         <li class="rounded-lg border border-border/70 bg-surface/60 px-3 py-2 text-xs">
           <div class="flex items-center gap-3">

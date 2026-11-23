@@ -9,32 +9,42 @@ export interface McpSetup {
   snippet: string;
 }
 
-/** The package `packages/mcp` is published as; `npx` fetches and runs it. */
-export const MCP_PACKAGE = "@nebuladb/mcp";
+/**
+ * Where the instance serves the MCP server as one file (`apps/server/src/modules/mcp/routes.ts`):
+ * Node 22+ runs it with nothing installed, so it works whether or not `@nebuladb/mcp` is on npm.
+ */
+export const MCP_DOWNLOAD_PATH = "/api/mcp/nebuladb-mcp.mjs";
+
+/** Where the tab suggests saving it; the person changes it to their own path. */
+export const DEFAULT_SCRIPT_PATH = "~/nebuladb-mcp.mjs";
 
 /**
- * What to paste in an MCP client to connect it to this instance with a freshly created agent key:
- * a `claude mcp add` command for Claude Code, the `mcpServers` JSON block for the others. The key
- * travels in the environment of the server the client starts, never in a URL.
+ * What to paste in an MCP client to connect it to this instance with a freshly created agent key,
+ * running the downloaded file at `scriptPath`: a `claude mcp add` command for Claude Code, the
+ * `mcpServers` JSON block for the others. The key travels in the environment of the server the
+ * client starts, never in a URL.
  */
-export function buildMcpSetup(client: McpClient, instanceUrl: string, apiKey: string): McpSetup {
+export function buildMcpSetup(client: McpClient, instanceUrl: string, apiKey: string, scriptPath: string): McpSetup {
   const url = instanceUrl.replace(/\/+$/, "");
+  const script = scriptPath.trim() || DEFAULT_SCRIPT_PATH;
   if (client === "claudeCode") {
+    // Quoted for the shell, except a leading `~/`, which the shell must expand.
+    const quoted = script.startsWith("~/") ? `~/"${script.slice(2)}"` : `"${script}"`;
     return {
       hintKey: "settings.aiAgent.setup.claudeCode",
       snippet: [
         "claude mcp add nebuladb \\",
         `  --env NEBULADB_URL=${url} \\`,
         `  --env NEBULADB_API_KEY=${apiKey} \\`,
-        `  -- npx -y ${MCP_PACKAGE}`,
+        `  -- node ${quoted}`,
       ].join("\n"),
     };
   }
   const config = {
     mcpServers: {
       nebuladb: {
-        command: "npx",
-        args: ["-y", MCP_PACKAGE],
+        command: "node",
+        args: [script],
         env: { NEBULADB_URL: url, NEBULADB_API_KEY: apiKey },
       },
     },

@@ -288,6 +288,10 @@ export const ERROR_CATALOG = {
   TABLE_NOT_FOUND: { status: 404, message: "no such table in this project" },
   ENVIRONMENT_NOT_FOUND: { status: 404, message: "no such environment stage" },
   BACKUP_NOT_FOUND: { status: 404, message: "no such backup" },
+  MCP_BUNDLE_MISSING: {
+    status: 404,
+    message: "the MCP server file is not built on this instance (npm run build -w packages/mcp)",
+  },
   SEED_FILE_MISSING: {
     status: 409,
     message: "this seed is kept as a file and the file is missing on the server: set the seed again, or remove it",

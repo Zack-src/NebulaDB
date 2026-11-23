@@ -12,6 +12,7 @@ import type { WebSocket } from "ws";
 import { config } from "./config.js";
 import { db } from "./infrastructure/db.js";
 import { registerApiKeyRoutes } from "./modules/apiKeys/routes.js";
+import { registerMcpRoutes } from "./modules/mcp/routes.js";
 import { registerRetentionRoutes } from "./modules/retention/routes.js";
 import { resolveApiKey } from "./modules/apiKeys/auth.js";
 import { registerAuditRoutes } from "./modules/audit/routes.js";
@@ -350,6 +351,7 @@ export async function buildApp(options: BuildAppOptions = {}): Promise<FastifyIn
   registerErrorRoutes(app);
   registerRetentionRoutes(app);
   registerApiKeyRoutes(app);
+  registerMcpRoutes(app);
   registerPublicApiRoutes(app);
 
   // Single-process production deployment: serve the built web app once it
